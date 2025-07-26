@@ -119,6 +119,7 @@ cd virtualpytest
 ### 📚 Shared Library
 - **Purpose**: Common utilities and models
 - **Usage**: Imported by all backend services
+- **Environment**: Gets configuration from calling services (no separate `.env`)
 - **Features**: Configuration, data models, utilities
 
 ## 🌐 Deployment Options
@@ -149,7 +150,7 @@ cd frontend && npm run dev
 
 ### Environment Variables
 
-#### Backend-Server (.env.server)
+#### Backend-Server (.env)
 ```bash
 SERVER_URL=http://localhost:5109
 SERVER_PORT=5109
@@ -157,7 +158,7 @@ DEBUG=false
 CORS_ORIGINS=http://localhost:3000
 ```
 
-#### Backend-Host (.env.host)
+#### Backend-Host (.env)
 ```bash
 HOST_URL=http://localhost:6109
 HOST_PORT=6109

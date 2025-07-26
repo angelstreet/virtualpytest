@@ -8,7 +8,7 @@ It provides device control capabilities and hardware abstraction.
 Usage:
     python3 app.py
 
-Environment Variables Required (in .env.host file):
+Environment Variables Required (in .env file):
     SERVER_URL - Base URL of the backend-server (e.g., https://api.virtualpytest.com)
     HOST_URL - Base URL of this host (e.g., https://host1.virtualpytest.com)
     HOST_PORT - Port where Flask app runs (default: 6109)

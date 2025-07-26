@@ -176,7 +176,7 @@ ExecStart=/home/pi/virtualpytest/backend-host/scripts/run_ffmpeg_and_rename_rpi1
 
 ### Environment Variables
 ```bash
-# In backend-host/.env.host
+# In backend-host/.env
 HOST_NAME=sunri-pi2
 HOST_PORT=6109
 DEBUG=false

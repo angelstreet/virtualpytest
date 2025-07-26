@@ -38,9 +38,9 @@ class CloudflareUtils:
     initializations.
     
     Configuration:
+    - Environment variables should be set by the calling service
     - Endpoint URL should NOT include bucket name (e.g., https://account.r2.cloudflarestorage.com)
     - Bucket name is passed separately to boto3 operations
-    - This matches the working pattern from upload_and_report.py
     """
     
     _instance = None
@@ -63,37 +63,31 @@ class CloudflareUtils:
             
         logger.info("Initializing CloudflareUtils singleton")
         
-        # Load environment variables from .env.host file
+        # Load environment variables from .env file
         self._load_environment()
         
         # Use 'virtualpytest' as bucket name (boto3 requires valid bucket name)
-        # This matches the working pattern from upload_and_report.py
         self.bucket_name = 'virtualpytest'
         self.s3_client = self._init_s3_client()
         self._initialized = True
     
     def _load_environment(self):
-        """Load environment variables from .env.host file"""
+        """Load environment variables from .env file"""
         try:
             from dotenv import load_dotenv
             import os
             
-            # Try to find .env.host file - check multiple locations
-            possible_paths = [
-                '.env.host',  # Current directory
-
-            ]
+            # Try to find .env file in shared directory
+            current_dir = os.path.dirname(os.path.abspath(__file__))  # /shared/lib/utils
+            shared_dir = os.path.dirname(os.path.dirname(current_dir))  # /shared
+            env_path = os.path.join(shared_dir, '.env')
             
-            env_loaded = False
-            for env_path in possible_paths:
-                if os.path.exists(env_path):
-                    logger.info(f"Loading environment from: {env_path}")
-                    load_dotenv(env_path)
-                    env_loaded = True
-                    break
-            
-            if not env_loaded:
-                logger.warning("No .env.host file found in expected locations")
+            if os.path.exists(env_path):
+                logger.info(f"Loading environment from: {env_path}")
+                load_dotenv(env_path)
+            else:
+                logger.warning(f"No .env file found at: {env_path}")
+                logger.info("Copy shared/env.example to shared/.env and configure your credentials")
             
             # Log what we found (without showing sensitive values)
             logger.info(f"CLOUDFLARE_R2_ENDPOINT: {'SET' if os.environ.get('CLOUDFLARE_R2_ENDPOINT') else 'NOT_SET'}")
@@ -289,13 +283,19 @@ class CloudflareUtils:
             return {
                 'success': False,
                 'error': str(e),
-                'endpoint': os.environ.get('CLOUDFLARE_R2_ENDPOINT', 'NOT_SET'),
+                'endpoint': self.env_vars.get('CLOUDFLARE_R2_ENDPOINT', 'NOT_SET'),
             }
 
-# Singleton getter function to avoid direct instantiation
-def get_cloudflare_utils() -> CloudflareUtils:
-    """Get the singleton instance of CloudflareUtils."""
-    return CloudflareUtils()
+# Singleton getter function with optional environment variables
+def get_cloudflare_utils(env_vars: Optional[Dict[str, str]] = None) -> CloudflareUtils:
+    """
+    Get the singleton instance of CloudflareUtils.
+    
+    Args:
+        env_vars: Optional environment variables dictionary.
+                 Only used on first call to initialize the singleton.
+    """
+    return CloudflareUtils(env_vars)
 
 # Utility functions for common upload patterns
 

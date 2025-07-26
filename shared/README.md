@@ -37,13 +37,41 @@ shared/lib/
 └── __init__.py
 ```
 
+## 🔧 **Environment Variables**
+
+The shared library needs access to environment variables from the calling services. **Do NOT create a separate `.env` file in the shared directory.** Instead, services should initialize shared utilities with their environment:
+
+### Service Initialization
+```python
+# In your service (backend-server, backend-host, etc.)
+from shared.lib.utils.env_utils import init_backend_server_shared
+
+# Initialize shared services with your .env file
+service_env = init_backend_server_shared()
+
+# Now shared utilities can access your environment variables
+from shared.lib.utils.cloudflare_utils import get_cloudflare_utils
+cloudflare = get_cloudflare_utils()  # Already configured with your env
+```
+
+Required environment variables (should be in your service's `.env` file):
+- `CLOUDFLARE_R2_ENDPOINT` - Cloudflare R2 endpoint URL
+- `CLOUDFLARE_R2_ACCESS_KEY_ID` - Access key ID
+- `CLOUDFLARE_R2_SECRET_ACCESS_KEY` - Secret access key  
+- `CLOUDFLARE_R2_PUBLIC_URL` - Public URL for file access
+- `NEXT_PUBLIC_SUPABASE_URL` - Supabase project URL
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY` - Supabase anonymous key
+
 ## 🚀 **Usage**
 
 ### Configuration
 ```python
-from shared.lib.config.settings import shared_config
+# Initialize shared services first
+from shared.lib.utils.env_utils import init_backend_server_shared
+service_env = init_backend_server_shared()
 
-# Access configuration
+# Then access configuration
+from shared.lib.config.settings import shared_config
 db_config = shared_config.database
 security_config = shared_config.security
 ```

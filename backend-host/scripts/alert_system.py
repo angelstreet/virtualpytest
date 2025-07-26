@@ -23,17 +23,17 @@ if shared_lib_path not in sys.path:
 if backend_core_path not in sys.path:
     sys.path.insert(0, backend_core_path)
 
-# Load environment variables from .env.host
+# Load environment variables from .env
 try:
     from dotenv import load_dotenv
-    env_host_path = os.path.join(backend_host_dir, '.env.host')
+    env_host_path = os.path.join(backend_host_dir, '.env')
     if os.path.exists(env_host_path):
         load_dotenv(env_host_path)
         print(f"[@alert_system] Loaded environment from {env_host_path}")
     else:
-        print(f"[@alert_system] Warning: .env.host not found at {env_host_path}")
+        print(f"[@alert_system] Warning: .env not found at {env_host_path}")
 except ImportError:
-    print("[@alert_system] Warning: python-dotenv not available, skipping .env.host loading")
+    print("[@alert_system] Warning: python-dotenv not available, skipping .env loading")
 
 # Setup logging to /tmp/alerts.log
 log_formatter = logging.Formatter('%(asctime)s [%(levelname)s] %(message)s')

@@ -7,7 +7,7 @@ Provides REST API endpoints, WebSocket handling, and business logic coordination
 
 Usage: python3 app.py
 
-Environment Variables Required (in .env.server file):
+Environment Variables Required (in .env file):
     SERVER_URL - Base URL of this server (e.g., https://api.virtualpytest.com)
     SERVER_PORT - Port for this server (default: 5109)
     GITHUB_TOKEN - GitHub token for authentication (loaded when needed)
@@ -60,7 +60,7 @@ def validate_startup_requirements():
     env_path = load_environment_variables(mode='server', calling_script_dir=calling_script_dir)
     
     if not validate_core_environment(mode='server'):
-        print("❌ CRITICAL: Environment validation failed. Check .env.server file")
+        print("❌ CRITICAL: Environment validation failed. Check .env file")
         sys.exit(1)
     
     print("✅ Startup requirements validated")
