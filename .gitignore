@@ -1,27 +1,17 @@
-src/web/node_modules/
+frontend/node_modules/
 __pycache__/
-.next
+
 .env.development
 .env.production
 .env.local
-screenshot/
-src/i18n/.DS_Store
-src/.DS_Store
-src/app/.DS_Store
-docs/.DS_Store
-.DS_Store
-# Auth test files with sensitive information
-public/test-auth.html
-.cursor/rules/mcp.json
-.cursor/mcp.json
 
-runner/.env
-runner/nodejs-main-runner/.env
+.DS_Store
+
+
+
 .env
 .env.host
 .env.server
-suncherry-playwright_trace/
-runner/python-slave-runner/files.py
 *.pyc
 nohup.out
-traces/
+

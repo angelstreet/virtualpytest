@@ -18,17 +18,29 @@ virtualpytest/
 
 ## 🚀 Quick Start
 
+### Prerequisites
+
+**Quick Setup (Linux/Raspberry Pi):**
+```bash
+# Install Docker and Docker Compose
+./setup/install_docker.sh
+
+# OR install for local development
+./setup/install_local.sh
+```
+
 ### Docker Deployment (Recommended)
 
 ```bash
 # Clone repository
-git clone <repository-url>
+git clone https://github.com/angelstreet/virtualpytest
 cd virtualpytest
 
-# Deploy all services
-cd docker
-chmod +x scripts/*.sh
-./scripts/deploy.sh development
+# Install Docker (first time only)
+./setup/install_docker.sh
+
+# Launch all services
+./setup/launch_all.sh
 
 # Access the application
 # Frontend: http://localhost:3000
@@ -39,20 +51,14 @@ chmod +x scripts/*.sh
 ### Local Development
 
 ```bash
-# Install shared dependencies
-cd shared && pip install -e .
+# Install all dependencies (first time only)
+./setup/install_local.sh
 
-# Start backend-server
-cd backend-server && pip install -r requirements.txt
-python src/app.py
-
-# Start backend-host (on hardware device)  
-cd backend-host && pip install -r requirements.txt
-python src/app.py
-
-# Start frontend
-cd frontend && npm install
-npm run dev
+# Launch individual services:
+./setup/launch_server.sh    # Backend-Server only
+./setup/launch_host.sh      # Backend-Host only  
+./setup/launch_frontend.sh  # Frontend only
+./setup/launch_all.sh       # All services (Docker)
 ```
 
 ## 📦 Services
