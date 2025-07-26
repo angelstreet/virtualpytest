@@ -68,23 +68,27 @@ Backend-Host Service
 
 ### Environment Variables
 
-Create `.env.host` file:
+Copy the environment template and fill in your values:
 
 ```bash
-# Host Configuration
-HOST_PORT=6109
-HOST_NAME=sunri-pi2
-HOST_URL=http://sunri-pi2:6109
+# Copy template
+cp env.example .env
 
-# Backend-Server Connection
-SERVER_URL=https://your-backend-server.onrender.com
+# Edit with your values
+nano .env
+```
 
-# Debug Mode
-DEBUG=false
+Required environment variables (see `env.example`):
 
-# Hardware Paths
-CAPTURE_FOLDER=/var/www/html/stream/captures
-STREAM_FOLDER=/var/www/html/stream
+```bash
+# Backend-Host Environment Variables
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+CLOUDFLARE_R2_ENDPOINT=your_r2_endpoint
+CLOUDFLARE_R2_ACCESS_KEY_ID=your_access_key
+CLOUDFLARE_R2_SECRET_ACCESS_KEY=your_secret_key
+CLOUDFLARE_R2_PUBLIC_URL=your_r2_public_url
+OPENROUTER_API_KEY=your_openrouter_key
 ```
 
 ### Hardware Setup

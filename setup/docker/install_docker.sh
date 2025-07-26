@@ -40,5 +40,20 @@ docker-compose --version
 
 echo ""
 echo "🎉 Docker installation completed!"
-echo "⚠️  Please log out and log back in (or restart) for group changes to take effect."
-echo "🚀 Then you can run: ./setup/launch_all.sh" 
+echo "🔧 Applying group changes immediately..."
+
+# Apply group changes without logout/login
+sudo systemctl restart docker
+newgrp docker << EOF
+echo "✅ Group changes applied successfully!"
+echo "🚀 Testing Docker access..."
+docker --version
+EOF
+
+echo ""
+echo "🎉 Setup complete! You can now run:"
+echo "   ./setup/docker/launch_all.sh - Start all services with Docker"
+echo ""
+echo "💡 For local development without Docker, use:"
+echo "   ./setup/local/install_local.sh - Install for local development"
+echo "   ./setup/local/launch_all_local.sh - Run all services locally" 

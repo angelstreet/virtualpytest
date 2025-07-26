@@ -67,28 +67,28 @@ Backend-Server (API Layer)
 
 ### Environment Variables
 
-Create `.env.server` file:
+Copy the environment template and fill in your values:
 
 ```bash
-# Server Configuration
-SERVER_PORT=5109
-SERVER_URL=http://localhost:5109
+# Copy template
+cp env.example .env
 
-# CORS Configuration
-CORS_ORIGINS=http://localhost:3000,https://your-frontend.vercel.app
+# Edit with your values
+nano .env
+```
 
-# Debug Mode
-DEBUG=false
+Required environment variables (see `env.example`):
 
-# Database (if used)
-DATABASE_URL=postgresql://user:pass@host:port/db
-
-# Authentication
-SECRET_KEY=your-secret-key
-JWT_SECRET=your-jwt-secret
-
-# External Services
-GITHUB_TOKEN=your-github-token
+```bash
+# Backend-Server Environment Variables
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+CLOUDFLARE_R2_ENDPOINT=your_r2_endpoint
+CLOUDFLARE_R2_ACCESS_KEY_ID=your_access_key
+CLOUDFLARE_R2_SECRET_ACCESS_KEY=your_secret_key
+CLOUDFLARE_R2_PUBLIC_URL=your_r2_public_url
+OPENROUTER_API_KEY=your_openrouter_key
+FLASK_SECRET_KEY=your_flask_secret
 ```
 
 ## 🚀 **Deployment**

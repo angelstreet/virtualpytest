@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # Production backend-host with resource limits
   backend-host:

@@ -21,12 +21,23 @@ virtualpytest/
 ### Prerequisites
 
 **Quick Setup (Linux/Raspberry Pi):**
+
+**Option 1: Local Development (Traditional Way)**
+```bash
+# Install dependencies for local development
+./setup/local/install_local.sh
+
+# Run all services locally (like before)
+./setup/local/launch_all_local.sh
+```
+
+**Option 2: Docker Deployment**
 ```bash
 # Install Docker and Docker Compose
-./setup/install_docker.sh
+./setup/docker/install_docker.sh
 
-# OR install for local development
-./setup/install_local.sh
+# Run all services with Docker
+./setup/docker/launch_all.sh
 ```
 
 **Python Virtual Environment (Recommended for local development):**
@@ -44,7 +55,29 @@ source venv/bin/activate
 ./setup/install_local.sh
 ```
 
-### Docker Deployment (Recommended)
+### Local Development (Traditional Way - Recommended for Development)
+
+```bash
+# Clone repository
+git clone https://github.com/angelstreet/virtualpytest
+cd virtualpytest
+
+# Install all dependencies (first time only)
+./setup/local/install_local.sh
+
+# Launch all services locally (like before)
+./setup/local/launch_all_local.sh
+
+# OR launch individual services:
+./setup/local/launch_server.sh    # Backend-Server only
+./setup/local/launch_host.sh      # Backend-Host only  
+./setup/local/launch_frontend.sh  # Frontend only
+
+# Stop all services
+./setup/local/stop_all_local.sh
+```
+
+### Docker Deployment (For Production/Testing)
 
 ```bash
 # Clone repository
@@ -52,28 +85,15 @@ git clone https://github.com/angelstreet/virtualpytest
 cd virtualpytest
 
 # Install Docker (first time only)
-./setup/install_docker.sh
+./setup/docker/install_docker.sh
 
-# Launch all services
-./setup/launch_all.sh
+# Launch all services with Docker
+./setup/docker/launch_all.sh
 
 # Access the application
 # Frontend: http://localhost:3000
 # API: http://localhost:5109
 # Host Interface: http://localhost:6109
-```
-
-### Local Development
-
-```bash
-# Install all dependencies (first time only)
-./setup/install_local.sh
-
-# Launch individual services:
-./setup/launch_server.sh    # Backend-Server only
-./setup/launch_host.sh      # Backend-Host only  
-./setup/launch_frontend.sh  # Frontend only
-./setup/launch_all.sh       # All services (Docker)
 ```
 
 ## 📦 Services

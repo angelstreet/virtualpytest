@@ -15,13 +15,13 @@ fi
 
 # Check if Docker is installed
 if ! command -v docker &> /dev/null; then
-    echo "❌ Docker is not installed. Please run: ./setup/install_docker.sh"
+    echo "❌ Docker is not installed. Please run: ./setup/docker/install_docker.sh"
     exit 1
 fi
 
 # Check if Docker Compose is installed
 if ! docker compose version &> /dev/null && ! docker-compose --version &> /dev/null; then
-    echo "❌ Docker Compose is not installed. Please run: ./setup/install_docker.sh"
+    echo "❌ Docker Compose is not installed. Please run: ./setup/docker/install_docker.sh"
     exit 1
 fi
 

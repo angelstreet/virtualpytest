@@ -20,6 +20,25 @@ Modern React TypeScript frontend for VirtualPyTest microservices architecture.
 - **React Query** for data fetching
 - **Socket.IO** for real-time updates
 
+## Environment Variables
+
+Copy the environment template and fill in your values:
+
+```bash
+# Copy template
+cp env.example .env
+
+# Edit with your values
+nano .env
+```
+
+Required environment variables (see `env.example`):
+
+```bash
+# Frontend Environment Variables
+VITE_CLOUDFLARE_R2_PUBLIC_URL=your_r2_public_url
+```
+
 ## Development
 
 ### Prerequisites

@@ -15,13 +15,13 @@ fi
 
 # Check if Node.js is installed
 if ! command -v node &> /dev/null; then
-    echo "❌ Node.js is not installed. Please run: ./setup/install_local.sh"
+    echo "❌ Node.js is not installed. Please run: ./setup/local/install_local.sh"
     exit 1
 fi
 
 # Check if dependencies are installed
 if [ ! -d "frontend/node_modules" ]; then
-    echo "❌ Dependencies not installed. Please run: ./setup/install_local.sh"
+    echo "❌ Dependencies not installed. Please run: ./setup/local/install_local.sh"
     exit 1
 fi
 

@@ -15,7 +15,7 @@ fi
 
 # Check if dependencies are installed
 if [ ! -d "backend-server/venv" ] && ! python -c "import flask" 2>/dev/null; then
-    echo "❌ Dependencies not installed. Please run: ./setup/install_local.sh"
+    echo "❌ Dependencies not installed. Please run: ./setup/local/install_local.sh"
     exit 1
 fi
 
