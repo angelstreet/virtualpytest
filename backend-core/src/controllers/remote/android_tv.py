@@ -13,9 +13,16 @@ import os
 from pathlib import Path
 from ..base_controller import RemoteControllerInterface
 
-# Import ADB utilities
+# Import ADB utilities from shared library
+import sys
+import os
+# Get path to shared/lib/utils
+shared_utils_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), 'shared', 'lib', 'utils')
+if shared_utils_path not in sys.path:
+    sys.path.insert(0, shared_utils_path)
+
 try:
-    from utils.adb_utils import ADBUtils
+    from adb_utils import ADBUtils
     ADB_AVAILABLE = True
 except ImportError:
     print("Warning: ADB utilities not available. ADB functionality will be limited.")

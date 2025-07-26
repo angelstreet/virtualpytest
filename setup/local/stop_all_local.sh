@@ -1,50 +1,77 @@
 #!/bin/bash
 
 # VirtualPyTest - Stop All Local Services
-# This script stops all services started by launch_all.sh
+# This script stops all VirtualPyTest systemd services
 
 set -e
 
-echo "🛑 Stopping VirtualPyTest - All Local Services"
+echo "🛑 Stopping VirtualPyTest - All Systemd Services"
 
-# Check if PID file exists
-if [ ! -f "/tmp/virtualpytest_pids.txt" ]; then
-    echo "⚠️  No PID file found. Services might not be running via launch_all.sh"
-    echo "🔍 Trying to find and kill VirtualPyTest processes manually..."
-    
-    # Kill any Python processes running our apps
-    pkill -f "python.*app.py" 2>/dev/null || echo "   No Python app processes found"
-    
-    # Kill any npm dev processes
-    pkill -f "npm.*run.*dev" 2>/dev/null || echo "   No npm dev processes found"
-    
-    # Kill any node processes running our frontend
-    pkill -f "node.*vite" 2>/dev/null || echo "   No Vite dev server found"
-    
-    echo "✅ Manual cleanup completed"
-    exit 0
-fi
+# Define service names
+SERVICES=(
+    "virtualpytest-backend-server"
+    "virtualpytest-backend-host"
+    "virtualpytest-frontend"
+)
 
-# Kill processes from PID file
-echo "🔍 Reading PIDs from /tmp/virtualpytest_pids.txt..."
-while read -r pid; do
-    if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
-        echo "🛑 Stopping process $pid..."
-        kill "$pid" 2>/dev/null || echo "   Process $pid already stopped"
+# Check if services exist and stop them
+echo "🔍 Checking and stopping services..."
+STOPPED_SERVICES=""
+NOT_FOUND_SERVICES=""
+
+for service in "${SERVICES[@]}"; do
+    if systemctl list-unit-files | grep -q "$service.service"; then
+        if systemctl is-active --quiet "$service"; then
+            echo "🛑 Stopping $service..."
+            sudo systemctl stop "$service"
+            STOPPED_SERVICES="$STOPPED_SERVICES $service"
+        else
+            echo "ℹ️  $service already stopped"
+        fi
     else
-        echo "   Process $pid not running"
+        echo "⚠️  $service.service not found"
+        NOT_FOUND_SERVICES="$NOT_FOUND_SERVICES $service"
     fi
-done < /tmp/virtualpytest_pids.txt
+done
 
-# Clean up PID file
-rm -f /tmp/virtualpytest_pids.txt
+# Wait a moment for services to stop
+sleep 2
 
-# Additional cleanup for any orphaned processes
+# Verify services are stopped
+echo ""
+echo "📊 Final Service Status:"
+ALL_STOPPED=true
+for service in "${SERVICES[@]}"; do
+    if systemctl list-unit-files | grep -q "$service.service"; then
+        if systemctl is-active --quiet "$service"; then
+            echo "❌ $service: still running"
+            ALL_STOPPED=false
+        else
+            echo "✅ $service: stopped"
+        fi
+    fi
+done
+
+# Additional cleanup for any orphaned processes (fallback)
+echo ""
 echo "🧹 Cleaning up any remaining VirtualPyTest processes..."
-pkill -f "python.*app.py" 2>/dev/null || true
-pkill -f "npm.*run.*dev" 2>/dev/null || true
-pkill -f "node.*vite" 2>/dev/null || true
+pkill -f "python.*app.py" 2>/dev/null || echo "   No Python app processes found"
+pkill -f "npm.*run.*dev" 2>/dev/null || echo "   No npm dev processes found"
+pkill -f "node.*vite" 2>/dev/null || echo "   No Vite dev server found"
 
 echo ""
-echo "✅ All VirtualPyTest local services have been stopped!"
-echo "🔍 You can verify with: ps aux | grep -E '(python.*app|npm.*dev|node.*vite)'" 
+if [ "$ALL_STOPPED" = true ]; then
+    echo "✅ All VirtualPyTest services have been stopped!"
+else
+    echo "⚠️  Some services may still be running. Check individual service status:"
+    for service in "${SERVICES[@]}"; do
+        echo "   systemctl status $service.service"
+    done
+fi
+
+echo ""
+echo "🔍 To verify all processes are stopped:"
+echo "   ps aux | grep -E '(python.*app|npm.*dev|node.*vite)'"
+echo ""
+echo "🔄 To restart all services:"
+echo "   ./setup/local/launch_all.sh" 

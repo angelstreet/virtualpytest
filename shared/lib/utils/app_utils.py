@@ -160,7 +160,8 @@ def lazy_load_controllers():
 def lazy_load_adb_utils():
     """Lazy load ADB utilities when first needed"""
     try:
-        import adb_utils
+        # Import from current directory since we're already in utils
+        from . import adb_utils
         print("✅ ADB utilities loaded successfully (lazy loaded)")
         return adb_utils
     except Exception as e:
@@ -170,10 +171,10 @@ def lazy_load_adb_utils():
 def lazy_load_navigation():
     """Lazy load navigation utilities when first needed"""
     try:
-        import navigation_utils
-        import navigation_cache
-        print("✅ Navigation utilities loaded successfully (lazy loaded)")
-        return {'utils': navigation_utils, 'cache': navigation_cache}
+        from . import navigation_cache
+        from . import navigation_graph
+        print("✅ Navigation utilities loaded successfully (placeholder implementation)")
+        return {'cache': navigation_cache, 'graph': navigation_graph}
     except Exception as e:
         print(f"⚠️ Navigation utilities not available: {e}")
         return None
@@ -181,9 +182,10 @@ def lazy_load_navigation():
 def lazy_load_device_models():
     """Lazy load device model utilities when first needed"""
     try:
-        import devicemodel_utils
-        print("✅ Device model utilities loaded successfully (lazy loaded)")
-        return devicemodel_utils
+        # TODO: These utilities need to be implemented or imported correctly
+        # import devicemodel_utils
+        print("⚠️ Device model utilities not yet implemented")
+        return None
     except Exception as e:
         print(f"⚠️ Device model utilities not available: {e}")
         return None
