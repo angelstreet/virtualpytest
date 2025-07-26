@@ -28,7 +28,7 @@ virtualpytest/
 ./setup/local/install_local.sh
 
 # Run all services locally (like before)
-./setup/local/launch_all_local.sh
+./setup/local/launch_all.sh
 ```
 
 **Option 2: Docker Deployment**
@@ -66,7 +66,7 @@ cd virtualpytest
 ./setup/local/install_local.sh
 
 # Launch all services locally (like before)
-./setup/local/launch_all_local.sh
+./setup/local/launch_all.sh
 
 # OR launch individual services:
 ./setup/local/launch_server.sh    # Backend-Server only

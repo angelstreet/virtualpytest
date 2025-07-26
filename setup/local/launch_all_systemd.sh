@@ -26,7 +26,7 @@ done
 
 if [ -n "$MISSING_SERVICES" ]; then
     echo "❌ Systemd services not installed:$MISSING_SERVICES"
-    echo "Please install systemd services first or use: ./setup/local/launch_all_local.sh"
+    echo "Please install systemd services first or use: ./setup/local/launch_all.sh"
     exit 1
 fi
 

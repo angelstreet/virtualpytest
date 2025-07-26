@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # VirtualPyTest - Stop All Local Services
-# This script stops all services started by launch_all_local.sh
+# This script stops all services started by launch_all.sh
 
 set -e
 
@@ -9,7 +9,7 @@ echo "🛑 Stopping VirtualPyTest - All Local Services"
 
 # Check if PID file exists
 if [ ! -f "/tmp/virtualpytest_pids.txt" ]; then
-    echo "⚠️  No PID file found. Services might not be running via launch_all_local.sh"
+    echo "⚠️  No PID file found. Services might not be running via launch_all.sh"
     echo "🔍 Trying to find and kill VirtualPyTest processes manually..."
     
     # Kill any Python processes running our apps
