@@ -29,11 +29,12 @@ if [ -n "$MISSING_SERVICES" ]; then
     exit 1
 fi
 
-echo "🔄 Restarting all services..."
+echo "🔄 Enabling and restarting all services..."
 
-# Restart all services
+# Enable and restart all services
 for service in "${SERVICES[@]}"; do
-    echo "🔄 Restarting $service..."
+    echo "🔄 Enabling and restarting $service..."
+    sudo systemctl enable "$service"
     sudo systemctl restart "$service"
 done
 

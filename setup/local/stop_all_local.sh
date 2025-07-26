@@ -14,13 +14,16 @@ SERVICES=(
     "virtualpytest-frontend"
 )
 
-# Check if services exist and stop them
+# Check if services exist, disable auto-restart, and stop them
 echo "🔍 Checking and stopping services..."
 STOPPED_SERVICES=""
 NOT_FOUND_SERVICES=""
 
 for service in "${SERVICES[@]}"; do
     if systemctl list-unit-files | grep -q "$service.service"; then
+        echo "🔄 Disabling auto-restart for $service..."
+        sudo systemctl disable "$service" 2>/dev/null || echo "   (disable failed, continuing...)"
+        
         if systemctl is-active --quiet "$service"; then
             echo "🛑 Stopping $service..."
             sudo systemctl stop "$service"
