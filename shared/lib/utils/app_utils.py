@@ -21,8 +21,8 @@ import requests
 # =====================================================
 
 def load_environment_variables(mode='server', calling_script_dir=None):
-    """Load environment variables from mode-specific .env file"""
-    env_file = f'.env.{mode}'
+    """Load environment variables from .env file"""
+    env_file = '.env'
     
     # If calling_script_dir is provided, use it; otherwise use current working directory
     if calling_script_dir:
@@ -34,7 +34,9 @@ def load_environment_variables(mode='server', calling_script_dir=None):
         load_dotenv(env_path)
         print(f"✅ Loaded environment from: {env_path}")
     else:
-        print(f"⚠️ Environment file not found: {env_path}")
+        print(f"❌ Environment file not found: {env_path}")
+        print(f"❌ Please create {env_file} in {os.path.dirname(env_path)}")
+        print(f"❌ Use the .env.example as a template")
     
     return env_path
 

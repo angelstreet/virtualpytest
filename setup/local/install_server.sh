@@ -42,6 +42,20 @@ cd ..
 echo "📦 Installing backend-server dependencies..."
 cd backend-server
 pip install -r requirements.txt
+
+# Create .env file if it doesn't exist
+if [ ! -f ".env" ]; then
+    if [ -f "env.example" ]; then
+        echo "📝 Creating .env file from env.example..."
+        cp env.example .env
+        echo "✅ Created .env file - please configure it with your settings"
+    else
+        echo "⚠️ No env.example found - please create .env manually"
+    fi
+else
+    echo "✅ .env file already exists"
+fi
+
 cd ..
 
 # Install systemd service
@@ -62,6 +76,7 @@ User=$USER
 Group=$USER
 WorkingDirectory=$(pwd)/backend-server
 Environment=PATH=$(pwd)/venv/bin:/usr/bin:/usr/local/bin
+Environment=PYTHONPATH=$(pwd)/venv/lib/python*/site-packages:$(pwd)/shared/lib:$(pwd)/backend-core/src
 ExecStart=$(pwd)/venv/bin/python src/app.py
 Restart=always
 RestartSec=10

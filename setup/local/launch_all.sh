@@ -43,16 +43,36 @@ sleep 3
 # Check service status
 echo ""
 echo "📊 Service Status:"
+FAILED_SERVICES=""
 for service in "${SERVICES[@]}"; do
     if systemctl is-active --quiet "$service"; then
         echo "✅ $service: running"
     else
         echo "❌ $service: failed"
+        FAILED_SERVICES="$FAILED_SERVICES $service"
     fi
 done
 
+# Stop if any services failed
+if [ -n "$FAILED_SERVICES" ]; then
+    echo ""
+    echo "💥 Service startup failed!"
+    echo "❌ Failed services:$FAILED_SERVICES"
+    echo ""
+    echo "🔍 Check service logs:"
+    for service in $FAILED_SERVICES; do
+        echo "   journalctl -u $service.service -n 50"
+    done
+    echo ""
+    echo "🛠️ Troubleshooting:"
+    echo "   1. Check .env files are configured"
+    echo "   2. Re-run installation: ./setup/local/install_local.sh"
+    echo "   3. Check individual service logs above"
+    exit 1
+fi
+
 echo ""
-echo "🎉 All services restarted!"
+echo "🎉 All services running successfully!"
 echo "📱 Frontend: http://localhost:3000"
 echo "🖥️  Backend-Server: http://localhost:5109" 
 echo "🔧 Backend-Host: http://localhost:6109"

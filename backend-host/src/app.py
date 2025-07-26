@@ -39,16 +39,7 @@ if backend_core_path not in sys.path:
 
 # Import from shared library and backend-core
 try:
-    from shared.lib.config.settings import shared_config
-    from backend_core.controllers import *
-    from backend_core.services import *
-except ImportError as e:
-    print(f"❌ Failed to import shared dependencies: {e}")
-    print("❌ Please ensure shared library and backend-core are properly installed")
-    sys.exit(1)
-
-# Local imports
-try:
+    # Import shared components (installed as packages)
     from utils.app_utils import (
         load_environment_variables,
         kill_process_on_port,
@@ -57,6 +48,22 @@ try:
         DEFAULT_TEAM_ID,
         DEFAULT_USER_ID
     )
+    from utils.host_utils import (
+        setup_host_cleanup,
+        cleanup_host_ports,
+        start_background_services
+    )
+    # Import backend-core controllers and services
+    from controllers import *
+    from services import *
+except ImportError as e:
+    print(f"❌ Failed to import dependencies: {e}")
+    print("❌ Please ensure shared library and backend-core are properly installed")
+    print("❌ Run: ./setup/local/install_local.sh")
+    sys.exit(1)
+
+# Local route imports  
+try:
     from utils.host_utils import (
         register_host_with_server,
         start_ping_thread,
