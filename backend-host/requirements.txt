@@ -1,0 +1,42 @@
+# Backend Host Dependencies
+
+# Shared library and backend-core
+../shared
+../backend-core
+
+# Flask web framework
+Flask>=2.3.0
+Flask-CORS>=4.0.0
+Flask-SocketIO>=5.3.0
+
+# HTTP client for server communication
+requests>=2.28.0
+
+# Process management and system monitoring
+psutil>=5.8.0
+
+# Environment configuration
+python-dotenv>=1.0.0
+
+# WSGI server
+gunicorn>=21.0.0
+
+# JSON handling
+orjson>=3.8.0
+
+# File system operations
+watchdog>=3.0.0
+
+# Hardware interface dependencies (from backend-core)
+# These are for direct hardware access on the host
+pyautogui>=0.9.54
+pynput>=1.7.6
+Pillow>=9.0.0
+opencv-python>=4.5.0
+ffmpeg-python>=0.2.0
+PyP100>=0.1.4  # Tapo power control
+
+# Device communication
+paramiko>=2.9.0  # SSH
+Appium-Python-Client>=3.1.0  # Mobile devices
+selenium>=4.15.0  # Web automation 

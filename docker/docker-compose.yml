@@ -1,0 +1,72 @@
+version: '3.8'
+
+services:
+  # Shared library service
+  shared:
+    build:
+      context: ../
+      dockerfile: shared/Dockerfile
+    volumes:
+      - shared-lib:/app/shared
+    command: tail -f /dev/null
+
+  # Backend host service (hardware interface)
+  backend-host:
+    build:
+      context: ../
+      dockerfile: backend-host/Dockerfile
+    ports:
+      - "6109:6109"
+    volumes:
+      - ../shared:/app/shared:ro
+      - ../backend-core:/app/backend-core:ro
+      - /dev:/dev  # Hardware access
+    environment:
+      - HOST_PORT=6109
+      - HOST_NAME=docker-host-1
+      - HOST_URL=http://localhost:6109
+      - SERVER_URL=http://backend-server:5109
+      - DEBUG=false
+    depends_on:
+      - shared
+    privileged: true  # Required for hardware access
+    restart: unless-stopped
+
+  # Backend server service (API)
+  backend-server:
+    build:
+      context: ../
+      dockerfile: backend-server/Dockerfile
+    ports:
+      - "5109:5109"
+    volumes:
+      - ../shared:/app/shared:ro
+    environment:
+      - SERVER_PORT=5109
+      - SERVER_URL=http://localhost:5109
+      - DEBUG=false
+      - CORS_ORIGINS=http://localhost:3000,http://localhost:80
+    depends_on:
+      - shared
+    restart: unless-stopped
+
+  # Frontend service
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:80"
+    environment:
+      - BACKEND_API_URL=http://backend-server:5109
+      - VITE_API_URL=http://localhost:5109
+    depends_on:
+      - backend-server
+    restart: unless-stopped
+
+volumes:
+  shared-lib:
+
+networks:
+  default:
+    name: virtualpytest-network 

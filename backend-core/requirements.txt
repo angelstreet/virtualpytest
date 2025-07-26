@@ -1,0 +1,50 @@
+# Backend Core Dependencies
+
+# Shared library
+../shared
+
+# SSH connection support
+paramiko>=2.9.0
+
+# XML parsing for Android UI dumps
+lxml>=4.6.0
+
+# Process management
+psutil>=5.8.0
+
+# Enhanced regex support
+regex>=2021.0.0
+
+# Type hints support
+typing-extensions>=4.0.0
+
+# Navigation pathfinding support
+networkx>=3.2.1
+
+# Language detection
+langdetect>=1.0.9 
+
+# Appium WebDriver support for device automation
+Appium-Python-Client>=3.1.0
+selenium>=4.15.0 
+
+# Desktop automation
+pyautogui>=0.9.54
+pynput>=1.7.6
+
+# Image processing
+Pillow>=9.0.0
+opencv-python>=4.5.0
+
+# Audio/Video capture and processing
+ffmpeg-python>=0.2.0
+
+# Power control (Tapo devices)
+PyP100>=0.1.4
+
+# Web automation
+playwright>=1.40.0
+
+# Browser automation (browser-use integration)
+beautifulsoup4>=4.11.0
+requests-html>=0.10.0 
