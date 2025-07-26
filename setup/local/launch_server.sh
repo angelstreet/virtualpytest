@@ -38,4 +38,4 @@ else
     echo "📊 Recent logs:"
     journalctl -u "$SERVICE_NAME.service" -n 20 --no-pager
     exit 1
-fi 
+fi

@@ -30,14 +30,7 @@ shared_lib_path = os.path.join(project_root, 'shared', 'lib')
 if shared_lib_path not in sys.path:
     sys.path.insert(0, shared_lib_path)
 
-# Import from shared library
-try:
-    from shared.lib.config.settings import shared_config
-except ImportError as e:
-    print(f"❌ CRITICAL: Cannot import shared config: {e}")
-    sys.exit(1)
-
-# Local imports
+# Import from shared library (installed as packages)
 try:
     from utils.app_utils import (
         load_environment_variables,

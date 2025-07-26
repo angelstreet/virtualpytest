@@ -82,9 +82,9 @@ class CloudflareUtils:
             shared_dir = os.path.dirname(os.path.dirname(current_dir))  # /shared
             env_path = os.path.join(shared_dir, '.env')
             
-            if os.path.exists(env_path):
-                logger.info(f"Loading environment from: {env_path}")
-                load_dotenv(env_path)
+                if os.path.exists(env_path):
+                    logger.info(f"Loading environment from: {env_path}")
+                    load_dotenv(env_path)
             else:
                 logger.warning(f"No .env file found at: {env_path}")
                 logger.info("Copy shared/env.example to shared/.env and configure your credentials")
