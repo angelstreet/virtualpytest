@@ -1,0 +1,11 @@
+/* Navigation Node Styling - Unified for all depths and modes */
+rm autofot
+/* Menu type nodes get slightly larger borders */
+.react-flow__node[data-node-type='menu'] {
+  border-width: 3px !important;
+}
+
+/* Screen type nodes keep standard borders */
+.react-flow__node[data-node-type='screen'] {
+  border-width: 2px !important;
+}
