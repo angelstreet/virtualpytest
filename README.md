@@ -164,7 +164,7 @@ VITE_DEV_MODE=true
 ./docker/scripts/deploy.sh production
 
 # View logs
-docker-compose -f docker/docker-compose.yml logs -f
+docker compose -f docker/docker-compose.yml logs -f
 
 # Scale backend-server
 docker-compose up --scale backend-server=3
@@ -213,10 +213,10 @@ virtualpytest/
 ### Logs
 ```bash
 # All services
-docker-compose logs -f
+docker compose logs -f
 
 # Specific service
-docker-compose logs -f backend-server
+docker compose logs -f backend-server
 ```
 
 ## 🚀 Production Deployment

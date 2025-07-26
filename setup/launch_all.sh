@@ -20,7 +20,7 @@ if ! command -v docker &> /dev/null; then
 fi
 
 # Check if Docker Compose is installed
-if ! docker compose version &> /dev/null; then
+if ! docker compose version &> /dev/null && ! docker-compose --version &> /dev/null; then
     echo "❌ Docker Compose is not installed. Please run: ./setup/install_docker.sh"
     exit 1
 fi

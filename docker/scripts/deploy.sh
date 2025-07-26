@@ -41,7 +41,7 @@ check_health() {
     echo "🏥 Checking health of $service..."
     
     while [[ $attempt -le $max_attempts ]]; do
-        if docker-compose -f "$COMPOSE_FILE" ps "$service" | grep -q "healthy\|Up"; then
+        if docker compose -f "$COMPOSE_FILE" ps "$service" | grep -q "healthy\|Up"; then
             echo "✅ $service is healthy"
             return 0
         fi
@@ -57,17 +57,17 @@ check_health() {
 
 # Stop existing containers
 echo "🛑 Stopping existing containers..."
-docker-compose -f "$COMPOSE_FILE" down --remove-orphans
+docker compose -f "$COMPOSE_FILE" down --remove-orphans
 
 # Pull latest images (if not building locally)
 if [[ "$2" != "--no-pull" ]]; then
     echo "📥 Pulling latest images..."
-    docker-compose -f "$COMPOSE_FILE" pull
+    docker compose -f "$COMPOSE_FILE" pull
 fi
 
 # Start services
 echo "🏃 Starting services..."
-docker-compose -f "$COMPOSE_FILE" up -d
+docker compose -f "$COMPOSE_FILE" up -d
 
 # Check service health
 if [[ "$ENVIRONMENT" == "production" ]] || [[ "$ENVIRONMENT" == "prod" ]]; then
@@ -84,7 +84,7 @@ fi
 # Show running containers
 echo ""
 echo "📊 Running containers:"
-docker-compose -f "$COMPOSE_FILE" ps
+docker compose -f "$COMPOSE_FILE" ps
 
 # Show useful URLs
 echo ""
@@ -111,6 +111,6 @@ echo ""
 echo "🎉 Deployment to $ENVIRONMENT complete!"
 echo ""
 echo "📋 Useful commands:"
-echo "  View logs:          docker-compose -f $COMPOSE_FILE logs -f"
-echo "  Stop services:      docker-compose -f $COMPOSE_FILE down"
-echo "  Restart service:    docker-compose -f $COMPOSE_FILE restart <service>" 
+echo "  View logs:          docker compose -f $COMPOSE_FILE logs -f"
+echo "  Stop services:      docker compose -f $COMPOSE_FILE down"
+echo "  Restart service:    docker compose -f $COMPOSE_FILE restart <service>" 
