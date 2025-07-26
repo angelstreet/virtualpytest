@@ -15,13 +15,15 @@ import os
 from pathlib import Path
 from ..base_controller import RemoteControllerInterface
 
-# Use absolute import to avoid conflicts with local utils directory
+# Use absolute import from shared library
 import sys
-src_utils_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'utils')
-if src_utils_path not in sys.path:
-    sys.path.insert(0, src_utils_path)
+import os
+# Get path to shared/lib/utils
+shared_utils_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), 'shared', 'lib', 'utils')
+if shared_utils_path not in sys.path:
+    sys.path.insert(0, shared_utils_path)
 
-from utils.appium_utils import AppiumUtils, AppiumElement, AppiumApp
+from appium_utils import AppiumUtils, AppiumElement, AppiumApp
 
 
 class AppiumRemoteController(RemoteControllerInterface):

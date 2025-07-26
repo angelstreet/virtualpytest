@@ -30,6 +30,11 @@ shared_lib_path = os.path.join(project_root, 'shared', 'lib')
 if shared_lib_path not in sys.path:
     sys.path.insert(0, shared_lib_path)
 
+# Add backend-core to path for controller imports
+backend_core_path = os.path.join(project_root, 'backend-core', 'src')
+if backend_core_path not in sys.path:
+    sys.path.insert(0, backend_core_path)
+
 # Import from shared library (installed as packages)
 try:
     from utils.app_utils import (

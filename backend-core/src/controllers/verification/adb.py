@@ -8,12 +8,13 @@ It uses adbUtils for element verification.
 import time
 from typing import Dict, Any, List, Optional, Tuple
 
-# Use absolute import to avoid conflicts with local utils directory
+# Use absolute import from shared library
 import sys
 import os
-src_utils_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'utils')
-if src_utils_path not in sys.path:
-    sys.path.insert(0, src_utils_path)
+# Get path to shared/lib/utils
+shared_utils_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), 'shared', 'lib', 'utils')
+if shared_utils_path not in sys.path:
+    sys.path.insert(0, shared_utils_path)
 
 from adb_utils import ADBUtils, AndroidElement
 from ..base_controller import VerificationControllerInterface

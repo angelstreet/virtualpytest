@@ -12,11 +12,13 @@ import time
 from typing import Dict, Any, Optional
 from ..base_controller import WebControllerInterface
 
-# Use absolute import for utils
+# Use absolute import for utils from shared library
 import sys
-src_utils_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'utils')
-if src_utils_path not in sys.path:
-    sys.path.insert(0, src_utils_path)
+import os
+# Get path to shared/lib/utils
+shared_utils_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), 'shared', 'lib', 'utils')
+if shared_utils_path not in sys.path:
+    sys.path.insert(0, shared_utils_path)
 
 from playwright_utils import PlaywrightUtils
 from browseruse_utils import BrowserUseManager
