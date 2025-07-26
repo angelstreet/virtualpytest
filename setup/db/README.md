@@ -96,7 +96,7 @@ psql "postgresql://postgres:YOUR_SERVICE_ROLE_KEY@db.YOUR_PROJECT.supabase.co:54
 After database setup, update your `.env` files:
 
 ```bash
-# In shared/.env, backend-server/.env, backend-host/.env
+# In shared/.env, backend-server/src/.env, backend-host/src/.env
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 ```

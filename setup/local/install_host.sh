@@ -49,20 +49,21 @@ echo "📦 Installing backend-host dependencies..."
 cd backend-host
 pip install -r requirements.txt
 
-# Create .env file if it doesn't exist
+# Create .env file in src/ directory if it doesn't exist
+cd src
 if [ ! -f ".env" ]; then
-    if [ -f "env.example" ]; then
-        echo "📝 Creating .env file from env.example..."
-        cp env.example .env
+    if [ -f ".env.example" ]; then
+        echo "📝 Creating .env file from .env.example..."
+        cp .env.example .env
         echo "✅ Created .env file - please configure it with your settings"
     else
-        echo "⚠️ No env.example found - please create .env manually"
+        echo "⚠️ No .env.example found - please create .env manually"
     fi
 else
     echo "✅ .env file already exists"
 fi
 
-cd ..
+cd ../..
 
 # Install systemd service
 echo "🔧 Installing systemd service..."

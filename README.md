@@ -150,7 +150,7 @@ cd frontend && npm run dev
 
 ### Environment Variables
 
-#### Backend-Server (.env)
+#### Backend-Server (src/.env)
 ```bash
 SERVER_URL=http://localhost:5109
 SERVER_PORT=5109
@@ -158,7 +158,7 @@ DEBUG=false
 CORS_ORIGINS=http://localhost:3000
 ```
 
-#### Backend-Host (.env)
+#### Backend-Host (src/.env)
 ```bash
 HOST_URL=http://localhost:6109
 HOST_PORT=6109

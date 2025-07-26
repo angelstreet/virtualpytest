@@ -39,12 +39,12 @@ pip install -e . --use-pep517
 
 # Create .env file if it doesn't exist
 if [ ! -f ".env" ]; then
-    if [ -f "env.example" ]; then
-        echo "📝 Creating .env file from env.example..."
-        cp env.example .env
+    if [ -f ".env.example" ]; then
+        echo "📝 Creating .env file from .env.example..."
+        cp .env.example .env
         echo "✅ Created .env file - please configure it with your settings"
     else
-        echo "⚠️ No env.example found - please create .env manually"
+        echo "⚠️ No .env.example found - please create .env manually"
     fi
 else
     echo "✅ .env file already exists"
