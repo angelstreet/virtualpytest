@@ -1,70 +1,65 @@
 #!/bin/bash
 
-# VirtualPyTest - Launch All Services Locally (No Docker)
-# This script starts all services in separate terminal sessions
+# VirtualPyTest - Launch All Services via Systemd
+# This script restarts all systemd services and shows combined logs
 
 set -e
 
-echo "🚀 Launching VirtualPyTest - All Services Locally (No Docker)"
+echo "🚀 Launching VirtualPyTest - All Services via Systemd"
 
-# Check if we're in the right directory
-if [ ! -f "README.md" ] || [ ! -d "backend-server" ]; then
-    echo "❌ Please run this script from the virtualpytest root directory"
-    exit 1
-fi
+# Define service names
+SERVICES=(
+    "virtualpytest-backend-server"
+    "virtualpytest-backend-host"
+    "virtualpytest-frontend"
+)
 
-# Check if dependencies are installed
-if ! python -c "import flask" 2>/dev/null; then
-    echo "❌ Dependencies not installed. Please run: ./setup/local/install_local.sh"
-    exit 1
-fi
-
-# Check if Node.js dependencies are installed
-if [ ! -d "frontend/node_modules" ]; then
-    echo "❌ Frontend dependencies not installed. Please run: ./setup/local/install_local.sh"
-    exit 1
-fi
-
-echo "🔧 Starting all services in background..."
-
-# Function to start service in background and track PID
-start_service() {
-    local service_name="$1"
-    local script_path="$2"
-    local port="$3"
-    
-    echo "🚀 Starting $service_name on port $port..."
-    cd "$script_path"
-    
-    if [ "$service_name" = "Frontend" ]; then
-        npm run dev &
-    else
-        python src/app.py &
+# Check if all services exist
+MISSING_SERVICES=""
+for service in "${SERVICES[@]}"; do
+    if ! systemctl list-unit-files | grep -q "$service.service"; then
+        MISSING_SERVICES="$MISSING_SERVICES $service"
     fi
-    
-    local pid=$!
-    echo "$pid" >> /tmp/virtualpytest_pids.txt
-    echo "✅ $service_name started (PID: $pid)"
-    cd - > /dev/null
-}
+done
 
-# Clean up any existing PID file
-rm -f /tmp/virtualpytest_pids.txt
+if [ -n "$MISSING_SERVICES" ]; then
+    echo "❌ Missing systemd services:$MISSING_SERVICES"
+    echo "Please install services first:"
+    echo "   ./setup/local/install_local.sh"
+    exit 1
+fi
 
-# Start all services
-start_service "Backend-Server" "backend-server" "5109"
-sleep 2
-start_service "Backend-Host" "backend-host" "6109"
-sleep 2
-start_service "Frontend" "frontend" "3000"
+echo "🔄 Restarting all services..."
+
+# Restart all services
+for service in "${SERVICES[@]}"; do
+    echo "🔄 Restarting $service..."
+    sudo systemctl restart "$service"
+done
+
+# Wait for services to start
+sleep 3
+
+# Check service status
+echo ""
+echo "📊 Service Status:"
+for service in "${SERVICES[@]}"; do
+    if systemctl is-active --quiet "$service"; then
+        echo "✅ $service: running"
+    else
+        echo "❌ $service: failed"
+    fi
+done
 
 echo ""
-echo "🎉 All services are starting up!"
+echo "🎉 All services restarted!"
 echo "📱 Frontend: http://localhost:3000"
-echo "🖥️  Backend-Server: http://localhost:5109"
+echo "🖥️  Backend-Server: http://localhost:5109" 
 echo "🔧 Backend-Host: http://localhost:6109"
 echo ""
-echo "📊 To view logs: Check terminal output above"
-echo "🛑 To stop all services: ./setup/local/stop_all_local.sh"
-echo ""
-echo "⚠️  Services are running in background. Check processes with 'ps aux | grep python'" 
+echo "📊 Showing live logs from all services..."
+echo "🛑 Press Ctrl+C to stop viewing logs (services will continue running)"
+echo "================================================"
+
+# Follow logs from all services
+journalctl -u virtualpytest-backend-server.service -u virtualpytest-backend-host.service -u virtualpytest-frontend.service -f 

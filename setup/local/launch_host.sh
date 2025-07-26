@@ -7,24 +7,35 @@ set -e
 
 echo "🔧 Launching VirtualPyTest - Backend-Host Only"
 
-# Check if we're in the right directory
-if [ ! -f "README.md" ] || [ ! -d "backend-host" ]; then
-    echo "❌ Please run this script from the virtualpytest root directory"
+SERVICE_NAME="virtualpytest-backend-host"
+
+echo "🚀 Starting Backend-Host via systemd..."
+
+# Check if service exists
+if ! systemctl list-unit-files | grep -q "$SERVICE_NAME.service"; then
+    echo "❌ Systemd service not found: $SERVICE_NAME"
+    echo "Please run: ./setup/local/install_host.sh"
     exit 1
 fi
 
-# Check if dependencies are installed
-if [ ! -d "backend-host/venv" ] && ! python -c "import flask" 2>/dev/null; then
-    echo "❌ Dependencies not installed. Please run: ./setup/local/install_local.sh"
+# Restart the service
+echo "🔄 Restarting $SERVICE_NAME service..."
+sudo systemctl restart "$SERVICE_NAME"
+
+# Check if service started successfully
+sleep 2
+if systemctl is-active --quiet "$SERVICE_NAME"; then
+    echo "✅ $SERVICE_NAME started successfully"
+    echo "🌐 Backend-Host: http://localhost:6109"
+    echo ""
+    echo "📊 Showing live logs (Press Ctrl+C to stop viewing logs):"
+    echo "================================================"
+    
+    # Follow logs
+    journalctl -u "$SERVICE_NAME.service" -f
+else
+    echo "❌ Failed to start $SERVICE_NAME"
+    echo "📊 Recent logs:"
+    journalctl -u "$SERVICE_NAME.service" -n 20 --no-pager
     exit 1
-fi
-
-# Navigate to backend-host directory
-cd backend-host
-
-echo "🚀 Starting Backend-Host on http://localhost:6109"
-echo "🛑 Press Ctrl+C to stop"
-echo ""
-
-# Start the host service
-python src/app.py 
+fi 

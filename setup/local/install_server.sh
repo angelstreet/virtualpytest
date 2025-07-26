@@ -25,5 +25,38 @@ cd backend-server
 pip install -r requirements.txt
 cd ..
 
+# Install systemd service
+echo "🔧 Installing systemd service..."
+SERVICE_NAME="virtualpytest-backend-server"
+SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
+
+# Create systemd service file
+sudo tee "$SERVICE_FILE" > /dev/null << EOF
+[Unit]
+Description=VirtualPyTest Backend-Server Service (API Server)
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=$USER
+Group=$USER
+WorkingDirectory=$(pwd)/backend-server
+Environment=PATH=/usr/bin:/usr/local/bin:$(pwd)/venv/bin
+ExecStart=$(which python) src/app.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# Reload systemd and enable service
+sudo systemctl daemon-reload
+sudo systemctl enable "$SERVICE_NAME"
+
 echo "✅ Backend-Server installation completed!"
+echo "✅ Systemd service '$SERVICE_NAME' created and enabled"
 echo "🚀 You can now run: ./setup/local/launch_server.sh" 
