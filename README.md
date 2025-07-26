@@ -119,7 +119,7 @@ cd virtualpytest
 ### 📚 Shared Library
 - **Purpose**: Common utilities and models
 - **Usage**: Imported by all backend services
-- **Environment**: Gets configuration from calling services (no separate `.env`)
+- **Environment**: Copy `shared/env.example` to `shared/.env` and configure
 - **Features**: Configuration, data models, utilities
 
 ## 🌐 Deployment Options

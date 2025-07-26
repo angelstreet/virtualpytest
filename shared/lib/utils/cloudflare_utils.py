@@ -38,7 +38,7 @@ class CloudflareUtils:
     initializations.
     
     Configuration:
-    - Environment variables should be set by the calling service
+    - Copy shared/env.example to shared/.env and configure your credentials
     - Endpoint URL should NOT include bucket name (e.g., https://account.r2.cloudflarestorage.com)
     - Bucket name is passed separately to boto3 operations
     """
@@ -283,19 +283,13 @@ class CloudflareUtils:
             return {
                 'success': False,
                 'error': str(e),
-                'endpoint': self.env_vars.get('CLOUDFLARE_R2_ENDPOINT', 'NOT_SET'),
+                'endpoint': os.environ.get('CLOUDFLARE_R2_ENDPOINT', 'NOT_SET'),
             }
 
-# Singleton getter function with optional environment variables
-def get_cloudflare_utils(env_vars: Optional[Dict[str, str]] = None) -> CloudflareUtils:
-    """
-    Get the singleton instance of CloudflareUtils.
-    
-    Args:
-        env_vars: Optional environment variables dictionary.
-                 Only used on first call to initialize the singleton.
-    """
-    return CloudflareUtils(env_vars)
+# Singleton getter function
+def get_cloudflare_utils() -> CloudflareUtils:
+    """Get the singleton instance of CloudflareUtils."""
+    return CloudflareUtils()
 
 # Utility functions for common upload patterns
 
