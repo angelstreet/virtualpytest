@@ -15,3 +15,8 @@ venv/
 *.pyc
 nohup.out
 
+# Build artifacts
+shared/build/
+shared/virtualpytest_shared.egg-info/
+backend-core/build/
+backend-core/virtualpytest_backend_core.egg-info/
