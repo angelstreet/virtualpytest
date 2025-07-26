@@ -34,7 +34,7 @@ pynput>=1.7.6
 Pillow>=9.0.0
 opencv-python>=4.5.0
 ffmpeg-python>=0.2.0
-PyP100>=0.1.4  # Tapo power control
+PyP100>=0.1.2  # Tapo power control
 
 # Device communication
 paramiko>=2.9.0  # SSH
