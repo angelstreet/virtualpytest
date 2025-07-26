@@ -84,7 +84,7 @@ def register_all_server_routes(app):
     print("[@backend-server:routes] Loading server routes...")
     
     try:
-        from .routes import (
+        from routes import (
             server_system_routes,
             server_web_routes,
             server_rec_routes,

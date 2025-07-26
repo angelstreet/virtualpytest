@@ -9,7 +9,7 @@ This module contains the core API endpoints for:
 from flask import Blueprint, request, jsonify, current_app
 
 # Import utility functions
-from src.utils.app_utils import get_team_id
+from utils.app_utils import get_team_id
 
 # Create blueprint
 core_bp = Blueprint('core', __name__)
@@ -23,7 +23,7 @@ def health():
     """Health check endpoint with lazy-loaded feature status"""
     # Try to get Supabase (will load if not already loaded)
     try:
-        from src.utils.supabase_utils import get_supabase_client
+        from utils.supabase_utils import get_supabase_client
         supabase_client = get_supabase_client()
         supabase_status = "connected" if supabase_client else "disconnected"
     except Exception:
@@ -38,13 +38,13 @@ def health():
 @core_bp.route('/server/features')
 def features():
     """Get status of all available features"""
-    from src.utils.app_utils import (
+    from utils.app_utils import (
         lazy_load_controllers, 
         lazy_load_adb_utils, 
         lazy_load_navigation, 
         lazy_load_device_models
     )
-    from src.utils.supabase_utils import get_supabase_client
+    from utils.supabase_utils import get_supabase_client
     
     features_status = {}
     

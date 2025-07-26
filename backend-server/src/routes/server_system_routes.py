@@ -14,9 +14,9 @@ import json
 from typing import TypedDict, Optional, List, Any
 
 # Import using consistent src. prefix (project root is already in sys.path from app startup)
-from src.controllers.controller_config_factory import create_controller_configs_from_device_info
+from controllers.controller_config_factory import create_controller_configs_from_device_info
 
-from src.utils.host_utils import get_host_manager
+from utils.host_utils import get_host_manager
 
 server_system_bp = Blueprint('server_system', __name__, url_prefix='/server/system')
 
