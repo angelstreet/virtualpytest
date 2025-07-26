@@ -21,6 +21,17 @@ if [ ! -f "README.md" ] || [ ! -d "backend-server" ]; then
     exit 1
 fi
 
+# Create virtual environment if it doesn't exist
+if [ ! -d "venv" ]; then
+    echo "🐍 Creating Python virtual environment..."
+    python3 -m venv venv
+    echo "✅ Virtual environment created"
+fi
+
+# Activate virtual environment
+echo "🔌 Activating virtual environment..."
+source venv/bin/activate
+
 # Install shared library first (dependency)
 echo "📚 Installing shared library (required dependency)..."
 cd shared
@@ -50,8 +61,8 @@ Type=simple
 User=$USER
 Group=$USER
 WorkingDirectory=$(pwd)/backend-server
-Environment=PATH=/usr/bin:/usr/local/bin:$(pwd)/venv/bin
-ExecStart=$(which python) src/app.py
+Environment=PATH=$(pwd)/venv/bin:/usr/bin:/usr/local/bin
+ExecStart=$(pwd)/venv/bin/python src/app.py
 Restart=always
 RestartSec=10
 StandardOutput=journal

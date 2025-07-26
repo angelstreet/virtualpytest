@@ -21,6 +21,17 @@ if [ ! -f "README.md" ] || [ ! -d "shared" ]; then
     exit 1
 fi
 
+# Create virtual environment if it doesn't exist
+if [ ! -d "venv" ]; then
+    echo "🐍 Creating Python virtual environment..."
+    python3 -m venv venv
+    echo "✅ Virtual environment created"
+fi
+
+# Activate virtual environment
+echo "🔌 Activating virtual environment..."
+source venv/bin/activate
+
 # Install shared library
 echo "📦 Installing shared library..."
 cd shared

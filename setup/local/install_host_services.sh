@@ -25,6 +25,9 @@ fi
 echo "📦 Installing backend-host dependencies..."
 ./setup/local/install_host.sh
 
+# Activate virtual environment for service file generation
+source venv/bin/activate
+
 # Create service configuration
 echo "⚙️ Creating service configuration from examples..."
 
@@ -53,11 +56,12 @@ Wants=network.target
 
 [Service]
 Type=simple
-User=pi
-Group=pi
-WorkingDirectory=/home/pi/virtualpytest
-Environment=PYTHONPATH=/home/pi/virtualpytest/shared/lib:/home/pi/virtualpytest/backend-core/src
-ExecStart=/home/pi/myvenv/bin/python backend-host/scripts/capture_monitor.py
+User=$USER
+Group=$USER
+WorkingDirectory=$(pwd)
+Environment=PYTHONPATH=$(pwd)/shared/lib:$(pwd)/backend-core/src
+Environment=PATH=$(pwd)/venv/bin:/usr/bin:/usr/local/bin
+ExecStart=$(pwd)/venv/bin/python backend-host/scripts/capture_monitor.py
 Restart=always
 RestartSec=10
 StandardOutput=append:/tmp/capture_monitor_service.log
@@ -68,7 +72,7 @@ WantedBy=multi-user.target
 EOF
 
 # FFmpeg Capture Service
-cat > /tmp/virtualpytest-ffmpeg-capture.service << 'EOF'
+cat > /tmp/virtualpytest-ffmpeg-capture.service << EOF
 [Unit]
 Description=VirtualPyTest FFmpeg Capture Service
 After=network.target
@@ -76,9 +80,9 @@ Wants=network.target
 
 [Service]
 Type=simple
-User=pi
-Group=pi
-WorkingDirectory=/home/pi/virtualpytest/backend-host/scripts
+User=$USER
+Group=$USER
+WorkingDirectory=$(pwd)/backend-host/scripts
 ExecStart=/bin/bash run_ffmpeg_and_rename_rpi1.sh
 Restart=always
 RestartSec=15
@@ -90,7 +94,7 @@ WantedBy=multi-user.target
 EOF
 
 # Rename Captures Service
-cat > /tmp/virtualpytest-rename-captures.service << 'EOF'
+cat > /tmp/virtualpytest-rename-captures.service << EOF
 [Unit]
 Description=VirtualPyTest Rename Captures Service
 After=virtualpytest-ffmpeg-capture.service
@@ -98,9 +102,9 @@ Wants=virtualpytest-ffmpeg-capture.service
 
 [Service]
 Type=simple
-User=pi
-Group=pi
-WorkingDirectory=/home/pi/virtualpytest/backend-host/scripts
+User=$USER
+Group=$USER
+WorkingDirectory=$(pwd)/backend-host/scripts
 ExecStart=/bin/bash rename_captures.sh
 Restart=always
 RestartSec=10
@@ -112,16 +116,16 @@ WantedBy=multi-user.target
 EOF
 
 # Cleanup Service (timer-based)
-cat > /tmp/virtualpytest-cleanup.service << 'EOF'
+cat > /tmp/virtualpytest-cleanup.service << EOF
 [Unit]
 Description=VirtualPyTest Cleanup Service
 After=network.target
 
 [Service]
 Type=oneshot
-User=pi
-Group=pi
-WorkingDirectory=/home/pi/virtualpytest/backend-host/scripts
+User=$USER
+Group=$USER
+WorkingDirectory=$(pwd)/backend-host/scripts
 ExecStart=/bin/bash clean_captures.sh
 StandardOutput=append:/tmp/cleanup_service.log
 StandardError=append:/tmp/cleanup_service.log

@@ -44,6 +44,8 @@ echo "4️⃣ Installing frontend..."
 
 echo ""
 echo "🎉 All components installed successfully!"
+echo "🐍 Virtual environment created at: $(pwd)/venv"
+echo "🔌 To activate manually: source venv/bin/activate"
 echo ""
 echo "🚀 You can now run services locally:"
 echo "   ./setup/local/launch_all_local.sh - Start all services locally (recommended)"
