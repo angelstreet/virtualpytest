@@ -37,7 +37,7 @@ cd ..
 # Install backend-core dependencies
 echo "⚙️ Installing backend-core dependencies..."
 cd backend-core
-pip install -r requirements.txt
+pip install -e . --use-pep517
 cd ..
 
 # Install Node.js dependencies for frontend
