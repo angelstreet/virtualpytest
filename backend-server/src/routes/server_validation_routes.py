@@ -5,9 +5,9 @@ Validation Routes - Reuses NavigationExecutor API for sequential edge testing
 from typing import List
 from flask import Blueprint, request, jsonify
 
-from src.web.cache.navigation_cache import get_cached_graph
-from src.utils.app_utils import get_team_id
-from src.lib.navigation.navigation_execution import NavigationExecutor
+from utils.navigation_cache import get_cached_graph
+from utils.app_utils import get_team_id
+from navigation.navigation_execution import NavigationExecutor
 
 # Create blueprint
 server_validation_bp = Blueprint('server_validation', __name__, url_prefix='/server/validation')
@@ -21,7 +21,7 @@ def get_validation_preview(tree_id: str):
         team_id = get_team_id()
         
         # Use optimal edge validation sequence instead of simple graph iteration
-        from src.lib.navigation.navigation_pathfinding import find_optimal_edge_validation_sequence
+        from navigation.navigation_pathfinding import find_optimal_edge_validation_sequence
         
         validation_sequence = find_optimal_edge_validation_sequence(tree_id, team_id)
         
@@ -66,7 +66,7 @@ def get_validation_preview(tree_id: str):
 def get_validation_status(task_id):
     """Get status of an async validation task"""
     try:
-        from src.utils.task_manager import task_manager
+        from utils.task_manager import task_manager
         task = task_manager.get_task(task_id)
         
         if not task:
@@ -113,7 +113,7 @@ def run_validation(tree_id: str):
         print(f"[@route:run_validation] Validating {len(edges_to_validate)} edges")
         
         # Create task for async validation
-        from src.utils.task_manager import task_manager
+        from utils.task_manager import task_manager
         task_id = task_manager.create_task('validation', {
             'tree_id': tree_id,
             'host': host,
@@ -232,7 +232,7 @@ def run_validation(tree_id: str):
                 # Generate HTML report using shared function
                 report_url = ""
                 try:
-                    from src.utils.report_utils import generate_and_upload_script_report
+                    from utils.report_utils import generate_and_upload_script_report
                     from datetime import datetime
                     
                     execution_timestamp = datetime.now().strftime('%Y%m%d%H%M%S')

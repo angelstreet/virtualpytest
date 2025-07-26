@@ -13,7 +13,7 @@ NOTE: Navigation execution routes are in server_navigation_routes.py
 import time
 from flask import Blueprint, request, jsonify
 
-from src.utils.app_utils import check_supabase, get_team_id
+from utils.app_utils import check_supabase, get_team_id
 
 # Create blueprint
 server_pathfinding_bp = Blueprint('server_pathfinding', __name__, url_prefix='/server/pathfinding')
@@ -100,8 +100,8 @@ def get_navigation_stats(tree_id):
         team_id = get_team_id()
         
         try:
-            from src.web.cache.navigation_cache import get_cached_graph
-            from src.web.cache.navigation_graph import validate_graph, get_entry_points
+            from utils.navigation_cache import get_cached_graph
+            from utils.navigation_graph import validate_graph, get_entry_points
             
             G = get_cached_graph(tree_id, team_id)
             if not G:
@@ -158,7 +158,7 @@ def get_navigation_stats(tree_id):
 def get_navigation_preview_internal(tree_id: str, target_node_id: str, team_id: str, current_node_id: str = None):
     """Get navigation preview - returns rich transition data directly"""
     try:
-        from src.lib.navigation.navigation_pathfinding import find_shortest_path
+        from navigation.navigation_pathfinding import find_shortest_path
         
         # Find path from current to target node - returns rich transition data
         transitions = find_shortest_path(tree_id, target_node_id, team_id, current_node_id)
@@ -190,7 +190,7 @@ def clear_navigation_cache():
         team_id = data.get('team_id') or get_team_id()
         
         try:
-            from src.web.cache.navigation_cache import invalidate_cache, clear_all_cache
+            from utils.navigation_cache import invalidate_cache, clear_all_cache
             
             if tree_id:
                 invalidate_cache(tree_id, team_id)
@@ -238,7 +238,7 @@ def refresh_navigation_cache():
             }), 400
         
         try:
-            from src.web.cache.navigation_cache import force_refresh_cache
+            from utils.navigation_cache import force_refresh_cache
             
             refresh_success = force_refresh_cache(tree_id, team_id)
             
@@ -278,7 +278,7 @@ def get_cache_stats():
         print(f"[@pathfinding:cache_stats] Request for cache statistics")
         
         try:
-            from src.web.cache.navigation_cache import get_cache_stats as get_cache_stats_internal
+            from utils.navigation_cache import get_cache_stats as get_cache_stats_internal
             
             stats = get_cache_stats_internal()
             

@@ -18,11 +18,11 @@ import threading
 from datetime import datetime
 from typing import Dict, Any, Optional
 
-from src.utils.app_utils import get_team_id, get_user_id
-from src.utils.build_url_utils import buildHostUrl
-from src.utils.host_utils import get_host_manager
-from src.utils.lock_utils import lock_device, unlock_device, get_all_locked_devices, get_device_lock_info
-from src.controllers.controller_config_factory import create_controller_configs_from_device_info
+from utils.app_utils import get_team_id, get_user_id
+from utils.build_url_utils import buildHostUrl
+from utils.host_utils import get_host_manager
+from utils.lock_utils import lock_device, unlock_device, get_all_locked_devices, get_device_lock_info
+from controllers.controller_config_factory import create_controller_configs_from_device_info
 
 # Create blueprint
 server_control_bp = Blueprint('server_control', __name__, url_prefix='/server/control')

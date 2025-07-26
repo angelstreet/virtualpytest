@@ -8,7 +8,7 @@ from flask import Blueprint, request, jsonify
 import json
 
 # Import database functions from src/lib/supabase (uses absolute import)
-from src.lib.supabase.device_models_db import (
+from supabase.device_models_db import (
     get_all_device_models,
     get_device_model,
     create_device_model,
@@ -17,7 +17,7 @@ from src.lib.supabase.device_models_db import (
     check_device_model_name_exists
 )
 
-from src.utils.app_utils import check_supabase, get_team_id
+from utils.app_utils import check_supabase, get_team_id
 
 # Create blueprint
 server_devicemodel_bp = Blueprint('server_devicemodel', __name__, url_prefix='/server/devicemodel')

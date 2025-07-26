@@ -13,12 +13,12 @@ import time
 # Add the parent directory to the path so we can import from src
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 
-from src.lib.supabase.actions_db import save_action, get_actions as db_get_actions, delete_action, get_all_actions, get_edges_using_action, update_action
+from supabase.actions_db import save_action, get_actions as db_get_actions, delete_action, get_all_actions, get_edges_using_action, update_action
 
 # Import default team ID from app utils (same as verifications)
-from src.utils.app_utils import DEFAULT_TEAM_ID
+from utils.app_utils import DEFAULT_TEAM_ID
 
-from src.web.utils.routeUtils import proxy_to_host
+from utils.route_utils import proxy_to_host
 import time
 import requests
 

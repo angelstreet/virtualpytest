@@ -5,7 +5,7 @@ Server-side bash desktop endpoints that proxy requests to host bash desktop endp
 """
 
 from flask import Blueprint, request, jsonify
-from src.web.utils.routeUtils import proxy_to_host
+from utils.route_utils import proxy_to_host
 
 # Create blueprint
 server_desktop_bash_bp = Blueprint('server_desktop_bash', __name__, url_prefix='/server/desktop/bash')

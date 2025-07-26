@@ -9,11 +9,11 @@ This module contains ALL server-side verification endpoints that:
 """
 
 from flask import Blueprint, request, jsonify
-from src.web.utils.routeUtils import proxy_to_host, get_host_from_request
+from utils.route_utils import proxy_to_host, get_host_from_request
 
 # Import verification database functions
-from src.lib.supabase.verifications_db import get_verifications, save_verification, delete_verification
-from src.utils.app_utils import DEFAULT_TEAM_ID
+from supabase.verifications_db import get_verifications, save_verification, delete_verification
+from utils.app_utils import DEFAULT_TEAM_ID
 
 # Create blueprint
 server_verification_common_bp = Blueprint('server_verification_common', __name__, url_prefix='/server/verification')
@@ -556,7 +556,7 @@ def verification_image_get_references():
             }), 400
         
         # Get image references from database directly
-        from src.lib.supabase.verifications_references_db import get_references
+        from supabase.verifications_references_db import get_references
         
         result = get_references(
             team_id=DEFAULT_TEAM_ID,
@@ -588,7 +588,7 @@ def verification_text_get_references():
             }), 400
         
         # Get text references from database directly
-        from src.lib.supabase.verifications_references_db import get_references
+        from supabase.verifications_references_db import get_references
         
         result = get_references(
             team_id=DEFAULT_TEAM_ID,
@@ -620,7 +620,7 @@ def verification_get_all_references():
             }), 400
         
         # Get all references from database directly
-        from src.lib.supabase.verifications_references_db import get_references
+        from supabase.verifications_references_db import get_references
         
         result = get_references(
             team_id=DEFAULT_TEAM_ID,

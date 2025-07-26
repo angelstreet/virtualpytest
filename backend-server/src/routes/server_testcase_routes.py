@@ -12,14 +12,14 @@ from flask import Blueprint, request, jsonify, current_app
 import time
 
 # Import utility functions
-from src.utils.app_utils import get_team_id
+from utils.app_utils import get_team_id
 
 # Import database functions from src/lib/supabase (uses absolute import)
-from src.lib.supabase.testcase_db import (
+from supabase.testcase_db import (
     get_all_test_cases, get_test_case, save_test_case, delete_test_case
 )
 
-from src.utils.app_utils import check_supabase
+from utils.app_utils import check_supabase
 
 # Create blueprint with abstract server testcases prefix
 server_testcase_bp = Blueprint('server_testcase', __name__, url_prefix='/server/testcases')

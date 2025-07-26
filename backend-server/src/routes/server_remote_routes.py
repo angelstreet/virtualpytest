@@ -5,7 +5,7 @@ Server-side remote control proxy endpoints that forward requests to host remote 
 """
 
 from flask import Blueprint, request, jsonify
-from src.web.utils.routeUtils import proxy_to_host, get_host_from_request
+from utils.route_utils import proxy_to_host, get_host_from_request
 import requests
 
 # Create blueprint
@@ -177,7 +177,7 @@ def tap_coordinates_internal(host, x, y):
     """Internal helper for tap coordinate handling"""
     try:
         # Use the centralized API URL builder to forward to host
-        from src.utils.build_url_utils import buildHostUrl
+        from utils.build_url_utils import buildHostUrl
         full_url = buildHostUrl(host, '/host/remote/tapCoordinates')
         
         if not full_url:

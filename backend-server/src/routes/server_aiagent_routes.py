@@ -5,7 +5,7 @@ Server-side AI agent proxy endpoints that forward requests to host AI agent cont
 """
 
 from flask import Blueprint, request, jsonify
-from src.web.utils.routeUtils import proxy_to_host
+from utils.route_utils import proxy_to_host
 
 # Create blueprint
 server_aiagent_bp = Blueprint('server_aiagent', __name__, url_prefix='/server/aiagent')

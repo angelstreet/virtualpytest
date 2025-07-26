@@ -15,17 +15,17 @@ import time
 import os
 
 # Import database functions and utilities
-from src.lib.supabase.heatmap_db import (
+from supabase.heatmap_db import (
     get_heatmap_incidents
 )
-from src.utils.heatmap_utils import (
+from utils.heatmap_utils import (
     create_heatmap_job,
     get_job_status,
     cancel_job,
     start_heatmap_generation
 )
 
-from src.utils.app_utils import check_supabase, get_team_id
+from utils.app_utils import check_supabase, get_team_id
 
 # Create blueprint
 server_heatmap_bp = Blueprint('server_heatmap', __name__, url_prefix='/server/heatmap')
@@ -36,7 +36,7 @@ server_heatmap_bp = Blueprint('server_heatmap', __name__, url_prefix='/server/he
 
 def get_hosts_devices():
     """Get hosts and devices from host manager"""
-    from src.utils.host_utils import get_host_manager
+    from utils.host_utils import get_host_manager
     host_manager = get_host_manager()
     
     hosts_devices = []
@@ -78,7 +78,7 @@ async def query_host_analysis(session, host_device, timeframe_minutes):
         device_id = host_device['device_id']
         host_name = host_device['host_name']
         
-        from src.utils.build_url_utils import buildHostUrl
+        from utils.build_url_utils import buildHostUrl
         host_url = buildHostUrl(host_data, '/host/heatmap/listRecentAnalysis')
         
         async with session.post(
@@ -397,7 +397,7 @@ def get_history():
     try:
         limit = request.args.get('limit', 10, type=int)
         
-        from src.lib.supabase.heatmap_db import get_recent_heatmaps
+        from supabase.heatmap_db import get_recent_heatmaps
         heatmaps = get_recent_heatmaps(team_id, limit)
         
         # Transform data to match frontend expectations

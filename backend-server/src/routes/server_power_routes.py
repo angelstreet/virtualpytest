@@ -5,7 +5,7 @@ Server-side power control proxy endpoints that forward requests to host power co
 """
 
 from flask import Blueprint, request, jsonify
-from src.web.utils.routeUtils import proxy_to_host, get_host_from_request
+from utils.route_utils import proxy_to_host, get_host_from_request
 
 # Create blueprint
 server_power_bp = Blueprint('server_power', __name__, url_prefix='/server/power')

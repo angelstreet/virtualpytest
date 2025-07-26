@@ -5,8 +5,8 @@ import os
 import re
 from flask import Blueprint, request, jsonify
 import requests
-from src.utils.host_utils import get_host_manager
-from src.utils.build_url_utils import buildHostUrl
+from utils.host_utils import get_host_manager
+from utils.build_url_utils import buildHostUrl
 
 server_script_bp = Blueprint('server_script', __name__, url_prefix='/server')
 
@@ -148,7 +148,7 @@ def analyze_script():
             }), 400
         
         # Use centralized script path logic
-        from src.utils.script_utils import get_script_path
+        from utils.script_utils import get_script_path
         
         try:
             script_path = get_script_path(script_name)
@@ -189,7 +189,7 @@ def list_scripts():
     """List all available Python scripts using centralized script utils"""
     try:
         # Use centralized script listing logic
-        from src.utils.script_utils import list_available_scripts, get_scripts_directory
+        from utils.script_utils import list_available_scripts, get_scripts_directory
         
         available_scripts = list_available_scripts()
         scripts_dir = get_scripts_directory()
@@ -241,7 +241,7 @@ def execute_script():
             }), 404
         
         # Create task for async execution
-        from src.utils.task_manager import task_manager
+        from utils.task_manager import task_manager
         task_id = task_manager.create_task('script_execute', {
             'script_name': script_name,
             'host_name': host_name,
@@ -261,7 +261,7 @@ def execute_script():
             payload['parameters'] = parameters.strip()
         
         # Add callback URL for async completion
-        from src.utils.build_url_utils import buildServerUrl
+        from utils.build_url_utils import buildServerUrl
         callback_url = buildServerUrl('server/script/taskComplete')
         payload['callback_url'] = callback_url
         
@@ -331,7 +331,7 @@ def task_complete():
             }), 400
         
         # Update task in manager
-        from src.utils.task_manager import task_manager
+        from utils.task_manager import task_manager
         task_manager.complete_task(task_id, result, error)
         
         print(f"[@route:server_script:task_complete] Task {task_id} marked as {'failed' if error else 'completed'}")
@@ -352,7 +352,7 @@ def task_complete():
 def get_task_status(task_id):
     """Get status of an async script execution task"""
     try:
-        from src.utils.task_manager import task_manager
+        from utils.task_manager import task_manager
         task = task_manager.get_task(task_id)
         
         if not task:

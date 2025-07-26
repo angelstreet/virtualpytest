@@ -16,7 +16,7 @@ import requests
 import time
 
 # Import from specific database modules (direct imports)
-from src.lib.supabase.navigation_trees_db import (
+from supabase.navigation_trees_db import (
     get_all_trees as get_all_navigation_trees_util,
     get_tree as get_navigation_tree,
     save_tree as create_navigation_tree_util,
@@ -25,11 +25,11 @@ from src.lib.supabase.navigation_trees_db import (
     check_navigation_tree_name_exists,
     get_root_tree_for_interface,
 )
-from src.lib.supabase.userinterface_db import (
+from supabase.userinterface_db import (
     get_all_userinterfaces, 
     get_userinterface
 )
-from src.utils.app_utils import check_supabase, get_team_id
+from utils.app_utils import check_supabase, get_team_id
 
 # Create blueprint with abstract server navigation prefix
 server_navigation_bp = Blueprint('server_navigation', __name__, url_prefix='/server/navigation')

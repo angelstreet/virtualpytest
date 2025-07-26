@@ -6,7 +6,7 @@ Handles restart player data fetching and image timeline management.
 """
 
 from flask import Blueprint, request, jsonify
-from src.web.utils.routeUtils import proxy_to_host, get_host_from_request
+from utils.route_utils import proxy_to_host, get_host_from_request
 
 # Create blueprint
 server_rec_bp = Blueprint('server_rec', __name__, url_prefix='/server/rec')

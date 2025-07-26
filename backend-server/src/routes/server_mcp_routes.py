@@ -9,7 +9,7 @@ from flask import Blueprint, request, jsonify
 import logging
 
 # Import AI agent controller directly
-from src.controllers.ai.ai_agent import AIAgentController
+from controllers.ai.ai_agent import AIAgentController
 
 # Create blueprint
 server_mcp_bp = Blueprint('server_mcp', __name__, url_prefix='/server/mcp')
@@ -207,8 +207,8 @@ def _execute_navigate_to_page(params):
 def _execute_navigation_to_node(params):
     """Execute execute_navigation_to_node MCP tool"""
     try:
-        from src.lib.navigation.navigation_execution import NavigationExecutor
-        from src.utils.app_utils import get_team_id
+        from navigation.navigation_execution import NavigationExecutor
+        from utils.app_utils import get_team_id
         
         tree_id = params.get("tree_id", "default_tree")
         target_node_id = params.get("target_node_id", "home")
