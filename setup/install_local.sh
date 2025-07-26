@@ -19,7 +19,7 @@ echo "🐍 Installing Python dependencies..."
 # Install shared library
 echo "📚 Installing shared library..."
 cd shared
-pip install -e .
+pip install -e . --use-pep517
 cd ..
 
 # Install backend-server dependencies
