@@ -29,6 +29,21 @@ virtualpytest/
 ./setup/install_local.sh
 ```
 
+**Python Virtual Environment (Recommended for local development):**
+```bash
+# Install Python venv (if not already available)
+sudo apt install python3-venv
+
+# Create virtual environment
+python3 -m venv venv
+
+# Activate virtual environment
+source venv/bin/activate
+
+# Then run local setup
+./setup/install_local.sh
+```
+
 ### Docker Deployment (Recommended)
 
 ```bash
