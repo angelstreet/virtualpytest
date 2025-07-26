@@ -31,7 +31,7 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 # Import utilities
-from src.utils.script_utils import (
+from utils.script_utils import (
     setup_script_environment,
     select_device,
     take_device_control,
@@ -41,7 +41,7 @@ from src.utils.script_utils import (
 )
 
 # Import pathfinding for navigation
-from src.lib.navigation.navigation_pathfinding import find_shortest_path
+from navigation.navigation_pathfinding import find_shortest_path
 
 
 def main():

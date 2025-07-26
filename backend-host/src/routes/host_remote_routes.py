@@ -5,7 +5,7 @@ Host-side remote control endpoints that execute remote commands using instantiat
 """
 
 from flask import Blueprint, request, jsonify, current_app
-from src.utils.host_utils import get_controller, get_device_by_id
+from utils.host_utils import get_controller, get_device_by_id
 import time
 
 # Create blueprint
@@ -48,7 +48,7 @@ def take_screenshot():
         
         if success:
             # Process screenshot data URL for client consumption
-            from src.utils.build_url_utils import buildClientImageUrl
+            from utils.build_url_utils import buildClientImageUrl
             processed_screenshot = buildClientImageUrl(screenshot_data) if screenshot_data else screenshot_data
             
             return jsonify({

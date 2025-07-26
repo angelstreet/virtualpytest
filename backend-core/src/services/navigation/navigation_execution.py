@@ -12,10 +12,10 @@ complete navigation execution with proper error handling and logging.
 
 import time
 from typing import Dict, List, Optional, Any
-from src.lib.actions.action_executor import ActionExecutor
-from src.lib.verifications.verification_executor import VerificationExecutor
-from src.lib.navigation.navigation_pathfinding import find_shortest_path
-from src.utils.app_utils import get_team_id
+from actions.action_executor import ActionExecutor
+from verifications.verification_executor import VerificationExecutor
+from navigation.navigation_pathfinding import find_shortest_path
+from utils.app_utils import get_team_id
 
 
 class NavigationExecutor:
@@ -320,8 +320,8 @@ class NavigationExecutor:
         """
         try:
             # Get cached graph and node info
-            from src.web.cache.navigation_cache import get_cached_graph
-            from src.web.cache.navigation_graph import get_node_info
+            from utils.navigation_cache import get_cached_graph
+            from utils.navigation_graph import get_node_info
             
             G = get_cached_graph(tree_id, self.team_id)
             if not G:

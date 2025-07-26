@@ -694,7 +694,7 @@ class ImageVerificationController:
             
             # Download from R2 using CloudflareUtils
             try:
-                from src.utils.cloudflare_utils import get_cloudflare_utils
+                from utils.cloudflare_utils import get_cloudflare_utils
                 
                 # Construct R2 object key using provided device model
                 r2_object_key = f"reference-images/{model}/{reference_name}"

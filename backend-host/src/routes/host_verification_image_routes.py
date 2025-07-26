@@ -5,8 +5,8 @@ Host-side image verification endpoints that execute using instantiated image ver
 """
 
 from flask import Blueprint, request, jsonify
-from src.utils.host_utils import get_controller, get_device_by_id, get_host
-from src.utils.build_url_utils import buildHostImageUrl
+from utils.host_utils import get_controller, get_device_by_id, get_host
+from utils.build_url_utils import buildHostImageUrl
 import os
 
 # Create blueprint
@@ -157,7 +157,7 @@ def execute_image_verification():
             print(f"[@route:host_verification_image:execute] Image source URL provided: {image_source_url}")
             try:
                 # Use centralized URL conversion function
-                from src.utils.build_url_utils import convertHostUrlToLocalPath
+                from utils.build_url_utils import convertHostUrlToLocalPath
                 source_image_path = convertHostUrlToLocalPath(image_source_url)
                 
                 print(f"[@route:host_verification_image:execute] Converted to local path: {source_image_path}")
@@ -209,7 +209,7 @@ def execute_image_verification():
         
         # Build URLs from file paths if verification generated images
         if 'source_image_path' in verification_result.get('details', {}):
-            from src.utils.build_url_utils import buildVerificationResultUrl
+            from utils.build_url_utils import buildVerificationResultUrl
             
             # Get host info for URL building
             host = get_host()

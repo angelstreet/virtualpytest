@@ -10,7 +10,7 @@ These endpoints run on the host and use the host's own stored device object.
 """
 
 from flask import Blueprint, request, jsonify, current_app, send_file
-from src.utils.host_utils import get_controller, get_device_by_id
+from utils.host_utils import get_controller, get_device_by_id
 import os
 
 # Create blueprint
@@ -289,8 +289,8 @@ def get_stream_url():
         print(f"[@route:host_av:stream_url] Using AV controller: {type(av_controller).__name__}")
         
         # Use URL building utilities
-        from src.utils.build_url_utils import buildStreamUrlForDevice
-        from src.controllers.controller_manager import get_host
+        from utils.build_url_utils import buildStreamUrlForDevice
+        from controllers.controller_manager import get_host
         
         host = get_host()
         stream_url = buildStreamUrlForDevice(host.to_dict(), device_id)
@@ -350,8 +350,8 @@ def take_screenshot():
         print(f"[@route:host_av:take_screenshot] Screenshot path from controller: {screenshot_path}")
         
         # Use URL building utilities
-        from src.utils.build_url_utils import buildCaptureUrlFromPath, buildClientImageUrl
-        from src.controllers.controller_manager import get_host
+        from utils.build_url_utils import buildCaptureUrlFromPath, buildClientImageUrl
+        from controllers.controller_manager import get_host
         
         try:
             host = get_host()
@@ -443,7 +443,7 @@ def save_screenshot():
         
         # Upload to R2 using navigation upload function
         try:
-            from src.utils.cloudflare_utils import upload_navigation_screenshot
+            from utils.cloudflare_utils import upload_navigation_screenshot
             
             # Create the target filename for R2 (use filename with .jpg extension)
             r2_filename = f"{filename}.jpg"
@@ -469,7 +469,7 @@ def save_screenshot():
             print(f"[@route:host_av:save_screenshot] Screenshot uploaded to R2 successfully")
             
             # Process URLs for client consumption
-            from src.utils.build_url_utils import buildClientImageUrl
+            from utils.build_url_utils import buildClientImageUrl
             client_r2_url = buildClientImageUrl(r2_url)
             client_local_path = buildClientImageUrl(local_screenshot_path)
             
@@ -629,7 +629,7 @@ def serve_screenshot(filename):
         print(f"[@route:host_av:serve_screenshot] Screenshot request for: {filename}")
         
         # Use URL building utilities to resolve screenshot path
-        from src.utils.build_url_utils import resolveCaptureFilePath
+        from utils.build_url_utils import resolveCaptureFilePath
         
         try:
             capture_path = resolveCaptureFilePath(filename)
@@ -680,7 +680,7 @@ def serve_image_by_path():
         is_json = file_path and file_path.lower().endswith('.json')
         
         # Use URL building utilities to resolve and validate file path
-        from src.utils.build_url_utils import resolveImageFilePath
+        from utils.build_url_utils import resolveImageFilePath
         
         try:
             if is_json:
@@ -783,8 +783,8 @@ def list_captures():
         capture_files = capture_files[:limit]
         
         # Build URLs using the same mechanism as takeScreenshot
-        from src.utils.build_url_utils import buildCaptureUrlFromPath, buildClientImageUrl
-        from src.controllers.controller_manager import get_host
+        from utils.build_url_utils import buildCaptureUrlFromPath, buildClientImageUrl
+        from controllers.controller_manager import get_host
         
         try:
             host = get_host()

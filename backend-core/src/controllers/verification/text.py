@@ -228,7 +228,7 @@ class TextVerificationController:
             else:
                 # Local filename case - use URL conversion utility like image verification
                 try:
-                    from src.utils.build_url_utils import convertHostUrlToLocalPath
+                    from utils.build_url_utils import convertHostUrlToLocalPath
                     # Build a proper URL first if it's just a filename
                     if not image_source_url.startswith('/'):
                         # Assume it's a filename from captures directory

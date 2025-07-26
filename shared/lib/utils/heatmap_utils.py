@@ -511,7 +511,7 @@ def process_heatmap_generation(job_id: str, images_by_timestamp: Dict[str, List[
             
             # Upload to R2 - no fallbacks
             try:
-                from src.utils.cloudflare_utils import get_cloudflare_utils
+                from utils.cloudflare_utils import get_cloudflare_utils
                 uploader = get_cloudflare_utils()
                 
                 # Save mosaic to temp file
@@ -534,7 +534,7 @@ def process_heatmap_generation(job_id: str, images_by_timestamp: Dict[str, List[
                 # Only proceed if uploads succeed (no individual HTML generation)
                 if mosaic_upload['success'] and metadata_upload['success']:
                     # Save to database using passed team_id
-                    from src.lib.supabase.heatmap_db import save_heatmap_to_db
+                    from supabase.heatmap_db import save_heatmap_to_db
                     
                     hosts_included = len([img for img in processed_images if img.get('image_data')])
                     hosts_total = len(processed_images)
@@ -638,8 +638,8 @@ def process_heatmap_generation(job_id: str, images_by_timestamp: Dict[str, List[
             
             # Generate ONE comprehensive HTML report with all mosaics
             try:
-                from src.utils.heatmap_report_utils import generate_comprehensive_heatmap_html
-                from src.utils.cloudflare_utils import upload_heatmap_html
+                from utils.heatmap_report_utils import generate_comprehensive_heatmap_html
+                from utils.cloudflare_utils import upload_heatmap_html
                 
                 # Prepare all heatmap data for comprehensive report
                 all_heatmap_data = []
@@ -665,7 +665,7 @@ def process_heatmap_generation(job_id: str, images_by_timestamp: Dict[str, List[
                     
                     # Update all database records for this job with the comprehensive HTML URL
                     try:
-                        from src.lib.supabase.heatmap_db import update_heatmaps_with_html_url
+                        from supabase.heatmap_db import update_heatmaps_with_html_url
                         update_success = update_heatmaps_with_html_url(job_id, html_upload['html_url'])
                         if update_success:
                             print(f"[@heatmap_utils] Database records updated with HTML URL")

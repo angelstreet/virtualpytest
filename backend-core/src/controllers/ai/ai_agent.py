@@ -45,7 +45,7 @@ class AIAgentController(BaseController):
         # Load tree lazily
         try:
             # Lazy import inside method to avoid circular import
-            from src.utils.script_utils import load_navigation_tree
+            from utils.script_utils import load_navigation_tree
             
             print(f"AI[{self.device_name}]: Loading navigation tree for: {userinterface_name}")
             tree_result = load_navigation_tree(userinterface_name, "ai_agent")
@@ -81,7 +81,7 @@ class AIAgentController(BaseController):
             print(f"AI[{self.device_name}]: Executing navigation to '{target_node}' exactly like validation.py")
             
             # Use the same script_utils that validation.py uses
-            from src.utils.script_utils import (
+            from utils.script_utils import (
                 setup_script_environment,
                 select_device, 
                 execute_navigation_with_verifications,
@@ -111,7 +111,7 @@ class AIAgentController(BaseController):
             tree_id = tree_result['tree_id']
             
             # Get navigation sequence using pathfinding (same as validation.py)
-            from src.lib.navigation.navigation_pathfinding import find_shortest_path
+            from navigation.navigation_pathfinding import find_shortest_path
             
             print(f"AI[{self.device_name}]: Finding path to '{target_node}' using pathfinding")
             
@@ -520,7 +520,7 @@ JSON ONLY - NO OTHER TEXT"""
         """
         try:
             # Get remote controller for this device
-            from src.utils.host_utils import get_controller
+            from utils.host_utils import get_controller
             
             remote_controller = get_controller(self.device_name, 'remote')
             if not remote_controller:
@@ -646,7 +646,7 @@ JSON ONLY - NO OTHER TEXT"""
         
         try:
             # Import controller utilities (same as script_utils.py)
-            from src.utils.host_utils import get_controller
+            from utils.host_utils import get_controller
             
             executed_verifications = 0
             failed_verifications = []

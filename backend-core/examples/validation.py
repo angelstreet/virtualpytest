@@ -35,7 +35,7 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 # Import utilities
-from src.utils.script_utils import (
+from utils.script_utils import (
     setup_script_environment,
     select_device,
     take_device_control,
@@ -47,12 +47,12 @@ from src.utils.script_utils import (
 )
 
 # Import pathfinding for validation sequence
-from src.lib.navigation.navigation_pathfinding import find_optimal_edge_validation_sequence
+from navigation.navigation_pathfinding import find_optimal_edge_validation_sequence
 
 # Import report generation
-from src.utils.report_utils import generate_validation_report
-from src.utils.cloudflare_utils import upload_script_report, upload_validation_screenshots
-from src.lib.supabase.script_results_db import record_script_execution_start, update_script_execution_result
+from utils.report_utils import generate_validation_report
+from utils.cloudflare_utils import upload_script_report, upload_validation_screenshots
+from supabase.script_results_db import record_script_execution_start, update_script_execution_result
 
 
 def main():

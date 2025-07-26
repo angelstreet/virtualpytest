@@ -1,52 +1,59 @@
 #!/bin/bash
 
-# VirtualPyTest - Fix Import Statements
-# This script fixes src.utils imports to use the new microservices structure
+# Fix imports script - Convert src.utils imports to proper paths
+# This script fixes import statements after src_LEGACY removal
 
-set -e
-
-echo "🔧 Fixing import statements in backend-server routes..."
-
-# Get to project root directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+
 cd "$PROJECT_ROOT"
 
-ROUTES_DIR="backend-server/src/routes"
+echo "🔧 Fixing import statements throughout the project..."
 
-if [ ! -d "$ROUTES_DIR" ]; then
-    echo "❌ Routes directory not found: $ROUTES_DIR"
-    exit 1
-fi
+# Find all Python files with src.utils imports
+echo "📁 Searching for files with src.utils imports..."
 
-echo "📁 Fixing imports in: $ROUTES_DIR"
+# Fix imports in all Python files
+find . -name "*.py" -type f \
+    -not -path "./src_LEGACY/*" \
+    -not -path "./venv/*" \
+    -not -path "./.git/*" \
+    -not -path "./build/*" \
+    -not -path "./*.egg-info/*" \
+    -exec grep -l "from src\.utils\." {} \; | while read file; do
+    
+    echo "🔄 Fixing imports in: $file"
+    
+    # Create backup
+    cp "$file" "$file.bak"
+    
+    # Fix various src.utils imports
+    sed -i.tmp \
+        -e 's/from src\.utils\./from utils\./g' \
+        -e 's/from src\.lib\./from /g' \
+        -e 's/from src\.web\.utils\.routeUtils/from utils.route_utils/g' \
+        -e 's/from src\.web\.cache\./from utils\./g' \
+        -e 's/from src\.controllers\./from controllers\./g' \
+        "$file"
+    
+    # Remove the .tmp file created by sed
+    rm -f "$file.tmp"
+done
 
-# Fix src.utils imports to utils
-find "$ROUTES_DIR" -name "*.py" -exec sed -i.bak 's/from src\.utils\./from utils./g' {} \;
+echo "🧹 Cleaning up backup files..."
+find . -name "*.bak" -type f \
+    -not -path "./src_LEGACY/*" \
+    -not -path "./venv/*" \
+    -not -path "./.git/*" \
+    -delete
 
-# Fix src.lib imports to use shared/lib structure 
-find "$ROUTES_DIR" -name "*.py" -exec sed -i.bak 's/from src\.lib\./from /g' {} \;
-
-# Fix src.web imports (these should be handled differently or removed)
-find "$ROUTES_DIR" -name "*.py" -exec sed -i.bak 's/from src\.web\.utils\.routeUtils/from utils.route_utils/g' {} \;
-find "$ROUTES_DIR" -name "*.py" -exec sed -i.bak 's/from src\.web\.cache\./from utils./g' {} \;
-
-# Fix src.controllers imports to controllers
-find "$ROUTES_DIR" -name "*.py" -exec sed -i.bak 's/from src\.controllers\./from controllers./g' {} \;
-
-# Clean up backup files
-find "$ROUTES_DIR" -name "*.py.bak" -delete
-
-echo "✅ Import statements fixed!"
+echo "✅ Import fixing completed!"
 echo ""
-echo "📋 Fixed the following import patterns:"
-echo "   src.utils.* → utils.*"
-echo "   src.lib.* → *" 
-echo "   src.controllers.* → controllers.*"
-echo "   src.web.utils.routeUtils → utils.route_utils"
-echo "   src.web.cache.* → utils.*"
+echo "📋 Summary of changes made:"
+echo "   • from src.utils.* → from utils.*"
+echo "   • from src.lib.* → from *"
+echo "   • from src.web.utils.routeUtils → from utils.route_utils"
+echo "   • from src.web.cache.* → from utils.*"
+echo "   • from src.controllers.* → from controllers.*"
 echo ""
-echo "⚠️ Note: Some imports may need manual review if they reference"
-echo "   modules that don't exist in the new structure."
-echo ""
-echo "🔄 You can now restart the backend-server service" 
+echo "🔄 Please restart your services for changes to take effect" 

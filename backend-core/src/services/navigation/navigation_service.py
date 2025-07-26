@@ -11,8 +11,8 @@ It wraps the NavigationExecutor to provide additional service-level features.
 
 import time
 from typing import Dict, List, Optional, Any
-from src.lib.navigation.navigation_execution import NavigationExecutor
-from src.utils.app_utils import get_team_id
+from navigation.navigation_execution import NavigationExecutor
+from utils.app_utils import get_team_id
 
 
 def execute_navigation_with_verification(tree_id: str, target_node_id: str, team_id: str, current_node_id: str = None) -> Dict[str, Any]:
@@ -167,7 +167,7 @@ class NavigationService:
         print(f"[@navigation:service:get_navigation_preview] Getting preview for {target_node_id}")
         
         try:
-            from src.lib.navigation.navigation_pathfinding import get_navigation_transitions
+            from navigation.navigation_pathfinding import get_navigation_transitions
             
             transitions = get_navigation_transitions(tree_id, target_node_id, team_id, current_node_id)
             return transitions
@@ -280,8 +280,8 @@ class NavigationService:
         print(f"[@navigation:service:get_navigation_graph_stats] Getting stats for tree {tree_id}")
         
         try:
-            from src.web.cache.navigation_cache import get_cached_graph
-            from src.web.cache.navigation_graph import validate_graph, get_entry_points, get_exit_points
+            from utils.navigation_cache import get_cached_graph
+            from utils.navigation_graph import validate_graph, get_entry_points, get_exit_points
             
             G = get_cached_graph(tree_id, team_id)
             if not G:
@@ -337,7 +337,7 @@ class NavigationService:
         print(f"[@navigation:service:find_alternative_paths] Finding {max_paths} alternative paths to {target_node_id}")
         
         try:
-            from src.lib.navigation.navigation_pathfinding import find_all_paths
+            from navigation.navigation_pathfinding import find_all_paths
             
             paths = find_all_paths(tree_id, target_node_id, team_id, current_node_id, max_paths)
             return paths
@@ -359,7 +359,7 @@ class NavigationService:
             List of reachable node IDs
         """
         try:
-            from src.lib.navigation.navigation_pathfinding import get_reachable_nodes
+            from navigation.navigation_pathfinding import get_reachable_nodes
             
             reachable = get_reachable_nodes(tree_id, team_id, current_node_id)
             return reachable
@@ -380,7 +380,7 @@ class NavigationService:
             Dictionary with cache clearing results
         """
         try:
-            from src.web.cache.navigation_cache import invalidate_cache, clear_all_cache
+            from utils.navigation_cache import invalidate_cache, clear_all_cache
             
             if tree_id:
                 invalidate_cache(tree_id, team_id)

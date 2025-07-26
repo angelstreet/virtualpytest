@@ -6,9 +6,9 @@ Used by server to gather restart timeline data from specific hosts.
 """
 
 from flask import Blueprint, request, jsonify
-from src.utils.host_utils import get_controller, get_device_by_id
-from src.utils.build_url_utils import buildCaptureUrlFromPath, buildClientImageUrl
-from src.controllers.controller_manager import get_host
+from utils.host_utils import get_controller, get_device_by_id
+from utils.build_url_utils import buildCaptureUrlFromPath, buildClientImageUrl
+from controllers.controller_manager import get_host
 import os
 import time
 

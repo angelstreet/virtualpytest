@@ -5,7 +5,7 @@ Host-side audio verification endpoints that execute using instantiated audio ver
 """
 
 from flask import Blueprint, request, jsonify
-from src.utils.host_utils import get_controller, get_device_by_id
+from utils.host_utils import get_controller, get_device_by_id
 
 # Create blueprint
 host_verification_audio_bp = Blueprint('host_verification_audio', __name__, url_prefix='/host/verification/audio')

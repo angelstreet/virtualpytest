@@ -21,7 +21,7 @@ src_utils_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__
 if src_utils_path not in sys.path:
     sys.path.insert(0, src_utils_path)
 
-from src.utils.appium_utils import AppiumUtils, AppiumElement, AppiumApp
+from utils.appium_utils import AppiumUtils, AppiumElement, AppiumApp
 
 
 class AppiumRemoteController(RemoteControllerInterface):
