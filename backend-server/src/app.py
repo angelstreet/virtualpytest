@@ -101,7 +101,7 @@ def register_all_server_routes(app):
             (server_system_routes.server_system_bp, 'System management'),
             (server_web_routes.server_web_bp, 'Web interface'),
             (server_rec_routes.server_rec_bp, 'Recording operations'),
-            (common_core_routes.common_core_bp, 'Common core API')
+            (common_core_routes.core_bp, 'Common core API')
         ]
         
         for blueprint, description in blueprints:

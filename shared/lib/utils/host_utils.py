@@ -19,7 +19,24 @@ from typing import Dict, Any, Optional, List
 from datetime import datetime
 
 from .system_info_utils import get_host_system_stats
-from ..controllers.controller_manager import get_host
+# Import get_host dynamically to avoid relative import issues
+try:
+    import sys
+    import os
+    # Try to find backend-core path
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    shared_lib = os.path.dirname(os.path.dirname(current_dir))
+    project_root = os.path.dirname(shared_lib)
+    backend_core_path = os.path.join(project_root, 'backend-core', 'src')
+    if backend_core_path not in sys.path:
+        sys.path.insert(0, backend_core_path)
+    from controllers.controller_manager import get_host
+except ImportError:
+    # Fallback if controller_manager is not available
+    def get_host():
+        """Fallback get_host function when controller_manager is not available"""
+        from models.host import Host
+        return Host("fallback-host", "127.0.0.1", 6109)
 from .build_url_utils import buildServerUrl
 
 # Disable SSL warnings for self-signed certificates
