@@ -32,11 +32,7 @@ export { useStreamCoordinates } from './useStreamCoordinates';
 // Navigation hooks
 
 // Component hooks
-export { useLocalStorage } from './useLocalStorage';
-export { useMediaQuery } from './useMediaQuery';
-export { useTheme } from './useTheme';
 export { useHostManager } from './useHostManager';
 
 // Page hooks
-export { useHome } from './pages/useHome';
 export { useRec } from './pages/useRec';
