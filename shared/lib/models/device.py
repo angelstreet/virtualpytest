@@ -5,7 +5,7 @@ Represents a single device with its controllers organized by type.
 """
 
 from typing import Dict, List, Optional, Any
-from ..controllers.base_controller import BaseController
+from controllers.base_controller import BaseController
 
 
 class Device:
