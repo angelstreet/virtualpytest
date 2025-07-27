@@ -9,9 +9,10 @@ import time  # Add missing time import
 from typing import Tuple, Dict, Any, Optional, List
 
 # Add project root to path for imports
-current_dir = os.path.dirname(os.path.abspath(__file__))  # /src/utils
-src_dir = os.path.dirname(current_dir)  # /src
-project_root = os.path.dirname(src_dir)  # /virtualpytest
+current_dir = os.path.dirname(os.path.abspath(__file__))  # /shared/lib/utils
+lib_dir = os.path.dirname(current_dir)  # /shared/lib
+shared_dir = os.path.dirname(lib_dir)  # /shared
+project_root = os.path.dirname(shared_dir)  # /virtualpytest
 
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
@@ -412,9 +413,10 @@ def capture_validation_screenshot(host, device: Any, step_name: str, script_name
 # Script folder configuration - single source of truth
 def get_scripts_directory() -> str:
     """Get the scripts directory path - single source of truth"""
-    current_dir = os.path.dirname(os.path.abspath(__file__))  # /src/utils
-    src_dir = os.path.dirname(current_dir)  # /src
-    project_root = os.path.dirname(src_dir)  # /virtualpytest
+    current_dir = os.path.dirname(os.path.abspath(__file__))  # /shared/lib/utils
+    lib_dir = os.path.dirname(current_dir)  # /shared/lib
+    shared_dir = os.path.dirname(lib_dir)  # /shared
+    project_root = os.path.dirname(shared_dir)  # /virtualpytest
     
     # Use test_scripts folder as the primary scripts location
     return os.path.join(project_root, 'test_scripts')
