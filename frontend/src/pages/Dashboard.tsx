@@ -675,41 +675,6 @@ const Dashboard: React.FC = () => {
             </Box>
           </Paper>
         </Grid>
-
-        {/* Recent Activity */}
-        <Grid item xs={12} md={6}>
-          <Paper sx={{ p: 2 }}>
-            <Typography variant="h6" gutterBottom>
-              Recent Activity
-            </Typography>
-            {stats.recentActivity.length > 0 ? (
-              <List>
-                {stats.recentActivity.map((activity) => (
-                  <ListItem key={activity.id} divider>
-                    <ListItemIcon>{getStatusIcon(activity.status)}</ListItemIcon>
-                    <ListItemText
-                      primary={activity.name}
-                      secondary={
-                        <Box display="flex" alignItems="center" gap={1}>
-                          <Chip label={activity.type} size="small" variant="outlined" />
-                          <Chip
-                            label={activity.status}
-                            size="small"
-                            color={getStatusColor(activity.status) as any}
-                          />
-                        </Box>
-                      }
-                    />
-                  </ListItem>
-                ))}
-              </List>
-            ) : (
-              <Typography color="textSecondary">
-                No recent activity. Start by creating your first test case!
-              </Typography>
-            )}
-          </Paper>
-        </Grid>
       </Grid>
 
       {/* Connected Devices */}
