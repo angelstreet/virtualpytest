@@ -22,8 +22,8 @@ def find_shortest_path(tree_id: str, target_node_id: str, team_id: str, start_no
     print(f"[@navigation:pathfinding:find_shortest_path] Finding path to node {target_node_id}")
     
     # Get cached NetworkX graph
-    from shared.lib.web.cache.navigation_cache import get_cached_graph
-    from shared.lib.web.cache.navigation_graph import get_entry_points, get_node_info
+    from shared.lib.utils.navigation_cache import get_cached_graph
+    from shared.lib.utils.navigation_graph import get_entry_points, get_node_info
     
     G = get_cached_graph(tree_id, team_id)
     if not G:
@@ -268,8 +268,8 @@ def get_navigation_transitions(tree_id: str, target_node_id: str, team_id: str, 
         return []
     
     # Enhance transitions with additional information
-    from shared.lib.web.cache.navigation_cache import get_cached_graph
-    from shared.lib.web.cache.navigation_graph import get_node_info
+    from shared.lib.utils.navigation_cache import get_cached_graph
+    from shared.lib.utils.navigation_graph import get_node_info
     
     G = get_cached_graph(tree_id, team_id)
     if not G:
@@ -326,8 +326,8 @@ def find_entry_point(tree_id: str, team_id: str) -> Optional[str]:
     Returns:
         Entry point node ID or None if not found
     """
-    from shared.lib.web.cache.navigation_cache import get_cached_graph
-    from shared.lib.web.cache.navigation_graph import get_entry_points
+    from shared.lib.utils.navigation_cache import get_cached_graph
+    from shared.lib.utils.navigation_graph import get_entry_points
     
     G = get_cached_graph(tree_id, team_id)
     if not G:
@@ -357,8 +357,8 @@ def find_all_paths(tree_id: str, target_node_id: str, team_id: str, start_node_i
     """
     print(f"[@navigation:pathfinding:find_all_paths] Finding up to {max_paths} paths to {target_node_id}")
     
-    from shared.lib.web.cache.navigation_cache import get_cached_graph
-    from shared.lib.web.cache.navigation_graph import get_entry_points, get_node_info, get_edge_action
+    from shared.lib.utils.navigation_cache import get_cached_graph
+    from shared.lib.utils.navigation_graph import get_entry_points, get_node_info, get_edge_action
     
     G = get_cached_graph(tree_id, team_id)
     if not G:
@@ -422,8 +422,8 @@ def get_reachable_nodes(tree_id: str, team_id: str, from_node_id: str = None) ->
     Returns:
         List of reachable node IDs
     """
-    from shared.lib.web.cache.navigation_cache import get_cached_graph
-    from shared.lib.web.cache.navigation_graph import get_entry_points
+    from shared.lib.utils.navigation_cache import get_cached_graph
+    from shared.lib.utils.navigation_graph import get_entry_points
     
     G = get_cached_graph(tree_id, team_id)
     if not G:
@@ -458,7 +458,7 @@ def find_optimal_edge_validation_sequence(tree_id: str, team_id: str) -> List[Di
     """
     print(f"[@navigation:pathfinding:find_optimal_edge_validation_sequence] Finding optimal validation sequence for tree {tree_id}")
     
-    from shared.lib.web.cache.navigation_cache import get_cached_graph
+    from shared.lib.utils.navigation_cache import get_cached_graph
     
     G = get_cached_graph(tree_id, team_id)
     if not G:
@@ -493,7 +493,7 @@ def _create_reachability_based_validation_sequence(G, edges_to_validate: List[Tu
     Returns:
         List of validation steps ordered by depth-first traversal
     """
-    from shared.lib.web.cache.navigation_graph import get_entry_points, get_node_info
+    from shared.lib.utils.navigation_graph import get_entry_points, get_node_info
     
     print(f"[@navigation:pathfinding:_create_reachability_based_validation_sequence] Creating depth-first validation sequence")
     
@@ -607,7 +607,7 @@ def _create_validation_step(G, from_node: str, to_node: str, edge_data: Dict, st
     Returns:
         Validation step dictionary
     """
-    from shared.lib.web.cache.navigation_graph import get_node_info
+    from shared.lib.utils.navigation_graph import get_node_info
     
     from_info = get_node_info(G, from_node) or {}
     to_info = get_node_info(G, to_node) or {}

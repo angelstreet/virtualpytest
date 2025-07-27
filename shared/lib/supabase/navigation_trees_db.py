@@ -334,7 +334,7 @@ def save_navigation_tree(userinterface_id: str, team_id: str, tree_data: Dict,
         
         # Force refresh navigation cache after successful save (invalidate + rebuild)
         try:
-            from shared.lib.web.cache.navigation_cache import force_refresh_cache
+            from shared.lib.utils.navigation_cache import force_refresh_cache
             # Use the tree ID as the cache key
             tree_cache_id = tree_record["id"]
             refresh_success = force_refresh_cache(tree_cache_id, team_id)
@@ -567,7 +567,7 @@ def _populate_navigation_cache(tree: Dict, team_id: str):
     """
     try:
         # Clear existing cache to ensure we start fresh with resolved objects
-        from shared.lib.web.cache.navigation_cache import invalidate_cache
+        from shared.lib.utils.navigation_cache import invalidate_cache
         tree_id = tree['id']
         tree_name = tree['name']
         userinterface_id = tree.get('userinterface_id')
@@ -591,7 +591,7 @@ def _populate_navigation_cache(tree: Dict, team_id: str):
         print(f'[@db:navigation_trees:_populate_navigation_cache] Cleared existing cache for tree: {tree_id}')
         
         # Import cache function (lazy import to avoid circular dependencies)
-        from shared.lib.web.cache.navigation_cache import populate_cache
+        from shared.lib.utils.navigation_cache import populate_cache
         
         tree_metadata = tree.get('metadata', {})
         raw_nodes = tree_metadata.get('nodes', [])
@@ -741,7 +741,7 @@ def _populate_navigation_cache(tree: Dict, team_id: str):
         
         if graph:
             # Cache the same graph under additional keys without rebuilding
-            from shared.lib.web.cache.navigation_cache import _cache_graph_under_key
+            from shared.lib.utils.navigation_cache import _cache_graph_under_key
             
             # Cache under tree name
             _cache_graph_under_key(tree_name, team_id, graph, resolved_nodes, resolved_edges)
