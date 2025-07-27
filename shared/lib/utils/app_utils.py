@@ -21,7 +21,7 @@ import requests
 # =====================================================
 
 def load_environment_variables(mode='server', calling_script_dir=None):
-    """Load environment variables from .env file"""
+    """Load environment variables from .env file or use system environment variables"""
     env_file = '.env'
     
     # If calling_script_dir is provided, use it; otherwise use current working directory
@@ -34,9 +34,13 @@ def load_environment_variables(mode='server', calling_script_dir=None):
         load_dotenv(env_path)
         print(f"✅ Loaded environment from: {env_path}")
     else:
-        print(f"❌ Environment file not found: {env_path}")
-        print(f"❌ Please create {env_file} in {os.path.dirname(env_path)}")
-        print(f"❌ Use the .env.example as a template")
+        # Check if we're in a production environment (like Render) where env vars are set directly
+        if os.getenv('RENDER') or os.getenv('SERVER_PORT') or os.getenv('PRODUCTION'):
+            print(f"🚀 Production environment detected - using system environment variables")
+        else:
+            print(f"❌ Environment file not found: {env_path}")
+            print(f"❌ Please create {env_file} in {os.path.dirname(env_path)}")
+            print(f"❌ Use the .env.example as a template")
     
     return env_path
 

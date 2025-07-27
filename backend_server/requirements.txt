@@ -50,4 +50,13 @@ prometheus-client>=0.16.0
 Werkzeug>=2.3.0
 
 # Date and time handling
-python-dateutil>=2.8.0 
+python-dateutil>=2.8.0
+
+# Appium and Selenium for mobile automation
+Appium-Python-Client>=3.0.0
+selenium>=4.15.0
+
+# Additional shared dependencies that might be needed
+typing-extensions>=4.0.0
+supabase>=2.0.0
+browser-use>=0.1.0 

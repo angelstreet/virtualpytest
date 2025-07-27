@@ -16,6 +16,8 @@ services:
         value: 5109
       - key: DEBUG
         value: false
+      - key: RENDER
+        value: true
       # Add other environment variables as needed in Render dashboard
       # - key: GITHUB_TOKEN
       #   sync: false  # Set this in Render dashboard for security
