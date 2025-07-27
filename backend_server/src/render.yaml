@@ -3,8 +3,6 @@ services:
     name: virtualpytest-backend-server
     env: python
     buildCommand: |
-      # Install shared library dependency from relative path
-      cd ../../shared && pip install -e . && cd ../backend_server &&
       # Install backend_server dependencies
       pip install -r requirements.txt
     startCommand: python app.py
@@ -13,7 +11,7 @@ services:
     branch: dev
     envVars:
       - key: PYTHONPATH
-        value: /opt/render/project/src
+        value: /opt/render/project/src:/opt/render/project
       - key: SERVER_PORT
         value: 5109
       - key: DEBUG
