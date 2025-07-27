@@ -3,9 +3,12 @@ from typing import Dict, Tuple
 from pymongo import MongoClient
 from .interpreter_utils import Interpreter
 from models.navigation_tree import NavigationTree
-from controllers.remote_controller import RemoteController, DummyRemoteController
-from controllers.av_controller import AudioVideoController, DummyAudioVideoController
-from controllers.verification_controller import VerificationController, DummyVerificationController
+# Fixed imports - using correct controller interfaces from backend-core
+from controllers.base_controller import (
+    RemoteControllerInterface, 
+    AVControllerInterface, 
+    VerificationControllerInterface
+)
 from .report_utils import Reporter
 from .logger_utils import Logger
 from .prioritizer_utils import TestPrioritizer
@@ -23,12 +26,12 @@ class Orchestrator:
         with open(campaign_path, 'r') as f:
             return json.load(f)
 
-    def instantiate_controllers(self, remote_type: str, av_type: str) -> Tuple[RemoteController, VerificationController]:
+    def instantiate_controllers(self, remote_type: str, av_type: str) -> Tuple[RemoteControllerInterface, VerificationControllerInterface]:
         """Instantiate controllers based on campaign metadata."""
-        # Placeholder: Only Dummy controllers for now
-        remote_controller = DummyRemoteController()
-        av_controller = DummyAudioVideoController()
-        verification_controller = DummyVerificationController(av_controller)
+        # Placeholder: Create basic interface instances for now
+        remote_controller = RemoteControllerInterface("remote", "placeholder")
+        av_controller = AVControllerInterface("av", "placeholder")
+        verification_controller = VerificationControllerInterface("verification", "placeholder")
         return remote_controller, verification_controller
 
     def run_campaign(self, campaign: Dict) -> None:
