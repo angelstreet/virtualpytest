@@ -1,6 +1,27 @@
 import os
-from supabase import create_client, Client
+import sys
 from typing import Optional
+
+# Import the real supabase package by temporarily manipulating sys.path
+def _import_real_supabase():
+    """Import the real supabase package, avoiding our local supabase directory."""
+    # Temporarily remove paths that might contain our local supabase directory
+    original_path = sys.path.copy()
+    try:
+        # Remove any paths that might contain our local supabase directory
+        filtered_path = [p for p in sys.path if not p.endswith('/virtualpytest') and 'shared/lib' not in p]
+        sys.path[:] = filtered_path
+        
+        # Import the real supabase package
+        import supabase
+        create_client = supabase.create_client
+        Client = supabase.Client
+        return create_client, Client
+    finally:
+        # Restore original path
+        sys.path[:] = original_path
+
+create_client, Client = _import_real_supabase()
 
 # Global variable to hold the lazily-loaded client
 _supabase_client: Optional[Client] = None
