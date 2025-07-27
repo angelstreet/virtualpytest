@@ -83,7 +83,8 @@ def register_host_routes(app):
         host_verification_text_routes,
         host_verification_audio_routes,
         host_verification_adb_routes,
-        host_verification_image_routes
+        host_verification_image_routes,
+        host_verification_video_routes
     )
     
     # Register all host blueprints
@@ -104,7 +105,8 @@ def register_host_routes(app):
         (host_verification_text_routes.host_verification_text_bp, 'Text verification'),
         (host_verification_audio_routes.host_verification_audio_bp, 'Audio verification'),
         (host_verification_adb_routes.host_verification_adb_bp, 'ADB verification'),
-        (host_verification_image_routes.host_verification_image_bp, 'Image verification')
+        (host_verification_image_routes.host_verification_image_bp, 'Image verification'),
+        (host_verification_video_routes.host_verification_video_bp, 'Video verification')
     ]
     
     for blueprint, description in blueprints:
