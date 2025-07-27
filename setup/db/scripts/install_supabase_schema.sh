@@ -16,9 +16,33 @@ SCHEMA_DIR="$PROJECT_ROOT/setup/db/schema"
 # Change to project root
 cd "$PROJECT_ROOT"
 
+# Load environment variables from .env file in setup directory
+ENV_FILE="$PROJECT_ROOT/setup/.env"
+if [ -f "$ENV_FILE" ]; then
+    echo "📄 Loading environment variables from .env file..."
+    # Export variables from .env file
+    export $(grep -v '^#' "$ENV_FILE" | grep -v '^$' | xargs)
+    echo "✅ Environment variables loaded"
+else
+    echo "⚠️ .env file not found at: $ENV_FILE"
+    echo "💡 Creating example .env file..."
+    cat > "$ENV_FILE" << 'EOF'
+# Supabase Configuration
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key-here
+
+# You can find these values in your Supabase project settings:
+# 1. Go to https://app.supabase.com/project/YOUR_PROJECT/settings/api
+# 2. Copy the URL and service_role key
+EOF
+    echo "📝 Created example .env file in setup/ directory"
+    echo "   Please edit $ENV_FILE with your Supabase credentials"
+    exit 1
+fi
+
 # Check if required environment variables are set
 if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
-    echo "❌ Required environment variables not set:"
+    echo "❌ Required environment variables not set in .env file:"
     echo "   SUPABASE_URL - Your Supabase project URL"
     echo "   SUPABASE_SERVICE_ROLE_KEY - Your Supabase service role key"
     echo ""
@@ -26,9 +50,9 @@ if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
     echo "   1. Go to https://app.supabase.com/project/YOUR_PROJECT/settings/api"
     echo "   2. Copy the URL and service_role key"
     echo ""
-    echo "💡 Set them as environment variables:"
-    echo "   export SUPABASE_URL='https://your-project.supabase.co'"
-    echo "   export SUPABASE_SERVICE_ROLE_KEY='your-service-role-key'"
+    echo "💡 Update your .env file with:"
+    echo "   SUPABASE_URL='https://your-project.supabase.co'"
+    echo "   SUPABASE_SERVICE_ROLE_KEY='your-service-role-key'"
     exit 1
 fi
 
