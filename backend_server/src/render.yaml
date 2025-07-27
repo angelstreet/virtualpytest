@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: virtualpytest-backend-server
+    env: python
+    buildCommand: |
+      # Install shared library dependency from relative path
+      cd ../../shared && pip install -e . && cd ../backend_server &&
+      # Install backend_server dependencies
+      pip install -r requirements.txt
+    startCommand: python app.py
+    plan: free
+    region: oregon
+    branch: dev
+    envVars:
+      - key: PYTHONPATH
+        value: /opt/render/project/src
+      - key: SERVER_PORT
+        value: 5109
+      - key: DEBUG
+        value: false
+      # Add other environment variables as needed in Render dashboard
+      # - key: GITHUB_TOKEN
+      #   sync: false  # Set this in Render dashboard for security
+      # - key: SERVER_URL
+      #   value: https://your-app-name.onrender.com 
