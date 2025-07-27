@@ -1,6 +1,6 @@
 # VirtualPyTest Database Setup
 
-Complete database schema and setup scripts for VirtualPyTest Supabase database.
+Complete database schema for VirtualPyTest Supabase database.
 
 ## 📁 Structure
 
@@ -8,99 +8,89 @@ Complete database schema and setup scripts for VirtualPyTest Supabase database.
 setup/db/
 ├── schema/                    # SQL schema files
 │   ├── 001_core_tables.sql           # Core tables (devices, controllers, campaigns)
-│   ├── 002_ui_navigation_tables.sql  # UI and navigation trees
+│   ├── 002_ui_navigation_tables.sql  # UI and navigation trees  
 │   ├── 003_test_execution_tables.sql # Test cases and results
 │   ├── 004_actions_verifications.sql # Actions and verifications
 │   └── 005_monitoring_analytics.sql  # Alerts and metrics
-├── scripts/                   # Setup scripts
-│   └── install_supabase_schema.sh    # Complete schema installation
 └── README.md                  # This file
 ```
 
 ## 🚀 Quick Setup
 
-### 1. Prerequisites
+### 1. Go to Supabase SQL Editor
 
-- Supabase project created
-- PostgreSQL client (`psql`) installed
+1. Open your [Supabase Dashboard](https://app.supabase.com)
+2. Select your project → **SQL Editor**
+3. Click **New Query**
 
-### 2. Get Supabase Credentials
+### 2. Execute Schema Files in Order
 
-1. Go to [Supabase Dashboard](https://app.supabase.com)
-2. Select your project → Settings → API
-3. Copy your Project URL and service_role key
+Copy and paste the contents of each SQL file **in order** and execute them:
 
-### 3. Install Database Schema
+#### Step 1: Core Tables
+Copy and paste the entire contents of `001_core_tables.sql` and run it.
 
-```bash
-# Set environment variables
-export SUPABASE_URL='https://your-project.supabase.co'
-export SUPABASE_SERVICE_ROLE_KEY='your-service-role-key'
+#### Step 2: UI & Navigation Tables  
+Copy and paste the entire contents of `002_ui_navigation_tables.sql` and run it.
 
-# Run installation script
-./setup/db/scripts/install_supabase_schema.sh
-```
+#### Step 3: Test Execution Tables
+Copy and paste the entire contents of `003_test_execution_tables.sql` and run it.
 
-## 📊 Database Tables
+#### Step 4: Actions & Verifications
+Copy and paste the entire contents of `004_actions_verifications.sql` and run it.
 
-The schema creates **20+ tables** organized in 5 categories:
-
-### Core Tables
-- `device_models` - Device model definitions
-- `device` - Physical device instances  
-- `controllers` - Device controller configs
-- `environment_profiles` - Test environments
-- `campaigns` - Test campaigns
-
-### UI & Navigation
-- `userinterfaces` - UI definitions
-- `navigation_trees` - Navigation structures
-- `navigation_trees_history` - Version history
-
-### Test Execution
-- `test_cases` - Test definitions
-- `test_executions` - Execution tracking
-- `test_results` - Test outcomes
-- `execution_results` - Detailed results
-- `script_results` - Script execution logs
-
-### Actions & Verifications
-- `actions` - Test actions/commands
-- `verifications` - Verification rules
-- `verifications_references` - Reference data
-
-### Monitoring & Analytics
-- `alerts` - System alerts
-- `heatmaps` - Performance data
-- `node_metrics` - Navigation metrics
-- `edge_metrics` - Transition metrics
-
-## 🔧 Manual Installation
-
-If you prefer to run schema files individually:
-
-```bash
-# Connect to your Supabase database
-psql "postgresql://postgres:YOUR_SERVICE_ROLE_KEY@db.YOUR_PROJECT.supabase.co:5432/postgres"
-
-# Run schema files in order
-\i setup/db/schema/001_core_tables.sql
-\i setup/db/schema/002_ui_navigation_tables.sql
-\i setup/db/schema/003_test_execution_tables.sql
-\i setup/db/schema/004_actions_verifications.sql
-\i setup/db/schema/005_monitoring_analytics.sql
-```
-
-## 🛠️ Environment Configuration
-
-After database setup, update your `.env` files:
-
-```bash
-# In shared/.env, backend-server/src/.env, backend-host/src/.env
-NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
-```
+#### Step 5: Monitoring & Analytics
+Copy and paste the entire contents of `005_monitoring_analytics.sql` and run it.
 
 ## ✅ Verification
 
-Check your Supabase dashboard to verify all tables were created successfully. 
+After running all 5 schema files, verify your setup:
+
+1. Go to **Database** → **Tables** in your Supabase dashboard
+2. You should see **20+ tables** created
+3. All tables should have the correct relationships and indexes
+
+### Expected Tables:
+
+**Core Tables:**
+- `device_models`, `device`, `controllers`, `environment_profiles`, `campaigns`
+
+**UI & Navigation:**
+- `userinterfaces`, `navigation_trees`, `navigation_trees_history`
+
+**Test Execution:**
+- `test_cases`, `test_executions`, `test_results`, `execution_results`, `script_results`
+
+**Actions & Verifications:**
+- `actions`, `verifications`, `verifications_references`
+
+**Monitoring & Analytics:**
+- `alerts`, `heatmaps`, `node_metrics`, `edge_metrics`
+
+## 🛠️ Application Configuration
+
+After database setup, update your application `.env` files with your Supabase credentials:
+
+```bash
+# Frontend: frontend/.env
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key
+
+# Backend: backend-server/.env, backend-host/.env  
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+```
+
+## 📊 Schema Overview
+
+The VirtualPyTest database schema supports:
+
+- **Device Management**: Physical devices and their models
+- **Test Automation**: Controllers and execution engines  
+- **UI Testing**: Navigation trees and interface definitions
+- **Test Execution**: Test cases, results, and campaign management
+- **Monitoring**: Performance metrics, alerts, and analytics
+- **Verification**: Reference data for automated testing
+
+All tables include proper indexes, foreign key relationships, and are designed for high performance and scalability. 

@@ -16,7 +16,7 @@ import requests
 import time
 
 # Import from specific database modules (direct imports)
-from supabase.navigation_trees_db import (
+from database.navigation_trees_db import (
     get_all_trees as get_all_navigation_trees_util,
     get_tree as get_navigation_tree,
     save_tree as create_navigation_tree_util,
@@ -25,7 +25,7 @@ from supabase.navigation_trees_db import (
     check_navigation_tree_name_exists,
     get_root_tree_for_interface,
 )
-from supabase.userinterface_db import (
+from database.userinterface_db import (
     get_all_userinterfaces, 
     get_userinterface
 )

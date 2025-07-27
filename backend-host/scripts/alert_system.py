@@ -62,7 +62,7 @@ def _lazy_import_db():
     global create_alert_safe, create_alert, resolve_alert, get_active_alerts
     if create_alert_safe is None:
         try:
-            from supabase.alerts_db import create_alert_safe as _create_alert_safe, create_alert as _create_alert, resolve_alert as _resolve_alert, get_active_alerts as _get_active_alerts
+            from database.alerts_db import create_alert_safe as _create_alert_safe, create_alert as _create_alert, resolve_alert as _resolve_alert, get_active_alerts as _get_active_alerts
             create_alert_safe = _create_alert_safe
             create_alert = _create_alert
             resolve_alert = _resolve_alert
