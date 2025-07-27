@@ -54,14 +54,14 @@ except ImportError as e:
 
 # Local route imports  
 try:
-    from utils.host_utils import (
+    from shared.lib.utils.host_utils import (
         register_host_with_server,
         start_ping_thread,
         cleanup_on_exit
     )
 except ImportError as e:
-    print(f"❌ Failed to import local modules: {e}")
-    print("❌ Please ensure utils modules exist")
+    print(f"❌ Failed to import host utilities: {e}")
+    print("❌ Please ensure shared library is properly installed")
     sys.exit(1)
 
 def register_host_routes(app):
