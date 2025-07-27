@@ -59,4 +59,9 @@ selenium>=4.15.0
 # Additional shared dependencies that might be needed
 typing-extensions>=4.0.0
 supabase>=2.0.0
-browser-use>=0.1.0 
+browser-use>=0.1.0
+
+# Desktop automation and computer vision
+pyautogui>=0.9.54
+opencv-python>=4.8.0
+pillow>=10.0.0 
