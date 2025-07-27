@@ -4,82 +4,86 @@
 -- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
+-- Teams table (referenced by most other tables)
+CREATE TABLE teams (
+    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+    name text NOT NULL,
+    description text,
+    tenant_id uuid NOT NULL,
+    created_by uuid,
+    is_default boolean DEFAULT false,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
+    updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Core device and controller tables
 CREATE TABLE device_models (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    name VARCHAR(255) NOT NULL,
-    manufacturer VARCHAR(255),
-    model_type VARCHAR(100) NOT NULL, -- phone, tablet, tv, desktop, etc.
-    os_type VARCHAR(100), -- android, ios, linux, windows, etc.
-    min_version VARCHAR(50),
-    max_version VARCHAR(50),
-    capabilities JSONB DEFAULT '{}', -- device capabilities
-    team_id UUID NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    UNIQUE(name, team_id)
+    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+    team_id uuid NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+    name character varying NOT NULL CHECK (length(TRIM(BOTH FROM name)) > 0),
+    types jsonb DEFAULT '[]'::jsonb NOT NULL CHECK (jsonb_typeof(types) = 'array'::text),
+    controllers jsonb DEFAULT '{"av": "", "power": "", "remote": "", "network": ""}'::jsonb NOT NULL CHECK (jsonb_typeof(controllers) = 'object'::text),
+    version character varying,
+    description text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
 );
 
 CREATE TABLE device (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    name VARCHAR(255) NOT NULL,
-    device_model_id UUID REFERENCES device_models(id) ON DELETE CASCADE,
-    ip_address INET,
-    port INTEGER,
-    status VARCHAR(50) DEFAULT 'offline', -- online, offline, busy, error
-    connection_config JSONB DEFAULT '{}', -- ADB, SSH, etc. config
-    capabilities JSONB DEFAULT '{}',
-    team_id UUID NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+    team_id uuid NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+    name text NOT NULL,
+    description text,
+    model text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    controller_configs jsonb COMMENT ON COLUMN device.controller_configs IS 'controller config'
 );
 
 CREATE TABLE controllers (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    name VARCHAR(255) NOT NULL,
-    controller_type VARCHAR(100) NOT NULL, -- adb, appium, playwright, etc.
-    device_model_id UUID REFERENCES device_models(id) ON DELETE CASCADE,
-    config JSONB DEFAULT '{}', -- controller-specific configuration
-    is_active BOOLEAN DEFAULT true,
-    team_id UUID NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+    name character varying NOT NULL,
+    controller_type character varying NOT NULL,
+    device_model_id uuid,
+    config jsonb DEFAULT '{}'::jsonb,
+    is_active boolean DEFAULT true,
+    team_id uuid NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
 );
 
 -- Environment and campaign tables
 CREATE TABLE environment_profiles (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    name VARCHAR(255) NOT NULL,
-    description TEXT,
-    config JSONB DEFAULT '{}', -- environment variables, settings
-    team_id UUID NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    UNIQUE(name, team_id)
+    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+    name character varying NOT NULL,
+    description text,
+    config jsonb DEFAULT '{}'::jsonb,
+    team_id uuid NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
 );
 
 CREATE TABLE campaigns (
-    campaign_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    name VARCHAR(255) NOT NULL,
-    description TEXT,
-    device_ids UUID[] DEFAULT '{}', -- array of device IDs
-    environment_profile_id UUID REFERENCES environment_profiles(id) ON DELETE SET NULL,
-    status VARCHAR(50) DEFAULT 'draft', -- draft, active, paused, completed
-    config JSONB DEFAULT '{}',
-    team_id UUID NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+    campaign_id character varying NOT NULL UNIQUE,
+    name character varying NOT NULL,
+    description text,
+    test_case_ids jsonb DEFAULT '[]'::jsonb NOT NULL,
+    navigation_tree_id uuid,
+    prioritization_enabled boolean DEFAULT false,
+    team_id uuid NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+    creator_id uuid,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
 );
 
 -- Add indexes for performance
 CREATE INDEX idx_device_models_team_id ON device_models(team_id);
 CREATE INDEX idx_device_team_id ON device(team_id);
-CREATE INDEX idx_device_status ON device(status);
 CREATE INDEX idx_controllers_team_id ON controllers(team_id);
 CREATE INDEX idx_controllers_device_model ON controllers(device_model_id);
 CREATE INDEX idx_environment_profiles_team_id ON environment_profiles(team_id);
 CREATE INDEX idx_campaigns_team_id ON campaigns(team_id);
-CREATE INDEX idx_campaigns_status ON campaigns(status);
 
 -- Add comments
 COMMENT ON TABLE device_models IS 'Device model definitions and capabilities';
