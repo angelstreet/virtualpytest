@@ -290,7 +290,7 @@ def get_stream_url():
         
         # Use URL building utilities
         from utils.build_url_utils import buildStreamUrlForDevice
-        from controllers.controller_manager import get_host
+        from utils.host_utils import get_host_instance as get_host
         
         host = get_host()
         stream_url = buildStreamUrlForDevice(host.to_dict(), device_id)
@@ -351,7 +351,7 @@ def take_screenshot():
         
         # Use URL building utilities
         from utils.build_url_utils import buildCaptureUrlFromPath, buildClientImageUrl
-        from controllers.controller_manager import get_host
+        from utils.host_utils import get_host_instance as get_host
         
         try:
             host = get_host()
@@ -784,7 +784,7 @@ def list_captures():
         
         # Build URLs using the same mechanism as takeScreenshot
         from utils.build_url_utils import buildCaptureUrlFromPath, buildClientImageUrl
-        from controllers.controller_manager import get_host
+        from utils.host_utils import get_host_instance as get_host
         
         try:
             host = get_host()

@@ -48,11 +48,6 @@ try:
         DEFAULT_TEAM_ID,
         DEFAULT_USER_ID
     )
-    from utils.host_utils import (
-        setup_host_cleanup,
-        cleanup_host_ports,
-        start_background_services
-    )
     # Import backend-core controllers and services
     from controllers import *
     from services import *
@@ -76,7 +71,7 @@ except ImportError as e:
 
 def register_host_routes(app):
     """Register all host routes - Hardware interface endpoints"""
-    from .routes import (
+    from routes import (
         host_rec_routes,
         host_control_routes, 
         host_web_routes,
