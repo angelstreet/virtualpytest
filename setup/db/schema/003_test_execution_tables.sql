@@ -55,36 +55,46 @@ CREATE TABLE test_results (
     created_at timestamp with time zone DEFAULT now()
 );
 
--- Detailed execution results (legacy support)
+-- Detailed execution results (updated to match automai schema exactly)
 CREATE TABLE execution_results (
-    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-    execution_id character varying NOT NULL,
-    test_id uuid REFERENCES test_cases(test_id) ON DELETE CASCADE,
-    tree_id uuid REFERENCES navigation_trees(id) ON DELETE SET NULL,
-    status character varying NOT NULL,
-    result_data jsonb DEFAULT '{}'::jsonb,
-    execution_time integer, -- in seconds
-    error_details text,
+    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
     team_id uuid NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
-    created_at timestamp with time zone DEFAULT now()
+    tree_id uuid REFERENCES navigation_trees(id) ON DELETE SET NULL,
+    edge_id text,
+    node_id text,
+    execution_type text NOT NULL,
+    host_name text NOT NULL,
+    device_model text,
+    success boolean NOT NULL,
+    execution_time_ms integer,
+    message text,
+    error_details jsonb,
+    executed_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
+    created_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
+    script_result_id uuid,
+    script_context text DEFAULT 'direct'::text
 );
 
--- Script execution results
+-- Script execution results (updated to match automai schema exactly)
 CREATE TABLE script_results (
     id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-    script_name character varying NOT NULL,
-    script_type character varying NOT NULL,
-    status character varying NOT NULL,
-    result_data jsonb DEFAULT '{}'::jsonb,
-    output text,
-    error_output text,
-    exit_code integer,
-    execution_time integer, -- in seconds
-    discard boolean DEFAULT false,
     team_id uuid NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
-    executed_by uuid,
-    created_at timestamp with time zone DEFAULT now(),
-    updated_at timestamp with time zone DEFAULT now()
+    script_name text NOT NULL,
+    script_type text NOT NULL,
+    userinterface_name text,
+    host_name text NOT NULL,
+    device_name text NOT NULL,
+    success boolean NOT NULL,
+    execution_time_ms integer,
+    started_at timestamp with time zone NOT NULL,
+    completed_at timestamp with time zone NOT NULL,
+    html_report_r2_path text,
+    html_report_r2_url text,
+    discard boolean DEFAULT false,
+    error_msg text,
+    metadata jsonb,
+    created_at timestamp with time zone DEFAULT timezone('utc'::text, now()),
+    updated_at timestamp with time zone DEFAULT timezone('utc'::text, now())
 );
 
 -- Add indexes for performance
@@ -100,15 +110,17 @@ CREATE INDEX idx_test_results_team_id ON test_results(team_id);
 CREATE INDEX idx_test_results_execution_id ON test_results(execution_id);
 CREATE INDEX idx_test_results_status ON test_results(status);
 CREATE INDEX idx_execution_results_team_id ON execution_results(team_id);
-CREATE INDEX idx_execution_results_execution_id ON execution_results(execution_id);
+CREATE INDEX idx_execution_results_tree_id ON execution_results(tree_id);
+CREATE INDEX idx_execution_results_host_name ON execution_results(host_name);
+CREATE INDEX idx_execution_results_executed_at ON execution_results(executed_at);
 CREATE INDEX idx_script_results_team_id ON script_results(team_id);
 CREATE INDEX idx_script_results_script_name ON script_results(script_name);
-CREATE INDEX idx_script_results_status ON script_results(status);
+CREATE INDEX idx_script_results_host_name ON script_results(host_name);
 CREATE INDEX idx_script_results_discard ON script_results(discard);
 
 -- Add comments
 COMMENT ON TABLE test_cases IS 'Test case definitions and configurations';
 COMMENT ON TABLE test_executions IS 'Test execution tracking records';
 COMMENT ON TABLE test_results IS 'Test execution results and outcomes';
-COMMENT ON TABLE execution_results IS 'Legacy detailed execution results';
-COMMENT ON TABLE script_results IS 'Script execution results and logs'; 
+COMMENT ON TABLE execution_results IS 'Detailed execution results matching automai schema';
+COMMENT ON TABLE script_results IS 'Script execution results matching automai schema'; 
