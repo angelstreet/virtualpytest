@@ -84,12 +84,13 @@ const RunTests: React.FC = () => {
   // Only fetch host data when wizard is shown
   const { getAllHosts, getDevicesFromHost } = useHostManager();
 
-  // Get hosts and devices - always load hosts for stream functionality
-  const hosts = getAllHosts();
+  // Get hosts and devices - ensure hosts are available for stream
+  const allHosts = getAllHosts(); // Always get the current hosts
+  const hosts = showWizard ? allHosts : []; // Only show hosts in wizard when opened
   const availableDevices = showWizard && selectedHost ? getDevicesFromHost(selectedHost) : [];
 
-  // Get the selected host object for stream
-  const selectedHostObject = hosts.find((host) => host.host_name === selectedHost);
+  // Get the selected host object for stream (use allHosts to ensure stream works)
+  const selectedHostObject = allHosts.find((host) => host.host_name === selectedHost);
 
   // Use stream hook to get device stream
   const { streamUrl, isLoadingUrl, urlError } = useStream({
