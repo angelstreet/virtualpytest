@@ -42,32 +42,30 @@ def get_project_id_from_url(supabase_url: str) -> str:
     """Extract project ID from Supabase URL"""
     return supabase_url.split('//')[1].split('.')[0]
 
-def apply_migration(project_id: str, service_key: str, migration_name: str, sql_content: str) -> tuple[bool, str]:
-    """Apply a migration using Supabase Management API"""
+def execute_sql_direct(supabase_url: str, service_key: str, sql_content: str) -> tuple[bool, str]:
+    """Execute SQL directly using Supabase PostgREST endpoint with service role key"""
     
-    # Use Supabase Management API to apply migration
-    api_url = f"https://api.supabase.com/v1/projects/{project_id}/database/migrations"
+    # Use PostgREST SQL execution endpoint - this is the standard way
+    api_url = f"{supabase_url}/rest/v1/rpc/exec"
     
     headers = {
         'Authorization': f'Bearer {service_key}',
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'apikey': service_key
     }
     
-    migration_data = {
-        'name': migration_name,
-        'statements': [{'statement': sql_content}]
-    }
+    payload = {'sql': sql_content}
     
     try:
         response = requests.post(
             api_url,
             headers=headers,
-            json=migration_data,
+            json=payload,
             timeout=60
         )
         
-        if response.status_code in [200, 201]:
-            return True, "Migration applied successfully"
+        if response.status_code in [200, 201, 204]:
+            return True, "SQL executed successfully"
         else:
             error_detail = ""
             try:
@@ -77,7 +75,7 @@ def apply_migration(project_id: str, service_key: str, migration_name: str, sql_
                 error_detail = response.text
             
             return False, f"HTTP {response.status_code}: {error_detail}"
-            
+        
     except requests.exceptions.Timeout:
         return False, "Request timed out after 60 seconds"
     except Exception as e:
@@ -102,8 +100,8 @@ def test_connection(supabase_url: str, service_key: str) -> bool:
         print(f"  ❌ Connection error: {e}")
         return False
 
-def execute_schema_file(file_path: Path, project_id: str, service_key: str, description: str) -> bool:
-    """Execute a schema SQL file using Supabase Migration API"""
+def execute_schema_file(file_path: Path, supabase_url: str, service_key: str, description: str) -> bool:
+    """Execute a schema SQL file using direct SQL execution"""
     print(f"📄 Executing: {description}")
     print(f"   File: {file_path}")
     
@@ -114,20 +112,16 @@ def execute_schema_file(file_path: Path, project_id: str, service_key: str, desc
     try:
         sql_content = file_path.read_text()
         
-        # Generate migration name from file
-        migration_name = f"virtualpytest_{file_path.stem}_{int(time.time())}"
-        
-        print(f"   Applying migration: {migration_name}")
-        success, error_msg = apply_migration(project_id, service_key, migration_name, sql_content)
+        print(f"   Executing SQL statements...")
+        success, error_msg = execute_sql_direct(supabase_url, service_key, sql_content)
         
         if not success:
-            print(f"❌ FAILED to apply migration")
-            print(f"   Migration: {migration_name}")
+            print(f"❌ FAILED to execute SQL")
             print(f"   Error: {error_msg}")
             print(f"\n🛑 Aborting installation due to failure in {description}")
             return False
         else:
-            print(f"   ✅ Migration applied successfully")
+            print(f"   ✅ SQL executed successfully")
         
         print(f"✅ {description} completed successfully")
         return True
@@ -201,7 +195,7 @@ def main():
     
     for filename, description in schema_files:
         file_path = schema_dir / filename
-        if not execute_schema_file(file_path, project_id, service_key, description):
+        if not execute_schema_file(file_path, supabase_url, service_key, description):
             print(f"\n❌ Installation FAILED at: {description}")
             print("🛑 Database schema installation aborted")
             return 1
