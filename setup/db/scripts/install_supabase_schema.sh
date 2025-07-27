@@ -71,7 +71,7 @@ fi
 
 # Parse Supabase URL to get connection details
 SUPABASE_HOST=$(echo $SUPABASE_URL | sed 's|https://||' | sed 's|http://||')
-DB_URL="postgresql://postgres:$SUPABASE_SERVICE_ROLE_KEY@db.$SUPABASE_HOST:5432/postgres"
+DB_URL="postgresql://postgres:$SUPABASE_SERVICE_ROLE_KEY@db.$SUPABASE_HOST:5432/postgres?sslmode=require"
 
 echo "🔍 Testing database connection..."
 if ! psql "$DB_URL" -c "SELECT 1;" &> /dev/null; then
