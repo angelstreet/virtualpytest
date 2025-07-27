@@ -26,12 +26,14 @@ if [ ! -d "frontend/node_modules" ]; then
     exit 1
 fi
 
-# Check if process is already running
-if pgrep -f "npm.*run.*dev" > /dev/null || pgrep -f "node.*vite" > /dev/null; then
-    echo "⚠️  Frontend is already running!"
-    echo "🛑 To stop: ./setup/local/stop_all_local.sh"
-    exit 0
+# Kill any process using port 3000
+echo "🔍 Checking for processes using port 3000..."
+if lsof -ti:3000 > /dev/null 2>&1; then
+    echo "🛑 Killing processes on port 3000..."
+    lsof -ti:3000 | xargs kill -9 2>/dev/null || true
+    sleep 1
 fi
+echo "✅ Port 3000 is available"
 
 # Colors for output
 YELLOW='\033[1;33m'

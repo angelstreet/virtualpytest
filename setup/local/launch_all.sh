@@ -135,6 +135,32 @@ cleanup() {
 }
 trap cleanup SIGINT SIGTERM
 
+# Kill any processes using required ports
+echo "🔍 Checking and clearing required ports..."
+
+# Port 5109 (Backend-Server)
+if lsof -ti:5109 > /dev/null 2>&1; then
+    echo "🛑 Killing processes on port 5109..."
+    lsof -ti:5109 | xargs kill -9 2>/dev/null || true
+    sleep 1
+fi
+
+# Port 6409 (Backend-Host)
+if lsof -ti:6409 > /dev/null 2>&1; then
+    echo "🛑 Killing processes on port 6409..."
+    lsof -ti:6409 | xargs kill -9 2>/dev/null || true
+    sleep 1
+fi
+
+# Port 3000 (Frontend)
+if lsof -ti:3000 > /dev/null 2>&1; then
+    echo "🛑 Killing processes on port 3000..."
+    lsof -ti:3000 | xargs kill -9 2>/dev/null || true
+    sleep 1
+fi
+
+echo "✅ All required ports are available"
+
 echo "📺 Starting all processes with real-time unified logging..."
 echo "💡 Press Ctrl+C to stop all processes"
 echo "💡 Logs will appear with colored prefixes: [SERVER], [HOST], [FRONTEND]"

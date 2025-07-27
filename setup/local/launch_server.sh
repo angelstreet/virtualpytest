@@ -26,12 +26,14 @@ if [ ! -d "venv" ]; then
     exit 1
 fi
 
-# Check if process is already running
-if pgrep -f "python.*backend-server.*app.py" > /dev/null; then
-    echo "⚠️  Backend-server is already running!"
-    echo "🛑 To stop: ./setup/local/stop_all_local.sh"
-    exit 0
+# Kill any process using port 5109
+echo "🔍 Checking for processes using port 5109..."
+if lsof -ti:5109 > /dev/null 2>&1; then
+    echo "🛑 Killing processes on port 5109..."
+    lsof -ti:5109 | xargs kill -9 2>/dev/null || true
+    sleep 1
 fi
+echo "✅ Port 5109 is available"
 
 # Detect Python executable
 PYTHON_CMD=""
