@@ -3,9 +3,6 @@
 // Navigation utilities
 export * from './navigation';
 
-// Device utilities
-export * from './device';
-
 // User Interface utilities
 export * from './userinterface';
 
@@ -15,8 +12,11 @@ export * from './validation';
 // Infrastructure utilities
 export * from './infrastructure';
 
-// Capture utilities
-export * from './capture';
-
 // ZIndex utilities
 export * from './zIndexUtils';
+
+// Frontend utilities
+export * from './frontendUtils';
+
+// Build URL utilities
+export * from './buildUrlUtils';

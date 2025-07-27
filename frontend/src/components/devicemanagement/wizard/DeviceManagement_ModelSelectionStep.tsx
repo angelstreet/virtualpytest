@@ -14,6 +14,7 @@ import React, { useState, useEffect } from 'react';
 
 import { useHostManager } from '../../../hooks/useHostManager';
 import { DeviceFormData } from '../../../types/controller/Controller_Types';
+import { Model as DeviceModel } from '../../../types/pages/Models_Types';
 
 interface ModelSelectionStepProps {
   formData: DeviceFormData;

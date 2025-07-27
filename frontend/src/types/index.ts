@@ -82,3 +82,6 @@ export type {
 } from './controller/Panel_Types';
 
 export * from './features/Validation_Types';
+
+// Device Model types  
+export type { Model as DeviceModel } from './pages/Models_Types';
