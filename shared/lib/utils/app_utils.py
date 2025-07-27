@@ -144,7 +144,7 @@ def validate_core_environment(mode='server'):
 def lazy_load_controllers():
     """Lazy load controllers when first needed"""
     try:
-        from src.controllers import ControllerFactory, CONTROLLER_REGISTRY
+        from shared.lib.controllers import ControllerFactory, CONTROLLER_REGISTRY
         from controllers.base_controller import (
             RemoteControllerInterface, 
             AVControllerInterface, 
@@ -198,7 +198,7 @@ def check_supabase():
     """Helper function to check if Supabase is available"""
     try:
         from flask import jsonify
-        from lib.utils.supabase_utils import get_supabase_client
+        from shared.lib.utils.supabase_utils import get_supabase_client
         supabase_client = get_supabase_client()
         if supabase_client is None:
             return jsonify({'error': 'Supabase not available'}), 503

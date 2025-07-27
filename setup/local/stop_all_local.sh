@@ -11,41 +11,41 @@ echo "🛑 Stopping VirtualPyTest - All Background Processes"
 STOPPED_SERVICES=""
 FAILED_STOPS=""
 
-echo "🔍 Stopping backend-server..."
+echo "🔍 Stopping backend_server..."
 if [ -f "/tmp/backend_server.pid" ]; then
     PID=$(cat /tmp/backend_server.pid)
     if ps -p $PID > /dev/null 2>&1; then
-        kill $PID 2>/dev/null && echo "✅ Backend-server stopped (PID: $PID)" || echo "⚠️  Failed to stop backend-server (PID: $PID)"
-        STOPPED_SERVICES="$STOPPED_SERVICES backend-server"
+        kill $PID 2>/dev/null && echo "✅ backend_server stopped (PID: $PID)" || echo "⚠️  Failed to stop backend_server (PID: $PID)"
+        STOPPED_SERVICES="$STOPPED_SERVICES backend_server"
     else
-        echo "ℹ️  Backend-server not running (stale PID file)"
+        echo "ℹ️  backend_server not running (stale PID file)"
     fi
     rm -f /tmp/backend_server.pid
 else
     # Fallback: kill by process name
-    if pgrep -f "python.*backend-server.*app.py" > /dev/null; then
-        pkill -f "python.*backend-server.*app.py" && echo "✅ Backend-server stopped (by process name)" || echo "⚠️  Failed to stop backend-server"
+    if pgrep -f "python.*backend_server.*app.py" > /dev/null; then
+        pkill -f "python.*backend_server.*app.py" && echo "✅ backend_server stopped (by process name)" || echo "⚠️  Failed to stop backend_server"
     else
-        echo "ℹ️  Backend-server not running"
+        echo "ℹ️  backend_server not running"
     fi
 fi
 
-echo "🔍 Stopping backend-host..."
+echo "🔍 Stopping backend_host..."
 if [ -f "/tmp/backend_host.pid" ]; then
     PID=$(cat /tmp/backend_host.pid)
     if ps -p $PID > /dev/null 2>&1; then
-        kill $PID 2>/dev/null && echo "✅ Backend-host stopped (PID: $PID)" || echo "⚠️  Failed to stop backend-host (PID: $PID)"
-        STOPPED_SERVICES="$STOPPED_SERVICES backend-host"
+        kill $PID 2>/dev/null && echo "✅ backend_host stopped (PID: $PID)" || echo "⚠️  Failed to stop backend_host (PID: $PID)"
+        STOPPED_SERVICES="$STOPPED_SERVICES backend_host"
     else
-        echo "ℹ️  Backend-host not running (stale PID file)"
+        echo "ℹ️  backend_host not running (stale PID file)"
     fi
     rm -f /tmp/backend_host.pid
 else
     # Fallback: kill by process name
-    if pgrep -f "python.*backend-host.*app.py" > /dev/null; then
-        pkill -f "python.*backend-host.*app.py" && echo "✅ Backend-host stopped (by process name)" || echo "⚠️  Failed to stop backend-host"
+    if pgrep -f "python.*backend_host.*app.py" > /dev/null; then
+        pkill -f "python.*backend_host.*app.py" && echo "✅ backend_host stopped (by process name)" || echo "⚠️  Failed to stop backend_host"
     else
-        echo "ℹ️  Backend-host not running"
+        echo "ℹ️  backend_host not running"
     fi
 fi
 
@@ -85,20 +85,20 @@ echo ""
 echo "📊 Final Process Status:"
 ALL_STOPPED=true
 
-# Check backend-server
-if pgrep -f "python.*backend-server.*app.py" > /dev/null; then
-    echo "❌ Backend-server: still running"
+# Check backend_server
+if pgrep -f "python.*backend_server.*app.py" > /dev/null; then
+    echo "❌ backend_server: still running"
     ALL_STOPPED=false
 else
-    echo "✅ Backend-server: stopped"
+    echo "✅ backend_server: stopped"
 fi
 
-# Check backend-host
-if pgrep -f "python.*backend-host.*app.py" > /dev/null; then
-    echo "❌ Backend-host: still running"
+# Check backend_host
+if pgrep -f "python.*backend_host.*app.py" > /dev/null; then
+    echo "❌ backend_host: still running"
     ALL_STOPPED=false
 else
-    echo "✅ Backend-host: stopped"
+    echo "✅ backend_host: stopped"
 fi
 
 # Check frontend

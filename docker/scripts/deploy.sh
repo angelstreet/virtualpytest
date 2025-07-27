@@ -74,8 +74,8 @@ if [[ "$ENVIRONMENT" == "production" ]] || [[ "$ENVIRONMENT" == "prod" ]]; then
     echo "🔍 Performing health checks..."
     
     # Check backend services first
-    check_health "backend-server"
-    check_health "backend-host"
+    check_health "backend_server"
+    check_health "backend_host"
     check_health "frontend"
     
     echo "✅ All services are healthy!"

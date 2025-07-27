@@ -1,16 +1,16 @@
 services:
-  # Production backend-host with resource limits
-  backend-host:
+  # Production backend_host with resource limits
+  backend_host:
     build:
       context: ../
-      dockerfile: backend-host/Dockerfile
+      dockerfile: backend_host/Dockerfile
     ports:
       - "6109:6109"
     environment:
       - HOST_PORT=6109
       - HOST_NAME=${HOST_NAME:-prod-host-1}
       - HOST_URL=${HOST_URL:-http://localhost:6109}
-      - SERVER_URL=${SERVER_URL:-http://backend-server:5109}
+      - SERVER_URL=${SERVER_URL:-http://backend_server:5109}
       - DEBUG=false
     deploy:
       resources:
@@ -28,11 +28,11 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  # Production backend-server with scaling
-  backend-server:
+  # Production backend_server with scaling
+  backend_server:
     build:
       context: ../
-      dockerfile: backend-server/Dockerfile
+      dockerfile: backend_server/Dockerfile
     ports:
       - "5109:5109"
     environment:
@@ -64,7 +64,7 @@ services:
     ports:
       - "80:80"
     environment:
-      - BACKEND_API_URL=${BACKEND_API_URL:-http://backend-server:5109}
+      - BACKEND_API_URL=${BACKEND_API_URL:-http://backend_server:5109}
     deploy:
       resources:
         limits:
@@ -74,7 +74,7 @@ services:
           cpus: '0.1'
           memory: 64M
     depends_on:
-      - backend-server
+      - backend_server
     restart: always
     logging:
       driver: "json-file"
@@ -92,7 +92,7 @@ services:
       - ./nginx/ssl:/etc/nginx/ssl:ro
     depends_on:
       - frontend
-      - backend-server
+      - backend_server
     restart: always
     profiles:
       - loadbalancer

@@ -9,9 +9,9 @@ VirtualPyTest is now organized as microservices for better scalability, maintain
 ```
 virtualpytest/
 ├── shared/              # Shared libraries and utilities
-├── backend-core/        # Core business logic and device controllers
-├── backend-server/      # API server and client interface
-├── backend-host/        # Hardware interface service
+├── backend_core/        # Core business logic and device controllers
+├── backend_server/      # API server and client interface
+├── backend_host/        # Hardware interface service
 ├── frontend/           # React TypeScript UI application
 └── docker/             # Container orchestration
 ```
@@ -69,8 +69,8 @@ cd virtualpytest
 ./setup/local/launch_all.sh
 
 # OR launch individual services:
-./setup/local/launch_server.sh    # Backend-Server only
-./setup/local/launch_host.sh      # Backend-Host only  
+./setup/local/launch_server.sh    # backend_server only
+./setup/local/launch_host.sh      # backend_host only  
 ./setup/local/launch_frontend.sh  # Frontend only
 
 # Stop all services
@@ -98,13 +98,13 @@ cd virtualpytest
 
 ## 📦 Services
 
-### 🔧 Backend-Host (Hardware Interface)
+### 🔧 backend_host (Hardware Interface)
 - **Port**: 6109
 - **Purpose**: Direct hardware control and device management
 - **Deployment**: Raspberry Pi, local hardware
 - **Features**: Device controllers, system monitoring, hardware abstraction
 
-### 🖥️ Backend-Server (API Server)
+### 🖥️ backend_server (API Server)
 - **Port**: 5109  
 - **Purpose**: Business logic and client API
 - **Deployment**: Render, cloud services
@@ -126,7 +126,7 @@ cd virtualpytest
 
 ### Option 1: Full Cloud + Local Hardware
 ```
-Vercel (Frontend) → Render (Backend-Server) → RPi (Backend-Host)
+Vercel (Frontend) → Render (backend_server) → RPi (backend_host)
 ```
 
 ### Option 2: Docker on Single Host
@@ -136,11 +136,11 @@ docker-compose -f docker/docker-compose.yml up
 
 ### Option 3: Development Setup
 ```bash
-# Terminal 1: Backend-Server
-cd backend-server && python src/app.py
+# Terminal 1: backend_server
+cd backend_server && python src/app.py
 
-# Terminal 2: Backend-Host  
-cd backend-host && python src/app.py
+# Terminal 2: backend_host  
+cd backend_host && python src/app.py
 
 # Terminal 3: Frontend
 cd frontend && npm run dev
@@ -150,7 +150,7 @@ cd frontend && npm run dev
 
 ### Environment Variables
 
-#### Backend-Server (src/.env)
+#### backend_server (src/.env)
 ```bash
 SERVER_URL=http://localhost:5109
 SERVER_PORT=5109
@@ -158,7 +158,7 @@ DEBUG=false
 CORS_ORIGINS=http://localhost:3000
 ```
 
-#### Backend-Host (src/.env)
+#### backend_host (src/.env)
 ```bash
 HOST_URL=http://localhost:6109
 HOST_PORT=6109
@@ -187,8 +187,8 @@ VITE_DEV_MODE=true
 # View logs
 docker compose -f docker/docker-compose.yml logs -f
 
-# Scale backend-server
-docker-compose up --scale backend-server=3
+# Scale backend_server
+docker-compose up --scale backend_server=3
 ```
 
 ## 🛠️ Development
@@ -201,13 +201,13 @@ virtualpytest/
 │   ├── config/         # Shared configuration
 │   ├── models/         # Data models
 │   └── utils/          # Common utilities
-├── backend-core/src/
+├── backend_core/src/
 │   ├── controllers/    # Device controllers
 │   └── services/       # Business services
-├── backend-server/src/
+├── backend_server/src/
 │   ├── routes/         # API endpoints
 │   └── middleware/     # Flask middleware
-├── backend-host/src/
+├── backend_host/src/
 │   ├── routes/         # Hardware interface endpoints
 │   └── services/       # Host services
 └── frontend/src/
@@ -219,16 +219,16 @@ virtualpytest/
 ### Adding New Features
 
 1. **Shared utilities**: Add to `shared/lib/`
-2. **Device controllers**: Add to `backend-core/src/controllers/`
-3. **API endpoints**: Add to `backend-server/src/routes/`
-4. **Hardware interfaces**: Add to `backend-host/src/routes/`
+2. **Device controllers**: Add to `backend_core/src/controllers/`
+3. **API endpoints**: Add to `backend_server/src/routes/`
+4. **Hardware interfaces**: Add to `backend_host/src/routes/`
 5. **UI components**: Add to `frontend/src/components/`
 
 ## 📊 Monitoring
 
 ### Health Checks
-- Backend-Server: `http://localhost:5109/api/health`
-- Backend-Host: `http://localhost:6109/host/health`
+- backend_server: `http://localhost:5109/api/health`
+- backend_host: `http://localhost:6109/host/health`
 - Frontend: `http://localhost:3000` (or port 80 in production)
 
 ### Logs
@@ -237,7 +237,7 @@ virtualpytest/
 docker compose logs -f
 
 # Specific service
-docker compose logs -f backend-server
+docker compose logs -f backend_server
 ```
 
 ## 🚀 Production Deployment
@@ -245,23 +245,23 @@ docker compose logs -f backend-server
 ### Vercel (Frontend)
 1. Connect repository to Vercel
 2. Set environment variables:
-   - `VITE_API_URL=https://your-backend-server.onrender.com`
+   - `VITE_API_URL=https://your-backend_server.onrender.com`
 3. Auto-deploy on git push
 
-### Render (Backend-Server)
+### Render (backend_server)
 1. Connect repository to Render
-2. Set build command: `cd backend-server && pip install -r requirements.txt`
-3. Set start command: `cd backend-server && python src/app.py`
+2. Set build command: `cd backend_server && pip install -r requirements.txt`
+3. Set start command: `cd backend_server && python src/app.py`
 4. Configure environment variables
 
-### Raspberry Pi (Backend-Host)
+### Raspberry Pi (backend_host)
 ```bash
 # Clone and setup
 git clone <repository-url>
 cd virtualpytest
 
 # Install and run
-cd backend-host
+cd backend_host
 pip install -r requirements.txt
 python src/app.py
 ```

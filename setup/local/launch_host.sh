@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# VirtualPyTest - Launch Backend-Host with Real-time Logs
-echo "🔧 Starting VirtualPyTest Backend-Host with Real-time Logs..."
+# VirtualPyTest - Launch backend_host with Real-time Logs
+echo "🔧 Starting VirtualPyTest backend_host with Real-time Logs..."
 
 set -e
 
@@ -15,7 +15,7 @@ cd "$PROJECT_ROOT"
 echo "📁 Project root: $PROJECT_ROOT"
 
 # Check if we're in the right directory
-if [ ! -f "README.md" ] || [ ! -d "backend-host" ]; then
+if [ ! -f "README.md" ] || [ ! -d "backend_host" ]; then
     echo "❌ Could not find virtualpytest project root directory"
     exit 1
 fi
@@ -52,7 +52,7 @@ echo "🔌 Activating virtual environment..."
 source venv/bin/activate
 
 # Set up environment variables
-export PYTHONPATH="$PROJECT_ROOT/shared/lib:$PROJECT_ROOT/backend-core/src"
+export PYTHONPATH="$PROJECT_ROOT/shared/lib:$PROJECT_ROOT/backend_core/src"
 
 # Colors for output
 GREEN='\033[0;32m'
@@ -61,7 +61,7 @@ NC='\033[0m'
 
 # Cleanup function
 cleanup() {
-    echo -e "\n${RED}🛑 Shutting down backend-host...${NC}"
+    echo -e "\n${RED}🛑 Shutting down backend_host...${NC}"
     if [ -f /tmp/backend_host.pid ]; then
         PID=$(cat /tmp/backend_host.pid)
         if kill -0 "$PID" 2>/dev/null; then
@@ -73,18 +73,18 @@ cleanup() {
         fi
         rm -f /tmp/backend_host.pid
     fi
-    echo -e "${RED}✅ Backend-host stopped${NC}"
+    echo -e "${RED}✅ backend_host stopped${NC}"
     exit 0
 }
 trap cleanup SIGINT SIGTERM
 
-echo "📺 Starting backend-host with real-time logging..."
+echo "📺 Starting backend_host with real-time logging..."
 echo "💡 Press Ctrl+C to stop"
 echo "=================================================================================="
 
-# Start backend-host with real-time output
-cd backend-host
-echo -e "${GREEN}🟢 Starting Backend-Host...${NC}"
+# Start backend_host with real-time output
+cd backend_host
+echo -e "${GREEN}🟢 Starting backend_host...${NC}"
 
 # Start the process and capture PID
 $PYTHON_CMD -u src/app.py 2>&1 | {
@@ -96,8 +96,8 @@ $PYTHON_CMD -u src/app.py 2>&1 | {
 HOST_PID=$!
 echo $HOST_PID > /tmp/backend_host.pid
 
-echo "Started Backend-Host with PID: $HOST_PID"
-echo "🌐 Backend-Host: http://localhost:6109"
+echo "Started backend_host with PID: $HOST_PID"
+echo "🌐 backend_host: http://localhost:6109"
 echo "💡 Logs will appear with [HOST] prefix below"
 echo "=================================================================================="
 

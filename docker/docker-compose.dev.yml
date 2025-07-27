@@ -1,36 +1,36 @@
 services:
   # Development version with volume mounts for hot reload
-  backend-host:
+  backend_host:
     build:
       context: ../
-      dockerfile: backend-host/Dockerfile
+      dockerfile: backend_host/Dockerfile
     ports:
       - "6109:6109"
     volumes:
       - ../shared:/app/shared
-      - ../backend-core:/app/backend-core
-      - ../backend-host:/app/backend-host
+      - ../backend_core:/app/backend_core
+      - ../backend_host:/app/backend_host
       - /dev:/dev  # Hardware access
     environment:
       - HOST_PORT=6109
       - HOST_NAME=dev-host-1
       - HOST_URL=http://localhost:6109
-      - SERVER_URL=http://backend-server:5109
+      - SERVER_URL=http://backend_server:5109
       - DEBUG=true
       - FLASK_ENV=development
     privileged: true
     restart: unless-stopped
     command: ["python", "src/app.py"]
 
-  backend-server:
+  backend_server:
     build:
       context: ../
-      dockerfile: backend-server/Dockerfile
+      dockerfile: backend_server/Dockerfile
     ports:
       - "5109:5109"
     volumes:
       - ../shared:/app/shared
-      - ../backend-server:/app/backend-server
+      - ../backend_server:/app/backend_server
     environment:
       - SERVER_PORT=5109
       - SERVER_URL=http://localhost:5109
@@ -54,7 +54,7 @@ services:
       - VITE_API_URL=http://localhost:5109
       - CHOKIDAR_USEPOLLING=true
     depends_on:
-      - backend-server
+      - backend_server
     restart: unless-stopped
     command: ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
 

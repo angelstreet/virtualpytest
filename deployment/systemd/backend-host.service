@@ -1,5 +1,5 @@
 [Unit]
-Description=VirtualPyTest Backend-Host Service (Hardware Interface)
+Description=VirtualPyTest backend_host Service (Hardware Interface)
 After=network.target
 Wants=network.target
 
@@ -7,11 +7,11 @@ Wants=network.target
 Type=simple
 User=sunri-pi2
 Group=sunri-pi2
-WorkingDirectory=/home/sunri-pi1/virtualpytest/backend-host
+WorkingDirectory=/home/sunri-pi1/virtualpytest/backend_host
 Environment=HOST_PORT=6109
 Environment=HOST_NAME=sunri-pi2
 Environment=HOST_URL=http://sunri-pi2:6109
-Environment=SERVER_URL=https://your-backend-server.onrender.com
+Environment=SERVER_URL=https://your-backend_server.onrender.com
 Environment=DEBUG=false
 
 # Git pull and start service

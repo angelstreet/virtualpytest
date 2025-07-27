@@ -25,23 +25,23 @@ if [ -d "shared/virtualpytest_shared.egg-info" ]; then
     rm -rf shared/virtualpytest_shared.egg-info/
 fi
 
-# Remove build artifacts from backend-core
-if [ -d "backend-core/build" ]; then
-    echo "🗑️ Removing backend-core/build/"
-    rm -rf backend-core/build/
+# Remove build artifacts from backend_core
+if [ -d "backend_core/build" ]; then
+    echo "🗑️ Removing backend_core/build/"
+    rm -rf backend_core/build/
 fi
 
-if [ -d "backend-core/virtualpytest_backend_core.egg-info" ]; then
-    echo "🗑️ Removing backend-core/virtualpytest_backend_core.egg-info/"
-    rm -rf backend-core/virtualpytest_backend_core.egg-info/
+if [ -d "backend_core/virtualpytest_backend_core.egg-info" ]; then
+    echo "🗑️ Removing backend_core/virtualpytest_backend_core.egg-info/"
+    rm -rf backend_core/virtualpytest_backend_core.egg-info/
 fi
 
 # Remove from git tracking if they exist
 echo "📝 Removing from git tracking..."
 git rm -rf --cached shared/build/ 2>/dev/null || echo "   shared/build/ not in git"
 git rm -rf --cached shared/virtualpytest_shared.egg-info/ 2>/dev/null || echo "   shared/virtualpytest_shared.egg-info/ not in git"
-git rm -rf --cached backend-core/build/ 2>/dev/null || echo "   backend-core/build/ not in git"
-git rm -rf --cached backend-core/virtualpytest_backend_core.egg-info/ 2>/dev/null || echo "   backend-core/virtualpytest_backend_core.egg-info/ not in git"
+git rm -rf --cached backend_core/build/ 2>/dev/null || echo "   backend_core/build/ not in git"
+git rm -rf --cached backend_core/virtualpytest_backend_core.egg-info/ 2>/dev/null || echo "   backend_core/virtualpytest_backend_core.egg-info/ not in git"
 
 # Update .gitignore if not already there
 echo "📋 Updating .gitignore..."
@@ -50,8 +50,8 @@ if ! grep -q "# Build artifacts" .gitignore; then
     echo "# Build artifacts" >> .gitignore
     echo "shared/build/" >> .gitignore
     echo "shared/virtualpytest_shared.egg-info/" >> .gitignore
-    echo "backend-core/build/" >> .gitignore
-    echo "backend-core/virtualpytest_backend_core.egg-info/" >> .gitignore
+    echo "backend_core/build/" >> .gitignore
+    echo "backend_core/virtualpytest_backend_core.egg-info/" >> .gitignore
     echo "*.egg-info/" >> .gitignore
     echo "__pycache__/" >> .gitignore
     echo "*.pyc" >> .gitignore

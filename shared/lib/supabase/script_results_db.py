@@ -9,7 +9,7 @@ from datetime import datetime
 from typing import Dict, List, Optional
 from uuid import uuid4
 
-from lib.utils.supabase_utils import get_supabase_client
+from shared.lib.utils.supabase_utils import get_supabase_client
 
 def get_supabase():
     """Get the Supabase client instance."""
@@ -211,7 +211,7 @@ def mark_script_discarded(team_id: str, script_result_id: str, discard: bool = T
         return False
 
 def delete_script_result(team_id: str, script_result_id: str) -> bool:
-    """Delete script result from lib.supabase."""
+    """Delete script result from shared.lib.supabase."""
     try:
         print(f"[@db:script_results:delete_script_result] Deleting script result: {script_result_id}")
         

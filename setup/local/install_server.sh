@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# VirtualPyTest - Install Backend-Server
-# This script installs backend-server dependencies
+# VirtualPyTest - Install backend_server
+# This script installs backend_server dependencies
 
 set -e
 
-echo "🖥️ Installing VirtualPyTest Backend-Server..."
+echo "🖥️ Installing VirtualPyTest backend_server..."
 
 # Get to project root directory (from setup/local to project root)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -15,7 +15,7 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 cd "$PROJECT_ROOT"
 
 # Check if we're in the right directory
-if [ ! -f "README.md" ] || [ ! -d "backend-server" ]; then
+if [ ! -f "README.md" ] || [ ! -d "backend_server" ]; then
     echo "❌ Could not find virtualpytest project root directory"
     echo "Current directory: $(pwd)"
     exit 1
@@ -38,15 +38,15 @@ cd shared
 pip install -e . --use-pep517
 cd ..
 
-# Install backend-core (required by backend-server for controller imports)
-echo "⚙️ Installing backend-core (required dependency)..."
-cd backend-core
+# Install backend_core (required by backend_server for controller imports)
+echo "⚙️ Installing backend_core (required dependency)..."
+cd backend_core
 pip install -r requirements.txt
 cd ..
 
-# Install backend-server dependencies
-echo "📦 Installing backend-server dependencies..."
-cd backend-server
+# Install backend_server dependencies
+echo "📦 Installing backend_server dependencies..."
+cd backend_server
 pip install -r requirements.txt
 
 # Create .env file in src/ directory if it doesn't exist
@@ -65,5 +65,5 @@ fi
 
 cd ../..
 
-echo "✅ Backend-Server installation completed!"
+echo "✅ backend_server installation completed!"
 echo "🚀 You can now run: ./setup/local/launch_server.sh" 

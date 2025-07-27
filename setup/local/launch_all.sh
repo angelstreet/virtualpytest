@@ -55,7 +55,7 @@ echo "🐍 Activating virtual environment..."
 source venv/bin/activate
 
 # Set up environment variables
-export PYTHONPATH="$PROJECT_ROOT/shared/lib:$PROJECT_ROOT/backend-core/src"
+export PYTHONPATH="$PROJECT_ROOT/shared/lib:$PROJECT_ROOT/backend_core/src"
 
 # Colors for different components
 BLUE='\033[0;34m'
@@ -138,14 +138,14 @@ trap cleanup SIGINT SIGTERM
 # Kill any processes using required ports
 echo "🔍 Checking and clearing required ports..."
 
-# Port 5109 (Backend-Server)
+# Port 5109 (backend_server)
 if lsof -ti:5109 > /dev/null 2>&1; then
     echo "🛑 Killing processes on port 5109..."
     lsof -ti:5109 | xargs kill -9 2>/dev/null || true
     sleep 1
 fi
 
-# Port 6409 (Backend-Host)
+# Port 6409 (backend_host)
 if lsof -ti:6409 > /dev/null 2>&1; then
     echo "🛑 Killing processes on port 6409..."
     lsof -ti:6409 | xargs kill -9 2>/dev/null || true
@@ -167,12 +167,12 @@ echo "💡 Logs will appear with colored prefixes: [SERVER], [HOST], [FRONTEND]"
 echo "=================================================================================="
 
 # Start all processes with prefixed output and real-time logging
-echo -e "${BLUE}🔵 Starting Backend-Server...${NC}"
-run_with_prefix "SERVER" "$BLUE" "$PROJECT_ROOT/backend-server" python src/app.py
+echo -e "${BLUE}🔵 Starting backend_server...${NC}"
+run_with_prefix "SERVER" "$BLUE" "$PROJECT_ROOT/backend_server" python src/app.py
 sleep 3
 
-echo -e "${GREEN}🟢 Starting Backend-Host...${NC}"
-run_with_prefix "HOST" "$GREEN" "$PROJECT_ROOT/backend-host" python src/app.py
+echo -e "${GREEN}🟢 Starting backend_host...${NC}"
+run_with_prefix "HOST" "$GREEN" "$PROJECT_ROOT/backend_host" python src/app.py
 sleep 3
 
 echo -e "${YELLOW}🟡 Starting Frontend...${NC}"
@@ -183,8 +183,8 @@ echo -e "${NC}✅ All processes started! Watching for logs...${NC}"
 echo -e "${NC}💡 You should see logs with colored prefixes appearing below${NC}"
 echo -e "${NC}🌐 URLs:${NC}"
 echo -e "${NC}   Frontend: http://localhost:3000${NC}"
-echo -e "${NC}   Backend-Server: http://localhost:5109${NC}"
-echo -e "${NC}   Backend-Host: http://localhost:6109${NC}"
+echo -e "${NC}   backend_server: http://localhost:5109${NC}"
+echo -e "${NC}   backend_host: http://localhost:6109${NC}"
 echo "=================================================================================="
 
 # Wait for all background jobs

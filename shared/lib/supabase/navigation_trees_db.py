@@ -7,8 +7,8 @@ from datetime import datetime
 from typing import Dict, List, Optional, Tuple, Any
 from uuid import uuid4
 
-from lib.utils.supabase_utils import get_supabase_client
-from src.utils.app_utils import DEFAULT_TEAM_ID
+from shared.lib.utils.supabase_utils import get_supabase_client
+from shared.lib.utils.app_utils import DEFAULT_TEAM_ID
 
 def get_supabase():
     """Get the Supabase client instance."""
@@ -334,7 +334,7 @@ def save_navigation_tree(userinterface_id: str, team_id: str, tree_data: Dict,
         
         # Force refresh navigation cache after successful save (invalidate + rebuild)
         try:
-            from src.web.cache.navigation_cache import force_refresh_cache
+            from shared.lib.web.cache.navigation_cache import force_refresh_cache
             # Use the tree ID as the cache key
             tree_cache_id = tree_record["id"]
             refresh_success = force_refresh_cache(tree_cache_id, team_id)
@@ -567,7 +567,7 @@ def _populate_navigation_cache(tree: Dict, team_id: str):
     """
     try:
         # Clear existing cache to ensure we start fresh with resolved objects
-        from src.web.cache.navigation_cache import invalidate_cache
+        from shared.lib.web.cache.navigation_cache import invalidate_cache
         tree_id = tree['id']
         tree_name = tree['name']
         userinterface_id = tree.get('userinterface_id')
@@ -580,7 +580,7 @@ def _populate_navigation_cache(tree: Dict, team_id: str):
         userinterface_name = None
         if userinterface_id:
             try:
-                from src.lib.supabase.userinterface_db import get_userinterface
+                from shared.lib.lib.supabase.userinterface_db import get_userinterface
                 userinterface = get_userinterface(userinterface_id, team_id)
                 if userinterface and userinterface.get('name'):
                     userinterface_name = userinterface['name']
@@ -591,7 +591,7 @@ def _populate_navigation_cache(tree: Dict, team_id: str):
         print(f'[@db:navigation_trees:_populate_navigation_cache] Cleared existing cache for tree: {tree_id}')
         
         # Import cache function (lazy import to avoid circular dependencies)
-        from src.web.cache.navigation_cache import populate_cache
+        from shared.lib.web.cache.navigation_cache import populate_cache
         
         tree_metadata = tree.get('metadata', {})
         raw_nodes = tree_metadata.get('nodes', [])
@@ -631,7 +631,7 @@ def _populate_navigation_cache(tree: Dict, team_id: str):
         resolved_actions = []
         if all_action_ids:
             try:
-                from src.lib.supabase.actions_db import get_actions as db_get_actions
+                from shared.lib.lib.supabase.actions_db import get_actions as db_get_actions
                 all_actions_result = db_get_actions(team_id)
                 if all_actions_result['success']:
                     all_actions = all_actions_result['actions']
@@ -649,7 +649,7 @@ def _populate_navigation_cache(tree: Dict, team_id: str):
         resolved_verifications = []
         if all_verification_ids:
             try:
-                from src.lib.supabase.verifications_db import get_verifications as db_get_verifications
+                from shared.lib.lib.supabase.verifications_db import get_verifications as db_get_verifications
                 all_verifications_result = db_get_verifications(team_id)
                 if all_verifications_result['success']:
                     all_verifications = all_verifications_result['verifications']
@@ -741,7 +741,7 @@ def _populate_navigation_cache(tree: Dict, team_id: str):
         
         if graph:
             # Cache the same graph under additional keys without rebuilding
-            from src.web.cache.navigation_cache import _cache_graph_under_key
+            from shared.lib.web.cache.navigation_cache import _cache_graph_under_key
             
             # Cache under tree name
             _cache_graph_under_key(tree_name, team_id, graph, resolved_nodes, resolved_edges)

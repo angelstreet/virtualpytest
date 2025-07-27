@@ -1,5 +1,5 @@
 [Unit]
-Description=VirtualPyTest Backend-Server Service (API Server)
+Description=VirtualPyTest backend_server Service (API Server)
 After=network.target
 Wants=network.target
 
@@ -7,7 +7,7 @@ Wants=network.target
 Type=simple
 User=virtualpytest
 Group=virtualpytest
-WorkingDirectory=/opt/virtualpytest/backend-server
+WorkingDirectory=/opt/virtualpytest/backend_server
 Environment=SERVER_PORT=5109
 Environment=SERVER_URL=http://localhost:5109
 Environment=DEBUG=false

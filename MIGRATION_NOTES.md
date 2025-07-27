@@ -8,28 +8,28 @@ Documentation of the clean migration from monolithic to microservices architectu
 
 | **Old Location** | **New Location** | **Status** |
 |------------------|------------------|------------|
-| `config/host_gninx.conf` | `docker/nginx/backend-host.conf` | ✅ Migrated |
-| `config/server_gninx.conf` | `docker/nginx/backend-server.conf` | ✅ Migrated |
+| `config/host_gninx.conf` | `docker/nginx/backend_host.conf` | ✅ Migrated |
+| `config/server_gninx.conf` | `docker/nginx/backend_server.conf` | ✅ Migrated |
 | `config/service/*.service` | `deployment/systemd/*` | ✅ Updated for microservices |
 | `config/remote/appium_remote.json` | `shared/lib/config/devices/` | ✅ Migrated |
 | `config/vnc_lite_*.html` | `frontend/public/` | ✅ Migrated |
-| `test-scripts/*` | `backend-core/examples/` | ✅ Migrated |
-| `scripts/capture_monitor.py` | `backend-host/scripts/` | ✅ Migrated |
-| `scripts/alert_system.py` | `backend-host/scripts/` | ✅ Migrated |
-| `scripts/analyze_audio_video.py` | `backend-host/scripts/` | ✅ Migrated |
-| `scripts/rename_captures.sh` | `backend-host/scripts/` | ✅ Migrated |
-| `scripts/run_ffmpeg_*.sh` | `backend-host/scripts/` | ✅ Migrated |
-| `scripts/clean_captures.sh` | `backend-host/scripts/` | ✅ Migrated |
+| `test-scripts/*` | `backend_core/examples/` | ✅ Migrated |
+| `scripts/capture_monitor.py` | `backend_host/scripts/` | ✅ Migrated |
+| `scripts/alert_system.py` | `backend_host/scripts/` | ✅ Migrated |
+| `scripts/analyze_audio_video.py` | `backend_host/scripts/` | ✅ Migrated |
+| `scripts/rename_captures.sh` | `backend_host/scripts/` | ✅ Migrated |
+| `scripts/run_ffmpeg_*.sh` | `backend_host/scripts/` | ✅ Migrated |
+| `scripts/clean_captures.sh` | `backend_host/scripts/` | ✅ Migrated |
 | `scripts/launch_*.sh` | `deployment/scripts/` | ✅ Migrated |
 | `scripts/mac_*.sh` | `deployment/scripts/mac/` | ✅ Migrated |
-| `scripts/test_appium.py` | `backend-core/examples/` | ✅ Migrated |
-| `src/controllers/` | `backend-core/src/controllers/` | ✅ Migrated |
-| `src/lib/actions/` | `backend-core/src/services/actions/` | ✅ Migrated |
-| `src/lib/navigation/` | `backend-core/src/services/navigation/` | ✅ Migrated |
+| `scripts/test_appium.py` | `backend_core/examples/` | ✅ Migrated |
+| `src/controllers/` | `backend_core/src/controllers/` | ✅ Migrated |
+| `src/lib/actions/` | `backend_core/src/services/actions/` | ✅ Migrated |
+| `src/lib/navigation/` | `backend_core/src/services/navigation/` | ✅ Migrated |
 | `src/models/` | `shared/lib/models/` | ✅ Migrated |
 | `src/utils/` | `shared/lib/utils/` | ✅ Migrated |
-| `src/web/routes/host_*` | `backend-host/src/routes/` | ✅ Migrated |
-| `src/web/routes/server_*` | `backend-server/src/routes/` | ✅ Migrated |
+| `src/web/routes/host_*` | `backend_host/src/routes/` | ✅ Migrated |
+| `src/web/routes/server_*` | `backend_server/src/routes/` | ✅ Migrated |
 | `src/web/src/` | `frontend/src/` | ✅ Migrated |
 
 ### 🗑️ **Cleaned Up (Removed)**
@@ -37,7 +37,7 @@ Documentation of the clean migration from monolithic to microservices architectu
 | **Item** | **Reason** | **Status** |
 |----------|------------|------------|
 | `config/` | Migrated to proper locations | ✅ Deleted |
-| `test-scripts/` | Moved to `backend-core/examples/` | ✅ Deleted |
+| `test-scripts/` | Moved to `backend_core/examples/` | ✅ Deleted |
 | `scripts/` | Migrated to service-specific locations | ✅ Deleted |
 | `setup.py` | Each service has its own setup.py | ✅ Deleted |
 | `requirements.txt` | Renamed to `legacy-requirements.txt` | ✅ Preserved as reference |
@@ -48,9 +48,9 @@ Documentation of the clean migration from monolithic to microservices architectu
 Each service now has its own `requirements.txt`:
 
 - `shared/requirements.txt` - Lightweight shared dependencies
-- `backend-core/requirements.txt` - Hardware control dependencies  
-- `backend-host/requirements.txt` - Host service dependencies
-- `backend-server/requirements.txt` - API server dependencies
+- `backend_core/requirements.txt` - Hardware control dependencies  
+- `backend_host/requirements.txt` - Host service dependencies
+- `backend_server/requirements.txt` - API server dependencies
 - `frontend/package.json` - React dependencies
 
 ### 📚 **Documentation Added**
@@ -58,11 +58,11 @@ Each service now has its own `requirements.txt`:
 Each service now has comprehensive documentation:
 
 - `shared/README.md` - Shared library usage
-- `backend-core/README.md` - Controllers and business logic
-- `backend-host/README.md` - Hardware interface service
-- `backend-server/README.md` - API server documentation
+- `backend_core/README.md` - Controllers and business logic
+- `backend_host/README.md` - Hardware interface service
+- `backend_server/README.md` - API server documentation
 - `frontend/README.md` - React application
-- `backend-core/examples/README.md` - Example scripts
+- `backend_core/examples/README.md` - Example scripts
 - `deployment/README.md` - Deployment configurations
 
 ## 🔄 **Migration Benefits**
@@ -81,9 +81,9 @@ virtualpytest/
 ```
 virtualpytest/
 ├── shared/                 # Common libraries
-├── backend-core/           # Pure business logic
-├── backend-server/         # API service
-├── backend-host/          # Hardware interface
+├── backend_core/           # Pure business logic
+├── backend_server/         # API service
+├── backend_host/          # Hardware interface
 ├── frontend/              # React UI
 ├── docker/                # Container configs
 └── deployment/           # Deployment configs
@@ -110,8 +110,8 @@ python src/web/app_host.py
 ### New Deployment
 ```bash
 # Independent services
-cd backend-server && python src/app.py      # API
-cd backend-host && python src/app.py        # Hardware
+cd backend_server && python src/app.py      # API
+cd backend_host && python src/app.py        # Hardware
 cd frontend && npm run dev                   # UI
 
 # Or with Docker
@@ -160,9 +160,9 @@ VITE_API_URL=http://localhost:5109
 ```bash
 # Test each service independently
 cd shared && pip install -e .
-cd backend-core && pip install -r requirements.txt
-cd backend-host && pip install -r requirements.txt  
-cd backend-server && pip install -r requirements.txt
+cd backend_core && pip install -r requirements.txt
+cd backend_host && pip install -r requirements.txt  
+cd backend_server && pip install -r requirements.txt
 cd frontend && npm install
 
 # Test Docker build
@@ -191,4 +191,4 @@ The VirtualPyTest codebase has been successfully transformed from a monolithic s
 - **Enhanced documentation** - Each service is self-documenting
 - **Future-ready** - Supports cloud + local hardware deployment
 
-The system is now ready for modern deployment on Vercel (frontend), Render (backend-server), and Raspberry Pi (backend-host)! 🚀 
+The system is now ready for modern deployment on Vercel (frontend), Render (backend_server), and Raspberry Pi (backend_host)! 🚀 

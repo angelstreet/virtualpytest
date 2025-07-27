@@ -19,9 +19,9 @@ This document outlines the new microservices-based architecture for VirtualPyTes
 ```
 virtualpytest/
 ├── shared/                    # Shared libraries and utilities
-├── backend-core/              # Core Python logic (device controllers)
-├── backend-server/            # Flask API server (business logic)
-├── backend-host/              # Flask host controller (hardware interface)
+├── backend_core/              # Core Python logic (device controllers)
+├── backend_server/            # Flask API server (business logic)
+├── backend_host/              # Flask host controller (hardware interface)
 ├── frontend/                  # React UI application
 └── docker/                    # Container orchestration
 ```
@@ -54,7 +54,7 @@ shared/lib/
 
 ---
 
-### 2. Backend Core (`backend-core/`)
+### 2. Backend Core (`backend_core/`)
 
 **Purpose**: Pure Python business logic and device controllers
 
@@ -68,7 +68,7 @@ shared/lib/
 **Key Files**:
 
 ```
-backend-core/src/
+backend_core/src/
 ├── controllers/               # Device control logic
 │   ├── base_controller.py
 │   ├── controller_manager.py
@@ -85,7 +85,7 @@ backend-core/src/
 
 ---
 
-### 3. Backend Server (`backend-server/`)
+### 3. Backend Server (`backend_server/`)
 
 **Purpose**: Main API server handling client requests and orchestration
 
@@ -111,7 +111,7 @@ backend-core/src/
 **Key Files**:
 
 ```
-backend-server/src/
+backend_server/src/
 ├── routes/
 │   ├── test_routes.py         # Test management endpoints
 │   ├── campaign_routes.py     # Campaign operations
@@ -122,11 +122,11 @@ backend-server/src/
 └── serializers/               # API data serialization
 ```
 
-**Dependencies**: `shared`, calls `backend-host` via HTTP
+**Dependencies**: `shared`, calls `backend_host` via HTTP
 
 ---
 
-### 4. Backend Host (`backend-host/`)
+### 4. Backend Host (`backend_host/`)
 
 **Purpose**: Direct hardware interface and device management
 
@@ -151,7 +151,7 @@ backend-server/src/
 **Key Files**:
 
 ```
-backend-host/src/
+backend_host/src/
 ├── routes/
 │   ├── host_rec_routes.py     # Image capture (your current file)
 │   ├── device_control_routes.py
@@ -163,7 +163,7 @@ backend-host/src/
 └── agents/                    # Device-specific agents
 ```
 
-**Dependencies**: `shared`, `backend-core`
+**Dependencies**: `shared`, `backend_core`
 
 ---
 
@@ -193,14 +193,14 @@ frontend/src/
 └── pages/                     # Page components
 ```
 
-**Dependencies**: Calls `backend-server` via HTTP/WebSocket
+**Dependencies**: Calls `backend_server` via HTTP/WebSocket
 
 ## Route Distribution
 
 ### Current Route: `host_rec_routes.py`
 
 **Current Location**: `src/web/routes/host_rec_routes.py`
-**New Location**: `backend-host/src/routes/host_rec_routes.py`
+**New Location**: `backend_host/src/routes/host_rec_routes.py`
 
 **Rationale**:
 
@@ -249,19 +249,19 @@ frontend/src/
 
 ```
 1. Frontend → GET /api/restart/images?device_id=device1
-2. backend-server receives request
-3. backend-server validates and proxies to backend-host
-4. backend-server → POST /host/rec/listRestartImages
-5. backend-host processes device-specific logic
-6. backend-host returns image data
-7. backend-server formats response for frontend
-8. backend-server → Response to frontend
+2. backend_server receives request
+3. backend_server validates and proxies to backend_host
+4. backend_server → POST /host/rec/listRestartImages
+5. backend_host processes device-specific logic
+6. backend_host returns image data
+7. backend_server formats response for frontend
+8. backend_server → Response to frontend
 ```
 
 ### Data Flow
 
 ```
-Frontend ←→ backend-server ←→ backend-host ←→ Hardware/Devices
+Frontend ←→ backend_server ←→ backend_host ←→ Hardware/Devices
    ↑              ↑              ↑
    UI         Business        Hardware
  Logic         Logic          Interface
@@ -272,8 +272,8 @@ Frontend ←→ backend-server ←→ backend-host ←→ Hardware/Devices
 ### 1. Separation of Concerns
 
 - **UI Logic**: Isolated in frontend
-- **Business Logic**: Centralized in backend-server
-- **Hardware Logic**: Isolated in backend-host
+- **Business Logic**: Centralized in backend_server
+- **Hardware Logic**: Isolated in backend_host
 - **Shared Logic**: Reusable in shared libraries
 
 ### 2. Scalability
@@ -303,8 +303,8 @@ Frontend ←→ backend-server ←→ backend-host ←→ Hardware/Devices
 
 ```yaml
 # Individual service containers
-backend-server: # API and business logic
-backend-host: # Hardware interface
+backend_server: # API and business logic
+backend_host: # Hardware interface
 frontend: # UI application
 shared: # Shared libraries volume
 ```
@@ -316,8 +316,8 @@ shared: # Shared libraries volume
 docker-compose -f docker/docker-compose.dev.yml up
 
 # Start individual services
-docker-compose up backend-server
-docker-compose up backend-host
+docker-compose up backend_server
+docker-compose up backend_host
 docker-compose up frontend
 ```
 
@@ -328,7 +328,7 @@ docker-compose up frontend
 docker-compose -f docker/docker-compose.prod.yml up -d
 
 # With load balancing and scaling
-docker-compose up --scale backend-server=3
+docker-compose up --scale backend_server=3
 ```
 
 ## Migration Benefits

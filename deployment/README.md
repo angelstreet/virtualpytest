@@ -8,8 +8,8 @@ This directory contains deployment configurations migrated from the old `config/
 
 ```
 config/
-├── host_gninx.conf          → docker/nginx/backend-host.conf
-├── server_gninx.conf        → docker/nginx/backend-server.conf  
+├── host_gninx.conf          → docker/nginx/backend_host.conf
+├── server_gninx.conf        → docker/nginx/backend_server.conf  
 ├── service/*.service        → deployment/systemd/ (updated)
 ├── remote/appium_remote.json → shared/lib/config/devices/
 ├── vnc_lite_*.html          → frontend/public/
@@ -20,48 +20,48 @@ config/
 
 Updated service files for microservices architecture:
 
-### Backend-Host (Raspberry Pi)
+### backend_host (Raspberry Pi)
 ```bash
 # Install service
-sudo cp deployment/systemd/backend-host.service /etc/systemd/system/
+sudo cp deployment/systemd/backend_host.service /etc/systemd/system/
 sudo systemctl daemon-reload
-sudo systemctl enable backend-host
-sudo systemctl start backend-host
+sudo systemctl enable backend_host
+sudo systemctl start backend_host
 
 # Check status
-sudo systemctl status backend-host
-sudo journalctl -u backend-host -f
+sudo systemctl status backend_host
+sudo journalctl -u backend_host -f
 ```
 
-### Backend-Server (Local Server)
+### backend_server (Local Server)
 ```bash
 # Install service  
-sudo cp deployment/systemd/backend-server.service /etc/systemd/system/
+sudo cp deployment/systemd/backend_server.service /etc/systemd/system/
 sudo systemctl daemon-reload
-sudo systemctl enable backend-server
-sudo systemctl start backend-server
+sudo systemctl enable backend_server
+sudo systemctl start backend_server
 
 # Check status
-sudo systemctl status backend-server
-sudo journalctl -u backend-server -f
+sudo systemctl status backend_server
+sudo journalctl -u backend_server -f
 ```
 
 ## 🌐 **Nginx Configuration**
 
 ### For Docker Deployment
 Nginx configs are automatically used in Docker containers via:
-- `docker/nginx/backend-host.conf` - Host service reverse proxy
-- `docker/nginx/backend-server.conf` - Server service reverse proxy
+- `docker/nginx/backend_host.conf` - Host service reverse proxy
+- `docker/nginx/backend_server.conf` - Server service reverse proxy
 
 ### For Manual Nginx Setup
 ```bash
 # Copy configurations
-sudo cp docker/nginx/backend-host.conf /etc/nginx/sites-available/
-sudo cp docker/nginx/backend-server.conf /etc/nginx/sites-available/
+sudo cp docker/nginx/backend_host.conf /etc/nginx/sites-available/
+sudo cp docker/nginx/backend_server.conf /etc/nginx/sites-available/
 
 # Enable sites
-sudo ln -s /etc/nginx/sites-available/backend-host.conf /etc/nginx/sites-enabled/
-sudo ln -s /etc/nginx/sites-available/backend-server.conf /etc/nginx/sites-enabled/
+sudo ln -s /etc/nginx/sites-available/backend_host.conf /etc/nginx/sites-enabled/
+sudo ln -s /etc/nginx/sites-available/backend_server.conf /etc/nginx/sites-enabled/
 
 # Test and reload
 sudo nginx -t
@@ -86,7 +86,7 @@ Access via: `http://your-frontend-url/vnc_lite_host.html`
 
 ### Option 1: Full Cloud + RPi
 ```
-Frontend (Vercel) → Backend-Server (Render) → Backend-Host (RPi systemd)
+Frontend (Vercel) → backend_server (Render) → backend_host (RPi systemd)
 ```
 
 ### Option 2: Docker Everything
@@ -97,7 +97,7 @@ cd docker
 
 ### Option 3: Hybrid (Cloud + Local)
 ```
-Frontend (Vercel) → Backend-Server (Local systemd) → Backend-Host (RPi systemd)
+Frontend (Vercel) → backend_server (Local systemd) → backend_host (RPi systemd)
 ```
 
 ## 🔧 **Environment Variables**
@@ -105,10 +105,10 @@ Frontend (Vercel) → Backend-Server (Local systemd) → Backend-Host (RPi syste
 Update service files with your actual URLs:
 
 ```bash
-# backend-host.service
-Environment=SERVER_URL=https://your-backend-server.onrender.com
+# backend_host.service
+Environment=SERVER_URL=https://your-backend_server.onrender.com
 
-# backend-server.service  
+# backend_server.service  
 Environment=CORS_ORIGINS=https://your-frontend.vercel.app
 ```
 
@@ -126,22 +126,22 @@ Environment=CORS_ORIGINS=https://your-frontend.vercel.app
 
 ### Service Logs
 ```bash
-# Backend-Host
-sudo journalctl -u backend-host -f
+# backend_host
+sudo journalctl -u backend_host -f
 
-# Backend-Server
-sudo journalctl -u backend-server -f
+# backend_server
+sudo journalctl -u backend_server -f
 ```
 
 ### Port Conflicts
 ```bash
 # Check what's using ports
-sudo netstat -tlnp | grep :6109  # Backend-Host
-sudo netstat -tlnp | grep :5109  # Backend-Server
+sudo netstat -tlnp | grep :6109  # backend_host
+sudo netstat -tlnp | grep :5109  # backend_server
 ```
 
 ### Service Dependencies
 Ensure services start in order:
-1. Backend-Server (API)
-2. Backend-Host (connects to server)
+1. backend_server (API)
+2. backend_host (connects to server)
 3. Frontend (connects to API) 

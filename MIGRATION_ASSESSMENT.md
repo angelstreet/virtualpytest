@@ -9,7 +9,7 @@
 - **Direct imports**: All modules could import from each other directly
 
 ### What We Have Now (After Migration)
-- **Microservices architecture**: Split into backend-core, backend-server, backend-host, shared, frontend
+- **Microservices architecture**: Split into backend_core, backend_server, backend_host, shared, frontend
 - **Complex dependency management**: Each service has its own requirements.txt
 - **Import path issues**: Services can't find each other's modules
 - **Virtual environment confusion**: Mixed use of global vs venv installations
@@ -61,8 +61,8 @@
    - ⏳ Test all critical imports
 
 3. **⏳ Minimal Working System**
-   - ⏳ Get backend-server starting
-   - ⏳ Get backend-host starting
+   - ⏳ Get backend_server starting
+   - ⏳ Get backend_host starting
    - ⏳ Get frontend building
    - ⏳ Verify basic connectivity
 
@@ -103,14 +103,14 @@ source venv/bin/activate
 ### ⏳ NEXT: Test Basic Startup
 ```bash
 # After fixing imports:
-cd backend-server && python3 src/app.py
+cd backend_server && python3 src/app.py
 ```
 
 ## 🎯 Success Criteria
 
 ### Minimum Viable Migration
-- [ ] Backend-server starts without errors
-- [ ] Backend-host starts without errors  
+- [ ] backend_server starts without errors
+- [ ] backend_host starts without errors  
 - [ ] Frontend builds and serves
 - [ ] Basic API endpoints respond
 - [ ] Health checks pass

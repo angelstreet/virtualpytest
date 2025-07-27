@@ -76,7 +76,7 @@ After database setup, update your application `.env` files with your Supabase cr
 VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_ANON_KEY=your-anon-key
 
-# Backend: backend-server/.env, backend-host/.env  
+# Backend: backend_server/.env, backend_host/.env  
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key

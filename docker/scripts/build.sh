@@ -5,12 +5,12 @@ set -e
 
 echo "🏗️ Building VirtualPyTest Docker Images"
 
-# Build order: shared -> backend-core -> backend-host/backend-server -> frontend
+# Build order: shared -> backend_core -> backend_host/backend_server -> frontend
 BUILD_ORDER=(
     "shared"
-    "backend-core" 
-    "backend-host"
-    "backend-server"
+    "backend_core" 
+    "backend_host"
+    "backend_server"
     "frontend"
 )
 
@@ -23,14 +23,14 @@ build_service() {
         "shared")
             docker build -f ../shared/Dockerfile -t virtualpytest/shared:latest ..
             ;;
-        "backend-core")
-            docker build -f ../backend-core/Dockerfile -t virtualpytest/backend-core:latest ..
+        "backend_core")
+            docker build -f ../backend_core/Dockerfile -t virtualpytest/backend_core:latest ..
             ;;
-        "backend-host")
-            docker build -f ../backend-host/Dockerfile -t virtualpytest/backend-host:latest ..
+        "backend_host")
+            docker build -f ../backend_host/Dockerfile -t virtualpytest/backend_host:latest ..
             ;;
-        "backend-server")
-            docker build -f ../backend-server/Dockerfile -t virtualpytest/backend-server:latest ..
+        "backend_server")
+            docker build -f ../backend_server/Dockerfile -t virtualpytest/backend_server:latest ..
             ;;
         "frontend")
             docker build -f ../frontend/Dockerfile -t virtualpytest/frontend:latest ../frontend

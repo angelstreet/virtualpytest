@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# VirtualPyTest - Install Backend-Host
-# This script installs backend-host dependencies
+# VirtualPyTest - Install backend_host
+# This script installs backend_host dependencies
 
 set -e
 
-echo "🔧 Installing VirtualPyTest Backend-Host..."
+echo "🔧 Installing VirtualPyTest backend_host..."
 
 # Get to project root directory (from setup/local to project root)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -15,7 +15,7 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 cd "$PROJECT_ROOT"
 
 # Check if we're in the right directory
-if [ ! -f "README.md" ] || [ ! -d "backend-host" ]; then
+if [ ! -f "README.md" ] || [ ! -d "backend_host" ]; then
     echo "❌ Could not find virtualpytest project root directory"
     echo "Current directory: $(pwd)"
     exit 1
@@ -38,15 +38,15 @@ cd shared
 pip install -e . --use-pep517
 cd ..
 
-# Install backend-core (required by backend-host)
-echo "⚙️ Installing backend-core (required dependency)..."
-cd backend-core
+# Install backend_core (required by backend_host)
+echo "⚙️ Installing backend_core (required dependency)..."
+cd backend_core
 pip install -r requirements.txt
 cd ..
 
-# Install backend-host dependencies
-echo "📦 Installing backend-host dependencies..."
-cd backend-host
+# Install backend_host dependencies
+echo "📦 Installing backend_host dependencies..."
+cd backend_host
 pip install -r requirements.txt
 
 # Create .env file in src/ directory if it doesn't exist
@@ -65,5 +65,5 @@ fi
 
 cd ../..
 
-echo "✅ Backend-Host installation completed!"
+echo "✅ backend_host installation completed!"
 echo "🚀 You can now run: ./setup/local/launch_host.sh" 

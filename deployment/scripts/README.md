@@ -13,21 +13,21 @@ Service launcher scripts for VirtualPyTest microservices deployment.
 ```
 
 **Features:**
-- Starts backend-server and backend-host services
+- Starts backend_server and backend_host services
 - Handles dependencies between services
 - Manages service health checking
 - Configures environment variables
 
 ### `launch_virtualhost.sh`
-**Backend-host service launcher** for Raspberry Pi hardware interface.
+**backend_host service launcher** for Raspberry Pi hardware interface.
 
 ```bash
-# Launch only backend-host service
+# Launch only backend_host service
 ./launch_virtualhost.sh
 ```
 
 **Services Started:**
-- Backend-host Flask application (port 6109)
+- backend_host Flask application (port 6109)
 - Hardware monitoring scripts
 - Device controllers
 - Alert system
@@ -38,15 +38,15 @@ Service launcher scripts for VirtualPyTest microservices deployment.
 - Direct hardware control required
 
 ### `launch_virtualserver.sh`
-**Backend-server launcher** for cloud/local API server.
+**backend_server launcher** for cloud/local API server.
 
 ```bash
-# Launch backend-server service
+# Launch backend_server service
 ./launch_virtualserver.sh
 ```
 
 **Services Started:**
-- Backend-server Flask application (port 5109)
+- backend_server Flask application (port 5109)
 - API endpoints for client access
 - WebSocket connections
 - Business logic services
@@ -161,23 +161,23 @@ These scripts have been migrated from the old `/scripts` directory:
 ## 🔄 **Service Dependencies**
 
 ### Launch Order
-1. **Backend-Server** (API layer) - port 5109
-2. **Backend-Host** (hardware interface) - port 6109
+1. **backend_server** (API layer) - port 5109
+2. **backend_host** (hardware interface) - port 6109
 3. **Frontend** (if local) - port 3000
 
 ### Inter-Service Communication
 ```
-Frontend (3000) → Backend-Server (5109) → Backend-Host (6109) → Hardware
+Frontend (3000) → backend_server (5109) → backend_host (6109) → Hardware
 ```
 
 ## 🧪 **Testing Deployment**
 
 ### Health Checks
 ```bash
-# Check backend-server
+# Check backend_server
 curl http://localhost:5109/api/health
 
-# Check backend-host  
+# Check backend_host  
 curl http://localhost:6109/host/health
 
 # Check service processes
@@ -190,8 +190,8 @@ ps aux | grep python | grep virtualpytest
 tail -f /tmp/virtualpytest_*.log
 
 # View service logs
-tail -f /tmp/backend-server.log
-tail -f /tmp/backend-host.log
+tail -f /tmp/backend_server.log
+tail -f /tmp/backend_host.log
 ```
 
 ## 🔧 **Troubleshooting**

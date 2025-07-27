@@ -44,7 +44,7 @@ VITE_CLOUDFLARE_R2_PUBLIC_URL=your_r2_public_url
 ### Prerequisites
 
 - Node.js 18+ and npm
-- Backend-server running on port 5109 (default)
+- backend_server running on port 5109 (default)
 
 ### Quick Start
 
@@ -66,7 +66,7 @@ The frontend will be available at http://localhost:3000
 Create a `.env` file with:
 
 ```bash
-VITE_API_URL=http://localhost:5109  # Backend-server URL
+VITE_API_URL=http://localhost:5109  # backend_server URL
 VITE_DEV_MODE=true                  # Development mode
 ```
 
@@ -85,7 +85,7 @@ npm run lint     # Run ESLint
 
 1. Connect repository to Vercel
 2. Set environment variables:
-   - `VITE_API_URL=https://your-backend-server.onrender.com`
+   - `VITE_API_URL=https://your-backend_server.onrender.com`
 3. Deploy automatically on git push
 
 ### Manual Build
@@ -117,7 +117,7 @@ frontend/
 
 ## API Integration
 
-The frontend communicates with backend-server via:
+The frontend communicates with backend_server via:
 
 - **REST API**: `/api/*` endpoints
 - **WebSocket**: Real-time updates via Socket.IO
@@ -128,7 +128,7 @@ See `src/services/apiClient.ts` for API implementation.
 ## Development Tips
 
 1. **Hot Reload**: Changes auto-reload in development
-2. **API Proxy**: Vite proxies `/api` to backend-server
+2. **API Proxy**: Vite proxies `/api` to backend_server
 3. **Type Safety**: Full TypeScript support
 4. **Error Handling**: Centralized error management
 5. **State Management**: React Query for server state

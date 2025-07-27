@@ -37,7 +37,7 @@ def load_navigation_tree(userinterface_name: str, script_name: str = "script") -
     try:
         team_id = "7fdeb4bb-3639-4ec3-959f-b54769a219ce"
         
-        from src.lib.supabase.userinterface_db import get_all_userinterfaces
+        from shared.lib.lib.supabase.userinterface_db import get_all_userinterfaces
         
         userinterfaces = get_all_userinterfaces(team_id)
         if not userinterfaces:
@@ -49,7 +49,7 @@ def load_navigation_tree(userinterface_name: str, script_name: str = "script") -
         
         userinterface_id = userinterface['id']
         
-        from src.lib.supabase.navigation_trees_db import get_navigation_trees
+        from shared.lib.lib.supabase.navigation_trees_db import get_navigation_trees
         
         success, message, trees = get_navigation_trees(team_id, userinterface_id)
         
@@ -292,7 +292,7 @@ def execute_navigation_with_verifications(host, device, transition: Dict[str, An
         
         if tree_id and actions:
             try:
-                from src.lib.supabase.execution_results_db import record_edge_execution
+                from shared.lib.lib.supabase.execution_results_db import record_edge_execution
                 edge_id = transition.get('edge_id', 'unknown')
                 record_edge_execution(
                     team_id=team_id,
@@ -328,7 +328,7 @@ def execute_navigation_with_verifications(host, device, transition: Dict[str, An
             
             if tree_id:
                 try:
-                    from src.lib.supabase.execution_results_db import record_node_execution
+                    from shared.lib.lib.supabase.execution_results_db import record_node_execution
                     node_id = transition.get('to_node_id', 'unknown')
                     record_node_execution(
                         team_id=team_id,

@@ -1,7 +1,7 @@
 /**
  * API Client for VirtualPyTest Frontend
  * 
- * Centralized HTTP client for communicating with backend-server.
+ * Centralized HTTP client for communicating with backend_server.
  * Handles authentication, error handling, and request/response formatting.
  */
 

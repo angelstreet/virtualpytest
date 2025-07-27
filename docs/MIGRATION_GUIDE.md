@@ -21,9 +21,9 @@ This guide provides step-by-step instructions to migrate from the current monoli
 ```bash
 # Create main service directories
 mkdir -p shared/lib/{config,models,utils,exceptions,constants}
-mkdir -p backend-core/src/{controllers,services,interfaces}
-mkdir -p backend-server/src/{routes,middleware,websockets,serializers}
-mkdir -p backend-host/src/{routes,services,agents}
+mkdir -p backend_core/src/{controllers,services,interfaces}
+mkdir -p backend_server/src/{routes,middleware,websockets,serializers}
+mkdir -p backend_host/src/{routes,services,agents}
 mkdir -p frontend/src/{components,pages,hooks,contexts,services,types,utils,styles}
 mkdir -p docker/{nginx,scripts}
 mkdir -p docs/{architecture,development,user-guides}
@@ -37,19 +37,19 @@ mkdir -p config/environments
 ```bash
 # Create requirements.txt files for each service
 touch shared/requirements.txt
-touch backend-core/requirements.txt
-touch backend-server/requirements.txt
-touch backend-host/requirements.txt
+touch backend_core/requirements.txt
+touch backend_server/requirements.txt
+touch backend_host/requirements.txt
 
 # Create Docker files
-touch backend-core/Dockerfile
-touch backend-server/Dockerfile
-touch backend-host/Dockerfile
+touch backend_core/Dockerfile
+touch backend_server/Dockerfile
+touch backend_host/Dockerfile
 touch frontend/Dockerfile
 
 # Create setup.py files
 touch shared/setup.py
-touch backend-core/setup.py
+touch backend_core/setup.py
 
 # Create Docker Compose files
 touch docker/docker-compose.yml
@@ -176,17 +176,17 @@ EOF
 
 ```bash
 # Move controller files
-cp -r src/controllers/* backend-core/src/controllers/
+cp -r src/controllers/* backend_core/src/controllers/
 
 # Update imports in controller files
-find backend-core/src/controllers -name "*.py" -exec sed -i '' 's/from src\.utils/from shared.lib.utils/g' {} \;
-find backend-core/src/controllers -name "*.py" -exec sed -i '' 's/from src\.models/from shared.lib.models/g' {} \;
+find backend_core/src/controllers -name "*.py" -exec sed -i '' 's/from src\.utils/from shared.lib.utils/g' {} \;
+find backend_core/src/controllers -name "*.py" -exec sed -i '' 's/from src\.models/from shared.lib.models/g' {} \;
 ```
 
 #### Step 3.2: Create Backend Core Requirements
 
 ```bash
-cat > backend-core/requirements.txt << 'EOF'
+cat > backend_core/requirements.txt << 'EOF'
 # Backend Core Dependencies
 -e ../shared
 
@@ -207,11 +207,11 @@ EOF
 #### Step 3.3: Create Backend Core Setup
 
 ```bash
-cat > backend-core/setup.py << 'EOF'
+cat > backend_core/setup.py << 'EOF'
 from setuptools import setup, find_packages
 
 setup(
-    name="virtualpytest-backend-core",
+    name="virtualpytest-backend_core",
     version="1.0.0",
     description="Core backend logic for VirtualPyTest",
     packages=find_packages(where="src"),
@@ -235,21 +235,21 @@ EOF
 
 ```bash
 # Create host routes directory
-mkdir -p backend-host/src/routes
+mkdir -p backend_host/src/routes
 
 # Move host-specific routes (like host_rec_routes.py)
-cp src/web/routes/host_rec_routes.py backend-host/src/routes/
-cp src/web/app_host.py backend-host/src/app.py
+cp src/web/routes/host_rec_routes.py backend_host/src/routes/
+cp src/web/app_host.py backend_host/src/app.py
 
 # Update imports in host routes
-sed -i '' 's/from src\.utils/from shared.lib.utils/g' backend-host/src/routes/*.py
-sed -i '' 's/from src\.controllers/from backend_core.src.controllers/g' backend-host/src/routes/*.py
+sed -i '' 's/from src\.utils/from shared.lib.utils/g' backend_host/src/routes/*.py
+sed -i '' 's/from src\.controllers/from backend_core.src.controllers/g' backend_host/src/routes/*.py
 ```
 
 #### Step 4.2: Create Host App Structure
 
 ```bash
-cat > backend-host/src/app.py << 'EOF'
+cat > backend_host/src/app.py << 'EOF'
 """
 VirtualPyTest Backend Host Application
 
@@ -264,7 +264,7 @@ import os
 
 # Add shared lib to path
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', 'shared'))
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', 'backend-core', 'src'))
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', 'backend_core', 'src'))
 
 from shared.lib.config.settings import get_config
 from routes.host_rec_routes import host_rec_bp
@@ -292,7 +292,7 @@ def create_app():
     # Health check endpoint
     @app.route('/health')
     def health():
-        return jsonify({'status': 'healthy', 'service': 'backend-host'})
+        return jsonify({'status': 'healthy', 'service': 'backend_host'})
 
     return app
 
@@ -310,10 +310,10 @@ EOF
 #### Step 4.3: Create Host Requirements
 
 ```bash
-cat > backend-host/requirements.txt << 'EOF'
+cat > backend_host/requirements.txt << 'EOF'
 # Backend Host Dependencies
 -e ../shared
--e ../backend-core
+-e ../backend_core
 
 # Flask and web framework
 Flask>=2.3.0
@@ -331,19 +331,19 @@ EOF
 
 ```bash
 # Create server routes
-mkdir -p backend-server/src/routes
+mkdir -p backend_server/src/routes
 
 # Move API routes (non-host routes)
-find src/web/routes -name "*.py" -not -name "host_*" -exec cp {} backend-server/src/routes/ \;
+find src/web/routes -name "*.py" -not -name "host_*" -exec cp {} backend_server/src/routes/ \;
 
 # Copy main server app
-cp src/web/app_server.py backend-server/src/app.py
+cp src/web/app_server.py backend_server/src/app.py
 ```
 
 #### Step 5.2: Create Server App Structure
 
 ```bash
-cat > backend-server/src/app.py << 'EOF'
+cat > backend_server/src/app.py << 'EOF'
 """
 VirtualPyTest Backend Server Application
 
@@ -385,7 +385,7 @@ def create_app():
     # Health check endpoint
     @app.route('/api/health')
     def health():
-        return jsonify({'status': 'healthy', 'service': 'backend-server'})
+        return jsonify({'status': 'healthy', 'service': 'backend_server'})
 
     # Proxy endpoint for host operations
     @app.route('/api/restart/images', methods=['GET', 'POST'])
@@ -419,7 +419,7 @@ EOF
 #### Step 5.3: Create Server Requirements
 
 ```bash
-cat > backend-server/requirements.txt << 'EOF'
+cat > backend_server/requirements.txt << 'EOF'
 # Backend Server Dependencies
 -e ../shared
 
@@ -484,7 +484,7 @@ EOF
 #### Step 7.1: Backend Host Dockerfile
 
 ```bash
-cat > backend-host/Dockerfile << 'EOF'
+cat > backend_host/Dockerfile << 'EOF'
 FROM python:3.11-slim
 
 WORKDIR /app
@@ -497,18 +497,18 @@ RUN apt-get update && apt-get install -y \
 
 # Copy shared libraries
 COPY shared/ /app/shared/
-COPY backend-core/ /app/backend-core/
+COPY backend_core/ /app/backend_core/
 
 # Copy host service
-COPY backend-host/ /app/backend-host/
+COPY backend_host/ /app/backend_host/
 
 # Install Python dependencies
 RUN pip install -e /app/shared
-RUN pip install -e /app/backend-core
-RUN pip install -r /app/backend-host/requirements.txt
+RUN pip install -e /app/backend_core
+RUN pip install -r /app/backend_host/requirements.txt
 
 # Set working directory to host service
-WORKDIR /app/backend-host
+WORKDIR /app/backend_host
 
 # Expose port
 EXPOSE 5010
@@ -521,7 +521,7 @@ EOF
 #### Step 7.2: Backend Server Dockerfile
 
 ```bash
-cat > backend-server/Dockerfile << 'EOF'
+cat > backend_server/Dockerfile << 'EOF'
 FROM python:3.11-slim
 
 WORKDIR /app
@@ -536,14 +536,14 @@ RUN apt-get update && apt-get install -y \
 COPY shared/ /app/shared/
 
 # Copy server service
-COPY backend-server/ /app/backend-server/
+COPY backend_server/ /app/backend_server/
 
 # Install Python dependencies
 RUN pip install -e /app/shared
-RUN pip install -r /app/backend-server/requirements.txt
+RUN pip install -r /app/backend_server/requirements.txt
 
 # Set working directory to server service
-WORKDIR /app/backend-server
+WORKDIR /app/backend_server
 
 # Expose port
 EXPOSE 5009
@@ -606,39 +606,39 @@ services:
       - shared-lib:/app/shared
     command: tail -f /dev/null
 
-  backend-host:
+  backend_host:
     build:
       context: ../
-      dockerfile: backend-host/Dockerfile
+      dockerfile: backend_host/Dockerfile
     ports:
       - "5010:5010"
     volumes:
       - ../shared:/app/shared
-      - ../backend-core:/app/backend-core
-      - ../backend-host:/app/backend-host
+      - ../backend_core:/app/backend_core
+      - ../backend_host:/app/backend_host
     environment:
       - FLASK_ENV=development
       - LOG_LEVEL=DEBUG
     depends_on:
       - shared
 
-  backend-server:
+  backend_server:
     build:
       context: ../
-      dockerfile: backend-server/Dockerfile
+      dockerfile: backend_server/Dockerfile
     ports:
       - "5009:5009"
     volumes:
       - ../shared:/app/shared
-      - ../backend-server:/app/backend-server
+      - ../backend_server:/app/backend_server
     environment:
       - FLASK_ENV=development
       - LOG_LEVEL=DEBUG
-      - BACKEND_HOST_HOST=backend-host
+      - BACKEND_HOST_HOST=backend_host
       - BACKEND_HOST_PORT=5010
     depends_on:
       - shared
-      - backend-host
+      - backend_host
 
   frontend:
     build:
@@ -649,7 +649,7 @@ services:
     environment:
       - REACT_APP_API_BASE_URL=http://localhost:5009/api
     depends_on:
-      - backend-server
+      - backend_server
 
 volumes:
   shared-lib:
@@ -665,16 +665,16 @@ EOF
 cd shared && python -m pytest tests/ || echo "No tests yet"
 
 # Test backend core
-cd backend-core && python -c "from src.controllers import *; print('Core imports working')"
+cd backend_core && python -c "from src.controllers import *; print('Core imports working')"
 
 # Test backend host
-cd backend-host && python src/app.py &
+cd backend_host && python src/app.py &
 HOST_PID=$!
 curl http://localhost:5010/health
 kill $HOST_PID
 
 # Test backend server
-cd backend-server && python src/app.py &
+cd backend_server && python src/app.py &
 SERVER_PID=$!
 curl http://localhost:5009/api/health
 kill $SERVER_PID
@@ -905,8 +905,8 @@ cd docker
 docker-compose -f docker-compose.dev.yml up
 
 # Or start services individually
-cd backend-host && python src/app.py  # Port 5010
-cd backend-server && python src/app.py  # Port 5009
+cd backend_host && python src/app.py  # Port 5010
+cd backend_server && python src/app.py  # Port 5009
 cd frontend && npm run dev  # Port 3000
 ````
 
