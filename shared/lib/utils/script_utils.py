@@ -416,8 +416,8 @@ def get_scripts_directory() -> str:
     src_dir = os.path.dirname(current_dir)  # /src
     project_root = os.path.dirname(src_dir)  # /virtualpytest
     
-    # Use test-scripts folder as the primary scripts location
-    return os.path.join(project_root, 'test-scripts')
+    # Use test_scripts folder as the primary scripts location
+    return os.path.join(project_root, 'test_scripts')
 
 def get_script_path(script_name: str) -> str:
     """Get full path to a script file"""
