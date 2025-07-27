@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import Dict, List, Optional, Tuple, Any
 from uuid import uuid4
 
-from utils.supabase_utils import get_supabase_client
+from lib.utils.supabase_utils import get_supabase_client
 from src.utils.app_utils import DEFAULT_TEAM_ID
 
 def get_supabase():

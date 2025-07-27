@@ -9,7 +9,7 @@ This module contains the execution results management API endpoints for:
 from flask import Blueprint, jsonify
 
 # Import database functions from src/lib/supabase (uses absolute import)
-from database.execution_results_db import (
+from lib.supabase.execution_results_db import (
     get_execution_results
 )
 

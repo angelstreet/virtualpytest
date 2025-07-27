@@ -7,7 +7,7 @@ This module provides functions for managing verification definitions in the data
 from datetime import datetime
 from typing import Dict, List, Optional
 
-from utils.supabase_utils import get_supabase_client
+from lib.utils.supabase_utils import get_supabase_client
 
 def get_supabase():
     """Get the Supabase client instance."""

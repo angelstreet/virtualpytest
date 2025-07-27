@@ -52,7 +52,7 @@ from navigation.navigation_pathfinding import find_optimal_edge_validation_seque
 # Import report generation
 from utils.report_utils import generate_validation_report
 from utils.cloudflare_utils import upload_script_report, upload_validation_screenshots
-from database.script_results_db import record_script_execution_start, update_script_execution_result
+from lib.supabase.script_results_db import record_script_execution_start, update_script_execution_result
 
 
 def main():

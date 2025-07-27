@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# VirtualPyTest - Install Shared Library
-# This script installs the shared library dependencies
+# VirtualPyTest - Install Shared Library Dependencies
+# This script installs the shared library dependencies (no longer a pip package)
 
 set -e
 
-echo "📚 Installing VirtualPyTest Shared Library..."
+echo "📚 Installing VirtualPyTest Shared Library Dependencies..."
 
 # Get to project root directory (from setup/local to project root)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -32,10 +32,10 @@ fi
 echo "🔌 Activating virtual environment..."
 source venv/bin/activate
 
-# Install shared library
-echo "📦 Installing shared library..."
+# Install shared library dependencies only
+echo "📦 Installing shared library dependencies..."
 cd shared
-pip install -e . --use-pep517
+pip install -r requirements.txt
 
 # Create .env file if it doesn't exist
 if [ ! -f ".env" ]; then
@@ -52,4 +52,5 @@ fi
 
 cd ..
 
-echo "✅ Shared library installation completed!" 
+echo "✅ Shared library dependencies installation completed!"
+echo "📁 Shared modules are now available as a simple folder (no pip package)" 

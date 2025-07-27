@@ -12,7 +12,7 @@ from flask import Blueprint, request, jsonify
 from utils.route_utils import proxy_to_host, get_host_from_request
 
 # Import verification database functions
-from database.verifications_db import get_verifications, save_verification, delete_verification
+from lib.supabase.verifications_db import get_verifications, save_verification, delete_verification
 from utils.app_utils import DEFAULT_TEAM_ID
 
 # Create blueprint
@@ -556,7 +556,7 @@ def verification_image_get_references():
             }), 400
         
         # Get image references from database directly
-        from database.verifications_references_db import get_references
+        from lib.supabase.verifications_references_db import get_references
         
         result = get_references(
             team_id=DEFAULT_TEAM_ID,
@@ -588,7 +588,7 @@ def verification_text_get_references():
             }), 400
         
         # Get text references from database directly
-        from database.verifications_references_db import get_references
+        from lib.supabase.verifications_references_db import get_references
         
         result = get_references(
             team_id=DEFAULT_TEAM_ID,
@@ -620,7 +620,7 @@ def verification_get_all_references():
             }), 400
         
         # Get all references from database directly
-        from database.verifications_references_db import get_references
+        from lib.supabase.verifications_references_db import get_references
         
         result = get_references(
             team_id=DEFAULT_TEAM_ID,

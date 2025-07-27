@@ -10,7 +10,7 @@ This module contains the device management API endpoints for:
 from flask import Blueprint, request, jsonify
 
 # Import database functions from src/lib/supabase (uses absolute import)
-from database.devices_db import (
+from lib.supabase.devices_db import (
     get_all_devices, get_device, save_device as create_device, 
     delete_device
 )

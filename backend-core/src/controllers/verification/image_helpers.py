@@ -84,7 +84,7 @@ class ImageHelpers:
                 upload_reference_image(binary_path, device_model, binary_filename)
             
             # Save reference to database
-            from database.verifications_references_db import save_reference
+            from lib.supabase.verifications_references_db import save_reference
             from utils.app_utils import DEFAULT_TEAM_ID
             
             db_result = save_reference(

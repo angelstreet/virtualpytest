@@ -198,7 +198,7 @@ def check_supabase():
     """Helper function to check if Supabase is available"""
     try:
         from flask import jsonify
-        from utils.supabase_utils import get_supabase_client
+        from lib.utils.supabase_utils import get_supabase_client
         supabase_client = get_supabase_client()
         if supabase_client is None:
             return jsonify({'error': 'Supabase not available'}), 503

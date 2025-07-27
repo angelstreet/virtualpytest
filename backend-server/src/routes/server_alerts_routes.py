@@ -10,7 +10,7 @@ This module contains the alerts management API endpoints for:
 from flask import Blueprint, jsonify, request
 
 # Import database functions from src/lib/supabase (uses absolute import)
-from database.alerts_db import (
+from lib.supabase.alerts_db import (
     get_all_alerts,
     get_active_alerts,
     get_closed_alerts

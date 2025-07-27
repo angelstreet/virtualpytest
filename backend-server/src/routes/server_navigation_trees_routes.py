@@ -3,12 +3,12 @@ Navigation Trees API Routes with History Support
 """
 
 from flask import Blueprint, request, jsonify
-from database.navigation_trees_db import (
+from lib.supabase.navigation_trees_db import (
     save_navigation_tree, get_navigation_tree, get_navigation_trees,
     get_tree_history, restore_tree_version, delete_navigation_tree,
     get_all_trees as get_all_navigation_trees_util
 )
-from database.userinterface_db import get_all_userinterfaces
+from lib.supabase.userinterface_db import get_all_userinterfaces
 from utils.app_utils import DEFAULT_TEAM_ID, DEFAULT_USER_ID, check_supabase, get_team_id
 
 # Debug: Print the DEFAULT_USER_ID value when module loads
@@ -239,7 +239,7 @@ def get_tree_by_userinterface_id(userinterface_id):
                     resolved_tree_data = get_cached_tree_data(tree_name, team_id)
                 if not resolved_tree_data:
                     # Fallback: try by userinterface_id name
-                    from database.userinterface_db import get_userinterface
+                    from lib.supabase.userinterface_db import get_userinterface
                     userinterface = get_userinterface(userinterface_id, team_id)
                     if userinterface and userinterface.get('name'):
                         userinterface_name = userinterface['name']
@@ -247,7 +247,7 @@ def get_tree_by_userinterface_id(userinterface_id):
                 
                 if resolved_tree_data:
                     # Get all metrics in one bulk query
-                    from database.execution_results_db import get_tree_metrics
+                    from lib.supabase.execution_results_db import get_tree_metrics
                     
                     # Collect all node and edge IDs
                     node_ids = [node['id'] for node in resolved_tree_data['nodes']]
@@ -456,7 +456,7 @@ def restore_version_direct():
         
         print(f'[@route:navigation_trees:restore_version_direct] Direct restore tree {tree_id} to version {version_number}')
         
-        from database.client import get_supabase
+        from lib.supabase.client import get_supabase
         supabase = get_supabase()
         
         # First, check if the version exists
@@ -495,7 +495,7 @@ def restore_version_direct():
             invalidate_cache(tree_id, team_id)
             
             # Create a history record for this direct restore
-            from database.navigation_trees_db import get_next_version_number
+            from lib.supabase.navigation_trees_db import get_next_version_number
             new_version = get_next_version_number(tree_id, supabase)
             
             # Get the restored tree data
@@ -608,7 +608,7 @@ def update_tree_endpoint(tree_id):
         
         print(f'[@route:navigation_trees:update_tree] Updating tree: {tree_id}')
         
-        from database.navigation_trees_db import update_tree
+        from lib.supabase.navigation_trees_db import update_tree
         
         # Prepare update data
         update_data = {
@@ -621,7 +621,7 @@ def update_tree_endpoint(tree_id):
         
         if updated_tree:
             # Create history record for the update
-            from database.navigation_trees_db import get_navigation_tree
+            from lib.supabase.navigation_trees_db import get_navigation_tree
             
             # Get current version number
             _, _, tree_record = get_navigation_tree(tree_id, team_id)
@@ -701,7 +701,7 @@ def create_sub_tree_endpoint():
         
         print(f'[@route:navigation_trees:create_sub_tree] Creating sub-tree: {sub_tree_name} for node: {parent_node_id}')
         
-        from database.navigation_trees_db import create_sub_tree, update_node_sub_tree_reference
+        from lib.supabase.navigation_trees_db import create_sub_tree, update_node_sub_tree_reference
         
         success, message, created_tree = create_sub_tree(
             parent_tree_id, parent_node_id, sub_tree_name, 
@@ -738,7 +738,7 @@ def get_breadcrumb_endpoint(tree_id):
         
         print(f'[@route:navigation_trees:get_breadcrumb] Getting breadcrumb for tree: {tree_id}')
         
-        from database.navigation_trees_db import get_tree_breadcrumb
+        from lib.supabase.navigation_trees_db import get_tree_breadcrumb
         
         success, message, breadcrumb = get_tree_breadcrumb(tree_id, team_id)
         
@@ -771,7 +771,7 @@ def get_node_sub_trees_endpoint(tree_id, node_id):
         
         print(f'[@route:navigation_trees:get_node_sub_trees] Getting sub-trees for node: {node_id}')
         
-        from database.navigation_trees_db import get_node_sub_trees
+        from lib.supabase.navigation_trees_db import get_node_sub_trees
         
         success, message, sub_trees = get_node_sub_trees(tree_id, node_id, team_id)
         
@@ -818,7 +818,7 @@ def update_node_sub_tree_reference_endpoint():
         
         print(f'[@route:navigation_trees:update_node_sub_tree_reference] Updating node {node_id} reference: {has_sub_tree}')
         
-        from database.navigation_trees_db import update_node_sub_tree_reference
+        from lib.supabase.navigation_trees_db import update_node_sub_tree_reference
         
         success, message = update_node_sub_tree_reference(tree_id, node_id, has_sub_tree, team_id, creator_id)
         

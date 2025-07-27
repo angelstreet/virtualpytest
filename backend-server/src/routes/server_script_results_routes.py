@@ -9,7 +9,7 @@ This module contains the script results management API endpoints for:
 from flask import Blueprint, jsonify
 
 # Import database functions from src/lib/supabase (uses absolute import)
-from database.script_results_db import (
+from lib.supabase.script_results_db import (
     get_script_results
 )
 
