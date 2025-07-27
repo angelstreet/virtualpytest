@@ -184,7 +184,7 @@ class Device:
         Returns:
             Dictionary representation of the device with detailed capability format
         """
-        from ..controllers.controller_config_factory import get_device_capabilities
+        from controllers.controller_config_factory import get_device_capabilities
         
         # Get detailed capabilities from factory
         detailed_capabilities = get_device_capabilities(self.device_model)
