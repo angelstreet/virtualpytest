@@ -1,11 +1,9 @@
 #!/bin/bash
 
-# VirtualPyTest - Launch All Services in Background
-# This script starts all services in the background and shows combined logs
+# VirtualPyTest Launch Script - Real-time Unified Logging
+echo "🚀 Starting VirtualPyTest System with Real-time Unified Logging..."
 
 set -e
-
-echo "🚀 Launching VirtualPyTest - All Services in Background"
 
 # Get to project root directory (from setup/local to project root)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -13,6 +11,8 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 # Change to project root
 cd "$PROJECT_ROOT"
+
+echo "📁 Project root: $PROJECT_ROOT"
 
 # Check if we're in the right directory
 if [ ! -f "README.md" ]; then
@@ -38,80 +38,128 @@ if [ -n "$MISSING_COMPONENTS" ]; then
     exit 1
 fi
 
-echo "🔄 Starting all services..."
+# Detect Python executable
+PYTHON_CMD=""
+if command -v python3 &> /dev/null; then
+    PYTHON_CMD="python3"
+elif command -v python &> /dev/null; then
+    PYTHON_CMD="python"
+else
+    echo "❌ No Python executable found!"
+    exit 1
+fi
+echo "🐍 Using Python: $PYTHON_CMD"
 
-# Launch backend-server
-echo "1️⃣ Starting backend-server..."
-./setup/local/launch_server.sh
+# Activate virtual environment
+echo "🐍 Activating virtual environment..."
+source venv/bin/activate
 
-# Small delay between services
-sleep 2
+# Set up environment variables
+export PYTHONPATH="$PROJECT_ROOT/shared/lib:$PROJECT_ROOT/backend-core/src"
 
-# Launch backend-host
-echo ""
-echo "2️⃣ Starting backend-host..."
-./setup/local/launch_host.sh
+# Colors for different components
+BLUE='\033[0;34m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+RED='\033[0;31m'
+NC='\033[0m'
 
-# Small delay between services
-sleep 2
+# Array to store background process PIDs
+declare -a PIDS=()
 
-# Launch frontend
-echo ""
-echo "3️⃣ Starting frontend..."
-./setup/local/launch_frontend.sh
+# Function to run command with colored prefix and real-time output
+run_with_prefix() {
+    local prefix="$1"
+    local color="$2"
+    local directory="$3"
+    shift 3
+    
+    cd "$directory"
+    
+    # Use exec to run command and pipe output with real-time processing
+    {
+        if [[ "$1" == "python" ]]; then
+            # For Python, use -u flag for unbuffered output
+            exec $PYTHON_CMD -u "${@:2}" 2>&1
+        elif [[ "$1" == "npm" ]]; then
+            # For npm, set environment variables for unbuffered output
+            exec env FORCE_COLOR=1 "$@" 2>&1
+        else
+            exec "$@" 2>&1
+        fi
+    } | {
+        while IFS= read -r line; do
+            printf "${color}[${prefix}]${NC} %s\n" "$line"
+        done
+    } &
+    
+    local pid=$!
+    PIDS+=($pid)
+    echo "Started $prefix with PID: $pid"
+    
+    # Return to project root
+    cd "$PROJECT_ROOT"
+}
 
-# Wait for all services to fully start
+# Enhanced cleanup function
+cleanup() {
+    echo -e "\n${RED}🛑 Shutting down all processes...${NC}"
+    
+    # Kill all background processes gracefully first
+    for pid in "${PIDS[@]}"; do
+        if kill -0 "$pid" 2>/dev/null; then
+            echo "Stopping process $pid..."
+            kill -TERM "$pid" 2>/dev/null
+        fi
+    done
+    
+    # Wait a moment for graceful shutdown
+    sleep 3
+    
+    # Force kill any remaining processes
+    for pid in "${PIDS[@]}"; do
+        if kill -0 "$pid" 2>/dev/null; then
+            echo "Force killing process $pid..."
+            kill -9 "$pid" 2>/dev/null
+        fi
+    done
+    
+    # Kill any remaining background jobs
+    jobs -p | xargs -r kill -9 2>/dev/null
+    
+    # Clean up PID files
+    rm -f /tmp/backend_server.pid /tmp/backend_host.pid /tmp/frontend.pid
+    
+    echo -e "${RED}✅ All processes stopped${NC}"
+    exit 0
+}
+trap cleanup SIGINT SIGTERM
+
+echo "📺 Starting all processes with real-time unified logging..."
+echo "💡 Press Ctrl+C to stop all processes"
+echo "💡 Logs will appear with colored prefixes: [SERVER], [HOST], [FRONTEND]"
+echo "=================================================================================="
+
+# Start all processes with prefixed output and real-time logging
+echo -e "${BLUE}🔵 Starting Backend-Server...${NC}"
+run_with_prefix "SERVER" "$BLUE" "$PROJECT_ROOT/backend-server" python src/app.py
 sleep 3
 
-# Check final status
-echo ""
-echo "📊 Final Service Status:"
-ALL_RUNNING=true
+echo -e "${GREEN}🟢 Starting Backend-Host...${NC}"
+run_with_prefix "HOST" "$GREEN" "$PROJECT_ROOT/backend-host" python src/app.py
+sleep 3
 
-# Check backend-server
-if pgrep -f "python.*backend-server.*app.py" > /dev/null; then
-    echo "✅ Backend-Server: running"
-else
-    echo "❌ Backend-Server: failed"
-    ALL_RUNNING=false
-fi
+echo -e "${YELLOW}🟡 Starting Frontend...${NC}"
+run_with_prefix "FRONTEND" "$YELLOW" "$PROJECT_ROOT/frontend" npm run dev
 
-# Check backend-host
-if pgrep -f "python.*backend-host.*app.py" > /dev/null; then
-    echo "✅ Backend-Host: running"
-else
-    echo "❌ Backend-Host: failed"
-    ALL_RUNNING=false
-fi
+echo "=================================================================================="
+echo -e "${NC}✅ All processes started! Watching for logs...${NC}"
+echo -e "${NC}💡 You should see logs with colored prefixes appearing below${NC}"
+echo -e "${NC}🌐 URLs:${NC}"
+echo -e "${NC}   Frontend: http://localhost:3000${NC}"
+echo -e "${NC}   Backend-Server: http://localhost:5109${NC}"
+echo -e "${NC}   Backend-Host: http://localhost:6109${NC}"
+echo "=================================================================================="
 
-# Check frontend
-if pgrep -f "npm.*run.*dev" > /dev/null || pgrep -f "node.*vite" > /dev/null; then
-    echo "✅ Frontend: running"
-else
-    echo "❌ Frontend: failed"
-    ALL_RUNNING=false
-fi
-
-if [ "$ALL_RUNNING" = true ]; then
-    echo ""
-    echo "🎉 All services running successfully!"
-    echo "📱 Frontend: http://localhost:3000"
-    echo "🖥️  Backend-Server: http://localhost:5109" 
-    echo "🔧 Backend-Host: http://localhost:6109"
-    echo ""
-    echo "📊 Log files:"
-    echo "   Backend-Server: /tmp/backend_server.log"
-    echo "   Backend-Host: /tmp/backend_host.log"
-    echo "   Frontend: /tmp/frontend.log"
-    echo ""
-    echo "🛑 To stop all services: ./setup/local/stop_all_local.sh"
-    echo "📊 To view live logs: tail -f /tmp/backend_server.log /tmp/backend_host.log /tmp/frontend.log"
-else
-    echo ""
-    echo "💥 Some services failed to start!"
-    echo "🔍 Check individual service logs:"
-    echo "   Backend-Server: cat /tmp/backend_server.log"
-    echo "   Backend-Host: cat /tmp/backend_host.log"
-    echo "   Frontend: cat /tmp/frontend.log"
-    exit 1
-fi 
+# Wait for all background jobs
+wait 

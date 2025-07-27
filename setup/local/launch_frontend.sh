@@ -1,11 +1,9 @@
 #!/bin/bash
 
-# VirtualPyTest - Launch Frontend Only
-# This script starts only the frontend in the background
+# VirtualPyTest - Launch Frontend with Real-time Logs
+echo "⚛️ Starting VirtualPyTest Frontend with Real-time Logs..."
 
 set -e
-
-echo "⚛️ Launching VirtualPyTest - Frontend Only"
 
 # Get to project root directory (from setup/local to project root)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -13,6 +11,8 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 # Change to project root
 cd "$PROJECT_ROOT"
+
+echo "📁 Project root: $PROJECT_ROOT"
 
 # Check if we're in the right directory
 if [ ! -f "README.md" ] || [ ! -d "frontend" ]; then
@@ -30,33 +30,55 @@ fi
 if pgrep -f "npm.*run.*dev" > /dev/null || pgrep -f "node.*vite" > /dev/null; then
     echo "⚠️  Frontend is already running!"
     echo "🛑 To stop: ./setup/local/stop_all_local.sh"
-    echo "📊 To view logs: tail -f /tmp/frontend.log"
     exit 0
 fi
 
-# Start frontend in background
-echo "🚀 Starting frontend development server..."
-cd frontend
-nohup npm run dev > /tmp/frontend.log 2>&1 &
-FRONTEND_PID=$!
+# Colors for output
+YELLOW='\033[1;33m'
+RED='\033[0;31m'
+NC='\033[0m'
 
-# Save PID for later cleanup
+# Cleanup function
+cleanup() {
+    echo -e "\n${RED}🛑 Shutting down frontend...${NC}"
+    if [ -f /tmp/frontend.pid ]; then
+        PID=$(cat /tmp/frontend.pid)
+        if kill -0 "$PID" 2>/dev/null; then
+            kill -TERM "$PID" 2>/dev/null
+            sleep 2
+            if kill -0 "$PID" 2>/dev/null; then
+                kill -9 "$PID" 2>/dev/null
+            fi
+        fi
+        rm -f /tmp/frontend.pid
+    fi
+    echo -e "${RED}✅ Frontend stopped${NC}"
+    exit 0
+}
+trap cleanup SIGINT SIGTERM
+
+echo "📺 Starting frontend with real-time logging..."
+echo "💡 Press Ctrl+C to stop"
+echo "=================================================================================="
+
+# Start frontend with real-time output
+cd frontend
+echo -e "${YELLOW}🟡 Starting Frontend...${NC}"
+
+# Start the process and capture PID
+env FORCE_COLOR=1 npm run dev 2>&1 | {
+    while IFS= read -r line; do
+        printf "${YELLOW}[FRONTEND]${NC} %s\n" "$line"
+    done
+} &
+
+FRONTEND_PID=$!
 echo $FRONTEND_PID > /tmp/frontend.pid
 
-# Wait a moment and check if it started
-sleep 5
+echo "Started Frontend with PID: $FRONTEND_PID"
+echo "🌐 Frontend: http://localhost:3000"
+echo "💡 Logs will appear with [FRONTEND] prefix below"
+echo "=================================================================================="
 
-if ps -p $FRONTEND_PID > /dev/null; then
-    echo "✅ Frontend started successfully (PID: $FRONTEND_PID)"
-    echo "🌐 Frontend: http://localhost:3000"
-    echo "📊 Log file: /tmp/frontend.log"
-    echo "🛑 To stop: ./setup/local/stop_all_local.sh"
-    echo ""
-    echo "📊 Recent logs:"
-    tail -10 /tmp/frontend.log
-else
-    echo "❌ Failed to start frontend"
-    echo "📊 Error logs:"
-    cat /tmp/frontend.log
-    exit 1
-fi
+# Wait for the process
+wait $FRONTEND_PID

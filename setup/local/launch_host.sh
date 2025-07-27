@@ -1,11 +1,9 @@
 #!/bin/bash
 
-# VirtualPyTest - Launch Backend-Host Only
-# This script starts only the backend-host in the background
+# VirtualPyTest - Launch Backend-Host with Real-time Logs
+echo "🔧 Starting VirtualPyTest Backend-Host with Real-time Logs..."
 
 set -e
-
-echo "🔧 Launching VirtualPyTest - Backend-Host Only"
 
 # Get to project root directory (from setup/local to project root)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -13,6 +11,8 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 # Change to project root
 cd "$PROJECT_ROOT"
+
+echo "📁 Project root: $PROJECT_ROOT"
 
 # Check if we're in the right directory
 if [ ! -f "README.md" ] || [ ! -d "backend-host" ]; then
@@ -30,9 +30,20 @@ fi
 if pgrep -f "python.*backend-host.*app.py" > /dev/null; then
     echo "⚠️  Backend-host is already running!"
     echo "🛑 To stop: ./setup/local/stop_all_local.sh"
-    echo "📊 To view logs: tail -f /tmp/backend_host.log"
     exit 0
 fi
+
+# Detect Python executable
+PYTHON_CMD=""
+if command -v python3 &> /dev/null; then
+    PYTHON_CMD="python3"
+elif command -v python &> /dev/null; then
+    PYTHON_CMD="python"
+else
+    echo "❌ No Python executable found!"
+    exit 1
+fi
+echo "🐍 Using Python: $PYTHON_CMD"
 
 # Activate virtual environment
 echo "🔌 Activating virtual environment..."
@@ -41,29 +52,52 @@ source venv/bin/activate
 # Set up environment variables
 export PYTHONPATH="$PROJECT_ROOT/shared/lib:$PROJECT_ROOT/backend-core/src"
 
-# Start backend-host in background
-echo "🚀 Starting backend-host..."
-cd backend-host
-nohup python3 src/app.py > /tmp/backend_host.log 2>&1 &
-HOST_PID=$!
+# Colors for output
+GREEN='\033[0;32m'
+RED='\033[0;31m'
+NC='\033[0m'
 
-# Save PID for later cleanup
+# Cleanup function
+cleanup() {
+    echo -e "\n${RED}🛑 Shutting down backend-host...${NC}"
+    if [ -f /tmp/backend_host.pid ]; then
+        PID=$(cat /tmp/backend_host.pid)
+        if kill -0 "$PID" 2>/dev/null; then
+            kill -TERM "$PID" 2>/dev/null
+            sleep 2
+            if kill -0 "$PID" 2>/dev/null; then
+                kill -9 "$PID" 2>/dev/null
+            fi
+        fi
+        rm -f /tmp/backend_host.pid
+    fi
+    echo -e "${RED}✅ Backend-host stopped${NC}"
+    exit 0
+}
+trap cleanup SIGINT SIGTERM
+
+echo "📺 Starting backend-host with real-time logging..."
+echo "💡 Press Ctrl+C to stop"
+echo "=================================================================================="
+
+# Start backend-host with real-time output
+cd backend-host
+echo -e "${GREEN}🟢 Starting Backend-Host...${NC}"
+
+# Start the process and capture PID
+$PYTHON_CMD -u src/app.py 2>&1 | {
+    while IFS= read -r line; do
+        printf "${GREEN}[HOST]${NC} %s\n" "$line"
+    done
+} &
+
+HOST_PID=$!
 echo $HOST_PID > /tmp/backend_host.pid
 
-# Wait a moment and check if it started
-sleep 3
+echo "Started Backend-Host with PID: $HOST_PID"
+echo "🌐 Backend-Host: http://localhost:6109"
+echo "💡 Logs will appear with [HOST] prefix below"
+echo "=================================================================================="
 
-if ps -p $HOST_PID > /dev/null; then
-    echo "✅ Backend-host started successfully (PID: $HOST_PID)"
-    echo "🌐 Backend-Host: http://localhost:6109"
-    echo "📊 Log file: /tmp/backend_host.log"
-    echo "🛑 To stop: ./setup/local/stop_all_local.sh"
-    echo ""
-    echo "📊 Recent logs:"
-    tail -10 /tmp/backend_host.log
-else
-    echo "❌ Failed to start backend-host"
-    echo "📊 Error logs:"
-    cat /tmp/backend_host.log
-    exit 1
-fi
+# Wait for the process
+wait $HOST_PID
