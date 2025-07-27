@@ -41,7 +41,7 @@ cd ..
 # Install backend-core (required by backend-host)
 echo "⚙️ Installing backend-core (required dependency)..."
 cd backend-core
-pip install -e . --use-pep517
+pip install -r requirements.txt
 cd ..
 
 # Install backend-host dependencies
@@ -65,42 +65,5 @@ fi
 
 cd ../..
 
-# Install systemd service
-echo "🔧 Installing systemd service..."
-SERVICE_NAME="virtualpytest-backend-host"
-SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
-
-# Get Python version for PYTHONPATH
-PYTHON_VERSION=$(python3 -c "import sys; print(f'python{sys.version_info.major}.{sys.version_info.minor}')")
-
-# Create systemd service file
-sudo tee "$SERVICE_FILE" > /dev/null << EOF
-[Unit]
-Description=VirtualPyTest Backend-Host Service (Hardware Interface)
-After=network.target
-Wants=network.target
-
-[Service]
-Type=simple
-User=$USER
-Group=$USER
-WorkingDirectory=$(pwd)/backend-host
-Environment=PATH=$(pwd)/venv/bin:/usr/bin:/usr/local/bin
-Environment=PYTHONPATH=$(pwd)/venv/lib/$PYTHON_VERSION/site-packages:$(pwd)/shared/lib:$(pwd)/backend-core/src
-ExecStart=$(pwd)/venv/bin/python src/app.py
-Restart=always
-RestartSec=10
-StandardOutput=journal
-StandardError=journal
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-# Reload systemd and enable service
-sudo systemctl daemon-reload
-sudo systemctl enable "$SERVICE_NAME"
-
 echo "✅ Backend-Host installation completed!"
-echo "✅ Systemd service '$SERVICE_NAME' created and enabled"
 echo "🚀 You can now run: ./setup/local/launch_host.sh" 

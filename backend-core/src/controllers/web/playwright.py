@@ -15,19 +15,13 @@ from ..base_controller import WebControllerInterface
 # Use absolute import for utils from shared library
 import sys
 import os
-# Get path to shared/lib/utils (go up to project root)
-project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))
-shared_utils_path = os.path.join(project_root, 'shared', 'lib', 'utils')
+# Get path to shared/lib/utils
+shared_utils_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), 'shared', 'lib', 'utils')
 if shared_utils_path not in sys.path:
     sys.path.insert(0, shared_utils_path)
 
 from playwright_utils import PlaywrightUtils
-try:
-    from browseruse_utils import BrowserUseManager
-    BROWSERUSE_AVAILABLE = True
-except ImportError:
-    print("Warning: BrowserUse utilities not available. AI browser automation will be limited.")
-    BROWSERUSE_AVAILABLE = False
+from browseruse_utils import BrowserUseManager
 
 
 class PlaywrightWebController(WebControllerInterface):
@@ -644,13 +638,6 @@ class PlaywrightWebController(WebControllerInterface):
         async def _async_browser_use_task():
             try:
                 print(f"Web[{self.web_type.upper()}]: Executing browser-use task: {task}")
-                
-                if not BROWSERUSE_AVAILABLE:
-                    return {
-                        'success': False,
-                        'error': 'BrowserUse utilities not available',
-                        'message': 'AI browser automation requires browser-use dependencies'
-                    }
                 
                 # Create browser-use manager with existing browser session reuse
                 browseruse_manager = BrowserUseManager(self.utils)

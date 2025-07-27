@@ -25,8 +25,19 @@ fi
 echo "📦 Checking Node.js installation..."
 if ! command -v node &> /dev/null; then
     echo "🔧 Installing Node.js 18..."
-    curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
-    sudo apt-get install -y nodejs
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        # macOS
+        if command -v brew &> /dev/null; then
+            brew install node@18
+        else
+            echo "❌ Please install Node.js manually: https://nodejs.org/"
+            exit 1
+        fi
+    else
+        # Linux
+        curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+        sudo apt-get install -y nodejs
+    fi
     echo "✅ Node.js installed successfully"
 else
     echo "✅ Node.js is already installed ($(node --version))"
@@ -58,38 +69,5 @@ fi
 
 cd ..
 
-# Install systemd service for frontend (optional, since it's typically for development)
-echo "🔧 Installing systemd service..."
-SERVICE_NAME="virtualpytest-frontend"
-SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
-
-# Create systemd service file
-sudo tee "$SERVICE_FILE" > /dev/null << EOF
-[Unit]
-Description=VirtualPyTest Frontend Service (React Development Server)
-After=network.target
-Wants=network.target
-
-[Service]
-Type=simple
-User=$USER
-Group=$USER
-WorkingDirectory=$(pwd)/frontend
-Environment=PATH=/usr/bin:/usr/local/bin:/usr/local/lib/nodejs/node-v18.x.x-linux-x64/bin
-ExecStart=$(which npm) run dev
-Restart=always
-RestartSec=10
-StandardOutput=journal
-StandardError=journal
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-# Reload systemd and enable service
-sudo systemctl daemon-reload
-sudo systemctl enable "$SERVICE_NAME"
-
 echo "✅ Frontend installation completed!"
-echo "✅ Systemd service '$SERVICE_NAME' created and enabled"
 echo "🚀 You can now run: ./setup/local/launch_frontend.sh" 

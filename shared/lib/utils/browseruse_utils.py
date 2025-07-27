@@ -5,8 +5,8 @@ import time
 import sys
 from typing import Dict, Any
 
-# Add browser_use to path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'lib')))
+# browser_use should be installed in the environment via requirements.txt
+# No need to manipulate sys.path for properly installed packages
 
 from browser_use import Agent
 from browser_use.llm import ChatOpenAI

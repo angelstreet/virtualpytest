@@ -1,41 +1,62 @@
 #!/bin/bash
 
 # VirtualPyTest - Launch Frontend Only
-# This script starts only the frontend service
+# This script starts only the frontend in the background
 
 set -e
 
 echo "⚛️ Launching VirtualPyTest - Frontend Only"
 
-SERVICE_NAME="virtualpytest-frontend"
+# Get to project root directory (from setup/local to project root)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
-echo "🚀 Starting Frontend via systemd..."
+# Change to project root
+cd "$PROJECT_ROOT"
 
-# Check if service exists
-if ! systemctl list-unit-files | grep -q "$SERVICE_NAME.service"; then
-    echo "❌ Systemd service not found: $SERVICE_NAME"
-    echo "Please run: ./setup/local/install_frontend.sh"
+# Check if we're in the right directory
+if [ ! -f "README.md" ] || [ ! -d "frontend" ]; then
+    echo "❌ Could not find virtualpytest project root directory"
     exit 1
 fi
 
-# Restart the service
-echo "🔄 Restarting $SERVICE_NAME service..."
-sudo systemctl restart "$SERVICE_NAME"
+# Check if node_modules exists
+if [ ! -d "frontend/node_modules" ]; then
+    echo "❌ Frontend dependencies not installed. Please run: ./setup/local/install_frontend.sh"
+    exit 1
+fi
 
-# Check if service started successfully
-sleep 2
-if systemctl is-active --quiet "$SERVICE_NAME"; then
-    echo "✅ $SERVICE_NAME started successfully"
+# Check if process is already running
+if pgrep -f "npm.*run.*dev" > /dev/null || pgrep -f "node.*vite" > /dev/null; then
+    echo "⚠️  Frontend is already running!"
+    echo "🛑 To stop: ./setup/local/stop_all_local.sh"
+    echo "📊 To view logs: tail -f /tmp/frontend.log"
+    exit 0
+fi
+
+# Start frontend in background
+echo "🚀 Starting frontend development server..."
+cd frontend
+nohup npm run dev > /tmp/frontend.log 2>&1 &
+FRONTEND_PID=$!
+
+# Save PID for later cleanup
+echo $FRONTEND_PID > /tmp/frontend.pid
+
+# Wait a moment and check if it started
+sleep 5
+
+if ps -p $FRONTEND_PID > /dev/null; then
+    echo "✅ Frontend started successfully (PID: $FRONTEND_PID)"
     echo "🌐 Frontend: http://localhost:3000"
+    echo "📊 Log file: /tmp/frontend.log"
+    echo "🛑 To stop: ./setup/local/stop_all_local.sh"
     echo ""
-    echo "📊 Showing live logs (Press Ctrl+C to stop viewing logs):"
-    echo "================================================"
-    
-    # Follow logs
-    journalctl -u "$SERVICE_NAME.service" -f
-else
-    echo "❌ Failed to start $SERVICE_NAME"
     echo "📊 Recent logs:"
-    journalctl -u "$SERVICE_NAME.service" -n 20 --no-pager
+    tail -10 /tmp/frontend.log
+else
+    echo "❌ Failed to start frontend"
+    echo "📊 Error logs:"
+    cat /tmp/frontend.log
     exit 1
 fi

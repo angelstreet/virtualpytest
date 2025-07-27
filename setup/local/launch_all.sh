@@ -1,86 +1,117 @@
 #!/bin/bash
 
-# VirtualPyTest - Launch All Services via Systemd
-# This script restarts all systemd services and shows combined logs
+# VirtualPyTest - Launch All Services in Background
+# This script starts all services in the background and shows combined logs
 
 set -e
 
-echo "🚀 Launching VirtualPyTest - All Services via Systemd"
+echo "🚀 Launching VirtualPyTest - All Services in Background"
 
-# Define service names
-SERVICES=(
-    "virtualpytest-backend-server"
-    "virtualpytest-backend-host"
-    "virtualpytest-frontend"
-)
+# Get to project root directory (from setup/local to project root)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
-# Check if all services exist
-MISSING_SERVICES=""
-for service in "${SERVICES[@]}"; do
-    if ! systemctl list-unit-files | grep -q "$service.service"; then
-        MISSING_SERVICES="$MISSING_SERVICES $service"
-    fi
-done
+# Change to project root
+cd "$PROJECT_ROOT"
 
-if [ -n "$MISSING_SERVICES" ]; then
-    echo "❌ Missing systemd services:$MISSING_SERVICES"
-    echo "Please install services first:"
+# Check if we're in the right directory
+if [ ! -f "README.md" ]; then
+    echo "❌ Could not find virtualpytest project root directory"
+    exit 1
+fi
+
+# Check if all components are installed
+MISSING_COMPONENTS=""
+
+if [ ! -d "venv" ]; then
+    MISSING_COMPONENTS="$MISSING_COMPONENTS venv"
+fi
+
+if [ ! -d "frontend/node_modules" ]; then
+    MISSING_COMPONENTS="$MISSING_COMPONENTS frontend-deps"
+fi
+
+if [ -n "$MISSING_COMPONENTS" ]; then
+    echo "❌ Missing components:$MISSING_COMPONENTS"
+    echo "Please install all components first:"
     echo "   ./setup/local/install_local.sh"
     exit 1
 fi
 
-echo "🔄 Enabling and restarting all services..."
+echo "🔄 Starting all services..."
 
-# Enable and restart all services
-for service in "${SERVICES[@]}"; do
-    echo "🔄 Enabling and restarting $service..."
-    sudo systemctl enable "$service"
-    sudo systemctl restart "$service"
-done
+# Launch backend-server
+echo "1️⃣ Starting backend-server..."
+./setup/local/launch_server.sh
 
-# Wait for services to start
+# Small delay between services
+sleep 2
+
+# Launch backend-host
+echo ""
+echo "2️⃣ Starting backend-host..."
+./setup/local/launch_host.sh
+
+# Small delay between services
+sleep 2
+
+# Launch frontend
+echo ""
+echo "3️⃣ Starting frontend..."
+./setup/local/launch_frontend.sh
+
+# Wait for all services to fully start
 sleep 3
 
-# Check service status
+# Check final status
 echo ""
-echo "📊 Service Status:"
-FAILED_SERVICES=""
-for service in "${SERVICES[@]}"; do
-    if systemctl is-active --quiet "$service"; then
-        echo "✅ $service: running"
-    else
-        echo "❌ $service: failed"
-        FAILED_SERVICES="$FAILED_SERVICES $service"
-    fi
-done
+echo "📊 Final Service Status:"
+ALL_RUNNING=true
 
-# Stop if any services failed
-if [ -n "$FAILED_SERVICES" ]; then
-    echo ""
-    echo "💥 Service startup failed!"
-    echo "❌ Failed services:$FAILED_SERVICES"
-    echo ""
-    echo "🔍 Check service logs:"
-    for service in $FAILED_SERVICES; do
-        echo "   journalctl -u $service.service -n 50"
-    done
-    echo ""
-    echo "🛠️ Troubleshooting:"
-    echo "   1. Check .env files are configured"
-    echo "   2. Re-run installation: ./setup/local/install_local.sh"
-    echo "   3. Check individual service logs above"
-    exit 1
+# Check backend-server
+if pgrep -f "python.*backend-server.*app.py" > /dev/null; then
+    echo "✅ Backend-Server: running"
+else
+    echo "❌ Backend-Server: failed"
+    ALL_RUNNING=false
 fi
 
-echo ""
-echo "🎉 All services running successfully!"
-echo "📱 Frontend: http://localhost:3000"
-echo "🖥️  Backend-Server: http://localhost:5109" 
-echo "🔧 Backend-Host: http://localhost:6109"
-echo ""
-echo "📊 Showing live logs from all services..."
-echo "🛑 Press Ctrl+C to stop viewing logs (services will continue running)"
-echo "================================================"
+# Check backend-host
+if pgrep -f "python.*backend-host.*app.py" > /dev/null; then
+    echo "✅ Backend-Host: running"
+else
+    echo "❌ Backend-Host: failed"
+    ALL_RUNNING=false
+fi
 
-# Follow logs from all services
-journalctl -u virtualpytest-backend-server.service -u virtualpytest-backend-host.service -u virtualpytest-frontend.service -f 
+# Check frontend
+if pgrep -f "npm.*run.*dev" > /dev/null || pgrep -f "node.*vite" > /dev/null; then
+    echo "✅ Frontend: running"
+else
+    echo "❌ Frontend: failed"
+    ALL_RUNNING=false
+fi
+
+if [ "$ALL_RUNNING" = true ]; then
+    echo ""
+    echo "🎉 All services running successfully!"
+    echo "📱 Frontend: http://localhost:3000"
+    echo "🖥️  Backend-Server: http://localhost:5109" 
+    echo "🔧 Backend-Host: http://localhost:6109"
+    echo ""
+    echo "📊 Log files:"
+    echo "   Backend-Server: /tmp/backend_server.log"
+    echo "   Backend-Host: /tmp/backend_host.log"
+    echo "   Frontend: /tmp/frontend.log"
+    echo ""
+    echo "🛑 To stop all services: ./setup/local/stop_all_local.sh"
+    echo "📊 To view live logs: tail -f /tmp/backend_server.log /tmp/backend_host.log /tmp/frontend.log"
+else
+    echo ""
+    echo "💥 Some services failed to start!"
+    echo "🔍 Check individual service logs:"
+    echo "   Backend-Server: cat /tmp/backend_server.log"
+    echo "   Backend-Host: cat /tmp/backend_host.log"
+    echo "   Frontend: cat /tmp/frontend.log"
+    exit 1
+fi 

@@ -46,5 +46,6 @@ PyP100>=0.1.2
 playwright>=1.40.0
 
 # Browser automation (browser-use integration)
+browser-use>=0.1.45
 beautifulsoup4>=4.11.0
 requests-html>=0.10.0 
