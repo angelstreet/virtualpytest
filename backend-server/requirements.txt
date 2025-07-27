@@ -1,7 +1,7 @@
 # Backend Server Dependencies
 
-# Shared library
-../shared
+# Shared library dependencies (installed directly)
+# ../shared
 
 # Flask web framework
 Flask>=2.3.0
