@@ -2,7 +2,7 @@
 
 """
 VirtualPyTest - Install Database Schema on Supabase
-This script creates all required tables and indexes in a Supabase database using REST API
+This script creates all required tables and indexes in a Supabase database using Migration API
 """
 
 import os
@@ -11,6 +11,7 @@ import json
 import requests
 from pathlib import Path
 from typing import Dict, Any
+import time
 
 def load_env_file(env_path: Path) -> Dict[str, str]:
     """Load environment variables from .env file"""
@@ -37,63 +38,50 @@ SUPABASE_SERVICE_ROLE_KEY=your-service-role-key-here
     with open(env_path, 'w') as f:
         f.write(example_content)
 
-def execute_sql_via_api(supabase_url: str, service_key: str, sql: str) -> bool:
-    """Execute SQL using Supabase REST API"""
-    # Extract project ID from URL
-    project_id = supabase_url.split('//')[1].split('.')[0]
+def get_project_id_from_url(supabase_url: str) -> str:
+    """Extract project ID from Supabase URL"""
+    return supabase_url.split('//')[1].split('.')[0]
+
+def apply_migration(project_id: str, service_key: str, migration_name: str, sql_content: str) -> tuple[bool, str]:
+    """Apply a migration using Supabase Management API"""
     
-    # Use PostgREST endpoint for raw SQL
-    api_url = f"{supabase_url}/rest/v1/rpc/exec_sql"
+    # Use Supabase Management API to apply migration
+    api_url = f"https://api.supabase.com/v1/projects/{project_id}/database/migrations"
     
     headers = {
         'Authorization': f'Bearer {service_key}',
-        'Content-Type': 'application/json',
-        'apikey': service_key
+        'Content-Type': 'application/json'
     }
     
-    # Try different approaches for SQL execution
-    approaches = [
-        # Approach 1: Try direct SQL execution
-        {
-            'url': f"{supabase_url}/rest/v1/rpc/exec_sql",
-            'data': {'sql': sql}
-        },
-        # Approach 2: Use query parameter
-        {
-            'url': f"{supabase_url}/rest/v1/rpc/exec",
-            'data': {'query': sql}
-        }
-    ]
+    migration_data = {
+        'name': migration_name,
+        'statements': [{'statement': sql_content}]
+    }
     
-    for approach in approaches:
-        try:
-            response = requests.post(
-                approach['url'],
-                headers=headers,
-                json=approach['data'],
-                timeout=30
-            )
-            if response.status_code in [200, 201, 204]:
-                return True
-        except Exception:
-            continue
-    
-    # If RPC doesn't work, try creating tables via schema inspection
-    # This is a fallback for basic table creation
-    if 'CREATE TABLE' in sql.upper():
-        return create_table_via_api(supabase_url, service_key, sql)
-    
-    return False
-
-def create_table_via_api(supabase_url: str, service_key: str, sql: str) -> bool:
-    """Fallback method to create tables using Supabase API"""
-    print(f"  ⚠️  Falling back to manual table creation approach")
-    print(f"  📝 SQL: {sql[:100]}...")
-    
-    # For this demo, we'll return True but in reality you'd need to
-    # parse the SQL and create tables using Supabase's table creation API
-    # or use the Management API
-    return True
+    try:
+        response = requests.post(
+            api_url,
+            headers=headers,
+            json=migration_data,
+            timeout=60
+        )
+        
+        if response.status_code in [200, 201]:
+            return True, "Migration applied successfully"
+        else:
+            error_detail = ""
+            try:
+                error_data = response.json()
+                error_detail = error_data.get('message', response.text)
+            except:
+                error_detail = response.text
+            
+            return False, f"HTTP {response.status_code}: {error_detail}"
+            
+    except requests.exceptions.Timeout:
+        return False, "Request timed out after 60 seconds"
+    except Exception as e:
+        return False, f"Request failed: {str(e)}"
 
 def test_connection(supabase_url: str, service_key: str) -> bool:
     """Test connection to Supabase"""
@@ -114,8 +102,8 @@ def test_connection(supabase_url: str, service_key: str) -> bool:
         print(f"  ❌ Connection error: {e}")
         return False
 
-def execute_schema_file(file_path: Path, supabase_url: str, service_key: str, description: str) -> bool:
-    """Execute a schema SQL file"""
+def execute_schema_file(file_path: Path, project_id: str, service_key: str, description: str) -> bool:
+    """Execute a schema SQL file using Supabase Migration API"""
     print(f"📄 Executing: {description}")
     print(f"   File: {file_path}")
     
@@ -126,19 +114,22 @@ def execute_schema_file(file_path: Path, supabase_url: str, service_key: str, de
     try:
         sql_content = file_path.read_text()
         
-        # Split SQL into individual statements
-        statements = [stmt.strip() for stmt in sql_content.split(';') if stmt.strip()]
+        # Generate migration name from file
+        migration_name = f"virtualpytest_{file_path.stem}_{int(time.time())}"
         
-        success_count = 0
-        for i, statement in enumerate(statements):
-            if statement:
-                print(f"   Executing statement {i+1}/{len(statements)}...")
-                if execute_sql_via_api(supabase_url, service_key, statement):
-                    success_count += 1
-                else:
-                    print(f"   ⚠️  Statement {i+1} may have failed (continuing...)")
+        print(f"   Applying migration: {migration_name}")
+        success, error_msg = apply_migration(project_id, service_key, migration_name, sql_content)
         
-        print(f"✅ {description} completed ({success_count}/{len(statements)} statements)")
+        if not success:
+            print(f"❌ FAILED to apply migration")
+            print(f"   Migration: {migration_name}")
+            print(f"   Error: {error_msg}")
+            print(f"\n🛑 Aborting installation due to failure in {description}")
+            return False
+        else:
+            print(f"   ✅ Migration applied successfully")
+        
+        print(f"✅ {description} completed successfully")
         return True
         
     except Exception as e:
@@ -182,6 +173,10 @@ def main():
         print("   2. Copy the URL and service_role key")
         return 1
     
+    # Extract project ID
+    project_id = get_project_id_from_url(supabase_url)
+    print(f"📋 Project ID: {project_id}")
+    
     # Test connection
     print("🔍 Testing database connection...")
     if not test_connection(supabase_url, service_key):
@@ -204,15 +199,16 @@ def main():
         ("005_monitoring_analytics.sql", "Monitoring & Analytics Tables (alerts, heatmaps, metrics)")
     ]
     
-    success_count = 0
     for filename, description in schema_files:
         file_path = schema_dir / filename
-        if execute_schema_file(file_path, supabase_url, service_key, description):
-            success_count += 1
+        if not execute_schema_file(file_path, project_id, service_key, description):
+            print(f"\n❌ Installation FAILED at: {description}")
+            print("🛑 Database schema installation aborted")
+            return 1
         print()
     
     print("🎉 VirtualPyTest database schema installation complete!")
-    print(f"📊 Successfully executed {success_count}/{len(schema_files)} schema files")
+    print(f"📊 Successfully executed all {len(schema_files)} schema files")
     print()
     print("📋 Next steps:")
     print("   1. Update your application .env files with database credentials")
@@ -220,11 +216,10 @@ def main():
     print("   3. Optionally run: python3 setup/db/scripts/seed_example_data.py")
     print()
     
-    # Extract project ID for links
-    project_id = supabase_url.split('//')[1].split('.')[0]
     print("🔗 Useful links:")
     print(f"   • Supabase Dashboard: https://app.supabase.com/project/{project_id}")
     print(f"   • Database Tables: https://app.supabase.com/project/{project_id}/editor")
+    print(f"   • Migrations: https://app.supabase.com/project/{project_id}/database/migrations")
     
     return 0
 
