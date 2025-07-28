@@ -23,6 +23,13 @@ gunicorn>=21.0.0
 # JSON handling
 orjson>=3.8.0
 
+# Database connectivity
+supabase>=2.0.0
+
+# Data validation and serialization
+pydantic>=2.0.0
+typing-extensions>=4.0.0
+
 # File system operations
 watchdog>=3.0.0
 
