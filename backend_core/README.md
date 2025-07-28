@@ -1,10 +1,12 @@
 # VirtualPyTest Backend Core
 
-Pure Python business logic and device controllers for VirtualPyTest framework.
+**Shared library** containing pure Python business logic and device controllers for VirtualPyTest framework.
 
 ## 🎯 **Purpose**
 
-backend_core contains the core automation logic and device controllers without any web framework dependencies. It's designed to be imported by other services that need device control capabilities.
+backend_core is a **shared library component** that contains core automation logic and device controllers without any web framework dependencies. It's designed to be imported by other services (backend_server, backend_host) that need device control capabilities.
+
+**⚠️ Note**: This is NOT a standalone service - it's a library that gets imported by other components.
 
 ## 📦 **What's Included**
 
@@ -15,16 +17,18 @@ backend_core contains the core automation logic and device controllers without a
 
 ## 🔧 **Installation**
 
+**Note**: backend_core is a shared library component. Dependencies are managed by the services that import it.
+
+For local development:
 ```bash
-# Install dependencies
-pip install -r requirements.txt
-
-# Install as editable package
-pip install -e .
-
 # Install shared library dependency
 pip install -e ../shared
+
+# Install as editable package (optional for development)
+pip install -e .
 ```
+
+For production, backend_core is included in service Docker containers via PYTHONPATH.
 
 ## 📁 **Structure**
 
@@ -148,20 +152,55 @@ python validation.py horizon_android_mobile
 
 ## 🔄 **Integration**
 
-backend_core is designed to be imported by:
+backend_core is a **shared library** imported by:
 
-- **backend_host**: Direct hardware control
-- **backend_server**: Test orchestration
-- **Custom Scripts**: Standalone automation
+- **backend_host**: Direct hardware control service
+- **backend_server**: Test orchestration service  
+- **Custom Scripts**: Standalone automation scripts
 
 ```python
-# In backend_host
+# In backend_host service
 from backend_core.controllers import *
 from backend_core.services import *
 
-# In backend_server  
+# In backend_server service
 from backend_core.services.actions import ActionExecutor
+
+# In standalone scripts
+from backend_core.controllers.desktop.pyautogui import PyAutoGUIController
 ```
+
+### Docker Integration
+
+backend_core is included in other services' Docker containers via PYTHONPATH:
+
+```dockerfile
+# In backend_server/Dockerfile and backend_host/Dockerfile
+COPY backend_core/ backend_core/
+ENV PYTHONPATH="/app/shared:/app/shared/lib:/app/backend_core/src"
+```
+
+## 🚀 **Deployment Architecture**
+
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│  backend_server │    │  backend_host   │    │  Custom Scripts │
+│  (Docker)       │    │  (Docker)       │    │  (Local)        │
+├─────────────────┤    ├─────────────────┤    ├─────────────────┤
+│ • Flask API     │    │ • Hardware API  │    │ • Direct usage  │
+│ • Orchestration │    │ • Device Control│    │ • Automation    │
+│                 │    │                 │    │                 │
+│ Imports:        │    │ Imports:        │    │ Imports:        │
+│ backend_core ←──┼────┼─→ backend_core ←─┼────┼─→ backend_core  │
+│ shared       ←──┼────┼─→ shared       ←─┼────┼─→ shared        │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+```
+
+**Key Points:**
+- ✅ **backend_core**: Shared library (no Docker container)
+- ✅ **shared**: Shared library (no Docker container)  
+- 🐳 **backend_server**: Deployable service (has Docker container)
+- 🐳 **backend_host**: Deployable service (has Docker container)
 
 ## 🧪 **Testing**
 
@@ -194,13 +233,15 @@ Different controllers have different requirements:
 
 ## 📋 **Dependencies**
 
-See `requirements.txt` for full list. Key dependencies:
+Dependencies are managed by the services that import backend_core. Key dependencies include:
 
 - **Hardware Control**: pyautogui, pynput, opencv-python
 - **Mobile**: Appium-Python-Client, selenium
 - **A/V**: ffmpeg-python, Pillow
 - **Web**: playwright, beautifulsoup4
 - **Power**: PyP100 (Tapo devices)
+
+These are installed by `backend_server/requirements.txt` and `backend_host/requirements.txt`.
 
 ## 🤝 **Contributing**
 

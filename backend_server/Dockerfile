@@ -45,7 +45,7 @@ EXPOSE 5109
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-  CMD curl -f http://localhost:5109/api/health || exit 1
+  CMD curl -f http://localhost:5109/server/health || exit 1
 
 # Switch to non-root user
 USER vptuser
