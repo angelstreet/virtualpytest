@@ -44,6 +44,11 @@ python src/app.py
 - `POST /host/desktop/click` - Desktop click action
 - `POST /host/desktop/type` - Desktop typing
 
+### Desktop Access
+- **NoVNC Web Interface**: `http://host:6080` - Browser-based desktop access
+- **VNC Direct**: `host:5900` - Direct VNC client access
+- **Virtual Display**: `:99` - Xvfb virtual display server
+
 ### Audio/Video
 - `POST /host/av/startCapture` - Start A/V capture
 - `POST /host/av/stopCapture` - Stop A/V capture
@@ -151,6 +156,7 @@ HOST_NAME=render-host-1
 SERVER_URL=https://your-backend-server.onrender.com
 DEBUG=false
 RENDER=true
+DISPLAY=:99
 
 # Optional: Add your API keys
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
@@ -172,6 +178,11 @@ OPENROUTER_API_KEY=your_openrouter_key
 - **Port issues**: Ensure HOST_PORT=6109 is set in environment variables
 
 **Note**: Render deployment creates a "cloud host" for testing. For physical hardware control, deploy on actual hardware (Raspberry Pi, etc.).
+
+#### Desktop Access on Render:
+Once deployed, you can access the virtual desktop:
+- **NoVNC Web Interface**: `https://your-host-service.onrender.com:6080`
+- **API Endpoints**: `https://your-host-service.onrender.com:6109/host/*`
 
 ### Docker Deployment (Local/Hardware)
 ```bash

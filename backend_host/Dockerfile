@@ -1,6 +1,6 @@
 FROM python:3.11-slim
 
-# Install system dependencies for hardware control
+# Install system dependencies for hardware control and NoVNC
 RUN apt-get update && apt-get install -y \
     xvfb \
     x11-utils \
@@ -16,6 +16,11 @@ RUN apt-get update && apt-get install -y \
     make \
     build-essential \
     linux-libc-dev \
+    novnc \
+    websockify \
+    x11vnc \
+    fluxbox \
+    xterm \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -43,8 +48,11 @@ WORKDIR /app/backend_host
 # Create non-root user for security
 RUN useradd -m -u 1000 vptuser && chown -R vptuser:vptuser /app
 
-# Expose port
-EXPOSE 6109
+# Expose ports
+EXPOSE 6109 6080
+
+# Set display environment
+ENV DISPLAY=:99
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
@@ -53,5 +61,43 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
 # Switch to non-root user
 USER vptuser
 
-# Run the application
-CMD ["python", "src/app.py"] 
+# Create startup script
+RUN echo '#!/bin/bash\n\
+set -e\n\
+echo "Starting virtual display and desktop services..."\n\
+\n\
+# Start Xvfb (virtual display)\n\
+Xvfb :99 -screen 0 1024x768x24 -ac +extension GLX +render -noreset &\n\
+XVFB_PID=$!\n\
+\n\
+# Wait for Xvfb to start\n\
+sleep 2\n\
+\n\
+# Start window manager\n\
+DISPLAY=:99 fluxbox &\n\
+FLUXBOX_PID=$!\n\
+\n\
+# Start x11vnc (VNC server)\n\
+x11vnc -display :99 -nopw -listen localhost -xkb -ncache 10 -ncache_cr -forever &\n\
+X11VNC_PID=$!\n\
+\n\
+# Wait for VNC server to start\n\
+sleep 2\n\
+\n\
+# Start NoVNC (web-based VNC client)\n\
+websockify --web=/usr/share/novnc/ 6080 localhost:5900 &\n\
+NOVNC_PID=$!\n\
+\n\
+echo "Desktop services started:"\n\
+echo "  - Xvfb virtual display on :99"\n\
+echo "  - Fluxbox window manager"\n\
+echo "  - x11vnc VNC server on :5900"\n\
+echo "  - NoVNC web client on :6080"\n\
+echo "  - Flask API starting on :6109"\n\
+\n\
+# Start the main Flask application\n\
+exec python src/app.py\n\
+' > /home/vptuser/start_services.sh && chmod +x /home/vptuser/start_services.sh
+
+# Run the startup script
+CMD ["/home/vptuser/start_services.sh"] 
