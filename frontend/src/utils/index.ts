@@ -3,11 +3,16 @@
 // Navigation utilities
 export * from './navigation';
 
-// User Interface utilities
-export * from './userinterface';
+// User Interface utilities (removed - no index.ts exists)
 
-// Validation utilities
-export * from './validation';
+// Validation utilities (excluding conflicting functions that exist in navigation)
+export { 
+  getConfidenceCategory,
+  calculatePathConfidence,
+  getConfidenceColor,
+  formatConfidenceDisplay,
+  hasReliabilityIssues,
+} from './validation';
 
 // Infrastructure utilities
 export * from './infrastructure';

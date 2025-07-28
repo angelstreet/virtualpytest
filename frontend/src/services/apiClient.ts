@@ -5,14 +5,9 @@
  * Handles authentication, error handling, and request/response formatting.
  */
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5109';
+const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:5109';
 
-interface ApiResponse<T = any> {
-  success: boolean;
-  data?: T;
-  error?: string;
-  message?: string;
-}
+// Removed unused interface
 
 class ApiClient {
   private baseUrl: string;

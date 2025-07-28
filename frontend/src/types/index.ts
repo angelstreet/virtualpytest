@@ -9,8 +9,7 @@ export type { Device } from './common/Host_Types';
 
 // Export all controller types
 export type {
-  ControllerImplementation,
-  ControllerConfig,
+  AVControllerImplementation,
   ControllerConfigMap,
 } from './controller/Controller_Types';
 

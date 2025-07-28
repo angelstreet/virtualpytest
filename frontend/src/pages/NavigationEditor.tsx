@@ -140,11 +140,7 @@ const miniMapNodeColor = (node: any) => {
   }
 };
 
-// Helper function to get node label by ID
-const getNodeLabelById = (nodeId: string, nodes: Node[]): string => {
-  const node = nodes.find((n) => n.id === nodeId);
-  return node?.data?.label || nodeId;
-};
+// Helper function removed - was unused
 
 const NavigationEditorContent: React.FC<{ userInterfaceId?: string }> = React.memo(
   ({ userInterfaceId }) => {
@@ -668,6 +664,7 @@ const NavigationEditorContent: React.FC<{ userInterfaceId?: string }> = React.me
           onDiscardChanges={discardChanges}
           onDepthChange={setDisplayDepth}
           onResetFocus={resetFocus}
+          onFocusNodeChange={setFocusNode}
           onToggleRemotePanel={handleToggleRemotePanel}
           onControlStateChange={handleControlStateChange}
           onDeviceSelect={handleDeviceSelect}

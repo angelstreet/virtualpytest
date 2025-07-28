@@ -49,9 +49,11 @@ interface Device {
 }
 
 interface DeviceCreatePayload {
-  name: string;
-  description: string;
+  device_name: string;
+  device_description?: string;
   device_model: string;
+  device_id: string;
+  device_capabilities: any;
   controllerConfigs?: {
     [controllerType: string]: {
       implementation: string;
@@ -159,14 +161,14 @@ const DeviceManagement: React.FC = () => {
   }, [devices, searchTerm]);
 
   const handleAddNew = async (newDeviceData: DeviceCreatePayload) => {
-    if (!newDeviceData.name.trim()) {
+    if (!newDeviceData.device_name.trim()) {
       setError('Name is required');
       return;
     }
 
     // Check for duplicate names
     const isDuplicate = devices.some(
-      (d) => d.name.toLowerCase() === newDeviceData.name.toLowerCase().trim(),
+      (d) => d.device_name?.toLowerCase() === newDeviceData.device_name.toLowerCase().trim(),
     );
 
     if (isDuplicate) {

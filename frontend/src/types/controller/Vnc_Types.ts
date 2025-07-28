@@ -1,4 +1,4 @@
-import { RefObject } from 'react';
+// RefObject removed - was unused
 
 export interface DragArea {
   x: number;
