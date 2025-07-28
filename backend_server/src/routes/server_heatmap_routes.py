@@ -227,11 +227,15 @@ def process_host_results(host_results):
 @server_heatmap_bp.route('/getData', methods=['GET'])
 def get_data():
     """Get heatmap data (hosts, recent images, incidents) for the team"""
-    error = check_supabase()
-    if error:
-        return error
-        
-    team_id = get_team_id()
+    # Check if Supabase is available, but don't fail if it's not
+    supabase_available = check_supabase() is None
+    
+    # Use default team_id if Supabase is not available
+    if supabase_available:
+        team_id = get_team_id()
+    else:
+        team_id = "offline-mode"  # Use a default team_id for offline mode
+        print("⚠️ [heatmap:getData] Supabase not available - running in offline mode")
     
     try:
         # Fetch analysis data from hosts
@@ -258,7 +262,17 @@ def get_data():
             
             images_by_timestamp, images_with_data_by_timestamp = process_host_results(host_results)
         
-        incidents = get_heatmap_incidents(team_id, 1)
+        # Get incidents from database if available, otherwise use empty list
+        incidents = []
+        if supabase_available:
+            try:
+                incidents = get_heatmap_incidents(team_id, 1)
+            except Exception as e:
+                print(f"⚠️ [heatmap:getData] Failed to get incidents from database: {e}")
+                incidents = []
+        else:
+            print("ℹ️ [heatmap:getData] Skipping incident lookup - database not available")
+        
         timeline_timestamps = sorted(images_by_timestamp.keys())
         
         frontend_hosts_devices = [
@@ -276,6 +290,11 @@ def get_data():
             'timeline_timestamps': timeline_timestamps
         }
         
+        # Add warning if database features are unavailable
+        if not supabase_available:
+            heatmap_data['warning'] = 'Database unavailable - history and incident features disabled'
+            heatmap_data['offline_mode'] = True
+        
         return jsonify(heatmap_data)
             
     except Exception as e:
@@ -284,11 +303,15 @@ def get_data():
 @server_heatmap_bp.route('/generate', methods=['POST'])
 def generate():
     """Start heatmap generation job"""
-    error = check_supabase()
-    if error:
-        return error
-        
-    team_id = get_team_id()
+    # Check if Supabase is available, but don't fail if it's not
+    supabase_available = check_supabase() is None
+    
+    # Use default team_id if Supabase is not available
+    if supabase_available:
+        team_id = get_team_id()
+    else:
+        team_id = "offline-mode"  # Use a default team_id for offline mode
+        print("⚠️ [heatmap:generate] Supabase not available - running in offline mode")
     
     try:
         data = request.get_json() or {}
@@ -318,7 +341,17 @@ def generate():
             
             images_by_timestamp, images_with_data_by_timestamp = process_host_results(host_results)
         
-        incidents = get_heatmap_incidents(team_id, timeframe_minutes)
+        # Get incidents from database if available, otherwise use empty list
+        incidents = []
+        if supabase_available:
+            try:
+                incidents = get_heatmap_incidents(team_id, timeframe_minutes)
+            except Exception as e:
+                print(f"⚠️ [heatmap:generate] Failed to get incidents from database: {e}")
+                incidents = []
+        else:
+            print("ℹ️ [heatmap:generate] Skipping incident lookup - database not available")
+        
         timeline_timestamps = sorted(images_by_timestamp.keys())
         
         frontend_hosts_devices = [
@@ -344,12 +377,18 @@ def generate():
             team_id  # Pass team_id to background thread
         )
         
-        return jsonify({
+        response_data = {
             'success': True,
             'job_id': job_id,
             'message': 'Heatmap generation started'
-            # No heatmap_data here - only send when complete
-        })
+        }
+        
+        # Add warning if database features are unavailable
+        if not supabase_available:
+            response_data['warning'] = 'Database unavailable - history and incident features disabled'
+            response_data['offline_mode'] = True
+        
+        return jsonify(response_data)
             
     except Exception as e:
         return jsonify({'error': str(e)}), 500

@@ -74,17 +74,17 @@ backend_server (API Layer)
 
 ### Environment Variables
 
-Copy the environment template and fill in your values:
+Copy the project-level environment template:
 
 ```bash
-# Copy template
+# Copy project-level template (from project root)
 cp env.example .env
 
 # Edit with your values
 nano .env
 ```
 
-Required environment variables (see `env.example`):
+Required environment variables (see project root `env.example`):
 
 ```bash
 # backend_server Environment Variables

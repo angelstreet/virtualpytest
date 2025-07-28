@@ -98,6 +98,13 @@ export const useHeatmap = () => {
           `[@hook:useHeatmap:getHeatmapData] Successfully loaded data with ${data.timeline_timestamps?.length || 0} timestamps`,
         );
 
+        // Show warning if running in offline mode
+        if (data.offline_mode && data.warning) {
+          console.warn(`[@hook:useHeatmap:getHeatmapData] ${data.warning}`);
+          // Note: In a real app, you'd show a toast notification here
+          // For now, we'll just log the warning
+        }
+
         return data;
       } catch (error) {
         console.error('[@hook:useHeatmap:getHeatmapData] Error fetching heatmap data:', error);
@@ -154,9 +161,19 @@ export const useHeatmap = () => {
         // Only store it when job completes via status polling
 
         setCurrentGeneration(generation);
+        
+        // Log success message
         console.log(
           `[@hook:useHeatmap:generateHeatmap] Generation started with job_id: ${result.job_id}`,
         );
+        
+        // Show warning if running in offline mode
+        if (result.offline_mode && result.warning) {
+          console.warn(`[@hook:useHeatmap:generateHeatmap] ${result.warning}`);
+          // Note: In a real app, you'd show a toast notification here
+          // For now, we'll just log the warning
+        }
+        
         return result.job_id;
       } else {
         throw new Error(result.error || 'Failed to start generation');

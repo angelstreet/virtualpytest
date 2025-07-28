@@ -79,17 +79,21 @@ backend_host Service
 
 ### Environment Variables
 
-Copy the environment template and fill in your values:
+Copy both environment templates:
 
 ```bash
-# Copy template
+# Copy project-level template (from project root)
+cp ../env.example ../.env
+
+# Copy host-specific template
 cp env.example .env
 
-# Edit with your values
+# Edit both with your values
+nano ../.env
 nano .env
 ```
 
-Required environment variables (see `env.example`):
+Required environment variables:
 
 ```bash
 # backend_host Environment Variables

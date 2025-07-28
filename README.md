@@ -30,6 +30,19 @@ Choose your setup path based on your needs:
 
 ### ⚡ Quick Start (Experienced Users)
 
+**Environment Setup:**
+```bash
+# Copy environment templates
+cp env.example .env                    # Project-level (backend_server, shared, backend_core)
+cp frontend/env.example frontend/.env  # Frontend (API endpoints)
+cp backend_host/env.example backend_host/.env  # Host (device config)
+
+# Edit with your values
+nano .env
+nano frontend/.env
+nano backend_host/.env
+```
+
 **Local Development:**
 ```bash
 # Clone and install everything
