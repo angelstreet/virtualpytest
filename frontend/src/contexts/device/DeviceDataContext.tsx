@@ -295,7 +295,7 @@ export const DeviceDataProvider: React.FC<DeviceDataProviderProps> = ({ children
               actions.forEach((action: any) => {
                 categorizedActions[category].push({
                   id: action.id || `${action.command}_${category}`,
-                  label: action.label || action.command,
+                  name: action.name || action.label || action.command, // Use name, fallback to label or command
                   command: action.command,
                   description: action.description || `${action.command} action`,
                   action_type: action.action_type || category,

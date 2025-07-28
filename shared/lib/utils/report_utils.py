@@ -106,7 +106,7 @@ def create_compact_step_results_section(step_results: List[Dict], screenshots: D
             for action_index, action in enumerate(actions, 1):
                 command = action.get('command', 'unknown')
                 params = action.get('params', {})
-                label = action.get('label', '')
+                label = action.get('name', '')
                 
                 # Format params as key=value pairs, excluding wait_time for cleaner display
                 filtered_params = {k: v for k, v in params.items() if k != 'wait_time'}
@@ -326,7 +326,7 @@ def generate_and_upload_script_report(
                 'actions': [{
                     'command': f'python {script_name}',
                     'params': {'parameters': parameters} if parameters else {},
-                    'label': f'Execute {script_name} script'
+                    'name': f'Execute {script_name} script'
                 }],
                 'verifications': [],
                 'verification_results': [],

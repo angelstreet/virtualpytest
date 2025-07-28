@@ -37,7 +37,7 @@ export const ActionsList: React.FC<ActionsListProps> = ({ actions, onActionsUpda
           ...action,
           id: selectedAction.id,
           command: selectedAction.command,
-          label: selectedAction.label,
+          name: selectedAction.name,
           params: { ...selectedAction.params },
         };
       }

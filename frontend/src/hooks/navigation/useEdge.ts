@@ -44,18 +44,13 @@ export const useEdge = (props?: UseEdgeProps) => {
       return params.input || params.text || params.key || params.package || params.element_id || '';
     };
 
-    // Safely get wait time
-    const getWaitTime = (params: any): number => {
-      return params?.wait_time || 0;
-    };
-
     return {
       id: navAction.id,
-      label: navAction.label || navAction.command,
+      label: navAction.name || navAction.command, // Map name to label for execution
       command: navAction.command,
       params: {
         ...navAction.params,
-        wait_time: getWaitTime(navAction.params), // Use wait_time in ms
+        // wait_time is already in params from database format
       },
       requiresInput: false,
       inputValue: getInputValue(navAction.params),
