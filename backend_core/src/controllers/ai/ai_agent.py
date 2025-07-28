@@ -498,6 +498,9 @@ JSON ONLY - NO OTHER TEXT"""
         verification_result = {'success': True, 'executed_verifications': 0, 'total_verifications': 0}
         if verification_steps:
             verification_result = self._execute_verifications(plan)
+        # If no verifications were planned, that's a success (0/0 = 100%)
+        elif len(verification_steps) == 0:
+            verification_result['success'] = True
         
         # Combine results
         overall_success = action_result.get('success', False) and verification_result.get('success', False)
@@ -797,7 +800,18 @@ JSON ONLY - NO OTHER TEXT"""
                 summary = f"Task completed successfully: {' | '.join(summary_parts)}"
             elif total_executed == 0:
                 outcome = 'execution_failed'
-                summary = f"Task execution failed to start: {execute_result.get('error', 'Unknown error')}"
+                # Extract specific error from action results
+                specific_error = execute_result.get('error', 'Unknown error')
+                if not specific_error or specific_error == 'Unknown error':
+                    # Check for navigation errors in action results
+                    action_result = execute_result.get('action_result', {})
+                    step_results = action_result.get('step_results', [])
+                    if step_results:
+                        for step in step_results:
+                            if not step.get('success') and step.get('error'):
+                                specific_error = step.get('error')
+                                break
+                summary = f"Task execution failed: {specific_error}"
             else:
                 outcome = 'partially_completed'
                 summary = f"Task partially completed: {' | '.join(summary_parts)}"

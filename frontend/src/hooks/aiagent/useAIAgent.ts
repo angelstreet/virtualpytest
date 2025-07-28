@@ -48,10 +48,15 @@ export const useAIAgent = ({ host, device, enabled = true }: UseAIAgentProps): U
   const [aiPlan, setAiPlan] = useState<any>(null);
   const [isPlanFeasible, setIsPlanFeasible] = useState<boolean>(true);
 
-  // Helper function to enhance error messages for 429 rate limit errors
+  // Helper function to enhance error messages for specific error types
   const enhanceErrorMessage = useCallback((error: string) => {
     if (error.includes('429') || error.includes('rate limit')) {
       return '🤖 AI service is temporarily busy. Please wait a moment and try again.';
+    }
+    if (error.includes('No path found to')) {
+      const nodeMatch = error.match(/No path found to '([^']+)'/);
+      const nodeName = nodeMatch ? nodeMatch[1] : 'target location';
+      return `🧭 Cannot navigate to "${nodeName}" - screen not found in navigation tree.`;
     }
     return error; // Return original error for other cases
   }, []);
