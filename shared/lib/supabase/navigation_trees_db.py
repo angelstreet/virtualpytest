@@ -678,11 +678,8 @@ def _populate_navigation_cache(tree: Dict, team_id: str):
             for action_id in action_ids:
                 if action_id in action_map:
                     action = action_map[action_id].copy()
-                    # Ensure action has wait_time in params with default value
-                    if 'params' not in action:
-                        action['params'] = {}
-                    if 'wait_time' not in action['params']:
-                        action['params']['wait_time'] = 500  # Default 500ms wait time
+                    action['label'] = action['name']  # Just map name to label
+                    action['waitTime'] = action.get('params', {}).get('wait_time', 500)
                     actions.append(action)
             
             # Resolve retry actions from retry_action_ids
@@ -691,11 +688,8 @@ def _populate_navigation_cache(tree: Dict, team_id: str):
             for action_id in retry_action_ids:
                 if action_id in action_map:
                     action = action_map[action_id].copy()
-                    # Ensure retry action has wait_time in params with default value
-                    if 'params' not in action:
-                        action['params'] = {}
-                    if 'wait_time' not in action['params']:
-                        action['params']['wait_time'] = 500  # Default 500ms wait time
+                    action['label'] = action['name']  # Just map name to label
+                    action['waitTime'] = action.get('params', {}).get('wait_time', 500)
                     retry_actions.append(action)
             
             resolved_edge = {

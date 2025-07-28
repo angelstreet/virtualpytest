@@ -313,33 +313,30 @@ const RunTests: React.FC = () => {
         parameterString,
       );
 
-      // For async executions, the result indicates successful start, not completion
-      // The execution record should remain as "running" until actual completion
-      if (result?.success) {
-        // Script started successfully - keep status as "running"
-        // The background polling in useScript will handle completion updates
-        showSuccess(`Script "${selectedScript}" started successfully`);
-        
-        // Note: We don't update the execution record here because the script is still running
-        // In a real implementation, you might want to poll for completion and update the record
-        // For now, we'll leave it as "running" to indicate the script is executing in background
+      // Update execution record with completion status
+      setExecutions((prev) =>
+        prev.map((exec) =>
+          exec.id === executionId
+            ? {
+                ...exec,
+                endTime: new Date().toLocaleTimeString(),
+                status: result.success ? 'completed' : 'failed',
+                reportUrl: result.report_url,
+              }
+            : exec,
+        ),
+      );
+
+      if (result.success) {
+        showSuccess(`Script "${selectedScript}" completed successfully`);
+        if (result.report_url) {
+          showInfo(`Report available: ${result.report_url}`);
+        }
       } else {
-        // Immediate failure (e.g., validation error, network error)
-        setExecutions((prev) =>
-          prev.map((exec) =>
-            exec.id === executionId
-              ? {
-                  ...exec,
-                  endTime: new Date().toLocaleTimeString(),
-                  status: 'failed',
-                }
-              : exec,
-          ),
-        );
-        showError(`Script "${selectedScript}" failed to start`);
+        showError(`Script "${selectedScript}" failed: ${result.stderr || 'Unknown error'}`);
       }
     } catch (err) {
-      // Update execution record on error (failed to start)
+      // Update execution record on error (failed to start or execute)
       setExecutions((prev) =>
         prev.map((exec) =>
           exec.id === executionId
