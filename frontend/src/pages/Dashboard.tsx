@@ -24,10 +24,6 @@ import {
   CardContent,
   Typography,
   Button,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemIcon,
   Chip,
   Alert,
   Table,
@@ -143,32 +139,6 @@ const Dashboard: React.FC = () => {
     if (newViewMode !== null) {
       setViewMode(newViewMode);
       console.log(`View mode changed to ${newViewMode}`);
-    }
-  };
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'success':
-        return <CheckCircleIcon color="success" />;
-      case 'error':
-        return <ErrorIcon color="error" />;
-      case 'pending':
-        return <PendingIcon color="warning" />;
-      default:
-        return <PendingIcon />;
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'success':
-        return 'success';
-      case 'error':
-        return 'error';
-      case 'pending':
-        return 'warning';
-      default:
-        return 'default';
     }
   };
 

@@ -27,6 +27,7 @@ interface NavigationConfigContextType {
 
   // Tree data
   actualTreeId: string | null;
+  setActualTreeId: (treeId: string | null) => void;
 
   // User identification
   sessionId: string;
@@ -537,6 +538,7 @@ export const NavigationConfigProvider: React.FC<NavigationConfigProviderProps> =
 
       // Tree data
       actualTreeId,
+      setActualTreeId,
 
       // User identification
       sessionId,
@@ -559,6 +561,7 @@ export const NavigationConfigProvider: React.FC<NavigationConfigProviderProps> =
       listAvailableUserInterfaces,
       createEmptyTree,
       actualTreeId,
+      setActualTreeId,
     ],
   );
 

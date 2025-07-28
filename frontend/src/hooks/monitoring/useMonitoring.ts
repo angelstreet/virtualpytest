@@ -272,6 +272,7 @@ export const useMonitoring = ({
               audio: data.audio || false,
               volume_percentage: data.volume_percentage || 0,
               mean_volume_db: data.mean_volume_db || -100,
+              has_incidents: data.has_incidents || false,
             };
 
             console.log('[useMonitoring] Analysis loaded:', analysis);

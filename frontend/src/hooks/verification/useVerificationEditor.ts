@@ -1,8 +1,7 @@
-import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 
 import { Host } from '../../types/common/Host_Types';
 import { DragArea } from '../../types/controller/Hdmi_Types';
-import { Verification } from '../../types/verification/Verification_Types';
 import { useDeviceData } from '../../contexts/device/DeviceDataContext';
 
 import { useVerification } from './useVerification';
@@ -37,7 +36,6 @@ interface UseVerificationEditorProps {
   onAreaSelected?: (area: DragArea) => void;
   onClearSelection?: () => void;
   isCaptureActive?: boolean;
-  isControlActive?: boolean; // Add control state to trigger reference fetching
 }
 
 export const useVerificationEditor = ({
@@ -49,7 +47,6 @@ export const useVerificationEditor = ({
   onAreaSelected: _onAreaSelected,
   onClearSelection: _onClearSelection,
   isCaptureActive,
-  isControlActive = false, // Default to false if not provided
 }: UseVerificationEditorProps) => {
   // Get the selected device from the host's devices array
   const selectedDevice = useMemo(() => {

@@ -1,6 +1,5 @@
 import { useCallback, useState } from 'react';
 
-import { useDeviceData } from '../../contexts/device/DeviceDataContext';
 import { useNavigation } from '../../contexts/navigation/NavigationContext';
 import { Host } from '../../types/common/Host_Types';
 import { Actions } from '../../types/controller/Action_Types';
@@ -67,8 +66,8 @@ export const useEdge = (props?: UseEdgeProps) => {
    * Get edge colors based on validation status
    */
   const getEdgeColorsForEdge = useCallback(
-    (edgeId: string, isEntryEdge: boolean = false) => {
-      return getEdgeColors(edgeId, isEntryEdge);
+    (edgeId: string, _isEntryEdge: boolean = false) => {
+      return getEdgeColors(edgeId);
     },
     [getEdgeColors],
   );

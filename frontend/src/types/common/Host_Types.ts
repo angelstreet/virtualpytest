@@ -51,6 +51,8 @@ export interface Device {
       implementation: string;
       type: string;
       parameters: any;
+      capabilities?: any[];
+      connectionConfig?: any;
     };
   }; // Controller configurations
 
@@ -75,6 +77,8 @@ export interface Host {
       implementation: string;
       type: string;
       parameters: any;
+      capabilities?: any[];
+      connectionConfig?: any;
     };
   }; // Controller configurations
 

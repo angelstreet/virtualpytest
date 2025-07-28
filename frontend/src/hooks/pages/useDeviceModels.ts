@@ -6,11 +6,9 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useMemo, useState, useEffect, useCallback } from 'react';
+import { useMemo } from 'react';
 
-import { useHostManager } from '../useHostManager';
-
-import { Model, ModelCreatePayload as ModelCreateData } from '../../types/pages/Models_Types';
+import { Model, ModelCreatePayload } from '../../types/pages/Models_Types';
 
 // Server Response interface
 export interface ServerResponse<T> {
@@ -221,7 +219,7 @@ export const useDeviceModels = () => {
 
   // Create device model mutation
   const createMutation = useMutation({
-    mutationFn: (payload: ModelCreateData) => serverService.createDeviceModel(payload),
+    mutationFn: (payload: ModelCreatePayload) => serverService.createDeviceModel(payload),
     onSuccess: (newModel) => {
       // Add the new model to the cache
       queryClient.setQueryData(QUERY_KEYS.deviceModels, (old: Model[] = []) => [...old, newModel]);
@@ -236,7 +234,7 @@ export const useDeviceModels = () => {
 
   // Update device model mutation
   const updateMutation = useMutation({
-    mutationFn: ({ id, payload }: { id: string; payload: ModelCreateData }) =>
+    mutationFn: ({ id, payload }: { id: string; payload: ModelCreatePayload }) =>
       serverService.updateDeviceModel(id, payload),
     onSuccess: (updatedModel, variables) => {
       // Update the model in the cache

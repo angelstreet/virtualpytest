@@ -98,7 +98,7 @@ export function useVncStream({
 
   const canCapture = isStreamActive && !isCaptureActive;
   const canSave = hasCaptured && capturedReferenceImage;
-  const allowSelection = captureMode === 'screenshot' || captureMode === 'video';
+  const allowSelection: boolean = captureMode === 'screenshot' || captureMode === 'video';
 
   // Area selection handler
   const handleAreaSelected = useCallback((area: DragArea) => {

@@ -263,11 +263,15 @@ export const useScreenEditor = (selectedHost: any, selectedDeviceId: string | nu
       streamUrl,
       lastScreenshotPath,
       currentFrame,
+      totalFrames: 0, // Add missing property
       viewMode,
       isCapturing,
       isStoppingCapture,
       captureStartTime,
       captureEndTime,
+      videoFramesPath: undefined, // Add missing property
+      isSaving: false, // Add missing property
+      savedFrameCount: 0, // Add missing property
       isExpanded,
       isScreenshotLoading,
       selectedArea,
@@ -311,6 +315,9 @@ export const useScreenEditor = (selectedHost: any, selectedDeviceId: string | nu
         setSelectedArea(null);
       },
       handleTap,
+      handleImageLoad: () => {
+        // Empty implementation for now
+      },
       getStreamUrl,
     }),
     [

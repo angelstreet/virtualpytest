@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback } from 'react';
 
 import {
   NODE_TYPE_COLORS,
@@ -32,7 +32,7 @@ interface HandleColorResult {
   className?: string;
 }
 
-export const useValidationColors = (edges?: UINavigationEdge[]) => {
+export const useValidationColors = (_edges?: UINavigationEdge[]) => {
   // Get basic node colors based on node type
   const getNodeColors = useCallback((nodeType: NodeType): NodeColorResult => {
     const colors = NODE_TYPE_COLORS[nodeType] || NODE_TYPE_COLORS.screen;
@@ -47,7 +47,7 @@ export const useValidationColors = (edges?: UINavigationEdge[]) => {
   }, []);
 
   // Get basic edge colors (default gray)
-  const getEdgeColors = useCallback((edgeId: string): EdgeColorResult => {
+  const getEdgeColors = useCallback((_edgeId: string): EdgeColorResult => {
     return {
       stroke: EDGE_COLORS.untested.stroke,
       strokeWidth: EDGE_COLORS.untested.strokeWidth,
@@ -67,12 +67,12 @@ export const useValidationColors = (edges?: UINavigationEdge[]) => {
   }, []);
 
   // Simplified functions for navigation feedback (no complex validation tracking)
-  const setNavigationEdgesSuccess = useCallback((transitions: any[]) => {
+  const setNavigationEdgesSuccess = useCallback((_transitions: any[]) => {
     // Could implement simple edge highlighting here if needed
-    console.log('Navigation successful for transitions:', transitions.length);
+    console.log('Navigation successful for transitions:', _transitions.length);
   }, []);
 
-  const setNavigationEdgesFailure = useCallback((transitions: any[], failedIndex?: number) => {
+  const setNavigationEdgesFailure = useCallback((_transitions: any[], failedIndex?: number) => {
     // Could implement simple edge highlighting here if needed
     console.log('Navigation failed at transition:', failedIndex);
   }, []);

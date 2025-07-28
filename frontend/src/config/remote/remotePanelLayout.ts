@@ -39,15 +39,6 @@ export interface ConfigurableRemotePanelLayout {
   showScreenshotInExpanded: boolean;
 }
 
-// Android Mobile Remote specific configuration
-export interface AndroidMobileRemoteConfig extends ConfigurableRemotePanelLayout {
-  remote_info: {
-    name: string;
-    type: string;
-  };
-  panel_layout: any;
-}
-
 // Remote layout configuration for the actual remote control within the panel
 export interface ConfigurableRemoteLayout {
   collapsed: {

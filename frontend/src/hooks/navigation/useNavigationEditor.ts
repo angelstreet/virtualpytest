@@ -34,6 +34,7 @@ export const useNavigationEditor = () => {
           setHasUnsavedChanges: navigation.setHasUnsavedChanges,
           setIsLoading: navigation.setIsLoading,
           setError: navigation.setError,
+          setActualTreeId: navigationConfig.setActualTreeId,
         };
         return navigationConfig.loadFromConfig(userInterfaceId, state);
       }
@@ -55,6 +56,7 @@ export const useNavigationEditor = () => {
           setHasUnsavedChanges: navigation.setHasUnsavedChanges,
           setIsLoading: navigation.setIsLoading,
           setError: navigation.setError,
+          setActualTreeId: navigationConfig.setActualTreeId,
         };
 
         return navigationConfig.saveToConfig(userInterfaceId, state);
