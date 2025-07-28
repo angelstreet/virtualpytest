@@ -40,6 +40,7 @@ export function AVPanel({ host, onExpandedChange }: AVPanelProps) {
         return (
           <HDMIStream
             host={host}
+            deviceId={host.devices?.[0]?.device_id || 'device1'}
             onExpandedChange={onExpandedChange}
             deviceResolution={defaultDeviceResolution}
           />

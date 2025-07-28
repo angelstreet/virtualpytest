@@ -28,6 +28,20 @@ interface VideoCaptureProps {
   isCapturing?: boolean;
   videoFramePath?: string; // Current frame image path/URL
   model?: string;
+  
+  // Missing properties from ScreenDefinitionEditor
+  deviceModel?: string;
+  videoDevice?: any;
+  hostIp?: string;
+  hostPort?: number;
+  videoFramesPath?: string;
+  isSaving?: boolean;
+  savedFrameCount?: number;
+  onBackToStream?: () => void;
+  captureStartTime?: Date | null;
+  captureEndTime?: Date | null;
+  selectedHost?: any;
+  
   sx?: any;
 }
 

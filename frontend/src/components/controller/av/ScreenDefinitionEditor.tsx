@@ -40,7 +40,7 @@ export const ScreenDefinitionEditor: React.FC<ScreenDefinitionEditorProps> = ({
     verificationEditorLayout,
 
     streamViewerSx,
-  } = useScreenEditor(selectedHost, selectedDeviceId, onDisconnectComplete);
+  } = useScreenEditor(selectedHost, selectedDeviceId);
 
   const {
     isConnected,

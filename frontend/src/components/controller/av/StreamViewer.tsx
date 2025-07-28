@@ -9,6 +9,9 @@ interface StreamViewerProps {
   streamUrl?: string;
   isStreamActive?: boolean;
   isCapturing?: boolean;
+  onTap?: (x: number, y: number) => Promise<void>;
+  deviceId?: string;
+  selectedHost?: any;
   sx?: any;
   videoElementRef?: React.RefObject<HTMLVideoElement>;
   model?: string;

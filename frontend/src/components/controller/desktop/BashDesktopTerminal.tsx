@@ -1,5 +1,5 @@
-import { Box, Button, TextField, Paper, Typography, CircularProgress } from '@mui/material';
-import React, { useState, useRef, useEffect } from 'react';
+import { Alert, Box, Button, TextField, Paper, Typography, CircularProgress } from '@mui/material';
+import React, { useRef, useEffect } from 'react';
 
 import { useBashDesktop } from '../../../hooks/controller/useBashDesktop';
 import { Host } from '../../../types/common/Host_Types';

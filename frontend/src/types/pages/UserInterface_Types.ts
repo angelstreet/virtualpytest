@@ -55,11 +55,17 @@ export interface ScreenEditorState {
   // Capture state
   lastScreenshotPath: string | undefined;
   currentFrame: number;
+  totalFrames: number;
   viewMode: ScreenViewMode;
   isCapturing: boolean;
   isStoppingCapture: boolean;
   captureStartTime: Date | null;
   captureEndTime: Date | null;
+
+  // Video frame capture state
+  videoFramesPath: string | undefined;
+  isSaving: boolean;
+  savedFrameCount: number;
 
   // UI state
   isExpanded: boolean;
@@ -83,6 +89,7 @@ export interface ScreenEditorActions {
   handleAreaSelected: (area: SelectedArea) => void;
   handleClearSelection: () => void;
   handleTap: (x: number, y: number) => Promise<void>;
+  handleImageLoad: () => void;
   getStreamUrl: () => Promise<string | undefined>;
 }
 
