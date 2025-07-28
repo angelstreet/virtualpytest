@@ -508,10 +508,10 @@ def process_heatmap_generation(job_id: str, images_by_timestamp: Dict[str, List[
                         mosaic_image = create_mosaic_image(processed_images)
                         
                         # Save to temporary files
-                        temp_path = tempfile.mktemp(suffix='.png')
-                        temp_json_path = tempfile.mktemp(suffix='.json')
+                        temp_path = f"/tmp/heatmap_{timestamp}_{job_id}.jpg"
+                        temp_json_path = f"/tmp/heatmap_{timestamp}_{job_id}.json"
                         
-                        mosaic_image.save(temp_path, 'PNG')
+                        mosaic_image.save(temp_path, 'JPEG', quality=85)
                         
                         # Create metadata (exclude binary data to avoid JSON serialization errors)
                         serializable_analysis = []
@@ -539,15 +539,16 @@ def process_heatmap_generation(job_id: str, images_by_timestamp: Dict[str, List[
                             json.dump(metadata, f, indent=2)
                         
                         # Upload to R2
-                        from utils.cloudflare_utils import upload_heatmap_mosaic, upload_heatmap_metadata
+                        from utils.cloudflare_utils import get_cloudflare_utils
+                        uploader = get_cloudflare_utils()
                         
-                        mosaic_r2_path = f"heatmaps/{job_id}/{timestamp}_mosaic.png"
-                        metadata_r2_path = f"heatmaps/{job_id}/{timestamp}_metadata.json"
+                        mosaic_r2_path = f"heatmaps/{timestamp}/mosaic.jpg"
+                        metadata_r2_path = f"heatmaps/{timestamp}/metadata.json"
                         
                         print(f"[@heatmap_utils] Uploading mosaic and metadata for timestamp {timestamp}")
                         
-                        mosaic_upload = upload_heatmap_mosaic(temp_path, mosaic_r2_path)
-                        metadata_upload = upload_heatmap_metadata(temp_json_path, metadata_r2_path)
+                        mosaic_upload = uploader.upload_file(temp_path, mosaic_r2_path)
+                        metadata_upload = uploader.upload_file(temp_json_path, metadata_r2_path)
                         
                         # Check upload success
                         if mosaic_upload['success'] and metadata_upload['success']:
