@@ -31,15 +31,16 @@ import React, { useState, useEffect, useCallback } from 'react';
 
 import CreateDeviceDialog from '../components/devicemanagement/DeviceManagement_CreateDialog';
 import EditDeviceDialog from '../components/devicemanagement/DeviceManagement_EditDialog';
+import { Device } from '../types/common/Host_Types';
 
-// Device type for device management (extends Host Device with management fields)
-interface Device {
-  id: string;
-  name: string;
-  description?: string;
-  device_model?: string;
-  device_name?: string;
+// Using Device interface from Host_Types.ts
+
+interface DeviceCreatePayload {
+  device_name: string;
   device_description?: string;
+  device_model: string;
+  device_id: string;
+  device_capabilities: any;
   controllerConfigs?: {
     [controllerType: string]: {
       implementation: string;
@@ -52,8 +53,6 @@ interface DeviceCreatePayload {
   device_name: string;
   device_description?: string;
   device_model: string;
-  device_id: string;
-  device_capabilities: any;
   controllerConfigs?: {
     [controllerType: string]: {
       implementation: string;

@@ -38,6 +38,9 @@ export interface DeviceCapabilities {
 }
 
 export interface Device {
+  id?: string; // Database ID (for EditDialog compatibility)
+  created_at?: string; // Creation timestamp (for EditDialog compatibility)
+  updated_at?: string; // Update timestamp (for EditDialog compatibility)
   device_id: string; // Device identifier (device1, device2, etc.)
   device_name: string; // Device display name (matches server format)
   device_model: string; // Device model for controller configuration (matches server format)

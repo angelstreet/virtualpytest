@@ -19,7 +19,7 @@ import ReactFlow, {
   ConnectionLineType,
   BackgroundVariant,
   MarkerType,
-  Node,
+
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 
@@ -607,19 +607,7 @@ const NavigationEditorContent: React.FC<{ userInterfaceId?: string }> = React.me
       addNewNode('screen', { x: 250, y: 250 });
     }, [addNewNode]);
 
-    const handleUpdateEdge = useCallback(
-      (edgeId: string, updatedData: any) => {
-        const updatedEdges = edges.map((edge) =>
-          edge.id === edgeId ? { ...edge, data: { ...edge.data, ...updatedData } } : edge,
-        );
-        setEdges(updatedEdges);
-        if (selectedEdge?.id === edgeId) {
-          setSelectedEdge({ ...selectedEdge, data: { ...selectedEdge.data, ...updatedData } });
-        }
-        setHasUnsavedChanges(true);
-      },
-      [edges, setEdges, setSelectedEdge, setHasUnsavedChanges, selectedEdge],
-    );
+
 
     // ========================================
     // 7. RENDER
