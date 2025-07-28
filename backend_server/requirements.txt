@@ -60,6 +60,9 @@ python-dateutil>=2.8.0
 Appium-Python-Client>=3.0.0
 selenium>=4.15.0
 
+# AWS SDK for cloud services
+boto3>=1.26.0
+
 # Additional shared dependencies that might be needed
 typing-extensions>=4.0.0
 supabase>=2.0.0
