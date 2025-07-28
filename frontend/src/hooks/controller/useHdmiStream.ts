@@ -5,6 +5,7 @@ import { DragArea, HdmiStreamState, HdmiStreamActions } from '../../types/contro
 
 interface UseHdmiStreamProps {
   host: Host;
+  deviceId?: string;
   deviceModel?: string;
   streamUrl?: string;
   isStreamActive?: boolean;
@@ -12,6 +13,7 @@ interface UseHdmiStreamProps {
 
 export function useHdmiStream({
   host,
+  deviceId = 'device1',
   deviceModel = 'unknown',
   streamUrl: providedStreamUrl = '',
   isStreamActive: providedIsStreamActive = false,
@@ -264,7 +266,7 @@ export function useHdmiStream({
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ host: host }),
+        body: JSON.stringify({ host: host, device_id: deviceId }),
       });
 
       const result = await response.json();
@@ -276,7 +278,7 @@ export function useHdmiStream({
     } catch (error) {
       console.error('[@hook:useHdmiStream] Screenshot failed:', error);
     }
-  }, [host]);
+  }, [host, deviceId]);
 
   const handleAutoDetectText = useCallback(async () => {
     if (!selectedArea) {

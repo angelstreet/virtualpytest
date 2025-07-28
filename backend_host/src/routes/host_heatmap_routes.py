@@ -8,6 +8,7 @@ from flask import Blueprint, request, jsonify
 import os
 import time
 import json
+from utils.host_utils import get_controller
 
 # Create blueprint
 host_heatmap_bp = Blueprint('host_heatmap', __name__, url_prefix='/host/heatmap')
@@ -20,8 +21,15 @@ def list_recent_analysis():
         device_id = data.get('device_id', 'device1')
         timeframe_minutes = data.get('timeframe_minutes', 1)
         
-        # Direct path calculation
-        capture_folder = f"/var/www/html/stream/capture{device_id[-1]}/captures"
+        # Get capture path from AV controller instead of hardcoding device_id[-1]
+        av_controller = get_controller(device_id, 'av')
+        if not av_controller:
+            return jsonify({
+                'success': False,
+                'error': f'No AV controller found for device {device_id}'
+            }), 404
+        
+        capture_folder = os.path.join(av_controller.video_capture_path, 'captures')
         
         if not os.path.exists(capture_folder):
             return jsonify({
