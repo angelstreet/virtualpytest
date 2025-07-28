@@ -14,7 +14,11 @@ current_dir = os.path.dirname(__file__)  # backend_host/scripts/
 backend_host_dir = os.path.dirname(current_dir)  # backend_host/
 project_root = os.path.dirname(backend_host_dir)  # project root
 
-# Add shared library to path
+# Add project root to path for shared.lib imports
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
+# Also add shared library and backend_core paths for direct imports
 shared_lib_path = os.path.join(project_root, 'shared', 'lib')
 backend_core_path = os.path.join(project_root, 'backend_core', 'src')
 
@@ -26,12 +30,13 @@ if backend_core_path not in sys.path:
 # Load environment variables from .env
 try:
     from dotenv import load_dotenv
-    env_host_path = os.path.join(backend_host_dir, '.env')
-    if os.path.exists(env_host_path):
-        load_dotenv(env_host_path)
-        print(f"[@alert_system] Loaded environment from {env_host_path}")
+    env_root_path = os.path.join(project_root, '.env')
+    
+    if os.path.exists(env_root_path):
+        load_dotenv(env_root_path)
+        print(f"[@alert_system] Loaded environment from {env_root_path}")
     else:
-        print(f"[@alert_system] Warning: .env not found at {env_host_path}")
+        print(f"[@alert_system] Warning: .env not found at {env_root_path}")
 except ImportError:
     print("[@alert_system] Warning: python-dotenv not available, skipping .env loading")
 
@@ -62,7 +67,7 @@ def _lazy_import_db():
     global create_alert_safe, create_alert, resolve_alert, get_active_alerts
     if create_alert_safe is None:
         try:
-            from lib.supabase.alerts_db import create_alert_safe as _create_alert_safe, create_alert as _create_alert, resolve_alert as _resolve_alert, get_active_alerts as _get_active_alerts
+            from shared.lib.supabase.alerts_db import create_alert_safe as _create_alert_safe, create_alert as _create_alert, resolve_alert as _resolve_alert, get_active_alerts as _get_active_alerts
             create_alert_safe = _create_alert_safe
             create_alert = _create_alert
             resolve_alert = _resolve_alert
