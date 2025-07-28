@@ -5,12 +5,14 @@ echo "🚀 Starting VirtualPyTest System with Real-time Unified Logging..."
 
 # Get the script directory and navigate to the correct paths
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "$(dirname "$SCRIPT_DIR")" && pwd)"
-WEB_DIR="$PROJECT_ROOT/src/web"
+PROJECT_ROOT="$(cd "$(dirname "$(dirname "$SCRIPT_DIR")")" && pwd)"
+SERVER_DIR="$PROJECT_ROOT/backend_server/src"
+FRONTEND_DIR="$PROJECT_ROOT/frontend"
 
 echo "📁 Script directory: $SCRIPT_DIR"
 echo "📁 Project root: $PROJECT_ROOT"
-echo "📁 Web directory: $WEB_DIR"
+echo "📁 Server directory: $SERVER_DIR"
+echo "📁 Frontend directory: $FRONTEND_DIR"
 
 # Detect Python executable
 PYTHON_CMD=""
@@ -35,12 +37,14 @@ else
     echo "⚠️  No virtual environment found, proceeding without activation"
 fi
 
-# Navigate to web directory
-if [ -d "$WEB_DIR" ]; then
-    cd "$WEB_DIR"
-    echo "📂 Changed to: $(pwd)"
-else
-    echo "❌ Web directory not found: $WEB_DIR"
+# Check directories exist
+if [ ! -d "$SERVER_DIR" ]; then
+    echo "❌ Server directory not found: $SERVER_DIR"
+    exit 1
+fi
+
+if [ ! -d "$FRONTEND_DIR" ]; then
+    echo "❌ Frontend directory not found: $FRONTEND_DIR"
     exit 1
 fi
 
@@ -58,7 +62,10 @@ declare -a PIDS=()
 run_with_prefix() {
     local prefix="$1"
     local color="$2"
-    shift 2
+    local directory="$3"
+    shift 3
+    
+    cd "$directory"
     
     # Use exec to run command and pipe output with real-time processing
     {
@@ -80,6 +87,9 @@ run_with_prefix() {
     local pid=$!
     PIDS+=($pid)
     echo "Started $prefix with PID: $pid"
+    
+    # Return to project root
+    cd "$PROJECT_ROOT"
 }
 
 # Enhanced cleanup function
@@ -115,16 +125,16 @@ trap cleanup SIGINT SIGTERM
 
 echo "📺 Starting services with real-time unified logging..."
 echo "💡 Press Ctrl+C to stop all services"
-echo "💡 Logs will appear with colored prefixes: [SERVER], [NPM], [HOST]"
+echo "💡 Logs will appear with colored prefixes: [SERVER], [FRONTEND]"
 echo "=================================================================================="
 
 # Start all services with prefixed output and real-time logging
-echo -e "${BLUE}🔵 Starting Flask Server...${NC}"
-run_with_prefix "SERVER" "$BLUE" python app_server.py
+echo -e "${BLUE}🔵 Starting Backend Server...${NC}"
+run_with_prefix "SERVER" "$BLUE" "$SERVER_DIR" python app.py
 sleep 3
 
-echo -e "${YELLOW}🟡 Starting NPM Dev Server...${NC}"
-run_with_prefix "NPM" "$YELLOW" npm run dev
+echo -e "${YELLOW}🟡 Starting Frontend Dev Server...${NC}"
+run_with_prefix "FRONTEND" "$YELLOW" "$FRONTEND_DIR" npm run dev
 sleep 3
 
 echo "=================================================================================="

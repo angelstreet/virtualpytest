@@ -5,12 +5,12 @@ echo "🚀 Starting VirtualPyTest Host Client..."
 
 # Get the script directory and navigate to the correct paths
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "$(dirname "$SCRIPT_DIR")" && pwd)"
-WEB_DIR="$PROJECT_ROOT/src/web"
+PROJECT_ROOT="$(cd "$(dirname "$(dirname "$SCRIPT_DIR")")" && pwd)"
+HOST_DIR="$PROJECT_ROOT/backend_host/src"
 
 echo "📁 Script directory: $SCRIPT_DIR"
 echo "📁 Project root: $PROJECT_ROOT"
-echo "📁 Web directory: $WEB_DIR"
+echo "📁 Host directory: $HOST_DIR"
 
 # Detect Python executable
 PYTHON_CMD=""
@@ -35,12 +35,12 @@ else
     echo "⚠️  No virtual environment found, proceeding without activation"
 fi
 
-# Navigate to web directory
-if [ -d "$WEB_DIR" ]; then
-    cd "$WEB_DIR"
+# Navigate to host directory
+if [ -d "$HOST_DIR" ]; then
+    cd "$HOST_DIR"
     echo "📂 Changed to: $(pwd)"
 else
-    echo "❌ Web directory not found: $WEB_DIR"
+    echo "❌ Host directory not found: $HOST_DIR"
     exit 1
 fi
 
@@ -63,7 +63,7 @@ echo "==========================================================================
 
 # Start only the host client
 echo -e "${GREEN}🟢 Starting Host Client...${NC}"
-$PYTHON_CMD -u app_host.py
+$PYTHON_CMD -u app.py
 
 echo "=================================================================================="
 echo -e "${NC}✅ Host client finished${NC}"
