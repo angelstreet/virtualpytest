@@ -31,16 +31,15 @@ import React, { useState, useEffect, useCallback } from 'react';
 
 import CreateDeviceDialog from '../components/devicemanagement/DeviceManagement_CreateDialog';
 import EditDeviceDialog from '../components/devicemanagement/DeviceManagement_EditDialog';
-import { Device } from '../types/common/Host_Types';
 
-// Using Device interface from Host_Types.ts
-
-interface DeviceCreatePayload {
-  device_name: string;
+// Device type for device management (extends Host Device with management fields)
+interface Device {
+  id: string;
+  name: string;
+  description?: string;
+  device_model?: string;
+  device_name?: string;
   device_description?: string;
-  device_model: string;
-  device_id: string;
-  device_capabilities: any;
   controllerConfigs?: {
     [controllerType: string]: {
       implementation: string;
@@ -50,8 +49,8 @@ interface DeviceCreatePayload {
 }
 
 interface DeviceCreatePayload {
-  device_name: string;
-  device_description?: string;
+  name: string;
+  description: string;
   device_model: string;
   controllerConfigs?: {
     [controllerType: string]: {
@@ -160,7 +159,7 @@ const DeviceManagement: React.FC = () => {
   }, [devices, searchTerm]);
 
   const handleAddNew = async (newDeviceData: DeviceCreatePayload) => {
-    if (!newDeviceData.device_name.trim()) {
+    if (!newDeviceData.name.trim()) {
       setError('Name is required');
       return;
     }
@@ -366,9 +365,9 @@ const DeviceManagement: React.FC = () => {
       return { count: 0, summary: 'No controllers configured', types: [] };
     }
 
-    const configuredControllers = Object.keys(device.controllerConfigs || {}).filter(
+    const configuredControllers = Object.keys(device.controllerConfigs).filter(
       (key) =>
-        device.controllerConfigs?.[key] &&
+        device.controllerConfigs[key] &&
         typeof device.controllerConfigs[key] === 'object' &&
         device.controllerConfigs[key].implementation,
     );

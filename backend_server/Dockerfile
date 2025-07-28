@@ -20,7 +20,7 @@ RUN pip install --no-cache-dir -r backend_server/requirements.txt
 COPY backend_server/src/ backend_server/src/
 
 # Copy utils directory (if it exists in project root)
-COPY src/utils/ backend_server/src/utils/ 2>/dev/null || echo "No utils directory found"
+# Note: This copy is optional and will be skipped if src/utils/ doesn't exist
 
 # Set working directory to backend_server
 WORKDIR /app/backend_server
