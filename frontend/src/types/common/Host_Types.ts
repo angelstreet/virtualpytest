@@ -44,7 +44,7 @@ export interface Device {
   device_id: string; // Device identifier (device1, device2, etc.)
   device_name: string; // Device display name (matches server format)
   device_model: string; // Device model for controller configuration (matches server format)
-  device_description?: string; // Device description (for EditDialog compatibility)
+  device_description?: string; // Device description
   device_ip?: string; // Device IP address (for ADB/device control)
   device_port?: string; // Device port (for ADB/device control)
   device_capabilities: DeviceCapabilities; // New detailed capability format (matches server format)

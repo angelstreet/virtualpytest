@@ -4,13 +4,25 @@ FROM python:3.11-slim
 RUN apt-get update && apt-get install -y \
     curl \
     wget \
+    libgl1-mesa-glx \
+    libglib2.0-0 \
+    libsm6 \
+    libxext6 \
+    libxrender-dev \
+    libgomp1 \
+    libglib2.0-0 \
+    xvfb \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
 # Copy shared library
 COPY shared/ shared/
-RUN pip install --no-cache-dir -e shared/
+# Add shared to PYTHONPATH instead of installing as package
+ENV PYTHONPATH="/app/shared:/app/shared/lib:/app/backend_core/src"
+
+# Copy backend_core (required dependency)
+COPY backend_core/ backend_core/
 
 # Copy backend_server requirements and install
 COPY backend_server/requirements.txt backend_server/

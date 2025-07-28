@@ -246,7 +246,7 @@ const NavigationEditorContent: React.FC<{ userInterfaceId?: string }> = React.me
       setReactFlowInstance,
       setHasUnsavedChanges,
       setEdges,
-      setSelectedEdge,
+      // setSelectedEdge, // Removed - not used without handleUpdateEdge
 
       // Error state
       error,

@@ -31,34 +31,11 @@ import React, { useState, useEffect, useCallback } from 'react';
 
 import CreateDeviceDialog from '../components/devicemanagement/DeviceManagement_CreateDialog';
 import EditDeviceDialog from '../components/devicemanagement/DeviceManagement_EditDialog';
+import { Device } from '../types/common/Host_Types';
 
-// Device type for device management (extends Host Device with management fields)
-interface Device {
-  id: string;
-  name: string;
-  description?: string;
-  device_model?: string;
-  device_name?: string;
-  device_description?: string;
-  controllerConfigs?: {
-    [controllerType: string]: {
-      implementation: string;
-      parameters: { [key: string]: any };
-    };
-  };
-}
+// Using unified Device interface from Host_Types.ts
 
-interface DeviceCreatePayload {
-  name: string;
-  description: string;
-  device_model: string;
-  controllerConfigs?: {
-    [controllerType: string]: {
-      implementation: string;
-      parameters: { [key: string]: any };
-    };
-  };
-}
+// Using unified Device interface from Host_Types.ts
 
 const DeviceManagement: React.FC = () => {
   const [devices, setDevices] = useState<Device[]>([]);
@@ -71,8 +48,8 @@ const DeviceManagement: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({
-    name: '',
-    description: '',
+    device_name: '',
+    device_description: '',
     device_model: '',
   });
   const [error, setError] = useState<string | null>(null);
@@ -145,22 +122,22 @@ const DeviceManagement: React.FC = () => {
   }, [fetchDevices]);
 
   useEffect(() => {
-    const filtered = devices.filter(
-      (device) =>
-        (device.device_name || device.name || '')
-          .toLowerCase()
-          .includes(searchTerm.toLowerCase()) ||
-        (device.device_description || device.description || '')
-          .toLowerCase()
-          .includes(searchTerm.toLowerCase()) ||
+          const filtered = devices.filter(
+        (device) =>
+          (device.device_name || '')
+            .toLowerCase()
+            .includes(searchTerm.toLowerCase()) ||
+          (device.device_description || '')
+            .toLowerCase()
+            .includes(searchTerm.toLowerCase()) ||
         (device.device_model || '').toLowerCase().includes(searchTerm.toLowerCase()),
     );
     setFilteredDevices(filtered);
   }, [devices, searchTerm]);
 
-  const handleAddNew = async (newDeviceData: DeviceCreatePayload) => {
-    if (!newDeviceData.name.trim()) {
-      setError('Name is required');
+  const handleAddNew = async (newDeviceData: Omit<Device, 'id' | 'created_at' | 'updated_at'>) => {
+    if (!newDeviceData.device_name.trim()) {
+      setError('Device name is required');
       return;
     }
 
@@ -200,7 +177,7 @@ const DeviceManagement: React.FC = () => {
       setDevices([...devices, createdDevice]);
       setOpenCreateDialog(false);
       setSuccessMessage('Device created successfully');
-      console.log('[@component:DeviceManagement] Successfully created device:', createdDevice.name);
+      console.log('[@component:DeviceManagement] Successfully created device:', createdDevice.device_name);
     } catch (err) {
       console.error('[@component:DeviceManagement] Error creating device:', err);
       setError(err instanceof Error ? err.message : 'Failed to create device');
@@ -209,7 +186,7 @@ const DeviceManagement: React.FC = () => {
     }
   };
 
-  const handleUpdate = async (deviceId: string, deviceData: DeviceCreatePayload) => {
+  const handleUpdate = async (deviceId: string, deviceData: Omit<Device, 'id' | 'created_at' | 'updated_at'>) => {
     console.log('[@component:DeviceManagement] Updating device:', deviceId, deviceData);
     try {
       setError(null);
@@ -307,14 +284,14 @@ const DeviceManagement: React.FC = () => {
   const handleSaveEdit = async () => {
     if (!editingId) return;
 
-    if (!editForm.name.trim()) {
+    if (!editForm.device_name.trim()) {
       setError('Name is required');
       return;
     }
 
     // Check for duplicate names (excluding current item)
     const isDuplicate = devices.some(
-      (d) => d.id !== editingId && d.name.toLowerCase() === editForm.name.toLowerCase().trim(),
+      (d) => d.id !== editingId && d.device_name.toLowerCase() === editForm.device_name.toLowerCase().trim(),
     );
 
     if (isDuplicate) {
@@ -332,8 +309,8 @@ const DeviceManagement: React.FC = () => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          name: editForm.name.trim(),
-          description: editForm.description.trim(),
+          name: editForm.device_name.trim(),
+          device_description: editForm.device_description.trim(),
           device_model: editForm.device_model.trim(),
         }),
       });
@@ -350,7 +327,7 @@ const DeviceManagement: React.FC = () => {
       setDevices(devices.map((d) => (d.id === editingId ? updatedDevice : d)));
       setEditingId(null);
       setSuccessMessage('Device updated successfully');
-      console.log('[@component:DeviceManagement] Successfully updated device:', updatedDevice.name);
+      console.log('[@component:DeviceManagement] Successfully updated device:', updatedDevice.device_name);
     } catch (err) {
       console.error('[@component:DeviceManagement] Error updating device:', err);
       setError(err instanceof Error ? err.message : 'Failed to update device');
@@ -361,15 +338,15 @@ const DeviceManagement: React.FC = () => {
 
   // Helper function to get controller count and summary
   const getControllerSummary = (device: Device) => {
-    if (!device.controllerConfigs) {
+    if (!device.controller_configs) {
       return { count: 0, summary: 'No controllers configured', types: [] };
     }
 
-    const configuredControllers = Object.keys(device.controllerConfigs).filter(
+    const configuredControllers = Object.keys(device.controller_configs).filter(
       (key) =>
-        device.controllerConfigs[key] &&
-        typeof device.controllerConfigs[key] === 'object' &&
-        device.controllerConfigs[key].implementation,
+        device.controller_configs![key] &&
+        typeof device.controller_configs![key] === 'object' &&
+        device.controller_configs![key].implementation,
     );
 
     const count = configuredControllers.length;
@@ -559,14 +536,14 @@ const DeviceManagement: React.FC = () => {
                           {editingId === device.id ? (
                             <TextField
                               size="small"
-                              value={editForm.name}
-                              onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                              value={editForm.device_name}
+                              onChange={(e) => setEditForm({ ...editForm, device_name: e.target.value })}
                               fullWidth
                               variant="outlined"
                               sx={{ '& .MuiInputBase-root': { height: '32px' } }}
                             />
                           ) : (
-                            device.name
+                            device.device_name
                           )}
                         </TableCell>
                         <TableCell>
@@ -589,16 +566,16 @@ const DeviceManagement: React.FC = () => {
                           {editingId === device.id ? (
                             <TextField
                               size="small"
-                              value={editForm.description}
+                              value={editForm.device_description}
                               onChange={(e) =>
-                                setEditForm({ ...editForm, description: e.target.value })
+                                setEditForm({ ...editForm, device_description: e.target.value })
                               }
                               fullWidth
                               variant="outlined"
                               sx={{ '& .MuiInputBase-root': { height: '32px' } }}
                             />
                           ) : (
-                            device.description || 'N/A'
+                            device.device_description || 'N/A'
                           )}
                         </TableCell>
                         <TableCell align="center">
@@ -658,7 +635,7 @@ const DeviceManagement: React.FC = () => {
                                 color="secondary"
                                 onClick={() => {
                                   setEditingId(null);
-                                  setEditForm({ name: '', description: '', device_model: '' });
+                                  setEditForm({ device_name: '', device_description: '', device_model: '' });
                                   setError(null);
                                 }}
                                 sx={{ p: 0.5 }}
@@ -672,7 +649,7 @@ const DeviceManagement: React.FC = () => {
                               <IconButton
                                 size="small"
                                 color="error"
-                                onClick={() => handleDelete(device.id)}
+                                onClick={() => handleDelete(device.id!)}
                                 sx={{ p: 0.5 }}
                                 disabled={submitting}
                               >
