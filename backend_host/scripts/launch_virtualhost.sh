@@ -1,69 +1,30 @@
 #!/bin/bash
 
-# VirtualPyTest Host Client Launch Script
-echo "🚀 Starting VirtualPyTest Host Client..."
+# VirtualPyTest Host Launch Script - Delegates to setup/local/launch_host.sh
+echo "🔧 Starting VirtualPyTest Host Client..."
 
-# Get the script directory and navigate to the correct paths
+# Get the script directory and navigate to project root
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "$(dirname "$(dirname "$SCRIPT_DIR")")" && pwd)"
-HOST_DIR="$PROJECT_ROOT/backend_host/src"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
-echo "📁 Script directory: $SCRIPT_DIR"
 echo "📁 Project root: $PROJECT_ROOT"
-echo "📁 Host directory: $HOST_DIR"
 
-# Detect Python executable
-PYTHON_CMD=""
-if command -v python3 &> /dev/null; then
-    PYTHON_CMD="python3"
-elif command -v python &> /dev/null; then
-    PYTHON_CMD="python"
-else
-    echo "❌ No Python executable found!"
-    exit 1
-fi
-echo "🐍 Using Python: $PYTHON_CMD"
-
-# Check if we have a virtual environment to activate
-if [ -f "$PROJECT_ROOT/venv/bin/activate" ]; then
-    echo "🐍 Activating virtual environment..."
-    source "$PROJECT_ROOT/venv/bin/activate"
-elif [ -f "$HOME/myvenv/bin/activate" ]; then
-    echo "🐍 Activating virtual environment from home..."
-    source "$HOME/myvenv/bin/activate"
-else
-    echo "⚠️  No virtual environment found, proceeding without activation"
-fi
-
-# Navigate to host directory
-if [ -d "$HOST_DIR" ]; then
-    cd "$HOST_DIR"
-    echo "📂 Changed to: $(pwd)"
-else
-    echo "❌ Host directory not found: $HOST_DIR"
+# Check if we're in the right directory
+if [ ! -f "$PROJECT_ROOT/README.md" ]; then
+    echo "❌ Could not find virtualpytest project root directory"
     exit 1
 fi
 
-# Colors for output
-GREEN='\033[0;32m'
-RED='\033[0;31m'
-NC='\033[0m'
+# Check if launch_host.sh exists
+LAUNCH_HOST_SCRIPT="$PROJECT_ROOT/setup/local/launch_host.sh"
+if [ ! -f "$LAUNCH_HOST_SCRIPT" ]; then
+    echo "❌ Host launch script not found: $LAUNCH_HOST_SCRIPT"
+    exit 1
+fi
 
-# Enhanced cleanup function
-cleanup() {
-    echo -e "\n${RED}🛑 Shutting down host client...${NC}"
-    echo -e "${RED}✅ Host client stopped${NC}"
-    exit 0
-}
-trap cleanup SIGINT SIGTERM
+# Make sure the script is executable
+chmod +x "$LAUNCH_HOST_SCRIPT"
 
-echo "📺 Starting Host Client..."
-echo "💡 Press Ctrl+C to stop the host client"
-echo "=================================================================================="
-
-# Start only the host client
-echo -e "${GREEN}🟢 Starting Host Client...${NC}"
-$PYTHON_CMD -u app.py
-
-echo "=================================================================================="
-echo -e "${NC}✅ Host client finished${NC}"
+# Delegate to launch_host.sh
+echo "🔄 Delegating to setup/local/launch_host.sh..."
+exec "$LAUNCH_HOST_SCRIPT"
