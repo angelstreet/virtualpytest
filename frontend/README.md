@@ -2,6 +2,17 @@
 
 Modern React TypeScript frontend for VirtualPyTest microservices architecture.
 
+## Architecture Overview
+
+This frontend is part of a microservices architecture:
+- **`frontend/`** - React TypeScript web interface (this package)
+- **`backend_server/`** - Main API server (REST + WebSocket)
+- **`backend_host/`** - Host management service
+- **`backend_core/`** - Core testing logic
+- **`shared/`** - Shared Python utilities (backend only)
+
+The frontend is **completely self-contained** and only communicates with `backend_server` via HTTP/WebSocket APIs.
+
 ## Features
 
 - 🎯 **Dashboard**: System overview and quick actions
@@ -83,10 +94,59 @@ npm run lint     # Run ESLint
 
 ### Vercel (Recommended)
 
-1. Connect repository to Vercel
-2. Set environment variables:
-   - `VITE_API_URL=https://your-backend_server.onrender.com`
-3. Deploy automatically on git push
+#### Prerequisites
+- GitHub repository with your code
+- Vercel account (free tier available)
+- Backend server deployed and accessible
+
+#### Step-by-Step Vercel Deployment
+
+1. **Import Project to Vercel**
+   - Go to [vercel.com](https://vercel.com) and sign in
+   - Click "New Project" → "Import Git Repository"
+   - Select your repository (e.g., `virtualpytest`)
+
+2. **Configure Build Settings**
+   ```
+   Framework Preset: Vite
+   Root Directory: frontend
+   Build Command: npm run build (auto-detected)
+   Output Directory: dist (auto-detected)
+   Install Command: npm install (auto-detected)
+   ```
+
+3. **Set Environment Variables**
+   In Vercel dashboard → Project Settings → Environment Variables:
+   ```bash
+   VITE_API_URL=https://your-backend-server-url.com
+   VITE_CLOUDFLARE_R2_PUBLIC_URL=your_r2_public_url
+   ```
+
+4. **Deploy**
+   - Click "Deploy" - Vercel will build and deploy automatically
+   - Future git pushes to your main branch will auto-deploy
+
+#### Important Vercel Configuration Notes
+
+- ✅ **Root Directory**: Must be set to `frontend` (not project root)
+- ✅ **Framework**: Vite (auto-detected)
+- ✅ **Node.js Version**: 18.x or higher
+- ✅ **Build Output**: `dist/` folder contains all static files
+- ✅ **Environment Variables**: All `VITE_*` variables are build-time only
+
+#### Troubleshooting Vercel Deployment
+
+**Error: "Could not read package.json"**
+- Solution: Set Root Directory to `frontend` in project settings
+
+**Build Fails with TypeScript Errors**
+- Solution: Run `npm run build` locally first to fix TS errors
+- Check our build passes: `npx tsc --noEmit`
+
+**Environment Variables Not Working**
+- Ensure variables start with `VITE_` prefix
+- Set in Vercel dashboard, not in code
+- Redeploy after adding new variables
 
 ### Manual Build
 
@@ -112,8 +172,14 @@ frontend/
 │   ├── utils/         # Utility functions
 │   └── styles/        # CSS styles
 ├── public/            # Static assets
-└── dist/             # Built output
+├── dist/             # Built output (gitignored)
+├── package.json      # Dependencies and scripts
+├── vite.config.ts    # Vite configuration
+├── tsconfig.json     # TypeScript configuration
+└── .env              # Environment variables (create from .env.example)
 ```
+
+**Note**: The `dist/` folder is automatically generated during build and should not be committed to git (already in `.gitignore`).
 
 ## API Integration
 

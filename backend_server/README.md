@@ -2,6 +2,14 @@
 
 Main API server handling client requests and orchestration for VirtualPyTest framework.
 
+## 🚀 **Quick Deploy to Render**
+
+**TL;DR**: Use Docker deployment with these settings:
+- **Environment**: Docker (NOT Python)
+- **Root Directory**: Empty
+- **Dockerfile Path**: `backend_server/Dockerfile`
+- **Port**: 5109
+
 ## 🎯 **Purpose**
 
 backend_server provides the central API layer that coordinates between the frontend interface and backend_host hardware controllers. It handles business logic, user management, test orchestration, and serves as the communication hub for the entire system.
@@ -95,18 +103,46 @@ FLASK_SECRET_KEY=your_flask_secret
 
 ### Render Deployment (Recommended)
 
-1. **Connect Repository**: Link your GitHub repo to Render
-2. **Build Command**: `cd backend_server && pip install -r requirements.txt`
-3. **Start Command**: `cd backend_server && python src/app.py`
-4. **Environment Variables**: Set in Render dashboard
+**IMPORTANT**: This project requires Docker deployment due to system dependencies (NoVNC, graphics libraries, multi-directory structure).
 
+#### Step-by-Step Render Docker Deployment:
+
+1. **Create New Web Service** on Render dashboard
+2. **Connect Repository**: Link your GitHub repo to Render
+3. **Configure Service Settings**:
+   - **Environment**: Select **"Docker"** (NOT Python)
+   - **Region**: Choose your preferred region
+   - **Branch**: `dev` (or your deployment branch)
+   - **Root Directory**: Leave **EMPTY** (uses project root)
+   - **Dockerfile Path**: `backend_server/Dockerfile`
+
+4. **Environment Variables**: Set these in Render dashboard:
 ```bash
-# Render environment variables
+# Required Render environment variables
 SERVER_PORT=5109
-SERVER_URL=https://your-app.onrender.com
+SERVER_URL=https://your-app-name.onrender.com
 CORS_ORIGINS=https://your-frontend.vercel.app
 DEBUG=false
+RENDER=true
+
+# Optional: Add your API keys
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_key
+OPENROUTER_API_KEY=your_openrouter_key
 ```
+
+5. **Deploy**: Click "Create Web Service" - Render will build and deploy automatically
+
+#### Why Docker is Required:
+- ✅ **System Dependencies**: NoVNC, graphics libraries (libGL, Xvfb)
+- ✅ **Multi-Directory Structure**: Needs `shared/`, `backend_core/`, `backend_server/`
+- ✅ **Python Package Management**: Complex dependency resolution
+- ✅ **Consistent Environment**: Same setup across dev/staging/prod
+
+#### Troubleshooting Render Deployment:
+- **Build fails**: Ensure "Docker" environment is selected, not "Python"
+- **Wrong paths**: Root Directory should be empty, Dockerfile Path should be `backend_server/Dockerfile`
+- **Port issues**: Ensure SERVER_PORT=5109 is set in environment variables
 
 ### Docker Deployment
 ```bash
