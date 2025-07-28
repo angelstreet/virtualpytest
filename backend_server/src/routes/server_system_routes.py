@@ -30,13 +30,24 @@ def register_host():
         print(f"   Host info keys: {list(host_info.keys()) if host_info else 'None'}")
         print(f"   Host name: {host_info.get('host_name', 'Not provided')}")
         print(f"   Host URL: {host_info.get('host_url', 'Not provided')}")
-        print(f"   Devices: {len(host_info.get('devices', []))} device(s)")
+        devices_list = host_info.get('devices', [])
+        print(f"   Devices: {len(devices_list)} device(s)")
+        if len(devices_list) == 0:
+            print(f"   ✅ Host with no devices - this is valid")
         
         # Check for required fields
         required_fields = ['host_url', 'host_name', 'devices']
         missing_fields = []
         for field in required_fields:
-            if field not in host_info or not host_info[field]:
+            if field not in host_info:
+                missing_fields.append(field)
+            elif field == 'devices':
+                # devices can be an empty list, that's valid
+                if not isinstance(host_info[field], list):
+                    missing_fields.append(field)
+                else:
+                    print(f"   ✅ Devices field validation passed (list with {len(host_info[field])} items)")
+            elif not host_info[field]:
                 missing_fields.append(field)
         
         if missing_fields:
