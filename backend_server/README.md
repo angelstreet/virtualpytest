@@ -20,12 +20,11 @@ backend_server provides the central API layer that coordinates between the front
 # Install dependencies
 pip install -r requirements.txt
 
-# Install shared library
-pip install -e ../shared
-
 # Run the service
 python src/app.py
 ```
+
+**Note**: Both `shared` and `backend_core` are included via PYTHONPATH in Docker deployments. For local development, ensure the project structure is maintained.
 
 ## 🌐 **API Endpoints**
 

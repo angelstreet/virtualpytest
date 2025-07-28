@@ -21,14 +21,11 @@ backend_core is a **shared library component** that contains core automation log
 
 For local development:
 ```bash
-# Install shared library dependency
-pip install -e ../shared
-
 # Install as editable package (optional for development)
 pip install -e .
 ```
 
-For production, backend_core is included in service Docker containers via PYTHONPATH.
+For production, backend_core is included in service Docker containers via PYTHONPATH along with the `shared` library.
 
 ## 📁 **Structure**
 
