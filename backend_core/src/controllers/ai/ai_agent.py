@@ -191,13 +191,17 @@ class AIAgentController(BaseController):
             summary_result = self._result_summary(ai_plan['plan'], execute_result)
             self._add_to_log("summary", "result_summary", summary_result, f"Result summary: {summary_result}")
             
+            # Determine overall success based on execution and summary results
+            overall_success = execute_result.get('success', False) and summary_result.get('success', False)
+            
             return {
-                'success': True,
+                'success': overall_success,
                 'ai_plan': ai_plan['plan'],
                 'execute_result': execute_result,
                 'summary_result': summary_result,
                 'execution_log': self.execution_log,
-                'current_step': 'Task completed'
+                'current_step': 'Task completed' if overall_success else 'Task failed',
+                'error': summary_result.get('summary') if not overall_success else None
             }
                 
         except Exception as e:

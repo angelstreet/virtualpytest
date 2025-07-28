@@ -48,6 +48,14 @@ export const useAIAgent = ({ host, device, enabled = true }: UseAIAgentProps): U
   const [aiPlan, setAiPlan] = useState<any>(null);
   const [isPlanFeasible, setIsPlanFeasible] = useState<boolean>(true);
 
+  // Helper function to enhance error messages for 429 rate limit errors
+  const enhanceErrorMessage = useCallback((error: string) => {
+    if (error.includes('429') || error.includes('rate limit')) {
+      return '🤖 AI service is temporarily busy. Please wait a moment and try again.';
+    }
+    return error; // Return original error for other cases
+  }, []);
+
   const executeTask = useCallback(async () => {
     if (!enabled || !taskInput.trim() || isExecuting) return;
 
@@ -182,11 +190,11 @@ export const useAIAgent = ({ host, device, enabled = true }: UseAIAgentProps): U
         pollStatus();
       } else {
         // Handle both HTTP errors and execution failures
-        const errorMessage = !response.ok 
+        const rawErrorMessage = !response.ok 
           ? (result.error || `HTTP ${response.status}: ${response.statusText}`)
           : (result.error || 'Failed to start task execution');
         
-        setErrorMessage(errorMessage);
+        setErrorMessage(enhanceErrorMessage(rawErrorMessage));
         setCurrentStep('Task execution failed');
         setExecutionLog(result.execution_log || []);
         setIsPlanFeasible(false);
@@ -194,12 +202,12 @@ export const useAIAgent = ({ host, device, enabled = true }: UseAIAgentProps): U
       }
     } catch (error) {
       console.error('[useAIAgent] Task execution error:', error);
-      setErrorMessage('Network error during task execution');
+      setErrorMessage(enhanceErrorMessage('Network error during task execution'));
       setCurrentStep('Error');
       setIsPlanFeasible(false);
       setIsExecuting(false);
     }
-  }, [enabled, taskInput, isExecuting, host, device?.device_id, aiPlan]);
+  }, [enabled, taskInput, isExecuting, host, device?.device_id, aiPlan, enhanceErrorMessage]);
 
   const stopExecution = useCallback(async () => {
     if (!enabled || !isExecuting) return;
@@ -226,14 +234,15 @@ export const useAIAgent = ({ host, device, enabled = true }: UseAIAgentProps): U
         setExecutionLog(result.execution_log || []);
       } else if (!response.ok) {
         console.error('[useAIAgent] Stop execution HTTP error:', response.status, result.error);
-        setErrorMessage(result.error || `HTTP ${response.status}: Failed to stop execution`);
+        const rawErrorMessage = result.error || `HTTP ${response.status}: Failed to stop execution`;
+        setErrorMessage(enhanceErrorMessage(rawErrorMessage));
       }
     } catch (error) {
       console.error('[useAIAgent] Stop execution error:', error);
     } finally {
       setIsExecuting(false);
     }
-  }, [enabled, isExecuting, host, device?.device_id]);
+  }, [enabled, isExecuting, host, device?.device_id, enhanceErrorMessage]);
 
   const clearLog = useCallback(() => {
     setExecutionLog([]);
