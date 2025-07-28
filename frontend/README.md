@@ -143,6 +143,10 @@ npm run lint     # Run ESLint
 - Solution: Run `npm run build` locally first to fix TS errors
 - Check our build passes: `npx tsc --noEmit`
 
+**Error: "Cannot find namespace 'NodeJS'"**
+- Solution: Ensure `@types/node` is in devDependencies
+- This is required for timer types (`NodeJS.Timeout`)
+
 **Environment Variables Not Working**
 - Ensure variables start with `VITE_` prefix
 - Set in Vercel dashboard, not in code
