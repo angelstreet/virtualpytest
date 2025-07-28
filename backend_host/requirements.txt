@@ -1,9 +1,5 @@
 # Backend Host Dependencies
 
-# Shared library and backend_core
-../shared
-../backend_core
-
 # Flask web framework
 Flask>=2.3.0
 Flask-CORS>=4.0.0
@@ -17,6 +13,9 @@ psutil>=5.8.0
 
 # Environment configuration
 python-dotenv>=1.0.0
+
+# Date and time handling
+pytz>=2023.0
 
 # WSGI server
 gunicorn>=21.0.0
@@ -39,4 +38,5 @@ PyP100>=0.1.2  # Tapo power control
 # Device communication
 paramiko>=2.9.0  # SSH
 Appium-Python-Client>=3.1.0  # Mobile devices
-selenium>=4.15.0  # Web automation 
+selenium>=4.15.0  # Web automation
+browser-use>=0.1.0  # Browser automation 
