@@ -51,29 +51,40 @@ export const ActionControls: React.FC<ActionControlsProps> = ({
     return null;
   }
 
-  // Get the current input value from either inputValue or params (for loaded actions)
-  const getCurrentInputValue = () => {
-    // First check if inputValue is set (user has typed something)
-    if (action.inputValue) {
+  const getInputValue = (action: EdgeAction): string => {
+    // First check if action has an inputValue already set
+    if (action.inputValue !== undefined) {
       return action.inputValue;
     }
 
+    // Safe property access with type checking
+    const getRemoteParam = (key: keyof import('../../types/controller/Action_Types').RemoteActionParams): string => {
+      if (action.action_type === 'remote' && action.params) {
+        const params = action.params as import('../../types/controller/Action_Types').RemoteActionParams;
+        return String(params[key] || '');
+      }
+      return '';
+    };
+
     // Otherwise, extract from params based on action command (for loaded actions)
     if (action.command === 'launch_app') {
-      return action.params?.package || '';
+      return getRemoteParam('package');
     } else if (action.command === 'input_text') {
-      return action.params?.text || '';
+      return getRemoteParam('text');
     } else if (action.command === 'click_element') {
-      return action.params?.element_id || '';
+      return getRemoteParam('element_id');
     } else if (action.command === 'coordinate_tap' || action.command === 'tap_coordinates') {
-      if (action.params?.coordinates) {
-        return action.params.coordinates;
-      } else if (action.params?.x !== undefined && action.params?.y !== undefined) {
-        return `${action.params.x},${action.params.y}`;
+      if (action.action_type === 'remote' && action.params) {
+        const params = action.params as import('../../types/controller/Action_Types').RemoteActionParams;
+        if (params.coordinates) {
+          return params.coordinates;
+        } else if (params.x !== undefined && params.y !== undefined) {
+          return `${params.x},${params.y}`;
+        }
       }
       return '';
     } else if (action.command === 'press_key') {
-      return action.params?.key || '';
+      return getRemoteParam('key');
     }
 
     return '';
@@ -101,7 +112,7 @@ export const ActionControls: React.FC<ActionControlsProps> = ({
     <Box sx={{ mb: 0.5 }}>
       <TextField
         size="small"
-        value={getCurrentInputValue()}
+        value={getInputValue(action)}
         onChange={(e) => handleInputValueChange(e.target.value)}
         placeholder={getPlaceholder()}
         fullWidth

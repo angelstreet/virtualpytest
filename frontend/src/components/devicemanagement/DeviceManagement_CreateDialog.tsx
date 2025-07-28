@@ -23,25 +23,14 @@ import {
 import React, { useState, useEffect } from 'react';
 
 import { useControllerConfig } from '../../hooks/controller';
-import { Device, DeviceModel } from '../../types';
+import { DeviceModel } from '../../types';
+import { DeviceFormData } from '../../types/controller/Controller_Types';
 
 // Import wizard step components
 import { BasicInfoStep } from './wizard/DeviceManagement_BasicInfoStep';
 import { ControllerConfigurationStep } from './wizard/DeviceManagement_ControllerConfigStep';
 import { ModelSelectionStep } from './wizard/DeviceManagement_ModelSelectionStep';
 import { ReviewStep } from './wizard/DeviceManagement_ReviewStep';
-
-interface DeviceFormData {
-  name: string;
-  description: string;
-  model: string;
-  controllerConfigs?: {
-    [key: string]: {
-      implementation: string;
-      parameters: { [key: string]: any };
-    };
-  };
-}
 
 interface CreateDeviceDialogProps {
   open: boolean;
@@ -144,7 +133,7 @@ const CreateDeviceDialog: React.FC<CreateDeviceDialogProps> = ({
 
       case 2: // Controller Configuration
         // Validate each controller configuration
-        Object.entries(formData.controllerConfigs || {}).forEach(([controllerType, config]) => {
+        Object.entries(formData.controllerConfigs).forEach(([controllerType, config]) => {
           if (config.implementation) {
             const validation = validateParameters(
               controllerType as any,

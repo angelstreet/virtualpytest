@@ -28,8 +28,10 @@ interface HDMIStreamProps {
   deviceModel?: string;
   isControlActive?: boolean;
   onCollapsedChange?: (isCollapsed: boolean) => void;
+  onExpandedChange?: (isExpanded: boolean) => void;
   onMinimizedChange?: (isMinimized: boolean) => void;
   onCaptureModeChange?: (mode: 'stream' | 'screenshot' | 'video') => void;
+  deviceResolution?: { width: number; height: number };
   sx?: any;
 }
 

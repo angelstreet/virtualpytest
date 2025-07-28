@@ -3,14 +3,11 @@
 // Common types - Base types first, then specific types
 export * from './common/Common_Base_Types'; // Only WizardStep and ServerResponse now
 
-// Host types
-export type {
-  Host,
-  HostRegistrationPayload,
-  HostStatus,
-  HostStatusType,
-} from './common/Host_Types';
+// Export device and host types
+export type { Host } from './common/Host_Types';
+export type { Device } from './common/Host_Types';
 
+// Export all controller types
 export type {
   ControllerImplementation,
   ControllerConfig,

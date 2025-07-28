@@ -38,6 +38,7 @@ export interface NavigationConfigState {
   setHasUnsavedChanges: (hasChanges: boolean) => void;
   setIsLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
+  setActualTreeId: (treeId: string | null) => void;
 }
 
 export interface NavigationConfigProviderProps {

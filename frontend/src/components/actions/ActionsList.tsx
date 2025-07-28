@@ -11,6 +11,8 @@ interface ActionsListProps {
   onActionsUpdate: (actions: EdgeAction[]) => void;
 }
 
+export type { ActionsListProps };
+
 export const ActionsList: React.FC<ActionsListProps> = ({ actions, onActionsUpdate }) => {
   const { getAvailableActions } = useDeviceData();
   const availableActions = getAvailableActions();

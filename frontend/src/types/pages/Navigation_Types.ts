@@ -474,3 +474,33 @@ export interface NavigationDropdownProps {
   label: string;
   items: NavigationItem[];
 }
+
+// =====================================================
+// RE-EXPORT CONTEXT TYPES FROM SEPARATE FILES
+// =====================================================
+
+// Import and re-export NavigationConfig context types
+export type {
+  NavigationConfigContextType,
+  NavigationConfigState,
+  NavigationConfigProviderProps,
+  TreeLockInfo,
+  LockStatusResponse,
+  TreeSaveRequest,
+  TreeLoadResponse,
+} from './NavigationConfig_Types';
+
+// Import and re-export NavigationContext context types
+export type {
+  NavigationActionsContextType,
+  NavigationActionsProviderProps,
+  NavigationUIContextType,
+  NavigationUIProviderProps,
+  NavigationNodesContextType,
+  NavigationNodesProviderProps,
+  NavigationFlowContextType,
+  NavigationFlowProviderProps,
+  NavigationEditorProviderProps,
+  NodeEdgeManagementContextType,
+  NodeEdgeManagementProviderProps,
+} from './NavigationContext_Types';

@@ -19,6 +19,9 @@ export interface RemoteActionParams {
   y?: number; // For coordinate tap commands
   element_id?: string; // For element interaction commands
   coordinates?: string; // For tap_coordinates commands (format: "x,y")
+  direction?: string; // For swipe/scroll commands (up, down, left, right)
+  amount?: number; // For scroll amount
+  duration?: number; // For wait commands
 }
 
 // AV action parameters (for screenshot, streaming, etc.)
@@ -153,6 +156,7 @@ export interface EdgeAction {
   id: string;
   label: string;
   command: string;
+  action_type: 'remote' | 'av' | 'power' | 'network'; // Required: type of action
   params: ActionParams;
   requiresInput?: boolean;
   inputValue?: string;

@@ -41,10 +41,18 @@ export interface Device {
   device_id: string; // Device identifier (device1, device2, etc.)
   device_name: string; // Device display name (matches server format)
   device_model: string; // Device model for controller configuration (matches server format)
+  device_description?: string; // Optional device description
   device_ip?: string; // Device IP address (for ADB/device control)
   device_port?: string; // Device port (for ADB/device control)
   device_capabilities: DeviceCapabilities; // New detailed capability format (matches server format)
   device_controller_types?: string[]; // Device-specific controller types (prefixed for consistency)
+  controller_configs?: {
+    [controllerType: string]: {
+      implementation: string;
+      type: string;
+      parameters: any;
+    };
+  }; // Controller configurations
 
   // === DEVICE-LEVEL VERIFICATION AND ACTIONS ===
   device_verification_types?: Verifications; // Device verification types (simplified naming)
@@ -59,6 +67,16 @@ export interface Host {
   // === NETWORK CONFIGURATION ===
   host_url: string; // Host base URL (e.g., https://virtualpytest.com or http://localhost:6109)
   host_port: number; // Host port number
+
+  // === DEVICE CONFIGURATION ===
+  device_model?: string; // Device model for controller configuration
+  controller_configs?: {
+    [controllerType: string]: {
+      implementation: string;
+      type: string;
+      parameters: any;
+    };
+  }; // Controller configurations
 
   // === MULTI-DEVICE CONFIGURATION ===
   devices: Device[]; // Array of devices controlled by this host

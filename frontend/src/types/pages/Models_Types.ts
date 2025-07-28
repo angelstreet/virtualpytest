@@ -5,6 +5,7 @@ export interface Model {
   types: string[];
   version: string;
   description: string;
+  controllers?: string[]; // Optional controllers array
   created_at?: string;
   updated_at?: string;
 }

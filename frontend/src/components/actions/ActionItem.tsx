@@ -51,6 +51,20 @@ export const ActionItem: React.FC<ActionItemProps> = ({
     });
   };
 
+  // Helper function to safely handle params with null/undefined check
+  const safeHandleParamChange = (key: string, value: any) => {
+    handleParamChange(key, value);
+  };
+
+  // Helper function to safely get parameter values
+  const getParamValue = (key: keyof import('../../types/controller/Action_Types').RemoteActionParams): any => {
+    if (action.action_type === 'remote' && action.params) {
+      const params = action.params as import('../../types/controller/Action_Types').RemoteActionParams;
+      return params[key];
+    }
+    return '';
+  };
+
   const renderParameterFields = () => {
     if (!action.command) return null;
 
@@ -108,8 +122,8 @@ export const ActionItem: React.FC<ActionItemProps> = ({
             key="text"
             label="Text"
             size="small"
-            value={action.params?.text || ''}
-            onChange={(e) => handleParamChange('text', e.target.value)}
+            value={getParamValue('text') || ''}
+            onChange={(e) => safeHandleParamChange('text', e.target.value)}
             placeholder="Text to input"
             sx={{
               width: 220,
@@ -128,8 +142,8 @@ export const ActionItem: React.FC<ActionItemProps> = ({
             key="element_id"
             label="Element ID"
             size="small"
-            value={action.params?.element_id || ''}
-            onChange={(e) => handleParamChange('element_id', e.target.value)}
+            value={getParamValue('element_id') || ''}
+            onChange={(e) => safeHandleParamChange('element_id', e.target.value)}
             placeholder="e.g., Home Button, Menu Icon"
             sx={{
               width: 220,
@@ -149,8 +163,8 @@ export const ActionItem: React.FC<ActionItemProps> = ({
             label="X"
             type="number"
             size="small"
-            value={action.params?.x || ''}
-            onChange={(e) => handleParamChange('x', parseInt(e.target.value) || 0)}
+            value={getParamValue('x') || ''}
+            onChange={(e) => safeHandleParamChange('x', parseInt(e.target.value) || 0)}
             sx={{
               width: 70,
               '& .MuiInputBase-input': {
@@ -164,8 +178,8 @@ export const ActionItem: React.FC<ActionItemProps> = ({
             label="Y"
             type="number"
             size="small"
-            value={action.params?.y || ''}
-            onChange={(e) => handleParamChange('y', parseInt(e.target.value) || 0)}
+            value={getParamValue('y') || ''}
+            onChange={(e) => safeHandleParamChange('y', parseInt(e.target.value) || 0)}
             sx={{
               width: 70,
               '& .MuiInputBase-input': {
@@ -183,8 +197,8 @@ export const ActionItem: React.FC<ActionItemProps> = ({
             key="direction"
             label="Direction"
             size="small"
-            value={action.params?.direction || ''}
-            onChange={(e) => handleParamChange('direction', e.target.value)}
+            value={getParamValue('direction') || ''}
+            onChange={(e) => safeHandleParamChange('direction', e.target.value)}
             placeholder="e.g., up, down, left, right"
             sx={{
               width: 130,
@@ -204,8 +218,8 @@ export const ActionItem: React.FC<ActionItemProps> = ({
             key="package"
             label="Package Name"
             size="small"
-            value={action.params?.package || ''}
-            onChange={(e) => handleParamChange('package', e.target.value)}
+            value={getParamValue('package') || ''}
+            onChange={(e) => safeHandleParamChange('package', e.target.value)}
             placeholder="e.g., com.example.app"
             sx={{
               width: 220,
@@ -225,8 +239,8 @@ export const ActionItem: React.FC<ActionItemProps> = ({
             label="Duration (s)"
             type="number"
             size="small"
-            value={action.params?.duration || 1}
-            onChange={(e) => handleParamChange('duration', parseFloat(e.target.value) || 1)}
+            value={getParamValue('duration') || 1}
+            onChange={(e) => safeHandleParamChange('duration', parseFloat(e.target.value) || 1)}
             inputProps={{ min: 0.1, max: 60, step: 0.1 }}
             sx={{
               width: 100,
@@ -245,8 +259,8 @@ export const ActionItem: React.FC<ActionItemProps> = ({
             key="direction"
             label="Direction"
             size="small"
-            value={action.params?.direction || ''}
-            onChange={(e) => handleParamChange('direction', e.target.value)}
+            value={getParamValue('direction') || ''}
+            onChange={(e) => safeHandleParamChange('direction', e.target.value)}
             placeholder="e.g., up, down"
             sx={{
               width: 130,
@@ -261,8 +275,8 @@ export const ActionItem: React.FC<ActionItemProps> = ({
             label="Amount"
             type="number"
             size="small"
-            value={action.params?.amount || 1}
-            onChange={(e) => handleParamChange('amount', parseInt(e.target.value) || 1)}
+            value={getParamValue('amount') || 1}
+            onChange={(e) => safeHandleParamChange('amount', parseInt(e.target.value) || 1)}
             sx={{
               width: 80,
               '& .MuiInputBase-input': {
