@@ -22,6 +22,7 @@ interface AndroidMobileOverlayProps {
   onElementClick?: (element: AndroidElement) => void;
   panelInfo: PanelInfo; // Made required - no fallback to screenshot
   host: any; // Add host for direct server calls
+  deviceId: string; // Add deviceId for API calls
 }
 
 // Same colors as the original UIElementsOverlay
@@ -36,6 +37,7 @@ export const AndroidMobileOverlay = React.memo(
     onElementClick,
     panelInfo,
     host,
+    deviceId,
   }: AndroidMobileOverlayProps) {
     const [scaledElements, setScaledElements] = useState<ScaledElement[]>([]);
     const [clickAnimation, setClickAnimation] = useState<{
@@ -122,6 +124,7 @@ export const AndroidMobileOverlay = React.memo(
             host: host,
             x: deviceX,
             y: deviceY,
+            device_id: deviceId,
           }),
         });
 
@@ -357,7 +360,8 @@ export const AndroidMobileOverlay = React.memo(
       prevProps.isVisible === nextProps.isVisible &&
       prevProps.onElementClick === nextProps.onElementClick &&
       JSON.stringify(prevProps.panelInfo) === JSON.stringify(nextProps.panelInfo) &&
-      prevProps.host === nextProps.host
+      prevProps.host === nextProps.host &&
+      prevProps.deviceId === nextProps.deviceId
     );
   },
 );

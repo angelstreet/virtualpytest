@@ -22,6 +22,7 @@ interface AppiumOverlayProps {
   onElementClick?: (element: AppiumElement) => void;
   panelInfo: PanelInfo; // Made required - no fallback to screenshot
   host: any; // Add host for direct server calls
+  deviceId: string; // Add deviceId for API calls
 }
 
 // Same colors as the original UIElementsOverlay
@@ -35,6 +36,7 @@ export const AppiumOverlay = React.memo(function AppiumOverlay({
   onElementClick,
   panelInfo,
   host,
+  deviceId,
 }: AppiumOverlayProps) {
   console.log(
     `[@component:AppiumOverlay] Component called with: elements=${elements.length}, isVisible=${isVisible}, deviceSize=${deviceWidth}x${deviceHeight}`,
@@ -143,6 +145,7 @@ export const AppiumOverlay = React.memo(function AppiumOverlay({
           host: host,
           x: deviceX,
           y: deviceY,
+          device_id: deviceId,
         }),
       });
 

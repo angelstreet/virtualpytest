@@ -560,6 +560,7 @@ export const AppiumRemote = React.memo(
               onElementClick={handleOverlayElementClick}
               panelInfo={panelInfo}
               host={host}
+              deviceId={deviceId}
             />,
             document.body,
           )}
