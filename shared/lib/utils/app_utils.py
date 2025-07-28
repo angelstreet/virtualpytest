@@ -137,6 +137,33 @@ def validate_core_environment(mode='server'):
         return False
     
     print(f"✅ Core {mode} environment variables validated")
+    
+    # Validate Supabase connectivity
+    print(f"🔍 Validating Supabase connectivity...")
+    try:
+        from shared.lib.utils.supabase_utils import get_supabase_client
+        supabase_client = get_supabase_client()
+        
+        if supabase_client is None:
+            print(f"❌ Supabase client initialization failed")
+            print(f"   Check NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY environment variables")
+            return False
+        
+        # Test database connectivity with a simple query
+        try:
+            # Try to query a system table that should always exist
+            result = supabase_client.table('teams').select('id').limit(1).execute()
+            print(f"✅ Supabase database connectivity confirmed")
+        except Exception as db_error:
+            print(f"❌ Supabase database connection failed: {db_error}")
+            print(f"   Database may be unreachable or RLS policies may be blocking access")
+            return False
+            
+    except Exception as e:
+        print(f"❌ Supabase validation failed: {e}")
+        print(f"   Ensure Supabase client dependencies are installed")
+        return False
+    
     return True
 
 
