@@ -555,8 +555,10 @@ JSON ONLY - NO OTHER TEXT"""
                         target_node = params.get("target_node")
                         result = self._execute_navigation(target_node, userinterface_name)
                         success = result.get('success', False)
+                        specific_error = result.get('error', 'Navigation failed')
                     else:
                         success = remote_controller.execute_command(command, params)
+                        specific_error = 'Command execution failed'
                     
                     if success:
                         executed_steps += 1
@@ -582,10 +584,10 @@ JSON ONLY - NO OTHER TEXT"""
                             'command': command,
                             'params': params,
                             'success': False,
-                            'error': 'Command execution failed',
+                            'error': specific_error,
                             'description': description
                         })
-                        print(f"AI[{self.device_name}]: Action {step_num} failed: {command}")
+                        print(f"AI[{self.device_name}]: Action {step_num} failed: {command} - {specific_error}")
                         
                 except Exception as e:
                     failed_steps.append(step_num)

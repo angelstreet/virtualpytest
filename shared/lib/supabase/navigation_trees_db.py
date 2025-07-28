@@ -580,7 +580,7 @@ def _populate_navigation_cache(tree: Dict, team_id: str):
         userinterface_name = None
         if userinterface_id:
             try:
-                from shared.lib.lib.supabase.userinterface_db import get_userinterface
+                from shared.lib.supabase.userinterface_db import get_userinterface
                 userinterface = get_userinterface(userinterface_id, team_id)
                 if userinterface and userinterface.get('name'):
                     userinterface_name = userinterface['name']
@@ -631,7 +631,7 @@ def _populate_navigation_cache(tree: Dict, team_id: str):
         resolved_actions = []
         if all_action_ids:
             try:
-                from shared.lib.lib.supabase.actions_db import get_actions as db_get_actions
+                from shared.lib.supabase.actions_db import get_actions as db_get_actions
                 all_actions_result = db_get_actions(team_id)
                 if all_actions_result['success']:
                     all_actions = all_actions_result['actions']
@@ -649,7 +649,7 @@ def _populate_navigation_cache(tree: Dict, team_id: str):
         resolved_verifications = []
         if all_verification_ids:
             try:
-                from shared.lib.lib.supabase.verifications_db import get_verifications as db_get_verifications
+                from shared.lib.supabase.verifications_db import get_verifications as db_get_verifications
                 all_verifications_result = db_get_verifications(team_id)
                 if all_verifications_result['success']:
                     all_verifications = all_verifications_result['verifications']

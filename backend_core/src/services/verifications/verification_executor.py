@@ -257,7 +257,7 @@ class VerificationExecutor:
     def _record_verification_to_database(self, success: bool, execution_time_ms: int, message: str, error_details: Optional[Dict] = None):
         """Record single verification directly to database"""
         try:
-            from shared.lib.lib.supabase.execution_results_db import record_node_execution
+            from shared.lib.supabase.execution_results_db import record_node_execution
             
             record_node_execution(
                 team_id=self.team_id,

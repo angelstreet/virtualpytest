@@ -203,7 +203,7 @@ class ActionExecutor:
     def _record_execution_to_database(self, success: bool, execution_time_ms: int, message: str, error_details: Optional[Dict] = None):
         """Record single execution directly to database"""
         try:
-            from shared.lib.lib.supabase.execution_results_db import record_edge_execution
+            from shared.lib.supabase.execution_results_db import record_edge_execution
             
             record_edge_execution(
                 team_id=self.team_id,
