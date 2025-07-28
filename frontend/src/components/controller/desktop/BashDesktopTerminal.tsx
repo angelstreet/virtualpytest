@@ -1,4 +1,4 @@
-import { Alert, Box, Button, TextField, Paper, Typography, CircularProgress } from '@mui/material';
+import { Box, Button, TextField, Paper, Typography, CircularProgress } from '@mui/material';
 import React, { useRef, useEffect } from 'react';
 
 import { useBashDesktop } from '../../../hooks/controller/useBashDesktop';

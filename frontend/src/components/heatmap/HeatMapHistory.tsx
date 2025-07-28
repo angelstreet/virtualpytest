@@ -1,6 +1,5 @@
 import { OpenInNew } from '@mui/icons-material';
 import {
-  Box,
   Typography,
   Card,
   CardContent,

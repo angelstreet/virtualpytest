@@ -16,4 +16,5 @@ export interface ModelCreatePayload {
   types: string[];
   version: string;
   description: string;
+  controllers?: string[];
 }

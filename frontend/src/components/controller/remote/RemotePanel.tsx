@@ -15,9 +15,9 @@ import { AndroidTvRemote } from './AndroidTvRemote';
 import { AppiumRemote } from './AppiumRemote';
 
 interface RemotePanelProps {
-  host: Host;
-  deviceId: string; // Device ID to select the correct device and controllers
-  deviceModel: string; // Device model for remote config loading
+  host?: Host;
+  deviceId?: string; // Device ID to select the correct device and controllers
+  deviceModel?: string; // Device model for remote config loading
   isConnected?: boolean; // NEW: Connection status from parent
   onReleaseControl?: () => void;
   initialCollapsed?: boolean;
@@ -27,6 +27,11 @@ interface RemotePanelProps {
   streamCollapsed?: boolean;
   // Stream minimized state for overlay coordination
   streamMinimized?: boolean;
+  
+  // Alternative props for DeviceManagement usage
+  remoteType?: string;
+  connectionConfig?: any;
+  showScreenshot?: boolean;
   // Current capture mode from HDMIStream
   captureMode?: 'stream' | 'screenshot' | 'video';
   // NEW: Stream container dimensions for modal context

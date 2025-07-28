@@ -23,7 +23,7 @@ import {
 import React, { useState, useEffect } from 'react';
 
 import { useControllerConfig } from '../../hooks/controller';
-import { DeviceModel } from '../../types';
+import { DeviceModel, Device } from '../../types';
 import { DeviceFormData } from '../../types/controller/Controller_Types';
 
 // Import wizard step components
@@ -247,7 +247,7 @@ const CreateDeviceDialog: React.FC<CreateDeviceDialogProps> = ({
         return (
           Object.keys(formData.controllerConfigs || {}).length > 0 ||
           Boolean(
-            selectedModel && Object.values(selectedModel.controllers).every((c) => !c || c === ''),
+            selectedModel && Object.values(selectedModel.controllers || []).every((c) => !c || c === ''),
           )
         );
       case 3:

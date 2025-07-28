@@ -222,6 +222,7 @@ export const EdgeEditDialog: React.FC<EdgeEditDialogProps> = ({
                     id: `action_${Date.now()}`,
                     label: '',
                     command: '',
+                    action_type: 'remote' as const,
                     params: {},
                     waitTime: 500,
                   };
@@ -276,6 +277,7 @@ export const EdgeEditDialog: React.FC<EdgeEditDialogProps> = ({
                   const newAction = {
                     id: `retry_action_${Date.now()}`,
                     command: '',
+                    action_type: 'remote' as const,
                     params: {},
                     waitTime: 500,
                   };

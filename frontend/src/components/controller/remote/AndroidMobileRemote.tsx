@@ -49,7 +49,6 @@ export const AndroidMobileRemote = React.memo(
     host,
     deviceId,
     onDisconnectComplete,
-    sx = {},
     isCollapsed,
     panelWidth,
     panelHeight,

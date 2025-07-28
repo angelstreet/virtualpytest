@@ -6,7 +6,7 @@ import {
   ExpandLess,
   ExpandMore,
 } from '@mui/icons-material';
-import { Box, IconButton, Tooltip, Typography, Divider } from '@mui/material';
+import { Box, IconButton, Tooltip, Typography } from '@mui/material';
 import React, { useState, useMemo } from 'react';
 
 import { Host } from '../../../types/common/Host_Types';

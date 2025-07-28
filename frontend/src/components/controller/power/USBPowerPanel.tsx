@@ -18,8 +18,6 @@ import {
 } from '@mui/material';
 import React, { useState, useEffect } from 'react';
 
-import { useHostManager } from '../../../hooks/useHostManager';
-
 interface PowerPanelProps {
   hostName: string;
   /** Custom styling */
@@ -32,9 +30,7 @@ interface PowerStatus {
   error?: string;
 }
 
-export const TapoPowerPanel: React.FC<PowerPanelProps> = ({ hostName, sx = {} }) => {
-  const {} = useHostManager();
-
+export const TapoPowerPanel: React.FC<PowerPanelProps> = ({ sx = {} }) => {
   // UI state
   const [isConnecting, setIsConnecting] = useState(false);
   const [isConnected, setIsConnected] = useState(false);

@@ -33,7 +33,6 @@ export const WebPanel = React.memo(
     host,
     deviceId,
     deviceModel,
-    isConnected,
     onReleaseControl,
     initialCollapsed = true,
     streamContainerDimensions,

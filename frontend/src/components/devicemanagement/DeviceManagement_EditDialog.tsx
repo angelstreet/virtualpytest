@@ -306,7 +306,7 @@ const EditDeviceDialog: React.FC<EditDeviceDialogProps> = ({
         return (
           Object.keys(formData.controllerConfigs).length > 0 ||
           Boolean(
-            selectedModel && Object.values(selectedModel.controllers).every((c) => !c || c === ''),
+            selectedModel && Object.values(selectedModel.controllers || []).every((c) => !c || c === ''),
           )
         );
       case 3:

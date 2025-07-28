@@ -7,7 +7,6 @@ import {
   Refresh,
 } from '@mui/icons-material';
 import { Box, IconButton, Tooltip } from '@mui/material';
-import React from 'react';
 
 import { useScreenEditor } from '../../../hooks/pages/useScreenEditor';
 import { ScreenDefinitionEditorProps } from '../../../types/pages/UserInterface_Types';
@@ -26,11 +25,10 @@ import { ScreenshotCapture } from './ScreenshotCapture';
 import { StreamViewer } from './StreamViewer';
 import { VideoCapture } from './VideoCapture';
 
-export const ScreenDefinitionEditor: React.FC<ScreenDefinitionEditorProps> = ({
+export function ScreenDefinitionEditor({
   selectedHost,
   selectedDeviceId,
-  onDisconnectComplete,
-}) => {
+}: ScreenDefinitionEditorProps) {
   const {
     state,
     actions,
@@ -40,7 +38,7 @@ export const ScreenDefinitionEditor: React.FC<ScreenDefinitionEditorProps> = ({
     verificationEditorLayout,
 
     streamViewerSx,
-  } = useScreenEditor(selectedHost, selectedDeviceId);
+  } = useScreenEditor(selectedHost, selectedDeviceId || null);
 
   const {
     isConnected,

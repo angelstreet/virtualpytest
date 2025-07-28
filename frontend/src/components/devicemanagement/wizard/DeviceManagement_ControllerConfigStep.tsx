@@ -2,6 +2,7 @@ import { Box, Typography, Alert, Divider } from '@mui/material';
 import React from 'react';
 
 import { DeviceFormData } from '../../../types/controller/Controller_Types';
+import { DeviceModel } from '../../../types';
 
 import { ControllerTypeSection } from './DeviceManagement_ControllerTypeSection';
 
@@ -47,7 +48,7 @@ export const ControllerConfigurationStep: React.FC<ControllerConfigurationStepPr
   const getActiveControllers = () => {
     const activeControllers: Array<{ type: string; value: string }> = [];
 
-    Object.entries(selectedModel.controllers).forEach(([type, value]) => {
+    Object.entries(selectedModel.controllers || {}).forEach(([type, value]) => {
       if (value && value !== '') {
         activeControllers.push({ type, value });
       }

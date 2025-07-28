@@ -15,6 +15,7 @@ import React from 'react';
 
 import { useControllerConfig } from '../../../hooks/controller';
 import { DeviceFormData } from '../../../types/controller/Controller_Types';
+import { DeviceModel } from '../../../types';
 
 interface ReviewStepProps {
   formData: DeviceFormData;
@@ -186,7 +187,7 @@ export const ReviewStep: React.FC<ReviewStepProps> = ({ formData, selectedModel,
                 <Grid item xs={12} sm={6}>
                   <Typography variant="subtitle2">Types:</Typography>
                   <Box sx={{ mt: 0.5 }}>
-                    {selectedModel.types.map((type) => (
+                    {selectedModel.types.map((type: string) => (
                       <Chip key={type} label={type} size="small" sx={{ mr: 0.5, mb: 0.5 }} />
                     ))}
                   </Box>

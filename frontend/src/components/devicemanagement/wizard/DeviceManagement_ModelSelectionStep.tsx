@@ -86,7 +86,7 @@ export const ModelSelectionStep: React.FC<ModelSelectionStepProps> = ({
   };
 
   const getControllerDisplayValue = (controllers: DeviceModel['controllers']) => {
-    const activeControllers = Object.entries(controllers)
+    const activeControllers = Object.entries(controllers || {})
       .filter(([_, value]) => value && value !== '')
       .map(([type, value]) => ({ type, value }));
 

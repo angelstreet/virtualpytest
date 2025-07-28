@@ -1,8 +1,7 @@
 import { Close as CloseIcon } from '@mui/icons-material';
 import { Dialog, DialogTitle, DialogContent, Box, Typography, IconButton } from '@mui/material';
-import React from 'react';
 
-import { RemotePanel } from './remote/RemotePanel';
+import { RemotePanel } from '../controller/remote/RemotePanel';
 
 interface RemoteControllerProps {
   deviceType:
