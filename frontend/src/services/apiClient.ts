@@ -5,7 +5,7 @@
  * Handles authentication, error handling, and request/response formatting.
  */
 
-const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:5109';
+const API_BASE_URL = (import.meta as any).env?.VITE_SERVER_URL || 'http://localhost:5109';
 
 // Removed unused interface
 

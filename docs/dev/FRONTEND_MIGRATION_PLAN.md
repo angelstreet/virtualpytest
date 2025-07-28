@@ -14,7 +14,7 @@ Ensure the VirtualPyTest frontend can build successfully and maintain all featur
 - **Socket.IO** for real-time updates
 
 ### **Backend Integration**
-- **API Base URL**: `VITE_API_URL` (defaults to `http://localhost:5109`)
+- **API Base URL**: `VITE_SERVER_URL` (defaults to `http://localhost:5109`)
 - **Connection**: Direct HTTP calls to backend_server
 - **No Proxy**: Frontend connects directly to backend_server
 
@@ -57,7 +57,7 @@ Ensure the VirtualPyTest frontend can build successfully and maintain all featur
 ## 📝 **Updated Action Plan**
 
 ### **Phase 1: Environment Setup** ✅ **COMPLETED**
-- ✅ Created `.env` file with `VITE_API_URL=http://localhost:5109`
+- ✅ Created `.env` file with `VITE_SERVER_URL=http://localhost:5109`
 - ✅ Created `.env.example` template
 - ✅ Dependencies installed
 

@@ -21,20 +21,30 @@ import requests
 # =====================================================
 
 def load_environment_variables(mode='server', calling_script_dir=None):
-    """Load environment variables from project-level .env file"""
+    """Load environment variables from project-level .env file and service-specific .env"""
     # Find project root (where .env should be)
     current_dir = os.path.dirname(os.path.abspath(__file__))
     project_root = os.path.dirname(os.path.dirname(os.path.dirname(current_dir)))  # Go up to project root
-    env_path = os.path.join(project_root, '.env')
+    project_env_path = os.path.join(project_root, '.env')
     
-    if os.path.exists(env_path):
-        load_dotenv(env_path)
-        print(f"✅ Loaded environment from: {env_path}")
+    # Load project-level .env first
+    if os.path.exists(project_env_path):
+        load_dotenv(project_env_path)
+        print(f"✅ Loaded project environment from: {project_env_path}")
     else:
-        print(f"❌ Environment file not found: {env_path}")
+        print(f"❌ Project environment file not found: {project_env_path}")
         print(f"❌ Please create .env in project root using: cp env.example .env")
     
-    return env_path
+    # Load service-specific .env if calling_script_dir is provided (for host)
+    if calling_script_dir:
+        service_env_path = os.path.join(calling_script_dir, '.env')
+        if os.path.exists(service_env_path):
+            load_dotenv(service_env_path)
+            print(f"✅ Loaded service environment from: {service_env_path}")
+        else:
+            print(f"⚠️  Service environment file not found: {service_env_path}")
+    
+    return project_env_path
 
 def kill_process_on_port(port):
     """Simple port cleanup - kill any process using the specified port"""

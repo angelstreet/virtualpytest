@@ -85,12 +85,12 @@ Copy both environment templates:
 # Copy project-level template (from project root)
 cp ../env.example ../.env
 
-# Copy host-specific template
-cp env.example .env
+# Copy host-specific template (from src directory)
+cp src/env.example src/.env
 
 # Edit both with your values
 nano ../.env
-nano .env
+nano src/.env
 ```
 
 Required environment variables:

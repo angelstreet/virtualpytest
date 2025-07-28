@@ -139,7 +139,7 @@ HOST_URL=http://localhost:6109
 SERVER_URL=http://localhost:5109
 
 # frontend/.env
-VITE_API_URL=http://localhost:5109
+VITE_SERVER_URL=http://localhost:5109
 ```
 
 ## 📋 **Migration Verification**

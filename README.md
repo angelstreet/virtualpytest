@@ -35,12 +35,12 @@ Choose your setup path based on your needs:
 # Copy environment templates
 cp env.example .env                    # Project-level (backend_server, shared, backend_core)
 cp frontend/env.example frontend/.env  # Frontend (API endpoints)
-cp backend_host/env.example backend_host/.env  # Host (device config)
+cp backend_host/src/env.example backend_host/src/.env  # Host (device config)
 
 # Edit with your values
 nano .env
 nano frontend/.env
-nano backend_host/.env
+nano backend_host/src/.env
 ```
 
 **Local Development:**
@@ -131,7 +131,7 @@ cd frontend && npm run dev
 
 ### Environment Variables
 
-#### backend_server (src/.env)
+#### backend_server (uses project-level .env)
 ```bash
 SERVER_URL=http://localhost:5109
 SERVER_PORT=5109
@@ -149,7 +149,7 @@ SERVER_URL=http://localhost:5109
 
 #### Frontend (.env)
 ```bash
-VITE_API_URL=http://localhost:5109
+VITE_SERVER_URL=http://localhost:5109
 VITE_DEV_MODE=true
 ```
 
@@ -226,7 +226,7 @@ docker compose logs -f backend_server
 ### Vercel (Frontend)
 1. Connect repository to Vercel
 2. Set environment variables:
-   - `VITE_API_URL=https://your-backend_server.onrender.com`
+   - `VITE_SERVER_URL=https://your-backend_server.onrender.com`
 3. Auto-deploy on git push
 
 ### Render (backend_server)

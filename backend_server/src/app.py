@@ -48,8 +48,7 @@ def validate_startup_requirements():
     """Validate requirements for server startup"""
     print("[@backend_server:validate] Validating startup requirements...")
     
-    calling_script_dir = os.path.dirname(os.path.abspath(__file__))
-    env_path = load_environment_variables(mode='server', calling_script_dir=calling_script_dir)
+    env_path = load_environment_variables(mode='server')
     
     if not validate_core_environment(mode='server'):
         print("❌ CRITICAL: Environment validation failed. Check .env file")

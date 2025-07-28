@@ -77,7 +77,7 @@ The frontend will be available at http://localhost:3000
 Create a `.env` file with:
 
 ```bash
-VITE_API_URL=http://localhost:5109  # backend_server URL
+VITE_SERVER_URL=http://localhost:5109  # backend_server URL
 VITE_DEV_MODE=true                  # Development mode
 ```
 
@@ -118,7 +118,7 @@ npm run lint     # Run ESLint
 3. **Set Environment Variables**
    In Vercel dashboard → Project Settings → Environment Variables:
    ```bash
-   VITE_API_URL=https://your-backend-server-url.com
+   VITE_SERVER_URL=https://your-backend-server-url.com
    VITE_CLOUDFLARE_R2_PUBLIC_URL=your_r2_public_url
    ```
 

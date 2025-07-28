@@ -57,7 +57,7 @@ services:
       - "3000:80"
     environment:
       - BACKEND_API_URL=http://backend_server:5109
-      - VITE_API_URL=http://localhost:5109
+      - VITE_SERVER_URL=http://localhost:5109
     depends_on:
       - backend_server
     restart: unless-stopped
