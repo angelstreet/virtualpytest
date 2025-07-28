@@ -17,9 +17,6 @@ export const ActionsList: React.FC<ActionsListProps> = ({ actions, onActionsUpda
   const { getAvailableActions } = useDeviceData();
   const availableActions = getAvailableActions();
 
-  console.log('[ActionsList] Debug - Available actions:', availableActions);
-  console.log('[ActionsList] Debug - Actions prop:', actions);
-
   const handleActionSelect = (index: number, actionId: string) => {
     // Find the selected action from available actions by ID
     let selectedAction: any = undefined;

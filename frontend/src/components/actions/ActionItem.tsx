@@ -329,12 +329,17 @@ export const ActionItem: React.FC<ActionItemProps> = ({
           <InputLabel>Action</InputLabel>
           <Select
             value={
+              // First try to match by ID (for newly created actions)
               action.id &&
               Object.values(availableActions)
                 .flat()
                 .some((act) => act.id === action.id)
                 ? action.id
-                : ''
+                : // Then try to match by command (for existing actions from DB)
+                  action.command &&
+                  Object.values(availableActions)
+                    .flat()
+                    .find((act) => act.command === action.command)?.id || ''
             }
             onChange={(e) => onActionSelect(index, e.target.value)}
             label="Action"

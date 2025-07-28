@@ -4,7 +4,6 @@ Actions Database Operations - Clean and Simple
 This module provides functions for managing action definitions in the database.
 """
 
-import json
 from datetime import datetime
 from typing import Dict, List, Optional
 
@@ -31,22 +30,33 @@ def find_existing_action(team_id: str, device_model: str, action_type: str, comm
     try:
         supabase = get_supabase()
         
-        # Build query conditions
+        # Build query conditions for basic fields
         query = supabase.table('actions').select('*').eq('team_id', team_id).eq('device_model', device_model).eq('action_type', action_type).eq('command', command)
-        
-        # Add params filter if provided
-        if parameters:
-            query = query.eq('params', json.dumps(parameters, sort_keys=True))
         
         result = query.execute()
         
         if result.data and len(result.data) > 0:
-            # Found existing action
-            existing_action = result.data[0]
-            print(f"[@db:actions:find_existing_action] Found existing action: {existing_action['id']}")
+            # Check for parameter match, ignoring wait_time for comparison
+            input_params = parameters or {}
+            input_params_without_wait = {k: v for k, v in input_params.items() if k != 'wait_time'}
+            
+            for action in result.data:
+                existing_params = action.get('params', {})
+                existing_params_without_wait = {k: v for k, v in existing_params.items() if k != 'wait_time'}
+                
+                # Compare parameters excluding wait_time - timeout changes should update existing action
+                if existing_params_without_wait == input_params_without_wait:
+                    print(f"[@db:actions:find_existing_action] Found existing action with matching core params: {action['id']}")
+                    return {
+                        'success': True,
+                        'action': action
+                    }
+            
+            # No parameter match found
+            print(f"[@db:actions:find_existing_action] No existing action found with matching core params for: {command} ({action_type})")
             return {
                 'success': True,
-                'action': existing_action
+                'action': None
             }
         else:
             # No existing action found
@@ -93,15 +103,37 @@ def save_action(name: str, device_model: str, action_type: str, command: str, te
             return existing_result
         
         if existing_result['action']:
-            # Reuse existing action
+            # Update existing action with new parameters (including updated wait_time)
             existing_action = existing_result['action']
-            print(f"[@db:actions:save_action] Reusing existing action: {existing_action['id']}")
-            return {
-                'success': True,
-                'action_id': existing_action['id'],
-                'action': existing_action,
-                'reused': True
+            action_id = existing_action['id']
+            
+            supabase = get_supabase()
+            
+            # Update the existing action with new parameters
+            update_data = {
+                'name': name,
+                'params': params or {},
+                'requires_input': requires_input,
+                'updated_at': datetime.now().isoformat()
             }
+            
+            result = supabase.table('actions').update(update_data).eq('id', action_id).execute()
+            
+            if result.data:
+                updated_action = result.data[0]
+                print(f"[@db:actions:save_action] Updated existing action: {action_id} with new params")
+                return {
+                    'success': True,
+                    'action_id': action_id,
+                    'action': updated_action,
+                    'reused': False  # It's updated, not just reused
+                }
+            else:
+                print(f"[@db:actions:save_action] Failed to update existing action: {action_id}")
+                return {
+                    'success': False,
+                    'error': 'Failed to update existing action'
+                }
         
         # No existing action found, create a new one
         supabase = get_supabase()
