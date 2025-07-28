@@ -16,85 +16,53 @@ virtualpytest/
 └── docker/             # Container orchestration
 ```
 
-## 🚀 Quick Start
+## 🚀 Getting Started
 
-### Prerequisites
+Choose your setup path based on your needs:
 
-**Quick Setup (Linux/Raspberry Pi):**
+### 📚 **[Complete Setup Guides](./docs/get-started/README.md)**
 
-**Option 1: Local Development (Traditional Way)**
+**New to VirtualPyTest?** Start here for comprehensive step-by-step guides:
+
+- 🏠 **[Local Development Setup](./docs/get-started/local-setup.md)** - Perfect for development and testing
+- ☁️ **[Cloud + Local Hybrid Setup](./docs/get-started/cloud-setup.md)** - Production-ready deployment
+- 🗄️ **[Database Setup (Supabase)](./docs/get-started/supabase-setup.md)** - Required for both setups
+
+### ⚡ Quick Start (Experienced Users)
+
+**Local Development:**
 ```bash
-# Install dependencies for local development
+# Clone and install everything
+git clone <your-repo-url>
+cd virtualpytest
 ./setup/local/install_local.sh
 
-# Run all services locally (like before)
+# Launch all services
 ./setup/local/launch_all.sh
 ```
 
-**Option 2: Docker Deployment**
+**Docker Deployment:**
 ```bash
-# Install Docker and Docker Compose
+# Install Docker and launch
 ./setup/docker/install_docker.sh
-
-# Run all services with Docker
 ./setup/docker/launch_all.sh
 ```
 
-**Python Virtual Environment (Recommended for local development):**
-```bash
-# Install Python venv (if not already available)
-sudo apt install python3-venv
+### 🌐 Access Your Services
 
-# Create virtual environment
-python3 -m venv venv
+After setup, access your services at:
+- **Frontend**: http://localhost:3000
+- **Backend Server**: http://localhost:5109  
+- **Backend Host**: http://localhost:6409
 
-# Activate virtual environment
-source venv/bin/activate
+### 📋 Prerequisites
 
-# Then run local setup
-./setup/install_local.sh
-```
+- **Node.js** 18+ and npm
+- **Python** 3.8+
+- **Git**
+- **Supabase account** (for database)
 
-### Local Development (Traditional Way - Recommended for Development)
-
-```bash
-# Clone repository
-git clone https://github.com/angelstreet/virtualpytest
-cd virtualpytest
-
-# Install all dependencies (first time only)
-./setup/local/install_local.sh
-
-# Launch all services locally (like before)
-./setup/local/launch_all.sh
-
-# OR launch individual services:
-./setup/local/launch_server.sh    # backend_server only
-./setup/local/launch_host.sh      # backend_host only  
-./setup/local/launch_frontend.sh  # Frontend only
-
-# Stop all services
-./setup/local/stop_all_local.sh
-```
-
-### Docker Deployment (For Production/Testing)
-
-```bash
-# Clone repository
-git clone https://github.com/angelstreet/virtualpytest
-cd virtualpytest
-
-# Install Docker (first time only)
-./setup/docker/install_docker.sh
-
-# Launch all services with Docker
-./setup/docker/launch_all.sh
-
-# Access the application
-# Frontend: http://localhost:3000
-# API: http://localhost:5109
-# Host Interface: http://localhost:6109
-```
+> 💡 **Need detailed instructions?** Follow the [complete setup guides](./docs/get-started/README.md) for step-by-step instructions with troubleshooting and configuration details.
 
 ## 📦 Services
 
