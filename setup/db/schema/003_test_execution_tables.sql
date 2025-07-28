@@ -123,4 +123,87 @@ COMMENT ON TABLE test_cases IS 'Test case definitions and configurations';
 COMMENT ON TABLE test_executions IS 'Test execution tracking records';
 COMMENT ON TABLE test_results IS 'Test execution results and outcomes';
 COMMENT ON TABLE execution_results IS 'Detailed execution results matching automai schema';
-COMMENT ON TABLE script_results IS 'Script execution results matching automai schema'; 
+COMMENT ON TABLE script_results IS 'Script execution results matching automai schema';
+
+-- Enable Row Level Security (RLS)
+ALTER TABLE test_cases ENABLE ROW LEVEL SECURITY;
+ALTER TABLE test_executions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE test_results ENABLE ROW LEVEL SECURITY;
+ALTER TABLE execution_results ENABLE ROW LEVEL SECURITY;
+ALTER TABLE script_results ENABLE ROW LEVEL SECURITY;
+
+-- RLS Policies for test_cases table
+CREATE POLICY "Users can view test cases from their teams" ON test_cases
+FOR SELECT 
+TO public
+USING (team_id IN ( SELECT team_members.team_id
+   FROM team_members
+  WHERE (team_members.profile_id = auth.uid())));
+
+CREATE POLICY "Users can insert test cases for their teams" ON test_cases
+FOR INSERT 
+TO public;
+
+CREATE POLICY "Users can update test cases from their teams" ON test_cases
+FOR UPDATE 
+TO public
+USING (team_id IN ( SELECT team_members.team_id
+   FROM team_members
+  WHERE (team_members.profile_id = auth.uid())));
+
+CREATE POLICY "Users can delete test cases from their teams" ON test_cases
+FOR DELETE 
+TO public
+USING (team_id IN ( SELECT team_members.team_id
+   FROM team_members
+  WHERE (team_members.profile_id = auth.uid())));
+
+-- RLS Policies for test_executions table (no specific policies in automai, using team-based access)
+CREATE POLICY "Users can access test executions from their teams" ON test_executions
+FOR ALL 
+TO public
+USING (team_id IN ( SELECT team_members.team_id
+   FROM team_members
+  WHERE (team_members.profile_id = auth.uid())));
+
+-- RLS Policies for test_results table
+CREATE POLICY "Users can view test results from their teams" ON test_results
+FOR SELECT 
+TO public
+USING (team_id IN ( SELECT team_members.team_id
+   FROM team_members
+  WHERE (team_members.profile_id = auth.uid())));
+
+CREATE POLICY "Users can insert test results for their teams" ON test_results
+FOR INSERT 
+TO public;
+
+CREATE POLICY "Users can update test results from their teams" ON test_results
+FOR UPDATE 
+TO public
+USING (team_id IN ( SELECT team_members.team_id
+   FROM team_members
+  WHERE (team_members.profile_id = auth.uid())));
+
+CREATE POLICY "Users can delete test results from their teams" ON test_results
+FOR DELETE 
+TO public
+USING (team_id IN ( SELECT team_members.team_id
+   FROM team_members
+  WHERE (team_members.profile_id = auth.uid())));
+
+-- RLS Policies for execution_results table
+CREATE POLICY "Team members can access execution results" ON execution_results
+FOR ALL 
+TO public
+USING ((auth.uid() IS NULL) OR (auth.role() = 'service_role'::text) OR (team_id IN ( SELECT team_members.team_id
+   FROM team_members
+  WHERE (team_members.profile_id = auth.uid()))));
+
+-- RLS Policies for script_results table
+CREATE POLICY "Team members can access script results" ON script_results
+FOR ALL 
+TO public
+USING ((auth.uid() IS NULL) OR (auth.role() = 'service_role'::text) OR (team_id IN ( SELECT team_members.team_id
+   FROM team_members
+  WHERE (team_members.profile_id = auth.uid())))); 

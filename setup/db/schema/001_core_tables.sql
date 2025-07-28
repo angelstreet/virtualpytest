@@ -90,4 +90,139 @@ COMMENT ON TABLE device_models IS 'Device model definitions and capabilities';
 COMMENT ON TABLE device IS 'Physical device instances';
 COMMENT ON TABLE controllers IS 'Device controller configurations';
 COMMENT ON TABLE environment_profiles IS 'Test environment configurations';
-COMMENT ON TABLE campaigns IS 'Test campaign definitions'; 
+COMMENT ON TABLE campaigns IS 'Test campaign definitions';
+
+-- Enable Row Level Security (RLS)
+ALTER TABLE teams ENABLE ROW LEVEL SECURITY;
+ALTER TABLE device_models ENABLE ROW LEVEL SECURITY;
+ALTER TABLE device ENABLE ROW LEVEL SECURITY;
+ALTER TABLE controllers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE environment_profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE campaigns ENABLE ROW LEVEL SECURITY;
+
+-- RLS Policies for teams table
+CREATE POLICY "teams_select_policy" ON teams
+FOR SELECT 
+TO public
+USING (EXISTS ( SELECT 1
+   FROM team_members
+  WHERE ((team_members.team_id = teams.id) AND (team_members.profile_id = auth.uid()))));
+
+CREATE POLICY "teams_insert_policy" ON teams
+FOR INSERT 
+TO public;
+
+CREATE POLICY "teams_update_policy" ON teams
+FOR UPDATE 
+TO public
+USING (EXISTS ( SELECT 1
+   FROM team_members
+  WHERE ((team_members.profile_id = auth.uid()) AND (team_members.team_id = teams.id) AND (team_members.role = 'admin'::text))));
+
+CREATE POLICY "teams_delete_policy" ON teams
+FOR DELETE 
+TO public
+USING (EXISTS ( SELECT 1
+   FROM team_members
+  WHERE ((team_members.profile_id = auth.uid()) AND (team_members.team_id = teams.id) AND (team_members.role = 'admin'::text))));
+
+-- RLS Policies for device_models table
+CREATE POLICY "device_models_policy" ON device_models
+FOR ALL 
+TO public
+USING ((auth.uid() IS NULL) OR (auth.role() = 'service_role'::text) OR (team_id IN ( SELECT team_members.team_id
+   FROM team_members
+  WHERE (team_members.profile_id = auth.uid()))));
+
+-- RLS Policies for device table
+CREATE POLICY "device_policy" ON device
+FOR ALL 
+TO public
+USING ((auth.uid() IS NULL) OR (auth.role() = 'service_role'::text) OR (team_id IN ( SELECT team_members.team_id
+   FROM team_members
+  WHERE (team_members.profile_id = auth.uid()))));
+
+CREATE POLICY "Users can manage devices for their team" ON device
+FOR ALL 
+TO public
+USING (team_id IN ( SELECT team_members.team_id
+   FROM team_members
+  WHERE (team_members.profile_id = auth.uid())));
+
+-- RLS Policies for controllers table
+CREATE POLICY "Users can view controllers from their teams" ON controllers
+FOR SELECT 
+TO public
+USING (team_id IN ( SELECT team_members.team_id
+   FROM team_members
+  WHERE (team_members.profile_id = auth.uid())));
+
+CREATE POLICY "Users can insert controllers for their teams" ON controllers
+FOR INSERT 
+TO public;
+
+CREATE POLICY "Users can update controllers from their teams" ON controllers
+FOR UPDATE 
+TO public
+USING (team_id IN ( SELECT team_members.team_id
+   FROM team_members
+  WHERE (team_members.profile_id = auth.uid())));
+
+CREATE POLICY "Users can delete controllers from their teams" ON controllers
+FOR DELETE 
+TO public
+USING (team_id IN ( SELECT team_members.team_id
+   FROM team_members
+  WHERE (team_members.profile_id = auth.uid())));
+
+-- RLS Policies for environment_profiles table
+CREATE POLICY "Users can view environment profiles from their teams" ON environment_profiles
+FOR SELECT 
+TO public
+USING (team_id IN ( SELECT team_members.team_id
+   FROM team_members
+  WHERE (team_members.profile_id = auth.uid())));
+
+CREATE POLICY "Users can insert environment profiles for their teams" ON environment_profiles
+FOR INSERT 
+TO public;
+
+CREATE POLICY "Users can update environment profiles from their teams" ON environment_profiles
+FOR UPDATE 
+TO public
+USING (team_id IN ( SELECT team_members.team_id
+   FROM team_members
+  WHERE (team_members.profile_id = auth.uid())));
+
+CREATE POLICY "Users can delete environment profiles from their teams" ON environment_profiles
+FOR DELETE 
+TO public
+USING (team_id IN ( SELECT team_members.team_id
+   FROM team_members
+  WHERE (team_members.profile_id = auth.uid())));
+
+-- RLS Policies for campaigns table
+CREATE POLICY "Users can view campaigns from their teams" ON campaigns
+FOR SELECT 
+TO public
+USING (team_id IN ( SELECT team_members.team_id
+   FROM team_members
+  WHERE (team_members.profile_id = auth.uid())));
+
+CREATE POLICY "Users can insert campaigns for their teams" ON campaigns
+FOR INSERT 
+TO public;
+
+CREATE POLICY "Users can update campaigns from their teams" ON campaigns
+FOR UPDATE 
+TO public
+USING (team_id IN ( SELECT team_members.team_id
+   FROM team_members
+  WHERE (team_members.profile_id = auth.uid())));
+
+CREATE POLICY "Users can delete campaigns from their teams" ON campaigns
+FOR DELETE 
+TO public
+USING (team_id IN ( SELECT team_members.team_id
+   FROM team_members
+  WHERE (team_members.profile_id = auth.uid()))); 

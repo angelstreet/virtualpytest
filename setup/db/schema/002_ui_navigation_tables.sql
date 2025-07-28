@@ -69,4 +69,33 @@ CREATE INDEX idx_navigation_trees_history_team_id ON navigation_trees_history(te
 -- Add comments
 COMMENT ON TABLE userinterfaces IS 'User interface definitions and configurations';
 COMMENT ON TABLE navigation_trees IS 'Navigation tree structures for UI testing';
-COMMENT ON TABLE navigation_trees_history IS 'Version history and audit trail for navigation trees with rollback capability'; 
+COMMENT ON TABLE navigation_trees_history IS 'Version history and audit trail for navigation trees with rollback capability';
+
+-- Enable Row Level Security (RLS)
+ALTER TABLE userinterfaces ENABLE ROW LEVEL SECURITY;
+ALTER TABLE navigation_trees ENABLE ROW LEVEL SECURITY;
+ALTER TABLE navigation_trees_history ENABLE ROW LEVEL SECURITY;
+
+-- RLS Policies for userinterfaces table
+CREATE POLICY "Allow userinterfaces access" ON userinterfaces
+FOR ALL 
+TO public
+USING ((auth.uid() IS NULL) OR (auth.role() = 'service_role'::text) OR (team_id IN ( SELECT team_members.team_id
+   FROM team_members
+  WHERE (team_members.profile_id = auth.uid()))));
+
+-- RLS Policies for navigation_trees table
+CREATE POLICY "Team members can access navigation trees" ON navigation_trees
+FOR ALL 
+TO public
+USING ((auth.uid() IS NULL) OR (auth.role() = 'service_role'::text) OR (team_id IN ( SELECT team_members.team_id
+   FROM team_members
+  WHERE (team_members.profile_id = auth.uid()))));
+
+-- RLS Policies for navigation_trees_history table
+CREATE POLICY "navigation_trees_history_policy" ON navigation_trees_history
+FOR ALL 
+TO public
+USING ((auth.uid() IS NULL) OR (auth.role() = 'service_role'::text) OR (EXISTS ( SELECT 1
+   FROM team_members tm
+  WHERE ((tm.team_id = navigation_trees_history.team_id) AND (tm.profile_id = auth.uid()))))); 

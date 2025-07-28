@@ -64,4 +64,33 @@ CREATE INDEX idx_verifications_references_reference_type ON verifications_refere
 -- Add comments
 COMMENT ON TABLE actions IS 'Test action definitions and commands';
 COMMENT ON TABLE verifications IS 'Stores verification definitions for UI testing - these are test assertions, not action commands';
-COMMENT ON TABLE verifications_references IS 'Reference data for verifications (screenshots, elements, etc.)'; 
+COMMENT ON TABLE verifications_references IS 'Reference data for verifications (screenshots, elements, etc.)';
+
+-- Enable Row Level Security (RLS)
+ALTER TABLE actions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE verifications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE verifications_references ENABLE ROW LEVEL SECURITY;
+
+-- RLS Policies for actions table
+CREATE POLICY "actions_policy" ON actions
+FOR ALL 
+TO public
+USING ((auth.uid() IS NULL) OR (auth.role() = 'service_role'::text) OR (team_id IN ( SELECT tm.team_id
+   FROM team_members tm
+  WHERE (tm.profile_id = auth.uid()))));
+
+-- RLS Policies for verifications table
+CREATE POLICY "images_policy" ON verifications
+FOR ALL 
+TO public
+USING ((auth.uid() IS NULL) OR (auth.role() = 'service_role'::text) OR (team_id IN ( SELECT tm.team_id
+   FROM team_members tm
+  WHERE (tm.profile_id = auth.uid()))));
+
+-- RLS Policies for verifications_references table
+CREATE POLICY "verifications_references_policy" ON verifications_references
+FOR ALL 
+TO public
+USING ((auth.uid() IS NULL) OR (auth.role() = 'service_role'::text) OR (team_id IN ( SELECT tm.team_id
+   FROM team_members tm
+  WHERE (tm.profile_id = auth.uid())))); 

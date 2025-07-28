@@ -98,4 +98,40 @@ CREATE INDEX idx_edge_metrics_nodes ON edge_metrics(from_node_id, to_node_id);
 COMMENT ON TABLE alerts IS 'Stores monitoring incidents from HDMI capture analysis';
 COMMENT ON TABLE heatmaps IS 'Performance heatmap data and analytics';
 COMMENT ON TABLE node_metrics IS 'Navigation node performance metrics';
-COMMENT ON TABLE edge_metrics IS 'Navigation edge transition metrics'; 
+COMMENT ON TABLE edge_metrics IS 'Navigation edge transition metrics';
+
+-- Enable Row Level Security (RLS)
+ALTER TABLE alerts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE heatmaps ENABLE ROW LEVEL SECURITY;
+ALTER TABLE node_metrics ENABLE ROW LEVEL SECURITY;
+ALTER TABLE edge_metrics ENABLE ROW LEVEL SECURITY;
+
+-- RLS Policies for alerts table
+CREATE POLICY "Allow all operations on alerts" ON alerts
+FOR ALL 
+TO public
+USING (true);
+
+-- RLS Policies for heatmaps table (no RLS in automai, but we'll add team-based access)
+CREATE POLICY "Team members can access heatmaps" ON heatmaps
+FOR ALL 
+TO public
+USING (team_id IN ( SELECT team_members.team_id
+   FROM team_members
+  WHERE (team_members.profile_id = auth.uid())));
+
+-- RLS Policies for node_metrics table
+CREATE POLICY "Team members can access node metrics" ON node_metrics
+FOR ALL 
+TO public
+USING ((auth.uid() IS NULL) OR (auth.role() = 'service_role'::text) OR (team_id IN ( SELECT team_members.team_id
+   FROM team_members
+  WHERE (team_members.profile_id = auth.uid()))));
+
+-- RLS Policies for edge_metrics table
+CREATE POLICY "Team members can access edge metrics" ON edge_metrics
+FOR ALL 
+TO public
+USING ((auth.uid() IS NULL) OR (auth.role() = 'service_role'::text) OR (team_id IN ( SELECT team_members.team_id
+   FROM team_members
+  WHERE (team_members.profile_id = auth.uid())))); 
