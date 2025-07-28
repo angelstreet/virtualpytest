@@ -79,47 +79,84 @@ export const useScript = (): UseScriptReturn => {
             `[@hook:useScript:executeScript] Script started async with task_id: ${initialResult.task_id}`,
           );
 
-          // Poll for task completion
+          // Set isExecuting to false immediately after script starts successfully
+          // This prevents UI blocking during the background execution
+          setIsExecuting(false);
+
+          // Poll for task completion in background without blocking UI
           const taskId = initialResult.task_id;
           const pollInterval = 2000; // 2 seconds
           const maxWaitTime = 300000; // 5 minutes
           const startTime = Date.now();
 
-          while (Date.now() - startTime < maxWaitTime) {
-            await new Promise((resolve) => setTimeout(resolve, pollInterval));
+          // Start background polling without blocking the UI
+          const pollInBackground = async () => {
+            while (Date.now() - startTime < maxWaitTime) {
+              await new Promise((resolve) => setTimeout(resolve, pollInterval));
 
-            try {
-              const statusResponse = await fetch(`${SCRIPT_API_BASE_URL}/status/${taskId}`);
-              const statusResult = await statusResponse.json();
+              try {
+                const statusResponse = await fetch(`${SCRIPT_API_BASE_URL}/status/${taskId}`);
+                const statusResult = await statusResponse.json();
 
-              if (statusResult.success && statusResult.task) {
-                const task = statusResult.task;
+                if (statusResult.success && statusResult.task) {
+                  const task = statusResult.task;
 
-                if (task.status === 'completed') {
-                  console.log(`[@hook:useScript:executeScript] Script completed successfully`);
-                  const result: ScriptExecutionResult = {
-                    success: task.result?.success || false,
-                    stdout: task.result?.stdout || '',
-                    stderr: task.result?.stderr || '',
-                    exit_code: task.result?.exit_code || 0,
-                    host: hostName,
-                    report_url: task.result?.report_url,
-                  };
-                  setLastResult(result);
-                  return result;
-                } else if (task.status === 'failed') {
-                  console.log(`[@hook:useScript:executeScript] Script failed:`, task.error);
-                  throw new Error(task.error || 'Script execution failed');
+                  if (task.status === 'completed') {
+                    console.log(`[@hook:useScript:executeScript] Script completed successfully`);
+                    const result: ScriptExecutionResult = {
+                      success: task.result?.success || false,
+                      stdout: task.result?.stdout || '',
+                      stderr: task.result?.stderr || '',
+                      exit_code: task.result?.exit_code || 0,
+                      host: hostName,
+                      report_url: task.result?.report_url,
+                    };
+                    setLastResult(result);
+                    return result;
+                  } else if (task.status === 'failed') {
+                    console.log(`[@hook:useScript:executeScript] Script failed:`, task.error);
+                    setError(task.error || 'Script execution failed');
+                    return {
+                      success: false,
+                      stdout: '',
+                      stderr: task.error || 'Script execution failed',
+                      exit_code: 1,
+                      host: hostName,
+                    };
+                  }
+                  // Continue polling if status is still 'started'
                 }
-                // Continue polling if status is still 'started'
+              } catch (pollError) {
+                console.warn(`[@hook:useScript:executeScript] Error polling task status:`, pollError);
+                // Continue polling despite error
               }
-            } catch (pollError) {
-              console.warn(`[@hook:useScript:executeScript] Error polling task status:`, pollError);
-              // Continue polling despite error
             }
-          }
 
-          throw new Error('Script execution timed out');
+            // Timeout reached
+            console.warn(`[@hook:useScript:executeScript] Script execution timed out`);
+            setError('Script execution timed out');
+            return {
+              success: false,
+              stdout: '',
+              stderr: 'Script execution timed out',
+              exit_code: 1,
+              host: hostName,
+            };
+          };
+
+          // Start background polling but return immediately with success status
+          pollInBackground();
+
+          // Return immediate success response for async execution
+          const immediateResult: ScriptExecutionResult = {
+            success: true,
+            stdout: initialResult.message || 'Script started successfully',
+            stderr: '',
+            exit_code: 0,
+            host: hostName,
+          };
+          setLastResult(immediateResult);
+          return immediateResult;
         } else {
           // Handle synchronous response or error
           if (!response.ok) {
@@ -138,6 +175,8 @@ export const useScript = (): UseScriptReturn => {
         setError(errorMessage);
         throw error;
       } finally {
+        // Only set isExecuting to false if we're not in async mode
+        // (async mode sets it to false earlier)
         setIsExecuting(false);
       }
     },

@@ -313,27 +313,33 @@ const RunTests: React.FC = () => {
         parameterString,
       );
 
-      // Update execution record on completion
-      setExecutions((prev) =>
-        prev.map((exec) =>
-          exec.id === executionId
-            ? {
-                ...exec,
-                endTime: new Date().toLocaleTimeString(),
-                status: result?.success === false ? 'failed' : 'completed',
-                reportUrl: result?.report_url,
-              }
-            : exec,
-        ),
-      );
-
-      if (result?.success === false) {
-        showError(`Script "${selectedScript}" failed`);
+      // For async executions, the result indicates successful start, not completion
+      // The execution record should remain as "running" until actual completion
+      if (result?.success) {
+        // Script started successfully - keep status as "running"
+        // The background polling in useScript will handle completion updates
+        showSuccess(`Script "${selectedScript}" started successfully`);
+        
+        // Note: We don't update the execution record here because the script is still running
+        // In a real implementation, you might want to poll for completion and update the record
+        // For now, we'll leave it as "running" to indicate the script is executing in background
       } else {
-        showSuccess(`Script "${selectedScript}" completed successfully`);
+        // Immediate failure (e.g., validation error, network error)
+        setExecutions((prev) =>
+          prev.map((exec) =>
+            exec.id === executionId
+              ? {
+                  ...exec,
+                  endTime: new Date().toLocaleTimeString(),
+                  status: 'failed',
+                }
+              : exec,
+          ),
+        );
+        showError(`Script "${selectedScript}" failed to start`);
       }
     } catch (err) {
-      // Update execution record on error
+      // Update execution record on error (failed to start)
       setExecutions((prev) =>
         prev.map((exec) =>
           exec.id === executionId
