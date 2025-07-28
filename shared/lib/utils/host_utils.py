@@ -30,7 +30,7 @@ try:
     backend_core_path = os.path.join(project_root, 'backend_core', 'src')
     if backend_core_path not in sys.path:
         sys.path.insert(0, backend_core_path)
-    from controllers.controller_manager import get_host
+    from backend_core.src.controllers.controller_manager import get_host
 except ImportError:
     # Fallback if controller_manager is not available
     def get_host():

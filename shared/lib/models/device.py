@@ -5,7 +5,7 @@ Represents a single device with its controllers organized by type.
 """
 
 from typing import Dict, List, Optional, Any
-from controllers.base_controller import BaseController
+from backend_core.src.controllers.base_controller import BaseController
 
 
 class Device:
@@ -184,7 +184,7 @@ class Device:
         Returns:
             Dictionary representation of the device with detailed capability format
         """
-        from controllers.controller_config_factory import get_device_capabilities
+        from backend_core.src.controllers.controller_config_factory import get_device_capabilities
         
         # Get detailed capabilities from factory
         detailed_capabilities = get_device_capabilities(self.device_model)
