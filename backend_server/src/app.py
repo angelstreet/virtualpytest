@@ -189,37 +189,20 @@ def start_server(app):
     print(f"[@backend_server:start]    Debug Mode: {debug_mode}")
     
     print("[@backend_server:start] 🎉 backend_server ready!")
-    print(f"[@backend_server:start] 🚀 Starting API server on port {server_port}")
+    print(f"[@backend_server:start] 🚀 Starting API server on port {server_port} with SocketIO support")
+    print(f"[@backend_server:start] 🔌 WebSocket enabled for async task notifications")
     
     try:
-        import gunicorn.app.base
-        
-        class StandaloneApplication(gunicorn.app.base.BaseApplication):
-            def __init__(self, app, options=None):
-                self.options = options or {}
-                self.application = app
-                super().__init__()
-
-            def load_config(self):
-                config = {key: value for key, value in self.options.items()
-                        if key in self.cfg.settings and value is not None}
-                for key, value in config.items():
-                    self.cfg.set(key.lower(), value)
-
-            def load(self):
-                return self.application
-
-        options = {
-            'bind': f'0.0.0.0:{server_port}',
-            'workers': 2,  # More workers for API handling
-            'timeout': 120,
-            'keepalive': 2
-        }
-        
-        StandaloneApplication(app, options).run()
+        # Use SocketIO to run the server (like the original system)
+        socketio = app.socketio
+        socketio.run(app, 
+                    host='0.0.0.0', 
+                    port=server_port, 
+                    debug=debug_mode,
+                    allow_unsafe_werkzeug=True)
         
     except ImportError:
-        print("[@backend_server:start] ❌ Gunicorn required. Install: pip install gunicorn")
+        print("[@backend_server:start] ❌ Flask-SocketIO required. Install: pip install flask-socketio")
         sys.exit(1)
     except KeyboardInterrupt:
         print("[@backend_server:start] 🛑 backend_server shutting down...")
