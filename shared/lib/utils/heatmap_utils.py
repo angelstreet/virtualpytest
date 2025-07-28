@@ -513,11 +513,26 @@ def process_heatmap_generation(job_id: str, images_by_timestamp: Dict[str, List[
                         
                         mosaic_image.save(temp_path, 'PNG')
                         
-                        # Create metadata
+                        # Create metadata (exclude binary data to avoid JSON serialization errors)
+                        serializable_analysis = []
+                        for img in processed_images:
+                            serializable_analysis.append({
+                                'host_name': img.get('host_name'),
+                                'device_id': img.get('device_id'),
+                                'has_image': img.get('image_data') is not None,
+                                'analysis_json': img.get('analysis_json', {}),
+                                'error': img.get('error'),
+                                'original_timestamp': img.get('original_timestamp')
+                            })
+                        
                         metadata = {
                             'timestamp': timestamp,
                             'images_count': len(processed_images),
-                            'analysis_data': processed_images
+                            'hosts_included': len([img for img in processed_images if img.get('image_data')]),
+                            'hosts_total': len(processed_images),
+                            'analysis_data': serializable_analysis,  # Only serializable data
+                            'incidents': [inc for inc in incidents if timestamp in inc.get('start_time', '')],
+                            'generated_at': datetime.now().isoformat()
                         }
                         
                         with open(temp_json_path, 'w') as f:
