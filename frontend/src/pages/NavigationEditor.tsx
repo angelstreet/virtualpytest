@@ -795,6 +795,7 @@ const NavigationEditorContent: React.FC<{ userInterfaceId?: string }> = React.me
                         setIsEdgeDialogOpen={setIsEdgeDialogOpen}
                         isControlActive={isControlActive}
                         selectedHost={selectedHost || undefined}
+                        selectedDeviceId={selectedDeviceId || undefined}
                         onEditWithLabels={(fromLabel, toLabel) =>
                           setEdgeLabels({ fromLabel, toLabel })
                         }
@@ -813,6 +814,7 @@ const NavigationEditorContent: React.FC<{ userInterfaceId?: string }> = React.me
                           setIsEdgeDialogOpen={setIsEdgeDialogOpen}
                           isControlActive={isControlActive}
                           selectedHost={selectedHost || undefined}
+                          selectedDeviceId={selectedDeviceId || undefined}
                           panelIndex={1}
                           onEditWithLabels={(fromLabel, toLabel) =>
                             setEdgeLabels({ fromLabel, toLabel })

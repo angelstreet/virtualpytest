@@ -19,12 +19,13 @@ interface EdgeSelectionPanelProps {
   // Device control props
   isControlActive?: boolean;
   selectedHost?: Host; // Make optional to fix regression
+  selectedDeviceId?: string; // Add selectedDeviceId prop
 
   // Positioning for multiple panels
   panelIndex?: number;
 
   // Add props for passing labels to the edit dialog
-  onEditWithLabels?: (fromLabel: string, toLabel: string) => void;
+  onEditWithLabels?: (fromLabel, toLabel: string) => void;
 }
 
 export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
@@ -38,6 +39,7 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
 
     isControlActive = false,
     selectedHost,
+    selectedDeviceId,
     panelIndex = 0,
     onEditWithLabels,
   }) => {
@@ -58,6 +60,7 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
     // Use the consolidated edge hook
     const edgeHook = useEdge({
       selectedHost: selectedHost || null,
+      selectedDeviceId: selectedDeviceId || null,
       isControlActive,
     });
 

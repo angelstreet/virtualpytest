@@ -31,10 +31,12 @@ import { useValidation } from '../../hooks/validation';
 
 interface ValidationResultsClientProps {
   treeId: string;
+  selectedHost?: any;
+  selectedDeviceId?: string | null;
 }
 
-const ValidationResultsClient: React.FC<ValidationResultsClientProps> = ({ treeId }) => {
-  const validation = useValidation(treeId);
+const ValidationResultsClient: React.FC<ValidationResultsClientProps> = ({ treeId, selectedHost, selectedDeviceId }) => {
+  const validation = useValidation(treeId, selectedHost, selectedDeviceId);
 
   // Debug logging to confirm shared state
   console.log('[@ValidationResultsClient] Render state (SHARED):', {

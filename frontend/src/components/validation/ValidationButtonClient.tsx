@@ -20,10 +20,12 @@ import { ValidationProgressClient } from './ValidationProgressClient';
 interface ValidationButtonClientProps {
   treeId: string;
   disabled?: boolean;
+  selectedHost?: any;
+  selectedDeviceId?: string | null;
 }
 
-export default function ValidationButtonClient({ treeId, disabled }: ValidationButtonClientProps) {
-  const validation = useValidation(treeId);
+export default function ValidationButtonClient({ treeId, disabled, selectedHost, selectedDeviceId }: ValidationButtonClientProps) {
+  const validation = useValidation(treeId, selectedHost, selectedDeviceId);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [showPreview, setShowPreview] = useState(false);
 
@@ -92,12 +94,29 @@ export default function ValidationButtonClient({ treeId, disabled }: ValidationB
 
       {/* Validation Preview Dialog - only show when triggered */}
       {showPreview && (
-        <ValidationPreviewClient treeId={treeId} onClose={() => setShowPreview(false)} />
+        <ValidationPreviewClient 
+          treeId={treeId} 
+          onClose={() => setShowPreview(false)}
+          selectedHost={selectedHost}
+          selectedDeviceId={selectedDeviceId}
+        />
       )}
 
       {/* Global validation dialogs - these manage their own visibility */}
-      {validation.showResults && <ValidationResultsClient treeId={treeId} />}
-      {validation.isValidating && <ValidationProgressClient treeId={treeId} />}
+      {validation.showResults && (
+        <ValidationResultsClient 
+          treeId={treeId}
+          selectedHost={selectedHost}
+          selectedDeviceId={selectedDeviceId}
+        />
+      )}
+      {validation.isValidating && (
+        <ValidationProgressClient 
+          treeId={treeId}
+          selectedHost={selectedHost}
+          selectedDeviceId={selectedDeviceId}
+        />
+      )}
     </>
   );
 }

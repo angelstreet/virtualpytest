@@ -26,10 +26,12 @@ import { useValidation } from '../../hooks/validation';
 interface ValidationPreviewClientProps {
   treeId: string;
   onClose?: () => void;
+  selectedHost?: any;
+  selectedDeviceId?: string | null;
 }
 
-export default function ValidationPreviewClient({ treeId, onClose }: ValidationPreviewClientProps) {
-  const validation = useValidation(treeId);
+export default function ValidationPreviewClient({ treeId, onClose, selectedHost, selectedDeviceId }: ValidationPreviewClientProps) {
+  const validation = useValidation(treeId, selectedHost, selectedDeviceId);
   const [selectedEdges, setSelectedEdges] = useState<Set<string>>(new Set());
 
   // Load preview data when component mounts if not already loaded

@@ -39,10 +39,11 @@ def action_execute_batch():
         data = request.get_json() or {}
         actions = data.get('actions', [])  # Array of EdgeAction objects
         host = data.get('host', {})
+        device_id = data.get('device_id', 'device1')  # Get device_id from request
         retry_actions = data.get('retry_actions', [])
         
         print(f"[@route:server_actions:action_execute_batch] Processing {len(actions)} main actions, {len(retry_actions)} retry actions")
-        print(f"[@route:server_actions:action_execute_batch] Host: {host.get('host_name')}, Device: {host.get('device_model')}")
+        print(f"[@route:server_actions:action_execute_batch] Host: {host.get('host_name')}, Device ID: {device_id}")
         
         # Validate
         if not actions:
@@ -59,7 +60,7 @@ def action_execute_batch():
         # Execute main actions
         print(f"[@route:server_actions:action_execute_batch] Executing {len(actions)} main actions")
         for i, action in enumerate(actions):
-            result = execute_single_action(action, host, execution_order, i+1, 'main')
+            result = execute_single_action(action, host, device_id, execution_order, i+1, 'main')
             results.append(result)
             if result.get('success'):
                 passed_count += 1
@@ -72,7 +73,7 @@ def action_execute_batch():
         if main_actions_failed and retry_actions:
             print(f"[@route:server_actions:action_execute_batch] Main actions failed, executing {len(retry_actions)} retry actions")
             for i, retry_action in enumerate(retry_actions):
-                result = execute_single_action(retry_action, host, execution_order, i+1, 'retry')
+                result = execute_single_action(retry_action, host, device_id, execution_order, i+1, 'retry')
                 results.append(result)
                 if result.get('success'):
                     passed_count += 1
@@ -98,18 +99,19 @@ def action_execute_batch():
         print(f"[@route:server_actions:action_execute_batch] Error: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
-def execute_single_action(action, host, execution_order, action_number, action_category):
+def execute_single_action(action, host, device_id, execution_order, action_number, action_category):
     """Execute single action and return standardized result"""
     start_time = time.time()
     
     try:
         print(f"[@route:server_actions:execute_single_action] Executing {action_category} action {action_number}: {action.get('command')} with params {action.get('params', {})}")
         
-        # Proxy to existing remote command endpoint
+        # Proxy to existing remote command endpoint with device_id in JSON body
         response_data, status_code = proxy_to_host('/host/remote/executeCommand', 'POST', {
             'command': action.get('command'),
             'params': action.get('params', {}),
-            'wait_time': action.get('waitTime', 0)
+            'wait_time': action.get('waitTime', 0),
+            'device_id': device_id  # Include device_id in JSON body
         })
         
         execution_time = int((time.time() - start_time) * 1000)

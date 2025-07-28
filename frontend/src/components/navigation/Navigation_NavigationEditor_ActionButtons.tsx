@@ -38,6 +38,8 @@ export const NavigationEditorActionButtons: React.FC<NavigationEditorActionButto
       <ValidationButtonClient
         treeId={treeId}
         disabled={isLoading || !!error || !selectedHost || !selectedDeviceId || !isControlActive}
+        selectedHost={selectedHost}
+        selectedDeviceId={selectedDeviceId}
       />
 
       {/* Add Node Button */}

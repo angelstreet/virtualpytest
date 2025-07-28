@@ -70,8 +70,12 @@ const updateValidationState = (
   state.listeners.forEach((listener) => listener());
 };
 
-export const useValidation = (treeId: string) => {
-  const { selectedHost, selectedDeviceId } = useHostManager();
+export const useValidation = (treeId: string, providedHost?: any, providedDeviceId?: string | null) => {
+  const { selectedHost: contextHost, selectedDeviceId: contextDeviceId } = useHostManager();
+  
+  // Use provided values if available, otherwise fall back to context
+  const selectedHost = providedHost || contextHost;
+  const selectedDeviceId = providedDeviceId || contextDeviceId;
   const [, forceUpdate] = useState({});
 
   // Force re-render when state changes

@@ -21,12 +21,16 @@ interface ValidationProgressClientProps {
   treeId: string;
   onUpdateNode?: (nodeId: string, updatedData: any) => void;
   onUpdateEdge?: (edgeId: string, updatedData: any) => void;
+  selectedHost?: any;
+  selectedDeviceId?: string | null;
 }
 
 export const ValidationProgressClient: React.FC<ValidationProgressClientProps> = ({
   treeId,
+  selectedHost,
+  selectedDeviceId,
 }) => {
-  const validation = useValidation(treeId);
+  const validation = useValidation(treeId, selectedHost, selectedDeviceId);
 
   // Log component lifecycle
   useEffect(() => {
