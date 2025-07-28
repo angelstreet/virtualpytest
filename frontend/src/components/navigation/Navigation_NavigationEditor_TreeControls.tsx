@@ -3,13 +3,6 @@ import React from 'react';
 
 import { NavigationEditorTreeControlsProps } from '../../types/pages/NavigationHeader_Types';
 
-interface TreeNode {
-  id: string;
-  data?: {
-    label?: string;
-  };
-}
-
 export const NavigationEditorTreeControls: React.FC<NavigationEditorTreeControlsProps> = ({
   focusNodeId,
   availableFocusNodes,

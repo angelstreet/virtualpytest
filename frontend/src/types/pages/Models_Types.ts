@@ -5,7 +5,7 @@ export interface Model {
   types: string[];
   version: string;
   description: string;
-  controllers?: string[]; // Optional controllers array
+  controllers?: { [key: string]: string }; // Controller type -> value mapping
   created_at?: string;
   updated_at?: string;
 }
@@ -16,5 +16,5 @@ export interface ModelCreatePayload {
   types: string[];
   version: string;
   description: string;
-  controllers?: string[];
+  controllers?: { [key: string]: string };
 }

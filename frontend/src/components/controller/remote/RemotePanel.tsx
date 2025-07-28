@@ -73,8 +73,10 @@ export const RemotePanel = React.memo(
     // Load remote config for the device type
     useEffect(() => {
       const loadConfig = async () => {
-        const config = await loadRemoteConfig(deviceModel);
-        setRemoteConfig(config);
+        if (deviceModel) {
+          const config = await loadRemoteConfig(deviceModel);
+          setRemoteConfig(config);
+        }
       };
 
       loadConfig();
@@ -169,7 +171,20 @@ export const RemotePanel = React.memo(
     }, [streamContainerDimensions]);
 
     const renderRemoteComponent = useMemo(() => {
-      switch (deviceModel) {
+      if (!host || !deviceId) {
+        return (
+          <Box sx={{ p: 2, textAlign: 'center' }}>
+            <Typography variant="body2" color="textSecondary">
+              Remote controller requires host and device configuration
+            </Typography>
+          </Box>
+        );
+      }
+
+      const remoteType = deviceModel;
+      console.log(`[@component:RemotePanel] Rendering remote type: ${remoteType}`);
+
+      switch (remoteType) {
         case 'android_mobile':
           return (
             <AndroidMobileRemote

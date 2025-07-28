@@ -276,6 +276,7 @@ export const EdgeEditDialog: React.FC<EdgeEditDialogProps> = ({
                 onClick={() => {
                   const newAction = {
                     id: `retry_action_${Date.now()}`,
+                    label: '',
                     command: '',
                     action_type: 'remote' as const,
                     params: {},
