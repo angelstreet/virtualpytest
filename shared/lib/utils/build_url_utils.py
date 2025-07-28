@@ -167,25 +167,22 @@ def buildHostImageUrl(host_info: dict, image_path: str) -> str:
     
     return buildHostUrl(host_info, f'host/{clean_path}')
 
-def buildCloudImageUrl(bucket_name: str, image_path: str, base_url: str = None) -> str:
+def buildCloudImageUrl(bucket_name: str, image_path: str, base_url: str) -> str:
     """
     Build URL for images stored in cloud storage (R2, S3, etc.)
     
     Args:
         bucket_name: Cloud storage bucket name
         image_path: Path to image in cloud storage
-        base_url: Optional custom base URL (defaults to R2)
+        base_url: Required base URL (set CLOUDFLARE_R2_PUBLIC_URL env var)
         
     Returns:
         Complete URL to cloud-stored image
         
     Example:
-        buildCloudImageUrl('references', 'android_mobile/login_button.jpg')
-        -> 'https://r2-bucket-url/references/android_mobile/login_button.jpg'
+        buildCloudImageUrl('references', 'android_mobile/login_button.jpg', 'https://r2-bucket-url.com')
+        -> 'https://r2-bucket-url.com/references/android_mobile/login_button.jpg'
     """
-    if base_url is None:
-        raise ValueError("base_url is required. Set CLOUDFLARE_R2_PUBLIC_URL environment variable.")
-    
     # Clean the image path
     clean_path = image_path.lstrip('/')
     

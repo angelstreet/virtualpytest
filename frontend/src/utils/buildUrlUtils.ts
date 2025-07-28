@@ -138,16 +138,12 @@ export const buildHostImageUrl = (host: any, imagePath: string): string => {
 export const buildCloudImageUrl = (
   bucketName: string,
   imagePath: string,
-  baseUrl?: string,
+  baseUrl: string,
 ): string => {
-  if (!baseUrl) {
-    throw new Error('baseUrl is required. Set VITE_CLOUDFLARE_R2_PUBLIC_URL environment variable.');
-  }
-
   // Clean the image path
   const cleanPath = imagePath.startsWith('/') ? imagePath.slice(1) : imagePath;
 
-  return `${actualBaseUrl.replace(/\/$/, '')}/${bucketName}/${cleanPath}`;
+  return `${baseUrl.replace(/\/$/, '')}/${bucketName}/${cleanPath}`;
 };
 
 // =====================================================
