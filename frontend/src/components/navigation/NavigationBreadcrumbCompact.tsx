@@ -57,7 +57,7 @@ export const NavigationBreadcrumbCompact: React.FC<NavigationBreadcrumbCompactPr
           '&:hover': { color: '#2196f3' },
         }}
         onClick={onNavigateToRoot}
-        title="Go to root navigation"
+        titleAccess="Go to root navigation"
       />
       {/* Root Label - Clickable */}
       <Typography

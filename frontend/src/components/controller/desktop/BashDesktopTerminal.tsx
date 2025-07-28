@@ -27,7 +27,6 @@ export const BashDesktopTerminal = React.memo(function BashDesktopTerminal({
   const {
     currentCommand,
     isExecuting,
-    isDisconnecting,
     terminalOutput,
     executeCommand,
     handleDisconnect,
@@ -155,12 +154,12 @@ export const BashDesktopTerminal = React.memo(function BashDesktopTerminal({
         variant="contained"
         color="error"
         onClick={handleDisconnectWithCallback}
-        disabled={isDisconnecting}
+        disabled={isExecuting}
         fullWidth
         size="small"
         sx={{ mt: 1 }}
       >
-        {isDisconnecting ? 'Disconnecting...' : 'Disconnect'}
+        {isExecuting ? 'Disconnecting...' : 'Disconnect'}
       </Button>
     </Box>
   );

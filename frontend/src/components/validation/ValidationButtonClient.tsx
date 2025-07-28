@@ -15,7 +15,7 @@ import React, { useState } from 'react';
 import { useValidation } from '../../hooks/validation';
 import ValidationPreviewClient from './ValidationPreviewClient';
 import ValidationResultsClient from './ValidationResultsClient';
-import ValidationProgressClient from './ValidationProgressClient';
+import { ValidationProgressClient } from './ValidationProgressClient';
 
 interface ValidationButtonClientProps {
   treeId: string;

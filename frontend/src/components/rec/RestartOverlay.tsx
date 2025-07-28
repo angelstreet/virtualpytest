@@ -4,6 +4,7 @@ import React from 'react';
 interface RestartOverlayProps {
   sx?: any;
   timestamp?: string; // Timestamp to display
+  onRestart?: () => void;
 }
 
 // Format timestamp from YYYYMMDDHHMMSS to readable format
@@ -20,7 +21,7 @@ const formatTimestamp = (timestamp: string): string => {
   return `${day}/${month}/${year} ${hour}:${minute}:${second}`;
 };
 
-export const RestartOverlay: React.FC<RestartOverlayProps> = ({ sx, timestamp }) => {
+export const RestartOverlay: React.FC<RestartOverlayProps> = ({ timestamp }) => {
   return (
     <>
       {/* Timestamp overlay - top right */}

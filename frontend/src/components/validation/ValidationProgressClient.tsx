@@ -23,7 +23,9 @@ interface ValidationProgressClientProps {
   onUpdateEdge?: (edgeId: string, updatedData: any) => void;
 }
 
-const ValidationProgressClient: React.FC<ValidationProgressClientProps> = ({ treeId }) => {
+export const ValidationProgressClient: React.FC<ValidationProgressClientProps> = ({
+  treeId,
+}) => {
   const validation = useValidation(treeId);
 
   // Log component lifecycle
@@ -58,7 +60,7 @@ const ValidationProgressClient: React.FC<ValidationProgressClientProps> = ({ tre
   console.log('[@ValidationProgressClient] Showing progress dialog (SHARED)');
 
   const { progress } = validation;
-  const { currentStep, totalSteps, steps, isRunning } = progress;
+  const { currentStep, totalSteps, steps } = progress;
 
   // Get the current step being executed
   const currentStepData = steps.find((step) => step.status === 'running') || steps[currentStep - 1];
@@ -159,5 +161,3 @@ const ValidationProgressClient: React.FC<ValidationProgressClientProps> = ({ tre
     </Dialog>
   );
 };
-
-export default ValidationProgressClient;

@@ -141,10 +141,10 @@ export const VNCStream = React.memo(
       loadConfig();
     }, [effectiveDeviceModel]);
 
-    // Get configurable layout from AV config
+    // Get configurable layout from AV config - memoized to prevent infinite loops
     const panelLayout = useMemo(() => {
-      return getConfigurableAVPanelLayout(effectiveDeviceModel, avConfig);
-    }, [effectiveDeviceModel, avConfig]);
+      return getConfigurableAVPanelLayout(avConfig);
+    }, [avConfig]);
 
     // Use the VNC hook
     const {

@@ -8,7 +8,7 @@ import {
   Typography,
   CircularProgress,
 } from '@mui/material';
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 
 import { Host } from '../../types/common/Host_Types';
 import {

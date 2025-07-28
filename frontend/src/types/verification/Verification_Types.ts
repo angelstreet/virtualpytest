@@ -30,6 +30,8 @@ export interface ImageVerificationParams {
 // Text verification parameters
 export interface TextVerificationParams {
   text: string; // Required: text pattern to search for
+  threshold?: number; // Optional: match threshold (0.0 to 1.0)
+  confidence?: number; // Optional: confidence level (0.0 to 1.0)
   timeout?: number; // Optional: timeout in seconds, default 10.0
   case_sensitive?: boolean; // Optional: case sensitive matching, default false
   area?: ReferenceArea; // Optional: area to search within
@@ -54,6 +56,7 @@ export interface AudioVerificationParams {
   // For detect_silence command
   threshold?: number; // Optional: silence threshold percentage
   duration?: number; // Optional: analysis duration in seconds
+  timeout?: number; // Optional: timeout in seconds
   audio_file?: string; // Optional: audio file path
 
   // For verify_audio_playing command
@@ -70,6 +73,7 @@ export interface VideoVerificationParams {
   motion_threshold?: number; // Optional: motion threshold percentage
   duration?: number; // Optional: analysis duration in seconds
   timeout?: number; // Optional: timeout in seconds
+  area?: ReferenceArea; // Optional: area to search within
 
   // For color verification
   color?: string; // Required for color verification: color name or hex
@@ -114,6 +118,7 @@ interface BaseVerification {
   imageFilter?: 'none' | 'greyscale' | 'binary';
   // Language detection for text verifications
   detectedLanguage?: string;
+  ocrConfidence?: number; // OCR confidence score (0.0 to 1.0)
   languageConfidence?: number;
 
   // ADB-specific result data

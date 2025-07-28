@@ -11,7 +11,7 @@ import {
 import { useDeviceControl } from '../useDeviceControl';
 import { useHostManager } from '../useHostManager';
 
-import { getRemoteConfig } from './useRemoteConfigs';
+import { REMOTE_CONFIGS } from './useRemoteConfigs';
 
 // Simplified connection form - no SSH fields needed with abstract controller
 const initialConnectionForm: ConnectionForm = {
@@ -50,7 +50,7 @@ export function useRemoteConnection(remoteType: RemoteType) {
   const [androidApps, setAndroidApps] = useState<AndroidApp[]>([]);
 
   // Get device configuration
-  const deviceConfig = getRemoteConfig(remoteType);
+  const deviceConfig = REMOTE_CONFIGS[remoteType as keyof typeof REMOTE_CONFIGS];
 
   // Debug logging for device configuration
   useEffect(() => {

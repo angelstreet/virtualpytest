@@ -1,8 +1,9 @@
-import { RemoteLayoutConfig } from './remotePanelLayout';
+import { ConfigurableRemotePanelLayout } from './remotePanelLayout';
 
-export interface AppiumRemoteConfig extends RemoteLayoutConfig {
+export interface AppiumRemoteConfig extends ConfigurableRemotePanelLayout {
   containerWidth: number;
   platformSupport: string[];
+  panel_layout?: any;
   automationFrameworks: string[];
   deviceCapabilities: {
     [platform: string]: {

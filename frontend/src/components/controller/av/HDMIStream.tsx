@@ -77,8 +77,8 @@ export const HDMIStream = React.memo(
 
     // Get configurable layout from AV config - memoized to prevent infinite loops
     const panelLayout = useMemo(() => {
-      return getConfigurableAVPanelLayout(effectiveDeviceModel, avConfig);
-    }, [effectiveDeviceModel, avConfig]);
+      return getConfigurableAVPanelLayout(avConfig);
+    }, [avConfig]);
 
     // Use the existing hook with our fetched stream data
     const {

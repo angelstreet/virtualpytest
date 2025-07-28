@@ -7,7 +7,6 @@ export const useBashDesktop = (host: Host, _deviceId: string) => {
   const [terminalOutput, setTerminalOutput] = useState<string>('');
   const [currentCommand, setCurrentCommand] = useState('');
   const [isExecuting, setIsExecuting] = useState(false);
-  const [isDisconnecting, setIsDisconnecting] = useState(false);
   const terminalRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll terminal to bottom
@@ -94,7 +93,6 @@ export const useBashDesktop = (host: Host, _deviceId: string) => {
     terminalOutput,
     currentCommand,
     isExecuting,
-    isDisconnecting,
 
     // Actions
     executeCommand,

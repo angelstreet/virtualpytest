@@ -43,10 +43,7 @@ export interface ConfigurableAVPanelLayout {
  * @param avConfig The loaded AV configuration object
  * @returns ConfigurableAVPanelLayout with device-specific or default settings
  */
-export const getConfigurableAVPanelLayout = (
-  deviceModel: string,
-  avConfig: any,
-): ConfigurableAVPanelLayout => {
+export const getConfigurableAVPanelLayout = (avConfig: any): ConfigurableAVPanelLayout => {
   // Default fallback layout
   const defaultLayout: ConfigurableAVPanelLayout = {
     collapsed: {

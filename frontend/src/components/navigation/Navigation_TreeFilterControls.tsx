@@ -9,7 +9,7 @@ import {
   Chip,
   Tooltip,
 } from '@mui/material';
-import React, { useMemo } from 'react';
+import React from 'react';
 
 interface TreeFilterControlsProps {
   // Focus node selection
@@ -39,19 +39,6 @@ export const TreeFilterControls: React.FC<TreeFilterControlsProps> = ({
   totalNodes,
   visibleNodes,
 }) => {
-  // Get depth information for the current focus node
-  const focusNodeInfo = useMemo(() => {
-    if (!focusNodeId || !allNodes) return null;
-
-    const focusNode = allNodes.find((node) => node.id === focusNodeId);
-    if (!focusNode) return null;
-
-    return {
-      node: focusNode,
-      depth: focusNode.depth || 0,
-    };
-  }, [focusNodeId, allNodes]);
-
   // Generate dynamic depth menu items
   const generateDepthMenuItems = () => {
     const items = [];

@@ -1,5 +1,3 @@
-import { getZIndex } from '../../utils/zIndexUtils';
-
 export const androidMobileRemoteConfig = {
   remote_info: {
     name: 'Android Mobile',

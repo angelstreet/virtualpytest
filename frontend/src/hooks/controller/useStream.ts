@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 
-import { Host } from '../types/common/Host_Types';
+import { Host } from '../../types/common/Host_Types';
 
 interface UseStreamProps {
   host: Host;

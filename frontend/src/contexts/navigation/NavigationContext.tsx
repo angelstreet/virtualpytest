@@ -222,6 +222,7 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
     verifications: [],
   });
   const [edgeForm, setEdgeForm] = useState<EdgeForm>({
+    edgeId: '',
     actions: [],
     retryActions: [],
     finalWaitTime: 2000,
@@ -485,6 +486,7 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
       verifications: [],
     });
     setEdgeForm({
+      edgeId: '',
       actions: [],
       retryActions: [],
       finalWaitTime: 2000,
@@ -520,6 +522,7 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
       verifications: [],
     });
     setEdgeForm({
+      edgeId: '',
       actions: [],
       retryActions: [],
       finalWaitTime: 2000,
@@ -557,6 +560,7 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
     if (edge) {
       setSelectedEdge(edge);
       setEdgeForm({
+        edgeId: edge.id,
         actions: edge.data?.actions || [],
         retryActions: edge.data?.retryActions || [], // Include retry actions from edge data
         finalWaitTime: edge.data?.finalWaitTime || 2000,

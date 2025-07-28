@@ -44,9 +44,9 @@ export const useAppiumRemote = (host: Host, deviceId?: string): UseAppiumRemoteR
   const [selectedElement, setSelectedElement] = useState('');
   const [selectedApp, setSelectedApp] = useState('');
   const [isDumpingUI, setIsDumpingUI] = useState(false);
-  const [isDisconnecting, setIsDisconnecting] = useState(false);
+  const [isDisconnecting] = useState(false);
   const [isRefreshingApps, setIsRefreshingApps] = useState(false);
-  const [detectedPlatform, setDetectedPlatform] = useState<string | null>(null);
+  const [detectedPlatform] = useState<string | null>(null);
 
   // Session state - internal connection management
   const [session, setSession] = useState<AppiumSession>({

@@ -12,7 +12,6 @@ interface UseVncStreamProps {
 
 export function useVncStream({
   host,
-  deviceModel = 'host_vnc',
   streamUrl: providedStreamUrl = '',
   isStreamActive: providedIsStreamActive = false,
 }: UseVncStreamProps): VncStreamState & VncStreamActions {
