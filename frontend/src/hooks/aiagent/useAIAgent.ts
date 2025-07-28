@@ -77,7 +77,7 @@ export const useAIAgent = ({ host, device, enabled = true }: UseAIAgentProps): U
       const result = await response.json();
       console.log('[useAIAgent] Task execution result:', result);
 
-      if (result.success) {
+      if (response.ok && result.success) {
         // Update initial state from the response
         setCurrentStep(result.current_step || 'Plan generated');
         setExecutionLog(result.execution_log || []);
@@ -181,7 +181,12 @@ export const useAIAgent = ({ host, device, enabled = true }: UseAIAgentProps): U
         // Start polling in background
         pollStatus();
       } else {
-        setErrorMessage(result.error || 'Failed to start task execution');
+        // Handle both HTTP errors and execution failures
+        const errorMessage = !response.ok 
+          ? (result.error || `HTTP ${response.status}: ${response.statusText}`)
+          : (result.error || 'Failed to start task execution');
+        
+        setErrorMessage(errorMessage);
         setCurrentStep('Task execution failed');
         setExecutionLog(result.execution_log || []);
         setIsPlanFeasible(false);
@@ -216,9 +221,12 @@ export const useAIAgent = ({ host, device, enabled = true }: UseAIAgentProps): U
       const result = await response.json();
       console.log('[useAIAgent] Stop execution result:', result);
 
-      if (result.success) {
+      if (response.ok && result.success) {
         setCurrentStep('Stopped by user');
         setExecutionLog(result.execution_log || []);
+      } else if (!response.ok) {
+        console.error('[useAIAgent] Stop execution HTTP error:', response.status, result.error);
+        setErrorMessage(result.error || `HTTP ${response.status}: Failed to stop execution`);
       }
     } catch (error) {
       console.error('[useAIAgent] Stop execution error:', error);

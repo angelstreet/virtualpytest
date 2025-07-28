@@ -168,8 +168,12 @@ def execute_task():
             userinterface_name=userinterface_name
         )
         
+        # Determine appropriate status code based on execution result
+        success = result.get('success', False)
+        status_code = 200 if success else 400
+        
         return jsonify({
-            'success': result.get('success', False),
+            'success': success,
             'message': result.get('message', ''),
             'error': result.get('error'),
             'execution_log': result.get('execution_log', []),
@@ -177,7 +181,7 @@ def execute_task():
             'suggested_action': result.get('suggested_action'),
             'suggested_verification': result.get('suggested_verification'),
             'device_id': device_id
-        })
+        }), status_code
         
     except Exception as e:
         print(f"[@route:host_aiagent:execute_task] Error: {str(e)}")
@@ -239,12 +243,16 @@ def stop_execution():
         # Stop execution using AI controller
         result = ai_controller.stop_execution()
         
+        # Determine appropriate status code based on stop result
+        success = result.get('success', False)
+        status_code = 200 if success else 400
+        
         return jsonify({
-            'success': result.get('success', False),
+            'success': success,
             'message': result.get('message', ''),
             'execution_log': result.get('execution_log', []),
             'device_id': device_id
-        })
+        }), status_code
         
     except Exception as e:
         print(f"[@route:host_aiagent:stop_execution] Error: {str(e)}")
