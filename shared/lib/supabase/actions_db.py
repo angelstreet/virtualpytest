@@ -36,27 +36,12 @@ def find_existing_action(team_id: str, device_model: str, action_type: str, comm
         result = query.execute()
         
         if result.data and len(result.data) > 0:
-            # Check for parameter match, ignoring wait_time for comparison
-            input_params = parameters or {}
-            input_params_without_wait = {k: v for k, v in input_params.items() if k != 'wait_time'}
-            
-            for action in result.data:
-                existing_params = action.get('params', {})
-                existing_params_without_wait = {k: v for k, v in existing_params.items() if k != 'wait_time'}
-                
-                # Compare parameters excluding wait_time - timeout changes should update existing action
-                if existing_params_without_wait == input_params_without_wait:
-                    print(f"[@db:actions:find_existing_action] Found existing action with matching core params: {action['id']}")
-                    return {
-                        'success': True,
-                        'action': action
-                    }
-            
-            # No parameter match found
-            print(f"[@db:actions:find_existing_action] No existing action found with matching core params for: {command} ({action_type})")
+            # Found existing action with same basic criteria - return first match
+            existing_action = result.data[0]
+            print(f"[@db:actions:find_existing_action] Found existing action: {existing_action['id']}")
             return {
                 'success': True,
-                'action': None
+                'action': existing_action
             }
         else:
             # No existing action found
