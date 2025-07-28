@@ -191,7 +191,7 @@ const EditDeviceDialog: React.FC<EditDeviceDialogProps> = ({
 
       case 2: // Controller Configuration
         // Validate each controller configuration
-        Object.entries(formData.controllerConfigs).forEach(([controllerType, config]) => {
+        Object.entries(formData.controllerConfigs || {}).forEach(([controllerType, config]) => {
           if (config.implementation) {
             const validation = validateParameters(
               controllerType as any,
@@ -304,7 +304,7 @@ const EditDeviceDialog: React.FC<EditDeviceDialogProps> = ({
         return !!formData.model;
       case 2:
         return (
-          Object.keys(formData.controllerConfigs).length > 0 ||
+          Object.keys(formData.controllerConfigs || {}).length > 0 ||
           Boolean(
             selectedModel && Object.values(selectedModel.controllers || []).every((c) => !c || c === ''),
           )

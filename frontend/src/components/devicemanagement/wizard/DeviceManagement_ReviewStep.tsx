@@ -216,14 +216,14 @@ export const ReviewStep: React.FC<ReviewStepProps> = ({ formData, selectedModel,
           <Typography variant="h6" gutterBottom>
             Controllers Configuration
           </Typography>
-          {Object.keys(formData.controllerConfigs).length === 0 ? (
+          {Object.keys(formData.controllerConfigs || {}).length === 0 ? (
             <Alert severity="info">
               No controllers configured. The device will be created without controller
               functionality.
             </Alert>
           ) : (
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              {Object.entries(formData.controllerConfigs).map(([controllerType, config]) => (
+              {Object.entries(formData.controllerConfigs || {}).map(([controllerType, config]) => (
                 <div key={controllerType}>{renderControllerSummary(controllerType, config)}</div>
               ))}
             </Box>

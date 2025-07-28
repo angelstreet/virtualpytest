@@ -81,7 +81,7 @@ export const ControllerConfigurationStep: React.FC<ControllerConfigurationStepPr
             controllerType={type}
             controllerImplementation={value}
             currentConfig={
-              formData.controllerConfigs[type] || { implementation: '', parameters: {} }
+              (formData.controllerConfigs || {})[type] || { implementation: '', parameters: {} }
             }
             onConfigUpdate={(implementation, parameters) =>
               handleControllerConfigUpdate(type, implementation, parameters)

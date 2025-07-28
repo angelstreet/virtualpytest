@@ -365,9 +365,9 @@ const DeviceManagement: React.FC = () => {
       return { count: 0, summary: 'No controllers configured', types: [] };
     }
 
-    const configuredControllers = Object.keys(device.controllerConfigs).filter(
+    const configuredControllers = Object.keys(device.controllerConfigs || {}).filter(
       (key) =>
-        device.controllerConfigs[key] &&
+        device.controllerConfigs?.[key] &&
         typeof device.controllerConfigs[key] === 'object' &&
         device.controllerConfigs[key].implementation,
     );

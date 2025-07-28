@@ -142,7 +142,7 @@ export interface DeviceFormData {
   name: string;
   description: string;
   model: string;
-  controllerConfigs: {
+  controllerConfigs?: {
     [controllerType: string]: {
       implementation: string;
       parameters: { [key: string]: any };

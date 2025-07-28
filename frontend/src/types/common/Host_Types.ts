@@ -41,7 +41,7 @@ export interface Device {
   device_id: string; // Device identifier (device1, device2, etc.)
   device_name: string; // Device display name (matches server format)
   device_model: string; // Device model for controller configuration (matches server format)
-  device_description?: string; // Optional device description
+  device_description?: string; // Device description (for EditDialog compatibility)
   device_ip?: string; // Device IP address (for ADB/device control)
   device_port?: string; // Device port (for ADB/device control)
   device_capabilities: DeviceCapabilities; // New detailed capability format (matches server format)
@@ -49,12 +49,11 @@ export interface Device {
   controller_configs?: {
     [controllerType: string]: {
       implementation: string;
-      type: string;
-      parameters: any;
+      parameters: { [key: string]: any };
       capabilities?: any[];
       connectionConfig?: any;
     };
-  }; // Controller configurations
+  }; // Controller configurations (for EditDialog compatibility)
 
   // === DEVICE-LEVEL VERIFICATION AND ACTIONS ===
   device_verification_types?: Verifications; // Device verification types (simplified naming)
@@ -65,13 +64,7 @@ export interface Host {
   // === PRIMARY IDENTIFICATION ===
   host_name: string; // Host machine name (primary identifier)
   description?: string; // Optional description
-
-  // === NETWORK CONFIGURATION ===
-  host_url: string; // Host base URL (e.g., https://virtualpytest.com or http://localhost:6109)
-  host_port: number; // Host port number
-
-  // === DEVICE CONFIGURATION ===
-  device_model?: string; // Device model for controller configuration
+  device_model?: string; // Device model for backward compatibility
   controller_configs?: {
     [controllerType: string]: {
       implementation: string;
@@ -81,6 +74,10 @@ export interface Host {
       connectionConfig?: any;
     };
   }; // Controller configurations
+
+  // === NETWORK CONFIGURATION ===
+  host_url: string; // Host base URL (e.g., https://virtualpytest.com or http://localhost:6109)
+  host_port: number; // Host port number
 
   // === MULTI-DEVICE CONFIGURATION ===
   devices: Device[]; // Array of devices controlled by this host
