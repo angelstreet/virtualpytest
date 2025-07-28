@@ -184,8 +184,7 @@ def buildCloudImageUrl(bucket_name: str, image_path: str, base_url: str = None) 
         -> 'https://r2-bucket-url/references/android_mobile/login_button.jpg'
     """
     if base_url is None:
-        # Default to R2 URL pattern - this should be configurable via environment
-        base_url = "https://your-r2-domain.com"  # TODO: Make this configurable
+        raise ValueError("base_url is required. Set CLOUDFLARE_R2_PUBLIC_URL environment variable.")
     
     # Clean the image path
     clean_path = image_path.lstrip('/')

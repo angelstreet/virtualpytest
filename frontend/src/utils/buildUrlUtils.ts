@@ -140,8 +140,9 @@ export const buildCloudImageUrl = (
   imagePath: string,
   baseUrl?: string,
 ): string => {
-  const defaultBaseUrl = 'https://your-r2-domain.com'; // TODO: Make this configurable via environment
-  const actualBaseUrl = baseUrl || defaultBaseUrl;
+  if (!baseUrl) {
+    throw new Error('baseUrl is required. Set VITE_CLOUDFLARE_R2_PUBLIC_URL environment variable.');
+  }
 
   // Clean the image path
   const cleanPath = imagePath.startsWith('/') ? imagePath.slice(1) : imagePath;
