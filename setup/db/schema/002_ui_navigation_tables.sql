@@ -5,11 +5,9 @@
 CREATE TABLE userinterfaces (
     id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
     name character varying NOT NULL,
-    models uuid[] DEFAULT '{}'::uuid[],
+    models text[] NOT NULL DEFAULT '{}'::text[],
     min_version character varying,
     max_version character varying,
-    description text,
-    config jsonb DEFAULT '{}'::jsonb,
     team_id uuid NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now()
