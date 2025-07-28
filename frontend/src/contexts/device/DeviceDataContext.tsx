@@ -280,13 +280,20 @@ export const DeviceDataProvider: React.FC<DeviceDataProviderProps> = ({ children
         // Get available actions directly from device data in the host payload
         const categorizedActions: Actions = {};
 
+        console.log('[DeviceDataContext] fetchAvailableActions - Debug info:');
+        console.log('Current host:', state.currentHost);
+        console.log('Current devices:', state.currentHost.devices);
+        
         // Process all devices in the host
         state.currentHost.devices?.forEach((device: any) => {
+          console.log(`[DeviceDataContext] Processing device: ${device.device_id}`, device);
           const deviceActionTypes = device.device_action_types || {};
+          console.log(`[DeviceDataContext] Device action types for ${device.device_id}:`, deviceActionTypes);
 
           // Process each action category (remote, av, power, etc.)
           Object.keys(deviceActionTypes).forEach((category) => {
             const actions = deviceActionTypes[category];
+            console.log(`[DeviceDataContext] Processing category ${category}:`, actions);
             if (Array.isArray(actions)) {
               if (!categorizedActions[category]) {
                 categorizedActions[category] = [];
@@ -308,6 +315,8 @@ export const DeviceDataProvider: React.FC<DeviceDataProviderProps> = ({ children
             }
           });
         });
+
+        console.log('[DeviceDataContext] Final categorized actions:', categorizedActions);
 
         // Available actions loaded successfully
 
