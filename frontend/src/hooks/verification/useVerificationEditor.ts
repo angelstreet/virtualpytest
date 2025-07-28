@@ -36,6 +36,7 @@ interface UseVerificationEditorProps {
   onAreaSelected?: (area: DragArea) => void;
   onClearSelection?: () => void;
   isCaptureActive?: boolean;
+  isControlActive?: boolean; // Add control state to trigger reference fetching
 }
 
 export const useVerificationEditor = ({
@@ -47,6 +48,7 @@ export const useVerificationEditor = ({
   onAreaSelected: _onAreaSelected,
   onClearSelection: _onClearSelection,
   isCaptureActive,
+  isControlActive: _isControlActive = false, // Default to false if not provided
 }: UseVerificationEditorProps) => {
   // Get the selected device from the host's devices array
   const selectedDevice = useMemo(() => {

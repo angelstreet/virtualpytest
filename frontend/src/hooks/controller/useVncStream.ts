@@ -12,6 +12,7 @@ interface UseVncStreamProps {
 
 export function useVncStream({
   host,
+  deviceModel: _deviceModel = 'host_vnc',
   streamUrl: providedStreamUrl = '',
   isStreamActive: providedIsStreamActive = false,
 }: UseVncStreamProps): VncStreamState & VncStreamActions {
@@ -97,8 +98,8 @@ export function useVncStream({
   }, []);
 
   const canCapture = isStreamActive && !isCaptureActive;
-  const canSave = hasCaptured && capturedReferenceImage;
-  const allowSelection: boolean = captureMode === 'screenshot' || captureMode === 'video';
+  const canSave = hasCaptured && !!capturedReferenceImage;
+  const allowSelection = captureMode === 'screenshot' || captureMode === 'video';
 
   // Area selection handler
   const handleAreaSelected = useCallback((area: DragArea) => {

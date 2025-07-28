@@ -1,8 +1,7 @@
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+
 import {
   Computer as ComputerIcon,
-  CheckCircle as CheckCircleIcon,
-  Error as ErrorIcon,
-  Pending as PendingIcon,
   TableRows as TableViewIcon,
   Refresh as RefreshIcon,
   Assignment as TestIcon,
@@ -42,7 +41,6 @@ import {
   AccordionSummary,
   AccordionDetails,
 } from '@mui/material';
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
 
 import { useHostManager } from '../hooks/useHostManager';
 import { TestCase, Campaign, Tree } from '../types';
