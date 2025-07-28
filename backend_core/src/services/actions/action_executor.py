@@ -173,7 +173,7 @@ class ActionExecutor:
             # Return standardized result (same format as API)
             return {
                 'success': success,
-                'message': f"{action.get('name', action.get('command'))} completed successfully",
+                'message': f"{action.get('label', action.get('command'))}",
                 'error': response_data.get('error') if not success else None,
                 'resultType': 'PASS' if success else 'FAIL',
                 'execution_time_ms': execution_time,
@@ -194,7 +194,7 @@ class ActionExecutor:
             
             return {
                 'success': False,
-                'message': f"{action.get('name', action.get('command'))} failed with error: {str(e)}",
+                'message': f"{action.get('label', action.get('command'))}",
                 'error': str(e),
                 'resultType': 'FAIL',
                 'execution_time_ms': execution_time,

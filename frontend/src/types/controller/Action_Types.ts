@@ -60,7 +60,7 @@ export type ActionParams =
 // Base action interface
 interface BaseAction {
   id: string; // Required: unique action identifier
-  name: string; // Required: human-readable name (matches database format)
+  label: string; // Required: human-readable label
   command: string; // Required: command to execute
   description: string; // Required: action description
   action_type: 'remote' | 'av' | 'power' | 'network'; // Required: type of action
@@ -154,12 +154,13 @@ export function supportsActionController(
 // Edge action for navigation workflows (used in EdgeEditDialog)
 export interface EdgeAction {
   id: string;
-  name: string; // Use 'name' to match database format
+  label: string;
   command: string;
   action_type: 'remote' | 'av' | 'power' | 'network'; // Required: type of action
-  params: ActionParams & { wait_time?: number }; // wait_time stored in params to match database
+  params: ActionParams;
   requiresInput?: boolean;
   inputValue?: string;
+  waitTime: number; // Required field to match Navigation_Types expectation
 
   // Execution results
   success?: boolean;

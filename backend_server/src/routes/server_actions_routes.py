@@ -125,7 +125,7 @@ def execute_single_action(action, host, device_id, execution_order, action_numbe
             'execution_type': 'remote_action',
             'initiator_type': 'edge',
             'initiator_id': action.get('id', 'unknown'),
-            'initiator_name': action.get('name', action.get('command', 'Unknown Action')),
+            'initiator_name': action.get('label', action.get('command', 'Unknown Action')),
             'host_name': host.get('host_name'),
             'device_model': host.get('device_model'),
             'command': action.get('command'),
@@ -140,7 +140,7 @@ def execute_single_action(action, host, device_id, execution_order, action_numbe
         # Return standardized result (same format as verification)
         return {
             'success': success,
-            'message': f"{action.get('name', action.get('command'))} completed successfully",
+            'message': f"{action.get('label', action.get('command'))}",
             'error': response_data.get('error') if not success else None,
             'resultType': 'PASS' if success else 'FAIL',
             'execution_time_ms': execution_time,
@@ -154,7 +154,7 @@ def execute_single_action(action, host, device_id, execution_order, action_numbe
         
         return {
             'success': False,
-            'message': f"{action.get('name', action.get('command'))} failed with error: {str(e)}",
+            'message': f"{action.get('label', action.get('command'))}",
             'error': str(e),
             'resultType': 'FAIL',
             'execution_time_ms': execution_time,
@@ -164,7 +164,7 @@ def execute_single_action(action, host, device_id, execution_order, action_numbe
                 'execution_type': 'remote_action',
                 'initiator_type': 'edge',
                 'initiator_id': action.get('id', 'unknown'),
-                'initiator_name': action.get('name', action.get('command', 'Unknown Action')),
+                'initiator_name': action.get('label', action.get('command', 'Unknown Action')),
                 'host_name': host.get('host_name'),
                 'device_model': host.get('device_model'),
                 'command': action.get('command'),
@@ -661,7 +661,7 @@ def get_actions_by_ids():
         
         for action in all_actions:
             if action.get('id') in action_ids:
-                requested_actions.append(action) # Return raw data
+                requested_actions.append(action)
                 found_ids.add(action.get('id'))
         
         # Log any missing IDs

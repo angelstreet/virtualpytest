@@ -65,7 +65,7 @@ def execute_task():
                     base_params = action.get('params', {})
                     original_description = action.get('description', '')
                     action_id = action.get('id', '')
-                    label = action.get('name', '')
+                    label = action.get('label', '')
                     
                     # Create AI-friendly action name and description
                     ai_action_name = label if label else base_command

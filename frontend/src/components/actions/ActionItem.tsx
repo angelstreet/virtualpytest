@@ -71,7 +71,7 @@ export const ActionItem: React.FC<ActionItemProps> = ({
     const fields = [];
     const params = action.params as any;
 
-    // Common wait_time field for all actions (stored in params to match database format)
+    // Common wait_time field for all actions
     fields.push(
       <TextField
         key="wait_time"
@@ -81,12 +81,7 @@ export const ActionItem: React.FC<ActionItemProps> = ({
         value={params?.wait_time ?? 500}
         onChange={(e) => {
           const value = parseInt(e.target.value);
-          onUpdateAction(index, {
-            params: {
-              ...params,
-              wait_time: isNaN(value) ? 500 : value,
-            },
-          });
+          handleParamChange('wait_time', isNaN(value) ? 0 : value);
         }}
         inputProps={{ min: 0, max: 10000, step: 100 }}
         sx={{
@@ -354,12 +349,12 @@ export const ActionItem: React.FC<ActionItemProps> = ({
               },
             }}
             renderValue={(selected) => {
-              // Find the selected action and return its name
+              // Find the selected action and return its label
               const selectedAction = Object.values(availableActions)
                 .flat()
                 .find((act) => act.id === selected);
               if (selectedAction) {
-                return selectedAction.name;
+                return selectedAction.label;
               }
               return selected;
             }}
@@ -388,7 +383,7 @@ export const ActionItem: React.FC<ActionItemProps> = ({
                     value={actionDef.id}
                     sx={{ pl: 3, fontSize: '0.7rem', minHeight: '20px' }}
                   >
-                    {actionDef.name}
+                    {actionDef.label}
                   </MenuItem>
                 )),
               ];
