@@ -283,7 +283,7 @@ def execute_script():
                 
                 result = response.json()
                 
-                if response.status_code != 200:
+                if response.status_code not in [200, 202]:
                     # Host execution failed, complete task with error
                     print(f"[@route:server_script:execute_script] Host execution failed for task {task_id}")
                     task_manager.complete_task(task_id, {}, error=result.get('error', 'Host execution failed'))
