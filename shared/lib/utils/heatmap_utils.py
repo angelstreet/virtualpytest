@@ -417,8 +417,37 @@ def upload_to_r2(image: Image.Image, filename: str) -> Optional[str]:
         print(f"[@heatmap_utils] Failed to upload to R2: {e}")
         return None
 
+def process_single_image(image_info: Dict, timestamp: str) -> Optional[Dict]:
+    """
+    Processes a single image from a host/device.
+    Returns a dictionary containing processed image data or None if processing fails.
+    """
+    try:
+        # Use pre-downloaded image data (no more HTTP requests to hosts)
+        image_data = image_info.get('image_data')
+        
+        if image_data:
+            # Use actual analysis data (guaranteed to exist from host)
+            analysis_json = image_info.get('analysis_json')
+            
+            processed_image = {
+                'host_name': image_info['host_name'],
+                'device_id': image_info['device_id'],
+                'image_data': image_data,
+                'analysis_json': analysis_json,
+                'original_timestamp': image_info.get('original_timestamp', timestamp)
+            }
+            return processed_image
+        else:
+            print(f"[@heatmap_utils] No image data for {image_info['host_name']}: skipping device (no fallbacks)")
+            return None
+    except Exception as e:
+        print(f"[@heatmap_utils] Error processing single image data for {image_info['host_name']}: {e}")
+        return None
+
 def process_heatmap_generation(job_id: str, images_by_timestamp: Dict[str, List[Dict]], incidents: List[Dict], team_id: str):
     """Process heatmap generation in background thread"""
+    job = None
     try:
         # Set low process priority to limit CPU usage
         set_low_priority()
@@ -433,12 +462,14 @@ def process_heatmap_generation(job_id: str, images_by_timestamp: Dict[str, List[
         # Mark job as processing
         with job_lock:
             if job_id not in active_jobs:
-                print(f"[@heatmap_utils] Job {job_id} not found, exiting")
+                print(f"[@heatmap_utils] ERROR: Job {job_id} not found, exiting")
                 return
             
             job = active_jobs[job_id]
             job.status = 'processing'
             job.start_time = datetime.now()  # Record when processing actually started
+        
+        print(f"[@heatmap_utils] Processing {total_timestamps} timestamp buckets for job {job_id}")
         
         for i, timestamp in enumerate(timestamps):
             print(f"[@heatmap_utils] Processing timestamp bucket: {timestamp} with {len(images_by_timestamp[timestamp])} images")
@@ -452,194 +483,194 @@ def process_heatmap_generation(job_id: str, images_by_timestamp: Dict[str, List[
             images_data = images_by_timestamp[timestamp]
             processed_images = []  # For this timestamp
             
-            for image_info in images_data:
-                print(f"[@heatmap_utils:process_heatmap_generation] Processing {image_info['host_name']} {image_info['device_id']}: analysis_json={image_info.get('analysis_json')}")
-                
-                # Host endpoint now guarantees all images have analysis_json, so no need to filter
-                try:
-                    # Use pre-downloaded image data (no more HTTP requests to hosts)
-                    image_data = image_info.get('image_data')
-                    
-                    if image_data:
-                        # Use actual analysis data (guaranteed to exist from host)
-                        analysis_json = image_info.get('analysis_json')
-                        
-                        processed_image = {
-                            'host_name': image_info['host_name'],
-                            'device_id': image_info['device_id'],
-                            'image_data': image_data,
-                            'analysis_json': analysis_json,
-                            'original_timestamp': image_info.get('original_timestamp', timestamp)
-                        }
-                        processed_images.append(processed_image)
-                        all_processed_images.append(processed_image)  # Add to global collection
-                        
-                    else:
-                        print(f"[@heatmap_utils] No image data for {image_info['host_name']}: skipping device (no fallbacks)")
-                        # Skip devices with no image data - no placeholders, no fallbacks
-                        
-                except Exception as e:
-                    print(f"[@heatmap_utils] Error processing data for {image_info['host_name']}: {e}")
-                    # Skip devices with errors - no placeholders, no fallbacks
-            
-            if not processed_images:
-                print(f"[@heatmap_utils] No images processed for timestamp {timestamp}, skipping")
-                continue
-            
-            # Create mosaic for this timestamp
-            mosaic_image = create_mosaic_image(processed_images)
-            
-            # Create metadata (exclude binary data to avoid JSON serialization errors)
-            serializable_analysis = []
-            for img in processed_images:
-                serializable_analysis.append({
-                    'host_name': img.get('host_name'),
-                    'device_id': img.get('device_id'),
-                    'has_image': img.get('image_data') is not None,
-                    'analysis_json': img.get('analysis_json', {}),
-                    'error': img.get('error')
-                })
-            
-            metadata = {
-                'timestamp': timestamp,
-                'hosts_included': len([img for img in processed_images if img.get('image_data')]),
-                'hosts_total': len(processed_images),
-                'analysis_data': serializable_analysis,  # Only serializable data
-                'incidents': [inc for inc in incidents if timestamp in inc.get('start_time', '')],
-                'generated_at': datetime.now().isoformat()
-            }
-            
-            # Upload to R2 - no fallbacks
             try:
-                from utils.cloudflare_utils import get_cloudflare_utils
-                uploader = get_cloudflare_utils()
-                
-                # Save mosaic to temp file
-                temp_path = f"/tmp/heatmap_{timestamp}_{job_id}.jpg"
-                mosaic_image.save(temp_path, 'JPEG', quality=85)
-                
-                # Save metadata to temp file
-                temp_json_path = f"/tmp/heatmap_{timestamp}_{job_id}.json"
-                with open(temp_json_path, 'w') as f:
-                    json.dump(metadata, f, indent=2)
-                
-                # Upload mosaic image
-                mosaic_r2_path = f"heatmaps/{timestamp}/mosaic.jpg"
-                mosaic_upload = uploader.upload_file(temp_path, mosaic_r2_path)
-                
-                # Upload metadata JSON
-                metadata_r2_path = f"heatmaps/{timestamp}/metadata.json"
-                metadata_upload = uploader.upload_file(temp_json_path, metadata_r2_path)
-                
-                # Only proceed if uploads succeed (no individual HTML generation)
-                if mosaic_upload['success'] and metadata_upload['success']:
-                    # Save to database using passed team_id
-                    from shared.lib.supabase.heatmap_db import save_heatmap_to_db
+                for image_info in images_data:
+                    print(f"[@heatmap_utils:process_heatmap_generation] Processing {image_info['host_name']} {image_info['device_id']}: analysis_json={image_info.get('analysis_json')}")
                     
-                    hosts_included = len([img for img in processed_images if img.get('image_data')])
-                    hosts_total = len(processed_images)
-                    incidents_count = len([inc for inc in incidents if timestamp in inc.get('start_time', '')])
+                    # Process each image with detailed error handling
+                    try:
+                        processed_image = process_single_image(image_info, timestamp)
+                        if processed_image:
+                            processed_images.append(processed_image)
+                            all_processed_images.append(processed_image)
+                        else:
+                            print(f"[@heatmap_utils] WARNING: Failed to process image from {image_info['host_name']}/{image_info['device_id']}")
+                    except Exception as single_image_error:
+                        print(f"[@heatmap_utils] ERROR processing single image from {image_info['host_name']}/{image_info['device_id']}: {single_image_error}")
+                        # Continue processing other images
+                        continue
+                
+                # Create mosaic if we have processed images
+                if processed_images:
+                    print(f"[@heatmap_utils] Creating mosaic from {len(processed_images)} processed images for timestamp {timestamp}")
                     
-                    # Calculate processing time from job start
-                    current_processing_time = None
-                    with job_lock:
-                        job = active_jobs.get(job_id)
-                        if job and job.start_time:
-                            current_processing_time = (datetime.now() - job.start_time).total_seconds()
-                    
-                    heatmap_id = save_heatmap_to_db(
-                        team_id=team_id,
-                        timestamp=timestamp,
-                        job_id=job_id,
-                        mosaic_r2_path=mosaic_r2_path,
-                        mosaic_r2_url=mosaic_upload['url'],
-                        metadata_r2_path=metadata_r2_path,
-                        metadata_r2_url=metadata_upload['url'],
-                        html_r2_path=None, # No individual HTML path for comprehensive report
-                        html_r2_url=None, # No individual HTML URL for comprehensive report
-                        hosts_included=hosts_included,
-                        hosts_total=hosts_total,
-                        incidents_count=incidents_count,
-                        processing_time=current_processing_time
-                    )
-                    
-                    generated_images.append({
-                        'timestamp': timestamp,
-                        'mosaic_url': mosaic_upload['url'],
-                        'metadata_url': metadata_upload['url'],
-                        'html_url': None, # No individual HTML URL for comprehensive report
-                        'heatmap_id': heatmap_id,
-                        'r2_paths': {
-                            'mosaic': mosaic_r2_path,
-                            'metadata': metadata_r2_path,
-                            'html': None # No individual HTML path for comprehensive report
+                    try:
+                        mosaic_image = create_mosaic_image(processed_images)
+                        
+                        # Save to temporary files
+                        temp_path = tempfile.mktemp(suffix='.png')
+                        temp_json_path = tempfile.mktemp(suffix='.json')
+                        
+                        mosaic_image.save(temp_path, 'PNG')
+                        
+                        # Create metadata
+                        metadata = {
+                            'timestamp': timestamp,
+                            'images_count': len(processed_images),
+                            'analysis_data': processed_images
                         }
-                    })
-                    print(f"[@heatmap_utils] Successfully uploaded heatmap with metadata for timestamp {timestamp}")
+                        
+                        with open(temp_json_path, 'w') as f:
+                            json.dump(metadata, f, indent=2)
+                        
+                        # Upload to R2
+                        from utils.cloudflare_utils import upload_heatmap_mosaic, upload_heatmap_metadata
+                        
+                        mosaic_r2_path = f"heatmaps/{job_id}/{timestamp}_mosaic.png"
+                        metadata_r2_path = f"heatmaps/{job_id}/{timestamp}_metadata.json"
+                        
+                        print(f"[@heatmap_utils] Uploading mosaic and metadata for timestamp {timestamp}")
+                        
+                        mosaic_upload = upload_heatmap_mosaic(temp_path, mosaic_r2_path)
+                        metadata_upload = upload_heatmap_metadata(temp_json_path, metadata_r2_path)
+                        
+                        # Check upload success
+                        if mosaic_upload['success'] and metadata_upload['success']:
+                            print(f"[@heatmap_utils] Successfully uploaded mosaic and metadata for timestamp {timestamp}")
+                            
+                            generated_images.append({
+                                'timestamp': timestamp,
+                                'mosaic_url': mosaic_upload['url'],
+                                'metadata_url': metadata_upload['url'],
+                                'images_count': len(processed_images)
+                            })
+                            
+                            # Save to database using passed team_id
+                            try:
+                                from shared.lib.supabase.heatmap_db import save_heatmap_to_db
+                                
+                                hosts_included = len([img for img in processed_images if img.get('image_data')])
+                                hosts_total = len(processed_images)
+                                incidents_count = len([inc for inc in incidents if timestamp in inc.get('start_time', '')])
+                                
+                                # Calculate processing time from job start
+                                current_processing_time = None
+                                with job_lock:
+                                    job = active_jobs.get(job_id)
+                                    if job and job.start_time:
+                                        current_processing_time = (datetime.now() - job.start_time).total_seconds()
+                                
+                                heatmap_id = save_heatmap_to_db(
+                                    team_id=team_id,
+                                    timestamp=timestamp,
+                                    job_id=job_id,
+                                    mosaic_r2_path=mosaic_r2_path,
+                                    mosaic_r2_url=mosaic_upload['url'],
+                                    metadata_r2_path=metadata_r2_path,
+                                    metadata_r2_url=metadata_upload['url'],
+                                    html_r2_path=None, # No individual HTML path for comprehensive report
+                                    html_r2_url=None, # No individual HTML URL for comprehensive report
+                                    hosts_included=hosts_included,
+                                    hosts_total=hosts_total,
+                                    incidents_count=incidents_count,
+                                    processing_time=current_processing_time
+                                )
+                                
+                                print(f"[@heatmap_utils] Saved heatmap to database with ID: {heatmap_id}")
+                                
+                            except Exception as db_error:
+                                print(f"[@heatmap_utils] WARNING: Failed to save heatmap to database: {db_error}")
+                                # Don't fail the entire job for database errors
+                        else:
+                            # Upload failed - raise exception to fail the job
+                            errors = []
+                            if not mosaic_upload['success']:
+                                errors.append(f"Mosaic: {mosaic_upload.get('error', 'Unknown')}")
+                            if not metadata_upload['success']:
+                                errors.append(f"Metadata: {metadata_upload.get('error', 'Unknown')}")
+                            
+                            error_msg = f"R2 upload failed - {', '.join(errors)}"
+                            print(f"[@heatmap_utils] ERROR: {error_msg}")
+                            raise Exception(error_msg)
+                        
+                        # Cleanup temp files
+                        for temp_file in [temp_path, temp_json_path]:
+                            if os.path.exists(temp_file):
+                                try:
+                                    os.remove(temp_file)
+                                except Exception as cleanup_error:
+                                    print(f"[@heatmap_utils] WARNING: Failed to cleanup temp file {temp_file}: {cleanup_error}")
+                                    
+                    except Exception as mosaic_error:
+                        print(f"[@heatmap_utils] ERROR: Failed to create/upload mosaic for timestamp {timestamp}: {mosaic_error}")
+                        # Cleanup temp files if they exist
+                        for temp_file in [temp_path, temp_json_path]:
+                            if 'temp_path' in locals() and os.path.exists(temp_file):
+                                try:
+                                    os.remove(temp_file)
+                                except:
+                                    pass
+                        # Re-raise to fail the job for critical errors
+                        raise mosaic_error
                 else:
-                    # Upload failed - raise exception to fail the job
-                    errors = []
-                    if not mosaic_upload['success']:
-                        errors.append(f"Mosaic: {mosaic_upload.get('error', 'Unknown')}")
-                    if not metadata_upload['success']:
-                        errors.append(f"Metadata: {metadata_upload.get('error', 'Unknown')}")
-                    
-                    error_msg = f"R2 upload failed - {', '.join(errors)}"
-                    print(f"[@heatmap_utils] {error_msg}")
-                    raise Exception(error_msg)
+                    print(f"[@heatmap_utils] WARNING: No processed images for timestamp {timestamp}, skipping mosaic creation")
                 
-                # Cleanup temp files
-                for temp_file in [temp_path, temp_json_path]:
-                    if os.path.exists(temp_file):
-                        os.remove(temp_file)
-                
-            except Exception as upload_error:
-                print(f"[@heatmap_utils] Upload error for timestamp {timestamp}: {upload_error}")
-                # Cleanup temp files
-                for temp_file in [temp_path, temp_json_path]:
-                    if os.path.exists(temp_file):
-                        try:
-                            os.remove(temp_file)
-                        except:
-                            pass
-                # Re-raise to fail the job
-                raise upload_error
+            except Exception as timestamp_error:
+                print(f"[@heatmap_utils] ERROR processing timestamp {timestamp}: {timestamp_error}")
+                # Continue with next timestamp for non-critical errors
+                if "R2 upload failed" in str(timestamp_error) or "Failed to create" in str(timestamp_error):
+                    # Critical errors should fail the job
+                    raise timestamp_error
+                else:
+                    # Non-critical errors, continue processing
+                    continue
             
             # Update progress
             progress = int((i + 1) / total_timestamps * 100)
             with job_lock:
-                active_jobs[job_id].progress = progress
+                if job_id in active_jobs:
+                    active_jobs[job_id].progress = progress
             
-            print(f"[@heatmap_utils] Job {job_id}: {progress}% complete")
+            print(f"[@heatmap_utils] Job {job_id}: {progress}% complete ({i+1}/{total_timestamps} timestamps)")
             
             # Small delay to prevent CPU overload
             time.sleep(0.1)
         
         # Mark job as completed
         with job_lock:
-            job = active_jobs[job_id]
-            job.status = 'completed'
-            job.progress = 100
-            job.end_time = datetime.now()  # Record when processing completed
-            # Set mosaic_urls for frontend consumption
-            job.mosaic_urls = [img['mosaic_url'] for img in generated_images]
-            
-            # Use the original heatmap_data and just remove image_data (binary) from it
-            if hasattr(job, 'heatmap_data') and job.heatmap_data:
-                # Clean the existing data by removing image_data
-                cleaned_heatmap_data = job.heatmap_data.copy()
-                for timestamp, images in cleaned_heatmap_data.get('images_by_timestamp', {}).items():
-                    for image in images:
-                        # Remove binary image_data if it exists, keep everything else
-                        if 'image_data' in image:
-                            del image['image_data']
+            if job_id in active_jobs:
+                job = active_jobs[job_id]
+                job.status = 'completed'
+                job.progress = 100
+                job.end_time = datetime.now()  # Record when processing completed
+                # Set mosaic_urls for frontend consumption
+                job.mosaic_urls = [img['mosaic_url'] for img in generated_images]
                 
-                job.heatmap_data = cleaned_heatmap_data
-            
-            # Generate ONE comprehensive HTML report with all mosaics
-            try:
+                # Use the original heatmap_data and just remove image_data (binary) from it
+                if hasattr(job, 'heatmap_data') and job.heatmap_data:
+                    # Clean the existing data by removing image_data
+                    cleaned_heatmap_data = job.heatmap_data.copy()
+                    for timestamp, images in cleaned_heatmap_data.get('images_by_timestamp', {}).items():
+                        for image in images:
+                            # Remove binary image_data if it exists, keep everything else
+                            if 'image_data' in image:
+                                del image['image_data']
+                    
+                    job.heatmap_data = cleaned_heatmap_data
+                
+                job.result = {
+                    'generated_images': generated_images,
+                    'total_timestamps': total_timestamps,
+                    'successful_timestamps': len(generated_images)
+                }
+        
+        # Generate ONE comprehensive HTML report with all mosaics
+        try:
+            if generated_images:  # Only generate HTML if we have successful images
                 from utils.heatmap_report_utils import generate_comprehensive_heatmap_html
                 from utils.cloudflare_utils import upload_heatmap_html
+                
+                print(f"[@heatmap_utils] Generating comprehensive HTML report for {len(generated_images)} heatmaps")
                 
                 # Prepare all heatmap data for comprehensive report
                 all_heatmap_data = []
@@ -660,7 +691,9 @@ def process_heatmap_generation(job_id: str, images_by_timestamp: Dict[str, List[
                 html_upload = upload_heatmap_html(html_content, job_timestamp)
                 
                 if html_upload['success']:
-                    job.html_url = html_upload['html_url']  # Store single HTML URL
+                    with job_lock:
+                        if job_id in active_jobs:
+                            active_jobs[job_id].html_url = html_upload['html_url']  # Store single HTML URL
                     print(f"[@heatmap_utils] Comprehensive HTML report uploaded: {html_upload['html_url']}")
                     
                     # Update all database records for this job with the comprehensive HTML URL
@@ -670,31 +703,50 @@ def process_heatmap_generation(job_id: str, images_by_timestamp: Dict[str, List[
                         if update_success:
                             print(f"[@heatmap_utils] Database records updated with HTML URL")
                         else:
-                            print(f"[@heatmap_utils] Failed to update database records with HTML URL")
+                            print(f"[@heatmap_utils] WARNING: Failed to update database records with HTML URL")
                     except Exception as update_error:
-                        print(f"[@heatmap_utils] Error updating database with HTML URL: {update_error}")
+                        print(f"[@heatmap_utils] WARNING: Error updating database with HTML URL: {update_error}")
                 else:
-                    print(f"[@heatmap_utils] HTML report upload failed: {html_upload.get('error', 'Unknown')}")
-                    
-            except Exception as html_error:
-                print(f"[@heatmap_utils] HTML report generation failed: {html_error}")
-            
-            job.result = {
-                'generated_images': generated_images,
-                'total_timestamps': total_timestamps,
-                'successful_timestamps': len(generated_images)
-            }
+                    print(f"[@heatmap_utils] WARNING: HTML report upload failed: {html_upload.get('error', 'Unknown')}")
+            else:
+                print(f"[@heatmap_utils] WARNING: No successful images generated, skipping HTML report")
+                
+        except Exception as html_error:
+            print(f"[@heatmap_utils] WARNING: HTML report generation failed: {html_error}")
+            # Don't fail the entire job for HTML generation errors
         
         print(f"[@heatmap_utils] Job {job_id} completed successfully")
         print(f"[@heatmap_utils] Generated {len(generated_images)} heatmaps from {total_timestamps} timestamp buckets")
         
     except Exception as e:
-        print(f"[@heatmap_utils] Job {job_id} failed: {e}")
+        error_msg = f"Heatmap generation failed: {str(e)}"
+        print(f"[@heatmap_utils] ERROR: Job {job_id} failed: {error_msg}")
+        
+        # Always update job status on failure
         with job_lock:
-            job = active_jobs[job_id]
-            job.status = 'failed'
-            job.error = str(e)
-            job.end_time = datetime.now()  # Record when processing failed
+            if job_id in active_jobs:
+                job = active_jobs[job_id]
+                job.status = 'failed'
+                job.error = error_msg
+                job.end_time = datetime.now()  # Record when processing failed
+            else:
+                print(f"[@heatmap_utils] ERROR: Job {job_id} not found in active_jobs during error handling")
+    
+    finally:
+        # Ensure job status is always properly set
+        with job_lock:
+            if job_id in active_jobs:
+                job = active_jobs[job_id]
+                if job.status == 'processing':
+                    # If still processing, something went wrong
+                    print(f"[@heatmap_utils] WARNING: Job {job_id} was still in 'processing' state, marking as failed")
+                    job.status = 'failed'
+                    job.error = "Job completed but status was not properly updated"
+                    job.end_time = datetime.now()
+                
+                print(f"[@heatmap_utils] Final job status for {job_id}: {job.status}")
+            else:
+                print(f"[@heatmap_utils] WARNING: Job {job_id} not found in active_jobs during cleanup")
 
 # Thread pool for background processing
 executor = ThreadPoolExecutor(max_workers=MAX_WORKER_THREADS)
