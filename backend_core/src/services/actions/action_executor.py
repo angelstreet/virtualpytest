@@ -153,7 +153,8 @@ class ActionExecutor:
             # Proxy to host remote command endpoint using direct host info (no Flask context needed)
             response_data, status_code = proxy_to_host_direct(self.host, '/host/remote/executeCommand', 'POST', {
                 'command': action.get('command'),
-                'params': params
+                'params': params,
+                'device_id': self.device_id or 'device1'  # Include device_id in request
             })
             
             execution_time = int((time.time() - start_time) * 1000)

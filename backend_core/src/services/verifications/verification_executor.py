@@ -171,7 +171,8 @@ class VerificationExecutor:
             individual_request = {
                 'verification': verification,
                 'image_source_url': image_source_url,
-                'model': model
+                'model': model,
+                'device_id': self.device_id or 'device1'  # Include device_id in request
             }
             
             # Dispatch to appropriate host endpoint based on verification type using direct host info (no Flask context needed)
