@@ -52,8 +52,8 @@ export const useNavigationEditor = () => {
           targetHandle: edge.data?.targetHandle, // Extract handle info to root level
           data: {
             description: edge.description,
-            actions: edge.actions, // Directly embedded with wait_time
-            retryActions: edge.retry_actions,
+            actions: edge.actions || [], // Use backend structure exactly
+            retryActions: edge.retry_actions || [],
             final_wait_time: edge.final_wait_time,
             ...edge.data // Additional data
           }

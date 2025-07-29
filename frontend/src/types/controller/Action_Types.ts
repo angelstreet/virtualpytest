@@ -153,22 +153,16 @@ export function supportsActionController(
 
 // Edge action for navigation workflows (used in EdgeEditDialog)
 export interface EdgeAction {
-  id: string;
-  label: string;
   command: string;
-  action_type: 'remote' | 'av' | 'power' | 'network'; // Required: type of action
+  name: string;
   params: ActionParams;
-  requiresInput?: boolean;
-  inputValue?: string;
-  waitTime: number; // Required field to match Navigation_Types expectation
 
-  // Execution results
+  // Execution results (added by frontend during execution)
   success?: boolean;
   message?: string;
   error?: string;
   executedAt?: string;
   resultType?: 'SUCCESS' | 'FAIL' | 'ERROR';
-  executionTime?: number;
 }
 
 // Controller actions organized by category (what EdgeEditDialog expects)

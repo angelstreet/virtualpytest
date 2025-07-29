@@ -57,12 +57,8 @@ export const ActionItem: React.FC<ActionItemProps> = ({
   };
 
   // Helper function to safely get parameter values
-  const getParamValue = (key: keyof import('../../types/controller/Action_Types').RemoteActionParams): any => {
-    if (action.action_type === 'remote' && action.params) {
-      const params = action.params as import('../../types/controller/Action_Types').RemoteActionParams;
-      return params[key];
-    }
-    return '';
+  const getParamValue = (key: string): any => {
+    return (action.params as any)?.[key] || '';
   };
 
   const renderParameterFields = () => {
@@ -329,17 +325,11 @@ export const ActionItem: React.FC<ActionItemProps> = ({
           <InputLabel>Action</InputLabel>
           <Select
             value={
-              // First try to match by ID (for newly created actions)
-              action.id &&
+              // Match by command since backend actions don't have IDs
+              action.command &&
               Object.values(availableActions)
                 .flat()
-                .some((act) => act.id === action.id)
-                ? action.id
-                : // Then try to match by command (for existing actions from DB)
-                  action.command &&
-                  Object.values(availableActions)
-                    .flat()
-                    .find((act) => act.command === action.command)?.id || ''
+                .find((act) => act.command === action.command)?.id || ''
             }
             onChange={(e) => onActionSelect(index, e.target.value)}
             label="Action"

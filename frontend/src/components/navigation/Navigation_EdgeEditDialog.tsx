@@ -218,13 +218,12 @@ export const EdgeEditDialog: React.FC<EdgeEditDialogProps> = ({
                 variant="outlined"
                 size="small"
                 onClick={() => {
-                  const newAction = {
-                    id: `action_${Date.now()}`,
-                    label: '',
+                  const newAction: any = {
                     command: '',
-                    action_type: 'remote' as const,
-                    params: {},
-                    waitTime: 500,
+                    name: '',
+                    params: {
+                      wait_time: 500
+                    },
                   };
                   edgeEdit.handleActionsChange([...edgeEdit.localActions, newAction]);
                 }}
@@ -274,13 +273,12 @@ export const EdgeEditDialog: React.FC<EdgeEditDialogProps> = ({
                 variant="outlined"
                 size="small"
                 onClick={() => {
-                  const newAction = {
-                    id: `retry_action_${Date.now()}`,
-                    label: '',
+                  const newAction: any = {
                     command: '',
-                    action_type: 'remote' as const,
-                    params: {},
-                    waitTime: 500,
+                    name: '',
+                    params: {
+                      wait_time: 500
+                    },
                   };
                   edgeEdit.handleRetryActionsChange([...edgeEdit.localRetryActions, newAction]);
                 }}
