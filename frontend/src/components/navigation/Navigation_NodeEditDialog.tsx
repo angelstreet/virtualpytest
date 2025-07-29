@@ -193,6 +193,7 @@ export const NodeEditDialog: React.FC<NodeEditDialogProps> = ({
           referencesLoading={false}
           showCollapsible={false}
           title="Verifications"
+          onTest={nodeEdit.verification.handleTest}
         />
 
         {/* Navigation Goto Result */}
@@ -265,16 +266,6 @@ export const NodeEditDialog: React.FC<NodeEditDialogProps> = ({
         )}
         <Button onClick={handleSave} variant="contained" disabled={!nodeEdit.isFormValid(nodeForm)}>
           {nodeEdit.saveSuccess ? '✓' : 'Save'}
-        </Button>
-        <Button
-          onClick={nodeEdit.verification.handleTest}
-          variant="contained"
-          disabled={!buttonVisibility.canTest || nodeEdit.verification.loading}
-          sx={{
-            opacity: !buttonVisibility.canTest || nodeEdit.verification.loading ? 0.5 : 1,
-          }}
-        >
-          {nodeEdit.verification.loading ? 'Running...' : 'Run'}
         </Button>
       </DialogActions>
     </Dialog>
