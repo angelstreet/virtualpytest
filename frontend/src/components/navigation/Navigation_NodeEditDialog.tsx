@@ -187,7 +187,6 @@ export const NodeEditDialog: React.FC<NodeEditDialogProps> = ({
           loading={nodeEdit.verification.loading}
           model={model || 'android_mobile'}
           selectedHost={selectedHost}
-          onTest={nodeEdit.verification.handleTest}
           testResults={nodeEdit.verification.testResults}
           onReferenceSelected={() => {}}
           modelReferences={{}}
@@ -196,6 +195,7 @@ export const NodeEditDialog: React.FC<NodeEditDialogProps> = ({
           title="Verifications"
         />
 
+        {/* Navigation Goto Result */}
         {nodeEdit.gotoResult && (
           <Box
             sx={{
@@ -210,12 +210,49 @@ export const NodeEditDialog: React.FC<NodeEditDialogProps> = ({
               mt: 1,
             }}
           >
+            <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
+              Navigation Result:
+            </Typography>
             <Typography
               variant="body2"
               sx={{ fontFamily: 'monospace', whiteSpace: 'pre-line', fontSize: '0.75rem' }}
             >
               {nodeEdit.gotoResult}
             </Typography>
+          </Box>
+        )}
+
+        {/* Verification Test Results - same as edge dialog */}
+        {nodeEdit.verification.testResults && nodeEdit.verification.testResults.length > 0 && (
+          <Box
+            sx={{
+              p: 1,
+              bgcolor: nodeEdit.verification.testResults.every((r: any) => r.success)
+                ? 'success.light'
+                : 'error.light',
+              borderRadius: 1,
+              maxHeight: 200,
+              overflow: 'auto',
+              mt: 1,
+            }}
+          >
+            <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
+              Verification Results:
+            </Typography>
+            {nodeEdit.verification.testResults.map((result: any, index: number) => (
+              <Typography
+                key={index}
+                variant="body2"
+                sx={{ 
+                  fontFamily: 'monospace', 
+                  fontSize: '0.75rem',
+                  color: result.success ? 'success.dark' : 'error.dark',
+                  mb: 0.5 
+                }}
+              >
+                {result.success ? '✅' : '❌'} {result.verification_type}: {result.message || result.error}
+              </Typography>
+            ))}
           </Box>
         )}
       </DialogContent>
