@@ -257,6 +257,9 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
                     case 'click_element':
                       if (params.element_id) paramParts.push(`"${params.element_id}"`);
                       break;
+                    case 'click_element_by_id':
+                      if (params.element_id) paramParts.push(`"${params.element_id}"`);
+                      break;
                     case 'tap_coordinates':
                       if (params.x !== undefined && params.y !== undefined) {
                         paramParts.push(`(${params.x}, ${params.y})`);
@@ -322,6 +325,9 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
                       if (params.text) paramParts.push(`"${params.text}"`);
                       break;
                     case 'click_element':
+                      if (params.element_id) paramParts.push(`"${params.element_id}"`);
+                      break;
+                    case 'click_element_by_id':
                       if (params.element_id) paramParts.push(`"${params.element_id}"`);
                       break;
                     case 'tap_coordinates':
