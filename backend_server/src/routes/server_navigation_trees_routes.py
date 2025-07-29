@@ -19,7 +19,7 @@ from shared.lib.supabase.navigation_trees_db import (
     # Edge operations
     get_tree_edges, get_edge_by_id, save_edge, delete_edge,
     # Batch operations
-    save_tree_data, get_full_tree, load_full_tree,
+    save_tree_data, get_full_tree,
     # Interface operations
     get_root_tree_for_interface
 )
@@ -435,7 +435,7 @@ def get_tree_by_userinterface_id(userinterface_id):
         
         if tree:
             # Get full tree data with nodes and edges
-            tree_data = load_full_tree(tree['id'])
+            tree_data = get_full_tree(tree['id'], team_id)
             
             return jsonify({
                 'success': True,
