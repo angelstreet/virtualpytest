@@ -383,21 +383,49 @@ const NavigationEditorContent: React.FC<{ userInterfaceId?: string }> = React.me
             // Get the tree data
             const tree = data.tree;
             const treeData = tree.metadata || {};
-            const nodes = treeData.nodes || [];
-            const edges = treeData.edges || [];
+            const rawNodes = treeData.nodes || [];
+            const rawEdges = treeData.edges || [];
             const actualTreeId = tree.id || null;
 
+            // Convert normalized data to frontend format (same as useNavigationEditor)
+            const frontendNodes = rawNodes.map((node: any) => ({
+              id: node.node_id,
+              type: 'uiScreen',
+              position: { x: node.position_x, y: node.position_y },
+              data: {
+                label: node.label,
+                type: node.node_type,
+                description: node.description,
+                verifications: node.verifications, // Directly embedded
+                ...node.data // Additional data
+              }
+            }));
+
+            const frontendEdges = rawEdges.map((edge: any) => ({
+              id: edge.edge_id,
+              source: edge.source_node_id,
+              target: edge.target_node_id,
+              type: 'uiNavigation',
+              data: {
+                description: edge.description,
+                actions: edge.actions, // Directly embedded with wait_time
+                retryActions: edge.retry_actions,
+                final_wait_time: edge.final_wait_time,
+                ...edge.data // Additional data
+              }
+            }));
+
             console.log(
-              `[@NavigationEditor:loadTreeForUserInterface] Loaded tree for userInterface: ${userInterfaceId} with ${nodes.length} nodes and ${edges.length} edges`,
+              `[@NavigationEditor:loadTreeForUserInterface] Loaded tree for userInterface: ${userInterfaceId} with ${frontendNodes.length} nodes and ${frontendEdges.length} edges`,
             );
 
-            // Set the tree data directly in the navigation context
-            setNodes(nodes);
-            setEdges(edges);
+            // Set the converted tree data in the navigation context
+            setNodes(frontendNodes);
+            setEdges(frontendEdges);
             setActualTreeId(actualTreeId);
 
             console.log(
-              `[@NavigationEditor:loadTreeForUserInterface] Set tree data with ${nodes.length} nodes and ${edges.length} edges`,
+              `[@NavigationEditor:loadTreeForUserInterface] Set tree data with ${frontendNodes.length} nodes and ${frontendEdges.length} edges`,
             );
           } else {
             console.error('Failed to load tree:', data.error || 'Unknown error');
