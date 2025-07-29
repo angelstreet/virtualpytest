@@ -123,13 +123,24 @@ export const EdgeEditDialog: React.FC<EdgeEditDialogProps> = ({
   };
 
   const handleRunActions = async () => {
-    // Run actions using the form data - same as edge selection panel logic
-    if (_selectedEdge) {
+    console.log('[@EdgeEditDialog:handleRunActions] Button clicked');
+    console.log('[@EdgeEditDialog:handleRunActions] _selectedEdge:', _selectedEdge);
+    console.log('[@EdgeEditDialog:handleRunActions] canRunActions with form actions:', _selectedEdge ? edgeHook.canRunActions(_selectedEdge, edgeForm.actions) : false);
+    console.log('[@EdgeEditDialog:handleRunActions] edgeForm.actions:', edgeForm.actions);
+    
+    // Use the same logic as EdgeSelectionPanel - check if we can run actions with form data
+    if (_selectedEdge && edgeHook.canRunActions(_selectedEdge, edgeForm.actions)) {
+      console.log('[@EdgeEditDialog:handleRunActions] Executing actions...');
+      // Pass the form actions to execute, same as EdgeSelectionPanel does
       await edgeHook.executeEdgeActions(
         _selectedEdge,
         edgeForm.actions,
         edgeForm.retryActions
       );
+    } else {
+      console.log('[@EdgeEditDialog:handleRunActions] Cannot run - conditions not met');
+      console.log('[@EdgeEditDialog:handleRunActions] _selectedEdge exists:', !!_selectedEdge);
+      console.log('[@EdgeEditDialog:handleRunActions] canRunActions with form actions:', _selectedEdge ? edgeHook.canRunActions(_selectedEdge, edgeForm.actions) : false);
     }
   };
 
@@ -377,8 +388,8 @@ export const EdgeEditDialog: React.FC<EdgeEditDialogProps> = ({
           <Button
             onClick={handleRunActions}
             variant="contained"
-            disabled={!edgeEdit.canRunLocalActions() || edgeHook.actionHook.loading}
-            sx={{ opacity: !edgeEdit.canRunLocalActions() ? 0.5 : 1 }}
+            disabled={!_selectedEdge || !edgeHook.canRunActions(_selectedEdge, edgeForm.actions) || edgeHook.actionHook.loading}
+            sx={{ opacity: (!_selectedEdge || !edgeHook.canRunActions(_selectedEdge, edgeForm.actions)) ? 0.5 : 1 }}
           >
             {edgeHook.actionHook.loading ? 'Running...' : 'Run'}
           </Button>

@@ -17,6 +17,7 @@ import {
   EdgeForm,
 } from '../../types/pages/Navigation_Types';
 import { useDeviceData } from '../device/DeviceDataContext';
+import { useNavigationConfig } from './NavigationConfigContext';
 
 // ========================================
 // TYPES
@@ -150,6 +151,12 @@ export interface NavigationContextType {
   // Lock methods
   lockNavigationTree: (treeId: string) => Promise<boolean>;
   unlockNavigationTree: (treeId: string) => Promise<boolean>;
+
+  // Centralized save methods
+  saveNodeWithStateUpdate: (nodeForm: any) => Promise<void>;
+  saveEdgeWithStateUpdate: (edgeForm: any) => Promise<void>;
+  saveTreeWithStateUpdate: (treeId: string) => Promise<void>;
+  executeActionsWithPositionUpdate: (actions: any[], retryActions: any[], targetNodeId?: string) => Promise<any>;
 }
 
 interface NavigationProviderProps {
@@ -171,6 +178,7 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
     setDevicePosition,
     initializeDevicePosition,
   } = useDeviceData();
+  const navigationConfig = useNavigationConfig();
 
   // console.log('[@context:NavigationProvider] Initializing unified navigation context');
 
@@ -777,6 +785,242 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
       // Lock methods
       lockNavigationTree,
       unlockNavigationTree,
+
+             // Centralized save methods
+       saveNodeWithStateUpdate: async (nodeForm: any) => {
+         try {
+           setIsLoading(true);
+           setError(null);
+
+           let updatedNodeData: any;
+
+           if (isNewNode) {
+             // Create new node
+             updatedNodeData = {
+               id: nodeForm.id || `node-${Date.now()}`,
+               position: { x: 100, y: 100 },
+               type: 'uiScreen',
+               data: {
+                 label: nodeForm.label,
+                 type: nodeForm.type,
+                 description: nodeForm.description,
+                 verifications: nodeForm.verifications || [],
+               },
+             };
+             setNodes([...nodes, updatedNodeData]);
+           } else if (selectedNode) {
+             // Update existing node
+             updatedNodeData = {
+               ...selectedNode,
+               data: {
+                 ...selectedNode.data,
+                 label: nodeForm.label,
+                 type: nodeForm.type,
+                 description: nodeForm.description,
+                 verifications: nodeForm.verifications || [],
+               },
+             };
+             const updatedNodes = nodes.map((node) =>
+               node.id === selectedNode?.id ? updatedNodeData : node,
+             );
+             setNodes(updatedNodes);
+             setSelectedNode(updatedNodeData);
+           }
+
+           // Save to database via NavigationConfigContext
+           if (updatedNodeData && navigationConfig.actualTreeId) {
+             const normalizedNode = {
+               node_id: updatedNodeData.id,
+               label: updatedNodeData.data.label,
+               position_x: updatedNodeData.position?.x || 0,
+               position_y: updatedNodeData.position?.y || 0,
+               node_type: updatedNodeData.type || 'uiScreen',
+               description: updatedNodeData.data.description,
+               verifications: updatedNodeData.data.verifications || [],
+               data: updatedNodeData.data,
+             };
+
+             await navigationConfig.saveNode(navigationConfig.actualTreeId, normalizedNode);
+
+             // Refresh navigation cache
+             await fetch('/server/pathfinding/cache/refresh', {
+               method: 'POST',
+               headers: { 'Content-Type': 'application/json' },
+               body: JSON.stringify({ 
+                 tree_id: navigationConfig.actualTreeId,
+                 team_id: 'default' 
+               })
+             });
+           }
+
+           setIsNodeDialogOpen(false);
+           setSuccess('Node saved successfully');
+         } catch (error) {
+           console.error('Error saving node:', error);
+           setError('Failed to save node changes');
+           throw error;
+         } finally {
+           setIsLoading(false);
+         }
+       },
+
+       saveEdgeWithStateUpdate: async (edgeForm: any) => {
+         try {
+           setIsLoading(true);
+           setError(null);
+
+           if (!edgeForm.edgeId) {
+             throw new Error('Edge ID missing from form data');
+           }
+
+           const currentSelectedEdge = edges.find((edge) => edge.id === edgeForm.edgeId);
+           if (!currentSelectedEdge) {
+             throw new Error(`Edge ${edgeForm.edgeId} not found in current tree`);
+           }
+
+           // Update edge with new data
+           const updatedEdge = {
+             ...currentSelectedEdge,
+             data: {
+               ...(currentSelectedEdge.data || {}),
+               description: edgeForm.description || currentSelectedEdge.data?.description || '',
+               actions: edgeForm.actions || [],
+               retryActions: edgeForm.retryActions || [],
+               final_wait_time: edgeForm.final_wait_time || 0,
+               priority: edgeForm.priority || 'p3',
+               threshold: edgeForm.threshold || 0,
+             },
+           };
+
+           const updatedEdges = edges.map((edge) =>
+             edge.id === currentSelectedEdge.id ? updatedEdge : edge,
+           );
+
+           setEdges(updatedEdges);
+           setSelectedEdge(updatedEdge);
+
+           // Save to database via NavigationConfigContext
+           if (navigationConfig.actualTreeId) {
+             const normalizedEdge = {
+               edge_id: updatedEdge.id,
+               source_node_id: updatedEdge.source,
+               target_node_id: updatedEdge.target,
+               description: updatedEdge.data.description,
+               actions: updatedEdge.data.actions || [],
+               retry_actions: updatedEdge.data.retryActions || [],
+               final_wait_time: updatedEdge.data.final_wait_time || 0,
+               edge_type: updatedEdge.type || 'default',
+               data: updatedEdge.data,
+             };
+
+             await navigationConfig.saveEdge(navigationConfig.actualTreeId, normalizedEdge);
+
+             // Refresh navigation cache
+             await fetch('/server/pathfinding/cache/refresh', {
+               method: 'POST',
+               headers: { 'Content-Type': 'application/json' },
+               body: JSON.stringify({ 
+                 tree_id: navigationConfig.actualTreeId,
+                 team_id: 'default' 
+               })
+             });
+           }
+
+           setIsEdgeDialogOpen(false);
+           setSuccess('Edge saved successfully');
+         } catch (error) {
+           console.error('Error saving edge:', error);
+           setError('Failed to save edge changes');
+           throw error;
+         } finally {
+           setIsLoading(false);
+         }
+       },
+
+       saveTreeWithStateUpdate: async (treeId: string) => {
+         try {
+           setIsLoading(true);
+           setError(null);
+
+           // Convert frontend format to normalized format
+           const normalizedNodes = nodes.map(node => ({
+             node_id: node.id,
+             label: node.data.label,
+             position_x: node.position?.x || 0,
+             position_y: node.position?.y || 0,
+             node_type: node.data.type || 'default',
+             description: node.data.description,
+             verifications: node.data.verifications || [],
+             data: {
+               ...node.data,
+               verifications: undefined
+             }
+           }));
+
+           const normalizedEdges = edges.map(edge => ({
+             edge_id: edge.id,
+             source_node_id: edge.source,
+             target_node_id: edge.target,
+             description: edge.data?.description,
+             actions: edge.data?.actions || [],
+             retry_actions: edge.data?.retryActions || [],
+             final_wait_time: edge.data?.final_wait_time || 0,
+             edge_type: edge.data?.edgeType || 'default',
+             data: {
+               ...edge.data,
+               actions: undefined,
+               retryActions: undefined,
+               final_wait_time: undefined
+             }
+           }));
+
+           await navigationConfig.saveTreeData(treeId, normalizedNodes, normalizedEdges);
+           
+           setInitialState({ nodes: [...nodes], edges: [...edges] });
+           setHasUnsavedChanges(false);
+           setSuccess('Tree saved successfully');
+         } catch (error) {
+           console.error('Error saving tree:', error);
+           setError('Failed to save tree');
+           throw error;
+         } finally {
+           setIsLoading(false);
+         }
+       },
+
+       executeActionsWithPositionUpdate: async (actions: any[], retryActions: any[], targetNodeId?: string) => {
+         try {
+           setIsLoading(true);
+           setError(null);
+
+           // Mock action execution - replace with actual API call
+           const result = await fetch('/server/action/execute', {
+             method: 'POST',
+             headers: { 'Content-Type': 'application/json' },
+             body: JSON.stringify({
+               actions: actions,
+               retry_actions: retryActions,
+               target_node_id: targetNodeId
+             })
+           });
+
+           const response = await result.json();
+
+           if (response.success && targetNodeId) {
+             setCurrentNodeId(targetNodeId);
+             setCurrentNodeLabel(targetNodeId);
+           }
+
+           setSuccess('Actions executed successfully');
+           return response;
+         } catch (error) {
+           console.error('Error executing actions:', error);
+           setError('Failed to execute actions');
+           throw error;
+         } finally {
+           setIsLoading(false);
+         }
+       },
     };
   }, [
     // Only include values that should trigger context recreation

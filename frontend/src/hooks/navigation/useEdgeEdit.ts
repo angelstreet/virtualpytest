@@ -1,10 +1,8 @@
 import { useCallback, useState, useEffect } from 'react';
 
-import { useNavigation } from '../../contexts/navigation/NavigationContext';
 import { Host } from '../../types/common/Host_Types';
 import { EdgeForm, UINavigationEdge } from '../../types/pages/Navigation_Types';
-import { EdgeAction } from '../../types/controller/Action_Types';
-import { useAction } from '../actions';
+import { Action } from '../../types/controller/Action_Types';
 
 import { useEdge } from './useEdge';
 
@@ -25,13 +23,7 @@ export const useEdgeEdit = ({
   selectedHost,
   isControlActive = false,
 }: UseEdgeEditProps) => {
-  // Action hook for execution
-  const actionHook = useAction({
-    selectedHost: selectedHost || null,
-  });
 
-  // Navigation context for current position updates
-  const { updateCurrentPosition } = useNavigation();
 
   // Edge hook for loading actions from IDs
   const edgeHook = useEdge({
@@ -40,9 +32,8 @@ export const useEdgeEdit = ({
   });
 
   // Local state for dialog-specific concerns
-  const [localActions, setLocalActions] = useState<EdgeAction[]>([]);
-  const [localRetryActions, setLocalRetryActions] = useState<EdgeAction[]>([]);
-  const [actionResult, setActionResult] = useState<string | null>(null);
+  const [localActions, setLocalActions] = useState<Action[]>([]);
+  const [localRetryActions, setLocalRetryActions] = useState<Action[]>([]);
   const [dependencyCheckResult, setDependencyCheckResult] = useState<any>(null);
 
   // Initialize actions when dialog opens or edgeForm/selectedEdge changes
@@ -78,13 +69,12 @@ export const useEdgeEdit = ({
     if (!isOpen) {
       setLocalActions([]);
       setLocalRetryActions([]);
-      setActionResult(null);
       setDependencyCheckResult(null);
     }
   }, [isOpen]);
 
   // Check dependencies for actions
-  const checkDependencies = useCallback(async (actions: EdgeAction[]): Promise<any> => {
+  const checkDependencies = useCallback(async (actions: Action[]): Promise<any> => {
     // Filter actions with real DB IDs
     const actionsToCheck = actions.filter((action) => action.id && action.id.length > 10);
 
@@ -138,14 +128,9 @@ export const useEdgeEdit = ({
     }
   }, []);
 
-  // Convert EdgeAction for execution (EdgeAction already has the right format)
-  const convertToControllerAction = useCallback((action: EdgeAction) => {
-    return action;
-  }, []);
-
   // Handle actions change
   const handleActionsChange = useCallback(
-    (newActions: EdgeAction[]) => {
+    (newActions: Action[]) => {
       if (!edgeForm) return;
 
       setLocalActions(newActions);
@@ -159,7 +144,7 @@ export const useEdgeEdit = ({
 
   // Handle retry actions change
   const handleRetryActionsChange = useCallback(
-    (newRetryActions: EdgeAction[]) => {
+    (newRetryActions: Action[]) => {
       if (!edgeForm) return;
 
       setLocalRetryActions(newRetryActions);
@@ -170,46 +155,6 @@ export const useEdgeEdit = ({
     },
     [edgeForm, setEdgeForm],
   );
-
-  // Execute local actions
-  const executeLocalActions = useCallback(async () => {
-    if (!localActions || localActions.length === 0) return;
-
-    if (actionHook.loading) {
-      return;
-    }
-
-    setActionResult(null);
-
-    try {
-      const result = await actionHook.executeActions(
-        localActions.map(convertToControllerAction),
-        localRetryActions.map(convertToControllerAction),
-      );
-
-      const formattedResult = actionHook.formatExecutionResults(result);
-      setActionResult(formattedResult);
-
-      // Update current position to the target node if execution was successful
-      // This follows the same pattern as executeNavigation in useNode.ts
-      if (result && result.success !== false && selectedEdge?.target) {
-        updateCurrentPosition(selectedEdge.target, null);
-      }
-
-      return result;
-    } catch (err: any) {
-      const errorResult = `❌ Network error: ${err.message}`;
-      setActionResult(errorResult);
-      throw err;
-    }
-  }, [
-    actionHook,
-    localActions,
-    localRetryActions,
-    convertToControllerAction,
-    updateCurrentPosition,
-    selectedEdge,
-  ]);
 
   // Validate form
   const isFormValid = useCallback((): boolean => {
@@ -247,27 +192,13 @@ export const useEdgeEdit = ({
     });
   }, [localActions]);
 
-  // Check if can run local actions
-  const canRunLocalActions = useCallback((): boolean => {
-    return (
-      isControlActive &&
-      Boolean(selectedHost) &&
-      localActions.length > 0 &&
-      !actionHook.loading &&
-      isFormValid()
-    );
-  }, [isControlActive, selectedHost, localActions.length, actionHook.loading, isFormValid]);
-
   return {
-    // Action execution
-    actionHook,
-    executeLocalActions,
+    // Dependencies check
     checkDependencies,
 
     // Local state
     localActions,
     localRetryActions,
-    actionResult,
     dependencyCheckResult,
 
     // Handlers
@@ -276,6 +207,5 @@ export const useEdgeEdit = ({
 
     // Validation
     isFormValid,
-    canRunLocalActions,
   };
 };

@@ -2,8 +2,8 @@ import { useCallback, useState } from 'react';
 
 import { useNavigation } from '../../contexts/navigation/NavigationContext';
 import { Host } from '../../types/common/Host_Types';
-import { Actions } from '../../types/controller/Action_Types';
-import { UINavigationEdge, EdgeAction, EdgeForm } from '../../types/pages/Navigation_Types';
+import { Actions, Action } from '../../types/controller/Action_Types';
+import { UINavigationEdge, EdgeForm } from '../../types/pages/Navigation_Types';
 import { useAction } from '../actions';
 import { useValidationColors } from '../validation';
 
@@ -16,7 +16,7 @@ export interface UseEdgeProps {
 
 export const useEdge = (props?: UseEdgeProps) => {
   // Action hook for edge operations
-  const actionHook = useAction({});
+  const actionHook = useAction();
 
   // Navigation context for current position updates
   const { updateCurrentPosition } = useNavigation();
@@ -30,9 +30,9 @@ export const useEdge = (props?: UseEdgeProps) => {
   const [runResult, setRunResult] = useState<string | null>(null);
 
   /**
-   * Convert navigation EdgeAction to controller EdgeAction for action execution
+   * Convert navigation Action to controller Action for action execution
    */
-  const convertToControllerAction = useCallback((navAction: EdgeAction): any => {
+  const convertToControllerAction = useCallback((navAction: Action): any => {
     // Safely extract input value from various parameter types
     const getInputValue = (params: any): string => {
       if (!params) return '';
@@ -47,7 +47,7 @@ export const useEdge = (props?: UseEdgeProps) => {
     };
 
     return {
-      label: navAction.name || navAction.command,
+      label: navAction.label || navAction.command,
       command: navAction.command,
       params: {
         ...navAction.params,
@@ -73,11 +73,6 @@ export const useEdge = (props?: UseEdgeProps) => {
    */
   const isProtectedEdge = useCallback((edge: UINavigationEdge): boolean => {
     return (
-      edge.data?.from === 'entry' ||
-      edge.data?.from === 'home' ||
-      edge.data?.from?.toLowerCase() === 'entry point' ||
-      edge.data?.from?.toLowerCase().includes('entry') ||
-      edge.data?.from?.toLowerCase().includes('home') ||
       edge.source === 'entry-node' ||
       edge.source?.toLowerCase().includes('entry') ||
       edge.source?.toLowerCase().includes('home')
@@ -87,14 +82,14 @@ export const useEdge = (props?: UseEdgeProps) => {
   /**
    * Get actions from edge data (already resolved by NavigationConfigContext)
    */
-  const getActionsFromEdge = useCallback((edge: UINavigationEdge): EdgeAction[] => {
+  const getActionsFromEdge = useCallback((edge: UINavigationEdge): Action[] => {
     return edge.data?.actions || [];
   }, []);
 
   /**
    * Get retry actions from edge data (already resolved by NavigationConfigContext)
    */
-  const getRetryActionsFromEdge = useCallback((edge: UINavigationEdge): EdgeAction[] => {
+  const getRetryActionsFromEdge = useCallback((edge: UINavigationEdge): Action[] => {
     return edge.data?.retryActions || [];
   }, []);
 
@@ -102,8 +97,8 @@ export const useEdge = (props?: UseEdgeProps) => {
    * Check if edge can run actions
    */
   const canRunActions = useCallback(
-    (edge: UINavigationEdge): boolean => {
-      const actions = getActionsFromEdge(edge);
+    (edge: UINavigationEdge, overrideActions?: Action[]): boolean => {
+      const actions = overrideActions || getActionsFromEdge(edge);
       return (
         props?.isControlActive === true &&
         props?.selectedHost !== null &&
@@ -148,7 +143,7 @@ export const useEdge = (props?: UseEdgeProps) => {
    * Execute edge actions
    */
   const executeEdgeActions = useCallback(
-    async (edge: UINavigationEdge, overrideActions?: EdgeAction[], overrideRetryActions?: EdgeAction[]) => {
+    async (edge: UINavigationEdge, overrideActions?: Action[], overrideRetryActions?: Action[]) => {
       const actions = overrideActions || getActionsFromEdge(edge);
       const retryActions = overrideRetryActions || getRetryActionsFromEdge(edge);
 
