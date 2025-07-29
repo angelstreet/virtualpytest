@@ -22,7 +22,7 @@ export interface UseNodeProps {
 }
 
 export const useNode = (props?: UseNodeProps) => {
-  const { getModelReferences, referencesLoading } = useDeviceData();
+  const { getModelReferences, referencesLoading, currentDeviceId } = useDeviceData();
   const { currentNodeId, updateCurrentPosition, updateNodesWithMinimapIndicators } =
     useNavigation();
   const {
@@ -325,7 +325,7 @@ export const useNode = (props?: UseNodeProps) => {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               host: props.selectedHost,
-              device_id: props.selectedDeviceId,
+              device_id: currentDeviceId,  // Single source of truth
               current_node_id: currentNodeId,
             }),
           },

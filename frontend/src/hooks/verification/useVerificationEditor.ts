@@ -58,10 +58,18 @@ export const useVerificationEditor = ({
   // Get the device model from the selected device
   const deviceModel = selectedDevice?.device_model;
 
+  // Get references from centralized context
+  const {
+    references: availableReferences,
+    referencesLoading,
+    getModelReferences,
+    currentDeviceId,
+  } = useDeviceData();
+
   // Use the pure verification hook for core functionality
   const verification = useVerification({
     selectedHost,
-    deviceId: selectedDeviceId,
+    deviceId: currentDeviceId,  // Single source of truth
     captureSourcePath,
   });
 
@@ -73,13 +81,6 @@ export const useVerificationEditor = ({
   const [saveSuccess, setSaveSuccess] = useState<boolean>(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState<boolean>(false);
   const [referenceSaveCounter, setReferenceSaveCounter] = useState<number>(0);
-
-  // Get references from centralized context
-  const {
-    references: availableReferences,
-    referencesLoading,
-    getModelReferences,
-  } = useDeviceData();
 
   // Get model references using the device model
   const modelReferences = useMemo(() => {

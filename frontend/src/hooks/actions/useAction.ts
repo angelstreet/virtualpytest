@@ -5,11 +5,6 @@ import { Host } from '../../types/common/Host_Types';
 import type { EdgeAction } from '../../types/controller/Action_Types';
 
 // Define interfaces for action data structures
-interface UseActionProps {
-  selectedHost: Host | null;
-  deviceId?: string | null;
-}
-
 interface ActionExecutionResult {
   success: boolean;
   message: string;
@@ -19,9 +14,9 @@ interface ActionExecutionResult {
   error?: string;
 }
 
-export const useAction = ({ selectedHost, deviceId }: UseActionProps) => {
+export const useAction = () => {
   // Get actions from centralized context
-  const { getAvailableActions } = useDeviceData();
+  const { getAvailableActions, currentDeviceId, currentHost } = useDeviceData();
 
   // State for action execution (not data fetching)
   const [loading, setLoading] = useState<boolean>(false);
@@ -45,7 +40,7 @@ export const useAction = ({ selectedHost, deviceId }: UseActionProps) => {
       actions: EdgeAction[],
       retryActions: EdgeAction[] = [],
     ): Promise<ActionExecutionResult> => {
-      if (!selectedHost) {
+      if (!currentHost) {
         const errorMsg = 'No host selected for action execution';
         setError(errorMsg);
         throw new Error(errorMsg);
@@ -122,14 +117,14 @@ export const useAction = ({ selectedHost, deviceId }: UseActionProps) => {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            host: selectedHost,
-            device_id: deviceId,
+            host: currentHost,  // Single source of truth
+            device_id: currentDeviceId,  // Single source of truth - no fallbacks
             ...batchPayload,
           }),
         });
 
         console.log(
-          `[useAction] Fetching from: /server/action/executeBatch with host: ${selectedHost?.host_name} and device: ${deviceId}`,
+          `[useAction] Fetching from: /server/action/executeBatch with host: ${currentHost?.host_name} and device: ${currentDeviceId}`,
         );
 
         if (!response.ok) {
@@ -170,7 +165,7 @@ export const useAction = ({ selectedHost, deviceId }: UseActionProps) => {
         setLoading(false);
       }
     },
-    [selectedHost, deviceId],
+    [currentHost, currentDeviceId],
   );
 
   // Format execution results for display
@@ -236,8 +231,8 @@ export const useAction = ({ selectedHost, deviceId }: UseActionProps) => {
     successMessage,
     executeActions,
     formatExecutionResults,
-    selectedHost,
-    deviceId,
+    currentHost,
+    currentDeviceId,
   };
 };
 

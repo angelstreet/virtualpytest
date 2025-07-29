@@ -16,23 +16,17 @@ interface ImageComparisonDialogData {
   imageFilter?: 'none' | 'greyscale' | 'binary';
 }
 
-interface UseVerificationProps {
-  selectedHost: Host | null;
-  deviceId?: string | null;
-  captureSourcePath?: string; // TODO: Rename to image_source_url
-  nodeId?: string | null;  // For node verification - actual node ID
-  treeId?: string | null;  // For node verification - actual tree ID
-}
-
 export const useVerification = ({
-  selectedHost,
-  deviceId,
   captureSourcePath,
   nodeId,
   treeId,
-}: UseVerificationProps) => {
+}: {
+  captureSourcePath?: string;
+  nodeId?: string | null;
+  treeId?: string | null;
+}) => {
   // Get verification data from centralized context
-  const { getAvailableVerificationTypes } = useDeviceData();
+  const { getAvailableVerificationTypes, currentDeviceId, currentHost } = useDeviceData();
 
   // State for verification execution (not data fetching)
   const [verifications, setVerifications] = useState<Verification[]>([]);
@@ -219,7 +213,7 @@ export const useVerification = ({
         console.log('[useVerification] Submitting batch verification request');
         console.log('[useVerification] Valid verifications count:', validVerifications.length);
 
-        const device = selectedHost?.devices?.find((d) => d.device_id === deviceId);
+        // Device info no longer needed - using single source of truth
 
         const batchPayload = {
           verifications: validVerifications,
@@ -234,14 +228,14 @@ export const useVerification = ({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            host: selectedHost,
-            device_id: deviceId,
+            host: currentHost,  // Single source of truth
+            device_id: currentDeviceId,  // Single source of truth - no fallbacks
             ...batchPayload,
           }),
         });
 
         console.log(
-          `[useVerification] Fetching from: /server/verification/executeBatch with host: ${selectedHost?.host_name} and device: ${deviceId}`,
+          `[useVerification] Fetching from: /server/verification/executeBatch with host: ${currentHost?.host_name} and device: ${currentDeviceId}`,
         );
 
         if (!response.ok) {
@@ -270,7 +264,7 @@ export const useVerification = ({
         setLoading(false);
       }
     },
-    [verifications, selectedHost, deviceId, captureSourcePath],
+    [verifications, currentHost, currentDeviceId, captureSourcePath],
   );
 
   return {
@@ -282,8 +276,8 @@ export const useVerification = ({
     successMessage,
     handleVerificationsChange,
     handleTest,
-    selectedHost,
-    deviceId,
+    currentHost,
+    currentDeviceId,
     // Image comparison modal
     imageComparisonDialog,
     openImageComparisonModal,

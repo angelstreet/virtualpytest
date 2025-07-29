@@ -16,10 +16,7 @@ export interface UseEdgeProps {
 
 export const useEdge = (props?: UseEdgeProps) => {
   // Action hook for edge operations
-  const actionHook = useAction({
-    selectedHost: props?.selectedHost || null,
-    deviceId: props?.selectedDeviceId,
-  });
+  const actionHook = useAction({});
 
   // Navigation context for current position updates
   const { updateCurrentPosition } = useNavigation();
