@@ -460,22 +460,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = React.memo(
       [setNodes, setEdges],
     );
 
-    const saveTreeForUserInterface = useCallback(
-      async (userInterfaceId: string) => {
-        try {
-          // Get the tree ID for this user interface
-          const interfaces = await listAvailableTrees();
-          const userInterface = interfaces.find((ui: any) => ui.id === userInterfaceId);
-          
-          if (userInterface && userInterface.root_tree && userInterface.root_tree.id) {
-            await saveTreeWithStateUpdate(userInterface.root_tree.id);
-          }
-        } catch (error) {
-          console.error('Failed to save tree for user interface:', error);
-        }
-      },
-      [listAvailableTrees, saveTreeWithStateUpdate],
-    );
+
 
     // Handle navigation back to parent tree
     const handleNavigateBack = useCallback(async () => {
@@ -593,12 +578,10 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = React.memo(
                 throw new Error(result.message);
               }
             }
-          } else if (actualUserInterfaceId) {
-            // Save as root tree using new normalized API
-            console.log('[@NavigationEditor] Saving as root tree');
-            await saveTreeForUserInterface(actualUserInterfaceId);
           } else {
-            throw new Error('Cannot save: missing userInterface ID');
+            // Save as root tree using centralized tree ID
+            console.log(`[@NavigationEditor] Saving tree: ${actualTreeId}`);
+            await saveTreeWithStateUpdate(actualTreeId!);
           }
         } catch (error) {
           console.error('Error saving tree:', error);
@@ -613,7 +596,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = React.memo(
         nodes,
         edges,
         actualUserInterfaceId,
-        saveTreeForUserInterface,
+        saveTreeWithStateUpdate,
         setHasUnsavedChanges,
       ],
     );
