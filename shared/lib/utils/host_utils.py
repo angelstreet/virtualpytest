@@ -32,11 +32,7 @@ try:
         sys.path.insert(0, backend_core_path)
     from backend_core.src.controllers.controller_manager import get_host
 except ImportError:
-    # Fallback if controller_manager is not available
-    def get_host():
-        """Fallback get_host function when controller_manager is not available"""
-        from models.host import Host
-        return Host("fallback-host", "127.0.0.1", 6109)
+    raise ImportError("controller_manager not found")
 from .build_url_utils import buildServerUrl
 
 # Disable SSL warnings for self-signed certificates

@@ -6,8 +6,8 @@ Handles the creation and organization of controllers for devices.
 
 import os
 from typing import Dict, List, Any, Optional
-from models.host import Host
-from models.device import Device
+from shared.lib.models.host import Host
+from shared.lib.models.device import Device
 from backend_core.src.controllers.controller_config_factory import create_controller_configs_from_device_info
 
 # Import controller classes

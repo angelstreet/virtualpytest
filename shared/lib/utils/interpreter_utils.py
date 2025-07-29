@@ -1,8 +1,8 @@
 from typing import Dict, List
 import time
-from models.navigation_tree import NavigationTree
-from controllers.remote_controller import RemoteController
-from controllers.verification_controller import VerificationController
+from shared.lib.models.navigation_tree import NavigationTree
+from backend_core.src.controllers.remote_controller import RemoteController
+from backend_core.src.controllers.verification_controller import VerificationController
 from .report_utils import Reporter
 from .logger_utils import Logger
 from test_scripts.functional import FunctionalTest

@@ -1,6 +1,6 @@
 from typing import Dict, List
 from uuid import uuid4
-from models.navigation_tree import NavigationTree
+from shared.lib.models.navigation_tree import NavigationTree
 
 class AutoTestGenerator:
     def __init__(self, tree: NavigationTree):

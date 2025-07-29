@@ -2,9 +2,9 @@ import json
 from typing import Dict, Tuple
 from pymongo import MongoClient
 from .interpreter_utils import Interpreter
-from models.navigation_tree import NavigationTree
+from shared.lib.models.navigation_tree import NavigationTree
 # Fixed imports - using correct controller interfaces from backend_core
-from controllers.base_controller import (
+from backend_core.src.controllers.base_controller import (
     RemoteControllerInterface, 
     AVControllerInterface, 
     VerificationControllerInterface
