@@ -328,24 +328,40 @@ class AndroidMobileRemoteController(RemoteControllerInterface):
             bool: True if click successful
         """
         if not self.is_connected or not self.adb_utils:
-            print(f"Remote[{self.device_type.upper()}]: ERROR - Not connected to device")
+            error_msg = "Not connected to device"
+            print(f"Remote[{self.device_type.upper()}]: ERROR - {error_msg}")
+            self.last_error = error_msg
             return False
             
         try:
             print(f"Remote[{self.device_type.upper()}]: Direct click on element: '{element_identifier}'")
             
-            # Use ADB search and click method (correct method name)
-            success = self.adb_utils.click_element_by_search(self.android_device_id, element_identifier)
+            # First check if element exists to get detailed error information
+            exists, element, error = self.adb_utils.check_element_exists(self.android_device_id, element_identifier)
             
-            if success:
-                print(f"Remote[{self.device_type.upper()}]: Successfully clicked element: '{element_identifier}'")
-            else:
-                print(f"Remote[{self.device_type.upper()}]: Failed to click element: '{element_identifier}'")
+            if exists and element:
+                # Use ADB search and click method (correct method name)
+                success = self.adb_utils.click_element_by_search(self.android_device_id, element_identifier)
                 
-            return success
-            
+                if success:
+                    print(f"Remote[{self.device_type.upper()}]: Successfully clicked element: '{element_identifier}'")
+                    self.last_error = None
+                    return True
+                else:
+                    error_msg = f"Element found but click failed for '{element_identifier}'"
+                    print(f"Remote[{self.device_type.upper()}]: {error_msg}")
+                    self.last_error = error_msg
+                    return False
+            else:
+                error_msg = f"Element '{element_identifier}' not found: {error}"
+                print(f"Remote[{self.device_type.upper()}]: {error_msg}")
+                self.last_error = error_msg
+                return False
+                
         except Exception as e:
-            print(f"Remote[{self.device_type.upper()}]: Direct element click error: {e}")
+            error_msg = f"Element click error: {str(e)}"
+            print(f"Remote[{self.device_type.upper()}]: {error_msg}")
+            self.last_error = error_msg
             return False
             
     def find_element_by_text(self, text: str) -> Optional[AndroidElement]:

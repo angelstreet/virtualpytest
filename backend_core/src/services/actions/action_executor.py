@@ -88,17 +88,25 @@ class ActionExecutor:
         passed_count = 0
         execution_order = 1
         
-        # Execute main actions
+        # Execute main actions - stop on first failure
         print(f"[@lib:action_executor:execute_actions] Executing {len(valid_actions)} main actions")
+        main_actions_failed = False
+        
         for i, action in enumerate(valid_actions):
             result = self._execute_single_action(action, execution_order, i+1, 'main')
             results.append(result)
+            
             if result.get('success'):
                 passed_count += 1
+            else:
+                # First action failed - stop executing remaining main actions
+                print(f"[@lib:action_executor:execute_actions] Main action {i+1} failed, stopping main action execution")
+                main_actions_failed = True
+                break
+                
             execution_order += 1
         
-        # Execute retry actions if main actions failed
-        main_actions_failed = passed_count < len(valid_actions)
+        # Execute retry actions if any main action failed
         if main_actions_failed and valid_retry_actions:
             print(f"[@lib:action_executor:execute_actions] Main actions failed, executing {len(valid_retry_actions)} retry actions")
             for i, retry_action in enumerate(valid_retry_actions):
@@ -113,13 +121,23 @@ class ActionExecutor:
         
         print(f"[@lib:action_executor:execute_actions] Batch completed: {passed_count}/{len(valid_actions)} main actions passed, overall success: {overall_success}")
         
+        # Build simple error message showing which actions failed
+        failed_actions = [r for r in results if not r.get('success')]
+        
+        if failed_actions:
+            failed_names = [f.get('message', 'Unknown action') for f in failed_actions]
+            error_message = f"Actions failed: {', '.join(failed_names)}"
+        else:
+            error_message = None
+        
         return {
             'success': overall_success,
             'total_count': len(valid_actions),
             'passed_count': passed_count,
             'failed_count': len(valid_actions) - passed_count,
             'results': results,
-            'message': f'Batch action execution completed: {passed_count}/{len(valid_actions)} passed'
+            'message': f'Batch action execution completed: {passed_count}/{len(valid_actions)} passed',
+            'error': error_message
         }
     
     def _filter_valid_actions(self, actions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -192,13 +210,15 @@ class ActionExecutor:
                 error_details={'error': str(e)}
             )
             
+            action_label = action.get('label', action.get('command'))
             return {
                 'success': False,
-                'message': f"{action.get('label', action.get('command'))}",
+                'message': action_label,
                 'error': str(e),
                 'resultType': 'FAIL',
                 'execution_time_ms': execution_time,
-                'action_category': action_category
+                'action_category': action_category,
+                'action_details': f"{action_label} ({action.get('command')})" if action.get('label') != action.get('command') else action_label
             }
     
     def _record_execution_to_database(self, success: bool, execution_time_ms: int, message: str, error_details: Optional[Dict] = None):

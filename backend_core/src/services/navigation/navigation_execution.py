@@ -129,9 +129,15 @@ class NavigationExecutor:
                             # No transitions succeeded, we're still at the starting position
                             final_position_node_id = current_node_id
                         
+                        # Build detailed error message with transition context
+                        transition_description = transition.get('description', f'Transition {i+1}')
+                        error_message = result.get('error', result.get('message', 'Unknown error'))
+                        
+                        detailed_error = f'Failed in "{transition_description}": {error_message}'
+                        
                         return {
                             'success': False,
-                            'error': f'Action execution failed in transition {i+1}: {result.get("error", "Unknown error")}',
+                            'error': detailed_error,
                             'tree_id': tree_id,
                             'target_node_id': target_node_id,
                             'current_node_id': current_node_id,
@@ -142,7 +148,9 @@ class NavigationExecutor:
                             'total_actions': total_actions,
                             'execution_time': time.time() - start_time,
                             'failed_transition': i + 1,
-                            'action_results': result.get('results', [])
+                            'failed_transition_description': transition_description,
+                            'action_results': result.get('results', []),
+                            'failed_actions': result.get('failed_actions', [])
                         }
                     
                     actions_executed += result.get('passed_count', 0)
