@@ -25,7 +25,7 @@ interface EdgeSelectionPanelProps {
   panelIndex?: number;
 
   // Add props for passing labels to the edit dialog
-  onEditWithLabels?: (fromLabel, toLabel: string) => void;
+  onEditWithLabels?: (fromLabel: string, toLabel: string) => void;
   
   // Current edge form state (for running updated actions)
   currentEdgeForm?: EdgeForm | null;
@@ -277,7 +277,7 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
                       if (params.amount) paramParts.push(`${params.amount}x`);
                       break;
                   }
-                  if (params.wait_time && params.wait_time !== 500) {
+                  if (params.wait_time) {
                     paramParts.push(`wait: ${params.wait_time}ms`);
                   }
                   const paramDisplay = paramParts.length > 0 ? ` → ${paramParts.join(', ')}` : '';
@@ -344,7 +344,7 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
                       if (params.amount) paramParts.push(`${params.amount}x`);
                       break;
                   }
-                  if (params.wait_time && params.wait_time !== 500) {
+                  if (params.wait_time) {
                     paramParts.push(`wait: ${params.wait_time}ms`);
                   }
                   const paramDisplay = paramParts.length > 0 ? ` → ${paramParts.join(', ')}` : '';
