@@ -532,7 +532,6 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
       actions: [],
       retryActions: [],
       final_wait_time: 2000,
-      description: '',
     });
     setIsNewNode(false);
   }, []);
