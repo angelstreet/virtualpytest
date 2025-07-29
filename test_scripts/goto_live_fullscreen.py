@@ -39,7 +39,8 @@ from shared.lib.utils.script_utils import (
     take_device_control,
     release_device_control,
     load_navigation_tree,
-    execute_navigation_with_verifications
+    execute_navigation_with_verifications,
+    capture_validation_screenshot
 )
 
 # Import pathfinding for navigation
@@ -71,6 +72,8 @@ def main():
     start_time = time.time()
     overall_success = False
     error_message = ""
+    screenshot_paths = []
+    step_results = []
     
     try:
         # 1. Setup script environment (centralized)
