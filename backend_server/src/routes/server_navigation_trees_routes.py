@@ -363,47 +363,15 @@ def get_full_tree_api(tree_id):
         result = get_full_tree(tree_id, team_id)
         
         if result['success']:
-            # Populate navigation cache for pathfinding - CLEAN NEW ARCHITECTURE
+            # Populate navigation cache - EXACT ORIGINAL FORMAT
             try:
                 from shared.lib.utils.navigation_cache import populate_cache
                 nodes = result.get('nodes', [])
                 edges = result.get('edges', [])
                 
-                # Build graph data in the exact format the graph builder expects
-                graph_nodes = []
-                for node in nodes:
-                    # Extract node data
-                    node_data = node.get('data', {})
-                    
-                    # Determine if this is an entry point
-                    is_entry = (
-                        node_data.get('type') == 'entry' or
-                        node.get('label', '').upper() == 'ENTRY' or
-                        node_data.get('is_root', False)
-                    )
-                    
-                    graph_nodes.append({
-                        'id': node.get('node_id'),
-                        'label': node.get('label', ''),
-                        'node_type': node.get('node_type', ''),
-                        'is_entry_point': is_entry,
-                        'data': node_data
-                    })
-                
-                # Build edges with proper source/target references
-                graph_edges = []
-                for edge in edges:
-                    graph_edges.append({
-                        'id': edge.get('edge_id'),
-                        'source': edge.get('source_node_id'),
-                        'target': edge.get('target_node_id'),
-                        'actions': edge.get('actions', []),
-                        'data': {
-                            'actions': edge.get('actions', [])
-                        }
-                    })
-                
-                populate_cache(tree_id, team_id, graph_nodes, graph_edges)
+                # Pass nodes and edges exactly as they come from database
+                # The graph builder will handle the format conversion
+                populate_cache(tree_id, team_id, nodes, edges)
                 print(f'[@route:navigation_trees:get_full_tree] Successfully populated navigation cache')
             except Exception as cache_error:
                 print(f'[@route:navigation_trees:get_full_tree] Cache population failed: {cache_error}')
@@ -483,47 +451,15 @@ def get_tree_by_userinterface_id(userinterface_id):
             # Get full tree data with nodes and edges
             tree_data = get_full_tree(tree['id'], team_id)
             
-            # Populate navigation cache for pathfinding - CLEAN NEW ARCHITECTURE
+            # Populate navigation cache - EXACT ORIGINAL FORMAT
             try:
                 from shared.lib.utils.navigation_cache import populate_cache
                 nodes = tree_data.get('nodes', [])
                 edges = tree_data.get('edges', [])
                 
-                # Build graph data in the exact format the graph builder expects
-                graph_nodes = []
-                for node in nodes:
-                    # Extract node data
-                    node_data = node.get('data', {})
-                    
-                    # Determine if this is an entry point
-                    is_entry = (
-                        node_data.get('type') == 'entry' or
-                        node.get('label', '').upper() == 'ENTRY' or
-                        node_data.get('is_root', False)
-                    )
-                    
-                    graph_nodes.append({
-                        'id': node.get('node_id'),
-                        'label': node.get('label', ''),
-                        'node_type': node.get('node_type', ''),
-                        'is_entry_point': is_entry,
-                        'data': node_data
-                    })
-                
-                # Build edges with proper source/target references
-                graph_edges = []
-                for edge in edges:
-                    graph_edges.append({
-                        'id': edge.get('edge_id'),
-                        'source': edge.get('source_node_id'),
-                        'target': edge.get('target_node_id'),
-                        'actions': edge.get('actions', []),
-                        'data': {
-                            'actions': edge.get('actions', [])
-                        }
-                    })
-                
-                populate_cache(tree['id'], team_id, graph_nodes, graph_edges)
+                # Pass nodes and edges exactly as they come from database
+                # The graph builder will handle the format conversion
+                populate_cache(tree['id'], team_id, nodes, edges)
                 print(f'[@route:navigation_trees:get_tree_by_userinterface_id] Successfully populated navigation cache for tree: {tree["id"]}')
             except Exception as cache_error:
                 print(f'[@route:navigation_trees:get_tree_by_userinterface_id] Cache population failed: {cache_error}')

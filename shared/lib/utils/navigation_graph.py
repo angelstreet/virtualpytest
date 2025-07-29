@@ -24,7 +24,8 @@ def create_networkx_graph(nodes: List[Dict], edges: List[Dict]) -> nx.DiGraph:
     
     # Add nodes with their data
     for node in nodes:
-        node_id = node.get('id')
+        # Handle both old format (id) and new normalized format (node_id)
+        node_id = node.get('id') or node.get('node_id')
         if not node_id:
             print(f"[@navigation:graph:create_networkx_graph] Warning: Node without ID found, skipping")
             continue
@@ -68,9 +69,9 @@ def create_networkx_graph(nodes: List[Dict], edges: List[Dict]) -> nx.DiGraph:
     print(f"[@navigation:graph:create_networkx_graph] ===== ADDING EDGES WITH ACTIONS =====")
     
     for edge in edges:
-        # Handle both ReactFlow format (source/target) and database format (source_id/target_id)
-        source_id = edge.get('source') or edge.get('source_id')
-        target_id = edge.get('target') or edge.get('target_id')
+        # Handle multiple formats: ReactFlow (source/target), old DB (source_id/target_id), new normalized (source_node_id/target_node_id)
+        source_id = edge.get('source') or edge.get('source_id') or edge.get('source_node_id')
+        target_id = edge.get('target') or edge.get('target_id') or edge.get('target_node_id')
         
         if not source_id or not target_id:
             print(f"[@navigation:graph:create_networkx_graph] Warning: Edge without source/target found, skipping. Available keys: {list(edge.keys())}")
