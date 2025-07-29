@@ -383,7 +383,7 @@ export const EdgeEditDialog: React.FC<EdgeEditDialogProps> = ({
             <Button
               onClick={handleRunActions}
               variant="contained"
-              disabled={!_selectedEdge || !edgeHook.canRunActions(_selectedEdge) || edgeHook.actionHook.loading}
+              disabled={!edgeHook.canRunActions(_selectedEdge)}
             >
               {edgeHook.actionHook.loading ? 'Running...' : 'Run'}
             </Button>

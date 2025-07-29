@@ -101,7 +101,9 @@ def setup_script_environment(script_name: str = "script") -> Dict[str, Any]:
         Dictionary containing host, team_id, and other configuration
     """
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    env_path = os.path.join(script_dir, '..', 'web', '.env')
+    # Navigate to project root and then to backend_host/src/.env
+    project_root = os.path.dirname(os.path.dirname(os.path.dirname(script_dir)))
+    env_path = os.path.join(project_root, 'backend_host', 'src', '.env')
     
     if os.path.exists(env_path):
         load_environment_variables(mode='host', calling_script_dir=os.path.dirname(env_path))
