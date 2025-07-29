@@ -406,6 +406,8 @@ const NavigationEditorContent: React.FC<{ userInterfaceId?: string }> = React.me
               source: edge.source_node_id,
               target: edge.target_node_id,
               type: 'uiNavigation',
+              sourceHandle: edge.data?.sourceHandle, // Extract handle info to root level
+              targetHandle: edge.data?.targetHandle, // Extract handle info to root level
               data: {
                 description: edge.description,
                 actions: edge.actions, // Directly embedded with wait_time
