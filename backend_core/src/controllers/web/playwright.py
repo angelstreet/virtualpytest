@@ -21,7 +21,8 @@ if shared_utils_path not in sys.path:
     sys.path.insert(0, shared_utils_path)
 
 from playwright_utils import PlaywrightUtils
-from browseruse_utils import BrowserUseManager
+# Import browseruse_utils only when needed to avoid browser_use dependency at module load
+# from browseruse_utils import BrowserUseManager
 
 
 class PlaywrightWebController(WebControllerInterface):
@@ -638,6 +639,17 @@ class PlaywrightWebController(WebControllerInterface):
         async def _async_browser_use_task():
             try:
                 print(f"Web[{self.web_type.upper()}]: Executing browser-use task: {task}")
+                
+                # Import browseruse_utils only when needed
+                try:
+                    from browseruse_utils import BrowserUseManager
+                except ImportError as e:
+                    return {
+                        'success': False,
+                        'error': f'Browser-use not available: {e}',
+                        'task': task,
+                        'execution_time': 0
+                    }
                 
                 # Create browser-use manager with existing browser session reuse
                 browseruse_manager = BrowserUseManager(self.utils)

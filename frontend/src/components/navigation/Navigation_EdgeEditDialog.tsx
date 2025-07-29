@@ -126,8 +126,15 @@ export const EdgeEditDialog: React.FC<EdgeEditDialogProps> = ({
   };
 
   const handleRunActions = async () => {
-    // Use the executeLocalActions method from edgeEdit hook
-    await edgeEdit.executeLocalActions();
+    // Use the same execution method as the Edge Selection Panel
+    // Pass the local actions as overrides to executeEdgeActions
+    if (_selectedEdge) {
+      await edgeHook.executeEdgeActions(
+        _selectedEdge,
+        edgeEdit.localActions,
+        edgeEdit.localRetryActions
+      );
+    }
   };
 
   if (!edgeForm) return null;
@@ -376,8 +383,7 @@ export const EdgeEditDialog: React.FC<EdgeEditDialogProps> = ({
             <Button
               onClick={handleRunActions}
               variant="contained"
-              disabled={!edgeEdit.canRunLocalActions() || edgeHook.actionHook.loading}
-              sx={{ opacity: !edgeEdit.canRunLocalActions() ? 0.5 : 1 }}
+              disabled={!_selectedEdge || !edgeHook.canRunActions(_selectedEdge) || edgeHook.actionHook.loading}
             >
               {edgeHook.actionHook.loading ? 'Running...' : 'Run'}
             </Button>
