@@ -122,11 +122,11 @@ export const EdgeEditDialog: React.FC<EdgeEditDialogProps> = ({
     setDependencyEdges([]);
   };
 
-  const handleRunActions = () => {
+  const handleRunActions = async () => {
     // Use the same execution method as the Edge Selection Panel
     // Pass the local actions as overrides to executeEdgeActions
     if (_selectedEdge) {
-      edgeHook.executeEdgeActions(
+      await edgeHook.executeEdgeActions(
         _selectedEdge,
         edgeEdit.localActions,
         edgeEdit.localRetryActions

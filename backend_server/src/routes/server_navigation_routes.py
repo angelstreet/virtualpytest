@@ -90,4 +90,55 @@ def goto_navigation_node():
             'success': False,
             'error': f'Navigation error: {str(e)}'
         }), 500
+
+# =====================================================
+# CACHE MANAGEMENT ENDPOINTS
+# =====================================================
+
+@server_navigation_bp.route('/cache/refresh', methods=['POST'])
+def refresh_navigation_cache():
+    """Proxy cache refresh request to pathfinding service"""
+    try:
+        print("[@route:server_navigation:refresh_navigation_cache] Proxying cache refresh request")
+        
+        data = request.get_json() or {}
+        tree_id = data.get('tree_id')
+        team_id = data.get('team_id') or get_team_id()
+        
+        if not tree_id:
+            return jsonify({
+                'success': False,
+                'error': 'tree_id is required for cache refresh'
+            }), 400
+        
+        try:
+            from shared.lib.utils.navigation_cache import force_refresh_cache
+            
+            refresh_success = force_refresh_cache(tree_id, team_id)
+            
+            if refresh_success:
+                message = f"Navigation cache refreshed for tree {tree_id}"
+                return jsonify({
+                    'success': True,
+                    'message': message
+                })
+            else:
+                return jsonify({
+                    'success': False,
+                    'error': f'Failed to refresh navigation cache for tree {tree_id}'
+                }), 500
+            
+        except ImportError as e:
+            print(f"[@route:server_navigation:refresh_navigation_cache] Cache modules not available: {e}")
+            return jsonify({
+                'success': False,
+                'error': 'Navigation cache modules not available'
+            }), 503
+        
+    except Exception as e:
+        print(f"[@route:server_navigation:refresh_navigation_cache] Error: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
         

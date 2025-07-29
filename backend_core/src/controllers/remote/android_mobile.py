@@ -280,12 +280,23 @@ class AndroidMobileRemoteController(RemoteControllerInterface):
                 # Log each element in one line with requested format: name, index, order, x, y, width, height
                 import re
                 for i, element in enumerate(elements):
-                    # Get element name (prefer text, fallback to content_desc, then class_name)
-                    name = element.text.strip() if element.text else ""
-                    if not name:
-                        name = element.content_desc.strip() if element.content_desc else ""
-                    if not name:
-                        name = element.class_name.split('.')[-1] if element.class_name else "Unknown"
+                    # Get element name with same priority as frontend: content_desc → text → class_name
+                    name = ""
+                    
+                    # Priority 1: content_desc (same as frontend contentDesc)
+                    if (element.content_desc and 
+                        element.content_desc != '<no content-desc>' and 
+                        element.content_desc.strip() != ''):
+                        name = element.content_desc.strip()
+                    # Priority 2: text (same as frontend text)
+                    elif (element.text and 
+                          element.text != '<no text>' and 
+                          element.text.strip() != ''):
+                        name = f'"{element.text.strip()}"'
+                    # Priority 3: class_name (same as frontend className)
+                    else:
+                        class_name = element.class_name.split('.')[-1] if element.class_name else "Unknown"
+                        name = class_name
                     
                     # Parse bounds to get x, y, width, height
                     x, y, width, height = 0, 0, 0, 0
@@ -568,6 +579,26 @@ class AndroidMobileRemoteController(RemoteControllerInterface):
                     'inputPlaceholder': 'Home Tab'
                 },
                 {
+                    'id': 'dump_ui_elements',
+                    'label': 'Dump UI Elements',
+                    'command': 'dump_ui_elements',
+                    'action_type': 'remote',
+                    'params': {},
+                    'description': 'Dump current UI elements to get element IDs for precise clicking',
+                    'requiresInput': False
+                },
+                {
+                    'id': 'click_element_by_id',
+                    'label': 'Click Element by ID',
+                    'command': 'click_element_by_id',
+                    'action_type': 'remote',
+                    'params': {},
+                    'description': 'Click on UI element by exact ID (works with non-visible elements, always dumps UI first)',
+                    'requiresInput': True,
+                    'inputLabel': 'Element ID',
+                    'inputPlaceholder': '8'
+                },
+                {
                     'id': 'tap_coordinates',
                     'label': 'Tap Coordinates',
                     'command': 'tap_coordinates',
@@ -681,11 +712,21 @@ class AndroidMobileRemoteController(RemoteControllerInterface):
             result = self.tap_coordinates(int(x), int(y)) if x is not None and y is not None else False
         
         elif command == 'click_element_by_id':
-            # Android Mobile specific - uses UI dump
+            # Android Mobile specific - always dumps UI for edge actions to ensure current state
             element_id = params.get('element_id')
-            if element_id and self.last_ui_elements:
-                element = next((el for el in self.last_ui_elements if str(el.id) == str(element_id)), None)
-                result = self.click_element_by_id(element) if element else False
+            if element_id:
+                # Always perform fresh UI dump for edge actions since UI state may have changed
+                print(f"Remote[{self.device_type.upper()}]: Performing UI dump for edge action")
+                dump_success, elements, dump_error = self.dump_ui_elements()
+                
+                if dump_success and elements:
+                    element = next((el for el in elements if str(el.id) == str(element_id)), None)
+                    result = self.click_element_by_id(element) if element else False
+                    if not result:
+                        print(f"Remote[{self.device_type.upper()}]: Element with ID {element_id} not found in current UI dump")
+                else:
+                    print(f"Remote[{self.device_type.upper()}]: Failed to dump UI elements: {dump_error}")
+                    result = False
             else:
                 result = False
         

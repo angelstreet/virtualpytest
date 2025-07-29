@@ -111,13 +111,14 @@ def action_execute_batch():
         # Use ActionExecutor directly (same pattern as navigation execution)
         try:
             from backend_core.src.services.actions.action_executor import ActionExecutor
+            from shared.lib.utils.app_utils import get_team_id
             
             action_executor = ActionExecutor(
                 host=host,
                 device_id=device_id,
                 tree_id=None,  # Not needed for direct action execution
                 edge_id=None,  # Not needed for direct action execution
-                team_id='default'  # Use default team for now - should be from session
+                team_id=get_team_id()
             )
             
             result = action_executor.execute_actions(
