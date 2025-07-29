@@ -65,6 +65,7 @@ export const useNavigationEditor = () => {
         navigation.setHasUnsavedChanges(false);
 
         console.log(`[@useNavigationEditor:loadTreeData] Loaded ${frontendNodes.length} nodes and ${frontendEdges.length} edges`);
+        console.log('[@useNavigationEditor:loadTreeData] Set initialState with node IDs:', frontendNodes.map((n: any) => n.id));
       } catch (error) {
         navigation.setError(`Failed to load tree: ${error instanceof Error ? error.message : 'Unknown error'}`);
       } finally {
@@ -242,14 +243,27 @@ export const useNavigationEditor = () => {
   }, [navigation]);
 
   const deleteSelected = useCallback(() => {
+    console.log('[@useNavigationEditor:deleteSelected] Starting deletion process', {
+      selectedNode: navigation.selectedNode?.id,
+      selectedEdge: navigation.selectedEdge?.id,
+      currentNodeCount: navigation.nodes.length,
+      currentEdgeCount: navigation.edges.length
+    });
+
     if (navigation.selectedNode) {
-      const filteredNodes = navigation.nodes.filter((n) => n.id !== navigation.selectedNode?.id);
+      const nodeId = navigation.selectedNode.id;
+      const filteredNodes = navigation.nodes.filter((n) => n.id !== nodeId);
+      console.log('[@useNavigationEditor:deleteSelected] Deleting node:', nodeId, 
+        'Nodes before:', navigation.nodes.length, 'Nodes after:', filteredNodes.length);
       navigation.setNodes(filteredNodes);
       navigation.setSelectedNode(null);
       navigation.markUnsavedChanges();
     }
     if (navigation.selectedEdge) {
-      const filteredEdges = navigation.edges.filter((e) => e.id !== navigation.selectedEdge?.id);
+      const edgeId = navigation.selectedEdge.id;
+      const filteredEdges = navigation.edges.filter((e) => e.id !== edgeId);
+      console.log('[@useNavigationEditor:deleteSelected] Deleting edge:', edgeId,
+        'Edges before:', navigation.edges.length, 'Edges after:', filteredEdges.length);
       navigation.setEdges(filteredEdges);
       navigation.setSelectedEdge(null);
       navigation.markUnsavedChanges();
