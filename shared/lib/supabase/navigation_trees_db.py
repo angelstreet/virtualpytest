@@ -48,6 +48,33 @@ def get_all_trees(team_id: str) -> List[Dict]:
     
     return trees
 
+def get_root_tree_for_interface(userinterface_id: str, team_id: str) -> Optional[Dict]:
+    """Get the root navigation tree for a specific user interface."""
+    try:
+        supabase = get_supabase()
+        result = supabase.table('navigation_trees').select(
+            'id, name, userinterface_id, team_id, root_node_id, description, created_at, updated_at'
+        ).eq('userinterface_id', userinterface_id).eq('team_id', team_id).limit(1).execute()
+        
+        if result.data:
+            tree = result.data[0]
+            return {
+                'id': tree['id'],
+                'name': tree['name'],
+                'userinterface_id': tree['userinterface_id'],
+                'team_id': tree['team_id'],
+                'root_node_id': tree['root_node_id'],
+                'description': tree['description'],
+                'created_at': tree['created_at'],
+                'updated_at': tree['updated_at']
+            }
+        
+        return None
+        
+    except Exception as e:
+        print(f"[@db:navigation_trees:get_root_tree_for_interface] Error: {str(e)}")
+        return None
+
 def get_tree_metadata(tree_id: str, team_id: str) -> Dict:
     """Get tree basic metadata information."""
     try:
