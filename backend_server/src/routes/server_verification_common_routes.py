@@ -237,57 +237,93 @@ def verification_video_execute():
 def verification_execute_batch():
     """Execute batch of verifications with embedded verification objects"""
     try:
-        print("[@route:server_verification_common:verification_execute_batch] Starting batch verification execution")
+        print("[@route:server_verification_common:verification_execute_batch] Processing batch verification request")
         
-        # Get request data
-        data = request.get_json() or {}
-        verifications = data.get('verifications', [])  # Array of embedded verification objects
-        host = data.get('host', {})
-        device_id = data.get('device_id', 'device1')
+        data = request.get_json()
+        host_info = get_host_from_request(data)
         
-        print(f"[@route:server_verification_common:verification_execute_batch] Processing {len(verifications)} verifications")
-        print(f"[@route:server_verification_common:verification_execute_batch] Host: {host.get('host_name')}, Device ID: {device_id}")
-        
-        # Validate
-        if not verifications:
-            return jsonify({'success': False, 'error': 'verifications are required'}), 400
-        
-        if not host:
-            return jsonify({'success': False, 'error': 'host is required'}), 400
-        
-        # Proxy execution to host
-        host_url = host.get('host_url', f"http://{host.get('host_name')}:6109")
-        
-        # Prepare execution payload with embedded verifications
-        execution_payload = {
-            'verifications': verifications,  # Verifications are already embedded objects
-            'device_id': device_id
-        }
-        
-        print(f"[@route:server_verification_common:verification_execute_batch] Proxying to host: {host_url}")
-        
-        # Proxy to host
         response = proxy_to_host(
-            host_url=host_url,
+            host_url=host_info['host_url'],
             endpoint='/host/verification/executeBatch',
             method='POST',
-            data=execution_payload,
-            timeout=300  # 5 minute timeout for verification execution
+            data=data
         )
         
-        if response.get('success'):
-            print(f"[@route:server_verification_common:verification_execute_batch] Batch execution completed successfully")
-            return jsonify(response)
-        else:
-            print(f"[@route:server_verification_common:verification_execute_batch] Batch execution failed: {response.get('error', 'Unknown error')}")
-            return jsonify(response), 400
-            
+        return jsonify(response)
+        
     except Exception as e:
         print(f"[@route:server_verification_common:verification_execute_batch] Error: {e}")
-        return jsonify({
-            'success': False,
-            'error': f'Server error during batch verification execution: {str(e)}'
-        }), 500
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+# =====================================================
+# VIDEO VERIFICATION SPECIFIC ENDPOINTS (PROXY TO HOST)
+# =====================================================
+
+@server_verification_common_bp.route('/video/detectSubtitles', methods=['POST'])
+def video_detect_subtitles():
+    """Proxy subtitle detection request to host"""
+    try:
+        print("[@route:server_verification_common:video_detect_subtitles] Proxying subtitle detection request")
+        
+        data = request.get_json()
+        host_info = get_host_from_request(data)
+        
+        response = proxy_to_host(
+            host_url=host_info['host_url'],
+            endpoint='/host/verification/video/detectSubtitles',
+            method='POST',
+            data=data
+        )
+        
+        return jsonify(response)
+        
+    except Exception as e:
+        print(f"[@route:server_verification_common:video_detect_subtitles] Error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@server_verification_common_bp.route('/video/detectSubtitlesAI', methods=['POST'])
+def video_detect_subtitles_ai():
+    """Proxy AI subtitle detection request to host"""
+    try:
+        print("[@route:server_verification_common:video_detect_subtitles_ai] Proxying AI subtitle detection request")
+        
+        data = request.get_json()
+        host_info = get_host_from_request(data)
+        
+        response = proxy_to_host(
+            host_url=host_info['host_url'],
+            endpoint='/host/verification/video/detectSubtitlesAI',
+            method='POST',
+            data=data
+        )
+        
+        return jsonify(response)
+        
+    except Exception as e:
+        print(f"[@route:server_verification_common:video_detect_subtitles_ai] Error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@server_verification_common_bp.route('/video/analyzeImageAI', methods=['POST'])
+def video_analyze_image_ai():
+    """Proxy AI image analysis request to host"""
+    try:
+        print("[@route:server_verification_common:video_analyze_image_ai] Proxying AI image analysis request")
+        
+        data = request.get_json()
+        host_info = get_host_from_request(data)
+        
+        response = proxy_to_host(
+            host_url=host_info['host_url'],
+            endpoint='/host/verification/video/analyzeImageAI',
+            method='POST',
+            data=data
+        )
+        
+        return jsonify(response)
+        
+    except Exception as e:
+        print(f"[@route:server_verification_common:video_analyze_image_ai] Error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 # =====================================================
 # HEALTH CHECK
