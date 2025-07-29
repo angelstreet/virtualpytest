@@ -502,7 +502,7 @@ export const NavigationConfigProvider: React.FC<NavigationConfigProviderProps> =
     [],
   );
 
-  // Save tree to database
+  // Save tree to database using normalized API
   const saveToConfig = useCallback(
     async (userInterfaceId: string, state: NavigationConfigState) => {
       try {
@@ -518,74 +518,16 @@ export const NavigationConfigProvider: React.FC<NavigationConfigProviderProps> =
           edges: state.edges.length,
         });
 
-        // Prepare tree data for saving - only store structure and IDs
-        const treeDataForSaving = {
-          nodes: state.nodes.map((node: UINavigationNode) => ({
-            ...node,
-            data: {
-              ...node.data,
-              // Store verification_ids for reference
-              verification_ids: node.data.verification_ids || [],
-            },
-          })),
-          edges: state.edges.map((edge: any) => ({
-            ...edge,
-            data: {
-              // Only save IDs and core properties - strip full action objects
-              action_ids: edge.data?.action_ids || [],
-              retry_action_ids: edge.data?.retry_action_ids || [],
-              description: edge.data?.description || '',
-              finalWaitTime:
-                edge.finalWaitTime !== undefined ? edge.finalWaitTime : edge.data?.finalWaitTime,
-            },
-          })),
-        };
-
-        const requestBody = {
-          name: 'root', // Always use 'root' as the name
-          userinterface_id: userInterfaceId,
-          tree_data: treeDataForSaving,
-          description: `Navigation tree for userInterface: ${userInterfaceId}`,
-          modification_type: 'update',
-          changes_summary: 'Updated navigation tree from editor',
-        };
-
-        console.log(
-          '[@context:NavigationConfigProvider:saveToConfig] Sending request to save tree',
-        );
-
-        const response = await fetch(`/server/navigationTrees/saveTree`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(requestBody),
-        });
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error(
-            '[@context:NavigationConfigProvider:saveToConfig] Response error text:',
-            errorText,
-          );
-          throw new Error(`HTTP error! status: ${response.status}, body: ${errorText}`);
-        }
-
-        const data = await response.json();
-
-        if (data.success) {
+        // Use the new normalized API to save nodes and edges
+        if (actualTreeId) {
+          await saveTreeData(actualTreeId, state.nodes, state.edges);
+          
           console.log('[@context:NavigationConfigProvider:saveToConfig] Tree saved successfully');
           // Update initial state to reflect saved state
           state.setInitialState({ nodes: [...state.nodes], edges: [...state.edges] });
           state.setHasUnsavedChanges(false);
-
-          // Cache refresh is handled automatically by the backend save_navigation_tree function
-          console.log(
-            '[@context:NavigationConfigProvider:saveToConfig] Navigation cache will be refreshed automatically by backend',
-          );
         } else {
-          console.error('[@context:NavigationConfigProvider:saveToConfig] Save failed:', data);
-          throw new Error(data.message || 'Failed to save navigation tree to database');
+          throw new Error('No tree ID available for saving');
         }
       } catch (error) {
         console.error(`[@context:NavigationConfigProvider:saveToConfig] Error saving tree:`, error);
@@ -595,13 +537,13 @@ export const NavigationConfigProvider: React.FC<NavigationConfigProviderProps> =
         state.setIsLoading(false);
       }
     },
-    [],
+    [actualTreeId, saveTreeData],
   );
 
   // List available user interfaces
   const listAvailableUserInterfaces = useCallback(async (): Promise<any[]> => {
     try {
-      const response = await fetch('/server/navigation/userinterfaces');
+      const response = await fetch('/server/navigationTrees/userinterfaces');
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -609,8 +551,8 @@ export const NavigationConfigProvider: React.FC<NavigationConfigProviderProps> =
 
       const data = await response.json();
 
-      // The navigation endpoint returns the data directly, not wrapped in success object
-      return Array.isArray(data) ? data : [];
+      // The navigationTrees endpoint returns wrapped in success object
+      return data.success && Array.isArray(data.userinterfaces) ? data.userinterfaces : [];
     } catch (error) {
       console.error(
         `[@context:NavigationConfigProvider:listAvailableUserInterfaces] Error:`,
@@ -620,58 +562,15 @@ export const NavigationConfigProvider: React.FC<NavigationConfigProviderProps> =
     }
   }, []);
 
-  // Create empty tree
-  const createEmptyTree = useCallback(
-    async (userInterfaceId: string, state: NavigationConfigState) => {
-      try {
-        state.setIsLoading(true);
-        state.setError(null);
-
-        const response = await fetch(`/server/navigationTrees/saveTree`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            name: 'root',
-            userinterface_id: userInterfaceId,
-            tree_data: {
-              nodes: [],
-              edges: [],
-            },
-            description: `New navigation tree for userInterface: ${userInterfaceId}`,
-            modification_type: 'create',
-            changes_summary: 'Created new empty navigation tree',
-          }),
-        });
-
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const data = await response.json();
-
-        if (data.success) {
-          state.setNodes([]);
-          state.setEdges([]);
-          setActualTreeId(null);
-          state.setInitialState({ nodes: [], edges: [] });
-          state.setHasUnsavedChanges(false);
-          console.log(
-            `[@context:NavigationConfigProvider:createEmptyTree] Created empty tree for userInterface: ${userInterfaceId}`,
-          );
-        } else {
-          throw new Error(data.message || 'Failed to create empty navigation tree');
-        }
-      } catch (error) {
-        console.error(`[@context:NavigationConfigProvider:createEmptyTree] Error:`, error);
-        state.setError(error instanceof Error ? error.message : 'Unknown error occurred');
-      } finally {
-        state.setIsLoading(false);
-      }
-    },
-    [],
-  );
+  // TODO: Create empty tree functionality needs to be implemented with normalized API
+  // This function is currently not used but may be needed in the future
+  // const createEmptyTree = useCallback(
+  //   async (userInterfaceId: string, state: NavigationConfigState) => {
+  //     // Implementation needed: Create tree metadata first, then add empty nodes/edges
+  //     throw new Error('createEmptyTree not implemented for normalized API');
+  //   },
+  //   [],
+  // );
 
   // ========================================
   // CONTEXT VALUE
