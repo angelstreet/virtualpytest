@@ -49,16 +49,36 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
   }) => {
     const { getNodes } = useReactFlow();
 
-    // Get actual node labels for from/to display
-    const { fromLabel, toLabel } = useMemo(() => {
+    // Get actual node labels for from/to display, ensuring parent-to-child direction for bidirectional edges
+    const { fromLabel, toLabel, actualSource, actualTarget } = useMemo(() => {
       const nodes = getNodes();
       const sourceNode = nodes.find((node) => node.id === selectedEdge.source);
       const targetNode = nodes.find((node) => node.id === selectedEdge.target);
 
-      return {
-        fromLabel: sourceNode?.data?.label || selectedEdge.source,
-        toLabel: targetNode?.data?.label || selectedEdge.target,
-      };
+      // Determine if this is a bidirectional edge and which direction is parent-to-child
+      const sourceDepth = sourceNode?.data?.depth ?? 0;
+      const targetDepth = targetNode?.data?.depth ?? 0;
+      
+      // For bidirectional edges, show parent-to-child direction (lower depth to higher depth)
+      const shouldSwapDirection = sourceDepth > targetDepth;
+      
+      if (shouldSwapDirection) {
+        // Swap to show parent-to-child direction
+        return {
+          fromLabel: targetNode?.data?.label || selectedEdge.target,
+          toLabel: sourceNode?.data?.label || selectedEdge.source,
+          actualSource: selectedEdge.target,
+          actualTarget: selectedEdge.source,
+        };
+      } else {
+        // Keep original direction
+        return {
+          fromLabel: sourceNode?.data?.label || selectedEdge.source,
+          toLabel: targetNode?.data?.label || selectedEdge.target,
+          actualSource: selectedEdge.source,
+          actualTarget: selectedEdge.target,
+        };
+      }
     }, [getNodes, selectedEdge.source, selectedEdge.target]);
 
     // Use the consolidated edge hook
@@ -69,15 +89,22 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
     });
 
     // Get actions and retry actions - use form data if available for this edge
+    // Create a display edge with the correct direction for parent-to-child display
+    const displayEdge = {
+      ...selectedEdge,
+      source: actualSource,
+      target: actualTarget,
+    };
+    
     const actions = (currentEdgeForm && currentEdgeForm.edgeId === selectedEdge.id) 
       ? currentEdgeForm.actions 
-      : edgeHook.getActionsFromEdge(selectedEdge);
+      : edgeHook.getActionsFromEdge(displayEdge);
     const retryActions = (currentEdgeForm && currentEdgeForm.edgeId === selectedEdge.id) 
       ? currentEdgeForm.retryActions 
-      : edgeHook.getRetryActionsFromEdge(selectedEdge);
+      : edgeHook.getRetryActionsFromEdge(displayEdge);
     const hasActions = actions.length > 0;
     const hasRetryActions = retryActions.length > 0;
-    const canRunActions = edgeHook.canRunActions(selectedEdge);
+    const canRunActions = edgeHook.canRunActions(displayEdge);
 
     // Memoize the clearResults function to avoid recreating it on every render
     const clearResults = useMemo(() => edgeHook.clearResults, [edgeHook.clearResults]);
@@ -88,7 +115,7 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
     }, [selectedEdge.id, clearResults]);
 
     // Check if edge can be deleted using hook function
-    const isProtectedEdge = edgeHook.isProtectedEdge(selectedEdge);
+    const isProtectedEdge = edgeHook.isProtectedEdge(displayEdge);
 
     // Get metrics from edge data (loaded once with tree)
     const edgeMetrics = useMemo(() => {
@@ -110,7 +137,7 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
     }, [edgeMetrics.volume, edgeMetrics.success_rate]);
 
     const handleEdit = () => {
-      // Create edge form using hook function
+      // Create edge form using hook function - use original selectedEdge for editing
       const edgeForm = edgeHook.createEdgeForm(selectedEdge);
       setEdgeForm(edgeForm);
       setIsEdgeDialogOpen(true);
@@ -127,12 +154,12 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
       // Use updated actions from form if available, otherwise use edge data
       if (currentEdgeForm && currentEdgeForm.edgeId === selectedEdge.id) {
         await edgeHook.executeEdgeActions(
-          selectedEdge, 
+          displayEdge, 
           currentEdgeForm.actions, 
           currentEdgeForm.retryActions
         );
       } else {
-        await edgeHook.executeEdgeActions(selectedEdge);
+        await edgeHook.executeEdgeActions(displayEdge);
       }
     };
 
