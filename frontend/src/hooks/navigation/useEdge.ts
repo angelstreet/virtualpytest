@@ -19,7 +19,7 @@ export const useEdge = (props?: UseEdgeProps) => {
   const actionHook = useAction();
 
   // Navigation context for current position updates
-  const navigation = useNavigation();
+  const { updateCurrentPosition } = useNavigation();
 
   // Device data hook (no longer needed for individual resolution)
 
@@ -30,31 +30,13 @@ export const useEdge = (props?: UseEdgeProps) => {
   const [runResult, setRunResult] = useState<string | null>(null);
 
   /**
-   * Convert navigation Action to controller Action for action execution
+   * Convert navigation Action to EdgeAction for action execution
    */
   const convertToControllerAction = useCallback((navAction: Action): any => {
-    // Safely extract input value from various parameter types
-    const getInputValue = (params: any): string => {
-      if (!params) return '';
-
-      // Try different possible input fields
-      return params.input || params.text || params.key || params.package || params.element_id || '';
-    };
-
-    // Safely get wait time
-    const getWaitTime = (params: any): number => {
-      return params?.wait_time || 0;
-    };
-
     return {
-      label: navAction.label || navAction.command,
       command: navAction.command,
-      params: {
-        ...navAction.params,
-        wait_time: getWaitTime(navAction.params), // Use wait_time in ms
-      },
-      requiresInput: false,
-      inputValue: getInputValue(navAction.params),
+      name: navAction.label || navAction.command,
+      params: navAction.params,
     };
   }, []);
 
@@ -97,8 +79,8 @@ export const useEdge = (props?: UseEdgeProps) => {
    * Check if edge can run actions
    */
   const canRunActions = useCallback(
-    (edge: UINavigationEdge, overrideActions?: Action[]): boolean => {
-      const actions = overrideActions || getActionsFromEdge(edge);
+    (edge: UINavigationEdge): boolean => {
+      const actions = getActionsFromEdge(edge);
       return (
         props?.isControlActive === true &&
         props?.selectedHost !== null &&
@@ -160,14 +142,19 @@ export const useEdge = (props?: UseEdgeProps) => {
       setRunResult(null);
 
       try {
-        const result = await navigation.executeActionsWithPositionUpdate(
+        const result = await actionHook.executeActions(
           actions.map(convertToControllerAction),
           retryActions.map(convertToControllerAction),
-          edge.target
         );
 
-        const formattedResult = formatRunResult(result.message || 'Actions executed successfully');
+        const formattedResult = formatRunResult(actionHook.formatExecutionResults(result));
         setRunResult(formattedResult);
+
+        // Update current position to the target node if execution was successful
+        // This follows the same pattern as executeNavigation in useNode.ts
+        if (result && result.success !== false && edge.target) {
+          updateCurrentPosition(edge.target, null);
+        }
 
         return result;
       } catch (err: any) {
@@ -177,13 +164,14 @@ export const useEdge = (props?: UseEdgeProps) => {
       }
     },
     [
+      actionHook,
       getActionsFromEdge,
       getRetryActionsFromEdge,
       convertToControllerAction,
       formatRunResult,
       props?.isControlActive,
       props?.selectedHost,
-      navigation,
+      updateCurrentPosition,
     ],
   );
 
