@@ -10,7 +10,7 @@ import {
   Button,
 } from '@mui/material';
 import React, { useEffect, useCallback, useRef, useState, useMemo } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useParams } from 'react-router-dom';
 import ReactFlow, {
   Background,
   Controls,
@@ -257,15 +257,15 @@ const NavigationEditorContent: React.FC<{ userInterfaceId?: string }> = React.me
       availableHosts,
     } = useNavigationEditor();
 
+    // Use the correct userInterfaceId - prefer prop over URL param (same as working version)
+    const actualUserInterfaceId = userInterfaceId || interfaceId;
+
     // Initialize nested navigation hook for unified double-click handling
     const nestedNavigation = useNestedNavigation({
       setNodes,
       setEdges,
       openNodeDialog: navigation.openNodeDialog,
     });
-
-    // Use the correct userInterfaceId - prefer prop over URL param
-    const actualUserInterfaceId = userInterfaceId || interfaceId;
 
     // Get host manager from context (excluding availableHosts - we get that from useNavigationEditor)
     const {
@@ -1054,37 +1054,24 @@ const NavigationEditorContent: React.FC<{ userInterfaceId?: string }> = React.me
 );
 
 const NavigationEditor: React.FC = () => {
-  // Get userInterface directly from location.state to avoid timing issues
+  // Get userInterface from location.state
   const location = useLocation();
   const userInterfaceFromState = location.state?.userInterface;
 
   // Memoize userInterface for consistency
   const stableUserInterface = useMemo(() => userInterfaceFromState, [userInterfaceFromState]);
 
-  // Ensure we have userInterfaceId before rendering
-  const userInterfaceId = stableUserInterface?.id;
+  // Get userInterfaceId from state, but we'll also check URL parameters via useNavigationEditor
+  const userInterfaceIdFromState = stableUserInterface?.id;
 
-  if (!userInterfaceId) {
-    console.warn(
-      '[@component:NavigationEditor] Missing userInterfaceId, cannot save verifications',
-    );
-    return (
-      <ReactFlowProvider>
-        <NavigationConfigProvider>
-          <NavigationEditorProvider>
-            <NavigationEditorContent />
-          </NavigationEditorProvider>
-        </NavigationConfigProvider>
-      </ReactFlowProvider>
-    );
-  }
-
+  // Always render with NavigationStackProvider since NavigationEditorContent uses useNavigationStack
+  // The actual userInterfaceId will be determined inside using URL parameters as fallback
   return (
     <ReactFlowProvider>
       <NavigationConfigProvider>
         <NavigationEditorProvider>
           <NavigationStackProvider>
-            <NavigationEditorContent userInterfaceId={userInterfaceId} />
+            <NavigationEditorContent userInterfaceId={userInterfaceIdFromState} />
           </NavigationStackProvider>
         </NavigationEditorProvider>
       </NavigationConfigProvider>
