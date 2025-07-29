@@ -128,7 +128,6 @@ def record_edge_execution(
     tree_id: str,
     edge_id: str,
     host_name: str,
-    device_model: str,
     success: bool,
     execution_time_ms: int,
     message: str = "",
@@ -147,7 +146,6 @@ def record_edge_execution(
             'edge_id': edge_id,
             'execution_type': 'action',
             'host_name': host_name,
-            'device_model': device_model,
             'success': success,
             'execution_time_ms': execution_time_ms,
             'message': message,
@@ -161,10 +159,8 @@ def record_edge_execution(
         result = supabase.table('execution_results').insert(execution_data).execute()
         
         if result.data:
-            print(f"[@db:execution_results:record_edge_execution] Success: {execution_id}")
             return execution_id
         else:
-            print(f"[@db:execution_results:record_edge_execution] Failed")
             return None
             
     except Exception as e:
@@ -176,7 +172,6 @@ def record_node_execution(
     tree_id: str,
     node_id: str,
     host_name: str,
-    device_model: str,
     success: bool,
     execution_time_ms: int,
     message: str = "",
@@ -195,7 +190,6 @@ def record_node_execution(
             'node_id': node_id,
             'execution_type': 'verification',
             'host_name': host_name,
-            'device_model': device_model,
             'success': success,
             'execution_time_ms': execution_time_ms,
             'message': message,
@@ -211,7 +205,6 @@ def record_node_execution(
         print(f"  - tree_id: {tree_id}")
         print(f"  - node_id: {node_id}")
         print(f"  - host_name: {host_name}")
-        print(f"  - device_model: {device_model}")
         print(f"  - success: {success}")
         print(f"  - execution_time_ms: {execution_time_ms}")
         print(f"  - message: {message}")
@@ -241,45 +234,36 @@ def record_action_execution(
     is_retry_action: bool,
     success: bool,
     execution_time_ms: int,
-    device_model: str,
-    device_id: str,
     host_name: str,
     execution_id: Optional[str] = None,
     error_message: Optional[str] = None,
-    error_details: Optional[Dict] = None,
-    script_result_id: Optional[str] = None,
-    script_context: str = 'direct'
+    error_details: Optional[Dict] = None
 ) -> Optional[str]:
-    """Record individual action execution to detailed history table."""
+    """Record individual action execution to history table."""
     try:
-        action_execution_id = str(uuid4())
+        action_execution_id = execution_id or str(uuid4())
         
         action_data = {
             'id': action_execution_id,
-            'edge_id': edge_id,
-            'tree_id': tree_id,
             'team_id': team_id,
+            'tree_id': tree_id,
+            'edge_id': edge_id,
             'action_command': action_command,
             'action_params': action_params,
             'action_index': action_index,
             'is_retry_action': is_retry_action,
             'success': success,
             'execution_time_ms': execution_time_ms,
+            'host_name': host_name,
             'error_message': error_message,
             'error_details': error_details,
-            'device_model': device_model,
-            'device_id': device_id,
-            'host_name': host_name,
-            'execution_id': execution_id,
-            'script_result_id': script_result_id,
-            'script_context': script_context,
             'executed_at': datetime.now().isoformat()
         }
         
         print(f"[@db:execution_results:record_action_execution] Recording action execution:")
+        print(f"  - action_execution_id: {action_execution_id}")
+        print(f"  - edge_id: {edge_id}")
         print(f"  - action_command: {action_command}")
-        print(f"  - action_index: {action_index}")
-        print(f"  - is_retry_action: {is_retry_action}")
         print(f"  - success: {success}")
         print(f"  - execution_time_ms: {execution_time_ms}")
         
@@ -307,60 +291,42 @@ def record_verification_execution(
     verification_index: int,
     success: bool,
     execution_time_ms: int,
-    device_model: str,
-    device_id: str,
     host_name: str,
     execution_id: Optional[str] = None,
-    confidence_score: Optional[float] = None,
-    threshold_used: Optional[float] = None,
     error_message: Optional[str] = None,
     error_details: Optional[Dict] = None,
-    source_image_url: Optional[str] = None,
-    reference_image_url: Optional[str] = None,
-    result_overlay_url: Optional[str] = None,
-    extracted_text: Optional[str] = None,
-    script_result_id: Optional[str] = None,
-    script_context: str = 'direct'
+    confidence_score: Optional[float] = None,
+    result_data: Optional[Dict] = None
 ) -> Optional[str]:
-    """Record individual verification execution to detailed history table."""
+    """Record individual verification execution to history table."""
     try:
-        verification_execution_id = str(uuid4())
+        verification_execution_id = execution_id or str(uuid4())
         
         verification_data = {
             'id': verification_execution_id,
-            'node_id': node_id,
-            'tree_id': tree_id,
             'team_id': team_id,
+            'tree_id': tree_id,
+            'node_id': node_id,
             'verification_type': verification_type,
             'verification_command': verification_command,
             'verification_params': verification_params,
             'verification_index': verification_index,
             'success': success,
             'execution_time_ms': execution_time_ms,
-            'confidence_score': confidence_score,
-            'threshold_used': threshold_used,
+            'host_name': host_name,
             'error_message': error_message,
             'error_details': error_details,
-            'source_image_url': source_image_url,
-            'reference_image_url': reference_image_url,
-            'result_overlay_url': result_overlay_url,
-            'extracted_text': extracted_text,
-            'device_model': device_model,
-            'device_id': device_id,
-            'host_name': host_name,
-            'execution_id': execution_id,
-            'script_result_id': script_result_id,
-            'script_context': script_context,
+            'confidence_score': confidence_score,
+            'result_data': result_data,
             'executed_at': datetime.now().isoformat()
         }
         
         print(f"[@db:execution_results:record_verification_execution] Recording verification execution:")
-        print(f"  - verification_type: {verification_type}")
+        print(f"  - verification_execution_id: {verification_execution_id}")
+        print(f"  - node_id: {node_id}")
         print(f"  - verification_command: {verification_command}")
-        print(f"  - verification_index: {verification_index}")
         print(f"  - success: {success}")
         print(f"  - execution_time_ms: {execution_time_ms}")
-        print(f"  - confidence_score: {confidence_score}")
         
         supabase = get_supabase()
         result = supabase.table('verification_execution_history').insert(verification_data).execute()

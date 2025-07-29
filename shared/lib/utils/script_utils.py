@@ -336,7 +336,6 @@ def execute_navigation_with_verifications(host, device, transition: Dict[str, An
                         tree_id=tree_id,
                         node_id=node_id,
                         host_name=host.host_name,
-                        device_model=device.device_model,
                         success=verify_result.get('success', False),
                         execution_time_ms=verification_execution_time,
                         message=verify_result.get('message', 'Verification completed'),
