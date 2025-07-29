@@ -36,9 +36,8 @@ export interface UINavigationNodeData {
   // Priority field
   priority?: 'p1' | 'p2' | 'p3'; // Priority level (default: p3)
 
-  // Verification support
-  verifications?: Verification[]; // Array of full verification objects for UI display (loaded from DB via verification_ids)
-  verification_ids?: string[]; // Array of verification database IDs for persistence (saved to tree)
+  // Verification support (embedded directly - no ID resolution needed)
+  verifications?: Verification[]; // Array of embedded verification objects
 
   // Execution metrics
   metrics?: {
@@ -59,11 +58,9 @@ export type UINavigationNode = Node<UINavigationNodeData>;
 
 // Define the data type for navigation edges
 export interface UINavigationEdgeData {
-  actions?: EdgeAction[]; // Array of actions for UI display (loaded from DB via action_ids)
-  action_ids?: string[]; // Array of action database IDs for persistence (saved to tree)
-  retryActions?: EdgeAction[]; // Array of retry actions for UI display (loaded from DB via retry_action_ids)
-  retry_action_ids?: string[]; // Array of retry action database IDs for persistence (saved to tree)
-  finalWaitTime?: number; // Wait time after all actions
+  actions?: EdgeAction[]; // Array of embedded actions with wait_time preserved
+  retryActions?: EdgeAction[]; // Array of embedded retry actions
+  final_wait_time?: number; // Wait time after all actions (using standard naming)
   description?: string;
   from?: string; // Source node label
   to?: string; // Target node label
@@ -114,9 +111,8 @@ export interface NodeForm {
   // Priority field
   priority?: 'p1' | 'p2' | 'p3'; // Priority level (default: p3)
 
-  // Verifications field to preserve during editing
+  // Verifications field (embedded directly)
   verifications?: Verification[];
-  verification_ids?: string[]; // Database IDs for persistence
 }
 
 // Updated EdgeForm interface for multiple actions
@@ -124,7 +120,7 @@ export interface EdgeForm {
   edgeId: string; // Required edge ID to track which edge is being edited
   actions: EdgeAction[];
   retryActions: EdgeAction[];
-  finalWaitTime: number;
+  final_wait_time: number; // Using standard naming convention
   description: string;
 
   // Priority and threshold fields
@@ -146,7 +142,7 @@ export interface NavigationStep {
   retryActions?: EdgeAction[];
   total_actions: number;
   total_retry_actions?: number;
-  finalWaitTime?: number;
+  final_wait_time?: number;
   description: string;
 }
 

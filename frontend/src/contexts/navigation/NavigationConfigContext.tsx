@@ -19,7 +19,28 @@ interface NavigationConfigContextType {
   checkTreeLockStatus: (userInterfaceId: string) => Promise<void>;
   setupAutoUnlock: (userInterfaceId: string) => () => void;
 
-  // Config operations
+  // Tree metadata operations
+  loadTreeMetadata: (treeId: string) => Promise<any>;
+  saveTreeMetadata: (treeId: string, metadata: any) => Promise<void>;
+  deleteTree: (treeId: string) => Promise<void>;
+
+  // Node operations
+  loadTreeNodes: (treeId: string, page?: number, limit?: number) => Promise<any[]>;
+  getNode: (treeId: string, nodeId: string) => Promise<any>;
+  saveNode: (treeId: string, node: any) => Promise<void>;
+  deleteNode: (treeId: string, nodeId: string) => Promise<void>;
+
+  // Edge operations
+  loadTreeEdges: (treeId: string, nodeIds?: string[]) => Promise<any[]>;
+  getEdge: (treeId: string, edgeId: string) => Promise<any>;
+  saveEdge: (treeId: string, edge: any) => Promise<void>;
+  deleteEdge: (treeId: string, edgeId: string) => Promise<void>;
+
+  // Batch operations
+  loadFullTree: (treeId: string) => Promise<{tree: any, nodes: any[], edges: any[]}>;
+  saveTreeData: (treeId: string, nodes: any[], edges: any[]) => Promise<void>;
+
+  // Legacy operations (for backward compatibility during transition)
   loadFromConfig: (userInterfaceId: string, state: NavigationConfigState) => Promise<void>;
   saveToConfig: (userInterfaceId: string, state: NavigationConfigState) => Promise<void>;
   listAvailableUserInterfaces: () => Promise<any[]>;
@@ -260,7 +281,149 @@ export const NavigationConfigProvider: React.FC<NavigationConfigProviderProps> =
   );
 
   // ========================================
-  // CONFIG OPERATIONS
+  // NEW NORMALIZED API OPERATIONS
+  // ========================================
+
+  // Tree metadata operations
+  const loadTreeMetadata = useCallback(async (treeId: string) => {
+    const response = await fetch(`/server/navigationTrees/${treeId}/metadata`);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    const data = await response.json();
+    if (!data.success) throw new Error(data.message);
+    return data.tree;
+  }, []);
+
+  const saveTreeMetadata = useCallback(async (treeId: string, metadata: any) => {
+    const response = await fetch(`/server/navigationTrees/${treeId}/metadata`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(metadata)
+    });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    const data = await response.json();
+    if (!data.success) throw new Error(data.message);
+  }, []);
+
+  const deleteTree = useCallback(async (treeId: string) => {
+    const response = await fetch(`/server/navigationTrees/${treeId}`, {
+      method: 'DELETE'
+    });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    const data = await response.json();
+    if (!data.success) throw new Error(data.message);
+  }, []);
+
+  // Node operations
+  const loadTreeNodes = useCallback(async (treeId: string, page = 0, limit = 100) => {
+    const response = await fetch(`/server/navigationTrees/${treeId}/nodes?page=${page}&limit=${limit}`);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    const data = await response.json();
+    if (!data.success) throw new Error(data.message);
+    return data.nodes;
+  }, []);
+
+  const getNode = useCallback(async (treeId: string, nodeId: string) => {
+    const response = await fetch(`/server/navigationTrees/${treeId}/nodes/${nodeId}`);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    const data = await response.json();
+    if (!data.success) throw new Error(data.message);
+    return data.node;
+  }, []);
+
+  const saveNode = useCallback(async (treeId: string, node: any) => {
+    const method = node.id ? 'PUT' : 'POST';
+    const url = node.id 
+      ? `/server/navigationTrees/${treeId}/nodes/${node.node_id}`
+      : `/server/navigationTrees/${treeId}/nodes`;
+    
+    const response = await fetch(url, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(node)
+    });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    const data = await response.json();
+    if (!data.success) throw new Error(data.message);
+  }, []);
+
+  const deleteNode = useCallback(async (treeId: string, nodeId: string) => {
+    const response = await fetch(`/server/navigationTrees/${treeId}/nodes/${nodeId}`, {
+      method: 'DELETE'
+    });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    const data = await response.json();
+    if (!data.success) throw new Error(data.message);
+  }, []);
+
+  // Edge operations
+  const loadTreeEdges = useCallback(async (treeId: string, nodeIds?: string[]) => {
+    const url = new URL(`/server/navigationTrees/${treeId}/edges`, window.location.origin);
+    if (nodeIds) {
+      nodeIds.forEach(id => url.searchParams.append('node_ids', id));
+    }
+    
+    const response = await fetch(url.toString());
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    const data = await response.json();
+    if (!data.success) throw new Error(data.message);
+    return data.edges;
+  }, []);
+
+  const getEdge = useCallback(async (treeId: string, edgeId: string) => {
+    const response = await fetch(`/server/navigationTrees/${treeId}/edges/${edgeId}`);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    const data = await response.json();
+    if (!data.success) throw new Error(data.message);
+    return data.edge;
+  }, []);
+
+  const saveEdge = useCallback(async (treeId: string, edge: any) => {
+    const method = edge.id ? 'PUT' : 'POST';
+    const url = edge.id 
+      ? `/server/navigationTrees/${treeId}/edges/${edge.edge_id}`
+      : `/server/navigationTrees/${treeId}/edges`;
+    
+    const response = await fetch(url, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(edge)
+    });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    const data = await response.json();
+    if (!data.success) throw new Error(data.message);
+  }, []);
+
+  const deleteEdge = useCallback(async (treeId: string, edgeId: string) => {
+    const response = await fetch(`/server/navigationTrees/${treeId}/edges/${edgeId}`, {
+      method: 'DELETE'
+    });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    const data = await response.json();
+    if (!data.success) throw new Error(data.message);
+  }, []);
+
+  // Batch operations
+  const loadFullTree = useCallback(async (treeId: string) => {
+    const response = await fetch(`/server/navigationTrees/${treeId}/full`);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    const data = await response.json();
+    if (!data.success) throw new Error(data.message);
+    return data;
+  }, []);
+
+  const saveTreeData = useCallback(async (treeId: string, nodes: any[], edges: any[]) => {
+    const response = await fetch(`/server/navigationTrees/${treeId}/batch`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nodes, edges })
+    });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    const data = await response.json();
+    if (!data.success) throw new Error(data.message);
+  }, []);
+
+  // ========================================
+  // LEGACY CONFIG OPERATIONS (for backward compatibility)
   // ========================================
 
   // Load tree from database with full resolution
@@ -530,7 +693,28 @@ export const NavigationConfigProvider: React.FC<NavigationConfigProviderProps> =
       checkTreeLockStatus,
       setupAutoUnlock,
 
-      // Config operations
+      // Tree metadata operations
+      loadTreeMetadata,
+      saveTreeMetadata,
+      deleteTree,
+
+      // Node operations
+      loadTreeNodes,
+      getNode,
+      saveNode,
+      deleteNode,
+
+      // Edge operations
+      loadTreeEdges,
+      getEdge,
+      saveEdge,
+      deleteEdge,
+
+      // Batch operations
+      loadFullTree,
+      saveTreeData,
+
+      // Legacy operations
       loadFromConfig,
       saveToConfig,
       listAvailableUserInterfaces,
@@ -556,6 +740,19 @@ export const NavigationConfigProvider: React.FC<NavigationConfigProviderProps> =
       unlockNavigationTree,
       checkTreeLockStatus,
       setupAutoUnlock,
+      loadTreeMetadata,
+      saveTreeMetadata,
+      deleteTree,
+      loadTreeNodes,
+      getNode,
+      saveNode,
+      deleteNode,
+      loadTreeEdges,
+      getEdge,
+      saveEdge,
+      deleteEdge,
+      loadFullTree,
+      saveTreeData,
       loadFromConfig,
       saveToConfig,
       listAvailableUserInterfaces,

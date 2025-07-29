@@ -65,6 +65,163 @@ export const useNavigationEditor = () => {
     [navigationConfig, navigation],
   );
 
+  // New normalized API functions
+  const loadTreeData = useCallback(
+    async (treeId: string) => {
+      try {
+        navigation.setIsLoading(true);
+        navigation.setError(null);
+
+        // Load complete tree data using new API
+        const treeData = await navigationConfig.loadFullTree(treeId);
+        
+        // Convert normalized data to frontend format
+        const frontendNodes = treeData.nodes.map((node: any) => ({
+          id: node.node_id,
+          type: 'uiScreen',
+          position: { x: node.position_x, y: node.position_y },
+          data: {
+            label: node.label,
+            type: node.node_type,
+            description: node.description,
+            verifications: node.verifications, // Directly embedded
+            ...node.data // Additional data
+          }
+        }));
+
+        const frontendEdges = treeData.edges.map((edge: any) => ({
+          id: edge.edge_id,
+          source: edge.source_node_id,
+          target: edge.target_node_id,
+          type: 'uiNavigation',
+          data: {
+            description: edge.description,
+            actions: edge.actions, // Directly embedded with wait_time
+            retryActions: edge.retry_actions,
+            final_wait_time: edge.final_wait_time,
+            ...edge.data // Additional data
+          }
+        }));
+
+        navigation.setNodes(frontendNodes);
+        navigation.setEdges(frontendEdges);
+        navigation.setInitialState({ nodes: [...frontendNodes], edges: [...frontendEdges] });
+        navigation.setHasUnsavedChanges(false);
+
+        console.log(`[@useNavigationEditor:loadTreeData] Loaded ${frontendNodes.length} nodes and ${frontendEdges.length} edges`);
+      } catch (error) {
+        navigation.setError(`Failed to load tree: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      } finally {
+        navigation.setIsLoading(false);
+      }
+    },
+    [navigationConfig, navigation],
+  );
+
+  const saveTreeData = useCallback(
+    async (treeId: string) => {
+      try {
+        navigation.setIsLoading(true);
+
+        // Convert frontend format to normalized format
+        const normalizedNodes = navigation.nodes.map(node => ({
+          node_id: node.id,
+          label: node.data.label,
+          position_x: node.position?.x || 0,
+          position_y: node.position?.y || 0,
+          node_type: node.data.type || 'default',
+          description: node.data.description,
+          verifications: node.data.verifications || [],
+          data: {
+            // Store any additional data
+            ...node.data,
+            verifications: undefined // Remove from data since it's stored separately
+          }
+        }));
+
+        const normalizedEdges = navigation.edges.map(edge => ({
+          edge_id: edge.id,
+          source_node_id: edge.source,
+          target_node_id: edge.target,
+          description: edge.data?.description,
+          actions: edge.data?.actions || [],
+          retry_actions: edge.data?.retryActions || [],
+          final_wait_time: edge.data?.final_wait_time || 0,
+          edge_type: edge.data?.edgeType || 'default',
+          data: {
+            // Store any additional data
+            ...edge.data,
+            actions: undefined, // Remove from data since it's stored separately
+            retryActions: undefined,
+            final_wait_time: undefined
+          }
+        }));
+
+        await navigationConfig.saveTreeData(treeId, normalizedNodes, normalizedEdges);
+        
+        navigation.setInitialState({ nodes: [...navigation.nodes], edges: [...navigation.edges] });
+        navigation.setHasUnsavedChanges(false);
+
+        console.log(`[@useNavigationEditor:saveTreeData] Saved ${normalizedNodes.length} nodes and ${normalizedEdges.length} edges`);
+      } catch (error) {
+        navigation.setError(`Failed to save tree: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        throw error;
+      } finally {
+        navigation.setIsLoading(false);
+      }
+    },
+    [navigationConfig, navigation],
+  );
+
+  const saveNode = useCallback(
+    async (treeId: string, nodeData: any) => {
+      try {
+        const normalizedNode = {
+          node_id: nodeData.id,
+          label: nodeData.label,
+          position_x: nodeData.position?.x || 0,
+          position_y: nodeData.position?.y || 0,
+          node_type: nodeData.type || 'default',
+          description: nodeData.description,
+          verifications: nodeData.verifications || [],
+          data: nodeData.data || {}
+        };
+
+        await navigationConfig.saveNode(treeId, normalizedNode);
+        console.log(`[@useNavigationEditor:saveNode] Saved node: ${nodeData.id}`);
+      } catch (error) {
+        navigation.setError(`Failed to save node: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        throw error;
+      }
+    },
+    [navigationConfig, navigation],
+  );
+
+  const saveEdge = useCallback(
+    async (treeId: string, edgeData: any) => {
+      try {
+        const normalizedEdge = {
+          edge_id: edgeData.id,
+          source_node_id: edgeData.source,
+          target_node_id: edgeData.target,
+          description: edgeData.description,
+          actions: edgeData.actions || [],
+          retry_actions: edgeData.retryActions || [],
+          final_wait_time: edgeData.final_wait_time || 0,
+          edge_type: edgeData.edgeType || 'default',
+          data: edgeData.data || {}
+        };
+
+        await navigationConfig.saveEdge(treeId, normalizedEdge);
+        console.log(`[@useNavigationEditor:saveEdge] Saved edge: ${edgeData.id}`);
+      } catch (error) {
+        navigation.setError(`Failed to save edge: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        throw error;
+      }
+    },
+    [navigationConfig, navigation],
+  );
+
   // Simple event handlers
   const onConnect = useCallback(
     async (connection: Connection) => {
@@ -614,7 +771,13 @@ export const useNavigationEditor = () => {
       },
       isNodeDescendantOf: () => false, // Not implemented in unified context
 
-      // Config operations - from NavigationConfigContext
+      // New normalized API operations
+      loadTreeData,
+      saveTreeData,
+      saveNode,
+      saveEdge,
+
+      // Config operations - from NavigationConfigContext (legacy)
       loadFromConfig,
       saveToConfig,
       listAvailableTrees: navigationConfig.listAvailableUserInterfaces,
@@ -695,6 +858,10 @@ export const useNavigationEditor = () => {
       navigation,
       navigationConfig,
       hostManager,
+      loadTreeData,
+      saveTreeData,
+      saveNode,
+      saveEdge,
       loadFromConfig,
       saveToConfig,
       onConnect,

@@ -47,24 +47,25 @@ export const useEdgeEdit = ({
   // Initialize actions when dialog opens or edgeForm/selectedEdge changes
   useEffect(() => {
     if (isOpen && edgeForm?.actions !== undefined) {
+      // Actions are now embedded directly in the edge data - no need for ID resolution
       setLocalActions(edgeForm.actions);
     }
 
-    // Load retry actions from selectedEdge using ID resolution if edgeForm has none
+    // Load retry actions from selectedEdge - now embedded directly
     if (isOpen && selectedEdge) {
       if (edgeForm?.retryActions !== undefined) {
         // Use retry actions from form if they exist (even if empty array)
         setLocalRetryActions(edgeForm.retryActions);
       } else {
-        // Load retry actions from edge using ID resolution
-        const resolvedRetryActions = edgeHook.getRetryActionsFromEdge(selectedEdge);
-        setLocalRetryActions(resolvedRetryActions);
+        // Retry actions are now embedded directly in the edge data
+        const embeddedRetryActions = selectedEdge.data?.retryActions || [];
+        setLocalRetryActions(embeddedRetryActions);
 
-        // Update the form with resolved retry actions
+        // Update the form with embedded retry actions
         if (edgeForm) {
           setEdgeForm({
             ...edgeForm,
-            retryActions: resolvedRetryActions,
+            retryActions: embeddedRetryActions,
           });
         }
       }

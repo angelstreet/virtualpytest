@@ -78,8 +78,7 @@ export const useNode = (props?: UseNodeProps) => {
       parent: node.data.parent || [],
       menu_type: node.data.menu_type,
       priority: node.data.priority || 'p3', // Default to p3 if not set
-      verifications: node.data.verifications || [], // Already resolved
-      verification_ids: node.data.verification_ids || [],
+      verifications: node.data.verifications || [], // Embedded verifications - no ID resolution needed
     };
   }, []);
 

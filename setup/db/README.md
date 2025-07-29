@@ -56,7 +56,7 @@ After running all 5 schema files, verify your setup:
 - `device_models`, `device`, `controllers`, `environment_profiles`, `campaigns`
 
 **UI & Navigation:**
-- `userinterfaces`, `navigation_trees`, `navigation_trees_history`
+- `userinterfaces`, `navigation_trees`, `navigation_nodes`, `navigation_edges`, `navigation_trees_history`
 
 **Test Execution:**
 - `test_cases`, `test_executions`, `test_results`, `execution_results`, `script_results`
