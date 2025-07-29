@@ -363,6 +363,40 @@ def get_full_tree_api(tree_id):
         result = get_full_tree(tree_id, team_id)
         
         if result['success']:
+            # Populate navigation cache for pathfinding
+            try:
+                from shared.lib.utils.navigation_cache import populate_cache
+                nodes = result.get('nodes', [])
+                edges = result.get('edges', [])
+                
+                # Convert normalized structure to format expected by graph builder
+                graph_nodes = []
+                for node in nodes:
+                    graph_nodes.append({
+                        'id': node.get('node_id'),  # Graph builder expects 'id' field
+                        'label': node.get('label', ''),
+                        'node_type': node.get('node_type', ''),
+                        'data': node.get('data', {}),
+                        **node  # Include all other fields
+                    })
+                
+                graph_edges = []
+                for edge in edges:
+                    graph_edges.append({
+                        'id': edge.get('edge_id'),  # Graph builder expects 'id' field
+                        'source': edge.get('source_node_id'),
+                        'target': edge.get('target_node_id'),
+                        'actions': edge.get('actions', []),
+                        'data': edge.get('data', {}),
+                        **edge  # Include all other fields
+                    })
+                
+                populate_cache(tree_id, team_id, graph_nodes, graph_edges)
+                print(f'[@route:navigation_trees:get_full_tree] Successfully populated navigation cache')
+            except Exception as cache_error:
+                print(f'[@route:navigation_trees:get_full_tree] Cache population failed: {cache_error}')
+                # Don't fail the request if cache population fails
+            
             return jsonify(result)
         else:
             return jsonify(result), 404
@@ -436,6 +470,40 @@ def get_tree_by_userinterface_id(userinterface_id):
         if tree:
             # Get full tree data with nodes and edges
             tree_data = get_full_tree(tree['id'], team_id)
+            
+            # Populate navigation cache for pathfinding
+            try:
+                from shared.lib.utils.navigation_cache import populate_cache
+                nodes = tree_data.get('nodes', [])
+                edges = tree_data.get('edges', [])
+                
+                # Convert normalized structure to format expected by graph builder
+                graph_nodes = []
+                for node in nodes:
+                    graph_nodes.append({
+                        'id': node.get('node_id'),  # Graph builder expects 'id' field
+                        'label': node.get('label', ''),
+                        'node_type': node.get('node_type', ''),
+                        'data': node.get('data', {}),
+                        **node  # Include all other fields
+                    })
+                
+                graph_edges = []
+                for edge in edges:
+                    graph_edges.append({
+                        'id': edge.get('edge_id'),  # Graph builder expects 'id' field
+                        'source': edge.get('source_node_id'),
+                        'target': edge.get('target_node_id'),
+                        'actions': edge.get('actions', []),
+                        'data': edge.get('data', {}),
+                        **edge  # Include all other fields
+                    })
+                
+                populate_cache(tree['id'], team_id, graph_nodes, graph_edges)
+                print(f'[@route:navigation_trees:get_tree_by_userinterface_id] Successfully populated navigation cache for tree: {tree["id"]}')
+            except Exception as cache_error:
+                print(f'[@route:navigation_trees:get_tree_by_userinterface_id] Cache population failed: {cache_error}')
+                # Don't fail the request if cache population fails
             
             return jsonify({
                 'success': True,

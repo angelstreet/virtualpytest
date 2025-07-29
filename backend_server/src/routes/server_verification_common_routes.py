@@ -12,6 +12,74 @@ from shared.lib.utils.route_utils import proxy_to_host, get_host_from_request
 server_verification_common_bp = Blueprint('server_verification_common', __name__, url_prefix='/server/verification')
 
 # =====================================================
+# VERIFICATION INFORMATION (for frontend compatibility)
+# =====================================================
+
+@server_verification_common_bp.route('/getVerifications', methods=['GET'])
+def get_verifications():
+    """Get available verifications for a device model (for frontend compatibility)."""
+    try:
+        device_model = request.args.get('device_model', 'android_mobile')
+        
+        # Return basic verification types available for the device model
+        # This is mainly for frontend compatibility - verifications are now embedded in nodes
+        verifications = [
+            {
+                'id': 'waitForElementToAppear',
+                'name': 'waitForElementToAppear',
+                'command': 'waitForElementToAppear',
+                'device_model': device_model,
+                'verification_type': 'adb',
+                'params': {
+                    'search_term': '',
+                    'timeout': 10,
+                    'check_interval': 1
+                }
+            },
+            {
+                'id': 'image_verification',
+                'name': 'image_verification',
+                'command': 'image_verification',
+                'device_model': device_model,
+                'verification_type': 'image',
+                'params': {
+                    'reference_image': '',
+                    'confidence_threshold': 0.8
+                }
+            }
+        ]
+        
+        return jsonify({
+            'success': True,
+            'verifications': verifications
+        })
+        
+    except Exception as e:
+        print(f'[@route:server_verification:get_verifications] ERROR: {e}')
+        return jsonify({
+            'success': False,
+            'message': f'Server error: {str(e)}'
+        }), 500
+
+@server_verification_common_bp.route('/getAllReferences', methods=['POST'])
+def get_all_references():
+    """Get all reference images/data (for frontend compatibility)."""
+    try:
+        # Return empty references for now - this is mainly for frontend compatibility
+        # References are now managed differently with the embedded architecture
+        return jsonify({
+            'success': True,
+            'references': []
+        })
+        
+    except Exception as e:
+        print(f'[@route:server_verification:get_all_references] ERROR: {e}')
+        return jsonify({
+            'success': False,
+            'message': f'Server error: {str(e)}'
+        }), 500
+
+# =====================================================
 # SINGLE VERIFICATION EXECUTION ENDPOINTS (PROXY TO HOST)
 # =====================================================
 
