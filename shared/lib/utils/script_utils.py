@@ -100,21 +100,48 @@ def setup_script_environment(script_name: str = "script") -> Dict[str, Any]:
     Returns:
         Dictionary containing host, team_id, and other configuration
     """
+    print(f"[@script_utils:setup_script_environment] Setting up environment for {script_name}...")
+    
     script_dir = os.path.dirname(os.path.abspath(__file__))
     # Navigate to project root and then to backend_host/src/.env
     project_root = os.path.dirname(os.path.dirname(os.path.dirname(script_dir)))
     env_path = os.path.join(project_root, 'backend_host', 'src', '.env')
     
+    print(f"[@script_utils:setup_script_environment] Looking for .env at: {env_path}")
+    
     if os.path.exists(env_path):
+        print(f"[@script_utils:setup_script_environment] Found .env file, loading environment variables")
         load_environment_variables(mode='host', calling_script_dir=os.path.dirname(env_path))
+    else:
+        print(f"[@script_utils:setup_script_environment] ERROR: .env file not found at {env_path}")
+        return {'success': False, 'error': f'.env file not found at {env_path}'}
+    
+    # Check if critical environment variables are set
+    host_name = os.getenv('HOST_NAME')
+    print(f"[@script_utils:setup_script_environment] HOST_NAME from environment: {host_name}")
+    
+    device1_name = os.getenv('DEVICE1_NAME')
+    print(f"[@script_utils:setup_script_environment] DEVICE1_NAME from environment: {device1_name}")
     
     try:
+        print(f"[@script_utils:setup_script_environment] Creating host instance...")
         host = get_host_instance()
         
-        if host.get_device_count() == 0:
+        device_count = host.get_device_count()
+        print(f"[@script_utils:setup_script_environment] Host created with {device_count} devices")
+        
+        if device_count == 0:
             return {'success': False, 'error': 'No devices configured'}
         
+        # List available devices for debugging
+        devices = host.get_devices()
+        for device in devices:
+            print(f"[@script_utils:setup_script_environment] Found device: {device.device_name} ({device.device_model})")
+        
     except Exception as e:
+        import traceback
+        print(f"[@script_utils:setup_script_environment] ERROR: Failed to create host: {e}")
+        traceback.print_exc()
         return {'success': False, 'error': f'Failed to create host: {e}'}
     
     team_id = "7fdeb4bb-3639-4ec3-959f-b54769a219ce"

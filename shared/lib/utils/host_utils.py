@@ -31,8 +31,9 @@ try:
     if backend_core_path not in sys.path:
         sys.path.insert(0, backend_core_path)
     from backend_core.src.controllers.controller_manager import get_host
-except ImportError:
-    raise ImportError("controller_manager not found")
+except ImportError as e:
+    # No fallback - fail with detailed error message
+    raise ImportError(f"Failed to import controller_manager: {e}. Check your Python path and environment setup.")
 from .build_url_utils import buildServerUrl
 
 # Disable SSL warnings for self-signed certificates
