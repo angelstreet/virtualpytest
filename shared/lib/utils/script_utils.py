@@ -50,22 +50,35 @@ def load_navigation_tree(userinterface_name: str, script_name: str = "script") -
         
         userinterface_id = userinterface['id']
         
-        from shared.lib.supabase.navigation_trees_db import get_navigation_trees
+        # Use the same approach as NavigationEditor - call the working API endpoint
+        from shared.lib.supabase.navigation_trees_db import get_root_tree_for_interface, get_full_tree
         
-        success, message, trees = get_navigation_trees(team_id, userinterface_id)
+        # Get the root tree for this user interface (same as navigation page)
+        tree = get_root_tree_for_interface(userinterface_id, team_id)
         
-        if not success or not trees:
-            return {'success': False, 'error': f"Failed to load tree: {message}"}
+        if not tree:
+            return {'success': False, 'error': f"No root tree found for interface: {userinterface_id}"}
         
-        tree = trees[0]
+        # Get full tree data with nodes and edges (same as navigation page)
+        tree_data = get_full_tree(tree['id'], team_id)
+        
+        if not tree_data['success']:
+            return {'success': False, 'error': f"Failed to load tree data: {tree_data.get('error', 'Unknown error')}"}
+        
         tree_id = tree['id']
-        tree_metadata = tree.get('metadata', {})
-        nodes = tree_metadata.get('nodes', [])
-        edges = tree_metadata.get('edges', [])
+        nodes = tree_data['nodes']
+        edges = tree_data['edges']
         
         return {
             'success': True,
-            'tree': tree,
+            'tree': {
+                'id': tree_id,
+                'name': tree.get('name', ''),
+                'metadata': {
+                    'nodes': nodes,
+                    'edges': edges
+                }
+            },
             'tree_id': tree_id,
             'userinterface_id': userinterface_id,
             'nodes': nodes,

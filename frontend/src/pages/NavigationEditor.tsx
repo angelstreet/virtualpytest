@@ -375,21 +375,6 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = React.memo(
       setSelectedNodeForGoto(null);
     }, []);
 
-
-
-    // Effect to automatically lock/unlock navigation tree based on device control
-    useEffect(() => {
-      if (isControlActive) {
-        // When taking control, lock the tree for editing
-        navigation.setIsLocked(true);
-        console.log('[@NavigationEditor] Device control active - locked navigation tree for editing');
-      } else {
-        // When releasing control, unlock the tree (read-only mode)
-        navigation.setIsLocked(false);
-        console.log('[@NavigationEditor] Device control inactive - unlocked navigation tree (read-only mode)');
-      }
-    }, [isControlActive, navigation]);
-
     // Helper functions using new normalized API
     const loadTreeForUserInterface = useCallback(
       async (userInterfaceId: string) => {
@@ -456,10 +441,6 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = React.memo(
             setNodes(frontendNodes);
             setEdges(frontendEdges);
             
-            // Set initial state for deletion comparison
-            navigation.setInitialState({ nodes: [...frontendNodes], edges: [...frontendEdges] });
-            navigation.setHasUnsavedChanges(false);
-            
             // Set the actual tree ID directly like in the working version
             if (actualTreeId) {
               setActualTreeId(actualTreeId);
@@ -469,7 +450,6 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = React.memo(
             console.log(
               `[@NavigationEditor:loadTreeForUserInterface] Set tree data with ${frontendNodes.length} nodes and ${frontendEdges.length} edges`,
             );
-            console.log('[@NavigationEditor:loadTreeForUserInterface] Set initialState with node IDs:', frontendNodes.map((n: any) => n.id));
           } else {
             console.error('Failed to load tree:', data.error || 'Unknown error');
           }
@@ -477,7 +457,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = React.memo(
           console.error('Failed to load tree for user interface:', error);
         }
       },
-      [setNodes, setEdges, navigation],
+      [setNodes, setEdges],
     );
 
 
