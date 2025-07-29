@@ -205,15 +205,12 @@ const RecHostStreamModalContent: React.FC<{
       if (newMode) {
         setAiAgentMode(false);
         setRestartMode(false);
-        // Auto-show remote when enabling monitoring for full control
-        if (!showRemote) {
-          setShowRemote(true);
-        }
+        // Remove auto-show remote - user must click remote individually
       }
 
       return newMode;
     });
-  }, [isControlActive, showRemote, showWarning]);
+  }, [isControlActive, showWarning]);
 
   // Handle AI agent mode toggle
   const handleToggleAiAgent = useCallback(() => {
