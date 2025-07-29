@@ -22,42 +22,38 @@ def create_networkx_graph(nodes: List[Dict], edges: List[Dict]) -> nx.DiGraph:
     # Create directed graph for navigation flow
     G = nx.DiGraph()
     
-    # Add nodes with their data
+    # Add nodes with their data - NEW NORMALIZED FORMAT ONLY
     for node in nodes:
-        # Handle both old format (id) and new normalized format (node_id)
-        node_id = node.get('id') or node.get('node_id')
+        node_id = node.get('node_id')
         if not node_id:
-            print(f"[@navigation:graph:create_networkx_graph] Warning: Node without ID found, skipping")
+            print(f"[@navigation:graph:create_networkx_graph] Warning: Node without node_id found, skipping")
             continue
             
-        # Add node with all its attributes
-        # Handle both database format (direct fields) and ReactFlow format (data.field)
+        # NEW NORMALIZED FORMAT - direct database fields
         node_data = node.get('data', {})
-        label = node.get('label') or node_data.get('label', '')
+        label = node.get('label', '')
         
-        # Enhanced entry point detection
+        # Entry point detection for new format
         is_entry_point = (
-            node.get('is_entry_point', False) or 
-            node_data.get('is_entry_point', False) or
-            node_data.get('is_root', False) or
-            node_data.get('node_type') == 'entry' or
+            node_data.get('type') == 'entry' or
             node.get('node_type') == 'entry' or
-            label.lower() == 'entry'
+            label.upper() == 'ENTRY' or
+            node_data.get('is_root', False)
         )
         
         print(f"[@navigation:graph:create_networkx_graph] Adding node: {label} ({node_id})")
         
         G.add_node(node_id, **{
             'label': label,
-            'node_type': node.get('node_type') or node_data.get('type', 'screen'),
-            'description': node.get('description') or node_data.get('description', ''),
-            'screenshot_url': node.get('screenshot_url') or node_data.get('screenshot'),
+            'node_type': node.get('node_type', 'screen'),
+            'description': node_data.get('description', ''),
+            'screenshot_url': node_data.get('screenshot', ''),
             'is_entry_point': is_entry_point,
-            'is_exit_point': node.get('is_exit_point', False) or node_data.get('is_exit_point', False),
-            'has_children': node.get('has_children', False) or node_data.get('has_children', False),
-            'child_tree_id': node.get('child_tree_id') or node_data.get('child_tree_id'),
-            'metadata': node.get('metadata', {}) or node_data.get('metadata', {}),
-            'verifications': node.get('verifications') or node_data.get('verifications', [])
+            'is_exit_point': node_data.get('is_exit_point', False),
+            'has_children': node_data.get('has_children', False),
+            'child_tree_id': node_data.get('child_tree_id'),
+            'metadata': node_data,
+            'verifications': node.get('verifications', [])  # Embedded verifications
         })
     
     print(f"[@navigation:graph:create_networkx_graph] Added {len(G.nodes)} nodes to graph")
@@ -69,9 +65,9 @@ def create_networkx_graph(nodes: List[Dict], edges: List[Dict]) -> nx.DiGraph:
     print(f"[@navigation:graph:create_networkx_graph] ===== ADDING EDGES WITH ACTIONS =====")
     
     for edge in edges:
-        # Handle multiple formats: ReactFlow (source/target), old DB (source_id/target_id), new normalized (source_node_id/target_node_id)
-        source_id = edge.get('source') or edge.get('source_id') or edge.get('source_node_id')
-        target_id = edge.get('target') or edge.get('target_id') or edge.get('target_node_id')
+        # NEW NORMALIZED FORMAT ONLY
+        source_id = edge.get('source_node_id')
+        target_id = edge.get('target_node_id')
         
         if not source_id or not target_id:
             print(f"[@navigation:graph:create_networkx_graph] Warning: Edge without source/target found, skipping. Available keys: {list(edge.keys())}")
@@ -86,10 +82,10 @@ def create_networkx_graph(nodes: List[Dict], edges: List[Dict]) -> nx.DiGraph:
             edges_skipped += 1
             continue
         
-        # Get resolved actions from cache - cache provides fully resolved objects
+        # NEW NORMALIZED FORMAT - embedded actions
         edge_data = edge.get('data', {})
-        actions_list = edge_data.get('actions', [])
-        retry_actions_list = edge_data.get('retryActions', [])
+        actions_list = edge.get('actions', [])  # Embedded actions
+        retry_actions_list = edge.get('retry_actions', [])  # Embedded retry actions
         
         # Get node labels for logging
         source_node_data = G.nodes[source_id]
@@ -125,19 +121,19 @@ def create_networkx_graph(nodes: List[Dict], edges: List[Dict]) -> nx.DiGraph:
         # Get the primary action for pathfinding
         primary_action = actions_list[0]['command'] if actions_list else None
         
-        # Add edge with resolved actions
+        # Add edge with embedded actions - NEW NORMALIZED FORMAT
         G.add_edge(source_id, target_id, **{
-            'edge_id': edge.get('id'),  # Store the actual edge ID for metrics
+            'edge_id': edge.get('edge_id'),  # NEW: edge_id field
             'go_action': primary_action,
             'actions': actions_list,
             'retryActions': retry_actions_list,
             'comeback_action': edge_data.get('comeback_action'),
-            'edge_type': edge_data.get('edge_type', 'navigation'),
+            'edge_type': edge.get('edge_type', 'navigation'),  # NEW: direct field
             'description': edge_data.get('description', ''),
             'is_bidirectional': edge_data.get('is_bidirectional', False),
             'conditions': edge_data.get('conditions', {}),
             'metadata': edge_data.get('metadata', {}),
-            'finalWaitTime': edge_data.get('finalWaitTime', 2000),
+            'finalWaitTime': edge.get('final_wait_time', 2000),  # NEW: final_wait_time field
             'weight': 1
         })
         
