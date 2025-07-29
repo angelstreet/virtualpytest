@@ -77,7 +77,8 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
       : edgeHook.getRetryActionsFromEdge(selectedEdge);
     const hasActions = actions.length > 0;
     const hasRetryActions = retryActions.length > 0;
-    const canRunActions = edgeHook.canRunActions(selectedEdge);
+    // Use the same logic as EdgeEditDialog - pass form actions if available
+    const canRunActions = edgeHook.canRunActions(selectedEdge, actions);
 
     // Memoize the clearResults function to avoid recreating it on every render
     const clearResults = useMemo(() => edgeHook.clearResults, [edgeHook.clearResults]);
