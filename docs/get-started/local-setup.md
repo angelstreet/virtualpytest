@@ -39,67 +39,68 @@ After running the launch script, you can access:
 
 - **Frontend**: http://localhost:3000
 - **Backend Server**: http://localhost:5109  
-- **Backend Host**: http://localhost:6409
+- **Backend Host**: http://localhost:6109
+- **NoVNC (Virtual Desktop)**: http://localhost:6080
 
 ## ⚙️ Environment Configuration
 
 Before first use, configure your environment files:
 
-### 1. Shared Configuration
-Create `shared/.env`:
+### 1. Project-Level Configuration
+Create `.env` in project root:
 ```bash
-# Database Configuration
-SUPABASE_URL=your_supabase_project_url
-SUPABASE_ANON_KEY=your_supabase_anon_key
-SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+# Copy from template
+cp .env.example .env
 
-# Environment
-ENVIRONMENT=development
-DEBUG=true
-```
-
-### 2. Backend Server Configuration  
-Create `backend_server/src/.env`:
-```bash
-# Server Configuration
+# Edit with your values - used by backend_server, backend_core, shared:
+NEXT_PUBLIC_SUPABASE_URL=https://your-project-id.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key_here
+CLOUDFLARE_R2_ENDPOINT=https://your-account-id.r2.cloudflarestorage.com
+CLOUDFLARE_R2_ACCESS_KEY_ID=your_r2_access_key_id
+CLOUDFLARE_R2_SECRET_ACCESS_KEY=your_r2_secret_access_key
+CLOUDFLARE_R2_PUBLIC_URL=https://pub-your-bucket-id.r2.dev
+OPENROUTER_API_KEY=your_openrouter_api_key_here
+SERVER_URL=http://localhost:5109
 SERVER_PORT=5109
-DEBUG=true
+FLASK_SECRET_KEY=your_flask_secret_key_here
 ENVIRONMENT=development
-
-# Database (inherits from shared)
-# Add server-specific overrides here if needed
-
-# External APIs
-GITHUB_TOKEN=your_github_token_if_needed
+DEBUG=true
 ```
 
-### 3. Backend Host Configuration
+### 2. Backend Host Configuration
 Create `backend_host/src/.env`:
 ```bash
-# Host Configuration  
-HOST_PORT=6409
-DEBUG=true
-ENVIRONMENT=development
+# Copy from template
+cp backend_host/src/env.example backend_host/src/.env
 
-# Hardware Interface Settings
-ADB_PATH=/usr/local/bin/adb
-APPIUM_SERVER_URL=http://localhost:4723
+# Edit with your values - based on actual env.example:
+HOST_URL=http://localhost:6109
+HOST_PORT=6109
+HOST_NAME=my-host-1
 
-# Device Control
-DEFAULT_DEVICE_TIMEOUT=30
-VIDEO_CAPTURE_ENABLED=true
+# Device Configuration (uncomment and configure for video capture)
+# DEVICE1_NAME=device_name
+# DEVICE1_MODEL=android_mobile
+# DEVICE1_IP=192.168.1.x
+# DEVICE1_PORT=8100
+# DEVICE1_VIDEO=/dev/video0
+# DEVICE1_VIDEO_STREAM_PATH=/host/stream/capture1
+# DEVICE1_VIDEO_CAPTURE_PATH=/var/www/html/stream/capture1
 ```
 
-### 4. Frontend Configuration
+**Service Configuration:**
+- **Minimal Config**: Default .env (VNC services only)
+- **Full Config**: Uncomment DEVICE* variables for video capture + monitoring
+
+### 3. Frontend Configuration
 Create `frontend/.env`:
 ```bash
-# API Endpoints
-VITE_BACKEND_SERVER_URL=http://localhost:5109
-VITE_BACKEND_HOST_URL=http://localhost:6409
+# Copy from template
+cp frontend/.env.example frontend/.env
 
-# Environment
-VITE_ENVIRONMENT=development
-VITE_DEBUG=true
+# Edit with your values:
+VITE_SERVER_URL=http://localhost:5109
+VITE_DEV_MODE=true
 ```
 
 ## 🔧 Manual Component Installation

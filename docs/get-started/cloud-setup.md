@@ -94,13 +94,9 @@ Click **"Create Web Service"**. Render will:
 First, update your frontend environment configuration. Create `frontend/.env.production`:
 
 ```bash
-# API Endpoints (use your Render URL)
-VITE_BACKEND_SERVER_URL=https://virtualpytest-backend-server.onrender.com
-VITE_BACKEND_HOST_URL=http://localhost:6409
-
-# Environment
-VITE_ENVIRONMENT=production
-VITE_DEBUG=false
+# API Endpoints (use your actual backend server URL)
+VITE_SERVER_URL=https://virtualpytest-backend-server.onrender.com
+VITE_DEV_MODE=false
 ```
 
 ### 2.2 Create Vercel Project
@@ -122,12 +118,8 @@ In Vercel project settings, add environment variables:
 
 ```bash
 # API Endpoints
-VITE_BACKEND_SERVER_URL=https://virtualpytest-backend-server.onrender.com
-VITE_BACKEND_HOST_URL=http://localhost:6409
-
-# Environment
-VITE_ENVIRONMENT=production  
-VITE_DEBUG=false
+VITE_SERVER_URL=https://virtualpytest-backend-server.onrender.com
+VITE_DEV_MODE=false
 ```
 
 ### 2.4 Deploy
@@ -297,13 +289,13 @@ ngrok http 6080  # In separate terminal for NoVNC
 
 Update your frontend environment with the ngrok URL:
 ```bash
-VITE_BACKEND_HOST_URL=https://your-ngrok-url.ngrok.io
+VITE_SERVER_URL=https://your-ngrok-url.ngrok.io
 ```
 
 #### Option B: Port Forwarding
 Configure your router to forward ports 6109 and 6080 to your local machine:
 ```bash
-VITE_BACKEND_HOST_URL=http://your-public-ip:6109
+VITE_SERVER_URL=http://your-public-ip:6109
 # NoVNC available at: http://your-public-ip:6080
 ```
 
@@ -333,8 +325,7 @@ Ensure your **Frontend** uses the correct API endpoints:
 
 ```typescript
 // In frontend/src/services/apiClient.ts
-const BACKEND_SERVER_URL = import.meta.env.VITE_BACKEND_SERVER_URL || 'http://localhost:5109';
-const BACKEND_HOST_URL = import.meta.env.VITE_BACKEND_HOST_URL || 'http://localhost:6409';
+const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:5109';
 ```
 
 ## 🔄 Step 5: Set Up Continuous Deployment
@@ -353,14 +344,14 @@ Create branch-specific environment variables:
 
 #### Production Branch (`main`)
 ```bash
-VITE_ENVIRONMENT=production
-DEBUG=false
+VITE_SERVER_URL=https://your-production-server.com
+VITE_DEV_MODE=false
 ```
 
 #### Staging Branch (`dev`)  
 ```bash
-VITE_ENVIRONMENT=staging
-DEBUG=true
+VITE_SERVER_URL=https://your-staging-server.com
+VITE_DEV_MODE=true
 ```
 
 ## 📊 Step 6: Monitoring and Maintenance
