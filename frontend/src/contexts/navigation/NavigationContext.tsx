@@ -980,19 +980,6 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
            const deletedNodeIds = initialNodeIds.filter(id => !currentNodeIds.has(id));
            const deletedEdgeIds = initialEdgeIds.filter(id => !currentEdgeIds.has(id));
 
-           // Debug logging
-           console.log('[@context:NavigationProvider] Save comparison debug:', {
-             currentNodeCount: nodes.length,
-             currentEdgeCount: edges.length,
-             initialNodeCount: initialNodeIds.length,
-             initialEdgeCount: initialEdgeIds.length,
-             currentNodeIds: Array.from(currentNodeIds),
-             initialNodeIds,
-             deletedNodeIds,
-             deletedEdgeIds,
-             hasInitialState: !!initialState
-           });
-
            // Call save with deletion info
            await navigationConfig.saveTreeData(treeId, normalizedNodes, normalizedEdges, deletedNodeIds, deletedEdgeIds);
            
