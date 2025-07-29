@@ -19,9 +19,7 @@ from shared.lib.supabase.navigation_trees_db import (
     # Edge operations
     get_tree_edges, get_edge_by_id, save_edge, delete_edge,
     # Batch operations
-    save_tree_data, get_full_tree,
-    # Legacy compatibility
-    get_tree, save_tree
+    save_tree_data, get_full_tree
 )
 from shared.lib.supabase.userinterface_db import get_all_userinterfaces
 from shared.lib.utils.app_utils import DEFAULT_TEAM_ID, DEFAULT_USER_ID, check_supabase, get_team_id
@@ -392,96 +390,6 @@ def save_tree_data_api(tree_id):
             return jsonify(result), 400
     except Exception as e:
         print(f'[@route:navigation_trees:save_batch] ERROR: {e}')
-        return jsonify({
-            'success': False,
-            'message': f'Server error: {str(e)}'
-        }), 500
-
-# ============================================================================
-# LEGACY COMPATIBILITY ENDPOINTS (TEMPORARY)
-# ============================================================================
-
-@server_navigation_trees_bp.route('/navigationTrees/getNavigationTree', methods=['POST'])
-def get_navigation_tree_legacy():
-    """Legacy endpoint - get tree in old format using compatibility view."""
-    try:
-        data = request.get_json()
-        userinterface_id = data.get('userinterface_id')
-        team_id = get_team_id()
-        
-        if not userinterface_id:
-            return jsonify({
-                'success': False,
-                'message': 'Missing required parameter: userinterface_id'
-            }), 400
-        
-        # Find tree by userinterface_id
-        trees = get_all_trees(team_id)
-        tree = None
-        for t in trees:
-            if t['userinterface_id'] == userinterface_id:
-                # Get full tree using legacy view
-                tree = get_tree(t['id'], team_id)
-                break
-        
-        if tree:
-            return jsonify({
-                'success': True,
-                'message': 'Navigation tree retrieved successfully',
-                'tree': tree
-            })
-        else:
-            return jsonify({
-                'success': False,
-                'message': 'Navigation tree not found'
-            }), 404
-            
-    except Exception as e:
-        print(f'[@route:navigation_trees:get_legacy] ERROR: {e}')
-        return jsonify({
-            'success': False,
-            'message': f'Server error: {str(e)}'
-        }), 500
-
-@server_navigation_trees_bp.route('/navigationTrees/saveNavigationTree', methods=['POST'])
-def save_navigation_tree_legacy():
-    """Legacy endpoint - save tree from old format."""
-    try:
-        data = request.get_json()
-        userinterface_id = data.get('userinterface_id')
-        tree_data = data.get('tree_data', {})
-        team_id = get_team_id()
-        
-        if not userinterface_id or not tree_data:
-            return jsonify({
-                'success': False,
-                'message': 'Missing required parameters: userinterface_id, tree_data'
-            }), 400
-        
-        # Use legacy save function for backward compatibility
-        full_tree_data = {
-            'userinterface_id': userinterface_id,
-            'metadata': tree_data,
-            'name': f'nav_tree_{userinterface_id}',
-            'description': data.get('description', '')
-        }
-        
-        tree_id = save_tree(full_tree_data, team_id)
-        
-        if tree_id and not tree_id.startswith('Failed'):
-            return jsonify({
-                'success': True,
-                'message': 'Navigation tree saved successfully',
-                'tree_id': tree_id
-            })
-        else:
-            return jsonify({
-                'success': False,
-                'message': tree_id or 'Failed to save navigation tree'
-            }), 400
-            
-    except Exception as e:
-        print(f'[@route:navigation_trees:save_legacy] ERROR: {e}')
         return jsonify({
             'success': False,
             'message': f'Server error: {str(e)}'

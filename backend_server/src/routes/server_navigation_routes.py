@@ -18,12 +18,9 @@ import time
 # Import from specific database modules (direct imports)
 from shared.lib.supabase.navigation_trees_db import (
     get_all_trees as get_all_navigation_trees_util,
-    get_tree as get_navigation_tree,
-    save_tree as create_navigation_tree_util,
-    update_tree as update_navigation_tree,
     delete_tree as delete_navigation_tree,
-    check_navigation_tree_name_exists,
-    get_root_tree_for_interface,
+    get_tree_metadata,
+    save_tree_metadata,
 )
 from shared.lib.supabase.userinterface_db import (
     get_all_userinterfaces, 

@@ -777,12 +777,8 @@ export const useNavigationEditor = () => {
       saveNode,
       saveEdge,
 
-      // Config operations - from NavigationConfigContext (legacy)
-      loadFromConfig,
-      saveToConfig,
+      // Interface operations
       listAvailableTrees: navigationConfig.listAvailableUserInterfaces,
-      createEmptyTreeConfig: navigationConfig.createEmptyTree,
-      loadAvailableTrees: navigationConfig.listAvailableUserInterfaces,
 
       // Lock management - from NavigationConfigContext
       isLocked: navigationConfig.isLocked,
@@ -862,8 +858,6 @@ export const useNavigationEditor = () => {
       saveTreeData,
       saveNode,
       saveEdge,
-      loadFromConfig,
-      saveToConfig,
       onConnect,
       onNodeClick,
       onEdgeClick,

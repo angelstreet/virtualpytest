@@ -40,11 +40,8 @@ interface NavigationConfigContextType {
   loadFullTree: (treeId: string) => Promise<{tree: any, nodes: any[], edges: any[]}>;
   saveTreeData: (treeId: string, nodes: any[], edges: any[]) => Promise<void>;
 
-  // Legacy operations (for backward compatibility during transition)
-  loadFromConfig: (userInterfaceId: string, state: NavigationConfigState) => Promise<void>;
-  saveToConfig: (userInterfaceId: string, state: NavigationConfigState) => Promise<void>;
+  // Interface operations
   listAvailableUserInterfaces: () => Promise<any[]>;
-  createEmptyTree: (userInterfaceId: string, state: NavigationConfigState) => Promise<void>;
 
   // Tree data
   actualTreeId: string | null;
@@ -423,11 +420,11 @@ export const NavigationConfigProvider: React.FC<NavigationConfigProviderProps> =
   }, []);
 
   // ========================================
-  // LEGACY CONFIG OPERATIONS (for backward compatibility)
+  // INTERFACE OPERATIONS
   // ========================================
 
-  // Load tree from database with full resolution
-  const loadFromConfig = useCallback(
+  // List available user interfaces
+  const listAvailableUserInterfaces = useCallback(async (): Promise<any[]> => {
     async (userInterfaceId: string, state: NavigationConfigState) => {
       try {
         state.setIsLoading(true);
@@ -714,11 +711,8 @@ export const NavigationConfigProvider: React.FC<NavigationConfigProviderProps> =
       loadFullTree,
       saveTreeData,
 
-      // Legacy operations
-      loadFromConfig,
-      saveToConfig,
+      // Interface operations
       listAvailableUserInterfaces,
-      createEmptyTree,
 
       // Tree data
       actualTreeId,
@@ -753,10 +747,7 @@ export const NavigationConfigProvider: React.FC<NavigationConfigProviderProps> =
       deleteEdge,
       loadFullTree,
       saveTreeData,
-      loadFromConfig,
-      saveToConfig,
       listAvailableUserInterfaces,
-      createEmptyTree,
       actualTreeId,
       setActualTreeId,
     ],
