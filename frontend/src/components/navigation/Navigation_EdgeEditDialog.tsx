@@ -69,14 +69,32 @@ export const EdgeEditDialog: React.FC<EdgeEditDialogProps> = ({
   // Add the same edge hook used by the Edge Selection Panel
   const edgeHook = useEdge({
     selectedHost: selectedHost || null,
-    selectedDeviceId: null, // Not needed for execution
+    selectedDeviceId: 'dummy-device-id', // Match EdgeSelectionPanel by providing a non-null value
     isControlActive,
   });
 
       // Check if form has actions - same logic as EdgeSelectionPanel
     const hasActions = edgeForm?.actions?.length > 0;
+    
+    // Debug why the Run button might be disabled
+    const isControlActiveValue = !!isControlActive;
+    const hasSelectedHost = !!selectedHost;
+    const hasActions2 = edgeForm?.actions?.length > 0;
+    const isNotLoading = !edgeHook.actionHook.loading;
+    
+    console.log('EdgeEditDialog Run button conditions:', {
+      isControlActive: isControlActiveValue,
+      hasSelectedHost,
+      hasActions: hasActions2,
+      isNotLoading,
+      _selectedEdge: !!_selectedEdge
+    });
+    
     // Use the same approach as EdgeSelectionPanel for determining if actions can be run
     const canRunActions = _selectedEdge ? edgeHook.canRunActions(_selectedEdge) : false;
+    
+    // Debug the canRunActions result
+    console.log('EdgeEditDialog canRunActions result:', canRunActions);
 
   // Enhanced submit handler with dependency checking
   const handleSubmitWithDependencyCheck = async () => {

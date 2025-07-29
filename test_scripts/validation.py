@@ -146,6 +146,11 @@ def main():
         
         print(f"✅ [validation] Loaded tree with {len(tree_result['nodes'])} nodes and {len(tree_result['edges'])} edges")
 
+        # 5.5 Populate navigation cache with the loaded tree data
+        from shared.lib.utils.navigation_cache import populate_cache
+        print("🔄 [validation] Populating navigation cache...")
+        populate_cache(tree_id, team_id, tree_result['nodes'], tree_result['edges'])
+        
         # 6. Get validation sequence (use resolved tree_id instead of userinterface_name)
         print("📋 [validation] Getting validation sequence...")
         validation_sequence = find_optimal_edge_validation_sequence(tree_id, team_id)

@@ -111,6 +111,11 @@ def main():
         
         print(f"✅ [goto_live_fullscreen] Loaded tree with {len(tree_result['nodes'])} nodes and {len(tree_result['edges'])} edges")
 
+        # 4.5 Populate navigation cache with the loaded tree data
+        from shared.lib.utils.navigation_cache import populate_cache
+        print("🔄 [goto_live_fullscreen] Populating navigation cache...")
+        populate_cache(tree_id, team_id, tree_result['nodes'], tree_result['edges'])
+        
         # 5. Find path to live_fullscreen
         print("🗺️ [goto_live_fullscreen] Finding path to live_fullscreen...")
         navigation_path = find_shortest_path(tree_id, "live_fullscreen", team_id)
