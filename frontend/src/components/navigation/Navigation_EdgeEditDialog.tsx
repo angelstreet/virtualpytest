@@ -14,10 +14,12 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  LinearProgress,
 } from '@mui/material';
 import React, { useState } from 'react';
 
 import { useEdgeEdit } from '../../hooks/navigation/useEdgeEdit';
+import { useEdge } from '../../hooks/navigation/useEdge';
 import { Host } from '../../types/common/Host_Types';
 import { UINavigationEdge, EdgeForm } from '../../types/pages/Navigation_Types';
 import { getZIndex } from '../../utils/zIndexUtils';
@@ -61,6 +63,13 @@ export const EdgeEditDialog: React.FC<EdgeEditDialogProps> = ({
     setEdgeForm,
     selectedEdge: _selectedEdge,
     selectedHost,
+    isControlActive,
+  });
+
+  // Add the same edge hook used by the Edge Selection Panel
+  const edgeHook = useEdge({
+    selectedHost: selectedHost || null,
+    selectedDeviceId: null, // Not needed for execution
     isControlActive,
   });
 
@@ -114,7 +123,15 @@ export const EdgeEditDialog: React.FC<EdgeEditDialogProps> = ({
   };
 
   const handleRunActions = () => {
-    edgeEdit.executeLocalActions();
+    // Use the same execution method as the Edge Selection Panel
+    // Pass the local actions as overrides to executeEdgeActions
+    if (_selectedEdge) {
+      edgeHook.executeEdgeActions(
+        _selectedEdge,
+        edgeEdit.localActions,
+        edgeEdit.localRetryActions
+      );
+    }
   };
 
   if (!edgeForm) return null;
@@ -303,26 +320,47 @@ export const EdgeEditDialog: React.FC<EdgeEditDialogProps> = ({
             )}
           </Box>
 
-          {/* Action Result Display */}
-          {edgeEdit.actionResult && (
+          {/* Linear Progress - shown when running */}
+          {edgeHook.actionHook.loading && (
+            <Box sx={{ mt: 1 }}>
+              <LinearProgress sx={{ borderRadius: 1 }} />
+            </Box>
+          )}
+
+          {/* Action Result Display - same as Edge Selection Panel */}
+          {edgeHook.runResult && (
             <Box
               sx={{
                 mt: 1,
                 p: 1,
-                border: '1px solid',
-                borderColor: 'divider',
+                bgcolor: edgeHook.runResult.includes('❌ OVERALL RESULT: FAILED')
+                  ? 'error.light'
+                  : edgeHook.runResult.includes('✅ OVERALL RESULT: SUCCESS')
+                    ? 'success.light'
+                    : edgeHook.runResult.includes('❌') && !edgeHook.runResult.includes('✅')
+                      ? 'error.light'
+                      : edgeHook.runResult.includes('⚠️')
+                        ? 'warning.light'
+                        : 'success.light',
                 borderRadius: 1,
+                maxHeight: '200px', // Slightly taller in dialog
+                overflow: 'auto',
+                border: '1px solid rgba(0, 0, 0, 0.12)',
               }}
             >
               <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
                 Action Result:
               </Typography>
               <Typography
-                variant="body2"
-                component="pre"
-                sx={{ fontSize: '0.75rem', whiteSpace: 'pre-wrap' }}
+                variant="caption"
+                sx={{
+                  fontFamily: 'monospace',
+                  whiteSpace: 'pre-line',
+                  fontSize: '0.7rem',
+                  lineHeight: 1.2,
+                }}
               >
-                {edgeEdit.actionResult}
+                {edgeHook.formatRunResult(edgeHook.runResult)}
               </Typography>
             </Box>
           )}
@@ -340,10 +378,10 @@ export const EdgeEditDialog: React.FC<EdgeEditDialogProps> = ({
           <Button
             onClick={handleRunActions}
             variant="contained"
-            disabled={!edgeEdit.canRunLocalActions() || edgeEdit.actionHook.loading}
+            disabled={!edgeEdit.canRunLocalActions() || edgeHook.actionHook.loading}
             sx={{ opacity: !edgeEdit.canRunLocalActions() ? 0.5 : 1 }}
           >
-            {edgeEdit.actionHook.loading ? 'Running...' : 'Run'}
+            {edgeHook.actionHook.loading ? 'Running...' : 'Run'}
           </Button>
         </DialogActions>
       </Dialog>
