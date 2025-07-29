@@ -19,34 +19,6 @@ export const useNavigationEditor = () => {
   // Get host manager
   const hostManager = useHostManager();
 
-  // Bridge functions that use the new normalized API
-  const loadFromConfig = useCallback(
-    async (userInterfaceId: string) => {
-      // Get the tree ID for this user interface
-      const trees = await navigationConfig.listAvailableUserInterfaces();
-      const userInterface = trees.find(ui => ui.id === userInterfaceId);
-      
-      if (userInterface && userInterface.navigation_tree_id) {
-        await loadTreeData(userInterface.navigation_tree_id);
-        navigationConfig.setActualTreeId(userInterface.navigation_tree_id);
-      }
-    },
-    [navigationConfig, loadTreeData],
-  );
-
-  const saveToConfig = useCallback(
-    async (userInterfaceId: string, overrideState?: { nodes?: any[]; edges?: any[] }) => {
-      // Get the tree ID for this user interface
-      const trees = await navigationConfig.listAvailableUserInterfaces();
-      const userInterface = trees.find(ui => ui.id === userInterfaceId);
-      
-      if (userInterface && userInterface.navigation_tree_id) {
-        await saveTreeData(userInterface.navigation_tree_id);
-      }
-    },
-    [navigationConfig, saveTreeData],
-  );
-
   // New normalized API functions
   const loadTreeData = useCallback(
     async (treeId: string) => {
@@ -203,6 +175,8 @@ export const useNavigationEditor = () => {
     },
     [navigationConfig, navigation],
   );
+
+
 
   // Simple event handlers
   const onConnect = useCallback(
@@ -650,6 +624,8 @@ export const useNavigationEditor = () => {
       saveTreeData,
       saveNode,
       saveEdge,
+
+
 
       // Interface operations
       listAvailableTrees: navigationConfig.listAvailableUserInterfaces,

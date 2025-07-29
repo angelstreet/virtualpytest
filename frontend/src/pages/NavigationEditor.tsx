@@ -157,7 +157,7 @@ const NavigationEditorContent: React.FC<{ userInterfaceId?: string }> = React.me
     const { currentNodeId } = useNavigation();
 
     // Get the actual tree ID from NavigationConfigContext
-    const { actualTreeId } = useNavigationConfig();
+    const { actualTreeId, setActualTreeId } = useNavigationConfig();
 
     // Get navigation context for nested navigation
     const navigation = useNavigation();
@@ -222,9 +222,10 @@ const NavigationEditorContent: React.FC<{ userInterfaceId?: string }> = React.me
       onEdgeClick,
       onPaneClick,
 
-      // Actions
-      loadFromConfig,
-      saveToConfig,
+      // New normalized API
+      loadTreeData,
+      saveTreeData,
+      listAvailableTrees,
       isLocked,
       showReadOnlyOverlay,
       lockNavigationTree,
@@ -358,35 +359,71 @@ const NavigationEditorContent: React.FC<{ userInterfaceId?: string }> = React.me
       setSelectedNodeForGoto(null);
     }, []);
 
+    // Helper functions using new normalized API
+    const loadTreeForUserInterface = useCallback(
+      async (userInterfaceId: string) => {
+        try {
+          // Get the tree ID for this user interface
+          const interfaces = await listAvailableTrees();
+          const userInterface = interfaces.find(ui => ui.id === userInterfaceId);
+          
+          if (userInterface && userInterface.navigation_tree_id) {
+            await loadTreeData(userInterface.navigation_tree_id);
+            setActualTreeId(userInterface.navigation_tree_id);
+          }
+        } catch (error) {
+          console.error('Failed to load tree for user interface:', error);
+        }
+      },
+      [listAvailableTrees, loadTreeData, setActualTreeId],
+    );
+
+    const saveTreeForUserInterface = useCallback(
+      async (userInterfaceId: string) => {
+        try {
+          // Get the tree ID for this user interface
+          const interfaces = await listAvailableTrees();
+          const userInterface = interfaces.find(ui => ui.id === userInterfaceId);
+          
+          if (userInterface && userInterface.navigation_tree_id) {
+            await saveTreeData(userInterface.navigation_tree_id);
+          }
+        } catch (error) {
+          console.error('Failed to save tree for user interface:', error);
+        }
+      },
+      [listAvailableTrees, saveTreeData],
+    );
+
     // Handle navigation back to parent tree
     const handleNavigateBack = useCallback(async () => {
       popLevel();
-      // Reload main tree - simplified version
-      if (loadFromConfig && actualUserInterfaceId) {
-        await loadFromConfig(actualUserInterfaceId);
+      // Reload main tree using new normalized API
+      if (actualUserInterfaceId) {
+        await loadTreeForUserInterface(actualUserInterfaceId);
       }
-    }, [popLevel, loadFromConfig, actualUserInterfaceId]);
+    }, [popLevel, loadTreeForUserInterface, actualUserInterfaceId]);
 
     // Handle navigation to specific level in breadcrumb
     const handleNavigateToLevel = useCallback(
       async (levelIndex: number) => {
         jumpToLevel(levelIndex);
-        // Reload tree for the target level
-        if (loadFromConfig && actualUserInterfaceId) {
-          await loadFromConfig(actualUserInterfaceId);
+        // Reload tree for the target level using new normalized API
+        if (actualUserInterfaceId) {
+          await loadTreeForUserInterface(actualUserInterfaceId);
         }
       },
-      [jumpToLevel, loadFromConfig, actualUserInterfaceId],
+      [jumpToLevel, loadTreeForUserInterface, actualUserInterfaceId],
     );
 
     // Handle navigation to root
     const handleNavigateToRoot = useCallback(async () => {
       jumpToRoot();
-      // Reload main tree
-      if (loadFromConfig && actualUserInterfaceId) {
-        await loadFromConfig(actualUserInterfaceId);
+      // Reload main tree using new normalized API
+      if (actualUserInterfaceId) {
+        await loadTreeForUserInterface(actualUserInterfaceId);
       }
-    }, [jumpToRoot, loadFromConfig, actualUserInterfaceId]);
+    }, [jumpToRoot, loadTreeForUserInterface, actualUserInterfaceId]);
 
     // Memoize the selectedHost to prevent unnecessary re-renders
     const stableSelectedHost = useMemo(() => selectedHost, [selectedHost]);
@@ -475,9 +512,9 @@ const NavigationEditorContent: React.FC<{ userInterfaceId?: string }> = React.me
               }
             }
           } else if (actualUserInterfaceId) {
-            // Save as root tree
+            // Save as root tree using new normalized API
             console.log('[@NavigationEditor] Saving as root tree');
-            await saveToConfig(actualUserInterfaceId);
+            await saveTreeForUserInterface(actualUserInterfaceId);
           } else {
             throw new Error('Cannot save: missing userInterface ID');
           }
@@ -494,7 +531,7 @@ const NavigationEditorContent: React.FC<{ userInterfaceId?: string }> = React.me
         nodes,
         edges,
         actualUserInterfaceId,
-        saveToConfig,
+        saveTreeForUserInterface,
         setHasUnsavedChanges,
       ],
     );
@@ -541,17 +578,13 @@ const NavigationEditorContent: React.FC<{ userInterfaceId?: string }> = React.me
                   `[@component:NavigationEditor] Navigation tree locked for editing: ${userInterface.id}`,
                 );
                 // STEP 2: Load tree data after acquiring lock
-                if (loadFromConfig) {
-                  loadFromConfig(userInterface.id);
-                }
+                loadTreeForUserInterface(userInterface.id);
               } else {
                 console.warn(
                   `[@component:NavigationEditor] Failed to lock navigation tree: ${userInterface.id} - entering read-only mode`,
                 );
                 // Still load tree but in read-only mode
-                if (loadFromConfig) {
-                  loadFromConfig(userInterface.id);
-                }
+                loadTreeForUserInterface(userInterface.id);
               }
             })
             .catch((error: any) => {
@@ -560,20 +593,16 @@ const NavigationEditorContent: React.FC<{ userInterfaceId?: string }> = React.me
                 error,
               );
               // Still try to load in read-only mode
-              if (loadFromConfig) {
-                loadFromConfig(userInterface.id);
-              }
+              loadTreeForUserInterface(userInterface.id);
             });
         } else {
           console.warn('[@component:NavigationEditor] lockNavigationTree function not available');
-          if (loadFromConfig) {
-            loadFromConfig(userInterface.id);
-          }
+          loadTreeForUserInterface(userInterface.id);
         }
 
         // No auto-unlock for navigation tree - keep it locked for editing session
       }
-    }, [userInterface?.id, isLoadingInterface, lockNavigationTree, loadFromConfig]);
+    }, [userInterface?.id, isLoadingInterface, lockNavigationTree, loadTreeForUserInterface]);
 
     // Simple update handlers - complex validation logic moved to device control component
     const handleUpdateNode = useCallback(
