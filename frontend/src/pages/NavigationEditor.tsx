@@ -630,8 +630,10 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = React.memo(
 
     // Clean approach: Auto-set userInterface from treeName (no location.state needed)
     useEffect(() => {
-      setUserInterfaceFromProps({ id: treeName });
-    }, [treeName, setUserInterfaceFromProps]);
+      if (!userInterface || userInterface.id !== treeName) {
+        setUserInterfaceFromProps({ id: treeName });
+      }
+    }, [treeName, userInterface, setUserInterfaceFromProps]);
 
     // Clean approach: treeName is guaranteed to exist from NavigationEditor
 
