@@ -122,6 +122,43 @@ export const useUserInterface = () => {
   );
 
   /**
+   * Get a specific user interface by name
+   */
+  const getUserInterfaceByName = useMemo(
+    () =>
+      async (name: string): Promise<UserInterface> => {
+        try {
+          console.log(
+            `[@hook:useUserInterface:getUserInterfaceByName] Fetching user interface by name: ${name}`,
+          );
+
+          const response = await fetch(`/server/userinterface/getUserInterfaceByName/${name}`);
+          if (!response.ok) {
+            if (response.status === 404) {
+              throw new Error('User interface not found');
+            }
+            throw new Error(
+              `Failed to fetch user interface: ${response.status} ${response.statusText}`,
+            );
+          }
+
+          const userInterface = await response.json();
+          console.log(
+            `[@hook:useUserInterface:getUserInterfaceByName] Successfully loaded user interface: ${userInterface.name} (ID: ${userInterface.id})`,
+          );
+          return userInterface;
+        } catch (error) {
+          console.error(
+            `[@hook:useUserInterface:getUserInterfaceByName] Error fetching user interface by name ${name}:`,
+            error,
+          );
+          throw error;
+        }
+      },
+    [],
+  );
+
+  /**
    * Create a new user interface
    */
   const createUserInterface = useMemo(
@@ -317,6 +354,7 @@ export const useUserInterface = () => {
   return {
     getAllUserInterfaces,
     getUserInterface,
+    getUserInterfaceByName,
     createUserInterface,
     updateUserInterface,
     deleteUserInterface,

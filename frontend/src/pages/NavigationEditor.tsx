@@ -10,7 +10,7 @@ import {
   Button,
 } from '@mui/material';
 import React, { useEffect, useCallback, useRef, useState, useMemo } from 'react';
-import { useParams } from 'react-router-dom';
+import { useLocation, useParams } from 'react-router-dom';
 import ReactFlow, {
   Background,
   Controls,
@@ -51,6 +51,7 @@ import {
 } from '../contexts/navigation/NavigationStackContext';
 import { useNavigationEditor } from '../hooks/navigation/useNavigationEditor';
 import { useNestedNavigation } from '../hooks/navigation/useNestedNavigation';
+import { useUserInterface } from '../hooks/pages/useUserInterface';
 import {
   NodeForm,
   EdgeForm,
@@ -628,12 +629,30 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = React.memo(
 
     // Lifecycle refs to prevent unnecessary re-renders
 
-    // Clean approach: Auto-set userInterface from treeName (no location.state needed)
+    // Clean approach: Resolve userInterface by name from treeName
+    const { getUserInterfaceByName } = useUserInterface();
+    
     useEffect(() => {
-      if (!userInterface || userInterface.id !== treeName) {
-        setUserInterfaceFromProps({ id: treeName });
-      }
-    }, [treeName, userInterface, setUserInterfaceFromProps]);
+      const resolveUserInterface = async () => {
+        if (!treeName) return;
+        
+        // If we already have the correct userInterface, skip
+        if (userInterface?.name === treeName) return;
+        
+        try {
+          console.log(`[@component:NavigationEditor] Resolving userInterface for treeName: ${treeName}`);
+          
+          const resolvedInterface = await getUserInterfaceByName(treeName);
+          setUserInterfaceFromProps(resolvedInterface);
+          
+          console.log(`[@component:NavigationEditor] Successfully resolved userInterface: ${resolvedInterface.name} (ID: ${resolvedInterface.id})`);
+        } catch (error) {
+          console.error(`[@component:NavigationEditor] Failed to resolve userInterface for treeName ${treeName}:`, error);
+        }
+      };
+      
+      resolveUserInterface();
+    }, [treeName, userInterface, setUserInterfaceFromProps, getUserInterfaceByName]);
 
     // Clean approach: treeName is guaranteed to exist from NavigationEditor
 
