@@ -511,12 +511,17 @@ export const HostManagerProvider: React.FC<HostManagerProviderProps> = ({
       setShowRemotePanel(true);
       setShowAVPanel(true);
       setIsRemotePanelOpen(true);
+      console.log('[@HostManagerProvider] Device control activated - panels shown');
     } else {
       // Hide panels when control is inactive
       setShowRemotePanel(false);
       setShowAVPanel(false);
       setIsRemotePanelOpen(false);
+      console.log('[@HostManagerProvider] Device control deactivated - panels hidden');
     }
+    
+    // Note: Navigation tree lock is now handled in NavigationEditor
+    // to maintain separation of concerns between device control and tree editing
   }, []);
 
   // Handle remote panel toggle

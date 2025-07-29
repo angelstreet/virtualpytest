@@ -375,6 +375,21 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = React.memo(
       setSelectedNodeForGoto(null);
     }, []);
 
+
+
+    // Effect to automatically lock/unlock navigation tree based on device control
+    useEffect(() => {
+      if (isControlActive) {
+        // When taking control, lock the tree for editing
+        navigation.setIsLocked(true);
+        console.log('[@NavigationEditor] Device control active - locked navigation tree for editing');
+      } else {
+        // When releasing control, unlock the tree (read-only mode)
+        navigation.setIsLocked(false);
+        console.log('[@NavigationEditor] Device control inactive - unlocked navigation tree (read-only mode)');
+      }
+    }, [isControlActive, navigation]);
+
     // Helper functions using new normalized API
     const loadTreeForUserInterface = useCallback(
       async (userInterfaceId: string) => {
