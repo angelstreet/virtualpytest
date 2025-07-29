@@ -233,7 +233,7 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
     edgeId: '',
     actions: [],
     retryActions: [],
-    finalWaitTime: 2000,
+    final_wait_time: 2000,
     description: '',
   });
 
@@ -497,7 +497,7 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
       edgeId: '',
       actions: [],
       retryActions: [],
-      finalWaitTime: 2000,
+      final_wait_time: 2000,
       description: '',
     });
     setIsNewNode(false);
@@ -533,7 +533,7 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
       edgeId: '',
       actions: [],
       retryActions: [],
-      finalWaitTime: 2000,
+      final_wait_time: 2000,
       description: '',
     });
     setIsNewNode(false);
@@ -571,7 +571,7 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
         edgeId: edge.id,
         actions: edge.data?.actions || [],
         retryActions: edge.data?.retryActions || [], // Include retry actions from edge data
-        finalWaitTime: edge.data?.finalWaitTime || 2000,
+        final_wait_time: edge.data?.final_wait_time || 2000,
         description: edge.data?.description || '',
       });
     }
@@ -949,11 +949,10 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
              position_x: node.position?.x || 0,
              position_y: node.position?.y || 0,
              node_type: node.data.type || 'default',
-             description: node.data.description,
              verifications: node.data.verifications || [],
              data: {
                ...node.data,
-               verifications: undefined
+               description: node.data.description, // Move description into data jsonb
              }
            }));
 
@@ -961,22 +960,23 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
              edge_id: edge.id,
              source_node_id: edge.source,
              target_node_id: edge.target,
-             description: edge.data?.description,
+             label: edge.data?.label,
              actions: edge.data?.actions || [],
              retry_actions: edge.data?.retryActions || [],
              final_wait_time: edge.data?.final_wait_time || 0,
              edge_type: edge.data?.edgeType || 'default',
              data: {
                ...edge.data,
-               actions: undefined,
-               retryActions: undefined,
-               final_wait_time: undefined
+               description: edge.data?.description, // Move description into data jsonb
              }
            }));
 
            await navigationConfig.saveTreeData(treeId, normalizedNodes, normalizedEdges);
            
-           setInitialState({ nodes: [...nodes], edges: [...edges] });
+           setInitialState({ 
+            nodes: nodes as UINavigationNode[],
+            edges: edges as UINavigationEdge[]
+          });
            setHasUnsavedChanges(false);
            setSuccess('Tree saved successfully');
          } catch (error) {
