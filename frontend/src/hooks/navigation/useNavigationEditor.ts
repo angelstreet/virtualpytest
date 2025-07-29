@@ -394,7 +394,18 @@ export const useNavigationEditor = () => {
 
 
       // Interface operations
-      listAvailableTrees: () => Promise.resolve([]),
+      listAvailableTrees: async () => {
+        try {
+          const response = await fetch('/server/userinterface/getAllUserInterfaces');
+          if (!response.ok) {
+            throw new Error(`Failed to fetch user interfaces: ${response.status}`);
+          }
+          return await response.json();
+        } catch (error) {
+          console.error('Error fetching user interfaces:', error);
+          return [];
+        }
+      },
 
       // Lock management - from NavigationContext
       isLocked: navigation.isLocked,

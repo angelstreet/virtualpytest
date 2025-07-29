@@ -467,8 +467,8 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = React.memo(
           const interfaces = await listAvailableTrees();
           const userInterface = interfaces.find((ui: any) => ui.id === userInterfaceId);
           
-          if (userInterface && userInterface.navigation_tree_id) {
-            await saveTreeWithStateUpdate(userInterface.navigation_tree_id);
+          if (userInterface && userInterface.root_tree && userInterface.root_tree.id) {
+            await saveTreeWithStateUpdate(userInterface.root_tree.id);
           }
         } catch (error) {
           console.error('Failed to save tree for user interface:', error);
