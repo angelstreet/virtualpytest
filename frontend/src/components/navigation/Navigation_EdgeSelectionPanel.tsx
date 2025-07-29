@@ -49,24 +49,15 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
   }) => {
     const { getNodes } = useReactFlow();
 
-    // Get actual node labels for from/to display and determine panel positioning
-    const { fromLabel, toLabel, adjustedPanelIndex } = useMemo(() => {
+    // Get actual node labels for from/to display
+    const { fromLabel, toLabel } = useMemo(() => {
       const nodes = getNodes();
       const sourceNode = nodes.find((node) => node.id === selectedEdge.source);
       const targetNode = nodes.find((node) => node.id === selectedEdge.target);
 
-      // Determine if this is parent-to-child direction based on depth
-      const sourceDepth = sourceNode?.data?.depth ?? 0;
-      const targetDepth = targetNode?.data?.depth ?? 0;
-      const isParentToChild = sourceDepth < targetDepth;
-      
-      // Parent-to-child should be on the left (panelIndex 0), child-to-parent on the right (panelIndex 1)
-      const adjustedPanelIndex = isParentToChild ? 0 : 1;
-
       return {
         fromLabel: sourceNode?.data?.label || selectedEdge.source,
         toLabel: targetNode?.data?.label || selectedEdge.target,
-        adjustedPanelIndex,
       };
     }, [getNodes, selectedEdge.source, selectedEdge.target]);
 
@@ -150,7 +141,7 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
         sx={{
           position: 'absolute',
           top: 16,
-          right: 16 + adjustedPanelIndex * 380, // Position parent-to-child on left (0), child-to-parent on right (1)
+          right: 16 + (1 - panelIndex) * 380, // Invert panel order - parent on left, child on right
           width: 360,
           p: 1.5,
           zIndex: getZIndex('NAVIGATION_EDGE_PANEL'),
