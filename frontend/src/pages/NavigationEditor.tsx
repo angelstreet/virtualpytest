@@ -10,7 +10,7 @@ import {
   Button,
 } from '@mui/material';
 import React, { useEffect, useCallback, useRef, useState, useMemo } from 'react';
-import { useLocation, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import ReactFlow, {
   Background,
   Controls,
@@ -142,10 +142,8 @@ const miniMapNodeColor = (node: any) => {
 
 // Helper function removed - was unused
 
-const NavigationEditorContent: React.FC<{ userInterfaceId?: string }> = React.memo(
-  ({ userInterfaceId }) => {
-    const location = useLocation();
-    const userInterfaceFromState = location.state?.userInterface;
+const NavigationEditorContent: React.FC<{ treeName: string }> = React.memo(
+  ({ treeName }) => {
 
     // Get theme context for dynamic styling
     const { actualMode } = useTheme();
@@ -210,8 +208,7 @@ const NavigationEditorContent: React.FC<{ userInterfaceId?: string }> = React.me
       edgeForm,
       success,
       reactFlowWrapper,
-      treeId,
-      interfaceId,
+
       hasUnsavedChanges,
       isDiscardDialogOpen,
       userInterface,
@@ -276,8 +273,8 @@ const NavigationEditorContent: React.FC<{ userInterfaceId?: string }> = React.me
       availableHosts,
     } = useNavigationEditor();
 
-    // Use the correct userInterfaceId - prefer prop over URL param (same as working version)
-    const actualUserInterfaceId = userInterfaceId || interfaceId;
+    // Clean approach: Use treeName directly, no fallbacks needed
+    const actualUserInterfaceId = treeName;
 
     // Initialize nested navigation hook for unified double-click handling
     const nestedNavigation = useNestedNavigation({
@@ -631,19 +628,12 @@ const NavigationEditorContent: React.FC<{ userInterfaceId?: string }> = React.me
 
     // Lifecycle refs to prevent unnecessary re-renders
 
-    // Set user interface from navigation state (passed from UserInterface.tsx)
+    // Clean approach: Auto-set userInterface from treeName (no location.state needed)
     useEffect(() => {
-      if (userInterfaceFromState) {
-        setUserInterfaceFromProps(userInterfaceFromState);
-      }
-    }, [userInterfaceFromState, setUserInterfaceFromProps]);
+      setUserInterfaceFromProps({ id: treeName });
+    }, [treeName, setUserInterfaceFromProps]);
 
-    // Show message if tree ID is missing
-    useEffect(() => {
-      if (!treeId && !interfaceId) {
-        console.warn('[@component:NavigationEditor] Missing tree ID in URL');
-      }
-    }, [treeId, interfaceId]);
+    // Clean approach: treeName is guaranteed to exist from NavigationEditor
 
     // Effect to load tree when tree name changes
     useEffect(() => {
@@ -893,7 +883,7 @@ const NavigationEditorContent: React.FC<{ userInterfaceId?: string }> = React.me
                         isControlActive={isControlActive}
                         selectedHost={selectedHost || undefined}
                         selectedDeviceId={selectedDeviceId || undefined}
-                        treeId={actualTreeId || treeId || ''}
+                        treeId={actualTreeId || ''}
                         currentNodeId={currentNodeId || undefined}
                         onOpenGotoPanel={handleOpenGotoPanel}
                       />
@@ -981,11 +971,11 @@ const NavigationEditorContent: React.FC<{ userInterfaceId?: string }> = React.me
         )}
 
         {/* Node Goto Panel */}
-        {showGotoPanel && selectedNodeForGoto && (actualTreeId || treeId) && (
+        {showGotoPanel && selectedNodeForGoto && actualTreeId && (
           <NodeGotoPanel
             selectedNode={selectedNodeForGoto}
             nodes={nodes}
-            treeId={actualTreeId || treeId || ''}
+            treeId={actualTreeId || ''}
             onClose={handleCloseGotoPanel}
             currentNodeId={currentNodeId || undefined}
             selectedHost={selectedHost || undefined}
@@ -1073,37 +1063,29 @@ const NavigationEditorContent: React.FC<{ userInterfaceId?: string }> = React.me
 );
 
 const NavigationEditor: React.FC = () => {
-  // Get userInterface from location.state
-  const location = useLocation();
-  const userInterfaceFromState = location.state?.userInterface;
+  // Clean approach: Get treeName from URL parameters only
+  const { treeName } = useParams<{ treeName: string }>();
 
-  // Memoize userInterface for consistency
-  const stableUserInterface = useMemo(() => userInterfaceFromState, [userInterfaceFromState]);
-
-  // Ensure we have userInterfaceId before rendering
-  const userInterfaceId = stableUserInterface?.id;
-
-  if (!userInterfaceId) {
-    console.warn(
-      '[@component:NavigationEditor] Missing userInterfaceId, cannot save verifications',
-    );
+  if (!treeName) {
     return (
-      <ReactFlowProvider>
-        <NavigationConfigProvider>
-          <NavigationEditorProvider>
-            <NavigationEditorContent />
-          </NavigationEditorProvider>
-        </NavigationConfigProvider>
-      </ReactFlowProvider>
+      <Box sx={{ p: 2 }}>
+        <Typography variant="h6" color="error">
+          Invalid URL: Missing tree name
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          Expected format: /navigation-editor/[treeName]
+        </Typography>
+      </Box>
     );
   }
 
+  // Always render with full providers - no conditionals
   return (
     <ReactFlowProvider>
       <NavigationConfigProvider>
         <NavigationEditorProvider>
           <NavigationStackProvider>
-            <NavigationEditorContent userInterfaceId={userInterfaceId} />
+            <NavigationEditorContent treeName={treeName} />
           </NavigationStackProvider>
         </NavigationEditorProvider>
       </NavigationConfigProvider>

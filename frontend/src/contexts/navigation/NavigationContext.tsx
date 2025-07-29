@@ -299,14 +299,6 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
     console.log('[@context:NavigationProvider] userInterface changed:', userInterface);
   }, [userInterface]);
 
-  // Auto-create userInterface from URL parameters when none exists (for direct URL access)
-  useEffect(() => {
-    if (!userInterface && treeName) {
-      console.log(`[@context:NavigationProvider] Auto-creating userInterface from URL parameter: ${treeName}`);
-      setUserInterface({ id: treeName });
-    }
-  }, [userInterface, treeName]);
-
   // Separate effects to prevent infinite loops
   const prevCurrentNodeIdRef = useRef<string | null>(null);
   const initializationKeyRef = useRef<string>('');
