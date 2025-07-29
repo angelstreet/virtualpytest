@@ -166,17 +166,27 @@ def select_device(host, device_id: Optional[str] = None, script_name: str = "scr
     Returns:
         Dictionary with selected device or error
     """
+    print(f"[@script_utils:select_device] Selecting device for {script_name}...")
+    available_devices = [d.device_id for d in host.get_devices()]
+    print(f"[@script_utils:select_device] Available devices: {available_devices}")
+    
     if device_id:
+        print(f"[@script_utils:select_device] Requested device: {device_id}")
         selected_device = next((d for d in host.get_devices() if d.device_id == device_id), None)
         if not selected_device:
-            available_devices = [d.device_id for d in host.get_devices()]
-            return {'success': False, 'error': f"Device {device_id} not found. Available: {available_devices}"}
+            error_msg = f"Device {device_id} not found. Available: {available_devices}"
+            print(f"[@script_utils:select_device] ERROR: {error_msg}")
+            return {'success': False, 'error': error_msg}
     else:
         devices = host.get_devices()
         if not devices:
-            return {'success': False, 'error': "No devices available"}
+            error_msg = "No devices available"
+            print(f"[@script_utils:select_device] ERROR: {error_msg}")
+            return {'success': False, 'error': error_msg}
         selected_device = devices[0]
+        print(f"[@script_utils:select_device] No device specified, using first available: {selected_device.device_id}")
     
+    print(f"[@script_utils:select_device] Selected device: {selected_device.device_name} ({selected_device.device_model}) [{selected_device.device_id}]")
     return {'success': True, 'device': selected_device}
 
 

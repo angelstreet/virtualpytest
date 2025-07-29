@@ -16,6 +16,7 @@ Example:
     python scripts/goto_live_fullscreen.py
     python scripts/goto_live_fullscreen.py horizon_android_mobile
     python scripts/goto_live_fullscreen.py horizon_android_mobile --device device2
+
 """
 
 import sys
