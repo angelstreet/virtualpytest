@@ -361,7 +361,7 @@ export const useNavigationEditor = () => {
           
           // Invalidate navigation cache so pathfinding uses updated data
           try {
-            await fetch('/server/navigation/cache/refresh', {
+            await fetch('/server/pathfinding/cache/refresh', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ 
@@ -485,7 +485,7 @@ export const useNavigationEditor = () => {
           
           // Invalidate navigation cache so pathfinding uses updated data
           try {
-            await fetch('/server/navigation/cache/refresh', {
+            await fetch('/server/pathfinding/cache/refresh', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ 
@@ -698,15 +698,10 @@ export const useNavigationEditor = () => {
       // Interface operations
       listAvailableTrees: navigationConfig.listAvailableUserInterfaces,
 
-      // Lock management - from NavigationConfigContext
-      isLocked: navigationConfig.isLocked,
-      lockInfo: navigationConfig.lockInfo,
-      showReadOnlyOverlay: navigationConfig.showReadOnlyOverlay,
-      setCheckingLockState: navigationConfig.setCheckingLockState,
-      sessionId: navigationConfig.sessionId,
-      lockNavigationTree: navigationConfig.lockNavigationTree,
-      unlockNavigationTree: navigationConfig.unlockNavigationTree,
-      setupAutoUnlock: navigationConfig.setupAutoUnlock,
+      // Lock management - from NavigationContext
+      isLocked: navigation.isLocked,
+      lockNavigationTree: navigation.lockNavigationTree,
+      unlockNavigationTree: navigation.unlockNavigationTree,
 
       // Node/Edge management actions
       handleNodeFormSubmit,

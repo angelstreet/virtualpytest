@@ -245,8 +245,6 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = React.memo(
       saveTreeData,
       listAvailableTrees,
       isLocked,
-      showReadOnlyOverlay,
-      lockNavigationTree,
       handleNodeFormSubmit,
       handleEdgeFormSubmit,
       addNewNode,
@@ -666,40 +664,13 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = React.memo(
         }
         lastLoadedTreeId.current = userInterface.id;
 
-        // STEP 1: Acquire navigation tree lock on mount (prevent concurrent editing)
-        if (lockNavigationTree) {
-          lockNavigationTree(userInterface.id)
-            .then((lockSuccess: boolean) => {
-              if (lockSuccess) {
-                console.log(
-                  `[@component:NavigationEditor] Navigation tree locked for editing: ${userInterface.id}`,
-                );
-                // STEP 2: Load tree data after acquiring lock
-                loadTreeForUserInterface(userInterface.id);
-              } else {
-                console.warn(
-                  `[@component:NavigationEditor] Failed to lock navigation tree: ${userInterface.id} - entering read-only mode`,
-                );
-                // Still load tree but in read-only mode
-                loadTreeForUserInterface(userInterface.id);
-              }
-            })
-            .catch((error: any) => {
-              console.error(
-                `[@component:NavigationEditor] Error locking navigation tree: ${userInterface.id}`,
-                error,
-              );
-              // Still try to load in read-only mode
-              loadTreeForUserInterface(userInterface.id);
-            });
-        } else {
-          console.warn('[@component:NavigationEditor] lockNavigationTree function not available');
-          loadTreeForUserInterface(userInterface.id);
-        }
+        // STEP 1: Load tree data directly (simplified approach)
+        console.log(`[@component:NavigationEditor] Loading tree for userInterface: ${userInterface.id}`);
+        loadTreeForUserInterface(userInterface.id);
 
         // No auto-unlock for navigation tree - keep it locked for editing session
       }
-    }, [userInterface?.id, isLoadingInterface, lockNavigationTree, loadTreeForUserInterface]);
+    }, [userInterface?.id, isLoadingInterface, loadTreeForUserInterface]);
 
     // Simple update handlers - complex validation logic moved to device control component
     const handleUpdateNode = useCallback(
@@ -822,7 +793,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = React.memo(
                 }}
               >
                 {/* Read-Only Overlay - only when definitively locked by someone else */}
-                {showReadOnlyOverlay && (
+                {isLocked && (
                   <Box
                     sx={{
                       position: 'absolute',

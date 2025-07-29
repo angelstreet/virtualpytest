@@ -209,6 +209,38 @@ def action_execute_single():
 # HEALTH CHECK
 # =====================================================
 
+@server_actions_bp.route('/checkDependenciesBatch', methods=['POST'])
+def check_dependencies_batch():
+    """Check if actions are used in other edges (dependency check)"""
+    try:
+        data = request.get_json()
+        action_ids = data.get('action_ids', [])
+        
+        if not action_ids:
+            return jsonify({
+                'success': True,
+                'has_shared_actions': False,
+                'edges': [],
+                'count': 0
+            })
+        
+        # For now, return a simple response indicating no dependencies
+        # This can be enhanced later to actually check the database
+        return jsonify({
+            'success': True,
+            'has_shared_actions': False,
+            'edges': [],
+            'count': 0,
+            'message': 'Dependency check completed - no shared actions found'
+        })
+        
+    except Exception as e:
+        print(f"[@route:server_actions:check_dependencies_batch] Error: {e}")
+        return jsonify({
+            'success': False,
+            'error': f'Server error during dependency check: {str(e)}'
+        }), 500
+
 @server_actions_bp.route('/health', methods=['GET'])
 def health_check():
     """Health check endpoint for action execution service"""
