@@ -150,8 +150,27 @@ const NavigationEditorContent: React.FC<{ userInterfaceId?: string }> = React.me
     // Get theme context for dynamic styling
     const { actualMode } = useTheme();
 
-    // Get navigation stack for nested navigation
-    const { popLevel, jumpToLevel, jumpToRoot, currentLevel, isNested } = useNavigationStack();
+    // Get navigation stack for nested navigation (only if provider is available)
+    const navigationStack = (() => {
+      try {
+        return useNavigationStack();
+      } catch (error) {
+        // If NavigationStackProvider is not available, return default values
+        return {
+          popLevel: () => {},
+          jumpToLevel: () => {},
+          jumpToRoot: () => {},
+          currentLevel: null,
+          isNested: false,
+          depth: 0,
+          stack: [],
+          breadcrumb: [],
+          pushLevel: () => {},
+          loadBreadcrumb: async () => {},
+        };
+      }
+    })();
+    const { popLevel, jumpToLevel, jumpToRoot, currentLevel, isNested } = navigationStack;
 
     // Get current node ID from NavigationContext
     const { currentNodeId } = useNavigation();
@@ -1061,17 +1080,30 @@ const NavigationEditor: React.FC = () => {
   // Memoize userInterface for consistency
   const stableUserInterface = useMemo(() => userInterfaceFromState, [userInterfaceFromState]);
 
-  // Get userInterfaceId from state, but we'll also check URL parameters via useNavigationEditor
-  const userInterfaceIdFromState = stableUserInterface?.id;
+  // Ensure we have userInterfaceId before rendering
+  const userInterfaceId = stableUserInterface?.id;
 
-  // Always render with NavigationStackProvider since NavigationEditorContent uses useNavigationStack
-  // The actual userInterfaceId will be determined inside using URL parameters as fallback
+  if (!userInterfaceId) {
+    console.warn(
+      '[@component:NavigationEditor] Missing userInterfaceId, cannot save verifications',
+    );
+    return (
+      <ReactFlowProvider>
+        <NavigationConfigProvider>
+          <NavigationEditorProvider>
+            <NavigationEditorContent />
+          </NavigationEditorProvider>
+        </NavigationConfigProvider>
+      </ReactFlowProvider>
+    );
+  }
+
   return (
     <ReactFlowProvider>
       <NavigationConfigProvider>
         <NavigationEditorProvider>
           <NavigationStackProvider>
-            <NavigationEditorContent userInterfaceId={userInterfaceIdFromState} />
+            <NavigationEditorContent userInterfaceId={userInterfaceId} />
           </NavigationStackProvider>
         </NavigationEditorProvider>
       </NavigationConfigProvider>
