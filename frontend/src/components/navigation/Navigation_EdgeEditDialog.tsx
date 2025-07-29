@@ -73,8 +73,10 @@ export const EdgeEditDialog: React.FC<EdgeEditDialogProps> = ({
     isControlActive,
   });
 
-  // Check if form has actions - same logic as EdgeSelectionPanel
-  const hasActions = edgeForm?.actions?.length > 0;
+      // Check if form has actions - same logic as EdgeSelectionPanel
+    const hasActions = edgeForm?.actions?.length > 0;
+    // Use the same approach as EdgeSelectionPanel for determining if actions can be run
+    const canRunActions = _selectedEdge ? edgeHook.canRunActions(_selectedEdge) : false;
 
   // Enhanced submit handler with dependency checking
   const handleSubmitWithDependencyCheck = async () => {
@@ -383,7 +385,7 @@ export const EdgeEditDialog: React.FC<EdgeEditDialogProps> = ({
             <Button
               onClick={handleRunActions}
               variant="contained"
-              disabled={!edgeHook.canRunActions(_selectedEdge)}
+              disabled={!canRunActions}
             >
               {edgeHook.actionHook.loading ? 'Running...' : 'Run'}
             </Button>

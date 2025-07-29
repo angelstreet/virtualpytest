@@ -197,16 +197,7 @@ export const useEdgeEdit = ({
     });
   }, [localActions]);
 
-  // Check if can run local actions
-  const canRunLocalActions = useCallback((): boolean => {
-    return (
-      isControlActive &&
-      Boolean(selectedHost) &&
-      localActions.length > 0 &&
-      !edgeHook.actionHook.loading &&
-      isFormValid()
-    );
-  }, [isControlActive, selectedHost, localActions.length, edgeHook.actionHook.loading, isFormValid]);
+  // Use edgeHook.canRunActions directly instead of duplicating logic
 
   return {
     // Action execution
