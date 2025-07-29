@@ -45,6 +45,10 @@ from shared.lib.utils.script_utils import (
 # Import pathfinding for navigation
 from backend_core.src.services.navigation.navigation_pathfinding import find_shortest_path
 
+# Import report generation
+from shared.lib.utils.report_utils import generate_validation_report
+from shared.lib.utils.cloudflare_utils import upload_script_report, upload_validation_screenshots
+
 
 def main():
     """Main navigation function to goto live_fullscreen"""
@@ -99,6 +103,15 @@ def main():
         session_id = control_result['session_id']
         device_key = control_result['device_key']
         
+        # Capture initial state screenshot
+        print("📸 [goto_live_fullscreen] Capturing initial state screenshot...")
+        initial_screenshot = capture_validation_screenshot(host, selected_device, "initial_state", "goto_live_fullscreen")
+        if initial_screenshot:
+            screenshot_paths.append(initial_screenshot)
+            print(f"✅ [goto_live_fullscreen] Initial screenshot captured")
+        else:
+            print("⚠️ [goto_live_fullscreen] Failed to capture initial screenshot, continuing...")
+        
         # 4. Load navigation tree (centralized function)
         tree_result = load_navigation_tree(userinterface_name, "goto_live_fullscreen")
         if not tree_result['success']:
@@ -139,8 +152,36 @@ def main():
             
             # Execute the navigation step directly
             step_start_time = time.time()
+            step_start_timestamp = datetime.now().strftime('%H:%M:%S')
             result = execute_navigation_with_verifications(host, selected_device, step, team_id, tree_id)
+            step_end_timestamp = datetime.now().strftime('%H:%M:%S')
             step_execution_time = int((time.time() - step_start_time) * 1000)
+            
+            # Capture screenshot after step execution
+            step_screenshot = None
+            try:
+                step_screenshot = capture_validation_screenshot(host, selected_device, f"step_{step_num}", "goto_live_fullscreen")
+                if step_screenshot:
+                    screenshot_paths.append(step_screenshot)
+                    print(f"📸 [goto_live_fullscreen] Step {step_num} screenshot captured")
+            except Exception as e:
+                print(f"⚠️ [goto_live_fullscreen] Failed to capture screenshot: {e}")
+            
+            # Record step result
+            step_results.append({
+                'step_number': step_num,
+                'success': result['success'],
+                'screenshot_path': step_screenshot,
+                'message': f"Navigation step {step_num}: {from_node} → {to_node}",
+                'execution_time_ms': step_execution_time,
+                'start_time': step_start_timestamp,
+                'end_time': step_end_timestamp,
+                'from_node': from_node,
+                'to_node': to_node,
+                'actions': step.get('actions', []),
+                'verifications': step.get('verifications', []),
+                'verification_results': result.get('verification_results', [])
+            })
             
             if not result['success']:
                 error_message = f"Navigation failed at step {step_num}: {result.get('error', 'Unknown error')}"
@@ -166,6 +207,7 @@ def main():
         print(f"🎯 Result: {'SUCCESS' if overall_success else 'FAILED'}")
         if error_message:
             print(f"❌ Error: {error_message}")
+        # Report URL will be added in the finally block after report generation
         print("="*60)
             
     except KeyboardInterrupt:
@@ -177,6 +219,49 @@ def main():
         print(f"❌ [goto_live_fullscreen] {error_message}")
         sys.exit(1)
     finally:
+        # Generate report regardless of success or failure
+        try:
+            # Capture final screenshot
+            try:
+                final_screenshot = capture_validation_screenshot(host, selected_device, "final_state", "goto_live_fullscreen")
+                if final_screenshot:
+                    screenshot_paths.append(final_screenshot)
+                    print(f"📸 [goto_live_fullscreen] Final screenshot captured")
+            except Exception as e:
+                print(f"⚠️ [goto_live_fullscreen] Failed to capture final screenshot: {e}")
+            
+            # Generate and upload report
+            if 'selected_device' in locals():
+                # Use shared report generation function
+                from shared.lib.utils.report_utils import generate_and_upload_script_report
+                
+                total_execution_time = int((time.time() - start_time) * 1000)
+                device_info = {
+                    'device_name': selected_device.device_name,
+                    'device_model': selected_device.device_model,
+                    'device_id': selected_device.device_id
+                }
+                host_info = {
+                    'host_name': host.host_name
+                }
+                
+                report_url = generate_and_upload_script_report(
+                    script_name="goto_live_fullscreen.py",
+                    device_info=device_info,
+                    host_info=host_info,
+                    execution_time=total_execution_time,
+                    success=overall_success,
+                    step_results=step_results,
+                    screenshot_paths=screenshot_paths,
+                    error_message=error_message,
+                    userinterface_name=userinterface_name
+                )
+                
+                if report_url:
+                    print(f"📊 [goto_live_fullscreen] Report generated: {report_url}")
+        except Exception as e:
+            print(f"⚠️ [goto_live_fullscreen] Error in report generation: {e}")
+            
         # Always release device control
         if device_key and session_id:
             print("🔓 [goto_live_fullscreen] Releasing control of device...")

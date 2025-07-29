@@ -76,25 +76,8 @@ export const EdgeEditDialog: React.FC<EdgeEditDialogProps> = ({
       // Check if form has actions - same logic as EdgeSelectionPanel
     const hasActions = edgeForm?.actions?.length > 0;
     
-    // Debug why the Run button might be disabled
-    const isControlActiveValue = !!isControlActive;
-    const hasSelectedHost = !!selectedHost;
-    const hasActions2 = edgeForm?.actions?.length > 0;
-    const isNotLoading = !edgeHook.actionHook.loading;
-    
-    console.log('EdgeEditDialog Run button conditions:', {
-      isControlActive: isControlActiveValue,
-      hasSelectedHost,
-      hasActions: hasActions2,
-      isNotLoading,
-      _selectedEdge: !!_selectedEdge
-    });
-    
-    // Use the same approach as EdgeSelectionPanel for determining if actions can be run
-    const canRunActions = _selectedEdge ? edgeHook.canRunActions(_selectedEdge) : false;
-    
-    // Debug the canRunActions result
-    console.log('EdgeEditDialog canRunActions result:', canRunActions);
+    // Simply check if actions can be run based on control being active, host being available, and actions existing
+    const canRunActions = isControlActive && !!selectedHost && hasActions && !edgeHook.actionHook.loading;
 
   // Enhanced submit handler with dependency checking
   const handleSubmitWithDependencyCheck = async () => {
@@ -148,9 +131,19 @@ export const EdgeEditDialog: React.FC<EdgeEditDialogProps> = ({
   const handleRunActions = async () => {
     // Use the same execution method as the Edge Selection Panel
     // Pass the local actions as overrides to executeEdgeActions
-    if (_selectedEdge) {
+    if (edgeForm && edgeForm.edgeId) {
+      const dummyEdge = {
+        id: edgeForm.edgeId,
+        source: 'unknown',
+        target: 'unknown',
+        data: {
+          actions: edgeEdit.localActions,
+          retryActions: edgeEdit.localRetryActions
+        }
+      } as UINavigationEdge;
+      
       await edgeHook.executeEdgeActions(
-        _selectedEdge,
+        dummyEdge,
         edgeEdit.localActions,
         edgeEdit.localRetryActions
       );
