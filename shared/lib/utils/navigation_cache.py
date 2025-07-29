@@ -225,13 +225,13 @@ def force_refresh_cache(tree_id: str, team_id: str) -> bool:
         
         # Reload tree data using the actual tree_id
         try:
-            from shared.lib.supabase.navigation_trees_db import get_navigation_tree
-            success, message, tree_data = get_navigation_tree(tree_id, team_id)
-            if success and tree_data:
+            from shared.lib.supabase.navigation_trees_db import get_full_tree
+            result = get_full_tree(tree_id, team_id)
+            if result['success']:
                 print(f"[@navigation:cache:force_refresh_cache] Successfully refreshed cache for tree: {tree_id}")
                 return True
             else:
-                print(f"[@navigation:cache:force_refresh_cache] Failed to reload tree: {message}")
+                print(f"[@navigation:cache:force_refresh_cache] Failed to reload tree: {result.get('error', 'Unknown error')}")
                 return False
         except Exception as e:
             print(f"[@navigation:cache:force_refresh_cache] Error reloading tree: {e}")
