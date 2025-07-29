@@ -68,9 +68,13 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
       isControlActive,
     });
 
-    // Get actions and retry actions using hook functions
-    const actions = edgeHook.getActionsFromEdge(selectedEdge);
-    const retryActions = edgeHook.getRetryActionsFromEdge(selectedEdge);
+    // Get actions and retry actions - use form data if available for this edge
+    const actions = (currentEdgeForm && currentEdgeForm.edgeId === selectedEdge.id) 
+      ? currentEdgeForm.actions 
+      : edgeHook.getActionsFromEdge(selectedEdge);
+    const retryActions = (currentEdgeForm && currentEdgeForm.edgeId === selectedEdge.id) 
+      ? currentEdgeForm.retryActions 
+      : edgeHook.getRetryActionsFromEdge(selectedEdge);
     const hasActions = actions.length > 0;
     const hasRetryActions = retryActions.length > 0;
     const canRunActions = edgeHook.canRunActions(selectedEdge);
