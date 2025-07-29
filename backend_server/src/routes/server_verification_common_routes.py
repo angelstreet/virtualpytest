@@ -63,14 +63,28 @@ def get_verifications():
 
 @server_verification_common_bp.route('/getAllReferences', methods=['POST'])
 def get_all_references():
-    """Get all reference images/data (for frontend compatibility)."""
+    """Get all reference images/data."""
     try:
-        # Return empty references for now - this is mainly for frontend compatibility
-        # References are now managed differently with the embedded architecture
-        return jsonify({
-            'success': True,
-            'references': []
-        })
+        from shared.lib.supabase.verifications_references_db import get_references
+        from shared.lib.utils.app_utils import DEFAULT_TEAM_ID
+        
+        print(f'[@route:server_verification:get_all_references] Getting all references for team: {DEFAULT_TEAM_ID}')
+        
+        # Get all references for the team
+        result = get_references(team_id=DEFAULT_TEAM_ID)
+        
+        if result['success']:
+            print(f'[@route:server_verification:get_all_references] Found {result["count"]} references')
+            return jsonify({
+                'success': True,
+                'references': result['references']
+            })
+        else:
+            print(f'[@route:server_verification:get_all_references] Error getting references: {result.get("error")}')
+            return jsonify({
+                'success': False,
+                'message': result.get('error', 'Failed to get references')
+            }), 500
         
     except Exception as e:
         print(f'[@route:server_verification:get_all_references] ERROR: {e}')
