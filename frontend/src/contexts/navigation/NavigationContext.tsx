@@ -952,7 +952,7 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
              verifications: node.data.verifications || [],
              data: {
                ...node.data,
-               description: node.data.description, // Move description into data jsonb
+               description: node.data.description,
              }
            }));
 
@@ -967,16 +967,26 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
              edge_type: edge.data?.edgeType || 'default',
              data: {
                ...edge.data,
-               description: edge.data?.description, // Move description into data jsonb
+               description: edge.data?.description,
              }
            }));
 
-           await navigationConfig.saveTreeData(treeId, normalizedNodes, normalizedEdges);
+           // Compare with initial state to find deletions
+           const currentNodeIds = new Set(nodes.map(n => n.id));
+           const currentEdgeIds = new Set(edges.map(e => e.id));
+           const initialNodeIds = initialState ? initialState.nodes.map(n => n.id) : [];
+           const initialEdgeIds = initialState ? initialState.edges.map(e => e.id) : [];
+           
+           const deletedNodeIds = initialNodeIds.filter(id => !currentNodeIds.has(id));
+           const deletedEdgeIds = initialEdgeIds.filter(id => !currentEdgeIds.has(id));
+
+           // Call save with deletion info
+           await navigationConfig.saveTreeData(treeId, normalizedNodes, normalizedEdges, deletedNodeIds, deletedEdgeIds);
            
            setInitialState({ 
-            nodes: nodes as UINavigationNode[],
-            edges: edges as UINavigationEdge[]
-          });
+             nodes: nodes as UINavigationNode[], 
+             edges: edges as UINavigationEdge[] 
+           });
            setHasUnsavedChanges(false);
            setSuccess('Tree saved successfully');
          } catch (error) {

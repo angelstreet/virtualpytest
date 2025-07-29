@@ -477,13 +477,27 @@ def move_subtree(subtree_id: str, new_parent_tree_id: str, new_parent_node_id: s
 # BATCH OPERATIONS
 # ============================================================================
 
-def save_tree_data(tree_id: str, nodes: List[Dict], edges: List[Dict], team_id: str) -> Dict:
-    """Save complete tree data (nodes + edges) in batch."""
+def save_tree_data(tree_id: str, nodes: List[Dict], edges: List[Dict], team_id: str, deleted_node_ids: List[str] = None, deleted_edge_ids: List[str] = None) -> Dict:
+    """Save complete tree data (nodes + edges) in batch with deletions."""
     try:
+        # Handle deletions first
+        if deleted_node_ids:
+            for node_id in deleted_node_ids:
+                delete_result = delete_node(tree_id, node_id, team_id)
+                if not delete_result['success']:
+                    return {'success': False, 'error': f"Failed to delete node {node_id}: {delete_result['error']}"}
+        
+        if deleted_edge_ids:
+            for edge_id in deleted_edge_ids:
+                delete_result = delete_edge(tree_id, edge_id, team_id)
+                if not delete_result['success']:
+                    return {'success': False, 'error': f"Failed to delete edge {edge_id}: {delete_result['error']}"}
+        
+        # Save/update current nodes and edges
         saved_nodes = []
         saved_edges = []
         
-        # Save all nodes first
+        # Save all nodes
         for node_data in nodes:
             result = save_node(tree_id, node_data, team_id)
             if result['success']:
@@ -499,7 +513,8 @@ def save_tree_data(tree_id: str, nodes: List[Dict], edges: List[Dict], team_id: 
             else:
                 return {'success': False, 'error': f"Failed to save edge {edge_data.get('edge_id')}: {result['error']}"}
         
-        print(f"[@db:navigation_trees:save_tree_data] Saved {len(saved_nodes)} nodes and {len(saved_edges)} edges for tree {tree_id}")
+        deleted_count = len(deleted_node_ids or []) + len(deleted_edge_ids or [])
+        print(f"[@db:navigation_trees:save_tree_data] Deleted {deleted_count} items, saved {len(saved_nodes)} nodes and {len(saved_edges)} edges for tree {tree_id}")
         return {
             'success': True,
             'nodes': saved_nodes,

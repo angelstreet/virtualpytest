@@ -67,36 +67,30 @@ export interface NavigationEdge {
 }
 
 interface NavigationConfigContextType {
-  // Tree operations
-  loadTreeMetadata: (treeId: string) => Promise<NavigationTree>;
-  loadTreeData: (treeId: string) => Promise<any>;
-  loadTreeNodes: (treeId: string, page?: number, limit?: number) => Promise<NavigationNode[]>;
-  loadTreeEdges: (treeId: string, nodeIds?: string[]) => Promise<NavigationEdge[]>;
-  
-  // Node operations
-  saveNode: (treeId: string, node: NavigationNode) => Promise<void>;
-  deleteNode: (treeId: string, nodeId: string) => Promise<void>;
-  
-  // Edge operations
-  saveEdge: (treeId: string, edge: NavigationEdge) => Promise<void>;
-  deleteEdge: (treeId: string, edgeId: string) => Promise<void>;
-  
-  // Batch operations
-  saveTreeData: (treeId: string, nodes: any[], edges: any[]) => Promise<void>;
-  
-  // Nested tree operations
-  loadNodeSubTrees: (treeId: string, nodeId: string) => Promise<NavigationTree[]>;
-  createSubTree: (parentTreeId: string, parentNodeId: string, treeData: any) => Promise<NavigationTree>;
-  getTreeHierarchy: (treeId: string) => Promise<TreeHierarchy[]>;
-  getTreeBreadcrumb: (treeId: string) => Promise<BreadcrumbItem[]>;
-  deleteTreeCascade: (treeId: string) => Promise<void>;
-  moveSubtree: (subtreeId: string, newParentTreeId: string, newParentNodeId: string) => Promise<void>;
-  
-  // State
+  // Tree metadata operations
   currentTree: NavigationTree | null;
   isLoading: boolean;
   error: string | null;
   actualTreeId: string | null;
+
+  // Load operations
+  loadTreeMetadata: (treeId: string) => Promise<NavigationTree>;
+  loadTreeData: (treeId: string) => Promise<any>;
+  loadTreeNodes: (treeId: string, page?: number, limit?: number) => Promise<NavigationNode[]>;
+  loadTreeEdges: (treeId: string, nodeIds?: string[]) => Promise<NavigationEdge[]>;
+
+  // Save operations
+  saveNode: (treeId: string, nodeData: NavigationNode) => Promise<void>;
+  saveEdge: (treeId: string, edgeData: NavigationEdge) => Promise<void>;
+  
+  // Batch operations
+  saveTreeData: (treeId: string, nodes: any[], edges: any[], deletedNodeIds?: string[], deletedEdgeIds?: string[]) => Promise<void>;
+  
+  // Nested tree operations
+  loadNodeSubTrees: (treeId: string, nodeId: string) => Promise<any[]>;
+  createSubTree: (parentTreeId: string, parentNodeId: string, treeName: string) => Promise<any>;
+  moveSubTree: (subtreeId: string, newParentTreeId: string, newParentNodeId: string) => Promise<void>;
+
   setActualTreeId: (treeId: string | null) => void;
 }
 
@@ -300,13 +294,15 @@ export const NavigationConfigProvider: React.FC<{ children: React.ReactNode }> =
     }
   };
 
-  const saveTreeData = async (treeId: string, nodes: any[], edges: any[]): Promise<void> => {
+  const saveTreeData = async (treeId: string, nodes: any[], edges: any[], deletedNodeIds?: string[], deletedEdgeIds?: string[]): Promise<void> => {
     const response = await fetch(`/server/navigationTrees/${treeId}/batch`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         nodes: nodes,
-        edges: edges
+        edges: edges,
+        deleted_node_ids: deletedNodeIds || [],
+        deleted_edge_ids: deletedEdgeIds || []
       })
     });
     
@@ -323,15 +319,10 @@ export const NavigationConfigProvider: React.FC<{ children: React.ReactNode }> =
       loadTreeNodes,
       loadTreeEdges,
       saveNode,
-      deleteNode,
       saveEdge,
-      deleteEdge,
       loadNodeSubTrees,
       createSubTree,
-      getTreeHierarchy,
-      getTreeBreadcrumb,
-      deleteTreeCascade,
-      moveSubtree,
+      moveSubTree: moveSubtree,
       saveTreeData,
       currentTree,
       isLoading,
