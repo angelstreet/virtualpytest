@@ -363,19 +363,50 @@ const NavigationEditorContent: React.FC<{ userInterfaceId?: string }> = React.me
     const loadTreeForUserInterface = useCallback(
       async (userInterfaceId: string) => {
         try {
-          // Get the tree ID for this user interface
-          const interfaces = await listAvailableTrees();
-          const userInterface = interfaces.find(ui => ui.id === userInterfaceId);
-          
-          if (userInterface && userInterface.navigation_tree_id) {
-            await loadTreeData(userInterface.navigation_tree_id);
-            setActualTreeId(userInterface.navigation_tree_id);
+          // Get the tree directly by user interface ID using the original endpoint
+          const response = await fetch(
+            `/server/navigationTrees/getTreeByUserInterfaceId/${userInterfaceId}`,
+            {
+              headers: {
+                'Content-Type': 'application/json',
+              },
+            },
+          );
+
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+
+          const data = await response.json();
+
+          if (data.success && data.tree) {
+            // Get the tree data
+            const tree = data.tree;
+            const treeData = tree.metadata || {};
+            const nodes = treeData.nodes || [];
+            const edges = treeData.edges || [];
+            const actualTreeId = tree.id || null;
+
+            console.log(
+              `[@NavigationEditor:loadTreeForUserInterface] Loaded tree for userInterface: ${userInterfaceId} with ${nodes.length} nodes and ${edges.length} edges`,
+            );
+
+            // Set the tree data directly in the navigation context
+            setNodes(nodes);
+            setEdges(edges);
+            setActualTreeId(actualTreeId);
+
+            console.log(
+              `[@NavigationEditor:loadTreeForUserInterface] Set tree data with ${nodes.length} nodes and ${edges.length} edges`,
+            );
+          } else {
+            console.error('Failed to load tree:', data.error || 'Unknown error');
           }
         } catch (error) {
           console.error('Failed to load tree for user interface:', error);
         }
       },
-      [listAvailableTrees, loadTreeData, setActualTreeId],
+      [setNodes, setEdges, setActualTreeId],
     );
 
     const saveTreeForUserInterface = useCallback(

@@ -19,7 +19,9 @@ from shared.lib.supabase.navigation_trees_db import (
     # Edge operations
     get_tree_edges, get_edge_by_id, save_edge, delete_edge,
     # Batch operations
-    save_tree_data, get_full_tree
+    save_tree_data, get_full_tree, load_full_tree,
+    # Interface operations
+    get_root_tree_for_interface
 )
 from shared.lib.supabase.userinterface_db import get_all_userinterfaces
 from shared.lib.utils.app_utils import DEFAULT_TEAM_ID, DEFAULT_USER_ID, check_supabase, get_team_id
@@ -417,6 +419,43 @@ def get_userinterfaces():
         })
     except Exception as e:
         print(f'[@route:navigation_trees:get_userinterfaces] ERROR: {e}')
+        return jsonify({
+            'success': False,
+            'message': f'Server error: {str(e)}'
+        }), 500
+
+@server_navigation_trees_bp.route('/navigationTrees/getTreeByUserInterfaceId/<userinterface_id>', methods=['GET'])
+def get_tree_by_userinterface_id(userinterface_id):
+    """Get navigation tree for a specific user interface."""
+    try:
+        team_id = get_team_id()
+        
+        # Get the root tree for this user interface
+        tree = get_root_tree_for_interface(userinterface_id, team_id)
+        
+        if tree:
+            # Get full tree data with nodes and edges
+            tree_data = load_full_tree(tree['id'])
+            
+            return jsonify({
+                'success': True,
+                'tree': {
+                    'id': tree['id'],
+                    'name': tree['name'],
+                    'metadata': {
+                        'nodes': tree_data['nodes'],
+                        'edges': tree_data['edges']
+                    }
+                }
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': f'No navigation tree found for user interface: {userinterface_id}'
+            })
+            
+    except Exception as e:
+        print(f'[@route:navigation_trees:get_tree_by_userinterface_id] ERROR: {e}')
         return jsonify({
             'success': False,
             'message': f'Server error: {str(e)}'
