@@ -211,7 +211,6 @@ class ActionExecutor:
                 tree_id=self.tree_id,
                 edge_id=self.edge_id,
                 host_name=self.host.get('host_name'),
-                device_model=self.host.get('device_model'),
                 success=success,
                 execution_time_ms=execution_time_ms,
                 message=message,
