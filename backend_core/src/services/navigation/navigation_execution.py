@@ -175,13 +175,9 @@ class NavigationExecutor:
                     team_id=self.team_id
                 )
                 
-                # Get device model for verification context
-                device_model = self.host.get('device_model')
-                
                 result = verification_executor.execute_verifications(
                     verifications=target_node_verifications,
-                    image_source_url=image_source_url,
-                    model=device_model
+                    image_source_url=image_source_url
                 )
                 
                 verification_results = result.get('results', [])
