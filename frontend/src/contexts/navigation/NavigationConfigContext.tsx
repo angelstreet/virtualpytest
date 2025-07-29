@@ -81,6 +81,9 @@ interface NavigationConfigContextType {
   saveEdge: (treeId: string, edge: NavigationEdge) => Promise<void>;
   deleteEdge: (treeId: string, edgeId: string) => Promise<void>;
   
+  // Batch operations
+  saveTreeData: (treeId: string, nodes: any[], edges: any[]) => Promise<void>;
+  
   // Nested tree operations
   loadNodeSubTrees: (treeId: string, nodeId: string) => Promise<NavigationTree[]>;
   createSubTree: (parentTreeId: string, parentNodeId: string, treeData: any) => Promise<NavigationTree>;
@@ -297,6 +300,22 @@ export const NavigationConfigProvider: React.FC<{ children: React.ReactNode }> =
     }
   };
 
+  const saveTreeData = async (treeId: string, nodes: any[], edges: any[]): Promise<void> => {
+    const response = await fetch(`/server/navigationTrees/${treeId}/batch`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        nodes: nodes,
+        edges: edges
+      })
+    });
+    
+    const result = await response.json();
+    if (!result.success) {
+      throw new Error(result.error);
+    }
+  };
+
   return (
     <NavigationConfigContext.Provider value={{
       loadTreeMetadata,
@@ -313,6 +332,7 @@ export const NavigationConfigProvider: React.FC<{ children: React.ReactNode }> =
       getTreeBreadcrumb,
       deleteTreeCascade,
       moveSubtree,
+      saveTreeData,
       currentTree,
       isLoading,
       error,
