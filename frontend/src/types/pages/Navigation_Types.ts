@@ -1,10 +1,5 @@
-import { Node, Edge } from 'reactflow';
-
-import { EdgeAction } from '../controller/Action_Types';
+import { Action } from '../controller/Action_Types';
 import { Verification } from '../verification/Verification_Types';
-
-// Re-export EdgeAction for use in navigation components
-export type { EdgeAction };
 
 // Navigation types are centralized in this file
 // NavigationConfig_Types and NavigationContext_Types are imported where needed
@@ -39,6 +34,10 @@ export interface UINavigationNodeData {
   // Verification support (embedded directly - no ID resolution needed)
   verifications?: Verification[]; // Array of embedded verification objects
 
+  // Nested tree properties
+  has_subtree?: boolean; // True if this node has associated subtrees
+  subtree_count?: number; // Number of subtrees linked to this node
+
   // Execution metrics
   metrics?: {
     volume: number;
@@ -46,29 +45,18 @@ export interface UINavigationNodeData {
     avg_execution_time: number;
   };
 }
-
-// Define the navigation node type using ReactFlow's Node with our data type
-export type UINavigationNode = Node<UINavigationNodeData>;
-
-// =====================================================
-// NAVIGATION EDGE ACTION TYPES
-// =====================================================
-
-// EdgeAction is now imported from Action_Types.ts to avoid duplication
 
 // Define the data type for navigation edges
 export interface UINavigationEdgeData {
-  actions?: EdgeAction[]; // Array of embedded actions with wait_time preserved
-  retryActions?: EdgeAction[]; // Array of embedded retry actions
-  final_wait_time?: number; // Wait time after all actions (using standard naming)
   description?: string;
-  from?: string; // Source node label
-  to?: string; // Target node label
-  edgeType?: 'horizontal' | 'vertical'; // For edge coloring: horizontal=siblings, vertical=parent-child
-
-  // Priority and threshold fields
+  edge_type?: 'horizontal' | 'vertical'; // Default: horizontal
   priority?: 'p1' | 'p2' | 'p3'; // Priority level (default: p3)
-  threshold?: number; // Threshold in milliseconds (default: 0)
+  threshold?: number; // Threshold for edge traversal (default: 0)
+
+  // Action support (embedded directly - no ID resolution needed)
+  actions?: Action[]; // Array of embedded action objects with preserved wait_time
+  retryActions?: Action[]; // Array of embedded retry action objects
+  final_wait_time?: number; // Final wait time after all actions complete (default: 2000ms)
 
   // Execution metrics
   metrics?: {
@@ -78,8 +66,126 @@ export interface UINavigationEdgeData {
   };
 }
 
-// Use ReactFlow's Edge type with our custom data
-export type UINavigationEdge = Edge<UINavigationEdgeData>;
+// =====================================================
+// NESTED TREE TYPES
+// =====================================================
+
+export interface NavigationTree {
+  id: string;
+  name: string;
+  userinterface_id: string;
+  team_id: string;
+  description?: string;
+  parent_tree_id?: string;
+  parent_node_id?: string;
+  tree_depth: number;
+  is_root_tree: boolean;
+  root_node_id?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TreeHierarchy {
+  tree_id: string;
+  tree_name: string;
+  depth: number;
+  parent_tree_id?: string;
+  parent_node_id?: string;
+}
+
+export interface BreadcrumbItem {
+  tree_id: string;
+  tree_name: string;
+  depth: number;
+  node_id?: string;
+}
+
+export interface NavigationNode {
+  id: string; // node_id from database
+  node_id: string;
+  label: string;
+  node_type: string;
+  description?: string;
+  position_x: number;
+  position_y: number;
+  parent_node_ids: string[];
+  is_root: boolean;
+  verifications: Verification[]; // Embedded verifications
+  screenshot?: string;
+  depth: number;
+  priority: string;
+  menu_type?: string;
+  has_subtree?: boolean; // Nested tree properties
+  subtree_count?: number;
+  metadata: any;
+}
+
+export interface NavigationEdge {
+  id: string; // edge_id from database
+  edge_id: string;
+  source_node_id: string;
+  target_node_id: string;
+  description?: string;
+  actions: Action[]; // Embedded actions
+  retry_actions: Action[];
+  final_wait_time: number;
+  edge_type: string;
+  priority: string;
+  threshold: number;
+  metadata: any;
+}
+
+// Nested tree operations interface
+export interface NestedTreeOperations {
+  loadNodeSubTrees: (treeId: string, nodeId: string) => Promise<NavigationTree[]>;
+  createSubTree: (parentTreeId: string, parentNodeId: string, treeData: any) => Promise<NavigationTree>;
+  getTreeHierarchy: (treeId: string) => Promise<TreeHierarchy[]>;
+  getTreeBreadcrumb: (treeId: string) => Promise<BreadcrumbItem[]>;
+  deleteTreeCascade: (treeId: string) => Promise<void>;
+  moveSubtree: (subtreeId: string, newParentTreeId: string, newParentNodeId: string) => Promise<void>;
+}
+
+// =====================================================
+// REACTFLOW TYPES
+// =====================================================
+
+// ReactFlow node type
+export interface UINavigationNode {
+  id: string;
+  type: string;
+  position: { x: number; y: number };
+  data: UINavigationNodeData;
+}
+
+// ReactFlow edge type
+export interface UINavigationEdge {
+  id: string;
+  source: string;
+  target: string;
+  type: string;
+  data: UINavigationEdgeData;
+}
+
+// =====================================================
+// LEGACY TYPES (for backward compatibility during migration)
+// =====================================================
+
+// Legacy navigation tree structure (will be removed after migration)
+export interface LegacyNavigationTree {
+  id: string;
+  name: string;
+  metadata: {
+    nodes: any[];
+    edges: any[];
+  };
+}
+
+// =====================================================
+// ACTION AND VERIFICATION TYPES (embedded)
+// =====================================================
+
+// Action and Verification types are imported from their respective modules
+// to avoid duplication and maintain consistency across the application
 
 export interface NavigationTreeData {
   nodes: UINavigationNode[];
@@ -118,8 +224,8 @@ export interface NodeForm {
 // Updated EdgeForm interface for multiple actions
 export interface EdgeForm {
   edgeId: string; // Required edge ID to track which edge is being edited
-  actions: EdgeAction[];
-  retryActions: EdgeAction[];
+  actions: Action[];
+  retryActions: Action[];
   final_wait_time: number; // Using standard naming convention
   description: string;
 
@@ -138,8 +244,8 @@ export interface NavigationStep {
   to_node_id: string;
   from_node_label: string;
   to_node_label: string;
-  actions: EdgeAction[];
-  retryActions?: EdgeAction[];
+  actions: Action[];
+  retryActions?: Action[];
   total_actions: number;
   total_retry_actions?: number;
   final_wait_time?: number;
@@ -402,11 +508,11 @@ export interface NavigationToolbarProps {
 // =====================================================
 
 export interface EdgeActionsListProps {
-  actions: EdgeAction[];
-  retryActions: EdgeAction[];
+  actions: Action[];
+  retryActions: Action[];
   finalWaitTime: number;
-  onActionsChange: (actions: EdgeAction[]) => void;
-  onRetryActionsChange: (retryActions: EdgeAction[]) => void;
+  onActionsChange: (actions: Action[]) => void;
+  onRetryActionsChange: (retryActions: Action[]) => void;
   onFinalWaitTimeChange: (waitTime: number) => void;
   controllerTypes: string[];
   isControlActive?: boolean;
@@ -415,8 +521,8 @@ export interface EdgeActionsListProps {
 }
 
 export interface EdgeActionItemProps {
-  action: EdgeAction;
-  onUpdate: (updatedAction: EdgeAction) => void;
+  action: Action;
+  onUpdate: (updatedAction: Action) => void;
   onDelete: () => void;
   controllerTypes: string[];
   isControlActive?: boolean;

@@ -1,8 +1,8 @@
-import { useCallback } from 'react';
+import React, { useCallback } from 'react';
 import { useNavigationStack } from '../../contexts/navigation/NavigationStackContext';
 import { useNavigationConfig } from '../../contexts/navigation/NavigationConfigContext';
 
-export interface NestedNavigationHookParams {
+interface NestedNavigationHookParams {
   setNodes: (nodes: any[]) => void;
   setEdges: (edges: any[]) => void;
   openNodeDialog: (node: any) => void;
@@ -13,17 +13,17 @@ export const useNestedNavigation = ({
   setEdges,
   openNodeDialog,
 }: NestedNavigationHookParams) => {
-  const { pushLevel, stack } = useNavigationStack();
+  const { pushLevel, stack, loadBreadcrumb } = useNavigationStack();
   const { actualTreeId } = useNavigationConfig();
+  const navigationConfig = useNavigationConfig();
 
-  const handleNodeDoubleClick = useCallback(
-    async (_event: React.MouseEvent, node: any) => {
-    // 1. Check if node is entry type (skip)
+  const handleNodeDoubleClick = useCallback(async (_event: React.MouseEvent, node: any) => {
+    // 1. Skip entry type nodes
     if (node.data?.type === 'entry') {
       return;
     }
 
-    // 2. INFINITE LOOP PROTECTION: Check if we're already in a sub-tree of this specific node
+    // 2. Infinite loop protection
     const nodeId = node.id;
     const isAlreadyInThisNode = stack.some((level) => level.parentNodeId === nodeId);
 
@@ -31,27 +31,22 @@ export const useNestedNavigation = ({
       console.warn(
         `[@useNestedNavigation] Prevented infinite loop: Already in sub-tree of node "${node.data.label}" (ID: ${nodeId})`,
       );
-      // Fallback to edit dialog instead
       openNodeDialog(node);
       return;
     }
 
     // 3. Check for existing sub-trees
     try {
-      const response = await fetch(
-        `/server/navigationTrees/getNodeSubTrees/${actualTreeId}/${node.id}`,
-      );
-      const result = await response.json();
+      const subTrees = await navigationConfig.loadNodeSubTrees(actualTreeId!, node.id);
 
-      if (result.success && result.sub_trees?.length > 0) {
-        // 4a. Load existing sub-tree using new normalized API
-        const primarySubTree = result.sub_trees[0];
-        const treeResponse = await fetch(`/server/navigationTrees/${primarySubTree.id}/full`);
-        const treeResult = await treeResponse.json();
+      if (subTrees.length > 0) {
+        // 4a. Load existing sub-tree
+        const primarySubTree = subTrees[0];
+        const treeData = await navigationConfig.loadTreeData(primarySubTree.id);
 
-        if (treeResult.success) {
-          // Convert normalized data to frontend format
-          const frontendNodes = (treeResult.nodes || []).map((node: any) => ({
+        if (treeData.success) {
+          // Convert to frontend format
+          const frontendNodes = (treeData.nodes || []).map((node: any) => ({
             id: node.node_id,
             type: 'uiScreen',
             position: { x: node.position_x, y: node.position_y },
@@ -59,29 +54,40 @@ export const useNestedNavigation = ({
               label: node.label,
               type: node.node_type,
               description: node.description,
-              verifications: node.verifications, // Directly embedded
-              ...node.data // Additional data
+              verifications: node.verifications,
+              has_subtree: node.has_subtree,
+              subtree_count: node.subtree_count,
+              ...node.data
             }
           }));
 
-          const frontendEdges = (treeResult.edges || []).map((edge: any) => ({
+          const frontendEdges = (treeData.edges || []).map((edge: any) => ({
             id: edge.edge_id,
             source: edge.source_node_id,
             target: edge.target_node_id,
             type: 'uiNavigation',
             data: {
               description: edge.description,
-              actions: edge.actions, // Directly embedded with wait_time
+              actions: edge.actions,
               retryActions: edge.retry_actions,
               final_wait_time: edge.final_wait_time,
-              ...edge.data // Additional data
+              ...edge.data
             }
           }));
 
-          // 5. Push to navigation stack FIRST to set isNested before setting nodes
-          pushLevel(primarySubTree.id, node.id, primarySubTree.name, node.data.label);
+          // 5. Push to navigation stack with depth
+          pushLevel(
+            primarySubTree.id, 
+            node.id, 
+            primarySubTree.name, 
+            node.data.label,
+            primarySubTree.tree_depth
+          );
 
-          // Then set nodes and edges with small delay to ensure isNested is processed
+          // Load breadcrumb for the new tree
+          await loadBreadcrumb(primarySubTree.id);
+
+          // Set nodes and edges
           setTimeout(() => {
             setNodes(frontendNodes);
             setEdges(frontendEdges);
@@ -90,43 +96,84 @@ export const useNestedNavigation = ({
           console.log(`[@useNestedNavigation] Loaded existing sub-tree: ${primarySubTree.name}`);
         }
       } else {
-        // 4b. Create sub-tree starting with the actual node (so user understands context)
-        const contextSubTree = {
-          nodes: [
-            {
-              id: `${node.id}-context`, // Unique ID for the context node
-              type: 'uiScreen',
-              position: { x: 250, y: 100 }, // Position at top center instead of middle (y: 250 -> y: 100)
-              data: {
-                type: node.data.type,
-                label: node.data.label, // Keep the original label like "Live TV"
-                description: `You are now on ${node.data.label}. Add actions you can perform while staying here.`,
-                isContextNode: true, // Mark as the context node
-              },
-            },
-          ],
-          edges: [],
-        };
-
-        // 6. Push to navigation stack FIRST to set isNested before setting nodes
-        pushLevel(`temp-${Date.now()}`, node.id, node.data.label, node.data.label);
-
-        // Then set nodes and edges with small delay to ensure isNested is processed
-        setTimeout(() => {
-          setNodes(contextSubTree.nodes);
-          setEdges(contextSubTree.edges);
-        }, 10);
-
-        console.log(`[@useNestedNavigation] Created empty sub-tree for node: ${node.data.label}`);
+        // 4b. Create new sub-tree
+        await createNewSubTree(node);
       }
     } catch (error) {
-      console.error('[@useNestedNavigation] Error in nested navigation:', error);
-      // Fallback to edit dialog only on error
+      console.error('[@useNestedNavigation] Error handling node double-click:', error);
+      // Fallback to node dialog
       openNodeDialog(node);
     }
-  }, [actualTreeId, setNodes, setEdges, pushLevel, openNodeDialog, stack]);
+  }, [stack, actualTreeId, navigationConfig, pushLevel, loadBreadcrumb, setNodes, setEdges, openNodeDialog]);
+
+  const createNewSubTree = useCallback(async (parentNode: any) => {
+    try {
+      const newTreeData = {
+        name: `${parentNode.data.label} - Subtree`,
+        userinterface_id: actualTreeId, // Use same interface
+        description: `Sub-navigation for ${parentNode.data.label}`,
+      };
+
+      const newTree = await navigationConfig.createSubTree(actualTreeId!, parentNode.id, newTreeData);
+
+      // Create initial entry node for the new subtree
+      const entryNodeData = {
+        id: 'entry-node',
+        node_id: 'entry-node',
+        label: 'Entry Point',
+        node_type: 'entry',
+        description: 'Entry point for nested navigation',
+        position_x: 100,
+        position_y: 100,
+        parent_node_ids: [],
+        is_root: true,
+        verifications: [],
+        depth: 0,
+        priority: 'p3',
+        metadata: {}
+      };
+
+      await navigationConfig.saveNode(newTree.id, entryNodeData);
+
+      // Load the new subtree
+      const treeData = await navigationConfig.loadTreeData(newTree.id);
+      
+      if (treeData.success) {
+        const frontendNodes = (treeData.nodes || []).map((node: any) => ({
+          id: node.node_id,
+          type: 'uiScreen',
+          position: { x: node.position_x, y: node.position_y },
+          data: {
+            label: node.label,
+            type: node.node_type,
+            description: node.description,
+            verifications: node.verifications,
+            ...node.data
+          }
+        }));
+
+        // Push to navigation stack
+        pushLevel(newTree.id, parentNode.id, newTree.name, parentNode.data.label, newTree.tree_depth);
+
+        // Load breadcrumb
+        await loadBreadcrumb(newTree.id);
+
+        // Set nodes
+        setTimeout(() => {
+          setNodes(frontendNodes);
+          setEdges([]);
+        }, 10);
+
+        console.log(`[@useNestedNavigation] Created new sub-tree: ${newTree.name}`);
+      }
+    } catch (error) {
+      console.error('[@useNestedNavigation] Error creating sub-tree:', error);
+      throw error;
+    }
+  }, [actualTreeId, navigationConfig, pushLevel, loadBreadcrumb, setNodes, setEdges]);
 
   return {
     handleNodeDoubleClick,
+    createNewSubTree
   };
 };

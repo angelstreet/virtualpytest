@@ -6,6 +6,7 @@ New API structure for normalized navigation tables:
 - Individual node operations  
 - Individual edge operations
 - Batch operations
+- Nested tree operations
 
 Clean, scalable REST endpoints without monolithic JSONB operations.
 """
@@ -21,7 +22,10 @@ from shared.lib.supabase.navigation_trees_db import (
     # Batch operations
     save_tree_data, get_full_tree,
     # Interface operations
-    get_root_tree_for_interface
+    get_root_tree_for_interface,
+    # Nested tree operations
+    get_node_sub_trees, create_sub_tree, get_tree_hierarchy, 
+    get_tree_breadcrumb, delete_tree_cascade, move_subtree
 )
 from shared.lib.supabase.userinterface_db import get_all_userinterfaces
 from shared.lib.utils.app_utils import DEFAULT_TEAM_ID, DEFAULT_USER_ID, check_supabase, get_team_id
@@ -50,14 +54,9 @@ def get_all_navigation_trees():
             'message': f'Server error: {str(e)}'
         }), 500
 
-@server_navigation_trees_bp.route('/navigationTrees/getAllTrees', methods=['GET'])
-def get_all_navigation_trees_alias():
-    """Alias for get_all_navigation_trees - used by Dashboard frontend."""
-    return get_all_navigation_trees()
-
-@server_navigation_trees_bp.route('/navigationTrees/<tree_id>/metadata', methods=['GET'])
+@server_navigation_trees_bp.route('/navigationTrees/<tree_id>', methods=['GET'])
 def get_tree_metadata_api(tree_id):
-    """Get tree basic metadata information."""
+    """Get tree metadata."""
     try:
         team_id = get_team_id()
         result = get_tree_metadata(tree_id, team_id)
@@ -73,9 +72,9 @@ def get_tree_metadata_api(tree_id):
             'message': f'Server error: {str(e)}'
         }), 500
 
-@server_navigation_trees_bp.route('/navigationTrees/<tree_id>/metadata', methods=['POST', 'PUT'])
-def save_tree_metadata_api(tree_id):
-    """Save tree metadata (create or update)."""
+@server_navigation_trees_bp.route('/navigationTrees', methods=['POST'])
+def create_tree_api():
+    """Create a new navigation tree."""
     try:
         team_id = get_team_id()
         tree_data = request.get_json()
@@ -86,9 +85,6 @@ def save_tree_metadata_api(tree_id):
                 'message': 'No tree data provided'
             }), 400
         
-        # Ensure tree_id matches URL parameter
-        tree_data['id'] = tree_id
-        
         result = save_tree_metadata(tree_data, team_id)
         
         if result['success']:
@@ -96,7 +92,34 @@ def save_tree_metadata_api(tree_id):
         else:
             return jsonify(result), 400
     except Exception as e:
-        print(f'[@route:navigation_trees:save_metadata] ERROR: {e}')
+        print(f'[@route:navigation_trees:create] ERROR: {e}')
+        return jsonify({
+            'success': False,
+            'message': f'Server error: {str(e)}'
+        }), 500
+
+@server_navigation_trees_bp.route('/navigationTrees/<tree_id>', methods=['PUT'])
+def update_tree_api(tree_id):
+    """Update tree metadata."""
+    try:
+        team_id = get_team_id()
+        tree_data = request.get_json()
+        
+        if not tree_data:
+            return jsonify({
+                'success': False,
+                'message': 'No tree data provided'
+            }), 400
+        
+        tree_data['id'] = tree_id
+        result = save_tree_metadata(tree_data, team_id)
+        
+        if result['success']:
+            return jsonify(result)
+        else:
+            return jsonify(result), 400
+    except Exception as e:
+        print(f'[@route:navigation_trees:update] ERROR: {e}')
         return jsonify({
             'success': False,
             'message': f'Server error: {str(e)}'
@@ -104,7 +127,7 @@ def save_tree_metadata_api(tree_id):
 
 @server_navigation_trees_bp.route('/navigationTrees/<tree_id>', methods=['DELETE'])
 def delete_tree_api(tree_id):
-    """Delete a tree and all its nodes/edges."""
+    """Delete a tree."""
     try:
         team_id = get_team_id()
         result = delete_tree(tree_id, team_id)
@@ -114,7 +137,7 @@ def delete_tree_api(tree_id):
         else:
             return jsonify(result), 400
     except Exception as e:
-        print(f'[@route:navigation_trees:delete_tree] ERROR: {e}')
+        print(f'[@route:navigation_trees:delete] ERROR: {e}')
         return jsonify({
             'success': False,
             'message': f'Server error: {str(e)}'
@@ -164,8 +187,8 @@ def get_node_api(tree_id, node_id):
         }), 500
 
 @server_navigation_trees_bp.route('/navigationTrees/<tree_id>/nodes', methods=['POST'])
-def save_node_api(tree_id):
-    """Save a single node (create or update)."""
+def create_node_api(tree_id):
+    """Create a new node."""
     try:
         team_id = get_team_id()
         node_data = request.get_json()
@@ -183,7 +206,7 @@ def save_node_api(tree_id):
         else:
             return jsonify(result), 400
     except Exception as e:
-        print(f'[@route:navigation_trees:save_node] ERROR: {e}')
+        print(f'[@route:navigation_trees:create_node] ERROR: {e}')
         return jsonify({
             'success': False,
             'message': f'Server error: {str(e)}'
@@ -191,7 +214,7 @@ def save_node_api(tree_id):
 
 @server_navigation_trees_bp.route('/navigationTrees/<tree_id>/nodes/<node_id>', methods=['PUT'])
 def update_node_api(tree_id, node_id):
-    """Update a specific node."""
+    """Update a node."""
     try:
         team_id = get_team_id()
         node_data = request.get_json()
@@ -202,9 +225,7 @@ def update_node_api(tree_id, node_id):
                 'message': 'No node data provided'
             }), 400
         
-        # Ensure node_id matches URL parameter
         node_data['node_id'] = node_id
-        
         result = save_node(tree_id, node_data, team_id)
         
         if result['success']:
@@ -220,7 +241,7 @@ def update_node_api(tree_id, node_id):
 
 @server_navigation_trees_bp.route('/navigationTrees/<tree_id>/nodes/<node_id>', methods=['DELETE'])
 def delete_node_api(tree_id, node_id):
-    """Delete a node and all connected edges."""
+    """Delete a node."""
     try:
         team_id = get_team_id()
         result = delete_node(tree_id, node_id, team_id)
@@ -242,7 +263,7 @@ def delete_node_api(tree_id, node_id):
 
 @server_navigation_trees_bp.route('/navigationTrees/<tree_id>/edges', methods=['GET'])
 def get_tree_edges_api(tree_id):
-    """Get edges for a tree, optionally filtered by nodes."""
+    """Get edges, optionally filtered by nodes."""
     try:
         team_id = get_team_id()
         node_ids = request.args.getlist('node_ids')
@@ -279,8 +300,8 @@ def get_edge_api(tree_id, edge_id):
         }), 500
 
 @server_navigation_trees_bp.route('/navigationTrees/<tree_id>/edges', methods=['POST'])
-def save_edge_api(tree_id):
-    """Save a single edge (create or update)."""
+def create_edge_api(tree_id):
+    """Create a new edge."""
     try:
         team_id = get_team_id()
         edge_data = request.get_json()
@@ -298,7 +319,7 @@ def save_edge_api(tree_id):
         else:
             return jsonify(result), 400
     except Exception as e:
-        print(f'[@route:navigation_trees:save_edge] ERROR: {e}')
+        print(f'[@route:navigation_trees:create_edge] ERROR: {e}')
         return jsonify({
             'success': False,
             'message': f'Server error: {str(e)}'
@@ -306,7 +327,7 @@ def save_edge_api(tree_id):
 
 @server_navigation_trees_bp.route('/navigationTrees/<tree_id>/edges/<edge_id>', methods=['PUT'])
 def update_edge_api(tree_id, edge_id):
-    """Update a specific edge."""
+    """Update an edge."""
     try:
         team_id = get_team_id()
         edge_data = request.get_json()
@@ -317,9 +338,7 @@ def update_edge_api(tree_id, edge_id):
                 'message': 'No edge data provided'
             }), 400
         
-        # Ensure edge_id matches URL parameter
         edge_data['edge_id'] = edge_id
-        
         result = save_edge(tree_id, edge_data, team_id)
         
         if result['success']:
@@ -346,6 +365,127 @@ def delete_edge_api(tree_id, edge_id):
             return jsonify(result), 400
     except Exception as e:
         print(f'[@route:navigation_trees:delete_edge] ERROR: {e}')
+        return jsonify({
+            'success': False,
+            'message': f'Server error: {str(e)}'
+        }), 500
+
+# ============================================================================
+# NESTED TREE ENDPOINTS
+# ============================================================================
+
+@server_navigation_trees_bp.route('/navigationTrees/getNodeSubTrees/<tree_id>/<node_id>', methods=['GET'])
+def get_node_sub_trees_api(tree_id, node_id):
+    """Get all sub-trees for a specific node."""
+    try:
+        team_id = get_team_id()
+        result = get_node_sub_trees(tree_id, node_id, team_id)
+        return jsonify(result)
+    except Exception as e:
+        print(f'[@route:navigation_trees:get_node_sub_trees] ERROR: {e}')
+        return jsonify({
+            'success': False,
+            'message': f'Server error: {str(e)}'
+        }), 500
+
+@server_navigation_trees_bp.route('/navigationTrees/<parent_tree_id>/nodes/<parent_node_id>/subtrees', methods=['POST'])
+def create_sub_tree_api(parent_tree_id, parent_node_id):
+    """Create a new sub-tree for a specific node."""
+    try:
+        team_id = get_team_id()
+        tree_data = request.get_json()
+        
+        if not tree_data:
+            return jsonify({
+                'success': False,
+                'message': 'No tree data provided'
+            }), 400
+        
+        result = create_sub_tree(parent_tree_id, parent_node_id, tree_data, team_id)
+        
+        if result['success']:
+            return jsonify(result)
+        else:
+            return jsonify(result), 400
+    except Exception as e:
+        print(f'[@route:navigation_trees:create_sub_tree] ERROR: {e}')
+        return jsonify({
+            'success': False,
+            'message': f'Server error: {str(e)}'
+        }), 500
+
+@server_navigation_trees_bp.route('/navigationTrees/<tree_id>/hierarchy', methods=['GET'])
+def get_tree_hierarchy_api(tree_id):
+    """Get complete tree hierarchy starting from root."""
+    try:
+        team_id = get_team_id()
+        result = get_tree_hierarchy(tree_id, team_id)
+        return jsonify(result)
+    except Exception as e:
+        print(f'[@route:navigation_trees:get_hierarchy] ERROR: {e}')
+        return jsonify({
+            'success': False,
+            'message': f'Server error: {str(e)}'
+        }), 500
+
+@server_navigation_trees_bp.route('/navigationTrees/<tree_id>/breadcrumb', methods=['GET'])
+def get_tree_breadcrumb_api(tree_id):
+    """Get breadcrumb path for a tree."""
+    try:
+        team_id = get_team_id()
+        result = get_tree_breadcrumb(tree_id, team_id)
+        return jsonify(result)
+    except Exception as e:
+        print(f'[@route:navigation_trees:get_breadcrumb] ERROR: {e}')
+        return jsonify({
+            'success': False,
+            'message': f'Server error: {str(e)}'
+        }), 500
+
+@server_navigation_trees_bp.route('/navigationTrees/<tree_id>/cascade', methods=['DELETE'])
+def delete_tree_cascade_api(tree_id):
+    """Delete a tree and all its descendant trees."""
+    try:
+        team_id = get_team_id()
+        result = delete_tree_cascade(tree_id, team_id)
+        
+        if result['success']:
+            return jsonify(result)
+        else:
+            return jsonify(result), 400
+    except Exception as e:
+        print(f'[@route:navigation_trees:delete_cascade] ERROR: {e}')
+        return jsonify({
+            'success': False,
+            'message': f'Server error: {str(e)}'
+        }), 500
+
+@server_navigation_trees_bp.route('/navigationTrees/<subtree_id>/move', methods=['PUT'])
+def move_subtree_api(subtree_id):
+    """Move a subtree to a different parent node."""
+    try:
+        team_id = get_team_id()
+        data = request.get_json()
+        
+        if not data or 'new_parent_tree_id' not in data or 'new_parent_node_id' not in data:
+            return jsonify({
+                'success': False,
+                'message': 'Missing required fields: new_parent_tree_id, new_parent_node_id'
+            }), 400
+        
+        result = move_subtree(
+            subtree_id, 
+            data['new_parent_tree_id'], 
+            data['new_parent_node_id'], 
+            team_id
+        )
+        
+        if result['success']:
+            return jsonify(result)
+        else:
+            return jsonify(result), 400
+    except Exception as e:
+        print(f'[@route:navigation_trees:move_subtree] ERROR: {e}')
         return jsonify({
             'success': False,
             'message': f'Server error: {str(e)}'
@@ -417,26 +557,8 @@ def save_tree_data_api(tree_id):
         }), 500
 
 # ============================================================================
-# UTILITY ENDPOINTS
+# INTERFACE OPERATIONS
 # ============================================================================
-
-@server_navigation_trees_bp.route('/navigationTrees/userinterfaces', methods=['GET'])
-def get_userinterfaces():
-    """Get all user interfaces for tree creation."""
-    try:
-        team_id = get_team_id()
-        userinterfaces = get_all_userinterfaces(team_id)
-        
-        return jsonify({
-            'success': True,
-            'userinterfaces': userinterfaces
-        })
-    except Exception as e:
-        print(f'[@route:navigation_trees:get_userinterfaces] ERROR: {e}')
-        return jsonify({
-            'success': False,
-            'message': f'Server error: {str(e)}'
-        }), 500
 
 @server_navigation_trees_bp.route('/navigationTrees/getTreeByUserInterfaceId/<userinterface_id>', methods=['GET'])
 def get_tree_by_userinterface_id(userinterface_id):
@@ -481,7 +603,6 @@ def get_tree_by_userinterface_id(userinterface_id):
                 'success': False,
                 'error': f'No navigation tree found for user interface: {userinterface_id}'
             })
-            
     except Exception as e:
         print(f'[@route:navigation_trees:get_tree_by_userinterface_id] ERROR: {e}')
         return jsonify({

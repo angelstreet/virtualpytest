@@ -1,35 +1,37 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
+import { useNavigationConfig, BreadcrumbItem } from './NavigationConfigContext';
 
 interface TreeLevel {
   treeId: string;
   treeName: string;
-  parentNodeId: string | null;
+  parentNodeId: string;
   parentNodeLabel: string;
+  depth: number; // Add depth tracking
 }
 
 interface NavigationStackContextType {
   stack: TreeLevel[];
   currentLevel: TreeLevel | null;
-  pushLevel: (
-    treeId: string,
-    parentNodeId: string,
-    treeName: string,
-    parentNodeLabel: string,
-  ) => void;
+  breadcrumb: BreadcrumbItem[]; // Add breadcrumb
+  pushLevel: (treeId: string, parentNodeId: string, treeName: string, parentNodeLabel: string, depth: number) => void;
   popLevel: () => void;
   jumpToLevel: (targetIndex: number) => void;
   jumpToRoot: () => void;
+  loadBreadcrumb: (treeId: string) => Promise<void>; // Load breadcrumb from server
   isNested: boolean;
+  depth: number;
 }
 
 const NavigationStackContext = createContext<NavigationStackContextType | null>(null);
 
 export const NavigationStackProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [stack, setStack] = useState<TreeLevel[]>([]);
+  const [breadcrumb, setBreadcrumb] = useState<BreadcrumbItem[]>([]);
+  const navigationConfig = useNavigationConfig();
 
   const pushLevel = useCallback(
-    (treeId: string, parentNodeId: string, treeName: string, parentNodeLabel: string) => {
-      setStack((prev) => [...prev, { treeId, treeName, parentNodeId, parentNodeLabel }]);
+    (treeId: string, parentNodeId: string, treeName: string, parentNodeLabel: string, depth: number) => {
+      setStack((prev) => [...prev, { treeId, treeName, parentNodeId, parentNodeLabel, depth }]);
     },
     [],
   );
@@ -44,21 +46,36 @@ export const NavigationStackProvider: React.FC<{ children: React.ReactNode }> = 
 
   const jumpToRoot = useCallback(() => {
     setStack([]);
+    setBreadcrumb([]);
   }, []);
+
+  const loadBreadcrumb = useCallback(async (treeId: string) => {
+    try {
+      const breadcrumbData = await navigationConfig.getTreeBreadcrumb(treeId);
+      setBreadcrumb(breadcrumbData);
+    } catch (error) {
+      console.error('Failed to load breadcrumb:', error);
+      setBreadcrumb([]);
+    }
+  }, [navigationConfig]);
 
   const currentLevel = stack[stack.length - 1] || null;
   const isNested = stack.length > 0;
+  const depth = currentLevel?.depth || 0;
 
   return (
     <NavigationStackContext.Provider
       value={{
         stack,
         currentLevel,
+        breadcrumb,
         pushLevel,
         popLevel,
         jumpToLevel,
         jumpToRoot,
+        loadBreadcrumb,
         isNested,
+        depth,
       }}
     >
       {children}
@@ -66,10 +83,10 @@ export const NavigationStackProvider: React.FC<{ children: React.ReactNode }> = 
   );
 };
 
-export const useNavigationStack = () => {
+export const useNavigationStack = (): NavigationStackContextType => {
   const context = useContext(NavigationStackContext);
   if (!context) {
-    throw new Error('useNavigationStack must be used within NavigationStackProvider');
+    throw new Error('useNavigationStack must be used within a NavigationStackProvider');
   }
   return context;
 };

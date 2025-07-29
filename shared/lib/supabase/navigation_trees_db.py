@@ -2,11 +2,11 @@
 Navigation Trees Database Operations - Normalized Architecture
 
 This module provides functions for managing navigation trees using the new normalized structure:
-- navigation_trees: Tree metadata containers
+- navigation_trees: Tree metadata containers with nested tree support
 - navigation_nodes: Individual nodes with embedded verifications
 - navigation_edges: Edges with embedded actions
 
-No more monolithic JSONB - clean, scalable, individual record operations.
+Clean, scalable, individual record operations with nested tree functionality.
 """
 
 from datetime import datetime
@@ -25,65 +25,28 @@ def get_supabase():
 # ============================================================================
 
 def get_all_trees(team_id: str) -> List[Dict]:
-    """Retrieve all navigation trees metadata for a team."""
-    supabase = get_supabase()
-    result = supabase.table('navigation_trees').select(
-        'id, name, userinterface_id, team_id, root_node_id, description, created_at, updated_at, '
-        'userinterfaces(id, name, models)'
-    ).eq('team_id', team_id).order('created_at', desc=False).execute()
-    
-    trees = []
-    for tree in result.data:
-        trees.append({
-            'id': tree['id'],
-            'name': tree['name'],
-            'userinterface_id': tree['userinterface_id'],
-            'userinterface': tree['userinterfaces'],
-            'team_id': tree['team_id'],
-            'root_node_id': tree['root_node_id'],
-            'description': tree['description'] or '',
-            'created_at': tree['created_at'],
-            'updated_at': tree['updated_at']
-        })
-    
-    return trees
-
-def get_root_tree_for_interface(userinterface_id: str, team_id: str) -> Optional[Dict]:
-    """Get the root navigation tree for a specific user interface."""
+    """Get all navigation trees metadata for a team."""
     try:
         supabase = get_supabase()
-        result = supabase.table('navigation_trees').select(
-            'id, name, userinterface_id, team_id, root_node_id, description, created_at, updated_at'
-        ).eq('userinterface_id', userinterface_id).eq('team_id', team_id).limit(1).execute()
+        result = supabase.table('navigation_trees').select('*').eq('team_id', team_id).order('created_at').execute()
         
-        if result.data:
-            tree = result.data[0]
-            return {
-                'id': tree['id'],
-                'name': tree['name'],
-                'userinterface_id': tree['userinterface_id'],
-                'team_id': tree['team_id'],
-                'root_node_id': tree['root_node_id'],
-                'description': tree['description'],
-                'created_at': tree['created_at'],
-                'updated_at': tree['updated_at']
-            }
-        
-        return None
-        
+        print(f"[@db:navigation_trees:get_all_trees] Retrieved {len(result.data)} trees")
+        return result.data
     except Exception as e:
-        print(f"[@db:navigation_trees:get_root_tree_for_interface] Error: {str(e)}")
-        return None
+        print(f"[@db:navigation_trees:get_all_trees] Error: {e}")
+        return []
 
 def get_tree_metadata(tree_id: str, team_id: str) -> Dict:
-    """Get tree basic metadata information."""
+    """Get tree basic information."""
     try:
         supabase = get_supabase()
-        result = supabase.table('navigation_trees').select('*').eq('id', tree_id).eq('team_id', team_id).single().execute()
+        result = supabase.table('navigation_trees').select('*').eq('id', tree_id).eq('team_id', team_id).execute()
         
         if result.data:
-            return {'success': True, 'tree': result.data}
+            print(f"[@db:navigation_trees:get_tree_metadata] Retrieved tree: {tree_id}")
+            return {'success': True, 'tree': result.data[0]}
         else:
+            print(f"[@db:navigation_trees:get_tree_metadata] Tree not found: {tree_id}")
             return {'success': False, 'error': 'Tree not found'}
     except Exception as e:
         print(f"[@db:navigation_trees:get_tree_metadata] Error: {e}")
@@ -113,15 +76,38 @@ def save_tree_metadata(tree_data: Dict, team_id: str) -> Dict:
         return {'success': False, 'error': str(e)}
 
 def delete_tree(tree_id: str, team_id: str) -> Dict:
-    """Delete a tree and all its nodes/edges (CASCADE)."""
+    """Delete a tree (cascade will handle nodes and edges)."""
     try:
         supabase = get_supabase()
         result = supabase.table('navigation_trees').delete().eq('id', tree_id).eq('team_id', team_id).execute()
+        
         print(f"[@db:navigation_trees:delete_tree] Deleted tree: {tree_id}")
         return {'success': True}
     except Exception as e:
         print(f"[@db:navigation_trees:delete_tree] Error: {e}")
         return {'success': False, 'error': str(e)}
+
+def get_root_tree_for_interface(userinterface_id: str, team_id: str) -> Optional[Dict]:
+    """Get the root tree for a specific user interface."""
+    try:
+        supabase = get_supabase()
+        result = supabase.table('navigation_trees').select('*')\
+            .eq('userinterface_id', userinterface_id)\
+            .eq('team_id', team_id)\
+            .eq('is_root_tree', True)\
+            .order('created_at')\
+            .limit(1)\
+            .execute()
+        
+        if result.data:
+            print(f"[@db:navigation_trees:get_root_tree_for_interface] Found root tree for interface: {userinterface_id}")
+            return result.data[0]
+        else:
+            print(f"[@db:navigation_trees:get_root_tree_for_interface] No root tree found for interface: {userinterface_id}")
+            return None
+    except Exception as e:
+        print(f"[@db:navigation_trees:get_root_tree_for_interface] Error: {e}")
+        return None
 
 # ============================================================================
 # NODE OPERATIONS
@@ -140,7 +126,7 @@ def get_tree_nodes(tree_id: str, team_id: str, page: int = 0, limit: int = 100) 
             .order('created_at')\
             .execute()
         
-        print(f"[@db:navigation_trees:get_tree_nodes] Found {len(result.data)} nodes for tree {tree_id}")
+        print(f"[@db:navigation_trees:get_tree_nodes] Retrieved {len(result.data)} nodes for tree: {tree_id}")
         return {'success': True, 'nodes': result.data}
     except Exception as e:
         print(f"[@db:navigation_trees:get_tree_nodes] Error: {e}")
@@ -154,12 +140,13 @@ def get_node_by_id(tree_id: str, node_id: str, team_id: str) -> Dict:
             .eq('tree_id', tree_id)\
             .eq('node_id', node_id)\
             .eq('team_id', team_id)\
-            .single()\
             .execute()
         
         if result.data:
-            return {'success': True, 'node': result.data}
+            print(f"[@db:navigation_trees:get_node_by_id] Retrieved node: {node_id}")
+            return {'success': True, 'node': result.data[0]}
         else:
+            print(f"[@db:navigation_trees:get_node_by_id] Node not found: {node_id}")
             return {'success': False, 'error': 'Node not found'}
     except Exception as e:
         print(f"[@db:navigation_trees:get_node_by_id] Error: {e}")
@@ -204,14 +191,14 @@ def delete_node(tree_id: str, node_id: str, team_id: str) -> Dict:
     try:
         supabase = get_supabase()
         
-        # Delete connected edges first (foreign key constraints will handle this, but let's be explicit)
+        # Delete connected edges first
         supabase.table('navigation_edges').delete()\
             .eq('tree_id', tree_id)\
             .eq('team_id', team_id)\
             .or_(f'source_node_id.eq.{node_id},target_node_id.eq.{node_id}')\
             .execute()
         
-        # Delete the node
+        # Delete node
         result = supabase.table('navigation_nodes').delete()\
             .eq('tree_id', tree_id)\
             .eq('node_id', node_id)\
@@ -232,9 +219,7 @@ def get_tree_edges(tree_id: str, team_id: str, node_ids: List[str] = None) -> Di
     """Get edges for a tree, optionally filtered by node IDs."""
     try:
         supabase = get_supabase()
-        query = supabase.table('navigation_edges').select('*')\
-            .eq('tree_id', tree_id)\
-            .eq('team_id', team_id)
+        query = supabase.table('navigation_edges').select('*').eq('tree_id', tree_id).eq('team_id', team_id)
         
         if node_ids:
             # Get edges that connect to any of the specified nodes
@@ -243,7 +228,7 @@ def get_tree_edges(tree_id: str, team_id: str, node_ids: List[str] = None) -> Di
         
         result = query.order('created_at').execute()
         
-        print(f"[@db:navigation_trees:get_tree_edges] Found {len(result.data)} edges for tree {tree_id}")
+        print(f"[@db:navigation_trees:get_tree_edges] Retrieved {len(result.data)} edges for tree: {tree_id}")
         return {'success': True, 'edges': result.data}
     except Exception as e:
         print(f"[@db:navigation_trees:get_tree_edges] Error: {e}")
@@ -257,12 +242,13 @@ def get_edge_by_id(tree_id: str, edge_id: str, team_id: str) -> Dict:
             .eq('tree_id', tree_id)\
             .eq('edge_id', edge_id)\
             .eq('team_id', team_id)\
-            .single()\
             .execute()
         
         if result.data:
-            return {'success': True, 'edge': result.data}
+            print(f"[@db:navigation_trees:get_edge_by_id] Retrieved edge: {edge_id}")
+            return {'success': True, 'edge': result.data[0]}
         else:
+            print(f"[@db:navigation_trees:get_edge_by_id] Edge not found: {edge_id}")
             return {'success': False, 'error': 'Edge not found'}
     except Exception as e:
         print(f"[@db:navigation_trees:get_edge_by_id] Error: {e}")
@@ -316,6 +302,175 @@ def delete_edge(tree_id: str, edge_id: str, team_id: str) -> Dict:
         return {'success': True}
     except Exception as e:
         print(f"[@db:navigation_trees:delete_edge] Error: {e}")
+        return {'success': False, 'error': str(e)}
+
+# ============================================================================
+# NESTED TREE OPERATIONS
+# ============================================================================
+
+def get_node_sub_trees(tree_id: str, node_id: str, team_id: str) -> Dict:
+    """Get all sub-trees that belong to a specific node."""
+    try:
+        supabase = get_supabase()
+        result = supabase.table('navigation_trees').select('*')\
+            .eq('parent_tree_id', tree_id)\
+            .eq('parent_node_id', node_id)\
+            .eq('team_id', team_id)\
+            .order('created_at')\
+            .execute()
+        
+        print(f"[@db:navigation_trees:get_node_sub_trees] Retrieved {len(result.data)} sub-trees for node: {node_id}")
+        return {
+            'success': True,
+            'sub_trees': result.data
+        }
+    except Exception as e:
+        print(f"[@db:navigation_trees:get_node_sub_trees] Error: {e}")
+        return {'success': False, 'error': str(e)}
+
+def create_sub_tree(parent_tree_id: str, parent_node_id: str, tree_data: Dict, team_id: str) -> Dict:
+    """Create a new sub-tree linked to a parent node."""
+    try:
+        supabase = get_supabase()
+        
+        # Get parent tree depth
+        parent_result = supabase.table('navigation_trees').select('tree_depth')\
+            .eq('id', parent_tree_id)\
+            .eq('team_id', team_id)\
+            .execute()
+        
+        if not parent_result.data:
+            return {'success': False, 'error': 'Parent tree not found'}
+        
+        parent_depth = parent_result.data[0]['tree_depth']
+        
+        # Validate depth limit
+        if parent_depth >= 5:
+            return {'success': False, 'error': 'Maximum nesting depth reached (5 levels)'}
+        
+        # Set nested tree properties
+        tree_data.update({
+            'parent_tree_id': parent_tree_id,
+            'parent_node_id': parent_node_id,
+            'tree_depth': parent_depth + 1,
+            'is_root_tree': False,
+            'team_id': team_id,
+            'id': str(uuid4()),
+            'created_at': datetime.now().isoformat(),
+            'updated_at': datetime.now().isoformat()
+        })
+        
+        # Create the sub-tree
+        result = supabase.table('navigation_trees').insert(tree_data).execute()
+        
+        print(f"[@db:navigation_trees:create_sub_tree] Created sub-tree: {tree_data['id']} for node: {parent_node_id}")
+        return {'success': True, 'tree': result.data[0]}
+        
+    except Exception as e:
+        print(f"[@db:navigation_trees:create_sub_tree] Error: {e}")
+        return {'success': False, 'error': str(e)}
+
+def get_tree_hierarchy(root_tree_id: str, team_id: str) -> Dict:
+    """Get complete tree hierarchy starting from root."""
+    try:
+        supabase = get_supabase()
+        
+        # Use the SQL function to get all descendant trees
+        result = supabase.rpc('get_descendant_trees', {'root_tree_id': root_tree_id}).execute()
+        
+        print(f"[@db:navigation_trees:get_tree_hierarchy] Retrieved hierarchy for tree: {root_tree_id}")
+        return {
+            'success': True,
+            'hierarchy': result.data
+        }
+    except Exception as e:
+        print(f"[@db:navigation_trees:get_tree_hierarchy] Error: {e}")
+        return {'success': False, 'error': str(e)}
+
+def get_tree_breadcrumb(tree_id: str, team_id: str) -> Dict:
+    """Get breadcrumb path for a tree."""
+    try:
+        supabase = get_supabase()
+        
+        # Use the SQL function to get tree path
+        result = supabase.rpc('get_tree_path', {'target_tree_id': tree_id}).execute()
+        
+        print(f"[@db:navigation_trees:get_tree_breadcrumb] Retrieved breadcrumb for tree: {tree_id}")
+        return {
+            'success': True,
+            'breadcrumb': result.data
+        }
+    except Exception as e:
+        print(f"[@db:navigation_trees:get_tree_breadcrumb] Error: {e}")
+        return {'success': False, 'error': str(e)}
+
+def delete_tree_cascade(tree_id: str, team_id: str) -> Dict:
+    """Delete a tree and all its descendant trees."""
+    try:
+        supabase = get_supabase()
+        
+        # Get all descendant trees first
+        hierarchy_result = get_tree_hierarchy(tree_id, team_id)
+        if not hierarchy_result['success']:
+            return hierarchy_result
+        
+        # Delete all trees in reverse depth order (deepest first)
+        trees_to_delete = sorted(hierarchy_result['hierarchy'], key=lambda x: x['depth'], reverse=True)
+        
+        for tree in trees_to_delete:
+            # Delete tree (cascade will handle nodes and edges)
+            supabase.table('navigation_trees').delete().eq('id', tree['tree_id']).eq('team_id', team_id).execute()
+            print(f"[@db:navigation_trees:delete_tree_cascade] Deleted tree: {tree['tree_id']}")
+        
+        return {'success': True, 'deleted_count': len(trees_to_delete)}
+        
+    except Exception as e:
+        print(f"[@db:navigation_trees:delete_tree_cascade] Error: {e}")
+        return {'success': False, 'error': str(e)}
+
+def move_subtree(subtree_id: str, new_parent_tree_id: str, new_parent_node_id: str, team_id: str) -> Dict:
+    """Move a subtree to a different parent node."""
+    try:
+        supabase = get_supabase()
+        
+        # Get new parent depth
+        parent_result = supabase.table('navigation_trees').select('tree_depth')\
+            .eq('id', new_parent_tree_id)\
+            .eq('team_id', team_id)\
+            .execute()
+        
+        if not parent_result.data:
+            return {'success': False, 'error': 'New parent tree not found'}
+        
+        new_parent_depth = parent_result.data[0]['tree_depth']
+        
+        # Get current subtree depth to check if move is valid
+        subtree_result = supabase.table('navigation_trees').select('tree_depth')\
+            .eq('id', subtree_id)\
+            .eq('team_id', team_id)\
+            .execute()
+        
+        if not subtree_result.data:
+            return {'success': False, 'error': 'Subtree not found'}
+        
+        # Calculate new depth and validate
+        depth_difference = subtree_result.data[0]['tree_depth'] - new_parent_depth - 1
+        if new_parent_depth + 1 + depth_difference > 5:
+            return {'success': False, 'error': 'Move would exceed maximum nesting depth'}
+        
+        # Update subtree parent relationships
+        result = supabase.table('navigation_trees').update({
+            'parent_tree_id': new_parent_tree_id,
+            'parent_node_id': new_parent_node_id,
+            'tree_depth': new_parent_depth + 1,
+            'updated_at': datetime.now().isoformat()
+        }).eq('id', subtree_id).eq('team_id', team_id).execute()
+        
+        print(f"[@db:navigation_trees:move_subtree] Moved subtree: {subtree_id} to node: {new_parent_node_id}")
+        return {'success': True, 'tree': result.data[0]}
+        
+    except Exception as e:
+        print(f"[@db:navigation_trees:move_subtree] Error: {e}")
         return {'success': False, 'error': str(e)}
 
 # ============================================================================
