@@ -174,20 +174,23 @@ cd virtualpytest
    - **Dockerfile Path**: `backend_host/Dockerfile`
    - **Port**: 6109
 
-3. **Environment Variables**:
-```bash
-# Required
-HOST_PORT=6109
-HOST_NAME=render-host-1
-DEBUG=false
-DISPLAY=:99
+3. **Configuration**:
+   - Configure your `backend_host/src/.env` file before building
+   - For minimal config: Use default .env (VNC only)
+   - For full config: Add DEVICE* variables to .env file
 
-# Minimal config (VNC only) - no DEVICE variables needed
-# OR Full config (VNC + Video + Monitor):
-DEVICE1_VIDEO=/dev/video0
-DEVICE1_VIDEO_CAPTURE_PATH=/var/www/html/stream/capture1
-DEVICE2_VIDEO=/dev/video2  
-DEVICE2_VIDEO_CAPTURE_PATH=/var/www/html/stream/capture2
+**Example .env for cloud deployment:**
+```bash
+# Host Configuration
+HOST_NAME=render-host-1
+HOST_PORT=6109
+HOST_URL=https://your-host-service.onrender.com
+SERVER_URL=https://your-backend-server.onrender.com
+DEBUG=false
+
+# Optional: Video devices (for full config)
+# DEVICE1_VIDEO=/dev/video0
+# DEVICE1_VIDEO_CAPTURE_PATH=/var/www/html/stream/capture1
 ```
 
 **For AWS/GCP/Azure:**

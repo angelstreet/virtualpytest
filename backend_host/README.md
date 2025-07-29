@@ -236,18 +236,16 @@ Once deployed, you can access the virtual desktop:
 docker build -f backend_host/Dockerfile -t virtualpytest/backend_host .
 
 # Run with minimal config (VNC only)
+# Configure via backend_host/src/.env file
 docker run -d \
   -p 6109:6109 -p 6080:6080 \
-  -e HOST_NAME=docker-host-1 \
   virtualpytest/backend_host
 
 # Run with video devices (requires privileged mode for hardware access)
+# Configure DEVICE* variables in backend_host/src/.env file
 docker run -d --privileged \
   -p 6109:6109 -p 6080:6080 \
   -v /dev:/dev \
-  -e HOST_NAME=docker-host-1 \
-  -e DEVICE1_VIDEO=/dev/video0 \
-  -e DEVICE1_VIDEO_CAPTURE_PATH=/var/www/html/stream/capture1 \
   virtualpytest/backend_host
 ```
 

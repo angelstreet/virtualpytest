@@ -39,13 +39,19 @@ RUN pip install --no-cache-dir -r backend_host/requirements.txt
 # Copy backend_host source
 COPY backend_host/src/ backend_host/src/
 
-# Create minimal .env file for Docker
-RUN echo "# Minimal Docker environment" > /app/backend_host/src/.env && \
-    echo "HOST_NAME=docker-host" >> /app/backend_host/src/.env && \
-    echo "HOST_PORT=6109" >> /app/backend_host/src/.env && \
-    echo "HOST_URL=http://localhost:6109" >> /app/backend_host/src/.env && \
-    echo "SERVER_URL=http://localhost:5109" >> /app/backend_host/src/.env && \
-    echo "DEBUG=false" >> /app/backend_host/src/.env
+# Copy the env.example as default .env if no .env exists
+RUN if [ ! -f /app/backend_host/src/.env ]; then \
+        if [ -f /app/backend_host/src/env.example ]; then \
+            cp /app/backend_host/src/env.example /app/backend_host/src/.env; \
+        else \
+            echo "# Docker default environment" > /app/backend_host/src/.env && \
+            echo "HOST_NAME=docker-host" >> /app/backend_host/src/.env && \
+            echo "HOST_PORT=6109" >> /app/backend_host/src/.env && \
+            echo "HOST_URL=http://localhost:6109" >> /app/backend_host/src/.env && \
+            echo "SERVER_URL=http://localhost:5109" >> /app/backend_host/src/.env && \
+            echo "DEBUG=false" >> /app/backend_host/src/.env; \
+        fi; \
+    fi
 
 # Copy utils directory (if it exists in project root)
 # Note: This copy is optional and will be skipped if src/utils/ doesn't exist

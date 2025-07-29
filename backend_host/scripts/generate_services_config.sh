@@ -27,7 +27,7 @@ parse_env() {
         return 1
     fi
     
-    # Source the environment file (but don't override existing env vars)
+    # Source the environment file (override any existing env vars with .env values)
     while IFS= read -r line; do
         # Skip comments and empty lines
         if [[ "$line" =~ ^[[:space:]]*# ]] || [[ -z "$line" ]]; then
@@ -39,10 +39,8 @@ parse_env() {
             var_name="${BASH_REMATCH[1]}"
             var_value="${BASH_REMATCH[2]}"
             
-            # Only set if not already set (prioritize Docker env vars)
-            if [ -z "${!var_name}" ]; then
-                export "$var_name=$var_value"
-            fi
+            # Always use .env file values (they take precedence)
+            export "$var_name=$var_value"
         fi
     done < "$ENV_FILE"
     
