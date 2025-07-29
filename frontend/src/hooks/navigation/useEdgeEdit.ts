@@ -24,7 +24,6 @@ export const useEdgeEdit = ({
   isControlActive = false,
 }: UseEdgeEditProps) => {
 
-
   // Edge hook for loading actions from IDs
   const edgeHook = useEdge({
     selectedHost,
@@ -156,6 +155,12 @@ export const useEdgeEdit = ({
     [edgeForm, setEdgeForm],
   );
 
+  // Execute local actions - simple wrapper around edge hook
+  const executeLocalActions = useCallback(async () => {
+    if (!selectedEdge) return;
+    return await edgeHook.executeEdgeActions(selectedEdge, localActions, localRetryActions);
+  }, [edgeHook, selectedEdge, localActions, localRetryActions]);
+
   // Validate form
   const isFormValid = useCallback((): boolean => {
     return localActions.every((action) => {
@@ -204,7 +209,8 @@ export const useEdgeEdit = ({
   }, [isControlActive, selectedHost, localActions.length, edgeHook.actionHook.loading, isFormValid]);
 
   return {
-    // Dependencies check
+    // Action execution
+    executeLocalActions,
     checkDependencies,
 
     // Local state
