@@ -359,6 +359,26 @@ class AppiumRemoteController(RemoteControllerInterface):
                 self.last_ui_elements = elements
                 self.last_dump_time = time.time()
                 print(f"Remote[{self.device_type.upper()}]: Successfully dumped {len(elements)} UI elements")
+                
+                # Log each element in one line with requested format: name, index, order, x, y, width, height
+                for i, element in enumerate(elements):
+                    # Get element name (prefer text, fallback to contentDesc, then className)
+                    name = element.text.strip() if element.text else ""
+                    if not name:
+                        name = element.contentDesc.strip() if element.contentDesc else ""
+                    if not name:
+                        name = element.className.split('.')[-1] if element.className else "Unknown"
+                    
+                    # Parse bounds to get x, y, width, height
+                    x, y, width, height = 0, 0, 0, 0
+                    if hasattr(element, 'bounds') and isinstance(element.bounds, dict):
+                        # AppiumElement format: {'left': x1, 'top': y1, 'right': x2, 'bottom': y2}
+                        x = element.bounds.get('left', 0)
+                        y = element.bounds.get('top', 0)
+                        width = element.bounds.get('right', 0) - x
+                        height = element.bounds.get('bottom', 0) - y
+                    
+                    print(f"Remote[{self.device_type.upper()}]: Element: {name} | Index: {element.id} | Order: {i+1} | X: {x} | Y: {y} | Width: {width} | Height: {height}")
             else:
                 print(f"Remote[{self.device_type.upper()}]: UI dump failed: {error}")
                 

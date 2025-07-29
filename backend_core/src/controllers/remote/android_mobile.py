@@ -276,6 +276,28 @@ class AndroidMobileRemoteController(RemoteControllerInterface):
                 self.last_ui_elements = elements
                 self.last_dump_time = time.time()
                 print(f"Remote[{self.device_type.upper()}]: Successfully dumped {len(elements)} UI elements")
+                
+                # Log each element in one line with requested format: name, index, order, x, y, width, height
+                import re
+                for i, element in enumerate(elements):
+                    # Get element name (prefer text, fallback to content_desc, then class_name)
+                    name = element.text.strip() if element.text else ""
+                    if not name:
+                        name = element.content_desc.strip() if element.content_desc else ""
+                    if not name:
+                        name = element.class_name.split('.')[-1] if element.class_name else "Unknown"
+                    
+                    # Parse bounds to get x, y, width, height
+                    x, y, width, height = 0, 0, 0, 0
+                    if hasattr(element, 'bounds') and isinstance(element.bounds, str) and element.bounds:
+                        # AndroidElement format: '[x1,y1][x2,y2]'
+                        bounds_match = re.match(r'\[(\d+),(\d+)\]\[(\d+),(\d+)\]', element.bounds)
+                        if bounds_match:
+                            x1, y1, x2, y2 = map(int, bounds_match.groups())
+                            x, y = x1, y1
+                            width, height = x2 - x1, y2 - y1
+                    
+                    print(f"Remote[{self.device_type.upper()}]: Element: {name} | Index: {element.id} | Order: {i+1} | X: {x} | Y: {y} | Width: {width} | Height: {height}")
             else:
                 print(f"Remote[{self.device_type.upper()}]: UI dump failed: {error}")
                 
