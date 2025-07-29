@@ -211,117 +211,62 @@ def verification_video_execute():
 
 @server_verification_common_bp.route('/executeBatch', methods=['POST'])
 def verification_execute_batch():
-    """Execute batch verification by dispatching individual requests to host endpoints"""
+    """Execute batch of verifications using VerificationExecutor directly (same as action execution)"""
     try:
-        print("[@route:server_verification_common:verification_execute_batch] Starting batch verification coordination")
+        print("[@route:server_verification_common:verification_execute_batch] Starting batch verification execution")
         
-        # Get request data
+        # Get request data (same pattern as actions)
         data = request.get_json() or {}
-        verifications = data.get('verifications', [])
+        verifications = data.get('verifications', [])  # Array of embedded verification objects
+        host = data.get('host', {})
+        device_id = data.get('device_id', 'device1')
         image_source_url = data.get('image_source_url')
-        device_id = data.get('device_id', 'device1')  # Extract device_id from request
+        tree_id = data.get('tree_id')
+        node_id = data.get('node_id')
         
         print(f"[@route:server_verification_common:verification_execute_batch] Processing {len(verifications)} verifications")
-        print(f"[@route:server_verification_common:verification_execute_batch] Source: {image_source_url}")
+        print(f"[@route:server_verification_common:verification_execute_batch] Host: {host.get('host_name')}, Device ID: {device_id}")
         
-        # Validate required parameters
+        # Validate (same pattern as actions)
         if not verifications:
+            return jsonify({'success': False, 'error': 'verifications are required'}), 400
+        
+        if not host:
+            return jsonify({'success': False, 'error': 'host is required'}), 400
+        
+        # Use VerificationExecutor directly (same pattern as action execution)
+        try:
+            from backend_core.src.services.verifications.verification_executor import VerificationExecutor
+            from shared.lib.utils.app_utils import get_team_id
+            
+            verification_executor = VerificationExecutor(
+                host=host,
+                device_id=device_id,
+                tree_id=tree_id,
+                node_id=node_id,
+                team_id=get_team_id()
+            )
+            
+            result = verification_executor.execute_verifications(
+                verifications=verifications,
+                image_source_url=image_source_url
+                # Note: removed model parameter as requested
+            )
+            
+            print(f"[@route:server_verification_common:verification_execute_batch] Execution completed: success={result.get('success')}")
+            
+            return jsonify(result)
+            
+        except Exception as executor_error:
+            print(f"[@route:server_verification_common:verification_execute_batch] VerificationExecutor error: {executor_error}")
             return jsonify({
                 'success': False,
-                'error': 'verifications are required'
-            }), 400
-        
-        results = []
-        passed_count = 0
-        
-        for i, verification in enumerate(verifications):
-            verification_type = verification.get('verification_type', 'text')
-            
-            print(f"[@route:server_verification_common:verification_execute_batch] Processing verification {i+1}/{len(verifications)}: {verification_type}")
-            
-            # Prepare individual request data (following original pattern)
-            individual_request = {
-                'verification': verification,
-                'image_source_url': image_source_url,
-                'device_id': device_id  # Include device_id in individual request
-            }
-            
-            # Dispatch to appropriate host endpoint based on verification type (original proxy pattern)
-            if verification_type == 'image':
-                result, status = proxy_to_host('/host/verification/image/execute', 'POST', individual_request, timeout=60)
-            elif verification_type == 'text':
-                result, status = proxy_to_host('/host/verification/text/execute', 'POST', individual_request, timeout=60)
-            elif verification_type == 'adb':
-                result, status = proxy_to_host('/host/verification/adb/execute', 'POST', individual_request, timeout=60)
-            elif verification_type == 'appium':
-                result, status = proxy_to_host('/host/verification/appium/execute', 'POST', individual_request, timeout=60)
-            elif verification_type == 'audio':
-                result, status = proxy_to_host('/host/verification/audio/execute', 'POST', individual_request, timeout=60)
-            elif verification_type == 'video':
-                result, status = proxy_to_host('/host/verification/video/execute', 'POST', individual_request, timeout=60)
-            else:
-                result = {
-                    'success': False,
-                    'error': f'Unknown verification type: {verification_type}',
-                    'verification_type': verification_type,
-                    'resultType': 'FAIL'
-                }
-                status = 400
-            
-            # Handle proxy errors and flatten verification results (following original pattern)
-            if status != 200 and isinstance(result, dict):
-                result['verification_type'] = verification_type
-                flattened_result = result
-            elif status != 200:
-                flattened_result = {
-                    'success': False,
-                    'error': f'Host request failed with status {status}',
-                    'verification_type': verification_type,
-                    'resultType': 'FAIL'
-                }
-            else:
-                # Use the result directly from host (original pattern)
-                verification_result = result
-                
-                flattened_result = {
-                    'success': verification_result.get('success', False),
-                    'message': verification_result.get('message'),
-                    'error': verification_result.get('error'),
-                    'resultType': 'PASS' if verification_result.get('success', False) else 'FAIL',
-                    'verification_type': verification_result.get('verification_type', verification_type),
-                    'execution_time_ms': verification_result.get('execution_time_ms'),
-                    # Include all other fields from original result
-                    **{k: v for k, v in verification_result.items() if k not in ['success', 'message', 'error', 'verification_type', 'execution_time_ms']}
-                }
-                
-                print(f"[@route:server_verification_common:verification_execute_batch] Flattened result {i+1}: success={flattened_result['success']}, type={flattened_result['verification_type']}")
-            
-            results.append(flattened_result)
-            
-            # Count successful verifications
-            if flattened_result.get('success'):
-                passed_count += 1
-        
-        # Calculate overall batch success
-        overall_success = passed_count == len(verifications)
-        
-        print(f"[@route:server_verification_common:verification_execute_batch] Batch completed: {passed_count}/{len(verifications)} passed")
-        
-        return jsonify({
-            'success': overall_success,
-            'total_count': len(verifications),
-            'passed_count': passed_count,
-            'failed_count': len(verifications) - passed_count,
-            'results': results,
-            'message': f'Batch verification completed: {passed_count}/{len(verifications)} passed'
-        })
+                'error': f'Verification execution failed: {str(executor_error)}'
+            }), 500
         
     except Exception as e:
-        print(f"[@route:server_verification_common:verification_execute_batch] Error: {str(e)}")
-        return jsonify({
-            'success': False,
-            'error': f'Batch verification coordination error: {str(e)}'
-        }), 500
+        print(f"[@route:server_verification_common:verification_execute_batch] Error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 # =====================================================
 # VIDEO VERIFICATION SPECIFIC ENDPOINTS (PROXY TO HOST)
