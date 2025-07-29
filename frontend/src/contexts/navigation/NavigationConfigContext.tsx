@@ -94,6 +94,7 @@ interface NavigationConfigContextType {
   isLoading: boolean;
   error: string | null;
   actualTreeId: string | null;
+  setActualTreeId: (treeId: string | null) => void;
 }
 
 const NavigationConfigContext = createContext<NavigationConfigContextType | null>(null);
@@ -315,7 +316,8 @@ export const NavigationConfigProvider: React.FC<{ children: React.ReactNode }> =
       currentTree,
       isLoading,
       error,
-      actualTreeId
+      actualTreeId,
+      setActualTreeId
     }}>
       {children}
     </NavigationConfigContext.Provider>

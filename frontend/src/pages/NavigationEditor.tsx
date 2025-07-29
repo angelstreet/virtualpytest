@@ -158,7 +158,7 @@ const NavigationEditorContent: React.FC<{ userInterfaceId?: string }> = React.me
 
       // Get the actual tree ID from NavigationConfigContext
   const navigationConfig = useNavigationConfig();
-  const { actualTreeId } = navigationConfig;
+  const { actualTreeId, setActualTreeId } = navigationConfig;
 
     // Get navigation context for nested navigation
     const navigation = useNavigation();
@@ -426,15 +426,10 @@ const NavigationEditorContent: React.FC<{ userInterfaceId?: string }> = React.me
             setNodes(frontendNodes);
             setEdges(frontendEdges);
             
-            // Set the actual tree ID in NavigationConfigContext so validation works
+            // Set the actual tree ID directly like in the working version
             if (actualTreeId) {
-              // We need to call loadTreeData to set actualTreeId properly
-              try {
-                await navigationConfig.loadTreeData(actualTreeId);
-                console.log(`[@NavigationEditor:loadTreeForUserInterface] Set actualTreeId: ${actualTreeId}`);
-              } catch (error) {
-                console.warn(`[@NavigationEditor:loadTreeForUserInterface] Failed to set actualTreeId:`, error);
-              }
+              setActualTreeId(actualTreeId);
+              console.log(`[@NavigationEditor:loadTreeForUserInterface] Set actualTreeId: ${actualTreeId}`);
             }
 
             console.log(
