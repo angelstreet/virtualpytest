@@ -157,7 +157,7 @@ const NavigationEditorContent: React.FC<{ userInterfaceId?: string }> = React.me
     const { currentNodeId } = useNavigation();
 
     // Get the actual tree ID from NavigationConfigContext
-    const { actualTreeId, setActualTreeId } = useNavigationConfig();
+    const { actualTreeId } = useNavigationConfig();
 
     // Get navigation context for nested navigation
     const navigation = useNavigation();
@@ -424,7 +424,7 @@ const NavigationEditorContent: React.FC<{ userInterfaceId?: string }> = React.me
             // Set the converted tree data in the navigation context
             setNodes(frontendNodes);
             setEdges(frontendEdges);
-            setActualTreeId(actualTreeId);
+            // actualTreeId is automatically set by the NavigationConfigContext when loading tree data
 
             console.log(
               `[@NavigationEditor:loadTreeForUserInterface] Set tree data with ${frontendNodes.length} nodes and ${frontendEdges.length} edges`,
@@ -436,7 +436,7 @@ const NavigationEditorContent: React.FC<{ userInterfaceId?: string }> = React.me
           console.error('Failed to load tree for user interface:', error);
         }
       },
-      [setNodes, setEdges, setActualTreeId],
+      [setNodes, setEdges],
     );
 
     const saveTreeForUserInterface = useCallback(
@@ -444,7 +444,7 @@ const NavigationEditorContent: React.FC<{ userInterfaceId?: string }> = React.me
         try {
           // Get the tree ID for this user interface
           const interfaces = await listAvailableTrees();
-          const userInterface = interfaces.find(ui => ui.id === userInterfaceId);
+          const userInterface = interfaces.find((ui: any) => ui.id === userInterfaceId);
           
           if (userInterface && userInterface.navigation_tree_id) {
             await saveTreeData(userInterface.navigation_tree_id);
