@@ -126,14 +126,21 @@ export const EdgeEditDialog: React.FC<EdgeEditDialogProps> = ({
   };
 
   const handleRunActions = async () => {
-    // Use the same unified logic as EdgeSelectionPanel
-    if (_selectedEdge) {
-      // Always pass the form actions to execute (edgeForm is always available in dialog)
+    console.log('[@EdgeEditDialog:handleRunActions] Button clicked');
+    console.log('[@EdgeEditDialog:handleRunActions] _selectedEdge:', _selectedEdge);
+    console.log('[@EdgeEditDialog:handleRunActions] canRunActions:', _selectedEdge ? edgeHook.canRunActions(_selectedEdge, edgeForm.actions) : false);
+    console.log('[@EdgeEditDialog:handleRunActions] edgeForm.actions:', edgeForm.actions);
+    
+    // Run actions using the form data - same as edge selection panel logic
+    if (_selectedEdge && edgeHook.canRunActions(_selectedEdge, edgeForm.actions)) {
+      console.log('[@EdgeEditDialog:handleRunActions] Executing actions...');
       await edgeHook.executeEdgeActions(
         _selectedEdge,
         edgeForm.actions,
         edgeForm.retryActions
       );
+    } else {
+      console.log('[@EdgeEditDialog:handleRunActions] Cannot run - conditions not met');
     }
   };
 

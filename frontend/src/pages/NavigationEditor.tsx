@@ -441,6 +441,11 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = React.memo(
             setNodes(frontendNodes);
             setEdges(frontendEdges);
             
+            // Set initial state for deletion detection
+            navigation.setInitialState({ nodes: [...frontendNodes], edges: [...frontendEdges] });
+            setHasUnsavedChanges(false);
+            console.log('[@NavigationEditor:loadTreeForUserInterface] Set initialState with node IDs:', frontendNodes.map((n: any) => n.id));
+            
             // Set the actual tree ID directly like in the working version
             if (actualTreeId) {
               setActualTreeId(actualTreeId);

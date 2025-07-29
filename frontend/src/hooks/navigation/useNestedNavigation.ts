@@ -1,6 +1,7 @@
 import React, { useCallback } from 'react';
 import { useNavigationStack } from '../../contexts/navigation/NavigationStackContext';
 import { useNavigationConfig } from '../../contexts/navigation/NavigationConfigContext';
+import { useNavigation } from '../../contexts/navigation/NavigationContext';
 
 interface NestedNavigationHookParams {
   setNodes: (nodes: any[]) => void;
@@ -16,6 +17,7 @@ export const useNestedNavigation = ({
   const { pushLevel, stack, loadBreadcrumb } = useNavigationStack();
   const { actualTreeId } = useNavigationConfig();
   const navigationConfig = useNavigationConfig();
+  const navigation = useNavigation();
 
   const handleNodeDoubleClick = useCallback(async (_event: React.MouseEvent, node: any) => {
     // 1. Skip entry type nodes
@@ -91,6 +93,9 @@ export const useNestedNavigation = ({
           setTimeout(() => {
             setNodes(frontendNodes);
             setEdges(frontendEdges);
+            // Set initial state for deletion detection
+            navigation.setInitialState({ nodes: [...frontendNodes], edges: [...frontendEdges] });
+            navigation.setHasUnsavedChanges(false);
           }, 10);
 
           console.log(`[@useNestedNavigation] Loaded existing sub-tree: ${primarySubTree.name}`);
