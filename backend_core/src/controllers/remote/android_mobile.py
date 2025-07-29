@@ -569,7 +569,7 @@ class AndroidMobileRemoteController(RemoteControllerInterface):
                 # Navigation actions
                 {
                     'id': 'click_element',
-                    'label': 'Click UI Element',
+                    'label': 'Click Element by Text',
                     'command': 'click_element',
                     'action_type': 'remote',
                     'params': {},
@@ -579,24 +579,18 @@ class AndroidMobileRemoteController(RemoteControllerInterface):
                     'inputPlaceholder': 'Home Tab'
                 },
                 {
-                    'id': 'dump_ui_elements',
-                    'label': 'Dump UI Elements',
-                    'command': 'dump_ui_elements',
-                    'action_type': 'remote',
-                    'params': {},
-                    'description': 'Dump current UI elements to get element IDs for precise clicking',
-                    'requiresInput': False
-                },
-                {
                     'id': 'click_element_by_id',
                     'label': 'Click Element by ID',
                     'command': 'click_element_by_id',
                     'action_type': 'remote',
-                    'params': {},
+                    'params': {
+                        'element_id': ''
+                    },
                     'description': 'Click on UI element by exact ID (works with non-visible elements, always dumps UI first)',
                     'requiresInput': True,
                     'inputLabel': 'Element ID',
-                    'inputPlaceholder': '8'
+                    'inputPlaceholder': '8',
+                    'inputParam': 'element_id'
                 },
                 {
                     'id': 'tap_coordinates',
