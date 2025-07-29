@@ -897,20 +897,19 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
            // Save to database via NavigationConfigContext
            if (navigationConfig.actualTreeId) {
                          const normalizedEdge = {
-              id: updatedEdge.id,
               edge_id: updatedEdge.id,
               source_node_id: updatedEdge.source,
               target_node_id: updatedEdge.target,
+              label: updatedEdge.data?.label,
+              edge_type: updatedEdge.type || 'default',
+              style: updatedEdge.style || {},
+              data: updatedEdge.data || {},
               actions: updatedEdge.data.actions || [],
               retry_actions: updatedEdge.data.retryActions || [],
               final_wait_time: updatedEdge.data.final_wait_time || 0,
-              edge_type: updatedEdge.type || 'default',
-              priority: updatedEdge.data.priority || 'p3',
-              threshold: updatedEdge.data.threshold || 0,
-              metadata: updatedEdge.data || {},
             };
 
-             await navigationConfig.saveEdge(navigationConfig.actualTreeId, normalizedEdge);
+             await navigationConfig.saveEdge(navigationConfig.actualTreeId, normalizedEdge as any);
 
              // Refresh navigation cache
              await fetch('/server/pathfinding/cache/refresh', {
@@ -954,18 +953,16 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
            }));
 
                      const normalizedEdges = edges.map(edge => ({
-            id: edge.id,
             edge_id: edge.id,
             source_node_id: edge.source,
             target_node_id: edge.target,
             label: edge.data?.label,
+            edge_type: edge.data?.edgeType || 'default',
+            style: edge.style || {},
+            data: edge.data || {},
             actions: edge.data?.actions || [],
             retry_actions: edge.data?.retryActions || [],
             final_wait_time: edge.data?.final_wait_time || 0,
-            edge_type: edge.data?.edgeType || 'default',
-            priority: edge.data?.priority || 'p3',
-            threshold: edge.data?.threshold || 0,
-            metadata: edge.data || {},
           }));
 
            // Compare with initial state to find deletions

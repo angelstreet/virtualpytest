@@ -121,17 +121,16 @@ export interface NavigationNode {
 }
 
 export interface NavigationEdge {
-  id: string; // edge_id from database
   edge_id: string;
   source_node_id: string;
   target_node_id: string;
+  label?: string;
+  edge_type: string;
+  style?: any;
+  data?: any;
   actions: Action[]; // Embedded actions
   retry_actions: Action[];
   final_wait_time: number;
-  edge_type: string;
-  priority: string;
-  threshold: number;
-  metadata: any;
 }
 
 // Nested tree operations interface
