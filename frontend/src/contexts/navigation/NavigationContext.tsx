@@ -234,7 +234,6 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
     actions: [],
     retryActions: [],
     final_wait_time: 2000,
-    description: '',
   });
 
   // Loading and error states
@@ -498,7 +497,6 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
       actions: [],
       retryActions: [],
       final_wait_time: 2000,
-      description: '',
     });
     setIsNewNode(false);
     setHasUnsavedChanges(false);
@@ -572,7 +570,6 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
         actions: edge.data?.actions || [],
         retryActions: edge.data?.retryActions || [], // Include retry actions from edge data
         final_wait_time: edge.data?.final_wait_time || 2000,
-        description: edge.data?.description || '',
       });
     }
     setIsEdgeDialogOpen(true);
@@ -878,19 +875,18 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
              throw new Error(`Edge ${edgeForm.edgeId} not found in current tree`);
            }
 
-           // Update edge with new data
-           const updatedEdge = {
-             ...currentSelectedEdge,
-             data: {
-               ...(currentSelectedEdge.data || {}),
-               description: edgeForm.description || currentSelectedEdge.data?.description || '',
-               actions: edgeForm.actions || [],
-               retryActions: edgeForm.retryActions || [],
-               final_wait_time: edgeForm.final_wait_time || 0,
-               priority: edgeForm.priority || 'p3',
-               threshold: edgeForm.threshold || 0,
-             },
-           };
+                     // Update edge with new data
+          const updatedEdge = {
+            ...currentSelectedEdge,
+            data: {
+              ...(currentSelectedEdge.data || {}),
+              actions: edgeForm.actions || [],
+              retryActions: edgeForm.retryActions || [],
+              final_wait_time: edgeForm.final_wait_time || 0,
+              priority: edgeForm.priority || 'p3',
+              threshold: edgeForm.threshold || 0,
+            },
+          };
 
            const updatedEdges = edges.map((edge) =>
              edge.id === currentSelectedEdge.id ? updatedEdge : edge,
@@ -901,17 +897,19 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
 
            // Save to database via NavigationConfigContext
            if (navigationConfig.actualTreeId) {
-             const normalizedEdge = {
-               edge_id: updatedEdge.id,
-               source_node_id: updatedEdge.source,
-               target_node_id: updatedEdge.target,
-               description: updatedEdge.data.description,
-               actions: updatedEdge.data.actions || [],
-               retry_actions: updatedEdge.data.retryActions || [],
-               final_wait_time: updatedEdge.data.final_wait_time || 0,
-               edge_type: updatedEdge.type || 'default',
-               data: updatedEdge.data,
-             };
+                         const normalizedEdge = {
+              id: updatedEdge.id,
+              edge_id: updatedEdge.id,
+              source_node_id: updatedEdge.source,
+              target_node_id: updatedEdge.target,
+              actions: updatedEdge.data.actions || [],
+              retry_actions: updatedEdge.data.retryActions || [],
+              final_wait_time: updatedEdge.data.final_wait_time || 0,
+              edge_type: updatedEdge.type || 'default',
+              priority: updatedEdge.data.priority || 'p3',
+              threshold: updatedEdge.data.threshold || 0,
+              metadata: updatedEdge.data || {},
+            };
 
              await navigationConfig.saveEdge(navigationConfig.actualTreeId, normalizedEdge);
 
@@ -956,20 +954,20 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
              }
            }));
 
-           const normalizedEdges = edges.map(edge => ({
-             edge_id: edge.id,
-             source_node_id: edge.source,
-             target_node_id: edge.target,
-             label: edge.data?.label,
-             actions: edge.data?.actions || [],
-             retry_actions: edge.data?.retryActions || [],
-             final_wait_time: edge.data?.final_wait_time || 0,
-             edge_type: edge.data?.edgeType || 'default',
-             data: {
-               ...edge.data,
-               description: edge.data?.description,
-             }
-           }));
+                     const normalizedEdges = edges.map(edge => ({
+            id: edge.id,
+            edge_id: edge.id,
+            source_node_id: edge.source,
+            target_node_id: edge.target,
+            label: edge.data?.label,
+            actions: edge.data?.actions || [],
+            retry_actions: edge.data?.retryActions || [],
+            final_wait_time: edge.data?.final_wait_time || 0,
+            edge_type: edge.data?.edgeType || 'default',
+            priority: edge.data?.priority || 'p3',
+            threshold: edge.data?.threshold || 0,
+            metadata: edge.data || {},
+          }));
 
            // Compare with initial state to find deletions
            const currentNodeIds = new Set(nodes.map(n => n.id));

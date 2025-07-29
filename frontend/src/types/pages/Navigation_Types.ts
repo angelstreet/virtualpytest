@@ -125,7 +125,6 @@ export interface NavigationEdge {
   edge_id: string;
   source_node_id: string;
   target_node_id: string;
-  description?: string;
   actions: Action[]; // Embedded actions
   retry_actions: Action[];
   final_wait_time: number;
@@ -227,7 +226,6 @@ export interface EdgeForm {
   actions: Action[];
   retryActions: Action[];
   final_wait_time: number; // Using standard naming convention
-  description: string;
 
   // Priority and threshold fields
   priority?: 'p1' | 'p2' | 'p3'; // Priority level (default: p3)
