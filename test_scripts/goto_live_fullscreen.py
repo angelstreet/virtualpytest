@@ -10,9 +10,10 @@ This script navigates to the live_fullscreen node by:
 5. Releasing device control
 
 Usage:
-    python scripts/goto_live_fullscreen.py <userinterface_name> [--host <host>] [--device <device>]
+    python scripts/goto_live_fullscreen.py [userinterface_name] [--host <host>] [--device <device>]
     
 Example:
+    python scripts/goto_live_fullscreen.py
     python scripts/goto_live_fullscreen.py horizon_android_mobile
     python scripts/goto_live_fullscreen.py horizon_android_mobile --device device2
 """
@@ -47,15 +48,15 @@ from backend_core.src.services.navigation.navigation_pathfinding import find_sho
 def main():
     """Main navigation function to goto live_fullscreen"""
     parser = argparse.ArgumentParser(description='Navigate to live_fullscreen node')
-    parser.add_argument('userinterface_name', help='Name of the userinterface to use (e.g., horizon_android_mobile)')
-    parser.add_argument('--host', help='Specific host to use (optional)')
-    parser.add_argument('--device', help='Specific device to use (optional)')
+    parser.add_argument('userinterface_name', nargs='?', default='horizon_android_mobile', help='Name of the userinterface to use (default: horizon_android_mobile)')
+    parser.add_argument('--host', help='Specific host to use (default: sunri-pi1)')
+    parser.add_argument('--device', help='Specific device to use (default: device1)')
     
     args = parser.parse_args()
     
     userinterface_name = args.userinterface_name
-    host_name = args.host
-    device_id = args.device
+    host_name = args.host or 'sunri-pi1'
+    device_id = args.device or "device1"
     
     print(f"🎯 [goto_live_fullscreen] Starting navigation to live_fullscreen for: {userinterface_name}")
     
@@ -77,8 +78,9 @@ def main():
         host = setup_result['host']
         team_id = setup_result['team_id']
         
-        # 2. Select device (centralized)
-        device_result = select_device(host, device_id, "goto_live_fullscreen")
+        # 2. Select device (centralized) - default to device1 if not provided
+        device_id_to_use = device_id or "device1"
+        device_result = select_device(host, device_id_to_use, "goto_live_fullscreen")
         if not device_result['success']:
             error_message = f"Device selection failed: {device_result['error']}"
             print(f"❌ [goto_live_fullscreen] {error_message}")
