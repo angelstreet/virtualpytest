@@ -99,7 +99,7 @@ export const useEdgeEdit = ({
         actionsToCheck.map((a) => a.id),
       );
 
-      const response = await fetch('/server/actions/checkDependenciesBatch', {
+      const response = await fetch('/server/action/checkDependenciesBatch', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
