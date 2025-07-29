@@ -87,7 +87,7 @@ def get_actions():
 
 @server_actions_bp.route('/executeBatch', methods=['POST'])
 def action_execute_batch():
-    """Execute batch of actions with embedded action objects"""
+    """Execute batch of actions using ActionExecutor directly (same as navigation execution)"""
     try:
         print("[@route:server_actions:action_execute_batch] Starting batch action execution")
         
@@ -108,33 +108,35 @@ def action_execute_batch():
         if not host:
             return jsonify({'success': False, 'error': 'host is required'}), 400
         
-        # Proxy execution to host
-        host_url = host.get('host_url', f"http://{host.get('host_name')}:6109")
-        
-        # Prepare execution payload with embedded actions
-        execution_payload = {
-            'actions': actions,  # Actions are already embedded objects with all parameters
-            'device_id': device_id,
-            'retry_actions': retry_actions
-        }
-        
-        print(f"[@route:server_actions:action_execute_batch] Proxying to host: {host_url}")
-        
-        # Proxy to host
-        response = proxy_to_host(
-            host_url=host_url,
-            endpoint='/host/action/executeBatch',
-            method='POST',
-            data=execution_payload,
-            timeout=300  # 5 minute timeout for action execution
-        )
-        
-        if response.get('success'):
-            print(f"[@route:server_actions:action_execute_batch] Batch execution completed successfully")
-            return jsonify(response)
-        else:
-            print(f"[@route:server_actions:action_execute_batch] Batch execution failed: {response.get('error', 'Unknown error')}")
-            return jsonify(response), 400
+        # Use ActionExecutor directly (same pattern as navigation execution)
+        try:
+            from backend_core.src.services.actions.action_executor import ActionExecutor
+            
+            action_executor = ActionExecutor(
+                host=host,
+                device_id=device_id,
+                tree_id=None,  # Not needed for direct action execution
+                edge_id=None,  # Not needed for direct action execution
+                team_id='default'  # Use default team for now - should be from session
+            )
+            
+            result = action_executor.execute_actions(
+                actions=actions,
+                retry_actions=retry_actions
+            )
+            
+            print(f"[@route:server_actions:action_execute_batch] Execution completed: success={result.get('success')}")
+            
+            return jsonify(result)
+            
+        except Exception as e:
+            print(f"[@route:server_actions:action_execute_batch] ActionExecutor error: {e}")
+            return jsonify({
+                'success': False,
+                'error': f'Action execution failed: {str(e)}',
+                'passed_count': 0,
+                'total_count': len(actions)
+            }), 500
             
     except Exception as e:
         print(f"[@route:server_actions:action_execute_batch] Error: {e}")

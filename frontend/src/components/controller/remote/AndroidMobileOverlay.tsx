@@ -47,6 +47,13 @@ export const AndroidMobileOverlay = React.memo(
       deviceX?: number;
       deviceY?: number;
     } | null>(null);
+    const [coordinateDisplay, setCoordinateDisplay] = useState<{
+      x: number;
+      y: number;
+      deviceX: number;
+      deviceY: number;
+      id: string;
+    } | null>(null);
 
     // Add CSS animation keyframes to document head if not already present
     React.useEffect(() => {
@@ -223,8 +230,21 @@ export const AndroidMobileOverlay = React.memo(
         deviceY
       });
 
+      // Set coordinate display for 2 seconds
+      const coordDisplayId = `coord-${Date.now()}`;
+      setCoordinateDisplay({
+        x: animationX,
+        y: animationY,
+        deviceX,
+        deviceY,
+        id: coordDisplayId
+      });
+
       // Clear animation after 300ms
       setTimeout(() => setClickAnimation(null), 300);
+      
+      // Clear coordinate display after 2 seconds
+      setTimeout(() => setCoordinateDisplay(null), 2000);
 
       const originalElement = elements.find((el) => el.id === scaledElement.id);
       if (!originalElement) return;
@@ -265,8 +285,21 @@ export const AndroidMobileOverlay = React.memo(
         deviceY
       });
 
+      // Set coordinate display for 2 seconds
+      const coordDisplayId = `coord-${Date.now()}`;
+      setCoordinateDisplay({
+        x: contentX,
+        y: contentY,
+        deviceX,
+        deviceY,
+        id: coordDisplayId
+      });
+
       // Clear animation after 300ms
       setTimeout(() => setClickAnimation(null), 300);
+      
+      // Clear coordinate display after 2 seconds
+      setTimeout(() => setCoordinateDisplay(null), 2000);
 
       await handleDirectTap(deviceX, deviceY);
     };
@@ -369,31 +402,32 @@ export const AndroidMobileOverlay = React.memo(
                 animation: 'clickPulse 0.3s ease-out forwards',
               }}
             />
-            {/* Coordinate display */}
-            <div
-              key={`${clickAnimation.id}-coords`}
-              style={{
-                position: 'fixed',
-                left: `${panelInfo.position.x + horizontalOffset + clickAnimation.x + 20}px`, // Offset to the right of the circle
-                top: `${panelInfo.position.y + clickAnimation.y - 25}px`, // Offset above the circle
-                backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                color: 'white',
-                padding: '4px 8px',
-                borderRadius: '4px',
-                fontSize: '12px',
-                fontFamily: 'monospace',
-                fontWeight: 'bold',
-                zIndex: getZIndex('ANDROID_MOBILE_OVERLAY'), // Same level as animation
-                pointerEvents: 'none',
-                animation: 'clickPulse 0.3s ease-out forwards',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              Screen: ({Math.round(clickAnimation.x)}, {Math.round(clickAnimation.y)})
-              <br />
-              Device: ({clickAnimation.deviceX}, {clickAnimation.deviceY})
-            </div>
+
           </>
+        )}
+
+        {/* Coordinate display - Independent 2-second display */}
+        {coordinateDisplay && (
+          <div
+            key={coordinateDisplay.id}
+            style={{
+              position: 'fixed',
+              left: `${panelInfo.position.x + horizontalOffset + coordinateDisplay.x + 20}px`, // Offset to the right of the click
+              top: `${panelInfo.position.y + coordinateDisplay.y - 15}px`, // Offset above the click
+              backgroundColor: 'rgba(0, 0, 0, 0.8)',
+              color: 'white',
+              padding: '4px 8px',
+              borderRadius: '4px',
+              fontSize: '12px',
+              fontFamily: 'monospace',
+              fontWeight: 'bold',
+              zIndex: getZIndex('ANDROID_MOBILE_OVERLAY'), // Same level as animation
+              pointerEvents: 'none',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {coordinateDisplay.deviceX}, {coordinateDisplay.deviceY}
+          </div>
         )}
       </>
     );

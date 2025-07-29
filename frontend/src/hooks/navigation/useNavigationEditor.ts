@@ -358,6 +358,21 @@ export const useNavigationEditor = () => {
             data: updatedNodeData.data,
           });
           console.log('[@useNavigationEditor:handleNodeFormSubmit] Node auto-saved successfully');
+          
+          // Invalidate navigation cache so pathfinding uses updated data
+          try {
+            await fetch('/server/navigation/cache/refresh', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ 
+                tree_id: navigationConfig.actualTreeId,
+                team_id: 'default' 
+              })
+            });
+            console.log('[@useNavigationEditor:handleNodeFormSubmit] Navigation cache refreshed');
+          } catch (cacheError) {
+            console.warn('[@useNavigationEditor:handleNodeFormSubmit] Failed to refresh navigation cache:', cacheError);
+          }
         }
 
         // Close dialog - no need to mark unsaved changes since we auto-saved
@@ -467,6 +482,21 @@ export const useNavigationEditor = () => {
             data: updatedEdge.data,
           });
           console.log('[@useNavigationEditor:handleEdgeFormSubmit] Edge auto-saved successfully');
+          
+          // Invalidate navigation cache so pathfinding uses updated data
+          try {
+            await fetch('/server/navigation/cache/refresh', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ 
+                tree_id: navigationConfig.actualTreeId,
+                team_id: 'default' 
+              })
+            });
+            console.log('[@useNavigationEditor:handleEdgeFormSubmit] Navigation cache refreshed');
+          } catch (cacheError) {
+            console.warn('[@useNavigationEditor:handleEdgeFormSubmit] Failed to refresh navigation cache:', cacheError);
+          }
         }
 
         navigation.setIsEdgeDialogOpen(false);
