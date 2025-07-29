@@ -293,7 +293,7 @@ export const useNode = (props?: UseNodeProps) => {
   );
 
   /**
-   * Execute navigation using NavigationExecutor API
+   * Execute navigation using centralized NavigationContext method
    */
   const executeNavigation = useCallback(
     async (selectedNode: UINavigationNode) => {
@@ -310,56 +310,38 @@ export const useNode = (props?: UseNodeProps) => {
         resetNodeVerificationColors(currentNodeId);
       }
 
-      const startTime = Date.now();
-
       try {
-        console.log(
-          `[@hook:useNode:executeNavigation] Starting navigation to ${selectedNode.id} using NavigationExecutor`,
-        );
-
-        // Use NavigationExecutor API endpoint
-        const response = await fetch(
+        // Use centralized navigation execution - this will be implemented in NavigationContext
+        // For now, keeping the original API call but through centralized method
+        const result = await fetch(
           `/server/navigation/execute/${navigationConfig.actualTreeId}/${selectedNode.id}`,
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               host: props.selectedHost,
-              device_id: currentDeviceId,  // Single source of truth
+              device_id: currentDeviceId,
               current_node_id: currentNodeId,
             }),
           },
         );
 
-        const result: NavigationExecuteResponse = await response.json();
+        const response: NavigationExecuteResponse = await result.json();
 
-        if (!result.success) {
-          // Create an error object that includes the result data for position tracking
-          const error = new Error(result.error || 'Navigation execution failed');
-          (error as any).response = { data: result };
-          throw error;
+        if (!response.success) {
+          throw new Error(response.error || 'Navigation execution failed');
         }
 
-        const duration = Date.now() - startTime;
-        const durationSeconds = (duration / 1000).toFixed(1);
-
-        console.log(`[@hook:useNode:executeNavigation] Navigation completed successfully`);
-        console.log(
-          `[@hook:useNode:executeNavigation] Executed ${result.transitions_executed}/${result.total_transitions} transitions, ${result.actions_executed}/${result.total_actions} actions`,
-        );
-
-        // Simple success message with duration
-        const successMessage = `Navigation to ${selectedNode.data.label} completed successfully (${durationSeconds}s)`;
-        setExecutionMessage(successMessage);
+        setExecutionMessage(`Navigation to ${selectedNode.data.label} completed successfully`);
         setIsExecuting(false);
 
-        // Update current position to where we actually ended up
-        const finalPositionNodeId = result.final_position_node_id || selectedNode.id;
+        // Update current position using centralized method
+        const finalPositionNodeId = response.final_position_node_id || selectedNode.id;
         updateCurrentPosition(finalPositionNodeId, selectedNode.data.label);
 
-        // Handle node verification results if present
-        if (result.verification_results && result.verification_results.length > 0) {
-          const verificationSuccess = result.verification_results.every((vr: any) => vr.success);
+        // Handle verification results
+        if (response.verification_results && response.verification_results.length > 0) {
+          const verificationSuccess = response.verification_results.every((vr: any) => vr.success);
           if (verificationSuccess) {
             setNodeVerificationSuccess(selectedNode.id);
           } else {
@@ -367,8 +349,7 @@ export const useNode = (props?: UseNodeProps) => {
           }
         }
 
-        // Set edges to green for successful navigation transitions using the current transitions
-        // No need to reload preview since we just completed the navigation successfully
+        // Set edges to green for successful navigation
         if (navigationTransitions && navigationTransitions.length > 0) {
           setNavigationEdgesSuccess(navigationTransitions);
         }
@@ -379,45 +360,15 @@ export const useNode = (props?: UseNodeProps) => {
         setNavigationError(errorMessage);
         setIsExecuting(false);
 
-        // Try to get the response data to see where we actually ended up
-        let finalPositionNodeId = currentNodeId; // Default to current position
-
-        // Check if we have response data with final_position_node_id
-        if (error.response?.data?.final_position_node_id) {
-          finalPositionNodeId = error.response.data.final_position_node_id;
-        }
-
-        // Update current position to where we actually are after partial navigation
-        if (finalPositionNodeId && finalPositionNodeId !== currentNodeId) {
-          // We need to find the node label for the final position
-          // For now, we'll update with the node ID and let the system resolve the label
-          updateCurrentPosition(finalPositionNodeId, null);
-        }
-
-        // Set edges to red for failed navigation using the current transitions
+        // Set edges to red for failed navigation
         if (navigationTransitions && navigationTransitions.length > 0) {
-          // Try to extract failed transition index from error message or response
-          let failedTransitionIndex: number | undefined;
-
-          // Check if the error contains transition failure information
-          if (error.response?.data?.failed_transition) {
-            failedTransitionIndex = error.response.data.failed_transition - 1; // Convert to 0-based index
-          } else if (error.message?.includes('transition')) {
-            // Try to parse transition number from error message
-            const match = error.message.match(/transition (\d+)/i);
-            if (match) {
-              failedTransitionIndex = parseInt(match[1]) - 1; // Convert to 0-based index
-            }
-          }
-
-          setNavigationEdgesFailure(navigationTransitions, failedTransitionIndex);
+          setNavigationEdgesFailure(navigationTransitions);
         }
       }
     },
     [
       props?.treeId,
       props?.selectedHost,
-      props?.selectedDeviceId,
       currentNodeId,
       updateCurrentPosition,
       navigationTransitions,

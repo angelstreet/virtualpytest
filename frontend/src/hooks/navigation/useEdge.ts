@@ -19,7 +19,7 @@ export const useEdge = (props?: UseEdgeProps) => {
   const actionHook = useAction();
 
   // Navigation context for current position updates
-  const { updateCurrentPosition } = useNavigation();
+  const navigation = useNavigation();
 
   // Device data hook (no longer needed for individual resolution)
 
@@ -140,7 +140,7 @@ export const useEdge = (props?: UseEdgeProps) => {
   }, []);
 
   /**
-   * Execute edge actions
+   * Execute edge actions using centralized method
    */
   const executeEdgeActions = useCallback(
     async (edge: UINavigationEdge, overrideActions?: Action[], overrideRetryActions?: Action[]) => {
@@ -157,26 +157,17 @@ export const useEdge = (props?: UseEdgeProps) => {
         return;
       }
 
-      if (actionHook.loading) {
-        return;
-      }
-
       setRunResult(null);
 
       try {
-        const result = await actionHook.executeActions(
+        const result = await navigation.executeActionsWithPositionUpdate(
           actions.map(convertToControllerAction),
           retryActions.map(convertToControllerAction),
+          edge.target
         );
 
-        const formattedResult = formatRunResult(actionHook.formatExecutionResults(result));
+        const formattedResult = formatRunResult(result.message || 'Actions executed successfully');
         setRunResult(formattedResult);
-
-        // Update current position to the target node if execution was successful
-        // This follows the same pattern as executeNavigation in useNode.ts
-        if (result && result.success !== false && edge.target) {
-          updateCurrentPosition(edge.target, null);
-        }
 
         return result;
       } catch (err: any) {
@@ -186,14 +177,13 @@ export const useEdge = (props?: UseEdgeProps) => {
       }
     },
     [
-      actionHook,
       getActionsFromEdge,
       getRetryActionsFromEdge,
       convertToControllerAction,
       formatRunResult,
       props?.isControlActive,
       props?.selectedHost,
-      updateCurrentPosition,
+      navigation,
     ],
   );
 

@@ -27,7 +27,7 @@ export const useNavigationEditor = () => {
         navigation.setError(null);
 
         // Load complete tree data using new API
-        const treeData = await navigationConfig.loadFullTree(treeId);
+        const treeData = await navigationConfig.loadTreeData(treeId);
         
         // Convert normalized data to frontend format
         const frontendNodes = treeData.nodes.map((node: any) => ({
@@ -78,32 +78,7 @@ export const useNavigationEditor = () => {
 
 
 
-  const saveEdge = useCallback(
-    async (treeId: string, edgeData: any) => {
-      try {
-        const normalizedEdge = {
-          edge_id: edgeData.id,
-          source_node_id: edgeData.source,
-          target_node_id: edgeData.target,
-          actions: edgeData.actions || [],
-          retry_actions: edgeData.retryActions || [],
-          final_wait_time: edgeData.final_wait_time || 0,
-          edge_type: edgeData.edgeType || 'default',
-          data: {
-            ...(edgeData.data || {}),
-            description: edgeData.description
-          }
-        };
 
-        await navigationConfig.saveEdge(treeId, normalizedEdge);
-        console.log(`[@useNavigationEditor:saveEdge] Saved edge: ${edgeData.id}`);
-      } catch (error) {
-        navigation.setError(`Failed to save edge: ${error instanceof Error ? error.message : 'Unknown error'}`);
-        throw error;
-      }
-    },
-    [navigationConfig, navigation],
-  );
 
 
 
@@ -153,10 +128,7 @@ export const useNavigationEditor = () => {
           color: '#555',
         },
         data: {
-          edgeType: 'horizontal',
           description: `${sourceNode.data.label} → ${targetNode.data.label}`,
-          from: sourceNode.data.label,
-          to: targetNode.data.label,
         },
       };
 
@@ -223,215 +195,16 @@ export const useNavigationEditor = () => {
   // Node and edge action handlers
   const handleNodeFormSubmit = useCallback(
     async (nodeForm: any) => {
-      try {
-        // Verifications are now embedded directly - no need to save separately
-        console.log(
-          '[@useNavigationEditor:handleNodeFormSubmit] Using embedded verifications:',
-          nodeForm.verifications?.length || 0,
-        );
-
-        // Update the node
-        let updatedNodeData: any;
-
-        if (navigation.isNewNode) {
-          // Create new node
-          updatedNodeData = {
-            id: nodeForm.id || `node-${Date.now()}`,
-            position: { x: 100, y: 100 },
-            type: 'uiScreen',
-            data: {
-              label: nodeForm.label,
-              type: nodeForm.type,
-              description: nodeForm.description,
-              verifications: nodeForm.verifications || [],
-            },
-          };
-          navigation.setNodes([...navigation.nodes, updatedNodeData]);
-        } else if (navigation.selectedNode) {
-          // Update existing node
-          updatedNodeData = {
-            ...navigation.selectedNode,
-            data: {
-              ...navigation.selectedNode.data,
-              label: nodeForm.label,
-              type: nodeForm.type,
-              description: nodeForm.description,
-              verifications: nodeForm.verifications || [],
-            },
-          };
-          const updatedNodes = navigation.nodes.map((node) =>
-            node.id === navigation.selectedNode?.id ? updatedNodeData : node,
-          );
-          navigation.setNodes(updatedNodes);
-          navigation.setSelectedNode(updatedNodeData);
-        }
-
-        // Auto-save to database
-        if (updatedNodeData && navigationConfig.actualTreeId) {
-          console.log('[@useNavigationEditor:handleNodeFormSubmit] Auto-saving node to database...');
-          
-          // Use the existing saveNode wrapper function
-          await saveNode(navigationConfig.actualTreeId, {
-            id: updatedNodeData.id,
-            label: updatedNodeData.data.label,
-            type: updatedNodeData.type || 'uiScreen',
-            position: updatedNodeData.position,
-            description: updatedNodeData.data.description,
-            verifications: updatedNodeData.data.verifications || [],
-            data: updatedNodeData.data,
-          });
-          console.log('[@useNavigationEditor:handleNodeFormSubmit] Node auto-saved successfully');
-          
-          // Invalidate navigation cache so pathfinding uses updated data
-          try {
-            await fetch('/server/pathfinding/cache/refresh', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ 
-                tree_id: navigationConfig.actualTreeId,
-                team_id: 'default' 
-              })
-            });
-            console.log('[@useNavigationEditor:handleNodeFormSubmit] Navigation cache refreshed');
-          } catch (cacheError) {
-            console.warn('[@useNavigationEditor:handleNodeFormSubmit] Failed to refresh navigation cache:', cacheError);
-          }
-        }
-
-        // Close dialog - no need to mark unsaved changes since we auto-saved
-        navigation.setIsNodeDialogOpen(false);
-
-        console.log('[@useNavigationEditor:handleNodeFormSubmit] Node saved successfully to database');
-      } catch (error) {
-        console.error('Error during node save:', error);
-        navigation.setError('Failed to save node changes');
-      }
+      await navigation.saveNodeWithStateUpdate(nodeForm);
     },
-    [navigation, navigationConfig.actualTreeId, saveNode],
+    [navigation],
   );
 
   const handleEdgeFormSubmit = useCallback(
     async (edgeForm: any) => {
-      console.log('[@useNavigationEditor:handleEdgeFormSubmit] Received edge form data:', {
-        description: edgeForm?.description,
-        actions: edgeForm?.actions?.length || 0,
-        retryActions: edgeForm?.retryActions?.length || 0,
-        final_wait_time: edgeForm?.final_wait_time,
-      });
-
-      try {
-        // Get edge ID from form - this is the single source of truth
-        if (!edgeForm.edgeId) {
-          console.error('[@useNavigationEditor:handleEdgeFormSubmit] No edge ID in form');
-          navigation.setError('Edge ID missing from form data');
-          return;
-        }
-
-        console.log('[@useNavigationEditor:handleEdgeFormSubmit] Processing edge save:', {
-          edgeId: edgeForm.edgeId,
-          actions: edgeForm.actions?.length || 0,
-          retryActions: edgeForm.retryActions?.length || 0,
-        });
-
-        // Find the edge to update using the ID from form
-        const currentSelectedEdge = navigation.edges.find((edge) => edge.id === edgeForm.edgeId);
-
-        if (!currentSelectedEdge) {
-          console.error(
-            '[@useNavigationEditor:handleEdgeFormSubmit] Edge not found:',
-            edgeForm.edgeId,
-          );
-          console.error(
-            '[@useNavigationEditor:handleEdgeFormSubmit] Available edges:',
-            navigation.edges.map((e) => ({ id: e.id, source: e.source, target: e.target })),
-          );
-          navigation.setError(`Edge ${edgeForm.edgeId} not found in current tree`);
-          return;
-        }
-
-        console.log(
-          '[@useNavigationEditor:handleEdgeFormSubmit] Starting edge save process for edge:',
-          currentSelectedEdge.id,
-        );
-
-        // Actions are now embedded directly - no need to save separately
-        console.log(
-          `[@useNavigationEditor:handleEdgeFormSubmit] Using embedded actions: ${edgeForm.actions?.length || 0} actions and ${edgeForm.retryActions?.length || 0} retry actions`,
-        );
-
-        // Update edge with embedded actions and retry actions (no more IDs)
-        const updatedEdge = {
-          ...currentSelectedEdge,
-          data: {
-            ...(currentSelectedEdge.data || {}),
-            description: edgeForm.description || currentSelectedEdge.data?.description || '',
-            actions: edgeForm.actions || [],
-            retryActions: edgeForm.retryActions || [],
-            final_wait_time: edgeForm.final_wait_time || 0,
-            priority: edgeForm.priority || 'p3',
-            threshold: edgeForm.threshold || 0,
-          },
-        };
-
-        console.log('[@useNavigationEditor:handleEdgeFormSubmit] Updating edge with new data:', {
-          id: updatedEdge.id,
-          final_wait_time: updatedEdge.data.final_wait_time,
-          actions: updatedEdge.data.actions.length,
-          retryActions: updatedEdge.data.retryActions.length,
-          description: updatedEdge.data.description,
-        });
-
-        const updatedEdges = navigation.edges.map((edge) =>
-          edge.id === currentSelectedEdge.id ? updatedEdge : edge,
-        );
-
-        navigation.setEdges(updatedEdges);
-        navigation.setSelectedEdge(updatedEdge);
-
-        // Auto-save to database
-        if (navigationConfig.actualTreeId) {
-          console.log('[@useNavigationEditor:handleEdgeFormSubmit] Auto-saving edge to database...');
-          
-          // Use the existing saveEdge wrapper function
-          await saveEdge(navigationConfig.actualTreeId, {
-            id: updatedEdge.id,
-            source: updatedEdge.source,
-            target: updatedEdge.target,
-            description: updatedEdge.data.description,
-            actions: updatedEdge.data.actions || [],
-            retryActions: updatedEdge.data.retryActions || [],
-            final_wait_time: updatedEdge.data.final_wait_time || 0,
-            edgeType: updatedEdge.type || 'default',
-            data: updatedEdge.data,
-          });
-          console.log('[@useNavigationEditor:handleEdgeFormSubmit] Edge auto-saved successfully');
-          
-          // Invalidate navigation cache so pathfinding uses updated data
-          try {
-            await fetch('/server/pathfinding/cache/refresh', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ 
-                tree_id: navigationConfig.actualTreeId,
-                team_id: 'default' 
-              })
-            });
-            console.log('[@useNavigationEditor:handleEdgeFormSubmit] Navigation cache refreshed');
-          } catch (cacheError) {
-            console.warn('[@useNavigationEditor:handleEdgeFormSubmit] Failed to refresh navigation cache:', cacheError);
-          }
-        }
-
-        navigation.setIsEdgeDialogOpen(false);
-        // No need to mark unsaved changes since we auto-saved
-
-        console.log('[@useNavigationEditor:handleEdgeFormSubmit] Edge saved successfully to database');
-      } catch (error) {
-        console.error('[@useNavigationEditor:handleEdgeFormSubmit] Error during edge save:', error);
-        navigation.setError('Failed to save edge actions');
-      }
+      await navigation.saveEdgeWithStateUpdate(edgeForm);
     },
-    [navigation, navigationConfig.actualTreeId, saveEdge],
+    [navigation],
   );
 
   const addNewNode = useCallback(
@@ -612,14 +385,16 @@ export const useNavigationEditor = () => {
 
       // New normalized API operations
       loadTreeData,
-      saveTreeData,
-      saveNode,
-      saveEdge,
+      
+      // Centralized save methods from NavigationContext
+      saveNodeWithStateUpdate: navigation.saveNodeWithStateUpdate,
+      saveEdgeWithStateUpdate: navigation.saveEdgeWithStateUpdate,
+      saveTreeWithStateUpdate: navigation.saveTreeWithStateUpdate,
 
 
 
       // Interface operations
-      listAvailableTrees: navigationConfig.listAvailableUserInterfaces,
+      listAvailableTrees: () => Promise.resolve([]),
 
       // Lock management - from NavigationContext
       isLocked: navigation.isLocked,
@@ -691,9 +466,6 @@ export const useNavigationEditor = () => {
       navigationConfig,
       hostManager,
       loadTreeData,
-      saveTreeData,
-      saveNode,
-      saveEdge,
       onConnect,
       onNodeClick,
       onEdgeClick,

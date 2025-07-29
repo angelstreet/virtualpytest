@@ -242,11 +242,11 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = React.memo(
 
       // New normalized API
       loadTreeData,
-      saveTreeData,
+      saveTreeWithStateUpdate,
       listAvailableTrees,
       isLocked,
-      handleNodeFormSubmit,
-      handleEdgeFormSubmit,
+      saveNodeWithStateUpdate,
+      saveEdgeWithStateUpdate,
       addNewNode,
       cancelNodeChanges,
       discardChanges,
@@ -468,13 +468,13 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = React.memo(
           const userInterface = interfaces.find((ui: any) => ui.id === userInterfaceId);
           
           if (userInterface && userInterface.navigation_tree_id) {
-            await saveTreeData(userInterface.navigation_tree_id);
+            await saveTreeWithStateUpdate(userInterface.navigation_tree_id);
           }
         } catch (error) {
           console.error('Failed to save tree for user interface:', error);
         }
       },
-      [listAvailableTrees, saveTreeData],
+      [listAvailableTrees, saveTreeWithStateUpdate],
     );
 
     // Handle navigation back to parent tree
@@ -694,10 +694,10 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = React.memo(
           '[@component:NavigationEditor] Submitting node form with verifications:',
           nodeForm.verifications?.length || 0,
         );
-        handleNodeFormSubmit(nodeForm);
+        saveNodeWithStateUpdate(nodeForm);
         console.log('[@component:NavigationEditor] Node form submitted successfully');
       }
-    }, [nodeForm, handleNodeFormSubmit]);
+    }, [nodeForm, saveNodeWithStateUpdate]);
 
     // Wrapper for add new node to provide default parameters
     const handleAddNewNodeWrapper = useCallback(() => {
@@ -999,7 +999,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = React.memo(
             isOpen={isEdgeDialogOpen}
             edgeForm={edgeForm}
             setEdgeForm={setEdgeForm as React.Dispatch<React.SetStateAction<EdgeForm>>}
-            onSubmit={handleEdgeFormSubmit}
+                            onSubmit={saveEdgeWithStateUpdate}
             onClose={() => setIsEdgeDialogOpen(false)}
             selectedEdge={selectedEdge}
             isControlActive={isControlActive}
