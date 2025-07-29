@@ -186,7 +186,7 @@ def save_node(tree_id: str, node_data: Dict, team_id: str) -> Dict:
                 .eq('tree_id', tree_id)\
                 .eq('node_id', node_data['node_id'])\
                 .eq('team_id', team_id)\
-                .execute()
+            .execute()
             print(f"[@db:navigation_trees:save_node] Updated node: {node_data['node_id']}")
         else:
             # Insert new node

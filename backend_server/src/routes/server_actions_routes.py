@@ -210,8 +210,8 @@ def action_execute_single():
 @server_actions_bp.route('/health', methods=['GET'])
 def health_check():
     """Health check endpoint for action execution service"""
-    return jsonify({
-        'success': True,
+            return jsonify({
+                'success': True,
         'message': 'Action execution service is running',
         'note': 'Actions are now embedded in navigation edges'
     })
