@@ -13,6 +13,7 @@ import {
   Box,
   Typography,
   IconButton,
+  LinearProgress,
 } from '@mui/material';
 import React from 'react';
 
@@ -74,6 +75,13 @@ export const NodeEditDialog: React.FC<NodeEditDialogProps> = ({
   };
 
   const buttonVisibility = nodeEdit.getButtonVisibility();
+
+  // Helper function to format verification results similar to edge dialog
+  const formatVerificationResult = (result: any) => {
+    const prefix = result.success ? '✅' : '❌';
+    const message = result.message || result.error || 'No details';
+    return `${prefix} ${result.verification_type}: ${message}`;
+  };
 
   return (
     <Dialog
@@ -179,6 +187,13 @@ export const NodeEditDialog: React.FC<NodeEditDialogProps> = ({
           />
         )}
 
+        {/* Show linear progress when verification test is running */}
+        {nodeEdit.verification.loading && (
+          <Box sx={{ mt: 1, mb: 1 }}>
+            <LinearProgress sx={{ borderRadius: 1 }} />
+          </Box>
+        )}
+
         {/* Verification Section */}
         <VerificationsList
           verifications={nodeEdit.verification.verifications}
@@ -209,6 +224,7 @@ export const NodeEditDialog: React.FC<NodeEditDialogProps> = ({
               maxHeight: 200,
               overflow: 'auto',
               mt: 1,
+              border: '1px solid rgba(0, 0, 0, 0.12)',
             }}
           >
             <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
@@ -223,7 +239,7 @@ export const NodeEditDialog: React.FC<NodeEditDialogProps> = ({
           </Box>
         )}
 
-        {/* Verification Test Results - same as edge dialog */}
+        {/* Verification Test Results - updated to match edge dialog style */}
         {nodeEdit.verification.testResults && nodeEdit.verification.testResults.length > 0 && (
           <Box
             sx={{
@@ -235,25 +251,28 @@ export const NodeEditDialog: React.FC<NodeEditDialogProps> = ({
               maxHeight: 200,
               overflow: 'auto',
               mt: 1,
+              border: '1px solid rgba(0, 0, 0, 0.12)',
             }}
           >
             <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
               Verification Results:
+              {nodeEdit.verification.testResults.every((r: any) => r.success) && (
+                <span style={{ marginLeft: '8px', color: 'green' }}>
+                  ✅ OVERALL RESULT: SUCCESS
+                </span>
+              )}
             </Typography>
-            {nodeEdit.verification.testResults.map((result: any, index: number) => (
-              <Typography
-                key={index}
-                variant="body2"
-                sx={{ 
-                  fontFamily: 'monospace', 
-                  fontSize: '0.75rem',
-                  color: result.success ? 'success.dark' : 'error.dark',
-                  mb: 0.5 
-                }}
-              >
-                {result.success ? '✅' : '❌'} {result.verification_type}: {result.message || result.error}
-              </Typography>
-            ))}
+            <Typography
+              variant="caption"
+              sx={{
+                fontFamily: 'monospace',
+                whiteSpace: 'pre-line',
+                fontSize: '0.7rem',
+                lineHeight: 1.2,
+              }}
+            >
+              {nodeEdit.verification.testResults.map(formatVerificationResult).join('\n')}
+            </Typography>
           </Box>
         )}
       </DialogContent>

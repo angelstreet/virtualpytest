@@ -401,7 +401,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = React.memo(
             const treeData = tree.metadata || {};
             const rawNodes = treeData.nodes || [];
             const rawEdges = treeData.edges || [];
-            const actualTreeId = tree.id || null;
+            const treeId = tree.id || null;
 
             // Convert normalized data to frontend format (same as useNavigationEditor)
             const frontendNodes = rawNodes.map((node: any) => ({
@@ -447,9 +447,9 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = React.memo(
             console.log('[@NavigationEditor:loadTreeForUserInterface] Set initialState with node IDs:', frontendNodes.map((n: any) => n.id));
             
             // Set the actual tree ID directly like in the working version
-            if (actualTreeId) {
-              setActualTreeId(actualTreeId);
-              console.log(`[@NavigationEditor:loadTreeForUserInterface] Set actualTreeId: ${actualTreeId}`);
+            if (treeId) {
+              setActualTreeId(treeId);
+              console.log(`[@NavigationEditor:loadTreeForUserInterface] Set actualTreeId: ${treeId}`);
             }
 
             console.log(
