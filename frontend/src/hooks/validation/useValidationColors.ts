@@ -74,7 +74,11 @@ export const useValidationColors = (_edges?: UINavigationEdge[]) => {
 
   const setNavigationEdgesFailure = useCallback((_transitions: any[], failedIndex?: number) => {
     // Could implement simple edge highlighting here if needed
-    console.log('Navigation failed at transition:', failedIndex);
+    if (failedIndex !== undefined) {
+      console.log(`Navigation failed at transition: ${failedIndex + 1} (0-based: ${failedIndex})`);
+    } else {
+      console.log('Navigation failed (transition index unknown)');
+    }
   }, []);
 
   const resetNavigationEdgeColors = useCallback(() => {

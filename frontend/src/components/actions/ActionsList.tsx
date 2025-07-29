@@ -85,7 +85,7 @@ export const ActionsList: React.FC<ActionsListProps> = ({ actions, onActionsUpda
     <Box>
       {actions.map((action, index) => (
         <ActionItem
-          key={action.id}
+          key={index}
           action={action}
           index={index}
           availableActions={availableActions}

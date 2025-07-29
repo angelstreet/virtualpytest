@@ -44,6 +44,8 @@ export const AndroidMobileOverlay = React.memo(
       x: number;
       y: number;
       id: string;
+      deviceX?: number;
+      deviceY?: number;
     } | null>(null);
 
     // Add CSS animation keyframes to document head if not already present
@@ -204,7 +206,22 @@ export const AndroidMobileOverlay = React.memo(
       const animationY = scaledElement.y + scaledElement.height / 2;
       const animationId = `element-${scaledElement.id}-${Date.now()}`;
 
-      setClickAnimation({ x: animationX, y: animationY, id: animationId });
+      // Convert overlay coordinates back to device coordinates
+      const deviceX = Math.round(
+        ((scaledElement.x - horizontalOffset) * deviceWidth) / actualContentWidth,
+      );
+      const deviceY = Math.round((scaledElement.y * deviceHeight) / panelInfo.size.height);
+
+      // Log coordinates
+      console.log(`[@AndroidMobileOverlay] Element click - Screen: (${Math.round(animationX)}, ${Math.round(animationY)}), Device: (${deviceX}, ${deviceY})`);
+
+      setClickAnimation({ 
+        x: animationX, 
+        y: animationY, 
+        id: animationId,
+        deviceX,
+        deviceY
+      });
 
       // Clear animation after 300ms
       setTimeout(() => setClickAnimation(null), 300);
@@ -216,12 +233,6 @@ export const AndroidMobileOverlay = React.memo(
       if (onElementClick) {
         onElementClick(originalElement);
       } else {
-        // Convert overlay coordinates back to device coordinates and call server directly
-        const deviceX = Math.round(
-          ((scaledElement.x - horizontalOffset) * deviceWidth) / actualContentWidth,
-        );
-        const deviceY = Math.round((scaledElement.y * deviceHeight) / panelInfo.size.height);
-
         await handleDirectTap(deviceX, deviceY);
       }
     };
@@ -233,13 +244,6 @@ export const AndroidMobileOverlay = React.memo(
       const contentX = event.clientX - rect.left; // Already relative to content area
       const contentY = event.clientY - rect.top; // Already relative to content area
 
-      // Show click animation at tap location (relative to full panel for positioning)
-      const animationId = `base-tap-${Date.now()}`;
-      setClickAnimation({ x: contentX, y: contentY, id: animationId });
-
-      // Clear animation after 300ms
-      setTimeout(() => setClickAnimation(null), 300);
-
       // Use the same scaling factors as overlay, but inverted (Screen → Device)
       // This matches exactly how overlay scaling works: scaleX = actualContentWidth / deviceWidth
       const scaleX = actualContentWidth / deviceWidth;
@@ -247,6 +251,22 @@ export const AndroidMobileOverlay = React.memo(
 
       const deviceX = Math.round(contentX / scaleX);
       const deviceY = Math.round(contentY / scaleY);
+
+      // Log coordinates
+      console.log(`[@AndroidMobileOverlay] Base tap - Screen: (${Math.round(contentX)}, ${Math.round(contentY)}), Device: (${deviceX}, ${deviceY})`);
+
+      // Show click animation at tap location (relative to full panel for positioning)
+      const animationId = `base-tap-${Date.now()}`;
+      setClickAnimation({ 
+        x: contentX, 
+        y: contentY, 
+        id: animationId,
+        deviceX,
+        deviceY
+      });
+
+      // Clear animation after 300ms
+      setTimeout(() => setClickAnimation(null), 300);
 
       await handleDirectTap(deviceX, deviceY);
     };
@@ -331,22 +351,49 @@ export const AndroidMobileOverlay = React.memo(
 
         {/* Click animation - Highest z-index */}
         {clickAnimation && (
-          <div
-            key={clickAnimation.id}
-            style={{
-              position: 'fixed',
-              left: `${panelInfo.position.x + horizontalOffset + clickAnimation.x - 15}px`, // Center the 30px circle, account for content offset
-              top: `${panelInfo.position.y + clickAnimation.y - 15}px`,
-              width: '30px',
-              height: '30px',
-              borderRadius: '50%',
-              backgroundColor: 'rgba(255, 255, 255, 0.8)',
-              border: '2px solid rgba(0, 123, 255, 0.8)',
-              zIndex: getZIndex('ANDROID_MOBILE_OVERLAY'), // Click animation - same level
-              pointerEvents: 'none',
-              animation: 'clickPulse 0.3s ease-out forwards',
-            }}
-          />
+          <>
+            {/* Click animation circle */}
+            <div
+              key={clickAnimation.id}
+              style={{
+                position: 'fixed',
+                left: `${panelInfo.position.x + horizontalOffset + clickAnimation.x - 15}px`, // Center the 30px circle, account for content offset
+                top: `${panelInfo.position.y + clickAnimation.y - 15}px`,
+                width: '30px',
+                height: '30px',
+                borderRadius: '50%',
+                backgroundColor: 'rgba(255, 255, 255, 0.8)',
+                border: '2px solid rgba(0, 123, 255, 0.8)',
+                zIndex: getZIndex('ANDROID_MOBILE_OVERLAY'), // Click animation - same level
+                pointerEvents: 'none',
+                animation: 'clickPulse 0.3s ease-out forwards',
+              }}
+            />
+            {/* Coordinate display */}
+            <div
+              key={`${clickAnimation.id}-coords`}
+              style={{
+                position: 'fixed',
+                left: `${panelInfo.position.x + horizontalOffset + clickAnimation.x + 20}px`, // Offset to the right of the circle
+                top: `${panelInfo.position.y + clickAnimation.y - 25}px`, // Offset above the circle
+                backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                color: 'white',
+                padding: '4px 8px',
+                borderRadius: '4px',
+                fontSize: '12px',
+                fontFamily: 'monospace',
+                fontWeight: 'bold',
+                zIndex: getZIndex('ANDROID_MOBILE_OVERLAY'), // Same level as animation
+                pointerEvents: 'none',
+                animation: 'clickPulse 0.3s ease-out forwards',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              Screen: ({Math.round(clickAnimation.x)}, {Math.round(clickAnimation.y)})
+              <br />
+              Device: ({clickAnimation.deviceX}, {clickAnimation.deviceY})
+            </div>
+          </>
         )}
       </>
     );
