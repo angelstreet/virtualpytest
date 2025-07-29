@@ -444,4 +444,76 @@ def check_lock_status():
         return jsonify({
             'success': False,
             'message': f'Server error: {str(e)}'
+        }), 500
+
+@server_navigation_trees_bp.route('/navigationTrees/lockAcquire', methods=['POST'])
+def acquire_lock():
+    """Acquire lock for a navigation tree (placeholder for future locking)."""
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({
+                'success': False,
+                'message': 'Missing request body'
+            }), 400
+            
+        userinterface_id = data.get('userinterface_id')
+        session_id = data.get('session_id')
+        user_id = data.get('user_id')
+        
+        if not all([userinterface_id, session_id, user_id]):
+            return jsonify({
+                'success': False,
+                'message': 'Missing required parameters: userinterface_id, session_id, user_id'
+            }), 400
+        
+        # For now, always return successful lock acquisition
+        return jsonify({
+            'success': True,
+            'lock': {
+                'userinterface_id': userinterface_id,
+                'session_id': session_id,
+                'user_id': user_id,
+                'locked_at': '2025-01-29T12:00:00Z'
+            }
+        })
+    except Exception as e:
+        print(f'[@route:navigation_trees:acquire_lock] ERROR: {e}')
+        return jsonify({
+            'success': False,
+            'message': f'Server error: {str(e)}'
+        }), 500
+
+@server_navigation_trees_bp.route('/navigationTrees/lockRelease', methods=['POST'])
+def release_lock():
+    """Release lock for a navigation tree (placeholder for future locking)."""
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({
+                'success': False,
+                'message': 'Missing request body'
+            }), 400
+            
+        userinterface_id = data.get('userinterface_id')
+        session_id = data.get('session_id')
+        
+        if not all([userinterface_id, session_id]):
+            return jsonify({
+                'success': False,
+                'message': 'Missing required parameters: userinterface_id, session_id'
+            }), 400
+        
+        # For now, always return successful lock release
+        return jsonify({
+            'success': True,
+            'message': 'Lock released successfully'
+        })
+    except Exception as e:
+        print(f'[@route:navigation_trees:release_lock] ERROR: {e}')
+        return jsonify({
+            'success': False,
+            'message': f'Server error: {str(e)}'
         }), 500 
