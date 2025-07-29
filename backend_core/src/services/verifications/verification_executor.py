@@ -45,15 +45,14 @@ class VerificationExecutor:
     
     def execute_verifications(self, 
                             verifications: List[Dict[str, Any]], 
-                            image_source_url: Optional[str] = None,
-                            model: Optional[str] = None) -> Dict[str, Any]:
+                            image_source_url: Optional[str] = None
+                           ) -> Dict[str, Any]:
         """
         Execute batch of verifications
         
         Args:
             verifications: List of verification dictionaries
             image_source_url: Optional source image URL for image/text verifications
-            model: Optional device model for verification context
 
             
         Returns:
@@ -98,7 +97,7 @@ class VerificationExecutor:
             print(f"[@lib:verification_executor:execute_verifications] Processing verification {i+1}/{len(valid_verifications)}: {verification_type}")
             
             start_time = time.time()
-            result = self._execute_single_verification(verification, image_source_url, model)
+            result = self._execute_single_verification(verification, image_source_url)
             execution_time = int((time.time() - start_time) * 1000)
             
                         # Add execution time to result
@@ -162,7 +161,7 @@ class VerificationExecutor:
         
         return valid_verifications
     
-    def _execute_single_verification(self, verification: Dict[str, Any], image_source_url: Optional[str], model: Optional[str]) -> Dict[str, Any]:
+    def _execute_single_verification(self, verification: Dict[str, Any], image_source_url: Optional[str]) -> Dict[str, Any]:
         """Execute a single verification and return standardized result"""
         try:
             verification_type = verification.get('verification_type', 'text')
@@ -171,7 +170,6 @@ class VerificationExecutor:
             individual_request = {
                 'verification': verification,
                 'image_source_url': image_source_url,
-                'model': model,
                 'device_id': self.device_id or 'device1'  # Include device_id in request
             }
             
