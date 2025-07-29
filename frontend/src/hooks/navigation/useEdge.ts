@@ -50,8 +50,7 @@ export const useEdge = (props?: UseEdgeProps) => {
     };
 
     return {
-      id: navAction.id,
-      label: navAction.label || navAction.command,
+      label: navAction.name || navAction.command,
       command: navAction.command,
       params: {
         ...navAction.params,
@@ -152,9 +151,9 @@ export const useEdge = (props?: UseEdgeProps) => {
    * Execute edge actions
    */
   const executeEdgeActions = useCallback(
-    async (edge: UINavigationEdge) => {
-      const actions = getActionsFromEdge(edge);
-      const retryActions = getRetryActionsFromEdge(edge);
+    async (edge: UINavigationEdge, overrideActions?: EdgeAction[], overrideRetryActions?: EdgeAction[]) => {
+      const actions = overrideActions || getActionsFromEdge(edge);
+      const retryActions = overrideRetryActions || getRetryActionsFromEdge(edge);
 
       if (actions.length === 0) {
         setRunResult('❌ No actions to execute');

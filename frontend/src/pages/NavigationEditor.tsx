@@ -889,6 +889,7 @@ const NavigationEditorContent: React.FC<{ userInterfaceId?: string }> = React.me
                         onEditWithLabels={(fromLabel, toLabel) =>
                           setEdgeLabels({ fromLabel, toLabel })
                         }
+                        currentEdgeForm={edgeForm}
                       />
 
                       {/* Second panel for bidirectional edge if it exists */}
@@ -909,6 +910,7 @@ const NavigationEditorContent: React.FC<{ userInterfaceId?: string }> = React.me
                           onEditWithLabels={(fromLabel, toLabel) =>
                             setEdgeLabels({ fromLabel, toLabel })
                           }
+                          currentEdgeForm={edgeForm}
                         />
                       )}
                     </>

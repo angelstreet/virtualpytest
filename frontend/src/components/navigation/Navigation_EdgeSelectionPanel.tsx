@@ -26,6 +26,9 @@ interface EdgeSelectionPanelProps {
 
   // Add props for passing labels to the edit dialog
   onEditWithLabels?: (fromLabel, toLabel: string) => void;
+  
+  // Current edge form state (for running updated actions)
+  currentEdgeForm?: EdgeForm | null;
 }
 
 export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
@@ -42,6 +45,7 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
     selectedDeviceId,
     panelIndex = 0,
     onEditWithLabels,
+    currentEdgeForm,
   }) => {
     const { getNodes } = useReactFlow();
 
@@ -116,7 +120,16 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
 
     // Execute all edge actions using hook function
     const handleRunActions = async () => {
-      await edgeHook.executeEdgeActions(selectedEdge);
+      // Use updated actions from form if available, otherwise use edge data
+      if (currentEdgeForm && currentEdgeForm.edgeId === selectedEdge.id) {
+        await edgeHook.executeEdgeActions(
+          selectedEdge, 
+          currentEdgeForm.actions, 
+          currentEdgeForm.retryActions
+        );
+      } else {
+        await edgeHook.executeEdgeActions(selectedEdge);
+      }
     };
 
     return (
