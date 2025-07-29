@@ -215,6 +215,5 @@ export const useEdgeEdit = ({
 
     // Validation
     isFormValid,
-    canRunLocalActions,
   };
 };
