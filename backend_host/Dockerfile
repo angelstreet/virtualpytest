@@ -39,11 +39,29 @@ RUN pip install --no-cache-dir -r backend_host/requirements.txt
 # Copy backend_host source
 COPY backend_host/src/ backend_host/src/
 
+# Create minimal .env file for Docker
+RUN echo "# Minimal Docker environment" > /app/backend_host/src/.env && \
+    echo "HOST_NAME=docker-host" >> /app/backend_host/src/.env && \
+    echo "HOST_PORT=6109" >> /app/backend_host/src/.env && \
+    echo "HOST_URL=http://localhost:6109" >> /app/backend_host/src/.env && \
+    echo "SERVER_URL=http://localhost:5109" >> /app/backend_host/src/.env && \
+    echo "DEBUG=false" >> /app/backend_host/src/.env
+
 # Copy utils directory (if it exists in project root)
 # Note: This copy is optional and will be skipped if src/utils/ doesn't exist
 
 # Set working directory to backend_host
 WORKDIR /app/backend_host
+
+# Copy service orchestration scripts
+COPY backend_host/scripts/generate_services_config.sh /app/backend_host/scripts/
+COPY backend_host/scripts/start_services.sh /app/backend_host/scripts/
+COPY backend_host/scripts/run_ffmpeg_and_rename_docker.sh /app/backend_host/scripts/
+
+# Make scripts executable (before switching to non-root user)
+RUN chmod +x /app/backend_host/scripts/generate_services_config.sh && \
+    chmod +x /app/backend_host/scripts/start_services.sh && \
+    chmod +x /app/backend_host/scripts/run_ffmpeg_and_rename_docker.sh
 
 # Create non-root user for security
 RUN useradd -m -u 1000 vptuser && chown -R vptuser:vptuser /app
@@ -61,43 +79,5 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
 # Switch to non-root user
 USER vptuser
 
-# Create startup script
-RUN echo '#!/bin/bash\n\
-set -e\n\
-echo "Starting virtual display and desktop services..."\n\
-\n\
-# Start Xvfb (virtual display)\n\
-Xvfb :99 -screen 0 1024x768x24 -ac +extension GLX +render -noreset &\n\
-XVFB_PID=$!\n\
-\n\
-# Wait for Xvfb to start\n\
-sleep 2\n\
-\n\
-# Start window manager\n\
-DISPLAY=:99 fluxbox &\n\
-FLUXBOX_PID=$!\n\
-\n\
-# Start x11vnc (VNC server)\n\
-x11vnc -display :99 -nopw -listen localhost -xkb -ncache 10 -ncache_cr -forever &\n\
-X11VNC_PID=$!\n\
-\n\
-# Wait for VNC server to start\n\
-sleep 2\n\
-\n\
-# Start NoVNC (web-based VNC client)\n\
-websockify --web=/usr/share/novnc/ 6080 localhost:5900 &\n\
-NOVNC_PID=$!\n\
-\n\
-echo "Desktop services started:"\n\
-echo "  - Xvfb virtual display on :99"\n\
-echo "  - Fluxbox window manager"\n\
-echo "  - x11vnc VNC server on :5900"\n\
-echo "  - NoVNC web client on :6080"\n\
-echo "  - Flask API starting on :6109"\n\
-\n\
-# Start the main Flask application\n\
-exec python src/app.py\n\
-' > /home/vptuser/start_services.sh && chmod +x /home/vptuser/start_services.sh
-
-# Run the startup script
-CMD ["/home/vptuser/start_services.sh"] 
+# Run the clean service orchestrator
+CMD ["/app/backend_host/scripts/start_services.sh"] 

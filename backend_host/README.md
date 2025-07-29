@@ -79,30 +79,64 @@ backend_host Service
 
 ### Environment Variables
 
-Copy both environment templates:
+Copy the host-specific template:
 
 ```bash
-# Copy project-level template (from project root)
-cp ../env.example ../.env
-
 # Copy host-specific template (from src directory)
 cp src/env.example src/.env
 
-# Edit both with your values
-nano ../.env
+# Edit with your values
 nano src/.env
 ```
 
-Required environment variables:
+### Service Configuration
+
+Backend Host automatically detects required services based on your `.env` configuration:
+
+#### **Minimal Configuration (VNC Only)**
+```bash
+# .env - Only basic host settings
+HOST_NAME=my-host
+HOST_PORT=6109
+```
+**Result**: Only VNC services start (NoVNC web interface + VNC server)
+
+#### **Full Configuration (VNC + Video + Monitor)**
+```bash
+# .env - With video devices
+HOST_NAME=my-host
+HOST_PORT=6109
+
+# Device 1 configuration
+DEVICE1_VIDEO=/dev/video0
+DEVICE1_AUDIO=plughw:2,0
+DEVICE1_VIDEO_CAPTURE_PATH=/var/www/html/stream/capture1
+DEVICE1_FPS=10
+
+# Device 2 configuration  
+DEVICE2_VIDEO=/dev/video2
+DEVICE2_AUDIO=plughw:3,0
+DEVICE2_VIDEO_CAPTURE_PATH=/var/www/html/stream/capture2
+DEVICE2_FPS=10
+```
+**Result**: VNC + FFmpeg capture (2 grabbers) + Monitor services start
+
+### Required Environment Variables
 
 ```bash
-# backend_host Environment Variables
+# Host Identification
+HOST_NAME=my-host-1
+HOST_PORT=6109
+HOST_URL=http://localhost:6109
+
+# Database Configuration
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+
+# Optional: Cloud Storage & AI
 CLOUDFLARE_R2_ENDPOINT=your_r2_endpoint
 CLOUDFLARE_R2_ACCESS_KEY_ID=your_access_key
 CLOUDFLARE_R2_SECRET_ACCESS_KEY=your_secret_key
-CLOUDFLARE_R2_PUBLIC_URL=your_r2_public_url
 OPENROUTER_API_KEY=your_openrouter_key
 ```
 
@@ -189,16 +223,39 @@ Once deployed, you can access the virtual desktop:
 - **API Endpoints**: `https://your-host-service.onrender.com:6109/host/*`
 
 ### Docker Deployment (Local/Hardware)
+
+#### **Quick Docker Launch**
+```bash
+# Use the setup script for easy deployment
+./setup/docker/launch_all.sh
+```
+
+#### **Manual Docker Build & Run**
 ```bash
 # Build image
-docker build -f Dockerfile -t virtualpytest/backend_host .
+docker build -f backend_host/Dockerfile -t virtualpytest/backend_host .
 
-# Run container (requires privileged mode for hardware access)
-docker run -d --privileged \
-  -p 6109:6109 \
-  -v /dev:/dev \
+# Run with minimal config (VNC only)
+docker run -d \
+  -p 6109:6109 -p 6080:6080 \
   -e HOST_NAME=docker-host-1 \
   virtualpytest/backend_host
+
+# Run with video devices (requires privileged mode for hardware access)
+docker run -d --privileged \
+  -p 6109:6109 -p 6080:6080 \
+  -v /dev:/dev \
+  -e HOST_NAME=docker-host-1 \
+  -e DEVICE1_VIDEO=/dev/video0 \
+  -e DEVICE1_VIDEO_CAPTURE_PATH=/var/www/html/stream/capture1 \
+  virtualpytest/backend_host
+```
+
+#### **Docker Compose (Recommended)**
+```bash
+# Use docker-compose for full stack
+cd docker
+docker compose up backend_host
 ```
 
 ### Systemd Service

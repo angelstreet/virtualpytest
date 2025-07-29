@@ -44,21 +44,47 @@ export const useNestedNavigation = ({
       const result = await response.json();
 
       if (result.success && result.sub_trees?.length > 0) {
-        // 4a. Load existing sub-tree
+        // 4a. Load existing sub-tree using new normalized API
         const primarySubTree = result.sub_trees[0];
-        const treeResponse = await fetch(`/server/navigationTrees/getTree/${primarySubTree.id}`);
+        const treeResponse = await fetch(`/server/navigationTrees/${primarySubTree.id}/full`);
         const treeResult = await treeResponse.json();
 
         if (treeResult.success) {
-          const treeData = treeResult.tree.metadata || {};
+          // Convert normalized data to frontend format
+          const frontendNodes = (treeResult.nodes || []).map((node: any) => ({
+            id: node.node_id,
+            type: 'uiScreen',
+            position: { x: node.position_x, y: node.position_y },
+            data: {
+              label: node.label,
+              type: node.node_type,
+              description: node.description,
+              verifications: node.verifications, // Directly embedded
+              ...node.data // Additional data
+            }
+          }));
+
+          const frontendEdges = (treeResult.edges || []).map((edge: any) => ({
+            id: edge.edge_id,
+            source: edge.source_node_id,
+            target: edge.target_node_id,
+            type: 'uiNavigation',
+            data: {
+              description: edge.description,
+              actions: edge.actions, // Directly embedded with wait_time
+              retryActions: edge.retry_actions,
+              final_wait_time: edge.final_wait_time,
+              ...edge.data // Additional data
+            }
+          }));
 
           // 5. Push to navigation stack FIRST to set isNested before setting nodes
           pushLevel(primarySubTree.id, node.id, primarySubTree.name, node.data.label);
 
           // Then set nodes and edges with small delay to ensure isNested is processed
           setTimeout(() => {
-            setNodes(treeData.nodes || []);
-            setEdges(treeData.edges || []);
+            setNodes(frontendNodes);
+            setEdges(frontendEdges);
           }, 10);
 
           console.log(`[@useNestedNavigation] Loaded existing sub-tree: ${primarySubTree.name}`);

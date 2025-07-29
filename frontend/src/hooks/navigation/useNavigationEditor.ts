@@ -19,50 +19,32 @@ export const useNavigationEditor = () => {
   // Get host manager
   const hostManager = useHostManager();
 
-  // Create load and save functions that bridge the contexts
+  // Bridge functions that use the new normalized API
   const loadFromConfig = useCallback(
-    (userInterfaceId: string) => {
-      if (navigationConfig.loadFromConfig) {
-        const state = {
-          nodes: navigation.nodes,
-          edges: navigation.edges,
-          userInterface: navigation.userInterface,
-          setNodes: navigation.setNodes,
-          setEdges: navigation.setEdges,
-          setUserInterface: navigation.setUserInterface,
-          setInitialState: navigation.setInitialState,
-          setHasUnsavedChanges: navigation.setHasUnsavedChanges,
-          setIsLoading: navigation.setIsLoading,
-          setError: navigation.setError,
-          setActualTreeId: navigationConfig.setActualTreeId,
-        };
-        return navigationConfig.loadFromConfig(userInterfaceId, state);
+    async (userInterfaceId: string) => {
+      // Get the tree ID for this user interface
+      const trees = await navigationConfig.listAvailableUserInterfaces();
+      const userInterface = trees.find(ui => ui.id === userInterfaceId);
+      
+      if (userInterface && userInterface.navigation_tree_id) {
+        await loadTreeData(userInterface.navigation_tree_id);
+        navigationConfig.setActualTreeId(userInterface.navigation_tree_id);
       }
     },
-    [navigationConfig, navigation],
+    [navigationConfig, loadTreeData],
   );
 
   const saveToConfig = useCallback(
-    (userInterfaceId: string, overrideState?: { nodes?: any[]; edges?: any[] }) => {
-      if (navigationConfig.saveToConfig) {
-        const state = {
-          nodes: overrideState?.nodes || navigation.nodes,
-          edges: overrideState?.edges || navigation.edges,
-          userInterface: navigation.userInterface,
-          setNodes: navigation.setNodes,
-          setEdges: navigation.setEdges,
-          setUserInterface: navigation.setUserInterface,
-          setInitialState: navigation.setInitialState,
-          setHasUnsavedChanges: navigation.setHasUnsavedChanges,
-          setIsLoading: navigation.setIsLoading,
-          setError: navigation.setError,
-          setActualTreeId: navigationConfig.setActualTreeId,
-        };
-
-        return navigationConfig.saveToConfig(userInterfaceId, state);
+    async (userInterfaceId: string, overrideState?: { nodes?: any[]; edges?: any[] }) => {
+      // Get the tree ID for this user interface
+      const trees = await navigationConfig.listAvailableUserInterfaces();
+      const userInterface = trees.find(ui => ui.id === userInterfaceId);
+      
+      if (userInterface && userInterface.navigation_tree_id) {
+        await saveTreeData(userInterface.navigation_tree_id);
       }
     },
-    [navigationConfig, navigation],
+    [navigationConfig, saveTreeData],
   );
 
   // New normalized API functions
@@ -339,55 +321,11 @@ export const useNavigationEditor = () => {
   const handleNodeFormSubmit = useCallback(
     async (nodeForm: any) => {
       try {
-        // Save verifications to database and get their IDs
-        const verificationIds: string[] = [];
-        const verificationsToSave = nodeForm.verifications || [];
-
-        if (verificationsToSave && verificationsToSave.length > 0) {
-          console.log(
-            '[@useNavigationEditor:handleNodeFormSubmit] Saving verifications:',
-            verificationsToSave.length,
-          );
-          for (let i = 0; i < verificationsToSave.length; i++) {
-            const verification = verificationsToSave[i];
-            try {
-              // Create unique name using node label/ID + command + index
-              const nodeIdentifier =
-                nodeForm.label || navigation.selectedNode?.id || 'unknown-node';
-              const uniqueName = `${nodeIdentifier}_${verification.command || 'unknown-cmd'}_${i}`;
-
-              const verificationPayload = {
-                name: uniqueName,
-                device_model: verification.device_model || 'android_mobile',
-                verification_type: verification.verification_type || 'image',
-                command: verification.command || '',
-                params: verification.params || {},
-              };
-
-              console.log(
-                '[@useNavigationEditor:handleNodeFormSubmit] Saving verification:',
-                verificationPayload,
-              );
-
-              const response = await fetch('/server/verification/saveVerification', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(verificationPayload),
-              });
-
-              const result = await response.json();
-              if (result.success && result.verification_id) {
-                verificationIds.push(result.verification_id);
-              } else {
-                console.error('Error saving verification:', result.error);
-              }
-            } catch (error) {
-              console.error('Error saving verification:', error);
-            }
-          }
-        }
+        // Verifications are now embedded directly - no need to save separately
+        console.log(
+          '[@useNavigationEditor:handleNodeFormSubmit] Using embedded verifications:',
+          nodeForm.verifications?.length || 0,
+        );
 
         // Update the node
         let updatedNodeData: any;
@@ -402,7 +340,6 @@ export const useNavigationEditor = () => {
               label: nodeForm.label,
               type: nodeForm.type,
               description: nodeForm.description,
-              verification_ids: verificationIds,
               verifications: nodeForm.verifications || [],
             },
           };
@@ -416,7 +353,6 @@ export const useNavigationEditor = () => {
               label: nodeForm.label,
               type: nodeForm.type,
               description: nodeForm.description,
-              verification_ids: verificationIds,
               verifications: nodeForm.verifications || [],
             },
           };
@@ -448,7 +384,7 @@ export const useNavigationEditor = () => {
         description: edgeForm?.description,
         actions: edgeForm?.actions?.length || 0,
         retryActions: edgeForm?.retryActions?.length || 0,
-        finalWaitTime: edgeForm?.finalWaitTime,
+        final_wait_time: edgeForm?.final_wait_time,
       });
 
       try {
@@ -486,91 +422,30 @@ export const useNavigationEditor = () => {
           currentSelectedEdge.id,
         );
 
-        // Batch save all actions to database and get their IDs
-        let actionIds: string[] = [];
-        let retryActionIds: string[] = [];
+        // Actions are now embedded directly - no need to save separately
+        console.log(
+          `[@useNavigationEditor:handleEdgeFormSubmit] Using embedded actions: ${edgeForm.actions?.length || 0} actions and ${edgeForm.retryActions?.length || 0} retry actions`,
+        );
 
-        const actionsToSave = edgeForm.actions || [];
-        const retryActionsToSave = edgeForm.retryActions || [];
-
-        if (actionsToSave.length > 0 || retryActionsToSave.length > 0) {
-          try {
-            console.log(
-              `[@useNavigationEditor:handleEdgeFormSubmit] Saving ${actionsToSave.length} actions and ${retryActionsToSave.length} retry actions`,
-            );
-
-            const response = await fetch('/server/action/saveActions', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                actions: actionsToSave.map((action: any) => ({
-                  name: action.description || action.command,
-                  device_model: 'android_mobile',
-                  command: action.command,
-                  params: action.params || {},
-                })),
-                retry_actions: retryActionsToSave.map((action: any) => ({
-                  name: action.description || action.command,
-                  device_model: 'android_mobile',
-                  command: action.command,
-                  params: action.params || {},
-                })),
-              }),
-            });
-
-            if (!response.ok) {
-              const errorText = await response.text();
-              throw new Error(`Server returned ${response.status}: ${errorText}`);
-            }
-
-            const result = await response.json();
-            if (result.success) {
-              actionIds = result.action_ids || [];
-              retryActionIds = result.retry_action_ids || [];
-              console.log(
-                `[@useNavigationEditor:handleEdgeFormSubmit] Actions saved successfully. Got ${actionIds.length} action IDs and ${retryActionIds.length} retry action IDs`,
-              );
-            } else {
-              console.error(
-                '[@useNavigationEditor:handleEdgeFormSubmit] Error saving actions:',
-                result.error,
-              );
-              navigation.setError(`Failed to save actions: ${result.error}`);
-              return;
-            }
-          } catch (error) {
-            console.error(
-              '[@useNavigationEditor:handleEdgeFormSubmit] Error saving actions:',
-              error,
-            );
-            navigation.setError('Failed to save actions');
-            return;
-          }
-        } else {
-          console.log('[@useNavigationEditor:handleEdgeFormSubmit] No actions to save');
-        }
-
-        // Update edge with action IDs and retry action IDs
+        // Update edge with embedded actions and retry actions (no more IDs)
         const updatedEdge = {
           ...currentSelectedEdge,
-          // Ensure finalWaitTime is at top level for UI compatibility
-          finalWaitTime: edgeForm.finalWaitTime,
           data: {
             ...(currentSelectedEdge.data || {}),
-            ...edgeForm,
-            action_ids: actionIds,
-            retry_action_ids: retryActionIds,
             description: edgeForm.description || currentSelectedEdge.data?.description || '',
+            actions: edgeForm.actions || [],
+            retryActions: edgeForm.retryActions || [],
+            final_wait_time: edgeForm.final_wait_time || 0,
+            priority: edgeForm.priority || 'p3',
+            threshold: edgeForm.threshold || 0,
           },
         };
 
         console.log('[@useNavigationEditor:handleEdgeFormSubmit] Updating edge with new data:', {
           id: updatedEdge.id,
-          finalWaitTime: updatedEdge.finalWaitTime,
-          actionIds: actionIds.length,
-          retryActionIds: retryActionIds.length,
+          final_wait_time: updatedEdge.data.final_wait_time,
+          actions: updatedEdge.data.actions.length,
+          retryActions: updatedEdge.data.retryActions.length,
           description: updatedEdge.data.description,
         });
 
@@ -606,7 +481,6 @@ export const useNavigationEditor = () => {
           label: `new_${type}`,
           description: '',
           verifications: [],
-          verification_ids: [],
         },
       };
       navigation.setNodes([...navigation.nodes, newNode as any]);

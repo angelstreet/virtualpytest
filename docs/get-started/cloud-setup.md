@@ -139,11 +139,11 @@ Click **"Deploy"**. Vercel will:
 - ✅ Set up automatic deployments from Git
 - ✅ Create preview deployments for pull requests
 
-## 🏠 Step 3: Set Up Local Backend Host
+## 🏠 Step 3: Set Up Backend Host
 
-The Backend Host must run locally to access hardware (cameras, devices, etc.).
+The Backend Host can run locally (for hardware access) or on cloud runners (for testing).
 
-### 3.1 Install Backend Host Locally
+### 3.1 Option A: Local Installation (Hardware Access)
 
 ```bash
 # Clone repository (if not already done)
@@ -154,35 +154,102 @@ cd virtualpytest
 ./setup/local/install_host.sh
 ```
 
-### 3.2 Configure Backend Host
+### 3.2 Option B: Docker Deployment (Local or Cloud)
+
+#### **Local Docker Deployment**
+```bash
+# Quick setup with Docker
+./setup/docker/install_docker.sh
+./setup/docker/launch_all.sh
+```
+
+#### **Cloud Runner Docker Deployment**
+
+**For Render (Docker Environment):**
+
+1. **Create Docker Web Service** on Render dashboard
+2. **Configure Service Settings**:
+   - **Environment**: Select **"Docker"** 
+   - **Root Directory**: Leave **EMPTY**
+   - **Dockerfile Path**: `backend_host/Dockerfile`
+   - **Port**: 6109
+
+3. **Environment Variables**:
+```bash
+# Required
+HOST_PORT=6109
+HOST_NAME=render-host-1
+DEBUG=false
+DISPLAY=:99
+
+# Minimal config (VNC only) - no DEVICE variables needed
+# OR Full config (VNC + Video + Monitor):
+DEVICE1_VIDEO=/dev/video0
+DEVICE1_VIDEO_CAPTURE_PATH=/var/www/html/stream/capture1
+DEVICE2_VIDEO=/dev/video2  
+DEVICE2_VIDEO_CAPTURE_PATH=/var/www/html/stream/capture2
+```
+
+**For AWS/GCP/Azure:**
+```bash
+# Build and deploy container
+docker build -f backend_host/Dockerfile -t virtualpytest/backend_host .
+docker run -d -p 6109:6109 -p 6080:6080 virtualpytest/backend_host
+```
+
+### 3.3 Configure Backend Host
 
 Create `backend_host/src/.env`:
 
+#### **Minimal Configuration (VNC Only)**
 ```bash
 # Host Configuration
-HOST_PORT=6409
+HOST_NAME=my-host
+HOST_PORT=6109
 DEBUG=false
-ENVIRONMENT=production
 
 # Database Configuration
-SUPABASE_URL=your_supabase_project_url
-SUPABASE_ANON_KEY=your_supabase_anon_key
-SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
-
-# Hardware Interface Settings
-ADB_PATH=/usr/local/bin/adb
-APPIUM_SERVER_URL=http://localhost:4723
-
-# Device Control
-DEFAULT_DEVICE_TIMEOUT=30
-VIDEO_CAPTURE_ENABLED=true
-
-# CORS - Allow your Vercel frontend
-CORS_ORIGINS=https://virtualpytest.vercel.app,http://localhost:3000
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 ```
 
-### 3.3 Launch Backend Host
+#### **Full Configuration (VNC + Video + Monitor)**
+```bash
+# Host Configuration
+HOST_NAME=my-host
+HOST_PORT=6109
+DEBUG=false
 
+# Database Configuration
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+
+# Device 1 - Video capture configuration
+DEVICE1_VIDEO=/dev/video0
+DEVICE1_AUDIO=plughw:2,0
+DEVICE1_VIDEO_CAPTURE_PATH=/var/www/html/stream/capture1
+DEVICE1_FPS=10
+
+# Device 2 - Additional video device (optional)
+DEVICE2_VIDEO=/dev/video2
+DEVICE2_AUDIO=plughw:3,0
+DEVICE2_VIDEO_CAPTURE_PATH=/var/www/html/stream/capture2
+DEVICE2_FPS=10
+
+# Optional: Cloud Storage & AI
+CLOUDFLARE_R2_ENDPOINT=your_r2_endpoint
+CLOUDFLARE_R2_ACCESS_KEY_ID=your_access_key
+CLOUDFLARE_R2_SECRET_ACCESS_KEY=your_secret_key
+OPENROUTER_API_KEY=your_openrouter_key
+```
+
+**Note**: Backend Host automatically detects which services to start based on your configuration:
+- **No DEVICE variables**: Only VNC services (minimal)
+- **With DEVICE variables**: VNC + Video capture + Monitor services
+
+### 3.4 Launch Backend Host
+
+#### **Local Launch**
 ```bash
 # Launch only the host service
 ./setup/local/launch_host.sh
@@ -193,7 +260,25 @@ source ../venv/bin/activate
 python src/app.py
 ```
 
-### 3.4 Expose Host to Internet (Optional)
+#### **Docker Launch**
+```bash
+# Quick Docker launch (all services)
+./setup/docker/launch_all.sh
+
+# Or just backend_host
+cd docker
+docker compose up backend_host
+```
+
+### 3.5 Access Backend Host Services
+
+Once running, you can access:
+
+- **API Endpoints**: `http://localhost:6109/host/*`
+- **NoVNC Web Desktop**: `http://localhost:6080` (virtual desktop access)
+- **Health Check**: `http://localhost:6109/host/health`
+
+### 3.6 Expose Host to Internet (Optional)
 
 If you need to access the Backend Host from outside your local network:
 
@@ -202,8 +287,9 @@ If you need to access the Backend Host from outside your local network:
 # Install ngrok
 npm install -g ngrok
 
-# Expose local host
-ngrok http 6409
+# Expose local host (API + NoVNC)
+ngrok http 6109
+ngrok http 6080  # In separate terminal for NoVNC
 ```
 
 Update your frontend environment with the ngrok URL:
@@ -212,10 +298,14 @@ VITE_BACKEND_HOST_URL=https://your-ngrok-url.ngrok.io
 ```
 
 #### Option B: Port Forwarding
-Configure your router to forward port 6409 to your local machine, then update:
+Configure your router to forward ports 6109 and 6080 to your local machine:
 ```bash
-VITE_BACKEND_HOST_URL=http://your-public-ip:6409
+VITE_BACKEND_HOST_URL=http://your-public-ip:6109
+# NoVNC available at: http://your-public-ip:6080
 ```
+
+#### Option C: Cloud Deployment (Render)
+Deploy Backend Host directly to Render using Docker (see Step 3.2 above)
 
 ## 🔧 Step 4: Configure Cross-Service Communication
 
@@ -317,7 +407,10 @@ curl https://virtualpytest-backend-server.onrender.com/health
 curl https://virtualpytest.vercel.app
 
 # Backend Host (Local)
-curl http://localhost:6409/health
+curl http://localhost:6109/host/health
+
+# NoVNC Web Desktop (Local)
+curl http://localhost:6080
 ```
 
 ## 🎯 Production Checklist

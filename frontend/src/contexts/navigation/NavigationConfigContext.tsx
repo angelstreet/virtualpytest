@@ -445,75 +445,9 @@ export const NavigationConfigProvider: React.FC<NavigationConfigProviderProps> =
     }
   }, []);
 
-  // Save tree to database using normalized API
-  const saveToConfig = useCallback(
-    async (userInterfaceId: string, state: NavigationConfigState) => {
-      try {
-        state.setIsLoading(true);
-        state.setError(null);
 
-        console.log(
-          '[@context:NavigationConfigProvider:saveToConfig] Saving tree for userInterface:',
-          userInterfaceId,
-        );
-        console.log('[@context:NavigationConfigProvider:saveToConfig] Tree data:', {
-          nodes: state.nodes.length,
-          edges: state.edges.length,
-        });
 
-        // Use the new normalized API to save nodes and edges
-        if (actualTreeId) {
-          await saveTreeData(actualTreeId, state.nodes, state.edges);
-          
-          console.log('[@context:NavigationConfigProvider:saveToConfig] Tree saved successfully');
-          // Update initial state to reflect saved state
-          state.setInitialState({ nodes: [...state.nodes], edges: [...state.edges] });
-          state.setHasUnsavedChanges(false);
-        } else {
-          throw new Error('No tree ID available for saving');
-        }
-      } catch (error) {
-        console.error(`[@context:NavigationConfigProvider:saveToConfig] Error saving tree:`, error);
-        state.setError(error instanceof Error ? error.message : 'Unknown error occurred');
-        throw error; // Re-throw to allow caller to handle
-      } finally {
-        state.setIsLoading(false);
-      }
-    },
-    [actualTreeId, saveTreeData],
-  );
 
-  // List available user interfaces
-  const listAvailableUserInterfaces = useCallback(async (): Promise<any[]> => {
-    try {
-      const response = await fetch('/server/navigationTrees/userinterfaces');
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-
-      // The navigationTrees endpoint returns wrapped in success object
-      return data.success && Array.isArray(data.userinterfaces) ? data.userinterfaces : [];
-    } catch (error) {
-      console.error(
-        `[@context:NavigationConfigProvider:listAvailableUserInterfaces] Error:`,
-        error,
-      );
-      return [];
-    }
-  }, []);
-
-  // TODO: Create empty tree functionality needs to be implemented with normalized API
-  // This function is currently not used but may be needed in the future
-  // const createEmptyTree = useCallback(
-  //   async (userInterfaceId: string, state: NavigationConfigState) => {
-  //     // Implementation needed: Create tree metadata first, then add empty nodes/edges
-  //     throw new Error('createEmptyTree not implemented for normalized API');
-  //   },
-  //   [],
-  // );
 
   // ========================================
   // CONTEXT VALUE

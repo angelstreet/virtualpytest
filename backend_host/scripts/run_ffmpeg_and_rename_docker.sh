@@ -1,10 +1,18 @@
 #!/bin/bash
 
 # Configuration array for grabbers: video_device|audio_device|capture_dir|fps
-declare -A GRABBERS=(
-  ["0"]="/dev/video0|plughw:2,0|/var/www/html/stream/capture1|10"
-  ["1"]="/dev/video2|plughw:3,0|/var/www/html/stream/capture2|10"
-)
+# Load dynamic GRABBERS config if available, otherwise use defaults
+if [ -f "/tmp/grabbers_config.sh" ]; then
+    source "/tmp/grabbers_config.sh"
+    echo "Loaded dynamic GRABBERS configuration from /tmp/grabbers_config.sh"
+else
+    # Default fallback configuration
+    declare -A GRABBERS=(
+        ["0"]="/dev/video0|plughw:2,0|/var/www/html/stream/capture1|10"
+        ["1"]="/dev/video2|plughw:3,0|/var/www/html/stream/capture2|10"
+    )
+    echo "Using default GRABBERS configuration"
+fi
 
 # Simple log reset function - truncates log if over 30MB
 reset_log_if_large() {
