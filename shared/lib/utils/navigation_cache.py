@@ -55,14 +55,25 @@ def populate_cache(tree_id: str, team_id: str, nodes: List[Dict], edges: List[Di
     try:
         print(f"[@navigation:cache:populate_cache] Building NetworkX graph for tree: {tree_id}")
         
-        from shared.lib.utils.navigation_graph import create_networkx_graph
+        try:
+            from shared.lib.utils.navigation_graph import create_networkx_graph
+        except ImportError as ie:
+            print(f"[@navigation:cache:populate_cache] Failed to import navigation_graph module: {ie}")
+            import traceback
+            traceback.print_exc()
+            return None
         
         if not nodes:
             print(f"[@navigation:cache:populate_cache] No nodes found for tree: {tree_id}")
             return None
             
         # Build NetworkX graph
+        print(f"[@navigation:cache:populate_cache] Creating NetworkX graph with {len(nodes)} nodes and {len(edges)} edges")
         G = create_networkx_graph(nodes, edges)
+        
+        if not G:
+            print(f"[@navigation:cache:populate_cache] create_networkx_graph returned None for tree: {tree_id}")
+            return None
         
         # Cache the NetworkX graph
         _navigation_graphs_cache[cache_key] = G
@@ -103,6 +114,8 @@ def populate_cache(tree_id: str, team_id: str, nodes: List[Dict], edges: List[Di
         
     except Exception as e:
         print(f"[@navigation:cache:populate_cache] Error building graph: {e}")
+        import traceback
+        traceback.print_exc()
         return None
 
 def _cache_graph_under_key(tree_id: str, team_id: str, graph: nx.DiGraph, nodes: List[Dict], edges: List[Dict]) -> None:
@@ -220,25 +233,52 @@ def force_refresh_cache(tree_id: str, team_id: str) -> bool:
         True if cache was refreshed successfully
     """
     try:
+        print(f"[@navigation:cache:force_refresh_cache] Starting cache refresh for tree: {tree_id}, team: {team_id}")
+        
         # Invalidate existing cache
         invalidate_cache(tree_id, team_id)
+        print(f"[@navigation:cache:force_refresh_cache] Cache invalidated for tree: {tree_id}")
         
         # Reload tree data using the actual tree_id
         try:
             from shared.lib.supabase.navigation_trees_db import get_full_tree
+            print(f"[@navigation:cache:force_refresh_cache] Calling get_full_tree for tree: {tree_id}")
+            
             result = get_full_tree(tree_id, team_id)
+            print(f"[@navigation:cache:force_refresh_cache] get_full_tree result: success={result.get('success')}")
+            
             if result['success']:
-                print(f"[@navigation:cache:force_refresh_cache] Successfully refreshed cache for tree: {tree_id}")
-                return True
+                # Also populate the cache with the retrieved data
+                nodes = result.get('nodes', [])
+                edges = result.get('edges', [])
+                print(f"[@navigation:cache:force_refresh_cache] Retrieved {len(nodes)} nodes and {len(edges)} edges")
+                
+                # Populate cache using the retrieved data
+                graph = populate_cache(tree_id, team_id, nodes, edges)
+                if graph:
+                    print(f"[@navigation:cache:force_refresh_cache] Successfully refreshed cache for tree: {tree_id}")
+                    return True
+                else:
+                    print(f"[@navigation:cache:force_refresh_cache] Failed to populate cache after retrieving tree data")
+                    return False
             else:
-                print(f"[@navigation:cache:force_refresh_cache] Failed to reload tree: {result.get('error', 'Unknown error')}")
+                error_msg = result.get('error', 'Unknown error')
+                print(f"[@navigation:cache:force_refresh_cache] Failed to reload tree: {error_msg}")
                 return False
+                
+        except ImportError as ie:
+            print(f"[@navigation:cache:force_refresh_cache] Import error: {ie}")
+            return False
         except Exception as e:
             print(f"[@navigation:cache:force_refresh_cache] Error reloading tree: {e}")
+            import traceback
+            traceback.print_exc()
             return False
             
     except Exception as e:
         print(f"[@navigation:cache:force_refresh_cache] Error refreshing cache: {e}")
+        import traceback
+        traceback.print_exc()
         return False
 
 def get_cached_tree_data(tree_id: str, team_id: str) -> Optional[Dict]:

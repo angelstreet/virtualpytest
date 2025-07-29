@@ -230,6 +230,8 @@ def refresh_navigation_cache():
         tree_id = data.get('tree_id')
         team_id = data.get('team_id') or get_team_id()
         
+        print(f"[@pathfinding:refresh_cache] Parameters: tree_id={tree_id}, team_id={team_id}")
+        
         if not tree_id:
             return jsonify({
                 'success': False,
@@ -240,31 +242,41 @@ def refresh_navigation_cache():
         try:
             from shared.lib.utils.navigation_cache import force_refresh_cache
             
+            print(f"[@pathfinding:refresh_cache] Calling force_refresh_cache")
             refresh_success = force_refresh_cache(tree_id, team_id)
+            print(f"[@pathfinding:refresh_cache] force_refresh_cache returned: {refresh_success}")
             
             if refresh_success:
                 message = f"Cache refreshed for tree {tree_id}"
+                print(f"[@pathfinding:refresh_cache] Success: {message}")
                 return jsonify({
                     'success': True,
                     'message': message
                 })
             else:
+                error_msg = f'Failed to refresh cache for tree {tree_id}'
+                print(f"[@pathfinding:refresh_cache] Failure: {error_msg}")
                 return jsonify({
                     'success': False,
-                    'error': f'Failed to refresh cache for tree {tree_id}',
+                    'error': error_msg,
                     'error_code': 'REFRESH_FAILED'
                 }), 500
             
         except ImportError as e:
-            print(f"[@pathfinding:refresh_cache] Cache modules not available: {e}")
+            error_msg = f"Cache modules not available: {e}"
+            print(f"[@pathfinding:refresh_cache] Import error: {error_msg}")
             return jsonify({
                 'success': False,
                 'error': 'Navigation cache modules not available',
-                'error_code': 'MODULES_UNAVAILABLE'
+                'error_code': 'MODULES_UNAVAILABLE',
+                'details': str(e)
             }), 503
         
     except Exception as e:
-        print(f"[@pathfinding:refresh_cache] Error: {e}")
+        error_msg = f"API error: {e}"
+        print(f"[@pathfinding:refresh_cache] Exception: {error_msg}")
+        import traceback
+        traceback.print_exc()
         return jsonify({
             'success': False,
             'error': str(e),

@@ -2,7 +2,8 @@ import { useCallback, useState, useEffect } from 'react';
 
 import { useNavigation } from '../../contexts/navigation/NavigationContext';
 import { Host } from '../../types/common/Host_Types';
-import { EdgeForm, EdgeAction, UINavigationEdge } from '../../types/pages/Navigation_Types';
+import { EdgeForm, UINavigationEdge } from '../../types/pages/Navigation_Types';
+import { EdgeAction } from '../../types/controller/Action_Types';
 import { useAction } from '../actions';
 
 import { useEdge } from './useEdge';

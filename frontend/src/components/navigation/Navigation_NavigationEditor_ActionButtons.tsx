@@ -73,13 +73,11 @@ export const NavigationEditorActionButtons: React.FC<NavigationEditorActionButto
         }}
         size="small"
         title={
-          !isLocked
-            ? 'Cannot save - tree is in read-only mode'
-            : hasUnsavedChanges
-              ? 'Save Changes to Config'
-              : 'Save to Config'
+          hasUnsavedChanges
+            ? 'Save Changes to Config'
+            : 'Save to Config'
         }
-        disabled={isLoading || !!error || !isLocked}
+        disabled={isLoading || !!error}
         color={hasUnsavedChanges ? 'primary' : 'default'}
       >
         {isLoading ? <CircularProgress size={20} /> : <SaveIcon />}
