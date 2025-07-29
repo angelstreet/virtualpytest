@@ -425,82 +425,25 @@ export const NavigationConfigProvider: React.FC<NavigationConfigProviderProps> =
 
   // List available user interfaces
   const listAvailableUserInterfaces = useCallback(async (): Promise<any[]> => {
-    async (userInterfaceId: string, state: NavigationConfigState) => {
-      try {
-        state.setIsLoading(true);
-        state.setError(null);
+    try {
+      const response = await fetch('/server/navigationTrees/userinterfaces');
 
-        // Get trees for this userInterface directly by ID
-        const response = await fetch(
-          `/server/navigationTrees/getTreeByUserInterfaceId/${userInterfaceId}`,
-          {
-            headers: {
-              'Content-Type': 'application/json',
-            },
-          },
-        );
-
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const data = await response.json();
-
-        if (data.success && data.tree) {
-          // Get the tree data
-          const tree = data.tree;
-          const treeData = tree.metadata || {};
-
-          const nodes = treeData.nodes || [];
-          const edges = treeData.edges || [];
-          const actualTreeId = tree.id || null;
-
-          console.log(
-            `[@context:NavigationConfigProvider:loadFromConfig] Loaded tree for userInterface: ${userInterfaceId} with ${nodes.length} nodes and ${edges.length} edges`,
-          );
-
-          // The backend cache now provides resolved objects, so we can use them directly
-          // No need for additional ID resolution here
-          state.setNodes(nodes);
-          state.setEdges(edges);
-          setActualTreeId(actualTreeId);
-
-          console.log(
-            `[@context:NavigationConfigProvider:loadFromConfig] Set resolved tree data with ${nodes.length} nodes and ${edges.length} edges`,
-          );
-
-          // Set initial state for change tracking
-          state.setInitialState({ nodes: [...nodes], edges: [...edges] });
-          state.setHasUnsavedChanges(false);
-
-          // Device position initialization is now handled in NavigationContext
-        } else {
-          // Create empty tree structure
-          state.setNodes([]);
-          state.setEdges([]);
-          setActualTreeId(null);
-          state.setInitialState({ nodes: [], edges: [] });
-          state.setHasUnsavedChanges(false);
-          state.setError(data.error || 'Failed to load tree');
-        }
-      } catch (error) {
-        console.error(
-          `[@context:NavigationConfigProvider:loadFromConfig] Error loading tree:`,
-          error,
-        );
-        state.setError(error instanceof Error ? error.message : 'Unknown error occurred');
-        // Create empty tree structure on error
-        state.setNodes([]);
-        state.setEdges([]);
-        setActualTreeId(null);
-        state.setInitialState({ nodes: [], edges: [] });
-        state.setHasUnsavedChanges(false);
-      } finally {
-        state.setIsLoading(false);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
-    },
-    [],
-  );
+
+      const data = await response.json();
+
+      // The navigationTrees endpoint returns wrapped in success object
+      return data.success && Array.isArray(data.userinterfaces) ? data.userinterfaces : [];
+    } catch (error) {
+      console.error(
+        `[@context:NavigationConfigProvider:listAvailableUserInterfaces] Error:`,
+        error,
+      );
+      return [];
+    }
+  }, []);
 
   // Save tree to database using normalized API
   const saveToConfig = useCallback(
