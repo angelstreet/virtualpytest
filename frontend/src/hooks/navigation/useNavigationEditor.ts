@@ -138,9 +138,11 @@ export const useNavigationEditor = () => {
           position_x: nodeData.position?.x || 0,
           position_y: nodeData.position?.y || 0,
           node_type: nodeData.type || 'default',
-          description: nodeData.description,
           verifications: nodeData.verifications || [],
-          data: nodeData.data || {}
+          data: {
+            ...(nodeData.data || {}),
+            description: nodeData.description
+          }
         };
 
         await navigationConfig.saveNode(treeId, normalizedNode);
@@ -160,12 +162,14 @@ export const useNavigationEditor = () => {
           edge_id: edgeData.id,
           source_node_id: edgeData.source,
           target_node_id: edgeData.target,
-          description: edgeData.description,
           actions: edgeData.actions || [],
           retry_actions: edgeData.retryActions || [],
           final_wait_time: edgeData.final_wait_time || 0,
           edge_type: edgeData.edgeType || 'default',
-          data: edgeData.data || {}
+          data: {
+            ...(edgeData.data || {}),
+            description: edgeData.description
+          }
         };
 
         await navigationConfig.saveEdge(treeId, normalizedEdge);
@@ -339,19 +343,33 @@ export const useNavigationEditor = () => {
           navigation.setSelectedNode(updatedNodeData);
         }
 
-        // Close dialog and mark changes
-        navigation.setIsNodeDialogOpen(false);
-        navigation.markUnsavedChanges();
+        // Auto-save to database
+        if (updatedNodeData && navigationConfig.actualTreeId) {
+          console.log('[@useNavigationEditor:handleNodeFormSubmit] Auto-saving node to database...');
+          
+          // Use the existing saveNode wrapper function
+          await saveNode(navigationConfig.actualTreeId, {
+            id: updatedNodeData.id,
+            label: updatedNodeData.data.label,
+            type: updatedNodeData.type || 'uiScreen',
+            position: updatedNodeData.position,
+            description: updatedNodeData.data.description,
+            verifications: updatedNodeData.data.verifications || [],
+            data: updatedNodeData.data,
+          });
+          console.log('[@useNavigationEditor:handleNodeFormSubmit] Node auto-saved successfully');
+        }
 
-        console.log(
-          '[@useNavigationEditor:handleNodeFormSubmit] Node saved successfully - manual save required',
-        );
+        // Close dialog - no need to mark unsaved changes since we auto-saved
+        navigation.setIsNodeDialogOpen(false);
+
+        console.log('[@useNavigationEditor:handleNodeFormSubmit] Node saved successfully to database');
       } catch (error) {
         console.error('Error during node save:', error);
         navigation.setError('Failed to save node changes');
       }
     },
-    [navigation],
+    [navigation, navigationConfig.actualTreeId, saveNode],
   );
 
   const handleEdgeFormSubmit = useCallback(
@@ -431,18 +449,36 @@ export const useNavigationEditor = () => {
 
         navigation.setEdges(updatedEdges);
         navigation.setSelectedEdge(updatedEdge);
-        navigation.setIsEdgeDialogOpen(false);
-        navigation.markUnsavedChanges();
 
-        console.log(
-          '[@useNavigationEditor:handleEdgeFormSubmit] Edge actions saved successfully - manual save required',
-        );
+        // Auto-save to database
+        if (navigationConfig.actualTreeId) {
+          console.log('[@useNavigationEditor:handleEdgeFormSubmit] Auto-saving edge to database...');
+          
+          // Use the existing saveEdge wrapper function
+          await saveEdge(navigationConfig.actualTreeId, {
+            id: updatedEdge.id,
+            source: updatedEdge.source,
+            target: updatedEdge.target,
+            description: updatedEdge.data.description,
+            actions: updatedEdge.data.actions || [],
+            retryActions: updatedEdge.data.retryActions || [],
+            final_wait_time: updatedEdge.data.final_wait_time || 0,
+            edgeType: updatedEdge.type || 'default',
+            data: updatedEdge.data,
+          });
+          console.log('[@useNavigationEditor:handleEdgeFormSubmit] Edge auto-saved successfully');
+        }
+
+        navigation.setIsEdgeDialogOpen(false);
+        // No need to mark unsaved changes since we auto-saved
+
+        console.log('[@useNavigationEditor:handleEdgeFormSubmit] Edge saved successfully to database');
       } catch (error) {
         console.error('[@useNavigationEditor:handleEdgeFormSubmit] Error during edge save:', error);
         navigation.setError('Failed to save edge actions');
       }
     },
-    [navigation],
+    [navigation, navigationConfig.actualTreeId, saveEdge],
   );
 
   const addNewNode = useCallback(
