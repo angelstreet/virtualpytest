@@ -48,6 +48,11 @@ def get_all_navigation_trees():
             'message': f'Server error: {str(e)}'
         }), 500
 
+@server_navigation_trees_bp.route('/navigationTrees/getAllTrees', methods=['GET'])
+def get_all_navigation_trees_alias():
+    """Alias for get_all_navigation_trees - used by Dashboard frontend."""
+    return get_all_navigation_trees()
+
 @server_navigation_trees_bp.route('/navigationTrees/<tree_id>/metadata', methods=['GET'])
 def get_tree_metadata_api(tree_id):
     """Get tree basic metadata information."""
