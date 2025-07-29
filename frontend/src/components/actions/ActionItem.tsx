@@ -14,8 +14,7 @@ import {
 } from '@mui/material';
 import React from 'react';
 
-import type { Actions } from '../../types/controller/Action_Types';
-import { EdgeAction } from '../../types/pages/Navigation_Types';
+import type { Actions, EdgeAction } from '../../types/controller/Action_Types';
 
 interface ActionItemProps {
   action: EdgeAction;
@@ -141,6 +140,26 @@ export const ActionItem: React.FC<ActionItemProps> = ({
             value={getParamValue('element_id') || ''}
             onChange={(e) => safeHandleParamChange('element_id', e.target.value)}
             placeholder="e.g., Home Button, Menu Icon"
+            sx={{
+              width: 220,
+              '& .MuiInputBase-input': {
+                padding: '3px 6px',
+                fontSize: '0.75rem',
+              },
+            }}
+          />,
+        );
+        break;
+
+      case 'click_element_by_id':
+        fields.push(
+          <TextField
+            key="element_id"
+            label="Element ID"
+            size="small"
+            value={getParamValue('element_id') || ''}
+            onChange={(e) => safeHandleParamChange('element_id', e.target.value)}
+            placeholder="e.g., 8, 15, 23"
             sx={{
               width: 220,
               '& .MuiInputBase-input': {
