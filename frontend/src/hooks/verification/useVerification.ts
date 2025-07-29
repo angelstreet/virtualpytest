@@ -20,12 +20,16 @@ interface UseVerificationProps {
   selectedHost: Host | null;
   deviceId?: string | null;
   captureSourcePath?: string; // TODO: Rename to image_source_url
+  nodeId?: string | null;  // For node verification - actual node ID
+  treeId?: string | null;  // For node verification - actual tree ID
 }
 
 export const useVerification = ({
   selectedHost,
   deviceId,
   captureSourcePath,
+  nodeId,
+  treeId,
 }: UseVerificationProps) => {
   // Get verification data from centralized context
   const { getAvailableVerificationTypes } = useDeviceData();
@@ -219,9 +223,8 @@ export const useVerification = ({
 
         const batchPayload = {
           verifications: validVerifications,
-          model: device?.device_model || 'unknown',
-          node_id: 'verification-editor',
-          tree_id: 'verification-tree',
+          node_id: nodeId ,        // Use actual node_id or fallback
+          tree_id: treeId,          // Use actual tree_id or fallback
           image_source_url: image_source_url,
         };
 

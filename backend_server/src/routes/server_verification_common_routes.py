@@ -224,6 +224,8 @@ def verification_execute_batch():
         tree_id = data.get('tree_id')
         node_id = data.get('node_id')
         
+        print(f"[@route:server_verification_common:verification_execute_batch] DEBUG - Received data keys: {list(data.keys())}")
+        print(f"[@route:server_verification_common:verification_execute_batch] DEBUG - Device ID from request: {data.get('device_id')} (using: {device_id})")
         print(f"[@route:server_verification_common:verification_execute_batch] Processing {len(verifications)} verifications")
         print(f"[@route:server_verification_common:verification_execute_batch] Host: {host.get('host_name')}, Device ID: {device_id}")
         
