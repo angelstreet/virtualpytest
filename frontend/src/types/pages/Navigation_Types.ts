@@ -1,5 +1,8 @@
-import { Action } from '../controller/Action_Types';
+import { Action, EdgeAction } from '../controller/Action_Types';
 import { Verification } from '../verification/Verification_Types';
+
+// Re-export EdgeAction for convenience
+export type { EdgeAction };
 
 // Navigation types are centralized in this file
 // NavigationConfig_Types and NavigationContext_Types are imported where needed
@@ -163,6 +166,11 @@ export interface UINavigationEdge {
   target: string;
   type: string;
   data: UINavigationEdgeData;
+  sourceHandle?: string; // ReactFlow sourceHandle property
+  targetHandle?: string; // ReactFlow targetHandle property
+  animated?: boolean; // ReactFlow animated property
+  style?: any; // ReactFlow style property
+  markerEnd?: any; // ReactFlow marker property
 }
 
 // =====================================================
@@ -226,6 +234,7 @@ export interface EdgeForm {
   actions: Action[];
   retryActions: Action[];
   final_wait_time: number; // Using standard naming convention
+  description?: string; // Edge description
 
   // Priority and threshold fields
   priority?: 'p1' | 'p2' | 'p3'; // Priority level (default: p3)

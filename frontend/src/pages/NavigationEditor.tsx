@@ -10,7 +10,7 @@ import {
   Button,
 } from '@mui/material';
 import React, { useEffect, useCallback, useRef, useState, useMemo } from 'react';
-import { useLocation, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import ReactFlow, {
   Background,
   Controls,
@@ -241,9 +241,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = React.memo(
       onPaneClick,
 
       // New normalized API
-      loadTreeData,
       saveTreeWithStateUpdate,
-      listAvailableTrees,
       isLocked,
       saveNodeWithStateUpdate,
       saveEdgeWithStateUpdate,

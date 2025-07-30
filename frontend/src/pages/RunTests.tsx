@@ -327,12 +327,14 @@ const RunTests: React.FC = () => {
         
         // Check for explicit test result indicators in the output
         if (outputText.includes('overall result: pass') || 
+            outputText.includes('result: success') ||
             outputText.includes('all validation steps completed successfully') ||
             outputText.includes('successfully navigated to') ||
             outputText.includes('navigation completed successfully') ||
             outputText.includes('validation completed successfully')) {
           testResult = 'success';
         } else if (outputText.includes('overall result: fail') ||
+                   outputText.includes('result: failed') ||
                    outputText.includes('validation failed') ||
                    outputText.includes('navigation failed') ||
                    outputText.includes('could not navigate to') ||

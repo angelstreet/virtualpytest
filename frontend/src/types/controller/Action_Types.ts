@@ -156,6 +156,9 @@ export interface EdgeAction {
   command: string;
   name: string;
   params: ActionParams;
+  action_type?: 'remote' | 'av' | 'power' | 'network'; // Action type
+  requiresInput?: boolean; // Whether action requires user input
+  inputValue?: string; // User-provided input value
 
   // Execution results (added by frontend during execution)
   success?: boolean;
@@ -163,6 +166,7 @@ export interface EdgeAction {
   error?: string;
   executedAt?: string;
   resultType?: 'SUCCESS' | 'FAIL' | 'ERROR';
+  executionTime?: number; // Execution time in milliseconds
 }
 
 // Controller actions organized by category (what EdgeEditDialog expects)

@@ -141,7 +141,7 @@ export const useNavigationEditor = () => {
       const updatedEdges = addEdge(newEdge, navigation.edges);
 
       // Update edges in navigation context
-      navigation.setEdges(updatedEdges);
+      navigation.setEdges(updatedEdges as UINavigationEdge[]);
 
       // Mark as having unsaved changes
       navigation.setHasUnsavedChanges(true);

@@ -5,7 +5,7 @@ import { NODE_TYPE_COLORS, UI_BADGE_COLORS } from '../../config/validationColors
 import { useNavigation } from '../../contexts/navigation/NavigationContext';
 import { useNavigationStack } from '../../contexts/navigation/NavigationStackContext';
 import { useValidationColors } from '../../hooks/validation/useValidationColors';
-import type { UINavigationNode as UINavigationNodeType } from '../../types/pages/Navigation_Types';
+import type { UINavigationNode as UINavigationNodeType, UINavigationEdge } from '../../types/pages/Navigation_Types';
 import { getZIndex } from '../../utils/zIndexUtils';
 
 export const UINavigationNode: React.FC<NodeProps<UINavigationNodeType['data']>> = ({
@@ -19,7 +19,7 @@ export const UINavigationNode: React.FC<NodeProps<UINavigationNodeType['data']>>
   const [imageKey, setImageKey] = useState<string | number>(0); // Key to force image refresh
   const { getEdges } = useReactFlow();
   const currentEdges = getEdges();
-  const { getNodeColors } = useValidationColors(currentEdges);
+  const { getNodeColors } = useValidationColors(currentEdges as UINavigationEdge[]);
 
   // Use screenshot URL with aggressive cache-busting
   const screenshotUrl = React.useMemo(() => {

@@ -1,12 +1,12 @@
 import { Box, TextField } from '@mui/material';
 import React from 'react';
 
-import type { EdgeAction } from '../../types/controller/Action_Types';
+import type { Action } from '../../types/controller/Action_Types';
 
 interface ActionControlsProps {
-  action: EdgeAction;
+  action: Action;
   index: number;
-  onUpdateAction: (index: number, updates: Partial<EdgeAction>) => void;
+  onUpdateAction: (index: number, updates: Partial<Action>) => void;
 }
 
 export const ActionControls: React.FC<ActionControlsProps> = ({
@@ -43,18 +43,20 @@ export const ActionControls: React.FC<ActionControlsProps> = ({
     onUpdateAction(index, {
       inputValue: value,
       params: updatedParams,
-    });
+    } as Partial<Action>);
   };
 
   // Only show input field if action requires input
-  if (!action.requiresInput) {
+  const actionWithInput = action as Action & { requiresInput?: boolean };
+  if (!actionWithInput.requiresInput) {
     return null;
   }
 
-  const getInputValue = (action: EdgeAction): string => {
+  const getInputValue = (action: Action): string => {
     // First check if action has an inputValue already set
-    if (action.inputValue !== undefined) {
-      return action.inputValue;
+    const actionWithInput = action as Action & { inputValue?: string };
+    if (actionWithInput.inputValue !== undefined) {
+      return actionWithInput.inputValue;
     }
 
     // Safe property access with type checking

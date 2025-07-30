@@ -1,7 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 
 import { useDeviceData } from '../../contexts/device/DeviceDataContext';
-import { Host } from '../../types/common/Host_Types';
 import { Verification } from '../../types/verification/Verification_Types';
 
 // Define interfaces for verification data structures

@@ -14,14 +14,14 @@ import {
 } from '@mui/material';
 import React from 'react';
 
-import type { Actions, EdgeAction } from '../../types/controller/Action_Types';
+import type { Actions, Action } from '../../types/controller/Action_Types';
 
 interface ActionItemProps {
-  action: EdgeAction;
+  action: Action;
   index: number;
   availableActions: Actions;
   onActionSelect: (index: number, actionId: string) => void;
-  onUpdateAction: (index: number, updates: Partial<EdgeAction>) => void;
+  onUpdateAction: (index: number, updates: Partial<Action>) => void;
   onRemoveAction: (index: number) => void;
   onMoveUp: (index: number) => void;
   onMoveDown: (index: number) => void;

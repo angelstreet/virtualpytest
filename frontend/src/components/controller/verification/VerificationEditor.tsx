@@ -207,7 +207,7 @@ export const VerificationEditor: React.FC<VerificationEditorProps> = React.memo(
                 },
               }}
             >
-              {model && verification.selectedHost && (
+              {model && (
                 <VerificationsList
                   verifications={verification.verifications}
                   availableVerifications={verification.availableVerificationTypes}
@@ -217,7 +217,7 @@ export const VerificationEditor: React.FC<VerificationEditorProps> = React.memo(
                   onTest={verification.handleTest}
                   testResults={verification.testResults}
                   onReferenceSelected={verification.handleReferenceSelected}
-                  selectedHost={verification.selectedHost}
+                  selectedHost={verification.currentHost || undefined}
                   modelReferences={verification.modelReferences}
                   referencesLoading={verification.referencesLoading}
                   showCollapsible={false}

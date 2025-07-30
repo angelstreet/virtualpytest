@@ -2,13 +2,13 @@ import { Box } from '@mui/material';
 import React from 'react';
 
 import { useDeviceData } from '../../contexts/device/DeviceDataContext';
-import { EdgeAction } from '../../types/pages/Navigation_Types';
+import { Action } from '../../types/controller/Action_Types';
 
 import { ActionItem } from './ActionItem';
 
 interface ActionsListProps {
-  actions: EdgeAction[];
-  onActionsUpdate: (actions: EdgeAction[]) => void;
+  actions: Action[];
+  onActionsUpdate: (actions: Action[]) => void;
 }
 
 export type { ActionsListProps };
@@ -46,10 +46,10 @@ export const ActionsList: React.FC<ActionsListProps> = ({ actions, onActionsUpda
     onActionsUpdate(updatedActions);
   };
 
-  const handleUpdateAction = (index: number, updates: Partial<EdgeAction>) => {
+  const handleUpdateAction = (index: number, updates: Partial<Action>) => {
     const updatedActions = actions.map((action, i) => {
       if (i === index) {
-        return { ...action, ...updates };
+        return { ...action, ...updates } as Action;
       }
       return action;
     });

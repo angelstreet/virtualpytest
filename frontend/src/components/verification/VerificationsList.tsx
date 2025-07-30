@@ -30,7 +30,7 @@ export interface VerificationsListProps {
   onTest: () => void;
   testResults: Verification[];
   onReferenceSelected: (referenceName: string, referenceData: any) => void;
-  selectedHost: Host;
+  selectedHost?: Host;
   modelReferences: ModelReferences;
   referencesLoading: boolean;
   showCollapsible: boolean;

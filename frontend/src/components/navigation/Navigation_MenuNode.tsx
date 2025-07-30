@@ -4,7 +4,7 @@ import { Handle, Position, NodeProps, useReactFlow } from 'reactflow';
 import { UI_BADGE_COLORS } from '../../config/validationColors';
 import { useNavigation } from '../../contexts/navigation/NavigationContext';
 import { useValidationColors } from '../../hooks/validation';
-import { UINavigationNode } from '../../types/pages/Navigation_Types';
+import { UINavigationNode, UINavigationEdge } from '../../types/pages/Navigation_Types';
 import { getZIndex } from '../../utils/zIndexUtils';
 
 export const UIMenuNode: React.FC<NodeProps<UINavigationNode['data']>> = ({
@@ -17,7 +17,7 @@ export const UIMenuNode: React.FC<NodeProps<UINavigationNode['data']>> = ({
   const [imageKey, setImageKey] = useState<string | number>(0); // Key to force image refresh
   const { getEdges } = useReactFlow();
   const currentEdges = getEdges();
-  const { getNodeColors } = useValidationColors(currentEdges);
+  const { getNodeColors } = useValidationColors(currentEdges as UINavigationEdge[]);
 
   // Use screenshot URL with aggressive cache-busting
   const screenshotUrl = React.useMemo(() => {

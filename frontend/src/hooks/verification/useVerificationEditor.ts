@@ -63,14 +63,13 @@ export const useVerificationEditor = ({
     references: availableReferences,
     referencesLoading,
     getModelReferences,
-    currentDeviceId,
   } = useDeviceData();
 
   // Use the pure verification hook for core functionality
   const verification = useVerification({
-    selectedHost,
-    deviceId: currentDeviceId,  // Single source of truth
     captureSourcePath,
+    nodeId: null,
+    treeId: null,
   });
 
   // State for reference capture

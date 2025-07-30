@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
-import { useNavigationConfig, BreadcrumbItem } from './NavigationConfigContext';
+import { BreadcrumbItem } from './NavigationConfigContext';
 
 interface TreeLevel {
   treeId: string;
@@ -27,7 +27,7 @@ const NavigationStackContext = createContext<NavigationStackContextType | null>(
 export const NavigationStackProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [stack, setStack] = useState<TreeLevel[]>([]);
   const [breadcrumb, setBreadcrumb] = useState<BreadcrumbItem[]>([]);
-  const navigationConfig = useNavigationConfig();
+
 
   const pushLevel = useCallback(
     (treeId: string, parentNodeId: string, treeName: string, parentNodeLabel: string, depth: number) => {
@@ -49,15 +49,17 @@ export const NavigationStackProvider: React.FC<{ children: React.ReactNode }> = 
     setBreadcrumb([]);
   }, []);
 
-  const loadBreadcrumb = useCallback(async (treeId: string) => {
+  const loadBreadcrumb = useCallback(async (_treeId: string) => {
     try {
-      const breadcrumbData = await navigationConfig.getTreeBreadcrumb(treeId);
-      setBreadcrumb(breadcrumbData);
+      // TODO: Implement breadcrumb loading or remove if not needed
+      // const breadcrumbData = await navigationConfig.getTreeBreadcrumb(treeId);
+      // setBreadcrumb(breadcrumbData);
+      setBreadcrumb([]);
     } catch (error) {
       console.error('Failed to load breadcrumb:', error);
       setBreadcrumb([]);
     }
-  }, [navigationConfig]);
+  }, []);
 
   const currentLevel = stack[stack.length - 1] || null;
   const isNested = stack.length > 0;

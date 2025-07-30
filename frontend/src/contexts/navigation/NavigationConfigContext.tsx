@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState } from 'react';
 
 // Types for nested tree operations
 export interface NavigationTree {
@@ -184,17 +184,6 @@ export const NavigationConfigProvider: React.FC<{ children: React.ReactNode }> =
     }
   };
 
-  const deleteNode = async (treeId: string, nodeId: string): Promise<void> => {
-    const response = await fetch(`/server/navigationTrees/${treeId}/nodes/${nodeId}`, {
-      method: 'DELETE'
-    });
-    
-    const result = await response.json();
-    if (!result.success) {
-      throw new Error(result.error);
-    }
-  };
-
   const saveEdge = async (treeId: string, edge: NavigationEdge): Promise<void> => {
     const response = await fetch(`/server/navigationTrees/${treeId}/edges`, {
       method: 'POST',
@@ -208,16 +197,7 @@ export const NavigationConfigProvider: React.FC<{ children: React.ReactNode }> =
     }
   };
 
-  const deleteEdge = async (treeId: string, edgeId: string): Promise<void> => {
-    const response = await fetch(`/server/navigationTrees/${treeId}/edges/${edgeId}`, {
-      method: 'DELETE'
-    });
-    
-    const result = await response.json();
-    if (!result.success) {
-      throw new Error(result.error);
-    }
-  };
+
 
   // Nested tree operations
   const loadNodeSubTrees = async (treeId: string, nodeId: string): Promise<NavigationTree[]> => {
@@ -246,38 +226,7 @@ export const NavigationConfigProvider: React.FC<{ children: React.ReactNode }> =
     }
   };
 
-  const getTreeHierarchy = async (treeId: string): Promise<TreeHierarchy[]> => {
-    const response = await fetch(`/server/navigationTrees/${treeId}/hierarchy`);
-    const result = await response.json();
-    
-    if (result.success) {
-      return result.hierarchy;
-    } else {
-      throw new Error(result.error);
-    }
-  };
 
-  const getTreeBreadcrumb = async (treeId: string): Promise<BreadcrumbItem[]> => {
-    const response = await fetch(`/server/navigationTrees/${treeId}/breadcrumb`);
-    const result = await response.json();
-    
-    if (result.success) {
-      return result.breadcrumb;
-    } else {
-      throw new Error(result.error);
-    }
-  };
-
-  const deleteTreeCascade = async (treeId: string): Promise<void> => {
-    const response = await fetch(`/server/navigationTrees/${treeId}/cascade`, {
-      method: 'DELETE'
-    });
-    
-    const result = await response.json();
-    if (!result.success) {
-      throw new Error(result.error);
-    }
-  };
 
   const moveSubtree = async (subtreeId: string, newParentTreeId: string, newParentNodeId: string): Promise<void> => {
     const response = await fetch(`/server/navigationTrees/${subtreeId}/move`, {

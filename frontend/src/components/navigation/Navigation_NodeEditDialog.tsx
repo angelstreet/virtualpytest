@@ -74,8 +74,6 @@ export const NodeEditDialog: React.FC<NodeEditDialogProps> = ({
     nodeEdit.handleSave(onSubmit);
   };
 
-  const buttonVisibility = nodeEdit.getButtonVisibility();
-
   // Helper function to format verification results similar to edge dialog
   const formatVerificationResult = (result: any) => {
     const prefix = result.success ? '✅' : '❌';
