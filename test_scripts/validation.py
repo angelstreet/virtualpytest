@@ -367,15 +367,23 @@ def main():
         print(f"🔗 Report: {report_url if report_url else 'Not uploaded'}")
         print(f"🎯 Overall Result: {'PASS' if overall_success else 'FAIL'}")
         print("="*60)
+        
+        # Exit with proper code based on test result
+        if overall_success:
+            print("✅ [validation] Validation completed successfully - exiting with code 0")
+            sys.exit(0)  # Success
+        else:
+            print("❌ [validation] Validation failed - exiting with code 1") 
+            sys.exit(1)  # Failure
             
     except KeyboardInterrupt:
         error_message = "Validation interrupted by user"
         print(f"\n⚠️ [validation] {error_message}")
-        sys.exit(1)
+        sys.exit(130)  # Standard exit code for keyboard interrupt
     except Exception as e:
         error_message = f"Unexpected error: {str(e)}"
         print(f"❌ [validation] {error_message}")
-        sys.exit(1)
+        sys.exit(1)  # Failure
     finally:
         # Always release device control
         if device_key and session_id:

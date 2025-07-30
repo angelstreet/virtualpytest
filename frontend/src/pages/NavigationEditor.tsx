@@ -425,6 +425,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = React.memo(
               sourceHandle: edge.data?.sourceHandle, // Extract handle info to root level
               targetHandle: edge.data?.targetHandle, // Extract handle info to root level
               data: {
+                label: edge.label, // Include the auto-generated label from database
                 actions: edge.actions, // Directly embedded with wait_time
                 retryActions: edge.retry_actions,
                 final_wait_time: edge.final_wait_time,

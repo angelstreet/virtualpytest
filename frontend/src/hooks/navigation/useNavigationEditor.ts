@@ -51,6 +51,7 @@ export const useNavigationEditor = () => {
           sourceHandle: edge.data?.sourceHandle, // Extract handle info to root level
           targetHandle: edge.data?.targetHandle, // Extract handle info to root level
           data: {
+            label: edge.label, // Include the auto-generated label from database
             description: edge.description,
             actions: edge.actions || [], // Use backend structure exactly
             retryActions: edge.retry_actions || [],
@@ -129,7 +130,8 @@ export const useNavigationEditor = () => {
           color: '#555',
         },
         data: {
-          description: `${sourceNode.data.label} → ${targetNode.data.label}`,
+          label: `${sourceNode.data.label}→${targetNode.data.label}`,
+          description: `Edge from ${sourceNode.data.label} to ${targetNode.data.label}`,
         },
       };
 

@@ -213,15 +213,23 @@ def main():
             print(f"❌ Error: {error_message}")
         # Report URL will be added in the finally block after report generation
         print("="*60)
+        
+        # Exit with proper code based on navigation result
+        if overall_success:
+            print("✅ [goto_live_fullscreen] Navigation completed successfully - exiting with code 0")
+            # Don't exit here, let finally block handle cleanup first
+        else:
+            print("❌ [goto_live_fullscreen] Navigation failed - will exit with code 1")
+            # Don't exit here, let finally block handle cleanup first
             
     except KeyboardInterrupt:
         error_message = "Navigation interrupted by user"
         print(f"\n⚠️ [goto_live_fullscreen] {error_message}")
-        sys.exit(1)
+        overall_success = False
     except Exception as e:
         error_message = f"Unexpected error: {str(e)}"
         print(f"❌ [goto_live_fullscreen] {error_message}")
-        sys.exit(1)
+        overall_success = False
     finally:
         # Generate report regardless of success or failure
         try:
@@ -270,6 +278,14 @@ def main():
         if device_key and session_id:
             print("🔓 [goto_live_fullscreen] Releasing control of device...")
             release_device_control(device_key, session_id, "goto_live_fullscreen")
+
+    # Exit with proper code based on overall result
+    if overall_success:
+        print("✅ [goto_live_fullscreen] Exiting with success code 0")
+        sys.exit(0)  # Success
+    else:
+        print("❌ [goto_live_fullscreen] Exiting with failure code 1")
+        sys.exit(1)  # Failure
 
 
 if __name__ == "__main__":

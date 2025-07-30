@@ -56,6 +56,7 @@ export interface NavigationEdge {
   edge_id: string;
   source_node_id: string;
   target_node_id: string;
+  label?: string;
   description?: string;
   actions: any[];
   retry_actions: any[];

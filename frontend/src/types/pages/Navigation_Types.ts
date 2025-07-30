@@ -48,6 +48,7 @@ export interface UINavigationNodeData {
 
 // Define the data type for navigation edges
 export interface UINavigationEdgeData {
+  label?: string; // Auto-generated label in format "source_label→target_label"
   description?: string;
   edge_type?: 'horizontal' | 'vertical'; // Default: horizontal
   priority?: 'p1' | 'p2' | 'p3'; // Priority level (default: p3)

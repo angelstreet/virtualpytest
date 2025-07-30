@@ -255,7 +255,11 @@ def get_edge_by_id(tree_id: str, edge_id: str, team_id: str) -> Dict:
         return {'success': False, 'error': str(e)}
 
 def save_edge(tree_id: str, edge_data: Dict, team_id: str) -> Dict:
-    """Save a single edge (create or update)."""
+    """Save a single edge (create or update).
+    
+    Note: If 'label' is not provided or is empty, the database trigger 
+    will automatically generate it in format 'source_label→target_label'.
+    """
     try:
         supabase = get_supabase()
         edge_data['tree_id'] = tree_id

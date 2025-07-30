@@ -836,17 +836,25 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
                data: updatedNodeData.data,
              };
 
-             await navigationConfig.saveNode(navigationConfig.actualTreeId, normalizedNode);
+                         await navigationConfig.saveNode(navigationConfig.actualTreeId, normalizedNode as any);
 
-             // Refresh navigation cache
-             await fetch('/server/pathfinding/cache/refresh', {
-               method: 'POST',
-               headers: { 'Content-Type': 'application/json' },
-               body: JSON.stringify({ 
-                 tree_id: navigationConfig.actualTreeId,
-                 team_id: 'default' 
-               })
-             });
+            // Refresh navigation cache (non-blocking, continue even if it fails)
+            try {
+              const cacheResponse = await fetch('/server/pathfinding/cache/refresh', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                  tree_id: navigationConfig.actualTreeId,
+                  team_id: 'default' 
+                })
+              });
+              
+              if (!cacheResponse.ok) {
+                console.warn('Cache refresh failed, but continuing with node save:', cacheResponse.status);
+              }
+            } catch (cacheError) {
+              console.warn('Cache refresh failed, but continuing with node save:', cacheError);
+            }
            }
 
            setIsNodeDialogOpen(false);
@@ -909,17 +917,25 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
               final_wait_time: updatedEdge.data.final_wait_time || 0,
             };
 
-             await navigationConfig.saveEdge(navigationConfig.actualTreeId, normalizedEdge as any);
+                         await navigationConfig.saveEdge(navigationConfig.actualTreeId, normalizedEdge as any);
 
-             // Refresh navigation cache
-             await fetch('/server/pathfinding/cache/refresh', {
-               method: 'POST',
-               headers: { 'Content-Type': 'application/json' },
-               body: JSON.stringify({ 
-                 tree_id: navigationConfig.actualTreeId,
-                 team_id: 'default' 
-               })
-             });
+            // Refresh navigation cache (non-blocking, continue even if it fails)
+            try {
+              const cacheResponse = await fetch('/server/pathfinding/cache/refresh', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                  tree_id: navigationConfig.actualTreeId,
+                  team_id: 'default' 
+                })
+              });
+              
+              if (!cacheResponse.ok) {
+                console.warn('Cache refresh failed, but continuing with edge save:', cacheResponse.status);
+              }
+            } catch (cacheError) {
+              console.warn('Cache refresh failed, but continuing with edge save:', cacheError);
+            }
            }
 
            setIsEdgeDialogOpen(false);

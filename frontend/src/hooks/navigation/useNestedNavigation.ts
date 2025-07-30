@@ -69,6 +69,7 @@ export const useNestedNavigation = ({
             target: edge.target_node_id,
             type: 'uiNavigation',
             data: {
+              label: edge.label, // Include the auto-generated label from database
               description: edge.description,
               actions: edge.actions,
               retryActions: edge.retry_actions,
