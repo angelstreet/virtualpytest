@@ -485,13 +485,13 @@ export const VerificationsList: React.FC<VerificationsListProps> = React.memo(
           <Button
             size="small"
             variant="outlined"
-            startIcon={<PlayIcon />}
+            startIcon={loading ? <CircularProgress size={12} sx={{ color: 'inherit' }} /> : <PlayIcon />}
             onClick={(event) => {
               event.preventDefault();
               event.stopPropagation();
               onTest();
             }}
-            disabled={!areVerificationsValid}
+            disabled={!areVerificationsValid || loading}
             sx={{
               minWidth: 'auto',
               ml: 1,
@@ -508,7 +508,7 @@ export const VerificationsList: React.FC<VerificationsListProps> = React.memo(
               },
             }}
           >
-            Test
+            {loading ? 'RUNNING...' : 'RUN'}
           </Button>
         </Box>
 

@@ -319,28 +319,30 @@ const RunTests: React.FC = () => {
       let testResult: ExecutionRecord['testResult'] | undefined = undefined;
 
       if (result.success) {
-        // Script executed without crashes
+        // Script executed without crashes - execution was successful
         executionStatus = 'completed';
         
-        // Try to determine test result from script output or exit code
-        if (result.exit_code === 0) {
-          testResult = 'success';
-        } else if (result.exit_code === 1) {
-          testResult = 'failure';
-        }
-        
-        // Also check stdout/stderr for common success/failure patterns
+        // Now determine the actual test result by analyzing the output
         const outputText = (result.stdout + ' ' + result.stderr).toLowerCase();
-        if (outputText.includes('all validation steps completed successfully') || 
+        
+        // Check for explicit test result indicators in the output
+        if (outputText.includes('overall result: pass') || 
+            outputText.includes('all validation steps completed successfully') ||
             outputText.includes('successfully navigated to') ||
-            outputText.includes('overall result: pass') ||
-            outputText.includes('success: true')) {
+            outputText.includes('navigation completed successfully') ||
+            outputText.includes('validation completed successfully')) {
           testResult = 'success';
         } else if (outputText.includes('overall result: fail') ||
                    outputText.includes('validation failed') ||
                    outputText.includes('navigation failed') ||
-                   outputText.includes('success: false')) {
+                   outputText.includes('could not navigate to') ||
+                   outputText.includes('failed at step') ||
+                   outputText.includes('element not found') ||
+                   outputText.includes('no path found')) {
           testResult = 'failure';
+        } else {
+          // If we can't determine from output patterns, default to unknown
+          testResult = undefined;
         }
       } else {
         // Script failed to execute (crash, timeout, etc.)
@@ -364,9 +366,15 @@ const RunTests: React.FC = () => {
       );
 
       if (result.success) {
-        const testResultMsg = testResult === 'success' ? 'with successful test result' : 
-                             testResult === 'failure' ? 'but test failed' : '';
-        showSuccess(`Script "${selectedScript}" completed ${testResultMsg}`);
+        // Script execution completed successfully
+        if (testResult === 'success') {
+          showSuccess(`Script "${selectedScript}" completed successfully - Test PASSED`);
+        } else if (testResult === 'failure') {
+          showError(`Script "${selectedScript}" completed but Test FAILED`);
+        } else {
+          showInfo(`Script "${selectedScript}" completed - Test result unknown`);
+        }
+        
         if (result.report_url) {
           showInfo(`Report available: ${result.report_url}`);
         }
@@ -391,45 +399,19 @@ const RunTests: React.FC = () => {
     }
   };
 
-  const getStatusChip = (status: ExecutionRecord['status'], testResult?: ExecutionRecord['testResult']) => {
-    // First show execution status
-    let executionChip;
+  const getStatusChip = (status: ExecutionRecord['status']) => {
     switch (status) {
       case 'running':
-        executionChip = <Chip label="Running" color="warning" size="small" />;
-        break;
+        return <Chip label="Running" color="warning" size="small" />;
       case 'completed':
-        executionChip = <Chip label="Completed" color="success" size="small" />;
-        break;
+        return <Chip label="Completed" color="success" size="small" />;
       case 'failed':
-        executionChip = <Chip label="Failed" color="error" size="small" />;
-        break;
+        return <Chip label="Failed" color="error" size="small" />;
       case 'aborted':
-        executionChip = <Chip label="Aborted" color="error" size="small" />;
-        break;
+        return <Chip label="Aborted" color="error" size="small" />;
       default:
-        executionChip = <Chip label="Unknown" color="default" size="small" />;
+        return <Chip label="Unknown" color="default" size="small" />;
     }
-
-    // Then show test result if available
-    let testResultChip = null;
-    if (testResult) {
-      switch (testResult) {
-        case 'success':
-          testResultChip = <Chip label="PASS" color="success" size="small" variant="outlined" sx={{ ml: 0.5 }} />;
-          break;
-        case 'failure':
-          testResultChip = <Chip label="FAIL" color="error" size="small" variant="outlined" sx={{ ml: 0.5 }} />;
-          break;
-      }
-    }
-
-    return (
-      <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 0.5 }}>
-        {executionChip}
-        {testResultChip}
-      </Box>
-    );
   };
 
   const renderParameterInput = (param: ScriptParameter) => {
@@ -725,7 +707,8 @@ const RunTests: React.FC = () => {
                         <TableCell>Script</TableCell>
                         <TableCell>Start Time</TableCell>
                         <TableCell>End Time</TableCell>
-                        <TableCell>Execution Status & Test Result</TableCell>
+                        <TableCell>Status</TableCell>
+                        <TableCell>Results</TableCell>
                         <TableCell>Report</TableCell>
                       </TableRow>
                     </TableHead>
@@ -742,7 +725,20 @@ const RunTests: React.FC = () => {
                           <TableCell>{execution.scriptName}</TableCell>
                           <TableCell>{execution.startTime}</TableCell>
                           <TableCell>{execution.endTime || '-'}</TableCell>
-                          <TableCell>{getStatusChip(execution.status, execution.testResult)}</TableCell>
+                          <TableCell>{getStatusChip(execution.status)}</TableCell>
+                          <TableCell>
+                            {execution.testResult ? (
+                              execution.testResult === 'success' ? (
+                                <Chip label="SUCCESS" color="success" size="small" />
+                              ) : (
+                                <Chip label="FAILURE" color="error" size="small" />
+                              )
+                            ) : execution.status === 'completed' ? (
+                              <Chip label="UNKNOWN" color="default" size="small" />
+                            ) : (
+                              '-'
+                            )}
+                          </TableCell>
                           <TableCell>
                             {execution.reportUrl ? (
                               <Chip

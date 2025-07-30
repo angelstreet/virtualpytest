@@ -22,7 +22,6 @@ export const useNodeEdit = ({
 }: UseNodeEditProps) => {
   // Verification hook for managing verifications
   const verification = useVerification({
-    selectedHost: selectedHost || null,
     captureSourcePath: undefined,
   });
 
@@ -43,7 +42,11 @@ export const useNodeEdit = ({
     if (!isOpen) {
       setSaveSuccess(false);
       setGotoResult('');
-      verification.handleVerificationsChange([]);
+      // Don't clear verification state immediately to preserve test results
+      // Let the user see results before dialog closes
+      setTimeout(() => {
+        verification.handleVerificationsChange([]);
+      }, 100);
     }
   }, [isOpen, verification]);
 

@@ -119,8 +119,15 @@ export const useVerification = ({
 
   // Handle verifications change
   const handleVerificationsChange = useCallback((newVerifications: Verification[]) => {
-    setVerifications(newVerifications);
-    setTestResults([]);
+    setVerifications(prevVerifications => {
+      // Only clear test results if verifications are being cleared completely
+      // or if this is a completely new set of verifications
+      if (newVerifications.length === 0 || 
+          (prevVerifications.length > 0 && newVerifications.length !== prevVerifications.length)) {
+        setTestResults([]);
+      }
+      return newVerifications;
+    });
   }, []);
 
   // Handle test execution
