@@ -74,6 +74,12 @@ export const NodeEditDialog: React.FC<NodeEditDialogProps> = ({
     nodeEdit.handleSave(onSubmit);
   };
 
+  // Get button visibility from the hook
+  const { canTest } = nodeEdit.getButtonVisibility();
+
+  // Check if there are verifications to run
+  const hasVerifications = nodeEdit.verification.verifications.length > 0;
+
   // Helper function to format verification results similar to edge dialog
   const formatVerificationResult = (result: any) => {
     const prefix = result.success ? '✅' : '❌';
@@ -200,7 +206,7 @@ export const NodeEditDialog: React.FC<NodeEditDialogProps> = ({
           loading={nodeEdit.verification.loading}
           model={model || 'android_mobile'}
           selectedHost={selectedHost}
-          testResults={nodeEdit.verification.testResults}
+          testResults={[]} // Don't show individual results, only show consolidated results below
           onReferenceSelected={() => {}}
           modelReferences={{}}
           referencesLoading={false}
@@ -284,6 +290,16 @@ export const NodeEditDialog: React.FC<NodeEditDialogProps> = ({
         <Button onClick={handleSave} variant="contained" disabled={!nodeEdit.isFormValid(nodeForm)}>
           {nodeEdit.saveSuccess ? '✓' : 'Save'}
         </Button>
+        {/* Run button - only shown when verifications exist, same as EdgeEditDialog */}
+        {hasVerifications && (
+          <Button
+            onClick={nodeEdit.verification.handleTest}
+            variant="contained"
+            disabled={!canTest}
+          >
+            {nodeEdit.verification.loading ? 'Running...' : 'Run'}
+          </Button>
+        )}
       </DialogActions>
     </Dialog>
   );
