@@ -128,7 +128,6 @@ export const useNestedNavigation = ({
         node_id: 'entry-node',
         label: 'Entry Point',
         node_type: 'entry',
-        description: 'Entry point for nested navigation',
         position_x: 100,
         position_y: 100,
         parent_node_ids: [],
@@ -136,6 +135,9 @@ export const useNestedNavigation = ({
         verifications: [],
         depth: 0,
         priority: 'p3',
+        data: {
+          description: 'Entry point for nested navigation'
+        },
         metadata: {}
       };
 
@@ -152,7 +154,7 @@ export const useNestedNavigation = ({
           data: {
             label: node.label,
             type: node.node_type,
-            description: node.description,
+            description: node.data?.description, // Read description from data field
             verifications: node.verifications,
             ...node.data
           }

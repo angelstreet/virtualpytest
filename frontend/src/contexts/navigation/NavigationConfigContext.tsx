@@ -36,7 +36,6 @@ export interface NavigationNode {
   node_id: string;
   label: string;
   node_type: string;
-  description?: string;
   position_x: number;
   position_y: number;
   parent_node_ids: string[];
@@ -48,6 +47,7 @@ export interface NavigationNode {
   menu_type?: string;
   has_subtree?: boolean;
   subtree_count?: number;
+  data: any; // description should be stored in data.description
   metadata: any;
 }
 
@@ -89,7 +89,7 @@ interface NavigationConfigContextType {
   
   // Nested tree operations
   loadNodeSubTrees: (treeId: string, nodeId: string) => Promise<any[]>;
-  createSubTree: (parentTreeId: string, parentNodeId: string, treeName: string) => Promise<any>;
+  createSubTree: (parentTreeId: string, parentNodeId: string, treeData: any) => Promise<any>;
   moveSubTree: (subtreeId: string, newParentTreeId: string, newParentNodeId: string) => Promise<void>;
 
   setActualTreeId: (treeId: string | null) => void;

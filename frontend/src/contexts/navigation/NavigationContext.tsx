@@ -676,10 +676,10 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
       setCurrentNodeLabel,
 
       // React Flow state
-      nodes: stableNodes,
+      nodes: stableNodes as UINavigationNode[],
       setNodes,
       onNodesChange,
-      edges: stableEdges,
+      edges: stableEdges as UINavigationEdge[],
       setEdges,
       onEdgesChange,
 
@@ -825,16 +825,18 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
 
            // Save to database via NavigationConfigContext
            if (updatedNodeData && navigationConfig.actualTreeId) {
-             const normalizedNode = {
-               node_id: updatedNodeData.id,
-               label: updatedNodeData.data.label,
-               position_x: updatedNodeData.position?.x || 0,
-               position_y: updatedNodeData.position?.y || 0,
-               node_type: updatedNodeData.type || 'uiScreen',
-               description: updatedNodeData.data.description,
-               verifications: updatedNodeData.data.verifications || [],
-               data: updatedNodeData.data,
-             };
+                         const normalizedNode = {
+              node_id: updatedNodeData.id,
+              label: updatedNodeData.data.label,
+              position_x: updatedNodeData.position?.x || 0,
+              position_y: updatedNodeData.position?.y || 0,
+              node_type: updatedNodeData.type || 'uiScreen',
+              verifications: updatedNodeData.data.verifications || [],
+              data: {
+                ...updatedNodeData.data,
+                description: updatedNodeData.data.description,
+              },
+            };
 
                          await navigationConfig.saveNode(navigationConfig.actualTreeId, normalizedNode as any);
 
@@ -900,7 +902,7 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
            );
 
            setEdges(updatedEdges);
-           setSelectedEdge(updatedEdge);
+           setSelectedEdge(updatedEdge as UINavigationEdge);
 
            // Save to database via NavigationConfigContext
            if (navigationConfig.actualTreeId) {
