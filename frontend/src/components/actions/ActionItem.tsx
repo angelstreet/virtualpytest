@@ -73,7 +73,7 @@ export const ActionItem: React.FC<ActionItemProps> = ({
         label="Wait Time (ms)"
         type="number"
         size="small"
-        value={params?.wait_time ?? 500}
+        value={params?.wait_time || 0}
         onChange={(e) => {
           const value = parseInt(e.target.value);
           handleParamChange('wait_time', isNaN(value) ? 0 : value);

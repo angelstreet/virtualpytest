@@ -38,7 +38,7 @@ def execute_navigation(tree_id, node_id):
         data = request.get_json() or {}
         host = data.get('host')
         device_id = data.get('device_id')
-        team_id = data.get('team_id') or get_team_id()
+        team_id = get_team_id()
         current_node_id = data.get('current_node_id')
         image_source_url = data.get('image_source_url')
         
@@ -139,7 +139,7 @@ def batch_execute_navigation():
         data = request.get_json() or {}
         host = data.get('host')
         device_id = data.get('device_id')
-        team_id = data.get('team_id') or get_team_id()
+        team_id = get_team_id()
         navigations = data.get('navigations', [])
         
         # Validate required parameters

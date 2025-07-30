@@ -103,7 +103,7 @@ def refresh_navigation_cache():
         
         data = request.get_json() or {}
         tree_id = data.get('tree_id')
-        team_id = data.get('team_id') or get_team_id()
+        team_id = get_team_id()
         
         if not tree_id:
             return jsonify({

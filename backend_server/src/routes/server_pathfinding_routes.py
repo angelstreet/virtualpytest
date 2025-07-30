@@ -187,7 +187,7 @@ def clear_navigation_cache():
         
         data = request.get_json() or {}
         tree_id = data.get('tree_id')
-        team_id = data.get('team_id') or get_team_id()
+        team_id = get_team_id()
         
         try:
             from shared.lib.utils.navigation_cache import invalidate_cache, clear_all_cache
@@ -228,7 +228,7 @@ def refresh_navigation_cache():
         
         data = request.get_json() or {}
         tree_id = data.get('tree_id')
-        team_id = data.get('team_id') or get_team_id()
+        team_id = get_team_id()
         
         print(f"[@pathfinding:refresh_cache] Parameters: tree_id={tree_id}, team_id={team_id}")
         
@@ -326,7 +326,7 @@ def toggle_take_control(tree_id):
         print(f"[@pathfinding:take_control] Request to toggle take control for tree {tree_id}")
         
         data = request.get_json() or {}
-        team_id = data.get('team_id') or get_team_id()
+        team_id = get_team_id()
         enable = data.get('enable', True)
         user_id = data.get('user_id')
         
