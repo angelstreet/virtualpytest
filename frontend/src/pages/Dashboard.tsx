@@ -66,7 +66,7 @@ const Dashboard: React.FC = () => {
       const [campaignsResponse, testCasesResponse, treesResponse] = await Promise.all([
         fetch('/server/campaigns/getAllCampaigns'),
         fetch('/server/testcases/getAllTestCases'),
-        fetch('/server/navigationTrees/getAllTrees'), // Use relative URL for navigation requests
+        fetch('/server/navigationTrees'), // Correct endpoint for getting all trees
       ]);
 
       let testCases: TestCase[] = [];
@@ -83,9 +83,9 @@ const Dashboard: React.FC = () => {
 
       if (treesResponse.ok) {
         const treesData = await treesResponse.json();
-        // The navigation API returns { success: true, data: [...] }
-        if (treesData.success && treesData.data) {
-          trees = treesData.data;
+        // The navigation API returns { success: true, trees: [...] }
+        if (treesData.success && treesData.trees) {
+          trees = treesData.trees;
         }
       }
 
