@@ -32,23 +32,19 @@ export interface BreadcrumbItem {
 }
 
 export interface NavigationNode {
-  id: string;
   node_id: string;
   label: string;
   node_type: string;
   position_x: number;
   position_y: number;
-  parent_node_ids: string[];
-  is_root: boolean;
   verifications: any[];
+  data: any; // description should be stored in data.description
+  
+  // Optional fields
   screenshot?: string;
-  depth: number;
-  priority: string;
   menu_type?: string;
   has_subtree?: boolean;
   subtree_count?: number;
-  data: any; // description should be stored in data.description
-  metadata: any;
 }
 
 export interface NavigationEdge {

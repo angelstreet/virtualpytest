@@ -122,26 +122,21 @@ export const useNestedNavigation = ({
 
       const newTree = await navigationConfig.createSubTree(actualTreeId!, parentNode.id, newTreeData);
 
-      // Create initial entry node for the new subtree
+      // Create initial node for the new subtree - same as the parent node
       const entryNodeData = {
-        id: 'entry-node',
-        node_id: 'entry-node',
-        label: 'Entry Point',
-        node_type: 'entry',
+        node_id: parentNode.id, // Use same node_id as parent
+        label: parentNode.data.label, // Same label as parent
+        node_type: parentNode.data.type || 'screen', // Same type as parent
         position_x: 100,
         position_y: 100,
-        parent_node_ids: [],
-        is_root: true,
-        verifications: [],
-        depth: 0,
-        priority: 'p3',
+        verifications: parentNode.data.verifications || [],
         data: {
-          description: 'Entry point for nested navigation'
-        },
-        metadata: {}
+          description: parentNode.data.description || `Navigation for ${parentNode.data.label}`,
+          ...parentNode.data // Copy all parent node data
+        }
       };
 
-      await navigationConfig.saveNode(newTree.id, entryNodeData);
+      await navigationConfig.saveNode(newTree.id, entryNodeData as any);
 
       // Load the new subtree
       const treeData = await navigationConfig.loadTreeData(newTree.id);
