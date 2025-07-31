@@ -47,14 +47,14 @@ export const NavigationEditorActionButtons: React.FC<NavigationEditorActionButto
         startIcon={<AddIcon />}
         onClick={() => onAddNewNode('screen', { x: 250, y: 250 })}
         size="small"
-        disabled={isLoading || !!error || !isLocked}
+        disabled={isLoading || !!error || !isControlActive}
         variant="outlined"
         sx={{
           minWidth: 'auto',
           whiteSpace: 'nowrap',
           fontSize: '0.75rem',
         }}
-        title={!isLocked ? 'Cannot add nodes - tree is in read-only mode' : 'Add Node'}
+        title={!isControlActive ? 'Take control to add nodes' : 'Add Node'}
       >
         Add&nbsp;Node
       </Button>

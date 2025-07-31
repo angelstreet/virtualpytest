@@ -561,6 +561,89 @@ class AndroidMobileRemoteController(RemoteControllerInterface):
         except Exception as e:
             print(f"Remote[{self.device_type.upper()}]: Coordinate tap error: {e}")
             return False
+
+    def swipe(self, from_x: int, from_y: int, to_x: int, to_y: int, duration: int = 300) -> bool:
+        """
+        Swipe from one coordinate to another.
+        
+        Args:
+            from_x: Starting X coordinate
+            from_y: Starting Y coordinate
+            to_x: Ending X coordinate
+            to_y: Ending Y coordinate
+            duration: Swipe duration in milliseconds (default: 300)
+        """
+        if not self.is_connected or not self.adb_utils:
+            print(f"Remote[{self.device_type.upper()}]: ERROR - Not connected to device")
+            return False
+            
+        try:
+            print(f"Remote[{self.device_type.upper()}]: Swiping from ({from_x}, {from_y}) to ({to_x}, {to_y}) in {duration}ms")
+            
+            success = self.adb_utils.swipe(self.android_device_id, from_x, from_y, to_x, to_y, duration)
+            
+            if success:
+                print(f"Remote[{self.device_type.upper()}]: Successfully swiped from ({from_x}, {from_y}) to ({to_x}, {to_y})")
+            else:
+                print(f"Remote[{self.device_type.upper()}]: Failed to swipe")
+                
+            return success
+            
+        except Exception as e:
+            print(f"Remote[{self.device_type.upper()}]: Swipe error: {e}")
+            return False
+
+    def swipe_up(self, from_x: int = 500, from_y: int = 1500, to_x: int = 500, to_y: int = 500, duration: int = 300) -> bool:
+        """
+        Swipe up on the screen.
+        
+        Args:
+            from_x: Starting X coordinate (default: 500)
+            from_y: Starting Y coordinate (default: 1500)
+            to_x: Ending X coordinate (default: 500)
+            to_y: Ending Y coordinate (default: 500)
+            duration: Swipe duration in milliseconds (default: 300)
+        """
+        return self.swipe(from_x, from_y, to_x, to_y, duration)
+
+    def swipe_down(self, from_x: int = 500, from_y: int = 500, to_x: int = 500, to_y: int = 1500, duration: int = 300) -> bool:
+        """
+        Swipe down on the screen.
+        
+        Args:
+            from_x: Starting X coordinate (default: 500)
+            from_y: Starting Y coordinate (default: 500)
+            to_x: Ending X coordinate (default: 500)
+            to_y: Ending Y coordinate (default: 1500)
+            duration: Swipe duration in milliseconds (default: 300)
+        """
+        return self.swipe(from_x, from_y, to_x, to_y, duration)
+
+    def swipe_left(self, from_x: int = 800, from_y: int = 1000, to_x: int = 200, to_y: int = 1000, duration: int = 300) -> bool:
+        """
+        Swipe left on the screen.
+        
+        Args:
+            from_x: Starting X coordinate (default: 800)
+            from_y: Starting Y coordinate (default: 1000)
+            to_x: Ending X coordinate (default: 200)
+            to_y: Ending Y coordinate (default: 1000)
+            duration: Swipe duration in milliseconds (default: 300)
+        """
+        return self.swipe(from_x, from_y, to_x, to_y, duration)
+
+    def swipe_right(self, from_x: int = 200, from_y: int = 1000, to_x: int = 800, to_y: int = 1000, duration: int = 300) -> bool:
+        """
+        Swipe right on the screen.
+        
+        Args:
+            from_x: Starting X coordinate (default: 200)
+            from_y: Starting Y coordinate (default: 1000)
+            to_x: Ending X coordinate (default: 800)
+            to_y: Ending Y coordinate (default: 1000)
+            duration: Swipe duration in milliseconds (default: 300)
+        """
+        return self.swipe(from_x, from_y, to_x, to_y, duration)
     
     def get_available_actions(self) -> Dict[str, Any]:
         """Get available actions for this Android mobile controller."""
@@ -602,6 +685,54 @@ class AndroidMobileRemoteController(RemoteControllerInterface):
                     'requiresInput': True,
                     'inputLabel': 'Coordinates (x,y)',
                     'inputPlaceholder': '100,200'
+                },
+                # Swipe actions
+                {
+                    'id': 'swipe',
+                    'label': 'Swipe (Custom)',
+                    'command': 'swipe',
+                    'action_type': 'remote',
+                    'params': {},
+                    'description': 'Swipe from one coordinate to another',
+                    'requiresInput': True,
+                    'inputLabel': 'From/To coordinates',
+                    'inputPlaceholder': 'from_x,from_y,to_x,to_y'
+                },
+                {
+                    'id': 'swipe_up',
+                    'label': 'Swipe Up',
+                    'command': 'swipe_up',
+                    'action_type': 'remote',
+                    'params': {},
+                    'description': 'Swipe up on screen (customizable distance)',
+                    'requiresInput': False
+                },
+                {
+                    'id': 'swipe_down',
+                    'label': 'Swipe Down',
+                    'command': 'swipe_down',
+                    'action_type': 'remote',
+                    'params': {},
+                    'description': 'Swipe down on screen (customizable distance)',
+                    'requiresInput': False
+                },
+                {
+                    'id': 'swipe_left',
+                    'label': 'Swipe Left',
+                    'command': 'swipe_left',
+                    'action_type': 'remote',
+                    'params': {},
+                    'description': 'Swipe left on screen (customizable distance)',
+                    'requiresInput': False
+                },
+                {
+                    'id': 'swipe_right',
+                    'label': 'Swipe Right',
+                    'command': 'swipe_right',
+                    'action_type': 'remote',
+                    'params': {},
+                    'description': 'Swipe right on screen (customizable distance)',
+                    'requiresInput': False
                 },
                
                 {
@@ -704,6 +835,49 @@ class AndroidMobileRemoteController(RemoteControllerInterface):
         elif command == 'tap_coordinates':
             x, y = params.get('x'), params.get('y')
             result = self.tap_coordinates(int(x), int(y)) if x is not None and y is not None else False
+        
+        elif command == 'swipe':
+            from_x = params.get('from_x')
+            from_y = params.get('from_y')
+            to_x = params.get('to_x')
+            to_y = params.get('to_y')
+            duration = params.get('duration', 300)
+            if all(v is not None for v in [from_x, from_y, to_x, to_y]):
+                result = self.swipe(int(from_x), int(from_y), int(to_x), int(to_y), int(duration))
+            else:
+                result = False
+        
+        elif command == 'swipe_up':
+            from_x = params.get('from_x', 500)
+            from_y = params.get('from_y', 1500)
+            to_x = params.get('to_x', 500)
+            to_y = params.get('to_y', 500)
+            duration = params.get('duration', 300)
+            result = self.swipe_up(int(from_x), int(from_y), int(to_x), int(to_y), int(duration))
+        
+        elif command == 'swipe_down':
+            from_x = params.get('from_x', 500)
+            from_y = params.get('from_y', 500)
+            to_x = params.get('to_x', 500)
+            to_y = params.get('to_y', 1500)
+            duration = params.get('duration', 300)
+            result = self.swipe_down(int(from_x), int(from_y), int(to_x), int(to_y), int(duration))
+        
+        elif command == 'swipe_left':
+            from_x = params.get('from_x', 800)
+            from_y = params.get('from_y', 1000)
+            to_x = params.get('to_x', 200)
+            to_y = params.get('to_y', 1000)
+            duration = params.get('duration', 300)
+            result = self.swipe_left(int(from_x), int(from_y), int(to_x), int(to_y), int(duration))
+        
+        elif command == 'swipe_right':
+            from_x = params.get('from_x', 200)
+            from_y = params.get('from_y', 1000)
+            to_x = params.get('to_x', 800)
+            to_y = params.get('to_y', 1000)
+            duration = params.get('duration', 300)
+            result = self.swipe_right(int(from_x), int(from_y), int(to_x), int(to_y), int(duration))
         
         elif command == 'click_element_by_id':
             # Android Mobile specific - always dumps UI for edge actions to ensure current state

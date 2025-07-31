@@ -209,14 +209,399 @@ export const ActionItem: React.FC<ActionItemProps> = ({
       case 'swipe':
         fields.push(
           <TextField
-            key="direction"
-            label="Direction"
+            key="from_x"
+            label="From X"
+            type="number"
             size="small"
-            value={getParamValue('direction') || ''}
-            onChange={(e) => safeHandleParamChange('direction', e.target.value)}
-            placeholder="e.g., up, down, left, right"
+            value={getParamValue('from_x') || ''}
+            onChange={(e) => safeHandleParamChange('from_x', parseInt(e.target.value) || 0)}
             sx={{
-              width: 130,
+              width: 70,
+              '& .MuiInputBase-input': {
+                padding: '3px 6px',
+                fontSize: '0.75rem',
+              },
+            }}
+          />,
+          <TextField
+            key="from_y"
+            label="From Y"
+            type="number"
+            size="small"
+            value={getParamValue('from_y') || ''}
+            onChange={(e) => safeHandleParamChange('from_y', parseInt(e.target.value) || 0)}
+            sx={{
+              width: 70,
+              '& .MuiInputBase-input': {
+                padding: '3px 6px',
+                fontSize: '0.75rem',
+              },
+            }}
+          />,
+          <TextField
+            key="to_x"
+            label="To X"
+            type="number"
+            size="small"
+            value={getParamValue('to_x') || ''}
+            onChange={(e) => safeHandleParamChange('to_x', parseInt(e.target.value) || 0)}
+            sx={{
+              width: 70,
+              '& .MuiInputBase-input': {
+                padding: '3px 6px',
+                fontSize: '0.75rem',
+              },
+            }}
+          />,
+          <TextField
+            key="to_y"
+            label="To Y"
+            type="number"
+            size="small"
+            value={getParamValue('to_y') || ''}
+            onChange={(e) => safeHandleParamChange('to_y', parseInt(e.target.value) || 0)}
+            sx={{
+              width: 70,
+              '& .MuiInputBase-input': {
+                padding: '3px 6px',
+                fontSize: '0.75rem',
+              },
+            }}
+          />,
+          <TextField
+            key="duration"
+            label="Duration (ms)"
+            type="number"
+            size="small"
+            value={getParamValue('duration') || 300}
+            onChange={(e) => safeHandleParamChange('duration', parseInt(e.target.value) || 300)}
+            inputProps={{ min: 100, max: 2000, step: 100 }}
+            sx={{
+              width: 100,
+              '& .MuiInputBase-input': {
+                padding: '3px 6px',
+                fontSize: '0.75rem',
+              },
+            }}
+          />,
+        );
+        break;
+
+      case 'swipe_up':
+        fields.push(
+          <TextField
+            key="from_x"
+            label="From X"
+            type="number"
+            size="small"
+            value={getParamValue('from_x') || 500}
+            onChange={(e) => safeHandleParamChange('from_x', parseInt(e.target.value) || 500)}
+            sx={{
+              width: 70,
+              '& .MuiInputBase-input': {
+                padding: '3px 6px',
+                fontSize: '0.75rem',
+              },
+            }}
+          />,
+          <TextField
+            key="from_y"
+            label="From Y"
+            type="number"
+            size="small"
+            value={getParamValue('from_y') || 1500}
+            onChange={(e) => safeHandleParamChange('from_y', parseInt(e.target.value) || 1500)}
+            sx={{
+              width: 70,
+              '& .MuiInputBase-input': {
+                padding: '3px 6px',
+                fontSize: '0.75rem',
+              },
+            }}
+          />,
+          <TextField
+            key="to_x"
+            label="To X"
+            type="number"
+            size="small"
+            value={getParamValue('to_x') || 500}
+            onChange={(e) => safeHandleParamChange('to_x', parseInt(e.target.value) || 500)}
+            sx={{
+              width: 70,
+              '& .MuiInputBase-input': {
+                padding: '3px 6px',
+                fontSize: '0.75rem',
+              },
+            }}
+          />,
+          <TextField
+            key="to_y"
+            label="To Y"
+            type="number"
+            size="small"
+            value={getParamValue('to_y') || 500}
+            onChange={(e) => safeHandleParamChange('to_y', parseInt(e.target.value) || 500)}
+            sx={{
+              width: 70,
+              '& .MuiInputBase-input': {
+                padding: '3px 6px',
+                fontSize: '0.75rem',
+              },
+            }}
+          />,
+          <TextField
+            key="duration"
+            label="Duration (ms)"
+            type="number"
+            size="small"
+            value={getParamValue('duration') || 300}
+            onChange={(e) => safeHandleParamChange('duration', parseInt(e.target.value) || 300)}
+            inputProps={{ min: 100, max: 2000, step: 100 }}
+            sx={{
+              width: 100,
+              '& .MuiInputBase-input': {
+                padding: '3px 6px',
+                fontSize: '0.75rem',
+              },
+            }}
+          />,
+        );
+        break;
+
+      case 'swipe_down':
+        fields.push(
+          <TextField
+            key="from_x"
+            label="From X"
+            type="number"
+            size="small"
+            value={getParamValue('from_x') || 500}
+            onChange={(e) => safeHandleParamChange('from_x', parseInt(e.target.value) || 500)}
+            sx={{
+              width: 70,
+              '& .MuiInputBase-input': {
+                padding: '3px 6px',
+                fontSize: '0.75rem',
+              },
+            }}
+          />,
+          <TextField
+            key="from_y"
+            label="From Y"
+            type="number"
+            size="small"
+            value={getParamValue('from_y') || 500}
+            onChange={(e) => safeHandleParamChange('from_y', parseInt(e.target.value) || 500)}
+            sx={{
+              width: 70,
+              '& .MuiInputBase-input': {
+                padding: '3px 6px',
+                fontSize: '0.75rem',
+              },
+            }}
+          />,
+          <TextField
+            key="to_x"
+            label="To X"
+            type="number"
+            size="small"
+            value={getParamValue('to_x') || 500}
+            onChange={(e) => safeHandleParamChange('to_x', parseInt(e.target.value) || 500)}
+            sx={{
+              width: 70,
+              '& .MuiInputBase-input': {
+                padding: '3px 6px',
+                fontSize: '0.75rem',
+              },
+            }}
+          />,
+          <TextField
+            key="to_y"
+            label="To Y"
+            type="number"
+            size="small"
+            value={getParamValue('to_y') || 1500}
+            onChange={(e) => safeHandleParamChange('to_y', parseInt(e.target.value) || 1500)}
+            sx={{
+              width: 70,
+              '& .MuiInputBase-input': {
+                padding: '3px 6px',
+                fontSize: '0.75rem',
+              },
+            }}
+          />,
+          <TextField
+            key="duration"
+            label="Duration (ms)"
+            type="number"
+            size="small"
+            value={getParamValue('duration') || 300}
+            onChange={(e) => safeHandleParamChange('duration', parseInt(e.target.value) || 300)}
+            inputProps={{ min: 100, max: 2000, step: 100 }}
+            sx={{
+              width: 100,
+              '& .MuiInputBase-input': {
+                padding: '3px 6px',
+                fontSize: '0.75rem',
+              },
+            }}
+          />,
+        );
+        break;
+
+      case 'swipe_left':
+        fields.push(
+          <TextField
+            key="from_x"
+            label="From X"
+            type="number"
+            size="small"
+            value={getParamValue('from_x') || 800}
+            onChange={(e) => safeHandleParamChange('from_x', parseInt(e.target.value) || 800)}
+            sx={{
+              width: 70,
+              '& .MuiInputBase-input': {
+                padding: '3px 6px',
+                fontSize: '0.75rem',
+              },
+            }}
+          />,
+          <TextField
+            key="from_y"
+            label="From Y"
+            type="number"
+            size="small"
+            value={getParamValue('from_y') || 1000}
+            onChange={(e) => safeHandleParamChange('from_y', parseInt(e.target.value) || 1000)}
+            sx={{
+              width: 70,
+              '& .MuiInputBase-input': {
+                padding: '3px 6px',
+                fontSize: '0.75rem',
+              },
+            }}
+          />,
+          <TextField
+            key="to_x"
+            label="To X"
+            type="number"
+            size="small"
+            value={getParamValue('to_x') || 200}
+            onChange={(e) => safeHandleParamChange('to_x', parseInt(e.target.value) || 200)}
+            sx={{
+              width: 70,
+              '& .MuiInputBase-input': {
+                padding: '3px 6px',
+                fontSize: '0.75rem',
+              },
+            }}
+          />,
+          <TextField
+            key="to_y"
+            label="To Y"
+            type="number"
+            size="small"
+            value={getParamValue('to_y') || 1000}
+            onChange={(e) => safeHandleParamChange('to_y', parseInt(e.target.value) || 1000)}
+            sx={{
+              width: 70,
+              '& .MuiInputBase-input': {
+                padding: '3px 6px',
+                fontSize: '0.75rem',
+              },
+            }}
+          />,
+          <TextField
+            key="duration"
+            label="Duration (ms)"
+            type="number"
+            size="small"
+            value={getParamValue('duration') || 300}
+            onChange={(e) => safeHandleParamChange('duration', parseInt(e.target.value) || 300)}
+            inputProps={{ min: 100, max: 2000, step: 100 }}
+            sx={{
+              width: 100,
+              '& .MuiInputBase-input': {
+                padding: '3px 6px',
+                fontSize: '0.75rem',
+              },
+            }}
+          />,
+        );
+        break;
+
+      case 'swipe_right':
+        fields.push(
+          <TextField
+            key="from_x"
+            label="From X"
+            type="number"
+            size="small"
+            value={getParamValue('from_x') || 200}
+            onChange={(e) => safeHandleParamChange('from_x', parseInt(e.target.value) || 200)}
+            sx={{
+              width: 70,
+              '& .MuiInputBase-input': {
+                padding: '3px 6px',
+                fontSize: '0.75rem',
+              },
+            }}
+          />,
+          <TextField
+            key="from_y"
+            label="From Y"
+            type="number"
+            size="small"
+            value={getParamValue('from_y') || 1000}
+            onChange={(e) => safeHandleParamChange('from_y', parseInt(e.target.value) || 1000)}
+            sx={{
+              width: 70,
+              '& .MuiInputBase-input': {
+                padding: '3px 6px',
+                fontSize: '0.75rem',
+              },
+            }}
+          />,
+          <TextField
+            key="to_x"
+            label="To X"
+            type="number"
+            size="small"
+            value={getParamValue('to_x') || 800}
+            onChange={(e) => safeHandleParamChange('to_x', parseInt(e.target.value) || 800)}
+            sx={{
+              width: 70,
+              '& .MuiInputBase-input': {
+                padding: '3px 6px',
+                fontSize: '0.75rem',
+              },
+            }}
+          />,
+          <TextField
+            key="to_y"
+            label="To Y"
+            type="number"
+            size="small"
+            value={getParamValue('to_y') || 1000}
+            onChange={(e) => safeHandleParamChange('to_y', parseInt(e.target.value) || 1000)}
+            sx={{
+              width: 70,
+              '& .MuiInputBase-input': {
+                padding: '3px 6px',
+                fontSize: '0.75rem',
+              },
+            }}
+          />,
+          <TextField
+            key="duration"
+            label="Duration (ms)"
+            type="number"
+            size="small"
+            value={getParamValue('duration') || 300}
+            onChange={(e) => safeHandleParamChange('duration', parseInt(e.target.value) || 300)}
+            inputProps={{ min: 100, max: 2000, step: 100 }}
+            sx={{
+              width: 100,
               '& .MuiInputBase-input': {
                 padding: '3px 6px',
                 fontSize: '0.75rem',
