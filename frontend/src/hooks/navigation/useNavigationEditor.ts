@@ -244,7 +244,7 @@ export const useNavigationEditor = () => {
     navigation.resetSelection();
   }, [navigation]);
 
-  const deleteSelected = useCallback(() => {
+  const deleteSelected = useCallback(async () => {
     console.log('[@useNavigationEditor:deleteSelected] Starting deletion process', {
       selectedNode: navigation.selectedNode?.id,
       selectedEdge: navigation.selectedEdge?.id,
@@ -254,6 +254,18 @@ export const useNavigationEditor = () => {
 
     if (navigation.selectedNode) {
       const nodeId = navigation.selectedNode.id;
+      const node = navigation.selectedNode;
+      
+      // Check if node has nested trees and warn user
+      if (node.data?.has_subtree && (node.data?.subtree_count || 0) > 0) {
+        const subtreeCount = node.data?.subtree_count || 0;
+        const confirmMessage = `This node has ${subtreeCount} nested tree(s). Deleting it will also delete all nested navigation trees. Are you sure?`;
+        if (!window.confirm(confirmMessage)) {
+          return; // User cancelled
+        }
+        console.log(`[@useNavigationEditor:deleteSelected] User confirmed deletion of node with ${subtreeCount} nested trees`);
+      }
+      
       const filteredNodes = navigation.nodes.filter((n) => n.id !== nodeId);
       console.log('[@useNavigationEditor:deleteSelected] Deleting node:', nodeId, 
         'Nodes before:', navigation.nodes.length, 'Nodes after:', filteredNodes.length);

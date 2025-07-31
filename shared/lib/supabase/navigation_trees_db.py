@@ -187,18 +187,30 @@ def save_node(tree_id: str, node_data: Dict, team_id: str) -> Dict:
         return {'success': False, 'error': str(e)}
 
 def delete_node(tree_id: str, node_id: str, team_id: str) -> Dict:
-    """Delete a node and all connected edges."""
+    """Delete a node, all connected edges, and cascade delete any nested trees."""
     try:
         supabase = get_supabase()
         
-        # Delete connected edges first
+        # First, find and delete any nested trees linked to this node
+        subtrees_result = get_node_sub_trees(tree_id, node_id, team_id)
+        if subtrees_result['success']:
+            subtrees = subtrees_result['sub_trees']
+            for subtree in subtrees:
+                # Use cascade delete to remove the entire subtree hierarchy
+                cascade_result = delete_tree_cascade(subtree['id'], team_id)
+                if cascade_result['success']:
+                    print(f"[@db:navigation_trees:delete_node] Cascade deleted subtree: {subtree['id']} for node: {node_id}")
+                else:
+                    print(f"[@db:navigation_trees:delete_node] Warning: Failed to delete subtree {subtree['id']}: {cascade_result['error']}")
+        
+        # Delete connected edges
         supabase.table('navigation_edges').delete()\
             .eq('tree_id', tree_id)\
             .eq('team_id', team_id)\
             .or_(f'source_node_id.eq.{node_id},target_node_id.eq.{node_id}')\
             .execute()
         
-        # Delete node
+        # Delete the node itself
         result = supabase.table('navigation_nodes').delete()\
             .eq('tree_id', tree_id)\
             .eq('node_id', node_id)\
