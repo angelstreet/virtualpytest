@@ -116,7 +116,7 @@ export const useNestedNavigation = ({
     try {
       const newTreeData = {
         name: `${parentNode.data.label} - Subtree`,
-        userinterface_id: actualTreeId, // Use same interface
+        userinterface_id: navigationConfig.currentTree?.userinterface_id, // Use the already loaded tree's userinterface_id
         description: `Sub-navigation for ${parentNode.data.label}`,
       };
 
