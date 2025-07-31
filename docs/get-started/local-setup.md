@@ -21,7 +21,7 @@ git clone <your-repo-url>
 cd virtualpytest
 
 # Install all components at once
-./setup/local/install_local.sh
+./setup/local/install_all.sh
 
 # Launch all services
 ./setup/local/launch_all.sh
@@ -196,7 +196,7 @@ If you get port conflicts, the launch script automatically kills processes on re
 ### Missing Dependencies
 ```bash
 # Reinstall everything
-./setup/local/install_local.sh
+./setup/local/install_all.sh
 
 # Or install specific components
 ./setup/local/install_shared.sh
@@ -209,7 +209,7 @@ If you get port conflicts, the launch script automatically kills processes on re
 ```bash
 # Recreate virtual environment
 rm -rf venv
-./setup/local/install_local.sh
+./setup/local/install_all.sh
 ```
 
 ### Database Connection Issues

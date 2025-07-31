@@ -49,7 +49,7 @@ try:
 except ImportError as e:
     print(f"❌ Failed to import dependencies: {e}")
     print("❌ Please ensure shared library and backend_core are properly installed")
-    print("❌ Run: ./setup/local/install_local.sh")
+    print("❌ Run: ./setup/local/install_all.sh")
     sys.exit(1)
 
 # Local route imports  

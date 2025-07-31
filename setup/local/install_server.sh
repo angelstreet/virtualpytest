@@ -32,17 +32,11 @@ fi
 echo "🔌 Activating virtual environment..."
 source venv/bin/activate
 
-# Install shared library first (dependency)
-echo "📚 Installing shared library (required dependency)..."
-cd shared
-pip install -e . --use-pep517
-cd ..
+# Skip shared library installation - using direct imports instead
+echo "📚 Shared library will be used via direct imports..."
 
-# Install backend_core (required by backend_server for controller imports)
-echo "⚙️ Installing backend_core (required dependency)..."
-cd backend_core
-pip install -r requirements.txt
-cd ..
+# Skip backend_core installation - using direct imports instead
+echo "⚙️ Backend_core will be used via direct imports..."
 
 # Install backend_server dependencies
 echo "📦 Installing backend_server dependencies..."

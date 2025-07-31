@@ -48,7 +48,7 @@ nano backend_host/src/.env
 # Clone and install everything
 git clone <your-repo-url>
 cd virtualpytest
-./setup/local/install_local.sh
+./setup/local/install_all.sh
 
 # Launch all services
 ./setup/local/launch_all.sh

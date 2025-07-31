@@ -34,7 +34,7 @@ fi
 if [ -n "$MISSING_COMPONENTS" ]; then
     echo "❌ Missing components:$MISSING_COMPONENTS"
     echo "Please install all components first:"
-    echo "   ./setup/local/install_local.sh"
+    echo "   ./setup/local/install_all.sh"
     exit 1
 fi
 
