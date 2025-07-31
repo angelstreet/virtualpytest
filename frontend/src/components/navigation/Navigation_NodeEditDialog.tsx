@@ -290,7 +290,7 @@ export const NodeEditDialog: React.FC<NodeEditDialogProps> = ({
         <Button onClick={handleSave} variant="contained" disabled={!nodeEdit.isFormValid(nodeForm)}>
           {nodeEdit.saveSuccess ? '✓' : 'Save'}
         </Button>
-        {/* Run button - only shown when verifications exist, same as EdgeEditDialog */}
+        {/* Run button - positioned right after Save button, same as EdgeEditDialog */}
         {hasVerifications && (
           <Button
             onClick={nodeEdit.verification.handleTest}
