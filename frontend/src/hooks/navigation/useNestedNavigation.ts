@@ -97,6 +97,13 @@ export const useNestedNavigation = ({
             // Set initial state for deletion detection
             navigation.setInitialState({ nodes: [...frontendNodes], edges: [...frontendEdges] });
             navigation.setHasUnsavedChanges(false);
+            
+            // Focus on the entry node (first node) and fit view
+            if (frontendNodes.length > 0 && navigation.reactFlowInstance) {
+              const entryNode = frontendNodes[0]; // First node is the entry node
+              navigation.reactFlowInstance.setCenter(entryNode.position.x, entryNode.position.y, { zoom: 1 });
+              console.log(`[@useNestedNavigation] Focused on entry node: ${entryNode.data.label}`);
+            }
           }, 10);
 
           console.log(`[@useNestedNavigation] Loaded existing sub-tree: ${primarySubTree.name}`);
@@ -165,6 +172,13 @@ export const useNestedNavigation = ({
         setTimeout(() => {
           setNodes(frontendNodes);
           setEdges([]);
+          
+          // Focus on the entry node (first node) and fit view
+          if (frontendNodes.length > 0 && navigation.reactFlowInstance) {
+            const entryNode = frontendNodes[0]; // First node is the entry node
+            navigation.reactFlowInstance.setCenter(entryNode.position.x, entryNode.position.y, { zoom: 1 });
+            console.log(`[@useNestedNavigation] Focused on entry node: ${entryNode.data.label}`);
+          }
         }, 10);
 
         console.log(`[@useNestedNavigation] Created new sub-tree: ${newTree.name}`);

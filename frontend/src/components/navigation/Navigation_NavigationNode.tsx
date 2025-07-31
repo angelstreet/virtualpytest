@@ -126,15 +126,13 @@ export const UINavigationNode: React.FC<NodeProps<UINavigationNodeType['data']>>
   const rootNodeStyle = {
     background: 'linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%)',
     border: '2px solid #d32f2f',
-    boxShadow: selected ? '0 4px 12px rgba(211, 47, 47, 0.4)' : '0 2px 8px rgba(211, 47, 47, 0.3)',
+    boxShadow: 'none', // Remove shadow
   };
 
   // Current position styling - purple theme
   const currentPositionStyle = {
     border: '3px solid #9c27b0',
-    boxShadow: selected
-      ? '0 0 20px rgba(156, 39, 176, 0.8), 0 0 30px rgba(156, 39, 176, 0.6), 0 4px 12px rgba(156, 39, 176, 0.4)'
-      : '0 0 15px rgba(156, 39, 176, 0.6), 0 0 25px rgba(156, 39, 176, 0.4), 0 2px 8px rgba(156, 39, 176, 0.3)',
+    boxShadow: 'none', // Remove shadow
     animation: 'currentPositionPulse 2s ease-in-out infinite',
   };
 
@@ -188,11 +186,7 @@ export const UINavigationNode: React.FC<NodeProps<UINavigationNodeType['data']>>
         minHeight: '180px',
         fontSize: '12px',
         color: '#333',
-        boxShadow: isCurrentPosition
-          ? currentPositionStyle.boxShadow
-          : isRootNode
-            ? rootNodeStyle.boxShadow
-            : '0 2px 4px rgba(0, 0, 0, 0.1)', // Normal shadow for nested nodes
+        boxShadow: 'none', // Remove all shadows
         position: 'relative',
         display: 'flex',
         flexDirection: 'column',
