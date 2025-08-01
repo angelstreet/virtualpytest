@@ -186,7 +186,11 @@ export const UINavigationNode: React.FC<NodeProps<UINavigationNodeType['data']>>
         minHeight: '180px',
         fontSize: '12px',
         color: '#333',
-        boxShadow: 'none', // Remove all shadows
+        boxShadow: 'none !important', // Remove all shadows
+        WebkitBoxShadow: 'none !important',
+        MozBoxShadow: 'none !important',
+        filter: 'none !important',
+        WebkitFilter: 'none !important',
         position: 'relative',
         display: 'flex',
         flexDirection: 'column',

@@ -7,11 +7,18 @@
 .react-flow__node.selected,
 .react-flow__node:hover,
 .react-flow__node:focus,
-.react-flow__node:active {
+.react-flow__node:active,
+/* Target specific node types */
+.react-flow__node[data-id*="node-"],
+.react-flow__node .react-flow__node-default,
+.react-flow__node .react-flow__node-uiScreen {
   box-shadow: none !important;
   filter: none !important;
   text-shadow: none !important;
   drop-shadow: none !important;
+  /* Force remove any webkit/browser shadows */
+  -webkit-box-shadow: none !important;
+  -moz-box-shadow: none !important;
 }
 
 /* Remove shadows from React Flow edges */
@@ -45,4 +52,27 @@
 /* Screen type nodes keep standard borders */
 .react-flow__node[data-node-type='screen'] {
   border-width: 2px !important;
+}
+
+/* AGGRESSIVE shadow removal - target any possible shadow source */
+div[data-id^="node-"],
+.react-flow__node-default div,
+.react-flow__node-uiScreen div,
+[class*="react-flow__node"] > div,
+[class*="react-flow__node"] * {
+  box-shadow: none !important;
+  -webkit-box-shadow: none !important;
+  -moz-box-shadow: none !important;
+  filter: none !important;
+  -webkit-filter: none !important;
+}
+
+/* Force remove any elevation shadows from Material-UI or other libraries */
+.react-flow__node .MuiPaper-root,
+.react-flow__node .MuiCard-root,
+.react-flow__node [class*="shadow"],
+.react-flow__node [class*="elevation"] {
+  box-shadow: none !important;
+  -webkit-box-shadow: none !important;
+  -moz-box-shadow: none !important;
 }
