@@ -885,11 +885,17 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
                
              console.log(`[@NavigationContext] Saving node to ${isParentReference ? 'original' : 'current'} tree: ${targetTreeId}`);
                          
-             const normalizedNode = {
+             // Get current position from ReactFlow canvas (nodes state)
+            const currentNode = nodes.find(node => node.id === updatedNodeData.id);
+            const currentPosition = currentNode?.position || updatedNodeData.position || { x: 0, y: 0 };
+            
+            console.log(`[@NavigationContext] Saving node ${updatedNodeData.id} with canvas position:`, currentPosition);
+
+            const normalizedNode = {
               node_id: updatedNodeData.id,
               label: updatedNodeData.data.label,
-              position_x: updatedNodeData.position?.x || 0,
-              position_y: updatedNodeData.position?.y || 0,
+              position_x: currentPosition.x,
+              position_y: currentPosition.y,
               node_type: updatedNodeData.type || 'uiScreen',
               verifications: updatedNodeData.data.verifications || [],
               data: {
@@ -967,7 +973,17 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
 
            // Save to database via NavigationConfigContext
            if (navigationConfig.actualTreeId) {
-                         const normalizedEdge = {
+             // Get current edge from ReactFlow canvas (edges state) to capture current handle positions
+             const currentEdge = edges.find(edge => edge.id === updatedEdge.id);
+             const currentSourceHandle = currentEdge?.sourceHandle || updatedEdge.sourceHandle;
+             const currentTargetHandle = currentEdge?.targetHandle || updatedEdge.targetHandle;
+             
+             console.log(`[@NavigationContext] Saving edge ${updatedEdge.id} with canvas handles:`, { 
+               sourceHandle: currentSourceHandle, 
+               targetHandle: currentTargetHandle 
+             });
+
+             const normalizedEdge = {
               edge_id: updatedEdge.id,
               source_node_id: updatedEdge.source,
               target_node_id: updatedEdge.target,
@@ -977,9 +993,9 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
                 // Only include UI-specific data, not navigation logic data
                 ...(updatedEdge.data?.priority && { priority: updatedEdge.data.priority }),
                 ...(updatedEdge.data?.threshold && { threshold: updatedEdge.data.threshold }),
-                // Include ReactFlow handle information for persistence
-                ...(updatedEdge.sourceHandle && { sourceHandle: updatedEdge.sourceHandle }),
-                ...(updatedEdge.targetHandle && { targetHandle: updatedEdge.targetHandle }),
+                // Include ReactFlow handle information for persistence (use current canvas state)
+                ...(currentSourceHandle && { sourceHandle: currentSourceHandle }),
+                ...(currentTargetHandle && { targetHandle: currentTargetHandle }),
               },
               // NEW: action_sets structure - NO LEGACY FIELDS
               action_sets: updatedEdge.data.action_sets || [],
@@ -1024,7 +1040,8 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
            setIsLoading(true);
            setError(null);
 
-           // Convert frontend format to normalized format
+           // Convert frontend format to normalized format with current canvas positions
+           console.log(`[@NavigationContext] Bulk saving tree with ${nodes.length} nodes at their current canvas positions`);
            const normalizedNodes = nodes.map(node => ({
              node_id: node.id,
              label: node.data.label,
