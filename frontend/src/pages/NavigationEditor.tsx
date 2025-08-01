@@ -862,27 +862,29 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = React.memo(
                   ) : selectedEdge ? (
                     <>
                       {/* Edge Selection Panels - handled by useEdge hook */}
-                      {selectedEdge.data?.action_sets?.map((actionSet: any, index: number) => (
-                        <EdgeSelectionPanel
-                          key={`${selectedEdge.id}-${actionSet.id}-${index}`}
-                          selectedEdge={selectedEdge}
-                          actionSet={actionSet}
-                          panelIndex={index}
-                          onClose={closeSelectionPanel}
-                          onEdit={() => {}}
-                          onDelete={deleteSelected}
-                          setEdgeForm={setEdgeForm as React.Dispatch<React.SetStateAction<EdgeForm>>}
-                          setIsEdgeDialogOpen={setIsEdgeDialogOpen}
-                          isControlActive={isControlActive}
-                          selectedHost={selectedHost || undefined}
-                          selectedDeviceId={selectedDeviceId || undefined}
-                          onEditWithLabels={(fromLabel, toLabel) =>
-                            setEdgeLabels({ fromLabel, toLabel })
-                          }
-                          currentEdgeForm={edgeForm}
-                        />
-                      )) || (
-                        // Fallback for edges without action_sets
+                      {(selectedEdge.data?.action_sets?.length > 0) ? (
+                        selectedEdge.data.action_sets.map((actionSet: any, index: number) => (
+                          <EdgeSelectionPanel
+                            key={`${selectedEdge.id}-${actionSet.id}-${index}`}
+                            selectedEdge={selectedEdge}
+                            actionSet={actionSet}
+                            panelIndex={index}
+                            onClose={closeSelectionPanel}
+                            onEdit={() => {}}
+                            onDelete={deleteSelected}
+                            setEdgeForm={setEdgeForm as React.Dispatch<React.SetStateAction<EdgeForm>>}
+                            setIsEdgeDialogOpen={setIsEdgeDialogOpen}
+                            isControlActive={isControlActive}
+                            selectedHost={selectedHost || undefined}
+                            selectedDeviceId={selectedDeviceId || undefined}
+                            onEditWithLabels={(fromLabel, toLabel) =>
+                              setEdgeLabels({ fromLabel, toLabel })
+                            }
+                            currentEdgeForm={edgeForm}
+                          />
+                        ))
+                      ) : (
+                        // Fallback for edges with empty or missing action_sets
                         <EdgeSelectionPanel
                           selectedEdge={selectedEdge}
                           panelIndex={0}
