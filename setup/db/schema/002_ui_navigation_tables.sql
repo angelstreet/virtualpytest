@@ -65,18 +65,35 @@ CREATE TABLE navigation_nodes (
 );
 
 -- Navigation edges (individual edges with action_sets structure - NO LEGACY SUPPORT)
+-- Each edge can contain MULTIPLE action sets for bidirectional navigation
+-- Each action set represents one navigation method (e.g., "Click Tab", "Press Key")
+--
+-- ACTION SET STRUCTURE:
+-- {
+--   "id": "home_to_movies_1",           -- Unique ID within edge
+--   "label": "Click Movies Tab",        -- Descriptive label for UI
+--   "actions": [...],                   -- Array of actions to execute
+--   "retry_actions": [...],             -- Array of retry actions if main fails
+--   "priority": 1,                      -- Priority (1 = default/primary)
+--   "conditions": {},                   -- Optional conditions for execution
+--   "timer": 0                          -- Timer for auto-return (milliseconds)
+-- }
+--
+-- EXAMPLES:
+-- - Edge "home ↔ home_tvguide" has 2 action sets: forward + reverse
+-- - Edge "home_tvguide ↔ tvguide_livetv" has 3 action sets: forward + 2 reverse methods
 CREATE TABLE navigation_edges (
     id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
     tree_id uuid NOT NULL REFERENCES navigation_trees(id) ON DELETE CASCADE,
     edge_id text NOT NULL, -- User-defined edge identifier
     source_node_id text NOT NULL,
     target_node_id text NOT NULL,
-    label text,
+    label text, -- ✅ UPDATED: Now uses bidirectional format (e.g., "home ↔ home_tvguide")
     edge_type text NOT NULL DEFAULT 'default',
     style jsonb DEFAULT '{}',
     data jsonb DEFAULT '{}',
-    action_sets jsonb NOT NULL DEFAULT '[]', -- ✅ NEW: Array of action sets
-    default_action_set_id text, -- ✅ NEW: ID of default action set
+    action_sets jsonb NOT NULL DEFAULT '[]', -- ✅ REQUIRED: Array of action sets (2-3 per edge typical)
+    default_action_set_id text NOT NULL, -- ✅ REQUIRED: ID of default action set (priority 1)
     final_wait_time integer DEFAULT 0,
     team_id uuid NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
     created_at timestamp with time zone DEFAULT now(),
