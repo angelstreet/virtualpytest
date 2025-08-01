@@ -28,7 +28,7 @@ import { HDMIStream } from '../components/controller/av/HDMIStream';
 import { RemotePanel } from '../components/controller/remote/RemotePanel';
 import { NavigationBreadcrumbCompact } from '../components/navigation/NavigationBreadcrumbCompact';
 import { EdgeEditDialog } from '../components/navigation/Navigation_EdgeEditDialog';
-import { EdgeActionSetsContainer } from '../components/navigation/Navigation_EdgeActionSetsContainer';
+import { EdgeSelectionPanel } from '../components/navigation/Navigation_EdgeSelectionPanel';
 import { NavigationEditorHeader } from '../components/navigation/Navigation_EditorHeader';
 import { UIMenuNode } from '../components/navigation/Navigation_MenuNode';
 import { NavigationEdgeComponent } from '../components/navigation/Navigation_NavigationEdge';
@@ -869,22 +869,45 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = React.memo(
                     </>
                   ) : selectedEdge ? (
                     <>
-                      {/* NEW: Edge Action Sets Container - Shows one panel per action set */}
-                      <EdgeActionSetsContainer
-                        selectedEdge={selectedEdge}
-                        onClose={closeSelectionPanel}
-                        onEdit={() => {}}
-                        onDelete={deleteSelected}
-                        setEdgeForm={setEdgeForm as React.Dispatch<React.SetStateAction<EdgeForm>>}
-                        setIsEdgeDialogOpen={setIsEdgeDialogOpen}
-                        isControlActive={isControlActive}
-                        selectedHost={selectedHost || undefined}
-                        selectedDeviceId={selectedDeviceId || undefined}
-                        onEditWithLabels={(fromLabel, toLabel) =>
-                          setEdgeLabels({ fromLabel, toLabel })
-                        }
-                        currentEdgeForm={edgeForm}
-                      />
+                      {/* Multiple Edge Selection Panels - One per action set */}
+                      {selectedEdge.data?.action_sets?.map((actionSet: any, index: number) => (
+                        <EdgeSelectionPanel
+                          key={`${selectedEdge.id}-${actionSet.id}-${index}`}
+                          selectedEdge={selectedEdge}
+                          actionSet={actionSet}
+                          panelIndex={index}
+                          onClose={closeSelectionPanel}
+                          onEdit={() => {}}
+                          onDelete={deleteSelected}
+                          setEdgeForm={setEdgeForm as React.Dispatch<React.SetStateAction<EdgeForm>>}
+                          setIsEdgeDialogOpen={setIsEdgeDialogOpen}
+                          isControlActive={isControlActive}
+                          selectedHost={selectedHost || undefined}
+                          selectedDeviceId={selectedDeviceId || undefined}
+                          onEditWithLabels={(fromLabel, toLabel) =>
+                            setEdgeLabels({ fromLabel, toLabel })
+                          }
+                          currentEdgeForm={edgeForm}
+                        />
+                      )) || (
+                        // Fallback for edges without action_sets (shouldn't happen after migration)
+                        <EdgeSelectionPanel
+                          selectedEdge={selectedEdge}
+                          panelIndex={0}
+                          onClose={closeSelectionPanel}
+                          onEdit={() => {}}
+                          onDelete={deleteSelected}
+                          setEdgeForm={setEdgeForm as React.Dispatch<React.SetStateAction<EdgeForm>>}
+                          setIsEdgeDialogOpen={setIsEdgeDialogOpen}
+                          isControlActive={isControlActive}
+                          selectedHost={selectedHost || undefined}
+                          selectedDeviceId={selectedDeviceId || undefined}
+                          onEditWithLabels={(fromLabel, toLabel) =>
+                            setEdgeLabels({ fromLabel, toLabel })
+                          }
+                          currentEdgeForm={edgeForm}
+                        />
+                      )}
                     </>
                   ) : null}
                 </>

@@ -29,6 +29,9 @@ interface EdgeSelectionPanelProps {
   
   // Current edge form state (for running updated actions)
   currentEdgeForm?: EdgeForm | null;
+
+  // NEW: Specific action set to display (if provided, use this instead of extracting from edge)
+  actionSet?: any;
 }
 
 export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
@@ -46,6 +49,7 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
     panelIndex = 0,
     onEditWithLabels,
     currentEdgeForm,
+    actionSet, // NEW: specific action set to display
   }) => {
     const { getNodes } = useReactFlow();
 
@@ -68,13 +72,17 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
       isControlActive,
     });
 
-    // Get actions and retry actions - use form data if available for this edge
-    const actions = (currentEdgeForm && currentEdgeForm.edgeId === selectedEdge.id) 
-      ? (currentEdgeForm.action_sets?.[0]?.actions || [])
-      : edgeHook.getActionsFromEdge(selectedEdge);
-    const retryActions = (currentEdgeForm && currentEdgeForm.edgeId === selectedEdge.id) 
-      ? (currentEdgeForm.action_sets?.[0]?.retry_actions || [])
-      : edgeHook.getRetryActionsFromEdge(selectedEdge);
+    // Get actions and retry actions - prioritize actionSet prop, then form data, then edge data
+    const actions = actionSet 
+      ? actionSet.actions || []
+      : (currentEdgeForm && currentEdgeForm.edgeId === selectedEdge.id) 
+        ? (currentEdgeForm.action_sets?.[0]?.actions || [])
+        : edgeHook.getActionsFromEdge(selectedEdge);
+    const retryActions = actionSet 
+      ? actionSet.retry_actions || []
+      : (currentEdgeForm && currentEdgeForm.edgeId === selectedEdge.id) 
+        ? (currentEdgeForm.action_sets?.[0]?.retry_actions || [])
+        : edgeHook.getRetryActionsFromEdge(selectedEdge);
     const hasActions = (actions?.length || 0) > 0;
     const hasRetryActions = (retryActions?.length || 0) > 0;
     const canRunActions = edgeHook.canRunActions(selectedEdge);
@@ -124,8 +132,14 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
 
     // Execute all edge actions using hook function
     const handleRunActions = async () => {
-      // Use updated actions from form if available, otherwise use edge data
-      if (currentEdgeForm && currentEdgeForm.edgeId === selectedEdge.id) {
+      // Prioritize specific actionSet, then form data, then edge data
+      if (actionSet) {
+        await edgeHook.executeEdgeActions(
+          selectedEdge,
+          actionSet.actions || [],
+          actionSet.retry_actions || []
+        );
+      } else if (currentEdgeForm && currentEdgeForm.edgeId === selectedEdge.id) {
         const defaultActionSet = currentEdgeForm.action_sets?.[0];
         await edgeHook.executeEdgeActions(
           selectedEdge, 
@@ -142,10 +156,13 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
         sx={{
           position: 'absolute',
           top: 16,
-          right: 16 + (1 - panelIndex) * 380, // Invert panel order - parent on left, child on right
+          right: 16 + panelIndex * 380, // Stack panels to the left (higher index = further left)
           width: 360,
           p: 1.5,
           zIndex: getZIndex('NAVIGATION_EDGE_PANEL'),
+          // Add visual indicator for default action set
+          border: actionSet?.priority === 1 ? '2px solid #1976d2' : undefined,
+          borderRadius: actionSet?.priority === 1 ? '8px' : undefined,
         }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -155,8 +172,22 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
           >
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <Typography variant="h6" sx={{ margin: 0, fontSize: '1rem' }}>
-                Edge Selection
+                {actionSet?.label || 'Edge Selection'}
               </Typography>
+              {actionSet && (
+                <>
+                  {actionSet.priority === 1 && (
+                    <Typography variant="caption" sx={{ color: '#1976d2', fontWeight: 'bold', fontSize: '0.7rem' }}>
+                      DEFAULT
+                    </Typography>
+                  )}
+                  {actionSet.timer && actionSet.timer > 0 && (
+                    <Typography variant="caption" sx={{ color: '#ff9800', fontWeight: 'bold', fontSize: '0.7rem' }}>
+                      AUTO-RETURN {actionSet.timer}ms
+                    </Typography>
+                  )}
+                </>
+              )}
               {/* Show success rate percentage with color coding */}
               <Typography
                 variant="caption"
