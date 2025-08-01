@@ -55,11 +55,8 @@ export const useNestedNavigation = ({
           
           // No need to create database entries - just ensure we show the parent node graphically
           
-          // Convert to frontend format
+          // Convert existing nodes from database to frontend format
           let frontendNodes = (treeData.nodes || []).map((dbNode: any) => {
-            // Check if this is the parent node (same ID as the node we clicked)
-            const isParentNode = dbNode.node_id === node.id;
-            
             return {
               id: dbNode.node_id,
               type: 'uiScreen',
@@ -71,46 +68,45 @@ export const useNestedNavigation = ({
                 verifications: dbNode.verifications,
                 has_subtree: dbNode.has_subtree,
                 subtree_count: dbNode.subtree_count,
-                // ADD CONTEXT FOR PARENT NODE
-                ...(isParentNode ? {
-                  isParentReference: true,
-                  originalTreeId: actualTreeId, // Original tree where this node lives
-                  currentTreeId: primarySubTree.id, // Current nested tree we're viewing
-                  depth: primarySubTree.tree_depth, // Depth in nested structure
-                  parentNodeId: node.data.parent?.[node.data.parent.length - 1], // Immediate parent
-                  parent: node.data.parent || [], // Full parent chain from original tree
-                } : {}),
                 ...dbNode.data
               }
             };
           });
           
-          // Always ensure we show at least the parent node graphically
-          if (frontendNodes.length === 0) {
-            console.log(`[@useNestedNavigation] Empty subtree, showing parent node graphically with context`);
-            
-            // Add nested tree context to parent node
-            const parentWithContext = {
-              id: node.id, // Use original parent node ID
-              type: 'uiScreen',
-              position: { x: 200, y: 200 },
-              data: {
-                label: node.data.label,
-                type: node.data.type || 'screen',
-                description: node.data.description || `Navigation for ${node.data.label}`,
-                verifications: node.data.verifications || [],
-                // ADD NESTED TREE CONTEXT
-                isParentReference: true,
-                originalTreeId: actualTreeId, // Original tree where this node lives
-                currentTreeId: primarySubTree.id, // Current nested tree we're viewing
-                depth: primarySubTree.tree_depth, // Depth in nested structure
-                parentNodeId: node.data.parent?.[node.data.parent.length - 1], // Immediate parent
-                parent: node.data.parent || [], // Full parent chain from original tree
-                ...node.data
-              }
-            };
-            
-            frontendNodes = [parentWithContext];
+          // ALWAYS add the parent node with context (regardless of other nodes)
+          const parentWithContext = {
+            id: node.id, // Use original parent node ID
+            type: 'uiScreen',
+            position: { x: 200, y: 200 },
+            data: {
+              label: node.data.label,
+              type: node.data.type || 'screen',
+              description: node.data.description || `Navigation for ${node.data.label}`,
+              verifications: node.data.verifications || [],
+              // ADD NESTED TREE CONTEXT
+              isParentReference: true,
+              originalTreeId: actualTreeId, // Original tree where this node lives
+              currentTreeId: primarySubTree.id, // Current nested tree we're viewing
+              depth: primarySubTree.tree_depth, // Depth in nested structure
+              parentNodeId: node.data.parent?.[node.data.parent.length - 1], // Immediate parent
+              parent: node.data.parent || [], // Full parent chain from original tree
+              ...node.data
+            }
+          };
+          
+          // Check if parent node already exists in the tree (unlikely but possible)
+          const parentExists = frontendNodes.some((n: any) => n.id === node.id);
+          if (!parentExists) {
+            console.log(`[@useNestedNavigation] Adding parent node to subtree: ${node.data.label}`);
+            frontendNodes.unshift(parentWithContext); // Add at beginning
+          } else {
+            console.log(`[@useNestedNavigation] Parent node already exists in subtree database`);
+            // Update existing parent node with context
+            frontendNodes = frontendNodes.map((n: any) => 
+              n.id === node.id 
+                ? { ...n, data: { ...n.data, ...parentWithContext.data } }
+                : n
+            );
           }
 
           const frontendEdges = (treeData.edges || []).map((edge: any) => ({

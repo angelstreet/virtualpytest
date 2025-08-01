@@ -448,7 +448,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = React.memo(
 
 
     // Handle navigation back to parent tree
-    const handleNavigateBack = useCallback(async () => {
+    const handleNavigateBack = useCallback(() => {
       popLevel();
       
       // CRITICAL: Restore actualTreeId to parent tree
@@ -463,15 +463,13 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = React.memo(
         console.log(`[@NavigationEditor] Restored actualTreeId to root tree: ${actualUserInterfaceId}`);
       }
       
-      // Reload main tree using new normalized API
-      if (actualUserInterfaceId) {
-        await loadTreeForUserInterface(actualUserInterfaceId);
-      }
-    }, [popLevel, loadTreeForUserInterface, actualUserInterfaceId, stack, setActualTreeId]);
+      // No need to reload - just update context and let React handle the rest
+      console.log(`[@NavigationEditor] Navigation back completed - using existing context`);
+    }, [popLevel, actualUserInterfaceId, stack, setActualTreeId]);
 
     // Handle navigation to specific level in breadcrumb
     const handleNavigateToLevel = useCallback(
-      async (levelIndex: number) => {
+      (levelIndex: number) => {
         jumpToLevel(levelIndex);
         
         // CRITICAL: Restore actualTreeId to target level tree
@@ -486,27 +484,23 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = React.memo(
           console.log(`[@NavigationEditor] Restored actualTreeId to root tree: ${actualUserInterfaceId}`);
         }
         
-        // Reload tree for the target level using new normalized API
-        if (actualUserInterfaceId) {
-          await loadTreeForUserInterface(actualUserInterfaceId);
-        }
+        // No need to reload - just update context and let React handle the rest
+        console.log(`[@NavigationEditor] Navigation to level ${levelIndex} completed - using existing context`);
       },
-      [jumpToLevel, loadTreeForUserInterface, actualUserInterfaceId, stack, setActualTreeId],
+      [jumpToLevel, actualUserInterfaceId, stack, setActualTreeId],
     );
 
     // Handle navigation to root
-    const handleNavigateToRoot = useCallback(async () => {
+    const handleNavigateToRoot = useCallback(() => {
       jumpToRoot();
       
       // CRITICAL: Restore actualTreeId to root tree
       setActualTreeId(actualUserInterfaceId);
       console.log(`[@NavigationEditor] Restored actualTreeId to root tree: ${actualUserInterfaceId}`);
       
-      // Reload main tree using new normalized API
-      if (actualUserInterfaceId) {
-        await loadTreeForUserInterface(actualUserInterfaceId);
-      }
-    }, [jumpToRoot, loadTreeForUserInterface, actualUserInterfaceId, setActualTreeId]);
+      // No need to reload - just update context and let React handle the rest
+      console.log(`[@NavigationEditor] Navigation to root completed - using existing context`);
+    }, [jumpToRoot, actualUserInterfaceId, setActualTreeId]);
 
     // Memoize the selectedHost to prevent unnecessary re-renders
     const stableSelectedHost = useMemo(() => selectedHost, [selectedHost]);
