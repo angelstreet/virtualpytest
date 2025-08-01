@@ -37,35 +37,43 @@ export const useEdgeEdit = ({
 
   // Initialize actions when dialog opens or edgeForm/selectedEdge changes
   useEffect(() => {
-    if (isOpen && edgeForm?.action_sets?.[0]?.actions !== undefined) {
-      // Actions are now in action_sets structure
-      setLocalActions(edgeForm.action_sets[0].actions);
-    }
+    if (isOpen && edgeForm?.action_sets?.[0]) {
+      // Load actions from form
+      const actionSet = edgeForm.action_sets[0];
+      console.log('[@useEdgeEdit] Loading from form:', { 
+        actions: actionSet.actions?.length || 0, 
+        retry_actions: actionSet.retry_actions?.length || 0 
+      });
+      setLocalActions(actionSet.actions || []);
+      setLocalRetryActions(actionSet.retry_actions || []);
+    } else if (isOpen && selectedEdge?.data?.action_sets?.[0]) {
+      // Load actions from selectedEdge if form doesn't have them
+      const actionSet = selectedEdge.data.action_sets[0];
+      console.log('[@useEdgeEdit] Loading from selectedEdge:', { 
+        actions: actionSet.actions?.length || 0, 
+        retry_actions: actionSet.retry_actions?.length || 0,
+        retry_actions_data: actionSet.retry_actions
+      });
+      setLocalActions(actionSet.actions || []);
+      setLocalRetryActions(actionSet.retry_actions || []);
 
-    // Load retry actions from selectedEdge - now embedded directly
-    if (isOpen && selectedEdge) {
-      if (edgeForm?.action_sets?.[0]?.retry_actions !== undefined) {
-        // Use retry actions from form if they exist (even if empty array)
-        setLocalRetryActions(edgeForm.action_sets[0].retry_actions);
-      } else {
-        // Retry actions are now in action_sets structure
-        const embeddedRetryActions = selectedEdge.data?.action_sets?.[0]?.retry_actions || [];
-        setLocalRetryActions(embeddedRetryActions);
-
-        // Update the form with embedded retry actions
-        if (edgeForm) {
-          const updatedActionSets = [...(edgeForm.action_sets || [])];
-          if (updatedActionSets[0]) {
-            updatedActionSets[0] = { ...updatedActionSets[0], retry_actions: embeddedRetryActions };
-          }
-          setEdgeForm({
-            ...edgeForm,
-            action_sets: updatedActionSets,
-          });
+      // Update the form with the loaded actions
+      if (edgeForm) {
+        const updatedActionSets = [...(edgeForm.action_sets || [])];
+        if (updatedActionSets[0]) {
+          updatedActionSets[0] = {
+            ...updatedActionSets[0],
+            actions: actionSet.actions || [],
+            retry_actions: actionSet.retry_actions || []
+          };
         }
+        setEdgeForm({
+          ...edgeForm,
+          action_sets: updatedActionSets,
+        });
       }
     }
-  }, [isOpen, edgeForm, selectedEdge, edgeHook, setEdgeForm]);
+  }, [isOpen, edgeForm, selectedEdge, setEdgeForm]);
 
   // Reset state when dialog closes
   useEffect(() => {
