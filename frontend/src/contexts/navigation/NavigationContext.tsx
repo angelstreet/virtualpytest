@@ -231,8 +231,8 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
   });
   const [edgeForm, setEdgeForm] = useState<EdgeForm>({
     edgeId: '',
-    actions: [],
-    retryActions: [],
+    action_sets: [],
+    default_action_set_id: '',
     final_wait_time: 2000,
   });
 
@@ -494,8 +494,8 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
     });
     setEdgeForm({
       edgeId: '',
-      actions: [],
-      retryActions: [],
+      action_sets: [],
+      default_action_set_id: '',
       final_wait_time: 2000,
     });
     setIsNewNode(false);
@@ -529,8 +529,8 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
     });
     setEdgeForm({
       edgeId: '',
-      actions: [],
-      retryActions: [],
+      action_sets: [],
+      default_action_set_id: '',
       final_wait_time: 2000,
     });
     setIsNewNode(false);
@@ -566,8 +566,8 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
       setSelectedEdge(edge);
       setEdgeForm({
         edgeId: edge.id,
-        actions: edge.data?.actions || [],
-        retryActions: edge.data?.retryActions || [], // Include retry actions from edge data
+        action_sets: edge.data?.action_sets || [],
+        default_action_set_id: edge.data?.default_action_set_id || '',
         final_wait_time: edge.data?.final_wait_time || 2000,
       });
     }

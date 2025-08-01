@@ -163,9 +163,9 @@ export default function ValidationPreviewClient({ treeId, onClose, selectedHost,
                           variant="outlined"
                         />
                       )}
-                      {edge.action_sets && edge.action_sets.length > 0 && (
+                      {edge.actions && edge.actions.length > 0 && (
                         <Chip
-                          label={`${edge.action_sets.length} action sets`}
+                          label={`${edge.actions.length} actions`}
                           size="small"
                           color="default"
                           variant="outlined"

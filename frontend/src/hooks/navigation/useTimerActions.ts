@@ -52,17 +52,23 @@ export const useTimerActions = ({
     // Find all edges from this node that have timer actions
     const timerEdges = edges.filter(edge => 
       edge.source === nodeId && 
-      edge.data?.actions?.some((action: any) => 
-        action.command === 'auto_return' && 
-        action.params?.timer > 0
+      edge.data?.action_sets?.some((actionSet: any) =>
+        actionSet.actions?.some((action: any) => 
+          action.command === 'auto_return' && 
+          action.params?.timer > 0
+        )
       )
     );
 
     timerEdges.forEach(edge => {
-      const timerActions = edge.data?.actions?.filter((action: any) => 
-        action.command === 'auto_return' && 
-        action.params?.timer > 0
-      ) || [];
+      const timerActions: any[] = [];
+      edge.data?.action_sets?.forEach((actionSet: any) => {
+        const setTimerActions = actionSet.actions?.filter((action: any) => 
+          action.command === 'auto_return' && 
+          action.params?.timer > 0
+        ) || [];
+        timerActions.push(...setTimerActions);
+      });
 
       timerActions.forEach((action: any, index: number) => {
         const timerId = `${edge.id}-${index}`;

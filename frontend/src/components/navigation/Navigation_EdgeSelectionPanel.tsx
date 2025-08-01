@@ -70,10 +70,10 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
 
     // Get actions and retry actions - use form data if available for this edge
     const actions = (currentEdgeForm && currentEdgeForm.edgeId === selectedEdge.id) 
-      ? currentEdgeForm.actions 
+      ? (currentEdgeForm.action_sets?.[0]?.actions || [])
       : edgeHook.getActionsFromEdge(selectedEdge);
     const retryActions = (currentEdgeForm && currentEdgeForm.edgeId === selectedEdge.id) 
-      ? currentEdgeForm.retryActions 
+      ? (currentEdgeForm.action_sets?.[0]?.retry_actions || [])
       : edgeHook.getRetryActionsFromEdge(selectedEdge);
     const hasActions = (actions?.length || 0) > 0;
     const hasRetryActions = (retryActions?.length || 0) > 0;
@@ -126,10 +126,11 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
     const handleRunActions = async () => {
       // Use updated actions from form if available, otherwise use edge data
       if (currentEdgeForm && currentEdgeForm.edgeId === selectedEdge.id) {
+        const defaultActionSet = currentEdgeForm.action_sets?.[0];
         await edgeHook.executeEdgeActions(
           selectedEdge, 
-          currentEdgeForm.actions, 
-          currentEdgeForm.retryActions
+          defaultActionSet?.actions || [], 
+          defaultActionSet?.retry_actions || []
         );
       } else {
         await edgeHook.executeEdgeActions(selectedEdge);

@@ -37,26 +37,30 @@ export const useEdgeEdit = ({
 
   // Initialize actions when dialog opens or edgeForm/selectedEdge changes
   useEffect(() => {
-    if (isOpen && edgeForm?.actions !== undefined) {
-      // Actions are now embedded directly in the edge data - no need for ID resolution
-      setLocalActions(edgeForm.actions);
+    if (isOpen && edgeForm?.action_sets?.[0]?.actions !== undefined) {
+      // Actions are now in action_sets structure
+      setLocalActions(edgeForm.action_sets[0].actions);
     }
 
     // Load retry actions from selectedEdge - now embedded directly
     if (isOpen && selectedEdge) {
-      if (edgeForm?.retryActions !== undefined) {
+      if (edgeForm?.action_sets?.[0]?.retry_actions !== undefined) {
         // Use retry actions from form if they exist (even if empty array)
-        setLocalRetryActions(edgeForm.retryActions);
+        setLocalRetryActions(edgeForm.action_sets[0].retry_actions);
       } else {
-        // Retry actions are now embedded directly in the edge data
-        const embeddedRetryActions = selectedEdge.data?.retryActions || [];
+        // Retry actions are now in action_sets structure
+        const embeddedRetryActions = selectedEdge.data?.action_sets?.[0]?.retry_actions || [];
         setLocalRetryActions(embeddedRetryActions);
 
         // Update the form with embedded retry actions
         if (edgeForm) {
+          const updatedActionSets = [...(edgeForm.action_sets || [])];
+          if (updatedActionSets[0]) {
+            updatedActionSets[0] = { ...updatedActionSets[0], retry_actions: embeddedRetryActions };
+          }
           setEdgeForm({
             ...edgeForm,
-            retryActions: embeddedRetryActions,
+            action_sets: updatedActionSets,
           });
         }
       }
@@ -133,9 +137,13 @@ export const useEdgeEdit = ({
       if (!edgeForm) return;
 
       setLocalActions(newActions);
+      const updatedActionSets = [...(edgeForm.action_sets || [])];
+      if (updatedActionSets[0]) {
+        updatedActionSets[0] = { ...updatedActionSets[0], actions: newActions };
+      }
       setEdgeForm({
         ...edgeForm,
-        actions: newActions,
+        action_sets: updatedActionSets,
       });
     },
     [edgeForm, setEdgeForm],
@@ -147,9 +155,13 @@ export const useEdgeEdit = ({
       if (!edgeForm) return;
 
       setLocalRetryActions(newRetryActions);
+      const updatedActionSets = [...(edgeForm.action_sets || [])];
+      if (updatedActionSets[0]) {
+        updatedActionSets[0] = { ...updatedActionSets[0], retry_actions: newRetryActions };
+      }
       setEdgeForm({
         ...edgeForm,
-        retryActions: newRetryActions,
+        action_sets: updatedActionSets,
       });
     },
     [edgeForm, setEdgeForm],

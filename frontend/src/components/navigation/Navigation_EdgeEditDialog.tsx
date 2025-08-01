@@ -74,7 +74,7 @@ export const EdgeEditDialog: React.FC<EdgeEditDialogProps> = ({
   });
 
       // Check if form has actions - same logic as EdgeSelectionPanel
-    const hasActions = (edgeForm?.actions?.length || 0) > 0;
+    const hasActions = (edgeForm?.action_sets?.length || 0) > 0;
     
     // Simply check if actions can be run based on control being active, host being available, and actions existing
     const canRunActions = isControlActive && !!selectedHost && hasActions && !edgeHook.actionHook.loading;
@@ -136,9 +136,19 @@ export const EdgeEditDialog: React.FC<EdgeEditDialogProps> = ({
         id: edgeForm.edgeId,
         source: 'unknown',
         target: 'unknown',
+        type: 'uiNavigation',
         data: {
-          actions: edgeEdit.localActions,
-          retryActions: edgeEdit.localRetryActions
+          action_sets: [{
+            id: 'temp',
+            label: 'Temporary Actions',
+            actions: edgeEdit.localActions,
+            retry_actions: edgeEdit.localRetryActions,
+            priority: 1,
+            conditions: {},
+            timer: 0
+          }],
+          default_action_set_id: 'temp',
+          final_wait_time: edgeForm.final_wait_time
         }
       } as UINavigationEdge;
       

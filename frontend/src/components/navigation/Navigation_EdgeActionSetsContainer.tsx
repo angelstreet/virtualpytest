@@ -1,7 +1,6 @@
 import React, { useMemo } from 'react';
 import { useReactFlow } from 'reactflow';
 
-import { useEdge } from '../../hooks/navigation/useEdge';
 import { Host } from '../../types/common/Host_Types';
 import { UINavigationEdge, EdgeForm } from '../../types/pages/Navigation_Types';
 import { ActionSetPanel } from './Navigation_ActionSetPanel';
@@ -53,12 +52,7 @@ export const EdgeActionSetsContainer: React.FC<EdgeActionSetsContainerProps> = R
     };
   }, [getNodes, selectedEdge.source, selectedEdge.target]);
 
-  // Use the edge hook to get action sets
-  const edgeHook = useEdge({
-    selectedHost: selectedHost || null,
-    selectedDeviceId: selectedDeviceId || null,
-    isControlActive,
-  });
+  // Note: edgeHook removed as it's not needed for this component
 
   // Get action sets from edge - STRICT: NO LEGACY SUPPORT
   const actionSets = useMemo(() => {
