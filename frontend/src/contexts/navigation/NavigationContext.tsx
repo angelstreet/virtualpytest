@@ -972,7 +972,9 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
               label: updatedEdge.data?.label,
 
               data: {
-                ...(updatedEdge.data || {}),
+                // Only include UI-specific data, not navigation logic data
+                ...(updatedEdge.data?.priority && { priority: updatedEdge.data.priority }),
+                ...(updatedEdge.data?.threshold && { threshold: updatedEdge.data.threshold }),
                 // Include ReactFlow handle information for persistence
                 ...(updatedEdge.sourceHandle && { sourceHandle: updatedEdge.sourceHandle }),
                 ...(updatedEdge.targetHandle && { targetHandle: updatedEdge.targetHandle }),
@@ -1041,7 +1043,9 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
             label: edge.data?.label,
 
             data: {
-              ...(edge.data || {}),
+              // Only include UI-specific data, not navigation logic data
+              ...(edge.data?.priority && { priority: edge.data.priority }),
+              ...(edge.data?.threshold && { threshold: edge.data.threshold }),
               // Include ReactFlow handle information for persistence
               ...(edge.sourceHandle && { sourceHandle: edge.sourceHandle }),
               ...(edge.targetHandle && { targetHandle: edge.targetHandle }),
