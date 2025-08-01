@@ -469,32 +469,63 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = React.memo(
     // Handle navigation back to parent tree
     const handleNavigateBack = useCallback(async () => {
       popLevel();
+      
+      // CRITICAL: Restore actualTreeId to parent tree
+      const newCurrentLevel = stack.length > 1 ? stack[stack.length - 2] : null;
+      if (newCurrentLevel) {
+        // Going back to a parent nested tree
+        setActualTreeId(newCurrentLevel.treeId);
+        console.log(`[@NavigationEditor] Restored actualTreeId to parent tree: ${newCurrentLevel.treeId}`);
+      } else {
+        // Going back to root tree
+        setActualTreeId(actualUserInterfaceId);
+        console.log(`[@NavigationEditor] Restored actualTreeId to root tree: ${actualUserInterfaceId}`);
+      }
+      
       // Reload main tree using new normalized API
       if (actualUserInterfaceId) {
         await loadTreeForUserInterface(actualUserInterfaceId);
       }
-    }, [popLevel, loadTreeForUserInterface, actualUserInterfaceId]);
+    }, [popLevel, loadTreeForUserInterface, actualUserInterfaceId, stack, setActualTreeId]);
 
     // Handle navigation to specific level in breadcrumb
     const handleNavigateToLevel = useCallback(
       async (levelIndex: number) => {
         jumpToLevel(levelIndex);
+        
+        // CRITICAL: Restore actualTreeId to target level tree
+        const targetLevel = stack[levelIndex];
+        if (targetLevel) {
+          // Going to a specific nested tree level
+          setActualTreeId(targetLevel.treeId);
+          console.log(`[@NavigationEditor] Restored actualTreeId to level ${levelIndex} tree: ${targetLevel.treeId}`);
+        } else {
+          // Going to root tree
+          setActualTreeId(actualUserInterfaceId);
+          console.log(`[@NavigationEditor] Restored actualTreeId to root tree: ${actualUserInterfaceId}`);
+        }
+        
         // Reload tree for the target level using new normalized API
         if (actualUserInterfaceId) {
           await loadTreeForUserInterface(actualUserInterfaceId);
         }
       },
-      [jumpToLevel, loadTreeForUserInterface, actualUserInterfaceId],
+      [jumpToLevel, loadTreeForUserInterface, actualUserInterfaceId, stack, setActualTreeId],
     );
 
     // Handle navigation to root
     const handleNavigateToRoot = useCallback(async () => {
       jumpToRoot();
+      
+      // CRITICAL: Restore actualTreeId to root tree
+      setActualTreeId(actualUserInterfaceId);
+      console.log(`[@NavigationEditor] Restored actualTreeId to root tree: ${actualUserInterfaceId}`);
+      
       // Reload main tree using new normalized API
       if (actualUserInterfaceId) {
         await loadTreeForUserInterface(actualUserInterfaceId);
       }
-    }, [jumpToRoot, loadTreeForUserInterface, actualUserInterfaceId]);
+    }, [jumpToRoot, loadTreeForUserInterface, actualUserInterfaceId, setActualTreeId]);
 
     // Memoize the selectedHost to prevent unnecessary re-renders
     const stableSelectedHost = useMemo(() => selectedHost, [selectedHost]);

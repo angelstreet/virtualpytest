@@ -4,7 +4,7 @@
 
 VirtualPyTest uses a modernized navigation architecture with embedded actions and verifications directly stored within navigation edges and nodes. This eliminates the need for separate action and verification tables, simplifying data management while preserving all action parameters including `wait_time`.
 
-**NEW**: The architecture now supports nested navigation trees with explicit parent-child relationships, allowing for hierarchical navigation structures up to 5 levels deep.
+**NEW**: The architecture now supports nested navigation trees with explicit parent-child relationships, allowing for hierarchical navigation structures up to 5 levels deep. The implementation uses a **reference-based approach** with no data duplication - parent nodes maintain their original tree context while being displayed in nested trees for seamless cross-tree operations.
 
 ## Database Schema
 
@@ -194,13 +194,48 @@ SELECT * FROM get_descendant_trees('root-tree-id');
 SELECT * FROM get_tree_path('deeply-nested-tree-id');
 ```
 
-### Navigation Flow
+### Reference-Based Navigation Flow
+
+The system uses a **reference-based approach** where parent nodes are displayed in nested trees without data duplication:
 
 1. **Root Level**: User starts in root tree (depth 0)
 2. **Node Double-Click**: Creates/loads subtree (depth 1)
-3. **Stack Management**: Frontend maintains navigation stack
-4. **Breadcrumb Display**: Shows current path through hierarchy
-5. **Back Navigation**: Pop stack to return to parent levels
+3. **Parent Reference**: Parent node displayed in nested tree with context metadata
+4. **Stack Management**: Frontend maintains navigation stack with parent tree tracking
+5. **Context Tracking**: Each node knows its original tree and current viewing context
+6. **Smart Save Routing**: Edits route to correct tree based on node context
+7. **Breadcrumb Display**: Shows complete path through hierarchy
+8. **Back Navigation**: Pop stack to return to parent levels with correct tree context
+
+#### Reference-Based Context Flow
+
+```
+Root Tree (interface_123):
+├─ Node A (node-456) ← Original location
+├─ Node B (node-789)
+└─ Node C (node-101)
+
+User double-clicks Node A → Creates/loads Nested Tree:
+
+Nested Tree (subtree_987):
+├─ Node A (node-456) ← Reference with context:
+│  ├─ isParentReference: true
+│  ├─ originalTreeId: "interface_123"
+│  ├─ currentTreeId: "subtree_987"
+│  ├─ depth: 1
+│  └─ parent: ["home", "main-menu"]
+├─ New Node D (node-234) ← Native to nested tree
+└─ New Node E (node-567) ← Native to nested tree
+
+Edge Creation:
+- Node A → Node D: Saved to subtree_987 with cross-tree reference
+- Node D → Node E: Saved to subtree_987 as normal edge
+
+Save Operations:
+- Edit Node A: Saves to interface_123 (original tree)
+- Edit Node D: Saves to subtree_987 (current tree)
+- Create Node F: Saves to subtree_987 (current tree)
+```
 
 ## Data Flow and Caching
 
@@ -216,20 +251,138 @@ SELECT * FROM get_tree_path('deeply-nested-tree-id');
 - **Hierarchy Caching**: Parent-child relationships cached
 - **Breadcrumb Caching**: Path information cached per tree
 - **Stack Persistence**: Navigation stack maintained across sessions
+- **Context Preservation**: Node context metadata maintained during tree transitions
+
+## Reference-Based Implementation
+
+### Key Components
+
+#### 1. NavigationStackContext
+Manages the navigation hierarchy with parent tree tracking:
+
+```typescript
+interface TreeLevel {
+  treeId: string; // Current nested tree ID
+  treeName: string; // Display name
+  parentNodeId: string; // Node that spawned this tree
+  parentNodeLabel: string; // Node display label
+  parentTreeId?: string; // NEW: Tree where parent node lives
+  depth: number; // Nesting level
+}
+```
+
+**Key Functions:**
+- `pushLevel()`: Add new nested level with parent tree context
+- `popLevel()`: Return to parent level, restore tree context
+- `jumpToLevel()`: Navigate directly to specific level
+- `jumpToRoot()`: Return to root tree
+
+#### 2. useNestedNavigation Hook
+Handles nested tree entry and context management:
+
+**Responsibilities:**
+- Create/load subtrees on node double-click
+- Add context metadata to parent nodes
+- Update `actualTreeId` for current operation context
+- Maintain parent tree references for cross-tree operations
+
+**Context Enhancement:**
+```typescript
+// Parent nodes get enhanced context in nested trees
+const parentWithContext = {
+  id: originalNodeId,
+  data: {
+    ...originalData,
+    // Reference context
+    isParentReference: true,
+    originalTreeId: parentTreeId,
+    currentTreeId: nestedTreeId,
+    depth: nestedDepth,
+    parent: originalParentChain,
+  }
+}
+```
+
+#### 3. Smart Save Routing
+NavigationContext routes saves based on node context:
+
+```typescript
+// Determine save target
+const isParentReference = node.data.isParentReference;
+const targetTreeId = isParentReference 
+  ? node.data.originalTreeId  // Save to original tree
+  : navigationConfig.actualTreeId; // Save to current tree
+
+await navigationConfig.saveNode(targetTreeId, normalizedNode);
+```
+
+#### 4. actualTreeId Management
+Tracks current operational context:
+
+- **Root Tree**: `actualTreeId = "interface_123"`
+- **Enter Nested**: `actualTreeId = "subtree_987"`
+- **Back Navigation**: `actualTreeId = "interface_123"` (restored)
+
+### Cross-Tree Operations
+
+#### Edge Creation
+Edges between parent and child nodes are stored in the nested tree:
+
+```typescript
+// Edge from parent node (original tree) to child node (nested tree)
+const crossTreeEdge = {
+  id: "edge-456-234",
+  source: "node-456", // Parent node ID (lives in original tree)
+  target: "node-234", // Child node ID (lives in nested tree)
+  // Saved to: subtree_987 (current actualTreeId)
+}
+```
+
+#### Node Editing
+Node edits route to the correct tree automatically:
+
+- **Parent Node**: Edit dialog → Save → Routes to `originalTreeId`
+- **Child Node**: Edit dialog → Save → Routes to `currentTreeId`
+- **No Special Handling**: Same UI, same user experience
+
+#### Navigation Preservation
+Full context maintained for "Go To" operations:
+
+```typescript
+// Complete path preserved in navigation stack
+const fullPath = [
+  { treeId: "interface_123", label: "root" },
+  { treeId: "subtree_987", label: "live_fullscreen", parentTreeId: "interface_123" }
+];
+```
 
 ### Frontend Integration
-The frontend receives enhanced node data:
+The frontend uses enhanced node data with reference-based context tracking:
 
 ```typescript
 interface UINavigationNodeData {
   // ... existing properties ...
   
-  // Nested tree properties
+  // Nested tree properties (database-stored)
   has_subtree?: boolean;
   subtree_count?: number;
-  tree_depth?: number;
-  is_nested_tree?: boolean;
-  parent_tree_name?: string;
+  
+  // Reference-based context (runtime-computed)
+  isParentReference?: boolean; // True if this node is a reference to a parent tree
+  originalTreeId?: string; // Tree ID where this node actually lives
+  currentTreeId?: string; // Tree ID where we're currently viewing it
+  parentNodeId?: string; // Immediate parent node ID
+  depth?: number; // Depth in nested structure (from navigation stack)
+  parent?: string[]; // Full parent chain from original tree
+}
+
+interface NavigationStackLevel {
+  treeId: string; // Current nested tree ID
+  treeName: string; // Current nested tree name
+  parentNodeId: string; // Parent node that spawned this tree
+  parentNodeLabel: string; // Parent node display label
+  parentTreeId?: string; // Tree where parent node actually lives
+  depth: number; // Nesting depth level
 }
 
 interface UINavigationTreeData {
@@ -268,11 +421,18 @@ interface UINavigationTreeData {
 
 ## Performance Benefits
 
+### Reference-Based Advantages
+- **No Data Duplication**: Parent nodes maintain single source of truth
+- **Seamless Cross-Tree Operations**: Edit parent nodes from nested contexts
+- **Efficient Memory Usage**: No redundant node storage across trees
+- **Consistent State Management**: All changes propagate to original source
+
 ### Nested Tree Advantages
 - **Explicit Relationships**: Clear database-enforced parent-child links
 - **Depth Control**: Built-in constraints prevent infinite nesting
 - **Efficient Queries**: Indexed parent relationships for fast lookups
 - **Automatic Maintenance**: Triggers handle metadata consistency
+- **Smart Context Routing**: Operations automatically target correct tree
 
 ### Query Optimization
 - **Recursive Functions**: Efficient hierarchy traversal
@@ -288,16 +448,35 @@ interface UINavigationTreeData {
 
 ## Migration Benefits
 
+### Reference-Based Architecture
+- **Zero Data Duplication**: Parent nodes referenced, not copied
+- **Seamless User Experience**: Edit any node from any context
+- **Automatic Context Routing**: Saves target correct tree automatically
+- **Preserved Relationships**: Full parent-child context maintained
+- **Cross-Tree Operations**: Edges and navigation work across tree boundaries
+
 ### Enhanced Architecture
-- **Scalable Nesting**: Support for complex hierarchical structures
+- **Scalable Nesting**: Support for complex hierarchical structures up to 5 levels
 - **Data Integrity**: Database constraints ensure consistency
 - **Performance Optimized**: Indexed queries and cached relationships
-- **User Experience**: Intuitive nested navigation with visual feedback
+- **Smart Context Management**: Frontend automatically handles tree context
+- **User Experience**: Intuitive nested navigation with complete breadcrumb trails
 
 ### Preserved Functionality
 - **Complete Compatibility**: All existing features work unchanged
+- **Unified Save Behavior**: Same manual save flow for all nodes
 - **Parameter Integrity**: `wait_time` and all action parameters preserved
 - **Metrics Integration**: Enhanced metrics with nested tree context
 - **Historical Data**: Execution history includes hierarchy information
 
-The nested tree architecture provides a powerful, scalable foundation for complex navigation structures while maintaining the performance and simplicity of the embedded action/verification approach. 
+## Implementation Summary
+
+The reference-based nested tree architecture provides:
+
+1. **Clean Separation**: Database handles relationships, frontend handles context
+2. **No Duplication**: Single source of truth for all node data
+3. **Transparent Operations**: Users don't need to think about tree boundaries
+4. **Automatic Routing**: System handles cross-tree saves automatically
+5. **Full Context**: Complete navigation paths preserved for "Go To" operations
+
+This approach maintains the performance and simplicity of the embedded action/verification design while adding powerful hierarchical navigation capabilities that scale to complex nested structures without data redundancy or user complexity. 

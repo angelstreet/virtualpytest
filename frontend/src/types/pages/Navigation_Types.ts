@@ -58,6 +58,12 @@ export interface UINavigationNodeData {
     success_rate: number;
     avg_execution_time: number;
   };
+
+  // Nested tree context (for parent node references)
+  isParentReference?: boolean; // True if this node is a reference to a parent tree
+  originalTreeId?: string; // Tree ID where this node actually lives
+  currentTreeId?: string; // Tree ID where we're currently viewing it
+  parentNodeId?: string; // Immediate parent node ID
 }
 
 // Define the data type for navigation edges - NEW STRUCTURE ONLY, NO LEGACY

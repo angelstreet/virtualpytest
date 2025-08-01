@@ -823,9 +823,17 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
              setSelectedNode(updatedNodeData);
            }
 
-           // Save to database via NavigationConfigContext
+           // Save to database via NavigationConfigContext with smart routing
            if (updatedNodeData && navigationConfig.actualTreeId) {
-                         const normalizedNode = {
+             // SMART SAVE ROUTING: Determine which tree to save to
+             const isParentReference = updatedNodeData.data.isParentReference;
+             const targetTreeId = isParentReference 
+               ? updatedNodeData.data.originalTreeId || navigationConfig.actualTreeId
+               : navigationConfig.actualTreeId;
+               
+             console.log(`[@NavigationContext] Saving node to ${isParentReference ? 'original' : 'current'} tree: ${targetTreeId}`);
+                         
+             const normalizedNode = {
               node_id: updatedNodeData.id,
               label: updatedNodeData.data.label,
               position_x: updatedNodeData.position?.x || 0,
@@ -838,7 +846,7 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
               },
             };
 
-                         await navigationConfig.saveNode(navigationConfig.actualTreeId, normalizedNode as any);
+            await navigationConfig.saveNode(targetTreeId, normalizedNode as any);
 
             // Refresh navigation cache (non-blocking, continue even if it fails)
             try {
@@ -846,7 +854,7 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
-                  tree_id: navigationConfig.actualTreeId,
+                  tree_id: targetTreeId, // Use the actual tree where we saved
                   team_id: 'default' 
                 })
               });

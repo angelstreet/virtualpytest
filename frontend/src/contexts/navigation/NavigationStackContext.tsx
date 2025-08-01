@@ -6,6 +6,7 @@ interface TreeLevel {
   treeName: string;
   parentNodeId: string;
   parentNodeLabel: string;
+  parentTreeId?: string; // NEW: Track which tree the parent node actually lives in
   depth: number; // Add depth tracking
 }
 
@@ -13,7 +14,7 @@ interface NavigationStackContextType {
   stack: TreeLevel[];
   currentLevel: TreeLevel | null;
   breadcrumb: BreadcrumbItem[]; // Add breadcrumb
-  pushLevel: (treeId: string, parentNodeId: string, treeName: string, parentNodeLabel: string, depth: number) => void;
+  pushLevel: (treeId: string, parentNodeId: string, treeName: string, parentNodeLabel: string, depth: number, parentTreeId?: string) => void;
   popLevel: () => void;
   jumpToLevel: (targetIndex: number) => void;
   jumpToRoot: () => void;
@@ -30,8 +31,8 @@ export const NavigationStackProvider: React.FC<{ children: React.ReactNode }> = 
 
 
   const pushLevel = useCallback(
-    (treeId: string, parentNodeId: string, treeName: string, parentNodeLabel: string, depth: number) => {
-      setStack((prev) => [...prev, { treeId, treeName, parentNodeId, parentNodeLabel, depth }]);
+    (treeId: string, parentNodeId: string, treeName: string, parentNodeLabel: string, depth: number, parentTreeId?: string) => {
+      setStack((prev) => [...prev, { treeId, treeName, parentNodeId, parentNodeLabel, depth, parentTreeId }]);
     },
     [],
   );

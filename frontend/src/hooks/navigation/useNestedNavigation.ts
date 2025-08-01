@@ -56,25 +56,41 @@ export const useNestedNavigation = ({
           // No need to create database entries - just ensure we show the parent node graphically
           
           // Convert to frontend format
-          let frontendNodes = (treeData.nodes || []).map((node: any) => ({
-            id: node.node_id,
-            type: 'uiScreen',
-            position: { x: node.position_x, y: node.position_y },
-            data: {
-              label: node.label,
-              type: node.node_type,
-              description: node.description,
-              verifications: node.verifications,
-              has_subtree: node.has_subtree,
-              subtree_count: node.subtree_count,
-              ...node.data
-            }
-          }));
+          let frontendNodes = (treeData.nodes || []).map((dbNode: any) => {
+            // Check if this is the parent node (same ID as the node we clicked)
+            const isParentNode = dbNode.node_id === node.id;
+            
+            return {
+              id: dbNode.node_id,
+              type: 'uiScreen',
+              position: { x: dbNode.position_x, y: dbNode.position_y },
+              data: {
+                label: dbNode.label,
+                type: dbNode.node_type,
+                description: dbNode.description,
+                verifications: dbNode.verifications,
+                has_subtree: dbNode.has_subtree,
+                subtree_count: dbNode.subtree_count,
+                // ADD CONTEXT FOR PARENT NODE
+                ...(isParentNode ? {
+                  isParentReference: true,
+                  originalTreeId: actualTreeId, // Original tree where this node lives
+                  currentTreeId: primarySubTree.id, // Current nested tree we're viewing
+                  depth: primarySubTree.tree_depth, // Depth in nested structure
+                  parentNodeId: node.data.parent?.[node.data.parent.length - 1], // Immediate parent
+                  parent: node.data.parent || [], // Full parent chain from original tree
+                } : {}),
+                ...dbNode.data
+              }
+            };
+          });
           
           // Always ensure we show at least the parent node graphically
           if (frontendNodes.length === 0) {
-            console.log(`[@useNestedNavigation] Empty subtree, showing parent node graphically`);
-            frontendNodes = [{
+            console.log(`[@useNestedNavigation] Empty subtree, showing parent node graphically with context`);
+            
+            // Add nested tree context to parent node
+            const parentWithContext = {
               id: node.id, // Use original parent node ID
               type: 'uiScreen',
               position: { x: 200, y: 200 },
@@ -83,9 +99,18 @@ export const useNestedNavigation = ({
                 type: node.data.type || 'screen',
                 description: node.data.description || `Navigation for ${node.data.label}`,
                 verifications: node.data.verifications || [],
+                // ADD NESTED TREE CONTEXT
+                isParentReference: true,
+                originalTreeId: actualTreeId, // Original tree where this node lives
+                currentTreeId: primarySubTree.id, // Current nested tree we're viewing
+                depth: primarySubTree.tree_depth, // Depth in nested structure
+                parentNodeId: node.data.parent?.[node.data.parent.length - 1], // Immediate parent
+                parent: node.data.parent || [], // Full parent chain from original tree
                 ...node.data
               }
-            }];
+            };
+            
+            frontendNodes = [parentWithContext];
           }
 
           const frontendEdges = (treeData.edges || []).map((edge: any) => ({
@@ -104,14 +129,19 @@ export const useNestedNavigation = ({
             }
           }));
 
-          // 5. Push to navigation stack with depth
+          // 5. Push to navigation stack with depth and parent tree tracking
           pushLevel(
             primarySubTree.id, 
             node.id, 
             primarySubTree.name, 
             node.data.label,
-            primarySubTree.tree_depth
+            primarySubTree.tree_depth,
+            actualTreeId || undefined // NEW: Track which tree the parent node actually lives in
           );
+
+          // CRITICAL: Update actualTreeId to the nested tree ID
+          navigationConfig.setActualTreeId(primarySubTree.id);
+          console.log(`[@useNestedNavigation] Updated actualTreeId to nested tree: ${primarySubTree.id}`);
 
           // Load breadcrumb for the new tree
           await loadBreadcrumb(primarySubTree.id);
@@ -160,7 +190,7 @@ export const useNestedNavigation = ({
       // No need to create database entry - just show parent node graphically
       console.log(`[@useNestedNavigation] New subtree created, will show parent node graphically`);
       
-      // Always start new subtree with parent node displayed graphically
+      // Always start new subtree with parent node displayed graphically with context
       const frontendNodes = [{
         id: parentNode.id, // Use original parent node ID
         type: 'uiScreen',
@@ -170,12 +200,23 @@ export const useNestedNavigation = ({
           type: parentNode.data.type || 'screen',
           description: parentNode.data.description || `Navigation for ${parentNode.data.label}`,
           verifications: parentNode.data.verifications || [],
+          // ADD NESTED TREE CONTEXT
+          isParentReference: true,
+          originalTreeId: actualTreeId, // Original tree where this node lives
+          currentTreeId: newTree.id, // Current nested tree we're viewing
+          depth: newTree.tree_depth, // Depth in nested structure
+          parentNodeId: parentNode.data.parent?.[parentNode.data.parent.length - 1], // Immediate parent
+          parent: parentNode.data.parent || [], // Full parent chain from original tree
           ...parentNode.data
         }
       }];
 
-      // Push to navigation stack
-      pushLevel(newTree.id, parentNode.id, newTree.name, parentNode.data.label, newTree.tree_depth);
+      // Push to navigation stack with parent tree tracking
+      pushLevel(newTree.id, parentNode.id, newTree.name, parentNode.data.label, newTree.tree_depth, actualTreeId || undefined);
+
+      // CRITICAL: Update actualTreeId to the new nested tree ID
+      navigationConfig.setActualTreeId(newTree.id);
+      console.log(`[@useNestedNavigation] Updated actualTreeId to new nested tree: ${newTree.id}`);
 
       // Load breadcrumb
       await loadBreadcrumb(newTree.id);
