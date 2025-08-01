@@ -49,6 +49,7 @@ export interface NavigationContextType {
   cacheTree: (treeId: string, treeData: { nodes: UINavigationNode[], edges: UINavigationEdge[] }) => void;
   getCachedTree: (treeId: string) => { nodes: UINavigationNode[], edges: UINavigationEdge[] } | null;
   switchToTree: (treeId: string) => void;
+  cacheAndSwitchToTree: (treeId: string, treeData: { nodes: UINavigationNode[], edges: UINavigationEdge[] }) => void;
   
   // React Flow state - displays active tree from cache
   nodes: UINavigationNode[];
@@ -640,6 +641,19 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
     }
   }, [treeCache, setNodes, setEdges]);
 
+  const cacheAndSwitchToTree = useCallback((treeId: string, treeData: { nodes: UINavigationNode[], edges: UINavigationEdge[] }) => {
+    console.log(`[@context:NavigationProvider] Caching and switching to tree ${treeId} with ${treeData.nodes.length} nodes and ${treeData.edges.length} edges`);
+    
+    // Update cache first
+    setTreeCache(prev => new Map(prev).set(treeId, treeData));
+    
+    // Immediately display the tree data (no cache dependency)
+    setNodes(treeData.nodes);
+    setEdges(treeData.edges);
+    
+    console.log(`[@context:NavigationProvider] Cached and displayed tree ${treeId} with ${treeData.nodes.length} nodes`);
+  }, [setNodes, setEdges]);
+
   const validateNavigationPath = useCallback((path: string[]): boolean => {
     console.log('[@context:NavigationProvider] Validating navigation path:', path);
     return path.length > 0 && path.every((id) => typeof id === 'string' && id.length > 0);
@@ -711,6 +725,7 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
       cacheTree,
       getCachedTree,
       switchToTree,
+      cacheAndSwitchToTree,
       
       // React Flow state - displays active tree from cache
       nodes: stableNodes as UINavigationNode[],

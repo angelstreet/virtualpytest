@@ -142,8 +142,7 @@ export const useNestedNavigation = ({
         await loadBreadcrumb(primarySubTree.id);
 
         // Cache nested tree data and switch to it
-        navigation.cacheTree(primarySubTree.id, { nodes: finalNodes, edges: frontendEdges });
-        navigation.switchToTree(primarySubTree.id);
+        navigation.cacheAndSwitchToTree(primarySubTree.id, { nodes: finalNodes, edges: frontendEdges });
         
         // Set initial state for deletion detection
         navigation.setInitialState({ nodes: [...finalNodes], edges: [...frontendEdges] });
@@ -215,8 +214,7 @@ export const useNestedNavigation = ({
       await loadBreadcrumb(newTree.id);
 
       // Cache new tree data and switch to it
-      navigation.cacheTree(newTree.id, { nodes: frontendNodes, edges: [] });
-      navigation.switchToTree(newTree.id);
+      navigation.cacheAndSwitchToTree(newTree.id, { nodes: frontendNodes, edges: [] });
       
       // Focus on the parent node and fit view
       setTimeout(() => {

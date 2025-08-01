@@ -419,8 +419,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = React.memo(
 
             // Cache tree data and display it
             if (treeId) {
-              navigation.cacheTree(treeId, { nodes: frontendNodes, edges: frontendEdges });
-              navigation.switchToTree(treeId);
+              navigation.cacheAndSwitchToTree(treeId, { nodes: frontendNodes, edges: frontendEdges });
               setActualTreeId(treeId);
               console.log(`[@NavigationEditor:loadTreeForUserInterface] Cached and switched to tree: ${treeId}`);
             }
