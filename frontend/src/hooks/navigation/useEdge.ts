@@ -106,31 +106,19 @@ export const useEdge = (props?: UseEdgeProps) => {
   }, [getActionSetsFromEdge, actionHook, convertToControllerAction]);
 
   /**
-   * LEGACY: Get actions from edge data (for backward compatibility during transition)
+   * Get actions from edge data - STRICT: Only action_sets structure, NO LEGACY
    */
   const getActionsFromEdge = useCallback((edge: UINavigationEdge): Action[] => {
-    // Try new structure first
-    try {
-      const defaultSet = getDefaultActionSet(edge);
-      return defaultSet.actions;
-    } catch {
-      // Fallback to legacy structure if it exists
-      return edge.data?.actions || [];
-    }
+    const defaultSet = getDefaultActionSet(edge);
+    return defaultSet.actions;
   }, [getDefaultActionSet]);
 
   /**
-   * LEGACY: Get retry actions from edge data (for backward compatibility during transition)
+   * Get retry actions from edge data - STRICT: Only action_sets structure, NO LEGACY
    */
   const getRetryActionsFromEdge = useCallback((edge: UINavigationEdge): Action[] => {
-    // Try new structure first
-    try {
-      const defaultSet = getDefaultActionSet(edge);
-      return defaultSet.retry_actions || [];
-    } catch {
-      // Fallback to legacy structure if it exists
-      return edge.data?.retryActions || [];
-    }
+    const defaultSet = getDefaultActionSet(edge);
+    return defaultSet.retry_actions || [];
   }, [getDefaultActionSet]);
 
   /**
@@ -244,50 +232,26 @@ export const useEdge = (props?: UseEdgeProps) => {
   );
 
   /**
-   * Create edge form from edge data - NEW: Uses action_sets structure
+   * Create edge form from edge data - STRICT: Only action_sets structure, NO LEGACY
    */
   const createEdgeForm = useCallback(
     (edge: UINavigationEdge): EdgeForm => {
-      try {
-        // Try new action_sets structure
-        const actionSets = getActionSetsFromEdge(edge);
-        const defaultActionSetId = edge.data.default_action_set_id || 'default';
-
-        return {
-          edgeId: edge.id, // Include edge ID for tracking
-          description: edge.data?.description || '',
-          action_sets: actionSets, // NEW: action sets structure
-          default_action_set_id: defaultActionSetId, // NEW: default action set ID
-          final_wait_time: edge.data?.final_wait_time ?? 2000,
-          priority: edge.data?.priority || 'p3', // Default to p3 if not set
-          threshold: edge.data?.threshold ?? 0, // Default to 0 if not set
-        };
-      } catch {
-        // Fallback for legacy structure during transition
-        const actions = edge.data?.actions || [];
-        const retryActions = edge.data?.retryActions || [];
-
-        // Convert legacy to new structure
-        const defaultActionSet: ActionSet = {
-          id: 'default',
-          label: 'Default Actions',
-          actions: actions,
-          retry_actions: retryActions,
-          priority: 1,
-          conditions: {},
-          timer: 0
-        };
-
-        return {
-          edgeId: edge.id,
-          description: edge.data?.description || '',
-          action_sets: [defaultActionSet],
-          default_action_set_id: 'default',
-          final_wait_time: edge.data?.final_wait_time ?? 2000,
-          priority: edge.data?.priority || 'p3',
-          threshold: edge.data?.threshold ?? 0,
-        };
+      const actionSets = getActionSetsFromEdge(edge);
+      const defaultActionSetId = edge.data.default_action_set_id;
+      
+      if (!defaultActionSetId) {
+        throw new Error("Edge missing default_action_set_id - no legacy support");
       }
+
+      return {
+        edgeId: edge.id, // Include edge ID for tracking
+        description: edge.data?.description || '',
+        action_sets: actionSets, // REQUIRED: action sets structure
+        default_action_set_id: defaultActionSetId, // REQUIRED: default action set ID
+        final_wait_time: edge.data?.final_wait_time ?? 2000,
+        priority: edge.data?.priority || 'p3', // Default to p3 if not set
+        threshold: edge.data?.threshold ?? 0, // Default to 0 if not set
+      };
     },
     [getActionSetsFromEdge],
   );
@@ -306,7 +270,7 @@ export const useEdge = (props?: UseEdgeProps) => {
     // State
     runResult,
 
-    // NEW: Action sets methods
+    // Action sets methods - STRICT: NO LEGACY SUPPORT
     getActionSetsFromEdge,
     getDefaultActionSet,
     executeActionSet,
@@ -314,8 +278,8 @@ export const useEdge = (props?: UseEdgeProps) => {
     // Utility functions
     getEdgeColorsForEdge,
     isProtectedEdge,
-    getActionsFromEdge, // Legacy compatibility
-    getRetryActionsFromEdge, // Legacy compatibility
+    getActionsFromEdge, // Uses default action set only
+    getRetryActionsFromEdge, // Uses default action set only
     canRunActions,
     formatRunResult,
     createEdgeForm,

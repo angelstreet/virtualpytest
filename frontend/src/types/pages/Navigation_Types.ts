@@ -60,24 +60,16 @@ export interface UINavigationNodeData {
   };
 }
 
-// Define the data type for navigation edges - supports both legacy and new structures
+// Define the data type for navigation edges - NEW STRUCTURE ONLY, NO LEGACY
 export interface UINavigationEdgeData {
   label?: string; // Auto-generated label in format "source_label→target_label"
   description?: string;
   edge_type?: 'horizontal' | 'vertical'; // Default: horizontal
   priority?: 'p1' | 'p2' | 'p3'; // Priority level (default: p3)
   threshold?: number; // Threshold for edge traversal (default: 0)
-
-  // Legacy structure (for backward compatibility)
-  actions?: Action[]; // Legacy: Array of actions
-  retryActions?: Action[]; // Legacy: Array of retry actions
-
-  // NEW: Action sets structure
-  action_sets?: ActionSet[]; // NEW: Array of action sets
-  default_action_set_id?: string; // NEW: ID of default action set
-  final_wait_time?: number; // Final wait time after all actions complete (default: 2000ms)
-
-  // Execution metrics
+  action_sets: ActionSet[]; // REQUIRED
+  default_action_set_id: string; // REQUIRED
+  final_wait_time: number;
   metrics?: {
     volume: number;
     success_rate: number;
@@ -186,18 +178,8 @@ export interface UINavigationEdge {
 }
 
 // =====================================================
-// LEGACY TYPES (for backward compatibility during migration)
+// NO LEGACY TYPES - ALL REMOVED
 // =====================================================
-
-// Legacy navigation tree structure (will be removed after migration)
-export interface LegacyNavigationTree {
-  id: string;
-  name: string;
-  metadata: {
-    nodes: any[];
-    edges: any[];
-  };
-}
 
 // =====================================================
 // ACTION AND VERIFICATION TYPES (embedded)
@@ -240,22 +222,13 @@ export interface NodeForm {
   verifications?: Verification[];
 }
 
-// EdgeForm interface supporting both legacy and new action_sets structure
+// NEW: EdgeForm interface for action_sets structure - NO LEGACY
 export interface EdgeForm {
   edgeId: string; // Required edge ID to track which edge is being edited
-  
-  // Legacy structure (for backward compatibility)
-  actions?: Action[]; // Legacy: Array of actions
-  retryActions?: Action[]; // Legacy: Array of retry actions
-  
-  // New structure
-  action_sets?: ActionSet[]; // NEW: Array of action sets
-  default_action_set_id?: string; // NEW: ID of default action set
-  
+  action_sets: ActionSet[]; // REQUIRED: Array of action sets
+  default_action_set_id: string; // REQUIRED: ID of default action set
   final_wait_time: number; // Using standard naming convention
   description?: string; // Edge description
-
-  // Priority and threshold fields
   priority?: 'p1' | 'p2' | 'p3'; // Priority level (default: p3)
   threshold?: number; // Threshold in milliseconds (default: 0)
 }

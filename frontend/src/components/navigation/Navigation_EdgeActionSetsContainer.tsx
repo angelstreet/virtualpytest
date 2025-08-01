@@ -60,17 +60,20 @@ export const EdgeActionSetsContainer: React.FC<EdgeActionSetsContainerProps> = R
     isControlActive,
   });
 
-  // Get action sets from edge
+  // Get action sets from edge - STRICT: NO LEGACY SUPPORT
   const actionSets = useMemo(() => {
-    try {
-      return selectedEdge.data?.action_sets || [];
-    } catch (error) {
-      console.error('Failed to get action sets:', error);
-      return [];
+    if (!selectedEdge.data?.action_sets) {
+      throw new Error("Edge missing action_sets - migration incomplete");
     }
-  }, [edgeHook, selectedEdge]);
+    return selectedEdge.data.action_sets;
+  }, [selectedEdge]);
 
   const defaultActionSetId = selectedEdge.data?.default_action_set_id;
+  
+  // Strict validation - NO LEGACY SUPPORT
+  if (!defaultActionSetId) {
+    throw new Error("Edge missing default_action_set_id - migration incomplete");
+  }
 
   // Handle edit for specific action set
   const handleEdit = () => {

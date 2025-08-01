@@ -53,10 +53,11 @@ export const useNavigationEditor = () => {
           data: {
             label: edge.label, // Include the auto-generated label from database
             description: edge.description,
-            actions: edge.actions || [], // Use backend structure exactly
-            retryActions: edge.retry_actions || [],
+            action_sets: edge.action_sets, // NEW: action sets structure - REQUIRED
+            default_action_set_id: edge.default_action_set_id, // NEW: default action set ID - REQUIRED
             final_wait_time: edge.final_wait_time,
             ...edge.data // Additional data
+            // NO LEGACY FIELDS: actions, retryActions removed
           }
         }));
 
@@ -134,6 +135,7 @@ export const useNavigationEditor = () => {
           description: `Edge from ${sourceNode.data.label} to ${targetNode.data.label}`,
           action_sets: [],
           default_action_set_id: '',
+          final_wait_time: 2000,
         },
       };
 
