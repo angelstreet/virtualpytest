@@ -949,7 +949,9 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
             ...currentSelectedEdge,
             data: {
               ...(currentSelectedEdge.data || {}),
-
+              // Include all form data including action_sets
+              action_sets: edgeForm.action_sets || [],
+              default_action_set_id: edgeForm.default_action_set_id || 'default',
               final_wait_time: edgeForm.final_wait_time || 0,
               priority: edgeForm.priority || 'p3',
               threshold: edgeForm.threshold || 0,
