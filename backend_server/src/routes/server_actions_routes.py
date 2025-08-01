@@ -212,21 +212,12 @@ def action_execute_single():
 
 @server_actions_bp.route('/checkDependenciesBatch', methods=['POST'])
 def check_dependencies_batch():
-    """Check if actions are used in other edges (dependency check)"""
+    """Check if actions are used in other edges (dependency check) - DEPRECATED: Legacy action_ids removed"""
     try:
         data = request.get_json()
-        action_ids = data.get('action_ids', [])
+        # Legacy action_ids support removed - action_sets are now embedded in edges
         
-        if not action_ids:
-            return jsonify({
-                'success': True,
-                'has_shared_actions': False,
-                'edges': [],
-                'count': 0
-            })
-        
-        # For now, return a simple response indicating no dependencies
-        # This can be enhanced later to actually check the database
+        # Return no dependencies since action_ids are no longer used
         return jsonify({
             'success': True,
             'has_shared_actions': False,

@@ -69,8 +69,6 @@ export interface UINavigationNodeData {
 // Define the data type for navigation edges - NEW STRUCTURE ONLY, NO LEGACY
 export interface UINavigationEdgeData {
   label?: string; // Auto-generated label in format "source_label→target_label"
-  description?: string;
-  edge_type?: 'horizontal' | 'vertical'; // Default: horizontal
   priority?: 'p1' | 'p2' | 'p3'; // Priority level (default: p3)
   threshold?: number; // Threshold for edge traversal (default: 0)
   action_sets: ActionSet[]; // REQUIRED
@@ -138,8 +136,6 @@ export interface NavigationEdge {
   source_node_id: string;
   target_node_id: string;
   label?: string;
-  edge_type: string;
-  style?: any;
   data?: any;
   // NEW: Action sets structure - NO LEGACY FIELDS
   action_sets: ActionSet[]; // REQUIRED
@@ -234,7 +230,6 @@ export interface EdgeForm {
   action_sets: ActionSet[]; // REQUIRED: Array of action sets
   default_action_set_id: string; // REQUIRED: ID of default action set
   final_wait_time: number; // Using standard naming convention
-  description?: string; // Edge description
   priority?: 'p1' | 'p2' | 'p3'; // Priority level (default: p3)
   threshold?: number; // Threshold in milliseconds (default: 0)
 }

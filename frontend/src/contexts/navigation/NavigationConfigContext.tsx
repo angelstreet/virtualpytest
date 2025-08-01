@@ -69,7 +69,6 @@ export interface NavigationEdge {
   action_sets: ActionSet[]; // REQUIRED
   default_action_set_id: string; // REQUIRED
   final_wait_time: number;
-  edge_type: string;
   priority: string;
   threshold: number;
   metadata: any;

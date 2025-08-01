@@ -65,7 +65,7 @@ export const NavigationEdgeComponent: React.FC<EdgeProps<UINavigationEdgeType['d
   }
 
   return (
-    <g className={edgeColors.className} data-edge-type={data?.edge_type}>
+    <g className={edgeColors.className}>
       {/* Invisible thick overlay for better selectability */}
       <path
         id={`${id}-selectable`}

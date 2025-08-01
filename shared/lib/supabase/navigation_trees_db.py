@@ -234,7 +234,7 @@ def get_tree_edges(tree_id: str, team_id: str, node_ids: List[str] = None) -> Di
         
         # Select only new structure fields
         query = supabase.table('navigation_edges')\
-            .select('edge_id', 'source_node_id', 'target_node_id', 'action_sets', 'default_action_set_id', 'final_wait_time', 'label', 'edge_type', 'style', 'data')\
+            .select('edge_id', 'source_node_id', 'target_node_id', 'action_sets', 'default_action_set_id', 'final_wait_time', 'label', 'data')\
             .eq('tree_id', tree_id)\
             .eq('team_id', team_id)
         

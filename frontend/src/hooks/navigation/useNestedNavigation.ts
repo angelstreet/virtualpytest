@@ -52,7 +52,6 @@ export const useNestedNavigation = ({
       targetHandle: edge.data?.targetHandle,
       data: {
         label: edge.label,
-        description: edge.description,
         action_sets: edge.action_sets,
         default_action_set_id: edge.default_action_set_id,
         final_wait_time: edge.final_wait_time,

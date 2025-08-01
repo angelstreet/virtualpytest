@@ -52,7 +52,6 @@ export const useNavigationEditor = () => {
           targetHandle: edge.data?.targetHandle, // Extract handle info to root level
           data: {
             label: edge.label, // Include the auto-generated label from database
-            description: edge.description,
             action_sets: edge.action_sets, // NEW: action sets structure - REQUIRED
             default_action_set_id: edge.default_action_set_id, // NEW: default action set ID - REQUIRED
             final_wait_time: edge.final_wait_time,
@@ -130,13 +129,24 @@ export const useNavigationEditor = () => {
           type: MarkerType.ArrowClosed,
           color: '#555',
         },
-        data: {
-          label: `${sourceNode.data.label}→${targetNode.data.label}`,
-          description: `Edge from ${sourceNode.data.label} to ${targetNode.data.label}`,
-          action_sets: [],
-          default_action_set_id: '',
-          final_wait_time: 2000,
-        },
+        data: (() => {
+          const defaultActionSetId = `actionset-${Date.now()}`;
+          const actionSetLabel = `${sourceNode.data.label}→${targetNode.data.label}_1`;
+          return {
+            label: `${sourceNode.data.label}→${targetNode.data.label}`,
+            action_sets: [
+              {
+                id: defaultActionSetId,
+                label: actionSetLabel,
+                actions: [],
+                retry_actions: [],
+                priority: 1,
+              }
+            ],
+            default_action_set_id: defaultActionSetId,
+            final_wait_time: 2000,
+          };
+        })(),
       };
 
       console.log('[@useNavigationEditor:onConnect] Creating edge:', newEdge);

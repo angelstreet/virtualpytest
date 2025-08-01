@@ -76,59 +76,11 @@ export const useEdgeEdit = ({
     }
   }, [isOpen]);
 
-  // Check dependencies for actions
+  // Check dependencies for actions - SIMPLIFIED: Legacy action_ids removed, actions are now embedded in action_sets
   const checkDependencies = useCallback(async (actions: Action[]): Promise<any> => {
-    // Filter actions with real DB IDs
-    const actionsToCheck = actions.filter((action) => action.id && action.id.length > 10);
-
-    if (actionsToCheck.length === 0) {
-      console.log('[@hook:useEdgeEdit] No actions with DB IDs to check for dependencies');
-      return { success: true, has_shared_actions: false, edges: [], count: 0 };
-    }
-
-    try {
-      console.log(`[@hook:useEdgeEdit] Checking dependencies for ${actionsToCheck.length} actions`);
-      console.log(
-        `[@hook:useEdgeEdit] Action IDs being checked:`,
-        actionsToCheck.map((a) => a.id),
-      );
-
-      const response = await fetch('/server/action/checkDependenciesBatch', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          action_ids: actionsToCheck.map((action) => action.id),
-        }),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`[@hook:useEdgeEdit] Server returned ${response.status}: ${errorText}`);
-        throw new Error(`Server returned ${response.status}: ${response.statusText}`);
-      }
-
-      const result = await response.json();
-      console.log('[@hook:useEdgeEdit] Dependency check result:', result);
-      setDependencyCheckResult(result);
-
-      if (!result.success) {
-        console.error('[@hook:useEdgeEdit] Dependency check failed:', result);
-        return { success: false, error: 'Dependency check failed' };
-      }
-
-      if (result.success && !result.has_shared_actions) {
-        console.log('[@hook:useEdgeEdit] No dependencies found, edge can be saved directly');
-      } else if (result.success && result.has_shared_actions) {
-        console.log(`[@hook:useEdgeEdit] Found ${result.count} edges with shared actions`);
-      }
-
-      return result;
-    } catch (error) {
-      console.error('[@hook:useEdgeEdit] Failed to check dependencies:', error);
-      return { success: false, error: String(error) };
-    }
+    // Since actions are now embedded within action_sets in each edge, there are no shared dependencies
+    console.log('[@hook:useEdgeEdit] Dependency check skipped - actions are embedded in action_sets');
+    return { success: true, has_shared_actions: false, edges: [], count: 0 };
   }, []);
 
   // Handle actions change

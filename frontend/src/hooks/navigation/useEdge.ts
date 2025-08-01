@@ -224,7 +224,6 @@ export const useEdge = (props?: UseEdgeProps) => {
 
       return {
         edgeId: edge.id, // Include edge ID for tracking
-        description: edge.data?.description || '',
         action_sets: actionSets, // REQUIRED: action sets structure
         default_action_set_id: defaultActionSetId, // REQUIRED: default action set ID
         final_wait_time: edge.data?.final_wait_time ?? 2000,

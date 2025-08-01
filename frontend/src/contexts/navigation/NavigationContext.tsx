@@ -970,8 +970,7 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
               source_node_id: updatedEdge.source,
               target_node_id: updatedEdge.target,
               label: updatedEdge.data?.label,
-              edge_type: updatedEdge.type || 'default',
-              style: updatedEdge.style || {},
+
               data: updatedEdge.data || {},
               // NEW: action_sets structure - NO LEGACY FIELDS
               action_sets: updatedEdge.data.action_sets || [],
@@ -1035,8 +1034,7 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
             source_node_id: edge.source,
             target_node_id: edge.target,
             label: edge.data?.label,
-            edge_type: edge.data?.edgeType || 'default',
-            style: edge.style || {},
+
             data: edge.data || {},
             // STRICT: action_sets required - NO LEGACY CONVERSION
             action_sets: edge.data?.action_sets || [],
