@@ -3,7 +3,7 @@ import { useCallback, useState } from 'react';
 import { useNavigation } from '../../contexts/navigation/NavigationContext';
 import { Host } from '../../types/common/Host_Types';
 import { Actions, Action } from '../../types/controller/Action_Types';
-import { UINavigationEdge, EdgeForm } from '../../types/pages/Navigation_Types';
+import { UINavigationEdge, EdgeForm, ActionSet } from '../../types/pages/Navigation_Types';
 import { useAction } from '../actions';
 import { useValidationColors } from '../validation';
 
@@ -62,18 +62,76 @@ export const useEdge = (props?: UseEdgeProps) => {
   }, []);
 
   /**
-   * Get actions from edge data (already resolved by NavigationConfigContext)
+   * NEW: Get action sets from edge data
    */
-  const getActionsFromEdge = useCallback((edge: UINavigationEdge): Action[] => {
-    return edge.data?.actions || [];
+  const getActionSetsFromEdge = useCallback((edge: UINavigationEdge): ActionSet[] => {
+    if (!edge.data?.action_sets) {
+      throw new Error("Edge missing action_sets - no legacy support");
+    }
+    return edge.data.action_sets;
   }, []);
 
   /**
-   * Get retry actions from edge data (already resolved by NavigationConfigContext)
+   * NEW: Get default action set from edge
+   */
+  const getDefaultActionSet = useCallback((edge: UINavigationEdge): ActionSet => {
+    const actionSets = getActionSetsFromEdge(edge);
+    const defaultId = edge.data.default_action_set_id;
+    if (!defaultId) { 
+      throw new Error("Edge missing default_action_set_id"); 
+    }
+    const defaultSet = actionSets.find(set => set.id === defaultId);
+    if (!defaultSet) { 
+      throw new Error(`Default action set '${defaultId}' not found`); 
+    }
+    return defaultSet;
+  }, [getActionSetsFromEdge]);
+
+  /**
+   * NEW: Execute specific action set
+   */
+  const executeActionSet = useCallback(async (
+    edge: UINavigationEdge,
+    actionSetId: string
+  ) => {
+    const actionSets = getActionSetsFromEdge(edge);
+    const actionSet = actionSets.find(set => set.id === actionSetId);
+    if (!actionSet) { 
+      throw new Error(`Action set ${actionSetId} not found`); 
+    }
+    return await actionHook.executeActions(
+      actionSet.actions.map(convertToControllerAction),
+      (actionSet.retry_actions || []).map(convertToControllerAction)
+    );
+  }, [getActionSetsFromEdge, actionHook, convertToControllerAction]);
+
+  /**
+   * LEGACY: Get actions from edge data (for backward compatibility during transition)
+   */
+  const getActionsFromEdge = useCallback((edge: UINavigationEdge): Action[] => {
+    // Try new structure first
+    try {
+      const defaultSet = getDefaultActionSet(edge);
+      return defaultSet.actions;
+    } catch {
+      // Fallback to legacy structure if it exists
+      return edge.data?.actions || [];
+    }
+  }, [getDefaultActionSet]);
+
+  /**
+   * LEGACY: Get retry actions from edge data (for backward compatibility during transition)
    */
   const getRetryActionsFromEdge = useCallback((edge: UINavigationEdge): Action[] => {
-    return edge.data?.retryActions || [];
-  }, []);
+    // Try new structure first
+    try {
+      const defaultSet = getDefaultActionSet(edge);
+      return defaultSet.retry_actions || [];
+    } catch {
+      // Fallback to legacy structure if it exists
+      return edge.data?.retryActions || [];
+    }
+  }, [getDefaultActionSet]);
 
   /**
    * Check if edge can run actions
@@ -186,24 +244,52 @@ export const useEdge = (props?: UseEdgeProps) => {
   );
 
   /**
-   * Create edge form from edge data
+   * Create edge form from edge data - NEW: Uses action_sets structure
    */
   const createEdgeForm = useCallback(
     (edge: UINavigationEdge): EdgeForm => {
-      const actions = getActionsFromEdge(edge);
-      const retryActions = getRetryActionsFromEdge(edge);
+      try {
+        // Try new action_sets structure
+        const actionSets = getActionSetsFromEdge(edge);
+        const defaultActionSetId = edge.data.default_action_set_id || 'default';
 
-      return {
-        edgeId: edge.id, // Include edge ID for tracking
-        description: edge.data?.description || '',
-        actions: actions,
-        retryActions: retryActions,
-        final_wait_time: edge.data?.final_wait_time ?? 2000,
-        priority: edge.data?.priority || 'p3', // Default to p3 if not set
-        threshold: edge.data?.threshold ?? 0, // Default to 0 if not set
-      };
+        return {
+          edgeId: edge.id, // Include edge ID for tracking
+          description: edge.data?.description || '',
+          action_sets: actionSets, // NEW: action sets structure
+          default_action_set_id: defaultActionSetId, // NEW: default action set ID
+          final_wait_time: edge.data?.final_wait_time ?? 2000,
+          priority: edge.data?.priority || 'p3', // Default to p3 if not set
+          threshold: edge.data?.threshold ?? 0, // Default to 0 if not set
+        };
+      } catch {
+        // Fallback for legacy structure during transition
+        const actions = edge.data?.actions || [];
+        const retryActions = edge.data?.retryActions || [];
+
+        // Convert legacy to new structure
+        const defaultActionSet: ActionSet = {
+          id: 'default',
+          label: 'Default Actions',
+          actions: actions,
+          retry_actions: retryActions,
+          priority: 1,
+          conditions: {},
+          timer: 0
+        };
+
+        return {
+          edgeId: edge.id,
+          description: edge.data?.description || '',
+          action_sets: [defaultActionSet],
+          default_action_set_id: 'default',
+          final_wait_time: edge.data?.final_wait_time ?? 2000,
+          priority: edge.data?.priority || 'p3',
+          threshold: edge.data?.threshold ?? 0,
+        };
+      }
     },
-    [getActionsFromEdge, getRetryActionsFromEdge],
+    [getActionSetsFromEdge],
   );
 
   /**
@@ -228,8 +314,8 @@ export const useEdge = (props?: UseEdgeProps) => {
     // Utility functions
     getEdgeColorsForEdge,
     isProtectedEdge,
-    getActionsFromEdge,
-    getRetryActionsFromEdge,
+    getActionsFromEdge, // Legacy compatibility
+    getRetryActionsFromEdge, // Legacy compatibility
     canRunActions,
     formatRunResult,
     createEdgeForm,

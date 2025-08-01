@@ -24,7 +24,7 @@ export interface UseNodeProps {
 
 export const useNode = (props?: UseNodeProps) => {
   const { getModelReferences, referencesLoading, currentDeviceId } = useDeviceData();
-  const { currentNodeId, updateCurrentPosition, updateNodesWithMinimapIndicators } =
+  const { currentNodeId, updateCurrentPosition, updateNodesWithMinimapIndicators, nodes, edges } =
     useNavigation();
   const {
     setNavigationEdgesSuccess,
@@ -40,10 +40,10 @@ export const useNode = (props?: UseNodeProps) => {
   const navigationCallbackRef = useRef<((nodeId: string) => void) | undefined>();
 
   // Timer actions hook for auto-return functionality  
-  const timerActions = useTimerActions({
-    currentNodeId,
-    edges: navigationConfig.edges,
-    nodes: navigationConfig.nodes,
+  useTimerActions({
+    currentNodeId: currentNodeId || undefined,
+    edges: edges,
+    nodes: nodes,
     onNavigateToNode: (nodeId: string) => {
       if (navigationCallbackRef.current) {
         navigationCallbackRef.current(nodeId);
@@ -401,12 +401,12 @@ export const useNode = (props?: UseNodeProps) => {
   // Set up the navigation callback ref
   useEffect(() => {
     navigationCallbackRef.current = (nodeId: string) => {
-      const targetNode = navigationConfig.nodes.find(n => n.id === nodeId);
+      const targetNode = nodes.find((n: UINavigationNode) => n.id === nodeId);
       if (targetNode) {
         executeNavigation(targetNode);
       }
     };
-  }, [navigationConfig.nodes, executeNavigation]);
+  }, [nodes, executeNavigation]);
 
   /**
    * Clear navigation state when node changes

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
-import { useNavigationConfig } from '../../contexts/navigation/NavigationConfigContext';
-import type { UINavigationEdge, UINavigationNode } from '../../contexts/navigation/NavigationConfigContext';
+import { useNavigation } from '../../contexts/navigation/NavigationContext';
+import type { UINavigationEdge, UINavigationNode } from '../../types/pages/Navigation_Types';
 
 interface UseTimerActionsProps {
   currentNodeId?: string;
@@ -23,7 +23,7 @@ export const useTimerActions = ({
   nodes,
   onNavigateToNode
 }: UseTimerActionsProps): UseTimerActionsReturn => {
-  const navigationConfig = useNavigationConfig();
+  const { updateCurrentPosition } = useNavigation();
   const activeTimersRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
 
   // Clear all active timers
@@ -82,10 +82,10 @@ export const useTimerActions = ({
           if (onNavigateToNode) {
             onNavigateToNode(targetNodeId);
           } else {
-            // Fallback: use navigation config to update position
+            // Fallback: use navigation context to update position
             const targetNode = nodes.find(n => n.id === targetNodeId);
             if (targetNode) {
-              navigationConfig.updateCurrentPosition(targetNodeId, targetNode.data.label);
+              updateCurrentPosition(targetNodeId, targetNode.data.label);
             }
           }
 
@@ -97,7 +97,7 @@ export const useTimerActions = ({
         activeTimersRef.current.set(timerId, timeoutId);
       });
     });
-  }, [edges, nodes, onNavigateToNode, navigationConfig, clearTimer]);
+  }, [edges, nodes, onNavigateToNode, updateCurrentPosition, clearTimer]);
 
   // Check for timer actions when current node changes
   useEffect(() => {

@@ -10,7 +10,7 @@ import { getZIndex } from '../../utils/zIndexUtils';
 
 export const UINavigationNode: React.FC<NodeProps<UINavigationNodeType['data']>> = ({
   data,
-  selected,
+  selected: _selected,
   id,
 }) => {
   const { currentNodeId } = useNavigation();

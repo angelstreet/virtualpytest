@@ -75,8 +75,8 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
     const retryActions = (currentEdgeForm && currentEdgeForm.edgeId === selectedEdge.id) 
       ? currentEdgeForm.retryActions 
       : edgeHook.getRetryActionsFromEdge(selectedEdge);
-    const hasActions = actions.length > 0;
-    const hasRetryActions = retryActions.length > 0;
+    const hasActions = (actions?.length || 0) > 0;
+    const hasRetryActions = (retryActions?.length || 0) > 0;
     const canRunActions = edgeHook.canRunActions(selectedEdge);
 
     // Memoize the clearResults function to avoid recreating it on every render
@@ -233,7 +233,7 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
           </Box>
 
           {/* Show main actions list */}
-          {actions.length > 0 && (
+          {(actions?.length || 0) > 0 && (
             <Box sx={{ mb: 1 }}>
               <Typography
                 variant="caption"
@@ -241,7 +241,7 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
               >
                 Main Actions:
               </Typography>
-              {actions.map((action, index) => {
+              {actions?.map((action, index) => {
                 const formatActionDisplay = (action: any) => {
                   if (!action.command) return 'No action selected';
                   const commandDisplay = action.command.replace(/_/g, ' ').trim();
@@ -311,7 +311,7 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
               >
                 Retry Actions (if main actions fail):
               </Typography>
-              {retryActions.map((action, index) => {
+              {retryActions?.map((action, index) => {
                 const formatActionDisplay = (action: any) => {
                   if (!action.command) return 'No action selected';
                   const commandDisplay = action.command.replace(/_/g, ' ').trim();

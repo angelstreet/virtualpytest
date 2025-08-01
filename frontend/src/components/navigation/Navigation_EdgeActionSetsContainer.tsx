@@ -30,14 +30,14 @@ export const EdgeActionSetsContainer: React.FC<EdgeActionSetsContainerProps> = R
   selectedEdge,
   onClose,
   onEdit,
-  onDelete,
-  setEdgeForm,
-  setIsEdgeDialogOpen,
+  onDelete: _onDelete,
+  setEdgeForm: _setEdgeForm,
+  setIsEdgeDialogOpen: _setIsEdgeDialogOpen,
   isControlActive = false,
   selectedHost,
   selectedDeviceId,
   onEditWithLabels,
-  currentEdgeForm,
+  currentEdgeForm: _currentEdgeForm,
 }) => {
   const { getNodes } = useReactFlow();
 
@@ -63,7 +63,7 @@ export const EdgeActionSetsContainer: React.FC<EdgeActionSetsContainerProps> = R
   // Get action sets from edge
   const actionSets = useMemo(() => {
     try {
-      return edgeHook.getActionSetsFromEdge(selectedEdge);
+      return selectedEdge.data?.action_sets || [];
     } catch (error) {
       console.error('Failed to get action sets:', error);
       return [];
@@ -108,7 +108,7 @@ export const EdgeActionSetsContainer: React.FC<EdgeActionSetsContainerProps> = R
   // Render one panel per action set
   return (
     <>
-      {actionSets.map((actionSet, index) => (
+      {actionSets.map((actionSet: any, index: number) => (
         <ActionSetPanel
           key={`${selectedEdge.id}-${actionSet.id}`}
           selectedEdge={selectedEdge}

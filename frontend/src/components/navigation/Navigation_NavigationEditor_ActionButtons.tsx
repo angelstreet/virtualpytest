@@ -12,7 +12,7 @@ import { ValidationButtonClient } from '../validation';
 
 export const NavigationEditorActionButtons: React.FC<NavigationEditorActionButtonsProps> = ({
   treeId,
-  isLocked,
+  isLocked: _isLocked,
   hasUnsavedChanges,
   isLoading,
   error,

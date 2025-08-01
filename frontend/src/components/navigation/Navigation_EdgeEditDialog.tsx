@@ -74,7 +74,7 @@ export const EdgeEditDialog: React.FC<EdgeEditDialogProps> = ({
   });
 
       // Check if form has actions - same logic as EdgeSelectionPanel
-    const hasActions = edgeForm?.actions?.length > 0;
+    const hasActions = (edgeForm?.actions?.length || 0) > 0;
     
     // Simply check if actions can be run based on control being active, host being available, and actions existing
     const canRunActions = isControlActive && !!selectedHost && hasActions && !edgeHook.actionHook.loading;

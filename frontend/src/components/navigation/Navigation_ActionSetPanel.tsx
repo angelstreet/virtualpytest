@@ -55,16 +55,16 @@ export const ActionSetPanel: React.FC<ActionSetPanelProps> = React.memo(({
       isControlActive &&
       selectedHost !== null &&
       hasActions &&
-      !edgeHook.loading
+      !edgeHook.actionHook.loading
     );
-  }, [isControlActive, selectedHost, hasActions, edgeHook.loading]);
+  }, [isControlActive, selectedHost, hasActions, edgeHook.actionHook.loading]);
 
   // Execute this specific action set
   const handleExecuteActionSet = async () => {
     if (!canExecute) return;
     
     try {
-      await edgeHook.executeActionSet(selectedEdge, actionSet.id);
+      await edgeHook.executeEdgeActions(selectedEdge, actionSet.actions, actionSet.retry_actions);
     } catch (error) {
       console.error('Failed to execute action set:', error);
     }
@@ -77,7 +77,7 @@ export const ActionSetPanel: React.FC<ActionSetPanelProps> = React.memo(({
     right: '20px',
     width: '400px',
     maxHeight: '250px',
-    zIndex: getZIndex('panel'),
+    zIndex: getZIndex('UI_ELEMENTS'),
     backgroundColor: 'white',
     border: '1px solid #e0e0e0',
     borderRadius: '8px',
@@ -182,7 +182,7 @@ export const ActionSetPanel: React.FC<ActionSetPanelProps> = React.memo(({
             disabled={!canExecute}
             sx={{ fontSize: '0.8rem' }}
           >
-            {edgeHook.loading ? 'Running...' : 'Execute'}
+            {edgeHook.actionHook.loading ? 'Running...' : 'Execute'}
           </Button>
         </Box>
 

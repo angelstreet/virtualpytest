@@ -132,6 +132,8 @@ export const useNavigationEditor = () => {
         data: {
           label: `${sourceNode.data.label}→${targetNode.data.label}`,
           description: `Edge from ${sourceNode.data.label} to ${targetNode.data.label}`,
+          action_sets: [],
+          default_action_set_id: '',
         },
       };
 

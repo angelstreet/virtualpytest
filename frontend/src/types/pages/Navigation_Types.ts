@@ -60,7 +60,7 @@ export interface UINavigationNodeData {
   };
 }
 
-// Define the data type for navigation edges - NEW ACTION_SETS STRUCTURE ONLY
+// Define the data type for navigation edges - supports both legacy and new structures
 export interface UINavigationEdgeData {
   label?: string; // Auto-generated label in format "source_label→target_label"
   description?: string;
@@ -68,9 +68,13 @@ export interface UINavigationEdgeData {
   priority?: 'p1' | 'p2' | 'p3'; // Priority level (default: p3)
   threshold?: number; // Threshold for edge traversal (default: 0)
 
-  // NEW: Action sets structure - NO LEGACY FIELDS
-  action_sets: ActionSet[]; // REQUIRED: Array of action sets
-  default_action_set_id: string; // REQUIRED: ID of default action set
+  // Legacy structure (for backward compatibility)
+  actions?: Action[]; // Legacy: Array of actions
+  retryActions?: Action[]; // Legacy: Array of retry actions
+
+  // NEW: Action sets structure
+  action_sets?: ActionSet[]; // NEW: Array of action sets
+  default_action_set_id?: string; // NEW: ID of default action set
   final_wait_time?: number; // Final wait time after all actions complete (default: 2000ms)
 
   // Execution metrics
@@ -236,11 +240,18 @@ export interface NodeForm {
   verifications?: Verification[];
 }
 
-// NEW: EdgeForm interface for action_sets structure - NO LEGACY
+// EdgeForm interface supporting both legacy and new action_sets structure
 export interface EdgeForm {
   edgeId: string; // Required edge ID to track which edge is being edited
-  action_sets: ActionSet[]; // REQUIRED: Array of action sets
-  default_action_set_id: string; // REQUIRED: ID of default action set
+  
+  // Legacy structure (for backward compatibility)
+  actions?: Action[]; // Legacy: Array of actions
+  retryActions?: Action[]; // Legacy: Array of retry actions
+  
+  // New structure
+  action_sets?: ActionSet[]; // NEW: Array of action sets
+  default_action_set_id?: string; // NEW: ID of default action set
+  
   final_wait_time: number; // Using standard naming convention
   description?: string; // Edge description
 
