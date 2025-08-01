@@ -971,7 +971,12 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
               target_node_id: updatedEdge.target,
               label: updatedEdge.data?.label,
 
-              data: updatedEdge.data || {},
+              data: {
+                ...(updatedEdge.data || {}),
+                // Include ReactFlow handle information for persistence
+                ...(updatedEdge.sourceHandle && { sourceHandle: updatedEdge.sourceHandle }),
+                ...(updatedEdge.targetHandle && { targetHandle: updatedEdge.targetHandle }),
+              },
               // NEW: action_sets structure - NO LEGACY FIELDS
               action_sets: updatedEdge.data.action_sets || [],
               default_action_set_id: updatedEdge.data.default_action_set_id || 'default',
@@ -1035,7 +1040,12 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
             target_node_id: edge.target,
             label: edge.data?.label,
 
-            data: edge.data || {},
+            data: {
+              ...(edge.data || {}),
+              // Include ReactFlow handle information for persistence
+              ...(edge.sourceHandle && { sourceHandle: edge.sourceHandle }),
+              ...(edge.targetHandle && { targetHandle: edge.targetHandle }),
+            },
             // STRICT: action_sets required - NO LEGACY CONVERSION
             action_sets: edge.data?.action_sets || [],
             default_action_set_id: edge.data?.default_action_set_id || 'default',
