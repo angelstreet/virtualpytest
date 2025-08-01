@@ -517,9 +517,10 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = React.memo(
               `[@NavigationEditor] Saving as subtree for: ${currentLevel.parentNodeLabel}`,
             );
 
-            // First, check if a subtree already exists for this node
+            // First, check if a subtree already exists for this node in the parent tree
+            const parentTreeId = currentLevel.parentTreeId || actualTreeId;
             const checkResponse = await fetch(
-              `/server/navigationTrees/getNodeSubTrees/${actualTreeId}/${currentLevel.parentNodeId}`,
+              `/server/navigationTrees/getNodeSubTrees/${parentTreeId}/${currentLevel.parentNodeId}`,
             );
             const checkResult = await checkResponse.json();
 
@@ -553,13 +554,11 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = React.memo(
             } else {
               // Create new subtree
               console.log(`[@NavigationEditor] Creating new subtree`);
-              const response = await fetch('/server/navigationTrees/createSubTree', {
+              const response = await fetch(`/server/navigationTrees/${parentTreeId}/nodes/${currentLevel.parentNodeId}/subtrees`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                  parent_tree_id: actualTreeId,
-                  parent_node_id: currentLevel.parentNodeId,
-                  sub_tree_name: currentLevel.treeName,
+                  name: currentLevel.treeName,
                   tree_data: { nodes, edges },
                   description: `Actions for ${currentLevel.parentNodeLabel}`,
                 }),

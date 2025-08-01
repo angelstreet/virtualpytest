@@ -263,7 +263,6 @@ export const EdgeEditDialog: React.FC<EdgeEditDialogProps> = ({
                 onClick={() => {
                   const newAction: any = {
                     command: '',
-                    name: '',
                     params: {
                       wait_time: 500
                     },

@@ -7,7 +7,7 @@ import { UINavigationEdge as UINavigationEdgeType } from '../../types/pages/Navi
 export const NavigationEdgeComponent: React.FC<EdgeProps<UINavigationEdgeType['data']>> = (
   props,
 ) => {
-  const { id, source, target, sourceX, sourceY, targetX, targetY, data, selected } = props;
+  const { id, source, target, sourceX, sourceY, targetX, targetY, selected } = props;
   const { getNodes } = useReactFlow();
 
   // Use the consolidated edge hook

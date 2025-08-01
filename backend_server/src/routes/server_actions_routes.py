@@ -158,7 +158,7 @@ def action_execute_single():
         host = data.get('host', {})
         device_id = data.get('device_id', 'device1')
         
-        print(f"[@route:server_actions:action_execute_single] Executing action: {action.get('name', 'unnamed')}")
+        print(f"[@route:server_actions:action_execute_single] Executing action: {action.get('command', 'unknown_command')}")
         print(f"[@route:server_actions:action_execute_single] Host: {host.get('host_name')}, Device ID: {device_id}")
         
         # Validate

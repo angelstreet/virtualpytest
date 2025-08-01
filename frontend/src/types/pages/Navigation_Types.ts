@@ -1,4 +1,11 @@
-import { Action, EdgeAction } from '../controller/Action_Types';
+import { EdgeAction } from '../controller/Action_Types';
+
+// Simple action interface for database storage (only command + params)
+export interface Action {
+  command: string;
+  params: any;
+  device_model?: string; // Optional device targeting
+}
 
 // Action Set interface for new edge structure
 export interface ActionSet {

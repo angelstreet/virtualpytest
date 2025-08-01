@@ -14,7 +14,8 @@ import {
 } from '@mui/material';
 import React from 'react';
 
-import type { Actions, Action } from '../../types/controller/Action_Types';
+import type { Actions } from '../../types/controller/Action_Types';
+import type { Action } from '../../types/pages/Navigation_Types';
 
 interface ActionItemProps {
   action: Action;

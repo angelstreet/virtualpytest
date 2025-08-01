@@ -2,7 +2,7 @@ import { useCallback, useState, useEffect } from 'react';
 
 import { Host } from '../../types/common/Host_Types';
 import { EdgeForm, UINavigationEdge } from '../../types/pages/Navigation_Types';
-import { Action } from '../../types/controller/Action_Types';
+import { Action } from '../../types/pages/Navigation_Types';
 
 import { useEdge } from './useEdge';
 
@@ -77,7 +77,7 @@ export const useEdgeEdit = ({
   }, [isOpen]);
 
   // Check dependencies for actions - SIMPLIFIED: Legacy action_ids removed, actions are now embedded in action_sets
-  const checkDependencies = useCallback(async (actions: Action[]): Promise<any> => {
+  const checkDependencies = useCallback(async (_actions: Action[]): Promise<any> => {
     // Since actions are now embedded within action_sets in each edge, there are no shared dependencies
     console.log('[@hook:useEdgeEdit] Dependency check skipped - actions are embedded in action_sets');
     return { success: true, has_shared_actions: false, edges: [], count: 0 };

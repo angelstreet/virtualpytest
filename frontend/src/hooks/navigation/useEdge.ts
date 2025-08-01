@@ -2,8 +2,8 @@ import { useCallback, useState } from 'react';
 
 import { useNavigation } from '../../contexts/navigation/NavigationContext';
 import { Host } from '../../types/common/Host_Types';
-import { Actions, Action } from '../../types/controller/Action_Types';
-import { UINavigationEdge, EdgeForm, ActionSet } from '../../types/pages/Navigation_Types';
+import { Actions } from '../../types/controller/Action_Types';
+import { UINavigationEdge, EdgeForm, ActionSet, Action } from '../../types/pages/Navigation_Types';
 import { useAction } from '../actions';
 import { useValidationColors } from '../validation';
 
@@ -33,7 +33,7 @@ export const useEdge = (props?: UseEdgeProps) => {
   const convertToControllerAction = useCallback((navAction: Action): any => {
     return {
       command: navAction.command,
-      name: navAction.label || navAction.command,
+      name: navAction.command, // Use command as name since action.name was removed
       params: navAction.params,
     };
   }, []);

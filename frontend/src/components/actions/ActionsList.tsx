@@ -2,7 +2,7 @@ import { Box } from '@mui/material';
 import React from 'react';
 
 import { useDeviceData } from '../../contexts/device/DeviceDataContext';
-import { Action } from '../../types/controller/Action_Types';
+import { Action } from '../../types/pages/Navigation_Types';
 
 import { ActionItem } from './ActionItem';
 
@@ -35,10 +35,9 @@ export const ActionsList: React.FC<ActionsListProps> = ({ actions, onActionsUpda
       if (i === index) {
         return {
           ...action,
-          id: selectedAction.id,
           command: selectedAction.command,
-          label: selectedAction.label,
           params: { ...selectedAction.params },
+          device_model: selectedAction.device_model,
         };
       }
       return action;
