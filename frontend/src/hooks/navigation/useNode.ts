@@ -1,9 +1,10 @@
-import { useCallback, useState, useEffect, useMemo } from 'react';
+import { useCallback, useState, useEffect, useMemo, useRef } from 'react';
 
 import { useDeviceData } from '../../contexts/device/DeviceDataContext';
 import { useNavigationConfig } from '../../contexts/navigation/NavigationConfigContext';
 import { useNavigation } from '../../contexts/navigation/NavigationContext';
 import { Host } from '../../types/common/Host_Types';
+import { useTimerActions } from './useTimerActions';
 import {
   UINavigationNode,
   NodeForm,
@@ -34,6 +35,21 @@ export const useNode = (props?: UseNodeProps) => {
     resetNodeVerificationColors,
   } = useValidationColors();
   const navigationConfig = useNavigationConfig();
+
+  // Create a ref for the navigation callback to avoid circular dependency
+  const navigationCallbackRef = useRef<((nodeId: string) => void) | undefined>();
+
+  // Timer actions hook for auto-return functionality  
+  const timerActions = useTimerActions({
+    currentNodeId,
+    edges: navigationConfig.edges,
+    nodes: navigationConfig.nodes,
+    onNavigateToNode: (nodeId: string) => {
+      if (navigationCallbackRef.current) {
+        navigationCallbackRef.current(nodeId);
+      }
+    }
+  });
 
   // Get the selected device from the host's devices array
   const selectedDevice = useMemo(() => {
@@ -381,6 +397,16 @@ export const useNode = (props?: UseNodeProps) => {
       navigationConfig.actualTreeId,
     ],
   );
+
+  // Set up the navigation callback ref
+  useEffect(() => {
+    navigationCallbackRef.current = (nodeId: string) => {
+      const targetNode = navigationConfig.nodes.find(n => n.id === nodeId);
+      if (targetNode) {
+        executeNavigation(targetNode);
+      }
+    };
+  }, [navigationConfig.nodes, executeNavigation]);
 
   /**
    * Clear navigation state when node changes

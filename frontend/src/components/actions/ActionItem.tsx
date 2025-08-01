@@ -687,6 +687,42 @@ export const ActionItem: React.FC<ActionItemProps> = ({
           />,
         );
         break;
+
+      case 'auto_return':
+        fields.push(
+          <TextField
+            key="timer"
+            label="Timer (ms)"
+            type="number"
+            size="small"
+            value={getParamValue('timer') || 2000}
+            onChange={(e) => safeHandleParamChange('timer', parseInt(e.target.value) || 2000)}
+            inputProps={{ min: 0, max: 30000, step: 100 }}
+            sx={{
+              width: 120,
+              '& .MuiInputBase-input': {
+                padding: '3px 6px',
+                fontSize: '0.75rem',
+              },
+            }}
+          />,
+          <TextField
+            key="target_node_id"
+            label="Target Node ID"
+            size="small"
+            value={getParamValue('target_node_id') || ''}
+            onChange={(e) => safeHandleParamChange('target_node_id', e.target.value)}
+            placeholder="Node to return to"
+            sx={{
+              width: 180,
+              '& .MuiInputBase-input': {
+                padding: '3px 6px',
+                fontSize: '0.75rem',
+              },
+            }}
+          />,
+        );
+        break;
     }
 
     // Organize fields based on count

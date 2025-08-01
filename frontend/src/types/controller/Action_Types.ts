@@ -46,12 +46,20 @@ export interface NetworkActionParams {
   protocol?: string; // Protocol (tcp, udp, etc.)
 }
 
+// Timer action parameters (for auto-return and timed actions)
+export interface TimerActionParams {
+  timer?: number; // Timer duration in milliseconds (0 = permanent, >0 = auto-return)
+  target_node_id?: string; // Target node to return to
+  action?: 'auto_return' | 'timeout' | 'delay'; // Type of timer action
+}
+
 // Union type for all action parameters
 export type ActionParams =
   | RemoteActionParams
   | AVActionParams
   | PowerActionParams
-  | NetworkActionParams;
+  | NetworkActionParams
+  | TimerActionParams;
 
 // =====================================================
 // ACTION INTERFACES
@@ -63,7 +71,7 @@ interface BaseAction {
   label: string; // Required: human-readable label
   command: string; // Required: command to execute
   description: string; // Required: action description
-  action_type: 'remote' | 'av' | 'power' | 'network'; // Required: type of action
+  action_type: 'remote' | 'av' | 'power' | 'network' | 'timer'; // Required: type of action
   requiresInput?: boolean; // Optional: whether action requires user input
   inputLabel?: string; // Optional: label for input field
   inputPlaceholder?: string; // Optional: placeholder for input field
@@ -102,8 +110,13 @@ export interface NetworkAction extends BaseAction {
   params: NetworkActionParams;
 }
 
+export interface TimerAction extends BaseAction {
+  action_type: 'timer';
+  params: TimerActionParams;
+}
+
 // Unified action type (discriminated union)
-export type Action = RemoteAction | AVAction | PowerAction | NetworkAction;
+export type Action = RemoteAction | AVAction | PowerAction | NetworkAction | TimerAction;
 
 // Actions grouped by action type (mirrors Verifications structure)
 export interface Actions {
@@ -127,7 +140,7 @@ export const DEVICE_MODEL_ACTION_MAPPING = {
 } as const;
 
 export type DeviceModel = keyof typeof DEVICE_MODEL_ACTION_MAPPING;
-export type ActionControllerType = 'remote' | 'av' | 'power' | 'network';
+export type ActionControllerType = 'remote' | 'av' | 'power' | 'network' | 'timer';
 
 /**
  * Get action controller types for a device model
