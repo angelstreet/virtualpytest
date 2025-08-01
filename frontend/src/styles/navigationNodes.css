@@ -1,12 +1,40 @@
 /* Navigation Node Styling - Unified for all depths and modes */
-/* Remove all shadows from React Flow nodes to ensure identical appearance */
-.react-flow__node {
+/* Remove ALL shadows from React Flow nodes and edges to ensure identical appearance */
+.react-flow__node,
+.react-flow__node *,
+.react-flow__node > div,
+.react-flow__node div,
+.react-flow__node.selected,
+.react-flow__node:hover,
+.react-flow__node:focus,
+.react-flow__node:active {
   box-shadow: none !important;
+  filter: none !important;
+  text-shadow: none !important;
+  drop-shadow: none !important;
 }
 
-/* Remove shadows from nested nodes specifically */
-.react-flow__node > div {
+/* Remove shadows from React Flow edges */
+.react-flow__edge,
+.react-flow__edge *,
+.react-flow__edge path,
+.react-flow__edge.selected,
+.react-flow__edge:hover {
   box-shadow: none !important;
+  filter: none !important;
+  drop-shadow: none !important;
+}
+
+/* Ensure handles have no shadows */
+.react-flow__handle,
+.react-flow__handle *,
+.react-flow__handle.source,
+.react-flow__handle.target,
+.react-flow__handle:hover,
+.react-flow__handle:focus {
+  box-shadow: none !important;
+  filter: none !important;
+  drop-shadow: none !important;
 }
 
 /* Menu type nodes get slightly larger borders */
@@ -17,9 +45,4 @@
 /* Screen type nodes keep standard borders */
 .react-flow__node[data-node-type='screen'] {
   border-width: 2px !important;
-}
-
-/* Ensure handles have no shadows */
-.react-flow__handle {
-  box-shadow: none !important;
 }
