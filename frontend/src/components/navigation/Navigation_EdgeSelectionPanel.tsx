@@ -160,9 +160,6 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
           width: 360,
           p: 1.5,
           zIndex: getZIndex('NAVIGATION_EDGE_PANEL'),
-          // Add visual indicator for default action set
-          border: actionSet?.priority === 1 ? '2px solid #1976d2' : undefined,
-          borderRadius: actionSet?.priority === 1 ? '8px' : undefined,
         }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -172,22 +169,8 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
           >
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <Typography variant="h6" sx={{ margin: 0, fontSize: '1rem' }}>
-                {actionSet?.label || 'Edge Selection'}
+                Edge Selection
               </Typography>
-              {actionSet && (
-                <>
-                  {actionSet.priority === 1 && (
-                    <Typography variant="caption" sx={{ color: '#1976d2', fontWeight: 'bold', fontSize: '0.7rem' }}>
-                      DEFAULT
-                    </Typography>
-                  )}
-                  {actionSet.timer && actionSet.timer > 0 && (
-                    <Typography variant="caption" sx={{ color: '#ff9800', fontWeight: 'bold', fontSize: '0.7rem' }}>
-                      AUTO-RETURN {actionSet.timer}ms
-                    </Typography>
-                  )}
-                </>
-              )}
               {/* Show success rate percentage with color coding */}
               <Typography
                 variant="caption"
