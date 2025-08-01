@@ -889,8 +889,7 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
             ...currentSelectedEdge,
             data: {
               ...(currentSelectedEdge.data || {}),
-              actions: edgeForm.actions || [],
-              retryActions: edgeForm.retryActions || [],
+
               final_wait_time: edgeForm.final_wait_time || 0,
               priority: edgeForm.priority || 'p3',
               threshold: edgeForm.threshold || 0,
@@ -979,18 +978,8 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
             edge_type: edge.data?.edgeType || 'default',
             style: edge.style || {},
             data: edge.data || {},
-            // NEW: Use action_sets format - NO LEGACY FIELDS
-            action_sets: edge.data?.action_sets || [
-              {
-                id: 'default',
-                label: 'Default Actions',
-                actions: edge.data?.actions || [],
-                retry_actions: edge.data?.retryActions || [],
-                priority: 1,
-                conditions: {},
-                timer: 0
-              }
-            ],
+            // STRICT: action_sets required - NO LEGACY CONVERSION
+            action_sets: edge.data?.action_sets || [],
             default_action_set_id: edge.data?.default_action_set_id || 'default',
             final_wait_time: edge.data?.final_wait_time || 0,
           }));

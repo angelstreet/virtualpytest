@@ -103,21 +103,7 @@ export const useEdge = (props?: UseEdgeProps) => {
     );
   }, [getActionSetsFromEdge, actionHook, convertToControllerAction]);
 
-  /**
-   * Get actions from edge data - STRICT: Only action_sets structure, NO LEGACY
-   */
-  const getActionsFromEdge = useCallback((edge: UINavigationEdge): Action[] => {
-    const defaultSet = getDefaultActionSet(edge);
-    return defaultSet.actions;
-  }, [getDefaultActionSet]);
 
-  /**
-   * Get retry actions from edge data - STRICT: Only action_sets structure, NO LEGACY
-   */
-  const getRetryActionsFromEdge = useCallback((edge: UINavigationEdge): Action[] => {
-    const defaultSet = getDefaultActionSet(edge);
-    return defaultSet.retry_actions || [];
-  }, [getDefaultActionSet]);
 
   /**
    * Check if edge can run actions
@@ -213,8 +199,7 @@ export const useEdge = (props?: UseEdgeProps) => {
     },
     [
       actionHook,
-      getActionsFromEdge,
-      getRetryActionsFromEdge,
+
       convertToControllerAction,
       formatRunResult,
       props?.isControlActive,
@@ -270,8 +255,7 @@ export const useEdge = (props?: UseEdgeProps) => {
     // Utility functions
     getEdgeColorsForEdge,
     isProtectedEdge,
-    getActionsFromEdge, // Uses default action set only
-    getRetryActionsFromEdge, // Uses default action set only
+
     canRunActions,
     formatRunResult,
     createEdgeForm,

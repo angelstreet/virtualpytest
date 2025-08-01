@@ -101,7 +101,7 @@ def create_networkx_graph(nodes: List[Dict], edges: List[Dict]) -> nx.DiGraph:
         if not default_set:
             raise ValueError(f"Edge {edge.get('edge_id')} default action set '{default_action_set_id}' not found")
         
-        # Extract actions from default set for backward compatibility with pathfinding
+        # Extract actions from default set for pathfinding
         actions_list = default_set.get('actions', [])
         retry_actions_list = default_set.get('retry_actions', [])
         
