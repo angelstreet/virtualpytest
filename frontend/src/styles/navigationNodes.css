@@ -1,5 +1,14 @@
 /* Navigation Node Styling - Unified for all depths and modes */
-rm autofot
+/* Remove all shadows from React Flow nodes to ensure identical appearance */
+.react-flow__node {
+  box-shadow: none !important;
+}
+
+/* Remove shadows from nested nodes specifically */
+.react-flow__node > div {
+  box-shadow: none !important;
+}
+
 /* Menu type nodes get slightly larger borders */
 .react-flow__node[data-node-type='menu'] {
   border-width: 3px !important;
@@ -8,4 +17,9 @@ rm autofot
 /* Screen type nodes keep standard borders */
 .react-flow__node[data-node-type='screen'] {
   border-width: 2px !important;
+}
+
+/* Ensure handles have no shadows */
+.react-flow__handle {
+  box-shadow: none !important;
 }

@@ -2,15 +2,12 @@
 
 @keyframes testing-pulse {
   0% {
-    box-shadow: 0 0 5px var(--glow-color, rgba(33, 150, 243, 0.6));
     transform: scale(1);
   }
   50% {
-    box-shadow: 0 0 20px var(--glow-color, rgba(33, 150, 243, 0.6));
     transform: scale(1.02);
   }
   100% {
-    box-shadow: 0 0 5px var(--glow-color, rgba(33, 150, 243, 0.6));
     transform: scale(1);
   }
 }
@@ -32,13 +29,13 @@
 
 @keyframes handle-glow {
   0% {
-    box-shadow: 0 0 3px var(--handle-color, rgba(33, 150, 243, 0.6));
+    opacity: 0.8;
   }
   50% {
-    box-shadow: 0 0 12px var(--handle-color, rgba(33, 150, 243, 0.6));
+    opacity: 1;
   }
   100% {
-    box-shadow: 0 0 3px var(--handle-color, rgba(33, 150, 243, 0.6));
+    opacity: 0.8;
   }
 }
 
@@ -79,7 +76,8 @@
 
 /* Smooth transitions for color changes */
 .react-flow__node {
-  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+  transition: border-color 0.3s ease;
+  box-shadow: none !important; /* Remove all shadows from React Flow nodes */
 }
 
 .react-flow__edge path {
@@ -87,7 +85,8 @@
 }
 
 .react-flow__handle {
-  transition: background 0.3s ease, box-shadow 0.3s ease;
+  transition: background 0.3s ease;
+  box-shadow: none !important; /* Remove all shadows from handles */
 }
 
 /* Entry point specific styling */

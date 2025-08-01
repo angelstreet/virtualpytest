@@ -74,6 +74,17 @@ body {
   box-shadow: 0 2px 8px rgba(0,0,0,0.1) !important;
 }
 
+/* Override any shadows on React Flow nodes to ensure identical appearance */
+.react-flow__node,
+.react-flow__node *,
+.react-flow__handle,
+.react-flow__node.selected,
+.react-flow__node:hover,
+.react-flow__node:focus {
+  box-shadow: none !important;
+  filter: none !important; /* Remove any filter effects that might create shadows */
+}
+
 .MuiButton-root {
   text-transform: none !important;
   border-radius: 6px !important;
