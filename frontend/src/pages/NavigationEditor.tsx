@@ -417,20 +417,18 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = React.memo(
               `[@NavigationEditor:loadTreeForUserInterface] Loaded tree for userInterface: ${userInterfaceId} with ${frontendNodes.length} nodes and ${frontendEdges.length} edges`,
             );
 
-            // Set the converted tree data in the navigation context
-            setNodes(frontendNodes);
-            setEdges(frontendEdges);
+            // Cache tree data and display it
+            if (treeId) {
+              navigation.cacheTree(treeId, { nodes: frontendNodes, edges: frontendEdges });
+              navigation.switchToTree(treeId);
+              setActualTreeId(treeId);
+              console.log(`[@NavigationEditor:loadTreeForUserInterface] Cached and switched to tree: ${treeId}`);
+            }
             
             // Set initial state for deletion detection
             navigation.setInitialState({ nodes: [...frontendNodes], edges: [...frontendEdges] });
             setHasUnsavedChanges(false);
             console.log('[@NavigationEditor:loadTreeForUserInterface] Set initialState with node IDs:', frontendNodes.map((n: any) => n.id));
-            
-            // Set the actual tree ID directly like in the working version
-            if (treeId) {
-              setActualTreeId(treeId);
-              console.log(`[@NavigationEditor:loadTreeForUserInterface] Set actualTreeId: ${treeId}`);
-            }
 
             console.log(
               `[@NavigationEditor:loadTreeForUserInterface] Set tree data with ${frontendNodes.length} nodes and ${frontendEdges.length} edges`,
@@ -447,60 +445,49 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = React.memo(
 
 
 
+
+
     // Handle navigation back to parent tree
     const handleNavigateBack = useCallback(() => {
       popLevel();
       
-      // CRITICAL: Restore actualTreeId to parent tree
+      // Switch to parent tree from cache
       const newCurrentLevel = stack.length > 1 ? stack[stack.length - 2] : null;
-      if (newCurrentLevel) {
-        // Going back to a parent nested tree
-        setActualTreeId(newCurrentLevel.treeId);
-        console.log(`[@NavigationEditor] Restored actualTreeId to parent tree: ${newCurrentLevel.treeId}`);
-      } else {
-        // Going back to root tree
-        setActualTreeId(actualUserInterfaceId);
-        console.log(`[@NavigationEditor] Restored actualTreeId to root tree: ${actualUserInterfaceId}`);
-      }
+      const targetTreeId = newCurrentLevel ? newCurrentLevel.treeId : actualUserInterfaceId;
       
-      // No need to reload - just update context and let React handle the rest
-      console.log(`[@NavigationEditor] Navigation back completed - using existing context`);
-    }, [popLevel, actualUserInterfaceId, stack, setActualTreeId]);
+      setActualTreeId(targetTreeId);
+      navigation.switchToTree(targetTreeId);
+      
+      console.log(`[@NavigationEditor] Navigation back completed - switched to cached tree: ${targetTreeId}`);
+    }, [popLevel, actualUserInterfaceId, stack, setActualTreeId, navigation]);
 
     // Handle navigation to specific level in breadcrumb
     const handleNavigateToLevel = useCallback(
       (levelIndex: number) => {
         jumpToLevel(levelIndex);
         
-        // CRITICAL: Restore actualTreeId to target level tree
+        // Switch to target tree from cache
         const targetLevel = stack[levelIndex];
-        if (targetLevel) {
-          // Going to a specific nested tree level
-          setActualTreeId(targetLevel.treeId);
-          console.log(`[@NavigationEditor] Restored actualTreeId to level ${levelIndex} tree: ${targetLevel.treeId}`);
-        } else {
-          // Going to root tree
-          setActualTreeId(actualUserInterfaceId);
-          console.log(`[@NavigationEditor] Restored actualTreeId to root tree: ${actualUserInterfaceId}`);
-        }
+        const targetTreeId = targetLevel ? targetLevel.treeId : actualUserInterfaceId;
         
-        // No need to reload - just update context and let React handle the rest
-        console.log(`[@NavigationEditor] Navigation to level ${levelIndex} completed - using existing context`);
+        setActualTreeId(targetTreeId);
+        navigation.switchToTree(targetTreeId);
+        
+        console.log(`[@NavigationEditor] Navigation to level ${levelIndex} completed - switched to cached tree: ${targetTreeId}`);
       },
-      [jumpToLevel, actualUserInterfaceId, stack, setActualTreeId],
+      [jumpToLevel, actualUserInterfaceId, stack, setActualTreeId, navigation],
     );
 
     // Handle navigation to root
     const handleNavigateToRoot = useCallback(() => {
       jumpToRoot();
       
-      // CRITICAL: Restore actualTreeId to root tree
+      // Switch to root tree from cache
       setActualTreeId(actualUserInterfaceId);
-      console.log(`[@NavigationEditor] Restored actualTreeId to root tree: ${actualUserInterfaceId}`);
+      navigation.switchToTree(actualUserInterfaceId);
       
-      // No need to reload - just update context and let React handle the rest
-      console.log(`[@NavigationEditor] Navigation to root completed - using existing context`);
-    }, [jumpToRoot, actualUserInterfaceId, setActualTreeId]);
+      console.log(`[@NavigationEditor] Navigation to root completed - switched to cached tree: ${actualUserInterfaceId}`);
+    }, [jumpToRoot, actualUserInterfaceId, setActualTreeId, navigation]);
 
     // Memoize the selectedHost to prevent unnecessary re-renders
     const stableSelectedHost = useMemo(() => selectedHost, [selectedHost]);

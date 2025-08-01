@@ -127,10 +127,14 @@ export const NodeSelectionPanel: React.FC<NodeSelectionPanelProps> = React.memo(
 
     // Memoize handlers to prevent unnecessary re-renders of child components
     const handleEdit = useCallback(() => {
+      // Don't open dialog if no valid host is selected
+      if (!isControlActive || !selectedHost) {
+        return;
+      }
       const nodeForm = nodeHook.getNodeFormWithVerifications(selectedNode);
       setNodeForm(nodeForm);
       setIsNodeDialogOpen(true);
-    }, [nodeHook, selectedNode, setNodeForm, setIsNodeDialogOpen]);
+    }, [nodeHook, selectedNode, setNodeForm, setIsNodeDialogOpen, isControlActive, selectedHost]);
 
     // Confirmation handlers
     const handleResetConfirm = useCallback(() => {

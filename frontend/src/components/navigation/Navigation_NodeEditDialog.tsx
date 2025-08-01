@@ -44,21 +44,9 @@ export const NodeEditDialog: React.FC<NodeEditDialogProps> = ({
     return null;
   }
 
-  // Early return if selectedHost is invalid
+  // Early return if selectedHost is invalid - don't show dialog at all
   if (!selectedHost) {
-    return (
-      <Dialog open={isOpen} onClose={onClose} maxWidth="md" fullWidth>
-        <DialogTitle sx={{ pb: 0.5 }}>Edit Node</DialogTitle>
-        <DialogContent sx={{ py: 0.5 }}>
-          <Typography color="error">
-            No valid host device selected. Please select a host device first.
-          </Typography>
-        </DialogContent>
-        <DialogActions sx={{ pt: 0.5 }}>
-          <Button onClick={onClose}>Close</Button>
-        </DialogActions>
-      </Dialog>
-    );
+    return null;
   }
 
   // Use the focused node edit hook

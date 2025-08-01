@@ -45,7 +45,12 @@ export interface NavigationContextType {
   currentNodeLabel: string | null;
   setCurrentNodeLabel: (label: string | null) => void;
 
-  // React Flow state
+  // Tree cache management
+  cacheTree: (treeId: string, treeData: { nodes: UINavigationNode[], edges: UINavigationEdge[] }) => void;
+  getCachedTree: (treeId: string) => { nodes: UINavigationNode[], edges: UINavigationEdge[] } | null;
+  switchToTree: (treeId: string) => void;
+  
+  // React Flow state - displays active tree from cache
   nodes: UINavigationNode[];
   setNodes: (nodes: UINavigationNode[]) => void;
   onNodesChange: (changes: any[]) => void;
@@ -208,7 +213,10 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
   const [currentNodeId, setCurrentNodeId] = useState<string | null>(null);
   const [currentNodeLabel, setCurrentNodeLabel] = useState<string | null>(null);
 
-  // React Flow state
+  // Tree cache - stores multiple trees by treeId
+  const [treeCache, setTreeCache] = useState<Map<string, { nodes: UINavigationNode[], edges: UINavigationEdge[] }>>(new Map());
+  
+  // React Flow state - displays active tree from cache
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
 
@@ -608,6 +616,30 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
     }
   }, [reactFlowInstance]);
 
+  // Tree cache management functions
+  const cacheTree = useCallback((treeId: string, treeData: { nodes: UINavigationNode[], edges: UINavigationEdge[] }) => {
+    console.log(`[@context:NavigationProvider] Caching tree ${treeId} with ${treeData.nodes.length} nodes and ${treeData.edges.length} edges`);
+    setTreeCache(prev => new Map(prev).set(treeId, treeData));
+  }, []);
+
+  const getCachedTree = useCallback((treeId: string) => {
+    const cached = treeCache.get(treeId);
+    console.log(`[@context:NavigationProvider] Getting cached tree ${treeId}:`, cached ? 'found' : 'not found');
+    return cached || null;
+  }, [treeCache]);
+
+  const switchToTree = useCallback((treeId: string) => {
+    console.log(`[@context:NavigationProvider] Switching to tree ${treeId}`);
+    const cachedTree = treeCache.get(treeId);
+    if (cachedTree) {
+      setNodes(cachedTree.nodes);
+      setEdges(cachedTree.edges);
+      console.log(`[@context:NavigationProvider] Switched to cached tree ${treeId} with ${cachedTree.nodes.length} nodes`);
+    } else {
+      console.warn(`[@context:NavigationProvider] Tree ${treeId} not found in cache`);
+    }
+  }, [treeCache, setNodes, setEdges]);
+
   const validateNavigationPath = useCallback((path: string[]): boolean => {
     console.log('[@context:NavigationProvider] Validating navigation path:', path);
     return path.length > 0 && path.every((id) => typeof id === 'string' && id.length > 0);
@@ -675,7 +707,12 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
       currentNodeLabel,
       setCurrentNodeLabel,
 
-      // React Flow state
+      // Tree cache management
+      cacheTree,
+      getCachedTree,
+      switchToTree,
+      
+      // React Flow state - displays active tree from cache
       nodes: stableNodes as UINavigationNode[],
       setNodes,
       onNodesChange,

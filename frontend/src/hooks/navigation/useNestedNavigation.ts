@@ -19,6 +19,50 @@ export const useNestedNavigation = ({
   const navigationConfig = useNavigationConfig();
   const navigation = useNavigation();
 
+  // Unified tree loading function  
+  const loadTreeData = useCallback(async (treeId: string) => {
+    const treeData = await navigationConfig.loadTreeData(treeId);
+    
+    if (!treeData.success) {
+      throw new Error(treeData.error || 'Failed to load tree');
+    }
+
+    // Convert to frontend format (same logic as NavigationEditor)
+    const frontendNodes = (treeData.nodes || []).map((dbNode: any) => ({
+      id: dbNode.node_id,
+      type: 'uiScreen',
+      position: { x: dbNode.position_x, y: dbNode.position_y },
+      data: {
+        label: dbNode.label,
+        type: dbNode.node_type,
+        description: dbNode.description,
+        verifications: dbNode.verifications,
+        has_subtree: dbNode.has_subtree,
+        subtree_count: dbNode.subtree_count,
+        ...dbNode.data
+      }
+    }));
+
+    const frontendEdges = (treeData.edges || []).map((edge: any) => ({
+      id: edge.edge_id,
+      source: edge.source_node_id,
+      target: edge.target_node_id,
+      type: 'uiNavigation',
+      sourceHandle: edge.data?.sourceHandle,
+      targetHandle: edge.data?.targetHandle,
+      data: {
+        label: edge.label,
+        description: edge.description,
+        action_sets: edge.action_sets,
+        default_action_set_id: edge.default_action_set_id,
+        final_wait_time: edge.final_wait_time,
+        ...edge.data
+      }
+    }));
+
+    return { nodes: frontendNodes, edges: frontendEdges };
+  }, [navigationConfig]);
+
   const handleNodeDoubleClick = useCallback(async (_event: React.MouseEvent, node: any) => {
     // 1. Skip entry type nodes
     if (node.data?.type === 'entry') {
@@ -47,121 +91,74 @@ export const useNestedNavigation = ({
         // 4a. Load existing sub-tree
         const primarySubTree = subTrees[0];
         console.log(`[@useNestedNavigation] Loading existing subtree:`, primarySubTree);
-        const treeData = await navigationConfig.loadTreeData(primarySubTree.id);
-        console.log(`[@useNestedNavigation] Loaded tree data for existing subtree:`, treeData);
-
-        if (treeData.success) {
-          console.log(`[@useNestedNavigation] Converting ${treeData.nodes?.length || 0} nodes and ${treeData.edges?.length || 0} edges to frontend format`);
-          
-          // No need to create database entries - just ensure we show the parent node graphically
-          
-          // Convert existing nodes from database to frontend format
-          let frontendNodes = (treeData.nodes || []).map((dbNode: any) => {
-            return {
-              id: dbNode.node_id,
-              type: 'uiScreen',
-              position: { x: dbNode.position_x, y: dbNode.position_y },
-              data: {
-                label: dbNode.label,
-                type: dbNode.node_type,
-                description: dbNode.description,
-                verifications: dbNode.verifications,
-                has_subtree: dbNode.has_subtree,
-                subtree_count: dbNode.subtree_count,
-                ...dbNode.data
-              }
-            };
-          });
-          
-          // ALWAYS add the parent node with context (regardless of other nodes)
-          const parentWithContext = {
-            id: node.id, // Use original parent node ID
-            type: 'uiScreen',
-            position: { x: 200, y: 200 },
-            data: {
-              label: node.data.label,
-              type: node.data.type || 'screen',
-              description: node.data.description || `Navigation for ${node.data.label}`,
-              verifications: node.data.verifications || [],
-              // ADD NESTED TREE CONTEXT
-              isParentReference: true,
-              originalTreeId: actualTreeId, // Original tree where this node lives
-              currentTreeId: primarySubTree.id, // Current nested tree we're viewing
-              depth: primarySubTree.tree_depth, // Depth in nested structure
-              parentNodeId: node.data.parent?.[node.data.parent.length - 1], // Immediate parent
-              parent: node.data.parent || [], // Full parent chain from original tree
-              ...node.data
-            }
-          };
-          
-          // Check if parent node already exists in the tree (unlikely but possible)
-          const parentExists = frontendNodes.some((n: any) => n.id === node.id);
-          if (!parentExists) {
-            console.log(`[@useNestedNavigation] Adding parent node to subtree: ${node.data.label}`);
-            frontendNodes.unshift(parentWithContext); // Add at beginning
-          } else {
-            console.log(`[@useNestedNavigation] Parent node already exists in subtree database`);
-            // Update existing parent node with context
-            frontendNodes = frontendNodes.map((n: any) => 
+        // Load nested tree data using unified approach
+        const { nodes: frontendNodes, edges: frontendEdges } = await loadTreeData(primarySubTree.id);
+        
+        // Add parent node context to nested tree
+        const parentWithContext = {
+          id: node.id, // Use original parent node ID
+          type: 'uiScreen',
+          position: { x: 200, y: 200 },
+          data: {
+            label: node.data.label,
+            type: node.data.type || 'screen',
+            description: node.data.description || `Navigation for ${node.data.label}`,
+            verifications: node.data.verifications || [],
+            // ADD NESTED TREE CONTEXT
+            isParentReference: true,
+            originalTreeId: actualTreeId, // Original tree where this node lives
+            currentTreeId: primarySubTree.id, // Current nested tree we're viewing
+            depth: primarySubTree.tree_depth, // Depth in nested structure
+            parentNodeId: node.data.parent?.[node.data.parent.length - 1], // Immediate parent
+            parent: node.data.parent || [], // Full parent chain from original tree
+            ...node.data
+          }
+        };
+        
+        // Ensure parent node is included in nested tree
+        const finalNodes = frontendNodes.some((n: any) => n.id === node.id)
+          ? frontendNodes.map((n: any) => 
               n.id === node.id 
                 ? { ...n, data: { ...n.data, ...parentWithContext.data } }
                 : n
-            );
+            )
+          : [parentWithContext, ...frontendNodes];
+
+        // Push to navigation stack with depth and parent tree tracking
+        pushLevel(
+          primarySubTree.id, 
+          node.id, 
+          primarySubTree.name, 
+          node.data.label,
+          primarySubTree.tree_depth,
+          actualTreeId || undefined
+        );
+
+        // Update actualTreeId to the nested tree ID
+        navigationConfig.setActualTreeId(primarySubTree.id);
+        console.log(`[@useNestedNavigation] Updated actualTreeId to nested tree: ${primarySubTree.id}`);
+
+        // Load breadcrumb for the new tree
+        await loadBreadcrumb(primarySubTree.id);
+
+        // Cache nested tree data and switch to it
+        navigation.cacheTree(primarySubTree.id, { nodes: finalNodes, edges: frontendEdges });
+        navigation.switchToTree(primarySubTree.id);
+        
+        // Set initial state for deletion detection
+        navigation.setInitialState({ nodes: [...finalNodes], edges: [...frontendEdges] });
+        navigation.setHasUnsavedChanges(false);
+        
+        // Focus on the entry node (first node) and fit view
+        setTimeout(() => {
+          if (finalNodes.length > 0 && navigation.reactFlowInstance) {
+            const entryNode = finalNodes[0]; // First node is the entry node
+            navigation.reactFlowInstance.setCenter(entryNode.position.x, entryNode.position.y, { zoom: 1 });
+            console.log(`[@useNestedNavigation] Focused on entry node: ${entryNode.data.label}`);
           }
+        }, 10);
 
-          const frontendEdges = (treeData.edges || []).map((edge: any) => ({
-            id: edge.edge_id,
-            source: edge.source_node_id,
-            target: edge.target_node_id,
-            type: 'uiNavigation',
-            data: {
-              label: edge.label, // Include the auto-generated label from database
-              description: edge.description,
-              action_sets: edge.action_sets, // NEW: action sets structure - REQUIRED
-              default_action_set_id: edge.default_action_set_id, // NEW: default action set ID - REQUIRED
-              final_wait_time: edge.final_wait_time,
-              ...edge.data
-              // NO LEGACY FIELDS: actions, retryActions removed
-            }
-          }));
-
-          // 5. Push to navigation stack with depth and parent tree tracking
-          pushLevel(
-            primarySubTree.id, 
-            node.id, 
-            primarySubTree.name, 
-            node.data.label,
-            primarySubTree.tree_depth,
-            actualTreeId || undefined // NEW: Track which tree the parent node actually lives in
-          );
-
-          // CRITICAL: Update actualTreeId to the nested tree ID
-          navigationConfig.setActualTreeId(primarySubTree.id);
-          console.log(`[@useNestedNavigation] Updated actualTreeId to nested tree: ${primarySubTree.id}`);
-
-          // Load breadcrumb for the new tree
-          await loadBreadcrumb(primarySubTree.id);
-
-          // Set nodes and edges
-          setTimeout(() => {
-            setNodes(frontendNodes);
-            setEdges(frontendEdges);
-            // Set initial state for deletion detection
-            navigation.setInitialState({ nodes: [...frontendNodes], edges: [...frontendEdges] });
-            navigation.setHasUnsavedChanges(false);
-            
-            // Focus on the entry node (first node) and fit view
-            if (frontendNodes.length > 0 && navigation.reactFlowInstance) {
-              const entryNode = frontendNodes[0]; // First node is the entry node
-              navigation.reactFlowInstance.setCenter(entryNode.position.x, entryNode.position.y, { zoom: 1 });
-              console.log(`[@useNestedNavigation] Focused on entry node: ${entryNode.data.label}`);
-            }
-          }, 10);
-
-          console.log(`[@useNestedNavigation] Successfully loaded existing sub-tree: ${primarySubTree.name} with ${frontendNodes.length} nodes and ${frontendEdges.length} edges`);
-        } else {
-          console.error(`[@useNestedNavigation] Failed to load tree data for existing subtree:`, treeData.error);
-        }
+        console.log(`[@useNestedNavigation] Successfully loaded existing sub-tree: ${primarySubTree.name} with ${finalNodes.length} nodes and ${frontendEdges.length} edges`);
       } else {
         // 4b. Create new sub-tree
         await createNewSubTree(node);
@@ -217,12 +214,12 @@ export const useNestedNavigation = ({
       // Load breadcrumb
       await loadBreadcrumb(newTree.id);
 
-      // Set nodes with parent node displayed
+      // Cache new tree data and switch to it
+      navigation.cacheTree(newTree.id, { nodes: frontendNodes, edges: [] });
+      navigation.switchToTree(newTree.id);
+      
+      // Focus on the parent node and fit view
       setTimeout(() => {
-        setNodes(frontendNodes);
-        setEdges([]);
-        
-        // Focus on the parent node and fit view
         if (navigation.reactFlowInstance) {
           navigation.reactFlowInstance.setCenter(frontendNodes[0].position.x, frontendNodes[0].position.y, { zoom: 1 });
           console.log(`[@useNestedNavigation] Focused on parent node: ${frontendNodes[0].data.label}`);
