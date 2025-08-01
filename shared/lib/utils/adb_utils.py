@@ -1025,4 +1025,34 @@ class ADBUtils:
                 
         except Exception as e:
             print(f"[@lib:adbUtils:tap_coordinates] Error: {e}")
+            return False
+
+    def swipe(self, device_id: str, from_x: int, from_y: int, to_x: int, to_y: int, duration: int = 300) -> bool:
+        """
+        Swipe from one coordinate to another on the device screen.
+        
+        Args:
+            device_id: Android device ID
+            from_x: Starting X coordinate
+            from_y: Starting Y coordinate
+            to_x: Ending X coordinate
+            to_y: Ending Y coordinate
+            duration: Swipe duration in milliseconds (default: 300)
+            
+        Returns:
+            bool: True if swipe successful
+        """
+        try:
+            command = f"adb -s {device_id} shell input swipe {from_x} {from_y} {to_x} {to_y} {duration}"
+            success, stdout, stderr, exit_code = self.execute_command(command)
+            
+            if success and exit_code == 0:
+                print(f"[@lib:adbUtils:swipe] Successfully swiped from ({from_x}, {from_y}) to ({to_x}, {to_y}) in {duration}ms")
+                return True
+            else:
+                print(f"[@lib:adbUtils:swipe] Swipe failed: {stderr}")
+                return False
+                
+        except Exception as e:
+            print(f"[@lib:adbUtils:swipe] Error: {e}")
             return False 
