@@ -128,15 +128,6 @@ export const useEdge = (props?: UseEdgeProps) => {
     (edge: UINavigationEdge): boolean => {
       const actions = getActionsFromEdge(edge);
       
-      // Debug the canRunActions conditions
-      console.log('canRunActions conditions:', {
-        isControlActive: props?.isControlActive === true,
-        hasSelectedHost: props?.selectedHost !== null,
-        hasActions: actions.length > 0,
-        isNotLoading: !actionHook.loading,
-        edge: edge.id
-      });
-      
       return (
         props?.isControlActive === true &&
         props?.selectedHost !== null &&

@@ -65,27 +65,25 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
       };
     }, [getNodes, selectedEdge.source, selectedEdge.target]);
 
-    // Use the consolidated edge hook
+    // Use edge hook only for action execution
     const edgeHook = useEdge({
       selectedHost: selectedHost || null,
       selectedDeviceId: selectedDeviceId || null,
       isControlActive,
     });
 
-    // Get actions and retry actions - prioritize actionSet prop, then form data, then edge data
-    const actions = actionSet 
-      ? actionSet.actions || []
-      : (currentEdgeForm && currentEdgeForm.edgeId === selectedEdge.id) 
-        ? (currentEdgeForm.action_sets?.[0]?.actions || [])
-        : edgeHook.getActionsFromEdge(selectedEdge);
-    const retryActions = actionSet 
-      ? actionSet.retry_actions || []
-      : (currentEdgeForm && currentEdgeForm.edgeId === selectedEdge.id) 
-        ? (currentEdgeForm.action_sets?.[0]?.retry_actions || [])
-        : edgeHook.getRetryActionsFromEdge(selectedEdge);
-    const hasActions = (actions?.length || 0) > 0;
-    const hasRetryActions = (retryActions?.length || 0) > 0;
-    const canRunActions = edgeHook.canRunActions(selectedEdge);
+    // Get actions and retry actions directly from actionSet prop
+    const actions = actionSet?.actions || [];
+    const retryActions = actionSet?.retry_actions || [];
+    
+    const hasActions = actions.length > 0;
+    const hasRetryActions = retryActions.length > 0;
+    
+    // Simple canRunActions check using props only
+    const canRunActions = isControlActive === true && 
+                         selectedHost !== null && 
+                         hasActions && 
+                         !edgeHook.actionHook.loading;
 
     // Memoize the clearResults function to avoid recreating it on every render
     const clearResults = useMemo(() => edgeHook.clearResults, [edgeHook.clearResults]);
@@ -130,25 +128,13 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
       }
     };
 
-    // Execute all edge actions using hook function
+    // Execute actions using actionSet data
     const handleRunActions = async () => {
-      // Prioritize specific actionSet, then form data, then edge data
-      if (actionSet) {
-        await edgeHook.executeEdgeActions(
-          selectedEdge,
-          actionSet.actions || [],
-          actionSet.retry_actions || []
-        );
-      } else if (currentEdgeForm && currentEdgeForm.edgeId === selectedEdge.id) {
-        const defaultActionSet = currentEdgeForm.action_sets?.[0];
-        await edgeHook.executeEdgeActions(
-          selectedEdge, 
-          defaultActionSet?.actions || [], 
-          defaultActionSet?.retry_actions || []
-        );
-      } else {
-        await edgeHook.executeEdgeActions(selectedEdge);
-      }
+      await edgeHook.executeEdgeActions(
+        selectedEdge,
+        actions,
+        retryActions
+      );
     };
 
     return (

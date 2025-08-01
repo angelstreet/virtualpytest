@@ -869,7 +869,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = React.memo(
                     </>
                   ) : selectedEdge ? (
                     <>
-                      {/* Multiple Edge Selection Panels - One per action set */}
+                      {/* Edge Selection Panels - handled by useEdge hook */}
                       {selectedEdge.data?.action_sets?.map((actionSet: any, index: number) => (
                         <EdgeSelectionPanel
                           key={`${selectedEdge.id}-${actionSet.id}-${index}`}
@@ -890,7 +890,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = React.memo(
                           currentEdgeForm={edgeForm}
                         />
                       )) || (
-                        // Fallback for edges without action_sets (shouldn't happen after migration)
+                        // Fallback for edges without action_sets
                         <EdgeSelectionPanel
                           selectedEdge={selectedEdge}
                           panelIndex={0}
