@@ -82,10 +82,28 @@ def create_networkx_graph(nodes: List[Dict], edges: List[Dict]) -> nx.DiGraph:
             edges_skipped += 1
             continue
         
-        # NEW NORMALIZED FORMAT - embedded actions
+        # NEW ONLY: action_sets structure - NO LEGACY SUPPORT
         edge_data = edge.get('data', {})
-        actions_list = edge.get('actions', [])  # Embedded actions
-        retry_actions_list = edge.get('retry_actions', [])  # Embedded retry actions
+        action_sets = edge.get('action_sets')
+        if not action_sets:
+            raise ValueError(f"Edge {edge.get('edge_id')} missing action_sets - no legacy support")
+        
+        default_action_set_id = edge.get('default_action_set_id')
+        if not default_action_set_id:
+            raise ValueError(f"Edge {edge.get('edge_id')} missing default_action_set_id")
+        
+        # Find default action set
+        default_set = next(
+            (s for s in action_sets if s['id'] == default_action_set_id),
+            None
+        )
+        
+        if not default_set:
+            raise ValueError(f"Edge {edge.get('edge_id')} default action set '{default_action_set_id}' not found")
+        
+        # Extract actions from default set for backward compatibility with pathfinding
+        actions_list = default_set.get('actions', [])
+        retry_actions_list = default_set.get('retry_actions', [])
         
         # Get node labels for logging
         source_node_data = G.nodes[source_id]
@@ -93,47 +111,48 @@ def create_networkx_graph(nodes: List[Dict], edges: List[Dict]) -> nx.DiGraph:
         source_label = source_node_data.get('label', source_id)
         target_label = target_node_data.get('label', target_id)
         
-        # Log detailed edge information
+        # Log detailed edge information with action_sets
         print(f"[@navigation:graph:create_networkx_graph] Adding Edge: {source_label} → {target_label}")
         print(f"[@navigation:graph:create_networkx_graph]   Source ID: {source_id}")
         print(f"[@navigation:graph:create_networkx_graph]   Target ID: {target_id}")
-        print(f"[@navigation:graph:create_networkx_graph]   Actions ({len(actions_list)}):")
+        print(f"[@navigation:graph:create_networkx_graph]   Action Sets ({len(action_sets)}):")
         
-        if actions_list:
-            for i, action in enumerate(actions_list):
+        for i, action_set in enumerate(action_sets):
+            set_id = action_set.get('id', 'unknown')
+            set_label = action_set.get('label', 'Unknown')
+            is_default = set_id == default_action_set_id
+            default_marker = ' [DEFAULT]' if is_default else ''
+            print(f"[@navigation:graph:create_networkx_graph]     {i+1}. {set_label} ({set_id}){default_marker}")
+            
+            set_actions = action_set.get('actions', [])
+            for j, action in enumerate(set_actions):
                 command = action.get('command', 'unknown')
                 params = action.get('params', {})
                 params_str = ', '.join([f"{k}={v}" for k, v in params.items()]) if params else 'no params'
-                print(f"[@navigation:graph:create_networkx_graph]     {i+1}. {command}({params_str})")
-        else:
-            print(f"[@navigation:graph:create_networkx_graph]     No actions defined")
+                print(f"[@navigation:graph:create_networkx_graph]       - {j+1}. {command}({params_str})")
         
-        print(f"[@navigation:graph:create_networkx_graph]   Retry Actions ({len(retry_actions_list)}):")
-        if retry_actions_list:
-            for i, action in enumerate(retry_actions_list):
-                command = action.get('command', 'unknown')
-                params = action.get('params', {})
-                params_str = ', '.join([f"{k}={v}" for k, v in params.items()]) if params else 'no params'
-                print(f"[@navigation:graph:create_networkx_graph]     {i+1}. {command}({params_str})")
-        else:
-            print(f"[@navigation:graph:create_networkx_graph]     No retry actions defined")
+        print(f"[@navigation:graph:create_networkx_graph]   Default Actions ({len(actions_list)}): {[a.get('command') for a in actions_list]}")
+        print(f"[@navigation:graph:create_networkx_graph]   Default Retry Actions ({len(retry_actions_list)}): {[a.get('command') for a in retry_actions_list]}")
         
         # Get the primary action for pathfinding
         primary_action = actions_list[0]['command'] if actions_list else None
         
-        # Add edge with embedded actions - NEW NORMALIZED FORMAT
+        # Add edge with NEW action_sets structure only
         G.add_edge(source_id, target_id, **{
-            'edge_id': edge.get('edge_id'),  # NEW: edge_id field
+            'edge_id': edge.get('edge_id'),
+            'action_sets': action_sets,
+            'default_action_set_id': default_action_set_id,
+            'default_actions': actions_list,  # From default set for pathfinding compatibility
             'go_action': primary_action,
-            'actions': actions_list,
-            'retryActions': retry_actions_list,
+            'alternatives_count': len(action_sets),
+            'has_timer_actions': any(s.get('timer', 0) > 0 for s in action_sets),
             'comeback_action': edge_data.get('comeback_action'),
-            'edge_type': edge.get('edge_type', 'navigation'),  # NEW: direct field
+            'edge_type': edge.get('edge_type', 'navigation'),
             'description': edge_data.get('description', ''),
             'is_bidirectional': edge_data.get('is_bidirectional', False),
             'conditions': edge_data.get('conditions', {}),
             'metadata': edge_data.get('metadata', {}),
-            'finalWaitTime': edge.get('final_wait_time', 2000),  # NEW: final_wait_time field
+            'finalWaitTime': edge.get('final_wait_time', 2000),
             'weight': 1
         })
         

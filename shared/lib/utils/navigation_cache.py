@@ -102,11 +102,13 @@ def populate_cache(tree_id: str, team_id: str, nodes: List[Dict], edges: List[Di
             to_info = G.nodes[to_node]
             from_label = from_info.get('label', from_node)
             to_label = to_info.get('label', to_node)
-            actions = edge_data.get('actions', [])
+            # NEW: Use default_actions from action_sets structure
+            actions = edge_data.get('default_actions', [])
             action_count = len(actions) if actions else 0
+            alternatives_count = edge_data.get('alternatives_count', 1)
             primary_action = edge_data.get('go_action', 'none')
             
-            print(f"[@navigation:cache:populate_cache] Cached Transition {i:2d}: {from_label} → {to_label} (primary: {primary_action}, {action_count} actions)")
+            print(f"[@navigation:cache:populate_cache] Cached Transition {i:2d}: {from_label} → {to_label} (primary: {primary_action}, {action_count} actions, {alternatives_count} alternatives)")
         
         print(f"[@navigation:cache:populate_cache] ===== END CACHED TRANSITIONS =====")
         

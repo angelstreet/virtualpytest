@@ -64,7 +64,7 @@ CREATE TABLE navigation_nodes (
     UNIQUE(tree_id, node_id)
 );
 
--- Navigation edges (individual edges with embedded actions and retry actions)
+-- Navigation edges (individual edges with action_sets structure - NO LEGACY SUPPORT)
 CREATE TABLE navigation_edges (
     id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
     tree_id uuid NOT NULL REFERENCES navigation_trees(id) ON DELETE CASCADE,
@@ -75,13 +75,20 @@ CREATE TABLE navigation_edges (
     edge_type text NOT NULL DEFAULT 'default',
     style jsonb DEFAULT '{}',
     data jsonb DEFAULT '{}',
-    actions jsonb DEFAULT '[]', -- ✅ Embedded action objects
-    retry_actions jsonb DEFAULT '[]', -- ✅ Embedded retry action objects
-    final_wait_time integer DEFAULT 0, -- ✅ Standard naming
+    action_sets jsonb NOT NULL DEFAULT '[]', -- ✅ NEW: Array of action sets
+    default_action_set_id text, -- ✅ NEW: ID of default action set
+    final_wait_time integer DEFAULT 0,
     team_id uuid NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now(),
-    UNIQUE(tree_id, edge_id)
+    UNIQUE(tree_id, edge_id),
+    
+    -- Ensure action_sets is not empty and default_action_set_id exists
+    CONSTRAINT check_action_sets_not_empty CHECK (jsonb_array_length(action_sets) > 0),
+    CONSTRAINT check_default_action_set_exists CHECK (
+        default_action_set_id IS NOT NULL AND 
+        action_sets @> jsonb_build_array(jsonb_build_object('id', default_action_set_id))
+    )
 );
 
 -- Navigation trees history (for change tracking)
@@ -126,6 +133,10 @@ CREATE INDEX idx_navigation_edges_tree ON navigation_edges(tree_id);
 CREATE INDEX idx_navigation_edges_edge_id ON navigation_edges(edge_id);
 CREATE INDEX idx_navigation_edges_source ON navigation_edges(source_node_id);
 CREATE INDEX idx_navigation_edges_target ON navigation_edges(target_node_id);
+
+-- NEW: Indexes for action_sets structure
+CREATE INDEX idx_navigation_edges_action_sets ON navigation_edges USING GIN (action_sets);
+CREATE INDEX idx_navigation_edges_default_action_set ON navigation_edges(default_action_set_id);
 CREATE INDEX idx_navigation_edges_team ON navigation_edges(team_id);
 
 CREATE INDEX idx_navigation_trees_history_tree ON navigation_trees_history(tree_id);

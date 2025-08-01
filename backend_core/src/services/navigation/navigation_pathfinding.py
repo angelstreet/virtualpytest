@@ -118,10 +118,12 @@ def find_shortest_path(tree_id: str, target_node_id: str, team_id: str, start_no
             successor_info = get_node_info(G, successor)
             successor_label = successor_info.get('label', successor) if successor_info else successor
             edge_data = G.edges[actual_start_node, successor]
-            actions = edge_data.get('actions', [])
+            # NEW: Use default_actions from action_sets structure
+            actions = edge_data.get('default_actions', [])
             action_count = len(actions) if actions else 0
             primary_action = edge_data.get('go_action', 'none')
-            print(f"[@navigation:pathfinding:find_shortest_path] Available: {get_node_info(G, actual_start_node).get('label', actual_start_node)} → {successor_label} (primary: {primary_action}, {action_count} actions)")
+            alternatives_count = edge_data.get('alternatives_count', 1)
+            print(f"[@navigation:pathfinding:find_shortest_path] Available: {get_node_info(G, actual_start_node).get('label', actual_start_node)} → {successor_label} (primary: {primary_action}, {action_count} actions, {alternatives_count} alternatives)")
         
         # Convert path to navigation transitions (grouped by from → to)
         print(f"[@navigation:pathfinding:find_shortest_path] ===== BUILDING NAVIGATION TRANSITIONS =====")
@@ -137,16 +139,31 @@ def find_shortest_path(tree_id: str, target_node_id: str, team_id: str, start_no
             from_node_info = get_node_info(G, from_node)
             to_node_info = get_node_info(G, to_node)
             
-            # Get edge data with actions
+            # Get edge data with action_sets structure
             edge_data = G.edges[from_node, to_node] if G.has_edge(from_node, to_node) else {}
-            actions_list = edge_data.get('actions', [])
+            
+            # NEW: Use action_sets structure
+            action_sets = edge_data.get('action_sets', [])
+            default_action_set_id = edge_data.get('default_action_set_id')
+            
+            # Use default actions for pathfinding
+            actions_list = edge_data.get('default_actions', [])
+            
+            # Get retry actions from default set
+            retry_actions_list = []
+            if action_sets and default_action_set_id:
+                default_set = next((s for s in action_sets if s['id'] == default_action_set_id), None)
+                if default_set:
+                    retry_actions_list = default_set.get('retry_actions', [])
             
             # Log detailed transition information
             print(f"[@navigation:pathfinding:find_shortest_path] Transition {transition_number}: {from_node_info.get('label', from_node) if from_node_info else from_node} → {to_node_info.get('label', to_node) if to_node_info else to_node}")
             print(f"[@navigation:pathfinding:find_shortest_path]   From Node ID: {from_node}")
             print(f"[@navigation:pathfinding:find_shortest_path]   To Node ID: {to_node}")
             print(f"[@navigation:pathfinding:find_shortest_path]   Edge exists: {G.has_edge(from_node, to_node)}")
-            print(f"[@navigation:pathfinding:find_shortest_path]   Actions found: {len(actions_list)}")
+            print(f"[@navigation:pathfinding:find_shortest_path]   Action Sets: {len(action_sets)}")
+            print(f"[@navigation:pathfinding:find_shortest_path]   Default Actions: {len(actions_list)}")
+            print(f"[@navigation:pathfinding:find_shortest_path]   Alternatives: {edge_data.get('alternatives_count', 1)}")
             
             if actions_list:
                 for j, action in enumerate(actions_list):
@@ -157,8 +174,7 @@ def find_shortest_path(tree_id: str, target_node_id: str, team_id: str, start_no
             else:
                 print(f"[@navigation:pathfinding:find_shortest_path]     No actions found for this transition")
             
-            # Get retry actions
-            retry_actions_list = edge_data.get('retryActions', [])
+            # Retry actions already extracted from default action set above
             
             print(f"[@navigation:pathfinding:find_shortest_path]   Retry Actions found: {len(retry_actions_list)}")
             if retry_actions_list:
@@ -175,8 +191,12 @@ def find_shortest_path(tree_id: str, target_node_id: str, team_id: str, start_no
                 'from_node_label': from_node_info.get('label', '') if from_node_info else '',
                 'to_node_label': to_node_info.get('label', '') if to_node_info else '',
                 'edge_id': edge_data.get('edge_id'),  # Include actual edge ID for metrics
-                'actions': actions_list,
-                'retryActions': retry_actions_list,
+                # NEW: Include action_sets structure
+                'action_sets': action_sets,
+                'default_action_set_id': default_action_set_id,
+                'actions': actions_list,  # Default actions from action_sets
+                'retryActions': retry_actions_list,  # From default set
+                'alternatives_count': edge_data.get('alternatives_count', 1),
                 'total_actions': len(actions_list),
                 'total_retry_actions': len(retry_actions_list),
                 'finalWaitTime': edge_data.get('finalWaitTime', 2000),
@@ -612,9 +632,17 @@ def _create_validation_step(G, from_node: str, to_node: str, edge_data: Dict, st
     from_info = get_node_info(G, from_node) or {}
     to_info = get_node_info(G, to_node) or {}
     
-    # Get actions and verifications
-    actions = edge_data.get('actions', [])
-    retry_actions = edge_data.get('retryActions', [])
+    # Get actions from action_sets structure (use default actions)
+    actions = edge_data.get('default_actions', [])
+    
+    # Get retry actions from default action set
+    retry_actions = []
+    action_sets = edge_data.get('action_sets', [])
+    default_action_set_id = edge_data.get('default_action_set_id')
+    if action_sets and default_action_set_id:
+        default_set = next((s for s in action_sets if s['id'] == default_action_set_id), None)
+        if default_set:
+            retry_actions = default_set.get('retry_actions', [])
     verifications = get_node_info(G, to_node).get('verifications', []) if get_node_info(G, to_node) else []
     
     validation_step = {

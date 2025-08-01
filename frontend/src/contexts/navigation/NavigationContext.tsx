@@ -914,8 +914,9 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
               edge_type: updatedEdge.type || 'default',
               style: updatedEdge.style || {},
               data: updatedEdge.data || {},
-              actions: updatedEdge.data.actions || [],
-              retry_actions: updatedEdge.data.retryActions || [],
+              // NEW: action_sets structure - NO LEGACY FIELDS
+              action_sets: updatedEdge.data.action_sets || [],
+              default_action_set_id: updatedEdge.data.default_action_set_id || 'default',
               final_wait_time: updatedEdge.data.final_wait_time || 0,
             };
 

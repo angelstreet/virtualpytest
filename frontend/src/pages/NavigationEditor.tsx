@@ -28,7 +28,7 @@ import { HDMIStream } from '../components/controller/av/HDMIStream';
 import { RemotePanel } from '../components/controller/remote/RemotePanel';
 import { NavigationBreadcrumbCompact } from '../components/navigation/NavigationBreadcrumbCompact';
 import { EdgeEditDialog } from '../components/navigation/Navigation_EdgeEditDialog';
-import { EdgeSelectionPanel } from '../components/navigation/Navigation_EdgeSelectionPanel';
+import { EdgeActionSetsContainer } from '../components/navigation/Navigation_EdgeActionSetsContainer';
 import { NavigationEditorHeader } from '../components/navigation/Navigation_EditorHeader';
 import { UIMenuNode } from '../components/navigation/Navigation_MenuNode';
 import { NavigationEdgeComponent } from '../components/navigation/Navigation_NavigationEdge';
@@ -868,8 +868,8 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = React.memo(
                     </>
                   ) : selectedEdge ? (
                     <>
-                      {/* Edge Selection Panel(s) */}
-                      <EdgeSelectionPanel
+                      {/* NEW: Edge Action Sets Container - Shows one panel per action set */}
+                      <EdgeActionSetsContainer
                         selectedEdge={selectedEdge}
                         onClose={closeSelectionPanel}
                         onEdit={() => {}}
@@ -884,28 +884,6 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = React.memo(
                         }
                         currentEdgeForm={edgeForm}
                       />
-
-                      {/* Second panel for bidirectional edge if it exists */}
-                      {(selectedEdge as any).bidirectionalEdge && (
-                        <EdgeSelectionPanel
-                          selectedEdge={(selectedEdge as any).bidirectionalEdge}
-                          onClose={closeSelectionPanel}
-                          onEdit={() => {}}
-                          onDelete={deleteSelected}
-                          setEdgeForm={
-                            setEdgeForm as React.Dispatch<React.SetStateAction<EdgeForm>>
-                          }
-                          setIsEdgeDialogOpen={setIsEdgeDialogOpen}
-                          isControlActive={isControlActive}
-                          selectedHost={selectedHost || undefined}
-                          selectedDeviceId={selectedDeviceId || undefined}
-                          panelIndex={1}
-                          onEditWithLabels={(fromLabel, toLabel) =>
-                            setEdgeLabels({ fromLabel, toLabel })
-                          }
-                          currentEdgeForm={edgeForm}
-                        />
-                      )}
                     </>
                   ) : null}
                 </>

@@ -228,10 +228,15 @@ def delete_node(tree_id: str, node_id: str, team_id: str) -> Dict:
 # ============================================================================
 
 def get_tree_edges(tree_id: str, team_id: str, node_ids: List[str] = None) -> Dict:
-    """Get edges for a tree, optionally filtered by node IDs."""
+    """Get edges with action_sets structure ONLY - NO LEGACY SUPPORT."""
     try:
         supabase = get_supabase()
-        query = supabase.table('navigation_edges').select('*').eq('tree_id', tree_id).eq('team_id', team_id)
+        
+        # Select only new structure fields
+        query = supabase.table('navigation_edges')\
+            .select('edge_id', 'source_node_id', 'target_node_id', 'action_sets', 'default_action_set_id', 'final_wait_time', 'label', 'edge_type', 'style', 'data')\
+            .eq('tree_id', tree_id)\
+            .eq('team_id', team_id)
         
         if node_ids:
             # Get edges that connect to any of the specified nodes
@@ -239,6 +244,13 @@ def get_tree_edges(tree_id: str, team_id: str, node_ids: List[str] = None) -> Di
             query = query.or_(f'source_node_id.in.({node_filter}),target_node_id.in.({node_filter})')
         
         result = query.order('created_at').execute()
+        
+        # STRICT: All edges must have action_sets
+        for edge in result.data:
+            if not edge.get('action_sets'):
+                raise ValueError(f"Edge {edge.get('edge_id')} missing action_sets - migration incomplete")
+            if not edge.get('default_action_set_id'):
+                raise ValueError(f"Edge {edge.get('edge_id')} missing default_action_set_id - migration incomplete")
         
         print(f"[@db:navigation_trees:get_tree_edges] Retrieved {len(result.data)} edges for tree: {tree_id}")
         return {'success': True, 'edges': result.data}
@@ -267,13 +279,27 @@ def get_edge_by_id(tree_id: str, edge_id: str, team_id: str) -> Dict:
         return {'success': False, 'error': str(e)}
 
 def save_edge(tree_id: str, edge_data: Dict, team_id: str) -> Dict:
-    """Save a single edge (create or update).
+    """Save edge with action_sets structure ONLY - NO LEGACY SUPPORT.
     
     Note: If 'label' is not provided or is empty, the database trigger 
     will automatically generate it in format 'source_label→target_label'.
     """
     try:
         supabase = get_supabase()
+        
+        # STRICT: Only accept new action_sets format
+        if not edge_data.get('action_sets'):
+            raise ValueError("action_sets is required - no legacy format accepted")
+        
+        if not edge_data.get('default_action_set_id'):
+            raise ValueError("default_action_set_id is required")
+        
+        # Validate default_action_set_id exists in action_sets
+        action_sets = edge_data['action_sets']
+        default_id = edge_data['default_action_set_id']
+        if not any(action_set.get('id') == default_id for action_set in action_sets):
+            raise ValueError(f"default_action_set_id '{default_id}' not found in action_sets")
+        
         edge_data['tree_id'] = tree_id
         edge_data['team_id'] = team_id
         edge_data['updated_at'] = datetime.now().isoformat()

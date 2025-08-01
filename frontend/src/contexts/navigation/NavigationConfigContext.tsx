@@ -47,6 +47,17 @@ export interface NavigationNode {
   subtree_count?: number;
 }
 
+// Action Set interface for new edge structure
+export interface ActionSet {
+  id: string;
+  label: string;
+  actions: any[];
+  retry_actions?: any[];
+  priority: number;
+  conditions?: any;
+  timer?: number; // Timer action support
+}
+
 export interface NavigationEdge {
   id: string;
   edge_id: string;
@@ -54,8 +65,9 @@ export interface NavigationEdge {
   target_node_id: string;
   label?: string;
   description?: string;
-  actions: any[];
-  retry_actions: any[];
+  // NEW: Action sets structure - NO LEGACY FIELDS
+  action_sets: ActionSet[]; // REQUIRED
+  default_action_set_id: string; // REQUIRED
   final_wait_time: number;
   edge_type: string;
   priority: string;

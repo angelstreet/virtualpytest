@@ -220,6 +220,11 @@ export const useEdge = (props?: UseEdgeProps) => {
     // State
     runResult,
 
+    // NEW: Action sets methods
+    getActionSetsFromEdge,
+    getDefaultActionSet,
+    executeActionSet,
+
     // Utility functions
     getEdgeColorsForEdge,
     isProtectedEdge,

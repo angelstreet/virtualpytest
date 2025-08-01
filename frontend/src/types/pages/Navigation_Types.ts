@@ -1,4 +1,15 @@
 import { Action, EdgeAction } from '../controller/Action_Types';
+
+// Action Set interface for new edge structure
+export interface ActionSet {
+  id: string;
+  label: string;
+  actions: Action[];
+  retry_actions?: Action[];
+  priority: number;
+  conditions?: any;
+  timer?: number; // Timer action support
+}
 import { Verification } from '../verification/Verification_Types';
 
 // Re-export EdgeAction for convenience
@@ -49,7 +60,7 @@ export interface UINavigationNodeData {
   };
 }
 
-// Define the data type for navigation edges
+// Define the data type for navigation edges - NEW ACTION_SETS STRUCTURE ONLY
 export interface UINavigationEdgeData {
   label?: string; // Auto-generated label in format "source_label→target_label"
   description?: string;
@@ -57,9 +68,9 @@ export interface UINavigationEdgeData {
   priority?: 'p1' | 'p2' | 'p3'; // Priority level (default: p3)
   threshold?: number; // Threshold for edge traversal (default: 0)
 
-  // Action support (embedded directly - no ID resolution needed)
-  actions?: Action[]; // Array of embedded action objects with preserved wait_time
-  retryActions?: Action[]; // Array of embedded retry action objects
+  // NEW: Action sets structure - NO LEGACY FIELDS
+  action_sets: ActionSet[]; // REQUIRED: Array of action sets
+  default_action_set_id: string; // REQUIRED: ID of default action set
   final_wait_time?: number; // Final wait time after all actions complete (default: 2000ms)
 
   // Execution metrics
@@ -128,8 +139,9 @@ export interface NavigationEdge {
   edge_type: string;
   style?: any;
   data?: any;
-  actions: Action[]; // Embedded actions
-  retry_actions: Action[];
+  // NEW: Action sets structure - NO LEGACY FIELDS
+  action_sets: ActionSet[]; // REQUIRED
+  default_action_set_id: string; // REQUIRED
   final_wait_time: number;
 }
 
@@ -224,11 +236,11 @@ export interface NodeForm {
   verifications?: Verification[];
 }
 
-// Updated EdgeForm interface for multiple actions
+// NEW: EdgeForm interface for action_sets structure - NO LEGACY
 export interface EdgeForm {
   edgeId: string; // Required edge ID to track which edge is being edited
-  actions: Action[];
-  retryActions: Action[];
+  action_sets: ActionSet[]; // REQUIRED: Array of action sets
+  default_action_set_id: string; // REQUIRED: ID of default action set
   final_wait_time: number; // Using standard naming convention
   description?: string; // Edge description
 
