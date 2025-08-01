@@ -23,7 +23,7 @@ export interface UseNodeProps {
 
 export const useNode = (props?: UseNodeProps) => {
   const { getModelReferences, referencesLoading, currentDeviceId } = useDeviceData();
-  const { currentNodeId, updateCurrentPosition, updateNodesWithMinimapIndicators, nodes, edges } =
+  const { currentNodeId, updateCurrentPosition, updateNodesWithMinimapIndicators, nodes } =
     useNavigation();
   const {
     setNavigationEdgesSuccess,

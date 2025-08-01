@@ -48,7 +48,6 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
     selectedDeviceId,
     panelIndex = 0,
     onEditWithLabels,
-    currentEdgeForm,
     actionSet, // NEW: specific action set to display
   }) => {
     const { getNodes } = useReactFlow();
@@ -242,7 +241,7 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
               >
                 Main Actions:
               </Typography>
-              {actions?.map((action, index) => {
+              {actions?.map((action: any, index: number) => {
                 const formatActionDisplay = (action: any) => {
                   if (!action.command) return 'No action selected';
                   const commandDisplay = action.command.replace(/_/g, ' ').trim();
@@ -312,7 +311,7 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
               >
                 Retry Actions (if main actions fail):
               </Typography>
-              {retryActions?.map((action, index) => {
+              {retryActions?.map((action: any, index: number) => {
                 const formatActionDisplay = (action: any) => {
                   if (!action.command) return 'No action selected';
                   const commandDisplay = action.command.replace(/_/g, ' ').trim();
