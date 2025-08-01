@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { useNavigation } from '../../contexts/navigation/NavigationContext';
+import { useNavigationStack } from '../../contexts/navigation/NavigationStackContext';
 import type { UINavigationEdge, UINavigationNode } from '../../types/pages/Navigation_Types';
 
 interface UseTimerActionsProps {
@@ -24,6 +25,7 @@ export const useTimerActions = ({
   onNavigateToNode
 }: UseTimerActionsProps): UseTimerActionsReturn => {
   const { updateCurrentPosition } = useNavigation();
+  const { isNested } = useNavigationStack();
   const activeTimersRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
 
   // Clear all active timers
@@ -107,19 +109,27 @@ export const useTimerActions = ({
 
   // Check for timer actions when current node changes
   useEffect(() => {
-    if (currentNodeId) {
+    if (currentNodeId && !isNested) {
+      // Only clear and set timers when NOT in nested navigation mode
       // Clear previous timers when moving to a new node
       clearAllTimers();
       
       // Check for new timer actions
       checkTimerActions(currentNodeId);
+    } else if (isNested) {
+      // In nested navigation mode, just clear all timers without logging
+      activeTimersRef.current.forEach((timer) => {
+        clearTimeout(timer);
+      });
+      activeTimersRef.current.clear();
+      // Don't log when clearing for nested navigation
     }
 
     return () => {
       // Cleanup on unmount
       clearAllTimers();
     };
-  }, [currentNodeId, checkTimerActions, clearAllTimers]);
+  }, [currentNodeId, checkTimerActions, clearAllTimers, isNested]);
 
   return {
     checkTimerActions,

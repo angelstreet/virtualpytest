@@ -6,6 +6,7 @@ import { Actions, Action } from '../../types/controller/Action_Types';
 import { UINavigationEdge, EdgeForm, ActionSet } from '../../types/pages/Navigation_Types';
 import { useAction } from '../actions';
 import { useValidationColors } from '../validation';
+import { useTimerActions } from './useTimerActions';
 
 export interface UseEdgeProps {
   selectedHost?: Host | null;
@@ -19,9 +20,18 @@ export const useEdge = (props?: UseEdgeProps) => {
   const actionHook = useAction();
 
   // Navigation context for current position updates
-  const { updateCurrentPosition } = useNavigation();
+  const { updateCurrentPosition, nodes, edges, currentNodeId } = useNavigation();
 
-  // Device data hook (no longer needed for individual resolution)
+  // Timer actions hook for auto-return functionality during action execution
+  const timerActions = useTimerActions({
+    currentNodeId: currentNodeId || undefined,
+    edges: edges,
+    nodes: nodes,
+    onNavigateToNode: (nodeId: string) => {
+      // Navigate to the specified node when timer fires
+      updateCurrentPosition(nodeId, nodes.find(n => n.id === nodeId)?.data?.label || null);
+    }
+  });
 
   // Validation colors hook for edge styling
   const { getEdgeColors } = useValidationColors([]);
@@ -201,6 +211,9 @@ export const useEdge = (props?: UseEdgeProps) => {
         // This follows the same pattern as executeNavigation in useNode.ts
         if (result && result.success !== false && edge.target) {
           updateCurrentPosition(edge.target, null);
+          
+          // Check for timer actions on the target node after successful navigation
+          timerActions.checkTimerActions(edge.target);
         }
 
         return result;
@@ -278,5 +291,8 @@ export const useEdge = (props?: UseEdgeProps) => {
     // Action functions
     executeEdgeActions,
     clearResults,
+    
+    // Timer actions (for auto-return functionality)
+    timerActions,
   };
 };

@@ -4,7 +4,6 @@ import { useDeviceData } from '../../contexts/device/DeviceDataContext';
 import { useNavigationConfig } from '../../contexts/navigation/NavigationConfigContext';
 import { useNavigation } from '../../contexts/navigation/NavigationContext';
 import { Host } from '../../types/common/Host_Types';
-import { useTimerActions } from './useTimerActions';
 import {
   UINavigationNode,
   NodeForm,
@@ -39,17 +38,8 @@ export const useNode = (props?: UseNodeProps) => {
   // Create a ref for the navigation callback to avoid circular dependency
   const navigationCallbackRef = useRef<((nodeId: string) => void) | undefined>();
 
-  // Timer actions hook for auto-return functionality  
-  useTimerActions({
-    currentNodeId: currentNodeId || undefined,
-    edges: edges,
-    nodes: nodes,
-    onNavigateToNode: (nodeId: string) => {
-      if (navigationCallbackRef.current) {
-        navigationCallbackRef.current(nodeId);
-      }
-    }
-  });
+  // Timer actions should only be used during actual action execution, not general navigation
+  // This will be moved to action execution contexts where it's actually needed
 
   // Get the selected device from the host's devices array
   const selectedDevice = useMemo(() => {
