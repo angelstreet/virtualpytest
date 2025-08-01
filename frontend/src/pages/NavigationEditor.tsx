@@ -149,27 +149,8 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = React.memo(
     // Get theme context for dynamic styling
     const { actualMode } = useTheme();
 
-    // Get navigation stack for nested navigation (only if provider is available)
-    const navigationStack = (() => {
-      try {
-        return useNavigationStack();
-      } catch (error) {
-        // If NavigationStackProvider is not available, return default values
-        return {
-          popLevel: () => {},
-          jumpToLevel: () => {},
-          jumpToRoot: () => {},
-          currentLevel: null,
-          isNested: false,
-          depth: 0,
-          stack: [],
-          breadcrumb: [],
-          pushLevel: () => {},
-          loadBreadcrumb: async () => {},
-        };
-      }
-    })();
-    const { popLevel, jumpToLevel, jumpToRoot, currentLevel, isNested } = navigationStack;
+    // Get navigation stack for nested navigation
+    const { popLevel, jumpToLevel, jumpToRoot, currentLevel, isNested, stack } = useNavigationStack();
 
     // Get current node ID from NavigationContext
     const { currentNodeId } = useNavigation();
