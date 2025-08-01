@@ -110,7 +110,8 @@ export const useEdge = (props?: UseEdgeProps) => {
    */
   const canRunActions = useCallback(
     (edge: UINavigationEdge): boolean => {
-      const actions = getActionsFromEdge(edge);
+      const defaultSet = getDefaultActionSet(edge);
+      const actions = defaultSet.actions || [];
       
       return (
         props?.isControlActive === true &&
@@ -119,7 +120,7 @@ export const useEdge = (props?: UseEdgeProps) => {
         !actionHook.loading
       );
     },
-    [props?.isControlActive, props?.selectedHost, actionHook.loading, getActionsFromEdge],
+    [props?.isControlActive, props?.selectedHost, actionHook.loading, getDefaultActionSet],
   );
 
   /**
@@ -157,8 +158,9 @@ export const useEdge = (props?: UseEdgeProps) => {
    */
   const executeEdgeActions = useCallback(
     async (edge: UINavigationEdge, overrideActions?: Action[], overrideRetryActions?: Action[]) => {
-      const actions = overrideActions || getActionsFromEdge(edge);
-      const retryActions = overrideRetryActions || getRetryActionsFromEdge(edge);
+      const defaultSet = getDefaultActionSet(edge);
+      const actions = overrideActions || defaultSet.actions || [];
+      const retryActions = overrideRetryActions || defaultSet.retry_actions || [];
 
       if (actions.length === 0) {
         setRunResult('❌ No actions to execute');
@@ -199,7 +201,7 @@ export const useEdge = (props?: UseEdgeProps) => {
     },
     [
       actionHook,
-
+      getDefaultActionSet,
       convertToControllerAction,
       formatRunResult,
       props?.isControlActive,
