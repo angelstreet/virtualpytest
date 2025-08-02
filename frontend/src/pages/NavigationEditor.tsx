@@ -448,44 +448,85 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = React.memo(
 
     // Handle navigation back to parent tree
     const handleNavigateBack = useCallback(() => {
-      popLevel();
-      
-      // Switch to parent tree from cache
+      // Get target tree before popping the level
       const newCurrentLevel = stack.length > 1 ? stack[stack.length - 2] : null;
       const targetTreeId = newCurrentLevel ? newCurrentLevel.treeId : actualUserInterfaceId;
       
-      setActualTreeId(targetTreeId);
-      navigation.switchToTree(targetTreeId);
+      console.log(`[@NavigationEditor] Navigation back - target tree: ${targetTreeId}, current nested: ${isNested}`);
       
-      console.log(`[@NavigationEditor] Navigation back completed - switched to cached tree: ${targetTreeId}`);
-    }, [popLevel, actualUserInterfaceId, stack, setActualTreeId, navigation]);
+      // Check if target tree is cached
+      const cachedTree = navigation.getCachedTree(targetTreeId);
+      if (cachedTree) {
+        console.log(`[@NavigationEditor] Using cached tree for navigation back: ${targetTreeId}`);
+        
+        // Update navigation stack first
+        popLevel();
+        
+        // Switch to cached parent tree data
+        navigation.switchToTree(targetTreeId);
+        
+        // Update actualTreeId to reflect current tree
+        setActualTreeId(targetTreeId);
+        
+        console.log(`[@NavigationEditor] Navigation back completed - switched to cached tree: ${targetTreeId}`);
+      } else {
+        console.warn(`[@NavigationEditor] Tree ${targetTreeId} not found in cache, cannot navigate back`);
+      }
+    }, [popLevel, actualUserInterfaceId, stack, setActualTreeId, navigation, isNested]);
 
     // Handle navigation to specific level in breadcrumb
     const handleNavigateToLevel = useCallback(
       (levelIndex: number) => {
-        jumpToLevel(levelIndex);
-        
-        // Switch to target tree from cache
+        // Get target tree before jumping to level
         const targetLevel = stack[levelIndex];
         const targetTreeId = targetLevel ? targetLevel.treeId : actualUserInterfaceId;
         
-        setActualTreeId(targetTreeId);
-        navigation.switchToTree(targetTreeId);
+        console.log(`[@NavigationEditor] Navigation to level ${levelIndex} - target tree: ${targetTreeId}`);
         
-        console.log(`[@NavigationEditor] Navigation to level ${levelIndex} completed - switched to cached tree: ${targetTreeId}`);
+        // Check if target tree is cached
+        const cachedTree = navigation.getCachedTree(targetTreeId);
+        if (cachedTree) {
+          console.log(`[@NavigationEditor] Using cached tree for level navigation: ${targetTreeId}`);
+          
+          // Update navigation stack first
+          jumpToLevel(levelIndex);
+          
+          // Switch to cached tree data
+          navigation.switchToTree(targetTreeId);
+          
+          // Update actualTreeId to reflect current tree
+          setActualTreeId(targetTreeId);
+          
+          console.log(`[@NavigationEditor] Navigation to level ${levelIndex} completed - switched to cached tree: ${targetTreeId}`);
+        } else {
+          console.warn(`[@NavigationEditor] Tree ${targetTreeId} not found in cache, cannot navigate to level ${levelIndex}`);
+        }
       },
       [jumpToLevel, actualUserInterfaceId, stack, setActualTreeId, navigation],
     );
 
     // Handle navigation to root
     const handleNavigateToRoot = useCallback(() => {
-      jumpToRoot();
+      console.log(`[@NavigationEditor] Navigation to root - target tree: ${actualUserInterfaceId}`);
       
-      // Switch to root tree from cache
-      setActualTreeId(actualUserInterfaceId);
-      navigation.switchToTree(actualUserInterfaceId);
-      
-      console.log(`[@NavigationEditor] Navigation to root completed - switched to cached tree: ${actualUserInterfaceId}`);
+      // Check if root tree is cached
+      const cachedTree = navigation.getCachedTree(actualUserInterfaceId);
+      if (cachedTree) {
+        console.log(`[@NavigationEditor] Using cached tree for root navigation: ${actualUserInterfaceId}`);
+        
+        // Update navigation stack first
+        jumpToRoot();
+        
+        // Switch to cached root tree data
+        navigation.switchToTree(actualUserInterfaceId);
+        
+        // Update actualTreeId to reflect root tree
+        setActualTreeId(actualUserInterfaceId);
+        
+        console.log(`[@NavigationEditor] Navigation to root completed - switched to cached tree: ${actualUserInterfaceId}`);
+      } else {
+        console.warn(`[@NavigationEditor] Root tree ${actualUserInterfaceId} not found in cache, cannot navigate to root`);
+      }
     }, [jumpToRoot, actualUserInterfaceId, setActualTreeId, navigation]);
 
     // Memoize the selectedHost to prevent unnecessary re-renders
@@ -519,6 +560,9 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = React.memo(
 
             // First, check if a subtree already exists for this node in the parent tree
             const parentTreeId = currentLevel.parentTreeId || actualTreeId;
+            
+            console.log(`[@NavigationEditor] Saving nested tree with ${nodes.length} nodes at current canvas positions:`, 
+              nodes.map(n => ({ id: n.id, position: n.position })));
             const checkResponse = await fetch(
               `/server/navigationTrees/getNodeSubTrees/${parentTreeId}/${currentLevel.parentNodeId}`,
             );
@@ -535,7 +579,35 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = React.memo(
                   method: 'PUT',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({
-                    tree_data: { nodes, edges },
+                    tree_data: { 
+                      nodes: nodes.map(node => ({
+                        node_id: node.id,
+                        label: node.data.label,
+                        position_x: node.position?.x || 0, // ✅ Proper position normalization
+                        position_y: node.position?.y || 0, // ✅ Proper position normalization
+                        node_type: node.data.type || 'default',
+                        verifications: node.data.verifications || [],
+                        data: {
+                          ...node.data,
+                          description: node.data.description,
+                        }
+                      })), 
+                      edges: edges.map(edge => ({
+                        edge_id: edge.id,
+                        source_node_id: edge.source,
+                        target_node_id: edge.target,
+                        label: edge.data?.label,
+                        data: {
+                          ...(edge.data?.priority && { priority: edge.data.priority }),
+                          ...(edge.data?.threshold && { threshold: edge.data.threshold }),
+                          ...(edge.sourceHandle && { sourceHandle: edge.sourceHandle }),
+                          ...(edge.targetHandle && { targetHandle: edge.targetHandle }),
+                        },
+                        action_sets: edge.data?.action_sets || [],
+                        default_action_set_id: edge.data?.default_action_set_id || 'default',
+                        final_wait_time: edge.data?.final_wait_time || 0,
+                      }))
+                    },
                     description: `Updated actions for ${currentLevel.parentNodeLabel}`,
                     modification_type: 'update',
                     changes_summary: 'Updated subtree from nested navigation editor',
@@ -559,7 +631,35 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = React.memo(
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                   name: currentLevel.treeName,
-                  tree_data: { nodes, edges },
+                  tree_data: { 
+                    nodes: nodes.map(node => ({
+                      node_id: node.id,
+                      label: node.data.label,
+                      position_x: node.position?.x || 0, // ✅ Proper position normalization
+                      position_y: node.position?.y || 0, // ✅ Proper position normalization
+                      node_type: node.data.type || 'default',
+                      verifications: node.data.verifications || [],
+                      data: {
+                        ...node.data,
+                        description: node.data.description,
+                      }
+                    })), 
+                    edges: edges.map(edge => ({
+                      edge_id: edge.id,
+                      source_node_id: edge.source,
+                      target_node_id: edge.target,
+                      label: edge.data?.label,
+                      data: {
+                        ...(edge.data?.priority && { priority: edge.data.priority }),
+                        ...(edge.data?.threshold && { threshold: edge.data.threshold }),
+                        ...(edge.sourceHandle && { sourceHandle: edge.sourceHandle }),
+                        ...(edge.targetHandle && { targetHandle: edge.targetHandle }),
+                      },
+                      action_sets: edge.data?.action_sets || [],
+                      default_action_set_id: edge.data?.default_action_set_id || 'default',
+                      final_wait_time: edge.data?.final_wait_time || 0,
+                    }))
+                  },
                   description: `Actions for ${currentLevel.parentNodeLabel}`,
                 }),
               });
@@ -640,6 +740,16 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = React.memo(
         if (lastLoadedTreeId.current === userInterface.id) {
           return;
         }
+        
+        // CRITICAL: Don't reload if we're navigating back and the tree is already cached
+        const cachedTree = navigation.getCachedTree(userInterface.id);
+        if (cachedTree && isNested) {
+          console.log(`[@component:NavigationEditor] Skipping tree reload - using cached tree for navigation back: ${userInterface.id}`);
+          navigation.switchToTree(userInterface.id);
+          lastLoadedTreeId.current = userInterface.id;
+          return;
+        }
+        
         lastLoadedTreeId.current = userInterface.id;
 
         // STEP 1: Load tree data directly (simplified approach)
@@ -648,7 +758,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = React.memo(
 
         // No auto-unlock for navigation tree - keep it locked for editing session
       }
-    }, [userInterface?.id, isLoadingInterface, loadTreeForUserInterface]);
+    }, [userInterface?.id, isLoadingInterface, loadTreeForUserInterface, navigation, isNested]);
 
     // Simple update handlers - complex validation logic moved to device control component
     const handleUpdateNode = useCallback(
