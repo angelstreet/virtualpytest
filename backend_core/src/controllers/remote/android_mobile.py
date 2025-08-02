@@ -848,34 +848,38 @@ class AndroidMobileRemoteController(RemoteControllerInterface):
                 result = False
         
         elif command == 'swipe_up':
+            # For swipe_up, ensure vertical movement by keeping X coordinate the same
             from_x = params.get('from_x', 500)
             from_y = params.get('from_y', 1500)
-            to_x = params.get('to_x', 500)
+            to_x = from_x  # Keep X coordinate the same for vertical swipe
             to_y = params.get('to_y', 500)
             duration = params.get('duration', 300)
             result = self.swipe_up(int(from_x), int(from_y), int(to_x), int(to_y), int(duration))
         
         elif command == 'swipe_down':
+            # For swipe_down, ensure vertical movement by keeping X coordinate the same
             from_x = params.get('from_x', 500)
             from_y = params.get('from_y', 500)
-            to_x = params.get('to_x', 500)
+            to_x = from_x  # Keep X coordinate the same for vertical swipe
             to_y = params.get('to_y', 1500)
             duration = params.get('duration', 300)
             result = self.swipe_down(int(from_x), int(from_y), int(to_x), int(to_y), int(duration))
         
         elif command == 'swipe_left':
+            # For swipe_left, ensure horizontal movement by keeping Y coordinate the same
             from_x = params.get('from_x', 800)
             from_y = params.get('from_y', 1000)
             to_x = params.get('to_x', 200)
-            to_y = params.get('to_y', 1000)
+            to_y = from_y  # Keep Y coordinate the same for horizontal swipe
             duration = params.get('duration', 300)
             result = self.swipe_left(int(from_x), int(from_y), int(to_x), int(to_y), int(duration))
         
         elif command == 'swipe_right':
+            # For swipe_right, ensure horizontal movement by keeping Y coordinate the same
             from_x = params.get('from_x', 200)
             from_y = params.get('from_y', 1000)
             to_x = params.get('to_x', 800)
-            to_y = params.get('to_y', 1000)
+            to_y = from_y  # Keep Y coordinate the same for horizontal swipe
             duration = params.get('duration', 300)
             result = self.swipe_right(int(from_x), int(from_y), int(to_x), int(to_y), int(duration))
         
