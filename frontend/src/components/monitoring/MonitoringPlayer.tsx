@@ -371,7 +371,7 @@ export const MonitoringPlayer: React.FC<MonitoringPlayerProps> = ({
           </Box>
 
           {/* Subtitle detection button */}
-          <Box sx={{ position: 'absolute', bottom: 8, left: 60 }}>
+          <Box sx={{ position: 'absolute', bottom: 8, left: 16 }}>
             <IconButton
               size="medium"
               onClick={detectSubtitles}
@@ -402,7 +402,7 @@ export const MonitoringPlayer: React.FC<MonitoringPlayerProps> = ({
           </Box>
 
           {/* AI Subtitle detection button */}
-          <Box sx={{ position: 'absolute', bottom: 8, left: 112 }}>
+          <Box sx={{ position: 'absolute', bottom: 8, left: 60 }}>
             <IconButton
               size="medium"
               onClick={detectSubtitlesAI}
@@ -459,7 +459,7 @@ export const MonitoringPlayer: React.FC<MonitoringPlayerProps> = ({
           </Box>
 
           {/* Language Menu detection button */}
-          <Box sx={{ position: 'absolute', bottom: 8, left: 164 }}>
+          <Box sx={{ position: 'absolute', bottom: 8, left: 104 }}>
             <IconButton
               size="medium"
               onClick={analyzeLanguageMenu}

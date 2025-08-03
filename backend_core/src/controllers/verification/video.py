@@ -2110,8 +2110,8 @@ Be specific about what you see on the device interface."""
                 with open(image_path, 'rb') as f:
                     image_data = base64.b64encode(f.read()).decode()
                 
-                # Simple prompt for language/subtitle menu detection
-                prompt = """Analyze this image for language or subtitle menu options.
+                # Enhanced prompt for language/subtitle menu detection with better categorization
+                prompt = """Analyze this image for language/subtitle/audio menu options. Look for sections labeled AUDIO, SUBTITLES, AUDIO DESCRIPTION, etc.
 
 CRITICAL: You MUST respond with ONLY valid JSON. No other text before or after.
 
@@ -2133,11 +2133,16 @@ If no language/subtitle menu found:
   "selected_subtitle": -1
 }
 
-Rules:
-- List languages in the order they appear (index 0, 1, 2, etc.)
+IMPORTANT CATEGORIZATION RULES:
+- AUDIO section: List main audio languages (English, French, Spanish, etc.)
+- SUBTITLE section: List subtitle options (Off, English, French, etc.)
+- AUDIO DESCRIPTION: These belong in audio_languages, not subtitle_languages
+- Audio description tracks should be included in audio_languages (e.g., "English - Audio description")
+- Look for section headers like "AUDIO", "SUBTITLES", "AUDIO DESCRIPTION" to properly categorize
+- List languages in the order they appear within each section (index 0, 1, 2, etc.)
 - Use "Off" for disabled subtitles
 - Set selected_audio/selected_subtitle to the index of the currently selected option (-1 if none)
-- Only detect actual language/subtitle menus, not regular UI text
+- Check for visual indicators like checkmarks (✓) or highlighting to identify selected options
 
 JSON ONLY - NO OTHER TEXT"""
                 
