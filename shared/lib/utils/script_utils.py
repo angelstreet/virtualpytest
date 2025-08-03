@@ -894,3 +894,91 @@ def execute_edge_actions(host, device, edge: Dict, action_set_id: str = None, te
             'success': False,
             'error': error_msg
         }
+
+
+def goto_node(host, device, target_node_label: str, tree_id: str, team_id: str, context=None) -> Dict[str, Any]:
+    """
+    Simple one-line navigation function to go to any node.
+    
+    Args:
+        host: Host instance
+        device: Device instance  
+        target_node_label: Label of the target node (e.g., 'home', 'live', 'settings')
+        tree_id: Navigation tree ID
+        team_id: Team ID
+        context: Optional ScriptExecutionContext for tracking step results
+        
+    Returns:
+        Dict with success status and details
+    """
+    try:
+        from backend_core.src.services.navigation.navigation_pathfinding import find_shortest_path
+        
+        print(f"[@script_utils:goto_node] Finding path to '{target_node_label}'...")
+        
+        # Find path to target node
+        navigation_path = find_shortest_path(tree_id, target_node_label, team_id)
+        
+        if not navigation_path:
+            return {
+                'success': False, 
+                'error': f"No path found to node '{target_node_label}'"
+            }
+        
+        print(f"[@script_utils:goto_node] Found path with {len(navigation_path)} steps")
+        
+        # Execute navigation sequence
+        for i, step in enumerate(navigation_path):
+            step_num = i + 1
+            from_node = step.get('from_node_label', 'unknown')
+            to_node = step.get('to_node_label', 'unknown')
+            
+            print(f"[@script_utils:goto_node] Step {step_num}/{len(navigation_path)}: {from_node} → {to_node}")
+            
+            step_start_time = time.time()
+            result = execute_navigation_with_verifications(host, device, step, team_id, tree_id)
+            step_execution_time = int((time.time() - step_start_time) * 1000)
+            
+            # If context is provided, record the step result
+            if context:
+                from datetime import datetime
+                step_start_timestamp = datetime.fromtimestamp(step_start_time).strftime('%H:%M:%S')
+                step_end_timestamp = datetime.now().strftime('%H:%M:%S')
+                
+                # Capture screenshot
+                step_screenshot = capture_validation_screenshot(host, device, f"goto_step_{step_num}", "goto")
+                context.add_screenshot(step_screenshot)
+                
+                step_result = {
+                    'step_number': len(context.step_results) + 1,
+                    'success': result.get('success', False),
+                    'screenshot_path': step_screenshot,
+                    'message': f"Navigation step {step_num}: {from_node} → {to_node}",
+                    'execution_time_ms': step_execution_time,
+                    'start_time': step_start_timestamp,
+                    'end_time': step_end_timestamp,
+                    'from_node': from_node,
+                    'to_node': to_node,
+                    'actions': step.get('actions', []),
+                    'verifications': step.get('verifications', []),
+                    'verification_results': result.get('verification_results', [])
+                }
+                context.step_results.append(step_result)
+            
+            if not result.get('success', False):
+                error_msg = f"Navigation failed at step {step_num}: {result.get('error', 'Unknown error')}"
+                print(f"[@script_utils:goto_node] ERROR: {error_msg}")
+                return {'success': False, 'error': error_msg}
+            
+            print(f"[@script_utils:goto_node] Step {step_num} completed successfully in {step_execution_time}ms")
+        
+        print(f"[@script_utils:goto_node] Successfully navigated to '{target_node_label}'!")
+        return {
+            'success': True, 
+            'message': f"Successfully navigated to '{target_node_label}' in {len(navigation_path)} steps"
+        }
+        
+    except Exception as e:
+        error_msg = f"Navigation to '{target_node_label}' failed: {str(e)}"
+        print(f"[@script_utils:goto_node] ERROR: {error_msg}")
+        return {'success': False, 'error': error_msg}

@@ -215,7 +215,7 @@ export const UIActionNode: React.FC<NodeProps<UINavigationNodeType['data']>> = (
         {/* Node label - adapted for circular space */}
         <div
           style={{
-            fontSize: '18px',
+            fontSize: '16px',
             fontWeight: 'bold',
             lineHeight: '1.1',
             overflow: 'hidden',
@@ -228,9 +228,6 @@ export const UIActionNode: React.FC<NodeProps<UINavigationNodeType['data']>> = (
         >
           {data.label}
         </div>
-        
-        {/* Action icon - below the label */}
-        <div style={{ fontSize: '24px' }}>⚡</div>
 
         {/* Screenshot section (same concept as navigation node but adapted for circle) */}
         {data.screenshot && (

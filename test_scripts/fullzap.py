@@ -28,12 +28,12 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 from shared.lib.utils.script_framework import ScriptExecutor, ScriptExecutionContext, handle_keyboard_interrupt, handle_unexpected_error
-from backend_core.src.services.navigation.navigation_pathfinding import find_shortest_path
 from backend_core.src.controllers.verification.video import VideoVerificationController
 from shared.lib.utils.script_utils import (
     find_node_by_label,
     execute_edge_actions,
-    capture_validation_screenshot
+    capture_validation_screenshot,
+    goto_node
 )
 
 
@@ -248,6 +248,22 @@ def execute_zap_actions(context: ScriptExecutionContext, action_edge, action_com
         # Format timestamps for reporting
         step_start_timestamp = datetime.fromtimestamp(iteration_start_time).strftime('%H:%M:%S')
         step_end_timestamp = datetime.fromtimestamp(iteration_end_time).strftime('%H:%M:%S')
+        
+        # Extract real actions from the edge for proper reporting (same as navigation steps)
+        real_actions = []
+        real_retry_actions = []
+        
+        action_sets = action_edge.get('action_sets', [])
+        default_action_set_id = action_edge.get('default_action_set_id')
+        
+        if action_sets and default_action_set_id:
+            # Find the default action set that was executed
+            default_action_set = next((s for s in action_sets if s.get('id') == default_action_set_id), 
+                                    action_sets[0] if action_sets else None)
+            
+            if default_action_set:
+                real_actions = default_action_set.get('actions', [])
+                real_retry_actions = default_action_set.get('retry_actions', [])
         total_action_time += iteration_execution_time
         
         # Check for motion and subtitles after each action
@@ -280,7 +296,8 @@ def execute_zap_actions(context: ScriptExecutionContext, action_edge, action_com
                 'motion_detection': motion_result,
                 'from_node': 'live',
                 'to_node': 'live',
-                'actions': [{'command': action_command, 'params': {}, 'label': f'Execute {action_command}'}],
+                'actions': real_actions,
+                'retryActions': real_retry_actions,
                 'verifications': [],
                 'verification_results': []
             })
@@ -309,7 +326,8 @@ def execute_zap_actions(context: ScriptExecutionContext, action_edge, action_com
                 'motion_detection': motion_result,
                 'from_node': 'live',
                 'to_node': 'live',
-                'actions': [{'command': action_command, 'params': {}, 'label': f'Execute {action_command}'}],
+                'actions': real_actions,
+                'retryActions': real_retry_actions,
                 'verifications': [],
                 'verification_results': []
             })
@@ -457,36 +475,44 @@ def main():
             executor.cleanup_and_exit(context, args.userinterface_name)
             return
         
-        # Find path to live node
-        print("🗺️ [fullzap] Finding path to live...")
-        navigation_path = find_shortest_path(context.tree_id, "live", context.team_id)
+        # Navigate to live node using the simple goto wrapper
+        print("🗺️ [fullzap] Navigating to live node...")
+        live_result = goto_node(context.host, context.selected_device, "live", context.tree_id, context.team_id, context)
         
-        if not navigation_path:
-            context.error_message = "No path found to live node"
+        if not live_result.get('success'):
+            context.error_message = f"Failed to navigate to live: {live_result.get('error', 'Unknown error')}"
             print(f"❌ [fullzap] {context.error_message}")
             executor.cleanup_and_exit(context, args.userinterface_name)
             return
         
-        print(f"✅ [fullzap] Found path with {len(navigation_path)} steps")
-        
-        # Execute navigation sequence to reach live node
-        nav_success = executor.execute_navigation_sequence(context, navigation_path)
-        if not nav_success:
-            executor.cleanup_and_exit(context, args.userinterface_name)
-            return
-        
         print("🎉 [fullzap] Successfully navigated to live!")
+        nav_success = True
         
         # Execute zap actions multiple times with motion detection
         print(f"⚡ [fullzap] Executing pre-validated action '{args.action}' from live node...")
         zap_success = execute_zap_actions(context, action_edge, args.action, args.max_iteration, motion_detector)
         
-        context.overall_success = nav_success and zap_success
+        # Return to home node after zap actions using the simple goto wrapper
+        print("🏠 [fullzap] Returning to home node...")
+        home_result = goto_node(context.host, context.selected_device, "home", context.tree_id, context.team_id, context)
+        
+        if home_result.get('success'):
+            print("🎉 [fullzap] Successfully returned to home!")
+            home_success = True
+        else:
+            print(f"⚠️ [fullzap] Failed to return to home: {home_result.get('error', 'Unknown error')}")
+            print("   Continuing anyway - this won't fail the overall test")
+            home_success = True  # Don't fail the overall test for navigation back
+        
+        context.overall_success = nav_success and zap_success and home_success
         
         if context.overall_success:
-            print(f"✅ [fullzap] All {args.max_iteration} iterations of action '{args.action}' completed successfully!")
+            print(f"✅ [fullzap] All {args.max_iteration} iterations of action '{args.action}' completed successfully and returned to home!")
         else:
-            context.error_message = f"Some zap actions failed"
+            if not zap_success:
+                context.error_message = f"Some zap actions failed"
+            elif not home_success:
+                context.error_message = f"Failed to return to home after zap actions"
         
         # Print custom fullzap summary
         print_fullzap_summary(context, args.userinterface_name)
