@@ -2049,3 +2049,177 @@ Be specific about what you see on the device interface."""
             print(f"VideoVerify[{self.device_name}]: AI image analysis error: {e}")
             return "Analysis error. Please try again."
 
+    def analyze_image_ai(self, image_path: str, user_query: str) -> Dict[str, Any]:
+        """
+        Wrapper method for analyze_image_with_ai to match route expectations.
+        
+        Args:
+            image_path: Path to image file
+            user_query: User's question about the image
+            
+        Returns:
+            Dictionary with success status and AI response
+        """
+        try:
+            response_text = self.analyze_image_with_ai(image_path, user_query)
+            
+            return {
+                'success': bool(response_text and response_text.strip()),
+                'response': response_text,
+                'image_path': os.path.basename(image_path) if image_path else None
+            }
+        except Exception as e:
+            print(f"VideoVerify[{self.device_name}]: analyze_image_ai wrapper error: {e}")
+            return {
+                'success': False,
+                'response': "Analysis error. Please try again.",
+                'error': str(e)
+            }
+
+    def analyze_language_menu_ai(self, image_path: str) -> Dict[str, Any]:
+        """
+        AI-powered language/subtitle menu analysis using OpenRouter.
+        
+        Args:
+            image_path: Path to image file showing a language/subtitle menu
+            
+        Returns:
+            Dictionary with language and subtitle options analysis
+        """
+        try:
+            import os
+            import base64
+            import requests
+            import json
+            
+            print(f"VideoVerify[{self.device_name}]: AI language menu analysis")
+            
+            # Check if image exists
+            if not os.path.exists(image_path):
+                print(f"VideoVerify[{self.device_name}]: Image file not found: {image_path}")
+                return {'success': False, 'error': 'Image file not found'}
+            
+            # Get API key from environment
+            api_key = os.getenv('OPENROUTER_API_KEY')
+            if not api_key:
+                print(f"VideoVerify[{self.device_name}]: OpenRouter API key not found in environment")
+                return {'success': False, 'error': 'AI service not available'}
+            
+            # Load and encode the image
+            try:
+                with open(image_path, 'rb') as f:
+                    image_data = base64.b64encode(f.read()).decode()
+                
+                # Simple prompt for language/subtitle menu detection
+                prompt = """Analyze this image for language or subtitle menu options.
+
+CRITICAL: You MUST respond with ONLY valid JSON. No other text before or after.
+
+Required JSON format:
+{
+  "menu_detected": true,
+  "audio_languages": ["English", "French", "Spanish"],
+  "subtitle_languages": ["English", "French", "Spanish", "Off"],
+  "selected_audio": 0,
+  "selected_subtitle": 3
+}
+
+If no language/subtitle menu found:
+{
+  "menu_detected": false,
+  "audio_languages": [],
+  "subtitle_languages": [],
+  "selected_audio": -1,
+  "selected_subtitle": -1
+}
+
+Rules:
+- List languages in the order they appear (index 0, 1, 2, etc.)
+- Use "Off" for disabled subtitles
+- Set selected_audio/selected_subtitle to the index of the currently selected option (-1 if none)
+- Only detect actual language/subtitle menus, not regular UI text
+
+JSON ONLY - NO OTHER TEXT"""
+                
+                # Call OpenRouter API
+                response = requests.post(
+                    'https://openrouter.ai/api/v1/chat/completions',
+                    headers={
+                        'Authorization': f'Bearer {api_key}',
+                        'Content-Type': 'application/json',
+                        'HTTP-Referer': 'https://automai.dev',
+                        'X-Title': 'AutomAI-VirtualPyTest'
+                    },
+                    json={
+                        'model': 'qwen/qwen-2-vl-7b-instruct',
+                        'messages': [
+                            {
+                                'role': 'user',
+                                'content': [
+                                    {'type': 'text', 'text': prompt},
+                                    {'type': 'image_url', 'image_url': {'url': f'data:image/jpeg;base64,{image_data}'}}
+                                ]
+                            }
+                        ],
+                        'max_tokens': 400,
+                        'temperature': 0.0
+                    },
+                    timeout=30
+                )
+                
+                if response.status_code == 200:
+                    result = response.json()
+                    content = result['choices'][0]['message']['content'].strip()
+                    
+                    # Parse JSON response
+                    try:
+                        ai_result = json.loads(content)
+                        
+                        # Validate and normalize the result
+                        menu_detected = ai_result.get('menu_detected', False)
+                        audio_languages = ai_result.get('audio_languages', [])
+                        subtitle_languages = ai_result.get('subtitle_languages', [])
+                        selected_audio = ai_result.get('selected_audio', -1)
+                        selected_subtitle = ai_result.get('selected_subtitle', -1)
+                        
+                        # Return standardized result
+                        return {
+                            'success': True,
+                            'menu_detected': menu_detected,
+                            'audio_languages': audio_languages,
+                            'subtitle_languages': subtitle_languages,
+                            'selected_audio': selected_audio,
+                            'selected_subtitle': selected_subtitle,
+                            'image_path': os.path.basename(image_path),
+                            'analysis_type': 'ai_language_menu_analysis'
+                        }
+                        
+                    except json.JSONDecodeError as e:
+                        print(f"VideoVerify[{self.device_name}]: JSON parsing error: {e}")
+                        print(f"VideoVerify[{self.device_name}]: Raw AI response: {content}")
+                        return {
+                            'success': False,
+                            'error': 'Invalid AI response format',
+                            'raw_response': content
+                        }
+                else:
+                    print(f"VideoVerify[{self.device_name}]: OpenRouter API error: {response.status_code}")
+                    return {
+                        'success': False,
+                        'error': f'AI service error: {response.status_code}'
+                    }
+                    
+            except Exception as e:
+                print(f"VideoVerify[{self.device_name}]: Image processing error: {e}")
+                return {
+                    'success': False,
+                    'error': 'Failed to process image'
+                }
+                
+        except Exception as e:
+            print(f"VideoVerify[{self.device_name}]: AI language menu analysis error: {e}")
+            return {
+                'success': False,
+                'error': f'Analysis error: {str(e)}'
+            }
+

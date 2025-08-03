@@ -38,6 +38,15 @@ export interface SubtitleTrendAnalysis {
   noSubtitlesStreak: number;
 }
 
+// Language/subtitle menu analysis from backend AI detection - EXACT field names
+export interface LanguageMenuAnalysis {
+  menu_detected: boolean; // result.menu_detected
+  audio_languages: string[]; // result.audio_languages (ordered list)
+  subtitle_languages: string[]; // result.subtitle_languages (ordered list)
+  selected_audio: number; // result.selected_audio (index or -1)
+  selected_subtitle: number; // result.selected_subtitle (index or -1)
+}
+
 // Alert/Incident types from backend alerts_db.py - EXACT field names
 export interface Alert {
   id: string; // UUID from backend

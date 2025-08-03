@@ -328,6 +328,24 @@ def video_analyze_image_ai():
         print(f"[@route:server_verification_common:video_analyze_image_ai] Error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
+@server_verification_common_bp.route('/video/analyzeLanguageMenu', methods=['POST'])
+def video_analyze_language_menu():
+    """Proxy AI language menu analysis request to host"""
+    try:
+        print("[@route:server_verification_common:video_analyze_language_menu] Proxying AI language menu analysis request")
+        
+        # Get request data
+        request_data = request.get_json() or {}
+        
+        # Proxy to host video AI language menu analysis endpoint
+        response_data, status_code = proxy_to_host('/host/verification/video/analyzeLanguageMenu', 'POST', request_data, timeout=60)
+        
+        return jsonify(response_data), status_code
+        
+    except Exception as e:
+        print(f"[@route:server_verification_common:video_analyze_language_menu] Error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 # =====================================================
 # HEALTH CHECK
 # =====================================================

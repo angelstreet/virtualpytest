@@ -378,4 +378,54 @@ def analyze_image_ai():
         return jsonify({
             'success': False,
             'error': f'AI image analysis error: {str(e)}'
+        }), 500
+
+@host_verification_video_bp.route('/analyzeLanguageMenu', methods=['POST'])
+def analyze_language_menu():
+    """Analyze image for language/subtitle menu options using AI"""
+    try:
+        print("[@route:host_verification_video:analyzeLanguageMenu] Processing AI language menu analysis request")
+        
+        # Get request data
+        data = request.get_json() or {}
+        device_id = data.get('device_id', 'device1')
+        image_source_url = data.get('image_source_url')  # Single image URL
+        
+        print(f"[@route:host_verification_video:analyzeLanguageMenu] Image source: {image_source_url}")
+        
+        if not image_source_url:
+            return jsonify({
+                'success': False,
+                'error': 'image_source_url is required'
+            }), 400
+        
+        # Convert URL to local path if needed
+        final_image_path = image_source_url
+        if image_source_url.startswith(('http://', 'https://')):
+            from shared.lib.utils.build_url_utils import convertHostUrlToLocalPath
+            final_image_path = convertHostUrlToLocalPath(image_source_url)
+        
+        # Get video verification controller
+        video_controller, device, error_response = get_verification_controller(device_id, 'verification_video')
+        if error_response:
+            return error_response
+        
+        # Execute AI language menu analysis
+        start_time = time.time()
+        result = video_controller.analyze_language_menu_ai(final_image_path)
+        execution_time = int((time.time() - start_time) * 1000)
+        
+        # Add execution time to result
+        result['execution_time_ms'] = execution_time
+        
+        print(f"[@route:host_verification_video:analyzeLanguageMenu] Result: success={result.get('success')}, menu_detected={result.get('menu_detected')}, time={execution_time}ms")
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        print(f"[@route:host_verification_video:analyzeLanguageMenu] Error: {str(e)}")
+        print(f"[@route:host_verification_video:analyzeLanguageMenu] Traceback: {traceback.format_exc()}")
+        return jsonify({
+            'success': False,
+            'error': f'AI language menu analysis error: {str(e)}'
         }), 500 
