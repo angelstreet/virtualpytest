@@ -367,13 +367,45 @@ export const useNavigationEditor = () => {
               targetHandle: edge.targetHandle
             });
 
+            // Map target handles to their corresponding source handles
+            const getCorrespondingSourceHandle = (targetHandle: string): string => {
+              const handleMap: Record<string, string> = {
+                'top-right-menu-target': 'top-left-menu-source',
+                'bottom-left-menu-target': 'bottom-right-menu-source',
+                'left-target': 'left-source',
+                'right-target': 'right-source',
+              };
+              return handleMap[targetHandle] || targetHandle;
+            };
+
+            // Map source handles to their corresponding target handles  
+            const getCorrespondingTargetHandle = (sourceHandle: string): string => {
+              const handleMap: Record<string, string> = {
+                'top-left-menu-source': 'top-right-menu-target',
+                'bottom-right-menu-source': 'bottom-left-menu-target',
+                'left-source': 'left-target',
+                'right-source': 'right-target',
+              };
+              return handleMap[sourceHandle] || sourceHandle;
+            };
+
+            const reverseSourceHandle = edge.targetHandle ? getCorrespondingSourceHandle(edge.targetHandle) : undefined;
+            const reverseTargetHandle = edge.sourceHandle ? getCorrespondingTargetHandle(edge.sourceHandle) : undefined;
+
+            console.log('[@useNavigationEditor:onEdgeClick] Mapped handles for reverse edge:', {
+              originalTargetHandle: edge.targetHandle,
+              mappedToSourceHandle: reverseSourceHandle,
+              originalSourceHandle: edge.sourceHandle,
+              mappedToTargetHandle: reverseTargetHandle
+            });
+
             const reverseEdge: UINavigationEdge = {
               id: `edge-${edge.target}-${edge.source}-${timestamp}`,
               source: edge.target,
               target: edge.source,
-              // Use the correct handles for the reverse direction
-              sourceHandle: edge.targetHandle || undefined,
-              targetHandle: edge.sourceHandle || undefined,
+              // Use the mapped handles for the reverse direction
+              sourceHandle: reverseSourceHandle,
+              targetHandle: reverseTargetHandle,
               type: 'navigation',
               animated: false,
               style: {
