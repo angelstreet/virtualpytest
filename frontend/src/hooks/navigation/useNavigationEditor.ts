@@ -185,6 +185,7 @@ export const useNavigationEditor = () => {
           id: `edge-${connection.target}-${connection.source}-${timestamp + 1}`,
           source: connection.target,
           target: connection.source,
+          // Use the correct handles for the reverse direction
           sourceHandle: connection.targetHandle || undefined,
           targetHandle: connection.sourceHandle || undefined,
           type: 'navigation',
@@ -357,6 +358,7 @@ export const useNavigationEditor = () => {
               id: `edge-${edge.target}-${edge.source}-${timestamp}`,
               source: edge.target,
               target: edge.source,
+              // Use the correct handles for the reverse direction
               sourceHandle: edge.targetHandle || undefined,
               targetHandle: edge.sourceHandle || undefined,
               type: 'navigation',
