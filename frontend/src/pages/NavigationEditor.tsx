@@ -857,47 +857,70 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = React.memo(
                     </>
                   ) : selectedEdge ? (
                     <>
-                      {/* Edge Selection Panels - handled by useEdge hook */}
-                      {(selectedEdge.data?.action_sets?.length > 0) ? (
-                        selectedEdge.data.action_sets.map((actionSet: any, index: number) => (
-                          <EdgeSelectionPanel
-                            key={`${selectedEdge.id}-${actionSet.id}-${index}`}
-                            selectedEdge={selectedEdge}
-                            actionSet={actionSet}
-                            panelIndex={index}
-                            onClose={closeSelectionPanel}
-                            onEdit={() => {}}
-                            onDelete={deleteSelected}
-                            setEdgeForm={setEdgeForm as React.Dispatch<React.SetStateAction<EdgeForm>>}
-                            setIsEdgeDialogOpen={setIsEdgeDialogOpen}
-                            isControlActive={isControlActive}
-                            selectedHost={selectedHost || undefined}
-                            selectedDeviceId={selectedDeviceId || undefined}
-                            onEditWithLabels={(fromLabel, toLabel) =>
-                              setEdgeLabels({ fromLabel, toLabel })
-                            }
-                            currentEdgeForm={edgeForm}
-                          />
-                        ))
-                      ) : (
-                        // Fallback for edges with empty or missing action_sets
-                        <EdgeSelectionPanel
-                          selectedEdge={selectedEdge}
-                          panelIndex={0}
-                          onClose={closeSelectionPanel}
-                          onEdit={() => {}}
-                          onDelete={deleteSelected}
-                          setEdgeForm={setEdgeForm as React.Dispatch<React.SetStateAction<EdgeForm>>}
-                          setIsEdgeDialogOpen={setIsEdgeDialogOpen}
-                          isControlActive={isControlActive}
-                          selectedHost={selectedHost || undefined}
-                          selectedDeviceId={selectedDeviceId || undefined}
-                          onEditWithLabels={(fromLabel, toLabel) =>
-                            setEdgeLabels({ fromLabel, toLabel })
+                      {/* Edge Selection Panels - show panels for both edges if bidirectional */}
+                      {(() => {
+                        const edgesToShow = [selectedEdge];
+                        if (selectedEdge.bidirectionalEdge) {
+                          edgesToShow.push(selectedEdge.bidirectionalEdge);
+                        }
+
+                        let panelIndexOffset = 0;
+
+                        return edgesToShow.map((edge) => {
+                          const panels = [];
+                          
+                          if (edge.data?.action_sets?.length > 0) {
+                            // Render panels for each action set in this edge
+                            edge.data.action_sets.forEach((actionSet: any, actionSetIndex: number) => {
+                              panels.push(
+                                <EdgeSelectionPanel
+                                  key={`${edge.id}-${actionSet.id}-${actionSetIndex}`}
+                                  selectedEdge={edge}
+                                  actionSet={actionSet}
+                                  panelIndex={panelIndexOffset + actionSetIndex}
+                                  onClose={closeSelectionPanel}
+                                  onEdit={() => {}}
+                                  onDelete={deleteSelected}
+                                  setEdgeForm={setEdgeForm as React.Dispatch<React.SetStateAction<EdgeForm>>}
+                                  setIsEdgeDialogOpen={setIsEdgeDialogOpen}
+                                  isControlActive={isControlActive}
+                                  selectedHost={selectedHost || undefined}
+                                  selectedDeviceId={selectedDeviceId || undefined}
+                                  onEditWithLabels={(fromLabel, toLabel) =>
+                                    setEdgeLabels({ fromLabel, toLabel })
+                                  }
+                                  currentEdgeForm={edgeForm}
+                                />
+                              );
+                            });
+                            panelIndexOffset += edge.data.action_sets.length;
+                          } else {
+                            // Fallback for edges with empty or missing action_sets
+                            panels.push(
+                              <EdgeSelectionPanel
+                                key={`${edge.id}-fallback`}
+                                selectedEdge={edge}
+                                panelIndex={panelIndexOffset}
+                                onClose={closeSelectionPanel}
+                                onEdit={() => {}}
+                                onDelete={deleteSelected}
+                                setEdgeForm={setEdgeForm as React.Dispatch<React.SetStateAction<EdgeForm>>}
+                                setIsEdgeDialogOpen={setIsEdgeDialogOpen}
+                                isControlActive={isControlActive}
+                                selectedHost={selectedHost || undefined}
+                                selectedDeviceId={selectedDeviceId || undefined}
+                                onEditWithLabels={(fromLabel, toLabel) =>
+                                  setEdgeLabels({ fromLabel, toLabel })
+                                }
+                                currentEdgeForm={edgeForm}
+                              />
+                            );
+                            panelIndexOffset += 1;
                           }
-                          currentEdgeForm={edgeForm}
-                        />
-                      )}
+                          
+                          return panels;
+                        }).flat();
+                      })()}
                     </>
                   ) : null}
                 </>
