@@ -560,19 +560,7 @@ def main():
         print(f"⚡ [fullzap] Executing pre-validated action '{args.action}' from live node...")
         zap_success = execute_zap_actions(context, action_edge, args.action, args.max_iteration, motion_detector)
         
-        # Return to home node after zap actions using the simple goto wrapper
-        print("🏠 [fullzap] Returning to home node...")
-        home_result = goto_node(context.host, context.selected_device, "home", context.tree_id, context.team_id, context)
-        
-        if home_result.get('success'):
-            print("🎉 [fullzap] Successfully returned to home!")
-            home_success = True
-        else:
-            print(f"⚠️ [fullzap] Failed to return to home: {home_result.get('error', 'Unknown error')}")
-            print("   Continuing anyway - this won't fail the overall test")
-            home_success = True  # Don't fail the overall test for navigation back
-        
-        context.overall_success = nav_success and zap_success and home_success
+        context.overall_success = nav_success and zap_success
         
         if context.overall_success:
             print(f"✅ [fullzap] All {args.max_iteration} iterations of action '{args.action}' completed successfully and returned to home!")

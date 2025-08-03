@@ -353,8 +353,18 @@ export const MonitoringPlayer: React.FC<MonitoringPlayerProps> = ({
             zIndex: 1000010, // Much higher than AndroidMobileOverlay (1000000)
           }}
         >
-          {/* Play/Pause button */}
-          <Box sx={{ position: 'absolute', bottom: 8, left: 8 }}>
+          {/* Control buttons grid */}
+          <Box 
+            sx={{ 
+              position: 'absolute', 
+              bottom: 8, 
+              left: 8,
+              display: 'flex',
+              gap: 1,
+              alignItems: 'center'
+            }}
+          >
+            {/* Play/Pause button */}
             <IconButton
               size="medium"
               onClick={handlePlayPause}
@@ -368,10 +378,8 @@ export const MonitoringPlayer: React.FC<MonitoringPlayerProps> = ({
             >
               {isPlaying ? <Pause /> : <PlayArrow />}
             </IconButton>
-          </Box>
 
-          {/* Subtitle detection button */}
-          <Box sx={{ position: 'absolute', bottom: 8, left: 16 }}>
+            {/* Subtitle detection button */}
             <IconButton
               size="medium"
               onClick={detectSubtitles}
@@ -399,10 +407,8 @@ export const MonitoringPlayer: React.FC<MonitoringPlayerProps> = ({
                 <Subtitles />
               )}
             </IconButton>
-          </Box>
 
-          {/* AI Subtitle detection button */}
-          <Box sx={{ position: 'absolute', bottom: 8, left: 60 }}>
+            {/* AI Subtitle detection button */}
             <IconButton
               size="medium"
               onClick={detectSubtitlesAI}
@@ -456,10 +462,8 @@ export const MonitoringPlayer: React.FC<MonitoringPlayerProps> = ({
                 </Box>
               )}
             </IconButton>
-          </Box>
 
-          {/* Language Menu detection button */}
-          <Box sx={{ position: 'absolute', bottom: 8, left: 104 }}>
+            {/* Language Menu detection button */}
             <IconButton
               size="medium"
               onClick={analyzeLanguageMenu}
@@ -534,7 +538,7 @@ export const MonitoringPlayer: React.FC<MonitoringPlayerProps> = ({
             sx={{
               position: 'absolute',
               bottom: 12,
-              left: '148px', // Adjusted to account for all three buttons
+              left: '200px', // Space for button grid (4 buttons + gaps)
               right: '80px',
             }}
           >
