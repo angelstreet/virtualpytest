@@ -51,6 +51,10 @@ export interface NavigationContextType {
   switchToTree: (treeId: string) => void;
   cacheAndSwitchToTree: (treeId: string, treeData: { nodes: UINavigationNode[], edges: UINavigationEdge[] }) => void;
   
+  // Root tree tracking for breadcrumb navigation
+  rootTreeId: string | null;
+  setRootTreeId: (treeId: string | null) => void;
+  
   // React Flow state - displays active tree from cache
   nodes: UINavigationNode[];
   setNodes: (nodes: UINavigationNode[]) => void;
@@ -216,6 +220,9 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
 
   // Tree cache - stores multiple trees by treeId
   const [treeCache, setTreeCache] = useState<Map<string, { nodes: UINavigationNode[], edges: UINavigationEdge[] }>>(new Map());
+  
+  // Root tree tracking for breadcrumb navigation
+  const [rootTreeId, setRootTreeId] = useState<string | null>(null);
   
   // React Flow state - displays active tree from cache
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
@@ -726,6 +733,10 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
       getCachedTree,
       switchToTree,
       cacheAndSwitchToTree,
+      
+      // Root tree tracking
+      rootTreeId,
+      setRootTreeId,
       
       // React Flow state - displays active tree from cache
       nodes: stableNodes as UINavigationNode[],

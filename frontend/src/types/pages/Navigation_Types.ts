@@ -215,7 +215,7 @@ export interface NavigationTreeData {
 export interface NodeForm {
   id?: string; // Node identification
   label: string;
-  type: 'screen' | 'dialog' | 'popup' | 'overlay' | 'menu' | 'entry';
+  type: 'screen' | 'menu' | 'entry' | 'action';
   description: string;
   screenshot?: string; // Preserve during editing
 

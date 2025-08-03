@@ -269,7 +269,7 @@ export const NodeEditDialog: React.FC<NodeEditDialogProps> = ({
         )}
       </DialogContent>
 
-      <DialogActions sx={{ pt: 0.5 }}>
+      <DialogActions sx={{ pt: 0.5, display: 'flex', gap: 1 }}>
         {onResetNode && (
           <Button onClick={() => onResetNode()} variant="outlined" color="warning">
             Reset Node

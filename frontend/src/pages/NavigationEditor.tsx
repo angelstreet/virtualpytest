@@ -422,8 +422,9 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = React.memo(
             // Cache tree data and display it
             if (treeId) {
               navigation.cacheAndSwitchToTree(treeId, { nodes: frontendNodes, edges: frontendEdges });
+              navigation.setRootTreeId(treeId); // Store as root tree for breadcrumb navigation
               setActualTreeId(treeId);
-              console.log(`[@NavigationEditor:loadTreeForUserInterface] Cached and switched to tree: ${treeId}`);
+              console.log(`[@NavigationEditor:loadTreeForUserInterface] Cached and switched to tree: ${treeId}, set as root tree`);
             }
             
             // Set initial state for deletion detection
@@ -450,14 +451,14 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = React.memo(
 
     // Handle navigation back to parent tree
     const handleNavigateBack = useCallback(() => {
-      // Get target tree before popping the level
+      // Get target tree from navigation stack or fall back to root
       const newCurrentLevel = stack.length > 1 ? stack[stack.length - 2] : null;
-      const targetTreeId = newCurrentLevel ? newCurrentLevel.treeId : userInterface?.root_tree?.id;
+      const targetTreeId = newCurrentLevel ? newCurrentLevel.treeId : navigation.rootTreeId;
       
-      console.log(`[@NavigationEditor] Navigation back - target tree: ${targetTreeId}, current nested: ${isNested}, userInterface: ${userInterface?.name}`);
+      console.log(`[@NavigationEditor] Navigation back - target tree: ${targetTreeId}, stack length: ${stack.length}, rootTreeId: ${navigation.rootTreeId}`);
       
       if (!targetTreeId) {
-        console.error(`[@NavigationEditor] Cannot navigate back - no target tree ID found. UserInterface:`, userInterface);
+        console.error(`[@NavigationEditor] Cannot navigate back - no target tree ID found. Stack:`, stack, 'RootTreeId:', navigation.rootTreeId);
         return;
       }
       
@@ -479,19 +480,19 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = React.memo(
       } else {
         console.warn(`[@NavigationEditor] Tree ${targetTreeId} not found in cache, cannot navigate back`);
       }
-    }, [popLevel, userInterface, stack, setActualTreeId, navigation, isNested]);
+    }, [popLevel, stack, setActualTreeId, navigation]);
 
     // Handle navigation to specific level in breadcrumb
     const handleNavigateToLevel = useCallback(
       (levelIndex: number) => {
-        // Get target tree before jumping to level
+        // Get target tree from navigation stack or fall back to root
         const targetLevel = stack[levelIndex];
-        const targetTreeId = targetLevel ? targetLevel.treeId : userInterface?.root_tree?.id;
+        const targetTreeId = targetLevel ? targetLevel.treeId : navigation.rootTreeId;
         
-        console.log(`[@NavigationEditor] Navigation to level ${levelIndex} - target tree: ${targetTreeId}`);
+        console.log(`[@NavigationEditor] Navigation to level ${levelIndex} - target tree: ${targetTreeId}, stack length: ${stack.length}`);
         
         if (!targetTreeId) {
-          console.error(`[@NavigationEditor] Cannot navigate to level ${levelIndex} - no target tree ID found`);
+          console.error(`[@NavigationEditor] Cannot navigate to level ${levelIndex} - no target tree ID found. Stack:`, stack, 'RootTreeId:', navigation.rootTreeId);
           return;
         }
         
@@ -514,16 +515,16 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = React.memo(
           console.warn(`[@NavigationEditor] Tree ${targetTreeId} not found in cache, cannot navigate to level ${levelIndex}`);
         }
       },
-      [jumpToLevel, userInterface, stack, setActualTreeId, navigation],
+      [jumpToLevel, stack, setActualTreeId, navigation],
     );
 
     // Handle navigation to root
     const handleNavigateToRoot = useCallback(() => {
-      const rootTreeId = userInterface?.root_tree?.id;
-      console.log(`[@NavigationEditor] Navigation to root - target tree: ${rootTreeId}, userInterface: ${userInterface?.name}`);
+      const rootTreeId = navigation.rootTreeId;
+      console.log(`[@NavigationEditor] Navigation to root - target tree: ${rootTreeId}`);
       
       if (!rootTreeId) {
-        console.error(`[@NavigationEditor] Cannot navigate to root - no root tree ID found. UserInterface:`, userInterface);
+        console.error(`[@NavigationEditor] Cannot navigate to root - no root tree ID found. RootTreeId:`, navigation.rootTreeId);
         return;
       }
       
@@ -545,7 +546,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = React.memo(
       } else {
         console.warn(`[@NavigationEditor] Root tree ${rootTreeId} not found in cache, cannot navigate to root`);
       }
-    }, [jumpToRoot, userInterface, setActualTreeId, navigation]);
+    }, [jumpToRoot, setActualTreeId, navigation]);
 
     // Memoize the selectedHost to prevent unnecessary re-renders
     const stableSelectedHost = useMemo(() => selectedHost, [selectedHost]);
