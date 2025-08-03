@@ -670,27 +670,91 @@ def find_action_edges_from_node(node_id: str, edges: List[Dict]) -> List[Dict]:
     return [edge for edge in edges if edge.get('source_node_id') == node_id]
 
 
+def find_node_by_label(nodes: List[Dict], label: str) -> Dict:
+    """
+    Find node by its label in a generic way.
+    
+    Args:
+        nodes: List of node dictionaries
+        label: Node label to search for
+        
+    Returns:
+        Node dictionary with the matching label, or None if not found
+    """
+    for node in nodes:
+        if node.get('label') == label:
+            return node
+    return None
+
+
+def find_edges_from_node(source_node_id: str, edges: List[Dict]) -> List[Dict]:
+    """
+    Find all edges originating from a specific node (generic version).
+    
+    Args:
+        source_node_id: Source node ID
+        edges: List of edge dictionaries
+        
+    Returns:
+        List of edges originating from the specified node
+    """
+    return [edge for edge in edges if edge.get('source_node_id') == source_node_id]
+
+
+def find_edge_by_target_label(source_node_id: str, edges: List[Dict], nodes: List[Dict], target_label: str) -> Dict:
+    """
+    Find edge from source node to a target node with specific label.
+    This is the proper generic way to find action edges.
+    
+    Args:
+        source_node_id: Source node ID
+        edges: List of edge dictionaries
+        nodes: List of node dictionaries  
+        target_label: Label of target node to find
+        
+    Returns:
+        Edge dictionary going to target node with specified label, or None if not found
+    """
+    # First find the target node by label
+    target_node = find_node_by_label(nodes, target_label)
+    if not target_node:
+        return None
+    
+    target_node_id = target_node.get('node_id')
+    if not target_node_id:
+        return None
+    
+    # Find edge from source to target
+    source_edges = find_edges_from_node(source_node_id, edges)
+    for edge in source_edges:
+        if edge.get('target_node_id') == target_node_id:
+            return edge
+    
+    return None
+
+
 def find_edge_with_action_command(node_id: str, edges: List[Dict], action_command: str) -> Dict:
     """
-    Find edge from node_id that contains the specified action command.
+    Find edge from node_id that contains the specified action command in its action sets.
     
     Args:
         node_id: Source node ID
         edges: List of edge dictionaries 
-        action_command: Action command to search for (e.g., 'zap_chup')
+        action_command: Action command to search for (e.g., 'tap_coordinates', 'press_key')
         
     Returns:
         Edge dictionary containing the action, or None if not found
     """
-    action_edges = find_action_edges_from_node(node_id, edges)
+    source_edges = find_edges_from_node(node_id, edges)
     
-    for edge in action_edges:
+    for edge in source_edges:
         action_sets = edge.get('action_sets', [])
         for action_set in action_sets:
             actions = action_set.get('actions', [])
             for action in actions:
                 if action.get('command') == action_command:
                     return edge
+    
     return None
 
 
