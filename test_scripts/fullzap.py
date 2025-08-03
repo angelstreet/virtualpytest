@@ -173,18 +173,26 @@ def main():
             target_label = target_node.get('label', 'unknown') if target_node else 'unknown'
             print(f"   {i}. Edge '{edge_id}' → Target ID: '{target_id}' | Target Label: '{target_label}'")
         
-        # Validate action edge exists
-        action_edge = find_edge_by_target_label(live_node_id, edges, nodes, action_command)
-        if not action_edge:
-            print(f"🔍 [fullzap] No target node '{action_command}' found, trying action command...")
-            action_edge = find_edge_with_action_command(live_node_id, edges, action_command)
+        # Validate action edge exists (including nested sub-trees)
+        from shared.lib.utils.script_utils import find_action_in_nested_trees
         
-        if not action_edge:
-            error_message = f"Action '{action_command}' not found from live node. Available actions: {[next((n.get('label') for n in nodes if n.get('node_id') == e.get('target_node_id')), 'unknown') for e in live_edges]}"
+        action_result = find_action_in_nested_trees(live_node_id, tree_id, nodes, edges, action_command, team_id)
+        
+        if not action_result.get('success'):
+            available_actions = [next((n.get('label') for n in nodes if n.get('node_id') == e.get('target_node_id')), 'unknown') for e in live_edges]
+            error_message = f"Action '{action_command}' not found from live node (checked main tree + sub-trees). Available actions: {available_actions}"
             print(f"❌ [fullzap] {error_message}")
             sys.exit(1)
         
-        print(f"✅ [fullzap] Action '{action_command}' validated - edge found: {action_edge.get('edge_id')}")
+        action_edge = action_result.get('edge')
+        tree_type = action_result.get('tree_type')
+        action_tree_id = action_result.get('tree_id')
+        
+        if tree_type == 'main':
+            print(f"✅ [fullzap] Action '{action_command}' found in main tree - edge: {action_edge.get('edge_id')}")
+        else:
+            source_node_id = action_result.get('source_node_id')
+            print(f"✅ [fullzap] Action '{action_command}' found in sub-tree {action_tree_id} - edge: {action_edge.get('edge_id')} (from node: {source_node_id})")
 
         # 4.6 Populate navigation cache with the loaded tree data
         from shared.lib.utils.navigation_cache import populate_cache
@@ -262,12 +270,8 @@ def main():
             live_node = find_node_by_label(nodes, "live")
             live_node_id = live_node.get('node_id')
             
-            # Get the pre-validated action edge
-            validated_action_edge = find_edge_by_target_label(live_node_id, edges, nodes, action_command)
-            if not validated_action_edge:
-                validated_action_edge = find_edge_with_action_command(live_node_id, edges, action_command)
-            
-            print(f"✅ [fullzap] Using validated edge: {validated_action_edge.get('edge_id')}")
+            # Use the pre-validated action edge from earlier validation
+            print(f"✅ [fullzap] Using validated edge: {action_edge.get('edge_id')} (from {tree_type} tree)")
             print(f"🔄 [fullzap] Starting {max_iteration} iterations of action '{action_command}'...")
             
             # Capture pre-action screenshot
@@ -283,7 +287,7 @@ def main():
                 print(f"🎬 [fullzap] Executing iteration {iteration}/{max_iteration} of action '{action_command}'...")
                 iteration_start_time = time.time()
                 
-                action_result = execute_edge_actions(host, selected_device, validated_action_edge, team_id=team_id)
+                action_result = execute_edge_actions(host, selected_device, action_edge, team_id=team_id)
                 iteration_execution_time = int((time.time() - iteration_start_time) * 1000)
                 total_action_time += iteration_execution_time
                 

@@ -758,6 +758,77 @@ def find_edge_with_action_command(node_id: str, edges: List[Dict], action_comman
     return None
 
 
+def get_node_sub_trees_with_actions(node_id: str, tree_id: str, team_id: str) -> Dict:
+    """Get all sub-trees for a node and return their nodes and edges for action checking."""
+    from shared.lib.supabase.navigation_trees_db import get_node_sub_trees, get_full_tree
+    
+    # Get sub-trees for this node
+    sub_trees_result = get_node_sub_trees(tree_id, node_id, team_id)
+    if not sub_trees_result.get('success'):
+        return {'success': False, 'error': sub_trees_result.get('error'), 'sub_trees': [], 'all_nodes': [], 'all_edges': []}
+    
+    sub_trees = sub_trees_result.get('sub_trees', [])
+    all_nodes = []
+    all_edges = []
+    
+    # Load nodes and edges from all sub-trees
+    for sub_tree in sub_trees:
+        sub_tree_id = sub_tree.get('id')
+        if sub_tree_id:
+            tree_data = get_full_tree(sub_tree_id, team_id)
+            if tree_data.get('success'):
+                all_nodes.extend(tree_data.get('nodes', []))
+                all_edges.extend(tree_data.get('edges', []))
+    
+    return {
+        'success': True,
+        'sub_trees': sub_trees,
+        'all_nodes': all_nodes,
+        'all_edges': all_edges
+    }
+
+def find_action_in_nested_trees(source_node_id: str, tree_id: str, nodes: List[Dict], edges: List[Dict], action_command: str, team_id: str) -> Dict:
+    """Find action in main tree and sub-trees of the specific source node only."""
+    
+    # First check in the main tree
+    action_edge = find_edge_by_target_label(source_node_id, edges, nodes, action_command)
+    if action_edge:
+        return {'success': True, 'edge': action_edge, 'tree_type': 'main', 'tree_id': tree_id}
+    
+    action_edge = find_edge_with_action_command(source_node_id, edges, action_command)
+    if action_edge:
+        return {'success': True, 'edge': action_edge, 'tree_type': 'main', 'tree_id': tree_id}
+    
+    # Check sub-trees for this specific node only
+    print(f"🔍 [script_utils] Checking sub-trees for node: {source_node_id}")
+    sub_trees_data = get_node_sub_trees_with_actions(source_node_id, tree_id, team_id)
+    
+    if not sub_trees_data.get('success') or not sub_trees_data.get('sub_trees'):
+        print(f"🔍 [script_utils] Node {source_node_id} has no sub-trees")
+        return {'success': False, 'error': f"Action '{action_command}' not found in main tree and node has no sub-trees"}
+    
+    sub_nodes = sub_trees_data.get('all_nodes', [])
+    sub_edges = sub_trees_data.get('all_edges', [])
+    sub_trees = sub_trees_data.get('sub_trees', [])
+    
+    print(f"🔍 [script_utils] Found {len(sub_trees)} sub-trees with {len(sub_nodes)} nodes and {len(sub_edges)} edges")
+    
+    # Simple search: try to find action in any sub-tree node
+    for node in sub_nodes:
+        node_id = node.get('node_id')
+        if node_id:
+            # Check by target label
+            sub_action_edge = find_edge_by_target_label(node_id, sub_edges, sub_nodes, action_command)
+            if sub_action_edge:
+                return {'success': True, 'edge': sub_action_edge, 'tree_type': 'sub', 'tree_id': sub_trees[0].get('id'), 'source_node_id': node_id}
+            
+            # Check by action command
+            sub_action_edge = find_edge_with_action_command(node_id, sub_edges, action_command)
+            if sub_action_edge:
+                return {'success': True, 'edge': sub_action_edge, 'tree_type': 'sub', 'tree_id': sub_trees[0].get('id'), 'source_node_id': node_id}
+    
+    return {'success': False, 'error': f"Action '{action_command}' not found in main tree or sub-trees"}
+
 def execute_edge_actions(host, device, edge: Dict, action_set_id: str = None, team_id: str = 'default') -> Dict:
     """
     Execute edge actions using ActionExecutor - same as frontend useAction hook.
