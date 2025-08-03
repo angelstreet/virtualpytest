@@ -1,4 +1,4 @@
-import { PlayArrow, Pause, Subtitles, SmartToy, Send } from '@mui/icons-material';
+import { PlayArrow, Pause, Subtitles, SmartToy, Send, Language } from '@mui/icons-material';
 import {
   Box,
   Slider,
@@ -64,6 +64,11 @@ export const MonitoringPlayer: React.FC<MonitoringPlayerProps> = ({
     isDetectingSubtitlesAI,
     hasSubtitleDetectionResults,
     currentSubtitleAnalysis,
+    // Language menu detection
+    analyzeLanguageMenu,
+    isAnalyzingLanguageMenu,
+    hasLanguageMenuResults,
+    currentLanguageMenuAnalysis,
     // AI Query functionality
     isAIQueryVisible,
     aiQuery,
@@ -324,9 +329,13 @@ export const MonitoringPlayer: React.FC<MonitoringPlayerProps> = ({
         <MonitoringOverlay
           monitoringAnalysis={frames.length > 0 ? selectedFrameAnalysis || undefined : undefined}
           subtitleAnalysis={currentSubtitleAnalysis}
+          languageMenuAnalysis={currentLanguageMenuAnalysis}
           consecutiveErrorCounts={errorTrendData}
           showSubtitles={
             isDetectingSubtitles || isDetectingSubtitlesAI || hasSubtitleDetectionResults
+          }
+          showLanguageMenu={
+            isAnalyzingLanguageMenu || hasLanguageMenuResults
           }
         />
       </Box>
@@ -439,6 +448,63 @@ export const MonitoringPlayer: React.FC<MonitoringPlayerProps> = ({
                       fontSize: '0.6rem',
                       fontWeight: 'bold',
                       color: '#ff9800',
+                      textShadow: '1px 1px 2px rgba(0,0,0,0.8)',
+                    }}
+                  >
+                    AI
+                  </Typography>
+                </Box>
+              )}
+            </IconButton>
+          </Box>
+
+          {/* Language Menu detection button */}
+          <Box sx={{ position: 'absolute', bottom: 8, left: 164 }}>
+            <IconButton
+              size="medium"
+              onClick={analyzeLanguageMenu}
+              disabled={isAnalyzingLanguageMenu || isDetectingSubtitles || isDetectingSubtitlesAI}
+              sx={{
+                color: currentLanguageMenuAnalysis?.menu_detected ? '#9c27b0' : '#ffffff',
+                backgroundColor: 'rgba(255,255,255,0.1)',
+                border: '1px solid rgba(156,39,176,0.3)',
+                '&:hover': {
+                  backgroundColor: 'rgba(156,39,176,0.1)',
+                  borderColor: 'rgba(156,39,176,0.5)',
+                },
+                '&:disabled': {
+                  color: 'rgba(255,255,255,0.5)',
+                  backgroundColor: 'rgba(255,255,255,0.05)',
+                  borderColor: 'rgba(255,255,255,0.1)',
+                },
+              }}
+              title={
+                isAnalyzingLanguageMenu
+                  ? 'Analyzing language menu...'
+                  : 'Analyze language/subtitle menu options'
+              }
+            >
+              {isAnalyzingLanguageMenu ? (
+                <CircularProgress size={20} sx={{ color: '#ffffff' }} />
+              ) : (
+                <Box
+                  sx={{
+                    position: 'relative',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Language />
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      position: 'absolute',
+                      bottom: -2,
+                      right: -1,
+                      fontSize: '0.6rem',
+                      fontWeight: 'bold',
+                      color: '#9c27b0',
                       textShadow: '1px 1px 2px rgba(0,0,0,0.8)',
                     }}
                   >

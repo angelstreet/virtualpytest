@@ -4,10 +4,12 @@ import {
   MonitoringAnalysis,
   SubtitleAnalysis,
   SubtitleTrendAnalysis,
+  LanguageMenuAnalysis,
 } from '../../types/pages/Monitoring_Types';
 
 import { useMonitoringAI } from './useMonitoringAI';
 import { useMonitoringSubtitles } from './useMonitoringSubtitles';
+import { useMonitoringLanguageMenu } from './useMonitoringLanguageMenu';
 
 interface FrameRef {
   timestamp: string;
@@ -68,6 +70,12 @@ interface UseMonitoringReturn {
 
   // Current subtitle analysis for components that need subtitle data
   currentSubtitleAnalysis: SubtitleAnalysis | null;
+
+  // Language menu detection
+  analyzeLanguageMenu: () => Promise<void>;
+  isAnalyzingLanguageMenu: boolean;
+  hasLanguageMenuResults: boolean;
+  currentLanguageMenuAnalysis: LanguageMenuAnalysis | null;
 }
 
 interface UseMonitoringProps {
@@ -115,6 +123,17 @@ export const useMonitoring = ({
   const aiHook = useMonitoringAI({
     frames,
     currentIndex,
+    setIsPlaying,
+    setUserSelectedFrame,
+    host,
+    device,
+  });
+
+  // Use dedicated hook for language menu analysis
+  const languageMenuHook = useMonitoringLanguageMenu({
+    frames,
+    currentIndex,
+    setFrames,
     setIsPlaying,
     setUserSelectedFrame,
     host,
@@ -468,5 +487,11 @@ export const useMonitoring = ({
 
     // Current subtitle analysis for components that need subtitle data
     currentSubtitleAnalysis,
+
+    // Language menu detection (from dedicated hook)
+    analyzeLanguageMenu: languageMenuHook.analyzeLanguageMenu,
+    isAnalyzingLanguageMenu: languageMenuHook.isAnalyzingLanguageMenu,
+    hasLanguageMenuResults: languageMenuHook.hasLanguageMenuResults,
+    currentLanguageMenuAnalysis: languageMenuHook.currentLanguageMenuAnalysis,
   };
 };

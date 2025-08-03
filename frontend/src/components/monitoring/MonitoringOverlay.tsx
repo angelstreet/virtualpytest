@@ -1,7 +1,7 @@
 import { Box, Typography } from '@mui/material';
 import React from 'react';
 
-import { MonitoringAnalysis, SubtitleAnalysis } from '../../types/pages/Monitoring_Types';
+import { MonitoringAnalysis, SubtitleAnalysis, LanguageMenuAnalysis } from '../../types/pages/Monitoring_Types';
 
 interface ConsecutiveErrorCounts {
   blackscreenConsecutive: number;
@@ -15,20 +15,25 @@ interface MonitoringOverlayProps {
   sx?: any;
   monitoringAnalysis?: MonitoringAnalysis; // Core audio/video monitoring data from backend
   subtitleAnalysis?: SubtitleAnalysis | null; // Subtitle analysis from frontend detection
+  languageMenuAnalysis?: LanguageMenuAnalysis | null; // Language menu analysis from AI detection
   consecutiveErrorCounts?: ConsecutiveErrorCounts | null; // Consecutive error counts for trend indicators
   showSubtitles?: boolean; // Whether to show subtitle information in overlay
+  showLanguageMenu?: boolean; // Whether to show language menu information in overlay
 }
 
 export const MonitoringOverlay: React.FC<MonitoringOverlayProps> = ({
   sx,
   monitoringAnalysis,
   subtitleAnalysis,
+  languageMenuAnalysis,
   consecutiveErrorCounts,
   showSubtitles = false,
+  showLanguageMenu = false,
 }) => {
   // Use separate data sources
   const analysis = monitoringAnalysis;
   const subtitles = subtitleAnalysis;
+  const languageMenu = languageMenuAnalysis;
 
   // Always render overlay with empty state when no analysis
 
@@ -141,6 +146,59 @@ export const MonitoringOverlay: React.FC<MonitoringOverlayProps> = ({
                   {subtitles.combined_extracted_text}
                 </Typography>
               </Typography>
+            )}
+          </Box>
+        )}
+
+        {/* Language Menu - only shown when explicitly requested */}
+        {showLanguageMenu && languageMenu?.menu_detected && (
+          <Box sx={{ mb: 0.5 }}>
+            {/* Audio Languages */}
+            {languageMenu.audio_languages.length > 0 && (
+              <Box sx={{ mb: 0.5 }}>
+                <Typography variant="body2" sx={{ color: '#ffffff', mb: 0.3 }}>
+                  Audio:
+                </Typography>
+                {languageMenu.audio_languages.map((lang, index) => (
+                  <Typography
+                    key={index}
+                    variant="body2"
+                    sx={{
+                      color: index === languageMenu.selected_audio ? '#00ff00' : '#cccccc',
+                      fontWeight: index === languageMenu.selected_audio ? 'bold' : 'normal',
+                      ml: 1,
+                      fontSize: '0.75rem',
+                    }}
+                  >
+                    {index}: {lang}
+                    {index === languageMenu.selected_audio && ' ✓'}
+                  </Typography>
+                ))}
+              </Box>
+            )}
+
+            {/* Subtitle Languages */}
+            {languageMenu.subtitle_languages.length > 0 && (
+              <Box>
+                <Typography variant="body2" sx={{ color: '#ffffff', mb: 0.3 }}>
+                  Subtitles:
+                </Typography>
+                {languageMenu.subtitle_languages.map((lang, index) => (
+                  <Typography
+                    key={index}
+                    variant="body2"
+                    sx={{
+                      color: index === languageMenu.selected_subtitle ? '#00ff00' : '#cccccc',
+                      fontWeight: index === languageMenu.selected_subtitle ? 'bold' : 'normal',
+                      ml: 1,
+                      fontSize: '0.75rem',
+                    }}
+                  >
+                    {index}: {lang}
+                    {index === languageMenu.selected_subtitle && ' ✓'}
+                  </Typography>
+                ))}
+              </Box>
             )}
           </Box>
         )}
