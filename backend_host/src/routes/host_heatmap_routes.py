@@ -9,6 +9,7 @@ import os
 import time
 import json
 from utils.host_utils import get_controller
+from utils.analysis_utils import load_recent_analysis_data
 
 # Create blueprint
 host_heatmap_bp = Blueprint('host_heatmap', __name__, url_prefix='/host/heatmap')
@@ -21,76 +22,13 @@ def list_recent_analysis():
         device_id = data.get('device_id', 'device1')
         timeframe_minutes = data.get('timeframe_minutes', 1)
         
-        # Get capture path from AV controller instead of hardcoding device_id[-1]
-        av_controller = get_controller(device_id, 'av')
-        if not av_controller:
-            return jsonify({
-                'success': False,
-                'error': f'No AV controller found for device {device_id}'
-            }), 404
+        # Use shared utility function
+        result = load_recent_analysis_data(device_id, timeframe_minutes)
         
-        capture_folder = os.path.join(av_controller.video_capture_path, 'captures')
-        
-        if not os.path.exists(capture_folder):
-            return jsonify({
-                'success': False, 
-                'error': f'Capture folder not found: {capture_folder}'
-            }), 404
-        
-        # Simple file scan
-        cutoff_time = time.time() - (timeframe_minutes * 60)
-        files = []
-        
-        for filename in os.listdir(capture_folder):
-            if (filename.startswith('capture_') and filename.endswith('.jpg') and 
-                not filename.endswith('_thumbnail.jpg')):
-                filepath = os.path.join(capture_folder, filename)
-                if os.path.getmtime(filepath) >= cutoff_time:
-                    # Extract timestamp from filename
-                    timestamp = filename.replace('capture_', '').replace('.jpg', '')
-                    
-                    # Check for analysis files
-                    base_name = filename.replace('.jpg', '')
-                    frame_json_path = os.path.join(capture_folder, f"{base_name}.json")
-                    
-                    # Only add files that have analysis JSON - never return images without analysis
-                    if os.path.exists(frame_json_path):
-                        try:
-                            with open(frame_json_path, 'r') as f:
-                                analysis_data = json.load(f)
-                                
-                            # Calculate has_incidents based on the analysis data
-                            has_incidents = (
-                                analysis_data.get('freeze', False) or
-                                analysis_data.get('blackscreen', False) or
-                                not analysis_data.get('audio', True)
-                            )
-                            analysis_data['has_incidents'] = has_incidents
-                            
-                            file_item = {
-                                'filename': filename,
-                                'timestamp': timestamp,
-                                'file_mtime': int(os.path.getmtime(filepath) * 1000),
-                                'analysis_json': analysis_data
-                            }
-                            
-                            files.append(file_item)
-                            
-                        except (json.JSONDecodeError, IOError) as e:
-                            # Skip files with corrupted or unreadable JSON
-                            print(f"[@host_heatmap] Skipping {filename}: JSON error {e}")
-                            continue
-                    # Skip files without JSON analysis - don't add them to the response
-        
-        # Sort by timestamp (newest first)
-        files.sort(key=lambda x: x['timestamp'], reverse=True)
-        
-        return jsonify({
-            'success': True,
-            'analysis_data': files,
-            'total': len(files),
-            'device_id': device_id
-        })
+        if result['success']:
+            return jsonify(result)
+        else:
+            return jsonify(result), 404
         
     except Exception as e:
         return jsonify({

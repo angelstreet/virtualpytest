@@ -662,6 +662,14 @@ class VideoVerificationController(VerificationControllerInterface):
                     'extract_text': True        # Default to extract text
                 },
                 'verification_type': 'video'
+            },
+            {
+                'command': 'DetectMotionFromJson',
+                'params': {
+                    'json_count': 5,            # Number of JSON files to analyze
+                    'strict_mode': True         # Strict mode (all files must be clean)
+                },
+                'verification_type': 'video'
             }
         ]
 
@@ -826,6 +834,15 @@ class VideoVerificationController(VerificationControllerInterface):
                 result = self.detect_subtitles_ai(image_paths, extract_text)
                 success = result.get('success', False) and result.get('subtitles_detected', False)
                 message = f"AI Subtitles {'detected' if success else 'not detected'}"
+                details = result
+                
+            elif command == 'DetectMotionFromJson':
+                json_count = int(params.get('json_count', 5))
+                strict_mode = params.get('strict_mode', True)
+                
+                result = self.detect_motion_from_json(json_count, strict_mode)
+                success = result.get('success', False)
+                message = result.get('message', f"Motion {'detected' if success else 'not detected'} from JSON analysis")
                 details = result
                 
             else:
@@ -1836,25 +1853,14 @@ JSON ONLY - NO OTHER TEXT"""
     def detect_motion_from_json(self, json_count: int = 5, strict_mode: bool = True) -> Dict[str, Any]:
         """
         Detect motion/activity by analyzing the last N JSON analysis files.
+        Uses shared analysis utility to avoid code duplication with heatmap.
         
         Args:
             json_count: Number of recent JSON files to analyze (default: 5)
             strict_mode: If True, ALL files must show no errors. If False, majority must show no errors (default: True)
             
         Returns:
-            Dict with detailed analysis:
-            {
-                'success': bool,           # Overall motion/activity detected
-                'video_ok': bool,          # Video status (no blackscreen/freeze)
-                'audio_ok': bool,          # Audio status 
-                'blackscreen_count': int,  # Number of blackscreen detections
-                'freeze_count': int,       # Number of freeze detections
-                'audio_loss_count': int,   # Number of audio loss detections
-                'total_analyzed': int,     # Total JSON files analyzed
-                'details': List[Dict],     # Per-file analysis details
-                'strict_mode': bool,       # Mode used for analysis
-                'message': str             # Human-readable result
-            }
+            Dict with detailed analysis results
         """
         if not self.is_connected:
             print(f"VideoVerify[{self.device_name}]: ERROR - Not connected")
@@ -1874,28 +1880,19 @@ JSON ONLY - NO OTHER TEXT"""
         try:
             print(f"VideoVerify[{self.device_name}]: Analyzing last {json_count} JSON files (strict_mode: {strict_mode})")
             
-            # Get capture directory from AV controller
-            if not hasattr(self.av_controller, 'video_capture_path'):
-                return {
-                    'success': False,
-                    'video_ok': False,
-                    'audio_ok': False,
-                    'blackscreen_count': 0,
-                    'freeze_count': 0,
-                    'audio_loss_count': 0,
-                    'total_analyzed': 0,
-                    'details': [],
-                    'strict_mode': strict_mode,
-                    'message': 'AV controller has no video_capture_path'
-                }
+            # Extract device_id from AV controller device_name
+            device_id = getattr(self.av_controller, 'device_name', 'device1')
             
+            # Import shared analysis utility
+            import sys
             import os
-            import json
-            import time
-            from pathlib import Path
+            sys.path.append(os.path.join(os.path.dirname(__file__), '../../../backend_host/src'))
+            from utils.analysis_utils import load_recent_analysis_data, analyze_motion_from_loaded_data
             
-            capture_folder = Path(self.av_controller.video_capture_path) / 'captures'
-            if not capture_folder.exists():
+            # Load recent analysis data using shared utility (5 minutes timeframe)
+            data_result = load_recent_analysis_data(device_id, timeframe_minutes=5, max_count=json_count)
+            
+            if not data_result['success']:
                 return {
                     'success': False,
                     'video_ok': False,
@@ -1906,147 +1903,22 @@ JSON ONLY - NO OTHER TEXT"""
                     'total_analyzed': 0,
                     'details': [],
                     'strict_mode': strict_mode,
-                    'message': f'Capture folder not found: {capture_folder}'
+                    'message': data_result.get('error', 'Failed to load analysis data')
                 }
             
-            # Find recent JSON analysis files (following heatmap pattern)
-            json_files = []
-            cutoff_time = time.time() - (5 * 60)  # Last 5 minutes
+            # Analyze motion from loaded data using shared utility
+            result = analyze_motion_from_loaded_data(data_result['analysis_data'], json_count, strict_mode)
             
-            for filename in os.listdir(capture_folder):
-                if filename.startswith('capture_') and filename.endswith('.json'):
-                    filepath = capture_folder / filename
-                    if filepath.stat().st_mtime >= cutoff_time:
-                        json_files.append({
-                            'filename': filename,
-                            'filepath': filepath,
-                            'mtime': filepath.stat().st_mtime
-                        })
+            print(f"VideoVerify[{self.device_name}]: Motion detection result: {result.get('message', 'Unknown')}")
             
-            # Sort by modification time (newest first) and take last N
-            json_files.sort(key=lambda x: x['mtime'], reverse=True)
-            json_files = json_files[:json_count]
-            
-            # Analyze each JSON file
-            details = []
-            blackscreen_count = 0
-            freeze_count = 0
-            audio_loss_count = 0
-            
-            for file_info in json_files:
-                try:
-                    with open(file_info['filepath'], 'r') as f:
-                        analysis_data = json.load(f)
-                    
-                    # Extract analysis results (following heatmap pattern)
-                    blackscreen = analysis_data.get('blackscreen', False)
-                    freeze = analysis_data.get('freeze', False)
-                    audio = analysis_data.get('audio', True)
-                    
-                    # Count issues
-                    if blackscreen:
-                        blackscreen_count += 1
-                    if freeze:
-                        freeze_count += 1
-                    if not audio:
-                        audio_loss_count += 1
-                    
-                    # Determine if this file shows motion/activity (no issues)
-                    video_ok = not blackscreen and not freeze
-                    audio_ok = audio
-                    file_ok = video_ok and audio_ok
-                    
-                    file_detail = {
-                        'filename': file_info['filename'],
-                        'timestamp': analysis_data.get('timestamp', ''),
-                        'blackscreen': blackscreen,
-                        'blackscreen_percentage': analysis_data.get('blackscreen_percentage', 0),
-                        'freeze': freeze,
-                        'freeze_diffs': analysis_data.get('freeze_diffs', []),
-                        'audio': audio,
-                        'volume_percentage': analysis_data.get('volume_percentage', 0),
-                        'mean_volume_db': analysis_data.get('mean_volume_db', -100),
-                        'video_ok': video_ok,
-                        'audio_ok': audio_ok,
-                        'file_ok': file_ok,
-                        'has_incidents': blackscreen or freeze or not audio
-                    }
-                    
-                    details.append(file_detail)
-                    
-                except (json.JSONDecodeError, IOError) as e:
-                    print(f"VideoVerify[{self.device_name}]: Skipping corrupted JSON {file_info['filename']}: {e}")
-                    continue
-                except Exception as e:
-                    print(f"VideoVerify[{self.device_name}]: Error processing {file_info['filename']}: {e}")
-                    continue
-            
-            total_analyzed = len(details)
-            
-            if total_analyzed == 0:
-                return {
-                    'success': False,
-                    'video_ok': False,
-                    'audio_ok': False,
-                    'blackscreen_count': 0,
-                    'freeze_count': 0,
-                    'audio_loss_count': 0,
-                    'total_analyzed': 0,
-                    'details': [],
-                    'strict_mode': strict_mode,
-                    'message': f'No valid JSON files found in last 5 minutes'
-                }
-            
-            # Determine overall status based on strict_mode
-            if strict_mode:
-                # ALL files must show no errors
-                video_ok = blackscreen_count == 0 and freeze_count == 0
-                audio_ok = audio_loss_count == 0
-                success = video_ok and audio_ok
-                mode_text = "strict mode (all files must be clean)"
-            else:
-                # MAJORITY must show no errors
-                video_issues = blackscreen_count + freeze_count
-                video_ok = video_issues <= (total_analyzed // 2)
-                audio_ok = audio_loss_count <= (total_analyzed // 2)
-                success = video_ok and audio_ok
-                mode_text = "lenient mode (majority must be clean)"
-            
-            # Generate human-readable message
-            if success:
-                message = f"Motion/activity detected - {total_analyzed} files analyzed in {mode_text}, no significant issues found"
-            else:
-                issues = []
-                if blackscreen_count > 0:
-                    issues.append(f"{blackscreen_count} blackscreen")
-                if freeze_count > 0:
-                    issues.append(f"{freeze_count} freeze")
-                if audio_loss_count > 0:
-                    issues.append(f"{audio_loss_count} audio loss")
-                message = f"No motion/activity - {total_analyzed} files analyzed in {mode_text}, found: {', '.join(issues)}"
-            
-            result = {
-                'success': success,
-                'video_ok': video_ok,
-                'audio_ok': audio_ok,
-                'blackscreen_count': blackscreen_count,
-                'freeze_count': freeze_count,
-                'audio_loss_count': audio_loss_count,
-                'total_analyzed': total_analyzed,
-                'details': details,
-                'strict_mode': strict_mode,
-                'message': message
-            }
-            
-            print(f"VideoVerify[{self.device_name}]: Motion detection result: {message}")
-            
-            self._log_verification("motion_from_json", f"count_{json_count}_strict_{strict_mode}", success, {
+            # Log verification for tracking
+            self._log_verification("motion_from_json", f"count_{json_count}_strict_{strict_mode}", result['success'], {
                 "json_count": json_count,
                 "strict_mode": strict_mode,
-                "total_analyzed": total_analyzed,
-                "blackscreen_count": blackscreen_count,
-                "freeze_count": freeze_count,
-                "audio_loss_count": audio_loss_count
+                "total_analyzed": result['total_analyzed'],
+                "blackscreen_count": result['blackscreen_count'],
+                "freeze_count": result['freeze_count'],
+                "audio_loss_count": result['audio_loss_count']
             })
             
             return result

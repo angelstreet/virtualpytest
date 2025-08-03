@@ -504,28 +504,28 @@ class AudioVerificationController(VerificationControllerInterface):
                     'duration': 2.0         # Default duration
                 },
                 'verification_type': 'audio'
+            },
+            {
+                'command': 'DetectAudioFromJson',
+                'params': {
+                    'json_count': 5,        # Number of JSON files to analyze
+                    'strict_mode': True     # Strict mode (all files must be clean)
+                },
+                'verification_type': 'audio'
             }
         ]
 
     def detect_motion_from_json(self, json_count: int = 5, strict_mode: bool = True) -> Dict[str, Any]:
         """
         Detect audio activity by analyzing the last N JSON analysis files.
+        Uses shared analysis utility to avoid code duplication with heatmap.
         
         Args:
             json_count: Number of recent JSON files to analyze (default: 5)
             strict_mode: If True, ALL files must show no errors. If False, majority must show no errors (default: True)
             
         Returns:
-            Dict with detailed analysis:
-            {
-                'success': bool,           # Overall audio activity detected
-                'audio_ok': bool,          # Audio status 
-                'audio_loss_count': int,   # Number of audio loss detections
-                'total_analyzed': int,     # Total JSON files analyzed
-                'details': List[Dict],     # Per-file analysis details
-                'strict_mode': bool,       # Mode used for analysis
-                'message': str             # Human-readable result
-            }
+            Dict with audio-focused analysis results
         """
         if not self.is_connected:
             print(f"AudioVerify[{self.device_name}]: ERROR - Not connected")
@@ -542,25 +542,19 @@ class AudioVerificationController(VerificationControllerInterface):
         try:
             print(f"AudioVerify[{self.device_name}]: Analyzing last {json_count} JSON files (strict_mode: {strict_mode})")
             
-            # Get capture directory from AV controller
-            if not hasattr(self.av_controller, 'video_capture_path'):
-                return {
-                    'success': False,
-                    'audio_ok': False,
-                    'audio_loss_count': 0,
-                    'total_analyzed': 0,
-                    'details': [],
-                    'strict_mode': strict_mode,
-                    'message': 'AV controller has no video_capture_path'
-                }
+            # Extract device_id from AV controller device_name
+            device_id = getattr(self.av_controller, 'device_name', 'device1')
             
+            # Import shared analysis utility
+            import sys
             import os
-            import json
-            import time
-            from pathlib import Path
+            sys.path.append(os.path.join(os.path.dirname(__file__), '../../../backend_host/src'))
+            from utils.analysis_utils import load_recent_analysis_data, analyze_motion_from_loaded_data
             
-            capture_folder = Path(self.av_controller.video_capture_path) / 'captures'
-            if not capture_folder.exists():
+            # Load recent analysis data using shared utility (5 minutes timeframe)
+            data_result = load_recent_analysis_data(device_id, timeframe_minutes=5, max_count=json_count)
+            
+            if not data_result['success']:
                 return {
                     'success': False,
                     'audio_ok': False,
@@ -568,116 +562,45 @@ class AudioVerificationController(VerificationControllerInterface):
                     'total_analyzed': 0,
                     'details': [],
                     'strict_mode': strict_mode,
-                    'message': f'Capture folder not found: {capture_folder}'
+                    'message': data_result.get('error', 'Failed to load analysis data')
                 }
             
-            # Find recent JSON analysis files (following heatmap pattern)
-            json_files = []
-            cutoff_time = time.time() - (5 * 60)  # Last 5 minutes
+            # Analyze motion from loaded data using shared utility
+            result = analyze_motion_from_loaded_data(data_result['analysis_data'], json_count, strict_mode)
             
-            for filename in os.listdir(capture_folder):
-                if filename.startswith('capture_') and filename.endswith('.json'):
-                    filepath = capture_folder / filename
-                    if filepath.stat().st_mtime >= cutoff_time:
-                        json_files.append({
-                            'filename': filename,
-                            'filepath': filepath,
-                            'mtime': filepath.stat().st_mtime
-                        })
-            
-            # Sort by modification time (newest first) and take last N
-            json_files.sort(key=lambda x: x['mtime'], reverse=True)
-            json_files = json_files[:json_count]
-            
-            # Analyze each JSON file
-            details = []
-            audio_loss_count = 0
-            
-            for file_info in json_files:
-                try:
-                    with open(file_info['filepath'], 'r') as f:
-                        analysis_data = json.load(f)
-                    
-                    # Extract audio analysis results (following heatmap pattern)
-                    audio = analysis_data.get('audio', True)
-                    
-                    # Count audio issues
-                    if not audio:
-                        audio_loss_count += 1
-                    
-                    # Determine if this file shows audio activity (no issues)
-                    audio_ok = audio
-                    
-                    file_detail = {
-                        'filename': file_info['filename'],
-                        'timestamp': analysis_data.get('timestamp', ''),
-                        'audio': audio,
-                        'volume_percentage': analysis_data.get('volume_percentage', 0),
-                        'mean_volume_db': analysis_data.get('mean_volume_db', -100),
-                        'audio_ok': audio_ok,
-                        'has_audio_incident': not audio
+            # Extract audio-specific results for audio controller
+            audio_result = {
+                'success': result['audio_ok'],  # For audio controller, success = audio_ok
+                'audio_ok': result['audio_ok'],
+                'audio_loss_count': result['audio_loss_count'],
+                'total_analyzed': result['total_analyzed'],
+                'details': [
+                    {
+                        'filename': detail['filename'],
+                        'timestamp': detail['timestamp'],
+                        'audio': detail['audio'],
+                        'volume_percentage': detail['volume_percentage'],
+                        'mean_volume_db': detail['mean_volume_db'],
+                        'audio_ok': detail['audio_ok'],
+                        'has_audio_incident': not detail['audio']
                     }
-                    
-                    details.append(file_detail)
-                    
-                except (json.JSONDecodeError, IOError) as e:
-                    print(f"AudioVerify[{self.device_name}]: Skipping corrupted JSON {file_info['filename']}: {e}")
-                    continue
-                except Exception as e:
-                    print(f"AudioVerify[{self.device_name}]: Error processing {file_info['filename']}: {e}")
-                    continue
-            
-            total_analyzed = len(details)
-            
-            if total_analyzed == 0:
-                return {
-                    'success': False,
-                    'audio_ok': False,
-                    'audio_loss_count': 0,
-                    'total_analyzed': 0,
-                    'details': [],
-                    'strict_mode': strict_mode,
-                    'message': f'No valid JSON files found in last 5 minutes'
-                }
-            
-            # Determine overall status based on strict_mode
-            if strict_mode:
-                # ALL files must show no errors
-                audio_ok = audio_loss_count == 0
-                success = audio_ok
-                mode_text = "strict mode (all files must be clean)"
-            else:
-                # MAJORITY must show no errors
-                audio_ok = audio_loss_count <= (total_analyzed // 2)
-                success = audio_ok
-                mode_text = "lenient mode (majority must be clean)"
-            
-            # Generate human-readable message
-            if success:
-                message = f"Audio activity detected - {total_analyzed} files analyzed in {mode_text}, no audio issues found"
-            else:
-                message = f"No audio activity - {total_analyzed} files analyzed in {mode_text}, found: {audio_loss_count} audio loss"
-            
-            result = {
-                'success': success,
-                'audio_ok': audio_ok,
-                'audio_loss_count': audio_loss_count,
-                'total_analyzed': total_analyzed,
-                'details': details,
-                'strict_mode': strict_mode,
-                'message': message
+                    for detail in result['details']
+                ],
+                'strict_mode': result['strict_mode'],
+                'message': result['message'].replace('Motion/activity', 'Audio activity').replace('motion/activity', 'audio activity')
             }
             
-            print(f"AudioVerify[{self.device_name}]: Audio detection result: {message}")
+            print(f"AudioVerify[{self.device_name}]: Audio detection result: {audio_result.get('message', 'Unknown')}")
             
-            self._log_verification("audio_from_json", f"count_{json_count}_strict_{strict_mode}", success, {
+            # Log verification for tracking
+            self._log_verification("audio_from_json", f"count_{json_count}_strict_{strict_mode}", audio_result['success'], {
                 "json_count": json_count,
                 "strict_mode": strict_mode,
-                "total_analyzed": total_analyzed,
-                "audio_loss_count": audio_loss_count
+                "total_analyzed": audio_result['total_analyzed'],
+                "audio_loss_count": audio_result['audio_loss_count']
             })
             
-            return result
+            return audio_result
             
         except Exception as e:
             error_msg = f"Audio detection from JSON error: {e}"
@@ -767,6 +690,15 @@ class AudioVerificationController(VerificationControllerInterface):
                     'tolerance': tolerance,
                     'duration': duration
                 }
+                
+            elif command == 'DetectAudioFromJson':
+                json_count = int(params.get('json_count', 5))
+                strict_mode = params.get('strict_mode', True)
+                
+                result = self.detect_motion_from_json(json_count, strict_mode)
+                success = result.get('success', False)
+                message = result.get('message', f"Audio activity {'detected' if success else 'not detected'} from JSON analysis")
+                details = result
                 
             else:
                 return {

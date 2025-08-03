@@ -739,6 +739,65 @@ JSON ONLY - NO OTHER TEXT"""
             print(f"[@video_helpers] Natural language parsing error: {e}")
             return '', 'unknown', 0.0
     
+    def detect_motion_from_json_analysis(self, device_id: str, json_count: int = 5, strict_mode: bool = True) -> Dict[str, Any]:
+        """
+        Helper method to detect motion/activity from JSON analysis files.
+        Uses shared analysis utility to avoid code duplication.
+        
+        Args:
+            device_id: Device ID to analyze (instead of direct folder path)
+            json_count: Number of recent JSON files to analyze (default: 5)
+            strict_mode: If True, ALL files must show no errors. If False, majority must show no errors (default: True)
+            
+        Returns:
+            Dict with detailed analysis similar to controller methods
+        """
+        try:
+            # Import shared analysis utility
+            import sys
+            import os
+            sys.path.append(os.path.join(os.path.dirname(__file__), '../../../backend_host/src'))
+            from utils.analysis_utils import load_recent_analysis_data, analyze_motion_from_loaded_data
+            
+            # Load recent analysis data using shared utility (5 minutes timeframe)
+            data_result = load_recent_analysis_data(device_id, timeframe_minutes=5, max_count=json_count)
+            
+            if not data_result['success']:
+                return {
+                    'success': False,
+                    'video_ok': False,
+                    'audio_ok': False,
+                    'blackscreen_count': 0,
+                    'freeze_count': 0,
+                    'audio_loss_count': 0,
+                    'total_analyzed': 0,
+                    'details': [],
+                    'strict_mode': strict_mode,
+                    'message': data_result.get('error', 'Failed to load analysis data')
+                }
+            
+            # Analyze motion from loaded data using shared utility
+            result = analyze_motion_from_loaded_data(data_result['analysis_data'], json_count, strict_mode)
+            
+            print(f"[@video_helpers] Motion detection result: {result.get('message', 'Unknown')}")
+            return result
+            
+        except Exception as e:
+            error_msg = f"Motion detection from JSON error: {e}"
+            print(f"[@video_helpers] {error_msg}")
+            return {
+                'success': False,
+                'video_ok': False,
+                'audio_ok': False,
+                'blackscreen_count': 0,
+                'freeze_count': 0,
+                'audio_loss_count': 0,
+                'total_analyzed': 0,
+                'details': [],
+                'strict_mode': strict_mode,
+                'message': error_msg
+            }
+
     def analyze_full_image_with_ai(self, image_path: str, user_question: str) -> str:
         """
         Analyze full image with AI using user's question.
