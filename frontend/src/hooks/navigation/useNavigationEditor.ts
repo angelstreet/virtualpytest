@@ -354,6 +354,13 @@ export const useNavigationEditor = () => {
               };
             };
 
+            console.log('[@useNavigationEditor:onEdgeClick] Original edge handles:', {
+              source: edge.source,
+              target: edge.target,
+              sourceHandle: edge.sourceHandle,
+              targetHandle: edge.targetHandle
+            });
+
             const reverseEdge: UINavigationEdge = {
               id: `edge-${edge.target}-${edge.source}-${timestamp}`,
               source: edge.target,
