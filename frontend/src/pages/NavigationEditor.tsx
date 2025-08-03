@@ -403,10 +403,11 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = React.memo(
               source: edge.source_node_id,
               target: edge.target_node_id,
               type: 'navigation',
+              label: edge.label, // Move label to top-level (ReactFlow standard)
               sourceHandle: edge.data?.sourceHandle, // Extract handle info to root level
               targetHandle: edge.data?.targetHandle, // Extract handle info to root level
               data: {
-                label: edge.label, // Include the auto-generated label from database
+                // Remove label from data - now in top-level field
                 action_sets: edge.action_sets, // NEW: action sets structure - REQUIRED
                 default_action_set_id: edge.default_action_set_id, // NEW: default action set ID - REQUIRED
                 final_wait_time: edge.final_wait_time,

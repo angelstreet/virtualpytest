@@ -48,10 +48,11 @@ export const useNavigationEditor = () => {
           source: edge.source_node_id,
           target: edge.target_node_id,
           type: 'navigation',
+          label: edge.label, // Move label to top-level (ReactFlow standard)
           sourceHandle: edge.data?.sourceHandle,
           targetHandle: edge.data?.targetHandle,
           data: {
-            label: edge.label,
+            // Remove label from data - now in top-level field
             action_sets: edge.action_sets,
             default_action_set_id: edge.default_action_set_id,
             final_wait_time: edge.final_wait_time,

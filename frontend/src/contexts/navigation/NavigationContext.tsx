@@ -999,7 +999,7 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
               edge_id: updatedEdge.id,
               source_node_id: updatedEdge.source,
               target_node_id: updatedEdge.target,
-              label: updatedEdge.data?.label,
+              label: updatedEdge.label, // Use ReactFlow edge label, not data.label
 
               data: {
                 // Only include UI-specific data, not navigation logic data
@@ -1008,6 +1008,7 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
                 // Include ReactFlow handle information for persistence (use current canvas state)
                 ...(currentSourceHandle && { sourceHandle: currentSourceHandle }),
                 ...(currentTargetHandle && { targetHandle: currentTargetHandle }),
+                // IMPORTANT: Do NOT include label in data - use top-level label field only
               },
               // NEW: action_sets structure - NO LEGACY FIELDS
               action_sets: updatedEdge.data.action_sets || [],
@@ -1071,7 +1072,7 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
             edge_id: edge.id,
             source_node_id: edge.source,
             target_node_id: edge.target,
-            label: edge.data?.label,
+            label: edge.label, // Use ReactFlow edge label, not data.label
 
             data: {
               // Only include UI-specific data, not navigation logic data
@@ -1080,6 +1081,7 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
               // Include ReactFlow handle information for persistence
               ...(edge.sourceHandle && { sourceHandle: edge.sourceHandle }),
               ...(edge.targetHandle && { targetHandle: edge.targetHandle }),
+              // IMPORTANT: Do NOT include label in data - use top-level label field only
             },
             // STRICT: action_sets required - NO LEGACY CONVERSION
             action_sets: edge.data?.action_sets || [],

@@ -284,7 +284,8 @@ def main():
             total_action_time = 0
             
             for iteration in range(1, max_iteration + 1):
-                print(f"🎬 [fullzap] Executing iteration {iteration}/{max_iteration} of action '{action_command}'...")
+                step_num = iteration  # Action step number
+                print(f"🎬 [fullzap] Action step {step_num}: Execute {action_command} (iteration {iteration}/{max_iteration})")
                 iteration_start_time = time.time()
                 
                 action_result = execute_edge_actions(host, selected_device, action_edge, team_id=team_id)
@@ -292,15 +293,55 @@ def main():
                 total_action_time += iteration_execution_time
                 
                 if action_result.get('success'):
-                    print(f"✅ [fullzap] Iteration {iteration} completed successfully in {iteration_execution_time}ms")
+                    print(f"✅ [fullzap] Action step {step_num} completed successfully in {iteration_execution_time}ms")
                     successful_iterations += 1
+                    
+                    # Capture screenshot for this action step (like navigation steps)
+                    action_screenshot = capture_validation_screenshot(host, selected_device, f"action_step_{step_num}", "fullzap")
+                    if action_screenshot:
+                        screenshot_paths.append(action_screenshot)
+                    
+                    # Record step execution using utility function
+                    from shared.lib.utils.report_utils import record_action_step
+                    record_action_step(
+                        team_id=team_id,
+                        script_name='fullzap',
+                        step_number=step_num + 4,  # Continue numbering after navigation steps
+                        action_name=action_command,
+                        iteration=iteration,
+                        max_iterations=max_iteration,
+                        success=True,
+                        execution_time_ms=iteration_execution_time,
+                        screenshot_path=action_screenshot
+                    )
                     
                     # Brief pause between iterations to avoid overwhelming the device
                     if iteration < max_iteration:
                         time.sleep(0.5)
                 else:
                     iteration_error = action_result.get('error', 'Unknown error')
-                    print(f"❌ [fullzap] Iteration {iteration} failed: {iteration_error}")
+                    print(f"❌ [fullzap] Action step {step_num} failed: {iteration_error}")
+                    
+                    # Capture screenshot for failed step too
+                    failed_screenshot = capture_validation_screenshot(host, selected_device, f"action_step_{step_num}_failed", "fullzap")
+                    if failed_screenshot:
+                        screenshot_paths.append(failed_screenshot)
+                    
+                    # Record failed step execution using utility function
+                    from shared.lib.utils.report_utils import record_action_step
+                    record_action_step(
+                        team_id=team_id,
+                        script_name='fullzap',
+                        step_number=step_num + 4,  # Continue numbering after navigation steps  
+                        action_name=action_command,
+                        iteration=iteration,
+                        max_iterations=max_iteration,
+                        success=False,
+                        execution_time_ms=iteration_execution_time,
+                        screenshot_path=failed_screenshot,
+                        error_message=iteration_error
+                    )
+                    
                     # Continue with remaining iterations even if one fails
             
             # Capture post-action screenshot

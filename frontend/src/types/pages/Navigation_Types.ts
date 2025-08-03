@@ -178,6 +178,7 @@ export interface UINavigationEdge {
   source: string;
   target: string;
   type: string;
+  label?: string; // Edge label - aligned with database column (not data.label)
   data: UINavigationEdgeData;
   sourceHandle?: string; // ReactFlow sourceHandle property
   targetHandle?: string; // ReactFlow targetHandle property
