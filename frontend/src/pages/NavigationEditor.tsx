@@ -70,11 +70,12 @@ const nodeTypes = {
 
 const edgeTypes = {
   navigation: NavigationEdgeComponent,
+  smoothstep: NavigationEdgeComponent,
 };
 
 // Default options - defined outside component to prevent recreation
 const defaultEdgeOptions = {
-  type: 'default', // Use React Flow's default edge type
+  type: 'navigation',
   animated: false,
   style: { strokeWidth: 2, stroke: '#b1b1b7' },
   markerEnd: {
@@ -401,7 +402,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = React.memo(
               id: edge.edge_id,
               source: edge.source_node_id,
               target: edge.target_node_id,
-              type: 'default',
+              type: 'navigation',
               sourceHandle: edge.data?.sourceHandle, // Extract handle info to root level
               targetHandle: edge.data?.targetHandle, // Extract handle info to root level
               data: {
