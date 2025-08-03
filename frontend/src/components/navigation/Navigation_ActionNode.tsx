@@ -212,13 +212,10 @@ export const UIActionNode: React.FC<NodeProps<UINavigationNodeType['data']>> = (
           </div>
         )}
 
-        {/* Action icon - center of circle */}
-        <div style={{ fontSize: '32px', marginBottom: '4px' }}>⚡</div>
-        
         {/* Node label - adapted for circular space */}
         <div
           style={{
-            fontSize: '10px',
+            fontSize: '18px',
             fontWeight: 'bold',
             lineHeight: '1.1',
             overflow: 'hidden',
@@ -226,10 +223,14 @@ export const UIActionNode: React.FC<NodeProps<UINavigationNodeType['data']>> = (
             maxWidth: '90px',
             wordWrap: 'break-word',
             textAlign: 'center',
+            marginBottom: '4px',
           }}
         >
           {data.label}
         </div>
+        
+        {/* Action icon - below the label */}
+        <div style={{ fontSize: '24px' }}>⚡</div>
 
         {/* Screenshot section (same concept as navigation node but adapted for circle) */}
         {data.screenshot && (
