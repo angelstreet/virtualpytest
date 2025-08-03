@@ -292,19 +292,108 @@ export const useNavigationEditor = () => {
 
   const onEdgeClick = useCallback(
     (_event: React.MouseEvent, edge: any) => {
+      console.log('[@useNavigationEditor:onEdgeClick] Clicked edge:', edge);
+      console.log('[@useNavigationEditor:onEdgeClick] All edges in navigation:', navigation.edges);
+      
       // Find bidirectional edge (opposite direction)
       const oppositeEdge = navigation.edges.find(
         (e) => e.source === edge.target && e.target === edge.source && e.id !== edge.id,
       );
 
+      console.log('[@useNavigationEditor:onEdgeClick] Looking for opposite edge:', {
+        source: edge.target,
+        target: edge.source,
+        excludeId: edge.id
+      });
+      console.log('[@useNavigationEditor:onEdgeClick] Found opposite edge:', oppositeEdge);
+
       if (oppositeEdge) {
         // If bidirectional edges exist, set both edges for the panel to handle
-        navigation.setSelectedEdge({
+        const edgeWithBidirectional = {
           ...edge,
           bidirectionalEdge: oppositeEdge,
-        });
+        };
+        console.log('[@useNavigationEditor:onEdgeClick] Setting selected edge with bidirectional:', edgeWithBidirectional);
+        navigation.setSelectedEdge(edgeWithBidirectional);
       } else {
-        navigation.setSelectedEdge(edge);
+        console.log('[@useNavigationEditor:onEdgeClick] No opposite edge found, auto-creating bidirectional edge');
+        
+        // Auto-create the missing bidirectional edge for backward compatibility
+        const sourceNode = navigation.nodes.find((n) => n.id === edge.source);
+        const targetNode = navigation.nodes.find((n) => n.id === edge.target);
+        
+        if (sourceNode && targetNode) {
+          // Check if either node is protected (same logic as in onConnect)
+          const isSourceProtected = edge.source === 'entry-node' || 
+                                   sourceNode.data.label?.toLowerCase().includes('entry') ||
+                                   sourceNode.data.label?.toLowerCase().includes('home');
+          const isTargetProtected = edge.target === 'entry-node' || 
+                                   targetNode.data.label?.toLowerCase().includes('entry') ||
+                                   targetNode.data.label?.toLowerCase().includes('home');
+
+          // Only create reverse edge if neither node is protected
+          if (!isSourceProtected && !isTargetProtected) {
+            const timestamp = Date.now();
+            const createEdgeData = (sourceLabel: string, targetLabel: string, timestamp: number) => {
+              const defaultActionSetId = `actionset-${timestamp}`;
+              const actionSetLabel = `${sourceLabel}→${targetLabel}_1`;
+              return {
+                label: `${sourceLabel}→${targetLabel}`,
+                action_sets: [
+                  {
+                    id: defaultActionSetId,
+                    label: actionSetLabel,
+                    actions: [],
+                    retry_actions: [],
+                    priority: 1,
+                  }
+                ],
+                default_action_set_id: defaultActionSetId,
+                final_wait_time: 2000,
+              };
+            };
+
+            const reverseEdge: UINavigationEdge = {
+              id: `edge-${edge.target}-${edge.source}-${timestamp}`,
+              source: edge.target,
+              target: edge.source,
+              sourceHandle: edge.targetHandle || undefined,
+              targetHandle: edge.sourceHandle || undefined,
+              type: 'navigation',
+              animated: false,
+              style: {
+                stroke: '#555',
+                strokeWidth: 2,
+              },
+              markerEnd: {
+                type: MarkerType.ArrowClosed,
+                color: '#555',
+              },
+              data: createEdgeData(targetNode.data.label, sourceNode.data.label, timestamp),
+            };
+
+            console.log('[@useNavigationEditor:onEdgeClick] Auto-creating reverse edge:', reverseEdge);
+
+            // Add the reverse edge to navigation
+            const updatedEdges = [...navigation.edges, reverseEdge];
+            navigation.setEdges(updatedEdges);
+            navigation.setHasUnsavedChanges(true);
+
+            // Set selected edge with the newly created bidirectional edge
+            const edgeWithBidirectional = {
+              ...edge,
+              bidirectionalEdge: reverseEdge,
+            };
+            console.log('[@useNavigationEditor:onEdgeClick] Setting selected edge with auto-created bidirectional:', edgeWithBidirectional);
+            navigation.setSelectedEdge(edgeWithBidirectional);
+          } else {
+            console.log('[@useNavigationEditor:onEdgeClick] Skipping auto-creation due to protected node');
+            navigation.setSelectedEdge(edge);
+          }
+        } else {
+          console.log('[@useNavigationEditor:onEdgeClick] Could not find source or target node for auto-creation');
+          navigation.setSelectedEdge(edge);
+        }
       }
 
       navigation.setSelectedNode(null); // Clear node selection when edge is selected

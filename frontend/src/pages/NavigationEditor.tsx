@@ -859,19 +859,31 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = React.memo(
                     <>
                       {/* Edge Selection Panels - show panels for both edges if bidirectional */}
                       {(() => {
+                        console.log('[@NavigationEditor] Rendering edge panels for selectedEdge:', selectedEdge);
+                        console.log('[@NavigationEditor] selectedEdge.bidirectionalEdge:', selectedEdge.bidirectionalEdge);
+                        
                         const edgesToShow = [selectedEdge];
                         if (selectedEdge.bidirectionalEdge) {
+                          console.log('[@NavigationEditor] Adding bidirectional edge to panels');
                           edgesToShow.push(selectedEdge.bidirectionalEdge);
+                        } else {
+                          console.log('[@NavigationEditor] No bidirectional edge found');
                         }
+
+                        console.log('[@NavigationEditor] Total edges to show:', edgesToShow.length);
+                        console.log('[@NavigationEditor] Edges to show:', edgesToShow);
 
                         let panelIndexOffset = 0;
 
                         return edgesToShow.map((edge) => {
+                          console.log('[@NavigationEditor] Creating panels for edge:', edge.id, 'with action_sets:', edge.data?.action_sets);
                           const panels = [];
                           
                           if (edge.data?.action_sets?.length > 0) {
+                            console.log('[@NavigationEditor] Edge has', edge.data.action_sets.length, 'action sets');
                             // Render panels for each action set in this edge
                             edge.data.action_sets.forEach((actionSet: any, actionSetIndex: number) => {
+                              console.log('[@NavigationEditor] Creating panel for action set:', actionSet.id, 'at index:', panelIndexOffset + actionSetIndex);
                               panels.push(
                                 <EdgeSelectionPanel
                                   key={`${edge.id}-${actionSet.id}-${actionSetIndex}`}
@@ -895,6 +907,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = React.memo(
                             });
                             panelIndexOffset += edge.data.action_sets.length;
                           } else {
+                            console.log('[@NavigationEditor] Edge has no action sets, using fallback panel at index:', panelIndexOffset);
                             // Fallback for edges with empty or missing action_sets
                             panels.push(
                               <EdgeSelectionPanel
@@ -918,6 +931,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = React.memo(
                             panelIndexOffset += 1;
                           }
                           
+                          console.log('[@NavigationEditor] Created', panels.length, 'panels for edge:', edge.id);
                           return panels;
                         }).flat();
                       })()}
