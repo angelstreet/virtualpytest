@@ -432,6 +432,47 @@ def create_themed_html_template() -> str:
             margin-left: 4px;
         }}
         
+        /* Retry action styles */
+        .retry-action-item {{
+            margin: 4px 0;
+            padding: 4px 8px;
+            background: var(--bg-secondary);
+            border-radius: 4px;
+            border-left: 3px solid #ffc107;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85em;
+        }}
+        
+        .retry-action-item.executed {{
+            border-left-color: #fd7e14;
+            background: rgba(253, 126, 20, 0.1);
+        }}
+        
+        .retry-action-item.available {{
+            border-left-color: #ffc107;
+            background: rgba(255, 193, 7, 0.1);
+            opacity: 0.7;
+        }}
+        
+        .retry-status {{
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 0.75em;
+            font-weight: bold;
+            margin-left: 8px;
+        }}
+        
+        .retry-status.executed {{
+            background-color: rgba(253, 126, 20, 0.2);
+            color: #fd7e14;
+        }}
+        
+        .retry-status.available {{
+            background-color: rgba(255, 193, 7, 0.2);
+            color: #856404;
+        }}
+        
         .step-screenshot-container {{
             text-align: right;
         }}

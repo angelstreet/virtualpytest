@@ -2,22 +2,22 @@
 """
 Fullzap Script for VirtualPyTest
 
-This script navigates to the live node and executes a zap action by:
+This script navigates to the live node and executes a zap action multiple times by:
 1. Taking control of a device
 2. Loading the navigation tree
 3. Finding path to live node
 4. Executing navigation steps directly using host controllers
-5. Finding and executing the specified action from the live node
+5. Finding and executing the specified action from the live node multiple times
 6. Releasing device control
 
 Usage:
-    python scripts/fullzap.py [userinterface_name] [--host <host>] [--device <device>] [--action <action>]
+    python scripts/fullzap.py [userinterface_name] [--host <host>] [--device <device>] [--action <action>] [--max_iteration <count>]
     
 Example:
     python scripts/fullzap.py
     python scripts/fullzap.py horizon_android_mobile
-    python scripts/fullzap.py horizon_android_mobile --action zap_chup
-    python scripts/fullzap.py horizon_android_mobile --device device2 --action zap_chdown
+    python scripts/fullzap.py horizon_android_mobile --action live_chup --max_iteration 20
+    python scripts/fullzap.py horizon_android_mobile --device device2 --action zap_chdown --max_iteration 5
 
 """
 
@@ -57,12 +57,13 @@ from shared.lib.utils.cloudflare_utils import upload_script_report, upload_valid
 
 
 def main():
-    """Main function to navigate to live and execute zap_chup action"""
-    parser = argparse.ArgumentParser(description='Navigate to live and execute zap_chup action')
+    """Main function to navigate to live and execute live_chup action"""
+    parser = argparse.ArgumentParser(description='Navigate to live and execute live_chup action')
     parser.add_argument('userinterface_name', nargs='?', default='horizon_android_mobile', help='Name of the userinterface to use (default: horizon_android_mobile)')
     parser.add_argument('--host', help='Specific host to use (default: sunri-pi1)')
     parser.add_argument('--device', help='Specific device to use (default: device1)')
-    parser.add_argument('--action', default='zap_chup', help='Action command to execute (default: zap_chup)')
+    parser.add_argument('--action', default='live_chup', help='Action command to execute (default: live_chup)')
+    parser.add_argument('--max_iteration', type=int, default=5, help='Number of times to execute the action (default: 10)')
     
     args = parser.parse_args()
     
@@ -70,8 +71,9 @@ def main():
     host_name = args.host or 'sunri-pi1'
     device_id = args.device or "device1"
     action_command = args.action
+    max_iteration = args.max_iteration
     
-    print(f"🎯 [fullzap] Starting navigation to live and executing action '{action_command}' for: {userinterface_name}")
+    print(f"🎯 [fullzap] Starting navigation to live and executing action '{action_command}' {max_iteration} times for: {userinterface_name}")
     
     # Initialize variables for cleanup
     device_key = None
@@ -191,6 +193,7 @@ def main():
                 'from_node': from_node,
                 'to_node': to_node,
                 'actions': step.get('actions', []),
+                'retryActions': step.get('retryActions', []),  # Capture retry actions
                 'verifications': step.get('verifications', []),
                 'verification_results': result.get('verification_results', [])
             })
@@ -204,7 +207,7 @@ def main():
         else:
             print("🎉 [fullzap] Successfully navigated to live!")
             
-            # 7. NEW: Execute the action from the live node
+            # 7. NEW: Execute the action from the live node multiple times
             print(f"⚡ [fullzap] Looking for action '{action_command}' from live node...")
             
             # Find edge with the specified action command
@@ -216,28 +219,61 @@ def main():
                 overall_success = False
             else:
                 print(f"✅ [fullzap] Found action '{action_command}' in edge: {action_edge.get('edge_id')}")
+                print(f"🔄 [fullzap] Starting {max_iteration} iterations of action '{action_command}'...")
                 
                 # Capture pre-action screenshot
                 pre_action_screenshot = capture_validation_screenshot(host, selected_device, "pre_action", "fullzap")
                 if pre_action_screenshot:
                     screenshot_paths.append(pre_action_screenshot)
                 
-                # Execute the action
-                print(f"🎬 [fullzap] Executing action '{action_command}'...")
-                action_start_time = time.time()
-                action_result = execute_edge_actions(host, selected_device, action_edge, team_id=team_id)
-                action_execution_time = int((time.time() - action_start_time) * 1000)
+                # Execute the action multiple times
+                successful_iterations = 0
+                total_action_time = 0
+                
+                for iteration in range(1, max_iteration + 1):
+                    print(f"🎬 [fullzap] Executing iteration {iteration}/{max_iteration} of action '{action_command}'...")
+                    iteration_start_time = time.time()
+                    
+                    action_result = execute_edge_actions(host, selected_device, action_edge, team_id=team_id)
+                    iteration_execution_time = int((time.time() - iteration_start_time) * 1000)
+                    total_action_time += iteration_execution_time
+                    
+                    if action_result.get('success'):
+                        print(f"✅ [fullzap] Iteration {iteration} completed successfully in {iteration_execution_time}ms")
+                        successful_iterations += 1
+                        
+                        # Brief pause between iterations to avoid overwhelming the device
+                        if iteration < max_iteration:
+                            time.sleep(0.5)
+                    else:
+                        iteration_error = action_result.get('error', 'Unknown error')
+                        print(f"❌ [fullzap] Iteration {iteration} failed: {iteration_error}")
+                        # Continue with remaining iterations even if one fails
                 
                 # Capture post-action screenshot
                 post_action_screenshot = capture_validation_screenshot(host, selected_device, "post_action", "fullzap")
                 if post_action_screenshot:
                     screenshot_paths.append(post_action_screenshot)
                 
-                if action_result.get('success'):
-                    print(f"✅ [fullzap] Action '{action_command}' executed successfully in {action_execution_time}ms")
+                # Summary of action execution
+                average_time = total_action_time / max_iteration if max_iteration > 0 else 0
+                success_rate = (successful_iterations / max_iteration * 100) if max_iteration > 0 else 0
+                
+                print(f"📊 [fullzap] Action execution summary:")
+                print(f"   • Total iterations: {max_iteration}")
+                print(f"   • Successful: {successful_iterations}")
+                print(f"   • Success rate: {success_rate:.1f}%")
+                print(f"   • Average time per iteration: {average_time:.0f}ms")
+                print(f"   • Total action time: {total_action_time}ms")
+                
+                if successful_iterations == max_iteration:
+                    print(f"✅ [fullzap] All {max_iteration} iterations of action '{action_command}' completed successfully!")
                     overall_success = True
+                elif successful_iterations > 0:
+                    print(f"⚠️ [fullzap] {successful_iterations}/{max_iteration} iterations succeeded")
+                    overall_success = True  # Partial success is still considered success
                 else:
-                    error_message = f"Action '{action_command}' failed: {action_result.get('error', 'Unknown error')}"
+                    error_message = f"All {max_iteration} iterations of action '{action_command}' failed"
                     print(f"❌ [fullzap] {error_message}")
                     overall_success = False
         
@@ -250,7 +286,7 @@ def main():
         print(f"🖥️  Host: {host.host_name}")
         print(f"📋 Interface: {userinterface_name}")
         print(f"🗺️  Navigation: home → live ({len(navigation_path)} steps)")
-        print(f"⚡ Action: {action_command}")
+        print(f"⚡ Action: {action_command} ({max_iteration} iterations)")
         print(f"⏱️  Total Time: {total_execution_time/1000:.1f}s")
         print(f"🎯 Result: {'SUCCESS' if overall_success else 'FAILED'}")
         if error_message:

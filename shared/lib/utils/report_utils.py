@@ -91,6 +91,7 @@ def create_compact_step_results_section(step_results: List[Dict], screenshots: D
         from_node = step.get('from_node', 'Unknown')
         to_node = step.get('to_node', 'Unknown')
         actions = step.get('actions', [])
+        retry_actions = step.get('retryActions', [])
         verifications = step.get('verifications', [])
         
         # Format execution time
@@ -119,6 +120,26 @@ def create_compact_step_results_section(step_results: List[Dict], screenshots: D
                     action_line = f"{action_index}. {command}({params_str})" if params_str else f"{action_index}. {command}"
                 
                 actions_html += f'<div class="action-item">{action_line}</div>'
+        
+        # Add retry actions if they exist
+        if retry_actions:
+            actions_html += "<div style='margin-top: 10px;'><strong>Retry Actions:</strong> <span class='retry-status available'>AVAILABLE</span></div>"
+            for retry_index, retry_action in enumerate(retry_actions, 1):
+                command = retry_action.get('command', 'unknown')
+                params = retry_action.get('params', {})
+                label = retry_action.get('label', '')
+                
+                # Format params as key=value pairs, excluding wait_time for cleaner display
+                filtered_params = {k: v for k, v in params.items() if k != 'wait_time'}
+                params_str = ", ".join([f"{k}='{v}'" for k, v in filtered_params.items()]) if filtered_params else ""
+                
+                # Create retry action line with label if available
+                if label:
+                    retry_line = f"{retry_index}. {label}: {command}({params_str})" if params_str else f"{retry_index}. {label}: {command}"
+                else:
+                    retry_line = f"{retry_index}. {command}({params_str})" if params_str else f"{retry_index}. {command}"
+                
+                actions_html += f'<div class="retry-action-item available">{retry_line}</div>'
         
         verifications_html = ""
         verification_results = step.get('verification_results', [])
