@@ -58,6 +58,48 @@ def create_motion_detector(context: ScriptExecutionContext):
         return None
 
 
+def analyze_audio_menu_with_controller(motion_detector, context: ScriptExecutionContext, iteration: int):
+    """Analyze audio/subtitle menu using AI after navigating to audio menu"""
+    if not motion_detector:
+        return {"success": False, "message": "No motion detector available"}
+    
+    try:
+        print(f"🎧 [fullzap] Analyzing audio menu options (iteration {iteration})...")
+        
+        # Get latest screenshot for analysis
+        if not context.screenshot_paths:
+            return {"success": False, "message": "No screenshots available"}
+        
+        latest_screenshot = context.screenshot_paths[-1]
+        
+        # Use our new AI language menu analysis
+        result = motion_detector.analyze_language_menu_ai(latest_screenshot)
+        
+        if result.get('success') and result.get('menu_detected'):
+            audio_langs = result.get('audio_languages', [])
+            subtitle_langs = result.get('subtitle_languages', [])
+            selected_audio = result.get('selected_audio', -1)
+            selected_subtitle = result.get('selected_subtitle', -1)
+            
+            print(f"✅ [fullzap] Audio menu detected:")
+            print(f"   🎵 Audio options: {', '.join(f'{i}:{lang}' for i, lang in enumerate(audio_langs))}")
+            if selected_audio >= 0 and selected_audio < len(audio_langs):
+                print(f"   🔊 Selected audio: {selected_audio}:{audio_langs[selected_audio]} ✓")
+            print(f"   📝 Subtitle options: {', '.join(f'{i}:{lang}' for i, lang in enumerate(subtitle_langs))}")
+            if selected_subtitle >= 0 and selected_subtitle < len(subtitle_langs):
+                print(f"   📺 Selected subtitle: {selected_subtitle}:{subtitle_langs[selected_subtitle]} ✓")
+            
+            return result
+        else:
+            print(f"❌ [fullzap] No audio menu detected or analysis failed")
+            return result
+            
+    except Exception as e:
+        error_msg = f"Audio menu analysis error: {e}"
+        print(f"❌ [fullzap] {error_msg}")
+        return {"success": False, "message": error_msg}
+
+
 def detect_subtitles_ai_with_controller(motion_detector, context: ScriptExecutionContext, iteration: int, action_command: str):
     """Detect subtitles using AI after a zap action using the existing VideoVerificationController"""
     if not motion_detector:
@@ -166,11 +208,37 @@ def check_motion_after_zap(motion_detector, iteration, action_command, context: 
         if context:
             subtitle_result = detect_subtitles_ai_with_controller(motion_detector, context, iteration, action_command)
         
-        # 3. Combine results
+        # 3. NEW: Audio menu analysis
+        audio_menu_result = {"success": False, "message": "Audio menu analysis skipped"}
+        
+        if context:
+            # Navigate to audio menu
+            print(f"🎧 [fullzap] Navigating to audio menu for analysis...")
+            audio_menu_nav = goto_node(context.host, context.selected_device, "live_audiomenu", context.tree_id, context.team_id, context)
+            
+            if audio_menu_nav.get('success'):
+                # Capture screenshot of audio menu
+                audio_menu_screenshot = capture_validation_screenshot(
+                    context.host, context.selected_device, f"audio_menu_{iteration}", "fullzap"
+                )
+                context.add_screenshot(audio_menu_screenshot)
+                
+                # Analyze audio menu with AI
+                audio_menu_result = analyze_audio_menu_with_controller(motion_detector, context, iteration)
+                
+                # Navigate back to live
+                print(f"🔄 [fullzap] Returning to live...")
+                goto_node(context.host, context.selected_device, "live", context.tree_id, context.team_id, context)
+            else:
+                print(f"⚠️ [fullzap] Failed to navigate to audio menu, continuing with next zap...")
+        
+        # 4. Combine results
         combined_result = {
             **motion_result,
             "subtitle_analysis": subtitle_result,
+            "audio_menu_analysis": audio_menu_result,
             "subtitles_detected": subtitle_result.get("subtitles_detected", False),
+            "audio_menu_detected": audio_menu_result.get("menu_detected", False),
             "detected_language": subtitle_result.get("detected_language"),
             "extracted_text": subtitle_result.get("extracted_text", "")
         }
