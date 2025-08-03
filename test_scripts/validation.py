@@ -2,15 +2,7 @@
 """
 Validation Script for VirtualPyTest
 
-This script validates all transitions in a navigation tree by:
-1. Taking control of a device
-2. Loading the navigation tree
-3. Finding validation sequence
-4. Executing each validation step directly using host controllers
-5. Generating HTML report with screenshots
-6. Uploading report to R2 storage
-7. Recording results in database
-8. Releasing device control
+This script validates all transitions in a navigation tree using the unified script framework.
 
 Usage:
     python scripts/validation.py <userinterface_name> [--host <host>] [--device <device>]
@@ -21,286 +13,86 @@ Example:
 """
 
 import sys
-import argparse
-import time
-from typing import Dict, Any, Optional
-from datetime import datetime
+import os
 
 # Add project root to path for imports
-import os
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(current_dir)
 
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-# Import utilities
-from shared.lib.utils.script_utils import (
-    setup_script_environment,
-    select_device,
-    take_device_control,
-    release_device_control,
-    load_navigation_tree,
-    execute_navigation_with_verifications,  # Updated import
-    execute_verification_directly,
-    capture_validation_screenshot
-)
-
-# Import pathfinding for validation sequence
+from shared.lib.utils.script_framework import ScriptExecutor, ScriptExecutionContext, handle_keyboard_interrupt, handle_unexpected_error
 from backend_core.src.services.navigation.navigation_pathfinding import find_optimal_edge_validation_sequence
-
-# Import report generation
 from shared.lib.utils.report_utils import generate_validation_report
 from shared.lib.utils.cloudflare_utils import upload_script_report, upload_validation_screenshots
-from shared.lib.supabase.script_results_db import record_script_execution_start, update_script_execution_result
+from shared.lib.supabase.script_results_db import update_script_execution_result
+from shared.lib.utils.script_utils import execute_navigation_with_verifications
+from datetime import datetime
 
 
-def main():
-    """Main validation function with report generation"""
-    parser = argparse.ArgumentParser(description='Validate navigation tree transitions')
-    parser.add_argument('userinterface_name', nargs='?', default='horizon_android_mobile', help='Name of the userinterface to validate (default: horizon_android_mobile)')
-    parser.add_argument('--host', help='Specific host to use (default: sunri-pi1)')
-    parser.add_argument('--device', help='Specific device to use (default: device1)')
-    
-    args = parser.parse_args()
-    
-    userinterface_name = args.userinterface_name
-    host_name = args.host or 'sunri-pi1'
-    device_id = args.device or "device1"
-    
-    print(f"🎯 [validation] Starting validation for: {userinterface_name}")
-    
-    # Initialize variables for cleanup
-    device_key = None
-    session_id = None
-    script_result_id = None
-    start_time = time.time()
-    step_results = []
-    screenshot_paths = []
-    overall_success = False
-    error_message = ""
-    
-    # Initialize flag before the main try block
-    updated_db = False
+def custom_validation_step_handler(context: ScriptExecutionContext, step, step_num):
+    """Custom step handler for validation that includes script_result_id"""
+    return execute_navigation_with_verifications(
+        context.host, context.selected_device, step, context.team_id, 
+        context.tree_id, context.script_result_id, 'validation'
+    )
 
+
+def generate_validation_report_custom(context: ScriptExecutionContext, userinterface_name: str) -> str:
+    """Generate custom validation report with statistics"""
     try:
-        # 1. Setup script environment (centralized)
-        setup_result = setup_script_environment("validation")
-        if not setup_result['success']:
-            error_message = f"Setup failed: {setup_result['error']}"
-            print(f"❌ [validation] {error_message}")
-            sys.exit(1)
-        
-        host = setup_result['host']
-        team_id = setup_result['team_id']
-        
-        # 2. Select device (centralized) - default to device1 if not provided
-        device_id_to_use = device_id or "device1"
-        device_result = select_device(host, device_id_to_use, "validation")
-        if not device_result['success']:
-            error_message = f"Device selection failed: {device_result['error']}"
-            print(f"❌ [validation] {error_message}")
-            sys.exit(1)
-        
-        selected_device = device_result['device']
-        
-        # 3. Record script execution start in database
-        script_result_id = record_script_execution_start(
-            team_id=team_id,
-            script_name="validation",
-            script_type="validation",
-            userinterface_name=userinterface_name,
-            host_name=host.host_name,
-            device_name=selected_device.device_name,
-            metadata={
-                'validation_sequence_count': 0,  # Will be updated
-                'device_id': selected_device.device_id,
-                'device_model': selected_device.device_model
-            }
-        )
-        
-        if not script_result_id:
-            print("⚠️ [validation] Failed to record script start in database, continuing...")
-        else:
-            print(f"📝 [validation] Script execution recorded with ID: {script_result_id}")
-        
-        # 4. Take device control (centralized)
-        control_result = take_device_control(host, selected_device, "validation")
-        if not control_result['success']:
-            error_message = f"Failed to take device control: {control_result['error']}"
-            print(f"❌ [validation] {error_message}")
-            sys.exit(1)
-        
-        session_id = control_result['session_id']
-        device_key = control_result['device_key']
-        
-        # 5. Load navigation tree (centralized function)
-        tree_result = load_navigation_tree(userinterface_name, "validation")
-        if not tree_result['success']:
-            error_message = f"Tree loading failed: {tree_result['error']}"
-            print(f"❌ [validation] {error_message}")
-            sys.exit(1)
-        
-        tree_data = tree_result['tree']
-        tree_id = tree_result['tree_id']
-        
-        print(f"✅ [validation] Loaded tree with {len(tree_result['nodes'])} nodes and {len(tree_result['edges'])} edges")
-
-        # 5.5 Populate navigation cache with the loaded tree data
-        from shared.lib.utils.navigation_cache import populate_cache
-        print("🔄 [validation] Populating navigation cache...")
-        populate_cache(tree_id, team_id, tree_result['nodes'], tree_result['edges'])
-        
-        # 6. Get validation sequence (use resolved tree_id instead of userinterface_name)
-        print("📋 [validation] Getting validation sequence...")
-        validation_sequence = find_optimal_edge_validation_sequence(tree_id, team_id)
-        
-        if not validation_sequence:
-            error_message = "No validation sequence found"
-            print(f"❌ [validation] {error_message}")
-            sys.exit(1)
-        
-        print(f"✅ [validation] Found {len(validation_sequence)} validation steps")
-        
-        # 7. Capture initial state screenshot
-        print("📸 [validation] Capturing initial state screenshot...")
-        initial_screenshot = capture_validation_screenshot(host, selected_device, "initial_state", "validation")
-        if initial_screenshot:
-            screenshot_paths.append(initial_screenshot)
-            print(f"✅ [validation] Initial screenshot captured: {initial_screenshot}")
-        else:
-            print("⚠️ [validation] Failed to capture initial screenshot, continuing...")
-        
-        # 8. Execute validation steps directly using host controllers
-        print("🎮 [validation] Starting validation on device", selected_device.device_id)
-        
-        current_node = None
-        for i, step in enumerate(validation_sequence):
-            step_num = i + 1
-            from_node = step.get('from_node_label', 'unknown')
-            to_node = step.get('to_node_label', 'unknown')
-            
-            print(f"⚡ [validation] Executing step {step_num}/{len(validation_sequence)}:  Transition: {from_node} → {to_node}")
-            
-            # Execute the navigation step directly
-            step_start_time = time.time()
-            step_start_timestamp = datetime.now().strftime('%H:%M:%S')
-            result = execute_navigation_with_verifications(host, selected_device, step, team_id, tree_id, script_result_id, 'validation')
-            step_end_timestamp = datetime.now().strftime('%H:%M:%S')
-            step_execution_time = int((time.time() - step_start_time) * 1000)
-            
-            # Capture screenshot after step execution
-            step_screenshot = capture_validation_screenshot(host, selected_device, f"step_{step_num}", "validation")
-            if step_screenshot:
-                screenshot_paths.append(step_screenshot)
-            
-            # Get actions from step data
-            actions = step.get('actions', [])
-            verifications = step.get('verifications', [])
-            
-            # Get verification results from the navigation execution
-            verification_results = result.get('verification_results', [])
-            
-            # Record step result
-            step_result = {
-                'step_number': step_num,
-                'success': result['success'],
-                'screenshot_path': step_screenshot,
-                'message': f"{from_node} → {to_node}",
-                'execution_time_ms': step_execution_time,
-                'start_time': step_start_timestamp,
-                'end_time': step_end_timestamp,
-                'from_node': from_node,
-                'to_node': to_node,
-                'actions': actions,
-                'verifications': verifications,
-                'verification_results': verification_results  # Include verification results
-            }
-            step_results.append(step_result)
-            
-            if not result['success']:
-                error_message = f"Validation failed at step {step_num}: {result.get('error', 'Unknown error')}"
-                print(f"❌ [validation] {error_message}")
-                break
-            
-            print(f"✅ [validation] Step {step_num} completed successfully")
-            current_node = step.get('to_node_id')
-            
-            # Log verification summary
-            if verification_results:
-                passed_verifications = sum(1 for v in verification_results if v.get('success', False))
-                total_verifications = len(verification_results)
-                print(f"🔍 [validation] Verifications: {passed_verifications}/{total_verifications} passed")
-            else:
-                print(f"ℹ️ [validation] No verifications executed for this transition")
-        else:
-            print("🎉 [validation] All validation steps completed successfully!")
-            overall_success = True
-        
-        # 9. Capture final state screenshot
-        print("📸 [validation] Capturing final state screenshot...")
-        final_screenshot = capture_validation_screenshot(host, selected_device, "final_state", "validation")
-        if final_screenshot:
-            screenshot_paths.append(final_screenshot)
-            print(f"✅ [validation] Final screenshot captured: {final_screenshot}")
-        else:
-            print("⚠️ [validation] Failed to capture final screenshot, continuing...")
-        
-        # 10. Generate execution timestamp and calculate total time
-        execution_timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
-        total_execution_time = int((time.time() - start_time) * 1000)
-        
-        # 11. Generate HTML report
-        print("📄 [validation] Generating HTML report...")
-        
         # Calculate verification statistics
-        total_verifications = sum(len(step.get('verification_results', [])) for step in step_results)
+        total_verifications = sum(len(step.get('verification_results', [])) for step in context.step_results)
         passed_verifications = sum(
             sum(1 for v in step.get('verification_results', []) if v.get('success', False)) 
-            for step in step_results
+            for step in context.step_results
         )
         failed_verifications = total_verifications - passed_verifications
         
+        # Generate timestamp
+        execution_timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
+        
+        # Prepare report data
         report_data = {
             'script_name': 'validation.py',
             'device_info': {
-                'device_name': selected_device.device_name,
-                'device_model': selected_device.device_model,
-                'device_id': selected_device.device_id
+                'device_name': context.selected_device.device_name,
+                'device_model': context.selected_device.device_model,
+                'device_id': context.selected_device.device_id
             },
             'host_info': {
-                'host_name': host.host_name
+                'host_name': context.host.host_name
             },
-            'execution_time': total_execution_time,
-            'success': overall_success,
-            'step_results': step_results,
+            'execution_time': context.get_execution_time_ms(),
+            'success': context.overall_success,
+            'step_results': context.step_results,
             'screenshots': {
-                'initial': initial_screenshot if initial_screenshot else None,
-                'steps': [step['screenshot_path'] for step in step_results if step['screenshot_path']],
-                'final': final_screenshot if final_screenshot else None
+                'initial': context.screenshot_paths[0] if context.screenshot_paths else None,
+                'steps': [step.get('screenshot_path') for step in context.step_results if step.get('screenshot_path')],
+                'final': context.screenshot_paths[-1] if len(context.screenshot_paths) > 1 else None
             },
-            'error_msg': error_message,
+            'error_msg': context.error_message,
             'timestamp': execution_timestamp,
             'userinterface_name': userinterface_name,
-            'total_steps': len(validation_sequence),
-            'passed_steps': sum(1 for step in step_results if step.get('success', False)),
-            'failed_steps': sum(1 for step in step_results if not step.get('success', True)),
-            # Add verification statistics
+            'total_steps': len(context.step_results),
+            'passed_steps': sum(1 for step in context.step_results if step.get('success', False)),
+            'failed_steps': sum(1 for step in context.step_results if not step.get('success', True)),
             'total_verifications': total_verifications,
             'passed_verifications': passed_verifications,
             'failed_verifications': failed_verifications
         }
         
+        # Generate HTML report
+        print("📄 [validation] Generating HTML report...")
         html_content = generate_validation_report(report_data)
         print("✅ [validation] HTML report generated")
         
-        # 12. Upload report and screenshots to R2
-        print("☁️ [validation] Uploading report to R2 storage...")
-        
         # Upload HTML report
+        print("☁️ [validation] Uploading report to R2 storage...")
         upload_result = upload_script_report(
             html_content=html_content,
-            device_model=selected_device.device_model,
+            device_model=context.selected_device.device_model,
             script_name="validation",
             timestamp=execution_timestamp
         )
@@ -311,10 +103,10 @@ def main():
             print(f"✅ [validation] Report uploaded: {report_url}")
             
             # Upload screenshots
-            if screenshot_paths:
+            if context.screenshot_paths:
                 screenshot_result = upload_validation_screenshots(
-                    screenshot_paths=screenshot_paths,
-                    device_model=selected_device.device_model,
+                    screenshot_paths=context.screenshot_paths,
+                    device_model=context.selected_device.device_model,
                     script_name="validation",
                     timestamp=execution_timestamp
                 )
@@ -326,80 +118,127 @@ def main():
         else:
             print(f"⚠️ [validation] Report upload failed: {upload_result.get('error', 'Unknown error')}")
         
-        # 13. Update database with final results
-        if script_result_id:
+        # Update database with final results
+        if context.script_result_id:
             print("📝 [validation] Updating database with final results...")
             update_success = update_script_execution_result(
-                script_result_id=script_result_id,
-                success=overall_success,
-                execution_time_ms=total_execution_time,
+                script_result_id=context.script_result_id,
+                success=context.overall_success,
+                execution_time_ms=context.get_execution_time_ms(),
                 html_report_r2_path=upload_result.get('report_path') if upload_result['success'] else None,
                 html_report_r2_url=report_url if report_url else None,
-                error_msg=error_message if error_message else None,
+                error_msg=context.error_message if context.error_message else None,
                 metadata={
-                    'validation_sequence_count': len(validation_sequence),
-                    'step_results_count': len(step_results),
-                    'screenshots_captured': len(screenshot_paths),
-                    'passed_steps': sum(1 for step in step_results if step.get('success', False)),
-                    'failed_steps': sum(1 for step in step_results if not step.get('success', True))
+                    'validation_sequence_count': len(context.step_results),
+                    'step_results_count': len(context.step_results),
+                    'screenshots_captured': len(context.screenshot_paths),
+                    'passed_steps': sum(1 for step in context.step_results if step.get('success', False)),
+                    'failed_steps': sum(1 for step in context.step_results if not step.get('success', True)),
+                    'total_verifications': total_verifications,
+                    'passed_verifications': passed_verifications,
+                    'failed_verifications': failed_verifications
                 }
             )
             
             if update_success:
-                updated_db = True  # Set flag after successful update
                 print("✅ [validation] Database updated successfully")
             else:
                 print("⚠️ [validation] Failed to update database")
         
-        # 14. Summary
-        print("\n" + "="*60)
-        print(f"🎯 [validation] VALIDATION SUMMARY")
-        print("="*60)
-        print(f"📱 Device: {selected_device.device_name} ({selected_device.device_model})")
-        print(f"🖥️  Host: {host.host_name}")
-        print(f"📋 Interface: {userinterface_name}")
-        print(f"⏱️  Total Time: {total_execution_time/1000:.1f}s")
-        print(f"📊 Steps: {len(step_results)}/{len(validation_sequence)} executed")
-        print(f"✅ Passed: {sum(1 for step in step_results if step.get('success', False))}")
-        print(f"❌ Failed: {sum(1 for step in step_results if not step.get('success', True))}")
-        print(f"🔍 Verifications: {passed_verifications}/{total_verifications} passed")
-        print(f"📸 Screenshots: {len(screenshot_paths)} captured")
-        print(f"🔗 Report: {report_url if report_url else 'Not uploaded'}")
-        print(f"🎯 Overall Result: {'PASS' if overall_success else 'FAIL'}")
-        print("="*60)
+        return report_url
+        
+    except Exception as e:
+        print(f"⚠️ [validation] Error in validation report generation: {e}")
+        return ""
+
+
+def print_validation_summary(context: ScriptExecutionContext, userinterface_name: str):
+    """Print validation-specific summary"""
+    # Calculate verification statistics
+    total_verifications = sum(len(step.get('verification_results', [])) for step in context.step_results)
+    passed_verifications = sum(
+        sum(1 for v in step.get('verification_results', []) if v.get('success', False)) 
+        for step in context.step_results
+    )
+    
+    print("\n" + "="*60)
+    print(f"🎯 [VALIDATION] EXECUTION SUMMARY")
+    print("="*60)
+    print(f"📱 Device: {context.selected_device.device_name} ({context.selected_device.device_model})")
+    print(f"🖥️  Host: {context.host.host_name}")
+    print(f"📋 Interface: {userinterface_name}")
+    print(f"⏱️  Total Time: {context.get_execution_time_ms()/1000:.1f}s")
+    print(f"📊 Steps: {len(context.step_results)} executed")
+    print(f"✅ Passed: {sum(1 for step in context.step_results if step.get('success', False))}")
+    print(f"❌ Failed: {sum(1 for step in context.step_results if not step.get('success', True))}")
+    print(f"🔍 Verifications: {passed_verifications}/{total_verifications} passed")
+    print(f"📸 Screenshots: {len(context.screenshot_paths)} captured")
+    print(f"🎯 Overall Result: {'PASS' if context.overall_success else 'FAIL'}")
+    if context.error_message:
+        print(f"❌ Error: {context.error_message}")
+    print("="*60)
+
+
+def main():
+    """Main validation function with report generation"""
+    script_name = "validation"
+    executor = ScriptExecutor(script_name, "Validate navigation tree transitions")
+    
+    # Create argument parser
+    parser = executor.create_argument_parser()
+    args = parser.parse_args()
+    
+    # Setup execution context with database tracking enabled
+    context = executor.setup_execution_context(args, enable_db_tracking=True)
+    if context.error_message:
+        executor.cleanup_and_exit(context, args.userinterface_name)
+        return
+    
+    try:
+        # Load navigation tree
+        if not executor.load_navigation_tree(context, args.userinterface_name):
+            executor.cleanup_and_exit(context, args.userinterface_name)
+            return
+        
+        # Get validation sequence
+        print("📋 [validation] Getting validation sequence...")
+        validation_sequence = find_optimal_edge_validation_sequence(context.tree_id, context.team_id)
+        
+        if not validation_sequence:
+            context.error_message = "No validation sequence found"
+            print(f"❌ [validation] {context.error_message}")
+            executor.cleanup_and_exit(context, args.userinterface_name)
+            return
+        
+        print(f"✅ [validation] Found {len(validation_sequence)} validation steps")
+        
+        # Execute validation sequence with custom step handler
+        success = executor.execute_navigation_sequence(
+            context, validation_sequence, custom_validation_step_handler
+        )
+        context.overall_success = success
+        
+        if success:
+            print("🎉 [validation] All validation steps completed successfully!")
+        
+        # Generate custom validation report
+        generate_validation_report_custom(context, args.userinterface_name)
+        
+        # Print custom validation summary
+        print_validation_summary(context, args.userinterface_name)
         
         # Exit with proper code based on test result
-        if overall_success:
+        if context.overall_success:
             print("✅ [validation] Validation completed successfully - exiting with code 0")
-            sys.exit(0)  # Success
+            sys.exit(0)
         else:
-            print("❌ [validation] Validation failed - exiting with code 1") 
-            sys.exit(1)  # Failure
+            print("❌ [validation] Validation failed - exiting with code 1")
+            sys.exit(1)
             
     except KeyboardInterrupt:
-        error_message = "Validation interrupted by user"
-        print(f"\n⚠️ [validation] {error_message}")
-        sys.exit(130)  # Standard exit code for keyboard interrupt
+        handle_keyboard_interrupt(script_name)
     except Exception as e:
-        error_message = f"Unexpected error: {str(e)}"
-        print(f"❌ [validation] {error_message}")
-        sys.exit(1)  # Failure
-    finally:
-        # Always release device control
-        if device_key and session_id:
-            print("🔓 [validation] Releasing control of device...")
-            release_device_control(device_key, session_id, "validation")
-        
-        # Update database if we have an error and script_result_id
-        if script_result_id and error_message and not overall_success and not updated_db:  # Add condition to check flag
-            print("📝 [validation] Recording error in database...")
-            total_time = int((time.time() - start_time) * 1000)
-            update_script_execution_result(
-                script_result_id=script_result_id,
-                success=False,
-                execution_time_ms=total_time,
-                error_msg=error_message
-            )
+        handle_unexpected_error(script_name, e)
 
 
 if __name__ == "__main__":
