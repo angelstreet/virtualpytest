@@ -18,6 +18,7 @@ Example:
 import sys
 import os
 import time
+from datetime import datetime
 
 # Add project root to path for imports
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -241,7 +242,12 @@ def execute_zap_actions(context: ScriptExecutionContext, action_edge, action_com
         
         iteration_start_time = time.time()
         action_result = execute_edge_actions(context.host, context.selected_device, action_edge, team_id=context.team_id)
-        iteration_execution_time = int((time.time() - iteration_start_time) * 1000)
+        iteration_end_time = time.time()
+        iteration_execution_time = int((iteration_end_time - iteration_start_time) * 1000)
+        
+        # Format timestamps for reporting
+        step_start_timestamp = datetime.fromtimestamp(iteration_start_time).strftime('%H:%M:%S')
+        step_end_timestamp = datetime.fromtimestamp(iteration_end_time).strftime('%H:%M:%S')
         total_action_time += iteration_execution_time
         
         # Check for motion and subtitles after each action
@@ -265,11 +271,18 @@ def execute_zap_actions(context: ScriptExecutionContext, action_edge, action_com
                 'screenshot_path': action_screenshot,
                 'message': f"Action step {iteration}: Execute {action_command} (iteration {iteration}/{max_iteration})",
                 'execution_time_ms': iteration_execution_time,
+                'start_time': step_start_timestamp,
+                'end_time': step_end_timestamp,
                 'step_category': 'action',
                 'action_name': action_command,
                 'iteration': iteration,
                 'max_iterations': max_iteration,
-                'motion_detection': motion_result
+                'motion_detection': motion_result,
+                'from_node': 'live',
+                'to_node': 'live',
+                'actions': [{'command': action_command, 'params': {}, 'label': f'Execute {action_command}'}],
+                'verifications': [],
+                'verification_results': []
             })
             
             # Brief pause between iterations
@@ -286,12 +299,19 @@ def execute_zap_actions(context: ScriptExecutionContext, action_edge, action_com
                 'screenshot_path': action_screenshot,
                 'message': f"Action step {iteration}: Execute {action_command} (iteration {iteration}/{max_iteration})",
                 'execution_time_ms': iteration_execution_time,
+                'start_time': step_start_timestamp,
+                'end_time': step_end_timestamp,
                 'step_category': 'action',
                 'action_name': action_command,
                 'iteration': iteration,
                 'max_iterations': max_iteration,
                 'error_message': iteration_error,
-                'motion_detection': motion_result
+                'motion_detection': motion_result,
+                'from_node': 'live',
+                'to_node': 'live',
+                'actions': [{'command': action_command, 'params': {}, 'label': f'Execute {action_command}'}],
+                'verifications': [],
+                'verification_results': []
             })
     
     # Capture post-action screenshot
