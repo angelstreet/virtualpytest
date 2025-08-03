@@ -261,8 +261,9 @@ export const UIActionNode: React.FC<NodeProps<UINavigationNodeType['data']>> = (
           </div>
         )}
 
-        {/* Node handles - same as navigation node but positioned for circle */}
-        {/* Left Handles - TARGET for receiving connections */}
+        {/* Node handles - EXACT same IDs as navigation node for compatibility */}
+        {/* Left Handles - Overlapping for Bidirectional Effect */}
+        {/* Left: TARGET for receiving connections */}
         <Handle
           type="target"
           position={Position.Left}
@@ -280,7 +281,7 @@ export const UIActionNode: React.FC<NodeProps<UINavigationNodeType['data']>> = (
             top: '50%',
             transform: 'translateY(-50%)',
             cursor: 'crosshair',
-            zIndex: 11, // Same as navigation node
+            zIndex: 11,
           }}
         />
 
@@ -302,12 +303,13 @@ export const UIActionNode: React.FC<NodeProps<UINavigationNodeType['data']>> = (
             top: '50%',
             transform: 'translateY(-50%)',
             cursor: 'crosshair',
-            zIndex: 10, // Same as navigation node
+            zIndex: 10,
             opacity: 0,
           }}
         />
 
-        {/* Right Handles - SOURCE for sending connections */}
+        {/* Right Handles - Overlapping for Bidirectional Effect */}
+        {/* Right: SOURCE for sending connections */}
         <Handle
           type="source"
           position={Position.Right}
@@ -325,7 +327,7 @@ export const UIActionNode: React.FC<NodeProps<UINavigationNodeType['data']>> = (
             top: '50%',
             transform: 'translateY(-50%)',
             cursor: 'crosshair',
-            zIndex: 11, // Same as navigation node
+            zIndex: 11,
           }}
         />
 
@@ -347,37 +349,17 @@ export const UIActionNode: React.FC<NodeProps<UINavigationNodeType['data']>> = (
             top: '50%',
             transform: 'translateY(-50%)',
             cursor: 'crosshair',
-            zIndex: 10, // Same as navigation node
+            zIndex: 10,
             opacity: 0,
           }}
         />
 
-        {/* Top Handles */}
-        <Handle
-          type="target"
-          position={Position.Top}
-          id="top-target"
-          isConnectable={true}
-          isConnectableStart={false}
-          isConnectableEnd={true}
-          style={{
-            background: '#1976d2',
-            border: '2px solid #fff',
-            width: '16px',
-            height: '16px',
-            borderRadius: '50%',
-            top: -7,
-            left: '50%',
-            transform: 'translateX(-50%)',
-            cursor: 'crosshair',
-            zIndex: 11, // Same as navigation node
-          }}
-        />
-
+        {/* Top Handles - Overlapping */}
+        {/* Top: SOURCE for menu connections */}
         <Handle
           type="source"
           position={Position.Top}
-          id="top-source"
+          id="top-left-menu-source"
           isConnectable={true}
           isConnectableStart={true}
           isConnectableEnd={false}
@@ -387,20 +369,65 @@ export const UIActionNode: React.FC<NodeProps<UINavigationNodeType['data']>> = (
             width: '16px',
             height: '16px',
             borderRadius: '50%',
-            top: -7,
             left: '50%',
             transform: 'translateX(-50%)',
+            top: -7,
             cursor: 'crosshair',
-            zIndex: 10, // Same as navigation node
+            zIndex: 11,
+          }}
+        />
+
+        {/* Top: TARGET for menu connections - same position, lower z-index */}
+        <Handle
+          type="target"
+          position={Position.Top}
+          id="top-right-menu-target"
+          isConnectable={true}
+          isConnectableStart={false}
+          isConnectableEnd={true}
+          style={{
+            background: '#4caf50',
+            border: '2px solid #fff',
+            width: '16px',
+            height: '16px',
+            borderRadius: '50%',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            top: -7,
+            cursor: 'crosshair',
+            zIndex: 10,
             opacity: 0,
           }}
         />
 
-        {/* Bottom Handles */}
+        {/* Bottom Handles - Overlapping */}
+        {/* Bottom: TARGET for menu connections */}
+        <Handle
+          type="target"
+          position={Position.Bottom}
+          id="bottom-left-menu-target"
+          isConnectable={true}
+          isConnectableStart={false}
+          isConnectableEnd={true}
+          style={{
+            background: '#9c27b0',
+            border: '2px solid #fff',
+            width: '16px',
+            height: '16px',
+            borderRadius: '50%',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            bottom: -7,
+            cursor: 'crosshair',
+            zIndex: 11,
+          }}
+        />
+
+        {/* Bottom: SOURCE for menu connections - same position, lower z-index */}
         <Handle
           type="source"
           position={Position.Bottom}
-          id="bottom-source"
+          id="bottom-right-menu-source"
           isConnectable={true}
           isConnectableStart={true}
           isConnectableEnd={false}
@@ -410,32 +437,11 @@ export const UIActionNode: React.FC<NodeProps<UINavigationNodeType['data']>> = (
             width: '16px',
             height: '16px',
             borderRadius: '50%',
-            bottom: -7,
             left: '50%',
             transform: 'translateX(-50%)',
-            cursor: 'crosshair',
-            zIndex: 11, // Same as navigation node
-          }}
-        />
-
-        <Handle
-          type="target"
-          position={Position.Bottom}
-          id="bottom-target"
-          isConnectable={true}
-          isConnectableStart={false}
-          isConnectableEnd={true}
-          style={{
-            background: '#1976d2',
-            border: '2px solid #fff',
-            width: '16px',
-            height: '16px',
-            borderRadius: '50%',
             bottom: -7,
-            left: '50%',
-            transform: 'translateX(-50%)',
             cursor: 'crosshair',
-            zIndex: 10, // Same as navigation node
+            zIndex: 10,
             opacity: 0,
           }}
         />
