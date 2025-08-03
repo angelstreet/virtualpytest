@@ -401,7 +401,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = React.memo(
               id: edge.edge_id,
               source: edge.source_node_id,
               target: edge.target_node_id,
-              type: 'uiNavigation',
+              type: 'navigation',
               sourceHandle: edge.data?.sourceHandle, // Extract handle info to root level
               targetHandle: edge.data?.targetHandle, // Extract handle info to root level
               data: {

@@ -1,4 +1,4 @@
-import { Add as AddIcon, PlayArrow as PlayIcon } from '@mui/icons-material';
+import { Add as AddIcon } from '@mui/icons-material';
 import {
   Box,
   Button,
@@ -8,7 +8,7 @@ import {
   Typography,
   CircularProgress,
 } from '@mui/material';
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback } from 'react';
 
 import { Host } from '../../types/common/Host_Types';
 import {
@@ -44,7 +44,7 @@ export const VerificationsList: React.FC<VerificationsListProps> = React.memo(
     onVerificationsChange,
     loading,
     model,
-    onTest,
+    onTest: _onTest,
     testResults,
     onReferenceSelected,
     selectedHost: _selectedHost,
@@ -376,37 +376,7 @@ export const VerificationsList: React.FC<VerificationsListProps> = React.memo(
       [],
     );
 
-    // Check if all verifications have required inputs
-    const areVerificationsValid = useMemo(() => {
-      if (verifications.length === 0) return false;
 
-      return verifications.every((verification) => {
-        // Skip verifications that don't have a command (not configured yet)
-        if (!verification.command) return true;
-
-        if (verification.verification_type === 'image') {
-          // Image verifications need a reference image
-          const hasImagePath = verification.params?.image_path;
-          return Boolean(hasImagePath);
-        } else if (verification.verification_type === 'text') {
-          // Text verifications need text to search for
-          const hasText =
-            verification.params?.text &&
-            typeof verification.params.text === 'string' &&
-            verification.params.text.trim() !== '';
-          return Boolean(hasText);
-        } else if (verification.verification_type === 'adb') {
-          // ADB verifications need search criteria - ADD TYPE CHECKING
-          const hasSearchTerm =
-            verification.params?.search_term &&
-            typeof verification.params.search_term === 'string' &&
-            verification.params.search_term.trim() !== '';
-          return Boolean(hasSearchTerm);
-        }
-
-        return true;
-      });
-    }, [verifications]);
 
     if (loading) {
       return (

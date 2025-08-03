@@ -63,6 +63,8 @@ export const UI_BADGE_COLORS = {
     background: '#ffc107',
     textColor: '#ffffff',
   },
+  verification: '#9c27b0',
+  subtree: '#2196f3',
 } as const;
 
 // Status colors based on validation confidence levels
