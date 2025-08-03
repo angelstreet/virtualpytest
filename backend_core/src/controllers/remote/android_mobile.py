@@ -128,7 +128,7 @@ class AndroidMobileRemoteController(RemoteControllerInterface):
         Send a key press to the Android device.
         
         Args:
-            key: Key name (e.g., "UP", "DOWN", "HOME", "BACK")
+            key: Key name (e.g., "UP", "DOWN", "HOME", "BACK", "VOLUME_UP", "VOLUME_DOWN")
         """
         if not self.is_connected or not self.adb_utils:
             print(f"Remote[{self.device_type.upper()}]: ERROR - Not connected to device")
@@ -751,6 +751,24 @@ class AndroidMobileRemoteController(RemoteControllerInterface):
                     'action_type': 'remote',
                     'params': {'key': 'HOME'},
                     'description': 'Go to home screen',
+                    'requiresInput': False
+                },
+                {
+                    'id': 'press_key_volume_up',
+                    'label': 'Volume Up',
+                    'command': 'press_key',
+                    'action_type': 'remote',
+                    'params': {'key': 'VOLUME_UP'},
+                    'description': 'Increase volume',
+                    'requiresInput': False
+                },
+                {
+                    'id': 'press_key_volume_down',
+                    'label': 'Volume Down',
+                    'command': 'press_key',
+                    'action_type': 'remote',
+                    'params': {'key': 'VOLUME_DOWN'},
+                    'description': 'Decrease volume',
                     'requiresInput': False
                 },
                 # Text input actions

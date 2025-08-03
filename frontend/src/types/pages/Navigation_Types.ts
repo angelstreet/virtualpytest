@@ -185,6 +185,7 @@ export interface UINavigationEdge {
   animated?: boolean; // ReactFlow animated property
   style?: any; // ReactFlow style property
   markerEnd?: any; // ReactFlow marker property
+  bidirectionalEdge?: UINavigationEdge; // Optional bidirectional edge (added by onEdgeClick)
 }
 
 // =====================================================

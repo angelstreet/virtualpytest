@@ -112,9 +112,51 @@ export const useNavigationEditor = () => {
         return;
       }
 
-      // Create new edge with proper UINavigationEdge structure
+      // Check if edge already exists in either direction to prevent duplicates
+      const existingEdge = navigation.edges.find(
+        (e) => 
+          (e.source === connection.source && e.target === connection.target) ||
+          (e.source === connection.target && e.target === connection.source)
+      );
+
+      if (existingEdge) {
+        console.warn('[@useNavigationEditor:onConnect] Edge already exists between these nodes');
+        return;
+      }
+
+      // Helper function to create edge data
+      const createEdgeData = (sourceLabel: string, targetLabel: string, timestamp: number) => {
+        const defaultActionSetId = `actionset-${timestamp}`;
+        const actionSetLabel = `${sourceLabel}→${targetLabel}_1`;
+        return {
+          label: `${sourceLabel}→${targetLabel}`,
+          action_sets: [
+            {
+              id: defaultActionSetId,
+              label: actionSetLabel,
+              actions: [],
+              retry_actions: [],
+              priority: 1,
+            }
+          ],
+          default_action_set_id: defaultActionSetId,
+          final_wait_time: 2000,
+        };
+      };
+
+      // Determine if either node is an entry node or protected
+      const isSourceProtected = connection.source === 'entry-node' || 
+                               sourceNode.data.label?.toLowerCase().includes('entry') ||
+                               sourceNode.data.label?.toLowerCase().includes('home');
+      const isTargetProtected = connection.target === 'entry-node' || 
+                               targetNode.data.label?.toLowerCase().includes('entry') ||
+                               targetNode.data.label?.toLowerCase().includes('home');
+
+      const timestamp = Date.now();
+
+      // Create primary edge (original direction)
       const newEdge: UINavigationEdge = {
-        id: `edge-${connection.source}-${connection.target}-${Date.now()}`,
+        id: `edge-${connection.source}-${connection.target}-${timestamp}`,
         source: connection.source,
         target: connection.target,
         sourceHandle: connection.sourceHandle || undefined,
@@ -129,27 +171,40 @@ export const useNavigationEditor = () => {
           type: MarkerType.ArrowClosed,
           color: '#555',
         },
-        data: (() => {
-          const defaultActionSetId = `actionset-${Date.now()}`;
-          const actionSetLabel = `${sourceNode.data.label}→${targetNode.data.label}_1`;
-          return {
-            label: `${sourceNode.data.label}→${targetNode.data.label}`,
-            action_sets: [
-              {
-                id: defaultActionSetId,
-                label: actionSetLabel,
-                actions: [],
-                retry_actions: [],
-                priority: 1,
-              }
-            ],
-            default_action_set_id: defaultActionSetId,
-            final_wait_time: 2000,
-          };
-        })(),
+        data: createEdgeData(sourceNode.data.label, targetNode.data.label, timestamp),
       };
 
-      console.log('[@useNavigationEditor:onConnect] Creating edge:', newEdge);
+      console.log('[@useNavigationEditor:onConnect] Creating primary edge:', newEdge);
+
+      let edgesToAdd = [newEdge];
+
+      // Create bidirectional edge (reverse direction) unless one of the nodes is protected
+      // Protected nodes should only have outgoing edges, not incoming from regular nodes
+      if (!isSourceProtected && !isTargetProtected) {
+        const reverseEdge: UINavigationEdge = {
+          id: `edge-${connection.target}-${connection.source}-${timestamp + 1}`,
+          source: connection.target,
+          target: connection.source,
+          sourceHandle: connection.targetHandle || undefined,
+          targetHandle: connection.sourceHandle || undefined,
+          type: 'navigation',
+          animated: false,
+          style: {
+            stroke: '#555',
+            strokeWidth: 2,
+          },
+          markerEnd: {
+            type: MarkerType.ArrowClosed,
+            color: '#555',
+          },
+          data: createEdgeData(targetNode.data.label, sourceNode.data.label, timestamp + 1),
+        };
+
+        console.log('[@useNavigationEditor:onConnect] Creating reverse edge:', reverseEdge);
+        edgesToAdd.push(reverseEdge);
+      } else {
+        console.log('[@useNavigationEditor:onConnect] Skipping bidirectional edge due to protected node');
+      }
 
       // Handle parent inheritance based on handle direction: 
       // Vertical handles = parent-child relationship (inherit parent + source node)
@@ -208,17 +263,20 @@ export const useNavigationEditor = () => {
         console.log(`[@useNavigationEditor:onConnect] Both nodes already have parents - no inheritance needed`);
       }
 
-      // Add edge to current edges using ReactFlow's addEdge utility
-      const updatedEdges = addEdge(newEdge, navigation.edges);
+      // Add all edges to current edges using ReactFlow's addEdge utility
+      let updatedEdges = navigation.edges;
+      for (const edge of edgesToAdd) {
+        updatedEdges = addEdge(edge, updatedEdges) as UINavigationEdge[];
+      }
 
       // Update edges in navigation context
-      navigation.setEdges(updatedEdges as UINavigationEdge[]);
+      navigation.setEdges(updatedEdges);
 
       // Mark as having unsaved changes
       navigation.setHasUnsavedChanges(true);
 
       console.log(
-        '[@useNavigationEditor:onConnect] Edge created successfully - manual save required',
+        `[@useNavigationEditor:onConnect] ${edgesToAdd.length} edge(s) created successfully - manual save required`,
       );
     },
     [navigation],
