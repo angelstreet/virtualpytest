@@ -357,9 +357,9 @@ export const EdgeEditDialog: React.FC<EdgeEditDialogProps> = ({
               sx={{
                 mt: 1,
                 p: 1,
-                bgcolor: edgeHook.runResult.includes('❌ OVERALL RESULT: FAILED')
+                bgcolor: edgeHook.runResult.includes('❌ FAILED')
                   ? 'error.light'
-                  : edgeHook.runResult.includes('✅ OVERALL RESULT: SUCCESS')
+                  : edgeHook.runResult.includes('✅ SUCCESS')
                     ? 'success.light'
                     : edgeHook.runResult.includes('❌') && !edgeHook.runResult.includes('✅')
                       ? 'error.light'

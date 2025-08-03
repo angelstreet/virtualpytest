@@ -250,7 +250,7 @@ export const NodeEditDialog: React.FC<NodeEditDialogProps> = ({
               Verification Results:
               {nodeEdit.verification.testResults.every((r: any) => r.success) && (
                 <span style={{ marginLeft: '8px', color: 'green' }}>
-                  ✅ OVERALL RESULT: SUCCESS
+                  ✅
                 </span>
               )}
             </Typography>

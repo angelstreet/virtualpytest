@@ -199,9 +199,9 @@ export const useAction = () => {
     lines.push('');
 
     if (result.success) {
-      lines.push(`✅ OVERALL RESULT: SUCCESS`);
+      lines.push(`✅ SUCCESS`);
     } else {
-      lines.push(`❌ OVERALL RESULT: FAILED`);
+      lines.push(`❌ FAILED`);
     }
 
     // Count main actions vs retry actions for better reporting

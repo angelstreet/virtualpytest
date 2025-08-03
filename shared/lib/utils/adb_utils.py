@@ -818,6 +818,9 @@ class ADBUtils:
                 print(f"[@lib:adbUtils:smart_element_search] SUCCESS: Found {len(matches)} matching elements")
             else:
                 print(f"[@lib:adbUtils:smart_element_search] No elements found matching '{search_term}'")
+                print(f"[@lib:adbUtils:smart_element_search] UI DUMP - Available elements ({len(elements)}):")
+                for i, el in enumerate(elements):
+                    print(f"[@lib:adbUtils:smart_element_search]   {i+1}. text='{el.text}' desc='{el.content_desc}' id='{el.resource_id}' class='{el.class_name}'")
             
             return success, matches, ""
             

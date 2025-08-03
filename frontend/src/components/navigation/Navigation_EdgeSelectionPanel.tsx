@@ -424,9 +424,9 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
                 sx={{
                   mt: 0.5,
                   p: 0.5,
-                  bgcolor: edgeHook.runResult.includes('❌ OVERALL RESULT: FAILED')
+                  bgcolor: edgeHook.runResult.includes('❌ FAILED')
                     ? 'error.light'
-                    : edgeHook.runResult.includes('✅ OVERALL RESULT: SUCCESS')
+                    : edgeHook.runResult.includes('✅ SUCCESS')
                       ? 'success.light'
                       : edgeHook.runResult.includes('❌') && !edgeHook.runResult.includes('✅')
                         ? 'error.light'

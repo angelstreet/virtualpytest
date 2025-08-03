@@ -1048,8 +1048,15 @@ class AppiumUtils:
             matches.sort(key=lambda x: x['match_confidence'], reverse=True)
             
             print(f"[@lib:appiumUtils:smart_element_search] Found {len(matches)} matches")
-            for i, match in enumerate(matches[:5]):  # Log top 5 matches
-                print(f"[@lib:appiumUtils:smart_element_search]   {i+1}. {match['match_reason']} (confidence: {match['match_confidence']:.1f})")
+            if len(matches) > 0:
+                for i, match in enumerate(matches[:5]):  # Log top 5 matches
+                    print(f"[@lib:appiumUtils:smart_element_search]   {i+1}. {match['match_reason']} (confidence: {match['match_confidence']:.1f})")
+            else:
+                print(f"[@lib:appiumUtils:smart_element_search] UI DUMP - Available elements ({len(elements)}):")
+                for i, el in enumerate(elements):
+                    text = getattr(el, 'text', '') or ''
+                    name = getattr(el, 'name', '') or getattr(el, 'contentDesc', '') or ''
+                    print(f"[@lib:appiumUtils:smart_element_search]   {i+1}. text='{text}' name='{name}' class='{getattr(el, 'className', '')}'")
             
             return True, matches, ""
             
