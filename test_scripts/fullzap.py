@@ -301,19 +301,18 @@ def main():
                     if action_screenshot:
                         screenshot_paths.append(action_screenshot)
                     
-                    # Record step execution using utility function
-                    from shared.lib.utils.report_utils import record_action_step
-                    record_action_step(
-                        team_id=team_id,
-                        script_name='fullzap',
-                        step_number=step_num + 4,  # Continue numbering after navigation steps
-                        action_name=action_command,
-                        iteration=iteration,
-                        max_iterations=max_iteration,
-                        success=True,
-                        execution_time_ms=iteration_execution_time,
-                        screenshot_path=action_screenshot
-                    )
+                    # Record step result (same as navigation steps)
+                    step_results.append({
+                        'step_number': step_num + 4,  # Continue numbering after navigation steps
+                        'success': True,
+                        'screenshot_path': action_screenshot,
+                        'message': f"Action step {step_num}: Execute {action_command} (iteration {iteration}/{max_iteration})",
+                        'execution_time_ms': iteration_execution_time,
+                        'step_category': 'action',
+                        'action_name': action_command,
+                        'iteration': iteration,
+                        'max_iterations': max_iteration
+                    })
                     
                     # Brief pause between iterations to avoid overwhelming the device
                     if iteration < max_iteration:
@@ -327,20 +326,19 @@ def main():
                     if failed_screenshot:
                         screenshot_paths.append(failed_screenshot)
                     
-                    # Record failed step execution using utility function
-                    from shared.lib.utils.report_utils import record_action_step
-                    record_action_step(
-                        team_id=team_id,
-                        script_name='fullzap',
-                        step_number=step_num + 4,  # Continue numbering after navigation steps  
-                        action_name=action_command,
-                        iteration=iteration,
-                        max_iterations=max_iteration,
-                        success=False,
-                        execution_time_ms=iteration_execution_time,
-                        screenshot_path=failed_screenshot,
-                        error_message=iteration_error
-                    )
+                    # Record failed step result (same as navigation steps)
+                    step_results.append({
+                        'step_number': step_num + 4,  # Continue numbering after navigation steps
+                        'success': False,
+                        'screenshot_path': failed_screenshot,
+                        'message': f"Action step {step_num}: Execute {action_command} (iteration {iteration}/{max_iteration})",
+                        'execution_time_ms': iteration_execution_time,
+                        'step_category': 'action',
+                        'action_name': action_command,
+                        'iteration': iteration,
+                        'max_iterations': max_iteration,
+                        'error_message': iteration_error
+                    })
                     
                     # Continue with remaining iterations even if one fails
             
