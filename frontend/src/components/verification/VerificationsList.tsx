@@ -420,6 +420,28 @@ export const VerificationsList: React.FC<VerificationsListProps> = React.memo(
     const content = (
       <Box sx={{ overflow: 'visible', position: 'relative' }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+          <FormControl size="small" sx={{ minWidth: 100 }}>
+            <Select
+              value={passCondition}
+              onChange={(e) => setPassCondition(e.target.value as 'all' | 'any')}
+              size="small"
+              sx={{
+                fontSize: '0.75rem',
+                height: '28px',
+                '& .MuiSelect-select': {
+                  padding: '4px 8px',
+                },
+              }}
+            >
+              <MenuItem value="all" sx={{ fontSize: '0.75rem' }}>
+                All must pass
+              </MenuItem>
+              <MenuItem value="any" sx={{ fontSize: '0.75rem' }}>
+                Any can pass
+              </MenuItem>
+            </Select>
+          </FormControl>
+          
           <Button
             size="small"
             variant="outlined"
@@ -429,58 +451,6 @@ export const VerificationsList: React.FC<VerificationsListProps> = React.memo(
           >
             Add
           </Button>
-          
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <FormControl size="small" sx={{ minWidth: 100 }}>
-              <Select
-                value={passCondition}
-                onChange={(e) => setPassCondition(e.target.value as 'all' | 'any')}
-                size="small"
-                sx={{
-                  fontSize: '0.75rem',
-                  height: '28px',
-                  '& .MuiSelect-select': {
-                    padding: '4px 8px',
-                  },
-                }}
-              >
-                <MenuItem value="all" sx={{ fontSize: '0.75rem' }}>
-                  All must pass
-                </MenuItem>
-                <MenuItem value="any" sx={{ fontSize: '0.75rem' }}>
-                  Any can pass
-                </MenuItem>
-              </Select>
-            </FormControl>
-
-            <Button
-              size="small"
-              variant="outlined"
-              startIcon={loading ? <CircularProgress size={12} sx={{ color: 'inherit' }} /> : <PlayIcon />}
-              onClick={(event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                onTest();
-              }}
-              disabled={!areVerificationsValid || loading}
-              sx={{
-                minWidth: 'auto',
-                borderColor: '#444',
-                color: 'inherit',
-                fontSize: '0.75rem',
-                py: 0.25,
-                '&:hover': {
-                  borderColor: '#666',
-                },
-                '&:disabled': {
-                  borderColor: '#333',
-                  color: 'rgba(255,255,255,0.3)',
-                },
-              }}
-            >
-              {loading ? 'RUNNING...' : 'RUN'}
-            </Button>
-          </Box>
         </Box>
 
         <Box sx={{ mb: 0.5, overflow: 'visible' }}>
