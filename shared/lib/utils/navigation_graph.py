@@ -34,10 +34,11 @@ def create_networkx_graph(nodes: List[Dict], edges: List[Dict]) -> nx.DiGraph:
         label = node.get('label', '')
         
         # Entry point detection for new format
-        # Entry points are now identified by is_root flag since we don't have 'entry' type
         is_entry_point = (
-            node_data.get('is_root', False) or
-            label.upper() == 'ENTRY'
+            node_data.get('type') == 'entry' or
+            node.get('node_type') == 'entry' or
+            label.upper() == 'ENTRY' or
+            node_data.get('is_root', False)
         )
         
         print(f"[@navigation:graph:create_networkx_graph] Adding node: {label} ({node_id})")

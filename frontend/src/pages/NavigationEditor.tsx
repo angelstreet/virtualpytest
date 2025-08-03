@@ -65,6 +65,7 @@ const nodeTypes = {
   screen: UINavigationNode,
   menu: UIMenuNode,
   action: UIActionNode,
+  entry: UINavigationNode, // Entry nodes use the same component as screen nodes but with different styling
 };
 
 const edgeTypes = {
