@@ -168,12 +168,19 @@ class ActionExecutor:
             # Use action params directly - wait_time is already in params from database
             params = action.get('params', {})
             
+            # Debug: Print host and request details
+            print(f"[@lib:action_executor:_execute_single_action] DEBUG: Host info: {self.host}")
+            print(f"[@lib:action_executor:_execute_single_action] DEBUG: Device ID: {self.device_id}")
+            print(f"[@lib:action_executor:_execute_single_action] DEBUG: Request data: {{'command': '{action.get('command')}', 'params': {params}, 'device_id': '{self.device_id or 'device1'}'}}")
+            
             # Proxy to host remote command endpoint using direct host info (no Flask context needed)
             response_data, status_code = proxy_to_host_direct(self.host, '/host/remote/executeCommand', 'POST', {
                 'command': action.get('command'),
                 'params': params,
                 'device_id': self.device_id or 'device1'  # Include device_id in request
             })
+            
+            print(f"[@lib:action_executor:_execute_single_action] DEBUG: Response: {response_data}, Status: {status_code}")
             
             execution_time = int((time.time() - start_time) * 1000)
             success = status_code == 200 and response_data.get('success', False)
