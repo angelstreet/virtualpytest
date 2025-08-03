@@ -6,7 +6,6 @@ import { useNavigation } from '../../contexts/navigation/NavigationContext';
 
 import { useValidationColors } from '../../hooks/validation/useValidationColors';
 import type { UINavigationNode as UINavigationNodeType, UINavigationEdge } from '../../types/pages/Navigation_Types';
-import { getZIndex } from '../../utils/zIndexUtils';
 
 export const UIActionNode: React.FC<NodeProps<UINavigationNodeType['data']>> = ({
   data,
@@ -59,72 +58,109 @@ export const UIActionNode: React.FC<NodeProps<UINavigationNodeType['data']>> = (
     };
   }, [id]);
 
-  // Dynamic colors based on current position and validation state
-  const nodeColors = React.useMemo(() => {
-    return getNodeColors(id);
-  }, [getNodeColors, id]);
+  // Check if this is the current position
+  const isCurrentPosition = currentNodeId === id;
 
-  // Check if this is the current node
-  const isCurrentNode = currentNodeId === id;
+  // Get dynamic colors based on validation status
+  const nodeColors = getNodeColors(data.type);
 
-  // Dynamic styling for action nodes (circular)
-  const nodeStyle: React.CSSProperties = {
-    borderRadius: '50%', // Make it circular
-    width: '80px',
-    height: '80px',
-    padding: '8px',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontSize: '11px',
-    textAlign: 'center',
-    color: '#333',
-    position: 'relative',
-    cursor: 'pointer',
-    border: `3px solid ${nodeColors.borderColor}`,
-    backgroundColor: nodeColors.backgroundColor,
-    transition: 'all 0.2s ease',
-    zIndex: isCurrentNode ? getZIndex('currentNode') : getZIndex('node'),
+  // Action node colors from validationColors
+  const actionColors = NODE_TYPE_COLORS.action;
+
+  // Current position styling - purple theme (same as navigation node)
+  const currentPositionStyle = {
+    border: '3px solid #9c27b0',
+    boxShadow: 'none', // Remove shadow
+    animation: 'currentPositionPulse 2s ease-in-out infinite',
   };
 
-  // Verification indicators
+  const handleScreenshotDoubleClick = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent node double-click from triggering
+    e.preventDefault(); // Prevent default double-click behavior
+    e.nativeEvent.stopImmediatePropagation(); // Stop all event propagation immediately
+
+    console.log('[@component:UIActionNode] Screenshot double-clicked, preventing node focus');
+
+    if (screenshotUrl) {
+      setIsScreenshotModalOpen(true);
+    }
+  };
+
+  const closeModal = () => {
+    setIsScreenshotModalOpen(false);
+  };
+
+  // Verification indicators (same as navigation node)
   const showVerificationBadge = data.verifications && data.verifications.length > 0;
   const verificationCount = data.verifications?.length || 0;
 
-  // Sub-tree indicators for actions (actions shouldn't have subtrees, but keeping consistent interface)
+  // Sub-tree indicators (same as navigation node)
   const showSubtreeBadge = data.has_subtree && data.subtree_count && data.subtree_count > 0;
-
-  // Current node indicator (different styling for circular node)
-  const showCurrentIndicator = isCurrentNode;
 
   return (
     <>
       <div
-        style={nodeStyle}
+        style={{
+          // Circular shape - main difference from navigation node
+          borderRadius: '50%',
+          width: '120px',
+          height: '120px',
+          // Same styling as navigation node but adapted for circle
+          background: actionColors.background,
+          border: isCurrentPosition
+            ? currentPositionStyle.border // Purple border for current position (highest priority)
+            : `2px solid ${nodeColors.border}`, // Use validation colors for border
+          padding: '12px',
+          fontSize: '11px',
+          color: actionColors.textColor,
+          boxShadow: 'none !important', // Remove all shadows (same as navigation node)
+          WebkitBoxShadow: 'none !important',
+          MozBoxShadow: 'none !important',
+          filter: 'none !important',
+          WebkitFilter: 'none !important',
+          position: 'relative',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          overflow: 'hidden',
+          cursor: 'pointer',
+          opacity: 1,
+          animation: isCurrentPosition ? currentPositionStyle.animation : 'none',
+          textAlign: 'center',
+        }}
+        className={nodeColors.className || ''}
         data-node-type="action"
         data-node-id={id}
         title={`Action: ${data.label}${data.description ? `\n${data.description}` : ''}`}
       >
-        {/* Current node indicator - positioned for circular node */}
-        {showCurrentIndicator && (
+        {/* Current Position Indicator (same as navigation node) */}
+        {isCurrentPosition && (
           <div
             style={{
               position: 'absolute',
-              top: '-8px',
-              right: '-8px',
-              width: '16px',
-              height: '16px',
-              borderRadius: '50%',
-              backgroundColor: '#4CAF50',
-              border: '2px solid white',
-              zIndex: getZIndex('currentNodeIndicator'),
+              top: '8px',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              backgroundColor: '#9c27b0',
+              color: 'white',
+              fontSize: '10px',
+              fontWeight: 'bold',
+              padding: '2px 6px',
+              borderRadius: '4px',
+              zIndex: 15, // Same as navigation node
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              minWidth: '24px',
+              height: '20px',
             }}
-            title="Current Position"
-          />
+          >
+            ↓
+          </div>
         )}
 
-        {/* Verification badge - top left for circular node */}
+        {/* Verification badge - top left (same as navigation node) */}
         {showVerificationBadge && (
           <div
             style={{
@@ -142,7 +178,7 @@ export const UIActionNode: React.FC<NodeProps<UINavigationNodeType['data']>> = (
               alignItems: 'center',
               justifyContent: 'center',
               border: '2px solid white',
-              zIndex: getZIndex('verificationBadge'),
+              zIndex: 10, // Same as navigation node badges
             }}
             title={`${verificationCount} verification${verificationCount !== 1 ? 's' : ''}`}
           >
@@ -150,7 +186,7 @@ export const UIActionNode: React.FC<NodeProps<UINavigationNodeType['data']>> = (
           </div>
         )}
 
-        {/* Subtree badge - bottom left for circular node */}
+        {/* Subtree badge - bottom left (same as navigation node) */}
         {showSubtreeBadge && (
           <div
             style={{
@@ -168,7 +204,7 @@ export const UIActionNode: React.FC<NodeProps<UINavigationNodeType['data']>> = (
               alignItems: 'center',
               justifyContent: 'center',
               border: '2px solid white',
-              zIndex: getZIndex('subtreeBadge'),
+              zIndex: 10, // Same as navigation node badges
             }}
             title={`${data.subtree_count} subtree${data.subtree_count !== 1 ? 's' : ''}`}
           >
@@ -177,49 +213,235 @@ export const UIActionNode: React.FC<NodeProps<UINavigationNodeType['data']>> = (
         )}
 
         {/* Action icon - center of circle */}
-        <div style={{ fontSize: '24px', marginBottom: '2px' }}>⚡</div>
+        <div style={{ fontSize: '32px', marginBottom: '4px' }}>⚡</div>
         
-        {/* Node label - truncated for small circular space */}
+        {/* Node label - adapted for circular space */}
         <div
           style={{
-            fontSize: '9px',
+            fontSize: '10px',
             fontWeight: 'bold',
             lineHeight: '1.1',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-            maxWidth: '60px',
+            maxWidth: '90px',
+            wordWrap: 'break-word',
+            textAlign: 'center',
           }}
         >
           {data.label}
         </div>
 
-        {/* Node handles - positioned for circular node */}
+        {/* Screenshot section (same concept as navigation node but adapted for circle) */}
+        {data.screenshot && (
+          <div
+            style={{
+              position: 'absolute',
+              bottom: '8px',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              width: '20px',
+              height: '20px',
+              borderRadius: '50%',
+              overflow: 'hidden',
+              border: '1px solid #ddd',
+              cursor: 'pointer',
+            }}
+            onClick={handleScreenshotDoubleClick}
+            title="Double-click to view full screenshot"
+          >
+            <img
+              src={screenshotUrl || data.screenshot}
+              alt={`Screenshot for ${data.label}`}
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+              }}
+            />
+          </div>
+        )}
+
+        {/* Node handles - same as navigation node but positioned for circle */}
+        {/* Left Handles - TARGET for receiving connections */}
+        <Handle
+          type="target"
+          position={Position.Left}
+          id="left-target"
+          isConnectable={true}
+          isConnectableStart={false}
+          isConnectableEnd={true}
+          style={{
+            background: '#1976d2',
+            border: '2px solid #fff',
+            width: '16px',
+            height: '16px',
+            borderRadius: '50%',
+            left: -7,
+            top: '50%',
+            transform: 'translateY(-50%)',
+            cursor: 'crosshair',
+            zIndex: 11, // Same as navigation node
+          }}
+        />
+
+        {/* Left: SOURCE for sending connections - same position, lower z-index */}
+        <Handle
+          type="source"
+          position={Position.Left}
+          id="left-source"
+          isConnectable={true}
+          isConnectableStart={true}
+          isConnectableEnd={false}
+          style={{
+            background: '#ff5722',
+            border: '2px solid #fff',
+            width: '16px',
+            height: '16px',
+            borderRadius: '50%',
+            left: -7,
+            top: '50%',
+            transform: 'translateY(-50%)',
+            cursor: 'crosshair',
+            zIndex: 10, // Same as navigation node
+            opacity: 0,
+          }}
+        />
+
+        {/* Right Handles - SOURCE for sending connections */}
+        <Handle
+          type="source"
+          position={Position.Right}
+          id="right-source"
+          isConnectable={true}
+          isConnectableStart={true}
+          isConnectableEnd={false}
+          style={{
+            background: '#ff5722',
+            border: '2px solid #fff',
+            width: '16px',
+            height: '16px',
+            borderRadius: '50%',
+            right: -7,
+            top: '50%',
+            transform: 'translateY(-50%)',
+            cursor: 'crosshair',
+            zIndex: 11, // Same as navigation node
+          }}
+        />
+
+        {/* Right: TARGET for receiving connections - same position, lower z-index */}
+        <Handle
+          type="target"
+          position={Position.Right}
+          id="right-target"
+          isConnectable={true}
+          isConnectableStart={false}
+          isConnectableEnd={true}
+          style={{
+            background: '#1976d2',
+            border: '2px solid #fff',
+            width: '16px',
+            height: '16px',
+            borderRadius: '50%',
+            right: -7,
+            top: '50%',
+            transform: 'translateY(-50%)',
+            cursor: 'crosshair',
+            zIndex: 10, // Same as navigation node
+            opacity: 0,
+          }}
+        />
+
+        {/* Top Handles */}
         <Handle
           type="target"
           position={Position.Top}
+          id="top-target"
+          isConnectable={true}
+          isConnectableStart={false}
+          isConnectableEnd={true}
           style={{
-            background: '#555',
-            width: '8px',
-            height: '8px',
-            border: '2px solid white',
-            top: '-4px',
+            background: '#1976d2',
+            border: '2px solid #fff',
+            width: '16px',
+            height: '16px',
+            borderRadius: '50%',
+            top: -7,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            cursor: 'crosshair',
+            zIndex: 11, // Same as navigation node
           }}
         />
+
+        <Handle
+          type="source"
+          position={Position.Top}
+          id="top-source"
+          isConnectable={true}
+          isConnectableStart={true}
+          isConnectableEnd={false}
+          style={{
+            background: '#ff5722',
+            border: '2px solid #fff',
+            width: '16px',
+            height: '16px',
+            borderRadius: '50%',
+            top: -7,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            cursor: 'crosshair',
+            zIndex: 10, // Same as navigation node
+            opacity: 0,
+          }}
+        />
+
+        {/* Bottom Handles */}
         <Handle
           type="source"
           position={Position.Bottom}
+          id="bottom-source"
+          isConnectable={true}
+          isConnectableStart={true}
+          isConnectableEnd={false}
           style={{
-            background: '#555',
-            width: '8px',
-            height: '8px',
-            border: '2px solid white',
-            bottom: '-4px',
+            background: '#ff5722',
+            border: '2px solid #fff',
+            width: '16px',
+            height: '16px',
+            borderRadius: '50%',
+            bottom: -7,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            cursor: 'crosshair',
+            zIndex: 11, // Same as navigation node
+          }}
+        />
+
+        <Handle
+          type="target"
+          position={Position.Bottom}
+          id="bottom-target"
+          isConnectable={true}
+          isConnectableStart={false}
+          isConnectableEnd={true}
+          style={{
+            background: '#1976d2',
+            border: '2px solid #fff',
+            width: '16px',
+            height: '16px',
+            borderRadius: '50%',
+            bottom: -7,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            cursor: 'crosshair',
+            zIndex: 10, // Same as navigation node
+            opacity: 0,
           }}
         />
       </div>
 
-      {/* Screenshot Modal - same as other node types */}
+      {/* Screenshot Modal - same as navigation node */}
       {isScreenshotModalOpen && screenshotUrl && (
         <div
           style={{
@@ -232,9 +454,9 @@ export const UIActionNode: React.FC<NodeProps<UINavigationNodeType['data']>> = (
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            zIndex: getZIndex('screenshotModal'),
+            zIndex: 1000, // High z-index for modal
           }}
-          onClick={() => setIsScreenshotModalOpen(false)}
+          onClick={closeModal}
         >
           <img
             src={screenshotUrl}
