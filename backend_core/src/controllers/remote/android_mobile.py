@@ -369,12 +369,12 @@ class AndroidMobileRemoteController(RemoteControllerInterface):
         try:
             print(f"Remote[{self.device_type.upper()}]: Direct click on element: '{element_identifier}'")
             
-            # First check if element exists to get detailed error information
+            # Find element using single UI dump
             exists, element, error = self.adb_utils.check_element_exists(self.android_device_id, element_identifier)
             
             if exists and element:
-                # Use ADB search and click method (correct method name)
-                success = self.adb_utils.click_element_by_search(self.android_device_id, element_identifier)
+                # Directly click the found element instead of re-searching (avoids double UI dump)
+                success = self.adb_utils.click_element(self.android_device_id, element)
                 
                 if success:
                     print(f"Remote[{self.device_type.upper()}]: Successfully clicked element: '{element_identifier}'")
