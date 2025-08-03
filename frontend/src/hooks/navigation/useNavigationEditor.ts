@@ -295,6 +295,12 @@ export const useNavigationEditor = () => {
     (_event: React.MouseEvent, edge: any) => {
       console.log('[@useNavigationEditor:onEdgeClick] Clicked edge:', edge);
       console.log('[@useNavigationEditor:onEdgeClick] All edges in navigation:', navigation.edges);
+      console.log('[@useNavigationEditor:onEdgeClick] Clicked edge handles:', {
+        source: edge.source,
+        target: edge.target,
+        sourceHandle: edge.sourceHandle,
+        targetHandle: edge.targetHandle
+      });
       
       // Find bidirectional edge (opposite direction)
       const oppositeEdge = navigation.edges.find(
@@ -383,8 +389,16 @@ export const useNavigationEditor = () => {
 
             console.log('[@useNavigationEditor:onEdgeClick] Auto-creating reverse edge:', reverseEdge);
 
+            // Check if this edge ID already exists (shouldn't happen but let's be safe)
+            const edgeExists = navigation.edges.find(e => e.id === reverseEdge.id);
+            if (edgeExists) {
+              console.warn('[@useNavigationEditor:onEdgeClick] Edge with this ID already exists!', reverseEdge.id);
+              return;
+            }
+
             // Add the reverse edge to navigation
             const updatedEdges = [...navigation.edges, reverseEdge];
+            console.log('[@useNavigationEditor:onEdgeClick] Adding reverse edge to edges array. Total edges will be:', updatedEdges.length);
             navigation.setEdges(updatedEdges);
             navigation.setHasUnsavedChanges(true);
 
