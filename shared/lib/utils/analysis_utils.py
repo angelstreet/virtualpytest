@@ -9,7 +9,7 @@ import os
 import time
 import json
 from typing import Dict, List, Any, Optional
-from utils.host_utils import get_controller
+from shared.lib.utils.host_utils import get_controller
 
 
 def load_recent_analysis_data(device_id: str, timeframe_minutes: int = 5, max_count: Optional[int] = None) -> Dict[str, Any]:
