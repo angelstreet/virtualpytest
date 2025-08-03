@@ -1,5 +1,5 @@
-/* Navigation Node Styling - Unified for all depths and modes */
-/* Remove ALL shadows from React Flow nodes and edges to ensure identical appearance */
+/* Navigation Node Styling - Clean, no legacy references */
+/* Remove ALL shadows from React Flow nodes and edges */
 .react-flow__node,
 .react-flow__node *,
 .react-flow__node > div,
@@ -8,15 +8,11 @@
 .react-flow__node:hover,
 .react-flow__node:focus,
 .react-flow__node:active,
-/* Target specific node types */
-.react-flow__node[data-id*="node-"],
-.react-flow__node .react-flow__node-default,
-.react-flow__node .react-flow__node-uiScreen {
+.react-flow__node[data-id*="node-"] {
   box-shadow: none !important;
   filter: none !important;
   text-shadow: none !important;
   drop-shadow: none !important;
-  /* Force remove any webkit/browser shadows */
   -webkit-box-shadow: none !important;
   -moz-box-shadow: none !important;
 }
@@ -60,10 +56,8 @@
   border-width: 3px !important;
 }
 
-/* AGGRESSIVE shadow removal - target any possible shadow source */
+/* Complete shadow removal for all node containers */
 div[data-id^="node-"],
-.react-flow__node-default div,
-.react-flow__node-uiScreen div,
 [class*="react-flow__node"] > div,
 [class*="react-flow__node"] * {
   box-shadow: none !important;

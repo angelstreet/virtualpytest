@@ -69,13 +69,12 @@ const nodeTypes = {
 };
 
 const edgeTypes = {
-  uiNavigation: NavigationEdgeComponent,
-  smoothstep: NavigationEdgeComponent,
+  navigation: NavigationEdgeComponent,
 };
 
 // Default options - defined outside component to prevent recreation
 const defaultEdgeOptions = {
-  type: 'uiNavigation',
+  type: 'navigation',
   animated: false,
   style: { strokeWidth: 2, stroke: '#b1b1b7' },
   markerEnd: {

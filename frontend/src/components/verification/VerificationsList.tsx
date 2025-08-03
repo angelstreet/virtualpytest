@@ -419,7 +419,35 @@ export const VerificationsList: React.FC<VerificationsListProps> = React.memo(
 
     const content = (
       <Box sx={{ overflow: 'visible', position: 'relative' }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+        <Box sx={{ mb: 0.5, overflow: 'visible' }}>
+          {verifications.map((verification, index) => (
+            <VerificationItem
+              key={index}
+              verification={verification}
+              index={index}
+              availableVerifications={availableVerifications}
+              modelReferences={modelReferences}
+              referencesLoading={referencesLoading}
+              testResult={testResults[index]}
+              onVerificationSelect={handleVerificationSelect}
+              onReferenceSelect={handleReferenceSelect}
+              onImageFilterChange={handleImageFilterChange}
+              onTextFilterChange={handleTextFilterChange}
+              onUpdateVerification={updateVerification}
+              onRemoveVerification={removeVerification}
+              onImageClick={handleImageClick}
+              onSourceImageClick={handleTextSourceImageClick}
+              processImageUrl={processImageUrl}
+              getCacheBustedUrl={getCacheBustedUrl}
+              onMoveUp={moveVerificationUp}
+              onMoveDown={moveVerificationDown}
+              canMoveUp={index > 0}
+              canMoveDown={index < verifications.length - 1}
+            />
+          ))}
+        </Box>
+
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', mt: 0.5, gap: 1 }}>
           <FormControl size="small" sx={{ minWidth: 100 }}>
             <Select
               value={passCondition}
@@ -451,34 +479,6 @@ export const VerificationsList: React.FC<VerificationsListProps> = React.memo(
           >
             Add
           </Button>
-        </Box>
-
-        <Box sx={{ mb: 0.5, overflow: 'visible' }}>
-          {verifications.map((verification, index) => (
-            <VerificationItem
-              key={index}
-              verification={verification}
-              index={index}
-              availableVerifications={availableVerifications}
-              modelReferences={modelReferences}
-              referencesLoading={referencesLoading}
-              testResult={testResults[index]}
-              onVerificationSelect={handleVerificationSelect}
-              onReferenceSelect={handleReferenceSelect}
-              onImageFilterChange={handleImageFilterChange}
-              onTextFilterChange={handleTextFilterChange}
-              onUpdateVerification={updateVerification}
-              onRemoveVerification={removeVerification}
-              onImageClick={handleImageClick}
-              onSourceImageClick={handleTextSourceImageClick}
-              processImageUrl={processImageUrl}
-              getCacheBustedUrl={getCacheBustedUrl}
-              onMoveUp={moveVerificationUp}
-              onMoveDown={moveVerificationDown}
-              canMoveUp={index > 0}
-              canMoveDown={index < verifications.length - 1}
-            />
-          ))}
         </Box>
 
         {/* Final Result indicator */}

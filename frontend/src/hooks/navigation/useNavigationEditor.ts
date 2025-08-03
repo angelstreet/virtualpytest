@@ -32,11 +32,11 @@ export const useNavigationEditor = () => {
         // Convert normalized data to frontend format
         const frontendNodes = treeData.nodes.map((node: any) => ({
           id: node.node_id,
-          type: 'uiScreen',
+          type: node.node_type || 'screen', // Use node_type directly as ReactFlow type
           position: { x: node.position_x, y: node.position_y },
           data: {
             label: node.label,
-            type: node.node_type,
+            type: node.node_type || 'screen',
             description: node.description,
             verifications: node.verifications, // Directly embedded
             ...node.data // Additional data
@@ -47,16 +47,15 @@ export const useNavigationEditor = () => {
           id: edge.edge_id,
           source: edge.source_node_id,
           target: edge.target_node_id,
-          type: 'uiNavigation',
-          sourceHandle: edge.data?.sourceHandle, // Extract handle info to root level
-          targetHandle: edge.data?.targetHandle, // Extract handle info to root level
+          type: 'navigation',
+          sourceHandle: edge.data?.sourceHandle,
+          targetHandle: edge.data?.targetHandle,
           data: {
-            label: edge.label, // Include the auto-generated label from database
-            action_sets: edge.action_sets, // NEW: action sets structure - REQUIRED
-            default_action_set_id: edge.default_action_set_id, // NEW: default action set ID - REQUIRED
+            label: edge.label,
+            action_sets: edge.action_sets,
+            default_action_set_id: edge.default_action_set_id,
             final_wait_time: edge.final_wait_time,
-            ...edge.data // Additional data
-            // NO LEGACY FIELDS: actions, retryActions removed
+            ...edge.data
           }
         }));
 
@@ -119,7 +118,7 @@ export const useNavigationEditor = () => {
         target: connection.target,
         sourceHandle: connection.sourceHandle || undefined,
         targetHandle: connection.targetHandle || undefined,
-        type: 'uiNavigation',
+        type: 'navigation',
         animated: false,
         style: {
           stroke: '#555',
@@ -150,6 +149,63 @@ export const useNavigationEditor = () => {
       };
 
       console.log('[@useNavigationEditor:onConnect] Creating edge:', newEdge);
+
+      // Handle parent inheritance based on handle direction: 
+      // Vertical handles = parent-child relationship (inherit parent + source node)
+      // Horizontal handles = sibling relationship (inherit same parent)
+      let updatedNodes = navigation.nodes;
+      const sourceParent = sourceNode.data.parent;
+      const targetParent = targetNode.data.parent;
+      
+      // Determine if this is a vertical connection (top/bottom handles)
+      const isVerticalConnection = connection.sourceHandle?.includes('top') || 
+                                   connection.sourceHandle?.includes('bottom') ||
+                                   connection.targetHandle?.includes('top') || 
+                                   connection.targetHandle?.includes('bottom');
+
+      if (!sourceParent && targetParent) {
+        // Source node has no parent, inherit from target
+        const newParent = isVerticalConnection 
+          ? [...targetParent, targetNode.id] // Vertical: parent + target node (child relationship)
+          : [...targetParent]; // Horizontal: same parent (sibling relationship)
+          
+        console.log(`[@useNavigationEditor:onConnect] Source node '${sourceNode.data.label}' inheriting ${isVerticalConnection ? 'child' : 'sibling'} relationship from '${targetNode.data.label}':`, newParent);
+        updatedNodes = navigation.nodes.map(node => 
+          node.id === sourceNode.id 
+            ? { ...node, data: { ...node.data, parent: newParent } }
+            : node
+        );
+        navigation.setNodes(updatedNodes);
+      } else if (!targetParent && sourceParent) {
+        // Target node has no parent, inherit from source
+        const newParent = isVerticalConnection 
+          ? [...sourceParent, sourceNode.id] // Vertical: parent + source node (child relationship)
+          : [...sourceParent]; // Horizontal: same parent (sibling relationship)
+          
+        console.log(`[@useNavigationEditor:onConnect] Target node '${targetNode.data.label}' inheriting ${isVerticalConnection ? 'child' : 'sibling'} relationship from '${sourceNode.data.label}':`, newParent);
+        updatedNodes = navigation.nodes.map(node => 
+          node.id === targetNode.id 
+            ? { ...node, data: { ...node.data, parent: newParent } }
+            : node
+        );
+        navigation.setNodes(updatedNodes);
+      } else if (!sourceParent && !targetParent) {
+        // Both nodes have no parent
+        if (isVerticalConnection) {
+          // For vertical connections, create parent-child relationship even without existing parents
+          console.log(`[@useNavigationEditor:onConnect] Creating parent-child relationship: '${targetNode.data.label}' becomes parent of '${sourceNode.data.label}'`);
+          updatedNodes = navigation.nodes.map(node => 
+            node.id === sourceNode.id 
+              ? { ...node, data: { ...node.data, parent: [targetNode.id] } }
+              : node
+          );
+          navigation.setNodes(updatedNodes);
+        } else {
+          console.log(`[@useNavigationEditor:onConnect] Both nodes have no parent - no inheritance needed for horizontal connection`);
+        }
+      } else {
+        console.log(`[@useNavigationEditor:onConnect] Both nodes already have parents - no inheritance needed`);
+      }
 
       // Add edge to current edges using ReactFlow's addEdge utility
       const updatedEdges = addEdge(newEdge, navigation.edges);
@@ -226,10 +282,10 @@ export const useNavigationEditor = () => {
 
   const addNewNode = useCallback(
     (type: string = 'screen', position: { x: number; y: number } = { x: 250, y: 250 }) => {
-      const validType = type as 'screen' | 'dialog' | 'popup' | 'overlay' | 'menu' | 'entry';
+      const validType = type as 'screen' | 'menu' | 'entry' | 'action';
       const newNode = {
         id: `node-${Date.now()}`,
-        type: 'uiScreen',
+        type: validType, // Use the node type directly as ReactFlow type
         position,
         data: {
           type: validType,
@@ -478,7 +534,7 @@ export const useNavigationEditor = () => {
 
       // Configuration
       defaultEdgeOptions: {
-        type: 'uiNavigation',
+        type: 'navigation',
         animated: false,
         style: { strokeWidth: 2, stroke: '#b1b1b7' },
         markerEnd: {
