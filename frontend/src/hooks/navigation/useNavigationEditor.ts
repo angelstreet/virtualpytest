@@ -118,7 +118,7 @@ export const useNavigationEditor = () => {
         target: connection.target,
         sourceHandle: connection.sourceHandle || undefined,
         targetHandle: connection.targetHandle || undefined,
-        type: 'navigation',
+        type: 'default',
         animated: false,
         style: {
           stroke: '#555',

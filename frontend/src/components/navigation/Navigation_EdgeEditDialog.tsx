@@ -136,7 +136,7 @@ export const EdgeEditDialog: React.FC<EdgeEditDialogProps> = ({
         id: edgeForm.edgeId,
         source: 'unknown',
         target: 'unknown',
-        type: 'navigation',
+        type: 'default',
         data: {
           action_sets: [{
             id: 'temp',

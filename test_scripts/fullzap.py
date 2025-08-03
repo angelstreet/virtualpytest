@@ -140,7 +140,53 @@ def main():
         
         print(f"✅ [fullzap] Loaded tree with {len(nodes)} nodes and {len(edges)} edges")
 
-        # 4.5 Populate navigation cache with the loaded tree data
+        # 4.5 Validate action availability before navigation (fail fast)
+        print(f"🔍 [fullzap] Validating action '{action_command}' availability before navigation...")
+        
+        # Find the live node
+        live_node = find_node_by_label(nodes, "live")
+        if not live_node:
+            error_message = "Live node not found in navigation tree"
+            print(f"❌ [fullzap] {error_message}")
+            sys.exit(1)
+        
+        live_node_id = live_node.get('node_id')
+        print(f"🔍 [fullzap] Found live node with ID: '{live_node_id}'")
+        
+        # Debug: Show all available nodes in the tree
+        print(f"🔍 [fullzap] Available nodes in tree:")
+        for i, node in enumerate(nodes, 1):
+            node_id = node.get('node_id', 'unknown')
+            label = node.get('label', 'unknown')
+            node_type = node.get('node_type', 'unknown')
+            print(f"   {i}. ID: '{node_id}' | Label: '{label}' | Type: '{node_type}'")
+        
+        # Debug: Show all edges from live node
+        from shared.lib.utils.script_utils import find_edges_from_node
+        live_edges = find_edges_from_node(live_node_id, edges)
+        print(f"🔍 [fullzap] Available edges from live node:")
+        for i, edge in enumerate(live_edges, 1):
+            edge_id = edge.get('edge_id', 'unknown')
+            target_id = edge.get('target_node_id', 'unknown')
+            # Find target node label
+            target_node = next((n for n in nodes if n.get('node_id') == target_id), None)
+            target_label = target_node.get('label', 'unknown') if target_node else 'unknown'
+            print(f"   {i}. Edge '{edge_id}' → Target ID: '{target_id}' | Target Label: '{target_label}'")
+        
+        # Validate action edge exists
+        action_edge = find_edge_by_target_label(live_node_id, edges, nodes, action_command)
+        if not action_edge:
+            print(f"🔍 [fullzap] No target node '{action_command}' found, trying action command...")
+            action_edge = find_edge_with_action_command(live_node_id, edges, action_command)
+        
+        if not action_edge:
+            error_message = f"Action '{action_command}' not found from live node. Available actions: {[next((n.get('label') for n in nodes if n.get('node_id') == e.get('target_node_id')), 'unknown') for e in live_edges]}"
+            print(f"❌ [fullzap] {error_message}")
+            sys.exit(1)
+        
+        print(f"✅ [fullzap] Action '{action_command}' validated - edge found: {action_edge.get('edge_id')}")
+
+        # 4.6 Populate navigation cache with the loaded tree data
         from shared.lib.utils.navigation_cache import populate_cache
         print("🔄 [goto_live] Populating navigation cache...")
         populate_cache(tree_id, team_id, tree_result['nodes'], tree_result['edges'])
@@ -209,90 +255,76 @@ def main():
         else:
             print("🎉 [fullzap] Successfully navigated to live!")
             
-            # 7. NEW: Execute the action from the live node multiple times
-            print(f"⚡ [fullzap] Looking for action '{action_command}' from live node...")
+            # 7. Execute the validated action from the live node multiple times
+            print(f"⚡ [fullzap] Executing pre-validated action '{action_command}' from live node...")
             
-            # Find the live node using generic approach
+            # We already validated the action edge exists, so just find it again
             live_node = find_node_by_label(nodes, "live")
-            if not live_node:
-                error_message = "Live node not found in navigation tree"
+            live_node_id = live_node.get('node_id')
+            
+            # Get the pre-validated action edge
+            validated_action_edge = find_edge_by_target_label(live_node_id, edges, nodes, action_command)
+            if not validated_action_edge:
+                validated_action_edge = find_edge_with_action_command(live_node_id, edges, action_command)
+            
+            print(f"✅ [fullzap] Using validated edge: {validated_action_edge.get('edge_id')}")
+            print(f"🔄 [fullzap] Starting {max_iteration} iterations of action '{action_command}'...")
+            
+            # Capture pre-action screenshot
+            pre_action_screenshot = capture_validation_screenshot(host, selected_device, "pre_action", "fullzap")
+            if pre_action_screenshot:
+                screenshot_paths.append(pre_action_screenshot)
+            
+            # Execute the action multiple times
+            successful_iterations = 0
+            total_action_time = 0
+            
+            for iteration in range(1, max_iteration + 1):
+                print(f"🎬 [fullzap] Executing iteration {iteration}/{max_iteration} of action '{action_command}'...")
+                iteration_start_time = time.time()
+                
+                action_result = execute_edge_actions(host, selected_device, validated_action_edge, team_id=team_id)
+                iteration_execution_time = int((time.time() - iteration_start_time) * 1000)
+                total_action_time += iteration_execution_time
+                
+                if action_result.get('success'):
+                    print(f"✅ [fullzap] Iteration {iteration} completed successfully in {iteration_execution_time}ms")
+                    successful_iterations += 1
+                    
+                    # Brief pause between iterations to avoid overwhelming the device
+                    if iteration < max_iteration:
+                        time.sleep(0.5)
+                else:
+                    iteration_error = action_result.get('error', 'Unknown error')
+                    print(f"❌ [fullzap] Iteration {iteration} failed: {iteration_error}")
+                    # Continue with remaining iterations even if one fails
+            
+            # Capture post-action screenshot
+            post_action_screenshot = capture_validation_screenshot(host, selected_device, "post_action", "fullzap")
+            if post_action_screenshot:
+                screenshot_paths.append(post_action_screenshot)
+            
+            # Summary of action execution
+            average_time = total_action_time / max_iteration if max_iteration > 0 else 0
+            success_rate = (successful_iterations / max_iteration * 100) if max_iteration > 0 else 0
+            
+            print(f"📊 [fullzap] Action execution summary:")
+            print(f"   • Total iterations: {max_iteration}")
+            print(f"   • Successful: {successful_iterations}")
+            print(f"   • Success rate: {success_rate:.1f}%")
+            print(f"   • Average time per iteration: {average_time:.0f}ms")
+            print(f"   • Total action time: {total_action_time}ms")
+            
+            if successful_iterations == max_iteration:
+                print(f"✅ [fullzap] All {max_iteration} iterations of action '{action_command}' completed successfully!")
+                overall_success = True
+            elif successful_iterations > 0:
+                print(f"⚠️ [fullzap] {successful_iterations}/{max_iteration} iterations succeeded")
+                overall_success = True  # Partial success is still considered success
+            else:
+                error_message = f"All {max_iteration} iterations of action '{action_command}' failed"
                 print(f"❌ [fullzap] {error_message}")
                 overall_success = False
-            else:
-                live_node_id = live_node.get('node_id')
-                print(f"🔍 [fullzap] Found live node with ID: '{live_node_id}'")
-                
-                # Find edge to target action node using generic approach
-                action_edge = find_edge_by_target_label(live_node_id, edges, nodes, action_command)
-                
-                # If not found by target label, try by action command in edge
-                if not action_edge:
-                    print(f"🔍 [fullzap] No target node '{action_command}' found, trying action command...")
-                    action_edge = find_edge_with_action_command(live_node_id, edges, action_command)
-            
-                if not action_edge:
-                    error_message = f"Action '{action_command}' not found from live node"
-                    print(f"❌ [fullzap] {error_message}")
-                    overall_success = False
-                else:
-                    print(f"✅ [fullzap] Found action '{action_command}' in edge: {action_edge.get('edge_id')}")
-                    print(f"🔄 [fullzap] Starting {max_iteration} iterations of action '{action_command}'...")
-                    
-                    # Capture pre-action screenshot
-                    pre_action_screenshot = capture_validation_screenshot(host, selected_device, "pre_action", "fullzap")
-                    if pre_action_screenshot:
-                        screenshot_paths.append(pre_action_screenshot)
-                    
-                    # Execute the action multiple times
-                    successful_iterations = 0
-                    total_action_time = 0
-                    
-                    for iteration in range(1, max_iteration + 1):
-                        print(f"🎬 [fullzap] Executing iteration {iteration}/{max_iteration} of action '{action_command}'...")
-                        iteration_start_time = time.time()
-                        
-                        action_result = execute_edge_actions(host, selected_device, action_edge, team_id=team_id)
-                        iteration_execution_time = int((time.time() - iteration_start_time) * 1000)
-                        total_action_time += iteration_execution_time
-                        
-                        if action_result.get('success'):
-                            print(f"✅ [fullzap] Iteration {iteration} completed successfully in {iteration_execution_time}ms")
-                            successful_iterations += 1
-                            
-                            # Brief pause between iterations to avoid overwhelming the device
-                            if iteration < max_iteration:
-                                time.sleep(0.5)
-                        else:
-                            iteration_error = action_result.get('error', 'Unknown error')
-                            print(f"❌ [fullzap] Iteration {iteration} failed: {iteration_error}")
-                            # Continue with remaining iterations even if one fails
-                    
-                    # Capture post-action screenshot
-                    post_action_screenshot = capture_validation_screenshot(host, selected_device, "post_action", "fullzap")
-                    if post_action_screenshot:
-                        screenshot_paths.append(post_action_screenshot)
-                    
-                    # Summary of action execution
-                    average_time = total_action_time / max_iteration if max_iteration > 0 else 0
-                    success_rate = (successful_iterations / max_iteration * 100) if max_iteration > 0 else 0
-                    
-                    print(f"📊 [fullzap] Action execution summary:")
-                    print(f"   • Total iterations: {max_iteration}")
-                    print(f"   • Successful: {successful_iterations}")
-                    print(f"   • Success rate: {success_rate:.1f}%")
-                    print(f"   • Average time per iteration: {average_time:.0f}ms")
-                    print(f"   • Total action time: {total_action_time}ms")
-                    
-                    if successful_iterations == max_iteration:
-                        print(f"✅ [fullzap] All {max_iteration} iterations of action '{action_command}' completed successfully!")
-                        overall_success = True
-                    elif successful_iterations > 0:
-                        print(f"⚠️ [fullzap] {successful_iterations}/{max_iteration} iterations succeeded")
-                        overall_success = True  # Partial success is still considered success
-                    else:
-                        error_message = f"All {max_iteration} iterations of action '{action_command}' failed"
-                        print(f"❌ [fullzap] {error_message}")
-                        overall_success = False
         
         # 8. Summary
         total_execution_time = int((time.time() - start_time) * 1000)

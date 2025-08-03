@@ -47,7 +47,7 @@ export const useNestedNavigation = ({
       id: edge.edge_id,
       source: edge.source_node_id,
       target: edge.target_node_id,
-      type: 'navigation',
+      type: 'default',
       sourceHandle: edge.data?.sourceHandle,
       targetHandle: edge.data?.targetHandle,
       data: {
