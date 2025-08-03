@@ -534,7 +534,7 @@ export const MonitoringPlayer: React.FC<MonitoringPlayerProps> = ({
             sx={{
               position: 'absolute',
               bottom: 12,
-              left: '172px', // Adjusted to account for both subtitle buttons
+              left: '148px', // Adjusted to account for all three buttons
               right: '80px',
             }}
           >
