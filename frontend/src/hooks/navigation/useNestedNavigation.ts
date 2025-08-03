@@ -30,11 +30,11 @@ export const useNestedNavigation = ({
     // Convert to frontend format (same logic as NavigationEditor)
     const frontendNodes = (treeData.nodes || []).map((dbNode: any) => ({
       id: dbNode.node_id,
-      type: 'uiScreen',
+      type: dbNode.data?.type || dbNode.node_type || 'screen', // Use data.type directly
       position: { x: dbNode.position_x, y: dbNode.position_y },
       data: {
         label: dbNode.label,
-        type: dbNode.node_type,
+        type: dbNode.data?.type || dbNode.node_type || 'screen',
         description: dbNode.description,
         verifications: dbNode.verifications,
         has_subtree: dbNode.has_subtree,
@@ -63,8 +63,8 @@ export const useNestedNavigation = ({
   }, [navigationConfig]);
 
   const handleNodeDoubleClick = useCallback(async (_event: React.MouseEvent, node: any) => {
-    // 1. Skip entry type nodes
-    if (node.data?.type === 'entry') {
+    // 1. Skip action nodes - they don't have sub-navigation
+    if (node.data?.type === 'action') {
       return;
     }
 
@@ -96,7 +96,7 @@ export const useNestedNavigation = ({
         // Add parent node context to nested tree
         const parentWithContext = {
           id: node.id, // Use original parent node ID
-          type: 'uiScreen',
+          type: node.data.type || 'screen', // Use data.type directly
           position: { x: 200, y: 200 },
           data: {
             label: node.data.label,
@@ -184,7 +184,7 @@ export const useNestedNavigation = ({
       // Always start new subtree with parent node displayed graphically with context
       const frontendNodes = [{
         id: parentNode.id, // Use original parent node ID
-        type: 'uiScreen',
+        type: parentNode.data.type || 'screen', // Use data.type directly
         position: { x: 200, y: 200 },
         data: {
           label: parentNode.data.label,

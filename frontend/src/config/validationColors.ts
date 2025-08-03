@@ -41,6 +41,12 @@ export const NODE_TYPE_COLORS = {
     textColor: '#1b5e20',
     badgeColor: '#388e3c',
   },
+  action: {
+    background: 'linear-gradient(135deg, #fff3e0 0%, #ffcc80 100%)',
+    border: '#ff9800',
+    textColor: '#e65100',
+    badgeColor: '#f57c00',
+  },
 } as const;
 
 // UI Badge colors for different badge types

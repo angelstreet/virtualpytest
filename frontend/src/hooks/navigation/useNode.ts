@@ -245,6 +245,12 @@ export const useNode = (props?: UseNodeProps) => {
     ): Promise<NavigationStep[]> => {
       if (!props?.treeId) return [];
 
+      // Check if target is an action node - action nodes are not navigatable destinations
+      if (selectedNode.data.type === 'action') {
+        setNavigationError('Cannot navigate to action nodes - they are operations, not destinations');
+        return [];
+      }
+
       setIsLoadingPreview(true);
       setNavigationError(null);
 
@@ -304,6 +310,12 @@ export const useNode = (props?: UseNodeProps) => {
   const executeNavigation = useCallback(
     async (selectedNode: UINavigationNode) => {
       if (!props?.treeId) return;
+
+      // Check if target is an action node - action nodes are not navigatable destinations
+      if (selectedNode.data.type === 'action') {
+        setNavigationError('Cannot navigate to action nodes - they are operations, not destinations');
+        return;
+      }
 
       setIsExecuting(true);
       setNavigationError(null);

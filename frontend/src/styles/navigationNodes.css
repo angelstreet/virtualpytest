@@ -54,6 +54,12 @@
   border-width: 2px !important;
 }
 
+/* Action type nodes are circular */
+.react-flow__node[data-node-type='action'] {
+  border-radius: 50% !important;
+  border-width: 3px !important;
+}
+
 /* AGGRESSIVE shadow removal - target any possible shadow source */
 div[data-id^="node-"],
 .react-flow__node-default div,

@@ -843,11 +843,11 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
            let updatedNodeData: any;
 
            if (isNewNode) {
-             // Create new node
+             // Create new node - use data.type directly as ReactFlow type
              updatedNodeData = {
                id: nodeForm.id || `node-${Date.now()}`,
                position: { x: 100, y: 100 },
-               type: 'uiScreen',
+               type: nodeForm.type, // Use data.type directly (screen, menu, action)
                data: {
                  label: nodeForm.label,
                  type: nodeForm.type,
@@ -857,9 +857,10 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
              };
              setNodes([...nodes, updatedNodeData]);
            } else if (selectedNode) {
-             // Update existing node
+             // Update existing node - update ReactFlow type if data.type changed
              updatedNodeData = {
                ...selectedNode,
+               type: nodeForm.type, // Update ReactFlow type to match data.type
                data: {
                  ...selectedNode.data,
                  label: nodeForm.label,
@@ -896,7 +897,7 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
               label: updatedNodeData.data.label,
               position_x: currentPosition.x,
               position_y: currentPosition.y,
-              node_type: updatedNodeData.type || 'uiScreen',
+              node_type: updatedNodeData.type || 'screen',
               verifications: updatedNodeData.data.verifications || [],
               data: {
                 ...updatedNodeData.data,

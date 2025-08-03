@@ -33,6 +33,7 @@ import { NavigationEditorHeader } from '../components/navigation/Navigation_Edit
 import { UIMenuNode } from '../components/navigation/Navigation_MenuNode';
 import { NavigationEdgeComponent } from '../components/navigation/Navigation_NavigationEdge';
 import { UINavigationNode } from '../components/navigation/Navigation_NavigationNode';
+import { UIActionNode } from '../components/navigation/Navigation_ActionNode';
 import { NodeEditDialog } from '../components/navigation/Navigation_NodeEditDialog';
 import { NodeGotoPanel } from '../components/navigation/Navigation_NodeGotoPanel';
 import { NodeSelectionPanel } from '../components/navigation/Navigation_NodeSelectionPanel';
@@ -61,8 +62,9 @@ import { getZIndex } from '../utils/zIndexUtils';
 
 // Node types for React Flow - defined outside component to prevent recreation on every render
 const nodeTypes = {
-  uiScreen: UINavigationNode,
-  uiMenu: UIMenuNode,
+  screen: UINavigationNode,
+  menu: UIMenuNode,
+  action: UIActionNode,
 };
 
 const edgeTypes = {
@@ -385,11 +387,11 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = React.memo(
             // Convert normalized data to frontend format (same as useNavigationEditor)
             const frontendNodes = rawNodes.map((node: any) => ({
               id: node.node_id,
-              type: 'uiScreen',
+              type: node.data?.type || node.node_type || 'screen', // Use data.type directly
               position: { x: node.position_x, y: node.position_y },
               data: {
                 label: node.label,
-                type: node.node_type,
+                type: node.data?.type || node.node_type || 'screen',
                 description: node.description,
                 verifications: node.verifications, // Directly embedded
                 ...node.data // Additional data
@@ -544,161 +546,28 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = React.memo(
     // 1. INITIALIZATION & REFERENCES
     // ========================================
 
-    // Create a unified save function that handles both root and subtree saves
+    // Unified save function - works for both root and nested trees
     const handleSaveToConfig = useCallback(
-      async (saveTarget: 'root' | 'subtree' | 'auto' = 'auto') => {
+      async () => {
         try {
-          // Auto-determine save target if not specified
-          const shouldSaveAsSubtree =
-            saveTarget === 'subtree' || (saveTarget === 'auto' && isNested && currentLevel);
-
-          if (shouldSaveAsSubtree && currentLevel) {
-            // Save as subtree - check if subtree already exists
-            console.log(
-              `[@NavigationEditor] Saving as subtree for: ${currentLevel.parentNodeLabel}`,
-            );
-
-            // First, check if a subtree already exists for this node in the parent tree
-            const parentTreeId = currentLevel.parentTreeId || actualTreeId;
-            
-            console.log(`[@NavigationEditor] Saving nested tree with ${nodes.length} nodes at current canvas positions:`, 
-              nodes.map(n => ({ id: n.id, position: n.position })));
-            const checkResponse = await fetch(
-              `/server/navigationTrees/getNodeSubTrees/${parentTreeId}/${currentLevel.parentNodeId}`,
-            );
-            const checkResult = await checkResponse.json();
-
-            if (checkResult.success && checkResult.sub_trees && checkResult.sub_trees.length > 0) {
-              // Update existing subtree
-              const existingSubTree = checkResult.sub_trees[0]; // Use the first subtree
-              console.log(`[@NavigationEditor] Updating existing subtree: ${existingSubTree.id}`);
-
-              const updateResponse = await fetch(
-                `/server/navigationTrees/updateTree/${existingSubTree.id}`,
-                {
-                  method: 'PUT',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    tree_data: { 
-                      nodes: nodes.map(node => ({
-                        node_id: node.id,
-                        label: node.data.label,
-                        position_x: node.position?.x || 0, // ✅ Proper position normalization
-                        position_y: node.position?.y || 0, // ✅ Proper position normalization
-                        node_type: node.data.type || 'default',
-                        verifications: node.data.verifications || [],
-                        data: {
-                          ...node.data,
-                          description: node.data.description,
-                        }
-                      })), 
-                      edges: edges.map(edge => ({
-                        edge_id: edge.id,
-                        source_node_id: edge.source,
-                        target_node_id: edge.target,
-                        label: edge.data?.label,
-                        data: {
-                          ...(edge.data?.priority && { priority: edge.data.priority }),
-                          ...(edge.data?.threshold && { threshold: edge.data.threshold }),
-                          ...(edge.sourceHandle && { sourceHandle: edge.sourceHandle }),
-                          ...(edge.targetHandle && { targetHandle: edge.targetHandle }),
-                        },
-                        action_sets: edge.data?.action_sets || [],
-                        default_action_set_id: edge.data?.default_action_set_id || 'default',
-                        final_wait_time: edge.data?.final_wait_time || 0,
-                      }))
-                    },
-                    description: `Updated actions for ${currentLevel.parentNodeLabel}`,
-                    modification_type: 'update',
-                    changes_summary: 'Updated subtree from nested navigation editor',
-                  }),
-                },
-              );
-              const updateResult = await updateResponse.json();
-
-              if (updateResult.success) {
-                console.log('Sub-tree updated successfully');
-                setHasUnsavedChanges(false);
-              } else {
-                console.error('Failed to update sub-tree:', updateResult.message);
-                throw new Error(updateResult.message);
-              }
-            } else {
-              // Create new subtree
-              console.log(`[@NavigationEditor] Creating new subtree`);
-              const response = await fetch(`/server/navigationTrees/${parentTreeId}/nodes/${currentLevel.parentNodeId}/subtrees`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  name: currentLevel.treeName,
-                  tree_data: { 
-                    nodes: nodes.map(node => ({
-                      node_id: node.id,
-                      label: node.data.label,
-                      position_x: node.position?.x || 0, // ✅ Proper position normalization
-                      position_y: node.position?.y || 0, // ✅ Proper position normalization
-                      node_type: node.data.type || 'default',
-                      verifications: node.data.verifications || [],
-                      data: {
-                        ...node.data,
-                        description: node.data.description,
-                      }
-                    })), 
-                    edges: edges.map(edge => ({
-                      edge_id: edge.id,
-                      source_node_id: edge.source,
-                      target_node_id: edge.target,
-                      label: edge.data?.label,
-                      data: {
-                        ...(edge.data?.priority && { priority: edge.data.priority }),
-                        ...(edge.data?.threshold && { threshold: edge.data.threshold }),
-                        ...(edge.sourceHandle && { sourceHandle: edge.sourceHandle }),
-                        ...(edge.targetHandle && { targetHandle: edge.targetHandle }),
-                      },
-                      action_sets: edge.data?.action_sets || [],
-                      default_action_set_id: edge.data?.default_action_set_id || 'default',
-                      final_wait_time: edge.data?.final_wait_time || 0,
-                    }))
-                  },
-                  description: `Actions for ${currentLevel.parentNodeLabel}`,
-                }),
-              });
-              const result = await response.json();
-
-              if (result.success) {
-                console.log('Sub-tree created successfully');
-                setHasUnsavedChanges(false);
-              } else {
-                console.error('Failed to create sub-tree:', result.message);
-                throw new Error(result.message);
-              }
-            }
-          } else {
-            // Save as root tree using centralized tree ID
-            console.log(`[@NavigationEditor] Saving tree: ${actualTreeId}`);
-            await saveTreeWithStateUpdate(actualTreeId!);
-          }
+          const treeType = isNested && currentLevel ? 'nested' : 'root';
+          console.log(`[@NavigationEditor] Saving ${treeType} tree: ${actualTreeId} with ${nodes.length} nodes`);
+          
+          // All tree saves now use the same unified batch API
+          await saveTreeWithStateUpdate(actualTreeId!);
+          
+          console.log(`[@NavigationEditor] ${treeType} tree saved successfully`);
         } catch (error) {
           console.error('Error saving tree:', error);
-          // Re-throw to let the UI handle the error
           throw error;
         }
       },
-      [
-        isNested,
-        currentLevel,
-        actualTreeId,
-        nodes,
-        edges,
-        actualUserInterfaceId,
-        saveTreeWithStateUpdate,
-        setHasUnsavedChanges,
-      ],
+      [isNested, currentLevel, actualTreeId, nodes.length, saveTreeWithStateUpdate],
     );
 
     // Wrapper for the header component (matches expected signature)
     const handleSaveForHeader = useCallback(() => {
-      handleSaveToConfig('auto');
+      handleSaveToConfig();
     }, [handleSaveToConfig]);
 
 
@@ -948,7 +817,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = React.memo(
               {/* Side Panels */}
               {selectedNode || selectedEdge ? (
                 <>
-                  {selectedNode && selectedNode.data.type !== 'entry' ? (
+                  {selectedNode ? (
                     <>
                       {/* Node Selection Panel */}
                       <NodeSelectionPanel

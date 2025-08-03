@@ -30,19 +30,25 @@ def find_shortest_path(tree_id: str, target_node_id: str, team_id: str, start_no
         print(f"[@navigation:pathfinding:find_shortest_path] Failed to get graph for tree {tree_id}")
         return None
     
+    # Check if target is an action node - action nodes are not navigatable destinations
+    target_node_data = G.nodes.get(target_node_id, {})
+    if target_node_data.get('node_type') == 'action':
+        print(f"[@navigation:pathfinding:find_shortest_path] Cannot navigate to action node {target_node_id}")
+        return None
+    
     # Resolve target_node_id if it's a label instead of UUID
     actual_target_node = target_node_id
     if target_node_id not in G.nodes:
         print(f"[@navigation:pathfinding:find_shortest_path] Target '{target_node_id}' not found as node ID, searching by label...")
         for node_id, node_data in G.nodes(data=True):
-            if node_data.get('label', '') == target_node_id:
+            if node_data.get('label', '') == target_node_id and node_data.get('node_type') != 'action':
                 actual_target_node = node_id
                 print(f"[@navigation:pathfinding:find_shortest_path] Resolved label '{target_node_id}' to node ID '{node_id}'")
                 break
         else:
             # Try case-insensitive search
             for node_id, node_data in G.nodes(data=True):
-                if node_data.get('label', '').lower() == target_node_id.lower():
+                if node_data.get('label', '').lower() == target_node_id.lower() and node_data.get('node_type') != 'action':
                     actual_target_node = node_id
                     print(f"[@navigation:pathfinding:find_shortest_path] Resolved label '{target_node_id}' to node ID '{node_id}' (case-insensitive)")
                     break
@@ -77,15 +83,8 @@ def find_shortest_path(tree_id: str, target_node_id: str, team_id: str, start_no
                 return None
             actual_start_node = nodes[0]
         else:
-            # Prioritize dedicated entry node over home node
-            dedicated_entry = None
-            for entry_id in entry_points:
-                entry_info = get_node_info(G, entry_id)
-                if entry_info and entry_info.get('node_type') == 'entry':
-                    dedicated_entry = entry_id
-                    break
-            
-            actual_start_node = dedicated_entry if dedicated_entry else entry_points[0]
+            # Use first entry point (entry points are now identified by is_root flag)
+            actual_start_node = entry_points[0]
     
     # Check if start node exists
     if actual_start_node not in G.nodes:
@@ -98,7 +97,11 @@ def find_shortest_path(tree_id: str, target_node_id: str, team_id: str, start_no
         print(f"[@navigation:pathfinding:find_shortest_path] Available nodes: {list(G.nodes())}")
         return None
     
-
+    # Final check: ensure target is not an action node
+    final_target_data = G.nodes.get(actual_target_node, {})
+    if final_target_data.get('node_type') == 'action':
+        print(f"[@navigation:pathfinding:find_shortest_path] Cannot navigate to action node {actual_target_node}")
+        return None
     
     # Check if we're already at the target
     if actual_start_node == actual_target_node:

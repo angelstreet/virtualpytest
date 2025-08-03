@@ -19,7 +19,7 @@ export const useEdge = (props?: UseEdgeProps) => {
   const actionHook = useAction();
 
   // Navigation context for current position updates
-  const { updateCurrentPosition } = useNavigation();
+  const { updateCurrentPosition, nodes } = useNavigation();
 
   // Validation colors hook for edge styling
   const { getEdgeColors } = useValidationColors([]);
@@ -184,9 +184,18 @@ export const useEdge = (props?: UseEdgeProps) => {
         setRunResult(formattedResult);
 
         // Update current position to the target node if execution was successful
-        // This follows the same pattern as executeNavigation in useNode.ts
+        // BUT: If target is an action node, stay at the source node since actions are operations, not destinations
         if (result && result.success !== false && edge.target) {
-          updateCurrentPosition(edge.target, null);
+          const targetNode = nodes.find(n => n.id === edge.target);
+          
+          if (targetNode?.data.type === 'action') {
+            // For action nodes, position remains at source (where the action was triggered from)
+            // Do not update current position since actions are transient operations
+            console.log(`[@useEdge] Action node '${targetNode.data.label}' executed, position remains at source`);
+          } else {
+            // For screen/menu nodes, update position to target
+            updateCurrentPosition(edge.target, null);
+          }
           
           // Note: Timer actions should be handled by a dedicated timer actions hook
           // in components that specifically need auto-return functionality

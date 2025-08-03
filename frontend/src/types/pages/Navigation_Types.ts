@@ -32,7 +32,7 @@ export type { EdgeAction };
 // Define the data type for navigation nodes
 export interface UINavigationNodeData {
   label: string;
-  type: 'screen' | 'dialog' | 'popup' | 'overlay' | 'menu' | 'entry';
+  type: 'screen' | 'menu' | 'action';
   screenshot?: string;
   screenshot_timestamp?: number; // Timestamp for forcing image refresh after screenshot updates
   description?: string;
