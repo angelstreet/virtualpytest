@@ -654,3 +654,108 @@ def get_host_info_for_report() -> Dict[str, Any]:
         return {
             'host_name': hostname
         }
+
+
+def find_action_edges_from_node(node_id: str, edges: List[Dict]) -> List[Dict]:
+    """
+    Find all edges from a specific node (simple filter).
+    
+    Args:
+        node_id: Source node ID to find edges from
+        edges: List of edge dictionaries from loaded tree data
+        
+    Returns:
+        List of edges originating from the specified node
+    """
+    return [edge for edge in edges if edge.get('source_node_id') == node_id]
+
+
+def find_edge_with_action_command(node_id: str, edges: List[Dict], action_command: str) -> Dict:
+    """
+    Find edge from node_id that contains the specified action command.
+    
+    Args:
+        node_id: Source node ID
+        edges: List of edge dictionaries 
+        action_command: Action command to search for (e.g., 'zap_chup')
+        
+    Returns:
+        Edge dictionary containing the action, or None if not found
+    """
+    action_edges = find_action_edges_from_node(node_id, edges)
+    
+    for edge in action_edges:
+        action_sets = edge.get('action_sets', [])
+        for action_set in action_sets:
+            actions = action_set.get('actions', [])
+            for action in actions:
+                if action.get('command') == action_command:
+                    return edge
+    return None
+
+
+def execute_edge_actions(host, device, edge: Dict, action_set_id: str = None, team_id: str = 'default') -> Dict:
+    """
+    Execute edge actions using ActionExecutor - same as frontend useAction hook.
+    
+    Args:
+        host: Host instance 
+        device: Device instance
+        edge: Edge dictionary with action_sets
+        action_set_id: Optional specific action set ID to execute (uses default if None)
+        team_id: Team ID for database recording
+        
+    Returns:
+        Execution result dictionary with success status and details
+    """
+    try:
+        from backend_core.src.services.actions.action_executor import ActionExecutor
+        
+        # Get action set (specific or default)
+        action_sets = edge.get('action_sets', [])
+        default_action_set_id = edge.get('default_action_set_id')
+        
+        if action_set_id:
+            # Find specific action set by ID
+            action_set = next((s for s in action_sets if s.get('id') == action_set_id), None)
+        else:
+            # Use default action set
+            action_set = next((s for s in action_sets if s.get('id') == default_action_set_id), 
+                            action_sets[0] if action_sets else None)
+        
+        if not action_set:
+            return {
+                'success': False, 
+                'error': f'Action set not found (looking for: {action_set_id or default_action_set_id})'
+            }
+        
+        print(f"[@script_utils:execute_edge_actions] Executing action set: {action_set.get('label', action_set.get('id'))}")
+        print(f"[@script_utils:execute_edge_actions] Actions: {len(action_set.get('actions', []))}, Retry actions: {len(action_set.get('retry_actions', []))}")
+        
+        # Convert host to dict format if needed (ActionExecutor expects dict)
+        host_dict = host.__dict__ if hasattr(host, '__dict__') else host
+        
+        # Use ActionExecutor exactly like the API route does
+        action_executor = ActionExecutor(
+            host=host_dict,
+            device_id=device.device_id,
+            tree_id=None,  # Not needed for direct action execution
+            edge_id=edge.get('edge_id'),
+            team_id=team_id
+        )
+        
+        result = action_executor.execute_actions(
+            actions=action_set.get('actions', []),
+            retry_actions=action_set.get('retry_actions', [])
+        )
+        
+        print(f"[@script_utils:execute_edge_actions] Execution completed: success={result.get('success')}")
+        return result
+        
+    except Exception as e:
+        error_msg = f'Edge action execution failed: {str(e)}'
+        print(f"[@script_utils:execute_edge_actions] ERROR: {error_msg}")
+        return {
+            'success': False,
+            'error': error_msg
+        }
