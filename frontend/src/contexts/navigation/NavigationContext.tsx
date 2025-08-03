@@ -902,6 +902,7 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
             const currentPosition = currentNode?.position || updatedNodeData.position || { x: 0, y: 0 };
             
             console.log(`[@NavigationContext] Saving node ${updatedNodeData.id} with canvas position:`, currentPosition);
+            console.log(`[@NavigationContext] Node verifications count:`, updatedNodeData.data.verifications?.length || 0);
 
             const normalizedNode = {
               node_id: updatedNodeData.id,
@@ -911,10 +912,24 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
               node_type: updatedNodeData.type || 'screen',
               verifications: updatedNodeData.data.verifications || [],
               data: {
-                ...updatedNodeData.data,
+                // Only include non-verification data to avoid duplication
                 description: updatedNodeData.data.description,
+                screenshot: updatedNodeData.data.screenshot,
+                depth: updatedNodeData.data.depth,
+                parent: updatedNodeData.data.parent,
+                menu_type: updatedNodeData.data.menu_type,
+                priority: updatedNodeData.data.priority,
+                is_root: updatedNodeData.data.is_root,
+                isParentReference: updatedNodeData.data.isParentReference,
+                originalTreeId: updatedNodeData.data.originalTreeId,
+                // DO NOT include verifications here - they're already at top level
               },
             };
+
+            console.log(`[@NavigationContext] Normalized node structure:`, {
+              verifications: normalizedNode.verifications,
+              dataHasVerifications: 'verifications' in normalizedNode.data
+            });
 
             await navigationConfig.saveNode(targetTreeId, normalizedNode as any);
 
@@ -1063,8 +1078,17 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
              node_type: node.data.type || 'default',
              verifications: node.data.verifications || [],
              data: {
-               ...node.data,
+               // Only include non-verification data to avoid duplication
                description: node.data.description,
+               screenshot: node.data.screenshot,
+               depth: node.data.depth,
+               parent: node.data.parent,
+               menu_type: node.data.menu_type,
+               priority: node.data.priority,
+               is_root: node.data.is_root,
+               isParentReference: node.data.isParentReference,
+               originalTreeId: node.data.originalTreeId,
+               // DO NOT include verifications here - they're already at top level
              }
            }));
 
