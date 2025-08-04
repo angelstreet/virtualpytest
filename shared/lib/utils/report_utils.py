@@ -363,18 +363,18 @@ def get_thumbnail_screenshot_html(screenshot_path: Optional[str], label: str = N
     if not screenshot_path:
         return ''
     
-    # Prepare screenshots for modal - convert to simple format
+    # Prepare screenshots for modal - use the SAME working URLs
     modal_screenshots = []
     if all_screenshots:
         for screenshot_data in all_screenshots:
             screenshot_label = screenshot_data[0]
-            screenshot_url = screenshot_data[1]
+            screenshot_working_path = screenshot_data[1]  # This is the working path
             action_cmd = screenshot_data[2] if len(screenshot_data) > 2 else None
             action_params = screenshot_data[3] if len(screenshot_data) > 3 else None
             
             modal_screenshots.append({
                 'label': screenshot_label,
-                'url': screenshot_url,
+                'url': screenshot_working_path,  # Use the same working path
                 'command': action_cmd,
                 'params': action_params or {}
             })
