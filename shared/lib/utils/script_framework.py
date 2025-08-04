@@ -387,7 +387,7 @@ class ScriptExecutor:
             print(f"🎥 [{self.script_name}] Capturing test execution video...")
             try:
                 # Use same pattern as screenshots - get AV controller directly
-                from backend_core.src.controllers.controller_config_factory import get_controller
+                from .host_utils import get_controller
                 av_controller = get_controller(context.selected_device.device_id, 'av')
                 
                 if av_controller and hasattr(av_controller, 'take_video'):
