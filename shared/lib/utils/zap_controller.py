@@ -358,11 +358,26 @@ class ZapController:
         # Extract real actions from edge
         real_actions, real_retry_actions, real_failure_actions = self._extract_edge_actions(action_edge)
         
+        # Collect all screenshots for this zap iteration (align with navigation behavior)
+        action_screenshots = []
+        
+        # 1. Main zap screenshot
+        if screenshot_path:
+            action_screenshots.append(screenshot_path)
+        
+        # 2. Analysis screenshots (if different from main screenshot)
+        if analysis_result.subtitle_details.get('screenshot_path') and analysis_result.subtitle_details['screenshot_path'] != screenshot_path:
+            action_screenshots.append(analysis_result.subtitle_details['screenshot_path'])
+        
+        if analysis_result.audio_menu_details.get('screenshot_path') and analysis_result.audio_menu_details['screenshot_path'] != screenshot_path:
+            action_screenshots.append(analysis_result.audio_menu_details['screenshot_path'])
+        
         step_result = {
             'step_number': step_num,
             'success': action_result.get('success', False),
             'screenshot_path': action_result.get('screenshot_path', ''),
             'screenshot_url': action_result.get('screenshot_url'),
+            'action_screenshots': action_screenshots,  # Add this field to match navigation behavior
             'message': f"Zap iteration {iteration}: {action_command} ({iteration}/{max_iterations})",
             'execution_time_ms': execution_time,
             'start_time': datetime.fromtimestamp(start_time).strftime('%H:%M:%S'),
