@@ -332,7 +332,7 @@ class ZapController:
                     return {"success": False, "message": f"No video verification controller found for device {device_id}"}
                 
                 # Call the same method that HTTP routes would call
-                result = video_controller.analyze_language_menu_ai([screenshot_path])
+                result = video_controller.analyze_language_menu_ai(screenshot_path)
                 
                 # Navigate back to live
                 goto_node(context.host, context.selected_device, "live", context.tree_id, context.team_id, context)
