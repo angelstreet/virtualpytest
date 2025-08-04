@@ -223,7 +223,7 @@ class ActionExecutor:
             # Return standardized result (same format as API)
             return {
                 'success': success,
-                'message': f"{action.get('label', action.get('command'))}",
+                'message': f"{action.get('command')}",
                 'error': response_data.get('error') if not success else None,
                 'resultType': 'PASS' if success else 'FAIL',
                 'execution_time_ms': execution_time,
@@ -242,15 +242,14 @@ class ActionExecutor:
                 error_details={'error': str(e)}
             )
             
-            action_label = action.get('label', action.get('command'))
             return {
                 'success': False,
-                'message': action_label,
+                'message': action.get('command'),
                 'error': str(e),
                 'resultType': 'FAIL',
                 'execution_time_ms': execution_time,
                 'action_category': action_category,
-                'action_details': f"{action_label} ({action.get('command')})" if action.get('label') != action.get('command') else action_label
+                'action_details': action.get('command')
             }
     
     def _record_execution_to_database(self, success: bool, execution_time_ms: int, message: str, error_details: Optional[Dict] = None):

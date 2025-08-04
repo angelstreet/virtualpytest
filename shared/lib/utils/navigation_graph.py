@@ -120,7 +120,7 @@ def create_networkx_graph(nodes: List[Dict], edges: List[Dict]) -> nx.DiGraph:
         
         for i, action_set in enumerate(action_sets):
             set_id = action_set.get('id', 'unknown')
-            set_label = action_set.get('label', 'Unknown')
+            set_label = action_set.get('id', 'Unknown')
             is_default = set_id == default_action_set_id
             default_marker = ' [DEFAULT]' if is_default else ''
             print(f"[@navigation:graph:create_networkx_graph]     {i+1}. {set_label} ({set_id}){default_marker}")

@@ -353,7 +353,7 @@ def execute_edge_actions(host, device, edge: Dict, action_set_id: str = None, te
         retry_actions = action_set.get('retry_actions', [])
         failure_actions = action_set.get('failure_actions', [])
         
-        print(f"[@action_utils:execute_edge_actions] Executing action set: {action_set.get('label', action_set.get('id'))}")
+        print(f"[@action_utils:execute_edge_actions] Executing action set: {action_set.get('id')}")
         print(f"[@action_utils:execute_edge_actions] Actions: {len(actions)}, Retry actions: {len(retry_actions)}, Failure actions: {len(failure_actions)}")
         print(f"[@action_utils:execute_edge_actions] Using DIRECT execution (no HTTP proxy)")
         
@@ -402,7 +402,7 @@ def execute_edge_actions(host, device, edge: Dict, action_set_id: str = None, te
                 # Add ActionExecutor-compatible fields
                 enhanced_result = {
                     'success': result.get('success', False),
-                    'message': action.get('label', action.get('command')),
+                    'message': action.get('command'),
                     'error': result.get('error') if not result.get('success') else None,
                     'resultType': 'PASS' if result.get('success') else 'FAIL',
                     'execution_time_ms': execution_time,
@@ -427,7 +427,7 @@ def execute_edge_actions(host, device, edge: Dict, action_set_id: str = None, te
                 
                 enhanced_result = {
                     'success': False,
-                    'message': action.get('label', action.get('command')),
+                    'message': action.get('command'),
                     'error': str(e),
                     'resultType': 'FAIL',
                     'execution_time_ms': execution_time,
@@ -453,7 +453,7 @@ def execute_edge_actions(host, device, edge: Dict, action_set_id: str = None, te
                     
                     enhanced_result = {
                         'success': result.get('success', False),
-                        'message': retry_action.get('label', retry_action.get('command')),
+                        'message': retry_action.get('command'),
                         'error': result.get('error') if not result.get('success') else None,
                         'resultType': 'PASS' if result.get('success') else 'FAIL',
                         'execution_time_ms': execution_time,
@@ -469,7 +469,7 @@ def execute_edge_actions(host, device, edge: Dict, action_set_id: str = None, te
                     execution_time = int((time.time() - start_time) * 1000)
                     enhanced_result = {
                         'success': False,
-                        'message': retry_action.get('label', retry_action.get('command')),
+                        'message': retry_action.get('command'),
                         'error': str(e),
                         'resultType': 'FAIL',
                         'execution_time_ms': execution_time,
@@ -494,7 +494,7 @@ def execute_edge_actions(host, device, edge: Dict, action_set_id: str = None, te
                     
                     enhanced_result = {
                         'success': result.get('success', False),
-                        'message': failure_action.get('label', failure_action.get('command')),
+                        'message': failure_action.get('command'),
                         'error': result.get('error') if not result.get('success') else None,
                         'resultType': 'PASS' if result.get('success') else 'FAIL',
                         'execution_time_ms': execution_time,
@@ -510,7 +510,7 @@ def execute_edge_actions(host, device, edge: Dict, action_set_id: str = None, te
                     execution_time = int((time.time() - start_time) * 1000)
                     enhanced_result = {
                         'success': False,
-                        'message': failure_action.get('label', failure_action.get('command')),
+                        'message': failure_action.get('command'),
                         'error': str(e),
                         'resultType': 'FAIL',
                         'execution_time_ms': execution_time,

@@ -65,10 +65,8 @@ def execute_task():
                     base_params = action.get('params', {})
                     original_description = action.get('description', '')
                     action_id = action.get('id', '')
-                    label = action.get('label', '')
-                    
                     # Create AI-friendly action name and description
-                    ai_action_name = label if label else base_command
+                    ai_action_name = base_command
                     ai_description = original_description
                     
                     # Enhance specific actions with common user task mappings
@@ -110,7 +108,7 @@ def execute_task():
                         'category': category,
                         'full_context': {
                             'original_id': action_id,
-                            'original_label': label,
+                            'original_command': base_command,
                             'requires_input': action.get('requiresInput', False),
                             'input_example': action.get('inputPlaceholder', ''),
                             'common_use_cases': []
