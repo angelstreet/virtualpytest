@@ -283,25 +283,35 @@ def get_thumbnail_screenshot_html(screenshot_path: Optional[str], label: str = N
     if not screenshot_path:
         return ''
     
-    # Convert to thumbnail path
-    thumbnail_path = screenshot_path.replace('.jpg', '_thumbnail.jpg')
-    
-    try:
-        # Convert screenshot to base64 for embedding
-        with open(thumbnail_path, 'rb') as img_file:
-            img_data = base64.b64encode(img_file.read()).decode('utf-8')
-        
-        data_url = f"data:image/jpeg;base64,{img_data}"
-        
+    # Check if it's a URL (from Cloudflare R2) or local file path
+    if screenshot_path.startswith('http'):
+        # It's a URL - use directly
         return f"""
         <div class="screenshot-container">
             <span class="screenshot-label">{label or 'Screenshot'}</span>
-            <img src="{data_url}" alt="Screenshot" class="screenshot-thumbnail" onclick="openScreenshot('{data_url}')">
+            <img src="{screenshot_path}" alt="Screenshot" class="screenshot-thumbnail" onclick="openScreenshot('{screenshot_path}')">
         </div>
         """
-    except Exception as e:
-        print(f"[@utils:report_utils:get_thumbnail_screenshot_html] Error embedding thumbnail {thumbnail_path}: {e}")
-        return ''
+    else:
+        # It's a local file path - convert to base64 (existing behavior)
+        thumbnail_path = screenshot_path.replace('.jpg', '_thumbnail.jpg')
+        
+        try:
+            # Convert screenshot to base64 for embedding
+            with open(thumbnail_path, 'rb') as img_file:
+                img_data = base64.b64encode(img_file.read()).decode('utf-8')
+            
+            data_url = f"data:image/jpeg;base64,{img_data}"
+            
+            return f"""
+            <div class="screenshot-container">
+                <span class="screenshot-label">{label or 'Screenshot'}</span>
+                <img src="{data_url}" alt="Screenshot" class="screenshot-thumbnail" onclick="openScreenshot('{data_url}')">
+            </div>
+            """
+        except Exception as e:
+            print(f"[@utils:report_utils:get_thumbnail_screenshot_html] Error embedding thumbnail {thumbnail_path}: {e}")
+            return ''
 
 
 

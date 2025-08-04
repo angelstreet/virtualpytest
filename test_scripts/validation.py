@@ -69,7 +69,7 @@ def generate_validation_report_custom(context: ScriptExecutionContext, userinter
             'step_results': context.step_results,
             'screenshots': {
                 'initial': context.screenshot_paths[0] if context.screenshot_paths else None,
-                'steps': [step.get('screenshot_path') for step in context.step_results if step.get('screenshot_path')],
+                'steps': [step.get('screenshot_url') for step in context.step_results if step.get('screenshot_url')],
                 'final': context.screenshot_paths[-1] if len(context.screenshot_paths) > 1 else None
             },
             'error_msg': context.error_message,

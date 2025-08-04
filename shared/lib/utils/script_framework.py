@@ -264,7 +264,7 @@ class ScriptExecutor:
                     'step_number': step_num,
                     'success': result.get('success', False),
                     'screenshot_path': step_screenshot,
-                    'screenshot_url': result.get('screenshot_url'),
+                    'screenshot_url': result.get('screenshot_url'),  # Per-action screenshot URL
                     'message': f"Navigation step {step_num}: {from_node} → {to_node}",
                     'execution_time_ms': step_execution_time,
                     'start_time': step_start_timestamp,
