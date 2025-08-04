@@ -56,6 +56,23 @@ def execute_zap_actions(context: ScriptExecutionContext, action_edge, action_com
     return zap_controller.execute_zap_iterations(context, action_edge, action_command, max_iteration)
 
 
+def capture_fullzap_summary(context: ScriptExecutionContext, userinterface_name: str) -> str:
+    """Capture fullzap summary as text for report"""
+    lines = []
+    lines.append("🎯 [FULLZAP] EXECUTION SUMMARY")
+    lines.append(f"📱 Device: {context.selected_device.device_name} ({context.selected_device.device_model})")
+    lines.append(f"🖥️  Host: {context.host.host_name}")
+    lines.append(f"📋 Interface: {userinterface_name}")
+    lines.append(f"⏱️  Total Time: {context.get_execution_time_ms()/1000:.1f}s")
+    lines.append(f"📸 Screenshots: {len(context.screenshot_paths)} captured")
+    lines.append(f"🎯 Result: {'SUCCESS' if context.overall_success else 'FAILED'}")
+    
+    if context.error_message:
+        lines.append(f"❌ Error: {context.error_message}")
+    
+    return "\n".join(lines)
+
+
 def print_fullzap_summary(context: ScriptExecutionContext, userinterface_name: str):
     """Print simple fullzap summary - detailed stats are handled by ZapController"""
     print("\n" + "="*60)
@@ -156,8 +173,12 @@ def main():
             elif not nav_success:
                 context.error_message = f"Failed to navigate to live node"
         
-        # Print custom fullzap summary
+        # Print custom fullzap summary and capture it
+        summary_text = capture_fullzap_summary(context, args.userinterface_name)
         print_fullzap_summary(context, args.userinterface_name)
+        
+        # Store summary for report
+        context.execution_summary = summary_text
         
         if context.overall_success:
             print("✅ [fullzap] Fullzap execution completed successfully!")

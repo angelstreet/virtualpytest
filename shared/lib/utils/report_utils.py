@@ -115,6 +115,7 @@ def generate_validation_report(report_data: Dict) -> str:
             failed_steps=failed_steps,
             step_results_html=create_compact_step_results_section(step_results, screenshots),
             error_section=create_error_section(error_msg) if error_msg else '',
+            execution_summary=format_console_summary_for_html(report_data.get('execution_summary', '')),
             initial_screenshot=get_thumbnail_screenshot_html(screenshots.get('initial')),
             final_screenshot=get_thumbnail_screenshot_html(screenshots.get('final'))
         )
@@ -392,6 +393,24 @@ def create_compact_step_results_section(step_results: List[Dict], screenshots: D
     steps_html.append('</div>')
     return ''.join(steps_html)
 
+def format_console_summary_for_html(console_text: str) -> str:
+    """Convert console summary text to HTML format."""
+    if not console_text:
+        return ""
+    
+    # Simple conversion - preserve line breaks and basic formatting
+    html_text = console_text.replace('\n', '<br>')
+    html_text = html_text.replace('=', '')  # Remove separator lines
+    html_text = html_text.replace('  •', '<br>  •')  # Better bullet formatting
+    
+    return f"""
+    <h3>Execution Summary</h3>
+    <div class="summary-stats">
+        <pre style="white-space: pre-wrap; font-family: 'Courier New', monospace; margin: 0;">{html_text}</pre>
+    </div>
+    """
+
+
 def create_error_section(error_msg: str) -> str:
     """Create HTML for error section."""
     return f"""
@@ -548,7 +567,8 @@ def generate_and_upload_script_report(
     stdout: str = "",
     stderr: str = "",
     exit_code: int = 0,
-    parameters: str = ""
+    parameters: str = "",
+    execution_summary: str = ""
 ) -> str:
     """
     Generate HTML report and upload to R2 storage - extracted from validation.py
@@ -642,7 +662,8 @@ def generate_and_upload_script_report(
             'failed_steps': sum(1 for step in updated_step_results if not step.get('success', True)),
             'total_verifications': total_verifications,
             'passed_verifications': passed_verifications,
-            'failed_verifications': failed_verifications
+            'failed_verifications': failed_verifications,
+            'execution_summary': execution_summary
         }
         
         # Generate HTML content using existing function - now with R2 URLs

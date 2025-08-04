@@ -51,6 +51,51 @@ def custom_validation_step_handler(context: ScriptExecutionContext, step, step_n
 
 
 
+def capture_validation_summary(context: ScriptExecutionContext, userinterface_name: str) -> str:
+    """Capture validation summary as text for report"""
+    # Calculate verification statistics
+    total_verifications = sum(len(step.get('verification_results', [])) for step in context.step_results)
+    passed_verifications = sum(
+        sum(1 for v in step.get('verification_results', []) if v.get('success', False)) 
+        for step in context.step_results
+    )
+    
+    successful_steps = sum(1 for step in context.step_results if step.get('success', False))
+    failed_steps = sum(1 for step in context.step_results if not step.get('success', False))
+    recovered_steps = context.recovered_steps
+    
+    lines = []
+    lines.append("🎯 [VALIDATION] EXECUTION SUMMARY")
+    lines.append(f"📱 Device: {context.selected_device.device_name} ({context.selected_device.device_model})")
+    lines.append(f"🖥️  Host: {context.host.host_name}")
+    lines.append(f"📋 Interface: {userinterface_name}")
+    lines.append(f"⏱️  Total Time: {context.get_execution_time_ms()/1000:.1f}s")
+    lines.append(f"📊 Steps: {len(context.step_results)} total")
+    lines.append(f"✅ Successful: {successful_steps}")
+    lines.append(f"❌ Failed: {failed_steps}")
+    lines.append(f"🔄 Recovered: {recovered_steps}")
+    lines.append(f"🔍 Verifications: {passed_verifications}/{total_verifications} passed")
+    lines.append(f"📸 Screenshots: {len(context.screenshot_paths)} captured")
+    lines.append(f"🎯 Coverage: {((successful_steps + recovered_steps) / len(context.step_results) * 100):.1f}%")
+    
+    failed_step_details = [step for step in context.step_results if not step.get('success', False)]
+    if failed_step_details:
+        lines.append("\n❌ Failed Steps Details:")
+        for failed_step in failed_step_details:
+            step_num = failed_step.get('step_number')
+            from_node = failed_step.get('from_node')
+            to_node = failed_step.get('to_node')
+            # Get the error from verification results if available
+            error = 'Unknown error'
+            verification_results = failed_step.get('verification_results', [])
+            if verification_results and verification_results[0].get('error'):
+                error = verification_results[0].get('error')
+            lines.append(f"   Step {step_num}: {from_node} → {to_node}")
+            lines.append(f"     Error: {error}")
+    
+    return "\n".join(lines)
+
+
 def print_validation_summary(context: ScriptExecutionContext, userinterface_name: str):
     """Print enhanced validation summary with recovery stats"""
     # Calculate verification statistics
@@ -136,8 +181,12 @@ def main():
         )
         context.overall_success = success
         
-        # Print custom validation summary
+        # Print custom validation summary and capture it
+        summary_text = capture_validation_summary(context, args.userinterface_name)
         print_validation_summary(context, args.userinterface_name)
+        
+        # Store summary for report
+        context.execution_summary = summary_text
         
         # Set overall success - we completed the validation sequence
         context.overall_success = True

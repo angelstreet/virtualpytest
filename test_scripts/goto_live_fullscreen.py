@@ -27,6 +27,25 @@ from shared.lib.utils.script_framework import ScriptExecutor, handle_keyboard_in
 from backend_core.src.services.navigation.navigation_pathfinding import find_shortest_path
 
 
+def capture_navigation_summary(context, userinterface_name: str, target_node: str, path_length: int) -> str:
+    """Capture navigation summary as text for report"""
+    lines = []
+    lines.append(f"🎯 [GOTO_{target_node.upper()}] EXECUTION SUMMARY")
+    lines.append(f"📱 Device: {context.selected_device.device_name} ({context.selected_device.device_model})")
+    lines.append(f"🖥️  Host: {context.host.host_name}")
+    lines.append(f"📋 Interface: {userinterface_name}")
+    lines.append(f"🗺️  Target: {target_node}")
+    lines.append(f"📍 Path length: {path_length} steps")
+    lines.append(f"⏱️  Total Time: {context.get_execution_time_ms()/1000:.1f}s")
+    lines.append(f"📸 Screenshots: {len(context.screenshot_paths)} captured")
+    lines.append(f"🎯 Result: {'SUCCESS' if context.overall_success else 'FAILED'}")
+    
+    if context.error_message:
+        lines.append(f"❌ Error: {context.error_message}")
+    
+    return "\n".join(lines)
+
+
 def main():
     """Main navigation function to goto live_fullscreen"""
     script_name = "goto_live_fullscreen"
@@ -63,6 +82,10 @@ def main():
         # Execute navigation sequence
         success = executor.execute_navigation_sequence(context, navigation_path)
         context.overall_success = success
+        
+        # Capture summary for report
+        summary_text = capture_navigation_summary(context, args.userinterface_name, "live_fullscreen", len(navigation_path))
+        context.execution_summary = summary_text
         
         if success:
             print(f"🎉 [{script_name}] Successfully navigated to live_fullscreen!")

@@ -400,7 +400,8 @@ class ScriptExecutor:
                 step_results=context.step_results,
                 screenshot_paths=context.screenshot_paths,
                 error_message=context.error_message,
-                userinterface_name=userinterface_name
+                userinterface_name=userinterface_name,
+                execution_summary=getattr(context, 'execution_summary', '')
             )
             
             if report_url:
