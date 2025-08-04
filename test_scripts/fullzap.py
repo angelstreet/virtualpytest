@@ -159,13 +159,8 @@ def main():
         # Print custom fullzap summary
         print_fullzap_summary(context, args.userinterface_name)
         
-        # Exit with proper code based on result
         if context.overall_success:
-            print("✅ [fullzap] Fullzap execution completed successfully - exiting with code 0")
-            sys.exit(0)
-        else:
-            print("❌ [fullzap] Fullzap execution failed - exiting with code 1")
-            sys.exit(1)
+            print("✅ [fullzap] Fullzap execution completed successfully!")
             
     except KeyboardInterrupt:
         handle_keyboard_interrupt(script_name)

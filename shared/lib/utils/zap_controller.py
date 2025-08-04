@@ -157,16 +157,21 @@ class ZapController:
         self.statistics = ZapStatistics()
         self.statistics.total_iterations = max_iterations
         
-        # Pre-action screenshot
-        self._capture_screenshot(context, "pre_action", "zap")
+        # Pre-action screenshot using unified approach
+        from .report_utils import capture_and_upload_screenshot
+        screenshot_result = capture_and_upload_screenshot(context.host, context.selected_device, "pre_action", "zap")
+        if screenshot_result['success']:
+            context.add_screenshot(screenshot_result['screenshot_path'])
         
         for iteration in range(1, max_iterations + 1):
             success = self._execute_single_zap(context, action_edge, action_command, iteration, max_iterations)
             if success:
                 self.statistics.successful_iterations += 1
         
-        # Post-action screenshot
-        self._capture_screenshot(context, "post_action", "zap")
+        # Post-action screenshot using unified approach
+        screenshot_result = capture_and_upload_screenshot(context.host, context.selected_device, "post_action", "zap")
+        if screenshot_result['success']:
+            context.add_screenshot(screenshot_result['screenshot_path'])
         
         # Print statistics
         self.statistics.print_summary(action_command)
@@ -314,8 +319,11 @@ class ZapController:
                                      context.tree_id, context.team_id, context)
             
             if audio_menu_nav.get('success'):
-                # Capture and analyze
-                screenshot_path = self._capture_screenshot(context, f"audio_menu_{iteration}", "zap")
+                # Capture and analyze using unified approach
+                screenshot_result = capture_and_upload_screenshot(context.host, context.selected_device, f"audio_menu_{iteration}", "zap")
+                screenshot_path = screenshot_result['screenshot_path'] if screenshot_result['success'] else ""
+                if screenshot_result['success']:
+                    context.add_screenshot(screenshot_path)
                 device_id = context.selected_device.device_id
                 
                 # Get video verification controller - same as HTTP routes
