@@ -431,8 +431,9 @@ Step 14: home → home_saved ✅
 ### Phase 2: Validation Script Updates ✅ COMPLETED
 - [x] Update validation exit logic to always succeed on completion
 - [x] Enhance `print_validation_summary` with recovery statistics
-- [x] Update `generate_validation_report_custom` with recovery data
+- [x] **UNIFIED APPROACH**: Use same report generation as goto_live_fullscreen.py
 - [x] Enhanced custom step handler with failure tolerance
+- [x] Removed duplicate custom report generation code
 
 ### Phase 3: Testing & Validation 🔄 READY FOR TESTING
 - [ ] Test with your specific failing scenario (live → live_audiomenu)
