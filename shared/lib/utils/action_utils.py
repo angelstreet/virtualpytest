@@ -170,13 +170,16 @@ def execute_navigation_with_verifications(host, device, transition: Dict[str, An
         action_screenshots = action_result.get('action_screenshots', [])
         print(f"[@action_utils:execute_navigation] Captured {len(action_screenshots)} action screenshots")
         
-        # Step-level screenshot (optional)
-        from .report_utils import capture_and_upload_screenshot
-        step_name = f"step_{transition.get('step_number', 'unknown')}_{from_node}_{to_node}"
-        screenshot_result = capture_and_upload_screenshot(host, device, step_name, script_context)
-        screenshot_url = screenshot_result['screenshot_url']
-        if not screenshot_result['success'] and screenshot_result['error']:
-            print(f"[@action_utils:execute_navigation] Screenshot handling failed: {screenshot_result['error']}")
+                 # Step-level screenshot using current R2 system (not old Supabase)
+         step_name = f"step_{transition.get('step_number', 'unknown')}_{from_node}_{to_node}"
+         step_screenshot_path = capture_validation_screenshot(host, device, step_name, script_context)
+         screenshot_url = None
+         
+         if step_screenshot_path:
+             print(f"[@action_utils:execute_navigation] Step screenshot captured: {step_screenshot_path}")
+             # Note: R2 upload happens later in batch via generate_and_upload_script_report()
+         else:
+             print(f"[@action_utils:execute_navigation] Step screenshot capture failed")
         
         actions_success = action_result.get('success', False)
         
@@ -312,6 +315,7 @@ def execute_navigation_with_verifications(host, device, transition: Dict[str, An
             'verifications_executed': len(verifications),
             'execution_time': execution_time,
             'screenshot_url': screenshot_url,
+            'screenshot_path': step_screenshot_path,
             'action_screenshots': action_screenshots
         }
         

@@ -255,6 +255,10 @@ class ScriptExecutor:
                 for screenshot_path in action_screenshots:
                     context.add_screenshot(screenshot_path)
                 
+                # Collect step screenshot
+                if result.get('screenshot_path'):
+                    context.add_screenshot(result.get('screenshot_path'))
+                
                 # Record step result
                 step_result = {
                     'step_number': step_num,
