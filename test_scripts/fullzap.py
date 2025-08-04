@@ -59,6 +59,44 @@ def execute_zap_actions(context: ScriptExecutionContext, action_edge, action_com
 def capture_fullzap_summary(context: ScriptExecutionContext, userinterface_name: str) -> str:
     """Capture fullzap summary as text for report"""
     lines = []
+    
+    # Get ZapController statistics from context
+    action_command = context.custom_data.get('action_command', 'unknown')
+    max_iteration = context.custom_data.get('max_iteration', 0)
+    successful_iterations = context.custom_data.get('successful_iterations', 0)
+    motion_detected_count = context.custom_data.get('motion_detected_count', 0)
+    subtitles_detected_count = context.custom_data.get('subtitles_detected_count', 0)
+    total_action_time = context.custom_data.get('total_action_time', 0)
+    
+    # ZapController Action execution summary
+    if max_iteration > 0:
+        lines.append("📊 [ZapController] Action execution summary:")
+        lines.append(f"   • Total iterations: {max_iteration}")
+        lines.append(f"   • Successful: {successful_iterations}")
+        success_rate = (successful_iterations / max_iteration * 100) if max_iteration > 0 else 0
+        lines.append(f"   • Success rate: {success_rate:.1f}%")
+        avg_time = total_action_time / max_iteration if max_iteration > 0 else 0
+        lines.append(f"   • Average time per iteration: {avg_time:.0f}ms")
+        lines.append(f"   • Total action time: {total_action_time}ms")
+        motion_rate = (motion_detected_count / max_iteration * 100) if max_iteration > 0 else 0
+        lines.append(f"   • Motion detected: {motion_detected_count}/{max_iteration} ({motion_rate:.1f}%)")
+        subtitle_rate = (subtitles_detected_count / max_iteration * 100) if max_iteration > 0 else 0
+        lines.append(f"   • Subtitles detected: {subtitles_detected_count}/{max_iteration} ({subtitle_rate:.1f}%)")
+        
+        # Check for content change issues
+        no_motion_count = max_iteration - motion_detected_count
+        if no_motion_count > 0:
+            lines.append(f"   ⚠️  {no_motion_count} zap(s) did not show content change")
+        
+        # Success message
+        if successful_iterations == max_iteration:
+            lines.append(f"✅ [fullzap] All {max_iteration} iterations of action '{action_command}' completed successfully!")
+        else:
+            lines.append(f"❌ [fullzap] Only {successful_iterations}/{max_iteration} iterations of action '{action_command}' completed successfully!")
+        
+        lines.append("")  # Empty line separator
+    
+    # Basic script execution summary
     lines.append("🎯 [FULLZAP] EXECUTION SUMMARY")
     lines.append(f"📱 Device: {context.selected_device.device_name} ({context.selected_device.device_model})")
     lines.append(f"🖥️  Host: {context.host.host_name}")
@@ -69,6 +107,8 @@ def capture_fullzap_summary(context: ScriptExecutionContext, userinterface_name:
     
     if context.error_message:
         lines.append(f"❌ Error: {context.error_message}")
+    
+    lines.append("✅ [fullzap] Fullzap execution completed successfully!")
     
     return "\n".join(lines)
 
