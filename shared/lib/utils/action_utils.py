@@ -154,21 +154,13 @@ def execute_navigation_with_verifications(host, device, transition: Dict[str, An
         actions_success = remote_controller.execute_sequence(actions, retry_actions, failure_actions)
         action_execution_time = int((time.time() - action_start_time) * 1000)
         
-        # Capture screenshot after action execution using existing function
-        screenshot_path = capture_validation_screenshot(host, device, f"action_{from_node}_{to_node}", script_context)
-        screenshot_url = None
-        if screenshot_path:
-            # Upload screenshot to Cloudflare R2 (same as existing validation script)
-            from shared.lib.utils.cloudflare_utils import get_cloudflare_utils
-            try:
-                uploader = get_cloudflare_utils()
-                step_name = f"step_{transition.get('step_number', 'unknown')}_{from_node}_{to_node}"
-                remote_path = f"action-screenshots/{device.device_id}/{step_name}.png"
-                upload_result = uploader.upload_file(screenshot_path, remote_path)
-                if upload_result.get('success'):
-                    screenshot_url = upload_result.get('url')
-            except Exception as e:
-                print(f"[@action_utils:execute_navigation] Screenshot upload failed: {e}")
+        # Use unified screenshot function from report_utils
+        from .report_utils import capture_and_upload_screenshot
+        step_name = f"step_{transition.get('step_number', 'unknown')}_{from_node}_{to_node}"
+        screenshot_result = capture_and_upload_screenshot(host, device, step_name, script_context)
+        screenshot_url = screenshot_result['screenshot_url']
+        if not screenshot_result['success'] and screenshot_result['error']:
+            print(f"[@action_utils:execute_navigation] Screenshot handling failed: {screenshot_result['error']}")
         
         # Enhanced error logging with more context
         if not actions_success:

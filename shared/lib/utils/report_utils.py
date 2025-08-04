@@ -2,6 +2,7 @@
 Report Generation Utilities
 
 This module provides functions for generating HTML validation reports with embedded screenshots.
+Includes screenshot capture and upload functionality for consistent reporting across all controllers.
 Reports include execution metrics, step-by-step results, and error analysis.
 Enhanced for manager-friendly compact view with collapsible sections and theme support.
 """
@@ -9,8 +10,60 @@ Enhanced for manager-friendly compact view with collapsible sections and theme s
 import os
 import base64
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any
 from .report_template_utils import create_themed_html_template
+
+
+def capture_and_upload_screenshot(host, device, step_name: str, script_context: str = "action") -> Dict[str, Any]:
+    """
+    Unified screenshot capture and upload function for reporting.
+    Used by all controllers for consistent screenshot handling in reports.
+    
+    Args:
+        host: Host instance
+        device: Device instance  
+        step_name: Name for the screenshot (e.g., "zap_iteration_1", "navigation_step_2")
+        script_context: Context for organizing screenshots (e.g., "zap", "navigation", "validation")
+        
+    Returns:
+        Dict with screenshot_path, screenshot_url, and success status
+    """
+    result = {
+        'screenshot_path': '',
+        'screenshot_url': None,
+        'success': False,
+        'error': None
+    }
+    
+    try:
+        # 1. Capture screenshot locally
+        from .action_utils import capture_validation_screenshot
+        screenshot_path = capture_validation_screenshot(host, device, step_name, script_context)
+        result['screenshot_path'] = screenshot_path
+        
+        if screenshot_path:
+            # 2. Upload to Cloudflare R2 for report display
+            from .cloudflare_utils import get_cloudflare_utils
+            uploader = get_cloudflare_utils()
+            remote_path = f"{script_context}-screenshots/{device.device_id}/{step_name}.png"
+            upload_result = uploader.upload_file(screenshot_path, remote_path)
+            
+            if upload_result.get('success'):
+                result['screenshot_url'] = upload_result.get('url')
+                result['success'] = True
+                print(f"[@report_utils:capture_and_upload_screenshot] Screenshot uploaded: {result['screenshot_url']}")
+            else:
+                result['error'] = f"Upload failed: {upload_result.get('error', 'Unknown error')}"
+                print(f"[@report_utils:capture_and_upload_screenshot] Upload failed: {result['error']}")
+        else:
+            result['error'] = "Screenshot capture failed"
+            print(f"[@report_utils:capture_and_upload_screenshot] Capture failed: {result['error']}")
+            
+    except Exception as e:
+        result['error'] = f"Screenshot handling error: {str(e)}"
+        print(f"[@report_utils:capture_and_upload_screenshot] Error: {result['error']}")
+        
+    return result
 
 def generate_validation_report(report_data: Dict) -> str:
     """
@@ -221,9 +274,11 @@ def create_compact_step_results_section(step_results: List[Dict], screenshots: D
         screenshot_html = ''
         screenshots_for_step = []
         
-        # Add per-action screenshot if available
+        # Add per-action screenshot if available (prioritize URL, fallback to path)
         if step.get('screenshot_url'):
             screenshots_for_step.append(('Action', step.get('screenshot_url')))
+        elif step.get('screenshot_path'):
+            screenshots_for_step.append(('Action', step.get('screenshot_path')))
         
         if screenshots_for_step:
             screenshot_divs = []

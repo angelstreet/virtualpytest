@@ -14,6 +14,7 @@ from typing import Dict, Any, List, Optional
 from .action_utils import execute_edge_actions, capture_validation_screenshot
 from .navigation_utils import goto_node
 from .host_utils import get_controller
+from .report_utils import capture_and_upload_screenshot
 
 
 class ZapAnalysisResult:
@@ -187,6 +188,14 @@ class ZapController:
         
         self.statistics.total_execution_time += execution_time
         
+        # Use unified screenshot function from report_utils
+        step_name = f"zap_iteration_{iteration}_{action_command}"
+        screenshot_result = capture_and_upload_screenshot(context.host, context.selected_device, step_name, "zap")
+        
+        # Add screenshot info to action result for step recording
+        action_result['screenshot_path'] = screenshot_result['screenshot_path']
+        action_result['screenshot_url'] = screenshot_result['screenshot_url']
+        
         # Analyze results
         analysis_result = self.analyze_after_zap(iteration, action_command, context)
         self.statistics.analysis_results.append(analysis_result)
@@ -201,8 +210,9 @@ class ZapController:
         if analysis_result.detected_language:
             self.statistics.add_language(analysis_result.detected_language)
         
-        # Capture screenshot
-        screenshot_path = self._capture_screenshot(context, f"iteration_{iteration}", "zap")
+        # Get screenshot path for context (maintain compatibility)
+        screenshot_path = screenshot_result['screenshot_path']
+        context.add_screenshot(screenshot_path)
         
         # Record step result
         self._record_step_result(context, iteration, max_iterations, action_command, action_result, 
@@ -326,11 +336,7 @@ class ZapController:
         except Exception as e:
             return {"success": False, "message": f"Audio menu analysis error: {e}"}
     
-    def _capture_screenshot(self, context, name: str, category: str) -> str:
-        """Capture screenshot and add to context"""
-        screenshot_path = capture_validation_screenshot(context.host, context.selected_device, name, category)
-        context.add_screenshot(screenshot_path)
-        return screenshot_path
+
     
     def _record_step_result(self, context, iteration: int, max_iterations: int, action_command: str,
                           action_result: Dict, execution_time: int, start_time: float, end_time: float,
@@ -344,7 +350,8 @@ class ZapController:
         step_result = {
             'step_number': step_num,
             'success': action_result.get('success', False),
-            'screenshot_path': screenshot_path,
+            'screenshot_path': action_result.get('screenshot_path', ''),
+            'screenshot_url': action_result.get('screenshot_url'),
             'message': f"Zap iteration {iteration}: {action_command} ({iteration}/{max_iterations})",
             'execution_time_ms': execution_time,
             'start_time': datetime.fromtimestamp(start_time).strftime('%H:%M:%S'),
