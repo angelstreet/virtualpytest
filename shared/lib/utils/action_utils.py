@@ -153,6 +153,15 @@ def execute_navigation_with_verifications(host, device, transition: Dict[str, An
         actions_success = remote_controller.execute_sequence(actions, retry_actions)
         action_execution_time = int((time.time() - action_start_time) * 1000)
         
+        # Capture screenshot after action execution
+        screenshot_path = host.capture_screenshot()
+        screenshot_url = None
+        if screenshot_path:
+            step_name = f"step_{transition.get('step_number', 'unknown')}_{from_node}_{to_node}"
+            upload_result = host.upload_file_to_supabase(screenshot_path, f"validation_{step_name}_{device.device_id}.png")
+            if upload_result.get('success'):
+                screenshot_url = upload_result.get('url')
+        
         # Enhanced error logging with more context
         if not actions_success:
             error_details = {
@@ -280,7 +289,8 @@ def execute_navigation_with_verifications(host, device, transition: Dict[str, An
             'message': 'Navigation step with verifications completed successfully',
             'verification_results': verification_results,
             'verifications_executed': len(verifications),
-            'execution_time': execution_time
+            'execution_time': execution_time,
+            'screenshot_url': screenshot_url
         }
         
     except Exception as e:
