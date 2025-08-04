@@ -359,10 +359,8 @@ class VideoVerificationController(VerificationControllerInterface):
                     'message': 'No video capture path available from AV controller'
                 }
             
-            # Use content helpers for JSON analysis
-            # Note: We need to pass device_id instead of direct path for the helper
-            device_id = getattr(self.av_controller, 'device_id', 'unknown')
-            return self.content_helpers.detect_motion_from_json_analysis(device_id, json_count, strict_mode)
+            # Use content helpers with direct capture path
+            return self.content_helpers.detect_motion_from_json_analysis(capture_path, json_count, strict_mode)
             
         except Exception as e:
             error_msg = f"Motion detection from JSON error: {e}"
