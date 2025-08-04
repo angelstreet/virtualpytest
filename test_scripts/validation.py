@@ -161,17 +161,17 @@ def print_validation_summary(context: ScriptExecutionContext, userinterface_name
         for step in context.step_results
     )
     
-        print("\n" + "="*60)
+    print("\n" + "="*60)
     print(f"🎯 [VALIDATION] EXECUTION SUMMARY")
-        print("="*60)
+    print("="*60)
     print(f"📱 Device: {context.selected_device.device_name} ({context.selected_device.device_model})")
     print(f"🖥️  Host: {context.host.host_name}")
-        print(f"📋 Interface: {userinterface_name}")
+    print(f"📋 Interface: {userinterface_name}")
     print(f"⏱️  Total Time: {context.get_execution_time_ms()/1000:.1f}s")
     print(f"📊 Steps: {len(context.step_results)} executed")
     print(f"✅ Passed: {sum(1 for step in context.step_results if step.get('success', False))}")
     print(f"❌ Failed: {sum(1 for step in context.step_results if not step.get('success', True))}")
-        print(f"🔍 Verifications: {passed_verifications}/{total_verifications} passed")
+    print(f"🔍 Verifications: {passed_verifications}/{total_verifications} passed")
     print(f"📸 Screenshots: {len(context.screenshot_paths)} captured")
     print(f"🎯 Overall Result: {'PASS' if context.overall_success else 'FAIL'}")
     if context.error_message:
