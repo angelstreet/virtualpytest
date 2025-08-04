@@ -302,6 +302,9 @@ class ZapController:
                 else:
                     print(f"⚠️ [ZapController] No subtitles detected")
                 
+                # Add screenshot to context for reporting
+                context.add_screenshot(latest_screenshot)
+                
                 return subtitle_result
             else:
                 return {"success": False, "message": result.get('message', 'Subtitle analysis failed')}
@@ -369,6 +372,10 @@ class ZapController:
             'iteration': iteration,
             'max_iterations': max_iterations,
             'motion_detection': analysis_result.to_dict(),
+            # Individual analysis results for report display
+            'motion_analysis': analysis_result.motion_details,
+            'subtitle_analysis': analysis_result.subtitle_details,
+            'audio_menu_analysis': analysis_result.audio_menu_details,
             'from_node': 'live',
             'to_node': 'live',
             'actions': real_actions,

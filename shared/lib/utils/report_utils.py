@@ -270,6 +270,51 @@ def create_compact_step_results_section(step_results: List[Dict], screenshots: D
             exit_code = script_output.get('exit_code', 0)
             script_output_html += f'<div class="script-output exit-code"><strong>Exit Code:</strong> {exit_code}</div>'
         
+        # Add analysis results if available (for zap actions)
+        analysis_html = ""
+        motion_analysis = step.get('motion_analysis', {})
+        subtitle_analysis = step.get('subtitle_analysis', {})
+        audio_menu_analysis = step.get('audio_menu_analysis', {})
+        
+        if motion_analysis or subtitle_analysis or audio_menu_analysis:
+            analysis_html = "<div><strong>Analysis Results:</strong></div>"
+            
+            # Motion Detection Results
+            if motion_analysis and motion_analysis.get('success') is not None:
+                motion_success = motion_analysis.get('success', False)
+                motion_status = "✅ DETECTED" if motion_success else "❌ NOT DETECTED"
+                analysis_html += f'<div class="analysis-item motion"><strong>Motion Detection:</strong> {motion_status}</div>'
+                
+                if motion_analysis.get('total_analyzed'):
+                    analysis_html += f'<div class="analysis-detail">Files analyzed: {motion_analysis.get("total_analyzed", 0)}</div>'
+                if motion_analysis.get('message'):
+                    analysis_html += f'<div class="analysis-detail">Details: {motion_analysis.get("message")}</div>'
+            
+            # Subtitle Analysis Results  
+            if subtitle_analysis and subtitle_analysis.get('success') is not None:
+                subtitle_detected = subtitle_analysis.get('subtitles_detected', False)
+                subtitle_status = "✅ DETECTED" if subtitle_detected else "❌ NOT DETECTED"
+                analysis_html += f'<div class="analysis-item subtitle"><strong>Subtitle Analysis:</strong> {subtitle_status}</div>'
+                
+                if subtitle_analysis.get('detected_language'):
+                    analysis_html += f'<div class="analysis-detail">Language: {subtitle_analysis.get("detected_language")}</div>'
+                if subtitle_analysis.get('extracted_text'):
+                    text = subtitle_analysis.get('extracted_text', '')[:100] + ('...' if len(subtitle_analysis.get('extracted_text', '')) > 100 else '')
+                    analysis_html += f'<div class="analysis-detail">Text: {text}</div>'
+            
+            # Audio Menu Analysis Results
+            if audio_menu_analysis and audio_menu_analysis.get('success') is not None:
+                menu_detected = audio_menu_analysis.get('menu_detected', False)
+                menu_status = "✅ DETECTED" if menu_detected else "❌ NOT DETECTED"
+                analysis_html += f'<div class="analysis-item audio-menu"><strong>Audio Menu Analysis:</strong> {menu_status}</div>'
+                
+                if audio_menu_analysis.get('audio_languages'):
+                    languages = ', '.join(audio_menu_analysis.get('audio_languages', []))
+                    analysis_html += f'<div class="analysis-detail">Audio Languages: {languages}</div>'
+                if audio_menu_analysis.get('subtitle_languages'):
+                    subtitles = ', '.join(audio_menu_analysis.get('subtitle_languages', []))
+                    analysis_html += f'<div class="analysis-detail">Subtitle Options: {subtitles}</div>'
+        
         # Get all screenshots for this step (action screenshots + step screenshot)
         screenshot_html = ''
         screenshots_for_step = []
@@ -336,6 +381,7 @@ def create_compact_step_results_section(step_results: List[Dict], screenshots: D
                      {actions_html}
                      {verifications_html}
                      {script_output_html}
+                     {analysis_html}
                  </div>
                  {screenshot_html}
              </div>

@@ -432,6 +432,37 @@ def create_themed_html_template() -> str:
             margin-left: 4px;
         }}
         
+        /* Analysis results styles */
+        .analysis-item {{
+            margin: 4px 0;
+            padding: 4px 8px;
+            background: var(--bg-secondary);
+            border-radius: 4px;
+            font-size: 0.85em;
+            font-weight: bold;
+        }}
+        
+        .analysis-item.motion {{
+            border-left: 3px solid #28a745;
+        }}
+        
+        .analysis-item.subtitle {{
+            border-left: 3px solid #007bff;
+        }}
+        
+        .analysis-item.audio-menu {{
+            border-left: 3px solid #6f42c1;
+        }}
+        
+        .analysis-detail {{
+            margin: 2px 0 2px 16px;
+            padding: 2px 4px;
+            font-size: 0.8em;
+            font-weight: normal;
+            color: var(--text-secondary);
+            font-family: 'Courier New', monospace;
+        }}
+        
         /* Retry action styles */
         .retry-action-item {{
             margin: 4px 0;
