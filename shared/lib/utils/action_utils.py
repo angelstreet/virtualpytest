@@ -151,11 +151,24 @@ def execute_navigation_with_verifications(host, device, transition: Dict[str, An
             print(f"[@action_utils:execute_navigation] Action {i+1}: {action_cmd} with params: {action_params}")
         
         action_start_time = time.time()
-        action_result = execute_edge_actions(host, device, {'action_sets': [{'actions': actions, 'retry_actions': retry_actions, 'failure_actions': failure_actions}], 'default_action_set_id': 'main'}, team_id=team_id)
+        
+        # Create proper edge structure for execute_edge_actions
+        edge_data = {
+            'action_sets': [{
+                'id': 'main',
+                'actions': actions,
+                'retry_actions': retry_actions,
+                'failure_actions': failure_actions
+            }],
+            'default_action_set_id': 'main'
+        }
+        
+        action_result = execute_edge_actions(host, device, edge_data, team_id=team_id)
         action_execution_time = int((time.time() - action_start_time) * 1000)
         
         # Get action screenshots from execute_edge_actions
         action_screenshots = action_result.get('action_screenshots', [])
+        print(f"[@action_utils:execute_navigation] Captured {len(action_screenshots)} action screenshots")
         
         # Step-level screenshot (optional)
         from .report_utils import capture_and_upload_screenshot
