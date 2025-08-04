@@ -1880,14 +1880,29 @@ JSON ONLY - NO OTHER TEXT"""
         try:
             print(f"VideoVerify[{self.device_name}]: Analyzing last {json_count} JSON files (strict_mode: {strict_mode})")
             
-            # Extract device_id from AV controller device_name
-            device_id = getattr(self.av_controller, 'device_name', 'device1')
+            # Get analysis files directly from AV controller's capture path
+            capture_path = getattr(self.av_controller, 'video_capture_path', None)
+            if not capture_path:
+                return {
+                    'success': False,
+                    'video_ok': False,
+                    'audio_ok': False,
+                    'blackscreen_count': 0,
+                    'freeze_count': 0,
+                    'audio_loss_count': 0,
+                    'total_analyzed': 0,
+                    'details': [],
+                    'strict_mode': strict_mode,
+                    'message': 'No video capture path available from AV controller'
+                }
             
             # Import shared analysis utility
             from shared.lib.utils.analysis_utils import load_recent_analysis_data, analyze_motion_from_loaded_data
             
-            # Load recent analysis data using shared utility (5 minutes timeframe)
-            data_result = load_recent_analysis_data(device_id, timeframe_minutes=5, max_count=json_count)
+            # Use capture path as the identifier for analysis data lookup
+            # The analysis_utils should be able to work with the capture path directly
+            print(f"VideoVerify[{self.device_name}]: Using capture path: {capture_path}")
+            data_result = load_recent_analysis_data(capture_path, timeframe_minutes=5, max_count=json_count)
             
             if not data_result['success']:
                 return {
