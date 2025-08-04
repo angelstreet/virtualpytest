@@ -25,6 +25,8 @@ if project_root not in sys.path:
 
 from .host_utils import get_controller
 from .action_utils import execute_navigation_with_verifications, capture_validation_screenshot
+from .navigation_exceptions import NavigationTreeError, UnifiedCacheError, PathfindingError, DatabaseError
+from .navigation_cache import populate_unified_cache
 
 
 def load_navigation_tree(userinterface_name: str, script_name: str = "script") -> Dict[str, Any]:
@@ -91,6 +93,197 @@ def load_navigation_tree(userinterface_name: str, script_name: str = "script") -
         
     except Exception as e:
         return {'success': False, 'error': f"Error loading navigation tree: {str(e)}"}
+
+
+def load_navigation_tree_with_hierarchy(userinterface_name: str, script_name: str = "script") -> Dict[str, Any]:
+    """
+    Load complete navigation tree hierarchy and populate unified cache.
+    FAIL EARLY: No fallback to single-tree loading.
+    
+    Args:
+        userinterface_name: Interface name (e.g., 'horizon_android_mobile')
+        script_name: Name of the script for logging
+        
+    Returns:
+        Dictionary with success status and complete hierarchy data
+        
+    Raises:
+        NavigationTreeError: If any part of the hierarchy loading fails
+    """
+    try:
+        print(f"🗺️ [{script_name}] Loading complete navigation tree hierarchy for '{userinterface_name}'")
+        
+        # 1. Load root tree (using existing logic)
+        root_tree_result = load_navigation_tree(userinterface_name, script_name)
+        if not root_tree_result['success']:
+            raise NavigationTreeError(f"Root tree loading failed: {root_tree_result['error']}")
+        
+        team_id = "7fdeb4bb-3639-4ec3-959f-b54769a219ce"
+        root_tree_id = root_tree_result['tree_id']
+        
+        print(f"✅ [{script_name}] Root tree loaded: {root_tree_id}")
+        
+        # 2. Discover complete tree hierarchy
+        hierarchy_data = discover_complete_hierarchy(root_tree_id, team_id, script_name)
+        if not hierarchy_data:
+            # If no nested trees, create single-tree hierarchy
+            hierarchy_data = [format_tree_for_hierarchy(root_tree_result, is_root=True)]
+            print(f"📋 [{script_name}] No nested trees found, using single root tree")
+        else:
+            print(f"📋 [{script_name}] Found {len(hierarchy_data)} trees in hierarchy")
+        
+        # 3. Build unified tree data structure
+        all_trees_data = build_unified_tree_data(hierarchy_data, script_name)
+        if not all_trees_data:
+            raise NavigationTreeError("Failed to build unified tree data structure")
+        
+        # 4. Populate unified cache (MANDATORY)
+        print(f"🔄 [{script_name}] Populating unified cache...")
+        unified_graph = populate_unified_cache(root_tree_id, team_id, all_trees_data)
+        if not unified_graph:
+            raise UnifiedCacheError("Failed to populate unified cache - navigation will not work")
+        
+        print(f"✅ [{script_name}] Unified cache populated: {len(unified_graph.nodes)} nodes, {len(unified_graph.edges)} edges")
+        
+        # 5. Return enhanced result with hierarchy info
+        return {
+            'success': True,
+            'tree_id': root_tree_id,
+            'root_tree': root_tree_result,
+            'hierarchy': hierarchy_data,
+            'unified_graph_nodes': len(unified_graph.nodes),
+            'unified_graph_edges': len(unified_graph.edges),
+            'cross_tree_capabilities': len(hierarchy_data) > 1,
+            'team_id': team_id
+        }
+        
+    except (NavigationTreeError, UnifiedCacheError) as e:
+        # Re-raise navigation-specific errors
+        raise e
+    except Exception as e:
+        # FAIL EARLY - no fallback
+        raise NavigationTreeError(f"Unified tree loading failed: {str(e)}")
+
+
+def discover_complete_hierarchy(root_tree_id: str, team_id: str, script_name: str = "script") -> List[Dict]:
+    """
+    Discover all nested trees in hierarchy using enhanced database functions.
+    
+    Args:
+        root_tree_id: Root tree ID
+        team_id: Team ID
+        script_name: Script name for logging
+        
+    Returns:
+        List of tree data dictionaries for the complete hierarchy
+    """
+    try:
+        from shared.lib.supabase.navigation_trees_db import get_complete_tree_hierarchy
+        
+        print(f"🔍 [{script_name}] Discovering complete tree hierarchy using enhanced database function...")
+        
+        # Use the new enhanced database function
+        hierarchy_result = get_complete_tree_hierarchy(root_tree_id, team_id)
+        if not hierarchy_result['success']:
+            print(f"⚠️ [{script_name}] Failed to get complete hierarchy: {hierarchy_result.get('error', 'Unknown error')}")
+            return []
+        
+        hierarchy_data = hierarchy_result['hierarchy']
+        if not hierarchy_data:
+            print(f"📋 [{script_name}] Empty hierarchy returned from database")
+            return []
+        
+        total_trees = hierarchy_result.get('total_trees', len(hierarchy_data))
+        max_depth = hierarchy_result.get('max_depth', 0)
+        has_nested = hierarchy_result.get('has_nested_trees', False)
+        
+        print(f"✅ [{script_name}] Complete hierarchy discovered:")
+        print(f"   • Total trees: {total_trees}")
+        print(f"   • Maximum depth: {max_depth}")
+        print(f"   • Has nested trees: {has_nested}")
+        
+        # The data is already in the correct format from the database function
+        return hierarchy_data
+        
+    except Exception as e:
+        print(f"❌ [{script_name}] Error discovering hierarchy: {str(e)}")
+        return []
+
+
+def format_tree_for_hierarchy(tree_data: Dict, tree_info: Dict = None, is_root: bool = False) -> Dict:
+    """
+    Format tree data for unified hierarchy structure.
+    
+    Args:
+        tree_data: Tree data from database
+        tree_info: Optional hierarchy metadata
+        is_root: Whether this is the root tree
+        
+    Returns:
+        Formatted tree data for unified processing
+    """
+    if is_root:
+        # Root tree from load_navigation_tree
+        return {
+            'tree_id': tree_data['tree_id'],
+            'tree_info': {
+                'name': tree_data['tree']['name'],
+                'is_root_tree': True,
+                'tree_depth': 0,
+                'parent_tree_id': None,
+                'parent_node_id': None
+            },
+            'nodes': tree_data['nodes'],
+            'edges': tree_data['edges']
+        }
+    else:
+        # Nested tree from hierarchy
+        return {
+            'tree_id': tree_info['tree_id'],
+            'tree_info': {
+                'name': tree_info.get('tree_name', ''),
+                'is_root_tree': tree_info.get('depth', 0) == 0,
+                'tree_depth': tree_info.get('depth', 0),
+                'parent_tree_id': tree_info.get('parent_tree_id'),
+                'parent_node_id': tree_info.get('parent_node_id')
+            },
+            'nodes': tree_data['nodes'],
+            'edges': tree_data['edges']
+        }
+
+
+def build_unified_tree_data(hierarchy_data: List[Dict], script_name: str = "script") -> List[Dict]:
+    """
+    Build unified data structure for cache population.
+    
+    Args:
+        hierarchy_data: List of formatted tree data
+        script_name: Script name for logging
+        
+    Returns:
+        Data structure ready for create_unified_networkx_graph()
+    """
+    try:
+        if not hierarchy_data:
+            print(f"⚠️ [{script_name}] No hierarchy data to build unified structure")
+            return []
+        
+        print(f"🔧 [{script_name}] Building unified data structure from {len(hierarchy_data)} trees")
+        
+        # The hierarchy_data is already in the correct format for create_unified_networkx_graph
+        # Just validate and return
+        for tree_data in hierarchy_data:
+            required_keys = ['tree_id', 'tree_info', 'nodes', 'edges']
+            for key in required_keys:
+                if key not in tree_data:
+                    raise NavigationTreeError(f"Missing required key '{key}' in tree data")
+        
+        print(f"✅ [{script_name}] Unified data structure validated")
+        return hierarchy_data
+        
+    except Exception as e:
+        print(f"❌ [{script_name}] Error building unified data: {str(e)}")
+        return []
 
 
 def find_node_by_label(nodes: List[Dict], label: str) -> Dict:
@@ -310,7 +503,8 @@ def validate_action_availability(nodes: List[Dict], edges: List[Dict], action_co
 
 def goto_node(host, device, target_node_label: str, tree_id: str, team_id: str, context=None) -> Dict[str, Any]:
     """
-    Simple one-line navigation function to go to any node.
+    Navigate to target node using ONLY unified pathfinding
+    FAIL EARLY: No fallback to legacy navigation
     
     Args:
         host: Host instance
@@ -325,16 +519,18 @@ def goto_node(host, device, target_node_label: str, tree_id: str, team_id: str, 
     """
     try:
         from backend_core.src.services.navigation.navigation_pathfinding import find_shortest_path
+        from shared.lib.utils.navigation_exceptions import UnifiedCacheError, PathfindingError
         
-        print(f"[@navigation_utils:goto_node] Finding path to '{target_node_label}'...")
+        print(f"[@navigation_utils:goto_node] Navigating to '{target_node_label}' using unified pathfinding")
         
-        # Find path to target node
+        # Use unified pathfinding ONLY
         navigation_path = find_shortest_path(tree_id, target_node_label, team_id)
         
         if not navigation_path:
             return {
-                'success': False, 
-                'error': f"No path found to node '{target_node_label}'"
+                'success': False,
+                'error': f"No unified path found to '{target_node_label}'",
+                'unified_pathfinding_used': True
             }
         
         print(f"[@navigation_utils:goto_node] Found path with {len(navigation_path)} steps")
@@ -421,14 +617,32 @@ def goto_node(host, device, target_node_label: str, tree_id: str, team_id: str, 
             print(f"[@navigation_utils:goto_node] Step {step_num} completed successfully in {step_execution_time}ms")
         
         print(f"[@navigation_utils:goto_node] Successfully navigated to '{target_node_label}'!")
+        
+        # Count cross-tree transitions
+        cross_tree_transitions = len([step for step in navigation_path if step.get('tree_context_change')])
+        
         return {
-            'success': True, 
-            'message': f"Successfully navigated to '{target_node_label}' in {len(navigation_path)} steps"
+            'success': True,
+            'message': f"Successfully navigated to '{target_node_label}' in {len(navigation_path)} steps",
+            'path_length': len(navigation_path),
+            'cross_tree_transitions': cross_tree_transitions,
+            'unified_pathfinding_used': True
         }
         
+    except (UnifiedCacheError, PathfindingError) as e:
+        print(f"❌ [@navigation_utils:goto_node] Unified navigation failed: {str(e)}")
+        return {
+            'success': False,
+            'error': str(e),
+            'unified_pathfinding_required': True
+        }
     except Exception as e:
-        error_msg = f"Navigation to '{target_node_label}' failed: {str(e)}"
-        print(f"[@navigation_utils:goto_node] ERROR: {error_msg}")
-        return {'success': False, 'error': error_msg}
+        error_msg = f"Unexpected navigation error to '{target_node_label}': {str(e)}"
+        print(f"❌ [@navigation_utils:goto_node] ERROR: {error_msg}")
+        return {
+            'success': False,
+            'error': error_msg,
+            'unified_pathfinding_used': True
+        }
 
 

@@ -187,30 +187,39 @@ class ScriptExecutor:
         return context
     
     def load_navigation_tree(self, context: ScriptExecutionContext, userinterface_name: str) -> bool:
-        """Load navigation tree and populate cache"""
+        """Load navigation tree with mandatory unified pathfinding support"""
         try:
-            print(f"🗺️ [{self.script_name}] Loading navigation tree...")
-            tree_result = load_navigation_tree(userinterface_name, self.script_name)
-            if not tree_result['success']:
-                context.error_message = f"Tree loading failed: {tree_result['error']}"
-                print(f"❌ [{self.script_name}] {context.error_message}")
-                return False
+            from shared.lib.utils.navigation_utils import load_navigation_tree_with_hierarchy
+            from shared.lib.utils.navigation_exceptions import NavigationTreeError, UnifiedCacheError
             
-            context.tree_data = tree_result['tree']
+            print(f"🗺️ [{self.script_name}] Loading unified navigation tree hierarchy...")
+            
+            # Use new unified loading - NO FALLBACK
+            tree_result = load_navigation_tree_with_hierarchy(userinterface_name, self.script_name)
+            
+            # Populate context with hierarchy data
+            context.tree_data = tree_result['root_tree']['tree']
             context.tree_id = tree_result['tree_id']
-            context.nodes = tree_result['nodes']
-            context.edges = tree_result['edges']
+            context.nodes = tree_result['root_tree']['nodes']
+            context.edges = tree_result['root_tree']['edges']
+            context.tree_hierarchy = tree_result['hierarchy']
+            context.unified_pathfinding_enabled = True
             
-            print(f"✅ [{self.script_name}] Loaded tree with {len(context.nodes)} nodes and {len(context.edges)} edges")
-            
-            # Populate navigation cache
-            print(f"🔄 [{self.script_name}] Populating navigation cache...")
-            populate_cache(context.tree_id, context.team_id, context.nodes, context.edges)
+            print(f"✅ [{self.script_name}] Unified hierarchy loaded:")
+            print(f"   • Root tree: {len(context.nodes)} nodes, {len(context.edges)} edges")
+            print(f"   • Total hierarchy: {len(tree_result['hierarchy'])} trees")
+            print(f"   • Unified graph: {tree_result['unified_graph_nodes']} nodes, {tree_result['unified_graph_edges']} edges")
+            print(f"   • Cross-tree pathfinding: {'ENABLED' if tree_result['cross_tree_capabilities'] else 'SINGLE-TREE'}")
             
             return True
             
+        except (NavigationTreeError, UnifiedCacheError) as e:
+            context.error_message = f"Unified navigation loading failed: {str(e)}"
+            print(f"❌ [{self.script_name}] {context.error_message}")
+            # FAIL EARLY - no fallback to legacy loading
+            return False
         except Exception as e:
-            context.error_message = f"Navigation tree loading error: {str(e)}"
+            context.error_message = f"Unexpected navigation loading error: {str(e)}"
             print(f"❌ [{self.script_name}] {context.error_message}")
             return False
     

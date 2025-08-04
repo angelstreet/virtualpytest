@@ -446,6 +446,124 @@ def get_tree_breadcrumb(tree_id: str, team_id: str) -> Dict:
         print(f"[@db:navigation_trees:get_tree_breadcrumb] Error: {e}")
         return {'success': False, 'error': str(e)}
 
+
+def get_complete_tree_hierarchy(root_tree_id: str, team_id: str) -> Dict[str, Any]:
+    """
+    Get complete tree hierarchy for unified pathfinding
+    FAIL EARLY: Returns error if hierarchy cannot be built
+    
+    Args:
+        root_tree_id: Root navigation tree ID
+        team_id: Team ID for security
+        
+    Returns:
+        Dictionary with complete hierarchy data ready for unified pathfinding
+    """
+    try:
+        from shared.lib.utils.navigation_exceptions import DatabaseError
+        
+        print(f"[@db:navigation_trees:get_complete_tree_hierarchy] Building complete hierarchy for root tree: {root_tree_id}")
+        
+        # Get root tree
+        root_tree = get_full_tree(root_tree_id, team_id)
+        if not root_tree['success']:
+            raise DatabaseError(f"Failed to load root tree: {root_tree.get('error')}")
+        
+        # Get all descendant trees using existing function
+        descendant_trees = get_descendant_trees_data(root_tree_id, team_id)
+        
+        # Build complete hierarchy data
+        hierarchy_data = []
+        
+        # Add root tree
+        hierarchy_data.append({
+            'tree_id': root_tree_id,
+            'tree_info': {
+                'name': root_tree['tree']['name'],
+                'is_root_tree': True,
+                'tree_depth': 0,
+                'parent_tree_id': None,
+                'parent_node_id': None
+            },
+            'nodes': root_tree['nodes'],
+            'edges': root_tree['edges']
+        })
+        
+        # Add nested trees
+        for nested_tree_info in descendant_trees:
+            nested_tree_id = nested_tree_info['tree_id']
+            print(f"[@db:navigation_trees:get_complete_tree_hierarchy] Loading nested tree: {nested_tree_id}")
+            
+            nested_data = get_full_tree(nested_tree_id, team_id)
+            if nested_data['success']:
+                hierarchy_data.append({
+                    'tree_id': nested_tree_id,
+                    'tree_info': {
+                        'name': nested_tree_info.get('tree_name', ''),
+                        'is_root_tree': False,
+                        'tree_depth': nested_tree_info.get('depth', 0),
+                        'parent_tree_id': nested_tree_info.get('parent_tree_id'),
+                        'parent_node_id': nested_tree_info.get('parent_node_id')
+                    },
+                    'nodes': nested_data['nodes'],
+                    'edges': nested_data['edges']
+                })
+                print(f"[@db:navigation_trees:get_complete_tree_hierarchy] Added nested tree: {nested_tree_id} ({len(nested_data['nodes'])} nodes, {len(nested_data['edges'])} edges)")
+            else:
+                print(f"[@db:navigation_trees:get_complete_tree_hierarchy] Warning: Failed to load nested tree {nested_tree_id}: {nested_data.get('error')}")
+        
+        max_depth = max([t['tree_info']['tree_depth'] for t in hierarchy_data]) if hierarchy_data else 0
+        
+        print(f"[@db:navigation_trees:get_complete_tree_hierarchy] Complete hierarchy built: {len(hierarchy_data)} trees, max depth: {max_depth}")
+        
+        return {
+            'success': True,
+            'hierarchy': hierarchy_data,
+            'total_trees': len(hierarchy_data),
+            'max_depth': max_depth,
+            'has_nested_trees': len(hierarchy_data) > 1
+        }
+        
+    except Exception as e:
+        print(f"[@db:navigation_trees:get_complete_tree_hierarchy] Error: {e}")
+        return {
+            'success': False,
+            'error': f"Failed to build tree hierarchy: {str(e)}"
+        }
+
+
+def get_descendant_trees_data(root_tree_id: str, team_id: str) -> List[Dict]:
+    """
+    Get all descendant trees with full metadata for hierarchy building
+    
+    Args:
+        root_tree_id: Root tree ID
+        team_id: Team ID for security
+        
+    Returns:
+        List of descendant tree metadata dictionaries
+    """
+    try:
+        # Use existing get_tree_hierarchy function
+        hierarchy_result = get_tree_hierarchy(root_tree_id, team_id)
+        
+        if not hierarchy_result['success']:
+            print(f"[@db:navigation_trees:get_descendant_trees_data] No hierarchy found for root tree: {root_tree_id}")
+            return []
+        
+        hierarchy_trees = hierarchy_result['hierarchy']
+        
+        # Filter out the root tree (depth 0) to get only descendants
+        descendant_trees = [tree for tree in hierarchy_trees if tree.get('depth', 0) > 0]
+        
+        print(f"[@db:navigation_trees:get_descendant_trees_data] Found {len(descendant_trees)} descendant trees for root: {root_tree_id}")
+        
+        return descendant_trees
+        
+    except Exception as e:
+        print(f"[@db:navigation_trees:get_descendant_trees_data] Error: {e}")
+        return []
+
 def delete_tree_cascade(tree_id: str, team_id: str) -> Dict:
     """Delete a tree and all its descendant trees."""
     try:
