@@ -181,7 +181,7 @@ def find_shortest_path_unified(root_tree_id: str, target_node_id: str, team_id: 
             
             # Extract actions from default action set
             actions_list = default_set.get('actions', [])
-            retry_actions_list = default_set.get('retry_actions', [])
+            retry_actions_list = default_set.get('retry_actions') or []
             verifications_list = to_node_info.get('verifications', [])
             
             # Debug logging
@@ -465,7 +465,7 @@ def _create_validation_step(G, from_node: str, to_node: str, edge_data: Dict, st
         default_set = next((s for s in action_sets if s['id'] == default_action_set_id), None)
         if default_set:
             actions = default_set.get('actions', [])
-            retry_actions = default_set.get('retry_actions', [])
+            retry_actions = default_set.get('retry_actions') or []
         else:
             actions = []
             retry_actions = []

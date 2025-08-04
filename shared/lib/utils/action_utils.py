@@ -350,8 +350,8 @@ def execute_edge_actions(host, device, edge: Dict, action_set_id: str = None, te
             }
         
         actions = action_set.get('actions', [])
-        retry_actions = action_set.get('retry_actions', [])
-        failure_actions = action_set.get('failure_actions', [])
+        retry_actions = action_set.get('retry_actions') or []
+        failure_actions = action_set.get('failure_actions') or []
         
         print(f"[@action_utils:execute_edge_actions] Executing action set: {action_set.get('id')}")
         print(f"[@action_utils:execute_edge_actions] Actions: {len(actions)}, Retry actions: {len(retry_actions)}, Failure actions: {len(failure_actions)}")

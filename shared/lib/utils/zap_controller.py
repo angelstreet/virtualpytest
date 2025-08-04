@@ -383,8 +383,8 @@ class ZapController:
             
             if default_action_set:
                 real_actions = default_action_set.get('actions', [])
-                real_retry_actions = default_action_set.get('retry_actions', [])
-            real_failure_actions = default_action_set.get('failure_actions', [])
+                real_retry_actions = default_action_set.get('retry_actions') or []
+                real_failure_actions = default_action_set.get('failure_actions') or []
         
         return real_actions, real_retry_actions, real_failure_actions
     
