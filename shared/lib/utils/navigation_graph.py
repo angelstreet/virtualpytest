@@ -103,8 +103,8 @@ def create_networkx_graph(nodes: List[Dict], edges: List[Dict]) -> nx.DiGraph:
         
         # Extract actions from default set for pathfinding
         actions_list = default_set.get('actions', [])
-        retry_actions_list = default_set.get('retry_actions', [])
-        failure_actions_list = default_set.get('failure_actions', [])
+        retry_actions_list = default_set.get('retry_actions') or []
+        failure_actions_list = default_set.get('failure_actions') or []
         
         # Get node labels for logging
         source_node_data = G.nodes[source_id]
