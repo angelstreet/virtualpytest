@@ -290,7 +290,7 @@ def create_compact_step_results_section(step_results: List[Dict], screenshots: D
         
         if screenshots_for_step:
             screenshot_divs = []
-            step_id = step.get('step_number', i+1)
+            step_id = step.get('step_number', step_index+1)
             step_title = f"Step {step_id}: {step.get('from_node_label', 'unknown')} → {step.get('to_node_label', 'unknown')}"
             
             for idx, screenshot_data in enumerate(screenshots_for_step):
