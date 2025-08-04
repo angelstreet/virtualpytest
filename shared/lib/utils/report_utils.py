@@ -79,7 +79,8 @@ def create_compact_step_results_section(step_results: List[Dict], screenshots: D
         return '<p>No steps executed</p>'
     
     steps_html = ['<div class="step-list">']
-    step_screenshots = screenshots.get('steps', [])
+    # steps now contains the full step results, not just screenshot paths
+    step_data = screenshots.get('steps', step_results)
     
     for step_index, step in enumerate(step_results):
         step_number = step.get('step_number', step_index + 1)
@@ -216,12 +217,24 @@ def create_compact_step_results_section(step_results: List[Dict], screenshots: D
             exit_code = script_output.get('exit_code', 0)
             script_output_html += f'<div class="script-output exit-code"><strong>Exit Code:</strong> {exit_code}</div>'
         
-        # Get corresponding screenshot
+        # Get all screenshots for this step (per-action + framework)
         screenshot_html = ''
-        if step_index < len(step_screenshots) and step_screenshots[step_index]:
+        screenshots_for_step = []
+        
+        # Add per-action screenshot if available
+        if step.get('screenshot_url'):
+            screenshots_for_step.append(('Action', step.get('screenshot_url')))
+        
+        if screenshots_for_step:
+            screenshot_divs = []
+            for label, screenshot_path in screenshots_for_step:
+                screenshot_divs.append(get_thumbnail_screenshot_html(screenshot_path, label))
+            
             screenshot_html = f"""
             <div class="step-screenshot-container">
-                {get_thumbnail_screenshot_html(step_screenshots[step_index])}
+                <div class="screenshot-row">
+                    {''.join(screenshot_divs)}
+                </div>
             </div>
             """
         

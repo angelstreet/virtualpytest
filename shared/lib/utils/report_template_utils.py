@@ -509,6 +509,22 @@ def create_themed_html_template() -> str:
             box-shadow: var(--shadow-hover);
         }}
         
+        .screenshot-row {{
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: flex-start;
+        }}
+        
+        .screenshot-row .screenshot-container {{
+            flex: 0 0 auto;
+        }}
+        
+        .screenshot-row .screenshot-thumbnail {{
+            max-width: 150px;
+            height: 90px;
+        }}
+        
         .screenshot-modal {{
             display: none;
             position: fixed;

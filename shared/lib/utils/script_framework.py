@@ -250,14 +250,8 @@ class ScriptExecutor:
                 step_end_timestamp = datetime.now().strftime('%H:%M:%S')
                 step_execution_time = int((time.time() - step_start_time) * 1000)
                 
-                # Capture screenshot after step execution
-                step_screenshot = capture_validation_screenshot(
-                    context.host, context.selected_device, f"step_{step_num}", self.script_name
-                )
-                context.add_screenshot(step_screenshot)
-                
-                if step_screenshot:
-                    print(f"📸 [{self.script_name}] Step {step_num} screenshot captured")
+                # Skip framework screenshot since we have per-action screenshots
+                step_screenshot = None
                 
                 # Record step result
                 step_result = {
