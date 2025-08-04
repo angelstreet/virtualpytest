@@ -386,9 +386,11 @@ class ScriptExecutor:
             # Capture test execution video (duration based on test execution time)
             print(f"🎥 [{self.script_name}] Capturing test execution video...")
             try:
+                # Use same pattern as screenshots - get AV controller directly
                 from backend_core.src.controllers.controller_config_factory import get_controller
-                video_controller = get_controller(context.selected_device.device_id, 'av')
-                if video_controller and hasattr(video_controller, 'take_video'):
+                av_controller = get_controller(context.selected_device.device_id, 'av')
+                
+                if av_controller and hasattr(av_controller, 'take_video'):
                     # Calculate video duration based on test execution time
                     test_duration_seconds = context.get_execution_time_ms() / 1000.0
                     
@@ -406,14 +408,14 @@ class ScriptExecutor:
                     
                     print(f"🎥 [{self.script_name}] Test duration: {test_duration_seconds:.1f}s, capturing {video_duration:.1f}s of video")
                     
-                    test_video_url = video_controller.take_video(video_duration)
+                    test_video_url = av_controller.take_video(video_duration)
                     if test_video_url:
                         context.test_video_url = test_video_url
                         print(f"✅ [{self.script_name}] Test execution video captured: {test_video_url}")
                     else:
                         print(f"⚠️ [{self.script_name}] Failed to capture test video, continuing...")
                 else:
-                    print(f"⚠️ [{self.script_name}] No video controller available for test video")
+                    print(f"⚠️ [{self.script_name}] AV controller doesn't support video capture")
             except Exception as e:
                 print(f"⚠️ [{self.script_name}] Error capturing test video: {e}")
             
