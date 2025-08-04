@@ -270,15 +270,20 @@ def create_compact_step_results_section(step_results: List[Dict], screenshots: D
             exit_code = script_output.get('exit_code', 0)
             script_output_html += f'<div class="script-output exit-code"><strong>Exit Code:</strong> {exit_code}</div>'
         
-        # Get all screenshots for this step (per-action + framework)
+        # Get all screenshots for this step (action screenshots + step screenshot)
         screenshot_html = ''
         screenshots_for_step = []
         
-        # Add per-action screenshot if available (prioritize URL, fallback to path)
+        # Add action screenshots
+        action_screenshots = step.get('action_screenshots', [])
+        for i, screenshot_path in enumerate(action_screenshots):
+            screenshots_for_step.append((f'Action {i+1}', screenshot_path))
+        
+        # Add step-level screenshot if available
         if step.get('screenshot_url'):
-            screenshots_for_step.append(('Action', step.get('screenshot_url')))
+            screenshots_for_step.append(('Step', step.get('screenshot_url')))
         elif step.get('screenshot_path'):
-            screenshots_for_step.append(('Action', step.get('screenshot_path')))
+            screenshots_for_step.append(('Step', step.get('screenshot_path')))
         
         if screenshots_for_step:
             screenshot_divs = []

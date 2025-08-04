@@ -250,15 +250,18 @@ class ScriptExecutor:
                 step_end_timestamp = datetime.now().strftime('%H:%M:%S')
                 step_execution_time = int((time.time() - step_start_time) * 1000)
                 
-                # Skip framework screenshot since we have per-action screenshots
-                step_screenshot = None
+                # Collect action screenshots from this step
+                action_screenshots = result.get('action_screenshots', [])
+                for screenshot_path in action_screenshots:
+                    context.add_screenshot(screenshot_path)
                 
                 # Record step result
                 step_result = {
                     'step_number': step_num,
                     'success': result.get('success', False),
-                    'screenshot_path': step_screenshot,
-                    'screenshot_url': result.get('screenshot_url'),  # Per-action screenshot URL
+                    'screenshot_path': result.get('screenshot_path'),
+                    'screenshot_url': result.get('screenshot_url'),
+                    'action_screenshots': action_screenshots,
                     'message': f"Navigation step {step_num}: {from_node} → {to_node}",
                     'execution_time_ms': step_execution_time,
                     'start_time': step_start_timestamp,
@@ -277,8 +280,7 @@ class ScriptExecutor:
                     return False
                 
                 print(f"✅ [{self.script_name}] Step {step_num} completed successfully in {step_execution_time}ms")
-                if result.get('screenshot_url'):
-                    print(f"📸 [{self.script_name}] Step {step_num} screenshot: {result.get('screenshot_url')}")
+                print(f"📸 [{self.script_name}] Step {step_num} captured {len(action_screenshots)} action screenshots")
             
             print(f"🎉 [{self.script_name}] All navigation steps completed successfully!")
             return True

@@ -151,16 +151,21 @@ def execute_navigation_with_verifications(host, device, transition: Dict[str, An
             print(f"[@action_utils:execute_navigation] Action {i+1}: {action_cmd} with params: {action_params}")
         
         action_start_time = time.time()
-        actions_success = remote_controller.execute_sequence(actions, retry_actions, failure_actions)
+        action_result = execute_edge_actions(host, device, {'action_sets': [{'actions': actions, 'retry_actions': retry_actions, 'failure_actions': failure_actions}], 'default_action_set_id': 'main'}, team_id=team_id)
         action_execution_time = int((time.time() - action_start_time) * 1000)
         
-        # Use unified screenshot function from report_utils
+        # Get action screenshots from execute_edge_actions
+        action_screenshots = action_result.get('action_screenshots', [])
+        
+        # Step-level screenshot (optional)
         from .report_utils import capture_and_upload_screenshot
         step_name = f"step_{transition.get('step_number', 'unknown')}_{from_node}_{to_node}"
         screenshot_result = capture_and_upload_screenshot(host, device, step_name, script_context)
         screenshot_url = screenshot_result['screenshot_url']
         if not screenshot_result['success'] and screenshot_result['error']:
             print(f"[@action_utils:execute_navigation] Screenshot handling failed: {screenshot_result['error']}")
+        
+        actions_success = action_result.get('success', False)
         
         # Enhanced error logging with more context
         if not actions_success:
@@ -293,7 +298,8 @@ def execute_navigation_with_verifications(host, device, transition: Dict[str, An
             'verification_results': verification_results,
             'verifications_executed': len(verifications),
             'execution_time': execution_time,
-            'screenshot_url': screenshot_url
+            'screenshot_url': screenshot_url,
+            'action_screenshots': action_screenshots
         }
         
     except Exception as e:
@@ -375,6 +381,7 @@ def execute_edge_actions(host, device, edge: Dict, action_set_id: str = None, te
         
         results = []
         passed_count = 0
+        action_screenshots = []
         
         # Execute main actions - stop on first failure
         print(f"[@action_utils:execute_edge_actions] Executing {len(valid_actions)} main actions")
@@ -391,6 +398,18 @@ def execute_edge_actions(host, device, edge: Dict, action_set_id: str = None, te
                 
                 execution_time = int((time.time() - start_time) * 1000)
                 
+                # Capture screenshot after successful action
+                screenshot_path = ""
+                if result.get('success'):
+                    screenshot_path = capture_validation_screenshot(
+                        host, device, 
+                        f"action_{i+1}_{action.get('command')}", 
+                        "action"
+                    )
+                    if screenshot_path:
+                        action_screenshots.append(screenshot_path)
+                        print(f"[@action_utils:execute_edge_actions] Screenshot captured for action {i+1}: {screenshot_path}")
+                
                 # Add ActionExecutor-compatible fields
                 enhanced_result = {
                     'success': result.get('success', False),
@@ -399,6 +418,7 @@ def execute_edge_actions(host, device, edge: Dict, action_set_id: str = None, te
                     'resultType': 'PASS' if result.get('success') else 'FAIL',
                     'execution_time_ms': execution_time,
                     'action_category': 'main',
+                    'screenshot_path': screenshot_path,
                 }
                 
                 results.append(enhanced_result)
@@ -530,6 +550,7 @@ def execute_edge_actions(host, device, edge: Dict, action_set_id: str = None, te
             'passed_count': passed_count,
             'failed_count': len(valid_actions) - passed_count,
             'results': results,
+            'action_screenshots': action_screenshots,
             'message': f'Direct batch execution completed: {passed_count}/{len(valid_actions)} passed',
             'error': error_message
         }
