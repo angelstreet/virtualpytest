@@ -395,12 +395,12 @@ def create_compact_step_results_section(step_results: List[Dict], screenshots: D
     return ''.join(steps_html)
 
 def get_video_thumbnail_html(video_url: str, label: str = "Video") -> str:
-    """Generate HTML for video thumbnail with click-to-expand functionality"""
+    """Generate HTML for video thumbnail that opens video URL in new tab"""
     if not video_url:
         return ""
     
     return f"""
-    <div class="video-thumbnail" onclick="openVideoModal('{video_url}', '{label}')">
+    <div class="video-thumbnail" onclick="window.open('{video_url}', '_blank')" style="cursor: pointer;" title="Click to open video in new tab">
         <video muted preload="metadata">
             <source src="{video_url}" type="video/mp4">
         </video>

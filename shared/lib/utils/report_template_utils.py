@@ -1102,50 +1102,7 @@ def create_themed_html_template() -> str:
             openScreenshotModal(JSON.stringify(modalData));
         }}
         
-        // Video modal functions
-        function openVideoModal(videoUrl, label) {{
-            // Create video modal if it doesn't exist
-            let videoModal = document.getElementById('video-modal');
-            if (!videoModal) {{
-                videoModal = document.createElement('div');
-                videoModal.id = 'video-modal';
-                videoModal.className = 'modal';
-                videoModal.innerHTML = `
-                    <div class="modal-content video-modal-content">
-                        <div class="modal-header">
-                            <h3 id="video-modal-title">${{label}}</h3>
-                            <button class="modal-close" onclick="closeVideoModal()">&times;</button>
-                        </div>
-                        <div class="modal-body">
-                            <video id="modal-video" controls autoplay style="width: 100%; max-width: 800px;">
-                                <source src="${{videoUrl}}" type="video/mp4">
-                                Your browser does not support the video tag.
-                            </video>
-                        </div>
-                    </div>
-                `;
-                document.body.appendChild(videoModal);
-            }} else {{
-                // Update existing modal
-                document.getElementById('video-modal-title').textContent = label;
-                const video = document.getElementById('modal-video');
-                video.src = videoUrl;
-                video.load();
-            }}
-            
-            videoModal.classList.add('active');
-        }}
-        
-        function closeVideoModal() {{
-            const videoModal = document.getElementById('video-modal');
-            if (videoModal) {{
-                videoModal.classList.remove('active');
-                const video = document.getElementById('modal-video');
-                if (video) {{
-                    video.pause();
-                }}
-            }}
-        }}
+        // Video functionality: Opens in new tab (no modal needed)
         
         // Close modal when clicking outside the image
         document.addEventListener('DOMContentLoaded', function() {{
