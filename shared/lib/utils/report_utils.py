@@ -400,9 +400,9 @@ def get_video_thumbnail_html(video_url: str, label: str = "Video") -> str:
         return ""
     
     return f"""
-    <div class="video-thumbnail" onclick="window.open('{video_url}', '_blank')" style="cursor: pointer;" title="Click to open video in new tab">
+    <div class="video-thumbnail" onclick="window.open('{video_url}', '_blank')" style="cursor: pointer;" title="Click to open HLS video in new tab">
         <video muted preload="metadata">
-            <source src="{video_url}" type="video/mp4">
+            <source src="{video_url}" type="application/x-mpegURL">
         </video>
         <div class="play-overlay">▶</div>
         <div class="video-label">{label}</div>

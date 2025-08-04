@@ -146,22 +146,21 @@ class HDMIStreamController(AVControllerInterface):
 
     def take_video(self, duration_seconds: float = None, test_start_time: float = None) -> Optional[str]:
         """
-        Take video from HLS stream and upload to R2.
-        Time-synchronized to capture actual test execution period.
+        Upload HLS stream directly to R2 (no MP4 conversion).
+        Fast upload with no processing time.
         
         Args:
             duration_seconds: How many seconds of video to capture (default: 10s)
             test_start_time: Unix timestamp when test started (for time sync)
             
         Returns:
-            R2 URL of uploaded video, or None if failed
+            R2 URL of HLS playlist (m3u8), or None if failed
         """
-        temp_mp4 = None
         try:
             if duration_seconds is None:
                 duration_seconds = 10.0
                 
-            print(f"HDMI[{self.capture_source}]: Taking {duration_seconds}s video")
+            print(f"HDMI[{self.capture_source}]: Uploading {duration_seconds}s HLS video (no conversion)")
             
             # 1. Find the M3U8 file (HLS playlist)
             m3u8_path = os.path.join(self.video_capture_path, "output.m3u8")
@@ -170,67 +169,63 @@ class HDMIStreamController(AVControllerInterface):
                 print(f"HDMI[{self.capture_source}]: No M3U8 file found")
                 return None
             
-            # 2. Create MP4 directly from M3U8 using FFmpeg with time synchronization
+            # 2. Read M3U8 playlist to get segment list
+            with open(m3u8_path, 'r') as f:
+                playlist_content = f.read()
+            
+            # Extract .ts segment filenames from playlist
+            segment_files = []
+            for line in playlist_content.splitlines():
+                if line.endswith('.ts'):
+                    segment_path = os.path.join(self.video_capture_path, line.strip())
+                    if os.path.exists(segment_path):
+                        segment_files.append((line.strip(), segment_path))
+            
+            if not segment_files:
+                print(f"HDMI[{self.capture_source}]: No video segments found")
+                return None
+            
+            print(f"HDMI[{self.capture_source}]: Found {len(segment_files)} segments")
+            
+            # 3. Create unique folder for this video
             timestamp = int(time.time())
-            temp_mp4 = f"/tmp/video_{timestamp}.mp4"
+            video_folder = f"videos/test_video_{timestamp}"
             
-            # Calculate time offset for synchronized capture
-            current_time = time.time()
-            if test_start_time:
-                # Time elapsed since test started
-                time_since_test_start = current_time - test_start_time
-                # We want to go back to capture from test start time
-                seek_seconds = max(0, time_since_test_start)
-                print(f"HDMI[{self.capture_source}]: Seeking back {seek_seconds:.1f}s to test start")
-            else:
-                # Fallback: seek back by duration (old behavior)
-                seek_seconds = duration_seconds
-                print(f"HDMI[{self.capture_source}]: No test start time, seeking back {seek_seconds:.1f}s")
-            
-            # FFmpeg command: M3U8 → MP4 with time synchronization
-            cmd = [
-                'ffmpeg', '-y',
-                '-i', m3u8_path,  # Input: M3U8 playlist
-                '-ss', f'-{seek_seconds}',  # Seek: go back this many seconds from current time
-                '-t', str(duration_seconds),  # Duration: capture this many seconds
-                '-c', 'copy',  # Don't re-encode, just copy
-                '-avoid_negative_ts', 'make_zero',  # Handle timestamp issues
-                temp_mp4  # Output: MP4 file
-            ]
-            
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
-            
-            if result.returncode != 0:
-                print(f"HDMI[{self.capture_source}]: FFmpeg failed: {result.stderr}")
-                return None
-            
-            # 3. Upload MP4 to R2 (same pattern as screenshots)
+            # 4. Upload HLS files to R2
             from shared.lib.utils.cloudflare_utils import get_cloudflare_utils
-            
             uploader = get_cloudflare_utils()
-            remote_path = f"videos/test_video_{timestamp}.mp4"
-            upload_result = uploader.upload_file(temp_mp4, remote_path)
             
-            if upload_result.get('success'):
-                video_url = upload_result.get('url')
-                print(f"HDMI[{self.capture_source}]: Video uploaded: {video_url}")
-                return video_url
-            else:
-                print(f"HDMI[{self.capture_source}]: Upload failed")
+            # Upload M3U8 playlist first
+            playlist_remote_path = f"{video_folder}/playlist.m3u8"
+            playlist_result = uploader.upload_file(m3u8_path, playlist_remote_path)
+            
+            if not playlist_result.get('success'):
+                print(f"HDMI[{self.capture_source}]: Failed to upload playlist")
                 return None
+            
+            # Upload all segment files
+            uploaded_segments = 0
+            for segment_name, segment_path in segment_files:
+                segment_remote_path = f"{video_folder}/{segment_name}"
+                segment_result = uploader.upload_file(segment_path, segment_remote_path)
+                
+                if segment_result.get('success'):
+                    uploaded_segments += 1
+                else:
+                    print(f"HDMI[{self.capture_source}]: Failed to upload segment {segment_name}")
+            
+            if uploaded_segments == 0:
+                print(f"HDMI[{self.capture_source}]: No segments uploaded successfully")
+                return None
+            
+            # 5. Return playlist URL for HLS playback
+            playlist_url = playlist_result.get('url')
+            print(f"HDMI[{self.capture_source}]: HLS uploaded: {playlist_url} ({uploaded_segments}/{len(segment_files)} segments)")
+            return playlist_url
                 
         except Exception as e:
-            print(f"HDMI[{self.capture_source}]: Error taking video: {e}")
+            print(f"HDMI[{self.capture_source}]: Error uploading HLS: {e}")
             return None
-            
-        finally:
-            # 4. Always cleanup temp file
-            if temp_mp4 and os.path.exists(temp_mp4):
-                try:
-                    os.remove(temp_mp4)
-                    print(f"HDMI[{self.capture_source}]: Cleaned up temp file: {temp_mp4}")
-                except Exception as cleanup_error:
-                    print(f"HDMI[{self.capture_source}]: Failed to cleanup {temp_mp4}: {cleanup_error}")
         
         
     def take_control(self) -> Dict[str, Any]:
