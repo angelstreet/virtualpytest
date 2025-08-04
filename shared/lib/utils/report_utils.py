@@ -289,23 +289,27 @@ def create_compact_step_results_section(step_results: List[Dict], screenshots: D
             screenshots_for_step.append(('Step', step.get('screenshot_path'), None, None))
         
         if screenshots_for_step:
-            screenshot_divs = []
             step_id = step.get('step_number', step_index+1)
             step_title = f"Step {step_id}: {step.get('from_node_label', 'unknown')} → {step.get('to_node_label', 'unknown')}"
             
-            for idx, screenshot_data in enumerate(screenshots_for_step):
-                label, screenshot_path = screenshot_data[0], screenshot_data[1]
-                action_cmd = screenshot_data[2] if len(screenshot_data) > 2 else None
-                action_params = screenshot_data[3] if len(screenshot_data) > 3 else None
-                
-                screenshot_divs.append(get_thumbnail_screenshot_html(
-                    screenshot_path, label, step_title, screenshots_for_step, idx
-                ))
+            # Show only the LAST screenshot as thumbnail
+            last_screenshot = screenshots_for_step[-1]
+            last_screenshot_path = last_screenshot[1]
+            screenshot_count = len(screenshots_for_step)
+            
+            # Create single thumbnail that opens modal with all screenshots
+            thumbnail_html = get_thumbnail_screenshot_html(
+                last_screenshot_path, 
+                f"{screenshot_count} screenshot{'s' if screenshot_count > 1 else ''}", 
+                step_title, 
+                screenshots_for_step, 
+                len(screenshots_for_step) - 1  # Start at last screenshot
+            )
             
             screenshot_html = f"""
             <div class="step-screenshot-container">
                 <div class="screenshot-row">
-                    {''.join(screenshot_divs)}
+                    {thumbnail_html}
                 </div>
             </div>
             """
@@ -356,16 +360,39 @@ def get_thumbnail_screenshot_html(screenshot_path: Optional[str], label: str = N
     if not screenshot_path:
         return ''
     
+    # Prepare screenshots for modal - convert to simple format
+    modal_screenshots = []
+    if all_screenshots:
+        for screenshot_data in all_screenshots:
+            screenshot_label = screenshot_data[0]
+            screenshot_url = screenshot_data[1]
+            action_cmd = screenshot_data[2] if len(screenshot_data) > 2 else None
+            action_params = screenshot_data[3] if len(screenshot_data) > 3 else None
+            
+            modal_screenshots.append({
+                'label': screenshot_label,
+                'url': screenshot_url,
+                'command': action_cmd,
+                'params': action_params or {}
+            })
+    else:
+        modal_screenshots.append({
+            'label': label or 'Screenshot',
+            'url': screenshot_path,
+            'command': None,
+            'params': {}
+        })
+    
     # Create modal data for navigation
     modal_data = {
         'step_title': step_title or 'Screenshot',
-        'screenshots': all_screenshots or [(label, screenshot_path)],
+        'screenshots': modal_screenshots,
         'current_index': current_index
     }
     
     # Encode modal data as JSON for JavaScript
     import json
-    modal_data_json = json.dumps(modal_data).replace('"', '&quot;')
+    modal_data_json = json.dumps(modal_data).replace('"', '&quot;').replace("'", "&#x27;")
     
     # Check if it's a URL (from Cloudflare R2) or local file path
     if screenshot_path.startswith('http'):

@@ -858,7 +858,7 @@ def create_themed_html_template() -> str:
             
             // Update image
             const img = document.getElementById('modal-img');
-            img.src = current[1]; // screenshot path
+            img.src = current.url;
             
             // Update step title
             const title = document.getElementById('modal-step-title');
@@ -866,15 +866,16 @@ def create_themed_html_template() -> str:
             
             // Update action info
             const actionInfo = document.getElementById('modal-action-info');
-            if (current[2]) {{ // has action command
-                const cmd = current[2];
-                const params = current[3] || {{}};
+            if (current.command) {{
+                const cmd = current.command;
+                const params = current.params || {{}};
                 const paramsStr = Object.keys(params).length > 0 ? 
                     ' ' + Object.entries(params).map(([k,v]) => `${{k}}="${{v}}"`).join(' ') : '';
-                actionInfo.textContent = `${{current[0]}}: ${{cmd}}${{paramsStr}}`;
+                actionInfo.textContent = `${{current.label}}: ${{cmd}}${{paramsStr}}`;
                 actionInfo.style.display = 'block';
             }} else {{
-                actionInfo.style.display = 'none';
+                actionInfo.textContent = current.label;
+                actionInfo.style.display = 'block';
             }}
             
             // Update counter
