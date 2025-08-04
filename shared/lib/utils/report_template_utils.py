@@ -584,10 +584,10 @@ def create_themed_html_template() -> str:
         }}
         
         .modal-body img {{
-            width: 498px;
-            height: 280px;
-            max-width: 80vw;
-            max-height: 70vh;
+            width: 800px;
+            height: 450px;
+            max-width: 85vw;
+            max-height: 75vh;
             object-fit: contain;
             border-radius: 8px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.2);
