@@ -184,23 +184,7 @@ class ScriptExecutor:
             else:
                 print(f"⚠️ [{self.script_name}] Failed to capture initial screenshot, continuing...")
             
-            # 6. Capture initial video (10 seconds of recent activity - will capture final video based on test duration)
-            print(f"🎥 [{self.script_name}] Capturing initial state video...")
-            try:
-                from backend_core.src.controllers.controller_config_factory import get_controller
-                video_controller = get_controller(context.selected_device.device_id, 'av')
-                if video_controller and hasattr(video_controller, 'take_video'):
-                    # Initial video: fixed 10 seconds of recent activity before test starts
-                    initial_video_url = video_controller.take_video(10.0)
-                    if initial_video_url:
-                        context.initial_video_url = initial_video_url
-                        print(f"✅ [{self.script_name}] Initial video captured: {initial_video_url}")
-                    else:
-                        print(f"⚠️ [{self.script_name}] Failed to capture initial video, continuing...")
-                else:
-                    print(f"⚠️ [{self.script_name}] No video controller available for initial video")
-            except Exception as e:
-                print(f"⚠️ [{self.script_name}] Error capturing initial video: {e}")
+            # Note: Video will be captured at the end to cover the entire test execution
             
             print(f"✅ [{self.script_name}] Execution context setup completed")
             
@@ -399,8 +383,8 @@ class ScriptExecutor:
             if final_screenshot:
                 print(f"✅ [{self.script_name}] Final screenshot captured")
             
-            # Capture final video (duration based on test execution time)
-            print(f"🎥 [{self.script_name}] Capturing final state video...")
+            # Capture test execution video (duration based on test execution time)
+            print(f"🎥 [{self.script_name}] Capturing test execution video...")
             try:
                 from backend_core.src.controllers.controller_config_factory import get_controller
                 video_controller = get_controller(context.selected_device.device_id, 'av')
@@ -422,16 +406,16 @@ class ScriptExecutor:
                     
                     print(f"🎥 [{self.script_name}] Test duration: {test_duration_seconds:.1f}s, capturing {video_duration:.1f}s of video")
                     
-                    final_video_url = video_controller.take_video(video_duration)
-                    if final_video_url:
-                        context.final_video_url = final_video_url
-                        print(f"✅ [{self.script_name}] Final video captured: {final_video_url}")
+                    test_video_url = video_controller.take_video(video_duration)
+                    if test_video_url:
+                        context.test_video_url = test_video_url
+                        print(f"✅ [{self.script_name}] Test execution video captured: {test_video_url}")
                     else:
-                        print(f"⚠️ [{self.script_name}] Failed to capture final video, continuing...")
+                        print(f"⚠️ [{self.script_name}] Failed to capture test video, continuing...")
                 else:
-                    print(f"⚠️ [{self.script_name}] No video controller available for final video")
+                    print(f"⚠️ [{self.script_name}] No video controller available for test video")
             except Exception as e:
-                print(f"⚠️ [{self.script_name}] Error capturing final video: {e}")
+                print(f"⚠️ [{self.script_name}] Error capturing test video: {e}")
             
             # Generate and upload report
             device_info = {
@@ -454,8 +438,7 @@ class ScriptExecutor:
                 error_message=context.error_message,
                 userinterface_name=userinterface_name,
                 execution_summary=getattr(context, 'execution_summary', ''),
-                initial_video_url=getattr(context, 'initial_video_url', ''),
-                final_video_url=getattr(context, 'final_video_url', '')
+                test_video_url=getattr(context, 'test_video_url', '')
             )
             
             if report_url:

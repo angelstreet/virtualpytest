@@ -118,8 +118,7 @@ def generate_validation_report(report_data: Dict) -> str:
             execution_summary=format_console_summary_for_html(report_data.get('execution_summary', '')),
             initial_screenshot=get_thumbnail_screenshot_html(screenshots.get('initial')),
             final_screenshot=get_thumbnail_screenshot_html(screenshots.get('final')),
-            initial_video=get_video_thumbnail_html(report_data.get('initial_video_url'), 'Initial State'),
-            final_video=get_video_thumbnail_html(report_data.get('final_video_url'), 'Final State')
+            test_video=get_video_thumbnail_html(report_data.get('test_video_url'), 'Test Execution')
         )
         
         print(f"[@utils:report_utils:generate_validation_report] Report generated successfully")
@@ -598,8 +597,7 @@ def generate_and_upload_script_report(
     exit_code: int = 0,
     parameters: str = "",
     execution_summary: str = "",
-    initial_video_url: str = "",
-    final_video_url: str = ""
+    test_video_url: str = ""
 ) -> str:
     """
     Generate HTML report and upload to R2 storage - extracted from validation.py
@@ -698,8 +696,7 @@ def generate_and_upload_script_report(
             'passed_verifications': passed_verifications,
             'failed_verifications': failed_verifications,
             'execution_summary': execution_summary,
-            'initial_video_url': initial_video_url,
-            'final_video_url': final_video_url
+            'test_video_url': test_video_url
         }
         
         # Generate HTML content using existing function - now with R2 URLs

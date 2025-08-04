@@ -530,11 +530,15 @@ def create_themed_html_template() -> str:
             font-size: 1.1em;
         }}
         
-        .video-grid {{
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-            margin-top: 15px;
+        .test-video-section {{
+            margin-top: 20px;
+            text-align: center;
+        }}
+        
+        .test-video-section h4 {{
+            margin: 0 0 10px 0;
+            color: var(--text-primary);
+            font-size: 1em;
         }}
         
         .video-thumbnail {{
@@ -1239,9 +1243,9 @@ def create_themed_html_template() -> str:
                                 {initial_screenshot}
                                 {final_screenshot}
                             </div>
-                            <div class="video-grid">
-                                {initial_video}
-                                {final_video}
+                            <div class="test-video-section">
+                                <h4>Test Execution Video</h4>
+                                {test_video}
                             </div>
                         </div>
                     </div>
