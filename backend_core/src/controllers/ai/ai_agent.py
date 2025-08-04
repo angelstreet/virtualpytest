@@ -45,7 +45,7 @@ class AIAgentController(BaseController):
         # Load tree lazily
         try:
             # Lazy import inside method to avoid circular import
-            from shared.lib.utils.script_utils import load_navigation_tree
+            from shared.lib.utils.navigation_utils import load_navigation_tree
             
             print(f"AI[{self.device_name}]: Loading navigation tree for: {userinterface_name}")
             tree_result = load_navigation_tree(userinterface_name, "ai_agent")
@@ -80,13 +80,13 @@ class AIAgentController(BaseController):
         try:
             print(f"AI[{self.device_name}]: Executing navigation to '{target_node}' exactly like validation.py")
             
-            # Use the same script_utils that validation.py uses
-            from shared.lib.utils.script_utils import (
+            # Use the new specialized utils modules
+            from shared.lib.utils.script_execution_utils import (
                 setup_script_environment,
-                select_device, 
-                execute_navigation_with_verifications,
-                load_navigation_tree
+                select_device
             )
+            from shared.lib.utils.action_utils import execute_navigation_with_verifications
+            from shared.lib.utils.navigation_utils import load_navigation_tree
             
             # Setup script environment (same as validation.py)
             setup_result = setup_script_environment("ai_agent")

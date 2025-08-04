@@ -30,12 +30,14 @@ project_root = os.path.dirname(os.path.dirname(os.path.dirname(current_dir)))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from shared.lib.utils.script_utils import (
+from shared.lib.utils.script_execution_utils import (
     setup_script_environment,
     select_device,
     take_device_control,
-    release_device_control,
-    load_navigation_tree,
+    release_device_control
+)
+from shared.lib.utils.navigation_utils import load_navigation_tree
+from shared.lib.utils.action_utils import (
     execute_navigation_with_verifications,
     capture_validation_screenshot
 )

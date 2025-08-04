@@ -148,7 +148,7 @@ def analyze_script():
             }), 400
         
         # Use centralized script path logic
-        from shared.lib.utils.script_utils import get_script_path
+        from shared.lib.utils.script_execution_utils import get_script_path
         
         try:
             script_path = get_script_path(script_name)
@@ -189,7 +189,7 @@ def list_scripts():
     """List all available Python scripts using centralized script utils"""
     try:
         # Use centralized script listing logic
-        from shared.lib.utils.script_utils import list_available_scripts, get_scripts_directory
+        from shared.lib.utils.script_execution_utils import list_available_scripts, get_scripts_directory
         
         available_scripts = list_available_scripts()
         scripts_dir = get_scripts_directory()

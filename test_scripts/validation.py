@@ -27,7 +27,7 @@ from backend_core.src.services.navigation.navigation_pathfinding import find_opt
 from shared.lib.utils.report_utils import generate_validation_report
 from shared.lib.utils.cloudflare_utils import upload_script_report, upload_validation_screenshots
 from shared.lib.supabase.script_results_db import update_script_execution_result
-from shared.lib.utils.script_utils import execute_navigation_with_verifications
+from shared.lib.utils.action_utils import execute_navigation_with_verifications
 from datetime import datetime
 
 
