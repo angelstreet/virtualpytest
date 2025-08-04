@@ -117,7 +117,9 @@ def generate_validation_report(report_data: Dict) -> str:
             error_section=create_error_section(error_msg) if error_msg else '',
             execution_summary=format_console_summary_for_html(report_data.get('execution_summary', '')),
             initial_screenshot=get_thumbnail_screenshot_html(screenshots.get('initial')),
-            final_screenshot=get_thumbnail_screenshot_html(screenshots.get('final'))
+            final_screenshot=get_thumbnail_screenshot_html(screenshots.get('final')),
+            initial_video=get_video_thumbnail_html(report_data.get('initial_video_url'), 'Initial State'),
+            final_video=get_video_thumbnail_html(report_data.get('final_video_url'), 'Final State')
         )
         
         print(f"[@utils:report_utils:generate_validation_report] Report generated successfully")
@@ -393,6 +395,21 @@ def create_compact_step_results_section(step_results: List[Dict], screenshots: D
     steps_html.append('</div>')
     return ''.join(steps_html)
 
+def get_video_thumbnail_html(video_url: str, label: str = "Video") -> str:
+    """Generate HTML for video thumbnail with click-to-expand functionality"""
+    if not video_url:
+        return ""
+    
+    return f"""
+    <div class="video-thumbnail" onclick="openVideoModal('{video_url}', '{label}')">
+        <video muted preload="metadata">
+            <source src="{video_url}" type="video/mp4">
+        </video>
+        <div class="play-overlay">▶</div>
+        <div class="video-label">{label}</div>
+    </div>
+    """
+
 def format_console_summary_for_html(console_text: str) -> str:
     """Convert console summary text to HTML format."""
     print(f"[@utils:report_utils:format_console_summary_for_html] Input text: '{console_text[:100] if console_text else 'EMPTY'}'...")
@@ -580,7 +597,9 @@ def generate_and_upload_script_report(
     stderr: str = "",
     exit_code: int = 0,
     parameters: str = "",
-    execution_summary: str = ""
+    execution_summary: str = "",
+    initial_video_url: str = "",
+    final_video_url: str = ""
 ) -> str:
     """
     Generate HTML report and upload to R2 storage - extracted from validation.py
@@ -678,7 +697,9 @@ def generate_and_upload_script_report(
             'total_verifications': total_verifications,
             'passed_verifications': passed_verifications,
             'failed_verifications': failed_verifications,
-            'execution_summary': execution_summary
+            'execution_summary': execution_summary,
+            'initial_video_url': initial_video_url,
+            'final_video_url': final_video_url
         }
         
         # Generate HTML content using existing function - now with R2 URLs

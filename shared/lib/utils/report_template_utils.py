@@ -530,6 +530,59 @@ def create_themed_html_template() -> str:
             font-size: 1.1em;
         }}
         
+        .video-grid {{
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 15px;
+        }}
+        
+        .video-thumbnail {{
+            position: relative;
+            border-radius: 8px;
+            overflow: hidden;
+            background: var(--bg-secondary);
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }}
+        
+        .video-thumbnail:hover {{
+            transform: scale(1.02);
+        }}
+        
+        .video-thumbnail video {{
+            width: 100%;
+            height: auto;
+            display: block;
+        }}
+        
+        .video-thumbnail .play-overlay {{
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 20px;
+        }}
+        
+        .video-label {{
+            position: absolute;
+            bottom: 5px;
+            left: 5px;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 0.8em;
+        }}
+        
         @media (max-width: 768px) {{
             .summary-state-container {{
                 grid-template-columns: 1fr;
@@ -1045,6 +1098,51 @@ def create_themed_html_template() -> str:
             openScreenshotModal(JSON.stringify(modalData));
         }}
         
+        // Video modal functions
+        function openVideoModal(videoUrl, label) {{
+            // Create video modal if it doesn't exist
+            let videoModal = document.getElementById('video-modal');
+            if (!videoModal) {{
+                videoModal = document.createElement('div');
+                videoModal.id = 'video-modal';
+                videoModal.className = 'modal';
+                videoModal.innerHTML = `
+                    <div class="modal-content video-modal-content">
+                        <div class="modal-header">
+                            <h3 id="video-modal-title">${{label}}</h3>
+                            <button class="modal-close" onclick="closeVideoModal()">&times;</button>
+                        </div>
+                        <div class="modal-body">
+                            <video id="modal-video" controls autoplay style="width: 100%; max-width: 800px;">
+                                <source src="${{videoUrl}}" type="video/mp4">
+                                Your browser does not support the video tag.
+                            </video>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(videoModal);
+            }} else {{
+                // Update existing modal
+                document.getElementById('video-modal-title').textContent = label;
+                const video = document.getElementById('modal-video');
+                video.src = videoUrl;
+                video.load();
+            }}
+            
+            videoModal.classList.add('active');
+        }}
+        
+        function closeVideoModal() {{
+            const videoModal = document.getElementById('video-modal');
+            if (videoModal) {{
+                videoModal.classList.remove('active');
+                const video = document.getElementById('modal-video');
+                if (video) {{
+                    video.pause();
+                }}
+            }}
+        }}
+        
         // Close modal when clicking outside the image
         document.addEventListener('DOMContentLoaded', function() {{
             const modal = document.getElementById('screenshot-modal');
@@ -1140,6 +1238,10 @@ def create_themed_html_template() -> str:
                             <div class="screenshot-grid">
                                 {initial_screenshot}
                                 {final_screenshot}
+                            </div>
+                            <div class="video-grid">
+                                {initial_video}
+                                {final_video}
                             </div>
                         </div>
                     </div>

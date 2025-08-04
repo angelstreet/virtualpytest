@@ -143,6 +143,84 @@ class HDMIStreamController(AVControllerInterface):
         except Exception as e:
             print(f'HDMI[{self.capture_source}]: Error saving screenshot: {e}')
             return None
+
+    def take_video(self, duration_seconds: float = None) -> Optional[str]:
+        """
+        Take video from HLS stream and upload to R2.
+        Simple like take_screenshot - just returns R2 URL.
+        
+        Args:
+            duration_seconds: How many seconds of recent video to capture (default: 10s)
+            
+        Returns:
+            R2 URL of uploaded video, or None if failed
+        """
+        temp_mp4 = None
+        try:
+            if duration_seconds is None:
+                duration_seconds = 10.0
+                
+            print(f"HDMI[{self.capture_source}]: Taking {duration_seconds}s video")
+            
+            # 1. Find the M3U8 file (HLS playlist)
+            m3u8_path = os.path.join(self.video_capture_path, "output.m3u8")
+            
+            if not os.path.exists(m3u8_path):
+                print(f"HDMI[{self.capture_source}]: No M3U8 file found")
+                return None
+            
+            # 2. Create MP4 directly from M3U8 using FFmpeg
+            timestamp = int(time.time())
+            temp_mp4 = f"/tmp/video_{timestamp}.mp4"
+            
+            # FFmpeg command: M3U8 → MP4
+            # Note: -t limits output duration, but FFmpeg will capture what's available
+            # If test duration > available segments, it captures all available segments
+            cmd = [
+                'ffmpeg', '-y',
+                '-i', m3u8_path,  # Input: M3U8 playlist
+                '-t', str(duration_seconds),  # Duration limit (captures up to this much)
+                '-c', 'copy',  # Don't re-encode, just copy
+                '-avoid_negative_ts', 'make_zero',  # Handle timestamp issues
+                temp_mp4  # Output: MP4 file
+            ]
+            
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+            
+            if result.returncode != 0:
+                print(f"HDMI[{self.capture_source}]: FFmpeg failed: {result.stderr}")
+                return None
+            
+            # 3. Upload MP4 to R2
+            from shared.lib.utils.cloudflare_utils import upload_file_to_r2
+            
+            upload_result = upload_file_to_r2(
+                temp_mp4,
+                f"videos/test_video_{timestamp}.mp4",
+                "video/mp4"
+            )
+            
+            if upload_result.get('success'):
+                video_url = upload_result.get('url')
+                print(f"HDMI[{self.capture_source}]: Video uploaded: {video_url}")
+                return video_url
+            else:
+                print(f"HDMI[{self.capture_source}]: Upload failed")
+                return None
+                
+        except Exception as e:
+            print(f"HDMI[{self.capture_source}]: Error taking video: {e}")
+            return None
+            
+        finally:
+            # 4. Always cleanup temp file
+            if temp_mp4 and os.path.exists(temp_mp4):
+                try:
+                    os.remove(temp_mp4)
+                    print(f"HDMI[{self.capture_source}]: Cleaned up temp file: {temp_mp4}")
+                except Exception as cleanup_error:
+                    print(f"HDMI[{self.capture_source}]: Failed to cleanup {temp_mp4}: {cleanup_error}")
+        
         
     def take_control(self) -> Dict[str, Any]:
         """
