@@ -1102,7 +1102,51 @@ def create_themed_html_template() -> str:
             openScreenshotModal(JSON.stringify(modalData));
         }}
         
-        // Video functionality: Opens in new tab (no modal needed)
+        // HLS Video modal with native browser HLS support
+        function openHLSVideoModal(videoUrl, label) {{
+            // Create video modal if it doesn't exist
+            let videoModal = document.getElementById('hls-video-modal');
+            if (!videoModal) {{
+                videoModal = document.createElement('div');
+                videoModal.id = 'hls-video-modal';
+                videoModal.className = 'modal';
+                videoModal.innerHTML = `
+                    <div class="modal-content video-modal-content">
+                        <div class="modal-header">
+                            <h3 id="hls-video-modal-title">${{label}}</h3>
+                            <button class="modal-close" onclick="closeHLSVideoModal()">&times;</button>
+                        </div>
+                        <div class="modal-body">
+                            <video id="hls-modal-video" controls autoplay style="width: 100%; max-width: 800px;">
+                                <source src="${{videoUrl}}" type="application/x-mpegURL">
+                                Your browser does not support HLS video playback.
+                            </video>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(videoModal);
+            }} else {{
+                // Update existing modal
+                document.getElementById('hls-video-modal-title').textContent = label;
+                const video = document.getElementById('hls-modal-video');
+                const source = video.querySelector('source');
+                source.src = videoUrl;
+                video.load();
+            }}
+            
+            videoModal.classList.add('active');
+        }}
+        
+        function closeHLSVideoModal() {{
+            const videoModal = document.getElementById('hls-video-modal');
+            if (videoModal) {{
+                videoModal.classList.remove('active');
+                const video = document.getElementById('hls-modal-video');
+                if (video) {{
+                    video.pause();
+                }}
+            }}
+        }}
         
         // Close modal when clicking outside the image
         document.addEventListener('DOMContentLoaded', function() {{
@@ -1115,8 +1159,18 @@ def create_themed_html_template() -> str:
                 }});
             }}
             
+            // HLS video modal click-outside
+            document.addEventListener('click', function(e) {{
+                const hlsModal = document.getElementById('hls-video-modal');
+                if (hlsModal && e.target === hlsModal) {{
+                    closeHLSVideoModal();
+                }}
+            }});
+            
             // Keyboard navigation
             document.addEventListener('keydown', function(e) {{
+                const hlsModal = document.getElementById('hls-video-modal');
+                
                 if (modal && modal.classList.contains('active')) {{
                     switch(e.key) {{
                         case 'ArrowLeft':
@@ -1131,6 +1185,11 @@ def create_themed_html_template() -> str:
                             e.preventDefault();
                             closeScreenshot();
                             break;
+                    }}
+                }} else if (hlsModal && hlsModal.classList.contains('active')) {{
+                    if (e.key === 'Escape') {{
+                        e.preventDefault();
+                        closeHLSVideoModal();
                     }}
                 }}
             }});
