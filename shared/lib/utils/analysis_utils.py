@@ -123,6 +123,97 @@ def load_recent_analysis_data(device_id: str, timeframe_minutes: int = 5, max_co
         }
 
 
+def load_recent_analysis_data_from_path(capture_path: str, timeframe_minutes: int = 5, max_count: Optional[int] = None) -> Dict[str, Any]:
+    """
+    Load recent analysis data from a direct capture path.
+    
+    Args:
+        capture_path: Direct path to the capture folder
+        timeframe_minutes: Time window in minutes to look back (default: 5)
+        max_count: Maximum number of files to return (default: None for no limit)
+        
+    Returns:
+        Dict with success status and analysis data
+    """
+    try:
+        capture_folder = os.path.join(capture_path, 'captures')
+        
+        if not os.path.exists(capture_folder):
+            return {
+                'success': False,
+                'error': f'Capture folder not found: {capture_folder}',
+                'analysis_data': [],
+                'total': 0,
+                'capture_path': capture_path
+            }
+        
+        # Simple file scan (same logic as existing function)
+        cutoff_time = time.time() - (timeframe_minutes * 60)
+        files = []
+        
+        for filename in os.listdir(capture_folder):
+            if (filename.startswith('capture_') and filename.endswith('.jpg') and 
+                not filename.endswith('_thumbnail.jpg')):
+                filepath = os.path.join(capture_folder, filename)
+                if os.path.getmtime(filepath) >= cutoff_time:
+                    # Extract timestamp from filename
+                    timestamp = filename.replace('capture_', '').replace('.jpg', '')
+                    
+                    # Check for analysis files
+                    base_name = filename.replace('.jpg', '')
+                    frame_json_path = os.path.join(capture_folder, f"{base_name}.json")
+                    
+                    if os.path.exists(frame_json_path):
+                        try:
+                            with open(frame_json_path, 'r') as f:
+                                analysis_data = json.load(f)
+                                
+                            # Calculate has_incidents based on the analysis data
+                            has_incidents = (
+                                analysis_data.get('freeze', False) or
+                                analysis_data.get('blackscreen', False) or
+                                not analysis_data.get('audio', True)
+                            )
+                            analysis_data['has_incidents'] = has_incidents
+                            
+                            file_item = {
+                                'filename': filename,
+                                'timestamp': timestamp,
+                                'file_mtime': int(os.path.getmtime(filepath) * 1000),
+                                'analysis_json': analysis_data
+                            }
+                            
+                            files.append(file_item)
+                            
+                        except (json.JSONDecodeError, IOError) as e:
+                            # Skip files with corrupted or unreadable JSON
+                            print(f"[@analysis_utils] Skipping {filename}: JSON error {e}")
+                            continue
+        
+        # Sort by timestamp (newest first)
+        files.sort(key=lambda x: x['timestamp'], reverse=True)
+        
+        # Apply max_count limit if specified
+        if max_count is not None:
+            files = files[:max_count]
+        
+        return {
+            'success': True,
+            'analysis_data': files,
+            'total': len(files),
+            'capture_path': capture_path
+        }
+        
+    except Exception as e:
+        return {
+            'success': False,
+            'error': str(e),
+            'analysis_data': [],
+            'total': 0,
+            'capture_path': capture_path
+        }
+
+
 def analyze_motion_from_loaded_data(analysis_data: List[Dict], json_count: int = 5, strict_mode: bool = True) -> Dict[str, Any]:
     """
     Analyze motion/activity from pre-loaded analysis data.

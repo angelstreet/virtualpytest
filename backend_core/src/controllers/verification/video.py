@@ -1,14 +1,13 @@
 """
 Video Verification Controller Implementation
 
-This controller provides video analysis and verification functionality.
-It coordinates with helper modules to provide comprehensive video analysis:
+Modern video analysis and verification controller built with modular helper architecture:
 - VideoAnalysisHelpers: Core OpenCV/FFmpeg analysis and motion detection
 - VideoContentHelpers: Content detection (blackscreen, freeze, subtitles)
 - VideoAIHelpers: AI-powered analysis using OpenRouter
 - VideoVerificationHelpers: Verification workflow orchestration
 
-The controller acts as a facade, delegating complex operations to specialized helpers.
+Clean separation of concerns with specialized helper modules.
 """
 
 import time
@@ -25,7 +24,7 @@ from .video_verification_helpers import VideoVerificationHelpers
 
 
 class VideoVerificationController(VerificationControllerInterface):
-    """Video verification controller that coordinates with specialized helper modules."""
+    """Modern video verification controller with specialized helper modules."""
     
     def __init__(self, av_controller, **kwargs):
         """
@@ -49,7 +48,7 @@ class VideoVerificationController(VerificationControllerInterface):
         
         print(f"[@controller:VideoVerification] Initialized with AV controller")
         
-        # Controller is always ready - matches ImageVerificationController pattern
+        # Controller is always ready
         self.is_connected = True
         self.verification_session_id = f"video_verify_{int(time.time())}"
         
@@ -80,7 +79,7 @@ class VideoVerificationController(VerificationControllerInterface):
             else:
                 print(f"VideoVerify[{self.device_name}]: Video device: {self.av_controller.video_device}")
             
-            # Always connected like ImageVerificationController
+            # Connection successful
             self.is_connected = True
             self.verification_session_id = f"video_verify_{int(time.time())}"
             print(f"VideoVerify[{self.device_name}]: Connected - Session: {self.verification_session_id}")
@@ -450,30 +449,8 @@ class VideoVerificationController(VerificationControllerInterface):
         return False
 
     # =============================================================================
-    # Interface Implementation (VerificationControllerInterface)
+    # Core Verification Methods
     # =============================================================================
-    
-    def verify_image_appears(self, image_name: str, timeout: float = 10.0, confidence: float = 0.8) -> bool:
-        """Image verification moved to dedicated ImageVerificationController."""
-        print(f"VideoVerify[{self.device_name}]: Image verification not supported by video controller")
-        print(f"VideoVerify[{self.device_name}]: Use ImageVerificationController for image template matching")
-        return False
-
-    def verify_text_appears(self, text: str, timeout: float = 10.0, case_sensitive: bool = False) -> bool:
-        """Text verification requires OCR - refer to TextVerificationController."""
-        print(f"VideoVerify[{self.device_name}]: Text verification not supported by video controller")
-        print(f"VideoVerify[{self.device_name}]: Use TextVerificationController for OCR-based text verification")
-        return False
-        
-    def verify_element_exists(self, element_id: str, element_type: str = "any") -> bool:
-        """Element verification not applicable for video analysis."""
-        print(f"VideoVerify[{self.device_name}]: Element verification not supported by video controller")
-        return False
-        
-    def verify_audio_playing(self, min_level: float = 10.0, duration: float = 2.0) -> bool:
-        """Audio verification not applicable for video controller."""
-        print(f"VideoVerify[{self.device_name}]: Audio verification not supported by video controller")
-        return False
         
     def verify_color_present(self, color: str, tolerance: float = 10.0) -> bool:
         """Verify that a specific color is present on screen."""

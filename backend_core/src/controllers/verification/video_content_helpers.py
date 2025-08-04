@@ -573,13 +573,13 @@ class VideoContentHelpers:
     # Motion Analysis from JSON Files
     # =============================================================================
     
-    def detect_motion_from_json_analysis(self, device_id: str, json_count: int = 5, strict_mode: bool = True) -> Dict[str, Any]:
+    def detect_motion_from_json_analysis(self, capture_path: str, json_count: int = 5, strict_mode: bool = True) -> Dict[str, Any]:
         """
         Helper method to detect motion/activity from JSON analysis files.
         Uses shared analysis utility to avoid code duplication.
         
         Args:
-            device_id: Device ID to analyze (instead of direct folder path)
+            capture_path: Direct path to the capture folder containing analysis files
             json_count: Number of recent JSON files to analyze (default: 5)
             strict_mode: If True, ALL files must show no errors. If False, majority must show no errors (default: True)
             
@@ -588,10 +588,10 @@ class VideoContentHelpers:
         """
         try:
             # Import shared analysis utility
-            from shared.lib.utils.analysis_utils import load_recent_analysis_data, analyze_motion_from_loaded_data
+            from shared.lib.utils.analysis_utils import load_recent_analysis_data_from_path, analyze_motion_from_loaded_data
             
-            # Load recent analysis data using shared utility (5 minutes timeframe)
-            data_result = load_recent_analysis_data(device_id, timeframe_minutes=5, max_count=json_count)
+            # Load recent analysis data using direct capture path (5 minutes timeframe)
+            data_result = load_recent_analysis_data_from_path(capture_path, timeframe_minutes=5, max_count=json_count)
             
             if not data_result['success']:
                 return {
