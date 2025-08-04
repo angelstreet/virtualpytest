@@ -299,23 +299,10 @@ class ADBUtils:
                     packages.append(package_name)
                     
             apps = []
-            # Get app labels for each package (limit to first 20 for performance)
-            for package_name in packages[:20]:
-                try:
-                    label_command = f"adb -s {device_id} shell dumpsys package {package_name} | grep -A1 'applicationLabel'"
-                    success, stdout, stderr, exit_code = self.execute_command(label_command)
-                    
-                    label = package_name  # Default to package name
-                    if success and stdout:
-                        match = re.search(r'applicationLabel=(.+)', stdout)
-                        if match:
-                            label = match.group(1).strip()
-                            
-                    apps.append(AndroidApp(package_name, label))
-                    
-                except Exception:
-                    # If we can't get the label, use package name
-                    apps.append(AndroidApp(package_name, package_name))
+            # Process up to 40 packages (increased from 20 for better coverage)
+            # Skip the failing dumpsys commands and just use package names as labels
+            for package_name in packages[:40]:
+                apps.append(AndroidApp(package_name, package_name))
                     
             print(f"[@lib:adbUtils:get_installed_apps] Found {len(apps)} apps")
             return apps
