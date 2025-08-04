@@ -39,15 +39,8 @@ def custom_validation_step_handler(context: ScriptExecutionContext, step, step_n
             context.tree_id, context.script_result_id, 'validation'
         )
         
-        # Record failure details for better reporting
-        if not result.get('success', False):
-            context.failed_steps.append({
-                'step_number': step_num,
-                'from_node': step.get('from_node_label'),
-                'to_node': step.get('to_node_label'),
-                'error': result.get('error'),
-                'verification_results': result.get('verification_results', [])
-            })
+        # Note: Failed step recording is handled by the main execution sequence
+        # to avoid duplicate entries
         
         return result
         
@@ -73,7 +66,7 @@ def generate_validation_report_custom(context: ScriptExecutionContext, userinter
         failed_verifications = total_verifications - passed_verifications
         
         successful_steps = sum(1 for step in context.step_results if step.get('success', False))
-        failed_steps = len(context.failed_steps)
+        failed_steps = sum(1 for step in context.step_results if not step.get('success', False))
         recovered_steps = context.recovered_steps
         
         # Generate timestamp
@@ -95,7 +88,7 @@ def generate_validation_report_custom(context: ScriptExecutionContext, userinter
             'step_results': context.step_results,
             'screenshots': {
                 'initial': context.screenshot_paths[0] if context.screenshot_paths else None,
-                'steps': context.step_results,
+                'steps': context.step_results,  # Pass full step results to access all screenshot data
                 'final': context.screenshot_paths[-1] if len(context.screenshot_paths) > 1 else None
             },
             'error_msg': None,  # No overall error - individual step failures are tracked separately
@@ -110,7 +103,15 @@ def generate_validation_report_custom(context: ScriptExecutionContext, userinter
             'passed_verifications': passed_verifications,
             'failed_verifications': failed_verifications,
             'coverage_percentage': ((successful_steps + recovered_steps) / len(context.step_results) * 100),
-            'failed_steps_details': context.failed_steps
+            'failed_steps_details': [
+                {
+                    'step_number': step.get('step_number'),
+                    'from_node': step.get('from_node'),
+                    'to_node': step.get('to_node'),
+                    'error': step.get('verification_results', [{}])[0].get('error', 'Unknown error') if step.get('verification_results') else 'Unknown error'
+                }
+                for step in context.step_results if not step.get('success', False)
+            ]
         }
         
         # Generate HTML report
@@ -195,7 +196,7 @@ def print_validation_summary(context: ScriptExecutionContext, userinterface_name
     )
     
     successful_steps = sum(1 for step in context.step_results if step.get('success', False))
-    failed_steps = len(context.failed_steps)
+    failed_steps = sum(1 for step in context.step_results if not step.get('success', False))
     recovered_steps = context.recovered_steps
     
     print("\n" + "="*60)
@@ -213,11 +214,20 @@ def print_validation_summary(context: ScriptExecutionContext, userinterface_name
     print(f"📸 Screenshots: {len(context.screenshot_paths)} captured")
     print(f"🎯 Coverage: {((successful_steps + recovered_steps) / len(context.step_results) * 100):.1f}%")
     
-    if context.failed_steps:
+    failed_step_details = [step for step in context.step_results if not step.get('success', False)]
+    if failed_step_details:
         print(f"\n❌ Failed Steps Details:")
-        for failed in context.failed_steps:
-            print(f"   Step {failed['step_number']}: {failed['from_node']} → {failed['to_node']}")
-            print(f"     Error: {failed['error']}")
+        for failed_step in failed_step_details:
+            step_num = failed_step.get('step_number')
+            from_node = failed_step.get('from_node')
+            to_node = failed_step.get('to_node')
+            # Get the error from verification results if available
+            error = 'Unknown error'
+            verification_results = failed_step.get('verification_results', [])
+            if verification_results and verification_results[0].get('error'):
+                error = verification_results[0].get('error')
+            print(f"   Step {step_num}: {from_node} → {to_node}")
+            print(f"     Error: {error}")
     
     print("="*60)
 
