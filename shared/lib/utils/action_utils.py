@@ -154,14 +154,21 @@ def execute_navigation_with_verifications(host, device, transition: Dict[str, An
         actions_success = remote_controller.execute_sequence(actions, retry_actions, failure_actions)
         action_execution_time = int((time.time() - action_start_time) * 1000)
         
-        # Capture screenshot after action execution
-        screenshot_path = host.capture_screenshot()
+        # Capture screenshot after action execution using existing function
+        screenshot_path = capture_validation_screenshot(host, device, f"action_{from_node}_{to_node}", script_context)
         screenshot_url = None
         if screenshot_path:
-            step_name = f"step_{transition.get('step_number', 'unknown')}_{from_node}_{to_node}"
-            upload_result = host.upload_file_to_supabase(screenshot_path, f"validation_{step_name}_{device.device_id}.png")
-            if upload_result.get('success'):
-                screenshot_url = upload_result.get('url')
+            # Upload screenshot to Cloudflare R2 (same as existing validation script)
+            from shared.lib.utils.cloudflare_utils import get_cloudflare_utils
+            try:
+                uploader = get_cloudflare_utils()
+                step_name = f"step_{transition.get('step_number', 'unknown')}_{from_node}_{to_node}"
+                remote_path = f"action-screenshots/{device.device_id}/{step_name}.png"
+                upload_result = uploader.upload_file(screenshot_path, remote_path)
+                if upload_result.get('success'):
+                    screenshot_url = upload_result.get('url')
+            except Exception as e:
+                print(f"[@action_utils:execute_navigation] Screenshot upload failed: {e}")
         
         # Enhanced error logging with more context
         if not actions_success:
