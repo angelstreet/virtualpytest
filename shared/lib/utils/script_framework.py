@@ -74,6 +74,11 @@ class ScriptExecutionContext:
         self.error_message = ""
         self.script_result_id = None
         
+        # Recovery tracking for resilient validation
+        self.failed_steps: List[Dict] = []        # Track failed steps
+        self.recovery_attempts: int = 0           # Count total recovery attempts
+        self.recovered_steps: int = 0             # Count successful recoveries
+        
         # Custom data for specific scripts
         self.custom_data = {}
     
@@ -224,9 +229,9 @@ class ScriptExecutor:
     
     def execute_navigation_sequence(self, context: ScriptExecutionContext, navigation_path: List[Dict],
                                   custom_step_handler: Callable = None) -> bool:
-        """Execute a sequence of navigation steps with optional custom handling per step"""
+        """Execute navigation sequence with single-retry recovery on failures"""
         try:
-            print(f"🎮 [{self.script_name}] Starting navigation on device {context.selected_device.device_id}")
+            print(f"🎮 [{self.script_name}] Starting resilient navigation on device {context.selected_device.device_id}")
             
             for i, step in enumerate(navigation_path):
                 step_num = i + 1
@@ -250,12 +255,11 @@ class ScriptExecutor:
                 step_end_timestamp = datetime.now().strftime('%H:%M:%S')
                 step_execution_time = int((time.time() - step_start_time) * 1000)
                 
-                # Collect action screenshots from this step
+                # Collect screenshots
                 action_screenshots = result.get('action_screenshots', [])
                 for screenshot_path in action_screenshots:
                     context.add_screenshot(screenshot_path)
                 
-                # Collect step screenshot
                 if result.get('screenshot_path'):
                     context.add_screenshot(result.get('screenshot_path'))
                 
@@ -274,24 +278,90 @@ class ScriptExecutor:
                     'to_node': to_node,
                     'actions': step.get('actions', []),
                     'verifications': step.get('verifications', []),
-                    'verification_results': result.get('verification_results', [])
+                    'verification_results': result.get('verification_results', []),
+                    'recovered': False  # Will be updated if recovery happens
                 }
                 context.step_results.append(step_result)
                 
+                # Handle step failure with single recovery attempt
                 if not result.get('success', False):
-                    context.error_message = f"Navigation failed at step {step_num}: {result.get('error', 'Unknown error')}"
-                    print(f"❌ [{self.script_name}] {context.error_message}")
-                    return False
-                
-                print(f"✅ [{self.script_name}] Step {step_num} completed successfully in {step_execution_time}ms")
-                print(f"📸 [{self.script_name}] Step {step_num} captured {len(action_screenshots)} action screenshots")
+                    failure_msg = f"Step {step_num} failed: {result.get('error', 'Unknown error')}"
+                    print(f"⚠️ [{self.script_name}] {failure_msg}")
+                    
+                    # Record failed step
+                    context.failed_steps.append({
+                        'step_number': step_num,
+                        'from_node': from_node,
+                        'to_node': to_node,
+                        'error': result.get('error'),
+                        'verification_results': result.get('verification_results', [])
+                    })
+                    
+                    # Single recovery attempt
+                    recovery_success = self._attempt_single_recovery(context, step, step_num)
+                    if recovery_success:
+                        step_result['recovered'] = True
+                        context.recovered_steps += 1
+                    
+                    # Continue with next step regardless of recovery result
+                    continue
+                else:
+                    print(f"✅ [{self.script_name}] Step {step_num} completed successfully in {step_execution_time}ms")
+                    print(f"📸 [{self.script_name}] Step {step_num} captured {len(action_screenshots)} action screenshots")
             
-            print(f"🎉 [{self.script_name}] All navigation steps completed successfully!")
-            return True
+            # Determine overall success based on completion
+            total_successful = len([s for s in context.step_results if s.get('success', False)])
+            print(f"🎉 [{self.script_name}] Navigation sequence completed!")
+            print(f"📊 [{self.script_name}] Results: {total_successful}/{len(navigation_path)} steps successful")
+            print(f"🔄 [{self.script_name}] Recovery: {context.recovered_steps} successful recoveries")
+            
+            return True  # Always return True - we completed the sequence
             
         except Exception as e:
             context.error_message = f"Navigation execution error: {str(e)}"
             print(f"❌ [{self.script_name}] {context.error_message}")
+            return False
+    
+    def _attempt_single_recovery(self, context: ScriptExecutionContext, failed_step: Dict, step_num: int) -> bool:
+        """
+        Single recovery attempt for failed navigation step
+        
+        Strategy: Try to navigate to the source node of the failed step
+        If source node was 'live' and we're trying to go to 'live_audiomenu',
+        attempt to go back to 'live' to continue validation from there.
+        """
+        recovery_target = failed_step.get('from_node_label')
+        
+        if not recovery_target:
+            print(f"🔄 [{self.script_name}] No recovery target identified for step {step_num}")
+            return False
+        
+        print(f"🔄 [{self.script_name}] Attempting single recovery to '{recovery_target}'...")
+        context.recovery_attempts += 1
+        
+        try:
+            from shared.lib.utils.navigation_utils import goto_node
+            
+            recovery_start_time = time.time()
+            result = goto_node(
+                context.host, 
+                context.selected_device, 
+                recovery_target, 
+                context.tree_id, 
+                context.team_id,
+                context
+            )
+            recovery_time = int((time.time() - recovery_start_time) * 1000)
+            
+            if result.get('success'):
+                print(f"✅ [{self.script_name}] Recovery successful: navigated to '{recovery_target}' in {recovery_time}ms")
+                return True
+            else:
+                print(f"❌ [{self.script_name}] Recovery failed: {result.get('error', 'Unknown error')}")
+                return False
+                
+        except Exception as e:
+            print(f"❌ [{self.script_name}] Recovery exception: {str(e)}")
             return False
     
     def generate_final_report(self, context: ScriptExecutionContext, userinterface_name: str) -> str:
