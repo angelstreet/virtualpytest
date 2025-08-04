@@ -270,13 +270,15 @@ def validate_action_availability(nodes: List[Dict], edges: List[Dict], action_co
         # For now, return a simple validation
         print(f"[@navigation:pathfinding:validate_action_availability] Validating action '{action_command}' in unified system")
         
-        # Find edges that contain the action command
+        # Find edges that contain the action command using action_sets ONLY
         for edge in edges:
-            actions = edge.get('actions', [])
-            for action in actions:
-                if action.get('command') == action_command:
-                    print(f"[@navigation:pathfinding:validate_action_availability] Action '{action_command}' found in edge {edge.get('edge_id')}")
-                    return edge, None
+            action_sets = edge.get('action_sets', [])
+            for action_set in action_sets:
+                actions = action_set.get('actions', [])
+                for action in actions:
+                    if action.get('command') == action_command:
+                        print(f"[@navigation:pathfinding:validate_action_availability] Action '{action_command}' found in edge {edge.get('edge_id')}")
+                        return edge, None
         
         return None, f"Action '{action_command}' not found in navigation tree"
         
@@ -334,9 +336,21 @@ def find_optimal_edge_validation_sequence(tree_id: str, team_id: str) -> List[Di
             from_node_data = unified_graph.nodes.get(u, {})
             to_node_data = unified_graph.nodes.get(v, {})
             
-            # Get actions from edge
-            actions = edge_data.get('actions', [])
-            retry_actions = edge_data.get('retry_actions', [])
+            # Get actions from action_sets structure ONLY
+            action_sets = edge_data.get('action_sets', [])
+            default_action_set_id = edge_data.get('default_action_set_id')
+            
+            if not action_sets or not default_action_set_id:
+                raise PathfindingError(f"Validation edge {u} -> {v} missing action_sets or default_action_set_id")
+            
+            # Find default action set
+            default_set = next((s for s in action_sets if s['id'] == default_action_set_id), None)
+            if not default_set:
+                raise PathfindingError(f"Validation edge {u} -> {v} default action set '{default_action_set_id}' not found")
+            
+            # Extract actions from default action set
+            actions = default_set.get('actions', [])
+            retry_actions = default_set.get('retry_actions', [])
             verifications = to_node_data.get('verifications', [])
             
             # Check for cross-tree transition
@@ -360,7 +374,8 @@ def find_optimal_edge_validation_sequence(tree_id: str, team_id: str) -> List[Di
                 'total_actions': len(actions),
                 'total_retry_actions': len(retry_actions),
                 'total_verifications': len(verifications),
-                'finalWaitTime': edge_data.get('final_wait_time', 2000),
+                'finalWaitTime': edge_data.get('finalWaitTime', 2000),
+                'edge_id': edge_data.get('edge_id', 'unknown'),
                 'is_virtual': edge_data.get('is_virtual', False),
                 'description': f"Validate unified transition: {from_node_data.get('label', u)} → {to_node_data.get('label', v)}"
             }
