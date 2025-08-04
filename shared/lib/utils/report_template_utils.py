@@ -839,14 +839,19 @@ def create_themed_html_template() -> str:
         
         function openScreenshotModal(modalDataJson) {{
             try {{
-                currentModalData = JSON.parse(modalDataJson.replace(/&quot;/g, '"'));
+                currentModalData = JSON.parse(modalDataJson.replace(/&quot;/g, '"').replace(/&#x27;/g, "'"));
                 currentScreenshotIndex = currentModalData.current_index || 0;
+                
+                console.log('Modal data:', currentModalData);
+                console.log('Screenshots:', currentModalData.screenshots);
+                
                 updateModalContent();
                 
                 const modal = document.getElementById('screenshot-modal');
                 modal.classList.add('active');
             }} catch (e) {{
                 console.error('Error opening screenshot modal:', e);
+                console.error('Modal data JSON:', modalDataJson);
             }}
         }}
         
@@ -920,7 +925,12 @@ def create_themed_html_template() -> str:
         function openScreenshot(src) {{
             const modalData = {{
                 step_title: 'Screenshot',
-                screenshots: [['Screenshot', src]],
+                screenshots: [{{
+                    label: 'Screenshot',
+                    url: src,
+                    command: null,
+                    params: {{}}
+                }}],
                 current_index: 0
             }};
             openScreenshotModal(JSON.stringify(modalData));
