@@ -290,9 +290,9 @@ def create_compact_step_results_section(step_results: List[Dict], screenshots: D
         
         if screenshots_for_step:
             step_id = step.get('step_number', step_index+1)
-            # Get proper node labels from step data
-            from_node = step.get('from_node_label') or step.get('from_node') or 'unknown'
-            to_node = step.get('to_node_label') or step.get('to_node') or 'unknown'
+            # Use EXACT same logic as working preview
+            from_node = step.get('from_node', 'Unknown')
+            to_node = step.get('to_node', 'Unknown')
             step_title = f"Step {step_id}: {from_node} → {to_node}"
             
             # Show only the LAST screenshot as thumbnail
