@@ -293,26 +293,38 @@ def create_unified_networkx_graph(all_trees_data: List[Dict]) -> nx.DiGraph:
             
             print(f"[@navigation:graph:create_unified_networkx_graph] Adding cross-tree edge: {parent_node_id} (tree: {parent_tree_id}) -> {child_entry_id} (tree: {child_tree_id})")
             
-            # Add ENTER_SUBTREE edge
+            # Add ENTER_SUBTREE edge with action_sets format
+            enter_action_set = {
+                'id': f'enter-{child_tree_id}',
+                'label': 'Enter Subtree',
+                'actions': [{'command': 'enter_subtree', 'params': {'tree_id': child_tree_id}}],
+                'retry_actions': []
+            }
             unified_graph.add_edge(parent_node_id, child_entry_id, **{
                 'edge_type': 'ENTER_SUBTREE',
                 'source_tree_id': parent_tree_id,
                 'target_tree_id': child_tree_id,
-                'actions': [{'command': 'enter_subtree', 'params': {'tree_id': child_tree_id}}],
+                'action_sets': [enter_action_set],
+                'default_action_set_id': enter_action_set['id'],
                 'is_virtual': True,
-                'go_action': 'enter_subtree',
                 'weight': 1,
                 'tree_context_change': True
             })
             
-            # Add EXIT_SUBTREE edge (reverse direction)
+            # Add EXIT_SUBTREE edge with action_sets format
+            exit_action_set = {
+                'id': f'exit-{parent_tree_id}',
+                'label': 'Exit Subtree',
+                'actions': [{'command': 'exit_subtree', 'params': {'tree_id': parent_tree_id}}],
+                'retry_actions': []
+            }
             unified_graph.add_edge(child_entry_id, parent_node_id, **{
                 'edge_type': 'EXIT_SUBTREE', 
                 'source_tree_id': child_tree_id,
                 'target_tree_id': parent_tree_id,
-                'actions': [{'command': 'exit_subtree', 'params': {'tree_id': parent_tree_id}}],
+                'action_sets': [exit_action_set],
+                'default_action_set_id': exit_action_set['id'],
                 'is_virtual': True,
-                'go_action': 'exit_subtree',
                 'weight': 1,
                 'tree_context_change': True
             })

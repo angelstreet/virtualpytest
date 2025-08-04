@@ -167,40 +167,26 @@ def find_shortest_path_unified(root_tree_id: str, target_node_id: str, team_id: 
             # Get edge data - check multiple possible action formats
             edge_data = unified_graph.edges[from_node, to_node] if unified_graph.has_edge(from_node, to_node) else {}
             
-            # Extract actions - try multiple formats for backward compatibility
-            actions_list = []
-            if 'actions' in edge_data:
-                actions_list = edge_data['actions']
-            elif 'default_actions' in edge_data:
-                actions_list = edge_data['default_actions']
-            elif 'action_sets' in edge_data:
-                # Try to get actions from action_sets structure
-                action_sets = edge_data.get('action_sets', [])
-                default_action_set_id = edge_data.get('default_action_set_id')
-                if action_sets and default_action_set_id:
-                    default_set = next((s for s in action_sets if s['id'] == default_action_set_id), None)
-                    if default_set:
-                        actions_list = default_set.get('actions', [])
+            # Extract actions from action_sets structure ONLY
+            action_sets = edge_data.get('action_sets', [])
+            default_action_set_id = edge_data.get('default_action_set_id')
             
-            # Extract retry actions
-            retry_actions_list = []
-            if 'retry_actions' in edge_data:
-                retry_actions_list = edge_data['retry_actions']
-            elif 'retryActions' in edge_data:
-                retry_actions_list = edge_data['retryActions']
-            elif 'action_sets' in edge_data:
-                # Try to get retry actions from action_sets structure
-                action_sets = edge_data.get('action_sets', [])
-                default_action_set_id = edge_data.get('default_action_set_id')
-                if action_sets and default_action_set_id:
-                    default_set = next((s for s in action_sets if s['id'] == default_action_set_id), None)
-                    if default_set:
-                        retry_actions_list = default_set.get('retry_actions', [])
+            if not action_sets or not default_action_set_id:
+                raise PathfindingError(f"Edge {from_node} -> {to_node} missing action_sets or default_action_set_id")
             
+            # Find default action set
+            default_set = next((s for s in action_sets if s['id'] == default_action_set_id), None)
+            if not default_set:
+                raise PathfindingError(f"Edge {from_node} -> {to_node} default action set '{default_action_set_id}' not found")
+            
+            # Extract actions from default action set
+            actions_list = default_set.get('actions', [])
+            retry_actions_list = default_set.get('retry_actions', [])
             verifications_list = to_node_info.get('verifications', [])
             
-            # Debug logging for action extraction
-            print(f"[@navigation:pathfinding:find_shortest_path_unified]   Edge data keys: {list(edge_data.keys())}")
+            # Debug logging
+            print(f"[@navigation:pathfinding:find_shortest_path_unified]   Action sets: {len(action_sets)}")
+            print(f"[@navigation:pathfinding:find_shortest_path_unified]   Default set: {default_action_set_id}")
             print(f"[@navigation:pathfinding:find_shortest_path_unified]   Actions found: {len(actions_list)}")
             print(f"[@navigation:pathfinding:find_shortest_path_unified]   Retry actions found: {len(retry_actions_list)}")
             
@@ -218,7 +204,7 @@ def find_shortest_path_unified(root_tree_id: str, target_node_id: str, team_id: 
                 print(f"[@navigation:pathfinding:find_shortest_path_unified]   Cross-tree transition: {transition_type}")
                 print(f"[@navigation:pathfinding:find_shortest_path_unified]   From tree: {from_tree_id} → To tree: {to_tree_id}")
             
-            # Create navigation transition with cross-tree metadata and proper action execution fields
+            # Create navigation transition with action_sets structure ONLY
             navigation_transition = {
                 'transition_number': transition_number,
                 'from_node_id': from_node,
@@ -229,21 +215,13 @@ def find_shortest_path_unified(root_tree_id: str, target_node_id: str, team_id: 
                 'to_tree_id': to_tree_id,
                 'transition_type': transition_type,
                 'tree_context_change': tree_context_change,
-                'actions': actions_list,  # Primary field expected by action execution
-                'retryActions': retry_actions_list,  # Primary field expected by action execution  
+                'actions': actions_list,
+                'retryActions': retry_actions_list,
                 'verifications': verifications_list,
-                'total_actions': len(actions_list),
-                'total_retry_actions': len(retry_actions_list),
-                'total_verifications': len(verifications_list),
-                'finalWaitTime': edge_data.get('finalWaitTime', edge_data.get('final_wait_time', 2000)),
+                'finalWaitTime': edge_data.get('finalWaitTime', 2000),
                 'edge_id': edge_data.get('edge_id', 'unknown'),
-                'alternatives_count': edge_data.get('alternatives_count', 1),
                 'is_virtual': edge_data.get('is_virtual', False),
-                'description': f"Navigate from '{from_node_info.get('label', from_node)}' to '{to_node_info.get('label', to_node)}'",
-                # Add legacy fields for compatibility
-                'default_actions': actions_list,  # Backup field
-                'action_sets': edge_data.get('action_sets', []),  # Original action_sets structure
-                'default_action_set_id': edge_data.get('default_action_set_id')
+                'description': f"Navigate from '{from_node_info.get('label', from_node)}' to '{to_node_info.get('label', to_node)}'"
             }
             
             # Add cross-tree metadata if applicable
