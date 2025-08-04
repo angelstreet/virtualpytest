@@ -107,19 +107,32 @@ class ActionExecutor:
             execution_order += 1
         
         # Execute retry actions if any main action failed
+        retry_actions_passed = 0
+        retry_actions_failed = False
         if main_actions_failed and valid_retry_actions:
             print(f"[@lib:action_executor:execute_actions] Main actions failed, executing {len(valid_retry_actions)} retry actions")
             for i, retry_action in enumerate(valid_retry_actions):
                 result = self._execute_single_action(retry_action, execution_order, i+1, 'retry')
                 results.append(result)
                 if result.get('success'):
-                    passed_count += 1
+                    retry_actions_passed += 1
+                else:
+                    # Stop on first retry failure
+                    print(f"[@lib:action_executor:execute_actions] Retry action {i+1} failed, stopping retry execution")
+                    retry_actions_failed = True
+                    break
                 execution_order += 1
 
-        # Calculate overall success (main actions must pass)
-        overall_success = passed_count >= len(valid_actions)
+        # Calculate overall success: main actions must pass OR ALL retry actions must pass if main failed
+        if main_actions_failed:
+            overall_success = not retry_actions_failed and retry_actions_passed == len(valid_retry_actions)
+        else:
+            overall_success = passed_count >= len(valid_actions)
         
-        print(f"[@lib:action_executor:execute_actions] Batch completed: {passed_count}/{len(valid_actions)} main actions passed, overall success: {overall_success}")
+        if main_actions_failed and valid_retry_actions:
+            print(f"[@lib:action_executor:execute_actions] Batch completed: {passed_count}/{len(valid_actions)} main actions passed, {retry_actions_passed}/{len(valid_retry_actions)} retry actions passed, overall success: {overall_success}")
+        else:
+            print(f"[@lib:action_executor:execute_actions] Batch completed: {passed_count}/{len(valid_actions)} main actions passed, overall success: {overall_success}")
         
         # Build simple error message showing which actions failed
         failed_actions = [r for r in results if not r.get('success')]

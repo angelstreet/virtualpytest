@@ -1,0 +1,730 @@
+"""
+Video AI Analysis Helpers
+
+AI-powered analysis functionality for the VideoVerificationController:
+1. AI-powered subtitle detection and text extraction
+2. Full image analysis with user questions
+3. Language/subtitle menu analysis
+4. Natural language response parsing
+5. OpenRouter API integration
+
+This helper handles all AI-powered analysis operations that require
+external AI services for advanced content understanding.
+"""
+
+import os
+import base64
+import requests
+import tempfile
+import json
+import re
+import cv2
+from datetime import datetime
+from typing import Dict, Any, Optional, Tuple, List
+
+# Optional imports for fallback text extraction
+try:
+    import pytesseract
+    OCR_AVAILABLE = True
+except ImportError:
+    OCR_AVAILABLE = False
+
+try:
+    from langdetect import detect, LangDetectException
+    LANG_DETECT_AVAILABLE = True
+except ImportError:
+    LANG_DETECT_AVAILABLE = False
+
+
+class VideoAIHelpers:
+    """AI-powered video analysis operations using OpenRouter API."""
+    
+    def __init__(self, av_controller, device_name: str = "VideoAI"):
+        """
+        Initialize video AI helpers.
+        
+        Args:
+            av_controller: AV controller for capturing video/images and device context
+            device_name: Name for logging purposes
+        """
+        self.av_controller = av_controller
+        self.device_name = device_name
+    
+    # =============================================================================
+    # AI-Powered Subtitle Analysis
+    # =============================================================================
+    
+    def analyze_subtitle_with_ai(self, region_image) -> Tuple[str, str, float]:
+        """
+        AI-powered subtitle analysis using OpenRouter - equivalent to OCR method
+        
+        Args:
+            region_image: Cropped subtitle region image (same as OCR method)
+            
+        Returns:
+            Tuple of (extracted_text, detected_language, confidence)
+        """
+        try:
+            # Get API key from environment
+            api_key = os.getenv('OPENROUTER_API_KEY')
+            if not api_key:
+                print(f"VideoAI[{self.device_name}]: OpenRouter API key not found in environment")
+                return '', 'unknown', 0.0
+            
+            # Save cropped region to temporary file for encoding
+            with tempfile.NamedTemporaryFile(suffix='.jpg', delete=False) as tmp_file:
+                cv2.imwrite(tmp_file.name, region_image)
+                temp_path = tmp_file.name
+            
+            try:
+                # Encode image to base64
+                with open(temp_path, 'rb') as f:
+                    image_data = base64.b64encode(f.read()).decode()
+                
+                # Enhanced prompt for subtitle analysis with stronger JSON enforcement
+                prompt = """You are a subtitle detection system. Analyze this image for subtitles in the bottom portion.
+
+CRITICAL: You MUST respond with ONLY valid JSON. No other text before or after.
+
+Required JSON format:
+{
+  "subtitles_detected": true,
+  "extracted_text": "exact subtitle text here",
+  "detected_language": "German",
+  "confidence": 0.95
+}
+
+If no subtitles found:
+{
+  "subtitles_detected": false,
+  "extracted_text": "",
+  "detected_language": "unknown",
+  "confidence": 0.1
+}
+
+Languages: English, French, German, Spanish, Italian, Portuguese, Dutch, or unknown
+JSON ONLY - NO OTHER TEXT"""
+                
+                # Call OpenRouter API
+                response = requests.post(
+                    'https://openrouter.ai/api/v1/chat/completions',
+                    headers={
+                        'Authorization': f'Bearer {api_key}',
+                        'Content-Type': 'application/json',
+                        'HTTP-Referer': 'https://automai.dev',
+                        'X-Title': 'AutomAI-VirtualPyTest'
+                    },
+                    json={
+                        'model': 'qwen/qwen-2-vl-7b-instruct',
+                        'messages': [
+                            {
+                                'role': 'user',
+                                'content': [
+                                    {'type': 'text', 'text': prompt},
+                                    {'type': 'image_url', 'image_url': {'url': f'data:image/jpeg;base64,{image_data}'}}
+                                ]
+                            }
+                        ],
+                        'max_tokens': 300,
+                        'temperature': 0.0
+                    },
+                    timeout=30
+                )
+                
+                if response.status_code == 200:
+                    result = response.json()
+                    content = result['choices'][0]['message']['content']
+                    
+                    # Parse JSON response with fallback logic
+                    try:
+                        # Try to parse as JSON first
+                        ai_result = json.loads(content)
+                        
+                        subtitles_detected = ai_result.get('subtitles_detected', False)
+                        extracted_text = ai_result.get('extracted_text', '').strip()
+                        detected_language = ai_result.get('detected_language', 'unknown')
+                        confidence = float(ai_result.get('confidence', 0.0))
+                        
+                        if not subtitles_detected or not extracted_text:
+                            print(f"VideoAI[{self.device_name}]: AI found no subtitles")
+                            return '', 'unknown', 0.0
+                        
+                        print(f"VideoAI[{self.device_name}]: AI extracted subtitle text: '{extracted_text}' -> Language: {detected_language}, Confidence: {confidence}")
+                        
+                        return extracted_text, detected_language, confidence
+                        
+                    except json.JSONDecodeError as e:
+                        print(f"VideoAI[{self.device_name}]: Failed to parse AI JSON response: {e}")
+                        print(f"VideoAI[{self.device_name}]: Raw AI response: {content[:200]}...")
+                        
+                        # Fallback: try to extract information from natural language response
+                        extracted_text, detected_language, confidence = self.parse_natural_language_response(content)
+                        
+                        if extracted_text:
+                            print(f"VideoAI[{self.device_name}]: Fallback extraction successful: '{extracted_text}' -> Language: {detected_language}")
+                            return extracted_text, detected_language, confidence
+                        else:
+                            print(f"VideoAI[{self.device_name}]: Fallback extraction failed")
+                            return '', 'unknown', 0.0
+                else:
+                    print(f"VideoAI[{self.device_name}]: OpenRouter API error: {response.status_code} - {response.text}")
+                    return '', 'unknown', 0.0
+                    
+            finally:
+                # Clean up temporary file
+                if os.path.exists(temp_path):
+                    os.unlink(temp_path)
+                    
+        except Exception as e:
+            print(f"VideoAI[{self.device_name}]: AI subtitle analysis error: {e}")
+            return '', 'unknown', 0.0
+
+    def detect_subtitles_ai_batch(self, image_paths: List[str], extract_text: bool = True) -> Dict[str, Any]:
+        """
+        AI-powered subtitle detection for multiple images.
+        
+        Args:
+            image_paths: List of image paths to analyze
+            extract_text: Whether to extract text using AI (always True for AI method)
+            
+        Returns:
+            Dictionary with detailed AI subtitle analysis results
+        """
+        try:
+            results = []
+            
+            for image_path in image_paths:
+                if not os.path.exists(image_path):
+                    results.append({
+                        'image_path': image_path,
+                        'success': False,
+                        'error': 'Image file not found'
+                    })
+                    continue
+                
+                try:
+                    img = cv2.imread(image_path)
+                    if img is None:
+                        results.append({
+                            'image_path': image_path,
+                            'success': False,
+                            'error': 'Could not load image'
+                        })
+                        continue
+                    
+                    height, width = img.shape[:2]
+                    
+                    # Enhanced subtitle detection with adaptive region processing (same as OCR method)
+                    # Expanded to capture 2-line subtitles - start from 70% to bottom (30% of screen height)
+                    subtitle_height_start = int(height * 0.7)
+                    subtitle_width_start = int(width * 0.2)  # Skip left 20%
+                    subtitle_width_end = int(width * 0.8)    # Skip right 20%
+                    
+                    subtitle_region = img[subtitle_height_start:, subtitle_width_start:subtitle_width_end]
+                    
+                    # AI-powered subtitle analysis
+                    extracted_text, detected_language, ai_confidence = self.analyze_subtitle_with_ai(subtitle_region)
+                    
+                    # Determine if subtitles were detected
+                    has_subtitles = bool(extracted_text and len(extracted_text.strip()) > 0)
+                    
+                    # Error detection (same logic as OCR method for consistency)
+                    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+                    
+                    # Use configurable grid sampling rate
+                    grid_rate = 15  # Every 15th pixel in grid for errors
+                    sampled_hsv = hsv[::grid_rate, ::grid_rate]
+                    
+                    # Red color range in HSV - more restrictive for actual error messages
+                    lower_red1 = np.array([0, 100, 100])
+                    upper_red1 = np.array([10, 255, 255])
+                    lower_red2 = np.array([170, 100, 100])
+                    upper_red2 = np.array([180, 255, 255])
+                    
+                    mask1 = cv2.inRange(sampled_hsv, lower_red1, upper_red1)
+                    mask2 = cv2.inRange(sampled_hsv, lower_red2, upper_red2)
+                    red_mask = mask1 + mask2
+                    
+                    red_pixels = np.sum(red_mask > 0)
+                    total_sampled_pixels = sampled_hsv.shape[0] * sampled_hsv.shape[1]
+                    red_percentage = float((red_pixels / total_sampled_pixels) * 100)
+                    
+                    # Higher threshold for error detection
+                    has_errors = bool(red_percentage > 8.0)
+                    
+                    # Use AI confidence or set default
+                    confidence = ai_confidence if has_subtitles else 0.1
+                    
+                    result = {
+                        'image_path': os.path.basename(image_path),
+                        'success': True,
+                        'has_subtitles': has_subtitles,
+                        'has_errors': has_errors,
+                        'subtitle_edges': 0,  # Not applicable for AI method
+                        'subtitle_threshold': 0.0,  # Not applicable for AI method
+                        'red_percentage': round(red_percentage, 2),
+                        'error_threshold': 8.0,
+                        'extracted_text': extracted_text,
+                        'detected_language': detected_language,
+                        'subtitle_region_size': f"{subtitle_region.shape[1]}x{subtitle_region.shape[0]}",
+                        'image_size': f"{width}x{height}",
+                        'confidence': confidence,
+                        'ai_powered': True  # Flag to indicate AI analysis
+                    }
+                    
+                    results.append(result)
+                    
+                    text_preview = extracted_text[:50] + "..." if len(extracted_text) > 50 else extracted_text
+                    print(f"VideoAI[{self.device_name}]: AI Subtitle analysis - subtitles={has_subtitles}, errors={has_errors}, text='{text_preview}', confidence={confidence}")
+                    
+                except Exception as e:
+                    results.append({
+                        'image_path': image_path,
+                        'success': False,
+                        'error': f'AI analysis error: {str(e)}'
+                    })
+            
+            # Calculate overall result (same logic as OCR method)
+            successful_analyses = [r for r in results if r.get('success')]
+            subtitles_detected = any(r.get('has_subtitles', False) for r in successful_analyses)
+            errors_detected = any(r.get('has_errors', False) for r in successful_analyses)
+            
+            # Combine all extracted text and find the most confident language detection
+            all_extracted_text = " ".join([r.get('extracted_text', '') for r in successful_analyses if r.get('extracted_text')])
+            
+            # Get the language from the result with highest confidence and subtitles detected
+            detected_language = 'unknown'
+            for result in successful_analyses:
+                if result.get('has_subtitles') and result.get('detected_language') != 'unknown':
+                    detected_language = result.get('detected_language')
+                    break
+            
+            overall_result = {
+                'success': len(successful_analyses) > 0,
+                'subtitles_detected': subtitles_detected,
+                'errors_detected': errors_detected,
+                'analyzed_images': len(results),
+                'successful_analyses': len(successful_analyses),
+                'combined_extracted_text': all_extracted_text.strip(),
+                'detected_language': detected_language,
+                'results': results,
+                'analysis_type': 'ai_subtitle_detection',
+                'timestamp': datetime.now().isoformat()
+            }
+            
+            return overall_result
+            
+        except Exception as e:
+            print(f"VideoAI[{self.device_name}]: AI subtitle detection error: {e}")
+            return {
+                'success': False,
+                'error': f'AI subtitle detection failed: {str(e)}',
+                'analysis_type': 'ai_subtitle_detection'
+            }
+
+    # =============================================================================
+    # Full Image Analysis with AI
+    # =============================================================================
+    
+    def analyze_full_image_with_ai(self, image_path: str, user_question: str) -> str:
+        """
+        Analyze full image with AI using user's question.
+        
+        Args:
+            image_path: Path to image file
+            user_question: User's question about the image
+            
+        Returns:
+            AI's text response (max 3 lines) or empty string if failed
+        """
+        try:
+            print(f"VideoAI[{self.device_name}]: AI image analysis - Question: '{user_question}'")
+            
+            # Check if image exists
+            if not os.path.exists(image_path):
+                print(f"VideoAI[{self.device_name}]: Image file not found: {image_path}")
+                return "Image file not found."
+            
+            # Get API key from environment
+            api_key = os.getenv('OPENROUTER_API_KEY')
+            if not api_key:
+                print(f"VideoAI[{self.device_name}]: OpenRouter API key not found in environment")
+                return "AI service not available."
+            
+            # Get device model context from AV controller
+            device_model = "unknown device"
+            device_context = "a device screen"
+            
+            if hasattr(self.av_controller, 'device_model') and self.av_controller.device_model:
+                device_model = self.av_controller.device_model
+                
+                # Provide helpful context based on device model
+                model_lower = device_model.lower()
+                if "mobile" in model_lower or "phone" in model_lower:
+                    device_context = "an Android mobile phone screen"
+                elif "fire" in model_lower or "tv" in model_lower:
+                    device_context = "a Fire TV/Android TV screen"
+                elif "tablet" in model_lower:
+                    device_context = "a tablet screen"
+                else:
+                    device_context = f"a {device_model} device screen"
+            
+            # Load and encode the full image
+            try:
+                # Read the image file directly
+                with open(image_path, 'rb') as f:
+                    image_data = base64.b64encode(f.read()).decode()
+                
+                # Enhanced prompt with device model and context
+                prompt = f"""You are analyzing a screenshot from {device_context} (device model: {device_model}).
+
+This image was captured from a controlled device during automated testing/monitoring.
+
+User question: "{user_question}"
+
+Provide a clear, concise answer in maximum 3 lines.
+Be specific about what you see on the device interface."""
+                
+                # Call OpenRouter API
+                response = requests.post(
+                    'https://openrouter.ai/api/v1/chat/completions',
+                    headers={
+                        'Authorization': f'Bearer {api_key}',
+                        'Content-Type': 'application/json',
+                        'HTTP-Referer': 'https://automai.dev',
+                        'X-Title': 'AutomAI-VirtualPyTest'
+                    },
+                    json={
+                        'model': 'qwen/qwen-2-vl-7b-instruct',
+                        'messages': [
+                            {
+                                'role': 'user',
+                                'content': [
+                                    {'type': 'text', 'text': prompt},
+                                    {'type': 'image_url', 'image_url': {'url': f'data:image/jpeg;base64,{image_data}'}}
+                                ]
+                            }
+                        ],
+                        'max_tokens': 200,
+                        'temperature': 0.0
+                    },
+                    timeout=30
+                )
+                
+                if response.status_code == 200:
+                    result = response.json()
+                    ai_response = result['choices'][0]['message']['content'].strip()
+                    
+                    # Limit to 3 lines maximum
+                    lines = ai_response.split('\n')
+                    if len(lines) > 3:
+                        ai_response = '\n'.join(lines[:3])
+                    
+                    print(f"VideoAI[{self.device_name}]: AI response: '{ai_response}'")
+                    return ai_response
+                else:
+                    print(f"VideoAI[{self.device_name}]: OpenRouter API error: {response.status_code}")
+                    return "AI service error. Please try again."
+                    
+            except Exception as e:
+                print(f"VideoAI[{self.device_name}]: Image processing error: {e}")
+                return "Failed to process image."
+                
+        except Exception as e:
+            print(f"VideoAI[{self.device_name}]: AI image analysis error: {e}")
+            return "Analysis error. Please try again."
+
+    def analyze_image_ai_wrapper(self, image_path: str, user_query: str) -> Dict[str, Any]:
+        """
+        Wrapper method for analyze_full_image_with_ai to match route expectations.
+        
+        Args:
+            image_path: Path to image file
+            user_query: User's question about the image
+            
+        Returns:
+            Dictionary with success status and AI response
+        """
+        try:
+            response_text = self.analyze_full_image_with_ai(image_path, user_query)
+            
+            return {
+                'success': bool(response_text and response_text.strip()),
+                'response': response_text,
+                'image_path': os.path.basename(image_path) if image_path else None
+            }
+        except Exception as e:
+            print(f"VideoAI[{self.device_name}]: analyze_image_ai wrapper error: {e}")
+            return {
+                'success': False,
+                'response': "Analysis error. Please try again.",
+                'error': str(e)
+            }
+
+    # =============================================================================
+    # Language/Subtitle Menu Analysis
+    # =============================================================================
+    
+    def analyze_language_menu_ai(self, image_path: str) -> Dict[str, Any]:
+        """
+        AI-powered language/subtitle menu analysis using OpenRouter.
+        
+        Args:
+            image_path: Path to image file showing a language/subtitle menu
+            
+        Returns:
+            Dictionary with language and subtitle options analysis
+        """
+        try:
+            print(f"VideoAI[{self.device_name}]: AI language menu analysis")
+            
+            # Check if image exists
+            if not os.path.exists(image_path):
+                print(f"VideoAI[{self.device_name}]: Image file not found: {image_path}")
+                return {'success': False, 'error': 'Image file not found'}
+            
+            # Get API key from environment
+            api_key = os.getenv('OPENROUTER_API_KEY')
+            if not api_key:
+                print(f"VideoAI[{self.device_name}]: OpenRouter API key not found in environment")
+                return {'success': False, 'error': 'AI service not available'}
+            
+            # Load and encode the image
+            try:
+                with open(image_path, 'rb') as f:
+                    image_data = base64.b64encode(f.read()).decode()
+                
+                # Enhanced prompt for language/subtitle menu detection with better categorization
+                prompt = """Analyze this image for language/subtitle/audio menu options. Look for sections labeled AUDIO, SUBTITLES, AUDIO DESCRIPTION, etc.
+
+CRITICAL: You MUST respond with ONLY valid JSON. No other text before or after.
+
+Required JSON format:
+{
+  "menu_detected": true,
+  "audio_languages": ["English", "French", "Spanish"],
+  "subtitle_languages": ["English", "French", "Spanish", "Off"],
+  "selected_audio": 0,
+  "selected_subtitle": 3
+}
+
+If no language/subtitle menu found:
+{
+  "menu_detected": false,
+  "audio_languages": [],
+  "subtitle_languages": [],
+  "selected_audio": -1,
+  "selected_subtitle": -1
+}
+
+IMPORTANT CATEGORIZATION RULES:
+- AUDIO section: List main audio languages (English, French, Spanish, etc.)
+- SUBTITLE section: List subtitle options (Off, English, French, etc.)
+- AUDIO DESCRIPTION: These belong in audio_languages, not subtitle_languages
+- Audio description tracks should be included in audio_languages (e.g., "English - Audio description")
+- Look for section headers like "AUDIO", "SUBTITLES", "AUDIO DESCRIPTION" to properly categorize
+- List languages in the order they appear within each section (index 0, 1, 2, etc.)
+- Use "Off" for disabled subtitles
+- Set selected_audio/selected_subtitle to the index of the currently selected option (-1 if none)
+- Check for visual indicators like checkmarks (✓) or highlighting to identify selected options
+
+JSON ONLY - NO OTHER TEXT"""
+                
+                # Call OpenRouter API
+                response = requests.post(
+                    'https://openrouter.ai/api/v1/chat/completions',
+                    headers={
+                        'Authorization': f'Bearer {api_key}',
+                        'Content-Type': 'application/json',
+                        'HTTP-Referer': 'https://automai.dev',
+                        'X-Title': 'AutomAI-VirtualPyTest'
+                    },
+                    json={
+                        'model': 'qwen/qwen-2-vl-7b-instruct',
+                        'messages': [
+                            {
+                                'role': 'user',
+                                'content': [
+                                    {'type': 'text', 'text': prompt},
+                                    {'type': 'image_url', 'image_url': {'url': f'data:image/jpeg;base64,{image_data}'}}
+                                ]
+                            }
+                        ],
+                        'max_tokens': 400,
+                        'temperature': 0.0
+                    },
+                    timeout=30
+                )
+                
+                if response.status_code == 200:
+                    result = response.json()
+                    content = result['choices'][0]['message']['content'].strip()
+                    
+                    # Parse JSON response
+                    try:
+                        ai_result = json.loads(content)
+                        
+                        # Validate and normalize the result
+                        menu_detected = ai_result.get('menu_detected', False)
+                        audio_languages = ai_result.get('audio_languages', [])
+                        subtitle_languages = ai_result.get('subtitle_languages', [])
+                        selected_audio = ai_result.get('selected_audio', -1)
+                        selected_subtitle = ai_result.get('selected_subtitle', -1)
+                        
+                        # Return standardized result
+                        return {
+                            'success': True,
+                            'menu_detected': menu_detected,
+                            'audio_languages': audio_languages,
+                            'subtitle_languages': subtitle_languages,
+                            'selected_audio': selected_audio,
+                            'selected_subtitle': selected_subtitle,
+                            'image_path': os.path.basename(image_path),
+                            'analysis_type': 'ai_language_menu_analysis'
+                        }
+                        
+                    except json.JSONDecodeError as e:
+                        print(f"VideoAI[{self.device_name}]: JSON parsing error: {e}")
+                        print(f"VideoAI[{self.device_name}]: Raw AI response: {content}")
+                        return {
+                            'success': False,
+                            'error': 'Invalid AI response format',
+                            'raw_response': content
+                        }
+                else:
+                    print(f"VideoAI[{self.device_name}]: OpenRouter API error: {response.status_code}")
+                    return {
+                        'success': False,
+                        'error': f'AI service error: {response.status_code}'
+                    }
+                    
+            except Exception as e:
+                print(f"VideoAI[{self.device_name}]: Image processing error: {e}")
+                return {
+                    'success': False,
+                    'error': 'Failed to process image'
+                }
+                
+        except Exception as e:
+            print(f"VideoAI[{self.device_name}]: AI language menu analysis error: {e}")
+            return {
+                'success': False,
+                'error': f'Analysis error: {str(e)}'
+            }
+
+    # =============================================================================
+    # Natural Language Response Parsing
+    # =============================================================================
+    
+    def parse_natural_language_response(self, content: str) -> Tuple[str, str, float]:
+        """
+        Parse natural language AI response to extract subtitle information.
+        
+        Args:
+            content: Raw AI response content
+            
+        Returns:
+            Tuple of (extracted_text, detected_language, confidence)
+        """
+        try:
+            content_lower = content.lower()
+            
+            # Check if subtitles were mentioned as present
+            subtitle_indicators = ['subtitle', 'text reads', 'says', 'displays', 'shows']
+            has_subtitle_mention = any(indicator in content_lower for indicator in subtitle_indicators)
+            
+            if not has_subtitle_mention:
+                return '', 'unknown', 0.0
+            
+            # Extract text between quotes
+            # Look for text in quotes (various quote types)
+            quote_patterns = [
+                r'"([^"]+)"',           # Double quotes
+                r"'([^']+)'",           # Single quotes  
+                r'"([^"]+)"',           # Curly quotes
+                r'„([^"]+)"',           # German quotes
+                r'«([^»]+)»',           # French quotes
+            ]
+            
+            extracted_text = ''
+            for pattern in quote_patterns:
+                matches = re.findall(pattern, content)
+                if matches:
+                    # Take the longest match (likely the subtitle text)
+                    extracted_text = max(matches, key=len).strip()
+                    break
+            
+            # If no quotes found, try to extract after "reads:" or "says:"
+            if not extracted_text:
+                read_patterns = [
+                    r'text reads:?\s*(.+?)(?:\.|$)',
+                    r'says:?\s*(.+?)(?:\.|$)', 
+                    r'displays:?\s*(.+?)(?:\.|$)',
+                    r'shows:?\s*(.+?)(?:\.|$)'
+                ]
+                
+                for pattern in read_patterns:
+                    matches = re.findall(pattern, content, re.IGNORECASE)
+                    if matches:
+                        extracted_text = matches[0].strip()
+                        # Remove quotes if they exist
+                        extracted_text = re.sub(r'^["\'"„«]|["\'"„»]$', '', extracted_text)
+                        break
+            
+            # Clean up the extracted text
+            if extracted_text:
+                # Remove common OCR artifacts and clean the text
+                extracted_text = re.sub(r'\s+', ' ', extracted_text).strip()
+                
+                # Validate the text (should be at least 3 characters)
+                if len(extracted_text) < 3:
+                    return '', 'unknown', 0.0
+            
+            # Detect language from the response content
+            detected_language = 'unknown'
+            language_mentions = {
+                'german': 'German',
+                'deutsch': 'German', 
+                'english': 'English',
+                'french': 'French',
+                'français': 'French',
+                'spanish': 'Spanish',
+                'español': 'Spanish',
+                'italian': 'Italian',
+                'italiano': 'Italian',
+                'portuguese': 'Portuguese',
+                'português': 'Portuguese',
+                'dutch': 'Dutch',
+                'nederlands': 'Dutch'
+            }
+            
+            for lang_key, lang_name in language_mentions.items():
+                if lang_key in content_lower:
+                    detected_language = lang_name
+                    break
+            
+            # If we found text, try to detect language from the text itself using fallback
+            if extracted_text and detected_language == 'unknown' and LANG_DETECT_AVAILABLE:
+                try:
+                    detected_lang = detect(extracted_text)
+                    allowed_languages = {
+                        'en': 'English', 'fr': 'French', 'de': 'German',
+                        'it': 'Italian', 'es': 'Spanish', 'pt': 'Portuguese', 'nl': 'Dutch'
+                    }
+                    detected_language = allowed_languages.get(detected_lang, 'unknown')
+                except:
+                    pass  # Keep as unknown
+            
+            # Set confidence based on what we found
+            if extracted_text and detected_language != 'unknown':
+                confidence = 0.8  # High confidence when we have both text and language
+            elif extracted_text:
+                confidence = 0.6  # Medium confidence when we have text but no language
+            else:
+                confidence = 0.1  # Low confidence
+            
+            return extracted_text, detected_language, confidence
+            
+        except Exception as e:
+            print(f"VideoAI[{self.device_name}]: Natural language parsing error: {e}")
+            return '', 'unknown', 0.0

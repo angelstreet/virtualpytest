@@ -82,6 +82,8 @@ class RemoteControllerInterface(BaseController):
         if not main_success and retry_actions:
             print(f"Remote[{self.device_type.upper()}]: Main commands failed, executing {len(retry_actions)} retry actions")
             
+            # Stop on first retry failure
+            retry_success = True  # Assume success until a retry fails
             for i, retry_cmd in enumerate(retry_actions):
                 command = retry_cmd.get('command')
                 params = retry_cmd.get('params', {})
@@ -92,14 +94,22 @@ class RemoteControllerInterface(BaseController):
                 # Execute retry command
                 success = self.execute_command(command, params)
                 
-                if not success:
+                if success:
+                    print(f"Remote[{self.device_type.upper()}]: Retry {i+1} succeeded: {command}")
+                else:
                     print(f"Remote[{self.device_type.upper()}]: Retry {i+1} failed: {command}")
+                    retry_success = False
+                    # Stop on first retry failure (default strict behavior)
+                    break
                     
                 # Apply delay if specified
                 if delay > 0:
                     delay_seconds = delay / 1000.0
                     print(f"Remote[{self.device_type.upper()}]: Waiting {delay_seconds}s after retry {i+1}")
                     time.sleep(delay_seconds)
+            
+            # Return True only if ALL retry actions succeeded
+            return retry_success
         
         return main_success
 

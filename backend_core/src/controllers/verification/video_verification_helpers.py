@@ -1,0 +1,548 @@
+"""
+Video Verification Logic Helpers
+
+High-level verification workflow helpers for the VideoVerificationController:
+1. Verification execution and orchestration
+2. Configuration management and validation
+3. Verification result formatting
+4. Logging and tracking utilities
+5. Status and capability reporting
+
+This helper handles the business logic and workflow orchestration
+for video verification operations.
+"""
+
+import time
+import os
+from datetime import datetime
+from typing import Dict, Any, Optional, List
+
+
+class VideoVerificationHelpers:
+    """High-level verification logic and workflow orchestration."""
+    
+    def __init__(self, controller_instance, device_name: str = "VideoVerification"):
+        """
+        Initialize video verification helpers.
+        
+        Args:
+            controller_instance: Reference to the main VideoVerificationController
+            device_name: Name for logging purposes
+        """
+        self.controller = controller_instance
+        self.device_name = device_name
+        self.verification_logs = []
+    
+    # =============================================================================
+    # Verification Execution Orchestration
+    # =============================================================================
+    
+    def execute_verification_workflow(self, verification_config: Dict[str, Any], image_source_url: str = None) -> Dict[str, Any]:
+        """
+        Execute a verification workflow with proper error handling and logging.
+        
+        Args:
+            verification_config: Verification configuration dictionary
+            image_source_url: Optional source image path or array of paths
+            
+        Returns:
+            Standardized verification result dictionary
+        """
+        try:
+            # Extract and validate parameters
+            params = verification_config.get('params', {})
+            command = verification_config.get('command', 'WaitForVideoToAppear')
+            
+            print(f"VideoVerification[{self.device_name}]: Executing {command}")
+            print(f"VideoVerification[{self.device_name}]: Parameters: {params}")
+            
+            # Parse image source for frame analysis commands
+            image_paths = self._parse_image_source(image_source_url)
+            
+            # Route to appropriate verification method
+            if command in ['WaitForVideoToAppear', 'WaitForVideoToDisappear']:
+                return self._execute_video_playback_verification(command, params)
+            elif command == 'DetectMotion':
+                return self._execute_motion_detection(params)
+            elif command == 'WaitForVideoChange':
+                return self._execute_video_change_detection(params)
+            elif command == 'VerifyColorPresent':
+                return self._execute_color_verification(params)
+            elif command == 'VerifyScreenState':
+                return self._execute_screen_state_verification(params)
+            elif command in ['DetectBlackscreen', 'DetectFreeze', 'DetectSubtitles', 'DetectSubtitlesAI']:
+                return self._execute_content_analysis(command, params, image_paths)
+            elif command == 'DetectMotionFromJson':
+                return self._execute_json_motion_analysis(params)
+            else:
+                return self._create_error_result(f'Unknown verification command: {command}')
+            
+        except Exception as e:
+            print(f"VideoVerification[{self.device_name}]: Execution error: {e}")
+            return self._create_error_result(f'Verification execution error: {str(e)}')
+
+    def _execute_video_playback_verification(self, command: str, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute video playback verification (appear/disappear)."""
+        try:
+            motion_threshold = float(params.get('motion_threshold', 5.0))
+            duration = int(params.get('duration', 3))
+            timeout = int(params.get('timeout', 10))
+            
+            if command == 'WaitForVideoToAppear':
+                success = self.controller.waitForVideoToAppear(motion_threshold, duration, timeout)
+                message = f"Video {'appeared' if success else 'did not appear'} (motion threshold: {motion_threshold}%)"
+            else:  # WaitForVideoToDisappear
+                success = self.controller.waitForVideoToDisappear(motion_threshold, duration, timeout)
+                message = f"Video {'disappeared' if success else 'still present'} (motion threshold: {motion_threshold}%)"
+            
+            details = {
+                'motion_threshold': motion_threshold,
+                'duration': duration,
+                'timeout': timeout
+            }
+            
+            return self._create_success_result(success, message, details)
+            
+        except Exception as e:
+            return self._create_error_result(f'Video playback verification error: {str(e)}')
+
+    def _execute_motion_detection(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute motion detection verification."""
+        try:
+            duration = int(params.get('duration', 3))
+            threshold = float(params.get('threshold', 5.0))
+            
+            success = self.controller.detect_motion(duration, threshold)
+            message = f"Motion {'detected' if success else 'not detected'}"
+            details = {
+                'duration': duration,
+                'threshold': threshold
+            }
+            
+            return self._create_success_result(success, message, details)
+            
+        except Exception as e:
+            return self._create_error_result(f'Motion detection error: {str(e)}')
+
+    def _execute_video_change_detection(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute video change detection verification."""
+        try:
+            timeout = int(params.get('timeout', 10))
+            threshold = float(params.get('threshold', 10.0))
+            
+            success = self.controller.wait_for_video_change(timeout, threshold)
+            message = f"Video change {'detected' if success else 'not detected'}"
+            details = {
+                'timeout': timeout,
+                'threshold': threshold
+            }
+            
+            return self._create_success_result(success, message, details)
+            
+        except Exception as e:
+            return self._create_error_result(f'Video change detection error: {str(e)}')
+
+    def _execute_color_verification(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute color presence verification."""
+        try:
+            color = params.get('color')
+            if not color:
+                return self._create_error_result('No color specified for color verification')
+            
+            tolerance = params.get('tolerance', 10.0)
+            
+            success = self.controller.verify_color_present(color, tolerance)
+            message = f"Color '{color}' {'found' if success else 'not found'}"
+            details = {
+                'color': color,
+                'tolerance': tolerance
+            }
+            
+            return self._create_success_result(success, message, details)
+            
+        except Exception as e:
+            return self._create_error_result(f'Color verification error: {str(e)}')
+
+    def _execute_screen_state_verification(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute screen state verification."""
+        try:
+            expected_state = params.get('expected_state')
+            if not expected_state:
+                return self._create_error_result('No expected state specified for screen state verification')
+            
+            timeout = int(params.get('timeout', 5))
+            
+            success = self.controller.verify_screen_state(expected_state, timeout)
+            message = f"Screen state '{expected_state}' {'verified' if success else 'not verified'}"
+            details = {
+                'expected_state': expected_state,
+                'timeout': timeout
+            }
+            
+            return self._create_success_result(success, message, details)
+            
+        except Exception as e:
+            return self._create_error_result(f'Screen state verification error: {str(e)}')
+
+    def _execute_content_analysis(self, command: str, params: Dict[str, Any], image_paths: List[str]) -> Dict[str, Any]:
+        """Execute content analysis verification (blackscreen, freeze, subtitles)."""
+        try:
+            if command == 'DetectBlackscreen':
+                threshold = params.get('threshold', 10)
+                result = self.controller.detect_blackscreen(image_paths, threshold)
+                success = result.get('success', False) and result.get('blackscreen_detected', False)
+                message = f"Blackscreen {'detected' if success else 'not detected'}"
+                
+            elif command == 'DetectFreeze':
+                freeze_threshold = params.get('freeze_threshold', 1.0)
+                result = self.controller.detect_freeze(image_paths, freeze_threshold)
+                success = result.get('success', False) and result.get('freeze_detected', False)
+                message = f"Freeze {'detected' if success else 'not detected'}"
+                
+            elif command == 'DetectSubtitles':
+                extract_text = params.get('extract_text', True)
+                result = self.controller.detect_subtitles(image_paths, extract_text)
+                success = result.get('success', False) and result.get('subtitles_detected', False)
+                message = f"Subtitles {'detected' if success else 'not detected'}"
+                
+            elif command == 'DetectSubtitlesAI':
+                extract_text = params.get('extract_text', True)
+                result = self.controller.detect_subtitles_ai(image_paths, extract_text)
+                success = result.get('success', False) and result.get('subtitles_detected', False)
+                message = f"AI Subtitles {'detected' if success else 'not detected'}"
+            
+            return {
+                'success': success,
+                'message': message,
+                'confidence': result.get('confidence', 1.0 if success else 0.0),
+                'details': result
+            }
+            
+        except Exception as e:
+            return self._create_error_result(f'Content analysis error: {str(e)}')
+
+    def _execute_json_motion_analysis(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute JSON motion analysis verification."""
+        try:
+            json_count = int(params.get('json_count', 5))
+            strict_mode = params.get('strict_mode', True)
+            
+            result = self.controller.detect_motion_from_json(json_count, strict_mode)
+            success = result.get('success', False)
+            message = result.get('message', f"Motion {'detected' if success else 'not detected'} from JSON analysis")
+            
+            return {
+                'success': success,
+                'message': message,
+                'confidence': result.get('confidence', 1.0 if success else 0.0),
+                'details': result
+            }
+            
+        except Exception as e:
+            return self._create_error_result(f'JSON motion analysis error: {str(e)}')
+
+    # =============================================================================
+    # Verification Configuration and Validation
+    # =============================================================================
+    
+    def get_available_verifications(self) -> List[Dict[str, Any]]:
+        """Get available verifications for video controller."""
+        return [
+            {
+                'command': 'WaitForVideoToAppear',
+                'params': {
+                    'motion_threshold': 5.0,    # Default motion threshold
+                    'duration': 3.0,            # Default duration
+                    'timeout': 10.0             # Default timeout
+                },
+                'verification_type': 'video'
+            },
+            {
+                'command': 'WaitForVideoToDisappear',
+                'params': {
+                    'motion_threshold': 5.0,    # Default motion threshold
+                    'duration': 3.0,            # Default duration
+                    'timeout': 10.0             # Default timeout
+                },
+                'verification_type': 'video'
+            },
+            {
+                'command': 'DetectMotion',
+                'params': {
+                    'duration': 3.0,            # Default duration
+                    'threshold': 5.0            # Default threshold
+                },
+                'verification_type': 'video'
+            },
+            {
+                'command': 'WaitForVideoChange',
+                'params': {
+                    'timeout': 10.0,            # Default timeout
+                    'threshold': 10.0           # Default threshold
+                },
+                'verification_type': 'video'
+            },
+            {
+                'command': 'VerifyColorPresent',
+                'params': {
+                    'color': '',                # Empty string for user input
+                    'tolerance': 10.0           # Default tolerance
+                },
+                'verification_type': 'video'
+            },
+            {
+                'command': 'VerifyScreenState',
+                'params': {
+                    'expected_state': '',       # Empty string for user input
+                    'timeout': 5.0              # Default timeout
+                },
+                'verification_type': 'video'
+            },
+            {
+                'command': 'DetectBlackscreen',
+                'params': {
+                    'threshold': 10             # Default pixel threshold
+                },
+                'verification_type': 'video'
+            },
+            {
+                'command': 'DetectFreeze',
+                'params': {
+                    'freeze_threshold': 1.0     # Default freeze threshold
+                },
+                'verification_type': 'video'
+            },
+            {
+                'command': 'DetectSubtitles',
+                'params': {
+                    'extract_text': True        # Default to extract text
+                },
+                'verification_type': 'video'
+            },
+            {
+                'command': 'DetectSubtitlesAI',
+                'params': {
+                    'extract_text': True        # Default to extract text
+                },
+                'verification_type': 'video'
+            },
+            {
+                'command': 'DetectMotionFromJson',
+                'params': {
+                    'json_count': 5,            # Number of JSON files to analyze
+                    'strict_mode': True         # Strict mode (all files must be clean)
+                },
+                'verification_type': 'video'
+            }
+        ]
+
+    def validate_verification_config(self, verification_config: Dict[str, Any]) -> Tuple[bool, str]:
+        """
+        Validate verification configuration.
+        
+        Args:
+            verification_config: Configuration to validate
+            
+        Returns:
+            Tuple of (is_valid, error_message)
+        """
+        try:
+            if not isinstance(verification_config, dict):
+                return False, "Configuration must be a dictionary"
+            
+            command = verification_config.get('command')
+            if not command:
+                return False, "Missing 'command' field in configuration"
+            
+            params = verification_config.get('params', {})
+            if not isinstance(params, dict):
+                return False, "Parameters must be a dictionary"
+            
+            # Validate specific command requirements
+            if command in ['VerifyColorPresent'] and not params.get('color'):
+                return False, f"Command '{command}' requires 'color' parameter"
+            
+            if command in ['VerifyScreenState'] and not params.get('expected_state'):
+                return False, f"Command '{command}' requires 'expected_state' parameter"
+            
+            # Validate numeric parameters
+            numeric_params = {
+                'motion_threshold': (0.0, 100.0),
+                'duration': (0.1, 60.0),
+                'timeout': (1.0, 300.0),
+                'threshold': (0.0, 100.0),
+                'tolerance': (0.0, 100.0),
+                'freeze_threshold': (0.0, 10.0),
+                'json_count': (1, 20)
+            }
+            
+            for param_name, (min_val, max_val) in numeric_params.items():
+                if param_name in params:
+                    try:
+                        value = float(params[param_name])
+                        if not (min_val <= value <= max_val):
+                            return False, f"Parameter '{param_name}' must be between {min_val} and {max_val}"
+                    except (ValueError, TypeError):
+                        return False, f"Parameter '{param_name}' must be a number"
+            
+            return True, ""
+            
+        except Exception as e:
+            return False, f"Configuration validation error: {str(e)}"
+
+    # =============================================================================
+    # Status and Capability Reporting
+    # =============================================================================
+    
+    def get_controller_status(self) -> Dict[str, Any]:
+        """Get comprehensive controller status information."""
+        return {
+            'controller_type': self.controller.controller_type,
+            'device_name': self.controller.device_name,
+            'connected': self.controller.is_connected,
+            'session_id': self.controller.verification_session_id,
+            'acquisition_source': self.controller.av_controller.device_name if self.controller.av_controller else None,
+            'capabilities': [
+                'motion_detection', 'video_playback_verification',
+                'color_verification', 'screen_state_verification',
+                'video_change_detection', 'performance_metrics',
+                'blackscreen_detection', 'freeze_detection',
+                'subtitle_detection', 'ai_analysis', 'json_motion_analysis'
+            ],
+            'helper_modules': [
+                'video_analysis_helpers', 'video_content_helpers',
+                'video_ai_helpers', 'video_verification_helpers'
+            ],
+            'verification_logs_count': len(self.verification_logs)
+        }
+
+    def get_performance_metrics(self) -> Dict[str, Any]:
+        """Get performance metrics for the controller."""
+        try:
+            recent_logs = self.verification_logs[-10:] if self.verification_logs else []
+            
+            if not recent_logs:
+                return {
+                    'total_verifications': 0,
+                    'success_rate': 0.0,
+                    'average_duration': 0.0,
+                    'most_common_commands': []
+                }
+            
+            successful = sum(1 for log in recent_logs if log.get('success', False))
+            total = len(recent_logs)
+            success_rate = (successful / total) * 100 if total > 0 else 0.0
+            
+            # Calculate average duration for logs that have it
+            durations = [log.get('duration', 0) for log in recent_logs if log.get('duration')]
+            average_duration = sum(durations) / len(durations) if durations else 0.0
+            
+            # Count command usage
+            commands = [log.get('command', 'unknown') for log in recent_logs]
+            command_counts = {}
+            for cmd in commands:
+                command_counts[cmd] = command_counts.get(cmd, 0) + 1
+            
+            most_common = sorted(command_counts.items(), key=lambda x: x[1], reverse=True)[:3]
+            
+            return {
+                'total_verifications': total,
+                'success_rate': round(success_rate, 1),
+                'average_duration': round(average_duration, 2),
+                'most_common_commands': most_common
+            }
+            
+        except Exception as e:
+            print(f"VideoVerification[{self.device_name}]: Performance metrics error: {e}")
+            return {
+                'total_verifications': 0,
+                'success_rate': 0.0,
+                'average_duration': 0.0,
+                'most_common_commands': [],
+                'error': str(e)
+            }
+
+    # =============================================================================
+    # Utility Methods
+    # =============================================================================
+    
+    def _parse_image_source(self, image_source_url: str) -> Optional[List[str]]:
+        """Parse image source URL into list of image paths."""
+        if not image_source_url:
+            return None
+        
+        if isinstance(image_source_url, str):
+            # Single image or comma-separated list
+            if ',' in image_source_url:
+                return [path.strip() for path in image_source_url.split(',')]
+            else:
+                return [image_source_url]
+        elif isinstance(image_source_url, list):
+            return image_source_url
+        
+        return None
+
+    def _create_success_result(self, success: bool, message: str, details: Dict[str, Any]) -> Dict[str, Any]:
+        """Create a standardized success result."""
+        return {
+            'success': success,
+            'message': message,
+            'confidence': 1.0 if success else 0.0,
+            'details': details
+        }
+
+    def _create_error_result(self, error_message: str) -> Dict[str, Any]:
+        """Create a standardized error result."""
+        return {
+            'success': False,
+            'message': error_message,
+            'confidence': 0.0,
+            'details': {'error': error_message}
+        }
+
+    def log_verification(self, command: str, target: str, success: bool, details: Dict[str, Any] = None, duration: float = None):
+        """
+        Log a verification operation for tracking and analysis.
+        
+        Args:
+            command: Verification command executed
+            target: Target of the verification (e.g., color name, state name)
+            success: Whether the verification succeeded
+            details: Additional details about the verification
+            duration: Duration of the verification in seconds
+        """
+        try:
+            log_entry = {
+                'timestamp': datetime.now().isoformat(),
+                'command': command,
+                'target': target,
+                'success': success,
+                'details': details or {},
+                'duration': duration
+            }
+            
+            self.verification_logs.append(log_entry)
+            
+            # Keep only the last 100 logs to prevent memory issues
+            if len(self.verification_logs) > 100:
+                self.verification_logs = self.verification_logs[-100:]
+            
+        except Exception as e:
+            print(f"VideoVerification[{self.device_name}]: Logging error: {e}")
+
+    def get_verification_history(self, limit: int = 10) -> List[Dict[str, Any]]:
+        """
+        Get recent verification history.
+        
+        Args:
+            limit: Maximum number of entries to return
+            
+        Returns:
+            List of recent verification log entries
+        """
+        return self.verification_logs[-limit:] if self.verification_logs else []
+
+    def clear_verification_history(self):
+        """Clear verification history logs."""
+        self.verification_logs.clear()
+        print(f"VideoVerification[{self.device_name}]: Verification history cleared")
