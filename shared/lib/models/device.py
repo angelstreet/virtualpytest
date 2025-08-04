@@ -186,10 +186,63 @@ class Device:
         """
         from backend_core.src.controllers.controller_config_factory import get_device_capabilities
         
-        # Get detailed capabilities from factory
-        detailed_capabilities = get_device_capabilities(self.device_model)
+        # Get theoretical capabilities from factory (for reference)
+        theoretical_capabilities = get_device_capabilities(self.device_model)
         
-        print(f"[@device:to_dict] Device {self.device_name} ({self.device_model}) detailed capabilities: {detailed_capabilities}")
+        # Build actual capabilities based on successfully instantiated controllers
+        actual_capabilities = {
+            'av': None,
+            'remote': None,
+            'desktop': None,
+            'web': None,
+            'power': None,
+            'ai': None,
+            'verification': []
+        }
+        
+        # Check which controllers are actually available
+        if self._controllers.get('av'):
+            # Get the implementation name from the first AV controller
+            av_controller = self._controllers['av'][0]
+            controller_name = av_controller.__class__.__name__.lower()
+            if 'hdmi' in controller_name:
+                actual_capabilities['av'] = 'hdmi_stream'
+            elif 'camera' in controller_name:
+                actual_capabilities['av'] = 'camera_stream'
+            elif 'vnc' in controller_name:
+                actual_capabilities['av'] = 'vnc_stream'
+            else:
+                actual_capabilities['av'] = theoretical_capabilities['av']  # Fallback
+        
+        if self._controllers.get('remote'):
+            # Get the implementation name from the first remote controller
+            remote_controller = self._controllers['remote'][0]
+            controller_name = remote_controller.__class__.__name__.lower()
+            if 'androidmobile' in controller_name:
+                actual_capabilities['remote'] = 'android_mobile'
+            elif 'androidtv' in controller_name:
+                actual_capabilities['remote'] = 'android_tv'
+            elif 'appium' in controller_name:
+                actual_capabilities['remote'] = 'appium'
+            else:
+                actual_capabilities['remote'] = theoretical_capabilities['remote']  # Fallback
+        
+        if self._controllers.get('power'):
+            # Get the implementation name from the first power controller
+            power_controller = self._controllers['power'][0]
+            controller_name = power_controller.__class__.__name__.lower()
+            if 'tapo' in controller_name:
+                actual_capabilities['power'] = 'tapo'
+            else:
+                actual_capabilities['power'] = theoretical_capabilities['power']  # Fallback
+        
+        # For other controller types, use theoretical capabilities as they're less critical
+        actual_capabilities['desktop'] = theoretical_capabilities['desktop']
+        actual_capabilities['web'] = theoretical_capabilities['web']
+        actual_capabilities['ai'] = theoretical_capabilities['ai']
+        
+        print(f"[@device:to_dict] Device {self.device_name} ({self.device_model}) theoretical capabilities: {theoretical_capabilities}")
+        print(f"[@device:to_dict] Device {self.device_name} ({self.device_model}) actual capabilities: {actual_capabilities}")
         
         # Collect available verification types and action types from controllers
         device_verification_types = self.get_available_verification_types()
@@ -205,7 +258,7 @@ class Device:
             'device_model': self.device_model,  # Updated field name to match frontend expectations
             'device_ip': self.device_ip,
             'device_port': self.device_port,
-            'device_capabilities': detailed_capabilities,  # Updated field name to match frontend expectations
+            'device_capabilities': actual_capabilities,  # Use actual capabilities instead of theoretical
             'device_verification_types': device_verification_types,  # Simplified naming (removed 'available_' prefix)
             'device_action_types': device_action_types  # Simplified naming (removed 'available_' prefix)
         }

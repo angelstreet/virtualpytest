@@ -147,25 +147,41 @@ def create_controller_configs_from_device_info(device_config: dict) -> dict:
         }
         print(f"[@controller_factory:create_controller_configs_from_device_info] Created AI controller: {ai_impl}")
     
-    # Create Power controllers
+    # Create Power controllers - only if required environment variables are present
     for power_impl in device_mapping['power']:
-        # Check if this is a Tapo power controller
+        # Check if required power configuration is present in environment
         power_name = device_config.get('power_name', '')
-        if power_impl == 'tapo' and 'tapo' in power_name.lower():
-            configs['power'] = {
-                'type': 'power',
-                'implementation': power_impl,
-                'params': _get_power_params(power_impl, device_config)
-            }
-            print(f"[@controller_factory:create_controller_configs_from_device_info] Created Power controller: {power_impl}")
+        power_ip = device_config.get('power_ip', '')
+        power_email = device_config.get('power_email', '')
+        power_pwd = device_config.get('power_pwd', '')
+        
+        if power_impl == 'tapo':
+            # For Tapo controllers, require all necessary configuration
+            if (power_name and 'tapo' in power_name.lower() and 
+                power_ip and power_email and power_pwd):
+                configs['power'] = {
+                    'type': 'power',
+                    'implementation': power_impl,
+                    'params': _get_power_params(power_impl, device_config)
+                }
+                print(f"[@controller_factory:create_controller_configs_from_device_info] Created Power controller: {power_impl}")
+            else:
+                print(f"[@controller_factory:create_controller_configs_from_device_info] Skipping Power controller {power_impl} - missing required configuration:")
+                print(f"[@controller_factory:create_controller_configs_from_device_info]   power_name: {power_name}")
+                print(f"[@controller_factory:create_controller_configs_from_device_info]   power_ip: {power_ip}")
+                print(f"[@controller_factory:create_controller_configs_from_device_info]   power_email: {power_email}")
+                print(f"[@controller_factory:create_controller_configs_from_device_info]   power_pwd: {'***' if power_pwd else 'None'}")
         elif power_impl != 'tapo':
-            # Non-Tapo power controllers
-            configs['power'] = {
-                'type': 'power',
-                'implementation': power_impl,
-                'params': _get_power_params(power_impl, device_config)
-            }
-            print(f"[@controller_factory:create_controller_configs_from_device_info] Created Power controller: {power_impl}")
+            # For non-Tapo power controllers, check if basic configuration is present
+            if power_name:
+                configs['power'] = {
+                    'type': 'power',
+                    'implementation': power_impl,
+                    'params': _get_power_params(power_impl, device_config)
+                }
+                print(f"[@controller_factory:create_controller_configs_from_device_info] Created Power controller: {power_impl}")
+            else:
+                print(f"[@controller_factory:create_controller_configs_from_device_info] Skipping Power controller {power_impl} - no power_name configured")
     
     # Create Verification controllers (NEW!)
     verification_types = []
