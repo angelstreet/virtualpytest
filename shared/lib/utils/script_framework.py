@@ -394,17 +394,11 @@ class ScriptExecutor:
                     # Calculate video duration based on test execution time
                     test_duration_seconds = context.get_execution_time_ms() / 1000.0
                     
-                    # Smart duration calculation:
+                    # Video size logic: same size or more, never less
                     # - Minimum 10 seconds (for very short tests)
-                    # - Maximum 60 seconds (to avoid huge videos)
-                    # - For tests 10-60s: capture the full test duration
-                    # - For tests >60s: capture last 60 seconds
-                    if test_duration_seconds <= 10:
-                        video_duration = 10.0  # Minimum duration
-                    elif test_duration_seconds <= 60:
-                        video_duration = test_duration_seconds  # Full test duration
-                    else:
-                        video_duration = 60.0  # Maximum duration
+                    # - Full test duration (no maximum limit)
+                    # - Always capture at least the full test duration
+                    video_duration = max(10.0, test_duration_seconds)  # At least 10s, but capture full test
                     
                     print(f"🎥 [{self.script_name}] Test duration: {test_duration_seconds:.1f}s, capturing {video_duration:.1f}s of video")
                     

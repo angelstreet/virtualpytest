@@ -191,14 +191,12 @@ class HDMIStreamController(AVControllerInterface):
                 print(f"HDMI[{self.capture_source}]: FFmpeg failed: {result.stderr}")
                 return None
             
-            # 3. Upload MP4 to R2
-            from shared.lib.utils.cloudflare_utils import upload_file_to_r2
+            # 3. Upload MP4 to R2 (same pattern as screenshots)
+            from shared.lib.utils.cloudflare_utils import get_cloudflare_utils
             
-            upload_result = upload_file_to_r2(
-                temp_mp4,
-                f"videos/test_video_{timestamp}.mp4",
-                "video/mp4"
-            )
+            uploader = get_cloudflare_utils()
+            remote_path = f"videos/test_video_{timestamp}.mp4"
+            upload_result = uploader.upload_file(temp_mp4, remote_path)
             
             if upload_result.get('success'):
                 video_url = upload_result.get('url')
