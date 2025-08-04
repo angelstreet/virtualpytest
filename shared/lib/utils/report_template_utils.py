@@ -463,6 +463,80 @@ def create_themed_html_template() -> str:
             font-family: 'Courier New', monospace;
         }}
         
+        /* Summary state container styles */
+        .summary-state-container {{
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            align-items: start;
+        }}
+        
+        .execution-summary {{
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-light);
+            border-radius: 6px;
+            padding: 15px;
+        }}
+        
+        .execution-summary h3 {{
+            margin: 0 0 10px 0;
+            color: var(--text-primary);
+            font-size: 1.1em;
+            border-bottom: 1px solid var(--border-light);
+            padding-bottom: 8px;
+        }}
+        
+        .summary-stats {{
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            line-height: 1.6;
+            color: var(--text-primary);
+        }}
+        
+        .summary-stats .stat-line {{
+            margin: 4px 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }}
+        
+        .summary-stats .stat-emoji {{
+            width: 20px;
+            text-align: center;
+        }}
+        
+        .summary-stats .stat-success {{
+            color: var(--success-color);
+            font-weight: bold;
+        }}
+        
+        .summary-stats .stat-failure {{
+            color: var(--failure-color);
+            font-weight: bold;
+        }}
+        
+        .summary-stats .stat-warning {{
+            color: #ffc107;
+            font-weight: bold;
+        }}
+        
+        .state-screenshots {{
+            text-align: center;
+        }}
+        
+        .state-screenshots h3 {{
+            margin: 0 0 15px 0;
+            color: var(--text-primary);
+            font-size: 1.1em;
+        }}
+        
+        @media (max-width: 768px) {{
+            .summary-state-container {{
+                grid-template-columns: 1fr;
+                gap: 15px;
+            }}
+        }}
+        
         /* Retry action styles */
         .retry-action-item {{
             margin: 4px 0;
@@ -1053,13 +1127,21 @@ def create_themed_html_template() -> str:
         <div class="content">
             <div class="section">
                 <div class="section-header" onclick="toggleSection('screenshots-content')">
-                <h2>Initial & Final State</h2>
+                <h2>Execution Summary & State</h2>
                     <button class="toggle-btn">▶</button>
                 </div>
                 <div id="screenshots-content" class="collapsible-content">
-                    <div class="screenshot-grid">
-                    {initial_screenshot}
-                    {final_screenshot}
+                    <div class="summary-state-container">
+                        <div class="execution-summary">
+                            {execution_summary}
+                        </div>
+                        <div class="state-screenshots">
+                            <h3>Initial & Final State</h3>
+                            <div class="screenshot-grid">
+                                {initial_screenshot}
+                                {final_screenshot}
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
