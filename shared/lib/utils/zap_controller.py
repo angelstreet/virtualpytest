@@ -11,9 +11,9 @@ This controller manages:
 import time
 from datetime import datetime
 from typing import Dict, Any, List, Optional
-from backend_core.src.controllers.verification.video import VideoVerificationController
 from .action_utils import execute_edge_actions, capture_validation_screenshot
 from .navigation_utils import goto_node
+from .host_utils import get_controller
 
 
 class ZapAnalysisResult:
@@ -103,8 +103,7 @@ class ZapStatistics:
 class ZapController:
     """Controller for executing zap actions with comprehensive analysis"""
     
-    def __init__(self, video_controller: Optional[VideoVerificationController] = None):
-        self.video_controller = video_controller
+    def __init__(self):
         self.statistics = ZapStatistics()
     
     def analyze_after_zap(self, iteration: int, action_command: str, context) -> ZapAnalysisResult:
@@ -115,7 +114,7 @@ class ZapController:
             print(f"🔍 [ZapController] Analyzing zap results for {action_command} (iteration {iteration})...")
             
             # 1. Motion detection first
-            motion_result = self._detect_motion()
+            motion_result = self._detect_motion(context)
             result.motion_detected = motion_result.get('success', False)
             result.motion_details = motion_result
             
@@ -123,7 +122,7 @@ class ZapController:
                 print(f"✅ [ZapController] Motion detected - content changed successfully")
                 
                 # 2. Only analyze subtitles if motion detected
-                if context and self.video_controller:
+                if context:
                     subtitle_result = self._analyze_subtitles(context, iteration, action_command)
                     result.subtitles_detected = subtitle_result.get('subtitles_detected', False)
                     result.detected_language = subtitle_result.get('detected_language')
@@ -219,14 +218,23 @@ class ZapController:
         
         return success
     
-    def _detect_motion(self) -> Dict[str, Any]:
-        """Detect motion using video controller"""
-        if not self.video_controller:
-            return {"success": False, "message": "No video controller available"}
-        
+    def _detect_motion(self, context) -> Dict[str, Any]:
+        """Detect motion using direct controller call - same as HTTP routes do"""
         try:
             time.sleep(2)  # Wait for analysis files
-            result = self.video_controller.detect_motion_from_json(json_count=3, strict_mode=False)
+            
+            device_id = context.selected_device.device_id
+            
+            # Get video verification controller - same as HTTP routes
+            video_controller = get_controller(device_id, 'verification_video')
+            if not video_controller:
+                return {"success": False, "message": f"No video verification controller found for device {device_id}"}
+            
+            # Call the same method that HTTP routes call
+            result = video_controller.detect_motion_from_json(
+                json_count=3, 
+                strict_mode=False
+            )
             
             success = result.get('success', False)
             if success:
@@ -239,27 +247,28 @@ class ZapController:
             return {"success": False, "message": f"Motion detection error: {e}"}
     
     def _analyze_subtitles(self, context, iteration: int, action_command: str) -> Dict[str, Any]:
-        """Analyze subtitles using AI"""
-        if not self.video_controller or not context.screenshot_paths:
-            return {"success": False, "message": "No video controller or screenshots available"}
+        """Analyze subtitles using direct controller call - same as HTTP routes do"""
+        if not context.screenshot_paths:
+            return {"success": False, "message": "No screenshots available"}
         
         try:
             print(f"🔍 [ZapController] Analyzing subtitles...")
             
             latest_screenshot = context.screenshot_paths[-1]
-            verification_config = {
-                'verification_type': 'video',
-                'command': 'DetectSubtitlesAI',
-                'params': {'extract_text': True}
-            }
+            device_id = context.selected_device.device_id
             
-            result = self.video_controller.execute_verification(verification_config, latest_screenshot)
+            # Get video verification controller - same as HTTP routes
+            video_controller = get_controller(device_id, 'verification_video')
+            if not video_controller:
+                return {"success": False, "message": f"No video verification controller found for device {device_id}"}
+            
+            # Call the same method that HTTP routes call
+            result = video_controller.detect_subtitles_ai([latest_screenshot], extract_text=True)
             
             if result.get('success'):
-                details = result.get('details', {})
-                has_subtitles = details.get('subtitles_detected', False)
-                extracted_text = details.get('combined_extracted_text', '') or details.get('extracted_text', '')
-                detected_language = details.get('detected_language')
+                has_subtitles = result.get('subtitles_detected', False)
+                extracted_text = result.get('combined_extracted_text', '') or result.get('extracted_text', '')
+                detected_language = result.get('detected_language')
                 
                 if detected_language == 'unknown' or not detected_language:
                     detected_language = None
@@ -286,7 +295,7 @@ class ZapController:
             return {"success": False, "message": f"Subtitle analysis error: {e}"}
     
     def _analyze_audio_menu(self, context, iteration: int) -> Dict[str, Any]:
-        """Analyze audio menu"""
+        """Analyze audio menu using direct controller call - same as HTTP routes do"""
         try:
             print(f"🎧 [ZapController] Analyzing audio menu...")
             
@@ -297,11 +306,15 @@ class ZapController:
             if audio_menu_nav.get('success'):
                 # Capture and analyze
                 screenshot_path = self._capture_screenshot(context, f"audio_menu_{iteration}", "zap")
+                device_id = context.selected_device.device_id
                 
-                if self.video_controller:
-                    result = self.video_controller.analyze_language_menu_ai(screenshot_path)
-                else:
-                    result = {"success": False, "message": "No video controller for audio menu analysis"}
+                # Get video verification controller - same as HTTP routes
+                video_controller = get_controller(device_id, 'verification_video')
+                if not video_controller:
+                    return {"success": False, "message": f"No video verification controller found for device {device_id}"}
+                
+                # Call the same method that HTTP routes would call
+                result = video_controller.analyze_language_menu_ai([screenshot_path])
                 
                 # Navigate back to live
                 goto_node(context.host, context.selected_device, "live", context.tree_id, context.team_id, context)

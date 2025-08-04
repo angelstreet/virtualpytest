@@ -132,14 +132,60 @@ def execute_navigation_with_verifications(host, device, transition: Dict[str, An
                 'verification_results': []
             }
         
+        # Log detailed action information before execution
+        edge_id = transition.get('edge_id', 'unknown')
+        from_node = transition.get('from_node_label', 'unknown')
+        to_node = transition.get('to_node_label', 'unknown')
+        
+        print(f"[@action_utils:execute_navigation] Executing navigation step: {from_node} → {to_node}")
+        print(f"[@action_utils:execute_navigation] Edge ID: {edge_id}")
+        print(f"[@action_utils:execute_navigation] Actions to execute: {len(actions)}")
+        print(f"[@action_utils:execute_navigation] Retry actions available: {len(retry_actions)}")
+        
+        # Log each action for debugging
+        for i, action in enumerate(actions):
+            action_cmd = action.get('command', 'unknown')
+            action_params = action.get('params', {})
+            print(f"[@action_utils:execute_navigation] Action {i+1}: {action_cmd} with params: {action_params}")
+        
         action_start_time = time.time()
         actions_success = remote_controller.execute_sequence(actions, retry_actions)
         action_execution_time = int((time.time() - action_start_time) * 1000)
         
+        # Enhanced error logging with more context
+        if not actions_success:
+            error_details = {
+                'edge_id': edge_id,
+                'from_node': from_node,
+                'to_node': to_node,
+                'actions_count': len(actions),
+                'retry_actions_count': len(retry_actions),
+                'execution_time_ms': action_execution_time,
+                'actions': actions,
+                'retry_actions': retry_actions
+            }
+            
+            print(f"[@action_utils:execute_navigation] ACTION EXECUTION FAILED:")
+            print(f"[@action_utils:execute_navigation]   Edge: {from_node} → {to_node} (ID: {edge_id})")
+            print(f"[@action_utils:execute_navigation]   Failed after {action_execution_time}ms")
+            print(f"[@action_utils:execute_navigation]   Actions attempted: {len(actions)}")
+            print(f"[@action_utils:execute_navigation]   Retry actions attempted: {len(retry_actions)}")
+            
+            # Try to get more specific error from remote controller if available
+            detailed_error = "Action execution failed"
+            if hasattr(remote_controller, 'get_last_error'):
+                last_error = remote_controller.get_last_error()
+                if last_error:
+                    detailed_error = f"Action execution failed: {last_error}"
+                    print(f"[@action_utils:execute_navigation]   Remote controller error: {last_error}")
+        else:
+            print(f"[@action_utils:execute_navigation] Actions completed successfully in {action_execution_time}ms")
+            error_details = None
+            detailed_error = None
+        
         if tree_id and actions:
             try:
                 from shared.lib.supabase.execution_results_db import record_edge_execution
-                edge_id = transition.get('edge_id', 'unknown')
                 record_edge_execution(
                     team_id=team_id,
                     tree_id=tree_id,
@@ -148,8 +194,8 @@ def execute_navigation_with_verifications(host, device, transition: Dict[str, An
                     device_model=device.device_model,
                     success=actions_success,
                     execution_time_ms=action_execution_time,
-                    message='Navigation actions completed' if actions_success else 'Navigation actions failed',
-                    error_details={'error': 'Action execution failed'} if not actions_success else None,
+                    message='Navigation actions completed' if actions_success else detailed_error or 'Navigation actions failed',
+                    error_details=error_details if not actions_success else None,
                     script_result_id=script_result_id,
                     script_context=script_context
                 )
@@ -159,9 +205,10 @@ def execute_navigation_with_verifications(host, device, transition: Dict[str, An
         if not actions_success:
             return {
                 'success': False,
-                'error': 'Navigation actions failed',
-                'message': 'Navigation step failed during action execution',
-                'verification_results': []
+                'error': detailed_error or 'Navigation actions failed',
+                'message': f'Navigation step failed during action execution: {from_node} → {to_node}',
+                'verification_results': [],
+                'error_details': error_details
             }
         
         verifications = transition.get('verifications', [])
@@ -202,11 +249,27 @@ def execute_navigation_with_verifications(host, device, transition: Dict[str, An
             verification_results.append(verification_result)
             
             if not verify_result['success']:
+                verification_error = verify_result.get("error", "Unknown error")
+                verification_type = verification.get('verification_type', 'adb')
+                
+                print(f"[@action_utils:execute_navigation] VERIFICATION FAILED:")
+                print(f"[@action_utils:execute_navigation]   Verification {i+1}/{len(verifications)}: {verification_type}")
+                print(f"[@action_utils:execute_navigation]   Error: {verification_error}")
+                print(f"[@action_utils:execute_navigation]   Execution time: {verification_execution_time}ms")
+                print(f"[@action_utils:execute_navigation]   Verification config: {verification}")
+                
                 return {
                     'success': False,
-                    'error': f'Verification {i+1} failed: {verify_result.get("error", "Unknown error")}',
-                    'message': 'Navigation step failed during verification',
-                    'verification_results': verification_results
+                    'error': f'Verification {i+1} ({verification_type}) failed: {verification_error}',
+                    'message': f'Navigation step failed during verification {i+1}',
+                    'verification_results': verification_results,
+                    'error_details': {
+                        'verification_number': i+1,
+                        'verification_type': verification_type,
+                        'verification_error': verification_error,
+                        'verification_config': verification,
+                        'execution_time_ms': verification_execution_time
+                    }
                 }
         
         execution_time = time.time() - start_time

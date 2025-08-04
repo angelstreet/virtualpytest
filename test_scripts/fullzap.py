@@ -31,28 +31,18 @@ from shared.lib.utils.script_framework import ScriptExecutor, ScriptExecutionCon
 from shared.lib.utils.zap_controller import ZapController
 from shared.lib.utils.navigation_utils import (
     validate_action_availability,
-    create_video_controller_for_device,
     goto_node
 )
 
 
 def create_zap_controller(context: ScriptExecutionContext) -> ZapController:
-    """Create a ZapController with video analysis capabilities"""
-    print("🔧 [fullzap] Creating ZapController with video analysis...")
+    """Create a ZapController with direct Python video analysis capabilities"""
+    print("🔧 [fullzap] Creating ZapController with direct Python video analysis...")
     
-    # Create video controller for analysis
-    video_controller = create_video_controller_for_device(
-        context.selected_device.device_id, 
-        context.selected_device.device_model
-    )
+    # Create ZapController - it will use get_controller() internally
+    zap_controller = ZapController()
     
-    # Create ZapController with video controller
-    zap_controller = ZapController(video_controller)
-    
-    if video_controller:
-        print("✅ [fullzap] ZapController ready with full analysis capabilities")
-    else:
-        print("⚠️ [fullzap] ZapController created without video analysis (limited functionality)")
+    print("✅ [fullzap] ZapController ready with direct Python analysis capabilities")
     
     return zap_controller
 

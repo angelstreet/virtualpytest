@@ -377,9 +377,46 @@ def goto_node(host, device, target_node_label: str, tree_id: str, team_id: str, 
                 context.step_results.append(step_result)
             
             if not result.get('success', False):
-                error_msg = f"Navigation failed at step {step_num}: {result.get('error', 'Unknown error')}"
-                print(f"[@navigation_utils:goto_node] ERROR: {error_msg}")
-                return {'success': False, 'error': error_msg}
+                error_msg = result.get('error', 'Unknown error')
+                error_details = result.get('error_details', {})
+                
+                print(f"[@navigation_utils:goto_node] NAVIGATION STEP FAILED:")
+                print(f"[@navigation_utils:goto_node]   Step {step_num}/{len(navigation_path)}: {from_node} → {to_node}")
+                print(f"[@navigation_utils:goto_node]   Error: {error_msg}")
+                print(f"[@navigation_utils:goto_node]   Execution time: {step_execution_time}ms")
+                
+                # Log additional error details if available
+                if error_details:
+                    if error_details.get('edge_id'):
+                        print(f"[@navigation_utils:goto_node]   Edge ID: {error_details.get('edge_id')}")
+                    if error_details.get('actions_count'):
+                        print(f"[@navigation_utils:goto_node]   Actions attempted: {error_details.get('actions_count')}")
+                    if error_details.get('retry_actions_count'):
+                        print(f"[@navigation_utils:goto_node]   Retry actions attempted: {error_details.get('retry_actions_count')}")
+                    
+                    # Log specific actions that failed
+                    failed_actions = error_details.get('actions', [])
+                    if failed_actions:
+                        print(f"[@navigation_utils:goto_node]   Failed actions:")
+                        for i, action in enumerate(failed_actions):
+                            cmd = action.get('command', 'unknown')
+                            params = action.get('params', {})
+                            print(f"[@navigation_utils:goto_node]     {i+1}. {cmd}: {params}")
+                
+                detailed_error_msg = f"Navigation failed at step {step_num} ({from_node} → {to_node}): {error_msg}"
+                return {
+                    'success': False, 
+                    'error': detailed_error_msg,
+                    'error_details': {
+                        'step_number': step_num,
+                        'total_steps': len(navigation_path),
+                        'from_node': from_node,
+                        'to_node': to_node,
+                        'execution_time_ms': step_execution_time,
+                        'original_error': error_msg,
+                        'action_details': error_details
+                    }
+                }
             
             print(f"[@navigation_utils:goto_node] Step {step_num} completed successfully in {step_execution_time}ms")
         
@@ -395,36 +432,3 @@ def goto_node(host, device, target_node_label: str, tree_id: str, team_id: str, 
         return {'success': False, 'error': error_msg}
 
 
-def create_video_controller_for_device(device_id: str, device_model: str) -> Optional[Any]:
-    """
-    Create a video verification controller for motion detection and analysis.
-    
-    Args:
-        device_id: Device identifier
-        device_model: Device model name
-        
-    Returns:
-        VideoVerificationController instance or None if creation fails
-    """
-    try:
-        from backend_core.src.controllers.verification.video import VideoVerificationController
-        
-        # Get AV controller for the device
-        av_controller = get_controller(device_id, 'av')
-        
-        if not av_controller:
-            print(f"[@navigation_utils:create_video_controller] No AV controller found for device {device_id}")
-            print(f"   📝 Device model: {device_model}")
-            print(f"   📝 This may affect motion detection and analysis capabilities")
-            return None
-        
-        # Create video verification controller
-        video_controller = VideoVerificationController(av_controller)
-        print(f"[@navigation_utils:create_video_controller] Video controller created for device {device_id}")
-        print(f"   🎯 Capabilities: motion detection, subtitle analysis, audio menu analysis")
-        return video_controller
-            
-    except Exception as e:
-        print(f"[@navigation_utils:create_video_controller] Error creating video controller: {e}")
-        print(f"   📝 This will disable motion detection and analysis features")
-        return None
