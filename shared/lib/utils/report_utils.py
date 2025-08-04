@@ -395,20 +395,32 @@ def create_compact_step_results_section(step_results: List[Dict], screenshots: D
 
 def format_console_summary_for_html(console_text: str) -> str:
     """Convert console summary text to HTML format."""
+    print(f"[@utils:report_utils:format_console_summary_for_html] Input text: '{console_text[:100] if console_text else 'EMPTY'}'...")
+    
     if not console_text:
-        return ""
+        print(f"[@utils:report_utils:format_console_summary_for_html] No console text provided, returning placeholder")
+        # Return a placeholder when no summary is available
+        return """
+        <h3>Execution Summary</h3>
+        <div class="summary-stats">
+            <pre style="white-space: pre-wrap; font-family: 'Courier New', monospace; margin: 0;">📊 Execution summary not available<br>ℹ️  This may be from an older script run<br>🔄 Run the script again to see detailed summary</pre>
+        </div>
+        """
     
     # Simple conversion - preserve line breaks and basic formatting
     html_text = console_text.replace('\n', '<br>')
     html_text = html_text.replace('=', '')  # Remove separator lines
     html_text = html_text.replace('  •', '<br>  •')  # Better bullet formatting
     
-    return f"""
+    result = f"""
     <h3>Execution Summary</h3>
     <div class="summary-stats">
         <pre style="white-space: pre-wrap; font-family: 'Courier New', monospace; margin: 0;">{html_text}</pre>
     </div>
     """
+    
+    print(f"[@utils:report_utils:format_console_summary_for_html] Generated HTML length: {len(result)}")
+    return result
 
 
 def create_error_section(error_msg: str) -> str:
@@ -640,6 +652,9 @@ def generate_and_upload_script_report(
         
         # Update step_results to use R2 URLs instead of local paths
         updated_step_results = update_step_results_with_r2_urls(step_results, url_mapping)
+        
+        # Debug execution summary
+        print(f"[@utils:report_utils:generate_and_upload_script_report] Execution summary received: '{execution_summary[:100] if execution_summary else 'EMPTY'}'...")
         
         # Prepare report data (same structure as validation.py) - now with R2 URLs
         report_data = {

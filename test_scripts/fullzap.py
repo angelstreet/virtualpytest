@@ -109,7 +109,7 @@ def main():
             'name': '--max_iteration',
             'kwargs': {
                 'type': int,
-                'default': 5,
+                'default': 2,
                 'help': 'Number of times to execute the action (default: 5)'
             }
         }
