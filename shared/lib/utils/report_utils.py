@@ -397,35 +397,22 @@ def get_thumbnail_screenshot_html(screenshot_path: Optional[str], label: str = N
     import json
     modal_data_json = json.dumps(modal_data).replace('"', '&quot;').replace("'", "&#x27;")
     
-    # Check if it's a URL (from Cloudflare R2) or local file path
+    # Always use URLs for consistency and performance (no more base64 embedding)
     if screenshot_path.startswith('http'):
-        # It's a URL - use directly
-        return f"""
-        <div class="screenshot-container">
-            <span class="screenshot-label">{label or 'Screenshot'}</span>
-            <img src="{screenshot_path}" alt="Screenshot" class="screenshot-thumbnail" onclick="openScreenshotModal('{modal_data_json}')">
-        </div>
-        """
+        # It's already an R2 URL - use directly
+        display_url = screenshot_path
     else:
-        # It's a local file path - convert to base64 (existing behavior)
-        thumbnail_path = screenshot_path.replace('.jpg', '_thumbnail.jpg')
-        
-        try:
-            # Convert screenshot to base64 for embedding
-            with open(thumbnail_path, 'rb') as img_file:
-                img_data = base64.b64encode(img_file.read()).decode('utf-8')
-            
-            data_url = f"data:image/jpeg;base64,{img_data}"
-            
-            return f"""
-            <div class="screenshot-container">
-                <span class="screenshot-label">{label or 'Screenshot'}</span>
-                <img src="{data_url}" alt="Screenshot" class="screenshot-thumbnail" onclick="openScreenshotModal('{modal_data_json}')">
-            </div>
-            """
-        except Exception as e:
-            print(f"[@utils:report_utils:get_thumbnail_screenshot_html] Error embedding thumbnail {thumbnail_path}: {e}")
-            return ''
+        # It's a local file path - this shouldn't happen after our URL mapping fix
+        # But if it does, use the local path and let the browser handle it
+        print(f"[@utils:report_utils:get_thumbnail_screenshot_html] Warning: Using local path instead of R2 URL: {screenshot_path}")
+        display_url = screenshot_path
+    
+    return f"""
+    <div class="screenshot-container">
+        <span class="screenshot-label">{label or 'Screenshot'}</span>
+        <img src="{display_url}" alt="Screenshot" class="screenshot-thumbnail" onclick="openScreenshotModal('{modal_data_json}')">
+    </div>
+    """
 
 
 
@@ -448,6 +435,59 @@ def format_execution_time(execution_time_ms: int) -> str:
         minutes = execution_time_ms // 60000
         seconds = (execution_time_ms % 60000) / 1000
         return f"{minutes}m {seconds:.1f}s"
+
+def update_step_results_with_r2_urls(step_results: List[Dict], url_mapping: Dict[str, str]) -> List[Dict]:
+    """
+    Update step results to replace local screenshot paths with R2 URLs.
+    
+    Args:
+        step_results: List of step result dictionaries
+        url_mapping: Dictionary mapping local paths to R2 URLs
+        
+    Returns:
+        Updated step results with R2 URLs
+    """
+    if not url_mapping:
+        return step_results
+    
+    updated_results = []
+    for step in step_results:
+        updated_step = step.copy()  # Shallow copy
+        
+        # Update action_screenshots (list of local paths)
+        if 'action_screenshots' in updated_step:
+            updated_action_screenshots = []
+            for screenshot_path in updated_step['action_screenshots']:
+                # For thumbnails, we want to use the thumbnail R2 URL if available
+                # Check if there's a thumbnail version of this screenshot
+                thumbnail_path = screenshot_path.replace('.jpg', '_thumbnail.jpg')
+                r2_url = url_mapping.get(thumbnail_path, url_mapping.get(screenshot_path, screenshot_path))
+                updated_action_screenshots.append(r2_url)
+                if r2_url != screenshot_path:
+                    print(f"[@utils:report_utils:update_step_results_with_r2_urls] Updated action screenshot: {screenshot_path} -> {r2_url}")
+            updated_step['action_screenshots'] = updated_action_screenshots
+        
+        # Update screenshot_path (single path)
+        if 'screenshot_path' in updated_step and updated_step['screenshot_path']:
+            original_path = updated_step['screenshot_path']
+            r2_url = url_mapping.get(original_path, original_path)
+            updated_step['screenshot_path'] = r2_url
+            if r2_url != original_path:
+                print(f"[@utils:report_utils:update_step_results_with_r2_urls] Updated step screenshot: {original_path} -> {r2_url}")
+        
+        # Update screenshot_url (if it exists and is a local path)
+        if 'screenshot_url' in updated_step and updated_step['screenshot_url']:
+            original_url = updated_step['screenshot_url']
+            # Only update if it's not already a URL (doesn't start with http)
+            if not original_url.startswith('http'):
+                r2_url = url_mapping.get(original_url, original_url)
+                updated_step['screenshot_url'] = r2_url
+                if r2_url != original_url:
+                    print(f"[@utils:report_utils:update_step_results_with_r2_urls] Updated screenshot URL: {original_url} -> {r2_url}")
+        
+        updated_results.append(updated_step)
+    
+    return updated_results
 
 def generate_and_upload_script_report(
     script_name: str,
@@ -511,31 +551,55 @@ def generate_and_upload_script_report(
         )
         failed_verifications = total_verifications - passed_verifications
         
-        # Prepare report data (same structure as validation.py)
+        # Upload screenshots FIRST to get R2 URLs
+        url_mapping = {}  # Map local paths to R2 URLs
+        if screenshot_paths:
+            screenshot_result = upload_validation_screenshots(
+                screenshot_paths=screenshot_paths,
+                device_model=device_info.get('device_model', 'unknown'),
+                script_name=script_name.replace('.py', ''),
+                timestamp=execution_timestamp
+            )
+            
+            if screenshot_result['success']:
+                print(f"[@utils:report_utils:generate_and_upload_script_report] Screenshots uploaded: {screenshot_result['uploaded_count']} files")
+                # Create mapping from local paths to R2 URLs
+                for upload_info in screenshot_result.get('uploaded_screenshots', []):
+                    local_path = upload_info['local_path']
+                    r2_url = upload_info['url']
+                    url_mapping[local_path] = r2_url
+                    print(f"[@utils:report_utils:generate_and_upload_script_report] Mapped: {local_path} -> {r2_url}")
+            else:
+                print(f"[@utils:report_utils:generate_and_upload_script_report] Screenshot upload failed: {screenshot_result.get('error', 'Unknown error')}")
+        
+        # Update step_results to use R2 URLs instead of local paths
+        updated_step_results = update_step_results_with_r2_urls(step_results, url_mapping)
+        
+        # Prepare report data (same structure as validation.py) - now with R2 URLs
         report_data = {
             'script_name': script_name,
             'device_info': device_info,
             'host_info': host_info,
             'execution_time': execution_time,
             'success': success,
-            'step_results': step_results,
+            'step_results': updated_step_results,  # Use updated step results with R2 URLs
             'screenshots': {
-                'initial': screenshot_paths[0] if screenshot_paths and len(screenshot_paths) > 0 else None,
-                'steps': screenshot_paths[1:-1] if screenshot_paths and len(screenshot_paths) > 2 else [],
-                'final': screenshot_paths[-1] if screenshot_paths and len(screenshot_paths) > 1 else None
+                'initial': url_mapping.get(screenshot_paths[0], screenshot_paths[0]) if screenshot_paths and len(screenshot_paths) > 0 else None,
+                'steps': [url_mapping.get(path, path) for path in screenshot_paths[1:-1]] if screenshot_paths and len(screenshot_paths) > 2 else [],
+                'final': url_mapping.get(screenshot_paths[-1], screenshot_paths[-1]) if screenshot_paths and len(screenshot_paths) > 1 else None
             },
             'error_msg': error_message,
             'timestamp': execution_timestamp,
             'userinterface_name': userinterface_name or f'script_{script_name}',
-            'total_steps': len(step_results),
-            'passed_steps': sum(1 for step in step_results if step.get('success', False)),
-            'failed_steps': sum(1 for step in step_results if not step.get('success', True)),
+            'total_steps': len(updated_step_results),
+            'passed_steps': sum(1 for step in updated_step_results if step.get('success', False)),
+            'failed_steps': sum(1 for step in updated_step_results if not step.get('success', True)),
             'total_verifications': total_verifications,
             'passed_verifications': passed_verifications,
             'failed_verifications': failed_verifications
         }
         
-        # Generate HTML content using existing function
+        # Generate HTML content using existing function - now with R2 URLs
         html_content = generate_validation_report(report_data)
         
         # Upload report to R2
@@ -550,20 +614,6 @@ def generate_and_upload_script_report(
         if upload_result['success']:
             report_url = upload_result['report_url']
             print(f"[@utils:report_utils:generate_and_upload_script_report] Report uploaded: {report_url}")
-            
-            # Upload screenshots if provided
-            if screenshot_paths:
-                screenshot_result = upload_validation_screenshots(
-                    screenshot_paths=screenshot_paths,
-                    device_model=device_info.get('device_model', 'unknown'),
-                    script_name=script_name.replace('.py', ''),
-                    timestamp=execution_timestamp
-                )
-                
-                if screenshot_result['success']:
-                    print(f"[@utils:report_utils:generate_and_upload_script_report] Screenshots uploaded: {screenshot_result['uploaded_count']} files")
-                else:
-                    print(f"[@utils:report_utils:generate_and_upload_script_report] Screenshot upload failed: {screenshot_result.get('error', 'Unknown error')}")
         else:
             print(f"[@utils:report_utils:generate_and_upload_script_report] Upload failed: {upload_result.get('error', 'Unknown error')}")
         

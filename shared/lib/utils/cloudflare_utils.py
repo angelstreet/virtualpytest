@@ -427,7 +427,7 @@ def upload_validation_screenshots(screenshot_paths: list, device_model: str, scr
             filename = os.path.basename(local_path)
             remote_path = f"{base_folder}/{filename}"
             
-            # Upload screenshot
+            # Upload full-size screenshot
             result = uploader.upload_file(local_path, remote_path)
             
             if result['success']:
@@ -443,6 +443,27 @@ def upload_validation_screenshots(screenshot_paths: list, device_model: str, scr
                     'error': result.get('error', 'Upload failed')
                 })
                 logger.error(f"Failed to upload screenshot {local_path}: {result.get('error')}")
+            
+            # Also upload thumbnail if it exists (for consistent URL-based display)
+            thumbnail_path = local_path.replace('.jpg', '_thumbnail.jpg')
+            if os.path.exists(thumbnail_path):
+                thumbnail_filename = os.path.basename(thumbnail_path)
+                thumbnail_remote_path = f"{base_folder}/{thumbnail_filename}"
+                
+                thumbnail_result = uploader.upload_file(thumbnail_path, thumbnail_remote_path)
+                
+                if thumbnail_result['success']:
+                    uploaded_screenshots.append({
+                        'local_path': thumbnail_path,
+                        'remote_path': thumbnail_remote_path,
+                        'url': thumbnail_result['url']
+                    })
+                    logger.info(f"Uploaded thumbnail: {thumbnail_remote_path}")
+                else:
+                    # Don't fail the whole process if thumbnail upload fails
+                    logger.warning(f"Thumbnail upload failed for {thumbnail_path}: {thumbnail_result.get('error')}")
+            else:
+                logger.info(f"No thumbnail found for {local_path} (expected: {thumbnail_path})")
         
         return {
             'success': len(failed_uploads) == 0,
