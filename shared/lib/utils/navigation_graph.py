@@ -197,6 +197,148 @@ def create_networkx_graph(nodes: List[Dict], edges: List[Dict]) -> nx.DiGraph:
     
     return G
 
+# NEW: Unified graph creation for nested trees
+
+def create_unified_networkx_graph(all_trees_data: List[Dict]) -> nx.DiGraph:
+    """
+    Create unified NetworkX graph from multiple navigation trees with cross-tree edges
+    
+    Args:
+        all_trees_data: List of tree data dicts containing tree_info, nodes, and edges
+        
+    Returns:
+        Unified NetworkX directed graph with cross-tree connections
+    """
+    print(f"[@navigation:graph:create_unified_networkx_graph] Creating unified graph with {len(all_trees_data)} trees")
+    
+    # Create unified directed graph
+    unified_graph = nx.DiGraph()
+    
+    # Track tree relationships for cross-tree edges
+    tree_hierarchy = {}
+    parent_child_map = {}  # parent_node_id -> child_tree_id
+    
+    # Phase 1: Add all nodes and edges from individual trees
+    total_nodes = 0
+    total_edges = 0
+    
+    for tree_data in all_trees_data:
+        tree_id = tree_data.get('tree_id')
+        tree_info = tree_data.get('tree_info', {})
+        nodes = tree_data.get('nodes', [])
+        edges = tree_data.get('edges', [])
+        
+        if not tree_id:
+            print(f"[@navigation:graph:create_unified_networkx_graph] Warning: Tree data missing tree_id, skipping")
+            continue
+        
+        print(f"[@navigation:graph:create_unified_networkx_graph] Processing tree: {tree_info.get('name', tree_id)} ({len(nodes)} nodes, {len(edges)} edges)")
+        
+        # Store tree hierarchy info
+        tree_hierarchy[tree_id] = {
+            'tree_id': tree_id,
+            'name': tree_info.get('name', ''),
+            'parent_tree_id': tree_info.get('parent_tree_id'),
+            'parent_node_id': tree_info.get('parent_node_id'),
+            'tree_depth': tree_info.get('tree_depth', 0),
+            'is_root_tree': tree_info.get('is_root_tree', False)
+        }
+        
+        # Map parent node to child tree
+        if tree_info.get('parent_node_id'):
+            parent_child_map[tree_info.get('parent_node_id')] = tree_id
+        
+        # Create individual tree graph
+        tree_graph = create_networkx_graph(nodes, edges)
+        
+        # Add tree context to all nodes
+        for node_id, node_data in tree_graph.nodes(data=True):
+            node_data['tree_id'] = tree_id
+            node_data['tree_name'] = tree_info.get('name', '')
+            node_data['tree_depth'] = tree_info.get('tree_depth', 0)
+            unified_graph.add_node(node_id, **node_data)
+        
+        # Add tree context to all edges  
+        for from_node, to_node, edge_data in tree_graph.edges(data=True):
+            edge_data['tree_id'] = tree_id
+            edge_data['tree_name'] = tree_info.get('name', '')
+            unified_graph.add_edge(from_node, to_node, **edge_data)
+        
+        total_nodes += len(tree_graph.nodes)
+        total_edges += len(tree_graph.edges)
+    
+    print(f"[@navigation:graph:create_unified_networkx_graph] Added {total_nodes} nodes and {total_edges} edges from individual trees")
+    
+    # Phase 2: Add cross-tree edges for nested tree navigation
+    cross_tree_edges_added = 0
+    
+    for parent_node_id, child_tree_id in parent_child_map.items():
+        # Find entry point of child tree
+        child_entry_points = []
+        for node_id, node_data in unified_graph.nodes(data=True):
+            if (node_data.get('tree_id') == child_tree_id and 
+                node_data.get('is_entry_point', False)):
+                child_entry_points.append(node_id)
+        
+        if not child_entry_points:
+            # No explicit entry point, use first node of child tree
+            for node_id, node_data in unified_graph.nodes(data=True):
+                if node_data.get('tree_id') == child_tree_id:
+                    child_entry_points.append(node_id)
+                    break
+        
+        if child_entry_points and parent_node_id in unified_graph.nodes:
+            child_entry_id = child_entry_points[0]
+            parent_tree_id = unified_graph.nodes[parent_node_id].get('tree_id')
+            
+            print(f"[@navigation:graph:create_unified_networkx_graph] Adding cross-tree edge: {parent_node_id} (tree: {parent_tree_id}) -> {child_entry_id} (tree: {child_tree_id})")
+            
+            # Add ENTER_SUBTREE edge
+            unified_graph.add_edge(parent_node_id, child_entry_id, **{
+                'edge_type': 'ENTER_SUBTREE',
+                'source_tree_id': parent_tree_id,
+                'target_tree_id': child_tree_id,
+                'actions': [{'command': 'enter_subtree', 'params': {'tree_id': child_tree_id}}],
+                'is_virtual': True,
+                'go_action': 'enter_subtree',
+                'weight': 1,
+                'tree_context_change': True
+            })
+            
+            # Add EXIT_SUBTREE edge (reverse direction)
+            unified_graph.add_edge(child_entry_id, parent_node_id, **{
+                'edge_type': 'EXIT_SUBTREE', 
+                'source_tree_id': child_tree_id,
+                'target_tree_id': parent_tree_id,
+                'actions': [{'command': 'exit_subtree', 'params': {'tree_id': parent_tree_id}}],
+                'is_virtual': True,
+                'go_action': 'exit_subtree',
+                'weight': 1,
+                'tree_context_change': True
+            })
+            
+            cross_tree_edges_added += 2
+    
+    print(f"[@navigation:graph:create_unified_networkx_graph] Added {cross_tree_edges_added} cross-tree edges")
+    
+    # Log unified graph statistics
+    print(f"[@navigation:graph:create_unified_networkx_graph] ===== UNIFIED GRAPH COMPLETE =====")
+    print(f"[@navigation:graph:create_unified_networkx_graph] Total nodes: {len(unified_graph.nodes)}")
+    print(f"[@navigation:graph:create_unified_networkx_graph] Total edges: {len(unified_graph.edges)}")
+    print(f"[@navigation:graph:create_unified_networkx_graph] Trees included: {len(tree_hierarchy)}")
+    
+    # Log tree distribution
+    tree_node_counts = {}
+    for node_id, node_data in unified_graph.nodes(data=True):
+        tree_id = node_data.get('tree_id', 'unknown')
+        tree_node_counts[tree_id] = tree_node_counts.get(tree_id, 0) + 1
+    
+    for tree_id, node_count in tree_node_counts.items():
+        tree_name = tree_hierarchy.get(tree_id, {}).get('name', tree_id)
+        print(f"[@navigation:graph:create_unified_networkx_graph] Tree '{tree_name}': {node_count} nodes")
+    
+    return unified_graph
+
 def get_node_info(graph: nx.DiGraph, node_id: str) -> Optional[Dict]:
     """
     Get node information from NetworkX graph

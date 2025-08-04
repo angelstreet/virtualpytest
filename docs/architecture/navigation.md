@@ -565,9 +565,183 @@ interface UINavigationTreeData {
 - **Metrics Integration**: Enhanced metrics with nested tree context
 - **Historical Data**: Execution history includes hierarchy information
 
+## Nested Tree Pathfinding Implementation
+
+### Unified Graph Pathfinding Architecture
+
+**NEW**: The navigation system now supports seamless pathfinding across nested trees using a unified graph approach. Users can navigate to any node in any nested tree without manual tree switching.
+
+#### Core Components
+
+##### 1. Unified Graph Caching (`navigation_cache.py`)
+```python
+# New cache structures for cross-tree navigation
+_unified_graphs_cache: Dict[str, nx.DiGraph] = {}      # Unified graphs with nested trees
+_tree_hierarchy_cache: Dict[str, Dict] = {}            # Tree hierarchy metadata
+_node_location_cache: Dict[str, str] = {}              # node_id -> tree_id mapping
+```
+
+**Key Functions:**
+- `get_cached_unified_graph()`: Retrieves unified graph including all nested trees
+- `populate_unified_cache()`: Builds and caches unified graphs with cross-tree edges
+- `get_node_tree_location()`: Fast lookup to find which tree contains a specific node
+- `get_tree_hierarchy_metadata()`: Access to complete tree hierarchy information
+
+##### 2. Cross-Tree Graph Building (`navigation_graph.py`)
+```python
+def create_unified_networkx_graph(all_trees_data: List[Dict]) -> nx.DiGraph:
+    """Create unified NetworkX graph from multiple navigation trees with cross-tree edges"""
+```
+
+**Features:**
+- **Tree Merging**: Combines multiple tree graphs into single unified graph
+- **Virtual Edges**: Adds ENTER_SUBTREE and EXIT_SUBTREE edges between parent nodes and child tree entry points
+- **Tree Context**: Tags all nodes and edges with tree_id, tree_name, tree_depth metadata
+- **Cross-Tree Connections**: Enables seamless pathfinding across tree boundaries
+
+##### 3. Enhanced Pathfinding (`navigation_pathfinding.py`)
+```python
+def find_shortest_path_unified(root_tree_id: str, target_node_id: str, team_id: str, start_node_id: str = None):
+    """Find shortest path across nested trees using unified graph"""
+```
+
+**Capabilities:**
+- **Cross-Tree Pathfinding**: Finds optimal paths across any number of nested tree levels
+- **Node Resolution**: Resolves node labels to IDs across the entire tree hierarchy
+- **Path Context**: Returns transitions with tree context and cross-tree metadata
+- **Backward Compatibility**: Falls back to single-tree pathfinding when unified graph unavailable
+
+##### 4. Cross-Tree Execution (`navigation_execution.py`)
+```python
+def _execute_virtual_transition(self, transition: Dict[str, Any]) -> Dict[str, Any]:
+    """Execute virtual cross-tree transitions (ENTER_SUBTREE, EXIT_SUBTREE)"""
+```
+
+**Features:**
+- **Tree Context Switching**: Automatically adjusts execution context for cross-tree transitions
+- **Virtual Transitions**: Handles logical tree boundary crossings (ENTER_SUBTREE, EXIT_SUBTREE)
+- **Seamless Integration**: Works with existing ActionExecutor and VerificationExecutor
+- **Error Handling**: Sophisticated recovery for cross-tree navigation failures
+
+#### Cross-Tree Edge Types
+
+##### ENTER_SUBTREE Edges
+```python
+{
+    'edge_type': 'ENTER_SUBTREE',
+    'source_tree_id': 'parent_tree_id',
+    'target_tree_id': 'child_tree_id',
+    'actions': [{'command': 'enter_subtree', 'params': {'tree_id': 'child_tree_id'}}],
+    'is_virtual': True,
+    'tree_context_change': True
+}
+```
+
+##### EXIT_SUBTREE Edges
+```python
+{
+    'edge_type': 'EXIT_SUBTREE',
+    'source_tree_id': 'child_tree_id', 
+    'target_tree_id': 'parent_tree_id',
+    'actions': [{'command': 'exit_subtree', 'params': {'tree_id': 'parent_tree_id'}}],
+    'is_virtual': True,
+    'tree_context_change': True
+}
+```
+
+#### Enhanced Path Structure
+
+Cross-tree navigation paths include rich metadata:
+
+```python
+{
+    'transition_number': 1,
+    'from_node_id': 'node1',
+    'to_node_id': 'node2', 
+    'from_tree_id': 'root_tree',
+    'to_tree_id': 'nested_tree',
+    'transition_type': 'ENTER_SUBTREE',  # or 'NORMAL', 'EXIT_SUBTREE'
+    'tree_context_change': True,
+    'cross_tree_metadata': {
+        'source_tree_name': 'Main UI',
+        'target_tree_name': 'Settings Menu',
+        'tree_depth_change': 1
+    },
+    'actions': [...],
+    'is_virtual': True
+}
+```
+
+#### Performance Characteristics
+
+##### Memory Usage
+- **Unified Graphs**: Larger than single trees but enable cross-tree navigation
+- **Smart Caching**: Only root trees maintain unified graphs, nested trees reference parent cache
+- **Efficient Indexing**: Node location cache provides O(1) node-to-tree lookups
+
+##### Pathfinding Performance
+- **NetworkX Optimization**: Leverages optimized shortest path algorithms across unified graph
+- **Cross-Tree Efficiency**: No manual tree switching or multi-step pathfinding required
+- **Cache Utilization**: Unified graphs cached for fast repeated pathfinding operations
+
+##### Cache Management
+- **Intelligent Invalidation**: Changes to any tree invalidate related unified caches
+- **Hierarchy Awareness**: Cache invalidation cascades through tree relationships
+- **Memory Efficiency**: Automatic cleanup of old unified graphs
+
+#### Integration Benefits
+
+##### For Users
+- **Seamless Navigation**: Navigate to any node in any nested tree with single command
+- **Optimal Paths**: System finds shortest path across entire tree hierarchy
+- **No Manual Switching**: Eliminates need to manually navigate between tree levels
+
+##### For Developers
+- **Clean API**: Same navigation interface works for single-tree and cross-tree navigation
+- **Rich Context**: Path results include complete tree context and metadata
+- **Backward Compatible**: Existing single-tree navigation continues to work unchanged
+
+##### For System Performance
+- **Unified Pathfinding**: Single algorithm handles all navigation scenarios
+- **Reduced Complexity**: Eliminates complex multi-step navigation logic
+- **Scalable Architecture**: Supports up to 5 levels of nesting as designed
+
+#### Usage Examples
+
+##### Cross-Tree Navigation Request
+```python
+# Navigate from root tree to node in nested tree
+result = navigation_executor.execute_navigation(
+    tree_id='root_tree_id',           # Root tree ID
+    target_node_id='nested_node_123', # Node in any nested tree
+    current_node_id='home_node'       # Starting position
+)
+
+# System automatically:
+# 1. Loads unified graph for root tree hierarchy
+# 2. Finds optimal path across tree boundaries  
+# 3. Executes transitions with appropriate tree context
+# 4. Handles virtual ENTER_SUBTREE/EXIT_SUBTREE transitions
+```
+
+##### Path Result with Cross-Tree Context
+```python
+{
+    'success': True,
+    'transitions_executed': 3,
+    'navigation_path': [
+        'Navigate from Home to Settings',      # Normal transition
+        'Enter Settings Submenu',              # ENTER_SUBTREE transition  
+        'Navigate to Advanced Options'         # Transition within nested tree
+    ],
+    'cross_tree_transitions': 1,
+    'trees_traversed': ['main_ui', 'settings_submenu']
+}
+```
+
 ## Implementation Summary
 
-The clean tree cache architecture with reference-based nesting provides:
+The clean tree cache architecture with reference-based nesting and unified pathfinding provides:
 
 ### Core Architecture Benefits
 1. **Zero Redundancy**: Single loading mechanism for all tree types
@@ -575,6 +749,9 @@ The clean tree cache architecture with reference-based nesting provides:
 3. **Clean Code**: No legacy fallbacks, no backward compatibility, modern React patterns only
 4. **Unified Loading**: Same API and conversion logic for root and nested trees
 5. **Memory Efficiency**: Each tree loaded once, cached in NavigationContext Map
+6. **Cross-Tree Pathfinding**: Seamless navigation across any nested tree level
+7. **Unified Graph Performance**: NetworkX algorithms work across entire tree hierarchy
+8. **Smart Tree Context**: Automatic tree context switching during cross-tree navigation
 
 ### Reference-Based Features
 1. **No Data Duplication**: Parent nodes referenced, not copied across trees

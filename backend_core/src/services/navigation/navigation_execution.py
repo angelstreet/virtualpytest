@@ -104,19 +104,32 @@ class NavigationExecutor:
                 
                 if actions:
                     # Initialize action executor with navigation context
-                    edge_id = transition.get('edge_id') 
+                    edge_id = transition.get('edge_id')
+                    
+                    # NEW: Handle cross-tree transitions with appropriate tree context
+                    execution_tree_id = tree_id  # Default to original tree_id
+                    if transition.get('tree_context_change', False):
+                        # For cross-tree transitions, use the target tree context
+                        execution_tree_id = transition.get('to_tree_id', tree_id)
+                        print(f"[@lib:navigation_execution:execute_navigation] Cross-tree transition detected, using tree context: {execution_tree_id}")
+                    
                     action_executor = ActionExecutor(
                         host=self.host,
                         device_id=self.device_id,
-                        tree_id=tree_id,
+                        tree_id=execution_tree_id,
                         edge_id=edge_id,
                         team_id=self.team_id
                     )
                     
-                    result = action_executor.execute_actions(
-                        actions=actions,
-                        retry_actions=retry_actions
-                    )
+                    # NEW: Handle virtual cross-tree actions
+                    if transition.get('is_virtual', False):
+                        print(f"[@lib:navigation_execution:execute_navigation] Executing virtual cross-tree transition: {transition.get('transition_type')}")
+                        result = self._execute_virtual_transition(transition)
+                    else:
+                        result = action_executor.execute_actions(
+                            actions=actions,
+                            retry_actions=retry_actions
+                        )
                     
                     if not result.get('success'):
                         # Calculate where we actually are: if we're at transition i and it failed,
@@ -349,4 +362,58 @@ class NavigationExecutor:
             
         except Exception as e:
             print(f"[@lib:navigation_execution:_get_node_verifications] Error getting node verifications: {str(e)}")
-            return [] 
+            return []
+    
+    def _execute_virtual_transition(self, transition: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Execute virtual cross-tree transitions (ENTER_SUBTREE, EXIT_SUBTREE)
+        
+        Args:
+            transition: Virtual transition dictionary
+            
+        Returns:
+            Execution result dictionary
+        """
+        transition_type = transition.get('transition_type', 'UNKNOWN')
+        from_tree_id = transition.get('from_tree_id')
+        to_tree_id = transition.get('to_tree_id')
+        
+        print(f"[@lib:navigation_execution:_execute_virtual_transition] Executing {transition_type}: {from_tree_id} → {to_tree_id}")
+        
+        try:
+            # Virtual transitions are always successful - they represent logical tree context changes
+            # The actual navigation is handled by the unified pathfinding system
+            
+            if transition_type == 'ENTER_SUBTREE':
+                print(f"[@lib:navigation_execution:_execute_virtual_transition] Entering subtree: {to_tree_id}")
+                # Future: Could add subtree entry logic here (e.g., cache warming)
+                
+            elif transition_type == 'EXIT_SUBTREE':
+                print(f"[@lib:navigation_execution:_execute_virtual_transition] Exiting subtree: {from_tree_id}")
+                # Future: Could add subtree exit logic here (e.g., cleanup)
+            
+            # Virtual transitions complete instantly with success
+            return {
+                'success': True,
+                'message': f'Virtual {transition_type} transition completed',
+                'passed_count': 1,
+                'failed_count': 0,
+                'results': [{
+                    'success': True,
+                    'action_type': 'virtual_transition',
+                    'transition_type': transition_type,
+                    'from_tree_id': from_tree_id,
+                    'to_tree_id': to_tree_id,
+                    'execution_time': 0
+                }]
+            }
+            
+        except Exception as e:
+            print(f"[@lib:navigation_execution:_execute_virtual_transition] Error executing virtual transition: {str(e)}")
+            return {
+                'success': False,
+                'error': f'Virtual transition failed: {str(e)}',
+                'passed_count': 0,
+                'failed_count': 1,
+                'results': []
+            } 
