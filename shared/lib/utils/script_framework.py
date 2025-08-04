@@ -216,7 +216,6 @@ class ScriptExecutor:
         except (NavigationTreeError, UnifiedCacheError) as e:
             context.error_message = f"Unified navigation loading failed: {str(e)}"
             print(f"❌ [{self.script_name}] {context.error_message}")
-            # FAIL EARLY - no fallback to legacy loading
             return False
         except Exception as e:
             context.error_message = f"Unexpected navigation loading error: {str(e)}"

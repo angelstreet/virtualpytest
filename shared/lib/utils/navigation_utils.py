@@ -504,7 +504,6 @@ def validate_action_availability(nodes: List[Dict], edges: List[Dict], action_co
 def goto_node(host, device, target_node_label: str, tree_id: str, team_id: str, context=None) -> Dict[str, Any]:
     """
     Navigate to target node using ONLY unified pathfinding
-    FAIL EARLY: No fallback to legacy navigation
     
     Args:
         host: Host instance

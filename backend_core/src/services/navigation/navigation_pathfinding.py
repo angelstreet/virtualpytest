@@ -288,119 +288,209 @@ def validate_action_availability(nodes: List[Dict], edges: List[Dict], action_co
 
 def find_optimal_edge_validation_sequence(tree_id: str, team_id: str) -> List[Dict]:
     """
-    Find optimal sequence for validating all edges using unified pathfinding
-    FAIL EARLY: No legacy fallback - requires unified cache
+    Find optimal sequence for validating all edges in the navigation tree.
+    Uses depth-first traversal to ensure systematic coverage.
     
     Args:
-        tree_id: Navigation tree ID (treated as root tree)
+        tree_id: Navigation tree ID
         team_id: Team ID for security
         
     Returns:
         List of validation steps ordered for optimal traversal
-        
-    Raises:
-        UnifiedCacheError: If unified cache is not available
-        PathfindingError: If validation sequence cannot be built
     """
-    print(f"[@navigation:pathfinding:find_optimal_edge_validation_sequence] Finding validation sequence for unified tree {tree_id}")
+    print(f"[@navigation:pathfinding:find_optimal_edge_validation_sequence] Finding optimal validation sequence for tree {tree_id}")
     
-    try:
-        from shared.lib.utils.navigation_cache import get_cached_unified_graph
-        from shared.lib.utils.navigation_graph import get_entry_points, get_node_info
+    from shared.lib.utils.navigation_cache import get_cached_unified_graph
+    
+    G = get_cached_unified_graph(tree_id, team_id)
+    if not G:
+        print(f"[@navigation:pathfinding:find_optimal_edge_validation_sequence] Failed to get graph for tree {tree_id}")
+        return []
+    
+    # Get all edges that need validation
+    edges_to_validate = []
+    for u, v, data in G.edges(data=True):
+        # Skip virtual cross-tree edges for validation
+        if not data.get('is_virtual', False):
+            edges_to_validate.append((u, v, data))
+    
+    if not edges_to_validate:
+        print(f"[@navigation:pathfinding:find_optimal_edge_validation_sequence] No edges to validate")
+        return []
+    
+    print(f"[@navigation:pathfinding:find_optimal_edge_validation_sequence] Found {len(edges_to_validate)} edges to validate")
+    
+    # Use depth-first traversal for optimal validation sequence
+    validation_sequence = _create_reachability_based_validation_sequence(G, edges_to_validate)
+    
+    return validation_sequence
+
+
+def _create_reachability_based_validation_sequence(G, edges_to_validate: List[Tuple]) -> List[Dict]:
+    """
+    Create validation sequence using depth-first traversal that goes deep into each branch before coming back.
+    
+    Args:
+        G: NetworkX graph
+        edges_to_validate: List of (from_node, to_node, edge_data) tuples
         
-        # Get unified graph - MANDATORY
-        unified_graph = get_cached_unified_graph(tree_id, team_id)
-        if not unified_graph:
-            raise UnifiedCacheError(f"No unified graph cached for tree {tree_id}. Validation requires unified pathfinding.")
+    Returns:
+        List of validation steps ordered by depth-first traversal
+    """
+    from shared.lib.utils.navigation_graph import get_entry_points, get_node_info
+    
+    print(f"[@navigation:pathfinding:_create_reachability_based_validation_sequence] Creating depth-first validation sequence")
+    
+    # Build edge mapping for quick lookup
+    edge_map = {}
+    for u, v, data in edges_to_validate:
+        edge_map[(u, v)] = data
+    
+    # Build adjacency list for traversal
+    adjacency = {}
+    for u, v, data in edges_to_validate:
+        if u not in adjacency:
+            adjacency[u] = []
+        adjacency[u].append(v)
+    
+    # Sort children for consistent ordering
+    for node in adjacency:
+        adjacency[node].sort()
+    
+    # Find entry points
+    entry_points = get_entry_points(G)
+    if not entry_points:
+        # Find nodes with no incoming edges
+        entry_points = [node for node in G.nodes() if G.in_degree(node) == 0]
+    if not entry_points and G.nodes():
+        entry_points = [list(G.nodes())[0]]
+    
+    print(f"[@navigation:pathfinding:_create_reachability_based_validation_sequence] Starting depth-first from entry points: {entry_points}")
+    
+    validation_sequence = []
+    visited_edges = set()
+    step_number = 1
+    
+    def depth_first_traversal(current_node, parent_node=None):
+        """Recursively traverse depth-first, going as deep as possible then coming back"""
+        nonlocal step_number
         
-        print(f"[@navigation:pathfinding:find_optimal_edge_validation_sequence] Using unified graph with {len(unified_graph.nodes)} nodes, {len(unified_graph.edges)} edges")
+        if current_node not in adjacency:
+            return
         
-        # Get all edges that need validation
-        edges_to_validate = []
-        for u, v, data in unified_graph.edges(data=True):
-            # Skip virtual cross-tree edges for validation
-            if not data.get('is_virtual', False):
-                edges_to_validate.append((u, v, data))
-        
-        if not edges_to_validate:
-            print(f"[@navigation:pathfinding:find_optimal_edge_validation_sequence] No edges to validate")
-            return []
-        
-        print(f"[@navigation:pathfinding:find_optimal_edge_validation_sequence] Found {len(edges_to_validate)} edges to validate")
-        
-        # Create validation sequence using unified graph
-        validation_sequence = []
-        step_number = 1
-        
-        for u, v, edge_data in edges_to_validate:
-            from_node_data = unified_graph.nodes.get(u, {})
-            to_node_data = unified_graph.nodes.get(v, {})
+        # Process all children of current node depth-first
+        for child_node in adjacency[current_node]:
+            forward_edge = (current_node, child_node)
             
-            # Get actions from action_sets structure ONLY
-            action_sets = edge_data.get('action_sets', [])
-            default_action_set_id = edge_data.get('default_action_set_id')
+            # Skip if already visited or if it's the parent (avoid immediate back-and-forth)
+            if forward_edge in visited_edges or child_node == parent_node:
+                continue
             
-            if not action_sets or not default_action_set_id:
-                raise PathfindingError(f"Validation edge {u} -> {v} missing action_sets or default_action_set_id")
+            # Add forward edge
+            from_info = get_node_info(G, current_node) or {}
+            to_info = get_node_info(G, child_node) or {}
+            from_label = from_info.get('label', current_node)
+            to_label = to_info.get('label', child_node)
             
-            # Find default action set
-            default_set = next((s for s in action_sets if s['id'] == default_action_set_id), None)
-            if not default_set:
-                raise PathfindingError(f"Validation edge {u} -> {v} default action set '{default_action_set_id}' not found")
+            validation_step = _create_validation_step(G, current_node, child_node, edge_map[forward_edge], step_number, 'depth_first_forward')
+            validation_sequence.append(validation_step)
+            visited_edges.add(forward_edge)
             
-            # Extract actions from default action set
+            print(f"[@navigation:pathfinding:_create_reachability_based_validation_sequence] Step {step_number}: {from_label} → {to_label} (forward)")
+            step_number += 1
+            
+            # Recursively go deeper into this child's branch
+            depth_first_traversal(child_node, current_node)
+            
+            # After exploring the child branch completely, add return edge if it exists
+            return_edge = (child_node, current_node)
+            if return_edge in edge_map and return_edge not in visited_edges:
+                validation_step = _create_validation_step(G, child_node, current_node, edge_map[return_edge], step_number, 'depth_first_return')
+                validation_sequence.append(validation_step)
+                visited_edges.add(return_edge)
+                
+                print(f"[@navigation:pathfinding:_create_reachability_based_validation_sequence] Step {step_number}: {to_label} → {from_label} (return)")
+                step_number += 1
+    
+    # Start depth-first traversal from each entry point
+    for entry_point in entry_points:
+        depth_first_traversal(entry_point)
+    
+    # Add any remaining unvisited edges
+    remaining_edges = [(u, v) for u, v in edge_map.keys() if (u, v) not in visited_edges]
+    for edge in remaining_edges:
+        from_node, to_node = edge
+        from_info = get_node_info(G, from_node) or {}
+        to_info = get_node_info(G, to_node) or {}
+        from_label = from_info.get('label', from_node)
+        to_label = to_info.get('label', to_node)
+        
+        validation_step = _create_validation_step(G, from_node, to_node, edge_map[edge], step_number, 'remaining')
+        validation_sequence.append(validation_step)
+        visited_edges.add(edge)
+        
+        print(f"[@navigation:pathfinding:_create_reachability_based_validation_sequence] Step {step_number} (remaining): {from_label} → {to_label}")
+        step_number += 1
+    
+    print(f"[@navigation:pathfinding:_create_reachability_based_validation_sequence] Generated {len(validation_sequence)} validation steps using depth-first traversal")
+    return validation_sequence
+
+
+def _create_validation_step(G, from_node: str, to_node: str, edge_data: Dict, step_number: int, step_type: str) -> Dict:
+    """
+    Create a validation step for an edge transition
+    
+    Args:
+        G: NetworkX graph
+        from_node: Source node ID
+        to_node: Target node ID
+        edge_data: Edge data dictionary
+        step_number: Step number in sequence
+        step_type: Type of step (depth_first_forward, depth_first_return, remaining)
+        
+    Returns:
+        Validation step dictionary
+    """
+    from shared.lib.utils.navigation_graph import get_node_info
+    
+    from_info = get_node_info(G, from_node) or {}
+    to_info = get_node_info(G, to_node) or {}
+    
+    # Get actions from action_sets structure ONLY
+    action_sets = edge_data.get('action_sets', [])
+    default_action_set_id = edge_data.get('default_action_set_id')
+    
+    if action_sets and default_action_set_id:
+        # Find default action set
+        default_set = next((s for s in action_sets if s['id'] == default_action_set_id), None)
+        if default_set:
             actions = default_set.get('actions', [])
             retry_actions = default_set.get('retry_actions', [])
-            verifications = to_node_data.get('verifications', [])
-            
-            # Check for cross-tree transition
-            from_tree_id = from_node_data.get('tree_id', '')
-            to_tree_id = to_node_data.get('tree_id', '')
-            is_cross_tree = from_tree_id != to_tree_id
-            
-            validation_step = {
-                'step_number': step_number,
-                'step_type': 'cross_tree_validation' if is_cross_tree else 'unified_validation',
-                'from_node_id': u,
-                'to_node_id': v,
-                'from_node_label': from_node_data.get('label', u),
-                'to_node_label': to_node_data.get('label', v),
-                'from_tree_id': from_tree_id,
-                'to_tree_id': to_tree_id,
-                'tree_context_change': is_cross_tree,
-                'actions': actions,
-                'retryActions': retry_actions,
-                'verifications': verifications,
-                'total_actions': len(actions),
-                'total_retry_actions': len(retry_actions),
-                'total_verifications': len(verifications),
-                'finalWaitTime': edge_data.get('finalWaitTime', 2000),
-                'edge_id': edge_data.get('edge_id', 'unknown'),
-                'is_virtual': edge_data.get('is_virtual', False),
-                'description': f"Validate unified transition: {from_node_data.get('label', u)} → {to_node_data.get('label', v)}"
-            }
-            
-            # Add cross-tree metadata if applicable
-            if is_cross_tree:
-                validation_step['cross_tree_metadata'] = {
-                    'source_tree_name': from_node_data.get('tree_name', ''),
-                    'target_tree_name': to_node_data.get('tree_name', ''),
-                    'tree_depth_change': to_node_data.get('tree_depth', 0) - from_node_data.get('tree_depth', 0)
-                }
-            
-            validation_sequence.append(validation_step)
-            step_number += 1
-        
-        cross_tree_count = len([step for step in validation_sequence if step.get('tree_context_change')])
-        
-        print(f"[@navigation:pathfinding:find_optimal_edge_validation_sequence] Generated {len(validation_sequence)} validation steps")
-        print(f"[@navigation:pathfinding:find_optimal_edge_validation_sequence] Cross-tree validations: {cross_tree_count}")
-        
-        return validation_sequence
-        
-    except (UnifiedCacheError, PathfindingError) as e:
-        # Re-raise navigation-specific errors
-        raise e
-    except Exception as e:
-        # FAIL EARLY - no fallback
-        raise PathfindingError(f"Validation sequence generation failed: {str(e)}")
+        else:
+            actions = []
+            retry_actions = []
+    else:
+        actions = []
+        retry_actions = []
+    
+    verifications = get_node_info(G, to_node).get('verifications', []) if get_node_info(G, to_node) else []
+    
+    validation_step = {
+        'step_number': step_number,
+        'step_type': step_type,
+        'from_node_id': from_node,
+        'to_node_id': to_node,
+        'from_node_label': from_info.get('label', from_node),
+        'to_node_label': to_info.get('label', to_node),
+        'actions': actions,
+        'retryActions': retry_actions,
+        'verifications': verifications,
+        'total_actions': len(actions),
+        'total_retry_actions': len(retry_actions),
+        'total_verifications': len(verifications),
+        'finalWaitTime': edge_data.get('finalWaitTime', 2000),
+        'edge_id': edge_data.get('edge_id', 'unknown'),
+        'description': f"Validate transition: {from_info.get('label', from_node)} → {to_info.get('label', to_node)}"
+    }
+    
+    return validation_step

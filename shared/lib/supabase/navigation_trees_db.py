@@ -289,7 +289,7 @@ def save_edge(tree_id: str, edge_data: Dict, team_id: str) -> Dict:
         
         # STRICT: Only accept new action_sets format
         if not edge_data.get('action_sets'):
-            raise ValueError("action_sets is required - no legacy format accepted")
+            raise ValueError("action_sets is required")
         
         if not edge_data.get('default_action_set_id'):
             raise ValueError("default_action_set_id is required")

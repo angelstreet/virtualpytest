@@ -82,11 +82,11 @@ def create_networkx_graph(nodes: List[Dict], edges: List[Dict]) -> nx.DiGraph:
             edges_skipped += 1
             continue
         
-        # NEW ONLY: action_sets structure - NO LEGACY SUPPORT
+        # NEW ONLY: action_sets structure
         edge_data = edge.get('data', {})
         action_sets = edge.get('action_sets')
         if not action_sets:
-            raise ValueError(f"Edge {edge.get('edge_id')} missing action_sets - no legacy support")
+            raise ValueError(f"Edge {edge.get('edge_id')} missing action_sets")
         
         default_action_set_id = edge.get('default_action_set_id')
         if not default_action_set_id:
