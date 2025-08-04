@@ -293,9 +293,10 @@ def execute_navigation_with_verifications(host, device, transition: Dict[str, An
         }
 
 
+
 def execute_edge_actions(host, device, edge: Dict, action_set_id: str = None, team_id: str = 'default') -> Dict:
     """
-    Execute edge actions using ActionExecutor - same as frontend useAction hook.
+    Execute edge actions directly - no HTTP proxy, maximum performance.
     
     Args:
         host: Host instance 
@@ -305,11 +306,9 @@ def execute_edge_actions(host, device, edge: Dict, action_set_id: str = None, te
         team_id: Team ID for database recording
         
     Returns:
-        Execution result dictionary with success status and details
+        Execution result dictionary with success status and details (same format as ActionExecutor)
     """
     try:
-        from backend_core.src.services.actions.action_executor import ActionExecutor
-        
         # Get action set (specific or default)
         action_sets = edge.get('action_sets', [])
         default_action_set_id = edge.get('default_action_set_id')
@@ -328,35 +327,165 @@ def execute_edge_actions(host, device, edge: Dict, action_set_id: str = None, te
                 'error': f'Action set not found (looking for: {action_set_id or default_action_set_id})'
             }
         
+        actions = action_set.get('actions', [])
+        retry_actions = action_set.get('retry_actions', [])
+        
         print(f"[@action_utils:execute_edge_actions] Executing action set: {action_set.get('label', action_set.get('id'))}")
-        print(f"[@action_utils:execute_edge_actions] Actions: {len(action_set.get('actions', []))}, Retry actions: {len(action_set.get('retry_actions', []))}")
+        print(f"[@action_utils:execute_edge_actions] Actions: {len(actions)}, Retry actions: {len(retry_actions)}")
+        print(f"[@action_utils:execute_edge_actions] Using DIRECT execution (no HTTP proxy)")
         
-        # Convert host to dict format if needed (ActionExecutor expects dict)
-        host_dict = host.__dict__ if hasattr(host, '__dict__') else host
+        # Validate inputs
+        if not actions:
+            return {
+                'success': True,
+                'message': 'No actions to execute',
+                'results': [],
+                'passed_count': 0,
+                'total_count': 0
+            }
         
-        # Use ActionExecutor exactly like the API route does
-        action_executor = ActionExecutor(
-            host=host_dict,
-            device_id=device.device_id,
-            tree_id=None,  # Not needed for direct action execution
-            edge_id=edge.get('edge_id'),
-            team_id=team_id
-        )
+        # Filter valid actions
+        valid_actions = [a for a in actions if a.get('command')]
+        valid_retry_actions = [a for a in retry_actions if a.get('command')]
         
-        result = action_executor.execute_actions(
-            actions=action_set.get('actions', []),
-            retry_actions=action_set.get('retry_actions', [])
-        )
+        if not valid_actions:
+            return {
+                'success': False,
+                'error': 'All actions were invalid and filtered out',
+                'results': [],
+                'passed_count': 0,
+                'total_count': 0
+            }
         
-        print(f"[@action_utils:execute_edge_actions] Execution completed: success={result.get('success')}")
-        return result
+        results = []
+        passed_count = 0
+        
+        # Execute main actions - stop on first failure
+        print(f"[@action_utils:execute_edge_actions] Executing {len(valid_actions)} main actions")
+        main_actions_failed = False
+        
+        for i, action in enumerate(valid_actions):
+            start_time = time.time()
+            
+            try:
+                print(f"[@action_utils:execute_edge_actions] Executing main action {i+1}: {action.get('command')} with params {action.get('params', {})}")
+                
+                # DIRECT EXECUTION - no HTTP proxy
+                result = execute_action_directly(host, device, action)
+                
+                execution_time = int((time.time() - start_time) * 1000)
+                
+                # Add ActionExecutor-compatible fields
+                enhanced_result = {
+                    'success': result.get('success', False),
+                    'message': action.get('label', action.get('command')),
+                    'error': result.get('error') if not result.get('success') else None,
+                    'resultType': 'PASS' if result.get('success') else 'FAIL',
+                    'execution_time_ms': execution_time,
+                    'action_category': 'main',
+                }
+                
+                results.append(enhanced_result)
+                
+                print(f"[@action_utils:execute_edge_actions] Action {i+1} result: success={result.get('success')}, time={execution_time}ms")
+                
+                if result.get('success'):
+                    passed_count += 1
+                else:
+                    # First action failed - stop executing remaining main actions
+                    print(f"[@action_utils:execute_edge_actions] Main action {i+1} failed, stopping main action execution")
+                    main_actions_failed = True
+                    break
+                    
+            except Exception as e:
+                execution_time = int((time.time() - start_time) * 1000)
+                print(f"[@action_utils:execute_edge_actions] Action {i+1} error: {str(e)}")
+                
+                enhanced_result = {
+                    'success': False,
+                    'message': action.get('label', action.get('command')),
+                    'error': str(e),
+                    'resultType': 'FAIL',
+                    'execution_time_ms': execution_time,
+                    'action_category': 'main',
+                }
+                results.append(enhanced_result)
+                main_actions_failed = True
+                break
+        
+        # Execute retry actions if any main action failed
+        if main_actions_failed and valid_retry_actions:
+            print(f"[@action_utils:execute_edge_actions] Main actions failed, executing {len(valid_retry_actions)} retry actions")
+            for i, retry_action in enumerate(valid_retry_actions):
+                start_time = time.time()
+                
+                try:
+                    print(f"[@action_utils:execute_edge_actions] Executing retry action {i+1}: {retry_action.get('command')}")
+                    
+                    # DIRECT EXECUTION - no HTTP proxy
+                    result = execute_action_directly(host, device, retry_action)
+                    
+                    execution_time = int((time.time() - start_time) * 1000)
+                    
+                    enhanced_result = {
+                        'success': result.get('success', False),
+                        'message': retry_action.get('label', retry_action.get('command')),
+                        'error': result.get('error') if not result.get('success') else None,
+                        'resultType': 'PASS' if result.get('success') else 'FAIL',
+                        'execution_time_ms': execution_time,
+                        'action_category': 'retry',
+                    }
+                    
+                    results.append(enhanced_result)
+                    
+                    if result.get('success'):
+                        passed_count += 1
+                        
+                except Exception as e:
+                    execution_time = int((time.time() - start_time) * 1000)
+                    enhanced_result = {
+                        'success': False,
+                        'message': retry_action.get('label', retry_action.get('command')),
+                        'error': str(e),
+                        'resultType': 'FAIL',
+                        'execution_time_ms': execution_time,
+                        'action_category': 'retry',
+                    }
+                    results.append(enhanced_result)
+
+        # Calculate overall success (main actions must pass)
+        overall_success = passed_count >= len(valid_actions)
+        
+        print(f"[@action_utils:execute_edge_actions] Batch completed: {passed_count}/{len(valid_actions)} main actions passed, overall success: {overall_success}")
+        
+        # Build error message
+        failed_actions = [r for r in results if not r.get('success')]
+        if failed_actions:
+            failed_names = [f.get('message', 'Unknown action') for f in failed_actions]
+            error_message = f"Actions failed: {', '.join(failed_names)}"
+        else:
+            error_message = None
+        
+        # Return same format as ActionExecutor
+        return {
+            'success': overall_success,
+            'total_count': len(valid_actions),
+            'passed_count': passed_count,
+            'failed_count': len(valid_actions) - passed_count,
+            'results': results,
+            'message': f'Direct batch execution completed: {passed_count}/{len(valid_actions)} passed',
+            'error': error_message
+        }
         
     except Exception as e:
-        error_msg = f'Edge action execution failed: {str(e)}'
+        error_msg = f'Direct edge action execution failed: {str(e)}'
         print(f"[@action_utils:execute_edge_actions] ERROR: {error_msg}")
         return {
             'success': False,
-            'error': error_msg
+            'error': error_msg,
+            'results': [],
+            'passed_count': 0,
+            'total_count': 0
         }
 
 

@@ -15,7 +15,7 @@ for video verification operations.
 import time
 import os
 from datetime import datetime
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Tuple
 
 
 class VideoVerificationHelpers:
