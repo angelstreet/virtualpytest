@@ -543,20 +543,119 @@ def create_themed_html_template() -> str:
             align-items: center;
         }}
         
-        .screenshot-modal img {{
-            max-width: 90%;
-            max-height: 90%;
+        .modal-content {{
+            position: relative;
+            max-width: 95%;
+            max-height: 95%;
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }}
+        
+        .modal-header {{
+            text-align: center;
+            margin-bottom: 15px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 10px;
+        }}
+        
+        .modal-header h3 {{
+            margin: 0;
+            color: var(--text-primary);
+            font-size: 1.2em;
+        }}
+        
+        .action-info {{
+            margin-top: 8px;
+            color: var(--text-secondary);
+            font-size: 0.9em;
+            font-family: monospace;
+            background: var(--bg-tertiary);
+            padding: 5px 10px;
             border-radius: 4px;
+        }}
+        
+        .modal-body {{
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }}
+        
+        .modal-body img {{
+            max-width: 80vw;
+            max-height: 70vh;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }}
+        
+        .nav-arrow {{
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(0,0,0,0.7);
+            color: white;
+            border: none;
+            font-size: 30px;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            cursor: pointer;
+            z-index: 1001;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }}
+        
+        .nav-arrow:hover {{
+            background: rgba(0,0,0,0.9);
+        }}
+        
+        .nav-arrow:disabled {{
+            opacity: 0.3;
+            cursor: not-allowed;
+        }}
+        
+        .nav-prev {{
+            left: -60px;
+        }}
+        
+        .nav-next {{
+            right: -60px;
+        }}
+        
+        .modal-footer {{
+            text-align: center;
+            margin-top: 15px;
+            padding-top: 10px;
+            border-top: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            font-size: 0.9em;
         }}
         
         .screenshot-modal .close {{
             position: absolute;
-            top: 20px;
-            right: 30px;
-            color: white;
-            font-size: 40px;
+            top: -10px;
+            right: -10px;
+            color: var(--text-primary);
+            background: var(--bg-secondary);
+            border: 2px solid var(--border-color);
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            font-size: 20px;
             font-weight: bold;
             cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }}
+        
+        .screenshot-modal .close:hover {{
+            background: var(--failure-color);
+            color: white;
+            border-color: var(--failure-color);
         }}
         
         .error-section {{
@@ -735,16 +834,95 @@ def create_themed_html_template() -> str:
             }}
         }}
         
-        function openScreenshot(src) {{
-            const modal = document.getElementById('screenshot-modal');
+        let currentModalData = null;
+        let currentScreenshotIndex = 0;
+        
+        function openScreenshotModal(modalDataJson) {{
+            try {{
+                currentModalData = JSON.parse(modalDataJson.replace(/&quot;/g, '"'));
+                currentScreenshotIndex = currentModalData.current_index || 0;
+                updateModalContent();
+                
+                const modal = document.getElementById('screenshot-modal');
+                modal.classList.add('active');
+            }} catch (e) {{
+                console.error('Error opening screenshot modal:', e);
+            }}
+        }}
+        
+        function updateModalContent() {{
+            if (!currentModalData || !currentModalData.screenshots) return;
+            
+            const screenshots = currentModalData.screenshots;
+            const current = screenshots[currentScreenshotIndex];
+            
+            // Update image
             const img = document.getElementById('modal-img');
-            img.src = src;
-            modal.classList.add('active');
+            img.src = current[1]; // screenshot path
+            
+            // Update step title
+            const title = document.getElementById('modal-step-title');
+            title.textContent = currentModalData.step_title;
+            
+            // Update action info
+            const actionInfo = document.getElementById('modal-action-info');
+            if (current[2]) {{ // has action command
+                const cmd = current[2];
+                const params = current[3] || {{}};
+                const paramsStr = Object.keys(params).length > 0 ? 
+                    ' ' + Object.entries(params).map(([k,v]) => `${{k}}="${{v}}"`).join(' ') : '';
+                actionInfo.textContent = `${{current[0]}}: ${{cmd}}${{paramsStr}}`;
+                actionInfo.style.display = 'block';
+            }} else {{
+                actionInfo.style.display = 'none';
+            }}
+            
+            // Update counter
+            const counter = document.getElementById('modal-counter');
+            counter.textContent = `${{currentScreenshotIndex + 1}} / ${{screenshots.length}}`;
+            
+            // Update navigation buttons
+            const prevBtn = document.getElementById('modal-prev');
+            const nextBtn = document.getElementById('modal-next');
+            
+            prevBtn.disabled = currentScreenshotIndex === 0;
+            nextBtn.disabled = currentScreenshotIndex === screenshots.length - 1;
+            
+            // Hide arrows if only one screenshot
+            if (screenshots.length <= 1) {{
+                prevBtn.style.display = 'none';
+                nextBtn.style.display = 'none';
+            }} else {{
+                prevBtn.style.display = 'flex';
+                nextBtn.style.display = 'flex';
+            }}
+        }}
+        
+        function navigateScreenshot(direction) {{
+            if (!currentModalData || !currentModalData.screenshots) return;
+            
+            const newIndex = currentScreenshotIndex + direction;
+            if (newIndex >= 0 && newIndex < currentModalData.screenshots.length) {{
+                currentScreenshotIndex = newIndex;
+                updateModalContent();
+            }}
         }}
         
         function closeScreenshot() {{
             const modal = document.getElementById('screenshot-modal');
             modal.classList.remove('active');
+            currentModalData = null;
+            currentScreenshotIndex = 0;
+        }}
+        
+        // Legacy function for backward compatibility
+        function openScreenshot(src) {{
+            const modalData = {{
+                step_title: 'Screenshot',
+                screenshots: [['Screenshot', src]],
+                current_index: 0
+            }};
+            openScreenshotModal(JSON.stringify(modalData));
         }}
         
         // Close modal when clicking outside the image
@@ -757,6 +935,26 @@ def create_themed_html_template() -> str:
                     }}
                 }});
             }}
+            
+            // Keyboard navigation
+            document.addEventListener('keydown', function(e) {{
+                if (modal && modal.classList.contains('active')) {{
+                    switch(e.key) {{
+                        case 'ArrowLeft':
+                            e.preventDefault();
+                            navigateScreenshot(-1);
+                            break;
+                        case 'ArrowRight':
+                            e.preventDefault();
+                            navigateScreenshot(1);
+                            break;
+                        case 'Escape':
+                            e.preventDefault();
+                            closeScreenshot();
+                            break;
+                    }}
+                }}
+            }});
         }});
     </script>
 </head>
@@ -835,8 +1033,21 @@ def create_themed_html_template() -> str:
     </div>
     
     <div id="screenshot-modal" class="screenshot-modal">
-        <span class="close" onclick="closeScreenshot()">&times;</span>
-        <img id="modal-img" src="" alt="Screenshot">
+        <div class="modal-content">
+            <span class="close" onclick="closeScreenshot()">&times;</span>
+            <div class="modal-header">
+                <h3 id="modal-step-title">Screenshot</h3>
+                <div id="modal-action-info" class="action-info"></div>
+            </div>
+            <div class="modal-body">
+                <button id="modal-prev" class="nav-arrow nav-prev" onclick="navigateScreenshot(-1)">‹</button>
+                <img id="modal-img" src="" alt="Screenshot">
+                <button id="modal-next" class="nav-arrow nav-next" onclick="navigateScreenshot(1)">›</button>
+            </div>
+            <div class="modal-footer">
+                <span id="modal-counter">1 / 1</span>
+            </div>
+        </div>
     </div>
 </body>
 </html>""" 

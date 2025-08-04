@@ -274,21 +274,33 @@ def create_compact_step_results_section(step_results: List[Dict], screenshots: D
         screenshot_html = ''
         screenshots_for_step = []
         
-        # Add action screenshots
+        # Add action screenshots with metadata
         action_screenshots = step.get('action_screenshots', [])
+        actions = step.get('actions', [])
         for i, screenshot_path in enumerate(action_screenshots):
-            screenshots_for_step.append((f'Action {i+1}', screenshot_path))
+            action_cmd = actions[i].get('command', 'unknown') if i < len(actions) else 'unknown'
+            action_params = actions[i].get('params', {}) if i < len(actions) else {}
+            screenshots_for_step.append((f'Action {i+1}', screenshot_path, action_cmd, action_params))
         
         # Add step-level screenshot if available
         if step.get('screenshot_url'):
-            screenshots_for_step.append(('Step', step.get('screenshot_url')))
+            screenshots_for_step.append(('Step', step.get('screenshot_url'), None, None))
         elif step.get('screenshot_path'):
-            screenshots_for_step.append(('Step', step.get('screenshot_path')))
+            screenshots_for_step.append(('Step', step.get('screenshot_path'), None, None))
         
         if screenshots_for_step:
             screenshot_divs = []
-            for label, screenshot_path in screenshots_for_step:
-                screenshot_divs.append(get_thumbnail_screenshot_html(screenshot_path, label))
+            step_id = step.get('step_number', i+1)
+            step_title = f"Step {step_id}: {step.get('from_node_label', 'unknown')} → {step.get('to_node_label', 'unknown')}"
+            
+            for idx, screenshot_data in enumerate(screenshots_for_step):
+                label, screenshot_path = screenshot_data[0], screenshot_data[1]
+                action_cmd = screenshot_data[2] if len(screenshot_data) > 2 else None
+                action_params = screenshot_data[3] if len(screenshot_data) > 3 else None
+                
+                screenshot_divs.append(get_thumbnail_screenshot_html(
+                    screenshot_path, label, step_title, screenshots_for_step, idx
+                ))
             
             screenshot_html = f"""
             <div class="step-screenshot-container">
@@ -338,11 +350,22 @@ def create_error_section(error_msg: str) -> str:
     </div>
     """
 
-def get_thumbnail_screenshot_html(screenshot_path: Optional[str], label: str = None) -> str:
-    """Get HTML for displaying a thumbnail screenshot that expands on click."""
+def get_thumbnail_screenshot_html(screenshot_path: Optional[str], label: str = None, step_title: str = None, all_screenshots: list = None, current_index: int = 0) -> str:
+    """Get HTML for displaying a thumbnail screenshot that opens modal with navigation."""
     # Return empty string if no screenshot path provided
     if not screenshot_path:
         return ''
+    
+    # Create modal data for navigation
+    modal_data = {
+        'step_title': step_title or 'Screenshot',
+        'screenshots': all_screenshots or [(label, screenshot_path)],
+        'current_index': current_index
+    }
+    
+    # Encode modal data as JSON for JavaScript
+    import json
+    modal_data_json = json.dumps(modal_data).replace('"', '&quot;')
     
     # Check if it's a URL (from Cloudflare R2) or local file path
     if screenshot_path.startswith('http'):
@@ -350,7 +373,7 @@ def get_thumbnail_screenshot_html(screenshot_path: Optional[str], label: str = N
         return f"""
         <div class="screenshot-container">
             <span class="screenshot-label">{label or 'Screenshot'}</span>
-            <img src="{screenshot_path}" alt="Screenshot" class="screenshot-thumbnail" onclick="openScreenshot('{screenshot_path}')">
+            <img src="{screenshot_path}" alt="Screenshot" class="screenshot-thumbnail" onclick="openScreenshotModal('{modal_data_json}')">
         </div>
         """
     else:
@@ -367,7 +390,7 @@ def get_thumbnail_screenshot_html(screenshot_path: Optional[str], label: str = N
             return f"""
             <div class="screenshot-container">
                 <span class="screenshot-label">{label or 'Screenshot'}</span>
-                <img src="{data_url}" alt="Screenshot" class="screenshot-thumbnail" onclick="openScreenshot('{data_url}')">
+                <img src="{data_url}" alt="Screenshot" class="screenshot-thumbnail" onclick="openScreenshotModal('{modal_data_json}')">
             </div>
             """
         except Exception as e:
