@@ -263,3 +263,110 @@ def validate_action_availability(nodes: List[Dict], edges: List[Dict], action_co
         
     except Exception as e:
         return None, f"Error validating action: {str(e)}"
+
+
+def find_optimal_edge_validation_sequence(tree_id: str, team_id: str) -> List[Dict]:
+    """
+    Find optimal sequence for validating all edges using unified pathfinding
+    FAIL EARLY: No legacy fallback - requires unified cache
+    
+    Args:
+        tree_id: Navigation tree ID (treated as root tree)
+        team_id: Team ID for security
+        
+    Returns:
+        List of validation steps ordered for optimal traversal
+        
+    Raises:
+        UnifiedCacheError: If unified cache is not available
+        PathfindingError: If validation sequence cannot be built
+    """
+    print(f"[@navigation:pathfinding:find_optimal_edge_validation_sequence] Finding validation sequence for unified tree {tree_id}")
+    
+    try:
+        from shared.lib.utils.navigation_cache import get_cached_unified_graph
+        from shared.lib.utils.navigation_graph import get_entry_points, get_node_info
+        
+        # Get unified graph - MANDATORY
+        unified_graph = get_cached_unified_graph(tree_id, team_id)
+        if not unified_graph:
+            raise UnifiedCacheError(f"No unified graph cached for tree {tree_id}. Validation requires unified pathfinding.")
+        
+        print(f"[@navigation:pathfinding:find_optimal_edge_validation_sequence] Using unified graph with {len(unified_graph.nodes)} nodes, {len(unified_graph.edges)} edges")
+        
+        # Get all edges that need validation
+        edges_to_validate = []
+        for u, v, data in unified_graph.edges(data=True):
+            # Skip virtual cross-tree edges for validation
+            if not data.get('is_virtual', False):
+                edges_to_validate.append((u, v, data))
+        
+        if not edges_to_validate:
+            print(f"[@navigation:pathfinding:find_optimal_edge_validation_sequence] No edges to validate")
+            return []
+        
+        print(f"[@navigation:pathfinding:find_optimal_edge_validation_sequence] Found {len(edges_to_validate)} edges to validate")
+        
+        # Create validation sequence using unified graph
+        validation_sequence = []
+        step_number = 1
+        
+        for u, v, edge_data in edges_to_validate:
+            from_node_data = unified_graph.nodes.get(u, {})
+            to_node_data = unified_graph.nodes.get(v, {})
+            
+            # Get actions from edge
+            actions = edge_data.get('actions', [])
+            retry_actions = edge_data.get('retry_actions', [])
+            verifications = to_node_data.get('verifications', [])
+            
+            # Check for cross-tree transition
+            from_tree_id = from_node_data.get('tree_id', '')
+            to_tree_id = to_node_data.get('tree_id', '')
+            is_cross_tree = from_tree_id != to_tree_id
+            
+            validation_step = {
+                'step_number': step_number,
+                'step_type': 'cross_tree_validation' if is_cross_tree else 'unified_validation',
+                'from_node_id': u,
+                'to_node_id': v,
+                'from_node_label': from_node_data.get('label', u),
+                'to_node_label': to_node_data.get('label', v),
+                'from_tree_id': from_tree_id,
+                'to_tree_id': to_tree_id,
+                'tree_context_change': is_cross_tree,
+                'actions': actions,
+                'retryActions': retry_actions,
+                'verifications': verifications,
+                'total_actions': len(actions),
+                'total_retry_actions': len(retry_actions),
+                'total_verifications': len(verifications),
+                'finalWaitTime': edge_data.get('final_wait_time', 2000),
+                'is_virtual': edge_data.get('is_virtual', False),
+                'description': f"Validate unified transition: {from_node_data.get('label', u)} → {to_node_data.get('label', v)}"
+            }
+            
+            # Add cross-tree metadata if applicable
+            if is_cross_tree:
+                validation_step['cross_tree_metadata'] = {
+                    'source_tree_name': from_node_data.get('tree_name', ''),
+                    'target_tree_name': to_node_data.get('tree_name', ''),
+                    'tree_depth_change': to_node_data.get('tree_depth', 0) - from_node_data.get('tree_depth', 0)
+                }
+            
+            validation_sequence.append(validation_step)
+            step_number += 1
+        
+        cross_tree_count = len([step for step in validation_sequence if step.get('tree_context_change')])
+        
+        print(f"[@navigation:pathfinding:find_optimal_edge_validation_sequence] Generated {len(validation_sequence)} validation steps")
+        print(f"[@navigation:pathfinding:find_optimal_edge_validation_sequence] Cross-tree validations: {cross_tree_count}")
+        
+        return validation_sequence
+        
+    except (UnifiedCacheError, PathfindingError) as e:
+        # Re-raise navigation-specific errors
+        raise e
+    except Exception as e:
+        # FAIL EARLY - no fallback
+        raise PathfindingError(f"Validation sequence generation failed: {str(e)}")

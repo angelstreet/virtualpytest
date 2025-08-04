@@ -88,6 +88,7 @@ def execute_verification_directly(host, device, verification: Dict[str, Any]) ->
         return {
             'success': result.get('success', False),
             'message': result.get('message', 'Verification completed'),
+            'error': result.get('message', 'Verification completed') if not result.get('success', False) else None,
             'verification_type': verification_type,
             'resultType': 'PASS' if result.get('success') else 'FAIL'
         }
