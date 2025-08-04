@@ -144,13 +144,14 @@ class HDMIStreamController(AVControllerInterface):
             print(f'HDMI[{self.capture_source}]: Error saving screenshot: {e}')
             return None
 
-    def take_video(self, duration_seconds: float = None) -> Optional[str]:
+    def take_video(self, duration_seconds: float = None, test_start_time: float = None) -> Optional[str]:
         """
         Take video from HLS stream and upload to R2.
-        Simple like take_screenshot - just returns R2 URL.
+        Time-synchronized to capture actual test execution period.
         
         Args:
-            duration_seconds: How many seconds of recent video to capture (default: 10s)
+            duration_seconds: How many seconds of video to capture (default: 10s)
+            test_start_time: Unix timestamp when test started (for time sync)
             
         Returns:
             R2 URL of uploaded video, or None if failed
@@ -169,17 +170,29 @@ class HDMIStreamController(AVControllerInterface):
                 print(f"HDMI[{self.capture_source}]: No M3U8 file found")
                 return None
             
-            # 2. Create MP4 directly from M3U8 using FFmpeg
+            # 2. Create MP4 directly from M3U8 using FFmpeg with time synchronization
             timestamp = int(time.time())
             temp_mp4 = f"/tmp/video_{timestamp}.mp4"
             
-            # FFmpeg command: M3U8 → MP4
-            # Note: -t limits output duration, but FFmpeg will capture what's available
-            # If test duration > available segments, it captures all available segments
+            # Calculate time offset for synchronized capture
+            current_time = time.time()
+            if test_start_time:
+                # Time elapsed since test started
+                time_since_test_start = current_time - test_start_time
+                # We want to go back to capture from test start time
+                seek_seconds = max(0, time_since_test_start)
+                print(f"HDMI[{self.capture_source}]: Seeking back {seek_seconds:.1f}s to test start")
+            else:
+                # Fallback: seek back by duration (old behavior)
+                seek_seconds = duration_seconds
+                print(f"HDMI[{self.capture_source}]: No test start time, seeking back {seek_seconds:.1f}s")
+            
+            # FFmpeg command: M3U8 → MP4 with time synchronization
             cmd = [
                 'ffmpeg', '-y',
                 '-i', m3u8_path,  # Input: M3U8 playlist
-                '-t', str(duration_seconds),  # Duration limit (captures up to this much)
+                '-ss', f'-{seek_seconds}',  # Seek: go back this many seconds from current time
+                '-t', str(duration_seconds),  # Duration: capture this many seconds
                 '-c', 'copy',  # Don't re-encode, just copy
                 '-avoid_negative_ts', 'make_zero',  # Handle timestamp issues
                 temp_mp4  # Output: MP4 file

@@ -391,18 +391,19 @@ class ScriptExecutor:
                 av_controller = get_controller(context.selected_device.device_id, 'av')
                 
                 if av_controller and hasattr(av_controller, 'take_video'):
-                    # Calculate video duration based on test execution time
+                    # Calculate time-synchronized video capture
                     test_duration_seconds = context.get_execution_time_ms() / 1000.0
+                    test_start_time = context.start_time
+                    current_time = time.time()
                     
                     # Video size logic: same size or more, never less
-                    # - Minimum 10 seconds (for very short tests)
-                    # - Full test duration (no maximum limit)
-                    # - Always capture at least the full test duration
                     video_duration = max(10.0, test_duration_seconds)  # At least 10s, but capture full test
                     
                     print(f"🎥 [{self.script_name}] Test duration: {test_duration_seconds:.1f}s, capturing {video_duration:.1f}s of video")
+                    print(f"🕐 [{self.script_name}] Test started: {test_start_time}, current: {current_time}")
                     
-                    test_video_url = av_controller.take_video(video_duration)
+                    # Pass both duration and start time for synchronized capture
+                    test_video_url = av_controller.take_video(video_duration, test_start_time)
                     if test_video_url:
                         context.test_video_url = test_video_url
                         print(f"✅ [{self.script_name}] Test execution video captured: {test_video_url}")
