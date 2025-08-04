@@ -66,6 +66,7 @@ class ScriptExecutionContext:
         self.tree_id = None
         self.nodes = []
         self.edges = []
+        self.current_node_id = None  # Track current location for pathfinding
         
         # Execution tracking
         self.step_results = []
@@ -209,6 +210,9 @@ class ScriptExecutor:
             context.edges = tree_result['root_tree']['edges']
             context.tree_hierarchy = tree_result['hierarchy']
             context.unified_pathfinding_enabled = True
+            
+            # Initialize current location to ENTRY node for pathfinding
+            context.current_node_id = None  # Will be set to ENTRY by pathfinding system
             
             print(f"✅ [{self.script_name}] Unified hierarchy loaded:")
             print(f"   • Root tree: {len(context.nodes)} nodes, {len(context.edges)} edges")

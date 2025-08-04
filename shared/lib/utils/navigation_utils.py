@@ -520,10 +520,18 @@ def goto_node(host, device, target_node_label: str, tree_id: str, team_id: str, 
         from backend_core.src.services.navigation.navigation_pathfinding import find_shortest_path
         from shared.lib.utils.navigation_exceptions import UnifiedCacheError, PathfindingError
         
+        # Determine starting node from context
+        start_node_id = None
+        if context and hasattr(context, 'current_node_id') and context.current_node_id:
+            start_node_id = context.current_node_id
+            print(f"[@navigation_utils:goto_node] Starting from current location: {start_node_id}")
+        else:
+            print(f"[@navigation_utils:goto_node] Starting from default entry point (no current location)")
+        
         print(f"[@navigation_utils:goto_node] Navigating to '{target_node_label}' using unified pathfinding")
         
-        # Use unified pathfinding ONLY
-        navigation_path = find_shortest_path(tree_id, target_node_label, team_id)
+        # Use unified pathfinding with current location as starting point
+        navigation_path = find_shortest_path(tree_id, target_node_label, team_id, start_node_id)
         
         if not navigation_path:
             return {
@@ -618,6 +626,15 @@ def goto_node(host, device, target_node_label: str, tree_id: str, team_id: str, 
             print(f"[@navigation_utils:goto_node] Step {step_num} completed successfully in {step_execution_time}ms")
         
         print(f"[@navigation_utils:goto_node] Successfully navigated to '{target_node_label}'!")
+        
+        # Update current location in context after successful navigation
+        if context and hasattr(context, 'current_node_id') and navigation_path:
+            # Get the final destination node ID from the last step
+            final_step = navigation_path[-1]
+            target_node_id = final_step.get('to_node_id')
+            if target_node_id:
+                context.current_node_id = target_node_id
+                print(f"[@navigation_utils:goto_node] Updated current location to: {target_node_id}")
         
         # Count cross-tree transitions
         cross_tree_transitions = len([step for step in navigation_path if step.get('tree_context_change')])
