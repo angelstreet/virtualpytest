@@ -13,6 +13,7 @@ export interface ActionSet {
   label: string;
   actions: Action[];
   retry_actions?: Action[];
+  failure_actions?: Action[];
   priority: number;
   conditions?: any;
   timer?: number; // Timer action support

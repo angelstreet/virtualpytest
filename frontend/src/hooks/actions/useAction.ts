@@ -38,6 +38,7 @@ export const useAction = () => {
     async (
       actions: EdgeAction[],
       retryActions: EdgeAction[] = [],
+      failureActions: EdgeAction[] = [],
     ): Promise<ActionExecutionResult> => {
       if (!currentHost) {
         const errorMsg = 'No host selected for action execution';
@@ -53,6 +54,7 @@ export const useAction = () => {
       console.log('[useAction] === ACTION EXECUTION DEBUG ===');
       console.log('[useAction] Number of actions:', actions.length);
       console.log('[useAction] Number of retry actions:', retryActions.length);
+      console.log('[useAction] Number of failure actions:', failureActions.length);
 
       // Filter out empty/invalid actions before execution
       const validActions = actions.filter((action, index) => {
@@ -90,6 +92,24 @@ export const useAction = () => {
         return true;
       });
 
+      // Filter failure actions similarly
+      const validFailureActions = failureActions.filter((action, index) => {
+        if (!action.command || action.command.trim() === '') {
+          console.log(`[useAction] Removing failure action ${index}: No action type selected`);
+          return false;
+        }
+
+        if (action.requiresInput) {
+          const hasInputValue = action.inputValue && action.inputValue.trim() !== '';
+          if (!hasInputValue) {
+            console.log(`[useAction] Removing failure action ${index}: No input value specified`);
+            return false;
+          }
+        }
+
+        return true;
+      });
+
       if (validActions.length === 0) {
         const errorMsg = 'All actions were empty and have been removed. Please add valid actions.';
         setError(errorMsg);
@@ -104,10 +124,12 @@ export const useAction = () => {
         console.log('[useAction] Submitting batch action request');
         console.log('[useAction] Valid actions count:', validActions.length);
         console.log('[useAction] Valid retry actions count:', validRetryActions.length);
+        console.log('[useAction] Valid failure actions count:', validFailureActions.length);
 
         const batchPayload = {
           actions: validActions,
           retry_actions: validRetryActions,
+        failure_actions: validFailureActions,
         };
 
         console.log('[useAction] Batch payload:', batchPayload);

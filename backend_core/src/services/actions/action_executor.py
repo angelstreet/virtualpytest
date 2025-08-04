@@ -46,7 +46,8 @@ class ActionExecutor:
     
     def execute_actions(self, 
                        actions: List[Dict[str, Any]], 
-                       retry_actions: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
+                       retry_actions: Optional[List[Dict[str, Any]]] = None,
+                       failure_actions: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
         """
         Execute batch of actions with retry logic
         
@@ -74,6 +75,7 @@ class ActionExecutor:
         # Filter valid actions
         valid_actions = self._filter_valid_actions(actions)
         valid_retry_actions = self._filter_valid_actions(retry_actions or [])
+        valid_failure_actions = self._filter_valid_actions(failure_actions or [])
         
         if not valid_actions:
             return {
@@ -120,6 +122,23 @@ class ActionExecutor:
                     # Stop on first retry failure
                     print(f"[@lib:action_executor:execute_actions] Retry action {i+1} failed, stopping retry execution")
                     retry_actions_failed = True
+                    break
+                execution_order += 1
+
+        # Execute failure actions if retry actions also failed
+        failure_actions_passed = 0
+        failure_actions_failed = False
+        if main_actions_failed and retry_actions_failed and valid_failure_actions:
+            print(f"[@lib:action_executor:execute_actions] Retry actions failed, executing {len(valid_failure_actions)} failure actions")
+            for i, failure_action in enumerate(valid_failure_actions):
+                result = self._execute_single_action(failure_action, execution_order, i+1, 'failure')
+                results.append(result)
+                if result.get('success'):
+                    failure_actions_passed += 1
+                else:
+                    # Stop on first failure action failure
+                    print(f"[@lib:action_executor:execute_actions] Failure action {i+1} failed, stopping failure execution")
+                    failure_actions_failed = True
                     break
                 execution_order += 1
 

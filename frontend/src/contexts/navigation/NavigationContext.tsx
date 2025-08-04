@@ -1152,6 +1152,7 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
              body: JSON.stringify({
                actions: actions,
                retry_actions: retryActions,
+          failure_actions: failureActions,
                target_node_id: targetNodeId
              })
            });

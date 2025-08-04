@@ -74,6 +74,7 @@ CREATE TABLE navigation_nodes (
 --   "label": "Click Movies Tab",        -- Descriptive label for UI
 --   "actions": [...],                   -- Array of actions to execute
 --   "retry_actions": [...],             -- Array of retry actions if main fails
+--   "failure_actions": [...],           -- Array of failure actions if retry fails
 --   "priority": 1,                      -- Priority (1 = default/primary)
 --   "conditions": {},                   -- Optional conditions for execution
 --   "timer": 0                          -- Timer for auto-return (milliseconds)

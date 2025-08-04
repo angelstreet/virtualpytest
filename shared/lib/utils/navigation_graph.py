@@ -104,6 +104,7 @@ def create_networkx_graph(nodes: List[Dict], edges: List[Dict]) -> nx.DiGraph:
         # Extract actions from default set for pathfinding
         actions_list = default_set.get('actions', [])
         retry_actions_list = default_set.get('retry_actions', [])
+        failure_actions_list = default_set.get('failure_actions', [])
         
         # Get node labels for logging
         source_node_data = G.nodes[source_id]
@@ -133,6 +134,7 @@ def create_networkx_graph(nodes: List[Dict], edges: List[Dict]) -> nx.DiGraph:
         
         print(f"[@navigation:graph:create_networkx_graph]   Default Actions ({len(actions_list)}): {[a.get('command') for a in actions_list]}")
         print(f"[@navigation:graph:create_networkx_graph]   Default Retry Actions ({len(retry_actions_list)}): {[a.get('command') for a in retry_actions_list]}")
+        print(f"[@navigation:graph:create_networkx_graph]   Default Failure Actions ({len(failure_actions_list)}): {[a.get('command') for a in failure_actions_list]}")
         
         # Get the primary action for pathfinding
         primary_action = actions_list[0]['command'] if actions_list else None
@@ -298,7 +300,8 @@ def create_unified_networkx_graph(all_trees_data: List[Dict]) -> nx.DiGraph:
                 'id': f'enter-{child_tree_id}',
                 'label': 'Enter Subtree',
                 'actions': [{'command': 'enter_subtree', 'params': {'tree_id': child_tree_id}}],
-                'retry_actions': []
+                'retry_actions': [],
+            'failure_actions': []
             }
             unified_graph.add_edge(parent_node_id, child_entry_id, **{
                 'edge_type': 'ENTER_SUBTREE',
@@ -316,7 +319,8 @@ def create_unified_networkx_graph(all_trees_data: List[Dict]) -> nx.DiGraph:
                 'id': f'exit-{parent_tree_id}',
                 'label': 'Exit Subtree',
                 'actions': [{'command': 'exit_subtree', 'params': {'tree_id': parent_tree_id}}],
-                'retry_actions': []
+                'retry_actions': [],
+            'failure_actions': []
             }
             unified_graph.add_edge(child_entry_id, parent_node_id, **{
                 'edge_type': 'EXIT_SUBTREE', 

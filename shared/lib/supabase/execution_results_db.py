@@ -232,6 +232,7 @@ def record_action_execution(
     action_params: Dict,
     action_index: int,
     is_retry_action: bool,
+
     success: bool,
     execution_time_ms: int,
     host_name: str,
@@ -252,6 +253,7 @@ def record_action_execution(
             'action_params': action_params,
             'action_index': action_index,
             'is_retry_action': is_retry_action,
+
             'success': success,
             'execution_time_ms': execution_time_ms,
             'host_name': host_name,
@@ -509,11 +511,13 @@ def update_edge_metrics_from_embedded_actions(
     edge_id: str,
     actions: List[Dict],
     retry_actions: List[Dict] = None,
+
     final_wait_time: int = 2000
 ) -> bool:
     """Update edge metrics by analyzing embedded actions count and types."""
     try:
         retry_actions = retry_actions or []
+
         
         action_types = []
         for action in actions:
@@ -535,6 +539,7 @@ def update_edge_metrics_from_embedded_actions(
             'team_id': team_id,
             'action_count': len(actions),
             'retry_action_count': len(retry_actions),
+
             'action_types': action_types,
             'final_wait_time': final_wait_time,
             'updated_at': datetime.now().isoformat()

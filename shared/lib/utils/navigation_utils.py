@@ -588,6 +588,8 @@ def goto_node(host, device, target_node_label: str, tree_id: str, team_id: str, 
                         print(f"[@navigation_utils:goto_node]   Actions attempted: {error_details.get('actions_count')}")
                     if error_details.get('retry_actions_count'):
                         print(f"[@navigation_utils:goto_node]   Retry actions attempted: {error_details.get('retry_actions_count')}")
+                    if error_details.get('failure_actions_count'):
+                        print(f"[@navigation_utils:goto_node]   Failure actions attempted: {error_details.get('failure_actions_count')}")
                     
                     # Log specific actions that failed
                     failed_actions = error_details.get('actions', [])

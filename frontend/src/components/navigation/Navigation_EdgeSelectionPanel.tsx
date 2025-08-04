@@ -74,6 +74,7 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
     // Get actions and retry actions directly from actionSet prop
     const actions = actionSet?.actions || [];
     const retryActions = actionSet?.retry_actions || [];
+    const failureActions = actionSet?.failure_actions || [];
     
     const hasActions = actions.length > 0;
     const hasRetryActions = retryActions.length > 0;

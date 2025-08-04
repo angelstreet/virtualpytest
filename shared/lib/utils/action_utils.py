@@ -124,6 +124,7 @@ def execute_navigation_with_verifications(host, device, transition: Dict[str, An
         
         actions = transition.get('actions', [])
         retry_actions = transition.get('retryActions', [])
+        failure_actions = transition.get('failureActions', [])
         
         remote_controller = get_controller(device.device_id, 'remote')
         if not remote_controller:
@@ -141,7 +142,7 @@ def execute_navigation_with_verifications(host, device, transition: Dict[str, An
         print(f"[@action_utils:execute_navigation] Executing navigation step: {from_node} → {to_node}")
         print(f"[@action_utils:execute_navigation] Edge ID: {edge_id}")
         print(f"[@action_utils:execute_navigation] Actions to execute: {len(actions)}")
-        print(f"[@action_utils:execute_navigation] Retry actions available: {len(retry_actions)}")
+        print(f"[@action_utils:execute_navigation] Retry actions available: {len(retry_actions)}, Failure actions available: {len(failure_actions)}")
         
         # Log each action for debugging
         for i, action in enumerate(actions):
@@ -150,7 +151,7 @@ def execute_navigation_with_verifications(host, device, transition: Dict[str, An
             print(f"[@action_utils:execute_navigation] Action {i+1}: {action_cmd} with params: {action_params}")
         
         action_start_time = time.time()
-        actions_success = remote_controller.execute_sequence(actions, retry_actions)
+        actions_success = remote_controller.execute_sequence(actions, retry_actions, failure_actions)
         action_execution_time = int((time.time() - action_start_time) * 1000)
         
         # Capture screenshot after action execution
@@ -170,9 +171,11 @@ def execute_navigation_with_verifications(host, device, transition: Dict[str, An
                 'to_node': to_node,
                 'actions_count': len(actions),
                 'retry_actions_count': len(retry_actions),
+                'failure_actions_count': len(failure_actions),
                 'execution_time_ms': action_execution_time,
                 'actions': actions,
-                'retry_actions': retry_actions
+                'retry_actions': retry_actions,
+                'failure_actions': failure_actions
             }
             
             print(f"[@action_utils:execute_navigation] ACTION EXECUTION FAILED:")
@@ -180,6 +183,7 @@ def execute_navigation_with_verifications(host, device, transition: Dict[str, An
             print(f"[@action_utils:execute_navigation]   Failed after {action_execution_time}ms")
             print(f"[@action_utils:execute_navigation]   Actions attempted: {len(actions)}")
             print(f"[@action_utils:execute_navigation]   Retry actions attempted: {len(retry_actions)}")
+            print(f"[@action_utils:execute_navigation]   Failure actions attempted: {len(failure_actions)}")
             
             # Try to get more specific error from remote controller if available
             detailed_error = "Action execution failed"
@@ -340,9 +344,10 @@ def execute_edge_actions(host, device, edge: Dict, action_set_id: str = None, te
         
         actions = action_set.get('actions', [])
         retry_actions = action_set.get('retry_actions', [])
+        failure_actions = action_set.get('failure_actions', [])
         
         print(f"[@action_utils:execute_edge_actions] Executing action set: {action_set.get('label', action_set.get('id'))}")
-        print(f"[@action_utils:execute_edge_actions] Actions: {len(actions)}, Retry actions: {len(retry_actions)}")
+        print(f"[@action_utils:execute_edge_actions] Actions: {len(actions)}, Retry actions: {len(retry_actions)}, Failure actions: {len(failure_actions)}")
         print(f"[@action_utils:execute_edge_actions] Using DIRECT execution (no HTTP proxy)")
         
         # Validate inputs
@@ -358,6 +363,7 @@ def execute_edge_actions(host, device, edge: Dict, action_set_id: str = None, te
         # Filter valid actions
         valid_actions = [a for a in actions if a.get('command')]
         valid_retry_actions = [a for a in retry_actions if a.get('command')]
+        valid_failure_actions = [a for a in failure_actions if a.get('command')]
         
         if not valid_actions:
             return {
@@ -461,6 +467,47 @@ def execute_edge_actions(host, device, edge: Dict, action_set_id: str = None, te
                         'resultType': 'FAIL',
                         'execution_time_ms': execution_time,
                         'action_category': 'retry',
+                    }
+                    results.append(enhanced_result)
+
+        # Execute failure actions if retry actions also failed
+        retry_actions_failed = main_actions_failed and valid_retry_actions and passed_count < len(valid_actions)
+        if retry_actions_failed and valid_failure_actions:
+            print(f"[@action_utils:execute_edge_actions] Retry actions failed, executing {len(valid_failure_actions)} failure actions")
+            for i, failure_action in enumerate(valid_failure_actions):
+                start_time = time.time()
+                
+                try:
+                    print(f"[@action_utils:execute_edge_actions] Executing failure action {i+1}: {failure_action.get('command')}")
+                    
+                    # DIRECT EXECUTION - no HTTP proxy
+                    result = execute_action_directly(host, device, failure_action)
+                    
+                    execution_time = int((time.time() - start_time) * 1000)
+                    
+                    enhanced_result = {
+                        'success': result.get('success', False),
+                        'message': failure_action.get('label', failure_action.get('command')),
+                        'error': result.get('error') if not result.get('success') else None,
+                        'resultType': 'PASS' if result.get('success') else 'FAIL',
+                        'execution_time_ms': execution_time,
+                        'action_category': 'failure',
+                    }
+                    
+                    results.append(enhanced_result)
+                    
+                    if result.get('success'):
+                        passed_count += 1
+                        
+                except Exception as e:
+                    execution_time = int((time.time() - start_time) * 1000)
+                    enhanced_result = {
+                        'success': False,
+                        'message': failure_action.get('label', failure_action.get('command')),
+                        'error': str(e),
+                        'resultType': 'FAIL',
+                        'execution_time_ms': execution_time,
+                        'action_category': 'failure',
                     }
                     results.append(enhanced_result)
 

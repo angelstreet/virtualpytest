@@ -339,7 +339,7 @@ class ZapController:
         step_num = len(context.step_results) + 1
         
         # Extract real actions from edge
-        real_actions, real_retry_actions = self._extract_edge_actions(action_edge)
+        real_actions, real_retry_actions, real_failure_actions = self._extract_edge_actions(action_edge)
         
         step_result = {
             'step_number': step_num,
@@ -358,6 +358,7 @@ class ZapController:
             'to_node': 'live',
             'actions': real_actions,
             'retryActions': real_retry_actions,
+            'failureActions': real_failure_actions,
             'verifications': [],
             'verification_results': []
         }
@@ -371,6 +372,7 @@ class ZapController:
         """Extract real actions from action edge"""
         real_actions = []
         real_retry_actions = []
+        real_failure_actions = []
         
         action_sets = action_edge.get('action_sets', [])
         default_action_set_id = action_edge.get('default_action_set_id')
@@ -382,8 +384,9 @@ class ZapController:
             if default_action_set:
                 real_actions = default_action_set.get('actions', [])
                 real_retry_actions = default_action_set.get('retry_actions', [])
+            real_failure_actions = default_action_set.get('failure_actions', [])
         
-        return real_actions, real_retry_actions
+        return real_actions, real_retry_actions, real_failure_actions
     
     def _store_statistics_in_context(self, context, action_command: str):
         """Store statistics in context for reporting"""

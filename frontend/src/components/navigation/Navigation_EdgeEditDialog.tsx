@@ -143,6 +143,7 @@ export const EdgeEditDialog: React.FC<EdgeEditDialogProps> = ({
             label: 'Temporary Actions',
             actions: edgeEdit.localActions,
             retry_actions: edgeEdit.localRetryActions,
+        failure_actions: edgeEdit.localFailureActions,
             priority: 1,
             conditions: {},
             timer: 0

@@ -60,6 +60,7 @@ CREATE TABLE edge_metrics (
     -- Embedded action tracking
     action_count integer DEFAULT 0,
     retry_action_count integer DEFAULT 0,
+
     action_types jsonb DEFAULT '[]',
     final_wait_time integer DEFAULT 2000,
     
@@ -92,6 +93,7 @@ CREATE TABLE action_execution_history (
     action_params jsonb DEFAULT '{}',  -- Preserves wait_time
     action_index integer NOT NULL,
     is_retry_action boolean DEFAULT false,
+
     
     -- Results
     success boolean NOT NULL,

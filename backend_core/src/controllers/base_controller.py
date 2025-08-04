@@ -41,7 +41,7 @@ class RemoteControllerInterface(BaseController):
         super().__init__("remote", device_name)
         self.device_type = device_type
     
-    def execute_sequence(self, commands: List[Dict[str, Any]], retry_actions: List[Dict[str, Any]]) -> bool:
+    def execute_sequence(self, commands: List[Dict[str, Any]], retry_actions: List[Dict[str, Any]], failure_actions: List[Dict[str, Any]] = None) -> bool:
         """
         Execute a sequence of commands with optional retry actions.
         
@@ -78,6 +78,8 @@ class RemoteControllerInterface(BaseController):
                 print(f"Remote[{self.device_type.upper()}]: Waiting {delay_seconds}s after command {i+1}")
                 time.sleep(delay_seconds)
         
+        failure_actions = failure_actions or []
+        
         # If main commands failed and retry actions provided, execute retry actions
         if not main_success and retry_actions:
             print(f"Remote[{self.device_type.upper()}]: Main commands failed, executing {len(retry_actions)} retry actions")
@@ -107,6 +109,38 @@ class RemoteControllerInterface(BaseController):
                     delay_seconds = delay / 1000.0
                     print(f"Remote[{self.device_type.upper()}]: Waiting {delay_seconds}s after retry {i+1}")
                     time.sleep(delay_seconds)
+            
+            # If retry actions also failed and failure actions provided, execute failure actions
+            if not retry_success and failure_actions:
+                print(f"Remote[{self.device_type.upper()}]: Retry actions failed, executing {len(failure_actions)} failure actions")
+                
+                failure_success = True  # Assume success until a failure action fails
+                for i, failure_cmd in enumerate(failure_actions):
+                    command = failure_cmd.get('command')
+                    params = failure_cmd.get('params', {})
+                    delay = failure_cmd.get('delay', 0)
+                    
+                    print(f"Remote[{self.device_type.upper()}]: Failure {i+1}/{len(failure_actions)}: {command}")
+                    
+                    # Execute failure command
+                    success = self.execute_command(command, params)
+                    
+                    if success:
+                        print(f"Remote[{self.device_type.upper()}]: Failure {i+1} succeeded: {command}")
+                    else:
+                        print(f"Remote[{self.device_type.upper()}]: Failure {i+1} failed: {command}")
+                        failure_success = False
+                        # Stop on first failure action failure
+                        break
+                        
+                    # Apply delay if specified
+                    if delay > 0:
+                        delay_seconds = delay / 1000.0
+                        print(f"Remote[{self.device_type.upper()}]: Waiting {delay_seconds}s after failure {i+1}")
+                        time.sleep(delay_seconds)
+                
+                # Return True only if ALL failure actions succeeded
+                return failure_success
             
             # Return True only if ALL retry actions succeeded
             return retry_success

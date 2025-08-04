@@ -92,6 +92,7 @@ def create_compact_step_results_section(step_results: List[Dict], screenshots: D
         to_node = step.get('to_node', 'Unknown')
         actions = step.get('actions', [])
         retry_actions = step.get('retryActions', [])
+        failure_actions = step.get('failureActions', [])
         verifications = step.get('verifications', [])
         
         # Format execution time
@@ -140,6 +141,26 @@ def create_compact_step_results_section(step_results: List[Dict], screenshots: D
                     retry_line = f"{retry_index}. {command}({params_str})" if params_str else f"{retry_index}. {command}"
                 
                 actions_html += f'<div class="retry-action-item available">{retry_line}</div>'
+        
+        # Add failure actions if they exist
+        if failure_actions:
+            actions_html += "<div style='margin-top: 10px;'><strong>Failure Actions:</strong> <span class='failure-status available'>AVAILABLE</span></div>"
+            for failure_index, failure_action in enumerate(failure_actions, 1):
+                command = failure_action.get('command', 'unknown')
+                params = failure_action.get('params', {})
+                label = failure_action.get('label', '')
+                
+                # Format params as key=value pairs, excluding wait_time for cleaner display
+                filtered_params = {k: v for k, v in params.items() if k != 'wait_time'}
+                params_str = ", ".join([f"{k}='{v}'" for k, v in filtered_params.items()]) if filtered_params else ""
+                
+                # Create failure action line with label if available
+                if label:
+                    failure_line = f"{failure_index}. {label}: {command}({params_str})" if params_str else f"{failure_index}. {label}: {command}"
+                else:
+                    failure_line = f"{failure_index}. {command}({params_str})" if params_str else f"{failure_index}. {command}"
+                
+                actions_html += f'<div class="failure-action-item available">{failure_line}</div>'
         
         verifications_html = ""
         verification_results = step.get('verification_results', [])

@@ -99,7 +99,8 @@ export const useEdge = (props?: UseEdgeProps) => {
     }
     return await actionHook.executeActions(
       actionSet.actions.map(convertToControllerAction),
-      (actionSet.retry_actions || []).map(convertToControllerAction)
+      (actionSet.retry_actions || []).map(convertToControllerAction),
+      (actionSet.failure_actions || []).map(convertToControllerAction)
     );
   }, [getActionSetsFromEdge, actionHook, convertToControllerAction]);
 
@@ -161,6 +162,7 @@ export const useEdge = (props?: UseEdgeProps) => {
       const defaultSet = getDefaultActionSet(edge);
       const actions = overrideActions || defaultSet.actions || [];
       const retryActions = overrideRetryActions || defaultSet.retry_actions || [];
+    const failureActions = defaultSet.failure_actions || [];
 
       if (actions.length === 0) {
         setRunResult('❌ No actions to execute');

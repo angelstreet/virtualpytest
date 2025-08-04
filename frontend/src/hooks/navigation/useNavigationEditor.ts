@@ -136,6 +136,7 @@ export const useNavigationEditor = () => {
               label: actionSetLabel,
               actions: [],
               retry_actions: [],
+        failure_actions: [],
               priority: 1,
             }
           ],
@@ -393,6 +394,7 @@ export const useNavigationEditor = () => {
                     label: actionSetLabel,
                     actions: [],
                     retry_actions: [],
+        failure_actions: [],
                     priority: 1,
                   }
                 ],

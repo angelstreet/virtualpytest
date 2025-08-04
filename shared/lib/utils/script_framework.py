@@ -264,6 +264,7 @@ class ScriptExecutor:
                     'step_number': step_num,
                     'success': result.get('success', False),
                     'screenshot_path': step_screenshot,
+                    'screenshot_url': result.get('screenshot_url'),
                     'message': f"Navigation step {step_num}: {from_node} → {to_node}",
                     'execution_time_ms': step_execution_time,
                     'start_time': step_start_timestamp,
@@ -282,6 +283,8 @@ class ScriptExecutor:
                     return False
                 
                 print(f"✅ [{self.script_name}] Step {step_num} completed successfully in {step_execution_time}ms")
+                if result.get('screenshot_url'):
+                    print(f"📸 [{self.script_name}] Step {step_num} screenshot: {result.get('screenshot_url')}")
             
             print(f"🎉 [{self.script_name}] All navigation steps completed successfully!")
             return True
