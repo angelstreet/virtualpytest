@@ -636,56 +636,28 @@ class VideoContentHelpers:
     def detect_zapping_sequence(self, folder_path: str, key_release_timestamp: float, 
                                analysis_rectangle: Dict[str, int] = None, max_images: int = 10) -> Dict[str, Any]:
         """
-        Detect zapping sequence by analyzing images from folder starting from key release timestamp.
+        Simple zapping detection using existing components and direct file access.
         
         Args:
             folder_path: Path to folder containing captured images
             key_release_timestamp: Timestamp when zapping key was released (Unix timestamp)
             analysis_rectangle: Rectangle to analyze for blackscreen (exclude banner area)
-                               Format: {'x': int, 'y': int, 'width': int, 'height': int}
             max_images: Maximum number of images to analyze (default: 10)
             
         Returns:
             Dictionary with zapping analysis results
         """
         try:
-            print(f"VideoContent[{self.device_name}]: Starting zapping detection in {folder_path}")
-            print(f"VideoContent[{self.device_name}]: Key release timestamp: {key_release_timestamp}")
+            print(f"VideoContent[{self.device_name}]: Starting simple zapping detection in {folder_path}")
             
-            # Use existing analysis utility to load recent images
-            from shared.lib.utils.analysis_utils import load_recent_analysis_data_from_path
+            # Convert Unix timestamp to capture format for display consistency
+            capture_format_timestamp = self._convert_unix_to_capture_format(key_release_timestamp)
+            print(f"VideoContent[{self.device_name}]: Key release timestamp: {capture_format_timestamp} (Unix: {key_release_timestamp})")
             
-            # Load images from the last 10 seconds (enough for zapping analysis)
-            timeframe_seconds = 10
-            data_result = load_recent_analysis_data_from_path(folder_path, timeframe_minutes=timeframe_seconds/60, max_count=max_images)
+            # Step 1: Get images after timestamp using direct file scanning
+            image_data = self._get_images_after_timestamp(folder_path, key_release_timestamp, max_images)
             
-            if not data_result['success']:
-                return {
-                    'success': False,
-                    'error': f"Failed to load images: {data_result.get('error', 'Unknown error')}",
-                    'zapping_detected': False,
-                    'blackscreen_duration': 0.0
-                }
-            
-            # Filter images that were captured after the key release timestamp
-            # and extract image paths with timestamps
-            image_data = []
-            for file_data in data_result['analysis_data']:
-                file_mtime = file_data['file_mtime'] / 1000.0  # Convert milliseconds to seconds
-                if file_mtime >= key_release_timestamp:
-                    # Construct full path to the image file
-                    capture_folder = os.path.join(folder_path, 'captures')
-                    image_path = os.path.join(capture_folder, file_data['filename'])
-                    image_data.append({
-                        'path': image_path,
-                        'timestamp': file_mtime,
-                        'filename': file_data['filename']
-                    })
-            
-            # Extract just the paths for compatibility
-            image_paths = [item['path'] for item in image_data]
-            
-            if not image_paths:
+            if not image_data:
                 return {
                     'success': False,
                     'error': 'No images found after key release timestamp',
@@ -693,125 +665,251 @@ class VideoContentHelpers:
                     'blackscreen_duration': 0.0
                 }
             
-            print(f"VideoContent[{self.device_name}]: Found {len(image_paths)} images to analyze")
+            print(f"VideoContent[{self.device_name}]: Found {len(image_data)} images to analyze")
             
-            # Analyze each image in sequence
-            results = []
-            blackscreen_start_image = None
-            blackscreen_end_image = None
-            blackscreen_start_timestamp = None
-            blackscreen_end_timestamp = None
+            # Step 2: Batch blackscreen detection using proven algorithm
+            blackscreen_results = self._detect_blackscreen_batch(image_data, analysis_rectangle)
             
-            for i, image_path in enumerate(image_paths):
-                analysis = self.analyze_zapping_in_image(image_path, analysis_rectangle)
-                
-                if not analysis.get('success', False):
-                    print(f"VideoContent[{self.device_name}]: Failed to analyze {os.path.basename(image_path)}")
-                    continue
-                
-                # Use the timestamp from our image_data (file modification time)
-                image_timestamp = image_data[i]['timestamp']
-                analysis['timestamp'] = image_timestamp
-                analysis['image_index'] = i
-                
-                results.append(analysis)
-                
-                is_blackscreen = analysis.get('is_blackscreen', False)
-                
-                # Track blackscreen start
-                if is_blackscreen and blackscreen_start_image is None:
-                    blackscreen_start_image = os.path.basename(image_path)
-                    blackscreen_start_timestamp = image_timestamp
-                    print(f"VideoContent[{self.device_name}]: Blackscreen started at {blackscreen_start_image}")
-                
-                # Track blackscreen end
-                elif not is_blackscreen and blackscreen_start_image is not None and blackscreen_end_image is None:
-                    blackscreen_end_image = os.path.basename(image_path)
-                    blackscreen_end_timestamp = image_timestamp
-                    print(f"VideoContent[{self.device_name}]: Blackscreen ended at {blackscreen_end_image}")
-                    
-                    # We found the end of blackscreen, we can stop here for basic zapping detection
-                    print(f"VideoContent[{self.device_name}]: Zapping sequence detected, stopping analysis")
-                    break
+            # Step 3: Find blackscreen sequence
+            sequence = self._find_blackscreen_sequence(blackscreen_results)
             
-            # Calculate blackscreen duration
+            # Step 4: Calculate durations (both blackscreen and zapping)
             blackscreen_duration = 0.0
-            zapping_detected = False
+            zapping_duration = 0.0
             
-            if blackscreen_start_timestamp and blackscreen_end_timestamp:
-                blackscreen_duration = blackscreen_end_timestamp - blackscreen_start_timestamp
-                zapping_detected = True
-            elif blackscreen_start_timestamp:
-                # Blackscreen started but didn't end in our analysis window
-                last_timestamp = results[-1].get('timestamp', blackscreen_start_timestamp) if results else blackscreen_start_timestamp
-                blackscreen_duration = last_timestamp - blackscreen_start_timestamp
-                zapping_detected = True
+            if sequence['zapping_detected']:
+                # Zapping duration: from first image (action completion) to blackscreen disappearance
+                first_image_time = image_data[0]['timestamp']
+                
+                if sequence['blackscreen_end_index'] is not None:
+                    # Blackscreen ended - zapping duration is from start to blackscreen end
+                    blackscreen_end_time = image_data[sequence['blackscreen_end_index']]['timestamp']
+                    zapping_duration = blackscreen_end_time - first_image_time
+                    
+                    # Blackscreen duration: from blackscreen start to blackscreen end
+                    if sequence['blackscreen_start_index'] is not None:
+                        blackscreen_start_time = image_data[sequence['blackscreen_start_index']]['timestamp']
+                        blackscreen_duration = blackscreen_end_time - blackscreen_start_time
+                else:
+                    # Blackscreen didn't end in our window - use last image
+                    last_image_time = image_data[-1]['timestamp']
+                    zapping_duration = last_image_time - first_image_time
+                    
+                    if sequence['blackscreen_start_index'] is not None:
+                        blackscreen_start_time = image_data[sequence['blackscreen_start_index']]['timestamp']
+                        blackscreen_duration = last_image_time - blackscreen_start_time
             
-            # Compile overall results
-            successful_analyses = [r for r in results if r.get('success', False)]
+            # Step 5: Extract channel information using AI (if blackscreen ended)
+            channel_info = {
+                'channel_name': '',
+                'channel_number': '',
+                'program_name': '',
+                'start_time': '',
+                'end_time': '',
+                'confidence': 0.0
+            }
             
+            # Only try AI analysis if we have blackscreen end and images after it
+            if (sequence['zapping_detected'] and 
+                sequence['blackscreen_end_index'] is not None and 
+                sequence['blackscreen_end_index'] < len(image_data) - 1):
+                
+                # Try to extract channel info from images after blackscreen ends
+                channel_info = self._extract_channel_info_from_images(
+                    image_data, sequence['blackscreen_end_index'], analysis_rectangle
+                )
+            
+            # Compile complete results with all information
             overall_result = {
-                'success': len(successful_analyses) > 0,
-                'zapping_detected': zapping_detected,
-                'blackscreen_duration': round(blackscreen_duration, 2),
-                'blackscreen_start_image': blackscreen_start_image,
-                'blackscreen_end_image': blackscreen_end_image,
-                'analyzed_images': len(successful_analyses),
-                'total_images_available': len(image_paths),
-                'analysis_stopped_early': blackscreen_end_image is not None and len(results) < len(image_paths),
+                # Core zapping detection results
+                'success': True,
+                'zapping_detected': sequence['zapping_detected'],
+                
+                # Duration information
+                'zapping_duration': round(zapping_duration, 2),          # Total time from action to blackscreen end
+                'blackscreen_duration': round(blackscreen_duration, 2), # Time blackscreen was visible
+                
+                # Channel information
+                'channel_name': channel_info.get('channel_name', ''),
+                'channel_number': channel_info.get('channel_number', ''),
+                'program_name': channel_info.get('program_name', ''),
+                'program_start_time': channel_info.get('start_time', ''),
+                'program_end_time': channel_info.get('end_time', ''),
+                'channel_confidence': channel_info.get('confidence', 0.0),
+                
+                # Image sequence information
+                'blackscreen_start_image': image_data[sequence['blackscreen_start_index']]['filename'] if sequence['blackscreen_start_index'] is not None else None,
+                'blackscreen_end_image': image_data[sequence['blackscreen_end_index']]['filename'] if sequence['blackscreen_end_index'] is not None else None,
+                'first_image': image_data[0]['filename'] if image_data else None,
+                'last_image': image_data[-1]['filename'] if image_data else None,
+                
+                # Analysis metadata
+                'analyzed_images': len(blackscreen_results),
+                'total_images_available': len(image_data),
                 'key_release_timestamp': key_release_timestamp,
                 'analysis_rectangle': analysis_rectangle,
+                
+                # Detailed results for debugging
                 'details': {
-                    'images_analyzed': [r.get('image_path', '') for r in successful_analyses],
-                    'blackscreen_percentages': [r.get('dark_percentage', 0) for r in successful_analyses],
-                    'results': results
+                    'images_analyzed': [result['filename'] for result in blackscreen_results],
+                    'blackscreen_percentages': [result.get('blackscreen_percentage', 0) for result in blackscreen_results],
+                    'blackscreen_sequence': {
+                        'start_index': sequence['blackscreen_start_index'],
+                        'end_index': sequence['blackscreen_end_index']
+                    },
+                    'timestamps': {
+                        'first_image': image_data[0]['timestamp'] if image_data else None,
+                        'blackscreen_start': image_data[sequence['blackscreen_start_index']]['timestamp'] if sequence['blackscreen_start_index'] is not None else None,
+                        'blackscreen_end': image_data[sequence['blackscreen_end_index']]['timestamp'] if sequence['blackscreen_end_index'] is not None else None,
+                        'last_image': image_data[-1]['timestamp'] if image_data else None
+                    },
+                    'channel_analysis': channel_info,
+                    'blackscreen_results': blackscreen_results
                 },
-                'analysis_type': 'zapping_detection',
+                'analysis_type': 'simple_zapping_detection',
                 'timestamp': datetime.now().isoformat()
             }
             
-            print(f"VideoContent[{self.device_name}]: Zapping detection complete - detected={zapping_detected}, duration={blackscreen_duration}s")
+            print(f"VideoContent[{self.device_name}]: Simple zapping detection complete - detected={sequence['zapping_detected']}, duration={blackscreen_duration}s")
             return overall_result
             
         except Exception as e:
-            print(f"VideoContent[{self.device_name}]: Zapping detection error: {e}")
+            print(f"VideoContent[{self.device_name}]: Simple zapping detection error: {e}")
             return {
                 'success': False,
-                'error': f'Zapping detection failed: {str(e)}',
-                'analysis_type': 'zapping_detection',
+                'error': f'Simple zapping detection failed: {str(e)}',
+                'analysis_type': 'simple_zapping_detection',
                 'zapping_detected': False,
                 'blackscreen_duration': 0.0
             }
 
-    def analyze_zapping_in_image(self, image_path: str, analysis_rectangle: Dict[str, int] = None) -> Dict[str, Any]:
+    def _get_images_after_timestamp(self, folder_path: str, start_timestamp: float, max_count: int = 10) -> List[Dict]:
         """
-        Analyze single image for zapping blackscreen detection.
+        Get images captured after the specified timestamp using direct file scanning.
+        
+        Args:
+            folder_path: Path to folder containing images
+            start_timestamp: Start timestamp (Unix timestamp)
+            max_count: Maximum number of images to return
+            
+        Returns:
+            List of image data dictionaries sorted by timestamp
+        """
+        try:
+            if not os.path.exists(folder_path):
+                print(f"VideoContent[{self.device_name}]: Folder not found: {folder_path}")
+                return []
+            
+            images = []
+            
+            # Scan for capture files directly in the folder (no captures/ subfolder)
+            for filename in os.listdir(folder_path):
+                if filename.startswith('capture_') and filename.endswith('.jpg') and '_thumbnail' not in filename:
+                    # Parse timestamp from filename: capture_20250805124819.jpg -> Unix timestamp
+                    try:
+                        timestamp_str = filename[8:22]  # Extract YYYYMMDDHHMMSS (positions 8-21)
+                        file_timestamp = datetime.strptime(timestamp_str, '%Y%m%d%H%M%S').timestamp()
+                        
+                        if file_timestamp >= start_timestamp:
+                            image_path = os.path.join(folder_path, filename)
+                            images.append({
+                                'path': image_path,
+                                'timestamp': file_timestamp,
+                                'filename': filename
+                            })
+                    except (ValueError, IndexError) as e:
+                        print(f"VideoContent[{self.device_name}]: Could not parse timestamp from {filename}: {e}")
+                        continue
+            
+            # Sort by timestamp and limit
+            images.sort(key=lambda x: x['timestamp'])
+            result = images[:max_count]
+            
+            print(f"VideoContent[{self.device_name}]: Found {len(result)} images after timestamp {start_timestamp}")
+            return result
+            
+        except Exception as e:
+            print(f"VideoContent[{self.device_name}]: Error scanning images: {e}")
+            return []
+
+    def _convert_unix_to_capture_format(self, unix_timestamp: float) -> str:
+        """
+        Convert Unix timestamp to capture filename format: YYYYMMDDHHMMSS
+        
+        Args:
+            unix_timestamp: Unix timestamp (float)
+            
+        Returns:
+            Timestamp string in YYYYMMDDHHMMSS format
+        """
+        try:
+            dt = datetime.fromtimestamp(unix_timestamp)
+            return dt.strftime('%Y%m%d%H%M%S')
+        except (ValueError, OSError) as e:
+            print(f"VideoContent[{self.device_name}]: Failed to convert timestamp {unix_timestamp}: {e}")
+            return ""
+
+    def _detect_blackscreen_batch(self, image_data: List[Dict], analysis_rectangle: Dict[str, int] = None) -> List[Dict]:
+        """
+        Batch blackscreen detection using proven algorithm from analyze_audio_video.py
+        
+        Args:
+            image_data: List of image data dictionaries
+            analysis_rectangle: Optional rectangle to analyze (exclude banner area)
+            
+        Returns:
+            List of blackscreen analysis results
+        """
+        results = []
+        
+        for img_data in image_data:
+            image_path = img_data['path']
+            
+            try:
+                # Use proven blackscreen detection algorithm (copied from analyze_audio_video.py)
+                is_blackscreen, blackscreen_percentage = self._analyze_blackscreen_simple(image_path, analysis_rectangle)
+                
+                results.append({
+                    'path': image_path,
+                    'filename': img_data['filename'],
+                    'timestamp': img_data['timestamp'],
+                    'is_blackscreen': is_blackscreen,
+                    'blackscreen_percentage': blackscreen_percentage,
+                    'success': True
+                })
+                
+                print(f"VideoContent[{self.device_name}]: {img_data['filename']} - blackscreen={is_blackscreen} ({blackscreen_percentage:.1f}%)")
+                
+            except Exception as e:
+                print(f"VideoContent[{self.device_name}]: Failed to analyze {img_data['filename']}: {e}")
+                results.append({
+                    'path': image_path,
+                    'filename': img_data['filename'],
+                    'timestamp': img_data['timestamp'],
+                    'is_blackscreen': False,
+                    'blackscreen_percentage': 0.0,
+                    'success': False,
+                    'error': str(e)
+                })
+        
+        return results
+
+    def _analyze_blackscreen_simple(self, image_path: str, analysis_rectangle: Dict[str, int] = None, threshold: int = 10) -> Tuple[bool, float]:
+        """
+        Simple blackscreen detection copied from analyze_audio_video.py
         
         Args:
             image_path: Path to image file
-            analysis_rectangle: Rectangle to analyze (exclude banner area)
-                               Format: {'x': int, 'y': int, 'width': int, 'height': int}
+            analysis_rectangle: Optional rectangle to analyze
+            threshold: Pixel intensity threshold (0-255)
             
         Returns:
-            Dictionary with blackscreen analysis results for the image
+            Tuple of (is_blackscreen, blackscreen_percentage)
         """
         try:
-            if not os.path.exists(image_path):
-                return {
-                    'success': False,
-                    'error': 'Image file not found',
-                    'image_path': image_path,
-                    'is_blackscreen': False
-                }
-            
             img = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
             if img is None:
-                return {
-                    'success': False,
-                    'error': 'Could not load image',
-                    'image_path': image_path,
-                    'is_blackscreen': False
-                }
+                return False, 0.0
             
             # Crop to analysis rectangle if specified (to exclude banner area)
             if analysis_rectangle:
@@ -823,47 +921,151 @@ class VideoContentHelpers:
                 # Validate rectangle bounds
                 img_height, img_width = img.shape
                 if x < 0 or y < 0 or x + width > img_width or y + height > img_height:
-                    return {
-                        'success': False,
-                        'error': 'Analysis rectangle out of image bounds',
-                        'image_path': image_path,
-                        'is_blackscreen': False
-                    }
-                
-                # Crop to specified rectangle
-                img = img[y:y+height, x:x+width]
-                print(f"VideoContent[{self.device_name}]: Cropped image to rectangle {x},{y} {width}x{height}")
+                    print(f"VideoContent[{self.device_name}]: Analysis rectangle out of bounds, using full image")
+                else:
+                    img = img[y:y+height, x:x+width]
             
-            # Use same blackscreen detection logic as existing method
-            threshold = 10  # Standard blackscreen threshold
+            # Count pixels <= threshold (same logic as analyze_audio_video.py)
             very_dark_pixels = np.sum(img <= threshold)
             total_pixels = img.shape[0] * img.shape[1]
             dark_percentage = (very_dark_pixels / total_pixels) * 100
             
-            # If more than 95% of pixels are very dark, it's a blackscreen
-            is_blackscreen = bool(dark_percentage > 95)
+            # If >95% of pixels are very dark, it's blackscreen (same threshold as analyze_audio_video.py)
+            is_blackscreen = dark_percentage > 95
             
-            result = {
-                'success': True,
-                'is_blackscreen': is_blackscreen,
-                'dark_percentage': round(float(dark_percentage), 2),
-                'threshold': threshold,
-                'very_dark_pixels': int(very_dark_pixels),
-                'total_pixels': int(total_pixels),
-                'image_size': f"{img.shape[1]}x{img.shape[0]}",
-                'analysis_rectangle': analysis_rectangle,
-                'confidence': 0.9 if is_blackscreen else 0.1,
-                'image_path': os.path.basename(image_path)
-            }
-            
-            return result
+            return is_blackscreen, dark_percentage
             
         except Exception as e:
-            print(f"VideoContent[{self.device_name}]: Zapping image analysis error: {e}")
+            print(f"VideoContent[{self.device_name}]: Blackscreen analysis error: {e}")
+            return False, 0.0
+
+    def _find_blackscreen_sequence(self, blackscreen_results: List[Dict]) -> Dict[str, Any]:
+        """
+        Find blackscreen start and end in the sequence of results.
+        
+        Args:
+            blackscreen_results: List of blackscreen analysis results
+            
+        Returns:
+            Dictionary with sequence information
+        """
+        blackscreen_start_index = None
+        blackscreen_end_index = None
+        
+        for i, result in enumerate(blackscreen_results):
+            if result.get('success', False):  # Only consider successful analyses
+                is_blackscreen = result.get('is_blackscreen', False)
+                
+                # Track blackscreen start
+                if is_blackscreen and blackscreen_start_index is None:
+                    blackscreen_start_index = i
+                    print(f"VideoContent[{self.device_name}]: Blackscreen started at {result['filename']}")
+                
+                # Track blackscreen end
+                elif not is_blackscreen and blackscreen_start_index is not None and blackscreen_end_index is None:
+                    blackscreen_end_index = i
+                    print(f"VideoContent[{self.device_name}]: Blackscreen ended at {result['filename']}")
+                    break  # Stop at first non-blackscreen after blackscreen sequence
+        
+        zapping_detected = blackscreen_start_index is not None
+        
+        return {
+            'blackscreen_start_index': blackscreen_start_index,
+            'blackscreen_end_index': blackscreen_end_index,
+            'zapping_detected': zapping_detected
+        }
+
+    def _extract_channel_info_from_images(self, image_data: List[Dict], blackscreen_end_index: int, 
+                                         analysis_rectangle: Dict[str, int] = None) -> Dict[str, Any]:
+        """
+        Extract channel information from images after blackscreen ends using AI analysis.
+        
+        Args:
+            image_data: List of image data dictionaries
+            blackscreen_end_index: Index where blackscreen ended
+            analysis_rectangle: Rectangle used for blackscreen (banner will be calculated from this)
+            
+        Returns:
+            Dictionary with channel information
+        """
+        try:
+            # Calculate banner region from analysis rectangle
+            banner_region = None
+            if analysis_rectangle:
+                # Banner is typically below the blackscreen analysis area
+                screen_width = analysis_rectangle.get('width', 1920)
+                banner_start_y = analysis_rectangle.get('y', 0) + analysis_rectangle.get('height', 720)
+                banner_height = 1080 - banner_start_y  # Remaining screen height
+                
+                banner_region = {
+                    'x': analysis_rectangle.get('x', 0),
+                    'y': banner_start_y,
+                    'width': screen_width,
+                    'height': banner_height
+                }
+            
+            # Try to extract channel info from images after blackscreen ends
+            # Banner might take a few seconds to appear, so try multiple images
+            max_attempts = min(3, len(image_data) - blackscreen_end_index)
+            
+            for i in range(max_attempts):
+                image_index = blackscreen_end_index + i
+                if image_index >= len(image_data):
+                    break
+                
+                image_path = image_data[image_index]['path']
+                filename = image_data[image_index]['filename']
+                
+                print(f"VideoContent[{self.device_name}]: Trying AI analysis on {filename} for channel info")
+                
+                # Use existing AI helper for channel banner analysis
+                if hasattr(self, 'ai_helpers') and self.ai_helpers:
+                    channel_result = self.ai_helpers.analyze_channel_banner_ai(image_path, banner_region)
+                    
+                    if (channel_result.get('success', False) and 
+                        channel_result.get('banner_detected', False) and
+                        channel_result.get('channel_info', {}).get('channel_name')):
+                        
+                        channel_info = channel_result.get('channel_info', {})
+                        print(f"VideoContent[{self.device_name}]: Channel info extracted from {filename}: {channel_info.get('channel_name', 'Unknown')}")
+                        
+                        return {
+                            'channel_name': channel_info.get('channel_name', ''),
+                            'channel_number': channel_info.get('channel_number', ''),
+                            'program_name': channel_info.get('program_name', ''),
+                            'start_time': channel_info.get('start_time', ''),
+                            'end_time': channel_info.get('end_time', ''),
+                            'confidence': channel_result.get('confidence', 0.0),
+                            'analyzed_image': filename,
+                            'banner_region': banner_region
+                        }
+                else:
+                    print(f"VideoContent[{self.device_name}]: AI helpers not available for channel analysis")
+                    break
+            
+            print(f"VideoContent[{self.device_name}]: No channel information found in {max_attempts} images after blackscreen")
             return {
-                'success': False,
-                'error': f'Analysis error: {str(e)}',
-                'image_path': image_path,
-                'is_blackscreen': False
+                'channel_name': '',
+                'channel_number': '',
+                'program_name': '',
+                'start_time': '',
+                'end_time': '',
+                'confidence': 0.0,
+                'analyzed_image': '',
+                'banner_region': banner_region
             }
+            
+        except Exception as e:
+            print(f"VideoContent[{self.device_name}]: Channel info extraction error: {e}")
+            return {
+                'channel_name': '',
+                'channel_number': '',
+                'program_name': '',
+                'start_time': '',
+                'end_time': '',
+                'confidence': 0.0,
+                'error': str(e)
+            }
+
+
 

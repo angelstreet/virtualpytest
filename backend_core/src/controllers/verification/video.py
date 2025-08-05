@@ -12,6 +12,7 @@ Clean separation of concerns with specialized helper modules.
 
 import time
 import os
+from datetime import datetime
 from typing import Dict, Any, Optional, Union, Tuple, List
 from pathlib import Path
 from ..base_controller import VerificationControllerInterface
@@ -605,7 +606,14 @@ class VideoVerificationController(VerificationControllerInterface):
         try:
             print(f"VideoVerify[{self.device_name}]: Starting zapping detection")
             print(f"VideoVerify[{self.device_name}]: Folder: {folder_path}")
-            print(f"VideoVerify[{self.device_name}]: Key release timestamp: {key_release_timestamp}")
+            
+            # Convert Unix timestamp to capture format for display consistency
+            try:
+                dt = datetime.fromtimestamp(key_release_timestamp)
+                capture_format_timestamp = dt.strftime('%Y%m%d%H%M%S')
+                print(f"VideoVerify[{self.device_name}]: Key release timestamp: {capture_format_timestamp} (Unix: {key_release_timestamp})")
+            except (ValueError, OSError):
+                print(f"VideoVerify[{self.device_name}]: Key release timestamp: {key_release_timestamp} (invalid format)")
             
             # Validate inputs
             if not folder_path:

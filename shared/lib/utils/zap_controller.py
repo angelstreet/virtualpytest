@@ -65,6 +65,12 @@ class ZapStatistics:
         self.detected_languages = []
         self.total_execution_time = 0
         self.analysis_results = []
+        
+        # Enhanced zapping statistics
+        self.zapping_durations = []        # List of zapping durations
+        self.blackscreen_durations = []    # List of blackscreen durations  
+        self.detected_channels = []        # List of detected channel names
+        self.channel_info_results = []     # List of complete channel info results
     
     @property
     def success_rate(self) -> float:
@@ -91,8 +97,48 @@ class ZapStatistics:
         if language and language not in self.detected_languages:
             self.detected_languages.append(language)
     
+    def add_zapping_result(self, zapping_details: Dict[str, Any]):
+        """Add enhanced zapping analysis results"""
+        if zapping_details.get('success', False):
+            # Add duration information
+            zapping_duration = zapping_details.get('zapping_duration', 0.0)
+            blackscreen_duration = zapping_details.get('blackscreen_duration', 0.0)
+            
+            if zapping_duration > 0:
+                self.zapping_durations.append(zapping_duration)
+            if blackscreen_duration > 0:
+                self.blackscreen_durations.append(blackscreen_duration)
+            
+            # Add channel information
+            channel_name = zapping_details.get('channel_name', '').strip()
+            if channel_name and channel_name not in self.detected_channels:
+                self.detected_channels.append(channel_name)
+            
+            # Store complete channel info result
+            channel_info = {
+                'channel_name': zapping_details.get('channel_name', ''),
+                'channel_number': zapping_details.get('channel_number', ''),
+                'program_name': zapping_details.get('program_name', ''),
+                'program_start_time': zapping_details.get('program_start_time', ''),
+                'program_end_time': zapping_details.get('program_end_time', ''),
+                'channel_confidence': zapping_details.get('channel_confidence', 0.0),
+                'zapping_duration': zapping_duration,
+                'blackscreen_duration': blackscreen_duration
+            }
+            self.channel_info_results.append(channel_info)
+    
+    @property
+    def average_zapping_duration(self) -> float:
+        """Average zapping duration in seconds"""
+        return sum(self.zapping_durations) / len(self.zapping_durations) if self.zapping_durations else 0.0
+    
+    @property
+    def average_blackscreen_duration(self) -> float:
+        """Average blackscreen duration in seconds"""
+        return sum(self.blackscreen_durations) / len(self.blackscreen_durations) if self.blackscreen_durations else 0.0
+    
     def print_summary(self, action_command: str):
-        """Print formatted statistics summary"""
+        """Print formatted statistics summary with enhanced zapping information"""
         print(f"📊 [ZapController] Action execution summary:")
         print(f"   • Total iterations: {self.total_iterations}")
         print(f"   • Successful: {self.successful_iterations}")
@@ -102,6 +148,33 @@ class ZapStatistics:
         print(f"   • Motion detected: {self.motion_detected_count}/{self.total_iterations} ({self.motion_success_rate:.1f}%)")
         print(f"   • Subtitles detected: {self.subtitles_detected_count}/{self.total_iterations} ({self.subtitle_success_rate:.1f}%)")
         print(f"   • Zapping detected: {self.zapping_detected_count}/{self.total_iterations} ({self.zapping_success_rate:.1f}%)")
+        
+        # Enhanced zapping duration information
+        if self.zapping_durations:
+            print(f"   ⚡ Average zapping duration: {self.average_zapping_duration:.2f}s")
+            print(f"   ⬛ Average blackscreen duration: {self.average_blackscreen_duration:.2f}s")
+            min_zap = min(self.zapping_durations)
+            max_zap = max(self.zapping_durations)
+            print(f"   📊 Zapping duration range: {min_zap:.2f}s - {max_zap:.2f}s")
+        
+        # Channel information
+        if self.detected_channels:
+            print(f"   📺 Channels detected: {', '.join(self.detected_channels)}")
+            
+            # Show detailed channel info for successful zaps
+            successful_channel_info = [info for info in self.channel_info_results if info.get('channel_name')]
+            if successful_channel_info:
+                print(f"   🎬 Channel details:")
+                for i, info in enumerate(successful_channel_info, 1):
+                    channel_display = info['channel_name']
+                    if info.get('channel_number'):
+                        channel_display += f" ({info['channel_number']})"
+                    if info.get('program_name'):
+                        channel_display += f" - {info['program_name']}"
+                    if info.get('program_start_time') and info.get('program_end_time'):
+                        channel_display += f" [{info['program_start_time']}-{info['program_end_time']}]"
+                    
+                    print(f"      {i}. {channel_display} (zap: {info['zapping_duration']:.2f}s, confidence: {info['channel_confidence']:.1f})")
         
         if self.detected_languages:
             print(f"   🌐 Languages detected: {', '.join(self.detected_languages)}")
@@ -239,6 +312,8 @@ class ZapController:
             self.statistics.audio_menu_detected_count += 1
         if analysis_result.zapping_detected:
             self.statistics.zapping_detected_count += 1
+            # Add enhanced zapping result details
+            self.statistics.add_zapping_result(analysis_result.zapping_details)
         if analysis_result.detected_language:
             self.statistics.add_language(analysis_result.detected_language)
         
@@ -563,5 +638,11 @@ class ZapController:
             'zapping_detected_count': self.statistics.zapping_detected_count,
             'detected_languages': self.statistics.detected_languages,
             'motion_results': [r.to_dict() for r in self.statistics.analysis_results],
-            'total_action_time': self.statistics.total_execution_time
+            'total_action_time': self.statistics.total_execution_time,
+            
+            # Enhanced zapping statistics
+            'zapping_durations': self.statistics.zapping_durations,
+            'blackscreen_durations': self.statistics.blackscreen_durations,
+            'detected_channels': self.statistics.detected_channels,
+            'channel_info_results': self.statistics.channel_info_results
         })

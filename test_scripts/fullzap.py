@@ -71,6 +71,12 @@ def capture_fullzap_summary(context: ScriptExecutionContext, userinterface_name:
     zapping_detected_count = context.custom_data.get('zapping_detected_count', 0)
     total_action_time = context.custom_data.get('total_action_time', 0)
     
+    # Enhanced zapping statistics
+    zapping_durations = context.custom_data.get('zapping_durations', [])
+    blackscreen_durations = context.custom_data.get('blackscreen_durations', [])
+    detected_channels = context.custom_data.get('detected_channels', [])
+    channel_info_results = context.custom_data.get('channel_info_results', [])
+    
     # ZapController Action execution summary
     if max_iteration > 0:
         lines.append("📊 [ZapController] Action execution summary:")
@@ -87,6 +93,36 @@ def capture_fullzap_summary(context: ScriptExecutionContext, userinterface_name:
         lines.append(f"   • Subtitles detected: {subtitles_detected_count}/{max_iteration} ({subtitle_rate:.1f}%)")
         zapping_rate = (zapping_detected_count / max_iteration * 100) if max_iteration > 0 else 0
         lines.append(f"   • Zapping detected: {zapping_detected_count}/{max_iteration} ({zapping_rate:.1f}%)")
+        
+        # Enhanced zapping duration information
+        if zapping_durations:
+            avg_zap_duration = sum(zapping_durations) / len(zapping_durations)
+            avg_blackscreen_duration = sum(blackscreen_durations) / len(blackscreen_durations) if blackscreen_durations else 0.0
+            lines.append(f"   ⚡ Average zapping duration: {avg_zap_duration:.2f}s")
+            lines.append(f"   ⬛ Average blackscreen duration: {avg_blackscreen_duration:.2f}s")
+            
+            min_zap = min(zapping_durations)
+            max_zap = max(zapping_durations)
+            lines.append(f"   📊 Zapping duration range: {min_zap:.2f}s - {max_zap:.2f}s")
+        
+        # Channel information
+        if detected_channels:
+            lines.append(f"   📺 Channels detected: {', '.join(detected_channels)}")
+            
+            # Show detailed channel info for successful zaps
+            successful_channel_info = [info for info in channel_info_results if info.get('channel_name')]
+            if successful_channel_info:
+                lines.append(f"   🎬 Channel details:")
+                for i, info in enumerate(successful_channel_info, 1):
+                    channel_display = info['channel_name']
+                    if info.get('channel_number'):
+                        channel_display += f" ({info['channel_number']})"
+                    if info.get('program_name'):
+                        channel_display += f" - {info['program_name']}"
+                    if info.get('program_start_time') and info.get('program_end_time'):
+                        channel_display += f" [{info['program_start_time']}-{info['program_end_time']}]"
+                    
+                    lines.append(f"      {i}. {channel_display} (zap: {info['zapping_duration']:.2f}s, confidence: {info['channel_confidence']:.1f})")
         
         # Check for content change issues
         no_motion_count = max_iteration - motion_detected_count
