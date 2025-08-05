@@ -13,6 +13,7 @@ def create_themed_html_template() -> str:
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Validation Report - {script_name}</title>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <style>
         :root {{
             /* Light theme variables */
@@ -687,7 +688,7 @@ def create_themed_html_template() -> str:
             height: 90px;
         }}
         
-        .screenshot-modal {{
+        .screenshot-modal, .modal {{
             display: none;
             position: fixed;
             z-index: 1000;
@@ -699,7 +700,7 @@ def create_themed_html_template() -> str:
             transition: background-color 0.3s ease;
         }}
         
-        .screenshot-modal.active {{
+        .screenshot-modal.active, .modal.active {{
             display: flex;
             justify-content: center;
             align-items: center;
@@ -818,10 +819,28 @@ def create_themed_html_template() -> str:
             justify-content: center;
         }}
         
-        .screenshot-modal .close:hover {{
+        .screenshot-modal .close:hover, .modal-close:hover {{
             background: var(--failure-color);
             color: white;
             border-color: var(--failure-color);
+        }}
+        
+        .modal-close {{
+            position: absolute;
+            top: -10px;
+            right: -10px;
+            color: var(--text-primary);
+            background: var(--bg-secondary);
+            border: 2px solid var(--border-color);
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            font-size: 20px;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }}
         
         .error-section {{
@@ -1102,11 +1121,14 @@ def create_themed_html_template() -> str:
             openScreenshotModal(JSON.stringify(modalData));
         }}
         
-        // HLS Video modal with native browser HLS support
+        // HLS Video modal with HLS.js library support
         function openHLSVideoModal(videoUrl, label) {{
+            console.log('Opening HLS video modal:', videoUrl, label);
+            
             // Create video modal if it doesn't exist
             let videoModal = document.getElementById('hls-video-modal');
             if (!videoModal) {{
+                console.log('Creating new HLS video modal');
                 videoModal = document.createElement('div');
                 videoModal.id = 'hls-video-modal';
                 videoModal.className = 'modal';
@@ -1117,34 +1139,112 @@ def create_themed_html_template() -> str:
                             <button class="modal-close" onclick="closeHLSVideoModal()">&times;</button>
                         </div>
                         <div class="modal-body">
-                            <video id="hls-modal-video" controls autoplay style="width: 100%; max-width: 800px;">
-                                <source src="` + videoUrl + `" type="application/x-mpegURL">
+                            <video id="hls-modal-video" controls style="width: 100%; max-width: 800px;">
                                 Your browser does not support HLS video playback.
                             </video>
                         </div>
                     </div>
                 `;
                 document.body.appendChild(videoModal);
+                console.log('HLS video modal created and added to body');
             }} else {{
-                // Update existing modal
+                console.log('Updating existing HLS video modal');
                 document.getElementById('hls-video-modal-title').textContent = label;
-                const video = document.getElementById('hls-modal-video');
-                const source = video.querySelector('source');
-                source.src = videoUrl;
-                video.load();
             }}
             
+            // Setup HLS video playback
+            const video = document.getElementById('hls-modal-video');
+            console.log('Setting up HLS playback for:', videoUrl);
+            
+            // Clear any existing HLS instance
+            if (window.currentHls) {{
+                console.log('Destroying existing HLS instance');
+                window.currentHls.destroy();
+            }}
+            
+            if (Hls.isSupported()) {{
+                console.log('HLS.js is supported, using HLS.js');
+                const hls = new Hls({{
+                    debug: false,
+                    enableWorker: true,
+                    lowLatencyMode: false,
+                    backBufferLength: 90
+                }});
+                
+                hls.loadSource(videoUrl);
+                hls.attachMedia(video);
+                
+                hls.on(Hls.Events.MANIFEST_PARSED, function() {{
+                    console.log('HLS manifest parsed, starting playback');
+                    video.play().catch(e => console.log('Autoplay prevented:', e));
+                }});
+                
+                hls.on(Hls.Events.ERROR, function(event, data) {{
+                    console.error('HLS error:', data);
+                    if (data.fatal) {{
+                        switch(data.type) {{
+                            case Hls.ErrorTypes.NETWORK_ERROR:
+                                console.log('Network error, trying to recover...');
+                                hls.startLoad();
+                                break;
+                            case Hls.ErrorTypes.MEDIA_ERROR:
+                                console.log('Media error, trying to recover...');
+                                hls.recoverMediaError();
+                                break;
+                            default:
+                                console.log('Fatal error, destroying HLS instance');
+                                hls.destroy();
+                                break;
+                        }}
+                    }}
+                }});
+                
+                window.currentHls = hls;
+            }} else if (video.canPlayType('application/vnd.apple.mpegurl')) {{
+                console.log('Native HLS support detected (Safari)');
+                video.src = videoUrl;
+                video.addEventListener('loadedmetadata', function() {{
+                    console.log('Video metadata loaded, starting playback');
+                    video.play().catch(e => console.log('Autoplay prevented:', e));
+                }});
+            }} else {{
+                console.error('HLS is not supported in this browser');
+                video.innerHTML = '<p style="color: red; text-align: center; padding: 20px;">HLS video playback is not supported in this browser.</p>';
+            }}
+            
+            console.log('Adding active class to modal');
             videoModal.classList.add('active');
+            
+            // Debug: Check if modal is visible
+            setTimeout(() => {{
+                const computedStyle = window.getComputedStyle(videoModal);
+                console.log('Modal display style:', computedStyle.display);
+                console.log('Modal visibility:', computedStyle.visibility);
+                console.log('Modal z-index:', computedStyle.zIndex);
+            }}, 100);
         }}
         
         function closeHLSVideoModal() {{
+            console.log('Closing HLS video modal');
             const videoModal = document.getElementById('hls-video-modal');
             if (videoModal) {{
                 videoModal.classList.remove('active');
                 const video = document.getElementById('hls-modal-video');
                 if (video) {{
                     video.pause();
+                    console.log('Video paused');
                 }}
+                
+                // Clean up HLS instance
+                if (window.currentHls) {{
+                    console.log('Destroying HLS instance');
+                    window.currentHls.destroy();
+                    window.currentHls = null;
+                }}
+                
+                console.log('Modal closed');
+            }} else {{
+                console.log('Video modal not found');
             }}
         }}
         

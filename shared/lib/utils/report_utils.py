@@ -334,22 +334,39 @@ def create_compact_step_results_section(step_results: List[Dict], screenshots: D
                     if channel_info.get('program_name'):
                         program_name = channel_info.get('program_name', '')
                         analysis_html += f'<div class="analysis-detail">Program: {program_name}</div>'
-                # Key images in the zapping sequence
+                # Key images in the zapping sequence (with clickable hyperlinks)
+                def create_image_link(image_name, display_text):
+                    """Create clickable hyperlink for image - will be converted to R2 URL by update_step_results_with_r2_urls"""
+                    if image_name:
+                        # The image_name might already be an R2 URL after URL mapping, or still a filename
+                        if image_name.startswith('http'):
+                            # Already an R2 URL
+                            return f'<a href="{image_name}" target="_blank" style="color: #0066cc; text-decoration: underline;">{display_text}</a>'
+                        else:
+                            # Still a filename - will be converted to R2 URL later
+                            return f'<a href="{image_name}" target="_blank" style="color: #0066cc; text-decoration: underline;">{display_text}</a>'
+                    return display_text
+                
                 if zapping_analysis.get('first_image'):
                     first_image = zapping_analysis.get('first_image', '')
-                    analysis_html += f'<div class="analysis-detail">🎬 Start Image: {first_image}</div>'
+                    image_link = create_image_link(first_image, first_image)
+                    analysis_html += f'<div class="analysis-detail">🎬 Start Image: {image_link}</div>'
                 if zapping_analysis.get('blackscreen_start_image'):
                     start_image = zapping_analysis.get('blackscreen_start_image', '')
-                    analysis_html += f'<div class="analysis-detail">⚫ First Black: {start_image}</div>'
+                    image_link = create_image_link(start_image, start_image)
+                    analysis_html += f'<div class="analysis-detail">⚫ First Black: {image_link}</div>'
                 if zapping_analysis.get('blackscreen_end_image'):
                     end_image = zapping_analysis.get('blackscreen_end_image', '')
-                    analysis_html += f'<div class="analysis-detail">⚫ Last Black: {end_image}</div>'
+                    image_link = create_image_link(end_image, end_image)
+                    analysis_html += f'<div class="analysis-detail">⚫ Last Black: {image_link}</div>'
                 if zapping_analysis.get('first_content_after_blackscreen'):
                     content_image = zapping_analysis.get('first_content_after_blackscreen', '')
-                    analysis_html += f'<div class="analysis-detail">📺 First Content: {content_image}</div>'
+                    image_link = create_image_link(content_image, content_image)
+                    analysis_html += f'<div class="analysis-detail">📺 First Content: {image_link}</div>'
                 if zapping_analysis.get('channel_detection_image'):
                     channel_image = zapping_analysis.get('channel_detection_image', '')
-                    analysis_html += f'<div class="analysis-detail">🔍 Channel Detection: {channel_image}</div>'
+                    image_link = create_image_link(channel_image, channel_image)
+                    analysis_html += f'<div class="analysis-detail">🔍 Channel Detection: {image_link}</div>'
                 if zapping_analysis.get('analyzed_images'):
                     analyzed_count = zapping_analysis.get('analyzed_images', 0)
                     total_count = zapping_analysis.get('total_images_available', 0)
@@ -433,12 +450,16 @@ def create_compact_step_results_section(step_results: List[Dict], screenshots: D
     return ''.join(steps_html)
 
 def get_video_thumbnail_html(video_url: str, label: str = "Video") -> str:
-    """Generate HTML for video thumbnail that opens video URL in new tab"""
+    """Generate HTML for video thumbnail that opens video URL in modal"""
     if not video_url:
         return ""
     
+    # Escape quotes in the URL and label for JavaScript
+    escaped_url = video_url.replace("'", "\\'").replace('"', '\\"')
+    escaped_label = label.replace("'", "\\'").replace('"', '\\"')
+    
     return f"""
-    <div class="video-thumbnail" onclick="openHLSVideoModal('{video_url}', '{label}')" style="cursor: pointer;" title="Click to play HLS video">
+    <div class="video-thumbnail" onclick="console.log('Video thumbnail clicked'); openHLSVideoModal('{escaped_url}', '{escaped_label}')" style="cursor: pointer;" title="Click to play HLS video">
         <video muted preload="metadata">
             <source src="{video_url}" type="application/x-mpegURL">
         </video>
@@ -615,6 +636,29 @@ def update_step_results_with_r2_urls(step_results: List[Dict], url_mapping: Dict
                 updated_step['screenshot_url'] = r2_url
                 if r2_url != original_url:
                     print(f"[@utils:report_utils:update_step_results_with_r2_urls] Updated screenshot URL: {original_url} -> {r2_url}")
+        
+        # Update zapping analysis image filenames to R2 URLs
+        if 'zapping_analysis' in updated_step and updated_step['zapping_analysis']:
+            zapping_analysis = updated_step['zapping_analysis'].copy()
+            
+            # List of image fields to update
+            image_fields = [
+                'first_image', 'blackscreen_start_image', 'blackscreen_end_image',
+                'first_content_after_blackscreen', 'channel_detection_image', 'last_image'
+            ]
+            
+            for field in image_fields:
+                if field in zapping_analysis and zapping_analysis[field]:
+                    filename = zapping_analysis[field]
+                    # Construct the full path that would have been added to screenshot_paths
+                    # Format: /path/to/captures/capture_YYYYMMDDHHMMSS.jpg
+                    for local_path, r2_url in url_mapping.items():
+                        if filename in local_path:  # If the filename appears in the local path
+                            zapping_analysis[field] = r2_url
+                            print(f"[@utils:report_utils:update_step_results_with_r2_urls] Updated zapping {field}: {filename} -> {r2_url}")
+                            break
+            
+            updated_step['zapping_analysis'] = zapping_analysis
         
         updated_results.append(updated_step)
     

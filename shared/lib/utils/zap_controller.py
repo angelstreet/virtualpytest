@@ -588,6 +588,9 @@ class ZapController:
                 else:
                     print(f"⚠️ [ZapController] No zapping sequence detected")
                 
+                # Add zapping images to context screenshot collection for R2 upload
+                self._add_zapping_images_to_screenshots(context, zapping_result, capture_folder)
+                
                 return {
                     "success": True,
                     "zapping_detected": zapping_detected,
@@ -616,6 +619,35 @@ class ZapController:
         except Exception as e:
             print(f"❌ [ZapController] Zapping analysis error: {e}")
             return {"success": False, "message": f"Zapping analysis error: {e}"}
+    
+    def _add_zapping_images_to_screenshots(self, context, zapping_result: Dict[str, Any], capture_folder: str):
+        """Add key zapping images to context screenshot collection for R2 upload"""
+        try:
+            if not hasattr(context, 'screenshot_paths'):
+                context.screenshot_paths = []
+            
+            # Get the captures subfolder where images are stored
+            captures_folder = f"{capture_folder}/captures"
+            
+            # List of key images to upload (in order of importance)
+            key_images = [
+                zapping_result.get('first_image'),
+                zapping_result.get('blackscreen_start_image'),
+                zapping_result.get('blackscreen_end_image'),
+                zapping_result.get('first_content_after_blackscreen'),
+                zapping_result.get('last_image')
+            ]
+            
+            # Add each key image to screenshot paths if it exists
+            for image_filename in key_images:
+                if image_filename:
+                    image_path = f"{captures_folder}/{image_filename}"
+                    if image_path not in context.screenshot_paths:
+                        context.screenshot_paths.append(image_path)
+                        print(f"🖼️ [ZapController] Added zapping image for R2 upload: {image_filename}")
+            
+        except Exception as e:
+            print(f"⚠️ [ZapController] Failed to add zapping images to screenshot collection: {e}")
 
     
     def _record_step_result(self, context, iteration: int, max_iterations: int, action_command: str,
