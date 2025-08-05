@@ -241,7 +241,7 @@ docker exec -it <container_id> grafana-cli admin reset-admin-password newpasswor
 # Required Render environment variables
 SERVER_PORT=5109
 SERVER_URL=https://your-app-name.onrender.com
-CORS_ORIGINS=https://your-frontend.vercel.app
+CORS_ORIGINS=https://virtualpytest.vercel.app
 DEBUG=false
 RENDER=true
 
@@ -254,7 +254,10 @@ DATABASE_URL=postgresql://postgres:password@db.project-id.supabase.co:5432/postg
 GRAFANA_ADMIN_USER=admin
 GRAFANA_ADMIN_PASSWORD=your_secure_password
 GRAFANA_SECRET_KEY=your_grafana_secret_key
-GRAFANA_DOMAIN=your-app-name.onrender.com
+GRAFANA_DOMAIN=virtualpytest.onrender.com
+GF_SERVER_DOMAIN=virtualpytest.onrender.com
+GF_SERVER_ROOT_URL=https://virtualpytest.onrender.com/grafana/
+GF_SERVER_PROTOCOL=https
 
 # Optional: Add your API keys
 OPENROUTER_API_KEY=your_openrouter_key

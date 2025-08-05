@@ -44,12 +44,18 @@ services:
       - SERVER_PORT=5109
       - SERVER_URL=http://localhost:5109
       - DEBUG=false
-      - CORS_ORIGINS=http://localhost:3000,http://localhost:80
+      - CORS_ORIGINS=http://localhost:3000,http://localhost:80,https://virtualpytest.vercel.app
       # Grafana configuration
       - GRAFANA_ADMIN_USER=admin
       - GRAFANA_ADMIN_PASSWORD=admin123
       - GRAFANA_SECRET_KEY=docker-grafana-secret-key
       - GRAFANA_DOMAIN=localhost
+      # Grafana server environment variables
+      - GF_SERVER_HTTP_PORT=3001
+      - GF_SERVER_PROTOCOL=http
+      - GF_SERVER_DOMAIN=localhost
+      - GF_SERVER_ROOT_URL=http://localhost:5109/grafana/
+      - GF_SERVER_SERVE_FROM_SUB_PATH=true
       # Database connection (add your Supabase credentials)
       - DATABASE_URL=postgresql://postgres:password@db.project-id.supabase.co:5432/postgres
       - NEXT_PUBLIC_SUPABASE_URL=https://your-project-id.supabase.co
