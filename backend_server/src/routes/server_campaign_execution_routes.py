@@ -17,10 +17,9 @@ from shared.lib.utils.app_utils import get_team_id
 from shared.lib.utils.campaign_executor import CampaignExecutor
 
 # Import database functions
-from shared.lib.supabase.campaign_results_db import (
-    get_campaign_results,
-    get_campaign_execution_summary,
-    get_campaign_script_executions
+from shared.lib.supabase.campaign_executions_db import (
+    get_campaign_execution_with_scripts,
+    get_campaign_results
 )
 
 from shared.lib.utils.app_utils import check_supabase

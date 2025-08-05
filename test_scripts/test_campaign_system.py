@@ -22,7 +22,7 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 from shared.lib.utils.campaign_executor import CampaignExecutor
-from shared.lib.supabase.campaign_results_db import get_campaign_results, get_campaign_execution_summary
+from shared.lib.supabase.campaign_executions_db import get_campaign_results
 
 
 def create_test_campaign_config(userinterface_name: str = "horizon_android_mobile") -> dict:

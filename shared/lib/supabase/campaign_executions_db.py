@@ -209,3 +209,45 @@ def get_campaign_execution_with_scripts(campaign_execution_id: str) -> Optional[
     except Exception as e:
         print(f"[@db:campaign_executions:get_with_scripts] Error: {str(e)}")
         return None
+
+
+def get_campaign_results(
+    team_id: str,
+    campaign_id: Optional[str] = None,
+    status: Optional[str] = None,
+    limit: int = 50
+) -> Dict[str, Any]:
+    """Get campaign execution results with optional filtering."""
+    try:
+        supabase = get_supabase()
+        
+        # Build query
+        query = supabase.table('campaign_executions').select('*').eq('team_id', team_id)
+        
+        if campaign_id:
+            query = query.ilike('campaign_name', f'%{campaign_id}%')
+        
+        if status:
+            query = query.eq('status', status)
+        
+        # Order by most recent first and apply limit
+        result = query.order('created_at', desc=True).limit(limit).execute()
+        
+        if result.data:
+            print(f"[@db:campaign_executions:get_results] Found {len(result.data)} campaign results")
+            return {
+                'success': True,
+                'data': result.data
+            }
+        else:
+            return {
+                'success': True,
+                'data': []
+            }
+            
+    except Exception as e:
+        print(f"[@db:campaign_executions:get_results] Error: {str(e)}")
+        return {
+            'success': False,
+            'error': str(e)
+        }
