@@ -92,8 +92,8 @@ class VideoContentHelpers:
             total_pixels = img.shape[0] * img.shape[1]
             dark_percentage = (very_dark_pixels / total_pixels) * 100
             
-            # If more than 95% of pixels are very dark, it's a blackscreen
-            is_blackscreen = bool(dark_percentage > 95)
+            # If more than 80% of pixels are very dark, it's a blackscreen
+            is_blackscreen = bool(dark_percentage > 80)
             
             result = {
                 'success': True,

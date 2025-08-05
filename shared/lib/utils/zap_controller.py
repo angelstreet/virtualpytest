@@ -493,11 +493,12 @@ class ZapController:
             # Initialize variables for all device types
             horizontal_offset = 0  # Default offset for non-mobile devices
             
-            # Panel/screenshot resolution (landscape format for mobile)
+            # Panel/screenshot resolution - use actual capture dimensions
             if device_model in ['android_mobile', 'ios_mobile']:
-                panel_width = 1024
-                panel_height = 768
-                print(f"🎯 [ZapController] Using mobile panel resolution for {device_model}: {panel_width}x{panel_height}")
+                # Mobile captures are 1280x720 (landscape format)
+                panel_width = 1280
+                panel_height = 720
+                print(f"🎯 [ZapController] Using mobile capture resolution for {device_model}: {panel_width}x{panel_height}")
                 
                 # Calculate actual content area (same logic as AndroidMobileOverlay)
                 device_aspect_ratio = device_width / device_height
@@ -535,21 +536,22 @@ class ZapController:
                     blackscreen_area = None
             
             if not blackscreen_area:
-                # Standard banner height for all devices
-                banner_height = 300
-                
-                # Calculate content area (exclude banner and bottom controls)
-                content_height = screen_height - banner_height - 100  # Leave margin for bottom controls
-                
                 # For mobile portrait content, account for horizontal offset (black bars)
                 if device_model in ['android_mobile', 'ios_mobile']:
+                    # Hardcoded bounds based on mobile TV app layout analysis
+                    # Video content area (excludes status bar and program guide)
+                    status_bar_height = 60
+                    video_area_height = 400
+                    
                     # Use actual content area, accounting for black bars on sides
                     analysis_x = int(horizontal_offset)
-                    analysis_width = screen_width
-                    analysis_rectangle = {'x': analysis_x, 'y': banner_height, 'width': analysis_width, 'height': content_height}
-                    print(f"🎯 [ZapController] Using mobile portrait blackscreen area (with offset): {analysis_rectangle}")
+                    analysis_width = int(actual_content_width)
+                    analysis_rectangle = {'x': analysis_x, 'y': status_bar_height, 'width': analysis_width, 'height': video_area_height}
+                    print(f"🎯 [ZapController] Using mobile TV app specific blackscreen area: {analysis_rectangle}")
                 else:
-                    # Standard full-width area for TV/desktop
+                    # Standard banner height and area for TV/desktop
+                    banner_height = 300
+                    content_height = screen_height - banner_height - 100
                     analysis_rectangle = {'x': 0, 'y': banner_height, 'width': screen_width, 'height': content_height}
                     print(f"🎯 [ZapController] Using standard blackscreen area: {analysis_rectangle}")
             
