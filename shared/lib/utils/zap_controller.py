@@ -478,11 +478,40 @@ class ZapController:
             # Get device model directly from context - always needed for screen dimensions
             device_model = context.selected_device.device_model if context.selected_device else 'unknown'
             
-            # Simple resolution based on device model - only 2 cases
+            # Get device resolution from controller if available
+            device_width = 720  # Default mobile portrait width
+            device_height = 1280  # Default mobile portrait height
+            
+            # Try to get actual device resolution from video controller
+            if hasattr(video_controller, 'av_controller') and hasattr(video_controller.av_controller, 'device_resolution'):
+                device_res = video_controller.av_controller.device_resolution
+                if device_res and 'width' in device_res and 'height' in device_res:
+                    device_width = device_res['width']
+                    device_height = device_res['height']
+                    print(f"🎯 [ZapController] Using actual device resolution: {device_width}x{device_height}")
+            
+            # Initialize variables for all device types
+            horizontal_offset = 0  # Default offset for non-mobile devices
+            
+            # Panel/screenshot resolution (landscape format for mobile)
             if device_model in ['android_mobile', 'ios_mobile']:
-                screen_width = 1024
-                screen_height = 768
-                print(f"🎯 [ZapController] Using mobile resolution for {device_model}: {screen_width}x{screen_height}")
+                panel_width = 1024
+                panel_height = 768
+                print(f"🎯 [ZapController] Using mobile panel resolution for {device_model}: {panel_width}x{panel_height}")
+                
+                # Calculate actual content area (same logic as AndroidMobileOverlay)
+                device_aspect_ratio = device_width / device_height
+                actual_content_width = panel_height * device_aspect_ratio
+                horizontal_offset = (panel_width - actual_content_width) / 2
+                
+                print(f"🎯 [ZapController] Portrait content calculation:")
+                print(f"    Device aspect ratio: {device_aspect_ratio:.3f}")
+                print(f"    Actual content width: {actual_content_width:.1f}")
+                print(f"    Horizontal offset: {horizontal_offset:.1f}")
+                
+                # Use actual content dimensions for analysis
+                screen_width = int(actual_content_width)
+                screen_height = panel_height
             else:
                 screen_width = 1920
                 screen_height = 1080
@@ -511,8 +540,18 @@ class ZapController:
                 
                 # Calculate content area (exclude banner and bottom controls)
                 content_height = screen_height - banner_height - 100  # Leave margin for bottom controls
-                analysis_rectangle = {'x': 0, 'y': banner_height, 'width': screen_width, 'height': content_height}
-                print(f"🎯 [ZapController] Using device-model-based blackscreen area: {analysis_rectangle}")
+                
+                # For mobile portrait content, account for horizontal offset (black bars)
+                if device_model in ['android_mobile', 'ios_mobile']:
+                    # Use actual content area, accounting for black bars on sides
+                    analysis_x = int(horizontal_offset)
+                    analysis_width = screen_width
+                    analysis_rectangle = {'x': analysis_x, 'y': banner_height, 'width': analysis_width, 'height': content_height}
+                    print(f"🎯 [ZapController] Using mobile portrait blackscreen area (with offset): {analysis_rectangle}")
+                else:
+                    # Standard full-width area for TV/desktop
+                    analysis_rectangle = {'x': 0, 'y': banner_height, 'width': screen_width, 'height': content_height}
+                    print(f"🎯 [ZapController] Using standard blackscreen area: {analysis_rectangle}")
             
             # Calculate banner region as the remaining area below blackscreen area
             # This assumes full screen width and starts where blackscreen area ends
