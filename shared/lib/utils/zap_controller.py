@@ -484,9 +484,21 @@ class ZapController:
             if not capture_folder:
                 return {"success": False, "message": "No capture folder available"}
             
-            # Use action end time minus 1 second to account for the fact that zapping effect
-            # starts when tap is launched, not when we receive execution confirmation
-            key_release_timestamp = (action_end_time - 1.0) if action_end_time else time.time() - 5
+            # Use action end time minus 2 seconds to account for the fact that zapping effect
+            # starts when tap is launched, and blackscreen can occur 2 seconds before our timestamp
+            # This ensures we capture blackscreen that starts earlier than expected
+            original_offset = 2.0
+            key_release_timestamp = (action_end_time - original_offset) if action_end_time else time.time() - 7
+            
+            # Ensure we never go below 1 second for minimum zapping duration
+            if action_end_time and (action_end_time - key_release_timestamp) < 1.0:
+                key_release_timestamp = action_end_time - 1.0
+                print(f"🎯 [ZapController] Adjusted timestamp to ensure minimum 1s zapping window")
+                print(f"🎯 [ZapController] Analysis window: {action_end_time - key_release_timestamp:.1f}s")
+            else:
+                print(f"🎯 [ZapController] Starting analysis {original_offset}s before action end time")
+                if action_end_time:
+                    print(f"🎯 [ZapController] Analysis window: {action_end_time - key_release_timestamp:.1f}s")
             
             # Get device model directly from context - always needed for screen dimensions
             device_model = context.selected_device.device_model if context.selected_device else 'unknown'
@@ -578,18 +590,21 @@ class ZapController:
             print(f"🎯 [ZapController] Calculated banner area: {banner_region}")
             
             # Call the new zapping detection method
+            # Analyze more images since we start 2 seconds earlier to catch early blackscreen
             zapping_result = video_controller.detect_zapping(
                 folder_path=capture_folder,
                 key_release_timestamp=key_release_timestamp,
                 analysis_rectangle=analysis_rectangle,
                 banner_region=banner_region,
-                max_images=8  # Analyze up to 8 images (8 seconds of capture)
+                max_images=10  # Analyze up to 10 images (10 seconds of capture) to account for earlier start
             )
             
             if zapping_result.get('success', False):
+                # Analysis completed successfully (regardless of whether zapping was detected)
                 zapping_detected = zapping_result.get('zapping_detected', False)
                 blackscreen_duration = zapping_result.get('blackscreen_duration', 0.0)
                 channel_info = zapping_result.get('channel_info', {})
+                analyzed_images = zapping_result.get('analyzed_images', 0)
                 
                 if zapping_detected:
                     print(f"✅ [ZapController] Zapping detected - Duration: {blackscreen_duration}s")
@@ -598,7 +613,7 @@ class ZapController:
                     if channel_info.get('program_name'):
                         print(f"   📺 Program: {channel_info['program_name']}")
                 else:
-                    print(f"⚠️ [ZapController] No zapping sequence detected")
+                    print(f"⚠️ [ZapController] No zapping sequence detected (analyzed {analyzed_images} images)")
                 
                 # Add zapping images to context screenshot collection for R2 upload
                 self._add_zapping_images_to_screenshots(context, zapping_result, capture_folder)
@@ -615,23 +630,39 @@ class ZapController:
                     "channel_detection_image": zapping_result.get('channel_detection_image'),
                     "last_image": zapping_result.get('last_image'),
                     "channel_info": channel_info,
-                    "analyzed_images": zapping_result.get('analyzed_images', 0),
+                    "analyzed_images": analyzed_images,
                     "total_images_available": zapping_result.get('total_images_available', 0),
-                    "message": f"Zapping {'detected' if zapping_detected else 'not detected'}",
+                    "debug_images": zapping_result.get('debug_images', []),  # Include debug images
+                    "message": f"Zapping analysis completed - {'detected' if zapping_detected else 'not detected'} (analyzed {analyzed_images} images)",
                     "details": zapping_result
                 }
             else:
-                error_msg = zapping_result.get('error', 'Unknown error')
+                # Analysis actually failed (couldn't load images, etc.)
+                error_msg = zapping_result.get('error', 'Analysis failed without specific error message')
                 print(f"❌ [ZapController] Zapping analysis failed: {error_msg}")
+                
+                # Still include debug images if available for debugging
+                debug_images = zapping_result.get('debug_images', [])
                 return {
                     "success": False,
                     "zapping_detected": False,
-                    "message": f"Zapping analysis failed: {error_msg}"
+                    "debug_images": debug_images,
+                    "message": f"Zapping analysis failed: {error_msg}",
+                    "error": error_msg
                 }
                 
         except Exception as e:
-            print(f"❌ [ZapController] Zapping analysis error: {e}")
-            return {"success": False, "message": f"Zapping analysis error: {e}"}
+            import traceback
+            error_details = f"{str(e)} | Traceback: {traceback.format_exc()}"
+            print(f"❌ [ZapController] Zapping analysis exception: {error_details}")
+            return {
+                "success": False, 
+                "zapping_detected": False,
+                "debug_images": [],
+                "message": f"Zapping analysis exception: {str(e)}",
+                "error": str(e),
+                "error_details": error_details
+            }
     
     def _add_zapping_images_to_screenshots(self, context, zapping_result: Dict[str, Any], capture_folder: str):
         """Add key zapping images to context screenshot collection for R2 upload"""
