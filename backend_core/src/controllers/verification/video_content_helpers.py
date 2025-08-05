@@ -761,8 +761,8 @@ class VideoContentHelpers:
                 # Image sequence information
                 'first_image': image_data[0]['filename'] if image_data else None,
                 'blackscreen_start_image': image_data[sequence['blackscreen_start_index']]['filename'] if sequence.get('blackscreen_start_index') is not None else None,
-                'blackscreen_end_image': image_data[sequence['blackscreen_end_index']]['filename'] if sequence.get('blackscreen_end_index') is not None else None,
-                'first_content_after_blackscreen': image_data[sequence['blackscreen_end_index'] + 1]['filename'] if (sequence.get('blackscreen_end_index') is not None and sequence['blackscreen_end_index'] + 1 < len(image_data)) else None,
+                'blackscreen_end_image': self._get_blackscreen_end_image(image_data, sequence),
+                'first_content_after_blackscreen': self._get_first_content_after_blackscreen(image_data, sequence),
                 'last_image': image_data[-1]['filename'] if image_data else None,
                 
                 # Analysis metadata
@@ -1016,6 +1016,34 @@ class VideoContentHelpers:
             'zapping_detected': zapping_detected,
             'single_image_case': single_image_case
         }
+
+    def _get_blackscreen_end_image(self, image_data: List[Dict], sequence: Dict[str, Any]) -> Optional[str]:
+        """Get the blackscreen end image filename, handling single image case."""
+        if sequence.get('single_image_case', False):
+            # For single blackscreen image, end image is the same as start image
+            start_index = sequence.get('blackscreen_start_index')
+            if start_index is not None and start_index < len(image_data):
+                return image_data[start_index]['filename']
+        else:
+            # Normal case: use blackscreen_end_index
+            end_index = sequence.get('blackscreen_end_index')
+            if end_index is not None and end_index < len(image_data):
+                return image_data[end_index]['filename']
+        return None
+
+    def _get_first_content_after_blackscreen(self, image_data: List[Dict], sequence: Dict[str, Any]) -> Optional[str]:
+        """Get the first content image after blackscreen, handling single image case."""
+        if sequence.get('single_image_case', False):
+            # For single blackscreen image, first content is the next image after the blackscreen
+            start_index = sequence.get('blackscreen_start_index')
+            if start_index is not None and start_index + 1 < len(image_data):
+                return image_data[start_index + 1]['filename']
+        else:
+            # Normal case: use blackscreen_end_index + 1
+            end_index = sequence.get('blackscreen_end_index')
+            if end_index is not None and end_index + 1 < len(image_data):
+                return image_data[end_index + 1]['filename']
+        return None
 
     def _extract_channel_info_from_images(self, image_data: List[Dict], blackscreen_end_index: int, 
                                          analysis_rectangle: Dict[str, int] = None) -> Dict[str, Any]:
