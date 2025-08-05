@@ -308,15 +308,58 @@ class CampaignExecutor:
                 cmd.extend([f"--{param_name}", str(param_value)])
             
             print(f"🚀 [Campaign] Executing command: {' '.join(cmd)}")
+            print(f"📋 [Campaign] Starting real-time script output:")
+            print("=" * 80)
             
-            # Execute script
-            result = subprocess.run(
+            # Execute script with real-time output streaming
+            process = subprocess.Popen(
                 cmd,
                 cwd=self.project_root,
-                capture_output=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,  # Merge stderr into stdout
                 text=True,
-                timeout=3600  # 1 hour timeout
+                bufsize=1,  # Line buffered
+                universal_newlines=True
             )
+            
+            # Stream output in real-time with timeout
+            stdout_lines = []
+            timeout_seconds = 3600  # 1 hour timeout
+            start_time_for_timeout = time.time()
+            
+            while True:
+                output = process.stdout.readline()
+                if output == '' and process.poll() is not None:
+                    break
+                if output:
+                    # Print with campaign prefix to distinguish from script output
+                    print(f"[Script] {output.rstrip()}")
+                    stdout_lines.append(output)
+                
+                # Check for timeout
+                if time.time() - start_time_for_timeout > timeout_seconds:
+                    print(f"⏰ [Campaign] Script timeout after {timeout_seconds}s, terminating...")
+                    process.terminate()
+                    try:
+                        process.wait(timeout=10)  # Give it 10 seconds to terminate gracefully
+                    except subprocess.TimeoutExpired:
+                        process.kill()  # Force kill if it doesn't terminate
+                    break
+            
+            # Wait for process to complete and get return code
+            return_code = process.poll()
+            
+            print("=" * 80)
+            print(f"📋 [Campaign] Script output ended")
+            
+            # Create a result object similar to subprocess.run
+            class ProcessResult:
+                def __init__(self, returncode, stdout):
+                    self.returncode = returncode
+                    self.stdout = ''.join(stdout)
+                    self.stderr = ""  # We merged stderr into stdout
+            
+            result = ProcessResult(return_code, stdout_lines)
             
             execution_time_ms = int((time.time() - script_start_time) * 1000)
             success = result.returncode == 0
