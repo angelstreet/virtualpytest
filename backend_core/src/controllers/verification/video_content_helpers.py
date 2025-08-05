@@ -785,51 +785,52 @@ class VideoContentHelpers:
 
     def _get_images_after_timestamp(self, folder_path: str, start_timestamp: float, max_count: int = 10) -> List[Dict]:
         """
-        Get images captured after the specified timestamp using direct file scanning.
+        Simple approach: Get images by incrementing timestamp by 1 second to get next 10 images.
         
         Args:
-            folder_path: Path to folder containing images
+            folder_path: Path to main folder (we'll add /captures)
             start_timestamp: Start timestamp (Unix timestamp)
-            max_count: Maximum number of images to return
+            max_count: Maximum number of images to return (default: 10)
             
         Returns:
-            List of image data dictionaries sorted by timestamp
+            List of image data dictionaries
         """
         try:
-            if not os.path.exists(folder_path):
-                print(f"VideoContent[{self.device_name}]: Folder not found: {folder_path}")
+            # Images are in the captures subfolder
+            captures_folder = os.path.join(folder_path, 'captures')
+            
+            if not os.path.exists(captures_folder):
+                print(f"VideoContent[{self.device_name}]: Captures folder not found: {captures_folder}")
                 return []
             
             images = []
             
-            # Scan for capture files directly in the folder (no captures/ subfolder)
-            for filename in os.listdir(folder_path):
-                if filename.startswith('capture_') and filename.endswith('.jpg') and '_thumbnail' not in filename:
-                    # Parse timestamp from filename: capture_20250805124819.jpg -> Unix timestamp
-                    try:
-                        timestamp_str = filename[8:22]  # Extract YYYYMMDDHHMMSS (positions 8-21)
-                        file_timestamp = datetime.strptime(timestamp_str, '%Y%m%d%H%M%S').timestamp()
-                        
-                        if file_timestamp >= start_timestamp:
-                            image_path = os.path.join(folder_path, filename)
-                            images.append({
-                                'path': image_path,
-                                'timestamp': file_timestamp,
-                                'filename': filename
-                            })
-                    except (ValueError, IndexError) as e:
-                        print(f"VideoContent[{self.device_name}]: Could not parse timestamp from {filename}: {e}")
-                        continue
+            # Simple plan: Start from action timestamp and increment by 1 second to get 10 images
+            for i in range(max_count):
+                # Calculate timestamp for this second (start + i seconds)
+                target_timestamp = start_timestamp + i
+                
+                # Convert to capture filename format: capture_YYYYMMDDHHMMSS.jpg
+                target_datetime = datetime.fromtimestamp(target_timestamp)
+                target_filename = f"capture_{target_datetime.strftime('%Y%m%d%H%M%S')}.jpg"
+                target_path = os.path.join(captures_folder, target_filename)
+                
+                # Check if this image exists
+                if os.path.exists(target_path):
+                    images.append({
+                        'path': target_path,
+                        'timestamp': target_timestamp,
+                        'filename': target_filename
+                    })
+                    print(f"VideoContent[{self.device_name}]: Found image {target_filename}")
+                else:
+                    print(f"VideoContent[{self.device_name}]: Missing image {target_filename}")
             
-            # Sort by timestamp and limit
-            images.sort(key=lambda x: x['timestamp'])
-            result = images[:max_count]
-            
-            print(f"VideoContent[{self.device_name}]: Found {len(result)} images after timestamp {start_timestamp}")
-            return result
+            print(f"VideoContent[{self.device_name}]: Found {len(images)} images starting from timestamp")
+            return images
             
         except Exception as e:
-            print(f"VideoContent[{self.device_name}]: Error scanning images: {e}")
+            print(f"VideoContent[{self.device_name}]: Error getting images: {e}")
             return []
 
     def _convert_unix_to_capture_format(self, unix_timestamp: float) -> str:
