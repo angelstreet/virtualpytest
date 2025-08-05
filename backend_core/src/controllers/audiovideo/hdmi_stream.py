@@ -173,12 +173,16 @@ class HDMIStreamController(AVControllerInterface):
             with open(m3u8_path, 'r') as f:
                 playlist_content = f.read()
             
-            # Extract .ts segment filenames from playlist
-            segment_files = []
-            for line in playlist_content.splitlines():
-                if line.endswith('.ts'):
-                    segment_path = os.path.join(self.video_capture_path, line.strip())
-                    if os.path.exists(segment_path):
+                    # Extract .ts segment filenames from playlist
+        segment_files = []
+        for line in playlist_content.splitlines():
+            if line.endswith('.ts'):
+                segment_path = os.path.join(self.video_capture_path, line.strip())
+                if os.path.exists(segment_path):
+                    # FILTER BY TIME: Only include segments created after test start
+                    if test_start_time and os.path.getctime(segment_path) >= test_start_time:
+                        segment_files.append((line.strip(), segment_path))
+                    elif not test_start_time:
                         segment_files.append((line.strip(), segment_path))
             
             if not segment_files:
