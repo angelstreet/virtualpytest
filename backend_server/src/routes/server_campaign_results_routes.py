@@ -36,7 +36,7 @@ def get_all_campaign_results():
         result = get_campaign_results(team_id, limit=100)
         
         if result['success']:
-            return jsonify(result['campaign_results'])
+            return jsonify(result['data'])
         else:
             return jsonify({'error': result.get('error', 'Failed to fetch campaign results')}), 500
             
