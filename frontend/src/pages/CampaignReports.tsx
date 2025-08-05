@@ -3,6 +3,9 @@ import {
   CheckCircle as PassIcon,
   Error as FailIcon,
   Link as LinkIcon,
+  ExpandMore as ExpandMoreIcon,
+  ExpandLess as ExpandLessIcon,
+  PlayArrow as ScriptIcon,
 } from '@mui/icons-material';
 import {
   Box,
@@ -20,6 +23,8 @@ import {
   CircularProgress,
   Alert,
   Checkbox,
+  IconButton,
+  Collapse,
 } from '@mui/material';
 import React, { useState, useEffect } from 'react';
 
@@ -30,6 +35,8 @@ const CampaignReports: React.FC = () => {
   const [campaignResults, setCampaignResults] = useState<CampaignResult[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  const [scriptResults, setScriptResults] = useState<Record<string, any[]>>({});
 
   // Load campaign results on component mount
   useEffect(() => {
@@ -86,6 +93,30 @@ const CampaignReports: React.FC = () => {
     return new Date(dateString).toLocaleString();
   }
 
+  // Handle row expansion
+  const handleRowExpand = (campaignId: string) => {
+    const newExpandedRows = new Set(expandedRows);
+    
+    if (expandedRows.has(campaignId)) {
+      // Collapse row
+      newExpandedRows.delete(campaignId);
+    } else {
+      // Expand row - script results are already included in campaign data
+      newExpandedRows.add(campaignId);
+      
+      // Get script results from campaign data (no API call needed)
+      const campaign = campaignResults.find(c => c.id === campaignId);
+      if (campaign && campaign.script_results && !scriptResults[campaignId]) {
+        setScriptResults(prev => ({
+          ...prev,
+          [campaignId]: campaign.script_results
+        }));
+      }
+    }
+    
+    setExpandedRows(newExpandedRows);
+  };
+
   // Handle discard toggle
   const handleDiscardToggle = async (resultId: string, discardValue: boolean) => {
     try {
@@ -114,7 +145,7 @@ const CampaignReports: React.FC = () => {
   // Empty state component
   const EmptyState = () => (
     <TableRow>
-      <TableCell colSpan={9} sx={{ textAlign: 'center', py: 4 }}>
+      <TableCell colSpan={10} sx={{ textAlign: 'center', py: 4 }}>
         <Typography variant="body2" color="textSecondary">
           No campaign results available yet
         </Typography>
@@ -188,6 +219,9 @@ const CampaignReports: React.FC = () => {
             <Table size="small" sx={{ '& .MuiTableRow-root': { height: '40px' } }}>
               <TableHead>
                 <TableRow>
+                  <TableCell sx={{ py: 1, width: '40px' }}>
+                    {/* Expand column */}
+                  </TableCell>
                   <TableCell sx={{ py: 1 }}>
                     <strong>Campaign Name</strong>
                   </TableCell>
@@ -220,7 +254,7 @@ const CampaignReports: React.FC = () => {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={9}>
+                    <TableCell colSpan={10}>
                       <LoadingState />
                     </TableCell>
                   </TableRow>
@@ -228,59 +262,136 @@ const CampaignReports: React.FC = () => {
                   <EmptyState />
                 ) : (
                   campaignResults.map((result) => (
-                    <TableRow
-                      key={result.id}
-                      sx={{
-                        '&:hover': {
-                          backgroundColor: 'rgba(0, 0, 0, 0.04) !important',
-                        },
-                        opacity: result.discard ? 0.5 : 1,
-                      }}
-                    >
-                      <TableCell sx={{ py: 0.5 }}>{result.campaign_name}</TableCell>
-                      <TableCell sx={{ py: 0.5 }}>{result.userinterface_name || 'N/A'}</TableCell>
-                      <TableCell sx={{ py: 0.5 }}>{result.host_name}</TableCell>
-                      <TableCell sx={{ py: 0.5 }}>{result.device_name}</TableCell>
-                      <TableCell sx={{ py: 0.5 }}>
-                        <Chip
-                          icon={result.success ? <PassIcon /> : <FailIcon />}
-                          label={result.success ? 'PASS' : 'FAIL'}
-                          color={result.success ? 'success' : 'error'}
-                          size="small"
-                        />
-                      </TableCell>
-                      <TableCell sx={{ py: 0.5 }}>
-                        {result.execution_time_ms
-                          ? formatDuration(result.execution_time_ms)
-                          : 'N/A'}
-                      </TableCell>
-                      <TableCell sx={{ py: 0.5 }}>{formatDate(result.started_at)}</TableCell>
-                      <TableCell sx={{ py: 0.5 }}>
-                        {result.html_report_r2_url ? (
-                          <Chip
-                            icon={<LinkIcon />}
-                            label="View Report"
+                    <React.Fragment key={result.id}>
+                      {/* Main campaign row */}
+                      <TableRow
+                        sx={{
+                          '&:hover': {
+                            backgroundColor: 'rgba(0, 0, 0, 0.04) !important',
+                          },
+                          opacity: result.discard ? 0.5 : 1,
+                        }}
+                      >
+                        <TableCell sx={{ py: 0.5 }}>
+                          <IconButton
                             size="small"
-                            clickable
-                            onClick={() => window.open(result.html_report_r2_url!, '_blank')}
-                            color="primary"
-                            variant="outlined"
+                            onClick={() => handleRowExpand(result.id)}
+                            disabled={!result.script_results || result.script_results.length === 0}
+                          >
+                            {expandedRows.has(result.id) ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                          </IconButton>
+                        </TableCell>
+                        <TableCell sx={{ py: 0.5 }}>{result.campaign_name}</TableCell>
+                        <TableCell sx={{ py: 0.5 }}>{result.userinterface_name || 'N/A'}</TableCell>
+                        <TableCell sx={{ py: 0.5 }}>{result.host_name}</TableCell>
+                        <TableCell sx={{ py: 0.5 }}>{result.device_name}</TableCell>
+                        <TableCell sx={{ py: 0.5 }}>
+                          <Chip
+                            icon={result.success ? <PassIcon /> : <FailIcon />}
+                            label={result.success ? 'PASS' : 'FAIL'}
+                            color={result.success ? 'success' : 'error'}
+                            size="small"
                           />
-                        ) : (
-                          <Chip label="No Report" size="small" variant="outlined" disabled />
-                        )}
-                      </TableCell>
-                      <TableCell sx={{ py: 0.5 }}>
-                        <Checkbox
-                          size="small"
-                          checked={result.discard || false}
-                          onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                            handleDiscardToggle(result.id, e.target.checked)
-                          }
-                          title={result.discard ? 'Discarded' : 'Not discarded'}
-                        />
-                      </TableCell>
-                    </TableRow>
+                        </TableCell>
+                        <TableCell sx={{ py: 0.5 }}>
+                          {result.execution_time_ms
+                            ? formatDuration(result.execution_time_ms)
+                            : 'N/A'}
+                        </TableCell>
+                        <TableCell sx={{ py: 0.5 }}>{formatDate(result.started_at)}</TableCell>
+                        <TableCell sx={{ py: 0.5 }}>
+                          {result.html_report_r2_url ? (
+                            <Chip
+                              icon={<LinkIcon />}
+                              label="View Report"
+                              size="small"
+                              clickable
+                              onClick={() => window.open(result.html_report_r2_url!, '_blank')}
+                              color="primary"
+                              variant="outlined"
+                            />
+                          ) : (
+                            <Chip label="No Report" size="small" variant="outlined" disabled />
+                          )}
+                        </TableCell>
+                        <TableCell sx={{ py: 0.5 }}>
+                          <Checkbox
+                            size="small"
+                            checked={result.discard || false}
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                              handleDiscardToggle(result.id, e.target.checked)
+                            }
+                            title={result.discard ? 'Discarded' : 'Not discarded'}
+                          />
+                        </TableCell>
+                      </TableRow>
+
+                      {/* Expandable row for script results */}
+                      <TableRow>
+                        <TableCell colSpan={10} sx={{ py: 0, border: 0 }}>
+                          <Collapse in={expandedRows.has(result.id)} timeout="auto" unmountOnExit>
+                            <Box sx={{ margin: 1, padding: 2, backgroundColor: 'rgba(0, 0, 0, 0.02)' }}>
+                              <Typography variant="h6" gutterBottom component="div" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <ScriptIcon />
+                                Script Executions ({result.script_results?.length || 0})
+                              </Typography>
+                              
+                              {scriptResults[result.id] ? (
+                                <Table size="small">
+                                  <TableHead>
+                                    <TableRow>
+                                      <TableCell><strong>Script Name</strong></TableCell>
+                                      <TableCell><strong>Status</strong></TableCell>
+                                      <TableCell><strong>Duration</strong></TableCell>
+                                      <TableCell><strong>Report</strong></TableCell>
+                                    </TableRow>
+                                  </TableHead>
+                                  <TableBody>
+                                    {scriptResults[result.id].map((script) => (
+                                      <TableRow key={script.id}>
+                                        <TableCell>{script.script_name}</TableCell>
+                                        <TableCell>
+                                          <Chip
+                                            icon={script.success ? <PassIcon /> : <FailIcon />}
+                                            label={script.success ? 'PASS' : 'FAIL'}
+                                            color={script.success ? 'success' : 'error'}
+                                            size="small"
+                                          />
+                                        </TableCell>
+                                        <TableCell>
+                                          {script.execution_time_ms
+                                            ? formatDuration(script.execution_time_ms)
+                                            : 'N/A'}
+                                        </TableCell>
+                                        <TableCell>
+                                          {script.html_report_r2_url ? (
+                                            <Chip
+                                              icon={<LinkIcon />}
+                                              label="View Report"
+                                              size="small"
+                                              clickable
+                                              onClick={() => window.open(script.html_report_r2_url!, '_blank')}
+                                              color="primary"
+                                              variant="outlined"
+                                            />
+                                          ) : (
+                                            <Chip label="No Report" size="small" variant="outlined" disabled />
+                                          )}
+                                        </TableCell>
+                                      </TableRow>
+                                    ))}
+                                  </TableBody>
+                                </Table>
+                              ) : (
+                                <Typography variant="body2" color="textSecondary">
+                                  No script results available
+                                </Typography>
+                              )}
+                            </Box>
+                          </Collapse>
+                        </TableCell>
+                      </TableRow>
+                    </React.Fragment>
                   ))
                 )}
               </TableBody>

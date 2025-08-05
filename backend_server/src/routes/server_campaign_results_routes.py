@@ -42,3 +42,6 @@ def get_all_campaign_results():
             
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+# Note: getCampaignScripts endpoint removed - script results now included in main campaign results

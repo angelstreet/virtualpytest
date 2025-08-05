@@ -217,11 +217,11 @@ def get_campaign_results(
     status: Optional[str] = None,
     limit: int = 50
 ) -> Dict[str, Any]:
-    """Get campaign execution results with optional filtering."""
+    """Get campaign execution results with associated script results using JOIN."""
     try:
         supabase = get_supabase()
         
-        # Build query
+        # Build query for campaigns
         query = supabase.table('campaign_executions').select('*').eq('team_id', team_id)
         
         if campaign_id:
@@ -231,19 +231,37 @@ def get_campaign_results(
             query = query.eq('status', status)
         
         # Order by most recent first and apply limit
-        result = query.order('created_at', desc=True).limit(limit).execute()
+        campaign_result = query.order('created_at', desc=True).limit(limit).execute()
         
-        if result.data:
-            print(f"[@db:campaign_executions:get_results] Found {len(result.data)} campaign results")
-            return {
-                'success': True,
-                'data': result.data
-            }
-        else:
+        if not campaign_result.data:
             return {
                 'success': True,
                 'data': []
             }
+        
+        # For each campaign, get associated script results
+        enriched_campaigns = []
+        for campaign in campaign_result.data:
+            enriched_campaign = campaign.copy()
+            enriched_campaign['script_results'] = []
+            
+            # If campaign has script result IDs, fetch them
+            if campaign.get('script_result_ids') and len(campaign['script_result_ids']) > 0:
+                script_response = supabase.table('script_results').select('*').in_('id', campaign['script_result_ids']).execute()
+                
+                if script_response.data:
+                    # Sort script results by started_at to maintain execution order
+                    script_results = sorted(script_response.data, key=lambda x: x.get('started_at', ''))
+                    enriched_campaign['script_results'] = script_results
+                    print(f"[@db:campaign_executions:get_results] Campaign {campaign['id']} has {len(script_results)} script results")
+            
+            enriched_campaigns.append(enriched_campaign)
+        
+        print(f"[@db:campaign_executions:get_results] Found {len(enriched_campaigns)} campaign results with script data")
+        return {
+            'success': True,
+            'data': enriched_campaigns
+        }
             
     except Exception as e:
         print(f"[@db:campaign_executions:get_results] Error: {str(e)}")

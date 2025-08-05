@@ -6,6 +6,18 @@
 
 import { useMemo } from 'react';
 
+export interface ScriptResult {
+  id: string;
+  script_name: string;
+  script_type: string;
+  success: boolean;
+  execution_time_ms: number | null;
+  started_at: string;
+  completed_at: string;
+  html_report_r2_url: string | null;
+  error_msg: string | null;
+}
+
 export interface CampaignResult {
   id: string;
   team_id: string;
@@ -25,6 +37,7 @@ export interface CampaignResult {
   discard: boolean;
   error_message: string | null;
   script_result_ids: string[];
+  script_results: ScriptResult[];
   script_configurations: any[];
   execution_config: any;
   executed_by: string | null;
