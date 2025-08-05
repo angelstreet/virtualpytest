@@ -540,15 +540,15 @@ class ZapController:
                 # For mobile portrait content, account for horizontal offset (black bars)
                 if device_model in ['android_mobile', 'ios_mobile']:
                     # Hardcoded bounds based on mobile TV app layout analysis
-                    # Video content area (excludes status bar and program guide)
-                    status_bar_height = 60
-                    video_area_height = 400
+                    # Video content area (actual video player, not including banner)
+                    video_start_y = 80  # Below status bar and controls
+                    video_area_height = 140  # Actual video content height
                     
                     # Use actual content area, accounting for black bars on sides
                     analysis_x = int(horizontal_offset)
                     analysis_width = int(actual_content_width)
-                    analysis_rectangle = {'x': analysis_x, 'y': status_bar_height, 'width': analysis_width, 'height': video_area_height}
-                    print(f"🎯 [ZapController] Using mobile TV app specific blackscreen area: {analysis_rectangle}")
+                    analysis_rectangle = {'x': analysis_x, 'y': video_start_y, 'width': analysis_width, 'height': video_area_height}
+                    print(f"🎯 [ZapController] Using mobile TV app specific video area: {analysis_rectangle}")
                 else:
                     # Standard banner height and area for TV/desktop
                     banner_height = 300
