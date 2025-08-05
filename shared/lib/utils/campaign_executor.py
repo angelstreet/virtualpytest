@@ -190,15 +190,11 @@ class CampaignExecutor:
             
             # Update campaign result in database
             update_campaign_execution_result(
-                campaign_result_id=context.campaign_result_id,
+                campaign_execution_id_uuid=context.campaign_result_id,
                 status="completed" if context.overall_success else "failed",
-                end_time=datetime.now(),
-                total_duration_ms=context.get_execution_time_ms(),
-                total_scripts=context.total_scripts,
-                completed_scripts=context.completed_scripts,
-                successful_scripts=context.successful_scripts,
-                failed_scripts=context.failed_scripts,
-                overall_success=context.overall_success,
+                completed_at=datetime.now(),
+                execution_time_ms=context.get_execution_time_ms(),
+                success=context.overall_success,
                 error_message=context.error_message
             )
             
@@ -210,11 +206,11 @@ class CampaignExecutor:
             
             if context.campaign_result_id:
                 update_campaign_execution_result(
-                    campaign_result_id=context.campaign_result_id,
+                    campaign_execution_id_uuid=context.campaign_result_id,
                     status="failed",
-                    end_time=datetime.now(),
-                    total_duration_ms=context.get_execution_time_ms(),
-                    overall_success=False,
+                    completed_at=datetime.now(),
+                    execution_time_ms=context.get_execution_time_ms(),
+                    success=False,
                     error_message=context.error_message
                 )
             
