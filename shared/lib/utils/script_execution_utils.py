@@ -277,7 +277,7 @@ def execute_script(script_name: str, device_id: str, parameters: str = "") -> Di
             # Use shared report generation function (same as validation.py)
             from .report_utils import generate_and_upload_script_report
             
-            report_url = generate_and_upload_script_report(
+            report_result = generate_and_upload_script_report(
                 script_name=f'{script_name}.py',
                 device_info=device_info,
                 host_info=host_info,
@@ -292,6 +292,8 @@ def execute_script(script_name: str, device_id: str, parameters: str = "") -> Di
                 exit_code=exit_code,
                 parameters=parameters
             )
+            
+            report_url = report_result.get('report_url', '') if report_result else ''
             
         except Exception as e:
             print(f"[@script_execution_utils:execute_script] Report generation error: {str(e)}")

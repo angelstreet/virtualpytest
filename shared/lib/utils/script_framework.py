@@ -370,7 +370,7 @@ class ScriptExecutor:
             print(f"❌ [{self.script_name}] Recovery exception: {str(e)}")
             return False
     
-    def generate_final_report(self, context: ScriptExecutionContext, userinterface_name: str) -> str:
+    def generate_final_report(self, context: ScriptExecutionContext, userinterface_name: str) -> Dict[str, str]:
         """Generate and upload final execution report"""
         try:
             # Capture final screenshot
@@ -424,7 +424,7 @@ class ScriptExecutor:
                 'host_name': context.host.host_name
             }
             
-            report_url = generate_and_upload_script_report(
+            report_result = generate_and_upload_script_report(
                 script_name=f"{self.script_name}.py",
                 device_info=device_info,
                 host_info=host_info,
@@ -438,21 +438,26 @@ class ScriptExecutor:
                 test_video_url=getattr(context, 'test_video_url', '')
             )
             
-            if report_url:
-                print(f"📊 [{self.script_name}] Report generated: {report_url}")
+            if report_result.get('success') and report_result.get('report_url'):
+                print(f"📊 [{self.script_name}] Report generated: {report_result['report_url']}")
             
-            return report_url
+            return report_result
             
         except Exception as e:
             print(f"⚠️ [{self.script_name}] Error in report generation: {e}")
-            return ""
+            return {
+                'success': False,
+                'report_url': '',
+                'report_path': ''
+            }
     
     def cleanup_and_exit(self, context: ScriptExecutionContext, userinterface_name: str):
         """Cleanup resources and exit with appropriate code"""
         try:
             # Generate report if we have valid execution context
+            report_result = None
             if context.host and context.selected_device:
-                self.generate_final_report(context, userinterface_name)
+                report_result = self.generate_final_report(context, userinterface_name)
             
             # Update database if tracking is enabled
             if context.script_result_id:
@@ -462,6 +467,8 @@ class ScriptExecutor:
                         script_result_id=context.script_result_id,
                         success=True,
                         execution_time_ms=context.get_execution_time_ms(),
+                        html_report_r2_path=report_result.get('report_path') if report_result and report_result.get('success') else None,
+                        html_report_r2_url=report_result.get('report_url') if report_result and report_result.get('success') else None,
                         error_msg=None
                     )
                 elif context.error_message:
@@ -470,6 +477,8 @@ class ScriptExecutor:
                         script_result_id=context.script_result_id,
                         success=False,
                         execution_time_ms=context.get_execution_time_ms(),
+                        html_report_r2_path=report_result.get('report_path') if report_result and report_result.get('success') else None,
+                        html_report_r2_url=report_result.get('report_url') if report_result and report_result.get('success') else None,
                         error_msg=context.error_message
                     )
         except Exception as e:

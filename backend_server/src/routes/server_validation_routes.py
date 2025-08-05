@@ -258,7 +258,7 @@ def run_validation(tree_id: str):
                     ]
                     
                     # Use shared report generation function
-                    report_url = generate_and_upload_script_report(
+                    report_result = generate_and_upload_script_report(
                         script_name='validation (web interface)',
                         device_info={
                             'device_name': host.get('device_name', 'Unknown Device'),
@@ -279,6 +279,8 @@ def run_validation(tree_id: str):
                         exit_code=0,
                         parameters=''
                     )
+                    
+                    report_url = report_result.get('report_url', '') if report_result else ''
                     
                 except Exception as e:
                     print(f"[@route:run_validation] Report generation failed: {str(e)}")

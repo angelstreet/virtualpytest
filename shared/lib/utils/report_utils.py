@@ -598,13 +598,13 @@ def generate_and_upload_script_report(
     parameters: str = "",
     execution_summary: str = "",
     test_video_url: str = ""
-) -> str:
+) -> Dict[str, str]:
     """
     Generate HTML report and upload to R2 storage - extracted from validation.py
     Can be used by any script execution (validation, simple scripts, etc.)
     
     Returns:
-        Report URL if successful, empty string if failed
+        Dict with 'report_url', 'report_path', and 'success' keys
     """
     try:
         from .cloudflare_utils import upload_script_report, upload_validation_screenshots
@@ -710,18 +710,30 @@ def generate_and_upload_script_report(
             timestamp=execution_timestamp
         )
         
-        report_url = ""
         if upload_result['success']:
             report_url = upload_result['report_url']
+            report_path = upload_result['report_path']
             print(f"[@utils:report_utils:generate_and_upload_script_report] Report uploaded: {report_url}")
+            return {
+                'success': True,
+                'report_url': report_url,
+                'report_path': report_path
+            }
         else:
             print(f"[@utils:report_utils:generate_and_upload_script_report] Upload failed: {upload_result.get('error', 'Unknown error')}")
-        
-        return report_url
+            return {
+                'success': False,
+                'report_url': '',
+                'report_path': ''
+            }
         
     except Exception as e:
         print(f"[@utils:report_utils:generate_and_upload_script_report] Error: {str(e)}")
-        return ""
+        return {
+            'success': False,
+            'report_url': '',
+            'report_path': ''
+        }
 
 def create_error_report(error_message: str) -> str:
     """Create a minimal error report when report generation fails."""
