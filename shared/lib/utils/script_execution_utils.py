@@ -267,37 +267,7 @@ def execute_script(script_name: str, device_id: str, parameters: str = "") -> Di
         
         total_execution_time = int((time.time() - start_time) * 1000)
         
-        # Generate and upload report using shared function
-        report_url = ""
-        try:
-            # Get device and host info
-            device_info = get_device_info_for_report(device_id)
-            host_info = get_host_info_for_report()
-            
-            # Use shared report generation function (same as validation.py)
-            from .report_utils import generate_and_upload_script_report
-            
-            report_result = generate_and_upload_script_report(
-                script_name=f'{script_name}.py',
-                device_info=device_info,
-                host_info=host_info,
-                execution_time=total_execution_time,
-                success=success,
-                step_results=None,  # Simple script execution, no steps
-                screenshot_paths=None,  # No screenshots for simple scripts
-                error_message=stderr if not success else "",
-                userinterface_name="",
-                stdout=stdout,
-                stderr=stderr,
-                exit_code=exit_code,
-                parameters=parameters
-            )
-            
-            report_url = report_result.get('report_url', '') if report_result else ''
-            
-        except Exception as e:
-            print(f"[@script_execution_utils:execute_script] Report generation error: {str(e)}")
-        
+        # Let the script handle its own reporting - no duplicate report generation
         return {
             'success': success,
             'stdout': stdout,
@@ -308,7 +278,7 @@ def execute_script(script_name: str, device_id: str, parameters: str = "") -> Di
             'script_path': script_path,
             'parameters': parameters,
             'execution_time_ms': total_execution_time,
-            'report_url': report_url  # Add report URL to response
+            'report_url': ""  # Script will generate its own report
         }
         
     except Exception as e:
