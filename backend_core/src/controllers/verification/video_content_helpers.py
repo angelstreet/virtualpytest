@@ -748,7 +748,7 @@ class VideoContentHelpers:
                     if blackscreen_index < len(image_data) - 1:
                         print(f"VideoContent[{self.device_name}]: Single image case - analyzing images after blackscreen for channel info")
                         channel_info = self._extract_channel_info_from_images(
-                            image_data, blackscreen_index, banner_region
+                            image_data, blackscreen_index + 1, banner_region
                         )
                 elif (sequence['blackscreen_end_index'] is not None and 
                       sequence['blackscreen_end_index'] < len(image_data) - 1):
