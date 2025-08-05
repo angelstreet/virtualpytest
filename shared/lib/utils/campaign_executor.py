@@ -243,37 +243,7 @@ class CampaignExecutor:
             context.error_message = f"Environment setup error: {str(e)}"
             return False
     
-    def _find_and_link_script_result(self, context: CampaignExecutionContext, script_name: str, 
-                                   start_time: float, execution_time_ms: int) -> Optional[str]:
-        """Find the script result created by the script execution and link it to campaign"""
-        try:
-            from shared.lib.utils.supabase_utils import get_supabase_client
-            
-            supabase = get_supabase_client()
-            
-            # Look for script results created around the execution time
-            # Allow for some time variance (±30 seconds)
-            start_window = datetime.fromtimestamp(start_time - 30)
-            end_window = datetime.fromtimestamp(start_time + (execution_time_ms/1000) + 30)
-            
-            result = supabase.table('script_results').select('id').eq('script_name', script_name).eq('team_id', context.team_id).gte('started_at', start_window.isoformat()).lte('started_at', end_window.isoformat()).order('started_at', desc=True).limit(1).execute()
-            
-            if result.data:
-                script_result_id = result.data[0]['id']
-                
-                # Link this script result to the campaign
-                if add_script_result_to_campaign(context.campaign_result_id, script_result_id):
-                    print(f"🔗 [Campaign] Linked script result {script_result_id} to campaign")
-                    return script_result_id
-                else:
-                    print(f"⚠️ [Campaign] Failed to link script result {script_result_id}")
-            else:
-                print(f"⚠️ [Campaign] Could not find script result for {script_name}")
-                
-        except Exception as e:
-            print(f"❌ [Campaign] Error finding script result: {str(e)}")
-            
-        return None
+
     
     def _execute_single_script(self, context: CampaignExecutionContext, campaign_config: Dict[str, Any], 
                              script_config: Dict[str, Any], execution_order: int) -> Dict[str, Any]:
@@ -324,6 +294,8 @@ class CampaignExecutor:
             
             # Stream output in real-time with timeout
             stdout_lines = []
+            script_result_id = None
+            script_success = None
             timeout_seconds = 3600  # 1 hour timeout
             start_time_for_timeout = time.time()
             
@@ -332,8 +304,17 @@ class CampaignExecutor:
                 if output == '' and process.poll() is not None:
                     break
                 if output:
-                    # Print with campaign prefix to distinguish from script output
-                    print(f"[Script] {output.rstrip()}")
+                    # Check for campaign-relevant information from script
+                    if output.strip().startswith("SCRIPT_RESULT_ID:"):
+                        script_result_id = output.strip().split("SCRIPT_RESULT_ID:", 1)[1]
+                        print(f"🔗 [Campaign] Captured script result ID: {script_result_id}")
+                    elif output.strip().startswith("SCRIPT_SUCCESS:"):
+                        script_success = output.strip().split("SCRIPT_SUCCESS:", 1)[1].lower() == "true"
+                        status_emoji = "✅" if script_success else "❌"
+                        print(f"{status_emoji} [Campaign] Script reported success: {script_success}")
+                    else:
+                        # Print with campaign prefix to distinguish from script output
+                        print(f"[Script] {output.rstrip()}")
                     stdout_lines.append(output)
                 
                 # Check for timeout
@@ -362,12 +343,24 @@ class CampaignExecutor:
             result = ProcessResult(return_code, stdout_lines)
             
             execution_time_ms = int((time.time() - script_start_time) * 1000)
-            success = result.returncode == 0
             
-            # Try to find and link the script result that was created by the script execution
-            script_result_id = self._find_and_link_script_result(
-                context, script_name, script_start_time, execution_time_ms
-            )
+            # Use script-reported success if available, otherwise fall back to return code
+            if script_success is not None:
+                success = script_success
+                print(f"📊 [Campaign] Using script-reported success status: {success}")
+            else:
+                success = result.returncode == 0
+                print(f"📊 [Campaign] Using return code for success status: {success} (code: {result.returncode})")
+            
+            # Link script result to campaign if we have the ID
+            if script_result_id:
+                try:
+                    if add_script_result_to_campaign(context.campaign_result_id, script_result_id):
+                        print(f"🔗 [Campaign] Successfully linked script result {script_result_id} to campaign")
+                    else:
+                        print(f"⚠️ [Campaign] Failed to link script result {script_result_id} to campaign")
+                except Exception as e:
+                    print(f"⚠️ [Campaign] Error linking script result: {e}")
             
             if success:
                 print(f"✅ [Campaign] Script completed successfully in {execution_time_ms}ms")

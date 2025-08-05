@@ -161,6 +161,8 @@ class ScriptExecutor:
                 
                 if context.script_result_id:
                     print(f"📝 [{self.script_name}] Script execution recorded with ID: {context.script_result_id}")
+                    # Output script result ID in a format that campaign executor can parse
+                    print(f"SCRIPT_RESULT_ID:{context.script_result_id}")
             
             # 4. Take device control
             control_result = take_device_control(context.host, context.selected_device, self.script_name)
@@ -491,6 +493,9 @@ class ScriptExecutor:
         
         # Print summary
         self.print_execution_summary(context, userinterface_name)
+        
+        # Output success status for campaign executor
+        print(f"SCRIPT_SUCCESS:{context.overall_success}")
         
         # Exit with proper code
         if context.overall_success:
