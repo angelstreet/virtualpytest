@@ -224,14 +224,29 @@ class VideoVerificationHelpers:
             return self._create_error_result(f'Content analysis error: {str(e)}')
 
     def _execute_json_motion_analysis(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Execute JSON motion analysis verification."""
+        """Execute JSON motion analysis verification with enhanced audio-aware detection."""
         try:
             json_count = int(params.get('json_count', 5))
             strict_mode = params.get('strict_mode', True)
             
             result = self.controller.detect_motion_from_json(json_count, strict_mode)
             success = result.get('success', False)
-            message = result.get('message', f"Motion {'detected' if success else 'not detected'} from JSON analysis")
+            
+            # Enhanced messaging to show what triggered the detection
+            if success:
+                video_ok = result.get('video_ok', False)
+                audio_ok = result.get('audio_ok', False)
+                
+                if video_ok and audio_ok:
+                    message = "Motion detected - both video and audio content present"
+                elif video_ok:
+                    message = "Motion detected - video motion detected"
+                elif audio_ok:
+                    message = "Motion detected - audio content present (video motion minimal)"
+                else:
+                    message = result.get('message', "Motion detected from JSON analysis")
+            else:
+                message = result.get('message', "Motion not detected from JSON analysis")
             
             return {
                 'success': success,

@@ -355,7 +355,19 @@ class ZapController:
             
             success = result.get('success', False)
             if success:
-                print(f"   📊 Motion analysis: {result.get('total_analyzed', 0)} files analyzed")
+                # Enhanced logging to show what triggered the motion detection
+                video_ok = result.get('video_ok', False)
+                audio_ok = result.get('audio_ok', False)
+                analyzed_count = result.get('total_analyzed', 0)
+                
+                if video_ok and audio_ok:
+                    print(f"   📊 Motion detected: {analyzed_count} files analyzed - both video and audio content present")
+                elif video_ok:
+                    print(f"   📊 Motion detected: {analyzed_count} files analyzed - video motion detected")
+                elif audio_ok:
+                    print(f"   🎵 Motion detected: {analyzed_count} files analyzed - audio content present (video motion minimal)")
+                else:
+                    print(f"   📊 Motion detected: {analyzed_count} files analyzed")
             else:
                 print(f"   📝 Motion details: {result.get('message', 'No details')}")
             

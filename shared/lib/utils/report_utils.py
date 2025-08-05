@@ -346,15 +346,16 @@ def create_compact_step_results_section(step_results: List[Dict], screenshots: D
                         analysis_html += f'<div class="analysis-detail">⏰ Time: {start_time} - {end_time}</div>'
                 # Key images in the zapping sequence (with clickable hyperlinks)
                 def create_image_link(image_name, display_text):
-                    """Create clickable hyperlink for image - will be converted to R2 URL by update_step_results_with_r2_urls"""
+                    """Create clickable hyperlink for image showing only filename as text"""
                     if image_name:
-                        # The image_name might already be an R2 URL after URL mapping, or still a filename
+                        # Extract filename from URL or path
                         if image_name.startswith('http'):
-                            # Already an R2 URL
-                            return f'<a href="{image_name}" target="_blank" style="color: #0066cc; text-decoration: underline;">{display_text}</a>'
+                            # Extract filename from R2 URL
+                            filename = image_name.split('/')[-1]
+                            return f'<a href="{image_name}" target="_blank" style="color: #0066cc; text-decoration: underline;">{filename}</a>'
                         else:
                             # Still a filename - will be converted to R2 URL later
-                            return f'<a href="{image_name}" target="_blank" style="color: #0066cc; text-decoration: underline;">{display_text}</a>'
+                            return f'<a href="{image_name}" target="_blank" style="color: #0066cc; text-decoration: underline;">{image_name}</a>'
                     return display_text
                 
                 if zapping_analysis.get('first_image'):

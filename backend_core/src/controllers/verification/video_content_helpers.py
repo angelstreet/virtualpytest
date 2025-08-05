@@ -1080,9 +1080,11 @@ class VideoContentHelpers:
                 filename = image_data[image_index]['filename']
                 
                 print(f"VideoContent[{self.device_name}]: Trying AI analysis on {filename} for channel info")
+                print(f"VideoContent[{self.device_name}]: Using banner region: {banner_region}")
                 
                 # Use AI helper for channel banner analysis
                 channel_result = self.ai_helpers.analyze_channel_banner_ai(image_path, banner_region)
+                print(f"VideoContent[{self.device_name}]: AI analysis result: {channel_result}")
                 
                 if (channel_result.get('success', False) and 
                     channel_result.get('banner_detected', False) and
