@@ -199,7 +199,7 @@ def main():
             'name': '--blackscreen_area',
             'kwargs': {
                 'default': '0,0,1920,720',
-                'help': 'Blackscreen analysis area as x,y,width,height (default: 0,0,1920,720 - top 2/3 of 1080p screen)'
+                'help': 'Blackscreen analysis area as x,y,width,height (default: 0,0,1920,720 for TV, auto-adjusts for mobile devices)'
             }
         },
         {

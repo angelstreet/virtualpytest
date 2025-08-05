@@ -493,10 +493,16 @@ class ZapController:
                 try:
                     # Parse "x,y,width,height" format
                     x, y, width, height = map(int, blackscreen_area.split(','))
-                    analysis_rectangle = {'x': x, 'y': y, 'width': width, 'height': height}
-                    print(f"🎯 [ZapController] Using custom blackscreen area: {analysis_rectangle}")
+                    
+                    # Validate that custom area fits within detected screen resolution
+                    if (x + width > screen_width or y + height > screen_height or x < 0 or y < 0):
+                        print(f"⚠️ [ZapController] Custom blackscreen area {x},{y},{width},{height} exceeds device resolution {screen_width}x{screen_height}, using device-appropriate default")
+                        blackscreen_area = None  # Fall back to device-appropriate default
+                    else:
+                        analysis_rectangle = {'x': x, 'y': y, 'width': width, 'height': height}
+                        print(f"🎯 [ZapController] Using validated custom blackscreen area: {analysis_rectangle}")
                 except (ValueError, IndexError) as e:
-                    print(f"⚠️ [ZapController] Invalid blackscreen_area format '{blackscreen_area}', using default. Error: {e}")
+                    print(f"⚠️ [ZapController] Invalid blackscreen_area format '{blackscreen_area}', using device-appropriate default. Error: {e}")
                     blackscreen_area = None
             
             if not blackscreen_area:
