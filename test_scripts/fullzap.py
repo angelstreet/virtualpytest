@@ -259,6 +259,17 @@ def main():
             print("🎉 [fullzap] Successfully navigated to live!")
         else:
             print("⏭️ [fullzap] Skipping navigation to live node (--goto_live false specified)")
+            
+            # IMPORTANT: Manually set current node to live since we're assuming we're already there
+            # This prevents navigation from going back to home during script execution
+            from shared.lib.utils.navigation_utils import find_node_by_label
+            live_node = find_node_by_label(context.nodes, "live")
+            if live_node:
+                live_node_id = live_node.get('node_id')
+                context.current_node_id = live_node_id
+                print(f"🎯 [fullzap] Manually set current position to live node: {live_node_id}")
+            else:
+                print("⚠️ [fullzap] Warning: Could not find live node in navigation tree - navigation context may be incorrect")
         
         # Execute zap actions multiple times with comprehensive analysis
         location_msg = "from live node" if args.goto_live else "from current location"
