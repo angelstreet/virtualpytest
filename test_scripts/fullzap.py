@@ -2,17 +2,18 @@
 """
 Fullzap Script for VirtualPyTest
 
-This script navigates to the live node and executes a zap action multiple times
+This script optionally navigates to the live node and executes a zap action multiple times
 using the unified script framework with motion detection validation.
 
 Usage:
-    python scripts/fullzap.py [userinterface_name] [--host <host>] [--device <device>] [--action <action>] [--max_iteration <count>]
+    python scripts/fullzap.py [userinterface_name] [--host <host>] [--device <device>] [--action <action>] [--max_iteration <count>] [--goto_live <true|false>]
     
 Example:
     python scripts/fullzap.py
     python scripts/fullzap.py horizon_android_mobile
     python scripts/fullzap.py horizon_android_mobile --action live_chup --max_iteration 20
     python scripts/fullzap.py horizon_android_mobile --device device2 --action zap_chdown --max_iteration 5
+    python scripts/fullzap.py horizon_android_mobile --goto_live false --action live_chup --max_iteration 10
 """
 
 import sys
@@ -173,9 +174,9 @@ def print_fullzap_summary(context: ScriptExecutionContext, userinterface_name: s
 
 
 def main():
-    """Main function to navigate to live and execute zap action multiple times"""
+    """Main function to optionally navigate to live and execute zap action multiple times"""
     script_name = "fullzap"
-    executor = ScriptExecutor(script_name, "Navigate to live and execute zap action multiple times")
+    executor = ScriptExecutor(script_name, "Optionally navigate to live and execute zap action multiple times")
     
     # Create argument parser with custom fullzap arguments
     additional_args = [
@@ -200,13 +201,22 @@ def main():
                 'default': '0,0,1920,720',
                 'help': 'Blackscreen analysis area as x,y,width,height (default: 0,0,1920,720 - top 2/3 of 1080p screen)'
             }
+        },
+        {
+            'name': '--goto_live',
+            'kwargs': {
+                'type': lambda x: x.lower() == 'true',
+                'default': True,
+                'help': 'Navigate to live node before executing actions: true or false (default: true)'
+            }
         }
     ]
     
     parser = executor.create_argument_parser(additional_args)
     args = parser.parse_args()
     
-    print(f"🎯 [fullzap] Starting navigation to live and executing action '{args.action}' {args.max_iteration} times for: {args.userinterface_name}")
+    nav_msg = "with navigation to live" if args.goto_live else "without navigation to live"
+    print(f"🎯 [fullzap] Starting execution of action '{args.action}' {args.max_iteration} times {nav_msg} for: {args.userinterface_name}")
     
     # Setup execution context with database tracking enabled
     context = executor.setup_execution_context(args, enable_db_tracking=True)
@@ -234,21 +244,25 @@ def main():
             executor.cleanup_and_exit(context, args.userinterface_name)
             return
         
-        # Navigate to live node using the simple goto wrapper
-        print("🗺️ [fullzap] Navigating to live node...")
-        live_result = goto_node(context.host, context.selected_device, "live", context.tree_id, context.team_id, context)
-        
-        if not live_result.get('success'):
-            context.error_message = f"Failed to navigate to live: {live_result.get('error', 'Unknown error')}"
-            print(f"❌ [fullzap] {context.error_message}")
-            executor.cleanup_and_exit(context, args.userinterface_name)
-            return
-        
-        print("🎉 [fullzap] Successfully navigated to live!")
+        # Conditionally navigate to live node based on parameter
         nav_success = True
+        if args.goto_live:
+            print("🗺️ [fullzap] Navigating to live node...")
+            live_result = goto_node(context.host, context.selected_device, "live", context.tree_id, context.team_id, context)
+            
+            if not live_result.get('success'):
+                context.error_message = f"Failed to navigate to live: {live_result.get('error', 'Unknown error')}"
+                print(f"❌ [fullzap] {context.error_message}")
+                executor.cleanup_and_exit(context, args.userinterface_name)
+                return
+            
+            print("🎉 [fullzap] Successfully navigated to live!")
+        else:
+            print("⏭️ [fullzap] Skipping navigation to live node (--goto_live false specified)")
         
         # Execute zap actions multiple times with comprehensive analysis
-        print(f"⚡ [fullzap] Executing pre-validated action '{args.action}' from live node...")
+        location_msg = "from live node" if args.goto_live else "from current location"
+        print(f"⚡ [fullzap] Executing pre-validated action '{args.action}' {location_msg}...")
         zap_success = execute_zap_actions(context, action_edge, args.action, args.max_iteration, zap_controller, args.blackscreen_area)
         
         context.overall_success = nav_success and zap_success

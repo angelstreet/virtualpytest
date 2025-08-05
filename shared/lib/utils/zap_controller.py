@@ -475,6 +475,19 @@ class ZapController:
             # Use the actual action end time as key release timestamp
             key_release_timestamp = action_end_time if action_end_time else time.time() - 5
             
+            # Get device model directly from context - always needed for screen dimensions
+            device_model = context.selected_device.device_model if context.selected_device else 'unknown'
+            
+            # Simple resolution based on device model - only 2 cases
+            if device_model in ['android_mobile', 'ios_mobile']:
+                screen_width = 1024
+                screen_height = 768
+                print(f"🎯 [ZapController] Using mobile resolution for {device_model}: {screen_width}x{screen_height}")
+            else:
+                screen_width = 1920
+                screen_height = 1080
+                print(f"🎯 [ZapController] Using default resolution for {device_model}: {screen_width}x{screen_height}")
+            
             # Parse blackscreen area from parameter or use default
             if blackscreen_area:
                 try:
@@ -487,19 +500,6 @@ class ZapController:
                     blackscreen_area = None
             
             if not blackscreen_area:
-                # Get device model directly from context - no need to fetch
-                device_model = context.selected_device.device_model if context.selected_device else 'unknown'
-                
-                # Simple resolution based on device model - only 2 cases
-                if device_model in ['android_mobile', 'ios_mobile']:
-                    screen_width = 1024
-                    screen_height = 768
-                    print(f"🎯 [ZapController] Using mobile resolution for {device_model}: {screen_width}x{screen_height}")
-                else:
-                    screen_width = 1920
-                    screen_height = 1080
-                    print(f"🎯 [ZapController] Using default resolution for {device_model}: {screen_width}x{screen_height}")
-                
                 # Standard banner height for all devices
                 banner_height = 300
                 
