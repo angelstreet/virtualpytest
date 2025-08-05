@@ -681,8 +681,18 @@ class VideoContentHelpers:
                 # Zapping duration: from first image (action completion) to blackscreen disappearance
                 first_image_time = image_data[0]['timestamp']
                 
-                if sequence['blackscreen_end_index'] is not None:
-                    # Blackscreen ended - zapping duration is from start to blackscreen end
+                if sequence.get('single_image_case', False):
+                    # Single blackscreen image case (fast zapping under 2s)
+                    # Assume 1-second blackscreen duration as specified
+                    blackscreen_duration = 1.0
+                    # Zapping duration = time to blackscreen + blackscreen duration
+                    blackscreen_start_time = image_data[sequence['blackscreen_start_index']]['timestamp']
+                    time_to_blackscreen = blackscreen_start_time - first_image_time
+                    zapping_duration = time_to_blackscreen + blackscreen_duration
+                    print(f"VideoContent[{self.device_name}]: Single image case - assumed 1s blackscreen, total zapping: {zapping_duration:.1f}s")
+                    
+                elif sequence['blackscreen_end_index'] is not None:
+                    # Normal case: blackscreen ended - zapping duration is from start to blackscreen end
                     blackscreen_end_time = image_data[sequence['blackscreen_end_index']]['timestamp']
                     zapping_duration = blackscreen_end_time - first_image_time
                     
@@ -709,15 +719,22 @@ class VideoContentHelpers:
                 'confidence': 0.0
             }
             
-            # Only try AI analysis if we have blackscreen end and images after it
-            if (sequence['zapping_detected'] and 
-                sequence['blackscreen_end_index'] is not None and 
-                sequence['blackscreen_end_index'] < len(image_data) - 1):
-                
-                # Try to extract channel info from images after blackscreen ends
-                channel_info = self._extract_channel_info_from_images(
-                    image_data, sequence['blackscreen_end_index'], analysis_rectangle
-                )
+            # Try AI analysis if we have blackscreen end OR single image case
+            if sequence['zapping_detected']:
+                if sequence.get('single_image_case', False):
+                    # For single image case, try to extract channel info from images after the blackscreen image
+                    blackscreen_index = sequence['blackscreen_start_index']
+                    if blackscreen_index < len(image_data) - 1:
+                        print(f"VideoContent[{self.device_name}]: Single image case - analyzing images after blackscreen for channel info")
+                        channel_info = self._extract_channel_info_from_images(
+                            image_data, blackscreen_index, analysis_rectangle
+                        )
+                elif (sequence['blackscreen_end_index'] is not None and 
+                      sequence['blackscreen_end_index'] < len(image_data) - 1):
+                    # Normal case: analyze images after blackscreen ends
+                    channel_info = self._extract_channel_info_from_images(
+                        image_data, sequence['blackscreen_end_index'], analysis_rectangle
+                    )
             
             # Compile complete results with all information
             overall_result = {
@@ -943,6 +960,7 @@ class VideoContentHelpers:
     def _find_blackscreen_sequence(self, blackscreen_results: List[Dict]) -> Dict[str, Any]:
         """
         Find blackscreen start and end in the sequence of results.
+        Handles both full sequences and single blackscreen images (fast zapping).
         
         Args:
             blackscreen_results: List of blackscreen analysis results
@@ -952,28 +970,46 @@ class VideoContentHelpers:
         """
         blackscreen_start_index = None
         blackscreen_end_index = None
+        blackscreen_images = []
         
+        # First pass: identify all blackscreen images
         for i, result in enumerate(blackscreen_results):
-            if result.get('success', False):  # Only consider successful analyses
-                is_blackscreen = result.get('is_blackscreen', False)
-                
-                # Track blackscreen start
-                if is_blackscreen and blackscreen_start_index is None:
-                    blackscreen_start_index = i
-                    print(f"VideoContent[{self.device_name}]: Blackscreen started at {result['filename']}")
-                
-                # Track blackscreen end
-                elif not is_blackscreen and blackscreen_start_index is not None and blackscreen_end_index is None:
-                    blackscreen_end_index = i
-                    print(f"VideoContent[{self.device_name}]: Blackscreen ended at {result['filename']}")
-                    break  # Stop at first non-blackscreen after blackscreen sequence
+            if result.get('success', False) and result.get('is_blackscreen', False):
+                blackscreen_images.append(i)
+        
+        if not blackscreen_images:
+            # No blackscreen detected
+            return {
+                'blackscreen_start_index': None,
+                'blackscreen_end_index': None,
+                'zapping_detected': False,
+                'single_image_case': False
+            }
+        
+        # Find sequence boundaries
+        blackscreen_start_index = blackscreen_images[0]
+        print(f"VideoContent[{self.device_name}]: Blackscreen started at {blackscreen_results[blackscreen_start_index]['filename']}")
+        
+        # Look for blackscreen end (first non-blackscreen after start)
+        for i in range(blackscreen_start_index + 1, len(blackscreen_results)):
+            result = blackscreen_results[i]
+            if result.get('success', False) and not result.get('is_blackscreen', False):
+                blackscreen_end_index = i
+                print(f"VideoContent[{self.device_name}]: Blackscreen ended at {result['filename']}")
+                break
+        
+        # Handle single blackscreen image case (fast zapping under 2s)
+        single_image_case = len(blackscreen_images) == 1 and blackscreen_end_index is None
+        if single_image_case:
+            print(f"VideoContent[{self.device_name}]: Single blackscreen image detected - assuming fast zapping (1s duration)")
         
         zapping_detected = blackscreen_start_index is not None
         
         return {
             'blackscreen_start_index': blackscreen_start_index,
             'blackscreen_end_index': blackscreen_end_index,
-            'zapping_detected': zapping_detected
+            'zapping_detected': zapping_detected,
+            'single_image_case': single_image_case
         }
 
     def _extract_channel_info_from_images(self, image_data: List[Dict], blackscreen_end_index: int, 
