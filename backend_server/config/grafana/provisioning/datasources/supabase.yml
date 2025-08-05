@@ -1,0 +1,39 @@
+# Grafana datasource configuration for VirtualPyTest Supabase PostgreSQL
+apiVersion: 1
+
+datasources:
+  - name: VirtualPyTest PostgreSQL
+    type: postgres
+    access: proxy
+    # Use environment variables for database connection
+    url: ${SUPABASE_DB_HOST}:${SUPABASE_DB_PORT}
+    database: ${SUPABASE_DB_NAME}
+    user: ${SUPABASE_DB_USER}
+    secureJsonData:
+      password: ${SUPABASE_DB_PASSWORD}
+    jsonData:
+      sslmode: require
+      postgresVersion: 1300  # PostgreSQL 13+
+      timescaledb: false
+      maxOpenConns: 5
+      maxIdleConns: 2
+      connMaxLifetime: 14400  # 4 hours
+    # Set as default datasource
+    isDefault: true
+    # Read-only access for security
+    editable: false
+    
+  # Alternative datasource using DATABASE_URL if preferred
+  - name: VirtualPyTest PostgreSQL (URL)
+    type: postgres
+    access: proxy
+    # Use full DATABASE_URL connection string
+    url: ${DATABASE_URL}
+    jsonData:
+      sslmode: require
+      postgresVersion: 1300
+      timescaledb: false
+      maxOpenConns: 3
+      maxIdleConns: 1
+      connMaxLifetime: 14400
+    editable: false

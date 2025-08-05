@@ -1,9 +1,13 @@
 FROM python:3.11-slim
 
-# Install system dependencies
+# Install system dependencies including Grafana
 RUN apt-get update && apt-get install -y \
     curl \
     wget \
+    gnupg2 \
+    software-properties-common \
+    supervisor \
+    postgresql-client \
     libgl1-mesa-glx \
     libglib2.0-0 \
     libsm6 \
@@ -12,6 +16,13 @@ RUN apt-get update && apt-get install -y \
     libgomp1 \
     libglib2.0-0 \
     xvfb \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Grafana
+RUN wget -q -O /usr/share/keyrings/grafana.key https://apt.grafana.com/gpg.key \
+    && echo "deb [signed-by=/usr/share/keyrings/grafana.key] https://apt.grafana.com stable main" | tee -a /etc/apt/sources.list.d/grafana.list \
+    && apt-get update \
+    && apt-get install -y grafana \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -31,24 +42,39 @@ RUN pip install --no-cache-dir -r backend_server/requirements.txt
 # Copy backend_server source
 COPY backend_server/src/ backend_server/src/
 
+# Copy Grafana configuration
+COPY backend_server/config/ backend_server/config/
+
 # Copy utils directory (if it exists in project root)
 # Note: This copy is optional and will be skipped if src/utils/ doesn't exist
 
 # Set working directory to backend_server
 WORKDIR /app/backend_server
 
+# Create directories for Grafana
+RUN mkdir -p /var/lib/grafana /var/log/grafana /etc/grafana \
+    && mkdir -p /app/backend_server/config/grafana/provisioning/{datasources,dashboards} \
+    && mkdir -p /app/backend_server/config/grafana/dashboards
+
 # Create non-root user for security
-RUN useradd -m -u 1000 vptuser && chown -R vptuser:vptuser /app
+RUN useradd -m -u 1000 vptuser \
+    && chown -R vptuser:vptuser /app \
+    && chown -R vptuser:vptuser /var/lib/grafana \
+    && chown -R vptuser:vptuser /var/log/grafana \
+    && chown -R vptuser:vptuser /etc/grafana
 
-# Expose port
-EXPOSE 5109
+# Copy supervisor configuration
+COPY backend_server/config/supervisor/supervisord.conf /etc/supervisor/conf.d/virtualpytest.conf
 
-# Health check
+# Expose ports (Flask: 5109, Grafana: 3000)
+EXPOSE 5109 3000
+
+# Health check for both services
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-  CMD curl -f http://localhost:5109/server/health || exit 1
+  CMD curl -f http://localhost:5109/server/health && curl -f http://localhost:3000/api/health || exit 1
 
 # Switch to non-root user
 USER vptuser
 
-# Run the application
-CMD ["python", "src/app.py"] 
+# Run supervisor to manage both Flask and Grafana
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/supervisord.conf", "-n"] 

@@ -1,0 +1,23 @@
+# Dashboard provider configuration for VirtualPyTest
+apiVersion: 1
+
+providers:
+  - name: 'VirtualPyTest Dashboards'
+    orgId: 1
+    folder: 'VirtualPyTest'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 10
+    allowUiUpdates: true
+    options:
+      path: /app/backend_server/config/grafana/dashboards
+      
+  - name: 'VirtualPyTest System'
+    orgId: 1
+    folder: 'System'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 10
+    allowUiUpdates: true
+    options:
+      path: /app/backend_server/config/grafana/dashboards/system

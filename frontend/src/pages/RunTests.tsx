@@ -231,7 +231,7 @@ const RunTests: React.FC = () => {
 
       setParameterValues(newParameterValues);
     }
-  }, [selectedDevice, deviceModel, selectedHost, scriptAnalysis, parameterValues]);
+  }, [selectedDevice, deviceModel, selectedHost, scriptAnalysis]);
 
   const handleParameterChange = (paramName: string, value: string) => {
     setParameterValues((prev) => ({
@@ -241,20 +241,32 @@ const RunTests: React.FC = () => {
   };
 
   const buildParameterString = () => {
-    if (!scriptAnalysis) return '';
-
     const paramStrings: string[] = [];
 
-    scriptAnalysis.parameters.forEach((param) => {
-      const value = parameterValues[param.name]?.trim();
-      if (value) {
-        if (param.type === 'positional') {
-          paramStrings.push(value);
-        } else {
-          paramStrings.push(`--${param.name} ${value}`);
+    // Always add userinterface_name as the first positional parameter if we have script analysis
+    if (scriptAnalysis) {
+      scriptAnalysis.parameters.forEach((param) => {
+        const value = parameterValues[param.name]?.trim();
+        if (value) {
+          if (param.type === 'positional') {
+            paramStrings.push(value);
+          } else {
+            paramStrings.push(`--${param.name} ${value}`);
+          }
         }
-      }
-    });
+      });
+    } else {
+      // If no script analysis, add default userinterface_name
+      paramStrings.push('horizon_android_mobile');
+    }
+
+    // Always add --host and --device parameters from frontend selections
+    if (selectedHost) {
+      paramStrings.push(`--host ${selectedHost}`);
+    }
+    if (selectedDevice) {
+      paramStrings.push(`--device ${selectedDevice}`);
+    }
 
     return paramStrings.join(' ');
   };
@@ -462,8 +474,10 @@ const RunTests: React.FC = () => {
     );
   };
 
-  // Filter to only show required parameters
-  const requiredParameters = scriptAnalysis?.parameters.filter((param) => param.required) || [];
+  // Filter to only show required parameters, excluding host/device (auto-filled)
+  const requiredParameters = scriptAnalysis?.parameters.filter((param) => 
+    param.required && param.name !== 'host' && param.name !== 'device'
+  ) || [];
 
   // Check if device is mobile model for proper aspect ratio
   const isMobileModel = !!(deviceModel && deviceModel.toLowerCase().includes('mobile'));

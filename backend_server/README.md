@@ -61,13 +61,22 @@ python src/app.py
 ## 🏗️ **Architecture**
 
 ```
-backend_server (API Layer)
-├── Flask Application (Gunicorn)
-├── REST API Routes (/api/*)
-├── WebSocket Handlers (Socket.IO)
-├── Business Logic Services
-├── Host Communication Layer
-└── Database Layer (if applicable)
+backend_server (Multi-Service Container)
+├── Flask Application (Port 5109)
+│   ├── REST API Routes (/api/*)
+│   ├── WebSocket Handlers (Socket.IO)
+│   ├── Business Logic Services
+│   ├── Host Communication Layer
+│   └── Database Layer (Supabase PostgreSQL)
+├── Grafana Service (Port 3000)
+│   ├── PostgreSQL Datasource
+│   ├── VirtualPyTest Dashboards
+│   ├── System Health Monitoring
+│   └── Real-time Metrics & Alerts
+└── Supervisor Process Manager
+    ├── Flask Process Control
+    ├── Grafana Process Control
+    └── Health Check Coordination
 ```
 
 ## 🔧 **Configuration**
@@ -78,24 +87,136 @@ Copy the project-level environment template:
 
 ```bash
 # Copy project-level template (from project root)
-cp env.example .env
+cp .env.example .env
 
 # Edit with your values
 nano .env
 ```
 
-Required environment variables (see project root `env.example`):
+Required environment variables (see project root `.env.example`):
 
 ```bash
-# backend_server Environment Variables
+# Server Configuration
+SERVER_PORT=5109
+SERVER_URL=http://localhost:5109
+CORS_ORIGINS=http://localhost:3000
+
+# Database (Supabase PostgreSQL)
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+DATABASE_URL=postgresql://postgres:password@db.project-id.supabase.co:5432/postgres
+
+# Grafana Configuration
+GRAFANA_ADMIN_USER=admin
+GRAFANA_ADMIN_PASSWORD=admin123
+GRAFANA_SECRET_KEY=your_grafana_secret_key
+
+# External Services
 CLOUDFLARE_R2_ENDPOINT=your_r2_endpoint
-CLOUDFLARE_R2_ACCESS_KEY_ID=your_access_key
-CLOUDFLARE_R2_SECRET_ACCESS_KEY=your_secret_key
-CLOUDFLARE_R2_PUBLIC_URL=your_r2_public_url
 OPENROUTER_API_KEY=your_openrouter_key
 FLASK_SECRET_KEY=your_flask_secret
+```
+
+## 📊 **Grafana Monitoring**
+
+backend_server includes integrated Grafana monitoring for real-time insights into your VirtualPyTest system.
+
+### Features
+
+- **System Overview Dashboard**: Test execution trends, campaign performance, device status
+- **System Health Dashboard**: Database status, active alerts, error rates, device connectivity
+- **Real-time Metrics**: Live monitoring with 30-second refresh intervals
+- **PostgreSQL Integration**: Direct connection to your Supabase database
+- **Custom Dashboards**: Pre-configured dashboards for VirtualPyTest metrics
+
+### Access Grafana
+
+After deployment, access Grafana at:
+
+```bash
+# Local development
+http://localhost:3000
+
+# Render deployment
+https://your-app-name.onrender.com:3000
+```
+
+**Default Login**:
+- Username: `admin`
+- Password: `admin123` (change via `GRAFANA_ADMIN_PASSWORD`)
+
+### Available Dashboards
+
+1. **VirtualPyTest - System Overview**
+   - Test execution trends over time
+   - Active campaigns and connected devices
+   - Test results distribution (success/failure)
+   - Average execution times
+   - Campaign performance metrics
+
+2. **VirtualPyTest - System Health**  
+   - Database connectivity status
+   - Active alerts and error rates
+   - Device status table
+   - Alert trends and system health metrics
+
+### Database Connection
+
+Grafana automatically connects to your Supabase PostgreSQL database using:
+
+```yaml
+# Provisioned datasource configuration
+datasources:
+  - name: VirtualPyTest PostgreSQL
+    type: postgres
+    url: ${DATABASE_URL}
+    database: postgres
+    sslmode: require
+```
+
+### Custom Queries
+
+Example queries for building custom dashboards:
+
+```sql
+-- Test execution success rate over time
+SELECT
+  $__timeGroupAlias(created_at,$__interval),
+  COUNT(CASE WHEN status = 'completed' THEN 1 END)::numeric / 
+  NULLIF(COUNT(*), 0) * 100 as "Success Rate %"
+FROM test_executions
+WHERE $__timeFilter(created_at)
+GROUP BY 1 ORDER BY 1;
+
+-- Device connectivity status
+SELECT 
+  name as "Device",
+  status as "Status",
+  updated_at as "Last Updated"
+FROM device 
+ORDER BY updated_at DESC;
+
+-- Campaign performance metrics
+SELECT 
+  c.name as "Campaign",
+  COUNT(te.id) as "Total Tests",
+  COUNT(CASE WHEN te.status = 'completed' THEN 1 END) as "Completed"
+FROM campaigns c
+LEFT JOIN test_executions te ON c.id = te.campaign_id
+GROUP BY c.id, c.name;
+```
+
+### Troubleshooting Grafana
+
+```bash
+# Check Grafana logs
+docker logs <container_id> | grep grafana
+
+# Verify database connection
+curl http://localhost:3000/api/datasources/proxy/1/api/health
+
+# Reset Grafana admin password
+docker exec -it <container_id> grafana-cli admin reset-admin-password newpassword
 ```
 
 ## 🚀 **Deployment**
@@ -124,10 +245,20 @@ CORS_ORIGINS=https://your-frontend.vercel.app
 DEBUG=false
 RENDER=true
 
-# Optional: Add your API keys
+# Database connection (Supabase)
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_key
+DATABASE_URL=postgresql://postgres:password@db.project-id.supabase.co:5432/postgres
+
+# Grafana monitoring
+GRAFANA_ADMIN_USER=admin
+GRAFANA_ADMIN_PASSWORD=your_secure_password
+GRAFANA_SECRET_KEY=your_grafana_secret_key
+GRAFANA_DOMAIN=your-app-name.onrender.com
+
+# Optional: Add your API keys
 OPENROUTER_API_KEY=your_openrouter_key
+FLASK_SECRET_KEY=your_flask_secret
 ```
 
 5. **Deploy**: Click "Create Web Service" - Render will build and deploy automatically
@@ -148,13 +279,21 @@ OPENROUTER_API_KEY=your_openrouter_key
 # Build image
 docker build -f Dockerfile -t virtualpytest/backend_server .
 
-# Run container
+# Run container with both Flask and Grafana ports
 docker run -d \
   -p 5109:5109 \
+  -p 3000:3000 \
   -e SERVER_URL=http://localhost:5109 \
   -e CORS_ORIGINS=http://localhost:3000 \
+  -e DATABASE_URL=postgresql://postgres:password@db.project-id.supabase.co:5432/postgres \
+  -e GRAFANA_ADMIN_USER=admin \
+  -e GRAFANA_ADMIN_PASSWORD=admin123 \
   virtualpytest/backend_server
 ```
+
+**Access Services**:
+- Flask API: http://localhost:5109
+- Grafana Dashboard: http://localhost:3000
 
 ### Local Deployment
 ```bash

@@ -30,13 +30,14 @@ services:
     privileged: true  # Required for hardware access
     restart: unless-stopped
 
-  # Backend server service (API)
+  # Backend server service (API + Grafana)
   backend_server:
     build:
       context: ../
       dockerfile: backend_server/Dockerfile
     ports:
-      - "5109:5109"
+      - "5109:5109"  # Flask API
+      - "3001:3000"  # Grafana (mapped to 3001 to avoid conflict with frontend)
     volumes:
       - ../shared:/app/shared:ro
     environment:
@@ -44,6 +45,15 @@ services:
       - SERVER_URL=http://localhost:5109
       - DEBUG=false
       - CORS_ORIGINS=http://localhost:3000,http://localhost:80
+      # Grafana configuration
+      - GRAFANA_ADMIN_USER=admin
+      - GRAFANA_ADMIN_PASSWORD=admin123
+      - GRAFANA_SECRET_KEY=docker-grafana-secret-key
+      - GRAFANA_DOMAIN=localhost
+      # Database connection (add your Supabase credentials)
+      - DATABASE_URL=postgresql://postgres:password@db.project-id.supabase.co:5432/postgres
+      - NEXT_PUBLIC_SUPABASE_URL=https://your-project-id.supabase.co
+      - NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
     depends_on:
       - shared
     restart: unless-stopped
