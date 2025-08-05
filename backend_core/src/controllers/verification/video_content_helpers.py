@@ -652,8 +652,38 @@ class VideoContentHelpers:
             print(f"VideoContent[{self.device_name}]: Starting zapping detection in {folder_path}")
             print(f"VideoContent[{self.device_name}]: Key release timestamp: {key_release_timestamp}")
             
-            # Load images from folder by timestamp
-            image_paths = self._load_images_from_folder_by_timestamp(folder_path, key_release_timestamp, max_images)
+            # Use existing analysis utility to load recent images
+            from shared.lib.utils.analysis_utils import load_recent_analysis_data_from_path
+            
+            # Load images from the last 10 seconds (enough for zapping analysis)
+            timeframe_seconds = 10
+            data_result = load_recent_analysis_data_from_path(folder_path, timeframe_minutes=timeframe_seconds/60, max_count=max_images)
+            
+            if not data_result['success']:
+                return {
+                    'success': False,
+                    'error': f"Failed to load images: {data_result.get('error', 'Unknown error')}",
+                    'zapping_detected': False,
+                    'blackscreen_duration': 0.0
+                }
+            
+            # Filter images that were captured after the key release timestamp
+            # and extract image paths with timestamps
+            image_data = []
+            for file_data in data_result['analysis_data']:
+                file_mtime = file_data['file_mtime'] / 1000.0  # Convert milliseconds to seconds
+                if file_mtime >= key_release_timestamp:
+                    # Construct full path to the image file
+                    capture_folder = os.path.join(folder_path, 'captures')
+                    image_path = os.path.join(capture_folder, file_data['filename'])
+                    image_data.append({
+                        'path': image_path,
+                        'timestamp': file_mtime,
+                        'filename': file_data['filename']
+                    })
+            
+            # Extract just the paths for compatibility
+            image_paths = [item['path'] for item in image_data]
             
             if not image_paths:
                 return {
@@ -679,8 +709,8 @@ class VideoContentHelpers:
                     print(f"VideoContent[{self.device_name}]: Failed to analyze {os.path.basename(image_path)}")
                     continue
                 
-                # Extract timestamp from filename (assuming format includes timestamp)
-                image_timestamp = self._extract_timestamp_from_filename(image_path)
+                # Use the timestamp from our image_data (file modification time)
+                image_timestamp = image_data[i]['timestamp']
                 analysis['timestamp'] = image_timestamp
                 analysis['image_index'] = i
                 
@@ -837,80 +867,3 @@ class VideoContentHelpers:
                 'is_blackscreen': False
             }
 
-    def _load_images_from_folder_by_timestamp(self, folder_path: str, start_timestamp: float, max_count: int = 10) -> List[str]:
-        """
-        Load images from folder that were captured after the specified timestamp.
-        
-        Args:
-            folder_path: Path to folder containing images
-            start_timestamp: Start timestamp (Unix timestamp)
-            max_count: Maximum number of images to return
-            
-        Returns:
-            List of image file paths sorted by timestamp (chronological order)
-        """
-        try:
-            if not os.path.exists(folder_path):
-                print(f"VideoContent[{self.device_name}]: Folder not found: {folder_path}")
-                return []
-            
-            # Get all image files from folder
-            image_extensions = {'.png', '.jpg', '.jpeg', '.bmp', '.tiff'}
-            all_files = []
-            
-            for filename in os.listdir(folder_path):
-                if any(filename.lower().endswith(ext) for ext in image_extensions):
-                    file_path = os.path.join(folder_path, filename)
-                    file_timestamp = self._extract_timestamp_from_filename(file_path)
-                    
-                    # Only include files after start timestamp
-                    if file_timestamp >= start_timestamp:
-                        all_files.append((file_path, file_timestamp))
-            
-            # Sort by timestamp (chronological order)
-            all_files.sort(key=lambda x: x[1])
-            
-            # Return up to max_count file paths
-            image_paths = [file_path for file_path, _ in all_files[:max_count]]
-            
-            print(f"VideoContent[{self.device_name}]: Found {len(image_paths)} images after timestamp {start_timestamp}")
-            return image_paths
-            
-        except Exception as e:
-            print(f"VideoContent[{self.device_name}]: Error loading images from folder: {e}")
-            return []
-
-    def _extract_timestamp_from_filename(self, file_path: str) -> float:
-        """
-        Extract timestamp from filename or use file modification time as fallback.
-        
-        Args:
-            file_path: Path to the file
-            
-        Returns:
-            Unix timestamp as float
-        """
-        try:
-            filename = os.path.basename(file_path)
-            
-            # Try to extract timestamp from filename
-            # Common patterns: image_1234567890.png, capture_1234567890_001.jpg, etc.
-            import re
-            timestamp_pattern = r'(\d{10,13})'  # Unix timestamp (10-13 digits)
-            matches = re.findall(timestamp_pattern, filename)
-            
-            if matches:
-                # Use the first timestamp found in filename
-                timestamp = int(matches[0])
-                # Convert milliseconds to seconds if needed
-                if timestamp > 1e12:  # If timestamp is in milliseconds
-                    timestamp = timestamp / 1000.0
-                return float(timestamp)
-            
-            # Fallback to file modification time
-            return os.path.getmtime(file_path)
-            
-        except Exception as e:
-            print(f"VideoContent[{self.device_name}]: Error extracting timestamp from {file_path}: {e}")
-            # Ultimate fallback - return current time
-            return time.time()
