@@ -1,4 +1,4 @@
-import { Terminal as ScriptIcon, Link as LinkIcon } from '@mui/icons-material';
+import { Terminal as ScriptIcon, Link as LinkIcon, Add as AddIcon } from '@mui/icons-material';
 import {
   Box,
   Typography,
@@ -66,7 +66,7 @@ interface ScriptAnalysis {
 }
 
 const RunTests: React.FC = () => {
-  const { executeScript, isExecuting } = useScript();
+  const { executeScript, executeMultipleScripts, isExecuting, executingIds } = useScript();
   const { showInfo, showSuccess, showError } = useToast();
 
   const [selectedHost, setSelectedHost] = useState<string>('');
@@ -76,6 +76,15 @@ const RunTests: React.FC = () => {
   const [loadingScripts, setLoadingScripts] = useState<boolean>(false);
   const [showWizard, setShowWizard] = useState<boolean>(false);
   const [executions, setExecutions] = useState<ExecutionRecord[]>([]);
+
+  // Multi-device support state
+  const [additionalDevices, setAdditionalDevices] = useState<{hostName: string, deviceId: string}[]>([]);
+  const [streamViewIndex, setStreamViewIndex] = useState<number>(0);
+  const [completionStats, setCompletionStats] = useState<{
+    total: number;
+    completed: number;
+    successful: number;
+  }>({ total: 0, completed: 0, successful: 0 });
 
   // Script parameters state
   const [scriptAnalysis, setScriptAnalysis] = useState<ScriptAnalysis | null>(null);
@@ -90,13 +99,22 @@ const RunTests: React.FC = () => {
   const hosts = showWizard ? allHosts : []; // Only show hosts in wizard when opened
   const availableDevices = showWizard && selectedHost ? getDevicesFromHost(selectedHost) : [];
 
-  // Get the selected host object for stream (use allHosts to ensure stream works)
-  const selectedHostObject = allHosts.find((host) => host.host_name === selectedHost);
+  // Get stream device (primary device or selected additional device)
+  const getStreamDevice = () => {
+    if (streamViewIndex === 0) {
+      return { hostName: selectedHost, deviceId: selectedDevice };
+    } else {
+      return additionalDevices[streamViewIndex - 1];
+    }
+  };
+
+  const streamDevice = getStreamDevice();
+  const streamHostObject = allHosts.find((host) => host.host_name === streamDevice?.hostName);
 
   // Use stream hook to get device stream - only when both host and device are selected
   const { streamUrl, isLoadingUrl, urlError } = useStream({
-    host: selectedHostObject!,
-    device_id: selectedDevice,
+    host: streamHostObject!,
+    device_id: streamDevice?.deviceId || '',
   });
 
   // Get the selected device object for model information
@@ -286,9 +304,47 @@ const RunTests: React.FC = () => {
     return { valid: errors.length === 0, errors };
   };
 
+  // Helper function to determine test result from output
+  const determineTestResult = (result: any): 'success' | 'failure' | undefined => {
+    if (!result.success) return undefined;
+    
+    const outputText = (result.stdout + ' ' + result.stderr).toLowerCase();
+    
+    if (outputText.includes('overall result: pass') || 
+        outputText.includes('result: success') ||
+        outputText.includes('all validation steps completed successfully') ||
+        outputText.includes('successfully navigated to') ||
+        outputText.includes('navigation completed successfully') ||
+        outputText.includes('validation completed successfully')) {
+      return 'success';
+    } else if (outputText.includes('overall result: fail') ||
+               outputText.includes('result: failed') ||
+               outputText.includes('validation failed') ||
+               outputText.includes('navigation failed') ||
+               outputText.includes('could not navigate to') ||
+               outputText.includes('failed at step') ||
+               outputText.includes('element not found') ||
+               outputText.includes('no path found')) {
+      return 'failure';
+    }
+    
+    return undefined;
+  };
+
   const handleExecuteScript = async () => {
-    if (!selectedHost || !selectedDevice || !selectedScript) {
-      showError('Please select host, device, and script');
+    // Build complete device list: primary device + additional devices
+    const allDevices = [];
+    
+    // Add primary device if selected
+    if (selectedHost && selectedDevice) {
+      allDevices.push({ hostName: selectedHost, deviceId: selectedDevice });
+    }
+    
+    // Add additional devices
+    allDevices.push(...additionalDevices);
+
+    if (allDevices.length === 0 || !selectedScript) {
+      showError('Please select at least one device and a script');
       return;
     }
 
@@ -301,115 +357,111 @@ const RunTests: React.FC = () => {
 
     const parameterString = buildParameterString();
 
-    // Create execution record
-    const executionId = `exec_${Date.now()}`;
-    const newExecution: ExecutionRecord = {
-      id: executionId,
+    // Prepare executions for concurrent processing
+    const executions = allDevices.map((hostDevice) => ({
+      id: `exec_${Date.now()}_${hostDevice.hostName}_${hostDevice.deviceId}`,
       scriptName: selectedScript,
-      hostName: selectedHost,
-      deviceId: selectedDevice,
+      hostName: hostDevice.hostName,
+      deviceId: hostDevice.deviceId,
+      parameters: parameterString,
+    }));
+
+    // Initialize completion stats
+    setCompletionStats({ total: executions.length, completed: 0, successful: 0 });
+
+    // Create execution records upfront
+    const newExecutions: ExecutionRecord[] = executions.map(exec => ({
+      id: exec.id,
+      scriptName: exec.scriptName,
+      hostName: exec.hostName,
+      deviceId: exec.deviceId,
       startTime: new Date().toLocaleTimeString(),
       status: 'running',
-      parameters: parameterString,
-    };
+      parameters: exec.parameters,
+    }));
 
-    setExecutions((prev) => [newExecution, ...prev]);
-    showInfo(
-      `Script "${selectedScript}" started on ${selectedHost}:${selectedDevice}${parameterString ? ` with parameters: ${parameterString}` : ''}`,
-    );
+    setExecutions(prev => [...newExecutions, ...prev]);
+
+    if (allDevices.length === 1) {
+      showInfo(`Script "${selectedScript}" started on ${allDevices[0].hostName}:${allDevices[0].deviceId}`);
+    } else {
+      showInfo(`Script "${selectedScript}" started on ${allDevices.length} devices`);
+    }
 
     try {
-      const result = await executeScript(
-        selectedScript,
-        selectedHost,
-        selectedDevice,
-        parameterString,
-      );
-
-      // Determine execution status and test result
-      let executionStatus: ExecutionRecord['status'] = 'failed';
-      let testResult: ExecutionRecord['testResult'] | undefined = undefined;
-
-      if (result.success) {
-        // Script executed without crashes - execution was successful
-        executionStatus = 'completed';
+      // LIVE UPDATES: Define callback for real-time completion updates
+      const onExecutionComplete = (executionId: string, result: any) => {
+        console.log(`[@RunTests] Execution ${executionId} completed with success: ${result.success}`);
         
-        // Now determine the actual test result by analyzing the output
-        const outputText = (result.stdout + ' ' + result.stderr).toLowerCase();
-        
-        // Check for explicit test result indicators in the output
-        if (outputText.includes('overall result: pass') || 
-            outputText.includes('result: success') ||
-            outputText.includes('all validation steps completed successfully') ||
-            outputText.includes('successfully navigated to') ||
-            outputText.includes('navigation completed successfully') ||
-            outputText.includes('validation completed successfully')) {
-          testResult = 'success';
-        } else if (outputText.includes('overall result: fail') ||
-                   outputText.includes('result: failed') ||
-                   outputText.includes('validation failed') ||
-                   outputText.includes('navigation failed') ||
-                   outputText.includes('could not navigate to') ||
-                   outputText.includes('failed at step') ||
-                   outputText.includes('element not found') ||
-                   outputText.includes('no path found')) {
-          testResult = 'failure';
-        } else {
-          // If we can't determine from output patterns, default to unknown
-          testResult = undefined;
+        // Update execution record immediately
+        const executionStatus = result.success ? 'completed' : 'failed';
+        const testResult = determineTestResult(result);
+
+        // IMMEDIATE UI UPDATE
+        setExecutions(prev => prev.map(exec => 
+          exec.id === executionId ? {
+            ...exec,
+            endTime: new Date().toLocaleTimeString(),
+            status: executionStatus,
+            testResult: testResult,
+            reportUrl: result.report_url,
+          } : exec
+        ));
+
+        // Update completion stats in real-time
+        setCompletionStats(prev => ({
+          ...prev,
+          completed: prev.completed + 1,
+          successful: prev.successful + (result.success ? 1 : 0)
+        }));
+
+        // Show individual completion toast
+        const device = allDevices.find(d => executionId.includes(`${d.hostName}_${d.deviceId}`));
+        if (device) {
+          if (result.success) {
+            const testResultText = testResult === 'success' ? ' - Test PASSED' : 
+                                 testResult === 'failure' ? ' - Test FAILED' : '';
+            showSuccess(`✅ ${device.hostName}:${device.deviceId} completed successfully${testResultText}`);
+          } else {
+            showError(`❌ ${device.hostName}:${device.deviceId} failed`);
+          }
         }
+      };
+
+      // Execute with live callback - this waits for ALL to complete before returning
+      const results = await executeMultipleScripts(executions, onExecutionComplete);
+
+      // Final summary (all executions are now complete)
+      const successCount = Object.values(results).filter((r: any) => r.success).length;
+      
+      if (allDevices.length === 1) {
+        // Single device summary already shown in callback
       } else {
-        // Script failed to execute (crash, timeout, etc.)
-        executionStatus = 'failed';
-        testResult = undefined; // Can't determine test result if script didn't run
+        // Multi-device final summary
+        if (successCount === allDevices.length) {
+          showSuccess(`🎉 All ${allDevices.length} devices completed successfully!`);
+        } else if (successCount > 0) {
+          showInfo(`📊 Final: ${successCount}/${allDevices.length} devices successful`);
+        } else {
+          showError(`💥 All ${allDevices.length} devices failed`);
+        }
       }
 
-      // Update execution record with completion status
-      setExecutions((prev) =>
-        prev.map((exec) =>
-          exec.id === executionId
-            ? {
-                ...exec,
-                endTime: new Date().toLocaleTimeString(),
-                status: executionStatus,
-                testResult: testResult,
-                reportUrl: result.report_url,
-              }
-            : exec,
-        ),
-      );
-
-      if (result.success) {
-        // Script execution completed successfully
-        if (testResult === 'success') {
-          showSuccess(`Script "${selectedScript}" completed successfully - Test PASSED`);
-        } else if (testResult === 'failure') {
-          showError(`Script "${selectedScript}" completed but Test FAILED`);
-        } else {
-          showInfo(`Script "${selectedScript}" completed - Test result unknown`);
-        }
-        
-        if (result.report_url) {
-          showInfo(`Report available: ${result.report_url}`);
-        }
-      } else {
-        showError(`Script "${selectedScript}" failed to execute: ${result.stderr || 'Unknown error'}`);
-      }
-    } catch (err) {
-      // Update execution record on error (failed to start or execute)
-      setExecutions((prev) =>
-        prev.map((exec) =>
-          exec.id === executionId
-            ? {
-                ...exec,
-                endTime: new Date().toLocaleTimeString(),
-                status: 'aborted',
-                testResult: undefined,
-              }
-            : exec,
-        ),
-      );
-      showError(`Script execution aborted: ${err}`);
+    } catch (error) {
+      showError(`Execution failed: ${error}`);
+      // Mark remaining as aborted
+      executions.forEach(exec => {
+        setExecutions(prev => prev.map(e => 
+          e.id === exec.id && e.status === 'running' ? { 
+            ...e, 
+            status: 'aborted', 
+            endTime: new Date().toLocaleTimeString() 
+          } : e
+        ));
+      });
+    } finally {
+      // Reset completion stats
+      setCompletionStats({ total: 0, completed: 0, successful: 0 });
     }
   };
 
@@ -615,6 +667,30 @@ const RunTests: React.FC = () => {
                       </FormControl>
                   </Grid>
 
+                    {/* Add Device button - only show when first device is selected */}
+                    {selectedHost && selectedDevice && (
+                      <Grid item xs={12} sm={3}>
+                        <Button
+                          variant="outlined"
+                          startIcon={<AddIcon />}
+                          onClick={() => {
+                            const exists = additionalDevices.some(hd => hd.hostName === selectedHost && hd.deviceId === selectedDevice);
+                            if (!exists) {
+                              setAdditionalDevices(prev => [...prev, { hostName: selectedHost, deviceId: selectedDevice }]);
+                              // Reset current selection to allow adding different device
+                              setSelectedHost('');
+                              setSelectedDevice('');
+                            }
+                          }}
+                          disabled={!selectedHost || !selectedDevice}
+                          size="small"
+                          fullWidth
+                        >
+                          + Add Device
+                        </Button>
+                      </Grid>
+                    )}
+
                     {/* Parameters on the same row if there's space */}
                     {displayParameters.length > 0 &&
                       displayParameters.map((param) => (
@@ -624,22 +700,81 @@ const RunTests: React.FC = () => {
                         ))}
                       </Grid>
 
+                  {/* Show additional devices as chips */}
+                  {additionalDevices.length > 0 && (
+                    <Box sx={{ mt: 2, mb: 1 }}>
+                      <Typography variant="body2" sx={{ mb: 1 }}>
+                        Additional devices ({additionalDevices.length}):
+                      </Typography>
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                        {additionalDevices.map((hd, index) => (
+                          <Chip
+                            key={`${hd.hostName}:${hd.deviceId}`}
+                            label={`${hd.hostName}:${hd.deviceId}`}
+                            onDelete={() => {
+                              setAdditionalDevices(prev => prev.filter((_, i) => i !== index));
+                              // Reset stream view if we're viewing a removed device
+                              if (streamViewIndex > 0 && streamViewIndex - 1 === index) {
+                                setStreamViewIndex(0);
+                              }
+                            }}
+                            color="secondary"
+                            variant="outlined"
+                            size="small"
+                          />
+                        ))}
+                      </Box>
+                    </Box>
+                  )}
+
+                  {/* Real-time progress indicator */}
+                  {isExecuting && completionStats.total > 1 && (
+                    <Box sx={{ mb: 2 }}>
+                      <Card variant="outlined">
+                        <CardContent sx={{ py: 1 }}>
+                          <Typography variant="body2" color="text.secondary">
+                            Execution Progress: {completionStats.completed}/{completionStats.total} completed 
+                            ({completionStats.successful} successful)
+                          </Typography>
+                          <Box sx={{ display: 'flex', gap: 1, mt: 1, flexWrap: 'wrap' }}>
+                            {executingIds.map(id => {
+                              // Extract device info from execution ID
+                              const parts = id.split('_');
+                              const deviceInfo = parts.length >= 4 ? `${parts[2]}:${parts[3]}` : id;
+                              return (
+                                <Chip
+                                  key={id}
+                                  label={deviceInfo}
+                                  color="warning"
+                                  size="small"
+                                  icon={<CircularProgress size={16} />}
+                                />
+                              );
+                            })}
+                          </Box>
+                        </CardContent>
+                      </Card>
+                    </Box>
+                  )}
+
                   <Box display="flex" gap={1}>
                     <Button
                       variant="contained"
                       startIcon={isExecuting ? <CircularProgress size={16} /> : <ScriptIcon />}
                       onClick={handleExecuteScript}
                       disabled={
-                        isExecuting ||
-                        !selectedHost ||
-                        !selectedDevice ||
+                        isExecuting ||  // EXECUTION LOCK: Prevent new executions while any are running
+                        ((!selectedHost || !selectedDevice) && additionalDevices.length === 0) ||  // Need at least one device
                         !selectedScript ||
                         loadingScripts ||
                         !validateParameters().valid
                       }
                       size="small"
                     >
-                      {isExecuting ? 'Executing...' : 'Execute Script'}
+                      {isExecuting 
+                        ? `Executing... (${executingIds.length} running)` 
+                        : `Execute Script${((selectedHost && selectedDevice) ? 1 : 0) + additionalDevices.length > 1 ? ` on ${((selectedHost && selectedDevice) ? 1 : 0) + additionalDevices.length} devices` : ''}`
+                      }
                     </Button>
                     <Button
                       variant="outlined"
@@ -661,11 +796,33 @@ const RunTests: React.FC = () => {
           </Card>
         </Grid>
 
-        {/* Device Stream Viewer - Only show when host and device are selected */}
-        {showWizard && selectedHost && selectedDevice && (
+        {/* Device Stream Viewer - Show when we have at least one device */}
+        {showWizard && ((selectedHost && selectedDevice) || additionalDevices.length > 0) && (
           <Grid item xs={12} md={6}>
             <Card sx={{ '& .MuiCardContent-root': { p: 1, '&:last-child': { pb: 1 } } }}>
               <CardContent>
+                {/* Device switcher dropdown - only show if we have multiple devices */}
+                {additionalDevices.length > 0 && (selectedHost && selectedDevice) && (
+                  <Box sx={{ mb: 1 }}>
+                    <FormControl size="small" sx={{ minWidth: 200 }}>
+                      <InputLabel>View Stream</InputLabel>
+                      <Select
+                        value={streamViewIndex}
+                        label="View Stream"
+                        onChange={(e) => setStreamViewIndex(Number(e.target.value))}
+                      >
+                        <MenuItem value={0}>
+                          {selectedHost}:{selectedDevice} (Primary)
+                        </MenuItem>
+                        {additionalDevices.map((hd, index) => (
+                          <MenuItem key={index} value={index + 1}>
+                            {hd.hostName}:{hd.deviceId}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Box>
+                )}
                 <Box
                   sx={{
                     height: 280,
@@ -677,7 +834,7 @@ const RunTests: React.FC = () => {
                     justifyContent: 'center',
                   }}
                 >
-                  {streamUrl && selectedHostObject ? (
+                  {streamUrl && streamHostObject ? (
                     <StreamViewer
                       streamUrl={streamUrl}
                       isStreamActive={true}

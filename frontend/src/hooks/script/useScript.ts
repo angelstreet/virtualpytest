@@ -23,7 +23,18 @@ interface UseScriptReturn {
     deviceId: string,
     parameters?: string,
   ) => Promise<ScriptExecutionResult>;
+  executeMultipleScripts: (
+    executions: Array<{
+      id: string;
+      scriptName: string;
+      hostName: string;
+      deviceId: string;
+      parameters?: string;
+    }>,
+    onExecutionComplete?: (executionId: string, result: ScriptExecutionResult) => void
+  ) => Promise<{ [executionId: string]: ScriptExecutionResult }>;
   isExecuting: boolean;
+  executingIds: string[];
   lastResult: ScriptExecutionResult | null;
   error: string | null;
 }
@@ -33,6 +44,7 @@ const SCRIPT_API_BASE_URL = '/server/script';
 
 export const useScript = (): UseScriptReturn => {
   const [isExecuting, setIsExecuting] = useState(false);
+  const [executingIds, setExecutingIds] = useState<string[]>([]);
   const [lastResult, setLastResult] = useState<ScriptExecutionResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -144,9 +156,172 @@ export const useScript = (): UseScriptReturn => {
     [],
   );
 
+  // Helper function for polling individual tasks with completion callback
+  const pollTaskCompletion = useCallback(async (
+    taskId: string, 
+    hostName: string,
+    onComplete: (result: ScriptExecutionResult) => void
+  ): Promise<ScriptExecutionResult> => {
+    const pollInterval = 2000;
+    const maxWaitTime = 300000;
+    const startTime = Date.now();
+
+    while (Date.now() - startTime < maxWaitTime) {
+      await new Promise((resolve) => setTimeout(resolve, pollInterval));
+
+      try {
+        const statusResponse = await fetch(`${SCRIPT_API_BASE_URL}/status/${taskId}`);
+        const statusResult = await statusResponse.json();
+
+        if (statusResult.success && statusResult.task) {
+          const task = statusResult.task;
+
+          if (task.status === 'completed') {
+            const result: ScriptExecutionResult = {
+              success: task.result?.success || false,
+              stdout: task.result?.stdout || '',
+              stderr: task.result?.stderr || '',
+              exit_code: task.result?.exit_code || 0,
+              host: hostName,
+              report_url: task.result?.report_url,
+            };
+            
+            // IMMEDIATE CALLBACK: Notify completion right away
+            onComplete(result);
+            return result;
+          } else if (task.status === 'failed') {
+            const errorResult: ScriptExecutionResult = {
+              success: false,
+              stdout: '',
+              stderr: task.error || 'Script execution failed',
+              exit_code: 1,
+              host: hostName,
+            };
+            
+            onComplete(errorResult);
+            return errorResult;
+          }
+        }
+      } catch (pollError) {
+        console.warn(`[@hook:useScript] Error polling task ${taskId}:`, pollError);
+      }
+    }
+
+    const timeoutResult: ScriptExecutionResult = {
+      success: false,
+      stdout: '',
+      stderr: `Script execution timed out for task ${taskId}`,
+      exit_code: 1,
+      host: hostName,
+    };
+    
+    onComplete(timeoutResult);
+    return timeoutResult;
+  }, []);
+
+  const executeMultipleScripts = useCallback(async (
+    executions: Array<{
+      id: string;
+      scriptName: string;
+      hostName: string;
+      deviceId: string;
+      parameters?: string;
+    }>,
+    onExecutionComplete?: (executionId: string, result: ScriptExecutionResult) => void
+  ) => {
+    console.log(`[@hook:useScript:executeMultipleScripts] Starting ${executions.length} concurrent executions`);
+    
+    setIsExecuting(true);
+    setExecutingIds(executions.map(e => e.id));
+    setError(null);
+
+    const results: { [executionId: string]: ScriptExecutionResult } = {};
+
+    // Start all executions in parallel with live callback
+    const promises = executions.map(async (execution) => {
+      try {
+        console.log(`[@hook:useScript] Starting execution ${execution.id} on ${execution.hostName}:${execution.deviceId}`);
+        
+        const requestBody: any = {
+          script_name: execution.scriptName,
+          host_name: execution.hostName,
+          device_id: execution.deviceId,
+        };
+
+        if (execution.parameters && execution.parameters.trim()) {
+          requestBody.parameters = execution.parameters.trim();
+        }
+
+        const response = await fetch(`${SCRIPT_API_BASE_URL}/execute`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(requestBody),
+        });
+
+        const initialResult = await response.json();
+
+        if (response.status === 202 && initialResult.task_id) {
+          console.log(`[@hook:useScript] Execution ${execution.id} started with task_id: ${initialResult.task_id}`);
+
+          // Poll with live callback
+          const result = await pollTaskCompletion(
+            initialResult.task_id, 
+            execution.hostName,
+            (result) => {
+              // LIVE UPDATE: Call callback immediately when this execution completes
+              results[execution.id] = result;
+              setExecutingIds(prev => prev.filter(id => id !== execution.id));
+              onExecutionComplete?.(execution.id, result);
+              console.log(`[@hook:useScript] Execution ${execution.id} completed with success: ${result.success}`);
+            }
+          );
+          
+          return result;
+        } else {
+          if (!response.ok) {
+            throw new Error(initialResult.stderr || initialResult.error || 'Script execution failed');
+          }
+          
+          // Immediate completion for synchronous response
+          results[execution.id] = initialResult;
+          setExecutingIds(prev => prev.filter(id => id !== execution.id));
+          onExecutionComplete?.(execution.id, initialResult);
+          
+          return initialResult;
+        }
+      } catch (error) {
+        console.error(`[@hook:useScript] Error in execution ${execution.id}:`, error);
+        const errorResult: ScriptExecutionResult = {
+          success: false,
+          stdout: '',
+          stderr: error instanceof Error ? error.message : 'Unknown error',
+          exit_code: 1,
+          host: execution.hostName,
+        };
+        
+        results[execution.id] = errorResult;
+        setExecutingIds(prev => prev.filter(id => id !== execution.id));
+        onExecutionComplete?.(execution.id, errorResult);
+        
+        return errorResult;
+      }
+    });
+
+    // Wait for ALL executions to complete before allowing new ones
+    await Promise.allSettled(promises);
+    
+    setIsExecuting(false);
+    setExecutingIds([]);
+    
+    console.log(`[@hook:useScript:executeMultipleScripts] All ${executions.length} executions completed`);
+    return results;
+  }, [pollTaskCompletion]);
+
   return {
     executeScript,
+    executeMultipleScripts,
     isExecuting,
+    executingIds,
     lastResult,
     error,
   };
