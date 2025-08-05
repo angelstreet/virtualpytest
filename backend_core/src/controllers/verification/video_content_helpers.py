@@ -691,21 +691,35 @@ class VideoContentHelpers:
                     # Single blackscreen image case (fast zapping under 2s)
                     # Assume 1-second blackscreen duration as specified
                     blackscreen_duration = 1.0
-                    # Zapping duration = time to blackscreen + blackscreen duration
                     blackscreen_start_time = image_data[sequence['blackscreen_start_index']]['timestamp']
-                    time_to_blackscreen = blackscreen_start_time - first_image_time
-                    zapping_duration = time_to_blackscreen + blackscreen_duration
+                    
+                    # If blackscreen appears before our action timestamp, start zapping 1s before blackscreen
+                    if blackscreen_start_time < key_release_timestamp:
+                        adjusted_zapping_start = blackscreen_start_time - 1.0
+                        zapping_duration = (blackscreen_start_time + blackscreen_duration) - adjusted_zapping_start
+                    else:
+                        time_to_blackscreen = blackscreen_start_time - first_image_time
+                        zapping_duration = time_to_blackscreen + blackscreen_duration
                     print(f"VideoContent[{self.device_name}]: Single image case - assumed 1s blackscreen, total zapping: {zapping_duration:.1f}s")
                     
                 elif sequence['blackscreen_end_index'] is not None:
                     # Normal case: blackscreen ended - zapping duration is from start to blackscreen end
                     blackscreen_end_time = image_data[sequence['blackscreen_end_index']]['timestamp']
-                    zapping_duration = blackscreen_end_time - first_image_time
                     
-                    # Blackscreen duration: from blackscreen start to blackscreen end
+                    # If blackscreen appears before our action timestamp, adjust zapping start time
                     if sequence['blackscreen_start_index'] is not None:
                         blackscreen_start_time = image_data[sequence['blackscreen_start_index']]['timestamp']
+                        if blackscreen_start_time < key_release_timestamp:
+                            # Blackscreen detected before action timestamp - start zapping 1s before blackscreen
+                            adjusted_zapping_start = blackscreen_start_time - 1.0
+                            zapping_duration = blackscreen_end_time - adjusted_zapping_start
+                        else:
+                            zapping_duration = blackscreen_end_time - first_image_time
+                        
+                        # Blackscreen duration: from blackscreen start to blackscreen end
                         blackscreen_duration = blackscreen_end_time - blackscreen_start_time
+                    else:
+                        zapping_duration = blackscreen_end_time - first_image_time
                 else:
                     # Blackscreen didn't end in our window - use last image
                     last_image_time = image_data[-1]['timestamp']

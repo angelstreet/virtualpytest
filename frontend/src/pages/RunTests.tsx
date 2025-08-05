@@ -66,7 +66,7 @@ interface ScriptAnalysis {
 }
 
 const RunTests: React.FC = () => {
-  const { executeScript, executeMultipleScripts, isExecuting, executingIds } = useScript();
+  const { executeMultipleScripts, isExecuting, executingIds } = useScript();
   const { showInfo, showSuccess, showError } = useToast();
 
   const [selectedHost, setSelectedHost] = useState<string>('');
@@ -333,7 +333,7 @@ const RunTests: React.FC = () => {
 
   const handleExecuteScript = async () => {
     // Build complete device list: primary device + additional devices
-    const allDevices = [];
+    const allDevices: {hostName: string, deviceId: string}[] = [];
     
     // Add primary device if selected
     if (selectedHost && selectedDevice) {
