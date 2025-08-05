@@ -10,7 +10,7 @@ from typing import Dict, List, Optional, Any
 from datetime import datetime
 from uuid import uuid4
 
-from shared.lib.supabase.client import get_supabase_client
+from shared.lib.utils.supabase_utils import get_supabase_client
 
 
 def get_supabase():
