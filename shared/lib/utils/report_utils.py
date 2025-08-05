@@ -327,13 +327,23 @@ def create_compact_step_results_section(step_results: List[Dict], screenshots: D
                 if zapping_analysis.get('blackscreen_duration'):
                     duration = zapping_analysis.get('blackscreen_duration', 0.0)
                     analysis_html += f'<div class="analysis-detail">Blackscreen Duration: {duration:.2f}s</div>'
+                if zapping_analysis.get('zapping_duration'):
+                    zap_duration = zapping_analysis.get('zapping_duration', 0.0)
+                    analysis_html += f'<div class="analysis-detail">Zap Duration: {zap_duration:.2f}s</div>'
                 if zapping_analysis.get('channel_info', {}).get('channel_name'):
                     channel_info = zapping_analysis.get('channel_info', {})
                     channel_name = channel_info.get('channel_name', '')
-                    analysis_html += f'<div class="analysis-detail">Channel: {channel_name}</div>'
+                    analysis_html += f'<div class="analysis-detail">📺 Channel: {channel_name}</div>'
+                    if channel_info.get('channel_number'):
+                        channel_number = channel_info.get('channel_number', '')
+                        analysis_html += f'<div class="analysis-detail">📺 Channel Number: {channel_number}</div>'
                     if channel_info.get('program_name'):
                         program_name = channel_info.get('program_name', '')
-                        analysis_html += f'<div class="analysis-detail">Program: {program_name}</div>'
+                        analysis_html += f'<div class="analysis-detail">🎬 Program: {program_name}</div>'
+                    if channel_info.get('start_time') and channel_info.get('end_time'):
+                        start_time = channel_info.get('start_time', '')
+                        end_time = channel_info.get('end_time', '')
+                        analysis_html += f'<div class="analysis-detail">⏰ Time: {start_time} - {end_time}</div>'
                 # Key images in the zapping sequence (with clickable hyperlinks)
                 def create_image_link(image_name, display_text):
                     """Create clickable hyperlink for image - will be converted to R2 URL by update_step_results_with_r2_urls"""

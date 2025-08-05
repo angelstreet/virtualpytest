@@ -645,31 +645,15 @@ class VideoVerificationController(VerificationControllerInterface):
                     'blackscreen_duration': 0.0
                 }
             
-            # If zapping was detected and we have banner region, try to extract channel info
-            channel_info = {}
-            if (zapping_result.get('zapping_detected', False) and 
-                banner_region and 
-                zapping_result.get('blackscreen_end_image')):
-                
-                # Find the image where blackscreen ended (first content after zapping)
-                end_image_name = zapping_result.get('blackscreen_end_image', '')
-                if end_image_name:
-                    # Reconstruct full path to the end image
-                    import os
-                    end_image_path = os.path.join(folder_path, end_image_name)
-                    
-                    # Check if banner is present before expensive AI call
-                    if self.ai_helpers.detect_banner_presence(end_image_path, banner_region):
-                        print(f"VideoVerify[{self.device_name}]: Banner detected, analyzing with AI")
-                        banner_result = self.ai_helpers.analyze_channel_banner_ai(end_image_path, banner_region)
-                        
-                        if banner_result.get('success', False) and banner_result.get('banner_detected', False):
-                            channel_info = banner_result.get('channel_info', {})
-                            print(f"VideoVerify[{self.device_name}]: Channel info extracted: {channel_info}")
-                        else:
-                            print(f"VideoVerify[{self.device_name}]: Banner analysis failed or no banner found")
-                    else:
-                        print(f"VideoVerify[{self.device_name}]: No banner presence detected, skipping AI analysis")
+            # Channel info is already extracted by video_content_helpers during zapping detection
+            channel_info = {
+                'channel_name': zapping_result.get('channel_name', ''),
+                'channel_number': zapping_result.get('channel_number', ''),
+                'program_name': zapping_result.get('program_name', ''),
+                'start_time': zapping_result.get('program_start_time', ''),
+                'end_time': zapping_result.get('program_end_time', ''),
+                'confidence': zapping_result.get('channel_confidence', 0.0)
+            }
             
             # Compile comprehensive result
             success = zapping_result.get('zapping_detected', False)
@@ -680,6 +664,7 @@ class VideoVerificationController(VerificationControllerInterface):
                 'success': success,
                 'zapping_detected': success,
                 'blackscreen_duration': blackscreen_duration,
+                'zapping_duration': zapping_result.get('zapping_duration', 0.0),  # Total zapping duration
                 'first_image': zapping_result.get('first_image'),
                 'blackscreen_start_image': zapping_result.get('blackscreen_start_image'),
                 'blackscreen_end_image': zapping_result.get('blackscreen_end_image'),

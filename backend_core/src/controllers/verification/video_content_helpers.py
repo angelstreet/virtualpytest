@@ -55,6 +55,10 @@ class VideoContentHelpers:
         """
         self.av_controller = av_controller
         self.device_name = device_name
+        
+        # Initialize AI helpers for channel analysis
+        from .video_ai_helpers import VideoAIHelpers
+        self.ai_helpers = VideoAIHelpers(av_controller, device_name)
     
     # =============================================================================
     # Blackscreen Detection
@@ -1030,17 +1034,32 @@ class VideoContentHelpers:
             # Calculate banner region from analysis rectangle
             banner_region = None
             if analysis_rectangle:
-                # Banner is typically below the blackscreen analysis area
-                screen_width = analysis_rectangle.get('width', 1920)
-                banner_start_y = analysis_rectangle.get('y', 0) + analysis_rectangle.get('height', 720)
-                banner_height = 1080 - banner_start_y  # Remaining screen height
+                # Get device model for mobile-specific banner area
+                device_model = getattr(self.av_controller, 'device_model', 'unknown')
                 
-                banner_region = {
-                    'x': analysis_rectangle.get('x', 0),
-                    'y': banner_start_y,
-                    'width': screen_width,
-                    'height': banner_height
-                }
+                if device_model in ['android_mobile', 'ios_mobile']:
+                    # Hardcoded banner area for mobile devices (based on 1280x720 capture resolution)
+                    # Banner area is below the video content area
+                    banner_region = {
+                        'x': 437,  # Same x as blackscreen content area
+                        'y': 460,  # Below the video content (y=60, height=400)
+                        'width': 405,  # Same width as blackscreen content area
+                        'height': 260  # Remaining space to bottom of screen
+                    }
+                    print(f"VideoContent[{self.device_name}]: Using mobile banner area: {banner_region}")
+                else:
+                    # Default banner area for TV/desktop devices
+                    screen_width = analysis_rectangle.get('width', 1920)
+                    banner_start_y = analysis_rectangle.get('y', 0) + analysis_rectangle.get('height', 720)
+                    banner_height = 1080 - banner_start_y  # Remaining screen height
+                    
+                    banner_region = {
+                        'x': analysis_rectangle.get('x', 0),
+                        'y': banner_start_y,
+                        'width': screen_width,
+                        'height': banner_height
+                    }
+                    print(f"VideoContent[{self.device_name}]: Using default banner area: {banner_region}")
             
             # Try to extract channel info from images after blackscreen ends
             # Banner might take a few seconds to appear, so try multiple images
@@ -1056,30 +1075,26 @@ class VideoContentHelpers:
                 
                 print(f"VideoContent[{self.device_name}]: Trying AI analysis on {filename} for channel info")
                 
-                # Use existing AI helper for channel banner analysis
-                if hasattr(self, 'ai_helpers') and self.ai_helpers:
-                    channel_result = self.ai_helpers.analyze_channel_banner_ai(image_path, banner_region)
+                # Use AI helper for channel banner analysis
+                channel_result = self.ai_helpers.analyze_channel_banner_ai(image_path, banner_region)
+                
+                if (channel_result.get('success', False) and 
+                    channel_result.get('banner_detected', False) and
+                    channel_result.get('channel_info', {}).get('channel_name')):
                     
-                    if (channel_result.get('success', False) and 
-                        channel_result.get('banner_detected', False) and
-                        channel_result.get('channel_info', {}).get('channel_name')):
-                        
-                        channel_info = channel_result.get('channel_info', {})
-                        print(f"VideoContent[{self.device_name}]: Channel info extracted from {filename}: {channel_info.get('channel_name', 'Unknown')}")
-                        
-                        return {
-                            'channel_name': channel_info.get('channel_name', ''),
-                            'channel_number': channel_info.get('channel_number', ''),
-                            'program_name': channel_info.get('program_name', ''),
-                            'start_time': channel_info.get('start_time', ''),
-                            'end_time': channel_info.get('end_time', ''),
-                            'confidence': channel_result.get('confidence', 0.0),
-                            'analyzed_image': filename,
-                            'banner_region': banner_region
-                        }
-                else:
-                    print(f"VideoContent[{self.device_name}]: AI helpers not available for channel analysis")
-                    break
+                    channel_info = channel_result.get('channel_info', {})
+                    print(f"VideoContent[{self.device_name}]: Channel info extracted from {filename}: {channel_info.get('channel_name', 'Unknown')}")
+                    
+                    return {
+                        'channel_name': channel_info.get('channel_name', ''),
+                        'channel_number': channel_info.get('channel_number', ''),
+                        'program_name': channel_info.get('program_name', ''),
+                        'start_time': channel_info.get('start_time', ''),
+                        'end_time': channel_info.get('end_time', ''),
+                        'confidence': channel_result.get('confidence', 0.0),
+                        'analyzed_image': filename,
+                        'banner_region': banner_region
+                    }
             
             print(f"VideoContent[{self.device_name}]: No channel information found in {max_attempts} images after blackscreen")
             return {

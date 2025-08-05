@@ -595,6 +595,7 @@ class ZapController:
                     "success": True,
                     "zapping_detected": zapping_detected,
                     "blackscreen_duration": blackscreen_duration,
+                    "zapping_duration": zapping_result.get('zapping_duration', 0.0),  # Total zapping duration
                     "first_image": zapping_result.get('first_image'),
                     "blackscreen_start_image": zapping_result.get('blackscreen_start_image'),
                     "blackscreen_end_image": zapping_result.get('blackscreen_end_image'),
