@@ -1090,41 +1090,14 @@ class VideoContentHelpers:
             Dictionary with channel information
         """
         try:
-            # Calculate banner region from analysis rectangle
-            banner_region = None
-            if analysis_rectangle:
-                # Get device model for mobile-specific banner area
-                device_model = getattr(self.av_controller, 'device_model', 'unknown')
-                
-                if device_model in ['android_mobile', 'ios_mobile']:
-                    # Calculate banner area based on video player area (immediately below video)
-                    # Use same x and width as video area, positioned directly below it
-                    video_x = analysis_rectangle.get('x', 437)
-                    video_y = analysis_rectangle.get('y', 80)  
-                    video_width = analysis_rectangle.get('width', 405)
-                    video_height = analysis_rectangle.get('height', 140)
-                    
-                    # Banner area is immediately below the video player
-                    banner_region = {
-                        'x': video_x,  # Same x as video area
-                        'y': video_y + video_height,  # Immediately below the video area (y=220)
-                        'width': video_width,  # Same width as video area
-                        'height': 80  # Just enough for banner text (Dog Squad, episode info, time)
-                    }
-                    print(f"VideoContent[{self.device_name}]: Using mobile banner area (below video): {banner_region}")
-                else:
-                    # Default banner area for TV/desktop devices
-                    screen_width = analysis_rectangle.get('width', 1920)
-                    banner_start_y = analysis_rectangle.get('y', 0) + analysis_rectangle.get('height', 720)
-                    banner_height = 1080 - banner_start_y  # Remaining screen height
-                    
-                    banner_region = {
-                        'x': analysis_rectangle.get('x', 0),
-                        'y': banner_start_y,
-                        'width': screen_width,
-                        'height': banner_height
-                    }
-                    print(f"VideoContent[{self.device_name}]: Using default banner area: {banner_region}")
+            # Simple hardcoded banner region for mobile devices
+            banner_region = {
+                'x': 437,
+                'y': 220, 
+                'width': 405,
+                'height': 80
+            }
+            print(f"VideoContent[{self.device_name}]: Using banner region: {banner_region}")
             
             # Try to extract channel info from images after blackscreen ends
             # Banner might take a few seconds to appear, so try multiple images

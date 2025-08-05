@@ -772,11 +772,6 @@ JSON ONLY - NO OTHER TEXT"""
                     width = banner_region.get('width', img.shape[1])
                     height = banner_region.get('height', img.shape[0])
                     
-                    # Validate rectangle bounds
-                    img_height, img_width = img.shape[:2]
-                    if x < 0 or y < 0 or x + width > img_width or y + height > img_height:
-                        return {'success': False, 'error': 'Banner region out of image bounds'}
-                    
                     # Crop to specified region
                     img = img[y:y+height, x:x+width]
                     print(f"VideoAI[{self.device_name}]: Cropped image to banner region {x},{y} {width}x{height}")
