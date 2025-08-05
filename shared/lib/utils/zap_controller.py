@@ -148,7 +148,9 @@ class ZapController:
                 
                 # 4. Only analyze zapping if motion detected and it's a channel up action
                 if context and 'chup' in action_command.lower():
-                    zapping_result = self._analyze_zapping(context, iteration, action_command, self.blackscreen_area)
+                    # Get the action end time from context if available
+                    action_end_time = getattr(context, 'last_action_end_time', None)
+                    zapping_result = self._analyze_zapping(context, iteration, action_command, self.blackscreen_area, action_end_time)
                     result.zapping_detected = zapping_result.get('zapping_detected', False)
                     result.zapping_details = zapping_result
                 else:
@@ -210,6 +212,9 @@ class ZapController:
         action_result = execute_edge_actions(context.host, context.selected_device, action_edge, team_id=context.team_id)
         end_time = time.time()
         execution_time = int((end_time - start_time) * 1000)
+        
+        # Store the action end time in context for zapping analysis
+        context.last_action_end_time = end_time
         
         self.statistics.total_execution_time += execution_time
         
@@ -369,7 +374,7 @@ class ZapController:
         except Exception as e:
             return {"success": False, "message": f"Audio menu analysis error: {e}"}
     
-    def _analyze_zapping(self, context, iteration: int, action_command: str, blackscreen_area: str = None) -> Dict[str, Any]:
+    def _analyze_zapping(self, context, iteration: int, action_command: str, blackscreen_area: str = None, action_end_time: float = None) -> Dict[str, Any]:
         """Analyze zapping sequence using the new zapping detection functionality"""
         try:
             print(f"🔍 [ZapController] Analyzing zapping sequence for {action_command} (iteration {iteration})...")
@@ -392,9 +397,8 @@ class ZapController:
             if not capture_folder:
                 return {"success": False, "message": "No capture folder available"}
             
-            # Use current time as key release timestamp (approximate)
-            import time
-            key_release_timestamp = time.time() - 10  # Look back 10 seconds for zapping sequence
+            # Use the actual action end time as key release timestamp
+            key_release_timestamp = action_end_time if action_end_time else time.time() - 5
             
             # Parse blackscreen area from parameter or use default
             if blackscreen_area:
