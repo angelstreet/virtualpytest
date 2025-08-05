@@ -334,6 +334,22 @@ def create_compact_step_results_section(step_results: List[Dict], screenshots: D
                     if channel_info.get('program_name'):
                         program_name = channel_info.get('program_name', '')
                         analysis_html += f'<div class="analysis-detail">Program: {program_name}</div>'
+                # Key images in the zapping sequence
+                if zapping_analysis.get('first_image'):
+                    first_image = zapping_analysis.get('first_image', '')
+                    analysis_html += f'<div class="analysis-detail">🎬 Start Image: {first_image}</div>'
+                if zapping_analysis.get('blackscreen_start_image'):
+                    start_image = zapping_analysis.get('blackscreen_start_image', '')
+                    analysis_html += f'<div class="analysis-detail">⚫ First Black: {start_image}</div>'
+                if zapping_analysis.get('blackscreen_end_image'):
+                    end_image = zapping_analysis.get('blackscreen_end_image', '')
+                    analysis_html += f'<div class="analysis-detail">⚫ Last Black: {end_image}</div>'
+                if zapping_analysis.get('first_content_after_blackscreen'):
+                    content_image = zapping_analysis.get('first_content_after_blackscreen', '')
+                    analysis_html += f'<div class="analysis-detail">📺 First Content: {content_image}</div>'
+                if zapping_analysis.get('channel_detection_image'):
+                    channel_image = zapping_analysis.get('channel_detection_image', '')
+                    analysis_html += f'<div class="analysis-detail">🔍 Channel Detection: {channel_image}</div>'
                 if zapping_analysis.get('analyzed_images'):
                     analyzed_count = zapping_analysis.get('analyzed_images', 0)
                     total_count = zapping_analysis.get('total_images_available', 0)

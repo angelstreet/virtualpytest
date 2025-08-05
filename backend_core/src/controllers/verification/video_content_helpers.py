@@ -755,9 +755,10 @@ class VideoContentHelpers:
                 'channel_confidence': channel_info.get('confidence', 0.0),
                 
                 # Image sequence information
+                'first_image': image_data[0]['filename'] if image_data else None,
                 'blackscreen_start_image': image_data[sequence['blackscreen_start_index']]['filename'] if sequence['blackscreen_start_index'] is not None else None,
                 'blackscreen_end_image': image_data[sequence['blackscreen_end_index']]['filename'] if sequence['blackscreen_end_index'] is not None else None,
-                'first_image': image_data[0]['filename'] if image_data else None,
+                'first_content_after_blackscreen': image_data[sequence['blackscreen_end_index'] + 1]['filename'] if (sequence['blackscreen_end_index'] is not None and sequence['blackscreen_end_index'] + 1 < len(image_data)) else None,
                 'last_image': image_data[-1]['filename'] if image_data else None,
                 
                 # Analysis metadata

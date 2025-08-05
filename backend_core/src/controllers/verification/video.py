@@ -680,8 +680,12 @@ class VideoVerificationController(VerificationControllerInterface):
                 'success': success,
                 'zapping_detected': success,
                 'blackscreen_duration': blackscreen_duration,
+                'first_image': zapping_result.get('first_image'),
                 'blackscreen_start_image': zapping_result.get('blackscreen_start_image'),
                 'blackscreen_end_image': zapping_result.get('blackscreen_end_image'),
+                'first_content_after_blackscreen': zapping_result.get('first_content_after_blackscreen'),
+                'channel_detection_image': zapping_result.get('blackscreen_end_image'),  # Image used for channel detection
+                'last_image': zapping_result.get('last_image'),
                 'channel_info': channel_info,
                 'analyzed_images': zapping_result.get('analyzed_images', 0),
                 'total_images_available': zapping_result.get('total_images_available', 0),
