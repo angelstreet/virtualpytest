@@ -223,11 +223,7 @@ class CampaignExecutor:
         """Setup campaign execution environment"""
         try:
             # Setup script environment to get team_id and host info
-            env_result = setup_script_environment(
-                userinterface_name=campaign_config.get("userinterface_name", ""),
-                host_name=campaign_config.get("host", "auto"),
-                device_name=campaign_config.get("device", "auto")
-            )
+            env_result = setup_script_environment("campaign")
             
             if not env_result["success"]:
                 context.error_message = f"Environment setup failed: {env_result.get('error')}"
