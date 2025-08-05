@@ -166,7 +166,7 @@ export interface NavigationContextType {
   saveNodeWithStateUpdate: (nodeForm: any) => Promise<void>;
   saveEdgeWithStateUpdate: (edgeForm: any) => Promise<void>;
   saveTreeWithStateUpdate: (treeId: string) => Promise<void>;
-  executeActionsWithPositionUpdate: (actions: any[], retryActions: any[], targetNodeId?: string) => Promise<any>;
+  executeActionsWithPositionUpdate: (actions: any[], retryActions: any[], failureActions?: any[], targetNodeId?: string) => Promise<any>;
 }
 
 interface NavigationProviderProps {
@@ -1140,7 +1140,7 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
          }
        },
 
-       executeActionsWithPositionUpdate: async (actions: any[], retryActions: any[], targetNodeId?: string) => {
+       executeActionsWithPositionUpdate: async (actions: any[], retryActions: any[], failureActions?: any[], targetNodeId?: string) => {
          try {
            setIsLoading(true);
            setError(null);
@@ -1152,7 +1152,7 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
              body: JSON.stringify({
                actions: actions,
                retry_actions: retryActions,
-          failure_actions: failureActions,
+               failure_actions: failureActions || [],
                target_node_id: targetNodeId
              })
            });

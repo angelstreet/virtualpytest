@@ -33,6 +33,7 @@ export const useEdgeEdit = ({
   // Local state for dialog-specific concerns
   const [localActions, setLocalActions] = useState<Action[]>([]);
   const [localRetryActions, setLocalRetryActions] = useState<Action[]>([]);
+  const [localFailureActions, setLocalFailureActions] = useState<Action[]>([]);
   const [dependencyCheckResult, setDependencyCheckResult] = useState<any>(null);
 
   // Initialize actions when dialog opens or edgeForm/selectedEdge changes
@@ -42,20 +43,23 @@ export const useEdgeEdit = ({
       const actionSet = edgeForm.action_sets[0];
       console.log('[@useEdgeEdit] Loading from form:', { 
         actions: actionSet.actions?.length || 0, 
-        retry_actions: actionSet.retry_actions?.length || 0 
+        retry_actions: actionSet.retry_actions?.length || 0,
+        failure_actions: actionSet.failure_actions?.length || 0
       });
       setLocalActions(actionSet.actions || []);
       setLocalRetryActions(actionSet.retry_actions || []);
+      setLocalFailureActions(actionSet.failure_actions || []);
     } else if (isOpen && selectedEdge?.data?.action_sets?.[0]) {
       // Load actions from selectedEdge if form doesn't have them
       const actionSet = selectedEdge.data.action_sets[0];
       console.log('[@useEdgeEdit] Loading from selectedEdge:', { 
         actions: actionSet.actions?.length || 0, 
         retry_actions: actionSet.retry_actions?.length || 0,
-        retry_actions_data: actionSet.retry_actions
+        failure_actions: actionSet.failure_actions?.length || 0
       });
       setLocalActions(actionSet.actions || []);
       setLocalRetryActions(actionSet.retry_actions || []);
+      setLocalFailureActions(actionSet.failure_actions || []);
 
       // Update the form with the loaded actions
       if (edgeForm) {
@@ -64,7 +68,8 @@ export const useEdgeEdit = ({
           updatedActionSets[0] = {
             ...updatedActionSets[0],
             actions: actionSet.actions || [],
-            retry_actions: actionSet.retry_actions || []
+            retry_actions: actionSet.retry_actions || [],
+            failure_actions: actionSet.failure_actions || []
           };
         }
         setEdgeForm({
@@ -127,6 +132,24 @@ export const useEdgeEdit = ({
     [edgeForm, setEdgeForm],
   );
 
+  // Handle failure actions change
+  const handleFailureActionsChange = useCallback(
+    (newFailureActions: Action[]) => {
+      if (!edgeForm) return;
+
+      setLocalFailureActions(newFailureActions);
+      const updatedActionSets = [...(edgeForm.action_sets || [])];
+      if (updatedActionSets[0]) {
+        updatedActionSets[0] = { ...updatedActionSets[0], failure_actions: newFailureActions };
+      }
+      setEdgeForm({
+        ...edgeForm,
+        action_sets: updatedActionSets,
+      });
+    },
+    [edgeForm, setEdgeForm],
+  );
+
   // Execute local actions - simple wrapper around edge hook
   const executeLocalActions = useCallback(async () => {
     if (!selectedEdge) return;
@@ -179,11 +202,13 @@ export const useEdgeEdit = ({
     // Local state
     localActions,
     localRetryActions,
+    localFailureActions,
     dependencyCheckResult,
 
     // Handlers
     handleActionsChange,
     handleRetryActionsChange,
+    handleFailureActionsChange,
 
     // Validation
     isFormValid,
