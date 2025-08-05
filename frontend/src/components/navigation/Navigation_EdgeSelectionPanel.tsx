@@ -71,12 +71,14 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
       isControlActive,
     });
 
-    // Get actions and retry actions directly from actionSet prop
+    // Get actions, retry actions, and failure actions directly from actionSet prop
     const actions = actionSet?.actions || [];
     const retryActions = actionSet?.retry_actions || [];
+    const failureActions = actionSet?.failure_actions || [];
     
     const hasActions = actions.length > 0;
     const hasRetryActions = retryActions.length > 0;
+    const hasFailureActions = failureActions.length > 0;
     
     // Simple canRunActions check using props only
     const canRunActions = isControlActive === true && 
@@ -132,7 +134,8 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
       await edgeHook.executeEdgeActions(
         selectedEdge,
         actions,
-        retryActions
+        retryActions,
+        failureActions
       );
     };
 
@@ -364,6 +367,69 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
                     sx={{ fontSize: '0.75rem', mb: 0.3, color: 'warning.main' }}
                   >
                     R{index + 1}. {formatActionDisplay(action)}
+                  </Typography>
+                );
+              })}
+            </Box>
+          )}
+
+          {/* Show failure actions list */}
+          {hasFailureActions && (
+            <Box sx={{ mb: 1 }}>
+              <Typography
+                variant="caption"
+                sx={{
+                  fontWeight: 'bold',
+                  fontSize: '0.7rem',
+                  mb: 0.5,
+                  display: 'block',
+                  color: 'error.main',
+                }}
+              >
+                Failure Actions (if retry actions fail):
+              </Typography>
+              {failureActions?.map((action: any, index: number) => {
+                const formatActionDisplay = (action: any) => {
+                  if (!action.command) return 'No action selected';
+                  const commandDisplay = action.command.replace(/_/g, ' ').trim();
+                  const params = action.params || {};
+                  const paramParts = [];
+                  switch (action.command) {
+                    case 'click_element':
+                      paramParts.push(`element: ${params.element_id || 'undefined'}`);
+                      break;
+                    case 'input_text':
+                      paramParts.push(`text: "${params.text || 'undefined'}"`);
+                      break;
+                    case 'tap_coordinates':
+                      paramParts.push(`x: ${params.x || 0}, y: ${params.y || 0}`);
+                      break;
+                    case 'launch_app':
+                    case 'close_app':
+                      paramParts.push(`package: ${params.package || 'undefined'}`);
+                      break;
+                    case 'remote_key':
+                      paramParts.push(`key: ${params.key || 'undefined'}`);
+                      break;
+                    case 'wait':
+                      paramParts.push(`duration: ${params.duration || params.wait_time || 0}ms`);
+                      break;
+                    default:
+                      break;
+                  }
+                  
+                  return paramParts.length > 0 
+                    ? `${commandDisplay} (${paramParts.join(', ')})`
+                    : commandDisplay;
+                };
+
+                return (
+                  <Typography
+                    key={`failure-${index}`}
+                    variant="body2"
+                    sx={{ fontSize: '0.75rem', mb: 0.3, color: 'error.main' }}
+                  >
+                    F{index + 1}. {formatActionDisplay(action)}
                   </Typography>
                 );
               })}

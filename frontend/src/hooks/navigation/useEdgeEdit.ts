@@ -153,8 +153,8 @@ export const useEdgeEdit = ({
   // Execute local actions - simple wrapper around edge hook
   const executeLocalActions = useCallback(async () => {
     if (!selectedEdge) return;
-    return await edgeHook.executeEdgeActions(selectedEdge, localActions, localRetryActions);
-  }, [edgeHook, selectedEdge, localActions, localRetryActions]);
+    return await edgeHook.executeEdgeActions(selectedEdge, localActions, localRetryActions, localFailureActions);
+  }, [edgeHook, selectedEdge, localActions, localRetryActions, localFailureActions]);
 
   // Validate form
   const isFormValid = useCallback((): boolean => {

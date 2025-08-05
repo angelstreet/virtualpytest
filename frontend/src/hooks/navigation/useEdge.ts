@@ -158,10 +158,11 @@ export const useEdge = (props?: UseEdgeProps) => {
    * Execute edge actions using centralized method
    */
   const executeEdgeActions = useCallback(
-    async (edge: UINavigationEdge, overrideActions?: Action[], overrideRetryActions?: Action[]) => {
+    async (edge: UINavigationEdge, overrideActions?: Action[], overrideRetryActions?: Action[], overrideFailureActions?: Action[]) => {
       const defaultSet = getDefaultActionSet(edge);
       const actions = overrideActions || defaultSet.actions || [];
       const retryActions = overrideRetryActions || defaultSet.retry_actions || [];
+      const failureActions = overrideFailureActions || defaultSet.failure_actions || [];
 
       if (actions.length === 0) {
         setRunResult('❌ No actions to execute');
@@ -179,6 +180,7 @@ export const useEdge = (props?: UseEdgeProps) => {
         const result = await actionHook.executeActions(
           actions.map(convertToControllerAction),
           retryActions.map(convertToControllerAction),
+          failureActions.map(convertToControllerAction),
         );
 
         const formattedResult = formatRunResult(actionHook.formatExecutionResults(result));

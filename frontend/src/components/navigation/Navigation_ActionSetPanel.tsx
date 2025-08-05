@@ -46,8 +46,10 @@ export const ActionSetPanel: React.FC<ActionSetPanelProps> = React.memo(({
 
   const actions = actionSet.actions || [];
   const retryActions = actionSet.retry_actions || [];
+  const failureActions = actionSet.failure_actions || [];
   const hasActions = actions.length > 0;
   const hasRetryActions = retryActions.length > 0;
+  const hasFailureActions = failureActions.length > 0;
 
   // Check if this action set can be executed
   const canExecute = useMemo(() => {
@@ -64,7 +66,7 @@ export const ActionSetPanel: React.FC<ActionSetPanelProps> = React.memo(({
     if (!canExecute) return;
     
     try {
-      await edgeHook.executeEdgeActions(selectedEdge, actionSet.actions, actionSet.retry_actions);
+      await edgeHook.executeEdgeActions(selectedEdge, actionSet.actions, actionSet.retry_actions, actionSet.failure_actions);
     } catch (error) {
       console.error('Failed to execute action set:', error);
     }
@@ -125,6 +127,7 @@ export const ActionSetPanel: React.FC<ActionSetPanelProps> = React.memo(({
           <Typography variant="body2" sx={{ mb: 1 }}>
             <strong>Actions:</strong> {actions.length}
             {hasRetryActions && ` | Retry Actions: ${retryActions.length}`}
+            {hasFailureActions && ` | Failure Actions: ${failureActions.length}`}
           </Typography>
           
           {/* Priority and Conditions */}

@@ -143,7 +143,7 @@ export const EdgeEditDialog: React.FC<EdgeEditDialogProps> = ({
             label: 'Temporary Actions',
             actions: edgeEdit.localActions,
             retry_actions: edgeEdit.localRetryActions,
-        failure_actions: edgeEdit.localFailureActions,
+            failure_actions: edgeEdit.localFailureActions,
             priority: 1,
             conditions: {},
             timer: 0
@@ -156,7 +156,8 @@ export const EdgeEditDialog: React.FC<EdgeEditDialogProps> = ({
       await edgeHook.executeEdgeActions(
         dummyEdge,
         edgeEdit.localActions,
-        edgeEdit.localRetryActions
+        edgeEdit.localRetryActions,
+        edgeEdit.localFailureActions
       );
     }
   };
@@ -341,6 +342,60 @@ export const EdgeEditDialog: React.FC<EdgeEditDialogProps> = ({
                 sx={{ fontStyle: 'italic', textAlign: 'center', py: 0.5 }}
               >
                 No retry actions found
+              </Typography>
+            )}
+          </Box>
+
+          {/* Failure Actions */}
+          <Box
+            sx={{
+              border: '1px solid',
+              borderColor: 'divider',
+              borderRadius: 1,
+              p: 1,
+              mb: 1,
+            }}
+          >
+            <Box
+              sx={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                mb: 0.5,
+              }}
+            >
+              <Typography variant="h6" sx={{ fontSize: '1rem', m: 0 }}>
+                Failure Actions
+              </Typography>
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={() => {
+                  const newAction: any = {
+                    command: '',
+                    params: {
+                      wait_time: 500
+                    },
+                  };
+                  edgeEdit.handleFailureActionsChange([...edgeEdit.localFailureActions, newAction]);
+                }}
+                sx={{ fontSize: '0.75rem', px: 1, py: 0.25 }}
+              >
+                + Add
+              </Button>
+            </Box>
+            {edgeEdit.localFailureActions.length > 0 ? (
+              <ActionsList
+                actions={edgeEdit.localFailureActions}
+                onActionsUpdate={edgeEdit.handleFailureActionsChange}
+              />
+            ) : (
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                sx={{ fontStyle: 'italic', textAlign: 'center', py: 0.5 }}
+              >
+                No failure actions found
               </Typography>
             )}
           </Box>
