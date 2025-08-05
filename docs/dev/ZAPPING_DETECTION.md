@@ -105,6 +105,66 @@ def detect_zapping(
 4. **Duration Calculation**: Based on image timestamps
 5. **Result Compilation**: Return comprehensive analysis
 
+### Default Analysis Areas
+
+#### **Optimized for TV Zapping Patterns**
+The implementation uses smart default areas based on typical TV channel zapping behavior:
+
+**Blackscreen Analysis Area (Top 2/3 of Screen)**
+- **Region**: `{'x': 0, 'y': 0, 'width': 1920, 'height': 720}`
+- **Coverage**: 0% to 66.7% of screen height (720px out of 1080px)
+- **Purpose**: Detect blackscreen transitions while excluding banner areas
+- **Rationale**: Most content and blackscreens appear in the main viewing area
+
+**Banner Analysis Area (Bottom 1/3 of Screen)**
+- **Region**: `{'x': 0, 'y': 720, 'width': 1920, 'height': 360}`
+- **Coverage**: 66.7% to 100% of screen height (360px out of 1080px)
+- **Purpose**: AI analysis for channel name, program info, and timing
+- **Rationale**: Channel banners typically appear at bottom of screen during zapping
+
+#### **Benefits of This Configuration**
+- ✅ **Accurate Detection**: Blackscreen analysis excludes banner interference
+- ✅ **Comprehensive Info**: Banner area captures channel/program information
+- ✅ **Standard Compatibility**: Works with 1920x1080 HD resolution
+- ✅ **Flexible Override**: Custom rectangles can be provided when needed
+
+### Configurable Blackscreen Area
+
+#### **Script Parameter Support**
+The `fullzap.py` script now supports a configurable blackscreen analysis area:
+
+```bash
+# Use default area (top 2/3 of screen)
+python test_scripts/fullzap.py horizon_android_mobile --action live_chup --max_iteration 5
+
+# Use custom blackscreen area (top half of screen)
+python test_scripts/fullzap.py horizon_android_mobile --action live_chup --max_iteration 5 --blackscreen_area "0,0,1920,540"
+
+# Use custom area excluding top banner (top 2/3 minus 100px from top)
+python test_scripts/fullzap.py horizon_android_mobile --action live_chup --max_iteration 5 --blackscreen_area "0,100,1920,620"
+```
+
+#### **Parameter Format**
+- **Format**: `"x,y,width,height"` (comma-separated integers)
+- **Default**: `"0,0,1920,720"` (top 2/3 of 1080p screen)
+- **Banner Area**: Automatically calculated as remaining area below blackscreen region
+
+#### **Common Presets**
+| Configuration | Value | Description |
+|---------------|-------|-------------|
+| **Top 2/3** (Default) | `0,0,1920,720` | Recommended for most TV layouts |
+| **Top 1/2** | `0,0,1920,540` | For layouts with large bottom banners |
+| **Top 3/4** | `0,0,1920,810` | For minimal banner interference |
+| **Top 2/3 - Top Banner** | `0,100,1920,620` | Exclude both top and bottom banners |
+| **Full Screen** | `0,0,1920,1080` | No banner exclusion (testing only) |
+
+#### **Frontend Integration**
+The RunTests.tsx frontend provides:
+- **Dropdown Selection**: Common preset values for easy selection
+- **Custom Input**: Free-form text input for custom areas
+- **Validation**: Format validation with helpful error messages
+- **Auto-completion**: Smart suggestions based on common use cases
+
 ## Code Reuse Strategy
 
 ### Leveraging Existing Components (~90% reuse):
@@ -310,10 +370,13 @@ print(f"Duration: {result['blackscreen_duration']}s")
 result = video_controller.detect_zapping(
     folder_path="/path/to/images",
     key_release_timestamp=1701234567.0,
-    analysis_rectangle={'x': 0, 'y': 100, 'width': 1920, 'height': 980},  # Exclude top banner area
-    banner_region={'x': 0, 'y': 0, 'width': 1920, 'height': 100},         # Banner area for AI analysis
+    analysis_rectangle={'x': 0, 'y': 0, 'width': 1920, 'height': 720},    # Top 2/3 for blackscreen
+    banner_region={'x': 0, 'y': 720, 'width': 1920, 'height': 360},       # Bottom 1/3 for banner
     max_images=8
 )
+
+# Or using configurable areas via fullzap.py script
+# python test_scripts/fullzap.py horizon_android_mobile --action live_chup --blackscreen_area "0,0,1920,540"
 
 print(f"Zapping detected: {result['zapping_detected']}")
 print(f"Duration: {result['blackscreen_duration']}s")
@@ -328,8 +391,8 @@ verification_config = {
     'command': 'DetectZapping',
     'params': {
         'key_release_timestamp': 1701234567.0,
-        'analysis_rectangle': {'x': 0, 'y': 100, 'width': 1920, 'height': 980},
-        'banner_region': {'x': 0, 'y': 0, 'width': 1920, 'height': 100},
+        'analysis_rectangle': {'x': 0, 'y': 0, 'width': 1920, 'height': 720},    # Top 2/3 for blackscreen
+        'banner_region': {'x': 0, 'y': 720, 'width': 1920, 'height': 360},       # Bottom 1/3 for banner
         'max_images': 10
     }
 }

@@ -24,11 +24,13 @@ class ZapAnalysisResult:
         self.motion_detected = False
         self.subtitles_detected = False
         self.audio_menu_detected = False
+        self.zapping_detected = False
         self.detected_language = None
         self.extracted_text = ""
         self.motion_details = {}
         self.subtitle_details = {}
         self.audio_menu_details = {}
+        self.zapping_details = {}
         self.success = False
         self.message = ""
     
@@ -40,11 +42,13 @@ class ZapAnalysisResult:
             "motion_detected": self.motion_detected,
             "subtitles_detected": self.subtitles_detected,
             "audio_menu_detected": self.audio_menu_detected,
+            "zapping_detected": self.zapping_detected,
             "detected_language": self.detected_language,
             "extracted_text": self.extracted_text,
             "motion_details": self.motion_details,
             "subtitle_analysis": self.subtitle_details,
-            "audio_menu_analysis": self.audio_menu_details
+            "audio_menu_analysis": self.audio_menu_details,
+            "zapping_analysis": self.zapping_details
         }
 
 
@@ -57,6 +61,7 @@ class ZapStatistics:
         self.motion_detected_count = 0
         self.subtitles_detected_count = 0
         self.audio_menu_detected_count = 0
+        self.zapping_detected_count = 0
         self.detected_languages = []
         self.total_execution_time = 0
         self.analysis_results = []
@@ -72,6 +77,10 @@ class ZapStatistics:
     @property
     def subtitle_success_rate(self) -> float:
         return (self.subtitles_detected_count / self.total_iterations * 100) if self.total_iterations > 0 else 0
+    
+    @property
+    def zapping_success_rate(self) -> float:
+        return (self.zapping_detected_count / self.total_iterations * 100) if self.total_iterations > 0 else 0
     
     @property
     def average_execution_time(self) -> float:
@@ -92,6 +101,7 @@ class ZapStatistics:
         print(f"   • Total action time: {self.total_execution_time}ms")
         print(f"   • Motion detected: {self.motion_detected_count}/{self.total_iterations} ({self.motion_success_rate:.1f}%)")
         print(f"   • Subtitles detected: {self.subtitles_detected_count}/{self.total_iterations} ({self.subtitle_success_rate:.1f}%)")
+        print(f"   • Zapping detected: {self.zapping_detected_count}/{self.total_iterations} ({self.zapping_success_rate:.1f}%)")
         
         if self.detected_languages:
             print(f"   🌐 Languages detected: {', '.join(self.detected_languages)}")
@@ -135,10 +145,19 @@ class ZapController:
                     audio_result = self._analyze_audio_menu(context, iteration)
                     result.audio_menu_detected = audio_result.get('menu_detected', False)
                     result.audio_menu_details = audio_result
+                
+                # 4. Only analyze zapping if motion detected and it's a channel up action
+                if context and 'chup' in action_command.lower():
+                    zapping_result = self._analyze_zapping(context, iteration, action_command, self.blackscreen_area)
+                    result.zapping_detected = zapping_result.get('zapping_detected', False)
+                    result.zapping_details = zapping_result
+                else:
+                    result.zapping_details = {"success": True, "message": "Skipped - not a channel up action"}
             else:
                 print(f"⚠️ [ZapController] No motion detected - skipping additional analysis")
                 result.subtitle_details = {"success": True, "message": "Skipped due to no motion"}
                 result.audio_menu_details = {"success": True, "message": "Skipped due to no motion"}
+                result.zapping_details = {"success": True, "message": "Skipped due to no motion"}
             
             result.success = True
             result.message = f"Analysis completed for {action_command}"
@@ -150,12 +169,13 @@ class ZapController:
         
         return result
     
-    def execute_zap_iterations(self, context, action_edge, action_command: str, max_iterations: int) -> bool:
+    def execute_zap_iterations(self, context, action_edge, action_command: str, max_iterations: int, blackscreen_area: str = None) -> bool:
         """Execute multiple zap iterations with analysis"""
         print(f"🔄 [ZapController] Starting {max_iterations} iterations of '{action_command}'...")
         
         self.statistics = ZapStatistics()
         self.statistics.total_iterations = max_iterations
+        self.blackscreen_area = blackscreen_area  # Store for later use
         
         # Pre-action screenshot using unified approach
         from .report_utils import capture_and_upload_screenshot
@@ -212,6 +232,8 @@ class ZapController:
             self.statistics.subtitles_detected_count += 1
         if analysis_result.audio_menu_detected:
             self.statistics.audio_menu_detected_count += 1
+        if analysis_result.zapping_detected:
+            self.statistics.zapping_detected_count += 1
         if analysis_result.detected_language:
             self.statistics.add_language(analysis_result.detected_language)
         
@@ -347,6 +369,107 @@ class ZapController:
         except Exception as e:
             return {"success": False, "message": f"Audio menu analysis error: {e}"}
     
+    def _analyze_zapping(self, context, iteration: int, action_command: str, blackscreen_area: str = None) -> Dict[str, Any]:
+        """Analyze zapping sequence using the new zapping detection functionality"""
+        try:
+            print(f"🔍 [ZapController] Analyzing zapping sequence for {action_command} (iteration {iteration})...")
+            
+            device_id = context.selected_device.device_id
+            
+            # Get video verification controller
+            video_controller = get_controller(device_id, 'verification_video')
+            if not video_controller:
+                return {"success": False, "message": f"No video verification controller found for device {device_id}"}
+            
+            # Get the folder path where images are captured
+            # Use the AV controller's capture path
+            av_controller = get_controller(device_id, 'av')
+            if not av_controller:
+                return {"success": False, "message": f"No AV controller found for device {device_id}"}
+            
+            # Get the capture folder path
+            capture_folder = getattr(av_controller, 'video_capture_path', None)
+            if not capture_folder:
+                return {"success": False, "message": "No capture folder available"}
+            
+            # Use current time as key release timestamp (approximate)
+            import time
+            key_release_timestamp = time.time() - 10  # Look back 10 seconds for zapping sequence
+            
+            # Parse blackscreen area from parameter or use default
+            if blackscreen_area:
+                try:
+                    # Parse "x,y,width,height" format
+                    x, y, width, height = map(int, blackscreen_area.split(','))
+                    analysis_rectangle = {'x': x, 'y': y, 'width': width, 'height': height}
+                    print(f"🎯 [ZapController] Using custom blackscreen area: {analysis_rectangle}")
+                except (ValueError, IndexError) as e:
+                    print(f"⚠️ [ZapController] Invalid blackscreen_area format '{blackscreen_area}', using default. Error: {e}")
+                    blackscreen_area = None
+            
+            if not blackscreen_area:
+                # Define default analysis areas based on typical TV layouts
+                # Blackscreen analysis: Top 2/3 of screen (exclude bottom banner area)
+                screen_height = 1080  # Standard HD height (TODO: get from actual capture resolution)
+                screen_width = 1920   # Standard HD width (TODO: get from actual capture resolution)
+                
+                # Top 2/3 for blackscreen detection (0% to 66.7% of screen height)
+                blackscreen_height = int(screen_height * 2/3)  # 720px
+                analysis_rectangle = {'x': 0, 'y': 0, 'width': screen_width, 'height': blackscreen_height}
+                print(f"🎯 [ZapController] Using default blackscreen area: {analysis_rectangle}")
+            
+            # Calculate banner region as the remaining area below blackscreen area
+            # This assumes full screen width and starts where blackscreen area ends
+            screen_width = analysis_rectangle['width']  # Use same width as blackscreen area
+            screen_height = 1080  # Standard HD height (TODO: get from actual capture resolution)
+            banner_start_y = analysis_rectangle['y'] + analysis_rectangle['height']
+            banner_height = screen_height - banner_start_y
+            banner_region = {'x': analysis_rectangle['x'], 'y': banner_start_y, 'width': screen_width, 'height': banner_height}
+            print(f"🎯 [ZapController] Calculated banner area: {banner_region}")
+            
+            # Call the new zapping detection method
+            zapping_result = video_controller.detect_zapping(
+                folder_path=capture_folder,
+                key_release_timestamp=key_release_timestamp,
+                analysis_rectangle=analysis_rectangle,
+                banner_region=banner_region,
+                max_images=8  # Analyze up to 8 images (8 seconds of capture)
+            )
+            
+            if zapping_result.get('success', False):
+                zapping_detected = zapping_result.get('zapping_detected', False)
+                blackscreen_duration = zapping_result.get('blackscreen_duration', 0.0)
+                channel_info = zapping_result.get('channel_info', {})
+                
+                if zapping_detected:
+                    print(f"✅ [ZapController] Zapping detected - Duration: {blackscreen_duration}s")
+                    if channel_info.get('channel_name'):
+                        print(f"   📺 Channel: {channel_info['channel_name']}")
+                    if channel_info.get('program_name'):
+                        print(f"   📺 Program: {channel_info['program_name']}")
+                else:
+                    print(f"⚠️ [ZapController] No zapping sequence detected")
+                
+                return {
+                    "success": True,
+                    "zapping_detected": zapping_detected,
+                    "blackscreen_duration": blackscreen_duration,
+                    "channel_info": channel_info,
+                    "message": f"Zapping {'detected' if zapping_detected else 'not detected'}",
+                    "details": zapping_result
+                }
+            else:
+                error_msg = zapping_result.get('error', 'Unknown error')
+                print(f"❌ [ZapController] Zapping analysis failed: {error_msg}")
+                return {
+                    "success": False,
+                    "zapping_detected": False,
+                    "message": f"Zapping analysis failed: {error_msg}"
+                }
+                
+        except Exception as e:
+            print(f"❌ [ZapController] Zapping analysis error: {e}")
+            return {"success": False, "message": f"Zapping analysis error: {e}"}
 
     
     def _record_step_result(self, context, iteration: int, max_iterations: int, action_command: str,
@@ -433,6 +556,7 @@ class ZapController:
             'successful_iterations': self.statistics.successful_iterations,
             'motion_detected_count': self.statistics.motion_detected_count,
             'subtitles_detected_count': self.statistics.subtitles_detected_count,
+            'zapping_detected_count': self.statistics.zapping_detected_count,
             'detected_languages': self.statistics.detected_languages,
             'motion_results': [r.to_dict() for r in self.statistics.analysis_results],
             'total_action_time': self.statistics.total_execution_time

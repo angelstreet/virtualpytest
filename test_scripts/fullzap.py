@@ -50,10 +50,12 @@ def create_zap_controller(context: ScriptExecutionContext) -> ZapController:
 
 
 
-def execute_zap_actions(context: ScriptExecutionContext, action_edge, action_command: str, max_iteration: int, zap_controller: ZapController):
+def execute_zap_actions(context: ScriptExecutionContext, action_edge, action_command: str, max_iteration: int, zap_controller: ZapController, blackscreen_area: str = None):
     """Execute zap actions using ZapController - simple wrapper"""
     print(f"⚡ [fullzap] Delegating zap execution to ZapController...")
-    return zap_controller.execute_zap_iterations(context, action_edge, action_command, max_iteration)
+    if blackscreen_area:
+        print(f"🎯 [fullzap] Using custom blackscreen area: {blackscreen_area}")
+    return zap_controller.execute_zap_iterations(context, action_edge, action_command, max_iteration, blackscreen_area)
 
 
 def capture_fullzap_summary(context: ScriptExecutionContext, userinterface_name: str) -> str:
@@ -66,6 +68,7 @@ def capture_fullzap_summary(context: ScriptExecutionContext, userinterface_name:
     successful_iterations = context.custom_data.get('successful_iterations', 0)
     motion_detected_count = context.custom_data.get('motion_detected_count', 0)
     subtitles_detected_count = context.custom_data.get('subtitles_detected_count', 0)
+    zapping_detected_count = context.custom_data.get('zapping_detected_count', 0)
     total_action_time = context.custom_data.get('total_action_time', 0)
     
     # ZapController Action execution summary
@@ -82,6 +85,8 @@ def capture_fullzap_summary(context: ScriptExecutionContext, userinterface_name:
         lines.append(f"   • Motion detected: {motion_detected_count}/{max_iteration} ({motion_rate:.1f}%)")
         subtitle_rate = (subtitles_detected_count / max_iteration * 100) if max_iteration > 0 else 0
         lines.append(f"   • Subtitles detected: {subtitles_detected_count}/{max_iteration} ({subtitle_rate:.1f}%)")
+        zapping_rate = (zapping_detected_count / max_iteration * 100) if max_iteration > 0 else 0
+        lines.append(f"   • Zapping detected: {zapping_detected_count}/{max_iteration} ({zapping_rate:.1f}%)")
         
         # Check for content change issues
         no_motion_count = max_iteration - motion_detected_count
@@ -152,6 +157,13 @@ def main():
                 'default': 2,
                 'help': 'Number of times to execute the action (default: 5)'
             }
+        },
+        {
+            'name': '--blackscreen_area',
+            'kwargs': {
+                'default': '0,0,1920,720',
+                'help': 'Blackscreen analysis area as x,y,width,height (default: 0,0,1920,720 - top 2/3 of 1080p screen)'
+            }
         }
     ]
     
@@ -201,7 +213,7 @@ def main():
         
         # Execute zap actions multiple times with comprehensive analysis
         print(f"⚡ [fullzap] Executing pre-validated action '{args.action}' from live node...")
-        zap_success = execute_zap_actions(context, action_edge, args.action, args.max_iteration, zap_controller)
+        zap_success = execute_zap_actions(context, action_edge, args.action, args.max_iteration, zap_controller, args.blackscreen_area)
         
         context.overall_success = nav_success and zap_success
         

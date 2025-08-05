@@ -459,6 +459,42 @@ const RunTests: React.FC = () => {
       );
     }
 
+    // Special handling for blackscreen_area with preset options
+    if (param.name === 'blackscreen_area') {
+      const options = [
+        '0,0,1920,720',      // Top 2/3 (default)
+        '0,0,1920,540',      // Top 1/2
+        '0,0,1920,810',      // Top 3/4
+        '0,100,1920,620',    // Top 2/3 excluding top banner
+        '0,0,1920,1080',     // Full screen
+      ];
+
+      return (
+        <Autocomplete
+          key={param.name}
+          options={options}
+          value={value}
+          onChange={(_event, newValue) => handleParameterChange(param.name, newValue || '')}
+          onInputChange={(_event, newInputValue) =>
+            handleParameterChange(param.name, newInputValue)
+          }
+          freeSolo
+          size="small"
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              label={`${param.name}${param.required ? ' *' : ''}`}
+              size="small"
+              fullWidth
+              error={param.required && !value.trim()}
+              placeholder="x,y,width,height (e.g., 0,0,1920,720)"
+              helperText="Blackscreen analysis area: x,y,width,height"
+            />
+          )}
+        />
+      );
+    }
+
     // Default text field for other parameters
     return (
       <TextField
@@ -474,9 +510,10 @@ const RunTests: React.FC = () => {
     );
   };
 
-  // Filter to only show required parameters, excluding host/device (auto-filled)
-  const requiredParameters = scriptAnalysis?.parameters.filter((param) => 
-    param.required && param.name !== 'host' && param.name !== 'device'
+  // Filter to show required parameters and important optional ones, excluding host/device (auto-filled)
+  const displayParameters = scriptAnalysis?.parameters.filter((param) => 
+    (param.required && param.name !== 'host' && param.name !== 'device') ||
+    param.name === 'blackscreen_area'  // Always show blackscreen_area for configuration
   ) || [];
 
   // Check if device is mobile model for proper aspect ratio
@@ -579,8 +616,8 @@ const RunTests: React.FC = () => {
                   </Grid>
 
                     {/* Parameters on the same row if there's space */}
-                    {requiredParameters.length > 0 &&
-                      requiredParameters.map((param) => (
+                    {displayParameters.length > 0 &&
+                      displayParameters.map((param) => (
                         <Grid item xs={12} sm={3} key={param.name}>
                             {renderParameterInput(param)}
                           </Grid>
