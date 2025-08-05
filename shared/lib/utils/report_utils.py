@@ -277,8 +277,9 @@ def create_compact_step_results_section(step_results: List[Dict], screenshots: D
         motion_analysis = step.get('motion_analysis', {})
         subtitle_analysis = step.get('subtitle_analysis', {})
         audio_menu_analysis = step.get('audio_menu_analysis', {})
+        zapping_analysis = step.get('zapping_analysis', {})
         
-        if motion_analysis or subtitle_analysis or audio_menu_analysis:
+        if motion_analysis or subtitle_analysis or audio_menu_analysis or zapping_analysis:
             analysis_html = "<div><strong>Analysis Results:</strong></div>"
             
             # Motion Detection Results
@@ -316,6 +317,27 @@ def create_compact_step_results_section(step_results: List[Dict], screenshots: D
                 if audio_menu_analysis.get('subtitle_languages'):
                     subtitles = ', '.join(audio_menu_analysis.get('subtitle_languages', []))
                     analysis_html += f'<div class="analysis-detail">Subtitle Options: {subtitles}</div>'
+            
+            # Zapping Analysis Results
+            if zapping_analysis and zapping_analysis.get('success') is not None:
+                zapping_detected = zapping_analysis.get('zapping_detected', False)
+                zapping_status = "✅ DETECTED" if zapping_detected else "❌ NOT DETECTED"
+                analysis_html += f'<div class="analysis-item zapping"><strong>Zapping Analysis:</strong> {zapping_status}</div>'
+                
+                if zapping_analysis.get('blackscreen_duration'):
+                    duration = zapping_analysis.get('blackscreen_duration', 0.0)
+                    analysis_html += f'<div class="analysis-detail">Blackscreen Duration: {duration:.2f}s</div>'
+                if zapping_analysis.get('channel_info', {}).get('channel_name'):
+                    channel_info = zapping_analysis.get('channel_info', {})
+                    channel_name = channel_info.get('channel_name', '')
+                    analysis_html += f'<div class="analysis-detail">Channel: {channel_name}</div>'
+                    if channel_info.get('program_name'):
+                        program_name = channel_info.get('program_name', '')
+                        analysis_html += f'<div class="analysis-detail">Program: {program_name}</div>'
+                if zapping_analysis.get('analyzed_images'):
+                    analyzed_count = zapping_analysis.get('analyzed_images', 0)
+                    total_count = zapping_analysis.get('total_images_available', 0)
+                    analysis_html += f'<div class="analysis-detail">Images analyzed: {analyzed_count}/{total_count}</div>'
         
         # Get all screenshots for this step (action screenshots + step screenshot)
         screenshot_html = ''

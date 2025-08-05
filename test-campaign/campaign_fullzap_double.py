@@ -53,9 +53,8 @@ def create_campaign_config(userinterface_name: str, host: str = "auto", device: 
                 "description": "First fullzap execution - Channel Up with navigation to live",
                 "parameters": {
                     "action": "live_chup",
-                    "max_iteration": 5,
+                    "max_iteration": 2,
                     "goto_live": True,
-                    "blackscreen_area": "0,0,1920,720"
                 }
             },
             {
@@ -63,10 +62,9 @@ def create_campaign_config(userinterface_name: str, host: str = "auto", device: 
                 "script_type": "fullzap",
                 "description": "Second fullzap execution - Channel Down without navigation",
                 "parameters": {
-                    "action": "live_chdown", 
-                    "max_iteration": 3,
+                    "action": "live_chup", 
+                    "max_iteration": 2,
                     "goto_live": False,
-                    "blackscreen_area": "0,0,1920,720"
                 }
             }
         ]

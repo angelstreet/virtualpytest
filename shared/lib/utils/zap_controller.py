@@ -604,6 +604,7 @@ class ZapController:
             'motion_analysis': analysis_result.motion_details,
             'subtitle_analysis': analysis_result.subtitle_details,
             'audio_menu_analysis': analysis_result.audio_menu_details,
+            'zapping_analysis': analysis_result.zapping_details,
             'from_node': 'live',
             'to_node': 'live',
             'actions': real_actions,
