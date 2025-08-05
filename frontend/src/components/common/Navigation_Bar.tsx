@@ -65,6 +65,11 @@ const NavigationBar: React.FC = () => {
       icon: <ReportsIcon fontSize="small" />,
     },
     {
+      label: 'Campaign Reports',
+      path: '/test-results/campaign-reports',
+      icon: <CampaignIcon fontSize="small" />,
+    },
+    {
       label: 'Model Reports',
       path: '/test-results/model-reports',
       icon: <ModelIcon fontSize="small" />,
