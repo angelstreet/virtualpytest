@@ -30,8 +30,7 @@ if project_root not in sys.path:
 
 from shared.lib.supabase.campaign_executions_db import (
     record_campaign_execution_start,
-    update_campaign_execution_result,
-    add_script_result_to_campaign
+    update_campaign_execution_result
 )
 from shared.lib.utils.script_execution_utils import setup_script_environment
 
@@ -348,15 +347,11 @@ class CampaignExecutor:
                 success = result.returncode == 0
                 print(f"📊 [Campaign] Using return code for success status: {success} (code: {result.returncode})")
             
-            # Link script result to campaign if we have the ID
+            # Simply store the script result ID - no complex linking needed
             if script_result_id:
-                try:
-                    if add_script_result_to_campaign(context.campaign_result_id, script_result_id):
-                        print(f"🔗 [Campaign] Successfully linked script result {script_result_id} to campaign")
-                    else:
-                        print(f"⚠️ [Campaign] Failed to link script result {script_result_id} to campaign")
-                except Exception as e:
-                    print(f"⚠️ [Campaign] Error linking script result: {e}")
+                print(f"🔗 [Campaign] Captured script result ID: {script_result_id}")
+            else:
+                print(f"⚠️ [Campaign] No script result ID captured - script may not have database tracking enabled")
             
             if success:
                 print(f"✅ [Campaign] Script completed successfully in {execution_time_ms}ms")
