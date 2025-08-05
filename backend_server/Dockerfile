@@ -1,6 +1,6 @@
 FROM python:3.11-slim
 
-# Install system dependencies including Grafana
+# Install system dependencies including Grafana and nginx
 RUN apt-get update && apt-get install -y \
     curl \
     wget \
@@ -8,6 +8,7 @@ RUN apt-get update && apt-get install -y \
     software-properties-common \
     supervisor \
     postgresql-client \
+    nginx \
     libgl1-mesa-glx \
     libglib2.0-0 \
     libsm6 \
@@ -54,7 +55,8 @@ WORKDIR /app/backend_server
 # Create directories for Grafana
 RUN mkdir -p /var/lib/grafana /var/log/grafana /etc/grafana \
     && mkdir -p /app/backend_server/config/grafana/provisioning/{datasources,dashboards} \
-    && mkdir -p /app/backend_server/config/grafana/dashboards
+    && mkdir -p /app/backend_server/config/grafana/dashboards \
+    && mkdir -p /var/log/supervisor
 
 # Create non-root user for security
 RUN useradd -m -u 1000 vptuser \
@@ -63,18 +65,23 @@ RUN useradd -m -u 1000 vptuser \
     && chown -R vptuser:vptuser /var/log/grafana \
     && chown -R vptuser:vptuser /etc/grafana
 
+# Copy nginx configuration
+COPY backend_server/config/nginx/virtualpytest.conf /etc/nginx/sites-available/virtualpytest
+RUN ln -s /etc/nginx/sites-available/virtualpytest /etc/nginx/sites-enabled/virtualpytest \
+    && rm -f /etc/nginx/sites-enabled/default
+
 # Copy supervisor configuration
 COPY backend_server/config/supervisor/supervisord.conf /etc/supervisor/conf.d/virtualpytest.conf
 
-# Expose ports (Flask: 5109, Grafana: 3000)
-EXPOSE 5109 3000
+# Expose ports (Flask + Grafana)
+EXPOSE 5109 3001
 
-# Health check for both services
+# Health check for nginx proxy
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-  CMD curl -f http://localhost:5109/server/health && curl -f http://localhost:3000/api/health || exit 1
+  CMD curl -f http://localhost:5109/health || exit 1
 
-# Switch to non-root user
-USER vptuser
+# Run supervisor as root (needed for nginx)
+USER root
 
-# Run supervisor to manage both Flask and Grafana
+# Run supervisor to manage nginx, Flask and Grafana
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/supervisord.conf", "-n"] 

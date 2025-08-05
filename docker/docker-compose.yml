@@ -36,8 +36,8 @@ services:
       context: ../
       dockerfile: backend_server/Dockerfile
     ports:
-      - "5109:5109"  # Flask API
-      - "3001:3000"  # Grafana (mapped to 3001 to avoid conflict with frontend)
+      - "5109:5109"  # nginx proxy (Flask API + Grafana)
+      - "3001:3001"  # Grafana direct access (optional)
     volumes:
       - ../shared:/app/shared:ro
     environment:
