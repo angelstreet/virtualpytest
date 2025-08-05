@@ -756,9 +756,9 @@ class VideoContentHelpers:
                 
                 # Image sequence information
                 'first_image': image_data[0]['filename'] if image_data else None,
-                'blackscreen_start_image': image_data[sequence['blackscreen_start_index']]['filename'] if sequence['blackscreen_start_index'] is not None else None,
-                'blackscreen_end_image': image_data[sequence['blackscreen_end_index']]['filename'] if sequence['blackscreen_end_index'] is not None else None,
-                'first_content_after_blackscreen': image_data[sequence['blackscreen_end_index'] + 1]['filename'] if (sequence['blackscreen_end_index'] is not None and sequence['blackscreen_end_index'] + 1 < len(image_data)) else None,
+                'blackscreen_start_image': image_data[sequence['blackscreen_start_index']]['filename'] if sequence.get('blackscreen_start_index') is not None else None,
+                'blackscreen_end_image': image_data[sequence['blackscreen_end_index']]['filename'] if sequence.get('blackscreen_end_index') is not None else None,
+                'first_content_after_blackscreen': image_data[sequence['blackscreen_end_index'] + 1]['filename'] if (sequence.get('blackscreen_end_index') is not None and sequence['blackscreen_end_index'] + 1 < len(image_data)) else None,
                 'last_image': image_data[-1]['filename'] if image_data else None,
                 
                 # Analysis metadata
@@ -777,8 +777,8 @@ class VideoContentHelpers:
                     },
                     'timestamps': {
                         'first_image': image_data[0]['timestamp'] if image_data else None,
-                        'blackscreen_start': image_data[sequence['blackscreen_start_index']]['timestamp'] if sequence['blackscreen_start_index'] is not None else None,
-                        'blackscreen_end': image_data[sequence['blackscreen_end_index']]['timestamp'] if sequence['blackscreen_end_index'] is not None else None,
+                        'blackscreen_start': image_data[sequence['blackscreen_start_index']]['timestamp'] if sequence.get('blackscreen_start_index') is not None else None,
+                        'blackscreen_end': image_data[sequence['blackscreen_end_index']]['timestamp'] if sequence.get('blackscreen_end_index') is not None else None,
                         'last_image': image_data[-1]['timestamp'] if image_data else None
                     },
                     'channel_analysis': channel_info,

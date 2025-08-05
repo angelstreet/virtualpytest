@@ -472,8 +472,9 @@ class ZapController:
             if not capture_folder:
                 return {"success": False, "message": "No capture folder available"}
             
-            # Use the actual action end time as key release timestamp
-            key_release_timestamp = action_end_time if action_end_time else time.time() - 5
+            # Use action end time minus 1 second to account for the fact that zapping effect
+            # starts when tap is launched, not when we receive execution confirmation
+            key_release_timestamp = (action_end_time - 1.0) if action_end_time else time.time() - 5
             
             # Get device model directly from context - always needed for screen dimensions
             device_model = context.selected_device.device_model if context.selected_device else 'unknown'
