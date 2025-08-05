@@ -324,78 +324,88 @@ def create_compact_step_results_section(step_results: List[Dict], screenshots: D
                 zapping_status = "✅ DETECTED" if zapping_detected else "❌ NOT DETECTED"
                 analysis_html += f'<div class="analysis-item zapping"><strong>Zapping Analysis:</strong> {zapping_status}</div>'
                 
-                if zapping_analysis.get('blackscreen_duration'):
-                    duration = zapping_analysis.get('blackscreen_duration', 0.0)
-                    analysis_html += f'<div class="analysis-detail">Blackscreen Duration: {duration:.2f}s</div>'
-                if zapping_analysis.get('zapping_duration'):
-                    zap_duration = zapping_analysis.get('zapping_duration', 0.0)
-                    analysis_html += f'<div class="analysis-detail">Zap Duration: {zap_duration:.2f}s</div>'
-                if zapping_analysis.get('channel_info', {}).get('channel_name'):
-                    channel_info = zapping_analysis.get('channel_info', {})
+                # Group durations and image count on one line
+                blackscreen_duration = zapping_analysis.get('blackscreen_duration', 0.0)
+                zap_duration = zapping_analysis.get('zapping_duration', 0.0)
+                analyzed_count = zapping_analysis.get('analyzed_images', 0)
+                total_count = zapping_analysis.get('total_images_available', 0)
+                
+                duration_line = f"Blackscreen Duration: {blackscreen_duration:.2f}s"
+                if zap_duration > 0:
+                    duration_line += f" | Zap Duration: {zap_duration:.2f}s"
+                if analyzed_count > 0:
+                    duration_line += f" | Images analyzed: {analyzed_count}/{total_count}"
+                analysis_html += f'<div class="analysis-detail">{duration_line}</div>'
+                
+                # Group channel info on one line if available
+                channel_info = zapping_analysis.get('channel_info', {})
+                if channel_info.get('channel_name'):
+                    channel_line_parts = []
+                    
+                    # Channel name and number
                     channel_name = channel_info.get('channel_name', '')
-                    analysis_html += f'<div class="analysis-detail">📺 Channel: {channel_name}</div>'
-                    if channel_info.get('channel_number'):
-                        channel_number = channel_info.get('channel_number', '')
-                        analysis_html += f'<div class="analysis-detail">📺 Channel Number: {channel_number}</div>'
+                    channel_number = channel_info.get('channel_number', '')
+                    if channel_number:
+                        channel_line_parts.append(f"📺 {channel_name} ({channel_number})")
+                    else:
+                        channel_line_parts.append(f"📺 {channel_name}")
+                    
+                    # Program name
                     if channel_info.get('program_name'):
                         program_name = channel_info.get('program_name', '')
-                        analysis_html += f'<div class="analysis-detail">🎬 Program: {program_name}</div>'
+                        channel_line_parts.append(f"🎬 {program_name}")
+                    
+                    # Time range
                     if channel_info.get('start_time') and channel_info.get('end_time'):
                         start_time = channel_info.get('start_time', '')
                         end_time = channel_info.get('end_time', '')
-                        analysis_html += f'<div class="analysis-detail">⏰ Time: {start_time} - {end_time}</div>'
-                # Key images in the zapping sequence (with clickable hyperlinks)
-                def create_image_link(image_name, display_text):
-                    """Create clickable hyperlink for image showing only filename as text"""
+                        channel_line_parts.append(f"⏰ {start_time}-{end_time}")
+                    
+                    if channel_line_parts:
+                        channel_line = " | ".join(channel_line_parts)
+                        analysis_html += f'<div class="analysis-detail">{channel_line}</div>'
+                # Group key images on one line with shorter links
+                def create_short_image_link(image_name, label):
+                    """Create clickable hyperlink with short label instead of full filename"""
                     if image_name:
-                        # Extract filename from URL or path
-                        if image_name.startswith('http'):
-                            # Extract filename from R2 URL
-                            filename = image_name.split('/')[-1]
-                            return f'<a href="{image_name}" target="_blank" style="color: #0066cc; text-decoration: underline;">{filename}</a>'
-                        else:
-                            # Still a filename - will be converted to R2 URL later
-                            return f'<a href="{image_name}" target="_blank" style="color: #0066cc; text-decoration: underline;">{image_name}</a>'
-                    return display_text
+                        return f'<a href="{image_name}" target="_blank" style="color: #0066cc; text-decoration: underline;">{label}</a>'
+                    return label
                 
+                # Collect all key images for one-line display
+                key_images = []
                 if zapping_analysis.get('first_image'):
                     first_image = zapping_analysis.get('first_image', '')
-                    image_link = create_image_link(first_image, first_image)
-                    analysis_html += f'<div class="analysis-detail">🎬 Start Image: {image_link}</div>'
+                    key_images.append(create_short_image_link(first_image, "🎬 Start"))
                 if zapping_analysis.get('blackscreen_start_image'):
                     start_image = zapping_analysis.get('blackscreen_start_image', '')
-                    image_link = create_image_link(start_image, start_image)
-                    analysis_html += f'<div class="analysis-detail">⚫ First Black: {image_link}</div>'
+                    key_images.append(create_short_image_link(start_image, "⚫ First Black"))
                 if zapping_analysis.get('blackscreen_end_image'):
                     end_image = zapping_analysis.get('blackscreen_end_image', '')
-                    image_link = create_image_link(end_image, end_image)
-                    analysis_html += f'<div class="analysis-detail">⚫ Last Black: {image_link}</div>'
+                    key_images.append(create_short_image_link(end_image, "⚫ Last Black"))
                 if zapping_analysis.get('first_content_after_blackscreen'):
                     content_image = zapping_analysis.get('first_content_after_blackscreen', '')
-                    image_link = create_image_link(content_image, content_image)
-                    analysis_html += f'<div class="analysis-detail">📺 First Content: {image_link}</div>'
+                    key_images.append(create_short_image_link(content_image, "📺 First Content"))
                 if zapping_analysis.get('channel_detection_image'):
                     channel_image = zapping_analysis.get('channel_detection_image', '')
-                    image_link = create_image_link(channel_image, channel_image)
-                    analysis_html += f'<div class="analysis-detail">🔍 Channel Detection: {image_link}</div>'
+                    key_images.append(create_short_image_link(channel_image, "🔍 Channel Detection"))
+                
+                if key_images:
+                    images_line = " | ".join(key_images)
+                    analysis_html += f'<div class="analysis-detail">{images_line}</div>'
                 
                 # Debug images (especially useful when zapping detection fails)
                 debug_images = zapping_analysis.get('debug_images', [])
                 if debug_images:
-                    # Create clickable links for all debug images on one line
+                    # Create clickable links for all debug images on one line with short labels
                     debug_links = []
-                    for debug_image in debug_images:
+                    for i, debug_image in enumerate(debug_images, 1):
                         if debug_image:
-                            debug_link = create_image_link(debug_image, debug_image)
+                            debug_link = create_short_image_link(debug_image, f"Debug{i}")
                             debug_links.append(debug_link)
                     
                     if debug_links:
                         debug_images_html = " | ".join(debug_links)
                         analysis_html += f'<div class="analysis-detail">🔧 Debug Images: {debug_images_html}</div>'
-                if zapping_analysis.get('analyzed_images'):
-                    analyzed_count = zapping_analysis.get('analyzed_images', 0)
-                    total_count = zapping_analysis.get('total_images_available', 0)
-                    analysis_html += f'<div class="analysis-detail">Images analyzed: {analyzed_count}/{total_count}</div>'
         
         # Get all screenshots for this step (action screenshots + step screenshot)
         screenshot_html = ''

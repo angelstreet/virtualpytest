@@ -638,7 +638,8 @@ class VideoContentHelpers:
     # =============================================================================
     
     def detect_zapping_sequence(self, folder_path: str, key_release_timestamp: float, 
-                               analysis_rectangle: Dict[str, int] = None, max_images: int = 10) -> Dict[str, Any]:
+                               analysis_rectangle: Dict[str, int] = None, max_images: int = 10, 
+                               banner_region: Dict[str, int] = None) -> Dict[str, Any]:
         """
         Simple zapping detection using existing components and direct file access.
         
@@ -747,13 +748,13 @@ class VideoContentHelpers:
                     if blackscreen_index < len(image_data) - 1:
                         print(f"VideoContent[{self.device_name}]: Single image case - analyzing images after blackscreen for channel info")
                         channel_info = self._extract_channel_info_from_images(
-                            image_data, blackscreen_index, analysis_rectangle
+                            image_data, blackscreen_index, banner_region
                         )
                 elif (sequence['blackscreen_end_index'] is not None and 
                       sequence['blackscreen_end_index'] < len(image_data) - 1):
                     # Normal case: analyze images after blackscreen ends
                     channel_info = self._extract_channel_info_from_images(
-                        image_data, sequence['blackscreen_end_index'], analysis_rectangle
+                        image_data, sequence['blackscreen_end_index'], banner_region
                     )
             
             # Compile complete results with all information
@@ -1077,26 +1078,31 @@ class VideoContentHelpers:
         return None
 
     def _extract_channel_info_from_images(self, image_data: List[Dict], blackscreen_end_index: int, 
-                                         analysis_rectangle: Dict[str, int] = None) -> Dict[str, Any]:
+                                         banner_region: Dict[str, int] = None) -> Dict[str, Any]:
         """
         Extract channel information from images after blackscreen ends using AI analysis.
         
         Args:
             image_data: List of image data dictionaries
             blackscreen_end_index: Index where blackscreen ended
-            analysis_rectangle: Rectangle used for blackscreen (banner will be calculated from this)
+            banner_region: Hardcoded banner region passed from zap_controller
             
         Returns:
             Dictionary with channel information
         """
         try:
-            # Simple hardcoded banner region for mobile devices
-            banner_region = {
-                'x': 437,
-                'y': 220, 
-                'width': 405,
-                'height': 80
-            }
+            # Use the passed banner region from zap_controller (now properly hardcoded per device type)
+            if not banner_region:
+                print(f"VideoContent[{self.device_name}]: No banner region provided, skipping channel analysis")
+                return {
+                    'channel_name': '',
+                    'channel_number': '',
+                    'program_name': '',
+                    'start_time': '',
+                    'end_time': '',
+                    'confidence': 0.0
+                }
+            
             print(f"VideoContent[{self.device_name}]: Using banner region: {banner_region}")
             
             # Try to extract channel info from images after blackscreen ends

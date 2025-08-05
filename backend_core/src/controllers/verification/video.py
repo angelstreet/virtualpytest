@@ -634,7 +634,7 @@ class VideoVerificationController(VerificationControllerInterface):
             
             # Execute core zapping detection
             zapping_result = self.content_helpers.detect_zapping_sequence(
-                folder_path, key_release_timestamp, analysis_rectangle, max_images
+                folder_path, key_release_timestamp, analysis_rectangle, max_images, banner_region
             )
             
             if not zapping_result.get('success', False):
