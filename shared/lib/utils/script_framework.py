@@ -455,14 +455,23 @@ class ScriptExecutor:
                 self.generate_final_report(context, userinterface_name)
             
             # Update database if tracking is enabled
-            if context.script_result_id and context.error_message and not context.overall_success:
-                print(f"📝 [{self.script_name}] Recording error in database...")
-                update_script_execution_result(
-                    script_result_id=context.script_result_id,
-                    success=False,
-                    execution_time_ms=context.get_execution_time_ms(),
-                    error_msg=context.error_message
-                )
+            if context.script_result_id:
+                if context.overall_success:
+                    print(f"📝 [{self.script_name}] Recording success in database...")
+                    update_script_execution_result(
+                        script_result_id=context.script_result_id,
+                        success=True,
+                        execution_time_ms=context.get_execution_time_ms(),
+                        error_msg=None
+                    )
+                elif context.error_message:
+                    print(f"📝 [{self.script_name}] Recording error in database...")
+                    update_script_execution_result(
+                        script_result_id=context.script_result_id,
+                        success=False,
+                        execution_time_ms=context.get_execution_time_ms(),
+                        error_msg=context.error_message
+                    )
         except Exception as e:
             print(f"⚠️ [{self.script_name}] Error during report generation: {e}")
         

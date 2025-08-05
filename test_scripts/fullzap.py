@@ -160,8 +160,8 @@ def main():
     
     print(f"🎯 [fullzap] Starting navigation to live and executing action '{args.action}' {args.max_iteration} times for: {args.userinterface_name}")
     
-    # Setup execution context
-    context = executor.setup_execution_context(args)
+    # Setup execution context with database tracking enabled
+    context = executor.setup_execution_context(args, enable_db_tracking=True)
     if context.error_message:
         executor.cleanup_and_exit(context, args.userinterface_name)
         return

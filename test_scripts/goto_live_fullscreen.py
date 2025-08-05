@@ -55,8 +55,8 @@ def main():
     parser = executor.create_argument_parser()
     args = parser.parse_args()
     
-    # Setup execution context
-    context = executor.setup_execution_context(args)
+    # Setup execution context with database tracking enabled
+    context = executor.setup_execution_context(args, enable_db_tracking=True)
     if context.error_message:
         executor.cleanup_and_exit(context, args.userinterface_name)
         return
