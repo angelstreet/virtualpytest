@@ -487,23 +487,34 @@ class ZapController:
                     blackscreen_area = None
             
             if not blackscreen_area:
-                # Define default analysis areas based on typical TV layouts
-                # Blackscreen analysis: Top 2/3 of screen (exclude bottom banner area)
-                screen_height = 1080  # Standard HD height (TODO: get from actual capture resolution)
-                screen_width = 1920   # Standard HD width (TODO: get from actual capture resolution)
+                # Get device model directly from context - no need to fetch
+                device_model = context.selected_device.device_model if context.selected_device else 'unknown'
                 
-                # Top 2/3 for blackscreen detection (0% to 66.7% of screen height)
-                blackscreen_height = int(screen_height * 2/3)  # 720px
-                analysis_rectangle = {'x': 0, 'y': 0, 'width': screen_width, 'height': blackscreen_height}
-                print(f"🎯 [ZapController] Using default blackscreen area: {analysis_rectangle}")
+                # Simple resolution based on device model - only 2 cases
+                if device_model in ['android_mobile', 'ios_mobile']:
+                    screen_width = 1024
+                    screen_height = 768
+                    print(f"🎯 [ZapController] Using mobile resolution for {device_model}: {screen_width}x{screen_height}")
+                else:
+                    screen_width = 1920
+                    screen_height = 1080
+                    print(f"🎯 [ZapController] Using default resolution for {device_model}: {screen_width}x{screen_height}")
+                
+                # Standard banner height for all devices
+                banner_height = 300
+                
+                # Calculate content area (exclude banner and bottom controls)
+                content_height = screen_height - banner_height - 100  # Leave margin for bottom controls
+                analysis_rectangle = {'x': 0, 'y': banner_height, 'width': screen_width, 'height': content_height}
+                print(f"🎯 [ZapController] Using device-model-based blackscreen area: {analysis_rectangle}")
             
             # Calculate banner region as the remaining area below blackscreen area
             # This assumes full screen width and starts where blackscreen area ends
-            screen_width = analysis_rectangle['width']  # Use same width as blackscreen area
-            screen_height = 1080  # Standard HD height (TODO: get from actual capture resolution)
+            detected_screen_width = analysis_rectangle['width']  # Use same width as blackscreen area
+            detected_screen_height = screen_height  # Use the detected/default screen height
             banner_start_y = analysis_rectangle['y'] + analysis_rectangle['height']
-            banner_height = screen_height - banner_start_y
-            banner_region = {'x': analysis_rectangle['x'], 'y': banner_start_y, 'width': screen_width, 'height': banner_height}
+            banner_height = detected_screen_height - banner_start_y
+            banner_region = {'x': analysis_rectangle['x'], 'y': banner_start_y, 'width': detected_screen_width, 'height': banner_height}
             print(f"🎯 [ZapController] Calculated banner area: {banner_region}")
             
             # Call the new zapping detection method
