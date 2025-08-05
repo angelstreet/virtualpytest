@@ -766,11 +766,21 @@ export const ActionItem: React.FC<ActionItemProps> = ({
           <InputLabel>Action</InputLabel>
           <Select
             value={
-              // Match by command since backend actions don't have IDs
+              // Match by command and params for press_key actions, or just command for others
               action.command &&
               Object.values(availableActions)
                 .flat()
-                .find((act) => act.command === action.command)?.id || ''
+                .find((act) => {
+                  if (act.command !== action.command) return false;
+                  
+                  // For press_key actions, also match the key parameter
+                  if (action.command === 'press_key' && action.params && act.params) {
+                    return (action.params as any).key === (act.params as any).key;
+                  }
+                  
+                  // For other actions, just match by command
+                  return true;
+                })?.id || ''
             }
             onChange={(e) => onActionSelect(index, e.target.value)}
             label="Action"
