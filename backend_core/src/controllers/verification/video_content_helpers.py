@@ -895,14 +895,14 @@ class VideoContentHelpers:
         
         return results
 
-    def _analyze_blackscreen_simple(self, image_path: str, analysis_rectangle: Dict[str, int] = None, threshold: int = 10) -> Tuple[bool, float]:
+    def _analyze_blackscreen_simple(self, image_path: str, analysis_rectangle: Dict[str, int] = None, threshold: int = 30) -> Tuple[bool, float]:
         """
-        Simple blackscreen detection copied from analyze_audio_video.py
+        Simple blackscreen detection optimized for mobile TV interfaces
         
         Args:
             image_path: Path to image file
             analysis_rectangle: Optional rectangle to analyze
-            threshold: Pixel intensity threshold (0-255)
+            threshold: Pixel intensity threshold (0-255, default: 30 for mobile)
             
         Returns:
             Tuple of (is_blackscreen, blackscreen_percentage)
@@ -926,13 +926,13 @@ class VideoContentHelpers:
                 else:
                     img = img[y:y+height, x:x+width]
             
-            # Count pixels <= threshold (same logic as analyze_audio_video.py)
+            # Count pixels <= threshold (optimized for mobile TV)
             very_dark_pixels = np.sum(img <= threshold)
             total_pixels = img.shape[0] * img.shape[1]
             dark_percentage = (very_dark_pixels / total_pixels) * 100
             
-            # If >95% of pixels are very dark, it's blackscreen (same threshold as analyze_audio_video.py)
-            is_blackscreen = dark_percentage > 95
+            # Mobile TV interfaces need lower threshold (85-90% instead of 95%)
+            is_blackscreen = dark_percentage > 85
             
             return is_blackscreen, dark_percentage
             
