@@ -28,11 +28,10 @@ project_root = os.path.dirname(os.path.dirname(os.path.dirname(current_dir)))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from shared.lib.supabase.campaign_results_db import (
+from shared.lib.supabase.campaign_executions_db import (
     record_campaign_execution_start,
     update_campaign_execution_result,
-    record_campaign_script_execution,
-    update_campaign_script_execution
+    add_script_result_to_campaign
 )
 from shared.lib.utils.script_execution_utils import setup_script_environment
 
@@ -128,12 +127,14 @@ class CampaignExecutor:
             if not self._setup_campaign_environment(context, campaign_config):
                 return self._build_failure_result(context, "Failed to setup campaign environment")
             
-            # Record campaign start in database
+            # Record campaign execution start in database (simplified single table)
             context.campaign_result_id = record_campaign_execution_start(
                 team_id=context.team_id,
-                campaign_id=context.campaign_id,
+                campaign_name=context.campaign_name,
                 campaign_execution_id=context.campaign_execution_id,
-                name=context.campaign_name,
+                userinterface_name=campaign_config.get("userinterface_name"),
+                host_name=context.host.host_name,
+                device_name=campaign_config.get("device", "auto"),
                 description=campaign_config.get("description", ""),
                 script_configurations=campaign_config.get("script_configurations", []),
                 execution_config=campaign_config.get("execution_config", {}),
@@ -242,6 +243,38 @@ class CampaignExecutor:
             context.error_message = f"Environment setup error: {str(e)}"
             return False
     
+    def _find_and_link_script_result(self, context: CampaignExecutionContext, script_name: str, 
+                                   start_time: float, execution_time_ms: int) -> Optional[str]:
+        """Find the script result created by the script execution and link it to campaign"""
+        try:
+            from shared.lib.utils.supabase_utils import get_supabase_client
+            
+            supabase = get_supabase_client()
+            
+            # Look for script results created around the execution time
+            # Allow for some time variance (±30 seconds)
+            start_window = datetime.fromtimestamp(start_time - 30)
+            end_window = datetime.fromtimestamp(start_time + (execution_time_ms/1000) + 30)
+            
+            result = supabase.table('script_results').select('id').eq('script_name', script_name).eq('team_id', context.team_id).gte('started_at', start_window.isoformat()).lte('started_at', end_window.isoformat()).order('started_at', desc=True).limit(1).execute()
+            
+            if result.data:
+                script_result_id = result.data[0]['id']
+                
+                # Link this script result to the campaign
+                if add_script_result_to_campaign(context.campaign_result_id, script_result_id):
+                    print(f"🔗 [Campaign] Linked script result {script_result_id} to campaign")
+                    return script_result_id
+                else:
+                    print(f"⚠️ [Campaign] Failed to link script result {script_result_id}")
+            else:
+                print(f"⚠️ [Campaign] Could not find script result for {script_name}")
+                
+        except Exception as e:
+            print(f"❌ [Campaign] Error finding script result: {str(e)}")
+            
+        return None
+    
     def _execute_single_script(self, context: CampaignExecutionContext, campaign_config: Dict[str, Any], 
                              script_config: Dict[str, Any], execution_order: int) -> Dict[str, Any]:
         """Execute a single script within the campaign"""
@@ -249,19 +282,6 @@ class CampaignExecutor:
         script_name = script_config.get("script_name")
         script_type = script_config.get("script_type", script_name)
         parameters = script_config.get("parameters", {})
-        
-        # Record script execution start
-        script_execution_record_id = record_campaign_script_execution(
-            campaign_result_id=context.campaign_result_id,
-            execution_order=execution_order,
-            script_name=script_name,
-            script_type=script_type,
-            userinterface_name=campaign_config.get("userinterface_name"),
-            host_name=context.host.host_name,
-            device_name=campaign_config.get("device", "auto"),
-            script_config=script_config,
-            status="running"
-        )
         
         try:
             # Build script command
@@ -301,22 +321,17 @@ class CampaignExecutor:
             execution_time_ms = int((time.time() - script_start_time) * 1000)
             success = result.returncode == 0
             
-            # Update script execution record
-            if script_execution_record_id:
-                update_campaign_script_execution(
-                    record_id=script_execution_record_id,
-                    status="completed",
-                    end_time=datetime.now(),
-                    execution_time_ms=execution_time_ms,
-                    success=success,
-                    error_message=None if success else result.stderr
-                )
+            # Try to find and link the script result that was created by the script execution
+            script_result_id = self._find_and_link_script_result(
+                context, script_name, script_start_time, execution_time_ms
+            )
             
             if success:
                 print(f"✅ [Campaign] Script completed successfully in {execution_time_ms}ms")
                 return {
                     "success": True,
                     "script_name": script_name,
+                    "script_result_id": script_result_id,
                     "execution_time_ms": execution_time_ms,
                     "stdout": result.stdout,
                     "execution_order": execution_order
@@ -329,6 +344,7 @@ class CampaignExecutor:
                 return {
                     "success": False,
                     "script_name": script_name,
+                    "script_result_id": script_result_id,
                     "execution_time_ms": execution_time_ms,
                     "error": error_msg,
                     "stderr": result.stderr,
@@ -340,19 +356,10 @@ class CampaignExecutor:
             error_msg = "Script execution timed out"
             execution_time_ms = int((time.time() - script_start_time) * 1000)
             
-            if script_execution_record_id:
-                update_campaign_script_execution(
-                    record_id=script_execution_record_id,
-                    status="failed",
-                    end_time=datetime.now(),
-                    execution_time_ms=execution_time_ms,
-                    success=False,
-                    error_message=error_msg
-                )
-            
             return {
                 "success": False,
                 "script_name": script_name,
+                "script_result_id": None,
                 "execution_time_ms": execution_time_ms,
                 "error": error_msg,
                 "execution_order": execution_order
@@ -362,19 +369,10 @@ class CampaignExecutor:
             error_msg = f"Script execution error: {str(e)}"
             execution_time_ms = int((time.time() - script_start_time) * 1000)
             
-            if script_execution_record_id:
-                update_campaign_script_execution(
-                    record_id=script_execution_record_id,
-                    status="failed",
-                    end_time=datetime.now(),
-                    execution_time_ms=execution_time_ms,
-                    success=False,
-                    error_message=error_msg
-                )
-            
             return {
                 "success": False,
                 "script_name": script_name,
+                "script_result_id": None,
                 "execution_time_ms": execution_time_ms,
                 "error": error_msg,
                 "execution_order": execution_order
