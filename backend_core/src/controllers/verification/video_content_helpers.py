@@ -666,7 +666,9 @@ class VideoContentHelpers:
                     'success': False,
                     'error': 'No images found after key release timestamp',
                     'zapping_detected': False,
-                    'blackscreen_duration': 0.0
+                    'blackscreen_duration': 0.0,
+                    'debug_images': [],  # No images to debug
+                    'analysis_type': 'simple_zapping_detection'
                 }
             
             print(f"VideoContent[{self.device_name}]: Found {len(image_data)} images to analyze")
@@ -765,6 +767,9 @@ class VideoContentHelpers:
                 'first_content_after_blackscreen': self._get_first_content_after_blackscreen(image_data, sequence),
                 'last_image': image_data[-1]['filename'] if image_data else None,
                 
+                # Debug images for analysis (all analyzed images for debugging)
+                'debug_images': [result['filename'] for result in blackscreen_results],
+                
                 # Analysis metadata
                 'analyzed_images': len(blackscreen_results),
                 'total_images_available': len(image_data),
@@ -797,12 +802,24 @@ class VideoContentHelpers:
             
         except Exception as e:
             print(f"VideoContent[{self.device_name}]: Simple zapping detection error: {e}")
+            
+            # Try to get debug images even if analysis failed
+            debug_images = []
+            try:
+                if 'image_data' in locals() and image_data:
+                    debug_images = [img['filename'] for img in image_data]
+                elif 'blackscreen_results' in locals() and blackscreen_results:
+                    debug_images = [result['filename'] for result in blackscreen_results]
+            except:
+                pass  # If we can't get debug images, just use empty list
+            
             return {
                 'success': False,
                 'error': f'Simple zapping detection failed: {str(e)}',
                 'analysis_type': 'simple_zapping_detection',
                 'zapping_detected': False,
-                'blackscreen_duration': 0.0
+                'blackscreen_duration': 0.0,
+                'debug_images': debug_images
             }
 
     def _get_images_after_timestamp(self, folder_path: str, start_timestamp: float, max_count: int = 10) -> List[Dict]:

@@ -378,6 +378,20 @@ def create_compact_step_results_section(step_results: List[Dict], screenshots: D
                     channel_image = zapping_analysis.get('channel_detection_image', '')
                     image_link = create_image_link(channel_image, channel_image)
                     analysis_html += f'<div class="analysis-detail">🔍 Channel Detection: {image_link}</div>'
+                
+                # Debug images (especially useful when zapping detection fails)
+                debug_images = zapping_analysis.get('debug_images', [])
+                if debug_images:
+                    # Create clickable links for all debug images on one line
+                    debug_links = []
+                    for debug_image in debug_images:
+                        if debug_image:
+                            debug_link = create_image_link(debug_image, debug_image)
+                            debug_links.append(debug_link)
+                    
+                    if debug_links:
+                        debug_images_html = " | ".join(debug_links)
+                        analysis_html += f'<div class="analysis-detail">🔧 Debug Images: {debug_images_html}</div>'
                 if zapping_analysis.get('analyzed_images'):
                     analyzed_count = zapping_analysis.get('analyzed_images', 0)
                     total_count = zapping_analysis.get('total_images_available', 0)
@@ -668,6 +682,21 @@ def update_step_results_with_r2_urls(step_results: List[Dict], url_mapping: Dict
                             zapping_analysis[field] = r2_url
                             print(f"[@utils:report_utils:update_step_results_with_r2_urls] Updated zapping {field}: {filename} -> {r2_url}")
                             break
+            
+            # Update debug_images array (list of filenames)
+            if 'debug_images' in zapping_analysis and zapping_analysis['debug_images']:
+                updated_debug_images = []
+                for debug_filename in zapping_analysis['debug_images']:
+                    if debug_filename:
+                        # Find the R2 URL for this debug image
+                        r2_url = debug_filename  # Default to filename if not found
+                        for local_path, mapped_r2_url in url_mapping.items():
+                            if debug_filename in local_path:
+                                r2_url = mapped_r2_url
+                                print(f"[@utils:report_utils:update_step_results_with_r2_urls] Updated debug image: {debug_filename} -> {r2_url}")
+                                break
+                        updated_debug_images.append(r2_url)
+                zapping_analysis['debug_images'] = updated_debug_images
             
             updated_step['zapping_analysis'] = zapping_analysis
         

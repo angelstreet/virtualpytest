@@ -659,6 +659,16 @@ class ZapController:
                         context.screenshot_paths.append(image_path)
                         print(f"🖼️ [ZapController] Added zapping image for R2 upload: {image_filename}")
             
+            # Also add debug images for debugging failed zap detection
+            debug_images = zapping_result.get('debug_images', [])
+            if debug_images:
+                for debug_filename in debug_images:
+                    if debug_filename:
+                        debug_path = f"{captures_folder}/{debug_filename}"
+                        if debug_path not in context.screenshot_paths:
+                            context.screenshot_paths.append(debug_path)
+                            print(f"🔧 [ZapController] Added debug image for R2 upload: {debug_filename}")
+            
         except Exception as e:
             print(f"⚠️ [ZapController] Failed to add zapping images to screenshot collection: {e}")
 
