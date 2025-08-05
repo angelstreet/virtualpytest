@@ -74,6 +74,8 @@ class VideoVerificationHelpers:
                 return self._execute_content_analysis(command, params, image_paths)
             elif command == 'DetectMotionFromJson':
                 return self._execute_json_motion_analysis(params)
+            elif command == 'DetectZapping':
+                return self._execute_zapping_detection(params, image_source_url)
             else:
                 return self._create_error_result(f'Unknown verification command: {command}')
             
@@ -241,6 +243,89 @@ class VideoVerificationHelpers:
         except Exception as e:
             return self._create_error_result(f'JSON motion analysis error: {str(e)}')
 
+    def _execute_zapping_detection(self, params: Dict[str, Any], folder_path: str) -> Dict[str, Any]:
+        """Execute zapping detection verification."""
+        try:
+            key_release_timestamp = float(params.get('key_release_timestamp', 0.0))
+            analysis_rectangle = params.get('analysis_rectangle')
+            banner_region = params.get('banner_region')
+            max_images = int(params.get('max_images', 10))
+            
+            if key_release_timestamp <= 0:
+                return self._create_error_result('Invalid key release timestamp')
+            
+            if not folder_path:
+                return self._create_error_result('No folder path provided for zapping detection')
+            
+            # Execute core zapping detection
+            zapping_result = self.controller.content_helpers.detect_zapping_sequence(
+                folder_path, key_release_timestamp, analysis_rectangle, max_images
+            )
+            
+            if not zapping_result.get('success', False):
+                return {
+                    'success': False,
+                    'message': f"Zapping detection failed: {zapping_result.get('error', 'Unknown error')}",
+                    'confidence': 0.0,
+                    'details': zapping_result
+                }
+            
+            # If zapping was detected and we have banner region, try to extract channel info
+            channel_info = {}
+            if (zapping_result.get('zapping_detected', False) and 
+                banner_region and 
+                zapping_result.get('blackscreen_end_image')):
+                
+                # Find the image where blackscreen ended (first content after zapping)
+                end_image_name = zapping_result.get('blackscreen_end_image', '')
+                if end_image_name:
+                    # Reconstruct full path to the end image
+                    import os
+                    end_image_path = os.path.join(folder_path, end_image_name)
+                    
+                    # Check if banner is present before expensive AI call
+                    if self.controller.ai_helpers.detect_banner_presence(end_image_path, banner_region):
+                        print(f"VideoVerification[{self.device_name}]: Banner detected, analyzing with AI")
+                        banner_result = self.controller.ai_helpers.analyze_channel_banner_ai(end_image_path, banner_region)
+                        
+                        if banner_result.get('success', False) and banner_result.get('banner_detected', False):
+                            channel_info = banner_result.get('channel_info', {})
+                            print(f"VideoVerification[{self.device_name}]: Channel info extracted: {channel_info}")
+                        else:
+                            print(f"VideoVerification[{self.device_name}]: Banner analysis failed or no banner found")
+                    else:
+                        print(f"VideoVerification[{self.device_name}]: No banner presence detected, skipping AI analysis")
+            
+            # Compile comprehensive result
+            success = zapping_result.get('zapping_detected', False)
+            blackscreen_duration = zapping_result.get('blackscreen_duration', 0.0)
+            
+            message_parts = []
+            if success:
+                message_parts.append(f"Zapping detected (duration: {blackscreen_duration}s)")
+                if channel_info.get('channel_name'):
+                    message_parts.append(f"Channel: {channel_info['channel_name']}")
+                if channel_info.get('program_name'):
+                    message_parts.append(f"Program: {channel_info['program_name']}")
+            else:
+                message_parts.append("No zapping detected")
+            
+            message = ", ".join(message_parts)
+            
+            # Enhanced result with channel info
+            enhanced_result = zapping_result.copy()
+            enhanced_result['channel_info'] = channel_info
+            
+            return {
+                'success': success,
+                'message': message,
+                'confidence': zapping_result.get('confidence', 1.0 if success else 0.0),
+                'details': enhanced_result
+            }
+            
+        except Exception as e:
+            return self._create_error_result(f'Zapping detection error: {str(e)}')
+
     # =============================================================================
     # Verification Configuration and Validation
     # =============================================================================
@@ -331,6 +416,16 @@ class VideoVerificationHelpers:
                 'params': {
                     'json_count': 5,            # Number of JSON files to analyze
                     'strict_mode': True         # Strict mode (all files must be clean)
+                },
+                'verification_type': 'video'
+            },
+            {
+                'command': 'DetectZapping',
+                'params': {
+                    'key_release_timestamp': 0.0,   # Timestamp when zapping key was released
+                    'analysis_rectangle': None,     # Rectangle for blackscreen analysis (exclude banner)
+                    'banner_region': None,          # Region where banner appears for AI analysis
+                    'max_images': 10                # Maximum images to analyze
                 },
                 'verification_type': 'video'
             }

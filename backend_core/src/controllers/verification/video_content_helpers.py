@@ -628,3 +628,289 @@ class VideoContentHelpers:
                 'strict_mode': strict_mode,
                 'message': error_msg
             }
+
+    # =============================================================================
+    # Zapping Detection
+    # =============================================================================
+    
+    def detect_zapping_sequence(self, folder_path: str, key_release_timestamp: float, 
+                               analysis_rectangle: Dict[str, int] = None, max_images: int = 10) -> Dict[str, Any]:
+        """
+        Detect zapping sequence by analyzing images from folder starting from key release timestamp.
+        
+        Args:
+            folder_path: Path to folder containing captured images
+            key_release_timestamp: Timestamp when zapping key was released (Unix timestamp)
+            analysis_rectangle: Rectangle to analyze for blackscreen (exclude banner area)
+                               Format: {'x': int, 'y': int, 'width': int, 'height': int}
+            max_images: Maximum number of images to analyze (default: 10)
+            
+        Returns:
+            Dictionary with zapping analysis results
+        """
+        try:
+            print(f"VideoContent[{self.device_name}]: Starting zapping detection in {folder_path}")
+            print(f"VideoContent[{self.device_name}]: Key release timestamp: {key_release_timestamp}")
+            
+            # Load images from folder by timestamp
+            image_paths = self._load_images_from_folder_by_timestamp(folder_path, key_release_timestamp, max_images)
+            
+            if not image_paths:
+                return {
+                    'success': False,
+                    'error': 'No images found after key release timestamp',
+                    'zapping_detected': False,
+                    'blackscreen_duration': 0.0
+                }
+            
+            print(f"VideoContent[{self.device_name}]: Found {len(image_paths)} images to analyze")
+            
+            # Analyze each image in sequence
+            results = []
+            blackscreen_start_image = None
+            blackscreen_end_image = None
+            blackscreen_start_timestamp = None
+            blackscreen_end_timestamp = None
+            
+            for i, image_path in enumerate(image_paths):
+                analysis = self.analyze_zapping_in_image(image_path, analysis_rectangle)
+                
+                if not analysis.get('success', False):
+                    print(f"VideoContent[{self.device_name}]: Failed to analyze {os.path.basename(image_path)}")
+                    continue
+                
+                # Extract timestamp from filename (assuming format includes timestamp)
+                image_timestamp = self._extract_timestamp_from_filename(image_path)
+                analysis['timestamp'] = image_timestamp
+                analysis['image_index'] = i
+                
+                results.append(analysis)
+                
+                is_blackscreen = analysis.get('is_blackscreen', False)
+                
+                # Track blackscreen start
+                if is_blackscreen and blackscreen_start_image is None:
+                    blackscreen_start_image = os.path.basename(image_path)
+                    blackscreen_start_timestamp = image_timestamp
+                    print(f"VideoContent[{self.device_name}]: Blackscreen started at {blackscreen_start_image}")
+                
+                # Track blackscreen end
+                elif not is_blackscreen and blackscreen_start_image is not None and blackscreen_end_image is None:
+                    blackscreen_end_image = os.path.basename(image_path)
+                    blackscreen_end_timestamp = image_timestamp
+                    print(f"VideoContent[{self.device_name}]: Blackscreen ended at {blackscreen_end_image}")
+                    
+                    # We found the end of blackscreen, we can stop here for basic zapping detection
+                    print(f"VideoContent[{self.device_name}]: Zapping sequence detected, stopping analysis")
+                    break
+            
+            # Calculate blackscreen duration
+            blackscreen_duration = 0.0
+            zapping_detected = False
+            
+            if blackscreen_start_timestamp and blackscreen_end_timestamp:
+                blackscreen_duration = blackscreen_end_timestamp - blackscreen_start_timestamp
+                zapping_detected = True
+            elif blackscreen_start_timestamp:
+                # Blackscreen started but didn't end in our analysis window
+                last_timestamp = results[-1].get('timestamp', blackscreen_start_timestamp) if results else blackscreen_start_timestamp
+                blackscreen_duration = last_timestamp - blackscreen_start_timestamp
+                zapping_detected = True
+            
+            # Compile overall results
+            successful_analyses = [r for r in results if r.get('success', False)]
+            
+            overall_result = {
+                'success': len(successful_analyses) > 0,
+                'zapping_detected': zapping_detected,
+                'blackscreen_duration': round(blackscreen_duration, 2),
+                'blackscreen_start_image': blackscreen_start_image,
+                'blackscreen_end_image': blackscreen_end_image,
+                'analyzed_images': len(successful_analyses),
+                'total_images_available': len(image_paths),
+                'analysis_stopped_early': blackscreen_end_image is not None and len(results) < len(image_paths),
+                'key_release_timestamp': key_release_timestamp,
+                'analysis_rectangle': analysis_rectangle,
+                'details': {
+                    'images_analyzed': [r.get('image_path', '') for r in successful_analyses],
+                    'blackscreen_percentages': [r.get('dark_percentage', 0) for r in successful_analyses],
+                    'results': results
+                },
+                'analysis_type': 'zapping_detection',
+                'timestamp': datetime.now().isoformat()
+            }
+            
+            print(f"VideoContent[{self.device_name}]: Zapping detection complete - detected={zapping_detected}, duration={blackscreen_duration}s")
+            return overall_result
+            
+        except Exception as e:
+            print(f"VideoContent[{self.device_name}]: Zapping detection error: {e}")
+            return {
+                'success': False,
+                'error': f'Zapping detection failed: {str(e)}',
+                'analysis_type': 'zapping_detection',
+                'zapping_detected': False,
+                'blackscreen_duration': 0.0
+            }
+
+    def analyze_zapping_in_image(self, image_path: str, analysis_rectangle: Dict[str, int] = None) -> Dict[str, Any]:
+        """
+        Analyze single image for zapping blackscreen detection.
+        
+        Args:
+            image_path: Path to image file
+            analysis_rectangle: Rectangle to analyze (exclude banner area)
+                               Format: {'x': int, 'y': int, 'width': int, 'height': int}
+            
+        Returns:
+            Dictionary with blackscreen analysis results for the image
+        """
+        try:
+            if not os.path.exists(image_path):
+                return {
+                    'success': False,
+                    'error': 'Image file not found',
+                    'image_path': image_path,
+                    'is_blackscreen': False
+                }
+            
+            img = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+            if img is None:
+                return {
+                    'success': False,
+                    'error': 'Could not load image',
+                    'image_path': image_path,
+                    'is_blackscreen': False
+                }
+            
+            # Crop to analysis rectangle if specified (to exclude banner area)
+            if analysis_rectangle:
+                x = analysis_rectangle.get('x', 0)
+                y = analysis_rectangle.get('y', 0)
+                width = analysis_rectangle.get('width', img.shape[1])
+                height = analysis_rectangle.get('height', img.shape[0])
+                
+                # Validate rectangle bounds
+                img_height, img_width = img.shape
+                if x < 0 or y < 0 or x + width > img_width or y + height > img_height:
+                    return {
+                        'success': False,
+                        'error': 'Analysis rectangle out of image bounds',
+                        'image_path': image_path,
+                        'is_blackscreen': False
+                    }
+                
+                # Crop to specified rectangle
+                img = img[y:y+height, x:x+width]
+                print(f"VideoContent[{self.device_name}]: Cropped image to rectangle {x},{y} {width}x{height}")
+            
+            # Use same blackscreen detection logic as existing method
+            threshold = 10  # Standard blackscreen threshold
+            very_dark_pixels = np.sum(img <= threshold)
+            total_pixels = img.shape[0] * img.shape[1]
+            dark_percentage = (very_dark_pixels / total_pixels) * 100
+            
+            # If more than 95% of pixels are very dark, it's a blackscreen
+            is_blackscreen = bool(dark_percentage > 95)
+            
+            result = {
+                'success': True,
+                'is_blackscreen': is_blackscreen,
+                'dark_percentage': round(float(dark_percentage), 2),
+                'threshold': threshold,
+                'very_dark_pixels': int(very_dark_pixels),
+                'total_pixels': int(total_pixels),
+                'image_size': f"{img.shape[1]}x{img.shape[0]}",
+                'analysis_rectangle': analysis_rectangle,
+                'confidence': 0.9 if is_blackscreen else 0.1,
+                'image_path': os.path.basename(image_path)
+            }
+            
+            return result
+            
+        except Exception as e:
+            print(f"VideoContent[{self.device_name}]: Zapping image analysis error: {e}")
+            return {
+                'success': False,
+                'error': f'Analysis error: {str(e)}',
+                'image_path': image_path,
+                'is_blackscreen': False
+            }
+
+    def _load_images_from_folder_by_timestamp(self, folder_path: str, start_timestamp: float, max_count: int = 10) -> List[str]:
+        """
+        Load images from folder that were captured after the specified timestamp.
+        
+        Args:
+            folder_path: Path to folder containing images
+            start_timestamp: Start timestamp (Unix timestamp)
+            max_count: Maximum number of images to return
+            
+        Returns:
+            List of image file paths sorted by timestamp (chronological order)
+        """
+        try:
+            if not os.path.exists(folder_path):
+                print(f"VideoContent[{self.device_name}]: Folder not found: {folder_path}")
+                return []
+            
+            # Get all image files from folder
+            image_extensions = {'.png', '.jpg', '.jpeg', '.bmp', '.tiff'}
+            all_files = []
+            
+            for filename in os.listdir(folder_path):
+                if any(filename.lower().endswith(ext) for ext in image_extensions):
+                    file_path = os.path.join(folder_path, filename)
+                    file_timestamp = self._extract_timestamp_from_filename(file_path)
+                    
+                    # Only include files after start timestamp
+                    if file_timestamp >= start_timestamp:
+                        all_files.append((file_path, file_timestamp))
+            
+            # Sort by timestamp (chronological order)
+            all_files.sort(key=lambda x: x[1])
+            
+            # Return up to max_count file paths
+            image_paths = [file_path for file_path, _ in all_files[:max_count]]
+            
+            print(f"VideoContent[{self.device_name}]: Found {len(image_paths)} images after timestamp {start_timestamp}")
+            return image_paths
+            
+        except Exception as e:
+            print(f"VideoContent[{self.device_name}]: Error loading images from folder: {e}")
+            return []
+
+    def _extract_timestamp_from_filename(self, file_path: str) -> float:
+        """
+        Extract timestamp from filename or use file modification time as fallback.
+        
+        Args:
+            file_path: Path to the file
+            
+        Returns:
+            Unix timestamp as float
+        """
+        try:
+            filename = os.path.basename(file_path)
+            
+            # Try to extract timestamp from filename
+            # Common patterns: image_1234567890.png, capture_1234567890_001.jpg, etc.
+            import re
+            timestamp_pattern = r'(\d{10,13})'  # Unix timestamp (10-13 digits)
+            matches = re.findall(timestamp_pattern, filename)
+            
+            if matches:
+                # Use the first timestamp found in filename
+                timestamp = int(matches[0])
+                # Convert milliseconds to seconds if needed
+                if timestamp > 1e12:  # If timestamp is in milliseconds
+                    timestamp = timestamp / 1000.0
+                return float(timestamp)
+            
+            # Fallback to file modification time
+            return os.path.getmtime(file_path)
+            
+        except Exception as e:
+            print(f"VideoContent[{self.device_name}]: Error extracting timestamp from {file_path}: {e}")
+            # Ultimate fallback - return current time
+            return time.time()

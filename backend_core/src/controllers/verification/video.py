@@ -581,6 +581,136 @@ class VideoVerificationController(VerificationControllerInterface):
         return self.verification_helpers.execute_verification_workflow(verification_config, image_source_url)
 
     # =============================================================================
+    # Zapping Detection Methods
+    # =============================================================================
+
+    def detect_zapping(self, folder_path: str, key_release_timestamp: float, 
+                      analysis_rectangle: Dict[str, int] = None, banner_region: Dict[str, int] = None, 
+                      max_images: int = 10) -> Dict[str, Any]:
+        """
+        Detect channel zapping sequence by analyzing images from folder.
+        
+        Args:
+            folder_path: Path to folder containing captured images
+            key_release_timestamp: Timestamp when zapping key was released (Unix timestamp)
+            analysis_rectangle: Rectangle to analyze for blackscreen (exclude banner area)
+                               Format: {'x': int, 'y': int, 'width': int, 'height': int}
+            banner_region: Region where banner appears for AI analysis (optional)
+                          Format: {'x': int, 'y': int, 'width': int, 'height': int}
+            max_images: Maximum number of images to analyze (default: 10)
+            
+        Returns:
+            Dictionary with comprehensive zapping detection results
+        """
+        try:
+            print(f"VideoVerify[{self.device_name}]: Starting zapping detection")
+            print(f"VideoVerify[{self.device_name}]: Folder: {folder_path}")
+            print(f"VideoVerify[{self.device_name}]: Key release timestamp: {key_release_timestamp}")
+            
+            # Validate inputs
+            if not folder_path:
+                return {
+                    'success': False,
+                    'error': 'No folder path provided',
+                    'zapping_detected': False,
+                    'blackscreen_duration': 0.0
+                }
+            
+            if key_release_timestamp <= 0:
+                return {
+                    'success': False,
+                    'error': 'Invalid key release timestamp',
+                    'zapping_detected': False,
+                    'blackscreen_duration': 0.0
+                }
+            
+            # Execute core zapping detection
+            zapping_result = self.content_helpers.detect_zapping_sequence(
+                folder_path, key_release_timestamp, analysis_rectangle, max_images
+            )
+            
+            if not zapping_result.get('success', False):
+                return {
+                    'success': False,
+                    'error': f"Zapping detection failed: {zapping_result.get('error', 'Unknown error')}",
+                    'zapping_detected': False,
+                    'blackscreen_duration': 0.0
+                }
+            
+            # If zapping was detected and we have banner region, try to extract channel info
+            channel_info = {}
+            if (zapping_result.get('zapping_detected', False) and 
+                banner_region and 
+                zapping_result.get('blackscreen_end_image')):
+                
+                # Find the image where blackscreen ended (first content after zapping)
+                end_image_name = zapping_result.get('blackscreen_end_image', '')
+                if end_image_name:
+                    # Reconstruct full path to the end image
+                    import os
+                    end_image_path = os.path.join(folder_path, end_image_name)
+                    
+                    # Check if banner is present before expensive AI call
+                    if self.ai_helpers.detect_banner_presence(end_image_path, banner_region):
+                        print(f"VideoVerify[{self.device_name}]: Banner detected, analyzing with AI")
+                        banner_result = self.ai_helpers.analyze_channel_banner_ai(end_image_path, banner_region)
+                        
+                        if banner_result.get('success', False) and banner_result.get('banner_detected', False):
+                            channel_info = banner_result.get('channel_info', {})
+                            print(f"VideoVerify[{self.device_name}]: Channel info extracted: {channel_info}")
+                        else:
+                            print(f"VideoVerify[{self.device_name}]: Banner analysis failed or no banner found")
+                    else:
+                        print(f"VideoVerify[{self.device_name}]: No banner presence detected, skipping AI analysis")
+            
+            # Compile comprehensive result
+            success = zapping_result.get('zapping_detected', False)
+            blackscreen_duration = zapping_result.get('blackscreen_duration', 0.0)
+            
+            # Enhanced result with channel info
+            final_result = {
+                'success': success,
+                'zapping_detected': success,
+                'blackscreen_duration': blackscreen_duration,
+                'blackscreen_start_image': zapping_result.get('blackscreen_start_image'),
+                'blackscreen_end_image': zapping_result.get('blackscreen_end_image'),
+                'channel_info': channel_info,
+                'analyzed_images': zapping_result.get('analyzed_images', 0),
+                'total_images_available': zapping_result.get('total_images_available', 0),
+                'analysis_stopped_early': zapping_result.get('analysis_stopped_early', False),
+                'key_release_timestamp': key_release_timestamp,
+                'analysis_rectangle': analysis_rectangle,
+                'banner_region': banner_region,
+                'details': zapping_result.get('details', {}),
+                'analysis_type': 'zapping_detection',
+                'timestamp': zapping_result.get('timestamp')
+            }
+            
+            # Log the verification
+            self._log_verification(
+                'DetectZapping', 
+                f"folder:{os.path.basename(folder_path) if folder_path else 'unknown'}", 
+                success, 
+                final_result
+            )
+            
+            print(f"VideoVerify[{self.device_name}]: Zapping detection complete - detected={success}, duration={blackscreen_duration}s")
+            if channel_info.get('channel_name'):
+                print(f"VideoVerify[{self.device_name}]: Channel: {channel_info['channel_name']}")
+            
+            return final_result
+            
+        except Exception as e:
+            print(f"VideoVerify[{self.device_name}]: Zapping detection error: {e}")
+            return {
+                'success': False,
+                'error': f'Zapping detection failed: {str(e)}',
+                'analysis_type': 'zapping_detection',
+                'zapping_detected': False,
+                'blackscreen_duration': 0.0
+            }
+
+    # =============================================================================
     # Utility Methods
     # =============================================================================
 

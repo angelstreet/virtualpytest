@@ -728,3 +728,262 @@ JSON ONLY - NO OTHER TEXT"""
         except Exception as e:
             print(f"VideoAI[{self.device_name}]: Natural language parsing error: {e}")
             return '', 'unknown', 0.0
+
+    # =============================================================================
+    # Channel Banner Analysis
+    # =============================================================================
+    
+    def analyze_channel_banner_ai(self, image_path: str, banner_region: Dict[str, int] = None) -> Dict[str, Any]:
+        """
+        AI-powered channel banner analysis using OpenRouter.
+        
+        Args:
+            image_path: Path to image file containing the banner
+            banner_region: Region where banner appears (optional cropping)
+                          Format: {'x': int, 'y': int, 'width': int, 'height': int}
+            
+        Returns:
+            Dictionary with channel banner analysis results
+        """
+        try:
+            print(f"VideoAI[{self.device_name}]: AI channel banner analysis")
+            
+            # Check if image exists
+            if not os.path.exists(image_path):
+                print(f"VideoAI[{self.device_name}]: Image file not found: {image_path}")
+                return {'success': False, 'error': 'Image file not found'}
+            
+            # Get API key from environment
+            api_key = os.getenv('OPENROUTER_API_KEY')
+            if not api_key:
+                print(f"VideoAI[{self.device_name}]: OpenRouter API key not found in environment")
+                return {'success': False, 'error': 'AI service not available'}
+            
+            # Load and process the image
+            try:
+                img = cv2.imread(image_path)
+                if img is None:
+                    return {'success': False, 'error': 'Could not load image'}
+                
+                # Crop to banner region if specified
+                if banner_region:
+                    x = banner_region.get('x', 0)
+                    y = banner_region.get('y', 0)
+                    width = banner_region.get('width', img.shape[1])
+                    height = banner_region.get('height', img.shape[0])
+                    
+                    # Validate rectangle bounds
+                    img_height, img_width = img.shape[:2]
+                    if x < 0 or y < 0 or x + width > img_width or y + height > img_height:
+                        return {'success': False, 'error': 'Banner region out of image bounds'}
+                    
+                    # Crop to specified region
+                    img = img[y:y+height, x:x+width]
+                    print(f"VideoAI[{self.device_name}]: Cropped image to banner region {x},{y} {width}x{height}")
+                
+                # Save processed image to temporary file for encoding
+                with tempfile.NamedTemporaryFile(suffix='.jpg', delete=False) as tmp_file:
+                    cv2.imwrite(tmp_file.name, img)
+                    temp_path = tmp_file.name
+                
+                try:
+                    # Encode image to base64
+                    with open(temp_path, 'rb') as f:
+                        image_data = base64.b64encode(f.read()).decode()
+                    
+                    # Create specialized prompt for banner analysis
+                    prompt = self._create_banner_analysis_prompt()
+                    
+                    # Call OpenRouter API
+                    response = requests.post(
+                        'https://openrouter.ai/api/v1/chat/completions',
+                        headers={
+                            'Authorization': f'Bearer {api_key}',
+                            'Content-Type': 'application/json',
+                            'HTTP-Referer': 'https://automai.dev',
+                            'X-Title': 'AutomAI-VirtualPyTest'
+                        },
+                        json={
+                            'model': 'qwen/qwen-2-vl-7b-instruct',
+                            'messages': [
+                                {
+                                    'role': 'user',
+                                    'content': [
+                                        {'type': 'text', 'text': prompt},
+                                        {'type': 'image_url', 'image_url': {'url': f'data:image/jpeg;base64,{image_data}'}}
+                                    ]
+                                }
+                            ],
+                            'max_tokens': 400,
+                            'temperature': 0.0
+                        },
+                        timeout=30
+                    )
+                    
+                    if response.status_code == 200:
+                        result = response.json()
+                        content = result['choices'][0]['message']['content'].strip()
+                        
+                        # Parse JSON response
+                        try:
+                            ai_result = json.loads(content)
+                            
+                            # Validate and normalize the result
+                            banner_detected = ai_result.get('banner_detected', False)
+                            channel_name = ai_result.get('channel_name', '')
+                            program_name = ai_result.get('program_name', '')
+                            start_time = ai_result.get('start_time', '')
+                            end_time = ai_result.get('end_time', '')
+                            confidence = float(ai_result.get('confidence', 0.0))
+                            
+                            # Return standardized result
+                            return {
+                                'success': True,
+                                'banner_detected': banner_detected,
+                                'channel_info': {
+                                    'channel_name': channel_name,
+                                    'program_name': program_name,
+                                    'start_time': start_time,
+                                    'end_time': end_time
+                                },
+                                'confidence': confidence,
+                                'banner_region': banner_region,
+                                'image_path': os.path.basename(image_path),
+                                'analysis_type': 'ai_channel_banner_analysis'
+                            }
+                            
+                        except json.JSONDecodeError as e:
+                            print(f"VideoAI[{self.device_name}]: JSON parsing error: {e}")
+                            print(f"VideoAI[{self.device_name}]: Raw AI response: {content}")
+                            return {
+                                'success': False,
+                                'error': 'Invalid AI response format',
+                                'raw_response': content
+                            }
+                    else:
+                        print(f"VideoAI[{self.device_name}]: OpenRouter API error: {response.status_code}")
+                        return {
+                            'success': False,
+                            'error': f'AI service error: {response.status_code}'
+                        }
+                        
+                finally:
+                    # Clean up temporary file
+                    if os.path.exists(temp_path):
+                        os.unlink(temp_path)
+                        
+            except Exception as e:
+                print(f"VideoAI[{self.device_name}]: Image processing error: {e}")
+                return {
+                    'success': False,
+                    'error': 'Failed to process image'
+                }
+                
+        except Exception as e:
+            print(f"VideoAI[{self.device_name}]: AI channel banner analysis error: {e}")
+            return {
+                'success': False,
+                'error': f'Analysis error: {str(e)}'
+            }
+
+    def _create_banner_analysis_prompt(self) -> str:
+        """
+        Create specialized prompt for channel banner analysis.
+        
+        Returns:
+            Formatted prompt string for AI analysis
+        """
+        return """Analyze this image for TV channel information banner/overlay. Look for channel names, program information, and time details.
+
+CRITICAL: You MUST respond with ONLY valid JSON. No other text before or after.
+
+Required JSON format:
+{
+  "banner_detected": true,
+  "channel_name": "BBC One",
+  "program_name": "News at Six",
+  "start_time": "18:00",
+  "end_time": "18:30",
+  "confidence": 0.95
+}
+
+If no channel banner found:
+{
+  "banner_detected": false,
+  "channel_name": "",
+  "program_name": "",
+  "start_time": "",
+  "end_time": "",
+  "confidence": 0.1
+}
+
+IMPORTANT EXTRACTION RULES:
+- Look for channel logos, channel names (BBC One, ITV, Channel 4, etc.)
+- Extract program/show names (News, EastEnders, etc.)
+- Find time information (start time, end time, duration)
+- Look for text overlays, banners, or information bars
+- Check corners and edges of the image for channel info
+- Pay attention to typical TV UI elements (channel number, program guide info)
+- Extract exact times in HH:MM format when visible
+- Set confidence based on clarity and completeness of information found
+- If only partial information is visible, include what you can extract
+- Look for "Now" or "Next" program information
+- Check for EPG (Electronic Program Guide) style overlays
+
+JSON ONLY - NO OTHER TEXT"""
+
+    def detect_banner_presence(self, image_path: str, banner_region: Dict[str, int] = None) -> bool:
+        """
+        Quick detection to check if a banner is visually present before calling expensive AI analysis.
+        
+        Args:
+            image_path: Path to image file
+            banner_region: Region to check for banner presence
+            
+        Returns:
+            True if banner appears to be present, False otherwise
+        """
+        try:
+            if not os.path.exists(image_path):
+                return False
+            
+            img = cv2.imread(image_path)
+            if img is None:
+                return False
+            
+            # Crop to banner region if specified
+            if banner_region:
+                x = banner_region.get('x', 0)
+                y = banner_region.get('y', 0)
+                width = banner_region.get('width', img.shape[1])
+                height = banner_region.get('height', img.shape[0])
+                
+                # Validate bounds
+                img_height, img_width = img.shape[:2]
+                if x < 0 or y < 0 or x + width > img_width or y + height > img_height:
+                    return False
+                
+                img = img[y:y+height, x:x+width]
+            
+            # Simple heuristic: check for text-like edges and non-uniform color distribution
+            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            
+            # Edge detection for text
+            edges = cv2.Canny(gray, 50, 150)
+            edge_density = np.sum(edges > 0) / (edges.shape[0] * edges.shape[1])
+            
+            # Color variance (banners usually have some color variation)
+            color_variance = np.var(img)
+            
+            # Simple thresholds - adjust based on testing
+            has_text_edges = edge_density > 0.02  # Some text-like edges
+            has_color_variation = color_variance > 100  # Some color variation
+            
+            banner_likely = has_text_edges and has_color_variation
+            
+            print(f"VideoAI[{self.device_name}]: Banner presence check - edges: {edge_density:.4f}, variance: {color_variance:.1f}, likely: {banner_likely}")
+            return banner_likely
+            
+        except Exception as e:
+            print(f"VideoAI[{self.device_name}]: Banner presence detection error: {e}")
+            return False  # Assume no banner if detection fails
