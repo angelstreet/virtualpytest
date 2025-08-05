@@ -1050,17 +1050,17 @@ class VideoContentHelpers:
         }
 
     def _get_blackscreen_end_image(self, image_data: List[Dict], sequence: Dict[str, Any]) -> Optional[str]:
-        """Get the blackscreen end image filename, handling single image case."""
+        """Get the last blackscreen image filename (the actual last black frame)."""
         if sequence.get('single_image_case', False):
             # For single blackscreen image, end image is the same as start image
             start_index = sequence.get('blackscreen_start_index')
             if start_index is not None and start_index < len(image_data):
                 return image_data[start_index]['filename']
         else:
-            # Normal case: use blackscreen_end_index
+            # Normal case: blackscreen_end_index points to first content, so last black is end_index - 1
             end_index = sequence.get('blackscreen_end_index')
-            if end_index is not None and end_index < len(image_data):
-                return image_data[end_index]['filename']
+            if end_index is not None and end_index > 0:
+                return image_data[end_index - 1]['filename']
         return None
 
     def _get_first_content_after_blackscreen(self, image_data: List[Dict], sequence: Dict[str, Any]) -> Optional[str]:
@@ -1071,10 +1071,10 @@ class VideoContentHelpers:
             if start_index is not None and start_index + 1 < len(image_data):
                 return image_data[start_index + 1]['filename']
         else:
-            # Normal case: use blackscreen_end_index + 1
+            # Normal case: blackscreen_end_index already points to the first content image
             end_index = sequence.get('blackscreen_end_index')
-            if end_index is not None and end_index + 1 < len(image_data):
-                return image_data[end_index + 1]['filename']
+            if end_index is not None and end_index < len(image_data):
+                return image_data[end_index]['filename']
         return None
 
     def _extract_channel_info_from_images(self, image_data: List[Dict], blackscreen_end_index: int, 

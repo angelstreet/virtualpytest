@@ -99,6 +99,20 @@ const RunTests: React.FC = () => {
   const hosts = showWizard ? allHosts : []; // Only show hosts in wizard when opened
   const availableDevices = showWizard && selectedHost ? getDevicesFromHost(selectedHost) : [];
 
+  // Function to get available devices for selection (excluding already selected ones)
+  const getAvailableDevicesForSelection = () => {
+    if (!showWizard || !selectedHost) return [];
+    
+    const allDevicesForHost = getDevicesFromHost(selectedHost);
+    const selectedDeviceIds = additionalDevices
+      .filter(hd => hd.hostName === selectedHost)
+      .map(hd => hd.deviceId);
+    
+    return allDevicesForHost.filter(device => 
+      !selectedDeviceIds.includes(device.device_id)
+    );
+  };
+
   // Get stream device (primary device or selected additional device)
   const getStreamDevice = () => {
     if (streamViewIndex === 0) {
@@ -579,7 +593,7 @@ const RunTests: React.FC = () => {
 
       <Grid container spacing={2}>
         {/* Script Execution */}
-        <Grid item xs={12} md={showWizard && selectedHost && selectedDevice ? 6 : 12}>
+        <Grid item xs={12}>
           <Card sx={{ '& .MuiCardContent-root': { p: 2, '&:last-child': { pb: 2 } } }}>
             <CardContent>
               <Typography variant="h6" sx={{ mb: 1 }}>
@@ -601,9 +615,9 @@ const RunTests: React.FC = () => {
               ) : (
                 // Show wizard form when active
                 <>
-                  <Grid container spacing={1} sx={{ mb: 1 }}>
-                    {/* First row: Script, Host, Device */}
-                    <Grid item xs={12} sm={3}>
+                  {/* First row: All main parameters on one line */}
+                  <Box sx={{ display: 'flex', gap: 1, mb: 1, flexWrap: 'wrap' }}>
+                    <Box sx={{ minWidth: 150, flex: '1 1 150px' }}>
                       <FormControl fullWidth size="small">
                         <InputLabel>Script</InputLabel>
                         <Select
@@ -627,9 +641,9 @@ const RunTests: React.FC = () => {
                           )}
                         </Select>
                       </FormControl>
-                    </Grid>
+                    </Box>
 
-                    <Grid item xs={12} sm={3}>
+                    <Box sx={{ minWidth: 150, flex: '1 1 150px' }}>
                       <FormControl fullWidth size="small">
                         <InputLabel>Host</InputLabel>
                         <Select
@@ -647,58 +661,57 @@ const RunTests: React.FC = () => {
                           ))}
                         </Select>
                       </FormControl>
-                    </Grid>
+                    </Box>
 
-                    <Grid item xs={12} sm={3}>
+                    <Box sx={{ minWidth: 150, flex: '1 1 150px' }}>
                       <FormControl fullWidth size="small">
                         <InputLabel>Device</InputLabel>
                         <Select
                           value={selectedDevice}
                           label="Device"
                           onChange={(e) => setSelectedDevice(e.target.value)}
-                          disabled={!selectedHost || availableDevices.length === 0}
+                          disabled={!selectedHost || getAvailableDevicesForSelection().length === 0}
                         >
-                          {availableDevices.map((device) => (
+                          {getAvailableDevicesForSelection().map((device) => (
                             <MenuItem key={device.device_id} value={device.device_id}>
                               {device.device_id}
                             </MenuItem>
                           ))}
                         </Select>
                       </FormControl>
-                  </Grid>
+                    </Box>
 
-                    {/* Add Device button - only show when first device is selected */}
-                    {selectedHost && selectedDevice && (
-                      <Grid item xs={12} sm={3}>
-                        <Button
-                          variant="outlined"
-                          startIcon={<AddIcon />}
-                          onClick={() => {
-                            const exists = additionalDevices.some(hd => hd.hostName === selectedHost && hd.deviceId === selectedDevice);
-                            if (!exists) {
-                              setAdditionalDevices(prev => [...prev, { hostName: selectedHost, deviceId: selectedDevice }]);
-                              // Reset current selection to allow adding different device
-                              setSelectedHost('');
-                              setSelectedDevice('');
-                            }
-                          }}
-                          disabled={!selectedHost || !selectedDevice}
-                          size="small"
-                          fullWidth
-                        >
-                          + Add Device
-                        </Button>
-                      </Grid>
-                    )}
-
-                    {/* Parameters on the same row if there's space */}
+                    {/* Parameters on the same row */}
                     {displayParameters.length > 0 &&
                       displayParameters.map((param) => (
-                        <Grid item xs={12} sm={3} key={param.name}>
-                            {renderParameterInput(param)}
-                          </Grid>
-                        ))}
-                      </Grid>
+                        <Box key={param.name} sx={{ minWidth: 200, flex: '1 1 200px' }}>
+                          {renderParameterInput(param)}
+                        </Box>
+                      ))}
+                  </Box>
+
+                  {/* Second row: Add Device button aligned right */}
+                  <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
+                    {selectedHost && selectedDevice && (
+                      <Button
+                        variant="outlined"
+                        startIcon={<AddIcon />}
+                        onClick={() => {
+                          const exists = additionalDevices.some(hd => hd.hostName === selectedHost && hd.deviceId === selectedDevice);
+                          if (!exists) {
+                            setAdditionalDevices(prev => [...prev, { hostName: selectedHost, deviceId: selectedDevice }]);
+                            // Reset current selection to allow adding different device
+                            setSelectedHost('');
+                            setSelectedDevice('');
+                          }
+                        }}
+                        disabled={!selectedHost || !selectedDevice}
+                        size="small"
+                      >
+                        Add Device
+                      </Button>
+                    )}
+                  </Box>
 
                   {/* Show additional devices as chips */}
                   {additionalDevices.length > 0 && (
@@ -798,9 +811,12 @@ const RunTests: React.FC = () => {
 
         {/* Device Stream Viewer - Show when we have at least one device */}
         {showWizard && ((selectedHost && selectedDevice) || additionalDevices.length > 0) && (
-          <Grid item xs={12} md={6}>
-            <Card sx={{ '& .MuiCardContent-root': { p: 1, '&:last-child': { pb: 1 } } }}>
+          <Grid item xs={12}>
+            <Card sx={{ '& .MuiCardContent-root': { p: 2, '&:last-child': { pb: 2 } } }}>
               <CardContent>
+                <Typography variant="h6" sx={{ mb: 1 }}>
+                  Device Stream
+                </Typography>
                 {/* Device switcher dropdown - only show if we have multiple devices */}
                 {additionalDevices.length > 0 && (selectedHost && selectedDevice) && (
                   <Box sx={{ mb: 1 }}>
@@ -825,7 +841,7 @@ const RunTests: React.FC = () => {
                 )}
                 <Box
                   sx={{
-                    height: 280,
+                    height: 400,
                     backgroundColor: 'black',
                     borderRadius: 1,
                     overflow: 'hidden',
@@ -841,7 +857,7 @@ const RunTests: React.FC = () => {
                       isCapturing={isExecuting}
                       model={deviceModel}
                       layoutConfig={{
-                        minHeight: '260px',
+                        minHeight: '380px',
                         aspectRatio: isMobileModel ? '9/16' : '16/9',
                         objectFit: 'contain',
                         isMobileModel,
@@ -882,6 +898,11 @@ const RunTests: React.FC = () => {
                       )}
                     </Box>
                   )}
+                </Box>
+                <Box sx={{ display: 'flex', justifyContent: 'center', mt: 1 }}>
+                  <Button variant="outlined" size="small">
+                    Screenshot
+                  </Button>
                 </Box>
               </CardContent>
             </Card>
