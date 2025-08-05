@@ -4,7 +4,7 @@ import { Host } from '../../types/common/Host_Types';
 
 interface UseStreamProps {
   host: Host;
-  device_id: string; // Always required - no optional
+  device_id: string; // Can be empty string when no device is selected
 }
 
 interface UseStreamReturn {
@@ -65,7 +65,7 @@ export const useStream = ({ host, device_id }: UseStreamProps): UseStreamReturn 
 
   const fetchStreamUrl = useCallback(
     async (force: boolean = false) => {
-      if (!host || !device_id) return;
+      if (!host || !device_id || device_id.trim() === '') return;
 
       const deviceKey = `${host.host_name}-${device_id}`;
 
@@ -138,6 +138,15 @@ export const useStream = ({ host, device_id }: UseStreamProps): UseStreamReturn 
 
   // Auto-fetch stream URL when host or device_id changes
   useEffect(() => {
+    // Only process if we have a valid device_id
+    if (!device_id || device_id.trim() === '') {
+      // Clear stream data when no device is selected
+      setStreamUrl(null);
+      setUrlError(null);
+      currentDeviceRef.current = null;
+      return;
+    }
+
     const deviceKey = `${host?.host_name}-${device_id}`;
 
     // Check if device changed

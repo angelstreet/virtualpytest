@@ -93,10 +93,10 @@ const RunTests: React.FC = () => {
   // Get the selected host object for stream (use allHosts to ensure stream works)
   const selectedHostObject = allHosts.find((host) => host.host_name === selectedHost);
 
-  // Use stream hook to get device stream
+  // Use stream hook to get device stream - only when both host and device are selected
   const { streamUrl, isLoadingUrl, urlError } = useStream({
     host: selectedHostObject!,
-    device_id: selectedDevice || 'device1',
+    device_id: selectedDevice,
   });
 
   // Get the selected device object for model information
