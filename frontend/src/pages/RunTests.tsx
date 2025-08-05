@@ -113,6 +113,35 @@ const RunTests: React.FC = () => {
     );
   };
 
+  // Function to check if there are more devices available to add across all hosts
+  const hasMoreDevicesAvailable = () => {
+    if (!showWizard) return false;
+    
+    // Get all selected device combinations (host:device pairs)
+    const allSelectedDevices = [...additionalDevices];
+    if (selectedHost && selectedDevice) {
+      allSelectedDevices.push({ hostName: selectedHost, deviceId: selectedDevice });
+    }
+    
+    // Check each host to see if it has unselected devices
+    for (const host of hosts) {
+      const hostDevices = getDevicesFromHost(host.host_name);
+      const selectedDevicesForHost = allSelectedDevices
+        .filter(hd => hd.hostName === host.host_name)
+        .map(hd => hd.deviceId);
+      
+      const availableDevicesForHost = hostDevices.filter(device => 
+        !selectedDevicesForHost.includes(device.device_id)
+      );
+      
+      if (availableDevicesForHost.length > 0) {
+        return true; // Found at least one available device
+      }
+    }
+    
+    return false; // No more devices available across all hosts
+  };
+
   // Get stream device (primary device or selected additional device)
   const getStreamDevice = () => {
     if (streamViewIndex === 0) {
@@ -690,28 +719,30 @@ const RunTests: React.FC = () => {
                       ))}
                   </Box>
 
-                  {/* Second row: Add Device button aligned right */}
-                  <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
-                    {selectedHost && selectedDevice && (
-                      <Button
-                        variant="outlined"
-                        startIcon={<AddIcon />}
-                        onClick={() => {
-                          const exists = additionalDevices.some(hd => hd.hostName === selectedHost && hd.deviceId === selectedDevice);
-                          if (!exists) {
-                            setAdditionalDevices(prev => [...prev, { hostName: selectedHost, deviceId: selectedDevice }]);
-                            // Reset current selection to allow adding different device
-                            setSelectedHost('');
-                            setSelectedDevice('');
-                          }
-                        }}
-                        disabled={!selectedHost || !selectedDevice}
-                        size="small"
-                      >
-                        Add Device
-                      </Button>
-                    )}
-                  </Box>
+                  {/* Second row: Add Device button aligned right - only show if more devices are available */}
+                  {hasMoreDevicesAvailable() && (
+                    <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
+                      {selectedHost && selectedDevice && (
+                        <Button
+                          variant="outlined"
+                          startIcon={<AddIcon />}
+                          onClick={() => {
+                            const exists = additionalDevices.some(hd => hd.hostName === selectedHost && hd.deviceId === selectedDevice);
+                            if (!exists) {
+                              setAdditionalDevices(prev => [...prev, { hostName: selectedHost, deviceId: selectedDevice }]);
+                              // Reset current selection to allow adding different device
+                              setSelectedHost('');
+                              setSelectedDevice('');
+                            }
+                          }}
+                          disabled={!selectedHost || !selectedDevice}
+                          size="small"
+                        >
+                          Add Device
+                        </Button>
+                      )}
+                    </Box>
+                  )}
 
                   {/* Show additional devices as chips */}
                   {additionalDevices.length > 0 && (
@@ -898,11 +929,6 @@ const RunTests: React.FC = () => {
                       )}
                     </Box>
                   )}
-                </Box>
-                <Box sx={{ display: 'flex', justifyContent: 'center', mt: 1 }}>
-                  <Button variant="outlined" size="small">
-                    Screenshot
-                  </Button>
                 </Box>
               </CardContent>
             </Card>
