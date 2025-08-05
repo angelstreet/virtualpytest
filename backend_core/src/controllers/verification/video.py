@@ -695,9 +695,10 @@ class VideoVerificationController(VerificationControllerInterface):
             }
             
             # Log the verification
+            folder_name = folder_path.split('/')[-1] if folder_path else 'unknown'
             self._log_verification(
                 'DetectZapping', 
-                f"folder:{os.path.basename(folder_path) if folder_path else 'unknown'}", 
+                f"folder:{folder_name}", 
                 success, 
                 final_result
             )
