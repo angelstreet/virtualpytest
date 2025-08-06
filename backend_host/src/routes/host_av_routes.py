@@ -349,6 +349,11 @@ def take_screenshot():
         
         print(f"[@route:host_av:take_screenshot] Screenshot path from controller: {screenshot_path}")
         
+        # Wait 500ms to ensure file is fully written to disk
+        import time
+        time.sleep(0.5)
+        print(f"[@route:host_av:take_screenshot] Waited 500ms for file to be fully written")
+        
         # Use URL building utilities
         from utils.build_url_utils import buildCaptureUrlFromPath, buildClientImageUrl
         from utils.host_utils import get_host_instance as get_host
