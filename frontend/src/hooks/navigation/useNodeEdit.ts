@@ -1,4 +1,4 @@
-import { useCallback, useState, useEffect, useMemo } from 'react';
+import { useCallback, useState, useEffect, useMemo, useRef } from 'react';
 
 import { Host } from '../../types/common/Host_Types';
 import { NodeForm, UINavigationNode } from '../../types/pages/Navigation_Types';
@@ -48,15 +48,26 @@ export const useNodeEdit = ({
   const [isRunningGoto, setIsRunningGoto] = useState(false);
   const [gotoResult, setGotoResult] = useState('');
 
-  // Initialize verifications when dialog opens or nodeForm changes
+  // Fix loop: Use a ref to track if we've already initialized, preventing re-calls during the same open session.
+  // Also, use shallow equality for verifications dep to avoid triggering on new array references.
+  const initializedRef = useRef(false);
+
   useEffect(() => {
-    if (isOpen && nodeForm?.verifications) {
+    if (isOpen && nodeForm?.verifications && !initializedRef.current) {
       console.log('[useNodeEdit] Initializing verifications from nodeForm:', nodeForm.verifications);
       verification.handleVerificationsChange(nodeForm.verifications);
+      initializedRef.current = true;
     } else if (isOpen) {
       console.log('[useNodeEdit] Dialog opened but no verifications in nodeForm:', nodeForm);
     }
-  }, [isOpen, nodeForm?.verifications, verification]);
+
+    // Reset ref when dialog closes
+    return () => {
+      if (!isOpen) {
+        initializedRef.current = false;
+      }
+    };
+  }, [isOpen, nodeForm, verification]); // Removed nodeForm?.verifications to avoid ref change triggers
 
   // Reset state when dialog closes
   useEffect(() => {
@@ -72,14 +83,21 @@ export const useNodeEdit = ({
   }, [isOpen, verification]);
 
   // Handle verification changes
+  // In handleVerificationsChange, reuse the existing verifications array if unchanged to avoid new references.
+  // This prevents unnecessary effect triggers.
   const handleVerificationsChange = useCallback(
     (newVerifications: Verification[]) => {
       if (!nodeForm) return;
 
       console.log('[useNodeEdit] Verification changes:', newVerifications);
+
+      // Check if verifications actually changed (shallow compare)
+      const isSame = JSON.stringify(nodeForm.verifications) === JSON.stringify(newVerifications);
+      if (isSame) return; // Skip update to break potential loops
+
       setNodeForm({
         ...nodeForm,
-        verifications: newVerifications,
+        verifications: newVerifications, // Assume caller provides stable reference; don't create new array here
       });
       verification.handleVerificationsChange(newVerifications);
     },

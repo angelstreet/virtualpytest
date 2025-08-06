@@ -146,8 +146,7 @@ const miniMapNodeColor = (node: any) => {
 
 // Helper function removed - was unused
 
-const NavigationEditorContent: React.FC<{ treeName: string }> = React.memo(
-  ({ treeName }) => {
+const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) => {
 
     // Get theme context for dynamic styling
     const { actualMode } = useTheme();

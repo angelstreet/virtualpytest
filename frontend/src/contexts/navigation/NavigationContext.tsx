@@ -953,6 +953,7 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
            }
 
            setIsNodeDialogOpen(false);
+           setNodeForm({ label: '', type: 'screen', description: '', verifications: [] }); // Reset to initial empty form
            setSuccess('Node saved successfully');
          } catch (error) {
            console.error('Error saving node:', error);
