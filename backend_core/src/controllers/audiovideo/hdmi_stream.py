@@ -93,10 +93,18 @@ class HDMIStreamController(AVControllerInterface):
             captures_path = os.path.join(self.video_capture_path, 'captures')
             screenshot_path = f'{captures_path}/capture_{timestamp}.jpg'
             
-            # Add 200ms delay before returning path (allows host to capture screenshot)
-            time.sleep(0.2)
+            # Wait 500ms first
+            time.sleep(0.5)
+            if os.path.exists(screenshot_path):
+                return screenshot_path
             
-            return screenshot_path
+            # If not found, wait 1 more second
+            time.sleep(1.0)
+            if os.path.exists(screenshot_path):
+                return screenshot_path
+            
+            # Not found after total 1.5s
+            return None
                 
         except Exception as e:
             print(f'HDMI[{self.capture_source}]: Error taking screenshot: {e}')
