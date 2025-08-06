@@ -315,12 +315,16 @@ class TextVerificationController:
                         'screenshot_path': None
                     }
             else:
-                # No fallback allowed - source image must be provided
-                return {
-                    'success': False,
-                    'message': 'No source image provided for text verification. Source image is required.',
-                    'screenshot_path': None
-                }
+                # Fallback: automatically capture screenshot from AV controller
+                print(f"[@controller:TextVerification] No source image provided, capturing screenshot automatically")
+                source_path = self.av_controller.take_screenshot()
+                if not source_path or not os.path.exists(source_path):
+                    return {
+                        'success': False,
+                        'message': 'Failed to capture screenshot automatically for text verification',
+                        'screenshot_path': None
+                    }
+                print(f"[@controller:TextVerification] Using automatically captured screenshot: {source_path}")
             
             # Extract parameters from nested structure
             params = verification_config.get('params', {})
