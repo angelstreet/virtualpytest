@@ -26,8 +26,7 @@ class TaskManager:
                 'created_at': time.time(),
                 'completed_at': None,
                 'result': None,
-                'error': None,
-                'progress': None  # Add progress tracking
+                'error': None
             }
         
         return task_id
@@ -48,11 +47,7 @@ class TaskManager:
         with self._lock:
             return self._tasks.get(task_id)
     
-    def update_task_progress(self, task_id: str, progress: Dict[str, Any]):
-        """Update task progress"""
-        with self._lock:
-            if task_id in self._tasks:
-                self._tasks[task_id]['progress'] = progress
+    # Removed progress tracking - no longer needed
     
     def cleanup_old_tasks(self, max_age_seconds: int = 3600):
         """Remove tasks older than max_age_seconds"""

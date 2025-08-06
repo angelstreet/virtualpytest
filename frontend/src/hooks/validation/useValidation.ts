@@ -1,5 +1,5 @@
 /**
- * Validation Hook
+ * Validation Hook - Simplified
  *
  * This hook provides state management for validation operations.
  */
@@ -9,27 +9,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { ValidationResults, ValidationPreviewData } from '../../types/features/Validation_Types';
 import { useHostManager } from '../useHostManager';
 
-// Progress tracking types
-interface ValidationStep {
-  stepNumber: number;
-  totalSteps: number;
-  fromNode: string;
-  toNode: string;
-  fromName: string;
-  toName: string;
-  status: 'pending' | 'running' | 'success' | 'failed' | 'skipped';
-  error?: string;
-  executionTime?: number;
-}
-
-interface ValidationProgress {
-  currentStep: number;
-  totalSteps: number;
-  steps: ValidationStep[];
-  isRunning: boolean;
-}
-
-// Shared state store for validation
+// Simplified shared state store for validation
 const validationStore: Record<
   string,
   {
@@ -39,7 +19,6 @@ const validationStore: Record<
     preview: ValidationPreviewData | null;
     isLoadingPreview: boolean;
     validationError: string | null;
-    progress: ValidationProgress | null;
     listeners: Set<() => void>;
   }
 > = {};
@@ -53,7 +32,6 @@ const getValidationState = (treeId: string) => {
       preview: null,
       isLoadingPreview: false,
       validationError: null,
-      progress: null,
       listeners: new Set(),
     };
   }
@@ -102,22 +80,19 @@ export const useValidation = (treeId: string, providedHost?: any, providedDevice
     if (!treeId) return;
 
     updateValidationState(treeId, { isLoadingPreview: true });
+
     try {
       const response = await fetch(`/server/validation/preview/${treeId}`);
-      const data: ValidationPreviewData = await response.json();
+      const result = await response.json();
 
-      if (data.success) {
-        updateValidationState(treeId, { preview: data });
+      if (result.success) {
+        updateValidationState(treeId, { preview: result });
       } else {
-        console.error('Failed to load validation preview:', data.error);
-        updateValidationState(treeId, {
-          validationError: data.error || 'Failed to load validation preview',
-        });
+        updateValidationState(treeId, { validationError: result.error || 'Failed to load preview' });
       }
     } catch (error) {
-      console.error('Error loading validation preview:', error);
       updateValidationState(treeId, {
-        validationError: error instanceof Error ? error.message : 'Unknown error',
+        validationError: error instanceof Error ? error.message : 'Failed to load preview',
       });
     } finally {
       updateValidationState(treeId, { isLoadingPreview: false });
@@ -125,7 +100,7 @@ export const useValidation = (treeId: string, providedHost?: any, providedDevice
   }, [treeId]);
 
   /**
-   * Run validation with step-by-step progress tracking
+   * Run validation with simple loading state
    */
   const runValidation = useCallback(
     async (skippedEdges: string[] = []) => {
@@ -136,35 +111,16 @@ export const useValidation = (treeId: string, providedHost?: any, providedDevice
         return;
       }
 
-      console.log('[@hook:useValidation] Setting isValidating to true');
-
       // Filter out skipped edges to get edges to validate
       const edgesToValidate = state.preview.edges.filter(
         (edge) => !skippedEdges.includes(`${edge.from_node}-${edge.to_node}`),
       );
-
-      // Initialize progress tracking
-      const initialSteps: ValidationStep[] = edgesToValidate.map((edge, index) => ({
-        stepNumber: index + 1,
-        totalSteps: edgesToValidate.length,
-        fromNode: edge.from_node,
-        toNode: edge.to_node,
-        fromName: edge.from_name,
-        toName: edge.to_name,
-        status: 'pending' as const,
-      }));
 
       updateValidationState(treeId, {
         isValidating: true,
         validationError: null,
         results: null,
         showResults: false,
-        progress: {
-          currentStep: 0,
-          totalSteps: edgesToValidate.length,
-          steps: initialSteps,
-          isRunning: true,
-        },
       });
 
       try {
@@ -185,185 +141,59 @@ export const useValidation = (treeId: string, providedHost?: any, providedDevice
 
         const initialResult = await response.json();
 
-        // Handle async task response (202 status code)
         if (response.status === 202 && initialResult.task_id) {
-          console.log(
-            `[@hook:useValidation] Validation started async with task_id: ${initialResult.task_id}`,
-          );
+          console.log(`[@hook:useValidation] Validation started with task_id: ${initialResult.task_id}`);
 
-          // Poll for task completion with progress updates
+          // Simple polling for completion (no progress updates)
           const taskId = initialResult.task_id;
-          const pollInterval = 2000; // 2 seconds
-          const maxWaitTime = 600000; // 10 minutes for validation
+          const pollInterval = 3000; // 3 seconds
+          const maxWaitTime = 600000; // 10 minutes
           const startTime = Date.now();
 
           while (Date.now() - startTime < maxWaitTime) {
             await new Promise((resolve) => setTimeout(resolve, pollInterval));
 
-            try {
-              const statusResponse = await fetch(`/server/validation/status/${taskId}`);
-              const statusResult = await statusResponse.json();
+            const statusResponse = await fetch(`/server/validation/status/${taskId}`);
+            const statusResult = await statusResponse.json();
 
-              if (statusResult.success && statusResult.task) {
-                const task = statusResult.task;
+            if (statusResult.success && statusResult.task) {
+              const task = statusResult.task;
 
-                // Update progress if available
-                if (task.progress) {
-                  const progressSteps: ValidationStep[] = task.progress.steps.map((step: any) => ({
-                    stepNumber: step.stepNumber,
-                    totalSteps: task.progress.totalSteps,
-                    fromNode: '', // Not used in current progress display
-                    toNode: '', // Not used in current progress display
-                    fromName: step.fromName,
-                    toName: step.toName,
-                    status: step.status,
-                    executionTime: step.executionTime,
-                  }));
+              if (task.status === 'completed') {
+                console.log(`[@hook:useValidation] Validation completed successfully`);
 
-                  updateValidationState(treeId, {
-                    progress: {
-                      currentStep: task.progress.currentStep,
-                      totalSteps: task.progress.totalSteps,
-                      steps: progressSteps,
-                      isRunning: task.status === 'started',
-                    },
-                  });
-                }
-
-                if (task.status === 'completed') {
-                  console.log(`[@hook:useValidation] Validation completed successfully`);
-
-                  const { summary, results, report_url } = task.result;
-
-                  // Convert API response to ValidationResults format
-                  const validationResults: ValidationResults = {
-                    treeId,
-                    summary: {
-                      totalNodes: summary.totalTested,
-                      totalEdges: summary.totalTested,
-                      validNodes: summary.successful,
-                      errorNodes: summary.failed,
-                      skippedEdges: summary.skipped,
-                      overallHealth: summary.overallHealth,
-                      executionTime: results.reduce(
-                        (sum: number, r: any) => sum + r.execution_time,
-                        0,
-                      ),
-                    },
-                    nodeResults: [],
-                    edgeResults: results.map((result: any) => ({
-                      from: result.from_node,
-                      to: result.to_node,
-                      fromName: result.from_name,
-                      toName: result.to_name,
-                      success: result.success,
-                      skipped: result.skipped,
-                      retryAttempts: 0,
-                      errors: result.error_message ? [result.error_message] : [],
-                      actionsExecuted: result.actions_executed,
-                      totalActions: result.total_actions,
-                      executionTime: result.execution_time,
-                    })),
-                    reportUrl: report_url, // Include report URL from API response
-                  };
-
-                  console.log('[@hook:useValidation] Setting results and showResults to true');
-                  updateValidationState(treeId, {
-                    results: validationResults,
-                    showResults: true,
-                    progress: null, // Clear progress when showing results
-                  });
-
-                  console.log(
-                    `[@hook:useValidation] Validation completed: ${summary.successful}/${summary.totalTested} successful`,
-                  );
-                  return;
-                } else if (task.status === 'failed') {
-                  console.log(`[@hook:useValidation] Validation failed:`, task.error);
-                  throw new Error(task.error || 'Validation execution failed');
-                }
-                // Continue polling if status is still 'started'
+                // Use the results directly from ScriptExecutor format
+                updateValidationState(treeId, {
+                  results: task.result, // ScriptExecutor result already in correct format
+                  showResults: true,
+                });
+                return;
+              } else if (task.status === 'failed') {
+                throw new Error(task.error || 'Validation execution failed');
               }
-            } catch (pollError) {
-              console.warn(`[@hook:useValidation] Error polling task status:`, pollError);
-              // Continue polling despite error
             }
           }
 
           throw new Error('Validation execution timed out');
         } else {
-          // Handle synchronous response or error (backward compatibility)
-          if (!response.ok) {
-            throw new Error(initialResult.error || 'Validation failed');
-          }
-
-          console.log(`[@hook:useValidation] Validation completed synchronously:`, initialResult);
-
-          const { summary, results, report_url } = initialResult;
-
-          const validationResults: ValidationResults = {
-            treeId,
-            summary: {
-              totalNodes: summary.totalTested,
-              totalEdges: summary.totalTested,
-              validNodes: summary.successful,
-              errorNodes: summary.failed,
-              skippedEdges: summary.skipped,
-              overallHealth: summary.overallHealth,
-              executionTime: results.reduce((sum: number, r: any) => sum + r.execution_time, 0),
-            },
-            nodeResults: [],
-            edgeResults: results.map((result: any) => ({
-              from: result.from_node,
-              to: result.to_node,
-              fromName: result.from_name,
-              toName: result.to_name,
-              success: result.success,
-              skipped: result.skipped,
-              retryAttempts: 0,
-              errors: result.error_message ? [result.error_message] : [],
-              actionsExecuted: result.actions_executed,
-              totalActions: result.total_actions,
-              executionTime: result.execution_time,
-            })),
-            reportUrl: report_url,
-          };
-
-          updateValidationState(treeId, {
-            results: validationResults,
-            showResults: true,
-            progress: null,
-          });
+          throw new Error(initialResult.error || 'Validation failed to start');
         }
       } catch (error) {
-        console.error('[@hook:useValidation] Error running validation:', error);
+        console.error('[@hook:useValidation] Validation error:', error);
         updateValidationState(treeId, {
-          validationError: error instanceof Error ? error.message : 'Unknown error',
-          progress: null,
+          validationError: error instanceof Error ? error.message : 'Unknown validation error',
         });
       } finally {
-        console.log('[@hook:useValidation] Setting isValidating to false');
-        updateValidationState(treeId, { isValidating: false });
+        updateValidationState(treeId, {
+          isValidating: false,
+        });
       }
     },
     [treeId, selectedHost, selectedDeviceId, state.preview],
   );
 
   /**
-   * Clear validation state
-   */
-  const clearValidation = useCallback(() => {
-    updateValidationState(treeId, {
-      results: null,
-      showResults: false,
-      preview: null,
-      validationError: null,
-      progress: null,
-    });
-  }, [treeId]);
-
-  /**
-   * Set show results
+   * Set results visibility
    */
   const setShowResults = useCallback(
     (show: boolean) => {
@@ -376,20 +206,14 @@ export const useValidation = (treeId: string, providedHost?: any, providedDevice
     // State
     isValidating: state.isValidating,
     validationResults: state.results,
-    validationError: state.validationError,
+    showResults: state.showResults,
     preview: state.preview,
     isLoadingPreview: state.isLoadingPreview,
-    showResults: state.showResults,
-    progress: state.progress,
+    validationError: state.validationError,
 
     // Actions
     loadPreview,
     runValidation,
-    clearValidation,
     setShowResults,
-
-    // Computed
-    hasResults: !!state.results,
-    canRunValidation: !state.isValidating && !!selectedHost && !!treeId,
   };
 };
