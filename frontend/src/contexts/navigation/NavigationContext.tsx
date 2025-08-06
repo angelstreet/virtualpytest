@@ -996,7 +996,20 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
            );
 
            setEdges(updatedEdges);
-           setSelectedEdge(updatedEdge as UINavigationEdge);
+           
+           // Preserve bidirectional edge relationship if it exists
+           const updatedSelectedEdge = updatedEdge as UINavigationEdge;
+           if (selectedEdge && (selectedEdge as any).bidirectionalEdge) {
+             // Find the bidirectional edge in the updated edges array to get its latest state
+             const bidirectionalEdgeId = (selectedEdge as any).bidirectionalEdge.id;
+             const updatedBidirectionalEdge = updatedEdges.find(e => e.id === bidirectionalEdgeId);
+             if (updatedBidirectionalEdge) {
+               (updatedSelectedEdge as any).bidirectionalEdge = updatedBidirectionalEdge;
+               console.log('[@NavigationContext] Preserved bidirectional edge relationship after save');
+             }
+           }
+           
+           setSelectedEdge(updatedSelectedEdge);
 
            // Save to database via NavigationConfigContext
            if (navigationConfig.actualTreeId) {
