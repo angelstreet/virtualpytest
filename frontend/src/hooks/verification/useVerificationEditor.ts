@@ -63,6 +63,7 @@ export const useVerificationEditor = ({
     references: availableReferences,
     referencesLoading,
     getModelReferences,
+    addReferenceToCache,
   } = useDeviceData();
 
   // Use the pure verification hook for core functionality
@@ -322,6 +323,20 @@ export const useVerificationEditor = ({
           setReferenceSaveCounter((prev) => prev + 1);
           setSaveSuccess(true);
 
+          // Add text reference to cache immediately for instant availability in verification dropdown
+          if (addReferenceToCache && deviceModel) {
+            addReferenceToCache(deviceModel, {
+              name: referenceName,
+              type: 'text',
+              url: '', // Text references don't have URLs
+              area: selectedArea,
+              text: referenceText,
+              font_size: detectedTextData?.fontSize,
+              confidence: detectedTextData?.confidence,
+            });
+            console.log('[@hook:useVerificationEditor] Added text reference to cache for immediate use');
+          }
+
           // Clear success state after 3 seconds (increased from 2)
           setTimeout(() => {
             setSaveSuccess(false);
@@ -407,6 +422,21 @@ export const useVerificationEditor = ({
           );
           setReferenceSaveCounter((prev) => prev + 1);
           setSaveSuccess(true);
+
+          // Add reference to cache immediately for instant availability in verification dropdown
+          if (addReferenceToCache && deviceModel && result.r2_url) {
+            const savedArea = imageProcessingOptions.autocrop && captureResult.processed_area
+              ? captureResult.processed_area
+              : selectedArea;
+
+            addReferenceToCache(deviceModel, {
+              name: referenceName,
+              type: 'image',
+              url: result.r2_url,
+              area: savedArea,
+            });
+            console.log('[@hook:useVerificationEditor] Added reference to cache for immediate use');
+          }
 
           // Clear success state after 3 seconds (increased from 2)
           setTimeout(() => {

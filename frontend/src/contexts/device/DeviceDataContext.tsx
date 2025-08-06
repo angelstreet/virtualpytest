@@ -74,6 +74,17 @@ interface DeviceDataActions {
   clearData: () => void;
   reloadData: () => Promise<void>;
 
+  // Reference cache management
+  addReferenceToCache: (deviceModel: string, reference: {
+    name: string;
+    type: 'image' | 'text';
+    url: string;
+    area: { x: number; y: number; width: number; height: number };
+    text?: string;
+    font_size?: number;
+    confidence?: number;
+  }) => void;
+
   // Device position management
   getDevicePosition: (
     host: Host,
@@ -653,6 +664,63 @@ export const DeviceDataProvider: React.FC<DeviceDataProviderProps> = ({ children
   }, [fetchAllData]);
 
   // ========================================
+  // REFERENCE CACHE MANAGEMENT
+  // ========================================
+
+  const addReferenceToCache = useCallback(
+    (deviceModel: string, reference: {
+      name: string;
+      type: 'image' | 'text';
+      url: string;
+      area: { x: number; y: number; width: number; height: number };
+      text?: string;
+      font_size?: number;
+      confidence?: number;
+    }) => {
+      console.log('[DeviceDataContext] Adding reference to cache:', { deviceModel, reference });
+
+      setState((prev) => {
+        // Initialize model references if not exists
+        if (!prev.references[deviceModel]) {
+          prev.references[deviceModel] = {};
+        }
+
+        // Create internal key with type suffix to avoid conflicts (same as fetchReferences)
+        const internalKey = `${reference.name}_${reference.type}`;
+
+        // Add reference to cache with same structure as fetchReferences
+        const newReferences = {
+          ...prev.references,
+          [deviceModel]: {
+            ...prev.references[deviceModel],
+            [internalKey]: {
+              name: reference.name, // Store original name for display
+              type: reference.type,
+              url: reference.url,
+              area: reference.area,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+              ...(reference.type === 'text' && {
+                text: reference.text,
+                font_size: reference.font_size,
+                confidence: reference.confidence,
+              }),
+            },
+          },
+        };
+
+        console.log('[DeviceDataContext] Updated references cache:', newReferences[deviceModel]);
+        
+        return {
+          ...prev,
+          references: newReferences,
+        };
+      });
+    },
+    [],
+  );
+
+  // ========================================
   // DEVICE POSITION MANAGEMENT
   // ========================================
 
@@ -758,6 +826,9 @@ export const DeviceDataProvider: React.FC<DeviceDataProviderProps> = ({ children
       clearData,
       reloadData,
 
+      // Reference cache management
+      addReferenceToCache,
+
       // Device position management
       getDevicePosition,
       setDevicePosition,
@@ -779,6 +850,7 @@ export const DeviceDataProvider: React.FC<DeviceDataProviderProps> = ({ children
       setControlState,
       clearData,
       reloadData,
+      addReferenceToCache,
       getDevicePosition,
       setDevicePosition,
       initializeDevicePosition,
