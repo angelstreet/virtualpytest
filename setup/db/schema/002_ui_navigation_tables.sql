@@ -269,11 +269,11 @@ ALTER TABLE navigation_nodes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE navigation_edges ENABLE ROW LEVEL SECURITY;
 ALTER TABLE navigation_trees_history ENABLE ROW LEVEL SECURITY;
 
--- RLS Policies
-CREATE POLICY "userinterfaces_access_policy" ON userinterfaces
+-- RLS Policies (updated to match actual working database)
+CREATE POLICY "userinterfaces_open_access" ON userinterfaces
 FOR ALL 
 TO public
-USING ((auth.uid() IS NULL) OR (auth.role() = 'service_role'::text) OR true);
+USING (true);
 
 CREATE POLICY "navigation_trees_access_policy" ON navigation_trees
 FOR ALL 

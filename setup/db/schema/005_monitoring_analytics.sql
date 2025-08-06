@@ -122,79 +122,9 @@ CREATE TABLE edge_metrics (
     UNIQUE(edge_id, tree_id, team_id)
 );
 
--- Individual action execution records (detailed history)
-CREATE TABLE action_execution_history (
-    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-    edge_id character varying NOT NULL,
-    tree_id uuid REFERENCES navigation_trees(id) ON DELETE CASCADE,
-    team_id uuid NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
-    
-    -- Action details
-    action_command character varying NOT NULL,
-    action_params jsonb DEFAULT '{}'::jsonb,
-    action_index integer NOT NULL COMMENT ON COLUMN action_execution_history.action_index IS 'Index of action within edge actions array',
-    is_retry_action boolean DEFAULT false NOT NULL,
-    
-    -- Execution results
-    success boolean NOT NULL,
-    execution_time_ms integer NOT NULL,
-    error_message text,
-    error_details jsonb,
-    
-    -- Device context
-    device_model character varying,
-    device_id character varying,
-    host_name character varying,
-    
-    -- Execution context
-    execution_id character varying COMMENT ON COLUMN action_execution_history.execution_id IS 'Links to execution_results table',
-    script_result_id character varying,
-    script_context character varying DEFAULT 'direct',
-    
-    executed_at timestamp with time zone DEFAULT now(),
-    created_at timestamp with time zone DEFAULT now()
-);
+-- action_execution_history table removed - does not exist in current database
 
--- Individual verification execution records (detailed history)
-CREATE TABLE verification_execution_history (
-    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-    node_id character varying NOT NULL,
-    tree_id uuid REFERENCES navigation_trees(id) ON DELETE CASCADE,
-    team_id uuid NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
-    
-    -- Verification details
-    verification_type character varying NOT NULL,
-    verification_command character varying NOT NULL,
-    verification_params jsonb DEFAULT '{}'::jsonb,
-    verification_index integer NOT NULL COMMENT ON COLUMN verification_execution_history.verification_index IS 'Index of verification within node verifications array',
-    
-    -- Execution results
-    success boolean NOT NULL,
-    execution_time_ms integer NOT NULL,
-    confidence_score numeric(5,4),
-    threshold_used numeric(5,4),
-    error_message text,
-    error_details jsonb,
-    
-    -- Result artifacts
-    source_image_url text,
-    reference_image_url text,
-    result_overlay_url text,
-    extracted_text text,
-    
-    -- Device context
-    device_model character varying,
-    device_id character varying,
-    host_name character varying,
-    
-    -- Execution context
-    execution_id character varying COMMENT ON COLUMN verification_execution_history.execution_id IS 'Links to execution_results table',
-    script_result_id character varying,
-    script_context character varying DEFAULT 'direct',
-    
-    executed_at timestamp with time zone DEFAULT now(),
-    created_at timestamp with time zone DEFAULT now()
-);
+-- verification_execution_history table removed - does not exist in current database
 
 -- Add indexes for performance
 CREATE INDEX idx_alerts_incident_type ON alerts(incident_type);
@@ -223,182 +153,40 @@ CREATE INDEX idx_edge_metrics_last_execution ON edge_metrics(last_execution_at);
 CREATE INDEX idx_edge_metrics_nodes ON edge_metrics(source_node_id, target_node_id);
 CREATE INDEX idx_edge_metrics_device ON edge_metrics(device_model, device_id);
 
--- Action execution history indexes
-CREATE INDEX idx_action_history_edge_id ON action_execution_history(edge_id);
-CREATE INDEX idx_action_history_tree_id ON action_execution_history(tree_id);
-CREATE INDEX idx_action_history_team_id ON action_execution_history(team_id);
-CREATE INDEX idx_action_history_executed_at ON action_execution_history(executed_at);
-CREATE INDEX idx_action_history_execution_id ON action_execution_history(execution_id);
-CREATE INDEX idx_action_history_success ON action_execution_history(success);
-CREATE INDEX idx_action_history_command ON action_execution_history(action_command);
-
--- Verification execution history indexes
-CREATE INDEX idx_verification_history_node_id ON verification_execution_history(node_id);
-CREATE INDEX idx_verification_history_tree_id ON verification_execution_history(tree_id);
-CREATE INDEX idx_verification_history_team_id ON verification_execution_history(team_id);
-CREATE INDEX idx_verification_history_executed_at ON verification_execution_history(executed_at);
-CREATE INDEX idx_verification_history_execution_id ON verification_execution_history(execution_id);
-CREATE INDEX idx_verification_history_success ON verification_execution_history(success);
-CREATE INDEX idx_verification_history_type ON verification_execution_history(verification_type);
+-- action_execution_history and verification_execution_history indexes removed - tables do not exist
 
 -- Add comments
 COMMENT ON TABLE alerts IS 'Stores monitoring incidents from HDMI capture analysis';
 COMMENT ON TABLE heatmaps IS 'Performance heatmap data and analytics';
 COMMENT ON TABLE node_metrics IS 'Aggregated performance metrics for navigation nodes with embedded verifications';
 COMMENT ON TABLE edge_metrics IS 'Aggregated performance metrics for navigation edges with embedded actions';
-COMMENT ON TABLE action_execution_history IS 'Detailed execution history for individual actions within edges';
-COMMENT ON TABLE verification_execution_history IS 'Detailed execution history for individual verifications within nodes';
 
 -- Enable Row Level Security (RLS)
 ALTER TABLE alerts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE heatmaps ENABLE ROW LEVEL SECURITY;
 ALTER TABLE node_metrics ENABLE ROW LEVEL SECURITY;
 ALTER TABLE edge_metrics ENABLE ROW LEVEL SECURITY;
-ALTER TABLE action_execution_history ENABLE ROW LEVEL SECURITY;
-ALTER TABLE verification_execution_history ENABLE ROW LEVEL SECURITY;
+-- action_execution_history and verification_execution_history RLS removed - tables do not exist
 
--- RLS Policies for alerts table
-CREATE POLICY "Allow all operations on alerts" ON alerts
+-- RLS Policies updated to match actual working database
+CREATE POLICY "alerts_access_policy" ON alerts
 FOR ALL 
 TO public
 USING (true);
 
--- RLS Policies for heatmaps table (no RLS in automai, but we'll add team-based access)
-CREATE POLICY "Team members can access heatmaps" ON heatmaps
+CREATE POLICY "heatmaps_access_policy" ON heatmaps
 FOR ALL 
 TO public
-USING (team_id IN ( SELECT team_members.team_id
-   FROM team_members
-  WHERE (team_members.profile_id = auth.uid())));
+USING ((auth.uid() IS NULL) OR (auth.role() = 'service_role'::text) OR true);
 
--- RLS Policies for node_metrics table
-CREATE POLICY "Team members can access node metrics" ON node_metrics
+CREATE POLICY "node_metrics_access_policy" ON node_metrics
 FOR ALL 
 TO public
-USING ((auth.uid() IS NULL) OR (auth.role() = 'service_role'::text) OR (team_id IN ( SELECT team_members.team_id
-   FROM team_members
-  WHERE (team_members.profile_id = auth.uid()))));
+USING ((auth.uid() IS NULL) OR (auth.role() = 'service_role'::text) OR true);
 
--- RLS Policies for edge_metrics table
-CREATE POLICY "Team members can access edge metrics" ON edge_metrics
+CREATE POLICY "edge_metrics_access_policy" ON edge_metrics
 FOR ALL 
 TO public
-USING ((auth.uid() IS NULL) OR (auth.role() = 'service_role'::text) OR (team_id IN ( SELECT team_members.team_id
-   FROM team_members
-  WHERE (team_members.profile_id = auth.uid()))));
+USING ((auth.uid() IS NULL) OR (auth.role() = 'service_role'::text) OR true);
 
--- RLS Policies for action_execution_history table
-CREATE POLICY "Team members can access action execution history" ON action_execution_history
-FOR ALL 
-TO public
-USING ((auth.uid() IS NULL) OR (auth.role() = 'service_role'::text) OR (team_id IN ( SELECT team_members.team_id
-   FROM team_members
-  WHERE (team_members.profile_id = auth.uid()))));
-
--- RLS Policies for verification_execution_history table
-CREATE POLICY "Team members can access verification execution history" ON verification_execution_history
-FOR ALL 
-TO public
-USING ((auth.uid() IS NULL) OR (auth.role() = 'service_role'::text) OR (team_id IN ( SELECT team_members.team_id
-   FROM team_members
-  WHERE (team_members.profile_id = auth.uid()))));
-
--- Functions to update aggregated metrics
-CREATE OR REPLACE FUNCTION update_node_metrics_on_verification_execution()
-RETURNS TRIGGER AS $$
-BEGIN
-    INSERT INTO node_metrics (
-        node_id, tree_id, team_id, total_executions, successful_executions, 
-        failed_executions, success_rate, avg_execution_time_ms,
-        min_execution_time_ms, max_execution_time_ms, last_execution_at,
-        last_success_at, last_failure_at, device_model, device_id, updated_at
-    )
-    VALUES (
-        NEW.node_id, NEW.tree_id, NEW.team_id, 1,
-        CASE WHEN NEW.success THEN 1 ELSE 0 END,
-        CASE WHEN NEW.success THEN 0 ELSE 1 END,
-        CASE WHEN NEW.success THEN 1.0 ELSE 0.0 END,
-        NEW.execution_time_ms, NEW.execution_time_ms, NEW.execution_time_ms,
-        NEW.executed_at,
-        CASE WHEN NEW.success THEN NEW.executed_at ELSE NULL END,
-        CASE WHEN NEW.success THEN NULL ELSE NEW.executed_at END,
-        NEW.device_model, NEW.device_id, NOW()
-    )
-    ON CONFLICT (node_id, tree_id, team_id) DO UPDATE SET
-        total_executions = node_metrics.total_executions + 1,
-        successful_executions = node_metrics.successful_executions + CASE WHEN NEW.success THEN 1 ELSE 0 END,
-        failed_executions = node_metrics.failed_executions + CASE WHEN NEW.success THEN 0 ELSE 1 END,
-        success_rate = (node_metrics.successful_executions + CASE WHEN NEW.success THEN 1 ELSE 0 END)::numeric / (node_metrics.total_executions + 1),
-        avg_execution_time_ms = ((node_metrics.avg_execution_time_ms * node_metrics.total_executions) + NEW.execution_time_ms) / (node_metrics.total_executions + 1),
-        min_execution_time_ms = LEAST(node_metrics.min_execution_time_ms, NEW.execution_time_ms),
-        max_execution_time_ms = GREATEST(node_metrics.max_execution_time_ms, NEW.execution_time_ms),
-        last_execution_at = NEW.executed_at,
-        last_success_at = CASE WHEN NEW.success THEN NEW.executed_at ELSE node_metrics.last_success_at END,
-        last_failure_at = CASE WHEN NEW.success THEN node_metrics.last_failure_at ELSE NEW.executed_at END,
-        device_model = NEW.device_model,
-        device_id = NEW.device_id,
-        updated_at = NOW();
-    
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE OR REPLACE FUNCTION update_edge_metrics_on_action_execution()
-RETURNS TRIGGER AS $$
-BEGIN
-    INSERT INTO edge_metrics (
-        edge_id, source_node_id, target_node_id, tree_id, team_id, 
-        total_executions, successful_executions, failed_executions, 
-        success_rate, avg_execution_time_ms, min_execution_time_ms, 
-        max_execution_time_ms, last_execution_at, last_success_at, 
-        last_failure_at, device_model, device_id, updated_at,
-        retry_execution_count, retry_success_count
-    )
-    VALUES (
-        NEW.edge_id, '', '', NEW.tree_id, NEW.team_id, 1,
-        CASE WHEN NEW.success THEN 1 ELSE 0 END,
-        CASE WHEN NEW.success THEN 0 ELSE 1 END,
-        CASE WHEN NEW.success THEN 1.0 ELSE 0.0 END,
-        NEW.execution_time_ms, NEW.execution_time_ms, NEW.execution_time_ms,
-        NEW.executed_at,
-        CASE WHEN NEW.success THEN NEW.executed_at ELSE NULL END,
-        CASE WHEN NEW.success THEN NULL ELSE NEW.executed_at END,
-        NEW.device_model, NEW.device_id, NOW(),
-        CASE WHEN NEW.is_retry_action THEN 1 ELSE 0 END,
-        CASE WHEN NEW.is_retry_action AND NEW.success THEN 1 ELSE 0 END
-    )
-    ON CONFLICT (edge_id, tree_id, team_id) DO UPDATE SET
-        total_executions = edge_metrics.total_executions + 1,
-        successful_executions = edge_metrics.successful_executions + CASE WHEN NEW.success THEN 1 ELSE 0 END,
-        failed_executions = edge_metrics.failed_executions + CASE WHEN NEW.success THEN 0 ELSE 1 END,
-        success_rate = (edge_metrics.successful_executions + CASE WHEN NEW.success THEN 1 ELSE 0 END)::numeric / (edge_metrics.total_executions + 1),
-        avg_execution_time_ms = ((edge_metrics.avg_execution_time_ms * edge_metrics.total_executions) + NEW.execution_time_ms) / (edge_metrics.total_executions + 1),
-        min_execution_time_ms = LEAST(edge_metrics.min_execution_time_ms, NEW.execution_time_ms),
-        max_execution_time_ms = GREATEST(edge_metrics.max_execution_time_ms, NEW.execution_time_ms),
-        last_execution_at = NEW.executed_at,
-        last_success_at = CASE WHEN NEW.success THEN NEW.executed_at ELSE edge_metrics.last_success_at END,
-        last_failure_at = CASE WHEN NEW.success THEN edge_metrics.last_failure_at ELSE NEW.executed_at END,
-        retry_execution_count = edge_metrics.retry_execution_count + CASE WHEN NEW.is_retry_action THEN 1 ELSE 0 END,
-        retry_success_count = edge_metrics.retry_success_count + CASE WHEN NEW.is_retry_action AND NEW.success THEN 1 ELSE 0 END,
-        retry_success_rate = CASE 
-            WHEN edge_metrics.retry_execution_count + CASE WHEN NEW.is_retry_action THEN 1 ELSE 0 END = 0 THEN 0.0
-            ELSE (edge_metrics.retry_success_count + CASE WHEN NEW.is_retry_action AND NEW.success THEN 1 ELSE 0 END)::numeric / (edge_metrics.retry_execution_count + CASE WHEN NEW.is_retry_action THEN 1 ELSE 0 END)
-        END,
-        device_model = NEW.device_model,
-        device_id = NEW.device_id,
-        updated_at = NOW();
-    
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
--- Create triggers
-CREATE TRIGGER trigger_update_node_metrics
-    AFTER INSERT ON verification_execution_history
-    FOR EACH ROW
-    EXECUTE FUNCTION update_node_metrics_on_verification_execution();
-
-CREATE TRIGGER trigger_update_edge_metrics
-    AFTER INSERT ON action_execution_history
-    FOR EACH ROW
-    EXECUTE FUNCTION update_edge_metrics_on_action_execution(); 
+-- Functions and triggers removed - they reference non-existent tables (verification_execution_history, action_execution_history) 

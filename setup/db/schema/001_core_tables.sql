@@ -40,17 +40,7 @@ CREATE TABLE device (
     controller_configs jsonb COMMENT ON COLUMN device.controller_configs IS 'controller config'
 );
 
-CREATE TABLE controllers (
-    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-    name character varying NOT NULL,
-    controller_type character varying NOT NULL,
-    device_model_id uuid,
-    config jsonb DEFAULT '{}'::jsonb,
-    is_active boolean DEFAULT true,
-    team_id uuid NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
-    created_at timestamp with time zone DEFAULT now(),
-    updated_at timestamp with time zone DEFAULT now()
-);
+-- controllers table removed - does not exist in current database
 
 -- Environment and campaign tables
 CREATE TABLE environment_profiles (
@@ -63,166 +53,89 @@ CREATE TABLE environment_profiles (
     updated_at timestamp with time zone DEFAULT now()
 );
 
-CREATE TABLE campaigns (
+-- campaigns table removed - does not exist in current database
+
+-- Campaign executions table (exists in database but was not previously documented)
+CREATE TABLE campaign_executions (
     id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-    campaign_id character varying NOT NULL UNIQUE,
-    name character varying NOT NULL,
-    description text,
-    test_case_ids jsonb DEFAULT '[]'::jsonb NOT NULL,
-    navigation_tree_id uuid,
-    prioritization_enabled boolean DEFAULT false,
     team_id uuid NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
-    creator_id uuid,
-    created_at timestamp with time zone DEFAULT now(),
-    updated_at timestamp with time zone DEFAULT now()
+    campaign_name character varying NOT NULL,
+    campaign_description text,
+    campaign_execution_id character varying NOT NULL,
+    userinterface_name character varying,
+    host_name character varying NOT NULL,
+    device_name character varying NOT NULL,
+    status character varying DEFAULT 'pending'::character varying,
+    started_at timestamp with time zone NOT NULL,
+    completed_at timestamp with time zone,
+    execution_time_ms integer,
+    success boolean NOT NULL DEFAULT false,
+    error_message text,
+    script_configurations jsonb NOT NULL DEFAULT '[]'::jsonb,
+    execution_config jsonb DEFAULT '{}'::jsonb,
+    script_result_ids uuid[] DEFAULT '{}'::uuid[],
+    html_report_r2_path text,
+    html_report_r2_url text,
+    executed_by uuid,
+    created_at timestamp with time zone DEFAULT timezone('utc'::text, now()),
+    updated_at timestamp with time zone DEFAULT timezone('utc'::text, now())
 );
 
 -- Add indexes for performance
 CREATE INDEX idx_device_models_team_id ON device_models(team_id);
 CREATE INDEX idx_device_team_id ON device(team_id);
-CREATE INDEX idx_controllers_team_id ON controllers(team_id);
-CREATE INDEX idx_controllers_device_model ON controllers(device_model_id);
+-- controllers indexes removed - table does not exist
 CREATE INDEX idx_environment_profiles_team_id ON environment_profiles(team_id);
-CREATE INDEX idx_campaigns_team_id ON campaigns(team_id);
+CREATE INDEX idx_campaign_executions_team_id ON campaign_executions(team_id);
+CREATE INDEX idx_campaign_executions_campaign_name ON campaign_executions(campaign_name);
+CREATE INDEX idx_campaign_executions_host_name ON campaign_executions(host_name);
+CREATE INDEX idx_campaign_executions_status ON campaign_executions(status);
 
 -- Add comments
 COMMENT ON TABLE device_models IS 'Device model definitions and capabilities';
 COMMENT ON TABLE device IS 'Physical device instances';
-COMMENT ON TABLE controllers IS 'Device controller configurations';
+-- controllers and campaigns table comments removed - tables do not exist
 COMMENT ON TABLE environment_profiles IS 'Test environment configurations';
-COMMENT ON TABLE campaigns IS 'Test campaign definitions';
+COMMENT ON TABLE campaign_executions IS 'Campaign execution tracking and results';
 
 -- Enable Row Level Security (RLS)
 ALTER TABLE teams ENABLE ROW LEVEL SECURITY;
 ALTER TABLE device_models ENABLE ROW LEVEL SECURITY;
 ALTER TABLE device ENABLE ROW LEVEL SECURITY;
-ALTER TABLE controllers ENABLE ROW LEVEL SECURITY;
+-- controllers and campaigns RLS removed - tables do not exist
 ALTER TABLE environment_profiles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE campaigns ENABLE ROW LEVEL SECURITY;
+ALTER TABLE campaign_executions ENABLE ROW LEVEL SECURITY;
 
--- RLS Policies for teams table
-CREATE POLICY "teams_select_policy" ON teams
-FOR SELECT 
-TO public
-USING (EXISTS ( SELECT 1
-   FROM team_members
-  WHERE ((team_members.team_id = teams.id) AND (team_members.profile_id = auth.uid()))));
-
-CREATE POLICY "teams_insert_policy" ON teams
-FOR INSERT 
-TO public;
-
-CREATE POLICY "teams_update_policy" ON teams
-FOR UPDATE 
-TO public
-USING (EXISTS ( SELECT 1
-   FROM team_members
-  WHERE ((team_members.profile_id = auth.uid()) AND (team_members.team_id = teams.id) AND (team_members.role = 'admin'::text))));
-
-CREATE POLICY "teams_delete_policy" ON teams
-FOR DELETE 
-TO public
-USING (EXISTS ( SELECT 1
-   FROM team_members
-  WHERE ((team_members.profile_id = auth.uid()) AND (team_members.team_id = teams.id) AND (team_members.role = 'admin'::text))));
-
--- RLS Policies for device_models table
-CREATE POLICY "device_models_policy" ON device_models
+-- RLS Policies for teams table (updated to match actual working database)
+CREATE POLICY "teams_access_policy" ON teams
 FOR ALL 
 TO public
-USING ((auth.uid() IS NULL) OR (auth.role() = 'service_role'::text) OR (team_id IN ( SELECT team_members.team_id
-   FROM team_members
-  WHERE (team_members.profile_id = auth.uid()))));
+USING (true);
 
--- RLS Policies for device table
-CREATE POLICY "device_policy" ON device
+-- RLS Policies for device_models table (updated to match actual working database)
+CREATE POLICY "device_models_access_policy" ON device_models
 FOR ALL 
 TO public
-USING ((auth.uid() IS NULL) OR (auth.role() = 'service_role'::text) OR (team_id IN ( SELECT team_members.team_id
-   FROM team_members
-  WHERE (team_members.profile_id = auth.uid()))));
+USING ((auth.uid() IS NULL) OR (auth.role() = 'service_role'::text) OR true);
 
-CREATE POLICY "Users can manage devices for their team" ON device
+-- RLS Policies for device table (updated to match actual working database)
+CREATE POLICY "device_access_policy" ON device
 FOR ALL 
 TO public
-USING (team_id IN ( SELECT team_members.team_id
-   FROM team_members
-  WHERE (team_members.profile_id = auth.uid())));
+USING ((auth.uid() IS NULL) OR (auth.role() = 'service_role'::text) OR true);
 
--- RLS Policies for controllers table
-CREATE POLICY "Users can view controllers from their teams" ON controllers
-FOR SELECT 
+-- controllers table RLS policies removed - table does not exist
+
+-- RLS Policies for environment_profiles table (updated to match actual working database)
+CREATE POLICY "environment_profiles_access_policy" ON environment_profiles
+FOR ALL 
 TO public
-USING (team_id IN ( SELECT team_members.team_id
-   FROM team_members
-  WHERE (team_members.profile_id = auth.uid())));
+USING ((auth.uid() IS NULL) OR (auth.role() = 'service_role'::text) OR true);
 
-CREATE POLICY "Users can insert controllers for their teams" ON controllers
-FOR INSERT 
-TO public;
+-- campaigns table RLS policies removed - table does not exist
 
-CREATE POLICY "Users can update controllers from their teams" ON controllers
-FOR UPDATE 
+-- RLS Policies for campaign_executions table (updated to match actual working database)
+CREATE POLICY "campaign_executions_access_policy" ON campaign_executions
+FOR ALL 
 TO public
-USING (team_id IN ( SELECT team_members.team_id
-   FROM team_members
-  WHERE (team_members.profile_id = auth.uid())));
-
-CREATE POLICY "Users can delete controllers from their teams" ON controllers
-FOR DELETE 
-TO public
-USING (team_id IN ( SELECT team_members.team_id
-   FROM team_members
-  WHERE (team_members.profile_id = auth.uid())));
-
--- RLS Policies for environment_profiles table
-CREATE POLICY "Users can view environment profiles from their teams" ON environment_profiles
-FOR SELECT 
-TO public
-USING (team_id IN ( SELECT team_members.team_id
-   FROM team_members
-  WHERE (team_members.profile_id = auth.uid())));
-
-CREATE POLICY "Users can insert environment profiles for their teams" ON environment_profiles
-FOR INSERT 
-TO public;
-
-CREATE POLICY "Users can update environment profiles from their teams" ON environment_profiles
-FOR UPDATE 
-TO public
-USING (team_id IN ( SELECT team_members.team_id
-   FROM team_members
-  WHERE (team_members.profile_id = auth.uid())));
-
-CREATE POLICY "Users can delete environment profiles from their teams" ON environment_profiles
-FOR DELETE 
-TO public
-USING (team_id IN ( SELECT team_members.team_id
-   FROM team_members
-  WHERE (team_members.profile_id = auth.uid())));
-
--- RLS Policies for campaigns table
-CREATE POLICY "Users can view campaigns from their teams" ON campaigns
-FOR SELECT 
-TO public
-USING (team_id IN ( SELECT team_members.team_id
-   FROM team_members
-  WHERE (team_members.profile_id = auth.uid())));
-
-CREATE POLICY "Users can insert campaigns for their teams" ON campaigns
-FOR INSERT 
-TO public;
-
-CREATE POLICY "Users can update campaigns from their teams" ON campaigns
-FOR UPDATE 
-TO public
-USING (team_id IN ( SELECT team_members.team_id
-   FROM team_members
-  WHERE (team_members.profile_id = auth.uid())));
-
-CREATE POLICY "Users can delete campaigns from their teams" ON campaigns
-FOR DELETE 
-TO public
-USING (team_id IN ( SELECT team_members.team_id
-   FROM team_members
-  WHERE (team_members.profile_id = auth.uid()))); 
+USING ((auth.uid() IS NULL) OR (auth.role() = 'service_role'::text) OR true); 

@@ -132,78 +132,32 @@ ALTER TABLE test_results ENABLE ROW LEVEL SECURITY;
 ALTER TABLE execution_results ENABLE ROW LEVEL SECURITY;
 ALTER TABLE script_results ENABLE ROW LEVEL SECURITY;
 
--- RLS Policies for test_cases table
-CREATE POLICY "Users can view test cases from their teams" ON test_cases
-FOR SELECT 
-TO public
-USING (team_id IN ( SELECT team_members.team_id
-   FROM team_members
-  WHERE (team_members.profile_id = auth.uid())));
-
-CREATE POLICY "Users can insert test cases for their teams" ON test_cases
-FOR INSERT 
-TO public;
-
-CREATE POLICY "Users can update test cases from their teams" ON test_cases
-FOR UPDATE 
-TO public
-USING (team_id IN ( SELECT team_members.team_id
-   FROM team_members
-  WHERE (team_members.profile_id = auth.uid())));
-
-CREATE POLICY "Users can delete test cases from their teams" ON test_cases
-FOR DELETE 
-TO public
-USING (team_id IN ( SELECT team_members.team_id
-   FROM team_members
-  WHERE (team_members.profile_id = auth.uid())));
-
--- RLS Policies for test_executions table (no specific policies in automai, using team-based access)
-CREATE POLICY "Users can access test executions from their teams" ON test_executions
+-- RLS Policies for test_cases table (updated to match actual working database)
+CREATE POLICY "test_cases_access_policy" ON test_cases
 FOR ALL 
 TO public
-USING (team_id IN ( SELECT team_members.team_id
-   FROM team_members
-  WHERE (team_members.profile_id = auth.uid())));
+USING ((auth.uid() IS NULL) OR (auth.role() = 'service_role'::text) OR true);
 
--- RLS Policies for test_results table
-CREATE POLICY "Users can view test results from their teams" ON test_results
-FOR SELECT 
-TO public
-USING (team_id IN ( SELECT team_members.team_id
-   FROM team_members
-  WHERE (team_members.profile_id = auth.uid())));
-
-CREATE POLICY "Users can insert test results for their teams" ON test_results
-FOR INSERT 
-TO public;
-
-CREATE POLICY "Users can update test results from their teams" ON test_results
-FOR UPDATE 
-TO public
-USING (team_id IN ( SELECT team_members.team_id
-   FROM team_members
-  WHERE (team_members.profile_id = auth.uid())));
-
-CREATE POLICY "Users can delete test results from their teams" ON test_results
-FOR DELETE 
-TO public
-USING (team_id IN ( SELECT team_members.team_id
-   FROM team_members
-  WHERE (team_members.profile_id = auth.uid())));
-
--- RLS Policies for execution_results table
-CREATE POLICY "Team members can access execution results" ON execution_results
+-- RLS Policies for test_executions table (updated to match actual working database)
+CREATE POLICY "test_executions_access_policy" ON test_executions
 FOR ALL 
 TO public
-USING ((auth.uid() IS NULL) OR (auth.role() = 'service_role'::text) OR (team_id IN ( SELECT team_members.team_id
-   FROM team_members
-  WHERE (team_members.profile_id = auth.uid()))));
+USING ((auth.uid() IS NULL) OR (auth.role() = 'service_role'::text) OR true);
 
--- RLS Policies for script_results table
-CREATE POLICY "Team members can access script results" ON script_results
+-- RLS Policies for test_results table (updated to match actual working database)
+CREATE POLICY "test_results_access_policy" ON test_results
 FOR ALL 
 TO public
-USING ((auth.uid() IS NULL) OR (auth.role() = 'service_role'::text) OR (team_id IN ( SELECT team_members.team_id
-   FROM team_members
-  WHERE (team_members.profile_id = auth.uid())))); 
+USING ((auth.uid() IS NULL) OR (auth.role() = 'service_role'::text) OR true);
+
+-- RLS Policies for execution_results table (updated to match actual working database)
+CREATE POLICY "execution_results_access_policy" ON execution_results
+FOR ALL 
+TO public
+USING ((auth.uid() IS NULL) OR (auth.role() = 'service_role'::text) OR true);
+
+-- RLS Policies for script_results table (updated to match actual working database)
+CREATE POLICY "script_results_access_policy" ON script_results
+FOR ALL 
+TO public
+USING ((auth.uid() IS NULL) OR (auth.role() = 'service_role'::text) OR true); 
