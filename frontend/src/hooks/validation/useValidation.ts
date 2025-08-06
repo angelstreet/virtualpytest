@@ -212,7 +212,7 @@ export const useValidation = (treeId: string, providedHost?: any, providedDevice
     validationError: state.validationError,
 
     // Computed properties for button logic
-    canRunValidation: !state.isValidating && !!state.preview,
+    canRunValidation: !state.isValidating, // Always enabled when not validating
     hasResults: !!state.results,
 
     // Actions
