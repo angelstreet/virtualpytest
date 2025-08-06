@@ -67,6 +67,21 @@ export const ActionItem: React.FC<ActionItemProps> = ({
     const fields = [];
     const params = action.params as any;
 
+    // Find the current action definition to check requiresInput
+    const currentActionDef = Object.values(availableActions)
+      .flat()
+      .find((act) => {
+        if (act.command !== action.command) return false;
+        
+        // For press_key actions, also match the key parameter
+        if (action.command === 'press_key' && action.params && act.params) {
+          return (action.params as any).key === (act.params as any).key;
+        }
+        
+        // For other actions, just match by command
+        return true;
+      });
+
     // Common wait_time field for all actions
     fields.push(
       <TextField
@@ -93,118 +108,133 @@ export const ActionItem: React.FC<ActionItemProps> = ({
     // Action-specific parameter fields
     switch (action.command) {
       case 'press_key':
-        fields.push(
-          <TextField
-            key="key"
-            label="Key"
-            size="small"
-            value={params?.key || ''}
-            onChange={(e) => handleParamChange('key', e.target.value)}
-            placeholder="e.g., UP, DOWN, HOME, BACK"
-            sx={{
-              width: 180,
-              '& .MuiInputBase-input': {
-                padding: '3px 6px',
-                fontSize: '0.75rem',
-              },
-            }}
-          />,
-        );
+        // Only show key field if the action requires input
+        if (currentActionDef?.requiresInput) {
+          fields.push(
+            <TextField
+              key="key"
+              label="Key"
+              size="small"
+              value={params?.key || ''}
+              onChange={(e) => handleParamChange('key', e.target.value)}
+              placeholder="e.g., UP, DOWN, HOME, BACK"
+              sx={{
+                width: 180,
+                '& .MuiInputBase-input': {
+                  padding: '3px 6px',
+                  fontSize: '0.75rem',
+                },
+              }}
+            />,
+          );
+        }
         break;
 
       case 'input_text':
-        fields.push(
-          <TextField
-            key="text"
-            label="Text"
-            size="small"
-            value={getParamValue('text') || ''}
-            onChange={(e) => safeHandleParamChange('text', e.target.value)}
-            placeholder="Text to input"
-            sx={{
-              width: 220,
-              '& .MuiInputBase-input': {
-                padding: '3px 6px',
-                fontSize: '0.75rem',
-              },
-            }}
-          />,
-        );
+        // Only show text field if the action requires input
+        if (currentActionDef?.requiresInput) {
+          fields.push(
+            <TextField
+              key="text"
+              label="Text"
+              size="small"
+              value={getParamValue('text') || ''}
+              onChange={(e) => safeHandleParamChange('text', e.target.value)}
+              placeholder="Text to input"
+              sx={{
+                width: 220,
+                '& .MuiInputBase-input': {
+                  padding: '3px 6px',
+                  fontSize: '0.75rem',
+                },
+              }}
+            />,
+          );
+        }
         break;
 
       case 'click_element':
-        fields.push(
-          <TextField
-            key="element_id"
-            label="Element ID"
-            size="small"
-            value={getParamValue('element_id') || ''}
-            onChange={(e) => safeHandleParamChange('element_id', e.target.value)}
-            placeholder="e.g., Home Button, Menu Icon"
-            sx={{
-              width: 220,
-              '& .MuiInputBase-input': {
-                padding: '3px 6px',
-                fontSize: '0.75rem',
-              },
-            }}
-          />,
-        );
+        // Only show element_id field if the action requires input
+        if (currentActionDef?.requiresInput) {
+          fields.push(
+            <TextField
+              key="element_id"
+              label="Element ID"
+              size="small"
+              value={getParamValue('element_id') || ''}
+              onChange={(e) => safeHandleParamChange('element_id', e.target.value)}
+              placeholder="e.g., Home Button, Menu Icon"
+              sx={{
+                width: 220,
+                '& .MuiInputBase-input': {
+                  padding: '3px 6px',
+                  fontSize: '0.75rem',
+                },
+              }}
+            />,
+          );
+        }
         break;
 
       case 'click_element_by_id':
-        fields.push(
-          <TextField
-            key="element_id"
-            label="Element ID"
-            size="small"
-            value={getParamValue('element_id') || ''}
-            onChange={(e) => safeHandleParamChange('element_id', e.target.value)}
-            placeholder="e.g., 8, 15, 23"
-            sx={{
-              width: 220,
-              '& .MuiInputBase-input': {
-                padding: '3px 6px',
-                fontSize: '0.75rem',
-              },
-            }}
-          />,
-        );
+        // Only show element_id field if the action requires input
+        if (currentActionDef?.requiresInput) {
+          fields.push(
+            <TextField
+              key="element_id"
+              label="Element ID"
+              size="small"
+              value={getParamValue('element_id') || ''}
+              onChange={(e) => safeHandleParamChange('element_id', e.target.value)}
+              placeholder="e.g., 8, 15, 23"
+              sx={{
+                width: 220,
+                '& .MuiInputBase-input': {
+                  padding: '3px 6px',
+                  fontSize: '0.75rem',
+                },
+              }}
+            />,
+          );
+        }
         break;
 
       case 'tap_coordinates':
-        fields.push(
-          <TextField
-            key="x"
-            label="X"
-            type="number"
-            size="small"
-            value={getParamValue('x') || ''}
-            onChange={(e) => safeHandleParamChange('x', parseInt(e.target.value) || 0)}
-            sx={{
-              width: 70,
-              '& .MuiInputBase-input': {
-                padding: '3px 6px',
-                fontSize: '0.75rem',
-              },
-            }}
-          />,
-          <TextField
-            key="y"
-            label="Y"
-            type="number"
-            size="small"
-            value={getParamValue('y') || ''}
-            onChange={(e) => safeHandleParamChange('y', parseInt(e.target.value) || 0)}
-            sx={{
-              width: 70,
-              '& .MuiInputBase-input': {
-                padding: '3px 6px',
-                fontSize: '0.75rem',
-              },
-            }}
-          />,
-        );
+        // Only show coordinate fields if the action requires input
+        if (currentActionDef?.requiresInput) {
+          fields.push(
+            <TextField
+              key="x"
+              label="X"
+              type="number"
+              size="small"
+              value={getParamValue('x') || ''}
+              onChange={(e) => safeHandleParamChange('x', parseInt(e.target.value) || 0)}
+              sx={{
+                width: 70,
+                '& .MuiInputBase-input': {
+                  padding: '3px 6px',
+                  fontSize: '0.75rem',
+                },
+              }}
+            />,
+            <TextField
+              key="y"
+              label="Y"
+              type="number"
+              size="small"
+              value={getParamValue('y') || ''}
+              onChange={(e) => safeHandleParamChange('y', parseInt(e.target.value) || 0)}
+              sx={{
+                width: 70,
+                '& .MuiInputBase-input': {
+                  padding: '3px 6px',
+                  fontSize: '0.75rem',
+                },
+              }}
+            />,
+          );
+        }
         break;
 
       case 'swipe':
@@ -614,23 +644,26 @@ export const ActionItem: React.FC<ActionItemProps> = ({
 
       case 'launch_app':
       case 'close_app':
-        fields.push(
-          <TextField
-            key="package"
-            label="Package Name"
-            size="small"
-            value={getParamValue('package') || ''}
-            onChange={(e) => safeHandleParamChange('package', e.target.value)}
-            placeholder="e.g., com.example.app"
-            sx={{
-              width: 220,
-              '& .MuiInputBase-input': {
-                padding: '3px 6px',
-                fontSize: '0.75rem',
-              },
-            }}
-          />,
-        );
+        // Only show package field if the action requires input
+        if (currentActionDef?.requiresInput) {
+          fields.push(
+            <TextField
+              key="package"
+              label="Package Name"
+              size="small"
+              value={getParamValue('package') || ''}
+              onChange={(e) => safeHandleParamChange('package', e.target.value)}
+              placeholder="e.g., com.example.app"
+              sx={{
+                width: 220,
+                '& .MuiInputBase-input': {
+                  padding: '3px 6px',
+                  fontSize: '0.75rem',
+                },
+              }}
+            />,
+          );
+        }
         break;
 
       case 'wait':
