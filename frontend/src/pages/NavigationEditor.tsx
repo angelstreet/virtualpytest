@@ -668,6 +668,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = React.memo(
         console.log(
           '[@component:NavigationEditor] Submitting node form with verifications:',
           nodeForm.verifications?.length || 0,
+          nodeForm.verifications,
         );
         saveNodeWithStateUpdate(nodeForm);
         console.log('[@component:NavigationEditor] Node form submitted successfully');

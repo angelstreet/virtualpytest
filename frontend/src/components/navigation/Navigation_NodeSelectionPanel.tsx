@@ -132,6 +132,8 @@ export const NodeSelectionPanel: React.FC<NodeSelectionPanelProps> = React.memo(
         return;
       }
       const nodeForm = nodeHook.getNodeFormWithVerifications(selectedNode);
+      console.log('[NodeSelectionPanel] Opening edit dialog with nodeForm verifications:', nodeForm.verifications);
+      console.log('[NodeSelectionPanel] Selected node verifications:', selectedNode.data.verifications);
       setNodeForm(nodeForm);
       setIsNodeDialogOpen(true);
     }, [nodeHook, selectedNode, setNodeForm, setIsNodeDialogOpen, isControlActive, selectedHost]);
