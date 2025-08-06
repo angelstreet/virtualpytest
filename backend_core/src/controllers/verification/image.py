@@ -28,7 +28,7 @@ class ImageVerificationController:
             device_model: Device model for reference image resolution (e.g., 'android_tv')
         """
         self.av_controller = av_controller
-        self.device_model = device_model or 'default'
+        self.device_model = device_model
         self.captures_path = os.path.join(av_controller.video_capture_path, 'captures')
         self.verification_type = 'image'
 
@@ -508,7 +508,7 @@ class ImageVerificationController:
                 "params": {
                     "image_path": "",       # Empty string for user input
                     "timeout": 0,           # Default: single check, no polling
-                    "confidence": 0.8,      # Default value
+                    "threshold": 0.8,      # Default value
                     "area": None            # Optional area
                 },
                 "verification_type": "image"
@@ -518,7 +518,7 @@ class ImageVerificationController:
                 "params": {
                     "image_path": "",       # Empty string for user input
                     "timeout": 0,           # Default: single check, no polling
-                    "confidence": 0.8,      # Default value
+                    "threshold": 0.8,      # Default value
                     "area": None            # Optional area
                 },
                 "verification_type": "image"

@@ -23,7 +23,7 @@ class TextVerificationController:
         """
         # Dependency injection
         self.av_controller = av_controller
-        self.device_model = device_model or 'default'
+        self.device_model = device_model
         
         # Use AV controller's capture path with captures subdirectory
         self.captures_path = os.path.join(av_controller.video_capture_path, 'captures')
