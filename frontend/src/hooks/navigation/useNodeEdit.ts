@@ -1,8 +1,9 @@
-import { useCallback, useState, useEffect } from 'react';
+import { useCallback, useState, useEffect, useMemo } from 'react';
 
 import { Host } from '../../types/common/Host_Types';
 import { NodeForm, UINavigationNode } from '../../types/pages/Navigation_Types';
 import { Verification } from '../../types/verification/Verification_Types';
+import { useDeviceData } from '../../contexts/device/DeviceDataContext';
 import { useVerification } from '../verification/useVerification';
 
 export interface UseNodeEditProps {
@@ -20,6 +21,23 @@ export const useNodeEdit = ({
   selectedHost,
   isControlActive = false,
 }: UseNodeEditProps) => {
+  // Get device data context for model references
+  const { getModelReferences, referencesLoading, currentDeviceId } = useDeviceData();
+
+  // Get device model from selected host and current device
+  const deviceModel = useMemo(() => {
+    if (!selectedHost || !currentDeviceId) return 'android_mobile'; // fallback
+    const device = selectedHost.devices?.find((d: any) => d.device_id === currentDeviceId);
+    return device?.device_model || 'android_mobile';
+  }, [selectedHost, currentDeviceId]);
+
+  // Get model references for the current device model
+  const modelReferences = useMemo(() => {
+    const references = getModelReferences(deviceModel);
+    console.log('[useNodeEdit] Model references for', deviceModel, ':', references);
+    return references;
+  }, [getModelReferences, deviceModel]);
+
   // Verification hook for managing verifications
   const verification = useVerification({
     captureSourcePath: undefined,
@@ -134,6 +152,11 @@ export const useNodeEdit = ({
     // Verification
     verification,
     handleVerificationsChange,
+
+    // Model references for verification dropdown
+    modelReferences,
+    referencesLoading,
+    deviceModel,
 
     // Form validation and actions
     handleSave,

@@ -192,12 +192,12 @@ export const NodeEditDialog: React.FC<NodeEditDialogProps> = ({
           availableVerifications={nodeEdit.verification.availableVerificationTypes}
           onVerificationsChange={nodeEdit.handleVerificationsChange}
           loading={nodeEdit.verification.loading}
-          model={model || 'android_mobile'}
+          model={nodeEdit.deviceModel || model || 'android_mobile'}
           selectedHost={selectedHost}
           testResults={[]} // Don't show individual results, only show consolidated results below
           onReferenceSelected={() => {}}
-          modelReferences={{}}
-          referencesLoading={false}
+          modelReferences={nodeEdit.modelReferences}
+          referencesLoading={nodeEdit.referencesLoading}
           showCollapsible={false}
           title="Verifications"
           onTest={nodeEdit.verification.handleTest}
