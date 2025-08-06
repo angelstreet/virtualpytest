@@ -148,7 +148,6 @@ def execute_image_verification():
             return error_response
         
         verification = data.get('verification')
-        model = data.get('model')  # Get model from request
         image_source_url = data.get('image_source_url')  # Get source image URL if provided
         
         # Convert image_source_url to local file path if provided
@@ -193,8 +192,8 @@ def execute_image_verification():
                 'threshold': verification.get('params', {}).get('threshold', 0.8),
                 'timeout': verification.get('params', {}).get('timeout', 10.0),
                 'area': verification.get('params', {}).get('area'),
-                'image_filter': verification.get('params', {}).get('image_filter', 'none'),
-                'model': model  # Pass model to controller
+                'image_filter': verification.get('params', {}).get('image_filter', 'none')
+                # Removed 'model': model - let controller use its built-in device_model
             }
         }
         
