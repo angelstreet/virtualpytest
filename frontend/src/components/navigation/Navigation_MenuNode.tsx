@@ -208,29 +208,97 @@ export const UIMenuNode: React.FC<NodeProps<UINavigationNode['data']>> = ({
         </>
       )}
 
-      {/* Left Handle - Only for root nodes */}
-      {data.is_root && (
-        <Handle
-          type="target"
-          position={Position.Left}
-          id="left-target"
-          isConnectable={true}
-          isConnectableStart={false}
-          isConnectableEnd={true}
-          style={{
-            background: '#ffc107',
-            border: '2px solid #fff',
-            width: '16px',
-            height: '16px',
-            borderRadius: '50%',
-            left: -7,
-            top: '50%',
-            transform: 'translateY(-50%)',
-            cursor: 'crosshair',
-            zIndex: 10,
-          }}
-        />
-      )}
+      {/* Left Handles - Overlapping for Bidirectional Effect */}
+      {/* Left: TARGET for receiving connections */}
+      <Handle
+        type="target"
+        position={Position.Left}
+        id="left-target"
+        isConnectable={true}
+        isConnectableStart={false}
+        isConnectableEnd={true}
+        style={{
+          background: data.is_root ? '#ffc107' : '#1976d2',
+          border: '2px solid #fff',
+          width: '16px',
+          height: '16px',
+          borderRadius: '50%',
+          left: -7,
+          top: '50%',
+          transform: 'translateY(-50%)',
+          cursor: 'crosshair',
+          zIndex: 11,
+        }}
+      />
+
+      {/* Left: SOURCE for sending connections - same position, lower z-index */}
+      <Handle
+        type="source"
+        position={Position.Left}
+        id="left-source"
+        isConnectable={true}
+        isConnectableStart={true}
+        isConnectableEnd={false}
+        style={{
+          background: '#ff5722',
+          border: '2px solid #fff',
+          width: '16px',
+          height: '16px',
+          borderRadius: '50%',
+          left: -7,
+          top: '50%',
+          transform: 'translateY(-50%)',
+          cursor: 'crosshair',
+          zIndex: 10,
+          opacity: 0,
+        }}
+      />
+
+      {/* Right Handles - Overlapping for Bidirectional Effect */}
+      {/* Right: SOURCE for sending connections */}
+      <Handle
+        type="source"
+        position={Position.Right}
+        id="right-source"
+        isConnectable={true}
+        isConnectableStart={true}
+        isConnectableEnd={false}
+        style={{
+          background: '#1976d2',
+          border: '2px solid #fff',
+          width: '16px',
+          height: '16px',
+          borderRadius: '50%',
+          right: -7,
+          top: '50%',
+          transform: 'translateY(-50%)',
+          cursor: 'crosshair',
+          zIndex: 11,
+        }}
+      />
+
+      {/* Right: TARGET for receiving connections - same position, lower z-index */}
+      <Handle
+        type="target"
+        position={Position.Right}
+        id="right-target"
+        isConnectable={true}
+        isConnectableStart={false}
+        isConnectableEnd={true}
+        style={{
+          background: '#ff5722',
+          border: '2px solid #fff',
+          width: '16px',
+          height: '16px',
+          borderRadius: '50%',
+          right: -7,
+          top: '50%',
+          transform: 'translateY(-50%)',
+          cursor: 'crosshair',
+          zIndex: 10,
+          opacity: 0,
+        }}
+      />
 
       {/* Bottom Handles for Menu Navigation - Overlapping */}
       {/* Bottom: TARGET for menu connections */}
