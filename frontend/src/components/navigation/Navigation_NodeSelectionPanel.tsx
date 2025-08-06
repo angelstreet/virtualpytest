@@ -196,7 +196,7 @@ export const NodeSelectionPanel: React.FC<NodeSelectionPanelProps> = React.memo(
     }, []);
 
     const handleScreenshotButtonClick = useCallback((e: React.MouseEvent) => {
-      e.currentTarget.blur(); // Remove focus from the button before opening dialog
+      (e.currentTarget as HTMLElement).blur(); // Remove focus from the button before opening dialog
       setShowScreenshotConfirm(true);
     }, []);
 
@@ -212,7 +212,7 @@ export const NodeSelectionPanel: React.FC<NodeSelectionPanelProps> = React.memo(
     }, []);
 
     const handleResetButtonClick = useCallback((e: React.MouseEvent) => {
-      e.currentTarget.blur(); // Remove focus from the button before opening dialog
+      (e.currentTarget as HTMLElement).blur(); // Remove focus from the button before opening dialog
       setShowResetConfirm(true);
     }, []);
 

@@ -371,13 +371,12 @@ export const useNavigationEditor = () => {
         
         if (sourceNode && targetNode) {
           // Check if either node is protected or is an action node
+          // Only protect actual entry nodes and action nodes, not all nodes containing "home"
           const isSourceProtected = edge.source === 'entry-node' || 
-                                   sourceNode.data.label?.toLowerCase().includes('entry') ||
-                                   sourceNode.data.label?.toLowerCase().includes('home') ||
+                                   sourceNode.data.label?.toLowerCase() === 'entry' ||
                                    sourceNode.data.type === 'action';
           const isTargetProtected = edge.target === 'entry-node' || 
-                                   targetNode.data.label?.toLowerCase().includes('entry') ||
-                                   targetNode.data.label?.toLowerCase().includes('home') ||
+                                   targetNode.data.label?.toLowerCase() === 'entry' ||
                                    targetNode.data.type === 'action';
 
           // Only create reverse edge if neither node is protected or an action
