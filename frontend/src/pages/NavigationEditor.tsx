@@ -1060,14 +1060,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
         )}
       </Box>
     );
-  },
-  () => {
-    // Custom comparison function - since this component has no props,
-    // it should only re-render when its internal hooks change
-    // Return true to prevent re-render, false to allow re-render
-    return false; // Always allow re-render since we depend on context hooks
-  },
-);
+};
 
 const NavigationEditor: React.FC = () => {
   // Clean approach: Get treeName from URL parameters only
