@@ -187,6 +187,42 @@ def verification_text_execute():
         print(f"[@route:server_verification_common:verification_text_execute] Error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
+@server_verification_common_bp.route('/text/detectText', methods=['POST'])
+def verification_text_detect():
+    """Proxy text detection request to host"""
+    try:
+        print("[@route:server_verification_common:verification_text_detect] Proxying text detect request")
+        
+        # Get request data
+        request_data = request.get_json() or {}
+        
+        # Proxy to host text verification endpoint (original working pattern)
+        response_data, status_code = proxy_to_host('/host/verification/text/detectText', 'POST', request_data, timeout=30)
+        
+        return jsonify(response_data), status_code
+        
+    except Exception as e:
+        print(f"[@route:server_verification_common:verification_text_detect] Error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@server_verification_common_bp.route('/text/saveText', methods=['POST'])
+def verification_text_save():
+    """Proxy text saving request to host"""
+    try:
+        print("[@route:server_verification_common:verification_text_save] Proxying text save request")
+        
+        # Get request data
+        request_data = request.get_json() or {}
+        
+        # Proxy to host text verification endpoint (original working pattern)
+        response_data, status_code = proxy_to_host('/host/verification/text/saveText', 'POST', request_data, timeout=30)
+        
+        return jsonify(response_data), status_code
+        
+    except Exception as e:
+        print(f"[@route:server_verification_common:verification_text_save] Error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @server_verification_common_bp.route('/adb/execute', methods=['POST'])
 def verification_adb_execute():
     """Proxy single ADB verification to host"""
