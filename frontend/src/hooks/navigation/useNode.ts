@@ -101,6 +101,9 @@ export const useNode = (props?: UseNodeProps) => {
         return { success: false, message: 'Host or device not available' };
       }
 
+      // Ensure we have a device model, fallback to android_mobile if not available
+      const currentDeviceModel = deviceModel || 'android_mobile';
+
       try {
         // Sanitize filename by removing spaces and special characters
         const sanitizedFilename = label.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_-]/g, '');
@@ -114,7 +117,7 @@ export const useNode = (props?: UseNodeProps) => {
             host: props.selectedHost,
             device_id: props.selectedDeviceId,
             filename: sanitizedFilename,
-            device_model: 'android_mobile',
+            device_model: currentDeviceModel,
           }),
         });
 
@@ -138,7 +141,7 @@ export const useNode = (props?: UseNodeProps) => {
         };
       }
     },
-    [props?.selectedHost, props?.selectedDeviceId],
+    [props?.selectedHost, props?.selectedDeviceId, deviceModel],
   );
 
   /**
