@@ -53,24 +53,7 @@ const ValidationResultsClient: React.FC<ValidationResultsClientProps> = ({ treeI
     validation.setShowResults(false);
   };
 
-  // Show loading dialog during validation
-  if (validation.isValidating) {
-    return (
-      <Dialog open={true} disableEscapeKeyDown maxWidth="sm" fullWidth>
-        <DialogTitle>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <CircularProgress size={24} />
-            <Typography variant="h6">Running Validation...</Typography>
-          </Box>
-        </DialogTitle>
-        <DialogContent>
-          <Typography variant="body2" color="text.secondary">
-            Please wait while the validation executes. This may take several minutes.
-          </Typography>
-        </DialogContent>
-      </Dialog>
-    );
-  }
+  // Loading is now handled by ValidationProgressClient
 
   if (!validation.showResults || !validation.validationResults) {
     console.log(

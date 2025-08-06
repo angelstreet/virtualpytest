@@ -15,6 +15,7 @@ import React, { useState } from 'react';
 import { useValidation } from '../../hooks/validation';
 import ValidationPreviewClient from './ValidationPreviewClient';
 import ValidationResultsClient from './ValidationResultsClient';
+import { ValidationProgressClient } from './ValidationProgressClient';
 
 
 interface ValidationButtonClientProps {
@@ -102,7 +103,14 @@ export default function ValidationButtonClient({ treeId, disabled, selectedHost,
         />
       )}
 
-      {/* Global validation dialogs - these manage their own visibility */}
+      {/* Progress dialog - shows during validation */}
+      <ValidationProgressClient
+        treeId={treeId}
+        selectedHost={selectedHost}
+        selectedDeviceId={selectedDeviceId}
+      />
+
+      {/* Results dialog - shows after validation completes */}
       {validation.showResults && (
         <ValidationResultsClient 
           treeId={treeId}

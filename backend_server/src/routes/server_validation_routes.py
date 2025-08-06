@@ -323,8 +323,8 @@ def run_validation(tree_id: str):
                 context.tree_id = tree_id
                 
                 # Load selected device
-                from shared.lib.utils.device_utils import get_device_by_id
-                context.selected_device = get_device_by_id(device_id, team_id)
+                from shared.lib.utils.host_utils import get_device_by_id
+                context.selected_device = get_device_by_id(device_id)
                 
                 # Get validation sequence
                 validation_sequence = find_optimal_edge_validation_sequence(tree_id, team_id)
