@@ -138,8 +138,8 @@ export const NodeSelectionPanel: React.FC<NodeSelectionPanelProps> = React.memo(
       setIsNodeDialogOpen(true);
     }, [nodeHook, selectedNode, setNodeForm, setIsNodeDialogOpen, isControlActive, selectedHost]);
 
-    // Confirmation handlers
-    const handleResetConfirm = useCallback(() => {
+          // Confirmation handlers
+      const handleResetConfirm = useCallback(() => {
       if (onReset) {
         onReset(selectedNode.id);
       }

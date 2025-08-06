@@ -933,23 +933,8 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
 
             await navigationConfig.saveNode(targetTreeId, normalizedNode as any);
 
-            // Refresh navigation cache (non-blocking, continue even if it fails)
-            try {
-              const cacheResponse = await fetch('/server/pathfinding/cache/refresh', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                  tree_id: targetTreeId, // Use the actual tree where we saved
-                  team_id: 'default' 
-                })
-              });
-              
-              if (!cacheResponse.ok) {
-                console.warn('Cache refresh failed, but continuing with node save:', cacheResponse.status);
-              }
-            } catch (cacheError) {
-              console.warn('Cache refresh failed, but continuing with node save:', cacheError);
-            }
+            // Note: Cache refresh removed to prevent tree reload that breaks selectedNode reference
+            // The cache will be refreshed on next navigation operation if needed
            }
 
            setIsNodeDialogOpen(false);
