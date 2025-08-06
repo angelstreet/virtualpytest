@@ -131,12 +131,17 @@ class HDMIStreamController(AVControllerInterface):
             # The temp_screenshot_path is already the local file path we need
             local_screenshot_path = temp_screenshot_path
             
-            # Check if local file exists
+            # Check if local file exists with retry for timing issues
             import os
-            if not os.path.exists(local_screenshot_path):
-                print(f'HDMI[{self.capture_source}]: Local screenshot file not found: {local_screenshot_path}')
-                return None
+            import time
             
+            # First attempt
+            if not os.path.exists(local_screenshot_path):
+                time.sleep(1.0)
+                # Retry once
+                if not os.path.exists(local_screenshot_path):
+                    print(f'HDMI[{self.capture_source}]: Local screenshot file not found after retry: {local_screenshot_path}')
+                    return None
             # Return the local file path for the route to handle the upload
             return local_screenshot_path
             
