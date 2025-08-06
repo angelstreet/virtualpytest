@@ -594,13 +594,71 @@ export const useNavigationEditor = () => {
       navigation.markUnsavedChanges();
     }
     if (navigation.selectedEdge) {
-      const edgeId = navigation.selectedEdge.id;
-      const filteredEdges = navigation.edges.filter((e) => e.id !== edgeId);
-      console.log('[@useNavigationEditor:deleteSelected] Deleting edge:', edgeId,
-        'Edges before:', navigation.edges.length, 'Edges after:', filteredEdges.length);
-      navigation.setEdges(filteredEdges);
-      navigation.setSelectedEdge(null);
-      navigation.markUnsavedChanges();
+      const mainEdge = navigation.selectedEdge;
+      const bidirectionalEdge = mainEdge.bidirectionalEdge;
+      
+      // Helper function to check if an edge has actions
+      const hasActions = (edge: any): boolean => {
+        if (!edge?.data?.action_sets) return false;
+        return edge.data.action_sets.some((actionSet: any) => 
+          (actionSet.actions && actionSet.actions.length > 0) ||
+          (actionSet.retry_actions && actionSet.retry_actions.length > 0) ||
+          (actionSet.failure_actions && actionSet.failure_actions.length > 0)
+        );
+      };
+      
+      const mainHasActions = hasActions(mainEdge);
+      const bidirectionalHasActions = bidirectionalEdge ? hasActions(bidirectionalEdge) : false;
+      
+      console.log('[@useNavigationEditor:deleteSelected] Edge deletion analysis:', {
+        mainEdgeId: mainEdge.id,
+        mainHasActions,
+        bidirectionalEdgeId: bidirectionalEdge?.id,
+        bidirectionalHasActions,
+        currentEdgeCount: navigation.edges.length
+      });
+      
+      let edgesToDelete: string[] = [];
+      
+      if (bidirectionalEdge) {
+        // Bidirectional edge exists - apply smart deletion logic
+        if (!mainHasActions && !bidirectionalHasActions) {
+          // Both edges are empty - delete both (remove visual link completely)
+          edgesToDelete = [mainEdge.id, bidirectionalEdge.id];
+          console.log('[@useNavigationEditor:deleteSelected] Both edges empty - deleting both to remove visual link');
+        } else if (!mainHasActions && bidirectionalHasActions) {
+          // Main edge is empty, bidirectional has actions - only delete main edge
+          edgesToDelete = [mainEdge.id];
+          console.log('[@useNavigationEditor:deleteSelected] Main edge empty, bidirectional has actions - deleting only main edge');
+        } else if (mainHasActions && !bidirectionalHasActions) {
+          // Main edge has actions, bidirectional is empty - only delete bidirectional edge
+          edgesToDelete = [bidirectionalEdge.id];
+          console.log('[@useNavigationEditor:deleteSelected] Main edge has actions, bidirectional empty - deleting only bidirectional edge');
+        } else {
+          // Both edges have actions - ask for confirmation
+          const confirmMessage = 'Both directions of this edge have configured actions. Delete both directions?';
+          if (window.confirm(confirmMessage)) {
+            edgesToDelete = [mainEdge.id, bidirectionalEdge.id];
+            console.log('[@useNavigationEditor:deleteSelected] User confirmed deletion of both edges with actions');
+          } else {
+            console.log('[@useNavigationEditor:deleteSelected] User cancelled deletion of edges with actions');
+            return; // User cancelled
+          }
+        }
+      } else {
+        // Single edge - delete it regardless of actions (existing behavior)
+        edgesToDelete = [mainEdge.id];
+        console.log('[@useNavigationEditor:deleteSelected] Single edge - deleting normally');
+      }
+      
+      if (edgesToDelete.length > 0) {
+        const filteredEdges = navigation.edges.filter((e) => !edgesToDelete.includes(e.id));
+        console.log('[@useNavigationEditor:deleteSelected] Deleting edges:', edgesToDelete,
+          'Edges before:', navigation.edges.length, 'Edges after:', filteredEdges.length);
+        navigation.setEdges(filteredEdges);
+        navigation.setSelectedEdge(null);
+        navigation.markUnsavedChanges();
+      }
     }
   }, [navigation]);
 
