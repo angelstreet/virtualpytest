@@ -195,7 +195,8 @@ export const NodeSelectionPanel: React.FC<NodeSelectionPanelProps> = React.memo(
       e.stopPropagation();
     }, []);
 
-    const handleScreenshotButtonClick = useCallback(() => {
+    const handleScreenshotButtonClick = useCallback((e: React.MouseEvent) => {
+      e.currentTarget.blur(); // Remove focus from the button before opening dialog
       setShowScreenshotConfirm(true);
     }, []);
 
@@ -210,7 +211,8 @@ export const NodeSelectionPanel: React.FC<NodeSelectionPanelProps> = React.memo(
       setShowResetConfirm(false);
     }, []);
 
-    const handleResetButtonClick = useCallback(() => {
+    const handleResetButtonClick = useCallback((e: React.MouseEvent) => {
+      e.currentTarget.blur(); // Remove focus from the button before opening dialog
       setShowResetConfirm(true);
     }, []);
 
@@ -386,6 +388,7 @@ export const NodeSelectionPanel: React.FC<NodeSelectionPanelProps> = React.memo(
         <Dialog
           open={showResetConfirm}
           onClose={handleResetConfirmClose}
+          disableRestoreFocus
           sx={{ zIndex: getZIndex('NAVIGATION_CONFIRMATION') }}
         >
           <DialogTitle>Reset Node</DialogTitle>
@@ -404,6 +407,7 @@ export const NodeSelectionPanel: React.FC<NodeSelectionPanelProps> = React.memo(
         <Dialog
           open={showScreenshotConfirm}
           onClose={handleScreenshotConfirmClose}
+          disableRestoreFocus
           sx={{ zIndex: getZIndex('NAVIGATION_CONFIRMATION') }}
         >
           <DialogTitle>Take Screenshot</DialogTitle>
