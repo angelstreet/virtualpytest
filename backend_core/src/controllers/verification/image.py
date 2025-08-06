@@ -19,14 +19,16 @@ import logging
 class ImageVerificationController:
     """Pure image verification controller that uses template matching to detect images on screen."""
     
-    def __init__(self, av_controller, **kwargs):
+    def __init__(self, av_controller, device_model=None, **kwargs):
         """
         Initialize the Image Verification controller.
         
         Args:
             av_controller: AV controller for capturing images (dependency injection)
+            device_model: Device model for reference image resolution (e.g., 'android_tv')
         """
         self.av_controller = av_controller
+        self.device_model = device_model or 'default'
         self.captures_path = os.path.join(av_controller.video_capture_path, 'captures')
         self.verification_type = 'image'
 
@@ -441,7 +443,7 @@ class ImageVerificationController:
             timeout = int(params.get('timeout', 1))
             area = params.get('area')
             image_filter = params.get('image_filter', 'none')
-            model = params.get('model')
+            model = params.get('model', self.device_model)  # Use controller's device_model as fallback
             
             print(f"[@controller:ImageVerification] Searching for image: {image_path}")
             print(f"[@controller:ImageVerification] Timeout: {timeout}s, Confidence: {threshold}")

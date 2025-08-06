@@ -13,15 +13,17 @@ from .text_helpers import TextHelpers
 class TextVerificationController:
     """Pure text verification controller that uses OCR to detect text on screen."""
     
-    def __init__(self, av_controller, **kwargs):
+    def __init__(self, av_controller, device_model=None, **kwargs):
         """
         Initialize the Text Verification controller.
         
         Args:
             av_controller: AV controller for capturing images (dependency injection)
+            device_model: Device model for reference image resolution (e.g., 'android_tv')
         """
         # Dependency injection
         self.av_controller = av_controller
+        self.device_model = device_model or 'default'
         
         # Use AV controller's capture path with captures subdirectory
         self.captures_path = os.path.join(av_controller.video_capture_path, 'captures')

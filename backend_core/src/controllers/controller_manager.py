@@ -376,6 +376,9 @@ def _create_device_with_controllers(device_config: Dict[str, Any]) -> Device:
                 print(f"[@controller_manager:_create_device_with_controllers] WARNING: {implementation} verification needs AV controller but none available")
                 continue  # Skip creating this controller
         
+        # Add device_model for all verification controllers
+        controller_params['device_model'] = device_model
+        
         # Create the verification controller instance
         controller = _create_controller_instance(
             controller_type, implementation, controller_params
