@@ -36,10 +36,10 @@ export default function ValidationPreviewClient({ treeId, onClose, selectedHost,
 
   // Load preview data when component mounts if not already loaded
   useEffect(() => {
-    if (!validation.preview && !validation.isLoadingPreview) {
+    if (!validation.preview && !validation.isLoadingPreview && !validation.validationError) {
       validation.loadPreview();
     }
-  }, [validation]);
+  }, [validation.preview, validation.isLoadingPreview, validation.validationError, validation.loadPreview]);
 
   // Auto-select all edges when preview loads
   useEffect(() => {
@@ -92,6 +92,37 @@ export default function ValidationPreviewClient({ treeId, onClose, selectedHost,
 
     validation.runValidation(skippedEdges);
   };
+
+  // Show error dialog if there's a persistent error
+  if (validation.validationError && !validation.isLoadingPreview) {
+    return (
+      <Dialog open={true} maxWidth="md" fullWidth>
+        <DialogTitle>Validation Preview Error</DialogTitle>
+        <DialogContent>
+          <Box py={1}>
+            <Typography color="error" gutterBottom>
+              Failed to load validation preview:
+            </Typography>
+            <Typography variant="body2" color="textSecondary">
+              {validation.validationError}
+            </Typography>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={onClose}>Close</Button>
+          <Button 
+            variant="outlined" 
+            onClick={() => {
+              validation.clearValidation();
+              validation.loadPreview();
+            }}
+          >
+            Retry
+          </Button>
+        </DialogActions>
+      </Dialog>
+    );
+  }
 
   // Only show dialog when there's preview data or when loading
   if (!validation.preview && !validation.isLoadingPreview) {

@@ -1,0 +1,52 @@
+---
+description: Critical development rules for clean architecture
+globs: ["**/*.py", "**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx"]
+alwaysApply: true
+---
+
+# NO BACKWARD COMPATIBILITY OR FALLBACK CODE
+
+**NEVER implement backward compatibility, legacy support, or fallback mechanisms.**
+
+## Rules:
+1. **Clean Implementation Only**: Always implement the new architecture without maintaining old code paths
+2. **No Legacy Fallbacks**: Do not create "fallback to legacy" or "backward compatibility" code
+3. **Fail Fast**: If the new implementation doesn't work, fix the root cause - don't add fallbacks
+4. **Delete Legacy**: When refactoring, delete old code completely rather than keeping it as backup
+5. **Single Source of Truth**: Use only one implementation approach, not multiple for "compatibility"
+
+## Examples of FORBIDDEN patterns:
+```python
+# ❌ FORBIDDEN - Legacy fallback
+try:
+    new_implementation()
+except:
+    legacy_implementation()  # NO!
+
+# ❌ FORBIDDEN - Backward compatibility
+if use_new_system:
+    new_approach()
+else:
+    old_approach()  # NO!
+
+# ❌ FORBIDDEN - Dual implementation
+def process_data(use_legacy=False):
+    if use_legacy:
+        return legacy_process()  # NO!
+    return new_process()
+```
+
+## Correct approach:
+```python
+# ✅ CORRECT - Clean implementation only
+def process_data():
+    return new_implementation()  # Fix this if it doesn't work
+```
+
+## When encountering issues:
+- **Fix the root cause** in the new implementation
+- **Don't add fallbacks** to make it "work temporarily"
+- **Delete old code** completely during migration
+- **Ensure proper architecture** rather than patching with legacy code
+
+**Remember: Clean code means one way to do things, not multiple ways for "compatibility"**

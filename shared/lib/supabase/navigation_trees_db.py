@@ -518,7 +518,8 @@ def get_complete_tree_hierarchy(root_tree_id: str, team_id: str) -> Dict[str, An
         
         return {
             'success': True,
-            'hierarchy': hierarchy_data,
+            'all_trees_data': hierarchy_data,  # This is the format expected by populate_unified_cache
+            'hierarchy': hierarchy_data,       # Keep for backward compatibility
             'total_trees': len(hierarchy_data),
             'max_depth': max_depth,
             'has_nested_trees': len(hierarchy_data) > 1
