@@ -42,47 +42,8 @@ interface NodeSelectionPanelProps {
   onOpenGotoPanel?: (node: UINavigationNode) => void;
 }
 
-// Custom comparison function for React.memo to prevent unnecessary re-renders
-const arePropsEqual = (prevProps: NodeSelectionPanelProps, nextProps: NodeSelectionPanelProps) => {
-  // Compare primitive values
-  if (
-    prevProps.isControlActive !== nextProps.isControlActive ||
-    prevProps.selectedDeviceId !== nextProps.selectedDeviceId ||
-    prevProps.treeId !== nextProps.treeId ||
-    prevProps.currentNodeId !== nextProps.currentNodeId
-  ) {
-    return false;
-  }
-
-  // Compare selectedNode (most likely to change)
-  if (
-    prevProps.selectedNode.id !== nextProps.selectedNode.id ||
-    prevProps.selectedNode.data.label !== nextProps.selectedNode.data.label ||
-    prevProps.selectedNode.data.screenshot !== nextProps.selectedNode.data.screenshot
-  ) {
-    return false;
-  }
-
-  // Compare selectedHost by reference and key properties
-  if (prevProps.selectedHost !== nextProps.selectedHost) {
-    if (!prevProps.selectedHost || !nextProps.selectedHost) {
-      return false;
-    }
-    if (
-      prevProps.selectedHost.host_name !== nextProps.selectedHost.host_name ||
-      prevProps.selectedHost.devices?.length !== nextProps.selectedHost.devices?.length
-    ) {
-      return false;
-    }
-  }
-
-  // Only compare nodes array length (full comparison would be too expensive)
-  if (prevProps.nodes.length !== nextProps.nodes.length) {
-    return false;
-  }
-
-  return true;
-};
+// No custom comparison function - use React's default shallow comparison
+// This matches how EdgeSelectionPanel works
 
 export const NodeSelectionPanel: React.FC<NodeSelectionPanelProps> = React.memo(
   ({
@@ -428,6 +389,5 @@ export const NodeSelectionPanel: React.FC<NodeSelectionPanelProps> = React.memo(
         </Dialog>
       </>
     );
-  },
-  arePropsEqual, // Use custom comparison function
+  }
 );
