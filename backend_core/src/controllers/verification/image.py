@@ -82,7 +82,7 @@ class ImageVerificationController:
         Args:
             image_path: Path to reference image to search for
             timeout: Maximum time to wait (seconds)
-            threshold: Confidence threshold (0.0 to 1.0)
+            threshold: Matching threshold (0.0 to 1.0)
             area: Optional area to search within
             image_list: List of image paths to search in (if None, captures new frames)
             verification_index: Index of verification for naming
@@ -133,7 +133,7 @@ class ImageVerificationController:
         if image_list:
             # Search in provided images
             print(f"[@controller:ImageVerification] Searching in {len(image_list)} provided images")
-            max_confidence = 0.0
+            max_threshold_score = 0.0
             best_source_path = None
             
             for source_path in image_list:
@@ -144,34 +144,34 @@ class ImageVerificationController:
                 if source_img is None:
                     continue
                 
-                confidence = self._match_template(ref_img, source_img, area)
+                threshold_score = self._match_template(ref_img, source_img, area)
                 
-                # Always set first valid source as best_source_path, then update if better confidence found
-                if best_source_path is None or confidence > max_confidence:
-                    max_confidence = confidence
+                # Always set first valid source as best_source_path, then update if better threshold score found
+                if best_source_path is None or threshold_score > max_threshold_score:
+                    max_threshold_score = threshold_score
                     best_source_path = source_path
                 
-                if confidence >= threshold:
-                    print(f"[@controller:ImageVerification] Match found in {source_path} with confidence {confidence:.3f}")
+                if threshold_score >= threshold:
+                    print(f"[@controller:ImageVerification] Match found in {source_path} with threshold score {threshold_score:.3f}")
                     
                     # Generate comparison images using stored device model
                     image_urls = self._generate_comparison_images(source_path, resolved_image_path, area, verification_index, image_filter)
                     additional_data.update(image_urls)
                     
-                    # Save actual confidence (separate from user threshold)
-                    additional_data["matching_result"] = confidence  # Actual confidence score
+                    # Save actual threshold score (separate from user threshold)
+                    additional_data["matching_result"] = threshold_score  # Actual threshold score
                     
-                    return True, f"Image found with confidence {confidence:.3f} (threshold: {threshold:.3f})", additional_data
+                    return True, f"Image found with threshold score {threshold_score:.3f} (threshold: {threshold:.3f})", additional_data
             
             # Generate comparison images even for failed matches
             if best_source_path:
                 image_urls = self._generate_comparison_images(best_source_path, resolved_image_path, area, verification_index, image_filter)
                 additional_data.update(image_urls)
             
-            # Save best confidence (separate from user threshold)
-            additional_data["matching_result"] = max_confidence  # Actual confidence score
+            # Save best threshold score (separate from user threshold)
+            additional_data["matching_result"] = max_threshold_score  # Actual threshold score
             
-            return False, f"Image not found. Best confidence: {max_confidence:.3f} (threshold: {threshold:.3f})", additional_data
+            return False, f"Image not found. Best threshold score: {max_threshold_score:.3f} (threshold: {threshold:.3f})", additional_data
         
         else:
             # Capture new image if no image list provided - this shouldn't happen in our case
@@ -200,12 +200,12 @@ class ImageVerificationController:
         
         # For disappear operations, invert the matching result for UI display to make it intuitive
         if 'matching_result' in additional_data and additional_data['matching_result'] is not None:
-            original_confidence = additional_data['matching_result']
-            # Invert confidence for disappear operations: 1.0 - original gives intuitive "disappear percentage"
-            inverted_confidence = 1.0 - original_confidence
-            additional_data['matching_result'] = inverted_confidence
-            additional_data['original_confidence'] = original_confidence  # Keep original for debugging
-            print(f"[@controller:ImageVerification] Disappear confidence display: {original_confidence:.3f} -> {inverted_confidence:.3f} (inverted for UI)")
+            original_threshold_score = additional_data['matching_result']
+            # Invert threshold score for disappear operations: 1.0 - original gives intuitive "disappear percentage"
+            inverted_threshold_score = 1.0 - original_threshold_score
+            additional_data['matching_result'] = inverted_threshold_score
+            additional_data['original_threshold_score'] = original_threshold_score  # Keep original for debugging
+            print(f"[@controller:ImageVerification] Disappear threshold score display: {original_threshold_score:.3f} -> {inverted_threshold_score:.3f} (inverted for UI)")
         
         if success:
             # Image has disappeared (was not found)
@@ -446,7 +446,7 @@ class ImageVerificationController:
             model = params.get('model', self.device_model)  # Use controller's device_model as fallback
             
             print(f"[@controller:ImageVerification] Searching for image: {image_path}")
-            print(f"[@controller:ImageVerification] Timeout: {timeout}s, Confidence: {threshold}")
+            print(f"[@controller:ImageVerification] Timeout: {timeout}s, Threshold: {threshold}")
             print(f"[@controller:ImageVerification] Using source image: {source_path}")
             
             # Execute verification based on command using provided device model
@@ -484,7 +484,7 @@ class ImageVerificationController:
                 'success': success,
                 'message': message,
                 'screenshot_path': source_path,
-                'matching_result': details.get('matching_result', 0.0),  # Actual confidence
+                'matching_result': details.get('matching_result', 0.0),  # Actual threshold score
                 'user_threshold': details.get('user_threshold', threshold),  # User's threshold setting
                 'image_filter': details.get('image_filter', image_filter),  # Applied filter
                 'details': details  # Keep for route processing, will be removed by route
@@ -731,7 +731,7 @@ class ImageVerificationController:
         Perform template matching between reference and source images.
         
         Returns:
-            Confidence score (0.0 to 1.0)
+            Threshold score (0.0 to 1.0)
         """
         try:
             # Crop source image to area if specified
