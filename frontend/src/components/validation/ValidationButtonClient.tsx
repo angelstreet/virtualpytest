@@ -15,7 +15,7 @@ import React, { useState } from 'react';
 import { useValidation } from '../../hooks/validation';
 import ValidationPreviewClient from './ValidationPreviewClient';
 import ValidationResultsClient from './ValidationResultsClient';
-import { ValidationProgressClient } from './ValidationProgressClient';
+
 
 interface ValidationButtonClientProps {
   treeId: string;
@@ -110,13 +110,7 @@ export default function ValidationButtonClient({ treeId, disabled, selectedHost,
           selectedDeviceId={selectedDeviceId}
         />
       )}
-      {validation.isValidating && (
-        <ValidationProgressClient 
-          treeId={treeId}
-          selectedHost={selectedHost}
-          selectedDeviceId={selectedDeviceId}
-        />
-      )}
+
     </>
   );
 }
