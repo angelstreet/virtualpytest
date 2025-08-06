@@ -115,6 +115,60 @@ def verification_image_execute():
         print(f"[@route:server_verification_common:verification_image_execute] Error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
+@server_verification_common_bp.route('/image/cropImage', methods=['POST'])
+def verification_image_crop():
+    """Proxy image cropping request to host"""
+    try:
+        print("[@route:server_verification_common:verification_image_crop] Proxying image crop request")
+        
+        # Get request data
+        request_data = request.get_json() or {}
+        
+        # Proxy to host image verification endpoint (original working pattern)
+        response_data, status_code = proxy_to_host('/host/verification/image/cropImage', 'POST', request_data, timeout=30)
+        
+        return jsonify(response_data), status_code
+        
+    except Exception as e:
+        print(f"[@route:server_verification_common:verification_image_crop] Error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@server_verification_common_bp.route('/image/processImage', methods=['POST'])
+def verification_image_process():
+    """Proxy image processing request to host"""
+    try:
+        print("[@route:server_verification_common:verification_image_process] Proxying image process request")
+        
+        # Get request data
+        request_data = request.get_json() or {}
+        
+        # Proxy to host image verification endpoint (original working pattern)
+        response_data, status_code = proxy_to_host('/host/verification/image/processImage', 'POST', request_data, timeout=30)
+        
+        return jsonify(response_data), status_code
+        
+    except Exception as e:
+        print(f"[@route:server_verification_common:verification_image_process] Error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@server_verification_common_bp.route('/image/saveImage', methods=['POST'])
+def verification_image_save():
+    """Proxy image saving request to host"""
+    try:
+        print("[@route:server_verification_common:verification_image_save] Proxying image save request")
+        
+        # Get request data
+        request_data = request.get_json() or {}
+        
+        # Proxy to host image verification endpoint (original working pattern)
+        response_data, status_code = proxy_to_host('/host/verification/image/saveImage', 'POST', request_data, timeout=30)
+        
+        return jsonify(response_data), status_code
+        
+    except Exception as e:
+        print(f"[@route:server_verification_common:verification_image_save] Error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @server_verification_common_bp.route('/text/execute', methods=['POST'])
 def verification_text_execute():
     """Proxy single text verification to host"""
