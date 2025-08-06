@@ -51,7 +51,8 @@ class TextVerificationController:
 
     def waitForTextToAppear(self, text: str, timeout: float = 10.0, area: dict = None, 
                            image_list: List[str] = None, 
-                           verification_index: int = 0, image_filter: str = 'none') -> Tuple[bool, str, dict]:
+                           verification_index: int = 0, image_filter: str = 'none',
+                           threshold: float = 0.8, confidence: float = 0.8) -> Tuple[bool, str, dict]:
         """
         Wait for specific text to appear either in provided image list or by capturing new frames.
         
@@ -62,6 +63,8 @@ class TextVerificationController:
             image_list: Optional list of source image paths to search
             verification_index: Index of verification for naming
             image_filter: Optional image filter to apply
+            threshold: Text matching sensitivity (0.0 to 1.0) - for fuzzy text matching
+            confidence: OCR language detection confidence (0.0 to 1.0) - minimum confidence for OCR results
             
         Returns:
             Tuple of (success, message, additional_data)
@@ -70,7 +73,7 @@ class TextVerificationController:
         if not text or text.strip() == '':
             error_msg = "No text specified. Please provide text to search for."
             print(f"[@controller:TextVerification] {error_msg}")
-            return False, error_msg, {"searchedText": text or "", "image_filter": image_filter, "matching_result": 0.0, "user_threshold": 0.8}
+            return False, error_msg, {"searchedText": text or "", "image_filter": image_filter, "matching_result": 0.0, "user_threshold": threshold}
         
         print(f"[@controller:TextVerification] Looking for text pattern: '{text}'")
         if image_filter and image_filter != 'none':
@@ -79,7 +82,7 @@ class TextVerificationController:
         additional_data = {
             "searchedText": text,  # Frontend-expected property name
             "image_filter": image_filter,
-            "user_threshold": 0.8  # Default threshold for consistency with image verification
+            "user_threshold": threshold  # Default threshold for consistency with image verification
         }
         
         if image_list:
@@ -171,7 +174,8 @@ class TextVerificationController:
 
     def waitForTextToDisappear(self, text: str, timeout: float = 10.0, area: dict = None, 
                               image_list: List[str] = None,
-                              verification_index: int = 0, image_filter: str = 'none') -> Tuple[bool, str, dict]:
+                              verification_index: int = 0, image_filter: str = 'none',
+                              threshold: float = 0.8, confidence: float = 0.8) -> Tuple[bool, str, dict]:
         """
         Wait for text to disappear by calling waitForTextToAppear and inverting the result.
         """
@@ -179,12 +183,12 @@ class TextVerificationController:
         if not text or text.strip() == '':
             error_msg = "No text specified. Please provide text to search for."
             print(f"[@controller:TextVerification] {error_msg}")
-            return False, error_msg, {"searchedText": text or "", "image_filter": image_filter, "matching_result": 0.0, "user_threshold": 0.8}
+            return False, error_msg, {"searchedText": text or "", "image_filter": image_filter, "matching_result": 0.0, "user_threshold": threshold}
             
         print(f"[@controller:TextVerification] Looking for text pattern to disappear: '{text}'")
         
         # Smart reuse: call waitForTextToAppear and invert result
-        found, message, additional_data = self.waitForTextToAppear(text, timeout, area, image_list, verification_index, image_filter)
+        found, message, additional_data = self.waitForTextToAppear(text, timeout, area, image_list, verification_index, image_filter, threshold, confidence)
         
         # Invert the boolean result and adjust the message
         success = not found
@@ -345,9 +349,11 @@ class TextVerificationController:
             timeout = int(params.get('timeout', 0))
             area = params.get('area')
             image_filter = params.get('image_filter', 'none')
+            threshold = float(params.get('threshold', 0.8))  # Text matching sensitivity
+            confidence = float(params.get('confidence', 0.8))  # OCR language detection confidence
             
             print(f"[@controller:TextVerification] Executing {command} with text: '{text}'")
-            print(f"[@controller:TextVerification] Parameters: timeout={timeout}, area={area}, filter={image_filter}")
+            print(f"[@controller:TextVerification] Parameters: timeout={timeout}, threshold={threshold}, confidence={confidence}, area={area}, filter={image_filter}")
             print(f"[@controller:TextVerification] Using source image: {source_path}")
             
             # Execute verification based on command
@@ -358,7 +364,9 @@ class TextVerificationController:
                     area=area,
                     image_list=[source_path],  # Use source_path as image list
                     verification_index=0,
-                    image_filter=image_filter
+                    image_filter=image_filter,
+                    threshold=threshold,
+                    confidence=confidence
                 )
             elif command == 'waitForTextToDisappear':
                 success, message, details = self.waitForTextToDisappear(
@@ -367,7 +375,9 @@ class TextVerificationController:
                     area=area,
                     image_list=[source_path],  # Use source_path as image list
                     verification_index=0,
-                    image_filter=image_filter
+                    image_filter=image_filter,
+                    threshold=threshold,
+                    confidence=confidence
                 )
             else:
                 return {'success': False, 'message': f'Unsupported verification command: {command}'}
@@ -401,6 +411,8 @@ class TextVerificationController:
                 "params": {
                     "text": "",             # Empty string for user input
                     "timeout": 0,           # Default: single check, no polling
+                    "threshold": 0.8,       # Text matching sensitivity (0.0 to 1.0)
+                    "confidence": 0.8,      # OCR language detection confidence (0.0 to 1.0)
                     "area": None            # Optional area
                 },
                 "verification_type": "text"
@@ -410,6 +422,8 @@ class TextVerificationController:
                 "params": {
                     "text": "",             # Empty string for user input
                     "timeout": 0,           # Default: single check, no polling
+                    "threshold": 0.8,       # Text matching sensitivity (0.0 to 1.0)
+                    "confidence": 0.8,      # OCR language detection confidence (0.0 to 1.0)
                     "area": None            # Optional area
                 },
                 "verification_type": "text"
