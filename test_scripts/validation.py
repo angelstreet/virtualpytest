@@ -93,50 +93,36 @@ def capture_validation_summary(context: ScriptExecutionContext, userinterface_na
             lines.append(f"   Step {step_num}: {from_node} → {to_node}")
             lines.append(f"     Error: {error}")
     
-    # Add structured data for frontend parsing
-    lines.append("\n=== VALIDATION_STEPS_DATA_START ===")
+    # Add detailed step results for frontend parsing
+    lines.append("\n📋 [VALIDATION] DETAILED STEP RESULTS")
+    lines.append("="*60)
     for i, step in enumerate(context.step_results):
-        try:
-            step_success = step.get('success', False)
-            from_node = step.get('from_node', 'unknown')
-            to_node = step.get('to_node', 'unknown')
-            
-            # Get execution time - use the correct field name
-            execution_time_ms = step.get('execution_time_ms', 0)
-            execution_time = execution_time_ms / 1000 if execution_time_ms else 0  # Convert to seconds
-            
-            # Safely extract action and verification counts
-            actions = step.get('actions', [])
-            verifications = step.get('verifications', [])
-            verification_results = step.get('verification_results', [])
-            
-            # Ensure we have lists, not None
-            actions = actions if isinstance(actions, list) else []
-            verifications = verifications if isinstance(verifications, list) else []
-            verification_results = verification_results if isinstance(verification_results, list) else []
-            
-            actions_executed = len(actions)
-            total_actions = len(actions)
-            verifications_executed = len(verification_results)
-            total_verifications = len(verifications)
-            
-            # Get error message from verification results
-            error_msg = ""
-            if verification_results and not step_success:
-                try:
-                    if len(verification_results) > 0 and isinstance(verification_results[0], dict):
-                        error_msg = verification_results[0].get('error', 'Unknown error')
-                except (IndexError, AttributeError, TypeError):
-                    error_msg = 'Verification error'
-            
-            lines.append(f"STEP:{i+1}|{from_node}|{to_node}|{'PASS' if step_success else 'FAIL'}|{execution_time:.1f}|{error_msg}|{actions_executed}|{total_actions}|{verifications_executed}|{total_verifications}")
-            
-        except Exception as e:
-            # If any step fails to process, add a fallback entry to prevent breaking the entire output
-            print(f"[@validation] Warning: Failed to process step {i+1}: {e}")
-            lines.append(f"STEP:{i+1}|unknown|unknown|FAIL|0.0|Step processing error|0|0|0|0")
+        step_success = step.get('success', False)
+        from_node = step.get('from_node', 'unknown')
+        to_node = step.get('to_node', 'unknown')
+        
+        # Get execution time in seconds with proper formatting
+        execution_time_ms = step.get('execution_time_ms', 0)
+        execution_time_sec = execution_time_ms / 1000 if execution_time_ms else 0
+        
+        # Get action and verification counts from original step data
+        actions = step.get('actions', [])
+        verifications = step.get('verifications', [])
+        verification_results = step.get('verification_results', [])
+        
+        actions_executed = len(actions) if actions else 0
+        total_actions = len(actions) if actions else 0
+        verifications_executed = len(verification_results) if verification_results else 0
+        total_verifications = len(verifications) if verifications else 0
+        
+        # Get error message
+        error_msg = "-"
+        if not step_success and verification_results:
+            error_msg = verification_results[0].get('error', 'Step failed') if verification_results[0] else 'Step failed'
+        
+        lines.append(f"STEP_DETAIL:{i+1}|{from_node}|{to_node}|{'PASS' if step_success else 'FAIL'}|{execution_time_sec:.1f}s|{actions_executed}|{total_actions}|{verifications_executed}|{total_verifications}|{error_msg}")
     
-    lines.append("=== VALIDATION_STEPS_DATA_END ===")
+    lines.append("="*60)
     
     return "\n".join(lines)
 

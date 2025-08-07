@@ -136,25 +136,31 @@ export const useValidation = (treeId: string, providedHost?: any, providedDevice
 
       // Parse structured step data from validation output
       const edgeResults: any[] = [];
-      const structuredDataMatch = stdout.match(/=== VALIDATION_STEPS_DATA_START ===([\s\S]*?)=== VALIDATION_STEPS_DATA_END ===/);
+      const detailMatch = stdout.match(/📋 \[VALIDATION\] DETAILED STEP RESULTS\n={60}\n([\s\S]*?)\n={60}/);
       
-      if (structuredDataMatch) {
-        console.log('[@hook:useValidation] Found structured validation data');
-        const stepLines = structuredDataMatch[1].trim().split('\n');
-              for (const line of stepLines) {
-        if (line.startsWith('STEP:')) {
+      if (!detailMatch) {
+        console.error('[@hook:useValidation] No detailed step results found in stdout');
+        return null;
+      }
+      
+      console.log('[@hook:useValidation] Found detailed step results, parsing...');
+      const stepLines = detailMatch[1].trim().split('\n');
+      
+      for (const line of stepLines) {
+        if (line.startsWith('STEP_DETAIL:')) {
           const parts = line.split('|');
           if (parts.length >= 10) {
-            // New format with action/verification counts
+
             const fromName = parts[1];
             const toName = parts[2];
             const status = parts[3];
-            const duration = parseFloat(parts[4]);
-            const errorMessage = parts[5] || '';
-            const actionsExecuted = parseInt(parts[6]) || 0;
-            const totalActions = parseInt(parts[7]) || 0;
-            const verificationsExecuted = parseInt(parts[8]) || 0;
-            const totalVerifications = parseInt(parts[9]) || 0;
+            const durationStr = parts[4]; // Already formatted as "15.8s"
+            const duration = parseFloat(durationStr.replace('s', ''));
+            const actionsExecuted = parseInt(parts[5]) || 0;
+            const totalActions = parseInt(parts[6]) || 0;
+            const verificationsExecuted = parseInt(parts[7]) || 0;
+            const totalVerifications = parseInt(parts[8]) || 0;
+            const errorMessage = parts[9] === '-' ? '' : parts[9];
             
             edgeResults.push({
               from: fromName.toLowerCase().replace(/[^a-z0-9]/g, '_'),
@@ -169,60 +175,16 @@ export const useValidation = (treeId: string, providedHost?: any, providedDevice
               totalActions,
               verificationsExecuted,
               totalVerifications,
-              executionTime: duration * 1000, // Convert to milliseconds
+              executionTime: duration * 1000, // Convert to milliseconds for consistency
               verificationResults: []
             });
-          } else if (parts.length >= 6) {
-            // Fallback to old format for backward compatibility
-            const fromName = parts[1];
-            const toName = parts[2];
-            const status = parts[3];
-            const duration = parseFloat(parts[4]);
-            const errorMessage = parts[5] || '';
-            
-            edgeResults.push({
-              from: fromName.toLowerCase().replace(/[^a-z0-9]/g, '_'),
-              to: toName.toLowerCase().replace(/[^a-z0-9]/g, '_'),
-              fromName,
-              toName,
-              success: status === 'PASS',
-              skipped: false,
-              retryAttempts: 0,
-              errors: errorMessage ? [errorMessage] : [],
-              actionsExecuted: 1,
-              totalActions: 1,
-              verificationsExecuted: 0,
-              totalVerifications: 0,
-              executionTime: duration * 1000, // Convert to milliseconds
-              verificationResults: []
-            });
-          } else {
-            console.warn('[@hook:useValidation] Invalid step data format:', line);
           }
         }
       }
-      }
       
-      // If parsing failed, fall back to preview data
-      if (edgeResults.length === 0 && state.preview?.edges) {
-        console.warn('Could not parse step details from stdout, using preview data');
-        console.warn('Looking for structured data in stdout:', stdout.includes('VALIDATION_STEPS_DATA_START'));
-        state.preview.edges.forEach((edge, index) => {
-          edgeResults.push({
-            from: edge.from_node,
-            to: edge.to_node,
-            fromName: edge.from_name,
-            toName: edge.to_name,
-            success: index < successful,
-            skipped: false,
-            retryAttempts: 0,
-            errors: index >= successful ? ['Validation failed'] : [],
-            actionsExecuted: 1,
-            totalActions: 1,
-            executionTime: executionTime / total,
-            verificationResults: []
-          });
-        });
+      if (edgeResults.length === 0) {
+        console.error('[@hook:useValidation] No valid step data parsed from detailed results');
+        return null;
       }
 
       return {
