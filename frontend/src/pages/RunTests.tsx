@@ -24,7 +24,7 @@ import {
 } from '@mui/material';
 import React, { useState, useEffect } from 'react';
 
-import { StreamViewer } from '../components/controller/av/StreamViewer';
+import { HLSVideoPlayer } from '../components/common/HLSVideoPlayer';
 import { useStream } from '../hooks/controller/useStream';
 import { useScript } from '../hooks/script/useScript';
 import { useHostManager } from '../hooks/useHostManager';
@@ -160,11 +160,30 @@ const RunTests: React.FC = () => {
     device_id: streamDevice?.deviceId || '',
   });
 
-  // Get the selected device object for model information
-  const selectedDeviceObject = availableDevices.find(
-    (device) => device.device_id === selectedDevice,
-  );
-  const deviceModel = selectedDeviceObject?.device_model || 'unknown';
+  // Get the device model for the currently displayed stream
+  const getStreamDeviceModel = () => {
+    if (!streamDevice?.hostName || !streamDevice?.deviceId) return 'unknown';
+    
+    // If we're showing the primary selected device, use availableDevices for efficiency
+    if (streamViewIndex === 0 && selectedDevice) {
+      const selectedDeviceObject = availableDevices.find(
+        device => device.device_id === selectedDevice
+      );
+      if (selectedDeviceObject) {
+        return selectedDeviceObject.device_model || 'unknown';
+      }
+    }
+    
+    // For additional devices, get devices for the stream host
+    const streamHostDevices = getDevicesFromHost(streamDevice.hostName);
+    const streamDeviceObject = streamHostDevices.find(
+      device => device.device_id === streamDevice.deviceId
+    );
+    
+    return streamDeviceObject?.device_model || 'unknown';
+  };
+  
+  const deviceModel = getStreamDeviceModel();
 
   // Load available scripts from virtualpytest/scripts folder
   useEffect(() => {
@@ -873,34 +892,24 @@ const RunTests: React.FC = () => {
                   }}
                 >
                   {streamUrl && streamHostObject ? (
-                    <Box
+                    <HLSVideoPlayer
+                      streamUrl={streamUrl}
+                      isStreamActive={true}
+                      isCapturing={false}
+                      model={deviceModel}
+                      layoutConfig={{
+                        minHeight: '300px',
+                        aspectRatio: isMobileModel ? '9/16' : '16/9',
+                        objectFit: 'contain',
+                        isMobileModel,
+                      }}
+                      isExpanded={false}
+                      muted={true}
                       sx={{
                         width: '100%',
                         height: '100%',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        overflow: 'hidden',
                       }}
-                    >
-                      <StreamViewer
-                        streamUrl={streamUrl}
-                        isStreamActive={true}
-                        isCapturing={isExecuting}
-                        model={deviceModel}
-                        layoutConfig={{
-                          minHeight: '360px',
-                          aspectRatio: isMobileModel ? '9/16' : '16/9',
-                          objectFit: 'contain',
-                          isMobileModel,
-                        }}
-                        isExpanded={false}
-                        sx={{
-                          width: '100%',
-                          height: '100%',
-                        }}
-                      />
-                    </Box>
+                    />
                   ) : (
                     <Box
                       sx={{
