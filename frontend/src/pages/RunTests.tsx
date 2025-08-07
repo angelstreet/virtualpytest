@@ -873,32 +873,47 @@ const RunTests: React.FC = () => {
                 <Box
                   sx={{
                     height: 400,
+                    width: '100%',
                     backgroundColor: 'black',
                     borderRadius: 1,
                     overflow: 'hidden',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
+                    boxSizing: 'border-box',
                   }}
                 >
                   {streamUrl && streamHostObject ? (
-                    <StreamViewer
-                      streamUrl={streamUrl}
-                      isStreamActive={true}
-                      isCapturing={isExecuting}
-                      model={deviceModel}
-                      layoutConfig={{
-                        minHeight: '380px',
-                        aspectRatio: isMobileModel ? '9/16' : '16/9',
-                        objectFit: 'contain',
-                        isMobileModel,
-                      }}
-                      isExpanded={false}
+                    <Box
                       sx={{
                         width: '100%',
                         height: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        overflow: 'hidden',
                       }}
-                    />
+                    >
+                      <StreamViewer
+                        streamUrl={streamUrl}
+                        isStreamActive={true}
+                        isCapturing={isExecuting}
+                        model={deviceModel}
+                        layoutConfig={{
+                          minHeight: '360px',
+                          maxHeight: '380px',
+                          aspectRatio: isMobileModel ? '9/16' : '16/9',
+                          objectFit: 'contain',
+                          isMobileModel,
+                        }}
+                        isExpanded={false}
+                        sx={{
+                          maxWidth: '100%',
+                          maxHeight: '100%',
+                          objectFit: 'contain',
+                        }}
+                      />
+                    </Box>
                   ) : (
                     <Box
                       sx={{
