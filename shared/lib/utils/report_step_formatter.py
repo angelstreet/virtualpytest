@@ -336,6 +336,27 @@ def format_analysis_results(step: Dict) -> str:
                 analysis_html += f'<div class="analysis-detail">Text: {text_preview}</div>'
         elif subtitle_analysis.get('message'):
             analysis_html += f'<div class="analysis-detail">Details: {subtitle_analysis.get("message")}</div>'
+            
+        # Show analyzed screenshot for debugging (especially useful when detection fails)
+        analyzed_screenshot = subtitle_analysis.get('analyzed_screenshot')
+        if analyzed_screenshot:
+            import json
+            # Create single image modal data
+            modal_data = {
+                'title': 'Subtitle Analysis Screenshot',
+                'images': [{'url': analyzed_screenshot, 'label': 'Analyzed for Subtitles'}]
+            }
+            modal_data_json = json.dumps(modal_data).replace('"', '&quot;').replace("'", "&#x27;")
+            
+            analysis_html += f"""
+            <div class='subtitle-screenshot' style='margin-top: 8px;'>
+                <div style='text-align: center;'>
+                    <div style='font-size: 11px; color: #666; margin-bottom: 2px;'>Analyzed Screenshot</div>
+                    <img src='{analyzed_screenshot}' style='width: 60px; height: 40px; object-fit: contain; border: 1px solid #ddd; border-radius: 3px; cursor: pointer;' 
+                         onclick='openVerificationImageModal({modal_data_json})' title='Click to view subtitle analysis screenshot'>
+                </div>
+            </div>
+            """
     
     # Audio Menu Analysis Results
     if audio_menu_analysis and audio_menu_analysis.get('success') is not None:

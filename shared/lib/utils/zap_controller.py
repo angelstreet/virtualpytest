@@ -385,6 +385,7 @@ class ZapController:
             print(f"🔍 [ZapController] Analyzing subtitles...")
             
             latest_screenshot = context.screenshot_paths[-1]
+            print(f"🔍 [ZapController] Using screenshot for subtitle analysis: {latest_screenshot}")
             device_id = context.selected_device.device_id
             
             # Get video verification controller - same as HTTP routes
@@ -408,24 +409,39 @@ class ZapController:
                     "subtitles_detected": has_subtitles,
                     "extracted_text": extracted_text,
                     "detected_language": detected_language,
+                    "analyzed_screenshot": latest_screenshot,
                     "message": f"Subtitles {'detected' if has_subtitles else 'not detected'}"
                 }
                 
                 if has_subtitles:
                     lang_info = f" (Language: {detected_language})" if detected_language else ""
-                    print(f"✅ [ZapController] Subtitles detected{lang_info}")
+                    text_info = f", Text: '{extracted_text[:50]}...'" if extracted_text and len(extracted_text) > 0 else ""
+                    print(f"✅ [ZapController] Subtitles detected{lang_info}{text_info}")
                 else:
-                    print(f"⚠️ [ZapController] No subtitles detected")
+                    print(f"⚠️ [ZapController] No subtitles detected in {latest_screenshot}")
                 
                 # Add screenshot to context for reporting
                 context.add_screenshot(latest_screenshot)
                 
                 return subtitle_result
             else:
-                return {"success": False, "message": result.get('message', 'Subtitle analysis failed')}
+                error_msg = result.get('message', 'Subtitle analysis failed')
+                print(f"❌ [ZapController] Subtitle analysis failed: {error_msg} (image: {latest_screenshot})")
+                return {
+                    "success": False, 
+                    "analyzed_screenshot": latest_screenshot,
+                    "message": error_msg
+                }
                 
         except Exception as e:
-            return {"success": False, "message": f"Subtitle analysis error: {e}"}
+            error_msg = f"Subtitle analysis error: {e}"
+            image_info = f" (image: {latest_screenshot})" if 'latest_screenshot' in locals() else ""
+            print(f"❌ [ZapController] {error_msg}{image_info}")
+            return {
+                "success": False,
+                "analyzed_screenshot": latest_screenshot if 'latest_screenshot' in locals() else None,
+                "message": error_msg
+            }
     
     def _analyze_audio_menu(self, context, iteration: int) -> Dict[str, Any]:
         """Analyze audio menu using direct controller call - same as HTTP routes do"""
