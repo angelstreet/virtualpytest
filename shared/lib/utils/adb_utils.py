@@ -103,6 +103,10 @@ class ADBUtils:
         'MEDIA_FAST_FORWARD': 'KEYCODE_MEDIA_FAST_FORWARD',
         'MEDIA_NEXT': 'KEYCODE_MEDIA_NEXT',
         'MEDIA_PREVIOUS': 'KEYCODE_MEDIA_PREVIOUS',
+        
+        # Channel control keys
+        'CHANNEL_UP': 'KEYCODE_CHANNEL_UP',
+        'CHANNEL_DOWN': 'KEYCODE_CHANNEL_DOWN',
     }
     
     def __init__(self):

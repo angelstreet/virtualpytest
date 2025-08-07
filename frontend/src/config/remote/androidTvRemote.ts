@@ -189,6 +189,22 @@ export const androidTvRemoteConfig = {
       shape: 'circle' as const,
       comment: 'Mute button',
     },
+    channel_up: {
+      key: 'CHANNEL_UP',
+      label: 'CH+',
+      position: { x: 99, y: 790 },
+      size: { width: 20, height: 20 },
+      shape: 'circle' as const,
+      comment: 'Channel up button',
+    },
+    channel_down: {
+      key: 'CHANNEL_DOWN',
+      label: 'CH-',
+      position: { x: 99, y: 898 },
+      size: { width: 20, height: 20 },
+      shape: 'circle' as const,
+      comment: 'Channel down button',
+    },
   },
   button_layout_recmodal: {
     power: {
@@ -310,6 +326,22 @@ export const androidTvRemoteConfig = {
       size: { width: 26, height: 26 },
       shape: 'circle' as const,
       comment: 'Mute button',
+    },
+    channel_up: {
+      key: 'CHANNEL_UP',
+      label: 'CH+',
+      position: { x: 130, y: 1032 },
+      size: { width: 26, height: 26 },
+      shape: 'circle' as const,
+      comment: 'Channel up button',
+    },
+    channel_down: {
+      key: 'CHANNEL_DOWN',
+      label: 'CH-',
+      position: { x: 130, y: 1170 },
+      size: { width: 26, height: 26 },
+      shape: 'circle' as const,
+      comment: 'Channel down button',
     },
   },
 } as const;

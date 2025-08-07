@@ -391,7 +391,7 @@ class AndroidTVRemoteController(RemoteControllerInterface):
                 'supported_keys': list(ADBUtils.ADB_KEYS.keys()) if self.adb_utils else [],
                 'capabilities': [
                     'adb_control', 'navigation', 'text_input', 
-                    'app_launch', 'app_close', 'coordinate_tap', 'media_control', 'volume_control', 'power_control'
+                    'app_launch', 'app_close', 'coordinate_tap', 'media_control', 'volume_control', 'channel_control', 'power_control'
                 ]
             }
             
@@ -582,6 +582,25 @@ class AndroidTVRemoteController(RemoteControllerInterface):
                     'action_type': 'remote',
                     'params': {'key': 'MEDIA_REWIND'},
                     'description': 'Rewind media',
+                    'requiresInput': False
+                },
+                # Channel control actions
+                {
+                    'id': 'press_key_channel_up',
+                    'label': 'Channel Up',
+                    'command': 'press_key',
+                    'action_type': 'remote',
+                    'params': {'key': 'CHANNEL_UP'},
+                    'description': 'Change to next channel',
+                    'requiresInput': False
+                },
+                {
+                    'id': 'press_key_channel_down',
+                    'label': 'Channel Down',
+                    'command': 'press_key',
+                    'action_type': 'remote',
+                    'params': {'key': 'CHANNEL_DOWN'},
+                    'description': 'Change to previous channel',
                     'requiresInput': False
                 },
                 # Volume control actions
