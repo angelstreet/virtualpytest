@@ -171,7 +171,11 @@ class ImageVerificationController:
                     image_urls = self._generate_comparison_images(source_path, resolved_image_path, area, verification_index, image_filter)
                     additional_data.update(image_urls)
                     
-                    return True, f"Image found with threshold score {threshold_score:.3f} (threshold: {threshold:.3f})", additional_data
+                    # Create consistent message format for success (same as failure format)
+                    source_info = f"source: {os.path.basename(source_path)}"
+                    reference_info = f"reference: {os.path.basename(resolved_image_path)}"
+                    
+                    return True, f"{reference_info} detected in {source_info}. Match score: {threshold_score:.3f} (required: {threshold:.3f})", additional_data
             
             # ALWAYS generate comparison images for debugging (especially important for failures)
             if best_source_path:
@@ -187,7 +191,7 @@ class ImageVerificationController:
             # Create detailed error message with source and reference info
             source_info = f"source: {os.path.basename(best_source_path)}" if best_source_path else "source: none"
             reference_info = f"reference: {os.path.basename(resolved_image_path)}"
-            error_msg = f"{reference_info} not detected in {source_info}. Best match: {max_threshold_score:.3f} (required: {threshold:.3f})"
+            error_msg = f"{reference_info} not detected in {source_info}. Match score: {max_threshold_score:.3f} (required: {threshold:.3f})"
             
             return False, error_msg, additional_data
         
