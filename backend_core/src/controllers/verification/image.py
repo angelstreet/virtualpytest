@@ -547,6 +547,7 @@ class ImageVerificationController:
                                    verification_index: int = 0, image_filter: str = 'none') -> dict:
         """
         Generate comparison images and return local file paths.
+        Only creates source image and overlay - does NOT copy reference image.
         Route will handle URL building.
         """
         try:
@@ -555,12 +556,11 @@ class ImageVerificationController:
             
             # Generate unique filenames for this verification
             source_result_path = f'{results_dir}/source_image_{verification_index}.png'
-            reference_result_path = f'{results_dir}/reference_image_{verification_index}.png'
             overlay_result_path = f'{results_dir}/result_overlay_{verification_index}.png'
             
             print(f"[@controller:ImageVerification] Generating comparison images:")
             print(f"  Source: {source_result_path}")
-            print(f"  Reference: {reference_result_path}")
+            print(f"  Reference: {reference_path} (using original, not copying)")
             print(f"  Overlay: {overlay_result_path}")
             
             # === STEP 1: Handle Source Image ===
@@ -579,27 +579,24 @@ class ImageVerificationController:
                 if not self.helpers.apply_image_filter(source_result_path, image_filter):
                     print(f"[@controller:ImageVerification] Warning: Failed to apply {image_filter} filter to source")
             
-            # === STEP 2: Handle Reference Image ===
+            # === STEP 2: Determine Reference Image Path (No Copying) ===
+            # Use filtered reference if available, otherwise use original
+            reference_image_for_overlay = reference_path
             if image_filter and image_filter != 'none':
                 base_path, ext = os.path.splitext(reference_path)
                 filtered_reference_path = f"{base_path}_{image_filter}{ext}"
                 
                 if os.path.exists(filtered_reference_path):
                     print(f"[@controller:ImageVerification] Using existing filtered reference: {filtered_reference_path}")
-                    self.helpers.copy_image_file(filtered_reference_path, reference_result_path)
+                    reference_image_for_overlay = filtered_reference_path
                 else:
-                    print(f"[@controller:ImageVerification] Creating filtered reference dynamically")
-                    self.helpers.copy_image_file(reference_path, reference_result_path)
-                    if not self.helpers.apply_image_filter(reference_result_path, image_filter):
-                        print(f"[@controller:ImageVerification] Warning: Failed to apply {image_filter} filter to reference")
-                        self.helpers.copy_image_file(reference_path, reference_result_path)
+                    print(f"[@controller:ImageVerification] Filtered reference not available, using original: {reference_path}")
             else:
                 print(f"[@controller:ImageVerification] Using original reference: {reference_path}")
-                self.helpers.copy_image_file(reference_path, reference_result_path)
             
             # === STEP 3: Create Overlay ===
             source_img = cv2.imread(source_result_path)
-            ref_img = cv2.imread(reference_result_path)
+            ref_img = cv2.imread(reference_image_for_overlay)
             
             if source_img is None or ref_img is None:
                 print(f"[@controller:ImageVerification] Failed to load images for comparison")
@@ -613,11 +610,11 @@ class ImageVerificationController:
                 print(f"[@controller:ImageVerification] Failed to create overlay")
                 return {}
             
-            # Return only local file paths - route will build URLs
+            # Return paths - NO reference_image_path since we don't create a copy
             return {
                 "source_image_path": source_result_path,
-                "reference_image_path": reference_result_path,
                 "result_overlay_path": overlay_result_path
+                # NOTE: reference_image_path removed - use reference_image_url from waitForImageToAppear instead
             }
             
         except Exception as e:

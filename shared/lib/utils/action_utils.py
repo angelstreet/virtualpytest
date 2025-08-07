@@ -90,9 +90,20 @@ def execute_verification_directly(host, device, verification: Dict[str, Any]) ->
         if verification_type == 'image':
             # Image verification generates comparison images in the 'details' field
             details = result.get('details', {})
+            
+            # Debug logging to see what's in details
+            print(f"[@action_utils:execute_verification_directly] Verification details keys: {list(details.keys())}")
+            if details.get('source_image_path'):
+                print(f"[@action_utils:execute_verification_directly] Source image path: {details.get('source_image_path')}")
+            if details.get('reference_image_path'):
+                print(f"[@action_utils:execute_verification_directly] Reference image path (NOT uploading): {details.get('reference_image_path')}")
+            if details.get('reference_image_url'):
+                print(f"[@action_utils:execute_verification_directly] Reference image URL: {details.get('reference_image_url')}")
+            
             # Source image (screenshot taken) - needs to be uploaded
             if details.get('source_image_path'):
                 verification_images.append(details.get('source_image_path'))
+                print(f"[@action_utils:execute_verification_directly] Added source image to upload: {details.get('source_image_path')}")
             # Note: Reference image R2 URL is already in details['reference_image_url'] 
             # and doesn't need uploading - it will be available in step_results
             # Note: Not including overlay as requested
@@ -103,7 +114,8 @@ def execute_verification_directly(host, device, verification: Dict[str, Any]) ->
             'error': result.get('message', 'Verification completed') if not result.get('success', False) else None,
             'verification_type': verification_type,
             'resultType': 'PASS' if result.get('success') else 'FAIL',
-            'verification_images': verification_images  # Add images for upload
+            'verification_images': verification_images,  # Add images for upload (source images only)
+            'details': result.get('details', {})  # Preserve verification details (includes reference_image_url)
         }
             
     except Exception as e:

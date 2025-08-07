@@ -419,18 +419,25 @@ def create_compact_step_results_section(step_results: List[Dict], screenshots: D
             action_params = actions[i].get('params', {}) if i < len(actions) else {}
             screenshots_for_step.append((f'Action {i+1}', screenshot_path, action_cmd, action_params))
         
-        # Add verification images (source and reference)
+        # Add verification images (source images from upload + reference images from details)
         verification_images = step.get('verification_images', [])
         for i, verification_image_path in enumerate(verification_images):
-            # Try to identify if it's a source or reference image based on filename
+            # These are source images that were uploaded to R2
             filename = os.path.basename(verification_image_path) if verification_image_path else 'unknown'
-            if 'reference' in filename.lower():
-                image_type = 'Reference Image'
-            elif 'source' in filename.lower():
+            if 'source' in filename.lower():
                 image_type = 'Source Image'
             else:
-                image_type = f'Verification Image {i+1}'
+                image_type = f'Source Image {i+1}'
             screenshots_for_step.append((image_type, verification_image_path, None, None))
+        
+        # Add reference images from verification details (these are R2 URLs, not uploaded)
+        verification_results = step.get('verification_results', [])
+        for verification_result in verification_results:
+            if verification_result.get('verification_type') == 'image':
+                details = verification_result.get('details', {})
+                reference_image_url = details.get('reference_image_url')
+                if reference_image_url:
+                    screenshots_for_step.append(('Reference Image', reference_image_url, None, None))
         
         # Add step-level screenshot if available
         if step.get('screenshot_url'):

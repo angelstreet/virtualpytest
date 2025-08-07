@@ -221,9 +221,15 @@ def execute_image_verification():
                 filename = os.path.basename(details['source_image_path'])
                 verification_result['sourceUrl'] = buildVerificationResultUrl(host_info, filename, device_id)
             
-            if details.get('reference_image_path'):
+            # Use original R2 URL for reference image (no local copy created)
+            if details.get('reference_image_url'):
+                verification_result['referenceUrl'] = details['reference_image_url']
+                print(f"[@route:host_verification_image:execute] Using R2 reference URL: {details['reference_image_url']}")
+            elif details.get('reference_image_path'):
+                # Fallback for legacy code - should not happen with new implementation
                 filename = os.path.basename(details['reference_image_path'])
                 verification_result['referenceUrl'] = buildVerificationResultUrl(host_info, filename, device_id)
+                print(f"[@route:host_verification_image:execute] Using legacy reference path: {details['reference_image_path']}")
                 
             if details.get('result_overlay_path'):
                 filename = os.path.basename(details['result_overlay_path'])
