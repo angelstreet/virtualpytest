@@ -380,6 +380,48 @@ def format_analysis_results(step: Dict) -> str:
                 
                 if channel_info.get('start_time') and channel_info.get('end_time'):
                     analysis_html += f'<div class="analysis-detail">Program Time: {channel_info["start_time"]}-{channel_info["end_time"]}</div>'
+            
+            # Complete zapping sequence thumbnails (4 key images)
+            before_blackscreen = zapping_analysis.get('first_image')  # Image before blackscreen starts
+            blackscreen_start = zapping_analysis.get('blackscreen_start_image')
+            blackscreen_end = zapping_analysis.get('blackscreen_end_image') 
+            first_content = zapping_analysis.get('first_content_after_blackscreen')
+            
+            if before_blackscreen or blackscreen_start or blackscreen_end or first_content:
+                from .report_formatting import create_verification_image_modal_data
+                
+                # Create modal data for complete zapping sequence (4 images)
+                images = []
+                if before_blackscreen:
+                    images.append({'url': before_blackscreen, 'label': 'Before Blackscreen'})
+                if blackscreen_start:
+                    images.append({'url': blackscreen_start, 'label': 'First Blackscreen'})
+                if blackscreen_end:
+                    images.append({'url': blackscreen_end, 'label': 'Last Blackscreen'})  
+                if first_content:
+                    images.append({'url': first_content, 'label': 'First Content After'})
+                
+                if images:
+                    import json
+                    modal_data = {
+                        'title': 'Complete Zapping Sequence Analysis',
+                        'images': images
+                    }
+                    modal_data_json = json.dumps(modal_data).replace('"', '&quot;').replace("'", "&#x27;")
+                    
+                    thumbnails_html = "<div class='zapping-sequence-thumbnails' style='margin-top: 8px; display: flex; gap: 8px;'>"
+                    
+                    for image in images:
+                        thumbnails_html += f"""
+                        <div style='text-align: center;'>
+                            <div style='font-size: 11px; color: #666; margin-bottom: 2px;'>{image['label']}</div>
+                            <img src='{image['url']}' style='width: 55px; height: 37px; object-fit: contain; border: 1px solid #ddd; border-radius: 3px; cursor: pointer;' 
+                                 onclick='openVerificationImageModal({modal_data_json})' title='Click to view complete zapping sequence'>
+                        </div>
+                        """
+                    
+                    thumbnails_html += "</div>"
+                    analysis_html += thumbnails_html
         else:
             if zapping_analysis.get('message'):
                 analysis_html += f'<div class="analysis-detail">Details: {zapping_analysis.get("message")}</div>'
