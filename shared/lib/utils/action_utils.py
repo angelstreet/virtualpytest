@@ -615,7 +615,8 @@ def execute_edge_actions(host, device, edge: Dict, action_set_id: str = None, te
             'error': error_msg,
             'results': [],
             'passed_count': 0,
-            'total_count': 0
+            'total_count': 0,
+            'action_screenshots': []  # Ensure consistent return format
         }
 
 
