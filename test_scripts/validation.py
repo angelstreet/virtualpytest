@@ -101,9 +101,26 @@ def capture_validation_summary(context: ScriptExecutionContext, userinterface_na
         from_node = step.get('from_node', 'unknown')
         to_node = step.get('to_node', 'unknown')
         
-        # Get execution time in seconds with proper formatting
+        # Get execution time using the same logic as the report generation
         execution_time_ms = step.get('execution_time_ms', 0)
-        execution_time_sec = execution_time_ms / 1000 if execution_time_ms else 0
+        
+        # Use the same formatting function as the report to ensure consistency
+        from shared.lib.utils.report_utils import format_execution_time
+        execution_time_formatted = format_execution_time(execution_time_ms) if execution_time_ms else "0.0s"
+        
+        # Extract just the numeric part and unit for our format
+        if execution_time_formatted.endswith('ms'):
+            duration_value = float(execution_time_formatted[:-2]) / 1000  # Convert ms to seconds
+        elif execution_time_formatted.endswith('s') and 'm' not in execution_time_formatted:
+            duration_value = float(execution_time_formatted[:-1])  # Already in seconds
+        elif 'm' in execution_time_formatted and 's' in execution_time_formatted:
+            # Format like "2m 15.3s"
+            parts = execution_time_formatted.split('m ')
+            minutes = float(parts[0])
+            seconds = float(parts[1][:-1])  # Remove 's'
+            duration_value = minutes * 60 + seconds
+        else:
+            duration_value = 0.0
         
         # Get action and verification counts from original step data
         actions = step.get('actions', [])
@@ -120,7 +137,7 @@ def capture_validation_summary(context: ScriptExecutionContext, userinterface_na
         if not step_success and verification_results:
             error_msg = verification_results[0].get('error', 'Step failed') if verification_results[0] else 'Step failed'
         
-        lines.append(f"STEP_DETAIL:{i+1}|{from_node}|{to_node}|{'PASS' if step_success else 'FAIL'}|{execution_time_sec:.1f}s|{actions_executed}|{total_actions}|{verifications_executed}|{total_verifications}|{error_msg}")
+        lines.append(f"STEP_DETAIL:{i+1}|{from_node}|{to_node}|{'PASS' if step_success else 'FAIL'}|{duration_value:.1f}s|{actions_executed}|{total_actions}|{verifications_executed}|{total_verifications}|{error_msg}")
     
     lines.append("="*60)
     
