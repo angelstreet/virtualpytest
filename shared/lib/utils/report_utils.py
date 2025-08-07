@@ -241,80 +241,7 @@ def create_compact_step_results_section(step_results: List[Dict], screenshots: D
                     if not result_success and result.get('error'):
                         verification_result_html += f" <span class='verification-error'>({result['error']})</span>"
                         
-                        # Add small thumbnails for image verification failures
-                        if result.get('verification_type') == 'image':
-                            details = result.get('details', {})
-                            thumbnails_html = ""
-                            
-                            # Get source, reference, and overlay images
-                            source_image = None
-                            reference_image = None
-                            overlay_image = None
-                            
-                            # Find source and overlay images from verification_images
-                            verification_images = step.get('verification_images', [])
-                            for img_path in verification_images:
-                                if img_path:
-                                    filename = os.path.basename(img_path).lower()
-                                    if 'source' in filename:
-                                        source_image = img_path
-                                    elif 'overlay' in filename or 'result_overlay' in filename:
-                                        overlay_image = img_path
-                            
-                            # Get reference image from details
-                            reference_image = details.get('reference_image_url')
-                            
-                            # Create small thumbnails if we have images
-                            if source_image or reference_image or overlay_image:
-                                thumbnails_html = "<div class='verification-thumbnails' style='margin-top: 8px; display: flex; gap: 10px;'>"
-                                
-                                if source_image:
-                                    thumbnails_html += f"""
-                                    <div style='text-align: center;'>
-                                        <div style='font-size: 11px; color: #666; margin-bottom: 2px;'>Source</div>
-                                        <img src='{source_image}' style='width: 60px; height: 40px; object-fit: cover; border: 1px solid #ddd; border-radius: 3px; cursor: pointer;' 
-                                             onclick='window.open("{source_image}", "_blank")' title='Click to view full size'>
-                                    </div>
-                                    """
-                                
-                                if reference_image:
-                                    thumbnails_html += f"""
-                                    <div style='text-align: center;'>
-                                        <div style='font-size: 11px; color: #666; margin-bottom: 2px;'>Reference</div>
-                                        <img src='{reference_image}' style='width: 60px; height: 40px; object-fit: cover; border: 1px solid #ddd; border-radius: 3px; cursor: pointer;' 
-                                             onclick='window.open("{reference_image}", "_blank")' title='Click to view full size'>
-                                    </div>
-                                    """
-                                
-                                if overlay_image:
-                                    thumbnails_html += f"""
-                                    <div style='text-align: center;'>
-                                        <div style='font-size: 11px; color: #666; margin-bottom: 2px;'>Overlay</div>
-                                        <img src='{overlay_image}' style='width: 60px; height: 40px; object-fit: cover; border: 1px solid #ddd; border-radius: 3px; cursor: pointer;' 
-                                             onclick='window.open("{overlay_image}", "_blank")' title='Click to view full size'>
-                                    </div>
-                                    """
-                                
-                                thumbnails_html += "</div>"
-                                verification_result_html += thumbnails_html
-                
-                verifications_html += f'<div class="verification-item">{verification_line}{verification_result_html}</div>'
-        elif verification_results:
-            # Show verification results even if verification definitions are missing
-            verifications_html = "<div><strong>Verification Results:</strong></div>"
-            for verification_index, result in enumerate(verification_results, 1):
-                result_success = result.get('success', False)
-                result_message = result.get('message', 'Verification completed')
-                verification_type = result.get('verification_type', 'unknown')
-                result_badge = f'<span class="verification-result-badge {"success" if result_success else "failure"}">{"PASS" if result_success else "FAIL"}</span>'
-                
-                verification_line = f"{verification_index}. {verification_type}: {result_message}"
-                verification_result_html = f" {result_badge}"
-                
-                if not result_success and result.get('error'):
-                    verification_result_html += f" <span class='verification-error'>({result['error']})</span>"
-                    
-                    # Add small thumbnails for image verification failures
+                    # Add small thumbnails for image verification (both success and failure)
                     if result.get('verification_type') == 'image':
                         details = result.get('details', {})
                         thumbnails_html = ""
@@ -341,6 +268,7 @@ def create_compact_step_results_section(step_results: List[Dict], screenshots: D
                         if source_image or reference_image or overlay_image:
                             thumbnails_html = "<div class='verification-thumbnails' style='margin-top: 8px; display: flex; gap: 10px;'>"
                             
+                            # Order: Source → Reference → Overlay (logical flow)
                             if source_image:
                                 thumbnails_html += f"""
                                 <div style='text-align: center;'>
@@ -370,6 +298,80 @@ def create_compact_step_results_section(step_results: List[Dict], screenshots: D
                             
                             thumbnails_html += "</div>"
                             verification_result_html += thumbnails_html
+                
+                verifications_html += f'<div class="verification-item">{verification_line}{verification_result_html}</div>'
+        elif verification_results:
+            # Show verification results even if verification definitions are missing
+            verifications_html = "<div><strong>Verification Results:</strong></div>"
+            for verification_index, result in enumerate(verification_results, 1):
+                result_success = result.get('success', False)
+                result_message = result.get('message', 'Verification completed')
+                verification_type = result.get('verification_type', 'unknown')
+                result_badge = f'<span class="verification-result-badge {"success" if result_success else "failure"}">{"PASS" if result_success else "FAIL"}</span>'
+                
+                verification_line = f"{verification_index}. {verification_type}: {result_message}"
+                verification_result_html = f" {result_badge}"
+                
+                if not result_success and result.get('error'):
+                    verification_result_html += f" <span class='verification-error'>({result['error']})</span>"
+                    
+                # Add small thumbnails for image verification (both success and failure)
+                if result.get('verification_type') == 'image':
+                    details = result.get('details', {})
+                    thumbnails_html = ""
+                    
+                    # Get source, reference, and overlay images
+                    source_image = None
+                    reference_image = None
+                    overlay_image = None
+                    
+                    # Find source and overlay images from verification_images
+                    verification_images = step.get('verification_images', [])
+                    for img_path in verification_images:
+                        if img_path:
+                            filename = os.path.basename(img_path).lower()
+                            if 'source' in filename:
+                                source_image = img_path
+                            elif 'overlay' in filename or 'result_overlay' in filename:
+                                overlay_image = img_path
+                    
+                    # Get reference image from details
+                    reference_image = details.get('reference_image_url')
+                    
+                    # Create small thumbnails if we have images
+                    if source_image or reference_image or overlay_image:
+                        thumbnails_html = "<div class='verification-thumbnails' style='margin-top: 8px; display: flex; gap: 10px;'>"
+                        
+                        # Order: Source → Reference → Overlay (logical flow)
+                        if source_image:
+                            thumbnails_html += f"""
+                            <div style='text-align: center;'>
+                                <div style='font-size: 11px; color: #666; margin-bottom: 2px;'>Source</div>
+                                <img src='{source_image}' style='width: 60px; height: 40px; object-fit: cover; border: 1px solid #ddd; border-radius: 3px; cursor: pointer;' 
+                                     onclick='window.open("{source_image}", "_blank")' title='Click to view full size'>
+                            </div>
+                            """
+                        
+                        if reference_image:
+                            thumbnails_html += f"""
+                            <div style='text-align: center;'>
+                                <div style='font-size: 11px; color: #666; margin-bottom: 2px;'>Reference</div>
+                                <img src='{reference_image}' style='width: 60px; height: 40px; object-fit: cover; border: 1px solid #ddd; border-radius: 3px; cursor: pointer;' 
+                                     onclick='window.open("{reference_image}", "_blank")' title='Click to view full size'>
+                            </div>
+                            """
+                        
+                        if overlay_image:
+                            thumbnails_html += f"""
+                            <div style='text-align: center;'>
+                                <div style='font-size: 11px; color: #666; margin-bottom: 2px;'>Overlay</div>
+                                <img src='{overlay_image}' style='width: 60px; height: 40px; object-fit: cover; border: 1px solid #ddd; border-radius: 3px; cursor: pointer;' 
+                                     onclick='window.open("{overlay_image}", "_blank")' title='Click to view full size'>
+                            </div>
+                            """
+                        
+                        thumbnails_html += "</div>"
+                        verification_result_html += thumbnails_html
                 
                 verifications_html += f'<div class="verification-item">{verification_line}{verification_result_html}</div>'
         
