@@ -300,6 +300,10 @@ class ZapController:
         action_result['screenshot_path'] = screenshot_result['screenshot_path']
         action_result['screenshot_url'] = screenshot_result['screenshot_url']
         
+        # Wait 4 seconds after zap action to allow banner to disappear before analysis
+        print(f"⏰ [ZapController] Waiting 4 seconds for banner to disappear...")
+        time.sleep(4)
+
         # Analyze results
         analysis_result = self.analyze_after_zap(iteration, action_command, context)
         self.statistics.analysis_results.append(analysis_result)
