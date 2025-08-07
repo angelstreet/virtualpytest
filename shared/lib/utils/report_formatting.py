@@ -138,6 +138,26 @@ def update_step_results_with_r2_urls(step_results: List[Dict], url_mapping: Dict
                     r2_url = url_mapping.get(original_path, original_path)
                     updated_step[field] = r2_url
         
+        # Update analysis results with R2 URLs (for zap controller analysis)
+        for analysis_field in ['subtitle_analysis', 'audio_menu_analysis', 'motion_analysis', 'zapping_analysis']:
+            if analysis_field in updated_step and updated_step[analysis_field]:
+                analysis = updated_step[analysis_field]
+                # Update analyzed_screenshot field if it exists
+                if 'analyzed_screenshot' in analysis and analysis['analyzed_screenshot']:
+                    original_path = analysis['analyzed_screenshot']
+                    if not original_path.startswith('http'):
+                        r2_url = url_mapping.get(original_path, original_path)
+                        analysis['analyzed_screenshot'] = r2_url
+                
+                # Update other potential image fields in analysis results
+                for img_field in ['screenshot_path', 'image_path', 'first_image', 'blackscreen_start_image', 
+                                  'blackscreen_end_image', 'first_content_after_blackscreen']:
+                    if img_field in analysis and analysis[img_field]:
+                        original_path = analysis[img_field]
+                        if not original_path.startswith('http'):
+                            r2_url = url_mapping.get(original_path, original_path)
+                            analysis[img_field] = r2_url
+        
         updated_results.append(updated_step)
     
     return updated_results
