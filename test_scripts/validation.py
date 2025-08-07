@@ -32,8 +32,14 @@ def custom_validation_step_handler(context: ScriptExecutionContext, step, step_n
     try:
         result = execute_navigation_with_verifications(
             context.host, context.selected_device, step, context.team_id, 
-            context.tree_id, context.script_result_id, 'validation'
+            context.tree_id, context.script_result_id, 'validation', 
+            context.global_verification_counter
         )
+        
+        # Update global verification counter for next step
+        counter_increment = result.get('global_verification_counter_increment', 0)
+        context.global_verification_counter += counter_increment
+        print(f"🔢 [validation] Updated global verification counter: +{counter_increment} = {context.global_verification_counter}")
         
         # Note: Failed step recording is handled by the main execution sequence
         # to avoid duplicate entries
@@ -46,7 +52,8 @@ def custom_validation_step_handler(context: ScriptExecutionContext, step, step_n
         return {
             'success': False,
             'error': f'Step handler exception: {str(e)}',
-            'verification_results': []
+            'verification_results': [],
+            'global_verification_counter_increment': 0
         }
 
 

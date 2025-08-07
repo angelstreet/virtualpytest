@@ -80,6 +80,9 @@ class ScriptExecutionContext:
         self.recovery_attempts: int = 0           # Count total recovery attempts
         self.recovered_steps: int = 0             # Count successful recoveries
         
+        # Global verification counter to prevent overwriting verification images
+        self.global_verification_counter: int = 0
+        
         # Custom data for specific scripts
         self.custom_data = {}
     

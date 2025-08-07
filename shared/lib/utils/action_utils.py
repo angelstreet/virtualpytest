@@ -125,7 +125,7 @@ def execute_verification_directly(host, device, verification: Dict[str, Any]) ->
         return {'success': False, 'error': f'Verification execution error: {str(e)}'}
 
 
-def execute_navigation_with_verifications(host, device, transition: Dict[str, Any], team_id: str, tree_id: str = None, script_result_id: str = None, script_context: str = 'script') -> Dict[str, Any]:
+def execute_navigation_with_verifications(host, device, transition: Dict[str, Any], team_id: str, tree_id: str = None, script_result_id: str = None, script_context: str = 'script', global_verification_counter: int = 0) -> Dict[str, Any]:
     """
     Execute a single navigation step with verifications following NavigationExecutor pattern.
     
@@ -270,7 +270,8 @@ def execute_navigation_with_verifications(host, device, transition: Dict[str, An
                 'screenshot_path': step_screenshot_path,
                 'action_screenshots': action_screenshots,
                 'verification_images': [],  # No verification images since verifications didn't run
-                'error_details': error_details
+                'error_details': error_details,
+                'global_verification_counter_increment': 0
             }
         
         verifications = transition.get('verifications', [])
@@ -281,8 +282,8 @@ def execute_navigation_with_verifications(host, device, transition: Dict[str, An
         
         for i, verification in enumerate(verifications):
             verification_start_time = time.time()
-            # Pass verification index to prevent overwriting source images
-            verification['verification_index'] = i
+            # Use global verification counter to prevent overwriting across all steps
+            verification['verification_index'] = global_verification_counter + i
             verify_result = execute_verification_directly(host, device, verification)
             verification_execution_time = int((time.time() - verification_start_time) * 1000)
             
@@ -348,7 +349,8 @@ def execute_navigation_with_verifications(host, device, transition: Dict[str, An
                         'verification_error': verification_error,
                         'verification_config': verification,
                         'execution_time_ms': verification_execution_time
-                    }
+                    },
+                    'global_verification_counter_increment': i + 1  # Increment by number of verifications executed so far
                 }
         
         execution_time = time.time() - start_time
@@ -362,7 +364,8 @@ def execute_navigation_with_verifications(host, device, transition: Dict[str, An
             'screenshot_url': screenshot_url,
             'screenshot_path': step_screenshot_path,
             'action_screenshots': action_screenshots,
-            'verification_images': verification_image_paths  # Add verification images for upload
+            'verification_images': verification_image_paths,  # Add verification images for upload
+            'global_verification_counter_increment': len(verifications)  # How much to increment the global counter
         }
         
     except Exception as e:
@@ -375,7 +378,8 @@ def execute_navigation_with_verifications(host, device, transition: Dict[str, An
             'verification_results': [],
             'screenshot_path': None,
             'action_screenshots': [],
-            'verification_images': []
+            'verification_images': [],
+            'global_verification_counter_increment': 0
         }
 
 
