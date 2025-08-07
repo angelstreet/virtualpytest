@@ -122,7 +122,12 @@ export const useValidation = (treeId: string, providedHost?: any, providedDevice
       
       if (!structuredDataMatch) {
         console.error('[@hook:useValidation] No structured validation data found in stdout');
-        console.error('[@hook:useValidation] Script stdout preview:', stdout.substring(0, 1000));
+        console.error('[@hook:useValidation] Full stdout length:', stdout.length);
+        console.error('[@hook:useValidation] Script stdout (last 2000 chars):', stdout.substring(Math.max(0, stdout.length - 2000)));
+        console.error('[@hook:useValidation] Looking for markers in stdout:', {
+          hasStartMarker: stdout.includes('=== VALIDATION_STEPS_DATA_START ==='),
+          hasEndMarker: stdout.includes('=== VALIDATION_STEPS_DATA_END ===')
+        });
         return null;
       }
       
@@ -160,7 +165,8 @@ export const useValidation = (treeId: string, providedHost?: any, providedDevice
               verificationResults: []
             });
           } else {
-            console.warn('[@hook:useValidation] Invalid step data format (expected 10+ fields):', line);
+            console.warn('[@hook:useValidation] Invalid step data format (expected 10 fields):', line);
+            console.warn('[@hook:useValidation] Received:', parts.length, 'fields in line:', line);
           }
         }
       }
