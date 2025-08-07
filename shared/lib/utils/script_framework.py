@@ -502,7 +502,9 @@ class ScriptExecutor:
         self.print_execution_summary(context, userinterface_name)
         
         # Output results for execution system
-        print(f"SCRIPT_SUCCESS:{context.overall_success}")
+        # Convert boolean to lowercase string for frontend parsing
+        success_str = str(context.overall_success).lower()
+        print(f"SCRIPT_SUCCESS:{success_str}")
         if report_result and report_result.get('success') and report_result.get('report_url'):
             print(f"SCRIPT_REPORT_URL:{report_result['report_url']}")
         
