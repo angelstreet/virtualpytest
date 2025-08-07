@@ -355,38 +355,27 @@ export const useNavigationEditor = () => {
       console.log('[@useNavigationEditor:onEdgeClick] Found opposite edge:', oppositeEdge);
 
       if (oppositeEdge) {
-        // Check if either edge connects to an action node - action edges should NEVER be bidirectional
+        // Simple check: if any edge involves an action node, don't treat as bidirectional
         const sourceNode = navigation.nodes.find((n) => n.id === edge.source);
         const targetNode = navigation.nodes.find((n) => n.id === edge.target);
-        const oppositeSourceNode = navigation.nodes.find((n) => n.id === oppositeEdge.source);
-        const oppositeTargetNode = navigation.nodes.find((n) => n.id === oppositeEdge.target);
+        const isActionInvolved = sourceNode?.data.type === 'action' || targetNode?.data.type === 'action';
         
-        const hasActionNode = sourceNode?.data.type === 'action' || 
-                             targetNode?.data.type === 'action' ||
-                             oppositeSourceNode?.data.type === 'action' || 
-                             oppositeTargetNode?.data.type === 'action';
-                             
-        if (hasActionNode) {
-          console.log('[@useNavigationEditor:onEdgeClick] Action node detected, treating edge as unidirectional:', {
-            sourceType: sourceNode?.data.type,
-            targetType: targetNode?.data.type,
-            oppositeSourceType: oppositeSourceNode?.data.type,
-            oppositeTargetType: oppositeTargetNode?.data.type
-          });
+        if (isActionInvolved) {
+          // Action edges are unidirectional - just select the clicked edge
           navigation.setSelectedEdge(edge);
         } else {
-          // If bidirectional edges exist and no action nodes, set both edges for the panel to handle
+          // Regular edges can be bidirectional
           const edgeWithBidirectional = {
             ...edge,
             bidirectionalEdge: oppositeEdge,
           };
-          console.log('[@useNavigationEditor:onEdgeClick] Setting selected edge with bidirectional:', edgeWithBidirectional);
           navigation.setSelectedEdge(edgeWithBidirectional);
         }
       } else {
-        console.log('[@useNavigationEditor:onEdgeClick] No opposite edge found, auto-creating bidirectional edge');
+        // No opposite edge found - proceed with normal single edge selection
+        navigation.setSelectedEdge(edge);
         
-        // Auto-create the missing bidirectional edge for backward compatibility
+        // Auto-create reverse edge for non-action edges if needed
         const sourceNode = navigation.nodes.find((n) => n.id === edge.source);
         const targetNode = navigation.nodes.find((n) => n.id === edge.target);
         

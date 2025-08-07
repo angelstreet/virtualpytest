@@ -59,15 +59,7 @@ export const useEdge = (props?: UseEdgeProps) => {
     );
   }, []);
 
-  /**
-   * Check if an edge connects to an action node - action edges are ALWAYS unidirectional
-   */
-  const isActionEdge = useCallback((edge: UINavigationEdge): boolean => {
-    const sourceNode = nodes.find(n => n.id === edge.source);
-    const targetNode = nodes.find(n => n.id === edge.target);
-    
-    return sourceNode?.data.type === 'action' || targetNode?.data.type === 'action';
-  }, [nodes]);
+
 
   /**
    * NEW: Get action sets from edge data
@@ -278,7 +270,6 @@ export const useEdge = (props?: UseEdgeProps) => {
     // Utility functions
     getEdgeColorsForEdge,
     isProtectedEdge,
-    isActionEdge,
 
     canRunActions,
     formatRunResult,
