@@ -240,6 +240,15 @@ def create_compact_step_results_section(step_results: List[Dict], screenshots: D
                     verification_result_html = f" {result_badge}"
                     if not result_success and result.get('error'):
                         verification_result_html += f" <span class='verification-error'>({result['error']})</span>"
+                    
+                    # Add match score for image verifications (both success and failure)
+                    if result.get('verification_type') == 'image':
+                        details = result.get('details', {})
+                        if details.get('match_score') is not None:
+                            match_score = details.get('match_score', 0)
+                            required_score = details.get('threshold', details.get('required_score', 'N/A'))
+                            score_class = 'success' if result_success else 'failure'
+                            verification_result_html += f" <span class='verification-score {score_class}'>Match score: {match_score:.3f} (required: {required_score})</span>"
                         
                     # Add small thumbnails for image verification (both success and failure)
                     if result.get('verification_type') == 'image':
@@ -270,11 +279,14 @@ def create_compact_step_results_section(step_results: List[Dict], screenshots: D
                             
                             # Order: Source → Reference → Overlay (logical flow)
                             if source_image:
+                                # Create modal data for all three images
+                                modal_data = create_verification_image_modal_data(source_image, reference_image, overlay_image)
+                                
                                 thumbnails_html += f"""
                                 <div style='text-align: center;'>
                                     <div style='font-size: 11px; color: #666; margin-bottom: 2px;'>Source</div>
-                                    <img src='{source_image}' style='width: 60px; height: 40px; object-fit: cover; border: 1px solid #ddd; border-radius: 3px; cursor: pointer;' 
-                                         onclick='window.open("{source_image}", "_blank")' title='Click to view full size'>
+                                    <img src='{source_image}' style='width: 60px; height: 40px; object-fit: contain; border: 1px solid #ddd; border-radius: 3px; cursor: pointer;' 
+                                         onclick='openVerificationImageModal({modal_data})' title='Click to compare all images'>
                                 </div>
                                 """
                             
@@ -282,8 +294,8 @@ def create_compact_step_results_section(step_results: List[Dict], screenshots: D
                                 thumbnails_html += f"""
                                 <div style='text-align: center;'>
                                     <div style='font-size: 11px; color: #666; margin-bottom: 2px;'>Reference</div>
-                                    <img src='{reference_image}' style='width: 60px; height: 40px; object-fit: cover; border: 1px solid #ddd; border-radius: 3px; cursor: pointer;' 
-                                         onclick='window.open("{reference_image}", "_blank")' title='Click to view full size'>
+                                    <img src='{reference_image}' style='width: 60px; height: 40px; object-fit: contain; border: 1px solid #ddd; border-radius: 3px; cursor: pointer;' 
+                                         onclick='openVerificationImageModal({modal_data})' title='Click to compare all images'>
                                 </div>
                                 """
                             
@@ -291,8 +303,8 @@ def create_compact_step_results_section(step_results: List[Dict], screenshots: D
                                 thumbnails_html += f"""
                                 <div style='text-align: center;'>
                                     <div style='font-size: 11px; color: #666; margin-bottom: 2px;'>Overlay</div>
-                                    <img src='{overlay_image}' style='width: 60px; height: 40px; object-fit: cover; border: 1px solid #ddd; border-radius: 3px; cursor: pointer;' 
-                                         onclick='window.open("{overlay_image}", "_blank")' title='Click to view full size'>
+                                    <img src='{overlay_image}' style='width: 60px; height: 40px; object-fit: contain; border: 1px solid #ddd; border-radius: 3px; cursor: pointer;' 
+                                         onclick='openVerificationImageModal({modal_data})' title='Click to compare all images'>
                                 </div>
                                 """
                             
@@ -314,6 +326,15 @@ def create_compact_step_results_section(step_results: List[Dict], screenshots: D
                 
                 if not result_success and result.get('error'):
                     verification_result_html += f" <span class='verification-error'>({result['error']})</span>"
+                
+                # Add match score for image verifications (both success and failure)
+                if result.get('verification_type') == 'image':
+                    details = result.get('details', {})
+                    if details.get('match_score') is not None:
+                        match_score = details.get('match_score', 0)
+                        required_score = details.get('threshold', details.get('required_score', 'N/A'))
+                        score_class = 'success' if result_success else 'failure'
+                        verification_result_html += f" <span class='verification-score {score_class}'>Match score: {match_score:.3f} (required: {required_score})</span>"
                     
                 # Add small thumbnails for image verification (both success and failure)
                 if result.get('verification_type') == 'image':
@@ -338,40 +359,43 @@ def create_compact_step_results_section(step_results: List[Dict], screenshots: D
                     # Get reference image from details
                     reference_image = details.get('reference_image_url')
                     
-                    # Create small thumbnails if we have images
-                    if source_image or reference_image or overlay_image:
-                        thumbnails_html = "<div class='verification-thumbnails' style='margin-top: 8px; display: flex; gap: 10px;'>"
-                        
-                        # Order: Source → Reference → Overlay (logical flow)
-                        if source_image:
-                            thumbnails_html += f"""
+                                            # Create small thumbnails if we have images
+                        if source_image or reference_image or overlay_image:
+                            # Create modal data for all three images
+                            modal_data = create_verification_image_modal_data(source_image, reference_image, overlay_image)
+                            
+                            thumbnails_html = "<div class='verification-thumbnails' style='margin-top: 8px; display: flex; gap: 10px;'>"
+                            
+                            # Order: Source → Reference → Overlay (logical flow)
+                            if source_image:
+                                thumbnails_html += f"""
                             <div style='text-align: center;'>
                                 <div style='font-size: 11px; color: #666; margin-bottom: 2px;'>Source</div>
-                                <img src='{source_image}' style='width: 60px; height: 40px; object-fit: cover; border: 1px solid #ddd; border-radius: 3px; cursor: pointer;' 
-                                     onclick='window.open("{source_image}", "_blank")' title='Click to view full size'>
+                                <img src='{source_image}' style='width: 60px; height: 40px; object-fit: contain; border: 1px solid #ddd; border-radius: 3px; cursor: pointer;' 
+                                     onclick='openVerificationImageModal({modal_data})' title='Click to compare all images'>
                             </div>
                             """
-                        
-                        if reference_image:
-                            thumbnails_html += f"""
+                            
+                            if reference_image:
+                                thumbnails_html += f"""
                             <div style='text-align: center;'>
                                 <div style='font-size: 11px; color: #666; margin-bottom: 2px;'>Reference</div>
-                                <img src='{reference_image}' style='width: 60px; height: 40px; object-fit: cover; border: 1px solid #ddd; border-radius: 3px; cursor: pointer;' 
-                                     onclick='window.open("{reference_image}", "_blank")' title='Click to view full size'>
+                                <img src='{reference_image}' style='width: 60px; height: 40px; object-fit: contain; border: 1px solid #ddd; border-radius: 3px; cursor: pointer;' 
+                                     onclick='openVerificationImageModal({modal_data})' title='Click to compare all images'>
                             </div>
                             """
-                        
-                        if overlay_image:
-                            thumbnails_html += f"""
+                            
+                            if overlay_image:
+                                thumbnails_html += f"""
                             <div style='text-align: center;'>
                                 <div style='font-size: 11px; color: #666; margin-bottom: 2px;'>Overlay</div>
-                                <img src='{overlay_image}' style='width: 60px; height: 40px; object-fit: cover; border: 1px solid #ddd; border-radius: 3px; cursor: pointer;' 
-                                     onclick='window.open("{overlay_image}", "_blank")' title='Click to view full size'>
+                                <img src='{overlay_image}' style='width: 60px; height: 40px; object-fit: contain; border: 1px solid #ddd; border-radius: 3px; cursor: pointer;' 
+                                     onclick='openVerificationImageModal({modal_data})' title='Click to compare all images'>
                             </div>
                             """
-                        
-                        thumbnails_html += "</div>"
-                        verification_result_html += thumbnails_html
+                            
+                            thumbnails_html += "</div>"
+                            verification_result_html += thumbnails_html
                 
                 verifications_html += f'<div class="verification-item">{verification_line}{verification_result_html}</div>'
         
@@ -639,12 +663,12 @@ def get_video_thumbnail_html(video_url: str, label: str = "Video") -> str:
     escaped_label = label.replace("'", "\\'").replace('"', '\\"')
     
     return f"""
-    <div class="video-thumbnail" onclick="console.log('Video thumbnail clicked'); openHLSVideoModal('{escaped_url}', '{escaped_label}')" style="cursor: pointer;" title="Click to play HLS video">
-        <video muted preload="metadata">
+    <div class="video-thumbnail" onclick="console.log('Video thumbnail clicked'); openHLSVideoModal('{escaped_url}', '{escaped_label}')" style="cursor: pointer; position: relative; width: 100%; max-width: 200px;" title="Click to play HLS video">
+        <video muted preload="metadata" style="width: 100%; height: auto; object-fit: contain; max-height: 150px;">
             <source src="{video_url}" type="application/x-mpegURL">
         </video>
-        <div class="play-overlay">▶</div>
-        <div class="video-label">{label}</div>
+        <div class="play-overlay" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 24px;">▶</div>
+        <div class="video-label" style="text-align: center;">{label}</div>
     </div>
     """
 
@@ -742,7 +766,9 @@ def get_thumbnail_screenshot_html(screenshot_path: Optional[str], label: str = N
     return f"""
     <div class="screenshot-container">
         <span class="screenshot-label">{label or 'Screenshot'}</span>
-        <img src="{display_url}" alt="Screenshot" class="screenshot-thumbnail" onclick="openScreenshotModal('{modal_data_json}')">
+        <img src="{display_url}" alt="Screenshot" class="screenshot-thumbnail" 
+             style="width: 100%; height: auto; object-fit: contain; max-height: 150px;" 
+             onclick="openScreenshotModal('{modal_data_json}')">
     </div>
     """
 
@@ -1026,6 +1052,47 @@ def generate_and_upload_script_report(
             'report_url': '',
             'report_path': ''
         }
+
+def create_verification_image_modal_data(source_image: str, reference_image: str, overlay_image: str) -> str:
+    """Create JSON data for verification image comparison modal.
+    
+    Args:
+        source_image: URL to the source image (current screenshot)
+        reference_image: URL to the reference image (expected)
+        overlay_image: URL to the overlay image (comparison result)
+        
+    Returns:
+        JSON string with the modal data
+    """
+    import json
+    
+    # Create modal data structure
+    modal_data = {
+        'title': 'Image Verification Comparison',
+        'images': []
+    }
+    
+    # Add all available images
+    if source_image:
+        modal_data['images'].append({
+            'url': source_image,
+            'label': 'Source Image (Current)'
+        })
+    
+    if reference_image:
+        modal_data['images'].append({
+            'url': reference_image,
+            'label': 'Reference Image (Expected)'
+        })
+    
+    if overlay_image:
+        modal_data['images'].append({
+            'url': overlay_image,
+            'label': 'Overlay (Differences)'
+        })
+    
+    # Convert to JSON and escape quotes for embedding in HTML
+    return json.dumps(modal_data).replace('"', '&quot;').replace("'", "&#x27;")
 
 def create_error_report(error_message: str) -> str:
     """Create a minimal error report when report generation fails."""

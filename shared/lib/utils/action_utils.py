@@ -174,6 +174,18 @@ def execute_navigation_with_verifications(host, device, transition: Dict[str, An
         print(f"[@action_utils:execute_navigation] Actions to execute: {len(actions)}")
         print(f"[@action_utils:execute_navigation] Retry actions available: {len(retry_actions)}, Failure actions available: {len(failure_actions)}")
         
+        # Step-start screenshot using current R2 system (not old Supabase)
+        # Take screenshot BEFORE any actions are executed
+        step_name = f"step_{transition.get('step_number', 'unknown')}_{from_node}_{to_node}"
+        step_start_screenshot_path = capture_validation_screenshot(host, device, f"{step_name}_start", script_context)
+        screenshot_url = None
+        
+        if step_start_screenshot_path:
+            print(f"[@action_utils:execute_navigation] Step-start screenshot captured: {step_start_screenshot_path}")
+            # Note: R2 upload happens later in batch via generate_and_upload_script_report()
+        else:
+            print(f"[@action_utils:execute_navigation] Step-start screenshot capture failed")
+            
         # Log each action for debugging
         for i, action in enumerate(actions):
             action_cmd = action.get('command', 'unknown')
@@ -199,17 +211,6 @@ def execute_navigation_with_verifications(host, device, transition: Dict[str, An
         # Get action screenshots from execute_edge_actions
         action_screenshots = action_result.get('action_screenshots', [])
         print(f"[@action_utils:execute_navigation] Captured {len(action_screenshots)} action screenshots")
-        
-        # Step-start screenshot using current R2 system (not old Supabase)
-        step_name = f"step_{transition.get('step_number', 'unknown')}_{from_node}_{to_node}"
-        step_start_screenshot_path = capture_validation_screenshot(host, device, f"{step_name}_start", script_context)
-        screenshot_url = None
-        
-        if step_start_screenshot_path:
-            print(f"[@action_utils:execute_navigation] Step-start screenshot captured: {step_start_screenshot_path}")
-            # Note: R2 upload happens later in batch via generate_and_upload_script_report()
-        else:
-            print(f"[@action_utils:execute_navigation] Step-start screenshot capture failed")
         
         actions_success = action_result.get('success', False)
         
@@ -267,13 +268,21 @@ def execute_navigation_with_verifications(host, device, transition: Dict[str, An
                 pass  # Silent fail as per optimization
         
         if not actions_success:
+            # Capture step-end screenshot even when actions fail
+            step_end_screenshot_path = capture_validation_screenshot(host, device, f"{step_name}_end_action_failure", script_context)
+            
+            if step_end_screenshot_path:
+                print(f"[@action_utils:execute_navigation] Step-end screenshot captured after action failure: {step_end_screenshot_path}")
+            else:
+                print(f"[@action_utils:execute_navigation] Step-end screenshot capture failed after action failure")
+                
             return {
                 'success': False,
                 'error': detailed_error or 'Navigation actions failed',
                 'message': f'Navigation step failed during action execution: {from_node} → {to_node}',
                 'verification_results': [],
                 'step_start_screenshot_path': step_start_screenshot_path,
-                'step_end_screenshot_path': None,  # No step-end screenshot since verifications didn't run
+                'step_end_screenshot_path': step_end_screenshot_path,
                 'action_screenshots': action_screenshots,
                 'verification_images': [],  # No verification images since verifications didn't run
                 'error_details': error_details,
@@ -396,12 +405,29 @@ def execute_navigation_with_verifications(host, device, transition: Dict[str, An
         import traceback
         print(f"[@action_utils:execute_navigation_with_verifications] ERROR: {str(e)}")
         print(f"[@action_utils:execute_navigation_with_verifications] TRACEBACK: {traceback.format_exc()}")
+        
+        # Try to capture step-end screenshot on exception
+        step_end_screenshot_path = None
+        try:
+            # Use the same step_name format as before
+            from_node = transition.get('from_node_label', 'unknown')
+            to_node = transition.get('to_node_label', 'unknown')
+            step_name = f"step_{transition.get('step_number', 'unknown')}_{from_node}_{to_node}"
+            step_end_screenshot_path = capture_validation_screenshot(host, device, f"{step_name}_end_error", script_context)
+            
+            if step_end_screenshot_path:
+                print(f"[@action_utils:execute_navigation] Step-end screenshot captured after exception: {step_end_screenshot_path}")
+            else:
+                print(f"[@action_utils:execute_navigation] Step-end screenshot capture failed after exception")
+        except Exception as screenshot_error:
+            print(f"[@action_utils:execute_navigation] Failed to capture error screenshot: {str(screenshot_error)}")
+            
         return {
             'success': False, 
             'error': f'Navigation step with verifications execution error: {str(e)}',
             'verification_results': [],
-            'step_start_screenshot_path': None,
-            'step_end_screenshot_path': None,
+            'step_start_screenshot_path': None,  # We might not have gotten to capturing the start screenshot
+            'step_end_screenshot_path': step_end_screenshot_path,
             'action_screenshots': [],
             'verification_images': [],
             'global_verification_counter_increment': 0

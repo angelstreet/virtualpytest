@@ -433,6 +433,25 @@ def create_themed_html_template() -> str:
             margin-left: 4px;
         }}
         
+        .verification-score {{
+            font-family: 'Courier New', monospace;
+            font-size: 0.8em;
+            margin-left: 8px;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-weight: bold;
+        }}
+        
+        .verification-score.success {{
+            background-color: var(--success-bg);
+            color: var(--success-color);
+        }}
+        
+        .verification-score.failure {{
+            background-color: var(--failure-bg);
+            color: var(--failure-color);
+        }}
+        
         /* Analysis results styles */
         .analysis-item {{
             margin: 4px 0;
@@ -1248,6 +1267,81 @@ def create_themed_html_template() -> str:
             }}
         }}
         
+        // Verification image modal functions
+        function openVerificationImageModal(modalData) {{
+            console.log('Opening verification image modal:', modalData);
+            
+            // Create verification image modal if it doesn't exist
+            let verificationModal = document.getElementById('verification-image-modal');
+            if (!verificationModal) {{
+                console.log('Creating new verification image modal');
+                verificationModal = document.createElement('div');
+                verificationModal.id = 'verification-image-modal';
+                verificationModal.className = 'modal';
+                verificationModal.innerHTML = `
+                    <div class="modal-content verification-modal-content" style="width: 90%; max-width: 1200px;">
+                        <div class="modal-header">
+                            <h3 id="verification-modal-title">Image Verification Comparison</h3>
+                            <button class="modal-close" onclick="closeVerificationImageModal()">&times;</button>
+                        </div>
+                        <div class="modal-body" style="display: flex; flex-wrap: wrap; justify-content: center; gap: 20px;">
+                            <div id="verification-images-container" style="display: flex; flex-wrap: wrap; justify-content: center; gap: 20px;"></div>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(verificationModal);
+                console.log('Verification image modal created and added to body');
+            }}
+            
+            // Populate the modal with images
+            const imagesContainer = document.getElementById('verification-images-container');
+            imagesContainer.innerHTML = '';
+            
+            modalData.images.forEach(image => {{
+                const imageDiv = document.createElement('div');
+                imageDiv.style.textAlign = 'center';
+                imageDiv.style.maxWidth = '32%';
+                imageDiv.style.minWidth = '300px';
+                
+                const title = document.createElement('h4');
+                title.textContent = image.label;
+                title.style.marginBottom = '10px';
+                title.style.color = 'var(--text-primary)';
+                
+                const img = document.createElement('img');
+                img.src = image.url;
+                img.style.maxWidth = '100%';
+                img.style.maxHeight = '500px';
+                img.style.objectFit = 'contain';
+                img.style.border = '1px solid var(--border-color)';
+                img.style.borderRadius = '4px';
+                img.style.cursor = 'pointer';
+                img.title = 'Click to open in new tab';
+                img.onclick = () => window.open(image.url, '_blank');
+                
+                imageDiv.appendChild(title);
+                imageDiv.appendChild(img);
+                imagesContainer.appendChild(imageDiv);
+            }});
+            
+            // Update modal title
+            document.getElementById('verification-modal-title').textContent = modalData.title || 'Image Verification Comparison';
+            
+            // Show the modal
+            verificationModal.classList.add('active');
+        }}
+        
+        function closeVerificationImageModal() {{
+            console.log('Closing verification image modal');
+            const verificationModal = document.getElementById('verification-image-modal');
+            if (verificationModal) {{
+                verificationModal.classList.remove('active');
+                console.log('Verification modal closed');
+            }} else {{
+                console.log('Verification modal not found');
+            }}
+        }}
+        
         // Close modal when clicking outside the image
         document.addEventListener('DOMContentLoaded', function() {{
             const modal = document.getElementById('screenshot-modal');
@@ -1265,11 +1359,18 @@ def create_themed_html_template() -> str:
                 if (hlsModal && e.target === hlsModal) {{
                     closeHLSVideoModal();
                 }}
+                
+                // Verification image modal click-outside
+                const verificationModal = document.getElementById('verification-image-modal');
+                if (verificationModal && e.target === verificationModal) {{
+                    closeVerificationImageModal();
+                }}
             }});
             
             // Keyboard navigation
             document.addEventListener('keydown', function(e) {{
                 const hlsModal = document.getElementById('hls-video-modal');
+                const verificationModal = document.getElementById('verification-image-modal');
                 
                 if (modal && modal.classList.contains('active')) {{
                     switch(e.key) {{
@@ -1290,6 +1391,11 @@ def create_themed_html_template() -> str:
                     if (e.key === 'Escape') {{
                         e.preventDefault();
                         closeHLSVideoModal();
+                    }}
+                }} else if (verificationModal && verificationModal.classList.contains('active')) {{
+                    if (e.key === 'Escape') {{
+                        e.preventDefault();
+                        closeVerificationImageModal();
                     }}
                 }}
             }});
