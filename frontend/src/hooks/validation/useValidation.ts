@@ -89,18 +89,35 @@ export const useValidation = (treeId: string, providedHost?: any, providedDevice
       // Parse the stdout to extract validation results
       const stdout = scriptResult.stdout || '';
       
-      // Look for validation summary in stdout
-      const summaryMatch = stdout.match(/Steps: (\d+)\/(\d+) steps successful/);
-      const timeMatch = stdout.match(/Total Time: ([\d.]+)s/);
+      // Look for validation summary in stdout with multiple patterns
+      let summaryMatch = stdout.match(/Steps: (\d+)\/(\d+) steps successful/);
+      
+      // Fallback patterns for different output formats
+      if (!summaryMatch) {
+        // Try alternative patterns
+        const successfulMatch = stdout.match(/✅ Successful: (\d+)/);
+        const failedMatch = stdout.match(/❌ Failed: (\d+)/);
+        const totalMatch = stdout.match(/📊 Steps: (\d+) total/);
+        
+        if (successfulMatch && (failedMatch || totalMatch)) {
+          const successful = parseInt(successfulMatch[1]);
+          const failed = failedMatch ? parseInt(failedMatch[1]) : 0;
+          const total = totalMatch ? parseInt(totalMatch[1]) : successful + failed;
+          summaryMatch = [null, successful.toString(), total.toString()]; // Fake match array
+        }
+      }
       
       if (!summaryMatch) {
         console.warn('Could not parse validation results from script output');
+        console.warn('Script stdout:', stdout);
         return null;
       }
 
       const successful = parseInt(summaryMatch[1]);
       const total = parseInt(summaryMatch[2]);
       const failed = total - successful;
+      
+      const timeMatch = stdout.match(/Total Time: ([\d.]+)s/);
       const executionTime = timeMatch ? parseFloat(timeMatch[1]) * 1000 : 0;
 
       // Calculate overall health
@@ -217,6 +234,7 @@ export const useValidation = (treeId: string, providedHost?: any, providedDevice
         );
 
         console.log(`[@hook:useValidation] Validation script completed:`, scriptResult);
+        console.log(`[@hook:useValidation] Script stdout excerpt:`, scriptResult.stdout?.substring(0, 500) + '...');
 
         if (scriptResult.success) {
           // Parse the script result into validation format
