@@ -24,6 +24,7 @@ try:
             print(f"Bundle ID: {bundle_id}")
             state = driver.query_app_state(bundle_id)
             print(f"State: {state}")  # 0=not installed, 1=not running, 4=running
-        driver.activate_app("com.libertyglobal.upctv.switzerland")
+            driver.activate_app(bundle_id)
+            break
 finally:
     driver.quit()
