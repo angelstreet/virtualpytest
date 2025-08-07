@@ -113,7 +113,7 @@ export const NodeSelectionPanel: React.FC<NodeSelectionPanelProps> = React.memo(
     }, [nodeHook, selectedNode, onUpdateNode]);
 
     // Get memoized button visibility from hook
-    const { showSaveScreenshotButton, showGoToButton } = nodeHook.getButtonVisibility();
+    const { showSaveScreenshotButton, showGoToButton } = nodeHook.getNodeButtonVisibility(selectedNode);
 
     const isProtected = useMemo(
       () => nodeHook.isProtectedNode(selectedNode),

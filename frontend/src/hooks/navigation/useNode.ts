@@ -96,9 +96,15 @@ export const useNode = (props?: UseNodeProps) => {
       label: string,
       nodeId: string,
       onUpdateNode?: (nodeId: string, updatedData: any) => void,
+      nodeType?: string,
     ) => {
       if (!props?.selectedHost || !props?.selectedDeviceId) {
         return { success: false, message: 'Host or device not available' };
+      }
+
+      // Prevent screenshots for action nodes
+      if (nodeType === 'action') {
+        return { success: false, message: 'Screenshots are not allowed for action nodes' };
       }
 
       // Ensure we have a device model, fallback to android_mobile if not available
@@ -160,6 +166,7 @@ export const useNode = (props?: UseNodeProps) => {
         selectedNode.data.label,
         selectedNode.id,
         onUpdateNode,
+        selectedNode.data.type,
       );
 
       if (result.success) {
@@ -465,6 +472,19 @@ export const useNode = (props?: UseNodeProps) => {
     };
   }, [props?.isControlActive, props?.selectedHost, props?.treeId]);
 
+  /**
+   * Get button visibility for a specific node
+   */
+  const getNodeButtonVisibility = useCallback((node: UINavigationNode) => {
+    const isActionNode = node?.data?.type === 'action';
+    
+    return {
+      showSaveScreenshotButton: buttonVisibility.showSaveScreenshotButton && !isActionNode,
+      showGoToButton: buttonVisibility.showGoToButton && !isActionNode,
+      canRunGoto: buttonVisibility.canRunGoto && !isActionNode,
+    };
+  }, [buttonVisibility]);
+
   const getButtonVisibility = useCallback(() => buttonVisibility, [buttonVisibility]);
 
   // Auto-clear screenshot status when node selection might change
@@ -478,6 +498,7 @@ export const useNode = (props?: UseNodeProps) => {
     getParentNames,
     isProtectedNode,
     getButtonVisibility,
+    getNodeButtonVisibility,
 
     // Screenshot operations
     takeAndSaveScreenshot,
