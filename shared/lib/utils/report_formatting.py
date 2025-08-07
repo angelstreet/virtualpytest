@@ -33,36 +33,30 @@ def get_video_thumbnail_html(video_url: str, label: str = "Video") -> str:
 def format_console_summary_for_html(console_text: str) -> str:
     """Convert console summary text to HTML format."""
     if not console_text:
-        return """
-        <h3>Execution Summary</h3>
-        <div class="summary-stats">
-            <pre style="white-space: pre-wrap; font-family: 'Courier New', monospace; margin: 0;">📊 Execution summary not available<br>ℹ️  This may be from an older script run<br>🔄 Run the script again to see detailed summary</pre>
-        </div>
-        """
+        return """<h3>Execution Summary</h3>
+<div class="summary-stats">
+    <pre style="white-space: pre-wrap; font-family: 'Courier New', monospace; margin: 0;">📊 Execution summary not available<br>ℹ️  This may be from an older script run<br>🔄 Run the script again to see detailed summary</pre>
+</div>"""
     
     # Simple conversion - preserve line breaks and basic formatting
     html_text = console_text.replace('\n', '<br>')
     html_text = html_text.replace('=', '')  # Remove separator lines
     html_text = html_text.replace('  •', '<br>  •')  # Better bullet formatting
     
-    return f"""
-    <h3>Execution Summary</h3>
-    <div class="summary-stats">
-        <pre style="white-space: pre-wrap; font-family: 'Courier New', monospace; margin: 0;">{html_text}</pre>
-    </div>
-    """
+    return f"""<h3>Execution Summary</h3>
+<div class="summary-stats">
+    <pre style="white-space: pre-wrap; font-family: 'Courier New', monospace; margin: 0;">{html_text}</pre>
+</div>"""
 
 
 def create_error_section(error_msg: str) -> str:
     """Create HTML for error section."""
-    return f"""
-    <div class="section">
-        <div class="error-section">
-            <h3>Error Details</h3>
-            <div class="error-message">{error_msg}</div>
-        </div>
+    return f"""<div class="section">
+    <div class="error-section">
+        <h3>Error Details</h3>
+        <div class="error-message">{error_msg}</div>
     </div>
-    """
+</div>"""
 
 
 def get_thumbnail_screenshot_html(screenshot_path: Optional[str], label: str = None, step_title: str = None, all_screenshots: list = None, current_index: int = 0) -> str:

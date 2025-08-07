@@ -10,6 +10,9 @@ from .report_template_js import get_report_javascript
 
 def create_themed_html_template() -> str:
     """Create the themed HTML template with embedded CSS and theme system."""
+    css_content = get_report_css().strip()
+    js_content = get_report_javascript().strip()
+    
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -18,10 +21,10 @@ def create_themed_html_template() -> str:
     <title>Validation Report - {{script_name}}</title>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <style>
-{get_report_css()}
+{css_content}
     </style>
     <script>
-{get_report_javascript()}
+{js_content}
     </script>
 </head>
 <body>
