@@ -240,6 +240,50 @@ def create_compact_step_results_section(step_results: List[Dict], screenshots: D
                     verification_result_html = f" {result_badge}"
                     if not result_success and result.get('error'):
                         verification_result_html += f" <span class='verification-error'>({result['error']})</span>"
+                        
+                        # Add small thumbnails for image verification failures
+                        if result.get('verification_type') == 'image':
+                            details = result.get('details', {})
+                            thumbnails_html = ""
+                            
+                            # Get source and reference images
+                            source_image = None
+                            reference_image = None
+                            
+                            # Find source image from verification_images
+                            verification_images = step.get('verification_images', [])
+                            for img_path in verification_images:
+                                if img_path and 'source' in os.path.basename(img_path).lower():
+                                    source_image = img_path
+                                    break
+                            
+                            # Get reference image from details
+                            reference_image = details.get('reference_image_url')
+                            
+                            # Create small thumbnails if we have images
+                            if source_image or reference_image:
+                                thumbnails_html = "<div class='verification-thumbnails' style='margin-top: 8px; display: flex; gap: 10px;'>"
+                                
+                                if source_image:
+                                    thumbnails_html += f"""
+                                    <div style='text-align: center;'>
+                                        <div style='font-size: 11px; color: #666; margin-bottom: 2px;'>Source</div>
+                                        <img src='{source_image}' style='width: 60px; height: 40px; object-fit: cover; border: 1px solid #ddd; border-radius: 3px; cursor: pointer;' 
+                                             onclick='window.open("{source_image}", "_blank")' title='Click to view full size'>
+                                    </div>
+                                    """
+                                
+                                if reference_image:
+                                    thumbnails_html += f"""
+                                    <div style='text-align: center;'>
+                                        <div style='font-size: 11px; color: #666; margin-bottom: 2px;'>Reference</div>
+                                        <img src='{reference_image}' style='width: 60px; height: 40px; object-fit: cover; border: 1px solid #ddd; border-radius: 3px; cursor: pointer;' 
+                                             onclick='window.open("{reference_image}", "_blank")' title='Click to view full size'>
+                                    </div>
+                                    """
+                                
+                                thumbnails_html += "</div>"
+                                verification_result_html += thumbnails_html
                 
                 verifications_html += f'<div class="verification-item">{verification_line}{verification_result_html}</div>'
         elif verification_results:
@@ -252,10 +296,56 @@ def create_compact_step_results_section(step_results: List[Dict], screenshots: D
                 result_badge = f'<span class="verification-result-badge {"success" if result_success else "failure"}">{"PASS" if result_success else "FAIL"}</span>'
                 
                 verification_line = f"{verification_index}. {verification_type}: {result_message}"
-                if not result_success and result.get('error'):
-                    verification_line += f" <span class='verification-error'>({result['error']})</span>"
+                verification_result_html = f" {result_badge}"
                 
-                verifications_html += f'<div class="verification-item">{verification_line} {result_badge}</div>'
+                if not result_success and result.get('error'):
+                    verification_result_html += f" <span class='verification-error'>({result['error']})</span>"
+                    
+                    # Add small thumbnails for image verification failures
+                    if result.get('verification_type') == 'image':
+                        details = result.get('details', {})
+                        thumbnails_html = ""
+                        
+                        # Get source and reference images
+                        source_image = None
+                        reference_image = None
+                        
+                        # Find source image from verification_images
+                        verification_images = step.get('verification_images', [])
+                        for img_path in verification_images:
+                            if img_path and 'source' in os.path.basename(img_path).lower():
+                                source_image = img_path
+                                break
+                        
+                        # Get reference image from details
+                        reference_image = details.get('reference_image_url')
+                        
+                        # Create small thumbnails if we have images
+                        if source_image or reference_image:
+                            thumbnails_html = "<div class='verification-thumbnails' style='margin-top: 8px; display: flex; gap: 10px;'>"
+                            
+                            if source_image:
+                                thumbnails_html += f"""
+                                <div style='text-align: center;'>
+                                    <div style='font-size: 11px; color: #666; margin-bottom: 2px;'>Source</div>
+                                    <img src='{source_image}' style='width: 60px; height: 40px; object-fit: cover; border: 1px solid #ddd; border-radius: 3px; cursor: pointer;' 
+                                         onclick='window.open("{source_image}", "_blank")' title='Click to view full size'>
+                                </div>
+                                """
+                            
+                            if reference_image:
+                                thumbnails_html += f"""
+                                <div style='text-align: center;'>
+                                    <div style='font-size: 11px; color: #666; margin-bottom: 2px;'>Reference</div>
+                                    <img src='{reference_image}' style='width: 60px; height: 40px; object-fit: cover; border: 1px solid #ddd; border-radius: 3px; cursor: pointer;' 
+                                         onclick='window.open("{reference_image}", "_blank")' title='Click to view full size'>
+                                </div>
+                                """
+                            
+                            thumbnails_html += "</div>"
+                            verification_result_html += thumbnails_html
+                
+                verifications_html += f'<div class="verification-item">{verification_line}{verification_result_html}</div>'
         
         # Add script output if available (for simple script execution)
         script_output_html = ""
@@ -407,11 +497,17 @@ def create_compact_step_results_section(step_results: List[Dict], screenshots: D
                         debug_images_html = " | ".join(debug_links)
                         analysis_html += f'<div class="analysis-detail">🔧 Debug Images: {debug_images_html}</div>'
         
-        # Get all screenshots for this step (action screenshots + step screenshot)
+        # Get all screenshots for this step in CHRONOLOGICAL order
         screenshot_html = ''
         screenshots_for_step = []
         
-        # Add action screenshots with metadata
+        # 1. FIRST: Add step-level screenshot (taken at START of step)
+        if step.get('screenshot_url'):
+            screenshots_for_step.append(('Step Start', step.get('screenshot_url'), None, None))
+        elif step.get('screenshot_path'):
+            screenshots_for_step.append(('Step Start', step.get('screenshot_path'), None, None))
+        
+        # 2. SECOND: Add action screenshots (taken during action execution)
         action_screenshots = step.get('action_screenshots', [])
         actions = step.get('actions', [])
         for i, screenshot_path in enumerate(action_screenshots):
@@ -419,7 +515,8 @@ def create_compact_step_results_section(step_results: List[Dict], screenshots: D
             action_params = actions[i].get('params', {}) if i < len(actions) else {}
             screenshots_for_step.append((f'Action {i+1}', screenshot_path, action_cmd, action_params))
         
-        # Add verification images (source images from upload + reference images from details)
+        # 3. THIRD: Add verification images (taken during verification execution)
+        # Add source images (screenshots taken during verification)
         verification_images = step.get('verification_images', [])
         for i, verification_image_path in enumerate(verification_images):
             # These are source images that were uploaded to R2
@@ -439,12 +536,6 @@ def create_compact_step_results_section(step_results: List[Dict], screenshots: D
                 if reference_image_url:
                     screenshots_for_step.append(('Reference Image', reference_image_url, None, None))
         
-        # Add step-level screenshot if available
-        if step.get('screenshot_url'):
-            screenshots_for_step.append(('Step', step.get('screenshot_url'), None, None))
-        elif step.get('screenshot_path'):
-            screenshots_for_step.append(('Step', step.get('screenshot_path'), None, None))
-        
         if screenshots_for_step:
             step_id = step.get('step_number', step_index+1)
             # Use EXACT same logic as working preview
@@ -452,18 +543,18 @@ def create_compact_step_results_section(step_results: List[Dict], screenshots: D
             to_node = step.get('to_node', 'Unknown')
             step_title = f"Step {step_id}: {from_node} → {to_node}"
             
-            # Show only the LAST screenshot as thumbnail
-            last_screenshot = screenshots_for_step[-1]
-            last_screenshot_path = last_screenshot[1]
+            # Show the FIRST screenshot as thumbnail (Step Start - most important)
+            first_screenshot = screenshots_for_step[0]
+            first_screenshot_path = first_screenshot[1]
             screenshot_count = len(screenshots_for_step)
             
             # Create single thumbnail that opens modal with all screenshots
             thumbnail_html = get_thumbnail_screenshot_html(
-                last_screenshot_path, 
+                first_screenshot_path, 
                 f"{screenshot_count} screenshot{'s' if screenshot_count > 1 else ''}", 
                 step_title, 
                 screenshots_for_step, 
-                len(screenshots_for_step) - 1  # Start at last screenshot
+                0  # Start at first screenshot (Step Start)
             )
             
             screenshot_html = f"""
