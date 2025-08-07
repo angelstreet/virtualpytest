@@ -281,6 +281,8 @@ def execute_navigation_with_verifications(host, device, transition: Dict[str, An
         
         for i, verification in enumerate(verifications):
             verification_start_time = time.time()
+            # Pass verification index to prevent overwriting source images
+            verification['verification_index'] = i
             verify_result = execute_verification_directly(host, device, verification)
             verification_execution_time = int((time.time() - verification_start_time) * 1000)
             

@@ -462,10 +462,12 @@ class ImageVerificationController:
             area = params.get('area')
             image_filter = params.get('image_filter', 'none')
             model = params.get('model', self.device_model)  # Use controller's device_model as fallback
+            verification_index = verification_config.get('verification_index', 0)  # Get index from config
             
             print(f"[@controller:ImageVerification] Searching for image: {image_path}")
             print(f"[@controller:ImageVerification] Timeout: {timeout}s, Threshold: {threshold}")
             print(f"[@controller:ImageVerification] Using source image: {source_path}")
+            print(f"[@controller:ImageVerification] Verification index: {verification_index} (source_image_{verification_index}.png)")
             
             # Execute verification based on command using provided device model
             if command == 'waitForImageToAppear':
@@ -475,7 +477,7 @@ class ImageVerificationController:
                     threshold=threshold,
                     area=area,
                     image_list=[source_path],  # Use source_path as image list
-                    verification_index=0,
+                    verification_index=verification_index,  # Use dynamic index
                     image_filter=image_filter,
                     model=model
                 )
@@ -486,7 +488,7 @@ class ImageVerificationController:
                     threshold=threshold,
                     area=area,
                     image_list=[source_path],  # Use source_path as image list
-                    verification_index=0,
+                    verification_index=verification_index,  # Use dynamic index
                     image_filter=image_filter,
                     model=model
                 )
