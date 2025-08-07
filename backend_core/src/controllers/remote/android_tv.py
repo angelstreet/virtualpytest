@@ -72,9 +72,10 @@ class AndroidTVRemoteController(RemoteControllerInterface):
             
         self.android_device_id = f"{self.device_ip}:{self.device_port}"
         self.adb_utils = None
-        self.is_connected = True
+        self.device_resolution = None
         
         print(f"[@controller:AndroidTVRemote] Initialized for {self.android_device_id}")
+        self.connect()
         
     def connect(self) -> bool:
         """Connect to the Android TV device via ADB."""
@@ -268,6 +269,44 @@ class AndroidTVRemoteController(RemoteControllerInterface):
             
         except Exception as e:
             print(f"Remote[{self.device_type.upper()}]: Coordinate tap error: {e}")
+            return False
+            
+    def click_element(self, element_identifier: str) -> bool:
+        """
+        Click element directly by text, resource_id, or content_desc using ADB command.
+        
+        Args:
+            element_identifier: Text, resource ID, or content description to click
+            
+        Returns:
+            bool: True if click successful
+        """
+        if not self.is_connected or not self.adb_utils:
+            print(f"Remote[{self.device_type.upper()}]: ERROR - Not connected to device")
+            return False
+            
+        try:
+            print(f"Remote[{self.device_type.upper()}]: Direct click on element: '{element_identifier}'")
+            
+            # Find element using single UI dump
+            exists, element, error = self.adb_utils.check_element_exists(self.android_device_id, element_identifier)
+            
+            if exists and element:
+                # Directly click the found element instead of re-searching (avoids double UI dump)
+                success = self.adb_utils.click_element(self.android_device_id, element)
+                
+                if success:
+                    print(f"Remote[{self.device_type.upper()}]: Successfully clicked element: '{element_identifier}'")
+                    return True
+                else:
+                    print(f"Remote[{self.device_type.upper()}]: Element found but click failed for '{element_identifier}'")
+                    return False
+            else:
+                print(f"Remote[{self.device_type.upper()}]: Element '{element_identifier}' not found: {error}")
+                return False
+                
+        except Exception as e:
+            print(f"Remote[{self.device_type.upper()}]: Element click error: {e}")
             return False
             
     def get_installed_apps(self) -> List[Dict[str, str]]:
@@ -666,12 +705,14 @@ class AndroidTVRemoteController(RemoteControllerInterface):
             x, y = params.get('x'), params.get('y')
             result = self.tap_coordinates(int(x), int(y)) if x is not None and y is not None else False
         
+        elif command == 'click_element':
+            element_id = params.get('element_id')
+            result = self.click_element(element_id) if element_id else False
+        
         elif command == 'get_installed_apps':
             # Android TV specific
             apps = self.get_installed_apps()
             result = len(apps) > 0
-        
-        # Android TV doesn't have click_element or UI dump capabilities
         
         else:
             print(f"Remote[{self.device_type.upper()}]: Unknown command: {command}")
