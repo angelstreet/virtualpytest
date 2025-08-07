@@ -260,7 +260,9 @@ class ScriptExecutor:
                     result = custom_step_handler(context, step, step_num)
                 else:
                     result = execute_navigation_with_verifications(
-                        context.host, context.selected_device, step, context.team_id, context.tree_id
+                        context.host, context.selected_device, step, context.team_id, context.tree_id,
+                        script_result_id=context.script_result_id, script_context='script', 
+                        global_verification_counter=context.global_verification_counter
                     )
                 
                 step_end_timestamp = datetime.now().strftime('%H:%M:%S')
@@ -286,6 +288,11 @@ class ScriptExecutor:
                 for verification_image in verification_images:
                     context.add_screenshot(verification_image)
                     print(f"[@script_framework] Added verification image to upload: {verification_image}")
+                
+                # Update global verification counter for next step
+                counter_increment = result.get('global_verification_counter_increment', 0)
+                context.global_verification_counter += counter_increment
+                print(f"[@script_framework] Updated global verification counter: +{counter_increment} = {context.global_verification_counter}")
                 
                 # Record step result
                 step_result = {
