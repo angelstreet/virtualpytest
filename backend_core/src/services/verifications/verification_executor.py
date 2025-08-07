@@ -123,7 +123,16 @@ class VerificationExecutor:
         
         print(f"[@lib:verification_executor:execute_verifications] Batch completed: {passed_count}/{len(valid_verifications)} passed")
         
-        return {
+        # Extract detailed error information from failed verifications
+        error_info = None
+        if not overall_success and results:
+            # Get the first failed verification's message as the primary error
+            for result in results:
+                if not result.get('success', False):
+                    error_info = result.get('message', 'Verification failed')
+                    break
+        
+        result = {
             'success': overall_success,
             'total_count': len(valid_verifications),
             'passed_count': passed_count,
@@ -131,6 +140,12 @@ class VerificationExecutor:
             'results': results,
             'message': f'Batch verification completed: {passed_count}/{len(valid_verifications)} passed'
         }
+        
+        # Add error information if verifications failed
+        if error_info:
+            result['error'] = error_info
+            
+        return result
     
     def _filter_valid_verifications(self, verifications: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Filter out invalid verifications"""
