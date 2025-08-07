@@ -246,22 +246,26 @@ def create_compact_step_results_section(step_results: List[Dict], screenshots: D
                             details = result.get('details', {})
                             thumbnails_html = ""
                             
-                            # Get source and reference images
+                            # Get source, reference, and overlay images
                             source_image = None
                             reference_image = None
+                            overlay_image = None
                             
-                            # Find source image from verification_images
+                            # Find source and overlay images from verification_images
                             verification_images = step.get('verification_images', [])
                             for img_path in verification_images:
-                                if img_path and 'source' in os.path.basename(img_path).lower():
-                                    source_image = img_path
-                                    break
+                                if img_path:
+                                    filename = os.path.basename(img_path).lower()
+                                    if 'source' in filename:
+                                        source_image = img_path
+                                    elif 'overlay' in filename or 'result_overlay' in filename:
+                                        overlay_image = img_path
                             
                             # Get reference image from details
                             reference_image = details.get('reference_image_url')
                             
                             # Create small thumbnails if we have images
-                            if source_image or reference_image:
+                            if source_image or reference_image or overlay_image:
                                 thumbnails_html = "<div class='verification-thumbnails' style='margin-top: 8px; display: flex; gap: 10px;'>"
                                 
                                 if source_image:
@@ -279,6 +283,15 @@ def create_compact_step_results_section(step_results: List[Dict], screenshots: D
                                         <div style='font-size: 11px; color: #666; margin-bottom: 2px;'>Reference</div>
                                         <img src='{reference_image}' style='width: 60px; height: 40px; object-fit: cover; border: 1px solid #ddd; border-radius: 3px; cursor: pointer;' 
                                              onclick='window.open("{reference_image}", "_blank")' title='Click to view full size'>
+                                    </div>
+                                    """
+                                
+                                if overlay_image:
+                                    thumbnails_html += f"""
+                                    <div style='text-align: center;'>
+                                        <div style='font-size: 11px; color: #666; margin-bottom: 2px;'>Overlay</div>
+                                        <img src='{overlay_image}' style='width: 60px; height: 40px; object-fit: cover; border: 1px solid #ddd; border-radius: 3px; cursor: pointer;' 
+                                             onclick='window.open("{overlay_image}", "_blank")' title='Click to view full size'>
                                     </div>
                                     """
                                 
@@ -306,22 +319,26 @@ def create_compact_step_results_section(step_results: List[Dict], screenshots: D
                         details = result.get('details', {})
                         thumbnails_html = ""
                         
-                        # Get source and reference images
+                        # Get source, reference, and overlay images
                         source_image = None
                         reference_image = None
+                        overlay_image = None
                         
-                        # Find source image from verification_images
+                        # Find source and overlay images from verification_images
                         verification_images = step.get('verification_images', [])
                         for img_path in verification_images:
-                            if img_path and 'source' in os.path.basename(img_path).lower():
-                                source_image = img_path
-                                break
+                            if img_path:
+                                filename = os.path.basename(img_path).lower()
+                                if 'source' in filename:
+                                    source_image = img_path
+                                elif 'overlay' in filename or 'result_overlay' in filename:
+                                    overlay_image = img_path
                         
                         # Get reference image from details
                         reference_image = details.get('reference_image_url')
                         
                         # Create small thumbnails if we have images
-                        if source_image or reference_image:
+                        if source_image or reference_image or overlay_image:
                             thumbnails_html = "<div class='verification-thumbnails' style='margin-top: 8px; display: flex; gap: 10px;'>"
                             
                             if source_image:
@@ -339,6 +356,15 @@ def create_compact_step_results_section(step_results: List[Dict], screenshots: D
                                     <div style='font-size: 11px; color: #666; margin-bottom: 2px;'>Reference</div>
                                     <img src='{reference_image}' style='width: 60px; height: 40px; object-fit: cover; border: 1px solid #ddd; border-radius: 3px; cursor: pointer;' 
                                          onclick='window.open("{reference_image}", "_blank")' title='Click to view full size'>
+                                </div>
+                                """
+                            
+                            if overlay_image:
+                                thumbnails_html += f"""
+                                <div style='text-align: center;'>
+                                    <div style='font-size: 11px; color: #666; margin-bottom: 2px;'>Overlay</div>
+                                    <img src='{overlay_image}' style='width: 60px; height: 40px; object-fit: cover; border: 1px solid #ddd; border-radius: 3px; cursor: pointer;' 
+                                         onclick='window.open("{overlay_image}", "_blank")' title='Click to view full size'>
                                 </div>
                                 """
                             

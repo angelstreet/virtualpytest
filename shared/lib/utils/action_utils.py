@@ -104,9 +104,14 @@ def execute_verification_directly(host, device, verification: Dict[str, Any]) ->
             if details.get('source_image_path'):
                 verification_images.append(details.get('source_image_path'))
                 print(f"[@action_utils:execute_verification_directly] Added source image to upload: {details.get('source_image_path')}")
+            
+            # Overlay image (comparison result) - needs to be uploaded
+            if details.get('result_overlay_path'):
+                verification_images.append(details.get('result_overlay_path'))
+                print(f"[@action_utils:execute_verification_directly] Added overlay image to upload: {details.get('result_overlay_path')}")
+                
             # Note: Reference image R2 URL is already in details['reference_image_url'] 
             # and doesn't need uploading - it will be available in step_results
-            # Note: Not including overlay as requested
         
         return {
             'success': result.get('success', False),
