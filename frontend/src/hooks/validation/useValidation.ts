@@ -118,7 +118,7 @@ export const useValidation = (treeId: string, providedHost?: any, providedDevice
       const failed = total - successful;
       
       const timeMatch = stdout.match(/Total Time: ([\d.]+)s/);
-      const executionTime = timeMatch ? parseFloat(timeMatch[1]) * 1000 : 0;
+      const executionTime = timeMatch ? parseFloat(timeMatch[1]) : 0;
 
       // Calculate overall health
       const healthPercentage = total > 0 ? (successful / total) * 100 : 0;
@@ -175,7 +175,7 @@ export const useValidation = (treeId: string, providedHost?: any, providedDevice
               totalActions,
               verificationsExecuted,
               totalVerifications,
-              executionTime: duration * 1000, // Convert to milliseconds for consistency
+              executionTime: duration, // Keep in seconds as provided by the script
               verificationResults: []
             });
           }
