@@ -34,21 +34,25 @@ export const ValidationProgressClient: React.FC<ValidationProgressClientProps> =
     };
   }, [treeId]);
 
-  // Debug logging
-  console.log('[@ValidationProgressClient] Render state:', {
+  // Debug logging with shared state info
+  console.log('[@ValidationProgressClient] Render state (SHARED):', {
     treeId,
     isValidating: validation.isValidating,
     shouldShow: validation.isValidating,
     timestamp: new Date().toISOString(),
+    hookInstance: 'SHARED_STATE',
   });
 
-  // Only show loading dialog when validation is running
+  // Only show progress dialog when validation is running
   if (!validation.isValidating) {
-    console.log('[@ValidationProgressClient] Not showing - not validating');
+    console.log(
+      '[@ValidationProgressClient] Not showing - isValidating:',
+      validation.isValidating,
+    );
     return null;
   }
 
-  console.log('[@ValidationProgressClient] Showing loading dialog');
+  console.log('[@ValidationProgressClient] Showing progress dialog (SHARED)');
 
   return (
     <Dialog open={validation.isValidating} disableEscapeKeyDown maxWidth="sm" fullWidth>
@@ -65,15 +69,29 @@ export const ValidationProgressClient: React.FC<ValidationProgressClientProps> =
       </DialogTitle>
 
       <DialogContent>
-        <Box sx={{ py: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-          <CircularProgress size={40} />
-          <Typography variant="body1" color="text.primary" textAlign="center">
-            Validation is running...
-          </Typography>
-          <Typography variant="body2" color="text.secondary" textAlign="center">
-            Please wait while the validation executes. This may take several minutes.
-            The system is capturing screenshots and generating a detailed report.
-          </Typography>
+        <Box sx={{ py: 2 }}>
+          {/* Simple loading display - no complex progress tracking */}
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: 2,
+              p: 2,
+              borderRadius: 1,
+              border: '1px solid',
+              borderColor: 'grey.200',
+            }}
+          >
+            <CircularProgress size={40} />
+            <Typography variant="body1" color="text.primary" textAlign="center">
+              Validation is running...
+            </Typography>
+            <Typography variant="body2" color="text.secondary" textAlign="center">
+              Please wait while the validation executes. This may take several minutes.
+              The system is capturing screenshots and generating a detailed report.
+            </Typography>
+          </Box>
         </Box>
       </DialogContent>
     </Dialog>
