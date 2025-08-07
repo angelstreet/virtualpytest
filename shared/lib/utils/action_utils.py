@@ -85,7 +85,7 @@ def execute_verification_directly(host, device, verification: Dict[str, Any]) ->
         
         result = verification_controller.execute_verification(verification)
         
-        # Extract verification images for upload (source and reference only)
+        # Extract verification images for upload (source images only)
         verification_images = []
         if verification_type == 'image':
             # Image verification generates comparison images in the 'details' field
@@ -93,9 +93,8 @@ def execute_verification_directly(host, device, verification: Dict[str, Any]) ->
             # Source image (screenshot taken) - needs to be uploaded
             if details.get('source_image_path'):
                 verification_images.append(details.get('source_image_path'))
-            # Reference image - use R2 URL directly (already stored in R2)
-            if details.get('reference_image_url'):
-                verification_images.append(details.get('reference_image_url'))
+            # Note: Reference image R2 URL is already in details['reference_image_url'] 
+            # and doesn't need uploading - it will be available in step_results
             # Note: Not including overlay as requested
         
         return {
@@ -306,7 +305,8 @@ def execute_navigation_with_verifications(host, device, transition: Dict[str, An
                 'success': verify_result.get('success', False),
                 'message': verify_result.get('message', 'Verification completed'),
                 'resultType': 'PASS' if verify_result.get('success') else 'FAIL',
-                'error': verify_result.get('error') if not verify_result.get('success') else None
+                'error': verify_result.get('error') if not verify_result.get('success') else None,
+                'details': verify_result.get('details', {})  # Preserve verification details (includes reference_image_url)
             }
             verification_results.append(verification_result)
             
