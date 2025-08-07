@@ -267,7 +267,7 @@ def execute_script(script_name: str, device_id: str, parameters: str = "") -> Di
         
         total_execution_time = int((time.time() - start_time) * 1000)
         
-        # Let the script handle its own reporting - no duplicate report generation
+        # Script handles its own execution and provides all results
         return {
             'success': success,
             'stdout': stdout,
@@ -278,7 +278,7 @@ def execute_script(script_name: str, device_id: str, parameters: str = "") -> Di
             'script_path': script_path,
             'parameters': parameters,
             'execution_time_ms': total_execution_time,
-            'report_url': ""  # Script will generate its own report
+            'report_url': ""  # Script should provide this through proper channels
         }
         
     except Exception as e:

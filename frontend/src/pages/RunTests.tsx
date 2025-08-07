@@ -347,30 +347,17 @@ const RunTests: React.FC = () => {
     return { valid: errors.length === 0, errors };
   };
 
-  // Helper function to determine test result from output
+  // Helper function to determine test result from script output
   const determineTestResult = (result: any): 'success' | 'failure' | undefined => {
-    if (!result.success) return undefined;
-    
-    const outputText = (result.stdout + ' ' + result.stderr).toLowerCase();
-    
-    if (outputText.includes('overall result: pass') || 
-        outputText.includes('result: success') ||
-        outputText.includes('all validation steps completed successfully') ||
-        outputText.includes('successfully navigated to') ||
-        outputText.includes('navigation completed successfully') ||
-        outputText.includes('validation completed successfully')) {
-      return 'success';
-    } else if (outputText.includes('overall result: fail') ||
-               outputText.includes('result: failed') ||
-               outputText.includes('validation failed') ||
-               outputText.includes('navigation failed') ||
-               outputText.includes('could not navigate to') ||
-               outputText.includes('failed at step') ||
-               outputText.includes('element not found') ||
-               outputText.includes('no path found')) {
-      return 'failure';
+    // Scripts provide clear SCRIPT_SUCCESS:true/false in stdout
+    if (result.stdout && result.stdout.includes('SCRIPT_SUCCESS:')) {
+      const successMatch = result.stdout.match(/SCRIPT_SUCCESS:(true|false)/);
+      if (successMatch) {
+        return successMatch[1] === 'true' ? 'success' : 'failure';
+      }
     }
     
+    // If script doesn't provide SCRIPT_SUCCESS, we don't guess
     return undefined;
   };
 
@@ -437,6 +424,7 @@ const RunTests: React.FC = () => {
         console.log(`[@RunTests] Execution ${executionId} completed with success: ${result.success}`);
         
         // Update execution record immediately
+        // Show 'completed' if script executed successfully, regardless of test result
         const executionStatus = result.success ? 'completed' : 'failed';
         const testResult = determineTestResult(result);
 
@@ -901,7 +889,6 @@ const RunTests: React.FC = () => {
                         model={deviceModel}
                         layoutConfig={{
                           minHeight: '360px',
-                          maxHeight: '380px',
                           aspectRatio: isMobileModel ? '9/16' : '16/9',
                           objectFit: 'contain',
                           isMobileModel,
