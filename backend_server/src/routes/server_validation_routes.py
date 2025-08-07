@@ -7,62 +7,9 @@ from flask import Blueprint, request, jsonify
 
 from shared.lib.utils.navigation_cache import get_cached_graph
 from shared.lib.utils.app_utils import get_team_id
-from backend_core.src.services.navigation.navigation_execution import NavigationExecutor
 
 
-def transform_script_results_to_validation_format(step_results, report_url, tree_id):
-    """Transform ScriptExecutor step_results to frontend ValidationResults format"""
-    
-    # Calculate summary stats
-    total_edges = len(step_results)
-    successful_edges = sum(1 for step in step_results if step.get('success', False))
-    failed_edges = total_edges - successful_edges
-    
-    # Calculate overall health
-    health_percentage = (successful_edges / total_edges * 100) if total_edges > 0 else 0
-    if health_percentage >= 90:
-        overall_health = 'excellent'
-    elif health_percentage >= 75:
-        overall_health = 'good'
-    elif health_percentage >= 50:
-        overall_health = 'fair'
-    else:
-        overall_health = 'poor'
-    
-    # Transform each step to edgeResults format
-    edge_results = []
-    for step in step_results:
-        edge_result = {
-            'from': step.get('from_node', ''),
-            'to': step.get('to_node', ''),
-            'fromName': step.get('from_node', ''),
-            'toName': step.get('to_node', ''),
-            'success': step.get('success', False),
-            'skipped': False,
-            'retryAttempts': 0,
-            'errors': [step.get('error', '')] if not step.get('success', False) and step.get('error') else [],
-            'actionsExecuted': len(step.get('actions', [])),
-            'totalActions': len(step.get('actions', [])),
-            'executionTime': step.get('execution_time_ms', 0),
-            'verificationResults': step.get('verification_results', [])
-        }
-        edge_results.append(edge_result)
-    
-    return {
-        'treeId': tree_id,
-        'summary': {
-            'totalNodes': successful_edges,
-            'totalEdges': total_edges,
-            'validNodes': successful_edges,
-            'errorNodes': failed_edges,
-            'skippedEdges': 0,
-            'overallHealth': overall_health,
-            'executionTime': sum(step.get('execution_time_ms', 0) for step in step_results)
-        },
-        'nodeResults': [],
-        'edgeResults': edge_results,
-        'reportUrl': report_url
-    }
+# Removed transform_script_results_to_validation_format since we now execute the script directly
 
 
 # Create blueprint
@@ -290,100 +237,84 @@ def run_validation(tree_id: str):
         # Get team_id BEFORE starting background thread (while in Flask context)
         team_id = get_team_id()
         
-        # Execute validation in background thread using ScriptExecutor
+        # Execute validation script directly (like RunTests does)
         import threading
         def execute_async():
             try:
-                print(f"[@route:run_validation] Starting ScriptExecutor validation for task {task_id}")
+                print(f"[@route:run_validation] Starting validation script execution for task {task_id}")
                 
-                # Import ScriptExecutor and related functions
-                import sys
-                import os
-                sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', '..', '..'))
+                # Build parameters for validation script like RunTests does
+                userinterface_name = f'tree_{tree_id}'
+                host_name = host.get('host_name')
                 
-                from shared.lib.utils.script_framework import ScriptExecutor
-                from backend_core.src.services.navigation.navigation_pathfinding import find_optimal_edge_validation_sequence
-                from shared.lib.utils.action_utils import execute_navigation_with_verifications
-                from shared.lib.utils.report_utils import generate_and_upload_script_report
+                # Build parameter string: userinterface_name --host host_name --device device_id
+                parameters = f"{userinterface_name} --host {host_name} --device {device_id}"
                 
-                # Create mock args for ScriptExecutor
-                class MockArgs:
-                    def __init__(self):
-                        self.userinterface_name = f'tree_{tree_id}'
-                        self.host = None
-                        self.device = device_id
+                print(f"[@route:run_validation] Executing validation script with parameters: {parameters}")
                 
-                # Setup ScriptExecutor
-                executor = ScriptExecutor("validation", "Web interface validation")
-                context = executor.setup_execution_context(MockArgs(), enable_db_tracking=True)
+                # Execute validation script using script_execution_utils (same as RunTests backend)
+                from shared.lib.utils.script_execution_utils import execute_script
                 
-                # Manually set context values
-                context.host = type('Host', (), host)()  # Convert dict to object
-                context.team_id = team_id
-                context.tree_id = tree_id
+                result = execute_script("validation", device_id, parameters)
                 
-                # Load selected device
-                from shared.lib.utils.host_utils import get_device_by_id
-                context.selected_device = get_device_by_id(device_id)
-                
-                # Get validation sequence
-                validation_sequence = find_optimal_edge_validation_sequence(tree_id, team_id)
-                
-                if not validation_sequence:
-                    raise Exception("No validation sequence found")
-                
-                print(f"[@route:run_validation] Found {len(validation_sequence)} validation steps")
-                
-                # Custom step handler for validation
-                def validation_step_handler(context, step, step_num):
-                    try:
-                        result = execute_navigation_with_verifications(
-                            context.host, context.selected_device, step, context.team_id, 
-                            context.tree_id, context.script_result_id, 'validation'
-                        )
-                        return result
-                    except Exception as e:
-                        print(f"⚠️ [validation] Step handler error: {e}")
-                        return {
-                            'success': False,
-                            'error': f'Step handler exception: {str(e)}',
-                            'verification_results': []
-                        }
-                
-                # Execute validation sequence (no progress callbacks - simple execution)
-                success = executor.execute_navigation_sequence(
-                    context, validation_sequence, validation_step_handler
-                )
-                
-                # Generate rich HTML report using existing infrastructure
-                report_result = generate_and_upload_script_report(
-                    script_name="validation",
-                    device_info={
-                        'device_name': context.selected_device.device_name if context.selected_device else 'Unknown Device',
-                        'device_model': context.selected_device.device_model if context.selected_device else 'Unknown Model',
-                        'device_id': device_id or 'web_interface'
-                    },
-                    host_info={
-                        'host_name': host.get('host_name', 'Unknown Host')
-                    },
-                    execution_time=context.get_execution_time_ms(),
-                    success=success,
-                    step_results=context.step_results,
-                    screenshot_paths=context.screenshot_paths,
-                    error_message=context.error_message,
-                    userinterface_name=f'tree_{tree_id}',
-                    execution_summary=f"Web interface validation completed with {len(context.step_results)} steps"
-                )
-                
-                report_url = report_result.get('report_url', '') if report_result.get('success') else ''
-                
-                # Transform ScriptExecutor results to frontend format
-                validation_results = transform_script_results_to_validation_format(
-                    context.step_results, report_url, tree_id
-                )
-                
-                task_manager.complete_task(task_id, validation_results)
-                print(f"[@route:run_validation] Validation completed successfully with report: {report_url}")
+                if result['success']:
+                    print(f"[@route:run_validation] Validation script completed successfully")
+                    
+                    # Parse the script output to extract validation results
+                    # The validation.py script generates its own report via ScriptExecutor
+                    stdout = result.get('stdout', '')
+                    
+                    # Extract report URL from stdout if available
+                    report_url = ""
+                    for line in stdout.split('\n'):
+                        if 'Report uploaded:' in line or 'report.html' in line:
+                            # Extract URL from the line
+                            parts = line.split()
+                            for part in parts:
+                                if 'report.html' in part:
+                                    report_url = part
+                                    break
+                    
+                    # Create simple validation results for frontend
+                    # Since the script handles all the validation logic internally
+                    validation_results = {
+                        'treeId': tree_id,
+                        'summary': {
+                            'totalNodes': 1,
+                            'totalEdges': 1,
+                            'validNodes': 1 if result['success'] else 0,
+                            'errorNodes': 0 if result['success'] else 1,
+                            'skippedEdges': 0,
+                            'overallHealth': 'excellent' if result['success'] else 'poor',
+                            'executionTime': result.get('execution_time_ms', 0)
+                        },
+                        'nodeResults': [],
+                        'edgeResults': [
+                            {
+                                'from': 'validation',
+                                'to': 'complete',
+                                'fromName': 'Validation Start',
+                                'toName': 'Validation Complete',
+                                'success': result['success'],
+                                'skipped': False,
+                                'retryAttempts': 0,
+                                'errors': [result.get('stderr', '')] if not result['success'] else [],
+                                'actionsExecuted': 1,
+                                'totalActions': 1,
+                                'executionTime': result.get('execution_time_ms', 0),
+                                'verificationResults': []
+                            }
+                        ],
+                        'reportUrl': report_url
+                    }
+                    
+                    task_manager.complete_task(task_id, validation_results)
+                    print(f"[@route:run_validation] Validation completed with report: {report_url}")
+                    
+                else:
+                    error_msg = result.get('stderr') or 'Validation script execution failed'
+                    print(f"[@route:run_validation] Validation script failed: {error_msg}")
+                    task_manager.complete_task(task_id, {}, error=error_msg)
                 
             except Exception as e:
                 print(f"[@route:run_validation] Background validation error for task {task_id}: {e}")
