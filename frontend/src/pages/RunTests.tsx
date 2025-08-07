@@ -895,9 +895,8 @@ const RunTests: React.FC = () => {
                         }}
                         isExpanded={false}
                         sx={{
-                          maxWidth: '100%',
-                          maxHeight: '100%',
-                          objectFit: 'contain',
+                          width: '100%',
+                          height: '100%',
                         }}
                       />
                     </Box>
