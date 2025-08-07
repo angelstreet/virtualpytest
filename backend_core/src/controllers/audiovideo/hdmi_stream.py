@@ -247,7 +247,6 @@ class HDMIStreamController(AVControllerInterface):
             playlist_result = uploader.upload_file(temp_playlist_path, playlist_remote_path)
             
             # Clean up temp file
-            import os
             try:
                 os.unlink(temp_playlist_path)
             except:
