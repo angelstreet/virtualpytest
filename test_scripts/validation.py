@@ -99,25 +99,15 @@ def capture_validation_summary(context: ScriptExecutionContext, userinterface_na
         step_success = step.get('success', False)
         from_node = step.get('from_node', 'unknown')
         to_node = step.get('to_node', 'unknown')
-        # Get actual execution time from step result
-        execution_time = step.get('execution_time_ms', step.get('execution_time', 0)) / 1000  # Convert to seconds
-        
-        # Get action and verification counts
-        actions = step.get('actions', [])
-        verifications = step.get('verifications', [])
-        verification_results = step.get('verification_results', [])
-        
-        actions_executed = len(actions)
-        total_actions = len(actions)
-        verifications_executed = len(verification_results)
-        total_verifications = len(verifications)
+        execution_time = step.get('execution_time', 0) / 1000  # Convert to seconds
         
         # Get error message from verification results
         error_msg = ""
+        verification_results = step.get('verification_results', [])
         if verification_results and not step_success:
             error_msg = verification_results[0].get('error', 'Unknown error')
         
-        lines.append(f"STEP:{i+1}|{from_node}|{to_node}|{'PASS' if step_success else 'FAIL'}|{execution_time:.1f}|{error_msg}|{actions_executed}|{total_actions}|{verifications_executed}|{total_verifications}")
+        lines.append(f"STEP:{i+1}|{from_node}|{to_node}|{'PASS' if step_success else 'FAIL'}|{execution_time:.1f}|{error_msg}")
     
     lines.append("=== VALIDATION_STEPS_DATA_END ===")
     

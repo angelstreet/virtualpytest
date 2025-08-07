@@ -113,101 +113,94 @@ export const useValidation = (treeId: string, providedHost?: any, providedDevice
         return null;
       }
 
+      const successful = parseInt(summaryMatch[1]);
+      const total = parseInt(summaryMatch[2]);
+      const failed = total - successful;
+      
       const timeMatch = stdout.match(/Total Time: ([\d.]+)s/);
       const executionTime = timeMatch ? parseFloat(timeMatch[1]) * 1000 : 0;
 
-      // Parse structured step data from validation output - NO FALLBACK
+      // Calculate overall health
+      const healthPercentage = total > 0 ? (successful / total) * 100 : 0;
+      let overallHealth: 'excellent' | 'good' | 'fair' | 'poor';
+      
+      if (healthPercentage >= 90) {
+        overallHealth = 'excellent';
+      } else if (healthPercentage >= 75) {
+        overallHealth = 'good';
+      } else if (healthPercentage >= 50) {
+        overallHealth = 'fair';
+      } else {
+        overallHealth = 'poor';
+      }
+
+      // Parse structured step data from validation output
       const edgeResults: any[] = [];
       const structuredDataMatch = stdout.match(/=== VALIDATION_STEPS_DATA_START ===([\s\S]*?)=== VALIDATION_STEPS_DATA_END ===/);
       
-      if (!structuredDataMatch) {
-        console.error('[@hook:useValidation] No structured validation data found in stdout');
-        console.error('[@hook:useValidation] Full stdout length:', stdout.length);
-        console.error('[@hook:useValidation] Script stdout (last 2000 chars):', stdout.substring(Math.max(0, stdout.length - 2000)));
-        console.error('[@hook:useValidation] Looking for markers in stdout:', {
-          hasStartMarker: stdout.includes('=== VALIDATION_STEPS_DATA_START ==='),
-          hasEndMarker: stdout.includes('=== VALIDATION_STEPS_DATA_END ===')
-        });
-        return null;
-      }
-      
-      console.log('[@hook:useValidation] Found structured validation data, parsing...');
-      const stepLines = structuredDataMatch[1].trim().split('\n');
-      
-      for (const line of stepLines) {
-        if (line.startsWith('STEP:')) {
-          const parts = line.split('|');
-          if (parts.length >= 10) {
-            const fromName = parts[1];
-            const toName = parts[2];
-            const status = parts[3];
-            const duration = parseFloat(parts[4]);
-            const errorMessage = parts[5] || '';
-            const actionsExecuted = parseInt(parts[6]) || 0;
-            const totalActions = parseInt(parts[7]) || 0;
-            const verificationsExecuted = parseInt(parts[8]) || 0;
-            const totalVerifications = parseInt(parts[9]) || 0;
-            
-            edgeResults.push({
-              from: fromName.toLowerCase().replace(/[^a-z0-9]/g, '_'),
-              to: toName.toLowerCase().replace(/[^a-z0-9]/g, '_'),
-              fromName,
-              toName,
-              success: status === 'PASS',
-              skipped: false,
-              retryAttempts: 0,
-              errors: errorMessage ? [errorMessage] : [],
-              actionsExecuted,
-              totalActions,
-              verificationsExecuted,
-              totalVerifications,
-              executionTime: duration * 1000, // Convert to milliseconds
-              verificationResults: []
-            });
-          } else {
-            console.warn('[@hook:useValidation] Invalid step data format (expected 10 fields):', line);
-            console.warn('[@hook:useValidation] Received:', parts.length, 'fields in line:', line);
+      if (structuredDataMatch) {
+        console.log('[@hook:useValidation] Found structured validation data');
+        const stepLines = structuredDataMatch[1].trim().split('\n');
+        for (const line of stepLines) {
+          if (line.startsWith('STEP:')) {
+            const parts = line.split('|');
+            if (parts.length >= 6) {
+              const fromName = parts[1];
+              const toName = parts[2];
+              const status = parts[3];
+              const duration = parseFloat(parts[4]);
+              const errorMessage = parts[5] || '';
+              
+              edgeResults.push({
+                from: fromName.toLowerCase().replace(/[^a-z0-9]/g, '_'),
+                to: toName.toLowerCase().replace(/[^a-z0-9]/g, '_'),
+                fromName,
+                toName,
+                success: status === 'PASS',
+                skipped: false,
+                retryAttempts: 0,
+                errors: errorMessage ? [errorMessage] : [],
+                actionsExecuted: 1,
+                totalActions: 1,
+                executionTime: duration * 1000, // Convert to milliseconds
+                verificationResults: []
+              });
+            }
           }
         }
       }
       
-      if (edgeResults.length === 0) {
-        console.error('[@hook:useValidation] No valid step data parsed from structured output');
-        return null;
+      // If parsing failed, fall back to preview data
+      if (edgeResults.length === 0 && state.preview?.edges) {
+        console.warn('Could not parse step details from stdout, using preview data');
+        console.warn('Looking for structured data in stdout:', stdout.includes('VALIDATION_STEPS_DATA_START'));
+        state.preview.edges.forEach((edge, index) => {
+          edgeResults.push({
+            from: edge.from_node,
+            to: edge.to_node,
+            fromName: edge.from_name,
+            toName: edge.to_name,
+            success: index < successful,
+            skipped: false,
+            retryAttempts: 0,
+            errors: index >= successful ? ['Validation failed'] : [],
+            actionsExecuted: 1,
+            totalActions: 1,
+            executionTime: executionTime / total,
+            verificationResults: []
+          });
+        });
       }
-      
-      console.log(`[@hook:useValidation] Successfully parsed ${edgeResults.length} validation steps`);
-
-      // Calculate summary from actual parsed step data
-      const actualSuccessful = edgeResults.filter(step => step.success).length;
-      const actualFailed = edgeResults.filter(step => !step.success).length;
-      const actualTotal = edgeResults.length;
-      
-      // Recalculate health based on actual parsed data
-      const actualHealthPercentage = actualTotal > 0 ? (actualSuccessful / actualTotal) * 100 : 0;
-      let actualOverallHealth: 'excellent' | 'good' | 'fair' | 'poor';
-      
-      if (actualHealthPercentage >= 90) {
-        actualOverallHealth = 'excellent';
-      } else if (actualHealthPercentage >= 75) {
-        actualOverallHealth = 'good';
-      } else if (actualHealthPercentage >= 50) {
-        actualOverallHealth = 'fair';
-      } else {
-        actualOverallHealth = 'poor';
-      }
-
-      console.log(`[@hook:useValidation] Actual results: ${actualSuccessful}/${actualTotal} successful (${actualHealthPercentage.toFixed(1)}%)`);
 
       return {
         treeId,
         summary: {
-          totalNodes: actualSuccessful,
-          totalEdges: actualTotal,
-          validNodes: actualSuccessful,
-          errorNodes: actualFailed,
+          totalNodes: successful,
+          totalEdges: total,
+          validNodes: successful,
+          errorNodes: failed,
           skippedEdges: 0,
-          overallHealth: actualOverallHealth,
+          overallHealth,
           executionTime
         },
         nodeResults: [],
