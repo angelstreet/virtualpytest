@@ -301,8 +301,8 @@ class ZapController:
         action_result['screenshot_url'] = screenshot_result['screenshot_url']
         
         # Wait 4 seconds after zap action to allow banner to disappear before analysis
-        print(f"⏰ [ZapController] Waiting 4 seconds for banner to disappear...")
-        time.sleep(4)
+        print(f"⏰ [ZapController] Waiting 8 seconds for banner to disappear...")
+        time.sleep(8)
         
         # Capture a clean screenshot after banner disappears for analysis
         analysis_step_name = f"zap_analysis_{iteration}_{action_command}"
