@@ -854,7 +854,7 @@ const RunTests: React.FC = () => {
             <Card sx={{ '& .MuiCardContent-root': { p: 2, '&:last-child': { pb: 2 } } }}>
               <CardContent>
                 <Typography variant="h6" sx={{ mb: 1 }}>
-                  Device Stream
+                  Device Stream Preview
                 </Typography>
                 {/* Device switcher dropdown - only show if we have multiple devices */}
                 {additionalDevices.length > 0 && (selectedHost && selectedDevice) && (
@@ -880,8 +880,9 @@ const RunTests: React.FC = () => {
                 )}
                 <Box
                   sx={{
-                    minHeight: 400,
-                    width: '100%',
+                    height: 250, // Fixed height for preview
+                    width: 'fit-content', // Auto-adjust width to content
+                    maxWidth: '100%', // Don't exceed container width
                     backgroundColor: 'black',
                     borderRadius: 1,
                     overflow: 'hidden',
@@ -889,6 +890,7 @@ const RunTests: React.FC = () => {
                     alignItems: 'center',
                     justifyContent: 'center',
                     boxSizing: 'border-box',
+                    margin: '0 auto', // Center the stream preview
                   }}
                 >
                   {streamUrl && streamHostObject ? (
@@ -898,16 +900,17 @@ const RunTests: React.FC = () => {
                       isCapturing={false}
                       model={deviceModel}
                       layoutConfig={{
-                        minHeight: '300px',
+                        height: '250px', // Fixed height for preview
                         aspectRatio: isMobileModel ? '9/16' : '16/9',
                         objectFit: 'contain',
                         isMobileModel,
+                        width: 'auto', // Let width adjust automatically
                       }}
                       isExpanded={false}
                       muted={true}
                       sx={{
-                        width: '100%',
-                        height: '100%',
+                        height: '250px',
+                        width: 'auto',
                       }}
                     />
                   ) : (
