@@ -880,8 +880,9 @@ const RunTests: React.FC = () => {
                 )}
                 <Box
                   sx={{
-                    height: 250, // Fixed height for preview
-                    width: 'fit-content', // Auto-adjust width to content
+                    minHeight: 250, // Use minHeight instead of fixed height
+                    maxHeight: 300, // Limit maximum height for preview
+                    width: isMobileModel ? Math.round(250 * (9/16)) : Math.round(250 * (16/9)), // Calculate width based on aspect ratio
                     maxWidth: '100%', // Don't exceed container width
                     backgroundColor: 'black',
                     borderRadius: 1,
@@ -900,17 +901,17 @@ const RunTests: React.FC = () => {
                       isCapturing={false}
                       model={deviceModel}
                       layoutConfig={{
-                        height: '250px', // Fixed height for preview
+                        minHeight: '250px', // Use minHeight like before
+                        maxHeight: '300px', // Limit height for preview
                         aspectRatio: isMobileModel ? '9/16' : '16/9',
                         objectFit: 'contain',
                         isMobileModel,
-                        width: 'auto', // Let width adjust automatically
                       }}
                       isExpanded={false}
                       muted={true}
                       sx={{
-                        height: '250px',
-                        width: 'auto',
+                        maxHeight: '300px',
+                        maxWidth: '100%',
                       }}
                     />
                   ) : (
