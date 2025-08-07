@@ -2,7 +2,7 @@
 """
 Simple Navigation Script for VirtualPyTest
 
-This script navigates to the live_fullscreen node using the unified script framework.
+This script navigates to the live node using the unified script framework.
 
 Usage:
     python scripts/goto_live.py [userinterface_name] [--host <host>] [--device <device>]
@@ -47,9 +47,9 @@ def capture_navigation_summary(context, userinterface_name: str, target_node: st
 
 
 def main():
-    """Main navigation function to goto live_fullscreen"""
+    """Main navigation function to goto live"""
     script_name = "goto_live"
-    executor = ScriptExecutor(script_name, "Navigate to live_fullscreen node")
+    executor = ScriptExecutor(script_name, "Navigate to live node")
     
     # Create argument parser
     parser = executor.create_argument_parser()
@@ -67,12 +67,12 @@ def main():
             executor.cleanup_and_exit(context, args.userinterface_name)
             return
         
-        # Find path to live_fullscreen
-        print(f"🗺️ [{script_name}] Finding path to live_fullscreen...")
-        navigation_path = find_shortest_path(context.tree_id, "live_fullscreen", context.team_id)
+        # Find path to live
+        print(f"🗺️ [{script_name}] Finding path to live...")
+        navigation_path = find_shortest_path(context.tree_id, "live", context.team_id)
         
         if not navigation_path:
-            context.error_message = "No path found to live_fullscreen"
+            context.error_message = "No path found to live"
             print(f"❌ [{script_name}] {context.error_message}")
             executor.cleanup_and_exit(context, args.userinterface_name)
             return
@@ -84,11 +84,11 @@ def main():
         context.overall_success = success
         
         # Capture summary for report
-        summary_text = capture_navigation_summary(context, args.userinterface_name, "live_fullscreen", len(navigation_path))
+        summary_text = capture_navigation_summary(context, args.userinterface_name, "live", len(navigation_path))
         context.execution_summary = summary_text
         
         if success:
-            print(f"🎉 [{script_name}] Successfully navigated to live_fullscreen!")
+            print(f"🎉 [{script_name}] Successfully navigated to live!")
         
     except KeyboardInterrupt:
         handle_keyboard_interrupt(script_name)
