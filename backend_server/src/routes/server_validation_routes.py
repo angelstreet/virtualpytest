@@ -237,27 +237,52 @@ def run_validation(tree_id: str):
         # Get team_id BEFORE starting background thread (while in Flask context)
         team_id = get_team_id()
         
-        # Execute validation script directly (like RunTests does)
+        # Execute validation script on HOST (exactly like RunTests does)
         import threading
         def execute_async():
             try:
                 print(f"[@route:run_validation] Starting validation script execution for task {task_id}")
                 
+                # Get host info from registry (same as RunTests)
+                from shared.lib.utils.host_utils import get_host_manager
+                host_manager = get_host_manager()
+                host_name = host.get('host_name')
+                host_info = host_manager.get_host(host_name)
+                
+                if not host_info:
+                    task_manager.complete_task(task_id, {}, error=f'Host not found: {host_name}')
+                    return
+                
                 # Build parameters for validation script like RunTests does
                 userinterface_name = f'tree_{tree_id}'
-                host_name = host.get('host_name')
-                
-                # Build parameter string: userinterface_name --host host_name --device device_id
                 parameters = f"{userinterface_name} --host {host_name} --device {device_id}"
                 
                 print(f"[@route:run_validation] Executing validation script with parameters: {parameters}")
                 
-                # Execute validation script using script_execution_utils (same as RunTests backend)
-                from shared.lib.utils.script_execution_utils import execute_script
+                # Forward to HOST for execution (exactly like RunTests does)
+                from shared.lib.utils.build_url_utils import buildHostUrl
+                import requests
                 
-                result = execute_script("validation", device_id, parameters)
+                # Prepare request payload (same as RunTests)
+                payload = {
+                    'script_name': 'validation',
+                    'device_id': device_id,
+                    'parameters': parameters,
+                    'task_id': task_id
+                }
                 
-                if result['success']:
+                # Build host URL and make request
+                host_url = buildHostUrl(host_info, '/host/script/execute')
+                
+                response = requests.post(
+                    host_url,
+                    json=payload,
+                    timeout=300  # 5 minutes timeout for validation
+                )
+                
+                result = response.json()
+                
+                if response.status_code in [200, 202] and result.get('success'):
                     print(f"[@route:run_validation] Validation script completed successfully")
                     
                     # Parse the script output to extract validation results
@@ -282,10 +307,10 @@ def run_validation(tree_id: str):
                         'summary': {
                             'totalNodes': 1,
                             'totalEdges': 1,
-                            'validNodes': 1 if result['success'] else 0,
-                            'errorNodes': 0 if result['success'] else 1,
+                            'validNodes': 1 if result.get('success') else 0,
+                            'errorNodes': 0 if not result.get('success') else 1,
                             'skippedEdges': 0,
-                            'overallHealth': 'excellent' if result['success'] else 'poor',
+                            'overallHealth': 'excellent' if result.get('success') else 'poor',
                             'executionTime': result.get('execution_time_ms', 0)
                         },
                         'nodeResults': [],
@@ -295,10 +320,10 @@ def run_validation(tree_id: str):
                                 'to': 'complete',
                                 'fromName': 'Validation Start',
                                 'toName': 'Validation Complete',
-                                'success': result['success'],
+                                'success': result.get('success', False),
                                 'skipped': False,
                                 'retryAttempts': 0,
-                                'errors': [result.get('stderr', '')] if not result['success'] else [],
+                                'errors': [result.get('stderr', '')] if not result.get('success') else [],
                                 'actionsExecuted': 1,
                                 'totalActions': 1,
                                 'executionTime': result.get('execution_time_ms', 0),
@@ -312,7 +337,7 @@ def run_validation(tree_id: str):
                     print(f"[@route:run_validation] Validation completed with report: {report_url}")
                     
                 else:
-                    error_msg = result.get('stderr') or 'Validation script execution failed'
+                    error_msg = result.get('error') or result.get('stderr') or 'Host validation execution failed'
                     print(f"[@route:run_validation] Validation script failed: {error_msg}")
                     task_manager.complete_task(task_id, {}, error=error_msg)
                 
