@@ -125,8 +125,15 @@ class ImageVerificationController:
             error_msg = f"Reference image corrupted or invalid format: '{os.path.basename(filtered_reference_path)}' (file exists but cannot be loaded)"
             return False, error_msg, {}
         
+        # Construct R2 URL for the reference image (for display purposes)
+        reference_name = os.path.basename(image_path)
+        if not reference_name.endswith(('.jpg', '.jpeg', '.png')):
+            reference_name = f"{reference_name}.jpg"
+        reference_r2_url = f"https://pub-604f1a4ce32747778c6d5ac5e3100217.r2.dev/reference-images/{model}/{reference_name}"
+        
         additional_data = {
-            "reference_image_path": filtered_reference_path,
+            "reference_image_path": filtered_reference_path,  # Local path for processing
+            "reference_image_url": reference_r2_url,          # R2 URL for display
             "image_filter": image_filter,
             "user_threshold": threshold  # Store user's original threshold setting
         }

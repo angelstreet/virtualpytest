@@ -685,14 +685,19 @@ def update_step_results_with_r2_urls(step_results: List[Dict], url_mapping: Dict
                 if r2_url != original_url:
                     print(f"[@utils:report_utils:update_step_results_with_r2_urls] Updated screenshot URL: {original_url} -> {r2_url}")
         
-        # Update verification_images (list of local paths)
+        # Update verification_images (mix of local paths and R2 URLs)
         if 'verification_images' in updated_step and updated_step['verification_images']:
             updated_verification_images = []
             for verification_image_path in updated_step['verification_images']:
-                r2_url = url_mapping.get(verification_image_path, verification_image_path)
-                updated_verification_images.append(r2_url)
-                if r2_url != verification_image_path:
-                    print(f"[@utils:report_utils:update_step_results_with_r2_urls] Updated verification image: {verification_image_path} -> {r2_url}")
+                # If it's already an R2 URL, keep it as is
+                if verification_image_path.startswith('http'):
+                    updated_verification_images.append(verification_image_path)
+                else:
+                    # It's a local path, try to map it to R2 URL
+                    r2_url = url_mapping.get(verification_image_path, verification_image_path)
+                    updated_verification_images.append(r2_url)
+                    if r2_url != verification_image_path:
+                        print(f"[@utils:report_utils:update_step_results_with_r2_urls] Updated verification image: {verification_image_path} -> {r2_url}")
             updated_step['verification_images'] = updated_verification_images
         
         # Update zapping analysis image filenames to R2 URLs

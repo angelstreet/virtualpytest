@@ -88,11 +88,14 @@ def execute_verification_directly(host, device, verification: Dict[str, Any]) ->
         # Extract verification images for upload (source and reference only)
         verification_images = []
         if verification_type == 'image':
-            # Image verification generates comparison images
-            if result.get('source_image_path'):
-                verification_images.append(result.get('source_image_path'))
-            if result.get('reference_image_path'):
-                verification_images.append(result.get('reference_image_path'))
+            # Image verification generates comparison images in the 'details' field
+            details = result.get('details', {})
+            # Source image (screenshot taken) - needs to be uploaded
+            if details.get('source_image_path'):
+                verification_images.append(details.get('source_image_path'))
+            # Reference image - use R2 URL directly (already stored in R2)
+            if details.get('reference_image_url'):
+                verification_images.append(details.get('reference_image_url'))
             # Note: Not including overlay as requested
         
         return {
