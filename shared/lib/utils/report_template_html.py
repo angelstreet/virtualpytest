@@ -75,25 +75,38 @@ def create_themed_html_template() -> str:
         
         <div class="content">
             <div class="section">
-                <div class="section-header" onclick="toggleSection('screenshots-content')">
-                <h2>Execution Summary & State</h2>
+                <div class="section-header" onclick="toggleSection('summary-content')">
+                    <h2>Execution Summary & State</h2>
                     <button class="toggle-btn">▶</button>
                 </div>
-                <div id="screenshots-content" class="collapsible-content">
-                    <div class="summary-state-container">
-                        <div class="execution-summary">
-                            {{execution_summary}}
-                        </div>
-                        <div class="state-screenshots">
-                            <h3>Initial & Final State</h3>
-                            <div class="screenshot-grid">
+                <div id="summary-content" class="collapsible-content">
+                    <!-- First Row: Initial, Final, Video in 3-column grid -->
+                    <div class="state-video-grid-container">
+                        <div class="state-video-grid-item">
+                            <h3>Initial State</h3>
+                            <div class="screenshot-container">
                                 {{initial_screenshot}}
+                            </div>
+                        </div>
+                        <div class="state-video-grid-item">
+                            <h3>Final State</h3>
+                            <div class="screenshot-container">
                                 {{final_screenshot}}
                             </div>
-                            <div class="test-video-section">
-                                <h4>Test Execution Video</h4>
+                        </div>
+                        <div class="state-video-grid-item">
+                            <h3>Test Execution Video</h3>
+                            <div class="test-video-content">
                                 {{test_video}}
                             </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Second Row: Execution Summary below -->
+                    <div class="execution-summary-section">
+                        <h3>Execution Summary</h3>
+                        <div class="execution-summary-content">
+                            {{execution_summary}}
                         </div>
                     </div>
                 </div>

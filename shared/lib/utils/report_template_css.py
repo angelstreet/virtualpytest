@@ -639,9 +639,72 @@ body {{
     height: 90px;
 }}
 
+.state-video-grid-container {{
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 20px;
+    margin-top: 15px;
+    margin-bottom: 25px;
+}}
+
+.state-video-grid-item {{
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-light);
+    border-radius: 6px;
+    padding: 15px;
+    transition: all 0.3s ease;
+    text-align: center;
+}}
+
+.state-video-grid-item h3 {{
+    color: var(--text-primary);
+    font-size: 1.1em;
+    font-weight: 600;
+    margin-bottom: 12px;
+    border-bottom: 1px solid var(--border-light);
+    padding-bottom: 8px;
+}}
+
+.execution-summary-section {{
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-light);
+    border-radius: 6px;
+    padding: 15px;
+    margin-top: 10px;
+}}
+
+.execution-summary-section h3 {{
+    color: var(--text-primary);
+    font-size: 1.1em;
+    font-weight: 600;
+    margin-bottom: 12px;
+    border-bottom: 1px solid var(--border-light);
+    padding-bottom: 8px;
+}}
+
+.execution-summary-content {{
+    font-size: 0.9em;
+    line-height: 1.4;
+}}
+
+.test-video-content {{
+    text-align: center;
+}}
+
+.screenshot-container {{
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}}
+
 @media (max-width: 768px) {{
     .summary-grid {{
         grid-template-columns: 1fr;
+    }}
+    
+    .state-video-grid-container {{
+        grid-template-columns: 1fr;
+        gap: 15px;
     }}
     
     .header {{
