@@ -134,21 +134,63 @@ export const useValidation = (treeId: string, providedHost?: any, providedDevice
         overallHealth = 'poor';
       }
 
-      // Create edge results from available data
-      const edgeResults = state.preview?.edges.map((edge, index) => ({
-        from: edge.from_node,
-        to: edge.to_node,
-        fromName: edge.from_name,
-        toName: edge.to_name,
-        success: index < successful, // Simple assumption - first N edges were successful
-        skipped: false,
-        retryAttempts: 0,
-        errors: index >= successful ? ['Validation failed'] : [],
-        actionsExecuted: 1,
-        totalActions: 1,
-        executionTime: executionTime / total, // Average time per edge
-        verificationResults: []
-      })) || [];
+      // Parse structured step data from validation output
+      const edgeResults: any[] = [];
+      const structuredDataMatch = stdout.match(/=== VALIDATION_STEPS_DATA_START ===([\s\S]*?)=== VALIDATION_STEPS_DATA_END ===/);
+      
+      if (structuredDataMatch) {
+        console.log('[@hook:useValidation] Found structured validation data');
+        const stepLines = structuredDataMatch[1].trim().split('\n');
+        for (const line of stepLines) {
+          if (line.startsWith('STEP:')) {
+            const parts = line.split('|');
+            if (parts.length >= 6) {
+              const fromName = parts[1];
+              const toName = parts[2];
+              const status = parts[3];
+              const duration = parseFloat(parts[4]);
+              const errorMessage = parts[5] || '';
+              
+              edgeResults.push({
+                from: fromName.toLowerCase().replace(/[^a-z0-9]/g, '_'),
+                to: toName.toLowerCase().replace(/[^a-z0-9]/g, '_'),
+                fromName,
+                toName,
+                success: status === 'PASS',
+                skipped: false,
+                retryAttempts: 0,
+                errors: errorMessage ? [errorMessage] : [],
+                actionsExecuted: 1,
+                totalActions: 1,
+                executionTime: duration * 1000, // Convert to milliseconds
+                verificationResults: []
+              });
+            }
+          }
+        }
+      }
+      
+      // If parsing failed, fall back to preview data
+      if (edgeResults.length === 0 && state.preview?.edges) {
+        console.warn('Could not parse step details from stdout, using preview data');
+        console.warn('Looking for structured data in stdout:', stdout.includes('VALIDATION_STEPS_DATA_START'));
+        state.preview.edges.forEach((edge, index) => {
+          edgeResults.push({
+            from: edge.from_node,
+            to: edge.to_node,
+            fromName: edge.from_name,
+            toName: edge.to_name,
+            success: index < successful,
+            skipped: false,
+            retryAttempts: 0,
+            errors: index >= successful ? ['Validation failed'] : [],
+            actionsExecuted: 1,
+            totalActions: 1,
+            executionTime: executionTime / total,
+            verificationResults: []
+          });
+        });
+      }
 
       return {
         treeId,

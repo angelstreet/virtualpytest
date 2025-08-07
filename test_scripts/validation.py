@@ -93,6 +93,24 @@ def capture_validation_summary(context: ScriptExecutionContext, userinterface_na
             lines.append(f"   Step {step_num}: {from_node} → {to_node}")
             lines.append(f"     Error: {error}")
     
+    # Add structured data for frontend parsing
+    lines.append("\n=== VALIDATION_STEPS_DATA_START ===")
+    for i, step in enumerate(context.step_results):
+        step_success = step.get('success', False)
+        from_node = step.get('from_node', 'unknown')
+        to_node = step.get('to_node', 'unknown')
+        execution_time = step.get('execution_time', 0) / 1000  # Convert to seconds
+        
+        # Get error message from verification results
+        error_msg = ""
+        verification_results = step.get('verification_results', [])
+        if verification_results and not step_success:
+            error_msg = verification_results[0].get('error', 'Unknown error')
+        
+        lines.append(f"STEP:{i+1}|{from_node}|{to_node}|{'PASS' if step_success else 'FAIL'}|{execution_time:.1f}|{error_msg}")
+    
+    lines.append("=== VALIDATION_STEPS_DATA_END ===")
+    
     return "\n".join(lines)
 
 
