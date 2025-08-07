@@ -9,6 +9,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { ValidationResults, ValidationPreviewData } from '../../types/features/Validation_Types';
 import { useHostManager } from '../useHostManager';
 import { useScript } from '../script/useScript';
+import { useNavigation } from '../../contexts/navigation/NavigationContext';
 
 // Simplified shared state store for validation
 const validationStore: Record<
@@ -52,6 +53,7 @@ const updateValidationState = (
 export const useValidation = (treeId: string, providedHost?: any, providedDeviceId?: string | null) => {
   const { selectedHost: contextHost, selectedDeviceId: contextDeviceId } = useHostManager();
   const { executeScript } = useScript();
+  const { treeName, currentTreeName } = useNavigation();
   
   // Use provided values if available, otherwise fall back to context
   const selectedHost = providedHost || contextHost;
@@ -202,7 +204,9 @@ export const useValidation = (treeId: string, providedHost?: any, providedDevice
 
         // Use the validation script with the existing useScript infrastructure
         // Parameters: userinterface_name --host <host> --device <device>
-        const userinterface_name = `tree_${treeId}`;
+        // Use actual tree name from navigation context, not constructed ID
+        const userinterface_name = treeName || currentTreeName || treeId;
+        console.log(`[@hook:useValidation] Using userinterface_name: '${userinterface_name}' (treeName: '${treeName}', currentTreeName: '${currentTreeName}', treeId: '${treeId}')`);
         const parameters = `${userinterface_name} --host ${selectedHost.host_name} --device ${selectedDeviceId}`;
 
         const scriptResult = await executeScript(
