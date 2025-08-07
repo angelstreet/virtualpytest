@@ -184,31 +184,37 @@ class HDMIStreamController(AVControllerInterface):
             
             # 2. Wait for encoder to finish and get updated playlist
             if test_start_time:
-                # Wait 30 seconds for encoder to finish and write final segments
-                print(f"HDMI[{self.capture_source}]: Waiting 30s for final segments to complete...")
-                time.sleep(30)
+                # Wait 18 seconds for encoder to finish and write final segments (3 segments)
+                print(f"HDMI[{self.capture_source}]: Waiting 18s for final segments to complete...")
+                time.sleep(18)
             
             # Read M3U8 playlist to get segment list
             with open(m3u8_path, 'r') as f:
                 playlist_content = f.read()
             
             # Extract .ts segment filenames from playlist
-            segment_files = []
+            all_segments = []
             for line in playlist_content.splitlines():
                 if line.endswith('.ts'):
                     segment_path = os.path.join(self.video_capture_path, line.strip())
                     if os.path.exists(segment_path):
-                        # HYBRID FILTER: Include 5 extra segments before test start + all after
-                        if test_start_time:
-                            # Include 5 extra segments before test start (5 * 6s = 30s buffer)
-                            buffer_time = 30  # 5 segments worth of safety buffer
-                            segment_creation_time = os.path.getctime(segment_path)
-                            
-                            if segment_creation_time >= (test_start_time - buffer_time):
-                                segment_files.append((line.strip(), segment_path))
-                        else:
-                            # No test start time provided, take all segments
-                            segment_files.append((line.strip(), segment_path))
+                        all_segments.append((line.strip(), segment_path))
+            
+            # DURATION-BASED FILTERING: Take last N segments based on test duration + buffer
+            segment_files = []
+            if test_start_time and duration_seconds:
+                # Calculate segments needed: test duration + 18s buffer, 6s per segment
+                buffer_seconds = 18  # 18s buffer (3 segments before + 3 segments after)
+                total_duration = duration_seconds + buffer_seconds
+                segments_needed = int(total_duration / 6) + 1  # +1 for safety
+                
+                print(f"HDMI[{self.capture_source}]: Test duration: {duration_seconds}s, taking last {segments_needed} segments")
+                
+                # Take the last N segments (most recent)
+                segment_files = all_segments[-segments_needed:] if len(all_segments) >= segments_needed else all_segments
+            else:
+                # No duration provided, take all available segments
+                segment_files = all_segments
             
             if not segment_files:
                 print(f"HDMI[{self.capture_source}]: No video segments found")
@@ -224,9 +230,28 @@ class HDMIStreamController(AVControllerInterface):
             from shared.lib.utils.cloudflare_utils import get_cloudflare_utils
             uploader = get_cloudflare_utils()
             
-            # Upload M3U8 playlist first
+            # Create new M3U8 playlist with only our selected segments
+            new_playlist_content = "#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:6\n"
+            for segment_name, segment_path in segment_files:
+                new_playlist_content += "#EXTINF:6.0,\n"
+                new_playlist_content += f"{segment_name}\n"
+            new_playlist_content += "#EXT-X-ENDLIST\n"
+            
+            # Write new playlist to temp file and upload
+            import tempfile
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.m3u8', delete=False) as temp_file:
+                temp_file.write(new_playlist_content)
+                temp_playlist_path = temp_file.name
+            
             playlist_remote_path = f"{video_folder}/playlist.m3u8"
-            playlist_result = uploader.upload_file(m3u8_path, playlist_remote_path)
+            playlist_result = uploader.upload_file(temp_playlist_path, playlist_remote_path)
+            
+            # Clean up temp file
+            import os
+            try:
+                os.unlink(temp_playlist_path)
+            except:
+                pass
             
             if not playlist_result.get('success'):
                 print(f"HDMI[{self.capture_source}]: Failed to upload playlist")
