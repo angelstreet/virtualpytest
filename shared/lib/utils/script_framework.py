@@ -271,6 +271,13 @@ class ScriptExecutor:
                 for screenshot_path in action_screenshots:
                     context.add_screenshot(screenshot_path)
                 
+                # Add step screenshots (both start and end)
+                if result.get('step_start_screenshot_path'):
+                    context.add_screenshot(result.get('step_start_screenshot_path'))
+                if result.get('step_end_screenshot_path'):
+                    context.add_screenshot(result.get('step_end_screenshot_path'))
+                    
+                # Legacy support for single screenshot_path
                 if result.get('screenshot_path'):
                     context.add_screenshot(result.get('screenshot_path'))
                 
@@ -284,7 +291,9 @@ class ScriptExecutor:
                 step_result = {
                     'step_number': step_num,
                     'success': result.get('success', False),
-                    'screenshot_path': result.get('screenshot_path'),
+                    'step_start_screenshot_path': result.get('step_start_screenshot_path'),
+                    'step_end_screenshot_path': result.get('step_end_screenshot_path'),
+                    'screenshot_path': result.get('screenshot_path'),  # Legacy support
                     'screenshot_url': result.get('screenshot_url'),
                     'action_screenshots': action_screenshots,
                     'verification_images': verification_images,  # Store verification images with step

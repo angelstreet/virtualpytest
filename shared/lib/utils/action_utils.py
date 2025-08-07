@@ -200,16 +200,16 @@ def execute_navigation_with_verifications(host, device, transition: Dict[str, An
         action_screenshots = action_result.get('action_screenshots', [])
         print(f"[@action_utils:execute_navigation] Captured {len(action_screenshots)} action screenshots")
         
-        # Step-level screenshot using current R2 system (not old Supabase)
+        # Step-start screenshot using current R2 system (not old Supabase)
         step_name = f"step_{transition.get('step_number', 'unknown')}_{from_node}_{to_node}"
-        step_screenshot_path = capture_validation_screenshot(host, device, step_name, script_context)
+        step_start_screenshot_path = capture_validation_screenshot(host, device, f"{step_name}_start", script_context)
         screenshot_url = None
         
-        if step_screenshot_path:
-            print(f"[@action_utils:execute_navigation] Step screenshot captured: {step_screenshot_path}")
+        if step_start_screenshot_path:
+            print(f"[@action_utils:execute_navigation] Step-start screenshot captured: {step_start_screenshot_path}")
             # Note: R2 upload happens later in batch via generate_and_upload_script_report()
         else:
-            print(f"[@action_utils:execute_navigation] Step screenshot capture failed")
+            print(f"[@action_utils:execute_navigation] Step-start screenshot capture failed")
         
         actions_success = action_result.get('success', False)
         
@@ -272,7 +272,8 @@ def execute_navigation_with_verifications(host, device, transition: Dict[str, An
                 'error': detailed_error or 'Navigation actions failed',
                 'message': f'Navigation step failed during action execution: {from_node} → {to_node}',
                 'verification_results': [],
-                'screenshot_path': step_screenshot_path,
+                'step_start_screenshot_path': step_start_screenshot_path,
+                'step_end_screenshot_path': None,  # No step-end screenshot since verifications didn't run
                 'action_screenshots': action_screenshots,
                 'verification_images': [],  # No verification images since verifications didn't run
                 'error_details': error_details,
@@ -340,13 +341,22 @@ def execute_navigation_with_verifications(host, device, transition: Dict[str, An
                 print(f"[@action_utils:execute_navigation]   Execution time: {verification_execution_time}ms")
                 print(f"[@action_utils:execute_navigation]   Verification config: {verification}")
                 
+                # Step-end screenshot after verification failure
+                step_end_screenshot_path = capture_validation_screenshot(host, device, f"{step_name}_end", script_context)
+                
+                if step_end_screenshot_path:
+                    print(f"[@action_utils:execute_navigation] Step-end screenshot captured after verification failure: {step_end_screenshot_path}")
+                else:
+                    print(f"[@action_utils:execute_navigation] Step-end screenshot capture failed after verification failure")
+                
                 return {
                     'success': False,
                     'error': f'Verification {i+1} ({verification_type}) failed: {verification_error}',
                     'message': f'Navigation step failed during verification {i+1}',
                     'verification_results': verification_results,
                     'verification_images': verification_image_paths,  # Include verification images even on failure
-                    'screenshot_path': step_screenshot_path,
+                    'step_start_screenshot_path': step_start_screenshot_path,
+                    'step_end_screenshot_path': step_end_screenshot_path,
                     'action_screenshots': action_screenshots,
                     'error_details': {
                         'verification_number': i+1,
@@ -358,6 +368,14 @@ def execute_navigation_with_verifications(host, device, transition: Dict[str, An
                     'global_verification_counter_increment': i + 1  # Increment by number of verifications executed so far
                 }
         
+        # Step-end screenshot after verifications complete
+        step_end_screenshot_path = capture_validation_screenshot(host, device, f"{step_name}_end", script_context)
+        
+        if step_end_screenshot_path:
+            print(f"[@action_utils:execute_navigation] Step-end screenshot captured: {step_end_screenshot_path}")
+        else:
+            print(f"[@action_utils:execute_navigation] Step-end screenshot capture failed")
+        
         execution_time = time.time() - start_time
         
         return {
@@ -367,7 +385,8 @@ def execute_navigation_with_verifications(host, device, transition: Dict[str, An
             'verifications_executed': len(verifications),
             'execution_time': execution_time,
             'screenshot_url': screenshot_url,
-            'screenshot_path': step_screenshot_path,
+            'step_start_screenshot_path': step_start_screenshot_path,
+            'step_end_screenshot_path': step_end_screenshot_path,
             'action_screenshots': action_screenshots,
             'verification_images': verification_image_paths,  # Add verification images for upload
             'global_verification_counter_increment': len(verifications)  # How much to increment the global counter
@@ -381,7 +400,8 @@ def execute_navigation_with_verifications(host, device, transition: Dict[str, An
             'success': False, 
             'error': f'Navigation step with verifications execution error: {str(e)}',
             'verification_results': [],
-            'screenshot_path': None,
+            'step_start_screenshot_path': None,
+            'step_end_screenshot_path': None,
             'action_screenshots': [],
             'verification_images': [],
             'global_verification_counter_increment': 0

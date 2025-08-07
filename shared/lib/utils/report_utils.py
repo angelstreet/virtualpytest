@@ -529,10 +529,12 @@ def create_compact_step_results_section(step_results: List[Dict], screenshots: D
         screenshot_html = ''
         screenshots_for_step = []
         
-        # 1. FIRST: Add step-level screenshot (taken at START of step)
-        if step.get('screenshot_url'):
+        # 1. FIRST: Add step-start screenshot (taken at START of step)
+        if step.get('step_start_screenshot_path'):
+            screenshots_for_step.append(('Step Start', step.get('step_start_screenshot_path'), None, None))
+        elif step.get('screenshot_url'):  # Legacy support
             screenshots_for_step.append(('Step Start', step.get('screenshot_url'), None, None))
-        elif step.get('screenshot_path'):
+        elif step.get('screenshot_path'):  # Legacy support
             screenshots_for_step.append(('Step Start', step.get('screenshot_path'), None, None))
         
         # 2. SECOND: Add action screenshots (taken during action execution)
@@ -563,6 +565,10 @@ def create_compact_step_results_section(step_results: List[Dict], screenshots: D
                 reference_image_url = details.get('reference_image_url')
                 if reference_image_url:
                     screenshots_for_step.append(('Reference Image', reference_image_url, None, None))
+        
+        # 4. LAST: Add step-end screenshot (taken at END of step after verifications)
+        if step.get('step_end_screenshot_path'):
+            screenshots_for_step.append(('Step End', step.get('step_end_screenshot_path'), None, None))
         
         if screenshots_for_step:
             step_id = step.get('step_number', step_index+1)
