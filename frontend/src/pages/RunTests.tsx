@@ -880,7 +880,7 @@ const RunTests: React.FC = () => {
                 )}
                 <Box
                   sx={{
-                    height: 400,
+                    minHeight: 400,
                     width: '100%',
                     backgroundColor: 'black',
                     borderRadius: 1,
