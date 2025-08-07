@@ -424,8 +424,9 @@ const RunTests: React.FC = () => {
         console.log(`[@RunTests] Execution ${executionId} completed with success: ${result.success}`);
         
         // Update execution record immediately
-        // Show 'completed' if script executed successfully, regardless of test result
-        const executionStatus = result.success ? 'completed' : 'failed';
+        // Determine if script execution completed (vs system error)
+        const scriptCompleted = result.stdout || result.stderr || result.exit_code !== undefined;
+        const executionStatus = scriptCompleted ? 'completed' : 'failed';
         const testResult = determineTestResult(result);
 
         // IMMEDIATE UI UPDATE
@@ -443,18 +444,18 @@ const RunTests: React.FC = () => {
         setCompletionStats(prev => ({
           ...prev,
           completed: prev.completed + 1,
-          successful: prev.successful + (result.success ? 1 : 0)
+          successful: prev.successful + (scriptCompleted ? 1 : 0)
         }));
 
         // Show individual completion toast
         const device = allDevices.find(d => executionId.includes(`${d.hostName}_${d.deviceId}`));
         if (device) {
-          if (result.success) {
+          if (scriptCompleted) {
             const testResultText = testResult === 'success' ? ' - Test PASSED' : 
                                  testResult === 'failure' ? ' - Test FAILED' : '';
             showSuccess(`✅ ${device.hostName}:${device.deviceId} completed successfully${testResultText}`);
           } else {
-            showError(`❌ ${device.hostName}:${device.deviceId} failed`);
+            showError(`❌ ${device.hostName}:${device.deviceId} execution failed`);
           }
         }
       };

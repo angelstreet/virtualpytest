@@ -267,7 +267,13 @@ def execute_script(script_name: str, device_id: str, parameters: str = "") -> Di
         
         total_execution_time = int((time.time() - start_time) * 1000)
         
-        # Script handles its own execution and provides all results
+        # Extract script results from stdout
+        report_url = ""
+        for line in stdout.split('\n') if stdout else []:
+            if line.startswith('SCRIPT_REPORT_URL:'):
+                report_url = line[18:]  # Remove 'SCRIPT_REPORT_URL:' prefix
+                break
+        
         return {
             'success': success,
             'stdout': stdout,
@@ -278,7 +284,7 @@ def execute_script(script_name: str, device_id: str, parameters: str = "") -> Di
             'script_path': script_path,
             'parameters': parameters,
             'execution_time_ms': total_execution_time,
-            'report_url': ""  # Script should provide this through proper channels
+            'report_url': report_url
         }
         
     except Exception as e:
