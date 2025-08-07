@@ -182,7 +182,13 @@ class HDMIStreamController(AVControllerInterface):
                 print(f"HDMI[{self.capture_source}]: No M3U8 file found")
                 return None
             
-            # 2. Read M3U8 playlist to get segment list
+            # 2. Wait for encoder to finish and get updated playlist
+            if test_start_time:
+                # Wait 30 seconds for encoder to finish and write final segments
+                print(f"HDMI[{self.capture_source}]: Waiting 30s for final segments to complete...")
+                time.sleep(30)
+            
+            # Read M3U8 playlist to get segment list
             with open(m3u8_path, 'r') as f:
                 playlist_content = f.read()
             
@@ -192,10 +198,16 @@ class HDMIStreamController(AVControllerInterface):
                 if line.endswith('.ts'):
                     segment_path = os.path.join(self.video_capture_path, line.strip())
                     if os.path.exists(segment_path):
-                        # FILTER BY TIME: Only include segments created after test start
-                        if test_start_time and os.path.getctime(segment_path) >= test_start_time:
-                            segment_files.append((line.strip(), segment_path))
-                        elif not test_start_time:
+                        # HYBRID FILTER: Include 5 extra segments before test start + all after
+                        if test_start_time:
+                            # Include 5 extra segments before test start (5 * 6s = 30s buffer)
+                            buffer_time = 30  # 5 segments worth of safety buffer
+                            segment_creation_time = os.path.getctime(segment_path)
+                            
+                            if segment_creation_time >= (test_start_time - buffer_time):
+                                segment_files.append((line.strip(), segment_path))
+                        else:
+                            # No test start time provided, take all segments
                             segment_files.append((line.strip(), segment_path))
             
             if not segment_files:
