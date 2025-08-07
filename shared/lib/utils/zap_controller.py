@@ -286,7 +286,8 @@ class ZapController:
         end_time = time.time()
         execution_time = int((end_time - start_time) * 1000)
         
-        # Store the action end time in context for zapping analysis
+        # Store both action start and end times in context for zapping analysis
+        context.last_action_start_time = start_time
         context.last_action_end_time = end_time
         
         self.statistics.total_execution_time += execution_time
@@ -484,21 +485,8 @@ class ZapController:
             if not capture_folder:
                 return {"success": False, "message": "No capture folder available"}
             
-            # Use action end time minus 2 seconds to account for the fact that zapping effect
-            # starts when tap is launched, and blackscreen can occur 2 seconds before our timestamp
-            # This ensures we capture blackscreen that starts earlier than expected
-            original_offset = 2.0
-            key_release_timestamp = (action_end_time - original_offset) if action_end_time else time.time() - 7
-            
-            # Ensure we never go below 1 second for minimum zapping duration
-            if action_end_time and (action_end_time - key_release_timestamp) < 1.0:
-                key_release_timestamp = action_end_time - 1.0
-                print(f"🎯 [ZapController] Adjusted timestamp to ensure minimum 1s zapping window")
-                print(f"🎯 [ZapController] Analysis window: {action_end_time - key_release_timestamp:.1f}s")
-            else:
-                print(f"🎯 [ZapController] Starting analysis {original_offset}s before action end time")
-                if action_end_time:
-                    print(f"🎯 [ZapController] Analysis window: {action_end_time - key_release_timestamp:.1f}s")
+            # Use action start time to catch blackscreen that happens during the action
+            key_release_timestamp = context.last_action_start_time
             
             # Simple hardcoded areas - no more over-engineering!
             device_model = context.selected_device.device_model if context.selected_device else 'unknown'
