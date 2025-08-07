@@ -158,6 +158,7 @@ const ValidationResultsClient: React.FC<ValidationResultsClientProps> = ({ treeI
                   <TableCell>From</TableCell>
                   <TableCell>To</TableCell>
                   <TableCell>Actions</TableCell>
+                  <TableCell>Verifications</TableCell>
                   <TableCell>Time</TableCell>
                   <TableCell>Error</TableCell>
                 </TableRow>
@@ -196,6 +197,9 @@ const ValidationResultsClient: React.FC<ValidationResultsClientProps> = ({ treeI
                     <TableCell>{result.toName}</TableCell>
                     <TableCell>
                       {result.actionsExecuted || 0}/{result.totalActions || 0}
+                    </TableCell>
+                    <TableCell>
+                      {result.verificationsExecuted || 0}/{result.totalVerifications || 0}
                     </TableCell>
                     <TableCell>
                       {result.executionTime ? `${result.executionTime.toFixed(1)}s` : '-'}
