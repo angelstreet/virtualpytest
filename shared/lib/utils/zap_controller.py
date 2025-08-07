@@ -303,6 +303,11 @@ class ZapController:
         # Wait 4 seconds after zap action to allow banner to disappear before analysis
         print(f"⏰ [ZapController] Waiting 4 seconds for banner to disappear...")
         time.sleep(4)
+        
+        # Capture a clean screenshot after banner disappears for analysis
+        analysis_step_name = f"zap_analysis_{iteration}_{action_command}"
+        analysis_screenshot_result = capture_and_upload_screenshot(context.host, context.selected_device, analysis_step_name, "zap")
+        print(f"📸 [ZapController] Captured clean screenshot for analysis: {analysis_screenshot_result['screenshot_path']}")
 
         # Analyze results
         analysis_result = self.analyze_after_zap(iteration, action_command, context)
@@ -388,8 +393,9 @@ class ZapController:
         try:
             print(f"🔍 [ZapController] Analyzing subtitles...")
             
+            # Use the latest screenshot (which should be the clean analysis screenshot)
             latest_screenshot = context.screenshot_paths[-1]
-            print(f"🔍 [ZapController] Using screenshot for subtitle analysis: {latest_screenshot}")
+            print(f"🔍 [ZapController] Using clean screenshot for subtitle analysis: {latest_screenshot}")
             device_id = context.selected_device.device_id
             
             # Get video verification controller - same as HTTP routes
