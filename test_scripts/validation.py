@@ -223,6 +223,9 @@ def main():
         summary_text = capture_validation_summary(context, args.userinterface_name)
         print_validation_summary(context, args.userinterface_name)
         
+        # Print the detailed summary to stdout for frontend parsing
+        print(summary_text)
+        
         # Store summary for report
         context.execution_summary = summary_text
         
