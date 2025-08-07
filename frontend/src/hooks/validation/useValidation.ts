@@ -141,33 +141,66 @@ export const useValidation = (treeId: string, providedHost?: any, providedDevice
       if (structuredDataMatch) {
         console.log('[@hook:useValidation] Found structured validation data');
         const stepLines = structuredDataMatch[1].trim().split('\n');
-        for (const line of stepLines) {
-          if (line.startsWith('STEP:')) {
-            const parts = line.split('|');
-            if (parts.length >= 6) {
-              const fromName = parts[1];
-              const toName = parts[2];
-              const status = parts[3];
-              const duration = parseFloat(parts[4]);
-              const errorMessage = parts[5] || '';
-              
-              edgeResults.push({
-                from: fromName.toLowerCase().replace(/[^a-z0-9]/g, '_'),
-                to: toName.toLowerCase().replace(/[^a-z0-9]/g, '_'),
-                fromName,
-                toName,
-                success: status === 'PASS',
-                skipped: false,
-                retryAttempts: 0,
-                errors: errorMessage ? [errorMessage] : [],
-                actionsExecuted: 1,
-                totalActions: 1,
-                executionTime: duration * 1000, // Convert to milliseconds
-                verificationResults: []
-              });
-            }
+              for (const line of stepLines) {
+        if (line.startsWith('STEP:')) {
+          const parts = line.split('|');
+          if (parts.length >= 10) {
+            // New format with action/verification counts
+            const fromName = parts[1];
+            const toName = parts[2];
+            const status = parts[3];
+            const duration = parseFloat(parts[4]);
+            const errorMessage = parts[5] || '';
+            const actionsExecuted = parseInt(parts[6]) || 0;
+            const totalActions = parseInt(parts[7]) || 0;
+            const verificationsExecuted = parseInt(parts[8]) || 0;
+            const totalVerifications = parseInt(parts[9]) || 0;
+            
+            edgeResults.push({
+              from: fromName.toLowerCase().replace(/[^a-z0-9]/g, '_'),
+              to: toName.toLowerCase().replace(/[^a-z0-9]/g, '_'),
+              fromName,
+              toName,
+              success: status === 'PASS',
+              skipped: false,
+              retryAttempts: 0,
+              errors: errorMessage ? [errorMessage] : [],
+              actionsExecuted,
+              totalActions,
+              verificationsExecuted,
+              totalVerifications,
+              executionTime: duration * 1000, // Convert to milliseconds
+              verificationResults: []
+            });
+          } else if (parts.length >= 6) {
+            // Fallback to old format for backward compatibility
+            const fromName = parts[1];
+            const toName = parts[2];
+            const status = parts[3];
+            const duration = parseFloat(parts[4]);
+            const errorMessage = parts[5] || '';
+            
+            edgeResults.push({
+              from: fromName.toLowerCase().replace(/[^a-z0-9]/g, '_'),
+              to: toName.toLowerCase().replace(/[^a-z0-9]/g, '_'),
+              fromName,
+              toName,
+              success: status === 'PASS',
+              skipped: false,
+              retryAttempts: 0,
+              errors: errorMessage ? [errorMessage] : [],
+              actionsExecuted: 1,
+              totalActions: 1,
+              verificationsExecuted: 0,
+              totalVerifications: 0,
+              executionTime: duration * 1000, // Convert to milliseconds
+              verificationResults: []
+            });
+          } else {
+            console.warn('[@hook:useValidation] Invalid step data format:', line);
           }
         }
+      }
       }
       
       // If parsing failed, fall back to preview data
