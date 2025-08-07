@@ -179,7 +179,14 @@ def main():
         success = executor.execute_navigation_sequence(
             context, validation_sequence, custom_validation_step_handler
         )
-        context.overall_success = success
+        
+        # Calculate validation success based on actual step results
+        successful_steps = sum(1 for step in context.step_results if step.get('success', False))
+        total_steps = len(context.step_results)
+        
+        # Validation is successful only if ALL steps pass
+        # For validation, we need 100% success rate
+        context.overall_success = successful_steps == total_steps and total_steps > 0
         
         # Print custom validation summary and capture it
         summary_text = capture_validation_summary(context, args.userinterface_name)
@@ -188,11 +195,10 @@ def main():
         # Store summary for report
         context.execution_summary = summary_text
         
-        # Set overall success - we completed the validation sequence
-        context.overall_success = True
-        
-        if success:
-            print("🎉 [validation] All validation steps completed successfully!")
+        if context.overall_success:
+            print(f"🎉 [validation] All {successful_steps}/{total_steps} validation steps passed successfully!")
+        else:
+            print(f"❌ [validation] Validation failed: {successful_steps}/{total_steps} steps passed")
         
     except KeyboardInterrupt:
         handle_keyboard_interrupt(script_name)

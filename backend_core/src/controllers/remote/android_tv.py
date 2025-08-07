@@ -72,6 +72,7 @@ class AndroidTVRemoteController(RemoteControllerInterface):
             
         self.android_device_id = f"{self.device_ip}:{self.device_port}"
         self.adb_utils = None
+        self.is_connected = True
         
         print(f"[@controller:AndroidTVRemote] Initialized for {self.android_device_id}")
         
