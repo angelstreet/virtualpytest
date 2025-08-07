@@ -529,7 +529,7 @@ class ZapController:
             )
             
             if zapping_result.get('success', False):
-                # Analysis completed successfully (regardless of whether zapping was detected)
+                # Analysis completed and zapping was detected
                 zapping_detected = zapping_result.get('zapping_detected', False)
                 blackscreen_duration = zapping_result.get('blackscreen_duration', 0.0)
                 channel_info = zapping_result.get('channel_info', {})
@@ -541,42 +541,65 @@ class ZapController:
                         print(f"   📺 Channel: {channel_info['channel_name']}")
                     if channel_info.get('program_name'):
                         print(f"   📺 Program: {channel_info['program_name']}")
+                    
+                    # Add zapping images to context screenshot collection for R2 upload
+                    self._add_zapping_images_to_screenshots(context, zapping_result, capture_folder)
+                    
+                    return {
+                        "success": True,
+                        "zapping_detected": True,
+                        "blackscreen_duration": blackscreen_duration,
+                        "zapping_duration": zapping_result.get('zapping_duration', 0.0),  # Total zapping duration
+                        "first_image": zapping_result.get('first_image'),
+                        "blackscreen_start_image": zapping_result.get('blackscreen_start_image'),
+                        "blackscreen_end_image": zapping_result.get('blackscreen_end_image'),
+                        "first_content_after_blackscreen": zapping_result.get('first_content_after_blackscreen'),
+                        "channel_detection_image": zapping_result.get('channel_detection_image'),
+                        "last_image": zapping_result.get('last_image'),
+                        "channel_info": channel_info,
+                        "analyzed_images": analyzed_images,
+                        "total_images_available": zapping_result.get('total_images_available', 0),
+                        "debug_images": zapping_result.get('debug_images', []),  # Include debug images
+                        "message": f"Zapping detected (analyzed {analyzed_images} images)",
+                        "details": zapping_result
+                    }
                 else:
-                    print(f"⚠️ [ZapController] No zapping sequence detected (analyzed {analyzed_images} images)")
-                
-                # Add zapping images to context screenshot collection for R2 upload
-                self._add_zapping_images_to_screenshots(context, zapping_result, capture_folder)
-                
-                return {
-                    "success": True,
-                    "zapping_detected": zapping_detected,
-                    "blackscreen_duration": blackscreen_duration,
-                    "zapping_duration": zapping_result.get('zapping_duration', 0.0),  # Total zapping duration
-                    "first_image": zapping_result.get('first_image'),
-                    "blackscreen_start_image": zapping_result.get('blackscreen_start_image'),
-                    "blackscreen_end_image": zapping_result.get('blackscreen_end_image'),
-                    "first_content_after_blackscreen": zapping_result.get('first_content_after_blackscreen'),
-                    "channel_detection_image": zapping_result.get('channel_detection_image'),
-                    "last_image": zapping_result.get('last_image'),
-                    "channel_info": channel_info,
-                    "analyzed_images": analyzed_images,
-                    "total_images_available": zapping_result.get('total_images_available', 0),
-                    "debug_images": zapping_result.get('debug_images', []),  # Include debug images
-                    "message": f"Zapping analysis completed - {'detected' if zapping_detected else 'not detected'} (analyzed {analyzed_images} images)",
-                    "details": zapping_result
-                }
+                    # Analysis completed but no blackscreen detected - this is an error for zapping tests
+                    print(f"❌ [ZapController] No blackscreen detected (analyzed {analyzed_images} images)")
+                    
+                    # Still add images for debugging
+                    self._add_zapping_images_to_screenshots(context, zapping_result, capture_folder)
+                    
+                    return {
+                        "success": False,
+                        "zapping_detected": False,
+                        "analyzed_images": analyzed_images,
+                        "total_images_available": zapping_result.get('total_images_available', 0),
+                        "debug_images": zapping_result.get('debug_images', []),
+                        "message": "No blackscreen detected",
+                        "error": "No blackscreen detected"
+                    }
             else:
-                # Analysis actually failed (couldn't load images, etc.)
-                error_msg = zapping_result.get('error', 'Analysis failed without specific error message')
+                # Analysis actually failed (couldn't load images, configuration error, etc.)
+                error_msg = zapping_result.get('error', f'Analysis could not be performed - no images were analyzed (folder: {capture_folder})')
                 print(f"❌ [ZapController] Zapping analysis failed: {error_msg}")
                 
                 # Still include debug images if available for debugging
                 debug_images = zapping_result.get('debug_images', [])
+                total_available = zapping_result.get('total_images_available', 0)
+                analyzed_count = zapping_result.get('analyzed_images', 0)
+                
+                detailed_message = f"Zapping analysis failed: {error_msg}"
+                if total_available > 0:
+                    detailed_message += f" (found {total_available} images, analyzed {analyzed_count})"
+                
                 return {
                     "success": False,
                     "zapping_detected": False,
                     "debug_images": debug_images,
-                    "message": f"Zapping analysis failed: {error_msg}",
+                    "analyzed_images": analyzed_count,
+                    "total_images_available": total_available,
+                    "message": detailed_message,
                     "error": error_msg
                 }
                 

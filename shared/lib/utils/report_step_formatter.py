@@ -381,8 +381,6 @@ def format_analysis_results(step: Dict) -> str:
                 if channel_info.get('start_time') and channel_info.get('end_time'):
                     analysis_html += f'<div class="analysis-detail">Program Time: {channel_info["start_time"]}-{channel_info["end_time"]}</div>'
         else:
-            if zapping_analysis.get('analyzed_images', 0) > 0:
-                analysis_html += f'<div class="analysis-detail">Images Analyzed: {zapping_analysis.get("analyzed_images")} (no zapping sequence found)</div>'
             if zapping_analysis.get('message'):
                 analysis_html += f'<div class="analysis-detail">Details: {zapping_analysis.get("message")}</div>'
     
