@@ -420,13 +420,15 @@ class ZapController:
                 else:
                     print(f"⚠️ [ZapController] No subtitles detected in {latest_screenshot}")
                 
-                # Add screenshot to context for reporting
+                # Add screenshot to context for reporting (for R2 upload)
                 context.add_screenshot(latest_screenshot)
                 
                 return subtitle_result
             else:
                 error_msg = result.get('message', 'Subtitle analysis failed')
                 print(f"❌ [ZapController] Subtitle analysis failed: {error_msg} (image: {latest_screenshot})")
+                # Add screenshot to context for reporting even when failed (for debugging)
+                context.add_screenshot(latest_screenshot)
                 return {
                     "success": False, 
                     "analyzed_screenshot": latest_screenshot,
@@ -437,6 +439,9 @@ class ZapController:
             error_msg = f"Subtitle analysis error: {e}"
             image_info = f" (image: {latest_screenshot})" if 'latest_screenshot' in locals() else ""
             print(f"❌ [ZapController] {error_msg}{image_info}")
+            # Add screenshot to context for reporting even when exception occurs (for debugging)
+            if 'latest_screenshot' in locals():
+                context.add_screenshot(latest_screenshot)
             return {
                 "success": False,
                 "analyzed_screenshot": latest_screenshot if 'latest_screenshot' in locals() else None,
