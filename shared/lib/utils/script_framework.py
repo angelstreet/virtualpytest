@@ -317,13 +317,20 @@ class ScriptExecutor:
                     print(f"✅ [{self.script_name}] Step {step_num} completed successfully in {step_execution_time}ms")
                     print(f"📸 [{self.script_name}] Step {step_num} captured {len(action_screenshots)} action screenshots")
             
-            # Determine overall success based on completion
+            # Determine overall success based on actual step success rate
             total_successful = len([s for s in context.step_results if s.get('success', False)])
+            total_steps = len(navigation_path)
+            success_rate = total_successful / total_steps if total_steps > 0 else 0
+            
             print(f"🎉 [{self.script_name}] Navigation sequence completed!")
-            print(f"📊 [{self.script_name}] Results: {total_successful}/{len(navigation_path)} steps successful")
+            print(f"📊 [{self.script_name}] Results: {total_successful}/{total_steps} steps successful ({success_rate:.1%})")
             print(f"🔄 [{self.script_name}] Recovery: {context.recovered_steps} successful recoveries")
             
-            return True  # Always return True - we completed the sequence
+            # Define success criteria: at least 80% of steps must succeed
+            navigation_success = success_rate >= 0.8
+            print(f"🎯 [{self.script_name}] Navigation {'SUCCESS' if navigation_success else 'FAILED'} (threshold: 80%)")
+            
+            return navigation_success
             
         except Exception as e:
             context.error_message = f"Navigation execution error: {str(e)}"
@@ -500,12 +507,9 @@ class ScriptExecutor:
             print(f"SCRIPT_REPORT_URL:{report_result['report_url']}")
         
         # Exit with proper code
-        if context.overall_success:
-            print(f"✅ [{self.script_name}] Exiting with success code 0")
-            sys.exit(0)
-        else:
-            print(f"❌ [{self.script_name}] Exiting with failure code 1")
-            sys.exit(1)
+        # Always exit with 0 for completed execution (test result is in SCRIPT_SUCCESS)
+        print(f"✅ [{self.script_name}] Script execution completed (test result: {'PASS' if context.overall_success else 'FAIL'})")
+        sys.exit(0)
     
     def print_execution_summary(self, context: ScriptExecutionContext, userinterface_name: str):
         """Print execution summary"""
