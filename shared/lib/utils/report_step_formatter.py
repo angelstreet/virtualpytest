@@ -322,8 +322,69 @@ def format_analysis_results(step: Dict) -> str:
         if motion_analysis.get('message'):
             analysis_html += f'<div class="analysis-detail">Details: {motion_analysis.get("message")}</div>'
     
-    # Add other analysis types here...
-    # (Shortened for brevity - the full implementation would include subtitle, audio menu, and zapping analysis)
+    # Subtitle Analysis Results
+    if subtitle_analysis and subtitle_analysis.get('success') is not None:
+        subtitle_detected = subtitle_analysis.get('subtitles_detected', False)
+        subtitle_status = "✅ DETECTED" if subtitle_detected else "❌ NOT DETECTED"
+        analysis_html += f'<div class="analysis-item subtitle"><strong>Subtitle Detection:</strong> {subtitle_status}</div>'
+        
+        if subtitle_detected:
+            if subtitle_analysis.get('detected_language'):
+                analysis_html += f'<div class="analysis-detail">Language: {subtitle_analysis.get("detected_language")}</div>'
+            if subtitle_analysis.get('extracted_text'):
+                text_preview = subtitle_analysis.get('extracted_text')[:100] + ('...' if len(subtitle_analysis.get('extracted_text', '')) > 100 else '')
+                analysis_html += f'<div class="analysis-detail">Text: {text_preview}</div>'
+        elif subtitle_analysis.get('message'):
+            analysis_html += f'<div class="analysis-detail">Details: {subtitle_analysis.get("message")}</div>'
+    
+    # Audio Menu Analysis Results
+    if audio_menu_analysis and audio_menu_analysis.get('success') is not None:
+        menu_detected = audio_menu_analysis.get('menu_detected', False)
+        menu_status = "✅ DETECTED" if menu_detected else "❌ NOT DETECTED"
+        analysis_html += f'<div class="analysis-item audio-menu"><strong>Audio Menu Detection:</strong> {menu_status}</div>'
+        
+        if menu_detected:
+            audio_languages = audio_menu_analysis.get('audio_languages', [])
+            subtitle_languages = audio_menu_analysis.get('subtitle_languages', [])
+            if audio_languages:
+                analysis_html += f'<div class="analysis-detail">Audio Languages: {", ".join(audio_languages)}</div>'
+            if subtitle_languages:
+                analysis_html += f'<div class="analysis-detail">Subtitle Languages: {", ".join(subtitle_languages)}</div>'
+        elif audio_menu_analysis.get('message'):
+            analysis_html += f'<div class="analysis-detail">Details: {audio_menu_analysis.get("message")}</div>'
+    
+    # Zapping Analysis Results  
+    if zapping_analysis and zapping_analysis.get('success') is not None:
+        zapping_detected = zapping_analysis.get('zapping_detected', False)
+        zapping_status = "✅ DETECTED" if zapping_detected else "❌ NOT DETECTED"
+        analysis_html += f'<div class="analysis-item zapping"><strong>Zapping Detection:</strong> {zapping_status}</div>'
+        
+        if zapping_detected:
+            blackscreen_duration = zapping_analysis.get('blackscreen_duration', 0)
+            zapping_duration = zapping_analysis.get('zapping_duration', 0)
+            channel_info = zapping_analysis.get('channel_info', {})
+            analyzed_images = zapping_analysis.get('analyzed_images', 0)
+            
+            analysis_html += f'<div class="analysis-detail">Blackscreen Duration: {blackscreen_duration:.1f}s</div>'
+            if zapping_duration > 0:
+                analysis_html += f'<div class="analysis-detail">Total Zapping Duration: {zapping_duration:.1f}s</div>'
+            if analyzed_images > 0:
+                analysis_html += f'<div class="analysis-detail">Images Analyzed: {analyzed_images}</div>'
+                
+            # Channel information
+            if channel_info.get('channel_name'):
+                channel_display = channel_info['channel_name']
+                if channel_info.get('program_name'):
+                    channel_display += f" - {channel_info['program_name']}"
+                analysis_html += f'<div class="analysis-detail">Channel: {channel_display}</div>'
+                
+                if channel_info.get('start_time') and channel_info.get('end_time'):
+                    analysis_html += f'<div class="analysis-detail">Program Time: {channel_info["start_time"]}-{channel_info["end_time"]}</div>'
+        else:
+            if zapping_analysis.get('analyzed_images', 0) > 0:
+                analysis_html += f'<div class="analysis-detail">Images Analyzed: {zapping_analysis.get("analyzed_images")} (no zapping sequence found)</div>'
+            if zapping_analysis.get('message'):
+                analysis_html += f'<div class="analysis-detail">Details: {zapping_analysis.get("message")}</div>'
     
     return analysis_html
 
