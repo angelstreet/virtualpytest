@@ -318,8 +318,8 @@ function openVerificationImageModal(modalData) {{
                     <h3 id="verification-modal-title">Image Verification Comparison</h3>
                     <button class="modal-close" onclick="closeVerificationImageModal()">&times;</button>
                 </div>
-                <div class="modal-body" style="display: flex; flex-wrap: wrap; justify-content: center; gap: 20px;">
-                    <div id="verification-images-container" style="display: flex; flex-wrap: wrap; justify-content: center; gap: 20px;"></div>
+                <div class="modal-body" style="display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; align-items: flex-start;">
+                    <div id="verification-images-container" style="display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; width: 100%;"></div>
                 </div>
             </div>
         `;
@@ -333,13 +333,55 @@ function openVerificationImageModal(modalData) {{
     modalData.images.forEach(image => {{
         const imageDiv = document.createElement('div');
         imageDiv.style.textAlign = 'center';
-        imageDiv.style.maxWidth = '32%';
-        imageDiv.style.minWidth = '300px';
+        
+        // Dynamic width based on number of images for better layout
+        const imageCount = modalData.images.length;
+        if (imageCount === 4) {{
+            imageDiv.style.width = '23%';  // 4 images in one row (23% * 4 = 92% + gaps)
+            imageDiv.style.minWidth = '200px';
+        }} else if (imageCount === 3) {{
+            imageDiv.style.maxWidth = '32%';
+            imageDiv.style.minWidth = '250px';
+        }} else {{
+            imageDiv.style.maxWidth = '45%';
+            imageDiv.style.minWidth = '300px';
+        }}
+        
+        // Extract timestamp from filename (capture_YYYYMMDDHHMMSS.jpg)
+        const extractTimestamp = (url) => {{
+            const match = url.match(/capture_(\d{{8}})(\d{{6}})/);
+            if (match) {{
+                const date = match[1]; // YYYYMMDD
+                const time = match[2]; // HHMMSS
+                const year = date.substring(0, 4);
+                const month = date.substring(4, 6);
+                const day = date.substring(6, 8);
+                const hour = time.substring(0, 2);
+                const minute = time.substring(2, 4);
+                const second = time.substring(4, 6);
+                return `${{hour}}:${{minute}}:${{second}}`;
+            }}
+            return '';
+        }};
+        
+        const timestamp = extractTimestamp(image.url);
+        
+        // Timestamp display (small, gray text)
+        if (timestamp) {{
+            const timestampDiv = document.createElement('div');
+            timestampDiv.textContent = timestamp;
+            timestampDiv.style.fontSize = '12px';
+            timestampDiv.style.color = '#999';
+            timestampDiv.style.marginBottom = '5px';
+            timestampDiv.style.fontFamily = 'monospace';
+            imageDiv.appendChild(timestampDiv);
+        }}
         
         const title = document.createElement('h4');
         title.textContent = image.label;
         title.style.marginBottom = '10px';
         title.style.color = 'var(--text-primary)';
+        title.style.fontSize = '14px';
         
         const img = document.createElement('img');
         img.src = image.url;
