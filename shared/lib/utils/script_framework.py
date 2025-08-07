@@ -284,6 +284,7 @@ class ScriptExecutor:
                     'screenshot_path': result.get('screenshot_path'),
                     'screenshot_url': result.get('screenshot_url'),
                     'action_screenshots': action_screenshots,
+                    'verification_images': verification_images,  # Store verification images with step
                     'message': f"Navigation step {step_num}: {from_node} → {to_node}",
                     'execution_time_ms': step_execution_time,
                     'start_time': step_start_timestamp,

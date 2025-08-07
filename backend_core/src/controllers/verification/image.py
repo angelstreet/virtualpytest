@@ -180,7 +180,7 @@ class ImageVerificationController:
             # Create detailed error message with source and reference info
             source_info = f"source: {os.path.basename(best_source_path)}" if best_source_path else "source: none"
             reference_info = f"reference: {os.path.basename(resolved_image_path)}"
-            error_msg = f"Image not found - {reference_info} not detected in {source_info}. Best match: {max_threshold_score:.3f} (required: {threshold:.3f})"
+            error_msg = f"{reference_info} not detected in {source_info}. Best match: {max_threshold_score:.3f} (required: {threshold:.3f})"
             
             return False, error_msg, additional_data
         

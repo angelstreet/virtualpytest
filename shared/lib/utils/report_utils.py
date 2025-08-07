@@ -419,6 +419,19 @@ def create_compact_step_results_section(step_results: List[Dict], screenshots: D
             action_params = actions[i].get('params', {}) if i < len(actions) else {}
             screenshots_for_step.append((f'Action {i+1}', screenshot_path, action_cmd, action_params))
         
+        # Add verification images (source and reference)
+        verification_images = step.get('verification_images', [])
+        for i, verification_image_path in enumerate(verification_images):
+            # Try to identify if it's a source or reference image based on filename
+            filename = os.path.basename(verification_image_path) if verification_image_path else 'unknown'
+            if 'reference' in filename.lower():
+                image_type = 'Reference Image'
+            elif 'source' in filename.lower():
+                image_type = 'Source Image'
+            else:
+                image_type = f'Verification Image {i+1}'
+            screenshots_for_step.append((image_type, verification_image_path, None, None))
+        
         # Add step-level screenshot if available
         if step.get('screenshot_url'):
             screenshots_for_step.append(('Step', step.get('screenshot_url'), None, None))
@@ -671,6 +684,16 @@ def update_step_results_with_r2_urls(step_results: List[Dict], url_mapping: Dict
                 updated_step['screenshot_url'] = r2_url
                 if r2_url != original_url:
                     print(f"[@utils:report_utils:update_step_results_with_r2_urls] Updated screenshot URL: {original_url} -> {r2_url}")
+        
+        # Update verification_images (list of local paths)
+        if 'verification_images' in updated_step and updated_step['verification_images']:
+            updated_verification_images = []
+            for verification_image_path in updated_step['verification_images']:
+                r2_url = url_mapping.get(verification_image_path, verification_image_path)
+                updated_verification_images.append(r2_url)
+                if r2_url != verification_image_path:
+                    print(f"[@utils:report_utils:update_step_results_with_r2_urls] Updated verification image: {verification_image_path} -> {r2_url}")
+            updated_step['verification_images'] = updated_verification_images
         
         # Update zapping analysis image filenames to R2 URLs
         if 'zapping_analysis' in updated_step and updated_step['zapping_analysis']:
