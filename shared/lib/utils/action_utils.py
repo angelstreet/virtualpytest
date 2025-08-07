@@ -256,6 +256,9 @@ def execute_navigation_with_verifications(host, device, transition: Dict[str, An
                 'error': detailed_error or 'Navigation actions failed',
                 'message': f'Navigation step failed during action execution: {from_node} → {to_node}',
                 'verification_results': [],
+                'screenshot_path': step_screenshot_path,
+                'action_screenshots': action_screenshots,
+                'verification_images': [],  # No verification images since verifications didn't run
                 'error_details': error_details
             }
         
@@ -322,6 +325,9 @@ def execute_navigation_with_verifications(host, device, transition: Dict[str, An
                     'error': f'Verification {i+1} ({verification_type}) failed: {verification_error}',
                     'message': f'Navigation step failed during verification {i+1}',
                     'verification_results': verification_results,
+                    'verification_images': verification_image_paths,  # Include verification images even on failure
+                    'screenshot_path': step_screenshot_path,
+                    'action_screenshots': action_screenshots,
                     'error_details': {
                         'verification_number': i+1,
                         'verification_type': verification_type,
@@ -352,7 +358,10 @@ def execute_navigation_with_verifications(host, device, transition: Dict[str, An
         return {
             'success': False, 
             'error': f'Navigation step with verifications execution error: {str(e)}',
-            'verification_results': []
+            'verification_results': [],
+            'screenshot_path': None,
+            'action_screenshots': [],
+            'verification_images': []
         }
 
 
