@@ -246,7 +246,7 @@ def execute_command(command: str, timeout: int = 30) -> Tuple[bool, str, str, in
 
 
 def execute_script(script_name: str, device_id: str, parameters: str = "") -> Dict[str, Any]:
-    """Execute a script with parameters and generate report"""
+    """Execute a script with parameters and real-time output streaming"""
     start_time = time.time()
     
     try:
@@ -263,21 +263,75 @@ def execute_script(script_name: str, device_id: str, parameters: str = "") -> Di
         else:
             command = f"{base_command}'"
         
-        success, stdout, stderr, exit_code = execute_command(command, timeout=300)  # Increased timeout
+        print(f"[@script_execution_utils:execute_script] Executing: {command}")
+        print(f"[@script_execution_utils:execute_script] === SCRIPT OUTPUT START ===")
+        
+        # Use streaming subprocess execution (like campaign executor)
+        process = subprocess.Popen(
+            command,
+            shell=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,  # Merge stderr into stdout for unified streaming
+            text=True,
+            bufsize=1,  # Line buffered
+            universal_newlines=True
+        )
+        
+        # Stream output in real-time with timeout
+        stdout_lines = []
+        report_url = ""
+        script_success = None
+        timeout_seconds = 3600  # 1 hour timeout
+        start_time_for_timeout = time.time()
+        
+        while True:
+            output = process.stdout.readline()
+            if output == '' and process.poll() is not None:
+                break
+            if output:
+                line = output.rstrip()
+                
+                # Extract script metadata while streaming
+                if line.startswith('SCRIPT_REPORT_URL:'):
+                    report_url = line[18:]  # Remove prefix
+                    print(f"📊 [Script] Report URL captured: {report_url}")
+                elif line.startswith('SCRIPT_SUCCESS:'):
+                    script_success = line.split('SCRIPT_SUCCESS:', 1)[1].lower() == 'true'
+                    status_emoji = "✅" if script_success else "❌"
+                    print(f"{status_emoji} [Script] Final result: {'SUCCESS' if script_success else 'FAILED'}")
+                else:
+                    # Stream all other output with prefix
+                    print(f"[{script_name}] {line}")
+                
+                stdout_lines.append(output)
+            
+            # Check for timeout
+            if time.time() - start_time_for_timeout > timeout_seconds:
+                print(f"⚠️ [Script] Timeout after {timeout_seconds} seconds, terminating...")
+                process.terminate()
+                try:
+                    process.wait(timeout=10)  # Give it 10 seconds to terminate gracefully
+                except subprocess.TimeoutExpired:
+                    print(f"❌ [Script] Force killing process...")
+                    process.kill()
+                    process.wait()
+                stdout_lines.append(f"\n[TIMEOUT] Script execution timed out after {timeout_seconds} seconds\n")
+                break
+        
+        # Wait for process completion
+        exit_code = process.wait()
+        stdout = ''.join(stdout_lines)
+        
+        print(f"[@script_execution_utils:execute_script] === SCRIPT OUTPUT END ===")
+        print(f"[@script_execution_utils:execute_script] Process completed with exit code: {exit_code}")
         
         total_execution_time = int((time.time() - start_time) * 1000)
-        
-        # Extract script results from stdout
-        report_url = ""
-        for line in stdout.split('\n') if stdout else []:
-            if line.startswith('SCRIPT_REPORT_URL:'):
-                report_url = line[18:]  # Remove 'SCRIPT_REPORT_URL:' prefix
-                break
+        success = exit_code == 0
         
         return {
             'success': success,
             'stdout': stdout,
-            'stderr': stderr,
+            'stderr': '',  # We merged stderr into stdout
             'exit_code': exit_code,
             'script_name': script_name,
             'device_id': device_id,
@@ -289,6 +343,7 @@ def execute_script(script_name: str, device_id: str, parameters: str = "") -> Di
         
     except Exception as e:
         total_execution_time = int((time.time() - start_time) * 1000)
+        print(f"[@script_execution_utils:execute_script] ERROR: {str(e)}")
         
         return {
             'success': False,
