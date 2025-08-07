@@ -206,7 +206,7 @@ export const useValidation = (treeId: string, providedHost?: any, providedDevice
         const parameters = `${userinterface_name} --host ${selectedHost.host_name} --device ${selectedDeviceId}`;
 
         const scriptResult = await executeScript(
-          'validation.py',
+          'validation',
           selectedHost.host_name,
           selectedDeviceId,
           parameters

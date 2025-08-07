@@ -189,7 +189,12 @@ def get_scripts_directory() -> str:
 def get_script_path(script_name: str) -> str:
     """Get full path to a script file"""
     scripts_dir = get_scripts_directory()
-    script_path = os.path.join(scripts_dir, f'{script_name}.py')
+    
+    # Handle script names that already have .py extension
+    if script_name.endswith('.py'):
+        script_path = os.path.join(scripts_dir, script_name)
+    else:
+        script_path = os.path.join(scripts_dir, f'{script_name}.py')
     
     if not os.path.exists(script_path):
         raise ValueError(f'Script not found: {script_path}')

@@ -85,12 +85,23 @@ def execute_verification_directly(host, device, verification: Dict[str, Any]) ->
         
         result = verification_controller.execute_verification(verification)
         
+        # Extract verification images for upload (source and reference only)
+        verification_images = []
+        if verification_type == 'image':
+            # Image verification generates comparison images
+            if result.get('source_image_path'):
+                verification_images.append(result.get('source_image_path'))
+            if result.get('reference_image_path'):
+                verification_images.append(result.get('reference_image_path'))
+            # Note: Not including overlay as requested
+        
         return {
             'success': result.get('success', False),
             'message': result.get('message', 'Verification completed'),
             'error': result.get('message', 'Verification completed') if not result.get('success', False) else None,
             'verification_type': verification_type,
-            'resultType': 'PASS' if result.get('success') else 'FAIL'
+            'resultType': 'PASS' if result.get('success') else 'FAIL',
+            'verification_images': verification_images  # Add images for upload
         }
             
     except Exception as e:
@@ -248,10 +259,21 @@ def execute_navigation_with_verifications(host, device, transition: Dict[str, An
         verifications = transition.get('verifications', [])
         verification_results = []
         
+        # Collect verification images for upload
+        verification_image_paths = []
+        
         for i, verification in enumerate(verifications):
             verification_start_time = time.time()
             verify_result = execute_verification_directly(host, device, verification)
             verification_execution_time = int((time.time() - verification_start_time) * 1000)
+            
+            # Collect verification images (source and reference)
+            verification_images = verify_result.get('verification_images', [])
+            if verification_images:
+                verification_image_paths.extend(verification_images)
+                print(f"[@action_utils:execute_navigation] Collected {len(verification_images)} verification images for step:")
+                for img_path in verification_images:
+                    print(f"  - {os.path.basename(img_path) if img_path else 'None'}")
             
             if tree_id:
                 try:
@@ -316,7 +338,8 @@ def execute_navigation_with_verifications(host, device, transition: Dict[str, An
             'execution_time': execution_time,
             'screenshot_url': screenshot_url,
             'screenshot_path': step_screenshot_path,
-            'action_screenshots': action_screenshots
+            'action_screenshots': action_screenshots,
+            'verification_images': verification_image_paths  # Add verification images for upload
         }
         
     except Exception as e:

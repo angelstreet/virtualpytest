@@ -271,6 +271,12 @@ class ScriptExecutor:
                 if result.get('screenshot_path'):
                     context.add_screenshot(result.get('screenshot_path'))
                 
+                # Collect verification images (source and reference)
+                verification_images = result.get('verification_images', [])
+                for verification_image in verification_images:
+                    context.add_screenshot(verification_image)
+                    print(f"[@script_framework] Added verification image to upload: {verification_image}")
+                
                 # Record step result
                 step_result = {
                     'step_number': step_num,

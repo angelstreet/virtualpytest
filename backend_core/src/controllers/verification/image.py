@@ -105,7 +105,7 @@ class ImageVerificationController:
         # Resolve reference image path using provided device model
         resolved_image_path = self._resolve_reference_image(image_path, model)
         if not resolved_image_path:
-            error_msg = f"Reference image not found and could not be downloaded: {image_path}"
+            error_msg = f"Reference image file not found: '{image_path}' (could not locate or download reference image)"
             print(f"[@controller:ImageVerification] {error_msg}")
             return False, error_msg, {}
         
@@ -122,7 +122,8 @@ class ImageVerificationController:
         
         ref_img = cv2.imread(filtered_reference_path, cv2.IMREAD_COLOR)
         if ref_img is None:
-            return False, f"Could not load reference image: {filtered_reference_path}", {}
+            error_msg = f"Reference image corrupted or invalid format: '{os.path.basename(filtered_reference_path)}' (file exists but cannot be loaded)"
+            return False, error_msg, {}
         
         additional_data = {
             "reference_image_path": filtered_reference_path,
@@ -138,10 +139,12 @@ class ImageVerificationController:
             
             for source_path in image_list:
                 if not os.path.exists(source_path):
+                    print(f"[@controller:ImageVerification] WARNING: Source image not found: {os.path.basename(source_path)}")
                     continue
                 
                 source_img = cv2.imread(source_path, cv2.IMREAD_COLOR)
                 if source_img is None:
+                    print(f"[@controller:ImageVerification] WARNING: Source image corrupted/invalid: {os.path.basename(source_path)}")
                     continue
                 
                 threshold_score = self._match_template(ref_img, source_img, area)
@@ -154,29 +157,37 @@ class ImageVerificationController:
                 if threshold_score >= threshold:
                     print(f"[@controller:ImageVerification] Match found in {source_path} with threshold score {threshold_score:.3f}")
                     
-                    # Generate comparison images using stored device model
-                    image_urls = self._generate_comparison_images(source_path, resolved_image_path, area, verification_index, image_filter)
-                    additional_data.update(image_urls)
-                    
                     # Save actual threshold score (separate from user threshold)
                     additional_data["matching_result"] = threshold_score  # Actual threshold score
                     
+                    # Generate comparison images for successful match
+                    image_urls = self._generate_comparison_images(source_path, resolved_image_path, area, verification_index, image_filter)
+                    additional_data.update(image_urls)
+                    
                     return True, f"Image found with threshold score {threshold_score:.3f} (threshold: {threshold:.3f})", additional_data
             
-            # Generate comparison images even for failed matches
+            # ALWAYS generate comparison images for debugging (especially important for failures)
             if best_source_path:
+                print(f"[@controller:ImageVerification] Generating debug comparison images for failed match (best score: {max_threshold_score:.3f})")
                 image_urls = self._generate_comparison_images(best_source_path, resolved_image_path, area, verification_index, image_filter)
                 additional_data.update(image_urls)
+            else:
+                print(f"[@controller:ImageVerification] WARNING: No valid source images found for comparison")
             
             # Save best threshold score (separate from user threshold)
             additional_data["matching_result"] = max_threshold_score  # Actual threshold score
             
-            return False, f"Image not found. Best threshold score: {max_threshold_score:.3f} (threshold: {threshold:.3f})", additional_data
+            # Create detailed error message with source and reference info
+            source_info = f"source: {os.path.basename(best_source_path)}" if best_source_path else "source: none"
+            reference_info = f"reference: {os.path.basename(resolved_image_path)}"
+            error_msg = f"Image not found - {reference_info} not detected in {source_info}. Best match: {max_threshold_score:.3f} (required: {threshold:.3f})"
+            
+            return False, error_msg, additional_data
         
         else:
             # Capture new image if no image list provided - this shouldn't happen in our case
             print(f"[@controller:ImageVerification] No image list provided, image not found")
-            return False, "Image not found in current screenshot", additional_data
+            return False, "Error : Image not found in current screenshot", additional_data
 
     def waitForImageToDisappear(self, image_path: str, timeout: float = 1.0, threshold: float = 0.8,
                                area: tuple = None, image_list: List[str] = None,
