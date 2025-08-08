@@ -795,10 +795,24 @@ export const ActionItem: React.FC<ActionItemProps> = ({
                 onChange={(e) => {
                   const internalKey = e.target.value;
                   const selectedRef = modelReferences[internalKey];
+                  
+                  console.log('🔍 [DEBUG] Text reference selection:', {
+                    internalKey,
+                    selectedRef,
+                    modelReferences,
+                    currentParams: action.params
+                  });
+                  
                   if (selectedRef && selectedRef.type === 'text') {
+                    console.log('🔍 [DEBUG] Updating text reference params:', {
+                      reference_name: internalKey,
+                      text: selectedRef.text || ''
+                    });
                     // Update both reference_name and text params
                     safeHandleParamChange('reference_name', internalKey);
                     safeHandleParamChange('text', selectedRef.text || '');
+                  } else {
+                    console.log('🔍 [DEBUG] Reference selection failed - invalid ref or type');
                   }
                 }}
                 label="Text Reference"
