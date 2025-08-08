@@ -791,15 +791,7 @@ export const ActionItem: React.FC<ActionItemProps> = ({
             <FormControl key="text_reference" size="small" sx={{ width: 250 }}>
               <InputLabel>Text Reference</InputLabel>
               <Select
-                value={(() => {
-                  const refName = getParamValue('reference_name') || '';
-                  console.log('🔍 [DEBUG] Text dropdown value check:', {
-                    reference_name: refName,
-                    all_params: action.params,
-                    getParamValue_result: getParamValue('reference_name')
-                  });
-                  return refName;
-                })()}
+                value={action.params?.reference_name || ''}
                 onChange={(e) => {
                   const internalKey = e.target.value;
                   const selectedRef = modelReferences[internalKey];
@@ -873,7 +865,7 @@ export const ActionItem: React.FC<ActionItemProps> = ({
             <FormControl key="image_reference" size="small" sx={{ width: 250 }}>
               <InputLabel>Image Reference</InputLabel>
               <Select
-                value={getParamValue('reference_name') || ''}
+                value={action.params?.reference_name || ''}
                 onChange={(e) => {
                   const internalKey = e.target.value;
                   const selectedRef = modelReferences[internalKey];
