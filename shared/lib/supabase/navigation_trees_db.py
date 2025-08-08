@@ -638,7 +638,7 @@ def move_subtree(subtree_id: str, new_parent_tree_id: str, new_parent_node_id: s
 # BATCH OPERATIONS
 # ============================================================================
 
-def save_tree_data(tree_id: str, nodes: List[Dict], edges: List[Dict], team_id: str, deleted_node_ids: List[str] = None, deleted_edge_ids: List[str] = None) -> Dict:
+def save_tree_data(tree_id: str, nodes: List[Dict], edges: List[Dict], team_id: str, deleted_node_ids: List[str] = None, deleted_edge_ids: List[str] = None, viewport: Dict = None) -> Dict:
     """Save complete tree data (nodes + edges) in batch with deletions."""
     try:
         # Handle deletions first
@@ -654,6 +654,15 @@ def save_tree_data(tree_id: str, nodes: List[Dict], edges: List[Dict], team_id: 
                 if not delete_result['success']:
                     return {'success': False, 'error': f"Failed to delete edge {edge_id}: {delete_result['error']}"}
         
+        # Update tree viewport if provided
+        if viewport:
+            supabase = get_supabase()
+            supabase.table('navigation_trees').update({
+                'viewport_x': viewport.get('x', 0),
+                'viewport_y': viewport.get('y', 0), 
+                'viewport_zoom': viewport.get('zoom', 1)
+            }).eq('id', tree_id).eq('team_id', team_id).execute()
+
         # Save/update current nodes and edges
         saved_nodes = []
         saved_edges = []

@@ -545,7 +545,8 @@ def save_tree_data_api(tree_id):
         deleted_node_ids = data.get('deleted_node_ids', [])
         deleted_edge_ids = data.get('deleted_edge_ids', [])
         
-        result = save_tree_data(tree_id, nodes, edges, team_id, deleted_node_ids, deleted_edge_ids)
+        viewport = data.get('viewport')
+        result = save_tree_data(tree_id, nodes, edges, team_id, deleted_node_ids, deleted_edge_ids, viewport)
         
         if result['success']:
             return jsonify(result)

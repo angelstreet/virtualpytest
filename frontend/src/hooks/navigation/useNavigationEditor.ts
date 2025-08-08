@@ -65,6 +65,14 @@ export const useNavigationEditor = () => {
         navigation.setInitialState({ nodes: [...frontendNodes], edges: [...frontendEdges] });
         navigation.setHasUnsavedChanges(false);
 
+        // Restore viewport if saved and ReactFlow is ready
+        if (treeData.tree && navigation.reactFlowInstance) {
+          const { viewport_x, viewport_y, viewport_zoom } = treeData.tree;
+          if (viewport_x !== undefined && viewport_y !== undefined && viewport_zoom !== undefined) {
+            navigation.reactFlowInstance.setViewport({ x: viewport_x, y: viewport_y, zoom: viewport_zoom });
+          }
+        }
+
         console.log(`[@useNavigationEditor:loadTreeData] Loaded ${frontendNodes.length} nodes and ${frontendEdges.length} edges`);
         console.log('[@useNavigationEditor:loadTreeData] Set initialState with node IDs:', frontendNodes.map((n: any) => n.id));
       } catch (error) {

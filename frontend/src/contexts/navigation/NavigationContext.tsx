@@ -1121,8 +1121,9 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
            const deletedNodeIds = initialNodeIds.filter(id => !currentNodeIds.has(id));
            const deletedEdgeIds = initialEdgeIds.filter(id => !currentEdgeIds.has(id));
 
-           // Call save with deletion info
-           await navigationConfig.saveTreeData(treeId, normalizedNodes, normalizedEdges, deletedNodeIds, deletedEdgeIds);
+           // Capture viewport and save
+           const viewport = reactFlowInstance?.getViewport();
+           await navigationConfig.saveTreeData(treeId, normalizedNodes, normalizedEdges, deletedNodeIds, deletedEdgeIds, viewport);
            
            setInitialState({ 
              nodes: nodes as UINavigationNode[], 

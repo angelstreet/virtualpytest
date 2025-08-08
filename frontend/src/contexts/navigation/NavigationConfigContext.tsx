@@ -92,7 +92,7 @@ interface NavigationConfigContextType {
   saveEdge: (treeId: string, edgeData: NavigationEdge) => Promise<void>;
   
   // Batch operations
-  saveTreeData: (treeId: string, nodes: any[], edges: any[], deletedNodeIds?: string[], deletedEdgeIds?: string[]) => Promise<void>;
+  saveTreeData: (treeId: string, nodes: any[], edges: any[], deletedNodeIds?: string[], deletedEdgeIds?: string[], viewport?: any) => Promise<void>;
   
   // Nested tree operations
   loadNodeSubTrees: (treeId: string, nodeId: string) => Promise<any[]>;
@@ -251,16 +251,19 @@ export const NavigationConfigProvider: React.FC<{ children: React.ReactNode }> =
     }
   };
 
-  const saveTreeData = async (treeId: string, nodes: any[], edges: any[], deletedNodeIds?: string[], deletedEdgeIds?: string[]): Promise<void> => {
+  const saveTreeData = async (treeId: string, nodes: any[], edges: any[], deletedNodeIds?: string[], deletedEdgeIds?: string[], viewport?: any): Promise<void> => {
+    const payload: any = {
+      nodes: nodes,
+      edges: edges,
+      deleted_node_ids: deletedNodeIds || [],
+      deleted_edge_ids: deletedEdgeIds || []
+    };
+    if (viewport) payload.viewport = viewport;
+    
     const response = await fetch(`/server/navigationTrees/${treeId}/batch`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        nodes: nodes,
-        edges: edges,
-        deleted_node_ids: deletedNodeIds || [],
-        deleted_edge_ids: deletedEdgeIds || []
-      })
+      body: JSON.stringify(payload)
     });
     
     const result = await response.json();

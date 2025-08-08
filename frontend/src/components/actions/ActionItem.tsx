@@ -824,9 +824,16 @@ export const ActionItem: React.FC<ActionItemProps> = ({
                       reference_name: internalKey,
                       text: selectedRef.text || ''
                     });
-                    // Update both reference_name and text params
-                    safeHandleParamChange('reference_name', internalKey);
-                    safeHandleParamChange('text', selectedRef.text || '');
+                    
+                    // Update both parameters in a single call to avoid state race condition
+                    const newParams = {
+                      ...(action.params as any),
+                      reference_name: internalKey,
+                      text: selectedRef.text || ''
+                    };
+                    
+                    console.log('🔍 [DEBUG] Setting combined params:', newParams);
+                    onUpdateAction(index, { params: newParams });
                   } else {
                     console.log('🔍 [DEBUG] Reference selection failed - invalid ref or type');
                   }
@@ -885,9 +892,30 @@ export const ActionItem: React.FC<ActionItemProps> = ({
                 onChange={(e) => {
                   const internalKey = e.target.value;
                   const selectedRef = modelReferences[internalKey];
+                  console.log('🔍 [DEBUG] Image reference selection:', {
+                    internalKey,
+                    selectedRef,
+                    modelReferences,
+                    currentParams: action.params
+                  });
+                  
                   if (selectedRef && selectedRef.type === 'image') {
-                    // Update reference_name param
-                    safeHandleParamChange('reference_name', internalKey);
+                    console.log('🔍 [DEBUG] Updating image reference params:', {
+                      reference_name: internalKey,
+                      image_path: selectedRef.image_path || ''
+                    });
+                    
+                    // Update both parameters in a single call to avoid state race condition
+                    const newParams = {
+                      ...(action.params as any),
+                      reference_name: internalKey,
+                      image_path: selectedRef.image_path || ''
+                    };
+                    
+                    console.log('🔍 [DEBUG] Setting combined image params:', newParams);
+                    onUpdateAction(index, { params: newParams });
+                  } else {
+                    console.log('🔍 [DEBUG] Image reference selection failed - invalid ref or type');
                   }
                 }}
                 label="Image Reference"
