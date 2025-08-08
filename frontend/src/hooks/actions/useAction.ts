@@ -216,6 +216,14 @@ export const useAction = () => {
       } else {
         lines.push(`❌ ${actionLabel}: ${actionResult.error || actionResult.message || 'Failed'}`);
       }
+
+      // Show iteration details if available
+      if (actionResult.iterations && actionResult.iterations.length > 0) {
+        actionResult.iterations.forEach((iteration: any) => {
+          const iterationIcon = iteration.success ? '✅' : '❌';
+          lines.push(`   ${iterationIcon} Iteration ${iteration.iteration}: ${iteration.message} (${iteration.execution_time_ms}ms)`);
+        });
+      }
     });
 
     lines.push('');

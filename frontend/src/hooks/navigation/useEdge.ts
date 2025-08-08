@@ -39,6 +39,7 @@ export const useEdge = (props?: UseEdgeProps) => {
       params: navAction.params,
       action_type: navAction.action_type, // Include action_type for routing
       verification_type: navAction.verification_type, // Include verification_type for verification actions
+      iterator: navAction.iterator || 1, // Include iterator for repetition (default to 1)
     };
     
     console.log('🔍 [DEBUG] convertToControllerAction output:', converted);

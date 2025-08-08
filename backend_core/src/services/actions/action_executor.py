@@ -192,89 +192,132 @@ class ActionExecutor:
     
     def _execute_single_action(self, action: Dict[str, Any], execution_order: int, action_number: int, action_category: str) -> Dict[str, Any]:
         """Execute a single action and return standardized result"""
-        start_time = time.time()
         
-        try:
-            print(f"[@lib:action_executor:_execute_single_action] Executing {action_category} action {action_number}: {action.get('command')} with params {action.get('params', {})}")
+        # Get iterator count (default to 1 if not specified)
+        iterator_count = action.get('iterator', 1)
+        if iterator_count < 1 or iterator_count > 100:
+            iterator_count = 1  # Clamp to valid range
+        
+        print(f"[@lib:action_executor:_execute_single_action] Executing {action_category} action {action_number}: {action.get('command')} with {iterator_count} iteration(s)")
+        
+        # Track results for all iterations
+        all_iterations_successful = True
+        total_execution_time = 0
+        iteration_results = []
+        
+        for iteration in range(iterator_count):
+            iteration_start_time = time.time()
             
-            # Use action params directly - wait_time is already in params from database
-            params = action.get('params', {})
-            action_type = action.get('action_type', 'remote')  # Default to remote for backward compatibility
-            
-            print(f"[@lib:action_executor:_execute_single_action] Action type: {action_type}")
-            
-            # Route to appropriate endpoint based on action_type
-            if action_type == 'verification':
-                verification_type = action.get('verification_type', 'text')  # Default to text verification
-                print(f"[@lib:action_executor:_execute_single_action] Routing verification action to verification_{verification_type} endpoint")
+            try:
+                iteration_label = f"iteration {iteration + 1}/{iterator_count}" if iterator_count > 1 else ""
+                print(f"[@lib:action_executor:_execute_single_action] Executing {action_category} action {action_number} {iteration_label}: {action.get('command')} with params {action.get('params', {})}")
                 
-                # Route to verification endpoint
-                endpoint = f'/host/verification/{verification_type}/execute'
-                request_data = {
-                    'verification': {
-                        'verification_type': verification_type,
+                # Use action params directly - wait_time is already in params from database
+                params = action.get('params', {})
+                action_type = action.get('action_type', 'remote')  # Default to remote for backward compatibility
+                
+                if iteration == 0:  # Only log action type once
+                    print(f"[@lib:action_executor:_execute_single_action] Action type: {action_type}")
+                
+                # Route to appropriate endpoint based on action_type
+                if action_type == 'verification':
+                    verification_type = action.get('verification_type', 'text')  # Default to text verification
+                    if iteration == 0:  # Only log routing once
+                        print(f"[@lib:action_executor:_execute_single_action] Routing verification action to verification_{verification_type} endpoint")
+                    
+                    # Route to verification endpoint
+                    endpoint = f'/host/verification/{verification_type}/execute'
+                    request_data = {
+                        'verification': {
+                            'verification_type': verification_type,
+                            'command': action.get('command'),
+                            'params': params
+                        },
+                        'device_id': self.device_id or 'device1'
+                    }
+                else:
+                    # Route to remote endpoint (default behavior)
+                    if iteration == 0:  # Only log routing once
+                        print(f"[@lib:action_executor:_execute_single_action] Routing {action_type} action to remote endpoint")
+                    endpoint = '/host/remote/executeCommand'
+                    request_data = {
                         'command': action.get('command'),
-                        'params': params
-                    },
-                    'device_id': self.device_id or 'device1'
-                }
-            else:
-                # Route to remote endpoint (default behavior)
-                print(f"[@lib:action_executor:_execute_single_action] Routing {action_type} action to remote endpoint")
-                endpoint = '/host/remote/executeCommand'
-                request_data = {
-                    'command': action.get('command'),
-                    'params': params,
-                    'device_id': self.device_id or 'device1'
-                }
-            
-            # Proxy to appropriate host endpoint using direct host info (no Flask context needed)
-            response_data, status_code = proxy_to_host_direct(self.host, endpoint, 'POST', request_data)
-            
-            execution_time = int((time.time() - start_time) * 1000)
-            success = status_code == 200 and response_data.get('success', False)
-            
-            print(f"[@lib:action_executor:_execute_single_action] Action {action_number} result: success={success}, time={execution_time}ms")
-            
-            # Record execution directly to database
-            self._record_execution_to_database(
-                success=success,
-                execution_time_ms=execution_time,
-                message=response_data.get('message') if success else response_data.get('error'),
-                error_details=None if success else {'error': response_data.get('error')}
-            )
-            
-            # Return standardized result (same format as API)
-            return {
-                'success': success,
-                'message': f"{action.get('command')}",
-                'error': response_data.get('error') if not success else None,
-                'resultType': 'PASS' if success else 'FAIL',
-                'execution_time_ms': execution_time,
-                'action_category': action_category,
-            }
-            
-        except Exception as e:
-            execution_time = int((time.time() - start_time) * 1000)
-            print(f"[@lib:action_executor:_execute_single_action] Action {action_number} error: {str(e)}")
-            
-            # Record failed execution directly to database
-            self._record_execution_to_database(
-                success=False,
-                execution_time_ms=execution_time,
-                message=str(e),
-                error_details={'error': str(e)}
-            )
-            
-            return {
-                'success': False,
-                'message': action.get('command'),
-                'error': str(e),
-                'resultType': 'FAIL',
-                'execution_time_ms': execution_time,
-                'action_category': action_category,
-                'action_details': action.get('command')
-            }
+                        'params': params,
+                        'device_id': self.device_id or 'device1'
+                    }
+                
+                # Proxy to appropriate host endpoint using direct host info (no Flask context needed)
+                response_data, status_code = proxy_to_host_direct(self.host, endpoint, 'POST', request_data)
+                
+                iteration_execution_time = int((time.time() - iteration_start_time) * 1000)
+                iteration_success = status_code == 200 and response_data.get('success', False)
+                
+                total_execution_time += iteration_execution_time
+                
+                if iterator_count > 1:
+                    print(f"[@lib:action_executor:_execute_single_action] Action {action_number} iteration {iteration + 1}/{iterator_count} result: success={iteration_success}, time={iteration_execution_time}ms")
+                else:
+                    print(f"[@lib:action_executor:_execute_single_action] Action {action_number} result: success={iteration_success}, time={iteration_execution_time}ms")
+                
+                # Track iteration results
+                iteration_results.append({
+                    'iteration': iteration + 1,
+                    'success': iteration_success,
+                    'execution_time_ms': iteration_execution_time,
+                    'message': response_data.get('message') if iteration_success else response_data.get('error')
+                })
+                
+                # If any iteration fails, mark overall action as failed
+                if not iteration_success:
+                    all_iterations_successful = False
+                    # Stop on first failure - don't continue iterations
+                    break
+                
+                # Wait between iterations if there are more iterations and wait_time is specified
+                wait_time = params.get('wait_time', 0)
+                if iteration < iterator_count - 1 and wait_time > 0:
+                    print(f"[@lib:action_executor:_execute_single_action] Waiting {wait_time}ms between iterations")
+                    time.sleep(wait_time / 1000.0)
+                
+            except Exception as e:
+                iteration_execution_time = int((time.time() - iteration_start_time) * 1000)
+                total_execution_time += iteration_execution_time
+                all_iterations_successful = False
+                
+                iteration_results.append({
+                    'iteration': iteration + 1,
+                    'success': False,
+                    'execution_time_ms': iteration_execution_time,
+                    'message': str(e)
+                })
+                
+                print(f"[@lib:action_executor:_execute_single_action] Action {action_number} iteration {iteration + 1}/{iterator_count} error: {str(e)}")
+                # Stop on exception - don't continue iterations
+                break
+        
+        # Record execution to database (summary of all iterations)
+        self._record_execution_to_database(
+            success=all_iterations_successful,
+            execution_time_ms=total_execution_time,
+            message=f"{action.get('command')} ({len(iteration_results)}/{iterator_count} iterations)" if iterator_count > 1 else f"{action.get('command')}",
+            error_details={'iterations': iteration_results} if not all_iterations_successful else None
+        )
+        
+        # Return standardized result (same format as API)
+        result_message = f"{action.get('command')}"
+        if iterator_count > 1:
+            successful_iterations = len([r for r in iteration_results if r['success']])
+            result_message += f" ({successful_iterations}/{iterator_count} iterations)"
+        
+        return {
+            'success': all_iterations_successful,
+            'message': result_message,
+            'error': None if all_iterations_successful else f"Failed after {len(iteration_results)} iteration(s)",
+            'resultType': 'PASS' if all_iterations_successful else 'FAIL',
+            'execution_time_ms': total_execution_time,
+            'action_category': action_category,
+            'iterations': iteration_results if iterator_count > 1 else None
+        }
     
     def _record_execution_to_database(self, success: bool, execution_time_ms: int, message: str, error_details: Optional[Dict] = None):
         """Record single execution directly to database"""

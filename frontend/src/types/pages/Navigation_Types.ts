@@ -7,6 +7,7 @@ export interface Action {
   device_model?: string; // Optional device targeting
   action_type?: 'remote' | 'av' | 'power' | 'network' | 'timer' | 'verification'; // Optional: type of action (needed for verification UI)
   verification_type?: 'text' | 'image' | 'adb' | 'appium' | 'audio' | 'video'; // Optional: verification type for verification actions
+  iterator?: number; // Optional: number of times to repeat this action (1-100, default: 1)
 }
 
 // Action Set interface for new edge structure
