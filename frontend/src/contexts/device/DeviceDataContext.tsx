@@ -304,7 +304,10 @@ export const DeviceDataProvider: React.FC<DeviceDataProviderProps> = ({ children
               }
 
               actions.forEach((action: any) => {
-                categorizedActions[category].push({
+                // DEBUG: Log each raw action from backend
+                console.log('🔍 [DEBUG] Raw action from backend:', action);
+                
+                const processedAction = {
                   id: action.id || `${action.command}_${category}`,
                   label: action.label || action.command,
                   command: action.command,
@@ -314,7 +317,13 @@ export const DeviceDataProvider: React.FC<DeviceDataProviderProps> = ({ children
                   requiresInput: action.requiresInput || false,
                   inputLabel: action.inputLabel,
                   inputPlaceholder: action.inputPlaceholder,
-                });
+                  verification_type: action.verification_type, // ADD THIS LINE
+                };
+                
+                // DEBUG: Log processed action
+                console.log('🔍 [DEBUG] Processed action:', processedAction);
+                
+                categorizedActions[category].push(processedAction);
               });
             }
           });

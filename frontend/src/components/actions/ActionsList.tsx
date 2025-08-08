@@ -18,14 +18,21 @@ export const ActionsList: React.FC<ActionsListProps> = ({ actions, onActionsUpda
   const availableActions = getAvailableActions();
 
   const handleActionSelect = (index: number, actionId: string) => {
+    // DEBUG: Log the entire availableActions structure
+    console.log('🔍 [DEBUG] availableActions structure:', availableActions);
+    console.log('🔍 [DEBUG] Looking for actionId:', actionId);
+    
     // Find the selected action from available actions by ID
     let selectedAction: any = undefined;
 
-    for (const actions of Object.values(availableActions)) {
+    for (const [category, actions] of Object.entries(availableActions)) {
+      console.log(`🔍 [DEBUG] Checking category: ${category}`, actions);
+      
       if (!Array.isArray(actions)) continue;
 
       const action = actions.find((a) => a.id === actionId);
       if (action) {
+        console.log(`🔍 [DEBUG] Found action in category ${category}:`, action);
         selectedAction = action;
         break;
       }
@@ -40,7 +47,9 @@ export const ActionsList: React.FC<ActionsListProps> = ({ actions, onActionsUpda
       actionId,
       selectedAction,
       action_type: selectedAction.action_type,
-      verification_type: selectedAction.verification_type
+      verification_type: selectedAction.verification_type,
+      all_properties: Object.keys(selectedAction),
+      selectedAction_full: JSON.stringify(selectedAction, null, 2)
     });
 
     const updatedActions = actions.map((action, i) => {
@@ -51,7 +60,7 @@ export const ActionsList: React.FC<ActionsListProps> = ({ actions, onActionsUpda
           params: { ...selectedAction.params },
           device_model: selectedAction.device_model,
           action_type: selectedAction.action_type,
-          verification_type: selectedAction.verification_type,
+          verification_type: selectedAction.verification_type || (selectedAction as any).verification_type,
         };
         
         console.log('[ActionsList] Created new action:', newAction);
