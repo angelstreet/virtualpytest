@@ -16,6 +16,7 @@ import React from 'react';
 
 import type { Actions } from '../../types/controller/Action_Types';
 import type { Action } from '../../types/pages/Navigation_Types';
+import { useDeviceData } from '../../contexts/device/DeviceDataContext';
 
 interface ActionItemProps {
   action: Action;
@@ -42,6 +43,20 @@ export const ActionItem: React.FC<ActionItemProps> = ({
   canMoveUp,
   canMoveDown,
 }) => {
+  // Get device data context for model references (same as Node Dialog)
+  const { getModelReferences, currentHost, currentDeviceId } = useDeviceData();
+
+  // Get device model from current host and device (same as Node Dialog)
+  const deviceModel = React.useMemo(() => {
+    if (!currentHost || !currentDeviceId) return 'android_mobile'; // fallback
+    const device = currentHost.devices?.find((d: any) => d.device_id === currentDeviceId);
+    return device?.device_model || 'android_mobile';
+  }, [currentHost, currentDeviceId]);
+
+  // Get model references for the current device model (same as Node Dialog)
+  const modelReferences = React.useMemo(() => {
+    return getModelReferences(deviceModel);
+  }, [getModelReferences, deviceModel]);
   const handleParamChange = (paramName: string, value: string | number) => {
     onUpdateAction(index, {
       params: {
@@ -760,10 +775,99 @@ export const ActionItem: React.FC<ActionItemProps> = ({
 
       case 'waitForTextToAppear':
       case 'waitForTextToDisappear':
+        // Text verification actions - show same UI as Node Dialog
+        if (currentActionDef?.requiresInput) {
+          // Text reference selection (same as VerificationItem.tsx for text)
+          fields.push(
+            <FormControl key="text_reference" size="small" sx={{ width: 250 }}>
+              <InputLabel>Text Reference</InputLabel>
+              <Select
+                value={getParamValue('reference_name') || ''}
+                onChange={(e) => {
+                  const internalKey = e.target.value;
+                  const selectedRef = modelReferences[internalKey];
+                  if (selectedRef && selectedRef.type === 'text') {
+                    // Update both reference_name and text params (same as VerificationsList.tsx line 274-280)
+                    safeHandleParamChange('reference_name', internalKey);
+                    safeHandleParamChange('text', selectedRef.text || '');
+                  }
+                }}
+                label="Text Reference"
+                size="small"
+                sx={{
+                  '& .MuiSelect-select': {
+                    fontSize: '0.8rem',
+                    py: 0.5,
+                  },
+                }}
+              >
+                {Object.entries(modelReferences)
+                  .filter(([_internalKey, ref]) => ref.type === 'text')
+                  .map(([internalKey, ref]) => (
+                    <MenuItem key={internalKey} value={internalKey} sx={{ fontSize: '0.75rem' }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        📝 <span>{ref.name || internalKey}</span>
+                      </Box>
+                    </MenuItem>
+                  ))}
+                {Object.entries(modelReferences).filter(([_internalKey, ref]) => ref.type === 'text')
+                  .length === 0 && (
+                  <MenuItem disabled value="" sx={{ fontSize: '0.75rem', fontStyle: 'italic' }}>
+                    No text references available
+                  </MenuItem>
+                )}
+              </Select>
+            </FormControl>,
+          );
+        }
+        break;
+
       case 'waitForImageToAppear':
       case 'waitForImageToDisappear':
-        // Verification actions - configured through existing verification editor
-        // No additional UI needed here
+        // Image verification actions - show same UI as Node Dialog
+        if (currentActionDef?.requiresInput) {
+          // Image reference selection (same as VerificationItem.tsx line 221-255)
+          fields.push(
+            <FormControl key="image_reference" size="small" sx={{ width: 250 }}>
+              <InputLabel>Image Reference</InputLabel>
+              <Select
+                value={getParamValue('reference_name') || ''}
+                onChange={(e) => {
+                  const internalKey = e.target.value;
+                  const selectedRef = modelReferences[internalKey];
+                  if (selectedRef && selectedRef.type === 'image') {
+                    // Update reference_name param (same as VerificationsList.tsx line 262-270)
+                    safeHandleParamChange('reference_name', internalKey);
+                  }
+                }}
+                label="Image Reference"
+                size="small"
+                sx={{
+                  '& .MuiSelect-select': {
+                    fontSize: '0.8rem',
+                    py: 0.5,
+                  },
+                }}
+              >
+                {Object.entries(modelReferences)
+                  .filter(([_internalKey, ref]) => ref.type === 'image')
+                  .map(([internalKey, ref]) => (
+                    <MenuItem key={internalKey} value={internalKey} sx={{ fontSize: '0.75rem' }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        🖼️ <span>{ref.name || internalKey}</span>
+                      </Box>
+                    </MenuItem>
+                  ))}
+                {Object.entries(modelReferences).filter(([_internalKey, ref]) => ref.type === 'image')
+                  .length === 0 && (
+                  <MenuItem disabled value="" sx={{ fontSize: '0.75rem', fontStyle: 'italic' }}>
+                    No image references available
+                  </MenuItem>
+                )}
+              </Select>
+            </FormControl>,
+          );
+        }
         break;
     }
 
