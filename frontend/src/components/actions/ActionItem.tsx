@@ -43,17 +43,17 @@ export const ActionItem: React.FC<ActionItemProps> = ({
   canMoveUp,
   canMoveDown,
 }) => {
-  // Get device data context for model references (same as Node Dialog)
+  // Get device data context for model references (needed for verification actions)
   const { getModelReferences, currentHost, currentDeviceId } = useDeviceData();
 
-  // Get device model from current host and device (same as Node Dialog)
+  // Get device model from current host and device
   const deviceModel = React.useMemo(() => {
     if (!currentHost || !currentDeviceId) return 'android_mobile'; // fallback
     const device = currentHost.devices?.find((d: any) => d.device_id === currentDeviceId);
     return device?.device_model || 'android_mobile';
   }, [currentHost, currentDeviceId]);
 
-  // Get model references for the current device model (same as Node Dialog)
+  // Get model references for the current device model
   const modelReferences = React.useMemo(() => {
     return getModelReferences(deviceModel);
   }, [getModelReferences, deviceModel]);
@@ -775,9 +775,17 @@ export const ActionItem: React.FC<ActionItemProps> = ({
 
       case 'waitForTextToAppear':
       case 'waitForTextToDisappear':
-        // Text verification actions - show same UI as Node Dialog
-        // Check verification_type like VerificationItem.tsx does
+        // Debug verification action properties
+        console.log('[ActionItem] Text verification action debug:', {
+          command: action.command,
+          action_type: action.action_type,
+          verification_type: action.verification_type,
+          full_action: action
+        });
+        
+        // Check if this is a verification action with text type
         if (action.action_type === 'verification' && action.verification_type === 'text') {
+          console.log('[ActionItem] Rendering text verification UI');
           // Text reference selection (same as VerificationItem.tsx for text)
           fields.push(
             <FormControl key="text_reference" size="small" sx={{ width: 250 }}>
@@ -788,7 +796,7 @@ export const ActionItem: React.FC<ActionItemProps> = ({
                   const internalKey = e.target.value;
                   const selectedRef = modelReferences[internalKey];
                   if (selectedRef && selectedRef.type === 'text') {
-                    // Update both reference_name and text params (same as VerificationsList.tsx line 274-280)
+                    // Update both reference_name and text params
                     safeHandleParamChange('reference_name', internalKey);
                     safeHandleParamChange('text', selectedRef.text || '');
                   }
@@ -820,15 +828,25 @@ export const ActionItem: React.FC<ActionItemProps> = ({
               </Select>
             </FormControl>,
           );
+        } else {
+          console.log('[ActionItem] NOT rendering text verification UI - check failed');
         }
         break;
 
       case 'waitForImageToAppear':
       case 'waitForImageToDisappear':
-        // Image verification actions - show same UI as Node Dialog
-        // Check verification_type like VerificationItem.tsx does
+        // Debug verification action properties
+        console.log('[ActionItem] Image verification action debug:', {
+          command: action.command,
+          action_type: action.action_type,
+          verification_type: action.verification_type,
+          full_action: action
+        });
+        
+        // Check if this is a verification action with image type
         if (action.action_type === 'verification' && action.verification_type === 'image') {
-          // Image reference selection (same as VerificationItem.tsx line 221-255)
+          console.log('[ActionItem] Rendering image verification UI');
+          // Image reference selection (same as VerificationItem.tsx for image)
           fields.push(
             <FormControl key="image_reference" size="small" sx={{ width: 250 }}>
               <InputLabel>Image Reference</InputLabel>
@@ -838,7 +856,7 @@ export const ActionItem: React.FC<ActionItemProps> = ({
                   const internalKey = e.target.value;
                   const selectedRef = modelReferences[internalKey];
                   if (selectedRef && selectedRef.type === 'image') {
-                    // Update reference_name param (same as VerificationsList.tsx line 262-270)
+                    // Update reference_name param
                     safeHandleParamChange('reference_name', internalKey);
                   }
                 }}
@@ -869,6 +887,8 @@ export const ActionItem: React.FC<ActionItemProps> = ({
               </Select>
             </FormControl>,
           );
+        } else {
+          console.log('[ActionItem] NOT rendering image verification UI - check failed');
         }
         break;
     }

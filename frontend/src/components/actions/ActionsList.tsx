@@ -36,9 +36,16 @@ export const ActionsList: React.FC<ActionsListProps> = ({ actions, onActionsUpda
       return;
     }
 
+    console.log('[ActionsList] Selected action details:', {
+      actionId,
+      selectedAction,
+      action_type: selectedAction.action_type,
+      verification_type: selectedAction.verification_type
+    });
+
     const updatedActions = actions.map((action, i) => {
       if (i === index) {
-        return {
+        const newAction = {
           ...action,
           command: selectedAction.command,
           params: { ...selectedAction.params },
@@ -46,6 +53,9 @@ export const ActionsList: React.FC<ActionsListProps> = ({ actions, onActionsUpda
           action_type: selectedAction.action_type,
           verification_type: selectedAction.verification_type,
         };
+        
+        console.log('[ActionsList] Created new action:', newAction);
+        return newAction;
       }
       return action;
     });
