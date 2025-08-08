@@ -139,6 +139,8 @@ export interface NavigationContextType {
   reactFlowWrapper: React.RefObject<HTMLDivElement>;
   reactFlowInstance: ReactFlowInstance | null;
   setReactFlowInstance: (instance: ReactFlowInstance | null) => void;
+  pendingViewport: { x: number; y: number; zoom: number } | null;
+  setPendingViewport: (viewport: { x: number; y: number; zoom: number } | null) => void;
 
   // Action methods
   resetAll: () => void;
@@ -450,6 +452,7 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
   // React Flow refs
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null);
+  const [pendingViewport, setPendingViewport] = useState<{ x: number; y: number; zoom: number } | null>(null);
 
   // ========================================
   // LOCK METHODS
@@ -819,9 +822,11 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
       setInitialState,
 
       // React Flow refs
-      reactFlowWrapper,
-      reactFlowInstance,
-      setReactFlowInstance,
+          reactFlowWrapper,
+    reactFlowInstance,
+    setReactFlowInstance,
+    pendingViewport,
+    setPendingViewport,
 
       // Action methods
       resetAll,

@@ -144,7 +144,12 @@ class ActionExecutor:
 
         # Calculate overall success: main actions must pass OR ALL retry actions must pass if main failed
         if main_actions_failed:
-            overall_success = not retry_actions_failed and retry_actions_passed == len(valid_retry_actions)
+            # If main failed but we have retry actions, success depends on retry actions
+            if valid_retry_actions:
+                overall_success = not retry_actions_failed and retry_actions_passed == len(valid_retry_actions)
+            else:
+                # If main failed and no retry actions available, it's a failure
+                overall_success = False
         else:
             overall_success = passed_count >= len(valid_actions)
         
@@ -194,11 +199,19 @@ class ActionExecutor:
         """Execute a single action and return standardized result"""
         
         # Get iterator count (default to 1 if not specified)
-        iterator_count = action.get('iterator', 1)
-        if iterator_count < 1 or iterator_count > 100:
-            iterator_count = 1  # Clamp to valid range
+        # Only allow iterations for non-verification actions
+        action_type = action.get('action_type', 'remote')
+        if action_type == 'verification':
+            iterator_count = 1  # Force single execution for verifications
+        else:
+            iterator_count = action.get('iterator', 1)
+            if iterator_count < 1 or iterator_count > 100:
+                iterator_count = 1  # Clamp to valid range
         
-        print(f"[@lib:action_executor:_execute_single_action] Executing {action_category} action {action_number}: {action.get('command')} with {iterator_count} iteration(s)")
+        if action_type == 'verification':
+            print(f"[@lib:action_executor:_execute_single_action] Executing {action_category} verification {action_number}: {action.get('command')} (verifications always run once)")
+        else:
+            print(f"[@lib:action_executor:_execute_single_action] Executing {action_category} action {action_number}: {action.get('command')} with {iterator_count} iteration(s)")
         
         # Track results for all iterations
         all_iterations_successful = True

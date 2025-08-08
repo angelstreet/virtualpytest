@@ -136,30 +136,32 @@ export const ActionItem: React.FC<ActionItemProps> = ({
       />,
     );
 
-    // Common iterator field for all actions
-    fields.push(
-      <TextField
-        key="iterator"
-        label="Iterations"
-        type="number"
-        size="small"
-        value={action.iterator || 1}
-        onChange={(e) => {
-          const value = parseInt(e.target.value);
-          const clampedValue = isNaN(value) ? 1 : Math.max(1, Math.min(100, value));
-          onUpdateAction(index, { iterator: clampedValue });
-        }}
-        inputProps={{ min: 1, max: 100, step: 1 }}
-        sx={{
-          width: 100,
-          '& .MuiInputBase-input': {
-            padding: '3px 6px',
-            fontSize: '0.75rem',
-          },
-        }}
-        helperText="1-100"
-      />,
-    );
+    // Iterator field for non-verification actions only
+    if (action.action_type !== 'verification') {
+      fields.push(
+        <TextField
+          key="iterator"
+          label="Iterations"
+          type="number"
+          size="small"
+          value={action.iterator || 1}
+          onChange={(e) => {
+            const value = parseInt(e.target.value);
+            const clampedValue = isNaN(value) ? 1 : Math.max(1, Math.min(100, value));
+            onUpdateAction(index, { iterator: clampedValue });
+          }}
+          inputProps={{ min: 1, max: 100, step: 1 }}
+          sx={{
+            width: 100,
+            '& .MuiInputBase-input': {
+              padding: '3px 6px',
+              fontSize: '0.75rem',
+            },
+          }}
+          helperText="1-100"
+        />,
+      );
+    }
 
     // Action-specific parameter fields
     switch (action.command) {
