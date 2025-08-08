@@ -106,6 +106,12 @@ def create_networkx_graph(nodes: List[Dict], edges: List[Dict]) -> nx.DiGraph:
         retry_actions_list = default_set.get('retry_actions') or []
         failure_actions_list = default_set.get('failure_actions') or []
         
+        # Skip edges with no actions - they are invalid navigation paths
+        if not actions_list:
+            print(f"[@navigation:graph:create_networkx_graph] SKIPPING edge {source_id} → {target_id}: No actions defined (invalid navigation path)")
+            edges_skipped += 1
+            continue
+        
         # Get node labels for logging
         source_node_data = G.nodes[source_id]
         target_node_data = G.nodes[target_id]
