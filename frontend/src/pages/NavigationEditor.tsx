@@ -819,13 +819,17 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
                   onNodeDoubleClick={nestedNavigation.handleNodeDoubleClick}
                   onPaneClick={wrappedOnPaneClick}
                   onInit={(instance) => {
+                    console.log(`[@NavigationEditor] ReactFlow onInit called`);
                     setReactFlowInstance(instance);
                     // Restore viewport if pending
                     const pendingViewport = navigation.pendingViewport;
+                    console.log(`[@NavigationEditor] Checking pendingViewport:`, pendingViewport);
                     if (pendingViewport) {
                       console.log(`[@NavigationEditor] Restoring viewport on ReactFlow init:`, pendingViewport);
                       instance.setViewport(pendingViewport);
                       navigation.setPendingViewport(null); // Clear after restoration
+                    } else {
+                      console.log(`[@NavigationEditor] No pending viewport to restore`);
                     }
                   }}
                   nodeTypes={nodeTypes}
