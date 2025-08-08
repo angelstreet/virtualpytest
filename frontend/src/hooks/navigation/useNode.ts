@@ -269,7 +269,7 @@ export const useNode = (props?: UseNodeProps) => {
         const startingNodeId = currentNodeId;
 
         const url = new URL(
-          `/server/pathfinding/preview/${props.treeId}/${selectedNode.id}`,
+          `/server/navigation/preview/${props.treeId}/${selectedNode.id}`,
           window.location.origin,
         );
 

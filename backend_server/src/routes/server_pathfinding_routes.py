@@ -58,37 +58,7 @@ def deactivate_take_control_session(tree_id: str, team_id: str):
 # NOTE: Navigation execution routes moved to server_navigation_routes.py
 # This module only handles pathfinding and path preview functionality
 
-@server_pathfinding_bp.route('/preview/<tree_id>/<node_id>', methods=['GET'])
-def get_navigation_preview(tree_id, node_id):
-    """API endpoint for navigation path preview - returns pathfinding results only"""
-    try:
-        print(f"[@pathfinding:preview] Request for navigation path preview to node {node_id} in tree {tree_id}")
-        
-        # Get team_id from query params or use default
-        team_id = get_team_id()
-        current_node_id = request.args.get('current_node_id')
-        
-        # Get pathfinding results (transitions with actions)
-        transitions = get_navigation_preview_internal(tree_id, node_id, team_id, current_node_id)
-        
-        return jsonify({
-            'success': True,
-            'tree_id': tree_id,
-            'target_node_id': node_id,
-            'current_node_id': current_node_id,
-            'transitions': transitions,
-            'total_transitions': len(transitions),
-            'total_actions': sum(len(t.get('actions', [])) for t in transitions) if transitions else 0,
-            'navigation_type': 'preview'
-        })
-        
-    except Exception as e:
-        print(f"[@pathfinding:preview] Error: {e}")
-        return jsonify({
-            'success': False,
-            'error': str(e),
-            'error_code': 'API_ERROR'
-        }), 500
+
 
 @server_pathfinding_bp.route('/stats/<tree_id>', methods=['GET'])
 def get_navigation_stats(tree_id):
@@ -155,25 +125,7 @@ def get_navigation_stats(tree_id):
 
 # NOTE: execute_navigation_with_verification helper removed - now using proxy_to_host pattern
 
-def get_navigation_preview_internal(tree_id: str, target_node_id: str, team_id: str, current_node_id: str = None):
-    """Get navigation preview - returns rich transition data directly"""
-    try:
-        from backend_core.src.services.navigation.navigation_pathfinding import find_shortest_path
-        
-        # Find path from current to target node - returns rich transition data
-        transitions = find_shortest_path(tree_id, target_node_id, team_id, current_node_id)
-        
-        if transitions:
-            # Return transitions directly - no conversion needed
-            print(f"[@pathfinding:preview_internal] Found {len(transitions)} transitions")
-            return transitions
-        else:
-            print(f"[@pathfinding:preview_internal] Pathfinding failed: No path found")
-            return []
-            
-    except Exception as e:
-        print(f"[@pathfinding:preview_internal] Error: {e}")
-        return []
+
 
 # =====================================================
 # CACHE MANAGEMENT ROUTES

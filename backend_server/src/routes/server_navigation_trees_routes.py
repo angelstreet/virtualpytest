@@ -505,14 +505,32 @@ def get_full_tree_api(tree_id):
         if result['success']:
             # Populate navigation cache - EXACT ORIGINAL FORMAT
             try:
-                from shared.lib.utils.navigation_cache import populate_cache
+                from shared.lib.utils.navigation_cache import populate_cache, populate_unified_cache
                 nodes = result.get('nodes', [])
                 edges = result.get('edges', [])
                 
                 # Pass nodes and edges exactly as they come from database
                 # The graph builder will handle the format conversion
                 populate_cache(tree_id, team_id, nodes, edges)
-                print(f'[@route:navigation_trees:get_full_tree] Successfully populated navigation cache')
+                print(f'[@route:navigation_trees:get_full_tree] Successfully populated navigation cache for tree: {tree_id}')
+                
+                # Also populate unified cache for single tree case (treat as root tree)
+                tree_data_for_unified = [{
+                    'tree_id': tree_id,
+                    'tree_info': {
+                        'name': result.get('name', tree_id),
+                        'is_root_tree': True,
+                        'tree_depth': 0,
+                        'parent_tree_id': None,
+                        'parent_node_id': None
+                    },
+                    'nodes': nodes,
+                    'edges': edges
+                }]
+                
+                populate_unified_cache(tree_id, team_id, tree_data_for_unified)
+                print(f'[@route:navigation_trees:get_full_tree] Successfully populated unified cache for root tree: {tree_id}')
+                
             except Exception as cache_error:
                 print(f'[@route:navigation_trees:get_full_tree] Cache population failed: {cache_error}')
                 # Don't fail the request if cache population fails
