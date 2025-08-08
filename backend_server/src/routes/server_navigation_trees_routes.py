@@ -613,6 +613,9 @@ def get_tree_by_userinterface_id(userinterface_id):
                 'tree': {
                     'id': tree['id'],
                     'name': tree['name'],
+                    'viewport_x': tree.get('viewport_x', 0),
+                    'viewport_y': tree.get('viewport_y', 0),
+                    'viewport_zoom': tree.get('viewport_zoom', 1),
                     'metadata': {
                         'nodes': tree_data['nodes'],
                         'edges': tree_data['edges']
