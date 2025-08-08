@@ -28,6 +28,11 @@ CREATE TABLE navigation_trees (
     tree_depth integer DEFAULT 0, -- Depth level (0 = root, 1 = first level nested, etc.)
     is_root_tree boolean DEFAULT true, -- True only for top-level trees
     
+    -- React Flow viewport position fields
+    viewport_x float DEFAULT 0, -- React Flow viewport X position for restoring view state
+    viewport_y float DEFAULT 0, -- React Flow viewport Y position for restoring view state  
+    viewport_zoom float DEFAULT 1, -- React Flow viewport zoom level for restoring view state
+    
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now(),
     UNIQUE(name, userinterface_id, team_id),
@@ -159,6 +164,9 @@ CREATE INDEX idx_navigation_edges_team ON navigation_edges(team_id);
 
 CREATE INDEX idx_navigation_trees_history_tree ON navigation_trees_history(tree_id);
 CREATE INDEX idx_navigation_trees_history_team ON navigation_trees_history(team_id);
+
+-- Viewport position index
+CREATE INDEX idx_navigation_trees_viewport ON navigation_trees(viewport_x, viewport_y, viewport_zoom);
 
 -- Nested Tree Helper Functions
 -- Function to get all descendant trees
