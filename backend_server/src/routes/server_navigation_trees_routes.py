@@ -591,40 +591,39 @@ def get_tree_by_userinterface_id(userinterface_id):
         tree = get_root_tree_for_interface(userinterface_id, team_id)
         
         if tree:
-            # Get full tree data with nodes and edges
-            tree_data = get_full_tree(tree['id'], team_id)
+            # SAME AS SCRIPT: Load complete hierarchy instead of single tree
+            from shared.lib.utils.navigation_utils import load_navigation_tree_with_hierarchy
+            from shared.lib.supabase.userinterface_db import get_userinterface
             
-            # Populate navigation cache - EXACT ORIGINAL FORMAT
-            try:
-                from shared.lib.utils.navigation_cache import populate_cache, populate_unified_cache
-                nodes = tree_data.get('nodes', [])
-                edges = tree_data.get('edges', [])
-                
-                # Pass nodes and edges exactly as they come from database
-                # The graph builder will handle the format conversion
-                populate_cache(tree['id'], team_id, nodes, edges)
-                print(f'[@route:navigation_trees:get_tree_by_userinterface_id] Successfully populated navigation cache for tree: {tree["id"]}')
-                
-                # Also populate unified cache for single tree case (treat as root tree)
-                tree_data_for_unified = [{
-                    'tree_id': tree['id'],
-                    'tree_info': {
-                        'name': tree['name'],
-                        'is_root_tree': True,
-                        'tree_depth': 0,
-                        'parent_tree_id': None,
-                        'parent_node_id': None
-                    },
-                    'nodes': nodes,
-                    'edges': edges
-                }]
-                
-                populate_unified_cache(tree['id'], team_id, tree_data_for_unified)
-                print(f'[@route:navigation_trees:get_tree_by_userinterface_id] Successfully populated unified cache for root tree: {tree["id"]}')
-                
-            except Exception as cache_error:
-                print(f'[@route:navigation_trees:get_tree_by_userinterface_id] Cache population failed: {cache_error}')
-                # Don't fail the request if cache population fails
+            # Get interface name for hierarchy loading
+            interface = get_userinterface(userinterface_id, team_id)
+            if not interface:
+                return jsonify({
+                    'success': False,
+                    'error': f'User interface not found: {userinterface_id}'
+                })
+            
+            interface_name = interface.get('name')
+            if not interface_name:
+                return jsonify({
+                    'success': False,
+                    'error': f'Interface name not found for: {userinterface_id}'
+                })
+            
+            # Load complete hierarchy EXACTLY like script does
+            print(f'[@route:navigation_trees:get_tree_by_userinterface_id] Loading hierarchy for interface: {interface_name}')
+            hierarchy_result = load_navigation_tree_with_hierarchy(interface_name, 'frontend_navigation_editor')
+            
+            if not hierarchy_result['success']:
+                return jsonify({
+                    'success': False,
+                    'error': f'Failed to load hierarchy: {hierarchy_result.get("error", "Unknown error")}'
+                })
+            
+            # Extract root tree data from hierarchy result
+            root_tree_data = hierarchy_result['root_tree']
+            
+            print(f'[@route:navigation_trees:get_tree_by_userinterface_id] Successfully loaded hierarchy with {hierarchy_result["unified_graph_nodes"]} nodes')
             
             return jsonify({
                 'success': True,
@@ -635,8 +634,8 @@ def get_tree_by_userinterface_id(userinterface_id):
                     'viewport_y': tree.get('viewport_y', 0),
                     'viewport_zoom': tree.get('viewport_zoom', 1),
                     'metadata': {
-                        'nodes': tree_data['nodes'],
-                        'edges': tree_data['edges']
+                        'nodes': root_tree_data['nodes'],
+                        'edges': root_tree_data['edges']
                     }
                 }
             })
