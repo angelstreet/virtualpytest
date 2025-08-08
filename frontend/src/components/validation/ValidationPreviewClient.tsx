@@ -86,11 +86,7 @@ export default function ValidationPreviewClient({ treeId, onClose, selectedHost,
   const handleRunValidation = () => {
     if (!validation.preview?.edges) return;
 
-    // Get skipped edges (edges that are NOT selected)
-    const allEdgeIds = validation.preview.edges.map((edge) => `${edge.from_node}-${edge.to_node}`);
-    const skippedEdges = allEdgeIds.filter((edgeId) => !selectedEdges.has(edgeId));
-
-    validation.runValidation(skippedEdges);
+    validation.runValidation();
   };
 
   // Show error dialog if there's a persistent error
@@ -113,7 +109,6 @@ export default function ValidationPreviewClient({ treeId, onClose, selectedHost,
           <Button 
             variant="outlined" 
             onClick={() => {
-              validation.clearValidation();
               validation.loadPreview();
             }}
           >

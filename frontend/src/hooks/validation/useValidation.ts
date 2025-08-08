@@ -238,7 +238,7 @@ export const useValidation = (treeId: string, providedHost?: any, providedDevice
    * Run validation using the existing useScript infrastructure
    */
   const runValidation = useCallback(
-    async (skippedEdges: string[] = []) => {
+    async () => {
       if (!treeId || !selectedHost || !selectedDeviceId || !state.preview) {
         updateValidationState(treeId, {
           validationError: 'Tree ID, host, device, and preview data are required',

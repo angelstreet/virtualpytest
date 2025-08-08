@@ -24,7 +24,6 @@ import {
   Paper,
   Divider,
   IconButton,
-  CircularProgress,
 } from '@mui/material';
 import React from 'react';
 
@@ -199,7 +198,7 @@ const ValidationResultsClient: React.FC<ValidationResultsClientProps> = ({ treeI
                       {result.actionsExecuted || 0}/{result.totalActions || 0}
                     </TableCell>
                     <TableCell>
-                      {result.verificationsExecuted || 0}/{result.totalVerifications || 0}
+                      {result.actionsExecuted || 0}/{result.totalActions || 0}
                     </TableCell>
                     <TableCell>
                       {result.executionTime ? `${result.executionTime.toFixed(1)}s` : '-'}

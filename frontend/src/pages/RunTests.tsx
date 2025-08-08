@@ -902,7 +902,6 @@ const RunTests: React.FC = () => {
                       model={deviceModel}
                       layoutConfig={{
                         minHeight: '250px', // Use minHeight like before
-                        maxHeight: '300px', // Limit height for preview
                         aspectRatio: isMobileModel ? '9/16' : '16/9',
                         objectFit: 'contain',
                         isMobileModel,
