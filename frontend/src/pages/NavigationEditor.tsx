@@ -437,9 +437,16 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
             );
 
             // Store viewport data for restoration when ReactFlow is ready
+            console.log(`[@NavigationEditor:loadTreeForUserInterface] Tree object:`, tree);
             if (tree && tree.viewport_x !== undefined && tree.viewport_y !== undefined && tree.viewport_zoom !== undefined) {
               navigation.setPendingViewport({ x: tree.viewport_x, y: tree.viewport_y, zoom: tree.viewport_zoom });
               console.log(`[@NavigationEditor:loadTreeForUserInterface] Stored viewport for restoration:`, { x: tree.viewport_x, y: tree.viewport_y, zoom: tree.viewport_zoom });
+            } else {
+              console.log(`[@NavigationEditor:loadTreeForUserInterface] No valid viewport data found in tree:`, { 
+                viewport_x: tree?.viewport_x, 
+                viewport_y: tree?.viewport_y, 
+                viewport_zoom: tree?.viewport_zoom 
+              });
             }
           } else {
             console.error('Failed to load tree:', data.error || 'Unknown error');
