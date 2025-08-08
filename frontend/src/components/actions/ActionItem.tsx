@@ -58,16 +58,32 @@ export const ActionItem: React.FC<ActionItemProps> = ({
     return getModelReferences(deviceModel);
   }, [getModelReferences, deviceModel]);
   const handleParamChange = (paramName: string, value: string | number) => {
+    const newParams = {
+      ...(action.params as any),
+      [paramName]: value,
+    };
+    
+    console.log('🔍 [DEBUG] handleParamChange:', {
+      paramName,
+      value,
+      oldParams: action.params,
+      newParams,
+      actionIndex: index
+    });
+    
     onUpdateAction(index, {
-      params: {
-        ...(action.params as any),
-        [paramName]: value,
-      },
+      params: newParams,
     });
   };
 
   // Helper function to safely handle params with null/undefined check
   const safeHandleParamChange = (key: string, value: any) => {
+    console.log('🔍 [DEBUG] safeHandleParamChange called:', {
+      key,
+      value,
+      currentParams: action.params,
+      actionIndex: index
+    });
     handleParamChange(key, value);
   };
 
