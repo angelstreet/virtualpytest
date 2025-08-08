@@ -66,10 +66,22 @@ export const useNavigationEditor = () => {
         navigation.setHasUnsavedChanges(false);
 
         // Restore viewport if saved and ReactFlow is ready
-        if (treeData.tree && navigation.reactFlowInstance) {
+        if (treeData.tree) {
           const { viewport_x, viewport_y, viewport_zoom } = treeData.tree;
+          console.log(`[@useNavigationEditor:loadTreeData] Tree has viewport data:`, { viewport_x, viewport_y, viewport_zoom });
+          
           if (viewport_x !== undefined && viewport_y !== undefined && viewport_zoom !== undefined) {
-            navigation.reactFlowInstance.setViewport({ x: viewport_x, y: viewport_y, zoom: viewport_zoom });
+            // Use setTimeout to ensure React Flow is fully initialized
+            setTimeout(() => {
+              if (navigation.reactFlowInstance) {
+                console.log(`[@useNavigationEditor:loadTreeData] Restoring viewport:`, { x: viewport_x, y: viewport_y, zoom: viewport_zoom });
+                navigation.reactFlowInstance.setViewport({ x: viewport_x, y: viewport_y, zoom: viewport_zoom });
+              } else {
+                console.warn(`[@useNavigationEditor:loadTreeData] ReactFlow instance not available for viewport restoration`);
+              }
+            }, 100);
+          } else {
+            console.log(`[@useNavigationEditor:loadTreeData] No viewport data to restore`);
           }
         }
 
