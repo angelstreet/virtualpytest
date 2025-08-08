@@ -348,8 +348,10 @@ export const useNode = (props?: UseNodeProps) => {
       try {
         // Use centralized navigation execution - this will be implemented in NavigationContext
         // For now, keeping the original API call but through centralized method
+        // Use rootTreeId for execution (unified cache is keyed by root tree)
+        const executionTreeId = rootTreeId || navigationConfig.actualTreeId;
         const result = await fetch(
-          `/server/navigation/execute/${navigationConfig.actualTreeId}/${selectedNode.id}`,
+          `/server/navigation/execute/${executionTreeId}/${selectedNode.id}`,
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
