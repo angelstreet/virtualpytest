@@ -110,6 +110,17 @@ export const VerificationTestResults: React.FC<VerificationTestResultsProps> = (
             onSourceImageClick={onSourceImageClick}
           />
         )}
+
+      {/* Motion detection thumbnail - same pattern as text verification */}
+      {verification.verification_type === 'motion' && testResult.sourceImageUrl && (
+        <VerificationTextComparisonDisplay
+          searchedText="Motion Detection Analysis"
+          extractedText={testResult.message || 'Motion analysis completed'}
+          sourceUrl={testResult.sourceImageUrl}
+          resultType={testResult.success ? 'PASS' : 'FAIL'}
+          onSourceImageClick={onSourceImageClick}
+        />
+      )}
     </Box>
   );
 };

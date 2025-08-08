@@ -63,7 +63,8 @@ def detect_text():
         result = text_controller.detect_text(data)
         
         # Build URL for text detected image using host instance
-        if result.get('success') and result.get('image_textdetected_path'):
+        # Always build URL if image path exists, regardless of success (for "no text detected" cases)
+        if result.get('image_textdetected_path'):
             host = get_host()
             result['image_textdetected_url'] = buildHostImageUrl(host.to_dict(), result['image_textdetected_path'])
             print(f"[@route:host_detect_text] Built text detected image URL: {result['image_textdetected_url']}")

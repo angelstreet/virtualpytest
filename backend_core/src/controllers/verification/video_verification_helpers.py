@@ -248,10 +248,24 @@ class VideoVerificationHelpers:
             else:
                 message = result.get('message', "Motion not detected from JSON analysis")
             
+            # Add source image URL for thumbnail display (like subtitle verification)
+            source_image_url = None
+            if success and result.get('details'):
+                # Get the most recent analyzed image for thumbnail
+                details = result.get('details', [])
+                if details and len(details) > 0:
+                    most_recent_detail = details[0]  # Most recent is first in the list
+                    if 'filename' in most_recent_detail:
+                        # Build thumbnail URL from filename (use thumbnail for performance)
+                        filename = most_recent_detail['filename']
+                        thumbnail_filename = filename.replace('.jpg', '_thumbnail.jpg')
+                        source_image_url = f"/host/stream/capture1/captures/{thumbnail_filename}"
+            
             return {
                 'success': success,
                 'message': message,
                 'confidence': result.get('confidence', 1.0 if success else 0.0),
+                'sourceImageUrl': source_image_url,  # Add thumbnail URL for frontend
                 'details': result
             }
             

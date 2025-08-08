@@ -537,11 +537,38 @@ export const useVerificationEditor = ({
         // Mark as captured
         setHasCaptured(true);
       } else {
-        console.error('[@hook:useVerificationEditor] Text auto-detection failed:', result);
-        console.error(
-          '[@hook:useVerificationEditor] Error message:',
-          result.error || result.message || 'Unknown error',
-        );
+        console.log('[@hook:useVerificationEditor] No text detected, but processing image result:', result);
+
+        // Even when no text is detected, we should still show the processed image and set helpful state
+        setDetectedTextData({
+          text: '',
+          fontSize: result.font_size || 0,
+          confidence: result.confidence || 0,
+          detectedLanguage: result.language || result.detected_language || 'en',
+          detectedLanguageName: result.detected_language_name,
+          languageConfidence: result.language_confidence || 0,
+          image_textdetected_path: result.image_textdetected_path || result.processed_image_path,
+        });
+
+        // Set helpful message when no text is detected
+        setReferenceText('No text detected in image');
+
+        // Still display the processed image even when no text is found
+        const imageUrl = result.image_textdetected_url || result.image_url;
+        if (imageUrl) {
+          const timestamp = new Date().getTime();
+          const finalImageUrl = `${imageUrl}?t=${timestamp}`;
+          console.log(
+            '[@hook:useVerificationEditor] No text detected, but showing processed image:',
+            finalImageUrl,
+          );
+          setCapturedReferenceImage(finalImageUrl);
+        }
+
+        // Mark as captured so user can see the result
+        setHasCaptured(true);
+        
+        console.log('[@hook:useVerificationEditor] Text auto-detection completed with no text found, but image processed successfully');
       }
     } catch (error) {
       console.error('[@hook:useVerificationEditor] Error during text auto-detection:', error);
