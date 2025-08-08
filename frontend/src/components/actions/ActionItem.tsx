@@ -928,14 +928,14 @@ export const ActionItem: React.FC<ActionItemProps> = ({
                   if (selectedRef && selectedRef.type === 'image') {
                     console.log('🔍 [DEBUG] Updating image reference params:', {
                       reference_name: internalKey,
-                      image_path: selectedRef.image_path || ''
+                      image_path: selectedRef.name || internalKey
                     });
                     
                     // Update both parameters in a single call to avoid state race condition
                     const newParams = {
                       ...(action.params as any),
                       reference_name: internalKey,
-                      image_path: selectedRef.image_path || ''
+                      image_path: selectedRef.name || internalKey
                     };
                     
                     console.log('🔍 [DEBUG] Setting combined image params:', newParams);
