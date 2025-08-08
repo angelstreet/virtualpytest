@@ -757,6 +757,31 @@ export const ActionItem: React.FC<ActionItemProps> = ({
           />,
         );
         break;
+
+      case 'waitForTextToAppear':
+      case 'waitForTextToDisappear':
+      case 'waitForImageToAppear':
+      case 'waitForImageToDisappear':
+        // Verification actions - these use the existing verification editor UI
+        // No manual parameter input needed - configured through verification editor
+        fields.push(
+          <Box
+            key="verification_note"
+            sx={{
+              fontSize: '0.75rem',
+              color: 'text.secondary',
+              fontStyle: 'italic',
+              padding: '4px 8px',
+              backgroundColor: 'action.hover',
+              borderRadius: 0.5,
+              border: '1px dashed',
+              borderColor: 'divider',
+            }}
+          >
+            Configure through Verification Editor →
+          </Box>
+        );
+        break;
     }
 
     // Organize fields based on count

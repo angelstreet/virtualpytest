@@ -675,6 +675,47 @@ class AndroidTVRemoteController(RemoteControllerInterface):
                     'params': {'key': 'POWER'},
                     'description': 'Toggle power on/off',
                     'requiresInput': False
+                },
+                # Wait/Assert actions (using existing verification controllers)
+                {
+                    'id': 'wait_for_text_appear',
+                    'label': 'Wait for Text to Appear',
+                    'command': 'waitForTextToAppear',
+                    'action_type': 'verification',
+                    'params': {},
+                    'description': 'Wait for specific text to appear on screen (configure via Verification Editor)',
+                    'requiresInput': False,
+                    'verification_type': 'text'
+                },
+                {
+                    'id': 'wait_for_text_disappear',
+                    'label': 'Wait for Text to Disappear',
+                    'command': 'waitForTextToDisappear',
+                    'action_type': 'verification',
+                    'params': {},
+                    'description': 'Wait for specific text to disappear from screen (configure via Verification Editor)',
+                    'requiresInput': False,
+                    'verification_type': 'text'
+                },
+                {
+                    'id': 'wait_for_image_appear',
+                    'label': 'Wait for Image to Appear',
+                    'command': 'waitForImageToAppear',
+                    'action_type': 'verification',
+                    'params': {},
+                    'description': 'Wait for specific image/icon to appear on screen (configure via Verification Editor)',
+                    'requiresInput': False,
+                    'verification_type': 'image'
+                },
+                {
+                    'id': 'wait_for_image_disappear',
+                    'label': 'Wait for Image to Disappear',
+                    'command': 'waitForImageToDisappear',
+                    'action_type': 'verification',
+                    'params': {},
+                    'description': 'Wait for specific image/icon to disappear from screen (configure via Verification Editor)',
+                    'requiresInput': False,
+                    'verification_type': 'image'
                 }
             ]
         }
