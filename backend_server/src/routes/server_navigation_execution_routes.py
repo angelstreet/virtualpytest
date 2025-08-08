@@ -84,6 +84,13 @@ def get_navigation_preview_with_executor(tree_id, node_id):
         device_id = request.args.get('device_id')
         team_id = request.args.get('team_id') or get_team_id()
         
+        # Validate required parameters
+        if not host_name:
+            return jsonify({
+                'success': False,
+                'error': 'host_name query parameter is required'
+            }), 400
+        
         # Create minimal host configuration for preview
         host = {'host_name': host_name}
         

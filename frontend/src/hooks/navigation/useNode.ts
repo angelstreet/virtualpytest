@@ -273,8 +273,10 @@ export const useNode = (props?: UseNodeProps) => {
           window.location.origin,
         );
 
-        // Add required host_name parameter
-        url.searchParams.append('host_name');
+        // Add required host_name parameter from props (same as execution)
+        if (props.selectedHost?.host_name) {
+          url.searchParams.append('host_name', props.selectedHost.host_name);
+        }
 
         // Only add current_node_id if we have a valid starting node
         if (startingNodeId) {
