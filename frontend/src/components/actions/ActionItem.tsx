@@ -791,7 +791,15 @@ export const ActionItem: React.FC<ActionItemProps> = ({
             <FormControl key="text_reference" size="small" sx={{ width: 250 }}>
               <InputLabel>Text Reference</InputLabel>
               <Select
-                value={getParamValue('reference_name') || ''}
+                value={(() => {
+                  const refName = getParamValue('reference_name') || '';
+                  console.log('🔍 [DEBUG] Text dropdown value check:', {
+                    reference_name: refName,
+                    all_params: action.params,
+                    getParamValue_result: getParamValue('reference_name')
+                  });
+                  return refName;
+                })()}
                 onChange={(e) => {
                   const internalKey = e.target.value;
                   const selectedRef = modelReferences[internalKey];
