@@ -71,10 +71,11 @@ interface BaseAction {
   label: string; // Required: human-readable label
   command: string; // Required: command to execute
   description: string; // Required: action description
-  action_type: 'remote' | 'av' | 'power' | 'network' | 'timer'; // Required: type of action
+  action_type: 'remote' | 'av' | 'power' | 'network' | 'timer' | 'verification'; // Required: type of action
   requiresInput?: boolean; // Optional: whether action requires user input
   inputLabel?: string; // Optional: label for input field
   inputPlaceholder?: string; // Optional: placeholder for input field
+  verification_type?: 'text' | 'image' | 'adb' | 'appium' | 'audio' | 'video'; // Optional: verification type for verification actions
 
   // Execution state (optional, populated during execution)
   waitTime?: number; // Optional: wait time after execution
@@ -115,8 +116,14 @@ export interface TimerAction extends BaseAction {
   params: TimerActionParams;
 }
 
+export interface VerificationAction extends BaseAction {
+  action_type: 'verification';
+  verification_type: 'text' | 'image' | 'adb' | 'appium' | 'audio' | 'video';
+  params: any; // Verification actions use various param structures
+}
+
 // Unified action type (discriminated union)
-export type Action = RemoteAction | AVAction | PowerAction | NetworkAction | TimerAction;
+export type Action = RemoteAction | AVAction | PowerAction | NetworkAction | TimerAction | VerificationAction;
 
 // Actions grouped by action type (mirrors Verifications structure)
 export interface Actions {

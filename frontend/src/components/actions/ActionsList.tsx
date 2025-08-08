@@ -38,6 +38,8 @@ export const ActionsList: React.FC<ActionsListProps> = ({ actions, onActionsUpda
           command: selectedAction.command,
           params: { ...selectedAction.params },
           device_model: selectedAction.device_model,
+          action_type: selectedAction.action_type,
+          verification_type: (selectedAction as any).verification_type,
         };
       }
       return action;

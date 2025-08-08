@@ -776,7 +776,8 @@ export const ActionItem: React.FC<ActionItemProps> = ({
       case 'waitForTextToAppear':
       case 'waitForTextToDisappear':
         // Text verification actions - show same UI as Node Dialog
-        if (currentActionDef?.requiresInput) {
+        // Check verification_type like VerificationItem.tsx does
+        if ((action as any).action_type === 'verification' && (action as any).verification_type === 'text') {
           // Text reference selection (same as VerificationItem.tsx for text)
           fields.push(
             <FormControl key="text_reference" size="small" sx={{ width: 250 }}>
@@ -825,7 +826,8 @@ export const ActionItem: React.FC<ActionItemProps> = ({
       case 'waitForImageToAppear':
       case 'waitForImageToDisappear':
         // Image verification actions - show same UI as Node Dialog
-        if (currentActionDef?.requiresInput) {
+        // Check verification_type like VerificationItem.tsx does
+        if ((action as any).action_type === 'verification' && (action as any).verification_type === 'image') {
           // Image reference selection (same as VerificationItem.tsx line 221-255)
           fields.push(
             <FormControl key="image_reference" size="small" sx={{ width: 250 }}>

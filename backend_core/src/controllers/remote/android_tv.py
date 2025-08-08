@@ -683,8 +683,8 @@ class AndroidTVRemoteController(RemoteControllerInterface):
                     'command': 'waitForTextToAppear',
                     'action_type': 'verification',
                     'params': {},
-                    'description': 'Wait for specific text to appear on screen (configure via Verification Editor)',
-                    'requiresInput': False,
+                    'description': 'Wait for specific text to appear',
+                    'requiresInput': True,
                     'verification_type': 'text'
                 },
                 {
@@ -693,8 +693,8 @@ class AndroidTVRemoteController(RemoteControllerInterface):
                     'command': 'waitForTextToDisappear',
                     'action_type': 'verification',
                     'params': {},
-                    'description': 'Wait for specific text to disappear from screen (configure via Verification Editor)',
-                    'requiresInput': False,
+                    'description': 'Wait for specific text to disappear',
+                    'requiresInput': True,
                     'verification_type': 'text'
                 },
                 {
@@ -703,8 +703,8 @@ class AndroidTVRemoteController(RemoteControllerInterface):
                     'command': 'waitForImageToAppear',
                     'action_type': 'verification',
                     'params': {},
-                    'description': 'Wait for specific image/icon to appear on screen (configure via Verification Editor)',
-                    'requiresInput': False,
+                    'description': 'Wait for specific image to appear',
+                    'requiresInput': True,
                     'verification_type': 'image'
                 },
                 {
@@ -713,8 +713,8 @@ class AndroidTVRemoteController(RemoteControllerInterface):
                     'command': 'waitForImageToDisappear',
                     'action_type': 'verification',
                     'params': {},
-                    'description': 'Wait for specific image/icon to disappear from screen (configure via Verification Editor)',
-                    'requiresInput': False,
+                    'description': 'Wait for specific image to disappear',
+                    'requiresInput': True,
                     'verification_type': 'image'
                 }
             ]
