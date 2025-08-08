@@ -158,7 +158,6 @@ export const ActionItem: React.FC<ActionItemProps> = ({
               fontSize: '0.75rem',
             },
           }}
-          helperText="1-100"
         />,
       );
     }
