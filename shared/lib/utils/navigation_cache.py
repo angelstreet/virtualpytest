@@ -192,6 +192,33 @@ def invalidate_cache(tree_id: str, team_id: str = None):
         
         print(f"[@navigation:cache:invalidate_cache] Invalidated {len(keys_to_remove)} cache entries for tree: {tree_id}")
 
+def invalidate_single_tree_cache_only(tree_id: str, team_id: str):
+    """
+    Invalidate only the single tree cache, not unified caches
+    Used during force refresh when we want to preserve unified caches
+    """
+    if team_id:
+        cache_key = f"{tree_id}_{team_id}"
+        if cache_key in _navigation_graphs_cache:
+            del _navigation_graphs_cache[cache_key]
+            del _cache_timestamps[cache_key]
+        if cache_key in _resolved_tree_data_cache:
+            del _resolved_tree_data_cache[cache_key]
+        
+        print(f"[@navigation:cache:invalidate_single_tree_cache_only] Invalidated single tree cache for tree: {tree_id}, team: {team_id}")
+    else:
+        # Invalidate all caches for this tree_id (if team_id unknown)
+        keys_to_remove = [k for k in _navigation_graphs_cache.keys() if k.startswith(f"{tree_id}_")]
+        for key in keys_to_remove:
+            if key in _navigation_graphs_cache:
+                del _navigation_graphs_cache[key]
+            if key in _cache_timestamps:
+                del _cache_timestamps[key]
+            if key in _resolved_tree_data_cache:
+                del _resolved_tree_data_cache[key]
+        
+        print(f"[@navigation:cache:invalidate_single_tree_cache_only] Invalidated {len(keys_to_remove)} single tree cache entries for tree: {tree_id}")
+
 def invalidate_unified_caches_for_tree(tree_id: str, team_id: str = None):
     """
     Invalidate unified caches that contain the specified tree
@@ -318,9 +345,9 @@ def force_refresh_cache(tree_id: str, team_id: str) -> bool:
     try:
         print(f"[@navigation:cache:force_refresh_cache] Starting cache refresh for tree: {tree_id}, team: {team_id}")
         
-        # Invalidate existing cache
-        invalidate_cache(tree_id, team_id)
-        print(f"[@navigation:cache:force_refresh_cache] Cache invalidated for tree: {tree_id}")
+        # Invalidate existing cache (but preserve unified caches)
+        invalidate_single_tree_cache_only(tree_id, team_id)
+        print(f"[@navigation:cache:force_refresh_cache] Single tree cache invalidated for tree: {tree_id}")
         
         # Reload tree data using the actual tree_id
         try:
@@ -340,6 +367,17 @@ def force_refresh_cache(tree_id: str, team_id: str) -> bool:
                 graph = populate_cache(tree_id, team_id, nodes, edges)
                 if graph:
                     print(f"[@navigation:cache:force_refresh_cache] Successfully refreshed cache for tree: {tree_id}")
+                    
+                    # Check if unified cache exists and preserve it
+                    try:
+                        unified_cache_key = f"unified_{tree_id}_{team_id}"
+                        if unified_cache_key in _unified_graphs_cache:
+                            print(f"[@navigation:cache:force_refresh_cache] Preserving existing unified cache for tree: {tree_id}")
+                        else:
+                            print(f"[@navigation:cache:force_refresh_cache] No unified cache found for tree: {tree_id}")
+                    except Exception as unified_error:
+                        print(f"[@navigation:cache:force_refresh_cache] Error checking unified cache: {unified_error}")
+                    
                     return True
                 else:
                     print(f"[@navigation:cache:force_refresh_cache] Failed to populate cache after retrieving tree data")
