@@ -31,11 +31,18 @@ export const useEdge = (props?: UseEdgeProps) => {
    * Convert navigation Action to EdgeAction for action execution
    */
   const convertToControllerAction = useCallback((navAction: Action): any => {
-    return {
+    console.log('🔍 [DEBUG] convertToControllerAction input:', navAction);
+    
+    const converted = {
       command: navAction.command,
       name: navAction.command, // Use command as name since action.name was removed
       params: navAction.params,
+      action_type: navAction.action_type, // Include action_type for routing
+      verification_type: navAction.verification_type, // Include verification_type for verification actions
     };
+    
+    console.log('🔍 [DEBUG] convertToControllerAction output:', converted);
+    return converted;
   }, []);
 
   /**

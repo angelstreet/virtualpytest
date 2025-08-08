@@ -435,6 +435,26 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
             console.log(
               `[@NavigationEditor:loadTreeForUserInterface] Set tree data with ${frontendNodes.length} nodes and ${frontendEdges.length} edges`,
             );
+
+            // Restore viewport if saved and ReactFlow is ready
+            if (tree) {
+              const { viewport_x, viewport_y, viewport_zoom } = tree;
+              console.log(`[@NavigationEditor:loadTreeForUserInterface] Tree has viewport data:`, { viewport_x, viewport_y, viewport_zoom });
+              
+              if (viewport_x !== undefined && viewport_y !== undefined && viewport_zoom !== undefined) {
+                // Use setTimeout to ensure React Flow is fully initialized
+                setTimeout(() => {
+                  if (navigation.reactFlowInstance) {
+                    console.log(`[@NavigationEditor:loadTreeForUserInterface] Restoring viewport:`, { x: viewport_x, y: viewport_y, zoom: viewport_zoom });
+                    navigation.reactFlowInstance.setViewport({ x: viewport_x, y: viewport_y, zoom: viewport_zoom });
+                  } else {
+                    console.warn(`[@NavigationEditor:loadTreeForUserInterface] ReactFlow instance not available for viewport restoration`);
+                  }
+                }, 100);
+              } else {
+                console.log(`[@NavigationEditor:loadTreeForUserInterface] No viewport data to restore`);
+              }
+            }
           } else {
             console.error('Failed to load tree:', data.error || 'Unknown error');
           }
