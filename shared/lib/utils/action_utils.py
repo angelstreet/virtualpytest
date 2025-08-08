@@ -31,10 +31,14 @@ def execute_action_directly(host, device, action: Dict[str, Any]) -> Dict[str, A
     """
     Execute an action directly using controller-specific abstraction.
     
+    This function now implements the same routing logic as ActionExecutor to ensure
+    verification actions (like waitForTextToAppear) are routed to verification controllers
+    instead of remote controllers.
+    
     Args:
         host: Host instance
         device: Device instance
-        action: Action dictionary with 'command' and 'params'
+        action: Action dictionary with 'command', 'params', 'action_type', and 'verification_type'
         
     Returns:
         Dictionary with success status and execution details
@@ -42,20 +46,56 @@ def execute_action_directly(host, device, action: Dict[str, Any]) -> Dict[str, A
     try:
         command = action.get('command')
         params = action.get('params', {})
+        action_type = action.get('action_type', 'remote')  # Default to remote for backward compatibility
         
-        remote_controller = get_controller(device.device_id, 'remote')
-        if not remote_controller:
-            return {
-                'success': False,
-                'error': f'No remote controller found for device {device.device_id}'
+        print(f"[@action_utils:execute_action_directly] Action type: {action_type}, command: {command}")
+        
+        # Route to appropriate controller based on action_type (same logic as ActionExecutor)
+        if action_type == 'verification':
+            verification_type = action.get('verification_type', 'text')  # Default to text verification
+            print(f"[@action_utils:execute_action_directly] Routing verification action to {verification_type} verification controller")
+            
+            # Get verification controller
+            verification_controller = get_controller(device.device_id, f'verification_{verification_type}')
+            if not verification_controller:
+                return {
+                    'success': False,
+                    'error': f'No {verification_type} verification controller found for device {device.device_id}'
+                }
+            
+            # Execute verification using unified method (same as ActionExecutor)
+            verification_config = {
+                'command': command,
+                'params': params
             }
-        
-        success = remote_controller.execute_command(command, params)
-        
-        return {
-            'success': success,
-            'message': f'{"Successfully executed" if success else "Failed to execute"} {command}'
-        }
+            
+            result = verification_controller.execute_verification(verification_config)
+            
+            # Convert verification result to action result format
+            return {
+                'success': result.get('success', False),
+                'message': result.get('message', f'{"Successfully executed" if result.get("success") else "Failed to execute"} {command}'),
+                'error': None if result.get('success') else result.get('message', 'Verification failed'),
+                'details': result  # Include full verification details
+            }
+            
+        else:
+            # Route to remote endpoint (default behavior)
+            print(f"[@action_utils:execute_action_directly] Routing {action_type} action to remote controller")
+            
+            remote_controller = get_controller(device.device_id, 'remote')
+            if not remote_controller:
+                return {
+                    'success': False,
+                    'error': f'No remote controller found for device {device.device_id}'
+                }
+            
+            success = remote_controller.execute_command(command, params)
+            
+            return {
+                'success': success,
+                'message': f'{"Successfully executed" if success else "Failed to execute"} {command}'
+            }
             
     except Exception as e:
         return {'success': False, 'error': f'Action execution error: {str(e)}'}
