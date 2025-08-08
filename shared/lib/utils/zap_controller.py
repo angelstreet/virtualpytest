@@ -459,36 +459,118 @@ class ZapController:
             }
     
     def _analyze_audio_menu(self, context, iteration: int) -> Dict[str, Any]:
-        """Analyze audio menu using direct controller call - same as HTTP routes do"""
+        """Analyze audio/subtitle menu using direct controller call - handles mobile (combined) and desktop/TV (separate) menus"""
         try:
-            print(f"🎧 [ZapController] Analyzing audio menu...")
+            device_model = context.selected_device.device_model if context.selected_device else 'unknown'
+            device_id = context.selected_device.device_id
             
-            # Navigate to audio menu
-            audio_menu_nav = goto_node(context.host, context.selected_device, "live_audiomenu", 
-                                     context.tree_id, context.team_id, context)
+            # Get video verification controller - same as HTTP routes
+            video_controller = get_controller(device_id, 'verification_video')
+            if not video_controller:
+                return {"success": False, "message": f"No video verification controller found for device {device_id}"}
             
-            if audio_menu_nav.get('success'):
-                # Capture and analyze using unified approach
-                screenshot_result = capture_and_upload_screenshot(context.host, context.selected_device, f"audio_menu_{iteration}", "zap")
-                screenshot_path = screenshot_result['screenshot_path'] if screenshot_result['success'] else ""
-                if screenshot_result['success']:
-                    context.add_screenshot(screenshot_path)
-                device_id = context.selected_device.device_id
+            if device_model in ['android_mobile', 'ios_mobile']:
+                # Mobile devices: combined audio/subtitle menu
+                print(f"🎧 [ZapController] Analyzing combined audio/subtitle menu for mobile...")
                 
-                # Get video verification controller - same as HTTP routes
-                video_controller = get_controller(device_id, 'verification_video')
-                if not video_controller:
-                    return {"success": False, "message": f"No video verification controller found for device {device_id}"}
+                # Navigate to combined audio menu
+                audio_menu_nav = goto_node(context.host, context.selected_device, "live_audiomenu", 
+                                         context.tree_id, context.team_id, context)
                 
-                # Call the same method that HTTP routes would call
-                result = video_controller.analyze_language_menu_ai(screenshot_path)
+                if audio_menu_nav.get('success'):
+                    # Capture and analyze using unified approach
+                    screenshot_result = capture_and_upload_screenshot(context.host, context.selected_device, f"audio_menu_{iteration}", "zap")
+                    screenshot_path = screenshot_result['screenshot_path'] if screenshot_result['success'] else ""
+                    if screenshot_result['success']:
+                        context.add_screenshot(screenshot_path)
+                    
+                    # Call the same method that HTTP routes would call
+                    result = video_controller.analyze_language_menu_ai(screenshot_path)
+                    
+                    # Navigate back to live
+                    goto_node(context.host, context.selected_device, "live", context.tree_id, context.team_id, context)
+                    
+                    return result
+                else:
+                    return {"success": False, "message": "Failed to navigate to combined audio menu"}
+            
+            else:
+                # Desktop/TV devices: separate audio and subtitle menus
+                print(f"🎧 [ZapController] Analyzing separate audio and subtitle menus for desktop/TV...")
+                
+                combined_result = {
+                    "success": True,
+                    "menu_detected": False,
+                    "audio_detected": False,
+                    "subtitles_detected": False,
+                    "audio_analysis": {},
+                    "subtitle_analysis": {},
+                    "message": ""
+                }
+                
+                # 1. Analyze audio menu
+                print(f"🔊 [ZapController] Checking audio menu...")
+                audio_nav = goto_node(context.host, context.selected_device, "live_menu_audio", 
+                                    context.tree_id, context.team_id, context)
+                
+                if audio_nav.get('success'):
+                    # Capture and analyze audio menu
+                    audio_screenshot_result = capture_and_upload_screenshot(context.host, context.selected_device, f"audio_menu_{iteration}", "zap")
+                    audio_screenshot_path = audio_screenshot_result['screenshot_path'] if audio_screenshot_result['success'] else ""
+                    if audio_screenshot_result['success']:
+                        context.add_screenshot(audio_screenshot_path)
+                    
+                    audio_result = video_controller.analyze_language_menu_ai(audio_screenshot_path)
+                    combined_result["audio_analysis"] = audio_result
+                    if audio_result.get('menu_detected', False):
+                        combined_result["audio_detected"] = True
+                        combined_result["menu_detected"] = True
+                        print(f"✅ [ZapController] Audio menu detected")
+                    else:
+                        print(f"⚠️ [ZapController] No audio menu detected")
+                else:
+                    combined_result["audio_analysis"] = {"success": False, "message": "Failed to navigate to audio menu"}
+                    print(f"❌ [ZapController] Failed to navigate to audio menu")
+                
+                # 2. Analyze subtitle menu
+                print(f"📝 [ZapController] Checking subtitle menu...")
+                subtitle_nav = goto_node(context.host, context.selected_device, "live_menu_subtitles", 
+                                       context.tree_id, context.team_id, context)
+                
+                if subtitle_nav.get('success'):
+                    # Capture and analyze subtitle menu
+                    subtitle_screenshot_result = capture_and_upload_screenshot(context.host, context.selected_device, f"subtitle_menu_{iteration}", "zap")
+                    subtitle_screenshot_path = subtitle_screenshot_result['screenshot_path'] if subtitle_screenshot_result['success'] else ""
+                    if subtitle_screenshot_result['success']:
+                        context.add_screenshot(subtitle_screenshot_path)
+                    
+                    subtitle_result = video_controller.analyze_language_menu_ai(subtitle_screenshot_path)
+                    combined_result["subtitle_analysis"] = subtitle_result
+                    if subtitle_result.get('menu_detected', False):
+                        combined_result["subtitles_detected"] = True
+                        combined_result["menu_detected"] = True
+                        print(f"✅ [ZapController] Subtitle menu detected")
+                    else:
+                        print(f"⚠️ [ZapController] No subtitle menu detected")
+                else:
+                    combined_result["subtitle_analysis"] = {"success": False, "message": "Failed to navigate to subtitle menu"}
+                    print(f"❌ [ZapController] Failed to navigate to subtitle menu")
                 
                 # Navigate back to live
                 goto_node(context.host, context.selected_device, "live", context.tree_id, context.team_id, context)
                 
-                return result
-            else:
-                return {"success": False, "message": "Failed to navigate to audio menu"}
+                # Set combined message
+                if combined_result["audio_detected"] and combined_result["subtitles_detected"]:
+                    combined_result["message"] = "Both audio and subtitle menus detected"
+                elif combined_result["audio_detected"]:
+                    combined_result["message"] = "Only audio menu detected"
+                elif combined_result["subtitles_detected"]:
+                    combined_result["message"] = "Only subtitle menu detected"
+                else:
+                    combined_result["message"] = "No audio or subtitle menus detected"
+                
+                print(f"📊 [ZapController] Menu analysis complete: {combined_result['message']}")
+                return combined_result
                 
         except Exception as e:
             return {"success": False, "message": f"Audio menu analysis error: {e}"}
