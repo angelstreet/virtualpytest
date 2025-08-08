@@ -58,7 +58,9 @@ def find_shortest_path_unified(root_tree_id: str, target_node_id: str, team_id: 
     from shared.lib.utils.navigation_cache import get_cached_unified_graph, get_node_tree_location, get_tree_hierarchy_metadata
     from shared.lib.utils.navigation_graph import get_entry_points, get_node_info
     
+    # Get unified cached graph - MANDATORY
     unified_graph = get_cached_unified_graph(root_tree_id, team_id)
+    
     if not unified_graph:
         print(f"[@navigation:pathfinding:find_shortest_path_unified] No unified graph cached for root tree {root_tree_id}")
         raise UnifiedCacheError(f"No unified graph cached for root tree {root_tree_id}. Unified pathfinding is required - no fallback available.")
@@ -111,12 +113,9 @@ def find_shortest_path_unified(root_tree_id: str, target_node_id: str, team_id: 
         entry_points = get_entry_points(unified_graph)
         
         if not entry_points:
-            print(f"[@navigation:pathfinding:find_shortest_path_unified] No entry points found, using first node")
-            nodes = list(unified_graph.nodes())
-            if not nodes:
-                print(f"[@navigation:pathfinding:find_shortest_path_unified] No nodes in unified graph")
-                raise PathfindingError("No nodes in unified graph")
-            actual_start_node = nodes[0]
+            # This should never happen if we're using root tree ID correctly
+            print(f"[@navigation:pathfinding:find_shortest_path_unified] ERROR: No entry points found in root tree - this indicates a data problem")
+            raise PathfindingError("No entry points found in root tree unified graph - check tree data integrity")
         else:
             # Prioritize dedicated entry node over home node
             dedicated_entry = None

@@ -23,7 +23,7 @@ export interface UseNodeProps {
 
 export const useNode = (props?: UseNodeProps) => {
   const { getModelReferences, referencesLoading, currentDeviceId } = useDeviceData();
-  const { currentNodeId, updateCurrentPosition, updateNodesWithMinimapIndicators, nodes } =
+  const { currentNodeId, updateCurrentPosition, updateNodesWithMinimapIndicators, nodes, rootTreeId } =
     useNavigation();
   const {
     setNavigationEdgesSuccess,
@@ -268,8 +268,10 @@ export const useNode = (props?: UseNodeProps) => {
         // Use only context currentNodeId - no fallbacks
         const startingNodeId = currentNodeId;
 
+        // Use rootTreeId for pathfinding (unified cache is keyed by root tree)
+        const pathfindingTreeId = rootTreeId || props.treeId;
         const url = new URL(
-          `/server/navigation/preview/${props.treeId}/${selectedNode.id}`,
+          `/server/navigation/preview/${pathfindingTreeId}/${selectedNode.id}`,
           window.location.origin,
         );
 
