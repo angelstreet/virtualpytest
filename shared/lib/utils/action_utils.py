@@ -31,74 +31,157 @@ def execute_action_directly(host, device, action: Dict[str, Any]) -> Dict[str, A
     """
     Execute an action directly using controller-specific abstraction.
     
-    This function now implements the same routing logic as ActionExecutor to ensure
-    verification actions (like waitForTextToAppear) are routed to verification controllers
-    instead of remote controllers.
+    This function now implements the same routing logic and iteration support as ActionExecutor 
+    to ensure verification actions (like waitForTextToAppear) are routed to verification controllers
+    instead of remote controllers, and supports action iteration.
     
     Args:
         host: Host instance
         device: Device instance
-        action: Action dictionary with 'command', 'params', 'action_type', and 'verification_type'
+        action: Action dictionary with 'command', 'params', 'action_type', 'verification_type', and 'iterator'
         
     Returns:
-        Dictionary with success status and execution details
+        Dictionary with success status, execution details, and iteration results
     """
     try:
         command = action.get('command')
         params = action.get('params', {})
         action_type = action.get('action_type', 'remote')  # Default to remote for backward compatibility
         
-        print(f"[@action_utils:execute_action_directly] Action type: {action_type}, command: {command}")
-        
-        # Route to appropriate controller based on action_type (same logic as ActionExecutor)
+        # Get iterator count (default to 1 if not specified)
+        # Only allow iterations for non-verification actions (same logic as ActionExecutor)
         if action_type == 'verification':
-            verification_type = action.get('verification_type', 'text')  # Default to text verification
-            print(f"[@action_utils:execute_action_directly] Routing verification action to {verification_type} verification controller")
-            
-            # Get verification controller
-            verification_controller = get_controller(device.device_id, f'verification_{verification_type}')
-            if not verification_controller:
-                return {
-                    'success': False,
-                    'error': f'No {verification_type} verification controller found for device {device.device_id}'
-                }
-            
-            # Execute verification using unified method (same as ActionExecutor)
-            verification_config = {
-                'command': command,
-                'params': params
-            }
-            
-            result = verification_controller.execute_verification(verification_config)
-            
-            # Convert verification result to action result format
-            return {
-                'success': result.get('success', False),
-                'message': result.get('message', f'{"Successfully executed" if result.get("success") else "Failed to execute"} {command}'),
-                'error': None if result.get('success') else result.get('message', 'Verification failed'),
-                'details': result  # Include full verification details
-            }
-            
+            iterator_count = 1  # Force single execution for verifications
         else:
-            # Route to remote endpoint (default behavior)
-            print(f"[@action_utils:execute_action_directly] Routing {action_type} action to remote controller")
+            iterator_count = action.get('iterator', 1)
+            if iterator_count < 1 or iterator_count > 100:
+                iterator_count = 1  # Clamp to valid range
+        
+        if action_type == 'verification':
+            print(f"[@action_utils:execute_action_directly] Executing verification: {command} (verifications always run once)")
+        else:
+            print(f"[@action_utils:execute_action_directly] Executing action: {command} with {iterator_count} iteration(s)")
+        
+        print(f"[@action_utils:execute_action_directly] Action type: {action_type}")
+        
+        # Track results for all iterations
+        all_iterations_successful = True
+        total_execution_time = 0
+        iteration_results = []
+        
+        for iteration in range(iterator_count):
+            iteration_start_time = time.time()
             
-            remote_controller = get_controller(device.device_id, 'remote')
-            if not remote_controller:
-                return {
+            try:
+                iteration_label = f"iteration {iteration + 1}/{iterator_count}" if iterator_count > 1 else ""
+                if iteration_label:
+                    print(f"[@action_utils:execute_action_directly] Executing {iteration_label}: {command}")
+                
+                # Route to appropriate controller based on action_type (same logic as ActionExecutor)
+                if action_type == 'verification':
+                    verification_type = action.get('verification_type', 'text')  # Default to text verification
+                    if iteration == 0:  # Only log routing once
+                        print(f"[@action_utils:execute_action_directly] Routing verification action to {verification_type} verification controller")
+                    
+                    # Get verification controller
+                    verification_controller = get_controller(device.device_id, f'verification_{verification_type}')
+                    if not verification_controller:
+                        return {
+                            'success': False,
+                            'error': f'No {verification_type} verification controller found for device {device.device_id}',
+                            'total_execution_time_ms': 0,
+                            'iteration_results': []
+                        }
+                    
+                    # Execute verification using unified method (same as ActionExecutor)
+                    verification_config = {
+                        'command': command,
+                        'params': params
+                    }
+                    
+                    result = verification_controller.execute_verification(verification_config)
+                    iteration_success = result.get('success', False)
+                    
+                else:
+                    # Route to remote controller (default behavior)
+                    if iteration == 0:  # Only log routing once
+                        print(f"[@action_utils:execute_action_directly] Routing {action_type} action to remote controller")
+                    
+                    remote_controller = get_controller(device.device_id, 'remote')
+                    if not remote_controller:
+                        return {
+                            'success': False,
+                            'error': f'No remote controller found for device {device.device_id}',
+                            'total_execution_time_ms': 0,
+                            'iteration_results': []
+                        }
+                    
+                    iteration_success = remote_controller.execute_command(command, params)
+                    result = {'success': iteration_success}
+                
+                iteration_execution_time = int((time.time() - iteration_start_time) * 1000)
+                total_execution_time += iteration_execution_time
+                
+                if iterator_count > 1:
+                    print(f"[@action_utils:execute_action_directly] Iteration {iteration + 1}/{iterator_count} result: success={iteration_success}, time={iteration_execution_time}ms")
+                else:
+                    print(f"[@action_utils:execute_action_directly] Action result: success={iteration_success}, time={iteration_execution_time}ms")
+                
+                # Track iteration results
+                iteration_results.append({
+                    'iteration': iteration + 1,
+                    'success': iteration_success,
+                    'execution_time_ms': iteration_execution_time,
+                    'message': result.get('message', f'{"Successfully executed" if iteration_success else "Failed to execute"} {command}'),
+                    'details': result if action_type == 'verification' else None
+                })
+                
+                # If any iteration fails, mark overall action as failed
+                if not iteration_success:
+                    all_iterations_successful = False
+                    # Stop on first failure - don't continue iterations
+                    break
+                
+                # Wait between iterations if there are more iterations and wait_time is specified
+                wait_time = params.get('wait_time', 0)
+                if iteration < iterator_count - 1 and wait_time > 0:
+                    print(f"[@action_utils:execute_action_directly] Waiting {wait_time}ms between iterations")
+                    time.sleep(wait_time / 1000.0)
+                
+            except Exception as e:
+                iteration_execution_time = int((time.time() - iteration_start_time) * 1000)
+                total_execution_time += iteration_execution_time
+                all_iterations_successful = False
+                
+                iteration_results.append({
+                    'iteration': iteration + 1,
                     'success': False,
-                    'error': f'No remote controller found for device {device.device_id}'
-                }
-            
-            success = remote_controller.execute_command(command, params)
-            
-            return {
-                'success': success,
-                'message': f'{"Successfully executed" if success else "Failed to execute"} {command}'
-            }
+                    'execution_time_ms': iteration_execution_time,
+                    'message': f'Iteration execution error: {str(e)}',
+                    'error': str(e)
+                })
+                
+                print(f"[@action_utils:execute_action_directly] Iteration {iteration + 1} error: {str(e)}")
+                break
+        
+        # Return comprehensive results (same format as ActionExecutor)
+        return {
+            'success': all_iterations_successful,
+            'message': f'{"Successfully executed" if all_iterations_successful else "Failed to execute"} {command} ({len(iteration_results)}/{iterator_count} iterations passed)',
+            'error': None if all_iterations_successful else f'Action failed after {len(iteration_results)} iteration(s)',
+            'total_execution_time_ms': total_execution_time,
+            'iterator_count': iterator_count,
+            'iteration_results': iteration_results,
+            'details': iteration_results[-1].get('details') if iteration_results and action_type == 'verification' else None
+        }
             
     except Exception as e:
-        return {'success': False, 'error': f'Action execution error: {str(e)}'}
+        return {
+            'success': False, 
+            'error': f'Action execution error: {str(e)}',
+            'total_execution_time_ms': 0,
+            'iteration_results': []
+        }
 
 
 def execute_verification_directly(host, device, verification: Dict[str, Any]) -> Dict[str, Any]:
