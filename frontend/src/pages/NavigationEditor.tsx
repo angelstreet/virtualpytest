@@ -24,10 +24,11 @@ import ReactFlow, {
 import 'reactflow/dist/style.css';
 
 // Import extracted components and hooks
-import { AVPanel } from '../components/controller/av/AVPanel';
 import { RemotePanel } from '../components/controller/remote/RemotePanel';
 import { DesktopPanel } from '../components/controller/desktop/DesktopPanel';
 import { WebPanel } from '../components/controller/web/WebPanel';
+import { VNCStream } from '../components/controller/av/VNCStream';
+import { HDMIStream } from '../components/controller/av/HDMIStream';
 import { NavigationBreadcrumbCompact } from '../components/navigation/NavigationBreadcrumbCompact';
 import { EdgeEditDialog } from '../components/navigation/Navigation_EdgeEditDialog';
 import { EdgeSelectionPanel } from '../components/navigation/Navigation_EdgeSelectionPanel';
@@ -964,7 +965,8 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
         </Box>
 
         {/* Autonomous Panels - Now self-positioning with configurable layouts */}
-        {showRemotePanel && selectedHost && selectedDeviceId && (() => {
+        {/* Remote/Desktop Panel - follows RecHostStreamModal pattern */}
+        {showRemotePanel && selectedHost && selectedDeviceId && isControlActive && (() => {
           const selectedDevice = selectedHost.devices?.find((d) => d.device_id === selectedDeviceId);
           const isDesktopDevice = selectedDevice?.device_model === 'host_vnc';
           
@@ -992,12 +994,12 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
           );
         })()}
 
-        {/* Web Panel for VNC devices */}
-        {selectedHost && selectedDeviceId && (() => {
+        {/* Web Panel for VNC devices - always show when control is active */}
+        {selectedHost && selectedDeviceId && isControlActive && (() => {
           const selectedDevice = selectedHost.devices?.find((d) => d.device_id === selectedDeviceId);
           const isDesktopDevice = selectedDevice?.device_model === 'host_vnc';
           
-          return isDesktopDevice && isControlActive && (
+          return isDesktopDevice && (
             <WebPanel
               host={selectedHost}
               deviceId={selectedDeviceId}
@@ -1009,14 +1011,34 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
           );
         })()}
 
-        {showAVPanel && selectedHost && selectedDeviceId && (
-          <AVPanel
-            host={selectedHost}
-            onExpandedChange={(isExpanded) => {
-              handleAVPanelCollapsedChange(!isExpanded);
-            }}
-          />
-        )}
+        {/* AV Panel - device-specific stream rendering */}
+        {showAVPanel && selectedHost && selectedDeviceId && (() => {
+          const selectedDevice = selectedHost.devices?.find((d) => d.device_id === selectedDeviceId);
+          const deviceModel = selectedDevice?.device_model;
+          
+          if (deviceModel === 'host_vnc') {
+            return (
+              <VNCStream
+                host={selectedHost}
+                deviceId={selectedDeviceId}
+                deviceModel={deviceModel}
+                isControlActive={isControlActive}
+                onCollapsedChange={handleAVPanelCollapsedChange}
+              />
+            );
+          } else {
+            return (
+              <HDMIStream
+                host={selectedHost}
+                deviceId={selectedDeviceId}
+                deviceModel={deviceModel}
+                isControlActive={isControlActive}
+                onCollapsedChange={handleAVPanelCollapsedChange}
+                deviceResolution={{ width: 1920, height: 1080 }}
+              />
+            );
+          }
+        })()}
 
         {/* Node Goto Panel */}
         {showGotoPanel && selectedNodeForGoto && actualTreeId && (
