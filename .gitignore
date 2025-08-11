@@ -21,3 +21,8 @@ shared/build/
 shared/virtualpytest_shared.egg-info/
 backend_core/build/
 backend_core/virtualpytest_backend_core.egg-info/
+
+# Grafana database (keep config directory but ignore db file)
+backend_server/config/grafana/grafana.db
+backend_server/config/grafana/grafana.db-shm
+backend_server/config/grafana/grafana.db-wal

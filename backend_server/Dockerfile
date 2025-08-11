@@ -54,7 +54,7 @@ COPY backend_server/config/ backend_server/config/
 # Set working directory to backend_server
 WORKDIR /app/backend_server
 
-# Create directories for Grafana with proper plugin support
+# Create directories for Grafana with proper plugin support and SQLite database
 RUN mkdir -p /var/lib/grafana /var/log/grafana /etc/grafana \
     && mkdir -p /app/backend_server/config/grafana/provisioning/{datasources,dashboards} \
     && mkdir -p /app/backend_server/config/grafana/dashboards \
@@ -70,9 +70,11 @@ RUN useradd -m -u 1000 vptuser \
     && chown -R grafana:grafana /etc/grafana \
     && chown -R grafana:grafana /usr/share/grafana/data/plugins \
     && chown -R grafana:grafana /var/lib/grafana/plugins \
+    && chown -R vptuser:vptuser /app/backend_server/config/grafana \
     && chmod -R 755 /usr/share/grafana/data/plugins \
     && chmod -R 755 /var/lib/grafana/plugins \
     && chmod -R 775 /var/lib/grafana \
+    && chmod -R 775 /app/backend_server/config/grafana \
     && chmod -R 755 /var/log/grafana
 
 # Copy nginx configuration
