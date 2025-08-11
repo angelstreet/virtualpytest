@@ -205,27 +205,35 @@ def create_empty_navigation_config(interface_name):
         timestamp = int(datetime.now().timestamp() * 1000)
         action_set_id = f'actionset-{timestamp}'
         
+        # Create action set exactly as expected
+        action_set = {
+            'id': action_set_id,
+            'label': 'Entry→Home_1',
+            'actions': [],
+            'retry_actions': [],
+            'failure_actions': [],
+            'priority': 1
+        }
+        
         edge_data = {
             'edge_id': edge_id,
             'source_node_id': entry_node_id,
             'target_node_id': home_node_id,
             'label': 'Entry→Home',
+            'action_sets': [action_set],
+            'default_action_set_id': action_set_id,
+            'final_wait_time': 2000,
             'data': {
-                'label': 'Entry→Home',
-                'action_sets': [
-                    {
-                        'id': action_set_id,
-                        'label': 'Entry→Home_1',
-                        'actions': [],
-                        'retry_actions': [],
-                        'failure_actions': [],
-                        'priority': 1
-                    }
-                ],
-                'default_action_set_id': action_set_id,
-                'final_wait_time': 2000
+                'priority': 'p3',
+                'sourceHandle': 'right-source',
+                'targetHandle': 'left-target'
             }
         }
+        
+        # Debug: Print edge data before saving
+        print(f"[@route:create_empty_navigation_config] Edge data: {edge_data}")
+        print(f"[@route:create_empty_navigation_config] Action sets: {edge_data.get('action_sets')}")
+        print(f"[@route:create_empty_navigation_config] Default action set ID: {edge_data.get('default_action_set_id')}")
         
         edge_result = save_edge(tree_id, edge_data, team_id)
         if not edge_result['success']:
