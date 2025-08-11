@@ -305,7 +305,7 @@ export const VNCStream = React.memo(
       position: 'fixed',
       zIndex: getZIndex('VNC_STREAM'),
       bottom: panelLayout.collapsed.position.bottom || '20px',
-      left: panelLayout.collapsed.position.left || '370px', // Offset from HDMI
+      left: panelLayout.collapsed.position.left || '20px', // Same as HDMI - far left position
       ...sx,
     };
 

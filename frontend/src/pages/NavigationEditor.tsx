@@ -839,7 +839,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
                   proOptions={proOptions}
                 >
                   <Background variant={BackgroundVariant.Dots} gap={15} size={1} />
-                  <Controls />
+                  <Controls position="top-left" />
                   <MiniMap
                     style={miniMapStyle}
                     nodeColor={miniMapNodeColor}
