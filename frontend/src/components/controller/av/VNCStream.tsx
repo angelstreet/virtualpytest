@@ -507,6 +507,8 @@ export const VNCStream = React.memo(
                 <VNCViewer
                   host={host}
                   streamUrl={streamUrl}
+                  isExpanded={isExpanded}
+                  contentLayout={avConfig?.content_layout}
                   sx={{
                     position: 'absolute',
                     top: 0,
