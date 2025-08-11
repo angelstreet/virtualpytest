@@ -114,13 +114,23 @@ export const HostManagerProvider: React.FC<HostManagerProviderProps> = ({
     [availableHosts],
   );
 
-  // Get hosts filtered by device models
+  // Get hosts filtered by device models or capabilities
   const getHostsByModel = useCallback(
     (models: string[]): Host[] => {
       const filtered = availableHosts
         .map((host) => ({
           ...host,
-          devices: (host.devices || []).filter((device) => models.includes(device.device_model)),
+          devices: (host.devices || []).filter((device) => {
+            // Check exact model match first
+            if (models.includes(device.device_model)) {
+              return true;
+            }
+            // Check capability match - if model is 'web' or 'desktop', 
+            // match devices that have those capabilities
+            return models.some(model => 
+              device.device_capabilities && (device.device_capabilities as any)[model]
+            );
+          }),
         }))
         .filter((host) => host.devices.length > 0);
 
@@ -579,9 +589,19 @@ export const HostManagerProvider: React.FC<HostManagerProviderProps> = ({
   // Update filtered hosts when availableHosts changes
   useEffect(() => {
     if (stableUserInterface?.models && availableHosts.length > 0) {
-      // Filter hosts to only include those with devices matching the interface models
+      // Filter hosts to only include those with devices matching the interface models or capabilities
       const compatibleHosts = availableHosts.filter((host) =>
-        host.devices?.some((device) => stableUserInterface.models!.includes(device.device_model)),
+        host.devices?.some((device) => {
+          // Check exact model match first
+          if (stableUserInterface.models!.includes(device.device_model)) {
+            return true;
+          }
+          // Check capability match - if userInterface model is 'web' or 'desktop', 
+          // match devices that have those capabilities
+          return stableUserInterface.models!.some(model => 
+            device.device_capabilities && (device.device_capabilities as any)[model]
+          );
+        })
       );
 
       setFilteredAvailableHosts(compatibleHosts);
