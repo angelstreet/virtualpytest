@@ -40,6 +40,9 @@ services:
       - "3001:3001"  # Grafana direct access (optional)
     volumes:
       - ../shared:/app/shared:ro
+      # Grafana persistent data - survives container rebuilds
+      - grafana-data:/var/lib/grafana
+      - grafana-logs:/var/log/grafana
     environment:
       - SERVER_PORT=5109
       - SERVER_URL=http://localhost:5109
@@ -78,6 +81,9 @@ services:
 
 volumes:
   shared-lib:
+  # Grafana persistent volumes - data survives container rebuilds
+  grafana-data:
+  grafana-logs:
 
 networks:
   default:
