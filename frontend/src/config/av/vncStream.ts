@@ -42,12 +42,26 @@ export const vncStreamConfig = {
     collapsed: {
       objectFit: 'contain' as const,
       width: '100%',
-      height: 'auto',
+      height: '100%',
+      // VNC-specific iframe scaling for small containers
+      iframe: {
+        transform: 'scale(0.35)', // Scale down to fit small collapsed panel
+        transformOrigin: 'top left',
+        width: '285%', // Inverse of scale to maintain aspect ratio
+        height: '285%', // Inverse of scale to maintain aspect ratio
+      },
     },
     expanded: {
       objectFit: 'contain' as const,
       width: '100%',
-      height: 'auto',
+      height: '100%', 
+      // VNC-specific iframe scaling for expanded containers
+      iframe: {
+        transform: 'scale(0.5)', // Scale down to fit expanded panel
+        transformOrigin: 'top left',
+        width: '200%', // Inverse of scale to maintain aspect ratio
+        height: '200%', // Inverse of scale to maintain aspect ratio
+      },
     },
   },
 } as const;
