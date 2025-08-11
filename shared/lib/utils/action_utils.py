@@ -102,8 +102,42 @@ def execute_action_directly(host, device, action: Dict[str, Any]) -> Dict[str, A
                     result = verification_controller.execute_verification(verification_config)
                     iteration_success = result.get('success', False)
                     
+                elif action_type == 'web':
+                    # Route to web controller
+                    if iteration == 0:  # Only log routing once
+                        print(f"[@action_utils:execute_action_directly] Routing web action to web controller")
+                    
+                    web_controller = get_controller(device.device_id, 'web')
+                    if not web_controller:
+                        return {
+                            'success': False,
+                            'error': f'No web controller found for device {device.device_id}',
+                            'total_execution_time_ms': 0,
+                            'iteration_results': []
+                        }
+                    
+                    iteration_success = web_controller.execute_command(command, params)
+                    result = {'success': iteration_success}
+                    
+                elif action_type == 'desktop':
+                    # Route to desktop controller (pyautogui by default)
+                    if iteration == 0:  # Only log routing once
+                        print(f"[@action_utils:execute_action_directly] Routing desktop action to desktop controller")
+                    
+                    desktop_controller = get_controller(device.device_id, 'desktop')
+                    if not desktop_controller:
+                        return {
+                            'success': False,
+                            'error': f'No desktop controller found for device {device.device_id}',
+                            'total_execution_time_ms': 0,
+                            'iteration_results': []
+                        }
+                    
+                    iteration_success = desktop_controller.execute_command(command, params)
+                    result = {'success': iteration_success}
+                    
                 else:
-                    # Route to remote controller (default behavior)
+                    # Route to remote controller (default behavior for remote actions)
                     if iteration == 0:  # Only log routing once
                         print(f"[@action_utils:execute_action_directly] Routing {action_type} action to remote controller")
                     

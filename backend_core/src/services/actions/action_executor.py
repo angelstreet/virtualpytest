@@ -248,8 +248,28 @@ class ActionExecutor:
                         },
                         'device_id': self.device_id or 'device1'
                     }
+                elif action_type == 'web':
+                    # Route to web endpoint
+                    if iteration == 0:  # Only log routing once
+                        print(f"[@lib:action_executor:_execute_single_action] Routing web action to web endpoint")
+                    endpoint = '/host/web/executeCommand'
+                    request_data = {
+                        'command': action.get('command'),
+                        'params': params,
+                        'device_id': self.device_id or 'device1'
+                    }
+                elif action_type == 'desktop':
+                    # Route to desktop endpoint (pyautogui by default)
+                    if iteration == 0:  # Only log routing once
+                        print(f"[@lib:action_executor:_execute_single_action] Routing desktop action to desktop pyautogui endpoint")
+                    endpoint = '/host/desktop/pyautogui/executeCommand'
+                    request_data = {
+                        'command': action.get('command'),
+                        'params': params,
+                        'device_id': self.device_id or 'device1'
+                    }
                 else:
-                    # Route to remote endpoint (default behavior)
+                    # Route to remote endpoint (default behavior for remote actions)
                     if iteration == 0:  # Only log routing once
                         print(f"[@lib:action_executor:_execute_single_action] Routing {action_type} action to remote endpoint")
                     endpoint = '/host/remote/executeCommand'
