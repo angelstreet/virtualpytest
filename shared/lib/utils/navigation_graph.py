@@ -85,32 +85,41 @@ def create_networkx_graph(nodes: List[Dict], edges: List[Dict]) -> nx.DiGraph:
         # NEW ONLY: action_sets structure
         edge_data = edge.get('data', {})
         action_sets = edge.get('action_sets')
-        if not action_sets:
+        if action_sets is None:
             raise ValueError(f"Edge {edge.get('edge_id')} missing action_sets")
         
         default_action_set_id = edge.get('default_action_set_id')
         if not default_action_set_id:
             raise ValueError(f"Edge {edge.get('edge_id')} missing default_action_set_id")
         
-        # Find default action set
-        default_set = next(
-            (s for s in action_sets if s['id'] == default_action_set_id),
-            None
-        )
-        
-        if not default_set:
-            raise ValueError(f"Edge {edge.get('edge_id')} default action set '{default_action_set_id}' not found")
-        
-        # Extract actions from default set for pathfinding
-        actions_list = default_set.get('actions', [])
-        retry_actions_list = default_set.get('retry_actions') or []
-        failure_actions_list = default_set.get('failure_actions') or []
-        
-        # Skip edges with no actions - they are invalid navigation paths
-        if not actions_list:
-            print(f"[@navigation:graph:create_networkx_graph] SKIPPING edge {source_id} → {target_id}: No actions defined (invalid navigation path)")
-            edges_skipped += 1
-            continue
+        # Handle empty action_sets for initial setup
+        if not action_sets:
+            # Empty navigation config - create placeholder edge for initial setup
+            actions_list = []
+            retry_actions_list = []
+            failure_actions_list = []
+            default_set = None
+            print(f"[@navigation:graph:create_networkx_graph] Adding EMPTY edge {source_id} → {target_id}: Initial setup (no actions yet)")
+        else:
+            # Find default action set
+            default_set = next(
+                (s for s in action_sets if s['id'] == default_action_set_id),
+                None
+            )
+            
+            if not default_set:
+                raise ValueError(f"Edge {edge.get('edge_id')} default action set '{default_action_set_id}' not found")
+            
+            # Extract actions from default set for pathfinding
+            actions_list = default_set.get('actions', [])
+            retry_actions_list = default_set.get('retry_actions') or []
+            failure_actions_list = default_set.get('failure_actions') or []
+            
+            # Skip edges with no actions in populated action sets - they are invalid navigation paths
+            if not actions_list:
+                print(f"[@navigation:graph:create_networkx_graph] SKIPPING edge {source_id} → {target_id}: No actions defined (invalid navigation path)")
+                edges_skipped += 1
+                continue
         
         # Get node labels for logging
         source_node_data = G.nodes[source_id]
