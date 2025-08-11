@@ -970,45 +970,44 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
           const selectedDevice = selectedHost.devices?.find((d) => d.device_id === selectedDeviceId);
           const isDesktopDevice = selectedDevice?.device_model === 'host_vnc';
           
-          return isDesktopDevice ? (
-            <DesktopPanel
-              host={selectedHost}
-              deviceId={selectedDeviceId}
-              deviceModel={selectedDevice?.device_model || 'host_vnc'}
-              isConnected={isControlActive}
-              onReleaseControl={handleDisconnectComplete}
-              initialCollapsed={false}
-            />
-          ) : (
-            <RemotePanel
-              host={selectedHost}
-              deviceId={selectedDeviceId}
-              deviceModel={selectedDevice?.device_model || 'unknown'}
-              isConnected={isControlActive}
-              onReleaseControl={handleDisconnectComplete}
-              deviceResolution={{ width: 1920, height: 1080 }}
-              streamCollapsed={isAVPanelCollapsed}
-              streamMinimized={false}
-              captureMode="stream"
-            />
-          );
-        })()}
-
-        {/* Web Panel for VNC devices - always show when control is active */}
-        {selectedHost && selectedDeviceId && isControlActive && (() => {
-          const selectedDevice = selectedHost.devices?.find((d) => d.device_id === selectedDeviceId);
-          const isDesktopDevice = selectedDevice?.device_model === 'host_vnc';
-          
-          return isDesktopDevice && (
-            <WebPanel
-              host={selectedHost}
-              deviceId={selectedDeviceId}
-              deviceModel={selectedDevice?.device_model || 'host_vnc'}
-              isConnected={isControlActive}
-              onReleaseControl={handleDisconnectComplete}
-              initialCollapsed={false}
-            />
-          );
+          if (isDesktopDevice) {
+            // For desktop devices, render both DesktopPanel and WebPanel together
+            return (
+              <>
+                <DesktopPanel
+                  host={selectedHost}
+                  deviceId={selectedDeviceId}
+                  deviceModel={selectedDevice?.device_model || 'host_vnc'}
+                  isConnected={isControlActive}
+                  onReleaseControl={handleDisconnectComplete}
+                  initialCollapsed={false}
+                />
+                <WebPanel
+                  host={selectedHost}
+                  deviceId={selectedDeviceId}
+                  deviceModel={selectedDevice?.device_model || 'host_vnc'}
+                  isConnected={isControlActive}
+                  onReleaseControl={handleDisconnectComplete}
+                  initialCollapsed={false}
+                />
+              </>
+            );
+          } else {
+            // For non-desktop devices, render only RemotePanel
+            return (
+              <RemotePanel
+                host={selectedHost}
+                deviceId={selectedDeviceId}
+                deviceModel={selectedDevice?.device_model || 'unknown'}
+                isConnected={isControlActive}
+                onReleaseControl={handleDisconnectComplete}
+                deviceResolution={{ width: 1920, height: 1080 }}
+                streamCollapsed={isAVPanelCollapsed}
+                streamMinimized={false}
+                captureMode="stream"
+              />
+            );
+          }
         })()}
 
         {/* AV Panel - device-specific stream rendering */}
