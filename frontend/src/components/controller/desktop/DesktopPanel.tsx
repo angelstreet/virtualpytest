@@ -87,7 +87,7 @@ export const DesktopPanel = React.memo(function DesktopPanel({
         position: 'fixed',
         zIndex: 1300,
         bottom: '20px',
-        right: '20px',
+        right: '440px', // Offset to the left to make room for WebPanel (420px + 20px margin)
       };
 
   const renderDesktopComponent = useMemo(() => {

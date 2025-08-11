@@ -14,12 +14,12 @@ export const vncStreamConfig = {
       height: '240px', // Always landscape - VNC is desktop/host screen
       position: {
         bottom: '20px',
-        left: '350px', // Offset from HDMI streams
+        left: '20px', // Left-aligned at 20px
       },
     },
     expanded: {
-      width: '800px',
-      height: '600px', // Always landscape - VNC is desktop/host screen
+      width: '700px',
+      height: '48try 0px', // Always landscape - VNC is desktop/host screen
       position: {
         bottom: '20px',
         right: '20px',
