@@ -34,8 +34,19 @@ interface VNCStreamProps {
   sx?: any;
 }
 
-// VNC Viewer Component for iframe display
-const VNCViewer = ({ streamUrl, sx = {} }: { host: Host; streamUrl: string | null; sx?: any }) => {
+// VNC Viewer Component for iframe display with responsive scaling
+const VNCViewer = ({ 
+  streamUrl, 
+  isExpanded, 
+  contentLayout, 
+  sx = {} 
+}: { 
+  host: Host; 
+  streamUrl: string | null; 
+  isExpanded: boolean;
+  contentLayout?: any;
+  sx?: any;
+}) => {
   const [isVncLoading, setIsVncLoading] = useState(true);
 
   const handleVncLoad = () => {
@@ -58,6 +69,10 @@ const VNCViewer = ({ streamUrl, sx = {} }: { host: Host; streamUrl: string | nul
     );
   }
 
+  // Get the appropriate layout configuration
+  const layoutConfig = isExpanded ? contentLayout?.expanded : contentLayout?.collapsed;
+  const iframeConfig = layoutConfig?.iframe;
+
   return (
     <Box
       sx={{
@@ -65,6 +80,8 @@ const VNCViewer = ({ streamUrl, sx = {} }: { host: Host; streamUrl: string | nul
         position: 'relative',
         width: '100%',
         height: '100%',
+        overflow: 'hidden', // Important: prevent iframe from extending beyond container
+        backgroundColor: 'black',
       }}
     >
       {isVncLoading && (
@@ -86,14 +103,16 @@ const VNCViewer = ({ streamUrl, sx = {} }: { host: Host; streamUrl: string | nul
         </Box>
       )}
 
-      {/* VNC iframe - this is the key difference from HDMI */}
+      {/* VNC iframe with responsive scaling to prevent cropping */}
       <iframe
         src={streamUrl}
         style={{
-          width: '100%',
-          height: '100%',
+          width: iframeConfig?.width || '100%',
+          height: iframeConfig?.height || '100%',
           border: 'none',
           backgroundColor: '#000',
+          transform: iframeConfig?.transform || 'none',
+          transformOrigin: iframeConfig?.transformOrigin || 'top left',
         }}
         onLoad={handleVncLoad}
         title="VNC Desktop Stream"
