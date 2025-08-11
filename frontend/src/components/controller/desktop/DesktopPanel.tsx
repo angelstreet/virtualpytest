@@ -49,7 +49,7 @@ export const DesktopPanel = React.memo(function DesktopPanel({
   const collapsedWidth = '300px';
   const collapsedHeight = '260px';
   const expandedWidth = '450px';
-  const expandedHeight = '340px';
+  const expandedHeight = '580px';
   const headerHeight = '48px';
   const sectionHeaderHeight = '32px';
 
