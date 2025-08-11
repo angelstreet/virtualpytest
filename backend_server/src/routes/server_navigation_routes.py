@@ -205,14 +205,23 @@ def create_empty_navigation_config(interface_name):
         timestamp = int(datetime.now().timestamp() * 1000)
         action_set_id = f'actionset-{timestamp}'
         
-        # Create empty action_sets for initial setup - users will add actions later
+        # Create properly initialized action_sets with default action set
         edge_data = {
             'edge_id': edge_id,
             'source_node_id': entry_node_id,
             'target_node_id': home_node_id,
             'label': 'Entry→Home',
-            'action_sets': [],  # Empty for initial setup
-            'default_action_set_id': action_set_id,  # Placeholder ID for when actions are added
+            'action_sets': [
+                {
+                    'id': action_set_id,
+                    'label': 'Entry→Home_1',
+                    'actions': [],
+                    'retry_actions': [],
+                    'failure_actions': [],
+                    'priority': 1
+                }
+            ],
+            'default_action_set_id': action_set_id,
             'final_wait_time': 2000,
             'data': {
                 'priority': 'p3',
