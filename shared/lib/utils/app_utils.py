@@ -42,8 +42,16 @@ def load_environment_variables(mode='server', calling_script_dir=None):
         host_name = os.getenv('HOST_NAME')
         print(f"[@app_utils:load_environment_variables] Project .env HOST_NAME: {host_name}")
     else:
-        print(f"❌ Project environment file not found: {project_env_path}")
-        print(f"❌ Please create .env in project root using: cp env.example .env")
+        # Check if we're on Render with environment variables already set
+        render_env = os.getenv('RENDER', 'false').lower() == 'true'
+        server_url = os.getenv('SERVER_URL')
+        
+        if render_env and server_url:
+            print(f"✅ Running on Render with environment variables pre-set")
+            print(f"[@app_utils:load_environment_variables] RENDER=true, SERVER_URL={server_url}")
+        else:
+            print(f"❌ Project environment file not found: {project_env_path}")
+            print(f"❌ Please create .env in project root using: cp env.example .env")
     
     # Load service-specific .env if calling_script_dir is provided (for host)
     if calling_script_dir:
