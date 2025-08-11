@@ -44,7 +44,7 @@ start_vnc_services() {
     
     # Start x11vnc (VNC server)
     log "Starting x11vnc VNC server on :5900"
-    x11vnc -display :99 -nopw -listen localhost -xkb -ncache 10 -ncache_cr -forever &
+    x11vnc -display :99 -nopw -listen localhost -xkb -ncache 10 -ncache_cr -forever -q > /dev/null 2>&1 &
     X11VNC_PID=$!
     
     # Wait for VNC server to start
@@ -52,7 +52,7 @@ start_vnc_services() {
     
     # Start NoVNC (web-based VNC client)
     log "Starting NoVNC web client on :6080"
-    websockify --web=/usr/share/novnc/ 6080 localhost:5900 &
+    websockify --web=/usr/share/novnc/ 6080 localhost:5900 > /dev/null 2>&1 &
     NOVNC_PID=$!
     
     log "VNC services started successfully"
