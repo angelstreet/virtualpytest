@@ -5,7 +5,7 @@ export interface Action {
   command: string;
   params: any;
   device_model?: string; // Optional device targeting
-  action_type?: 'remote' | 'av' | 'power' | 'network' | 'timer' | 'verification'; // Optional: type of action (needed for verification UI)
+  action_type?: 'remote' | 'av' | 'power' | 'desktop' | 'web' | 'network' | 'timer' | 'verification'; // Optional: type of action (needed for verification UI)
   verification_type?: 'text' | 'image' | 'adb' | 'appium' | 'audio' | 'video'; // Optional: verification type for verification actions
   iterator?: number; // Optional: number of times to repeat this action (1-100, default: 1) - NOT used for verification actions
 }

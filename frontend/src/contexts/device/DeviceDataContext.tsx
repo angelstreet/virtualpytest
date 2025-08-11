@@ -272,7 +272,7 @@ export const DeviceDataProvider: React.FC<DeviceDataProviderProps> = ({ children
 
   const fetchAvailableActions = useCallback(
     async (force: boolean = false) => {
-      if (!state.isControlActive || !state.currentHost) {
+      if (!state.isControlActive || !state.currentHost || !state.currentDeviceId) {
         return;
       }
 
@@ -288,45 +288,60 @@ export const DeviceDataProvider: React.FC<DeviceDataProviderProps> = ({ children
       setState((prev) => ({ ...prev, availableActionsLoading: true, availableActionsError: null }));
 
       try {
-        // Get available actions directly from device data in the host payload
+        // Get available actions from the currently selected device only
         const categorizedActions: Actions = {};
 
-        // Process all devices in the host
-        state.currentHost.devices?.forEach((device: any) => {
-          const deviceActionTypes = device.device_action_types || {};
+        // Find the currently selected device
+        const currentDevice = state.currentHost.devices?.find(
+          (device: any) => device.device_id === state.currentDeviceId
+        );
 
-          // Process each action category (remote, av, power, etc.)
-          Object.keys(deviceActionTypes).forEach((category) => {
-            const actions = deviceActionTypes[category];
-            if (Array.isArray(actions)) {
-              if (!categorizedActions[category]) {
-                categorizedActions[category] = [];
-              }
+        if (!currentDevice) {
+          console.warn('[DeviceDataContext] Current device not found in host devices');
+          setState((prev) => ({
+            ...prev,
+            availableActions: {},
+            availableActionsLoading: false,
+          }));
+          return;
+        }
 
-              actions.forEach((action: any) => {
-                // DEBUG: Log each raw action from backend
-                console.log('🔍 [DEBUG] Raw action from backend:', action);
-                
-                const processedAction = {
-                  id: action.id || `${action.command}_${category}`,
-                  label: action.label || action.command,
-                  command: action.command,
-                  description: action.description || `${action.command} action`,
-                  action_type: action.action_type || category,
-                  params: action.params || {},
-                  requiresInput: action.requiresInput || false,
-                  inputLabel: action.inputLabel,
-                  inputPlaceholder: action.inputPlaceholder,
-                  verification_type: action.verification_type, // ADD THIS LINE
-                };
-                
-                // DEBUG: Log processed action
-                console.log('🔍 [DEBUG] Processed action:', processedAction);
-                
-                categorizedActions[category].push(processedAction);
-              });
+        console.log(`🔍 [DEBUG] Filtering actions for selected device: ${currentDevice.device_id} (${currentDevice.device_model})`);
+
+        // Process only the current device's action types
+        const deviceActionTypes = currentDevice.device_action_types || {};
+
+        // Process each action category (remote, av, power, desktop, web, etc.)
+        Object.keys(deviceActionTypes).forEach((category) => {
+          const actions = deviceActionTypes[category];
+          if (Array.isArray(actions)) {
+            if (!categorizedActions[category]) {
+              categorizedActions[category] = [];
             }
-          });
+
+            actions.forEach((action: any) => {
+              // DEBUG: Log each raw action from backend
+              console.log(`🔍 [DEBUG] Raw action from device ${currentDevice.device_model}:`, action);
+              
+              const processedAction = {
+                id: action.id || `${action.command}_${category}`,
+                label: action.label || action.command,
+                command: action.command,
+                description: action.description || `${action.command} action`,
+                action_type: action.action_type || category,
+                params: action.params || {},
+                requiresInput: action.requiresInput || false,
+                inputLabel: action.inputLabel,
+                inputPlaceholder: action.inputPlaceholder,
+                verification_type: action.verification_type,
+              };
+              
+              // DEBUG: Log processed action
+              console.log(`🔍 [DEBUG] Processed action for ${currentDevice.device_model}:`, processedAction);
+              
+              categorizedActions[category].push(processedAction);
+            });
+          }
         });
 
         // Available actions loaded successfully
@@ -349,7 +364,7 @@ export const DeviceDataProvider: React.FC<DeviceDataProviderProps> = ({ children
         }));
       }
     },
-    [state.currentHost, state.isControlActive, hostId],
+    [state.currentHost, state.currentDeviceId, state.isControlActive, hostId],
   );
 
   const fetchAvailableVerifications = useCallback(
