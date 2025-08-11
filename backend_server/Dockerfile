@@ -60,10 +60,7 @@ RUN mkdir -p /var/lib/grafana /var/log/grafana /etc/grafana \
     && mkdir -p /app/backend_server/config/grafana/dashboards \
     && mkdir -p /var/log/supervisor \
     && mkdir -p /usr/share/grafana/data/plugins \
-    && mkdir -p /var/lib/grafana/plugins \
-    && mkdir -p /var/lib/grafana/png \
-    && mkdir -p /var/lib/grafana/csv \
-    && mkdir -p /var/lib/grafana/sessions
+    && mkdir -p /var/lib/grafana/plugins
 
 # Create non-root user for security and fix Grafana permissions
 RUN useradd -m -u 1000 vptuser \
@@ -75,7 +72,7 @@ RUN useradd -m -u 1000 vptuser \
     && chown -R grafana:grafana /var/lib/grafana/plugins \
     && chmod -R 755 /usr/share/grafana/data/plugins \
     && chmod -R 755 /var/lib/grafana/plugins \
-    && chmod -R 755 /var/lib/grafana \
+    && chmod -R 775 /var/lib/grafana \
     && chmod -R 755 /var/log/grafana
 
 # Copy nginx configuration
