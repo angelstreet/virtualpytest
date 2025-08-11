@@ -24,8 +24,10 @@ import ReactFlow, {
 import 'reactflow/dist/style.css';
 
 // Import extracted components and hooks
-import { HDMIStream } from '../components/controller/av/HDMIStream';
+import { AVPanel } from '../components/controller/av/AVPanel';
 import { RemotePanel } from '../components/controller/remote/RemotePanel';
+import { DesktopPanel } from '../components/controller/desktop/DesktopPanel';
+import { WebPanel } from '../components/controller/web/WebPanel';
 import { NavigationBreadcrumbCompact } from '../components/navigation/NavigationBreadcrumbCompact';
 import { EdgeEditDialog } from '../components/navigation/Navigation_EdgeEditDialog';
 import { EdgeSelectionPanel } from '../components/navigation/Navigation_EdgeSelectionPanel';
@@ -281,8 +283,6 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
 
     // Track AV panel collapsed state
     const [isAVPanelCollapsed, setIsAVPanelCollapsed] = useState(true);
-    const [isAVPanelMinimized, setIsAVPanelMinimized] = useState(false);
-    const [captureMode, setCaptureMode] = useState<'stream' | 'screenshot' | 'video'>('stream');
 
     // Goto panel state
     const [showGotoPanel, setShowGotoPanel] = useState(false);
@@ -333,15 +333,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
       setIsAVPanelCollapsed(isCollapsed);
     }, []);
 
-    // Handle minimized state changes from HDMIStream
-    const handleAVPanelMinimizedChange = useCallback((isMinimized: boolean) => {
-      setIsAVPanelMinimized(isMinimized);
-    }, []);
 
-    // Handle capture mode changes from HDMIStream
-    const handleCaptureModeChange = useCallback((mode: 'stream' | 'screenshot' | 'video') => {
-      setCaptureMode(mode);
-    }, []);
 
     // Handle opening goto panel
     const handleOpenGotoPanel = useCallback((node: UINavigationNodeType) => {
@@ -972,34 +964,57 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
         </Box>
 
         {/* Autonomous Panels - Now self-positioning with configurable layouts */}
-        {showRemotePanel && selectedHost && selectedDeviceId && (
-          <RemotePanel
-            host={selectedHost}
-            deviceId={selectedDeviceId}
-            deviceModel={
-              selectedHost.devices?.find((d) => d.device_id === selectedDeviceId)?.device_model ||
-              'unknown'
-            }
-            isConnected={isControlActive}
-            onReleaseControl={handleDisconnectComplete}
-            deviceResolution={{ width: 1920, height: 1080 }}
-            streamCollapsed={isAVPanelCollapsed}
-            streamMinimized={isAVPanelMinimized}
-            captureMode={captureMode}
-          />
-        )}
+        {showRemotePanel && selectedHost && selectedDeviceId && (() => {
+          const selectedDevice = selectedHost.devices?.find((d) => d.device_id === selectedDeviceId);
+          const isDesktopDevice = selectedDevice?.device_model === 'host_vnc';
+          
+          return isDesktopDevice ? (
+            <DesktopPanel
+              host={selectedHost}
+              deviceId={selectedDeviceId}
+              deviceModel={selectedDevice?.device_model || 'host_vnc'}
+              isConnected={isControlActive}
+              onReleaseControl={handleDisconnectComplete}
+              initialCollapsed={false}
+            />
+          ) : (
+            <RemotePanel
+              host={selectedHost}
+              deviceId={selectedDeviceId}
+              deviceModel={selectedDevice?.device_model || 'unknown'}
+              isConnected={isControlActive}
+              onReleaseControl={handleDisconnectComplete}
+              deviceResolution={{ width: 1920, height: 1080 }}
+              streamCollapsed={isAVPanelCollapsed}
+              streamMinimized={false}
+              captureMode="stream"
+            />
+          );
+        })()}
+
+        {/* Web Panel for VNC devices */}
+        {selectedHost && selectedDeviceId && (() => {
+          const selectedDevice = selectedHost.devices?.find((d) => d.device_id === selectedDeviceId);
+          const isDesktopDevice = selectedDevice?.device_model === 'host_vnc';
+          
+          return isDesktopDevice && isControlActive && (
+            <WebPanel
+              host={selectedHost}
+              deviceId={selectedDeviceId}
+              deviceModel={selectedDevice?.device_model || 'host_vnc'}
+              isConnected={isControlActive}
+              onReleaseControl={handleDisconnectComplete}
+              initialCollapsed={false}
+            />
+          );
+        })()}
 
         {showAVPanel && selectedHost && selectedDeviceId && (
-          <HDMIStream
+          <AVPanel
             host={selectedHost}
-            deviceId={selectedDeviceId}
-            deviceModel={
-              selectedHost.devices?.find((d) => d.device_id === selectedDeviceId)?.device_model
-            }
-            isControlActive={isControlActive}
-            onCollapsedChange={handleAVPanelCollapsedChange}
-            onMinimizedChange={handleAVPanelMinimizedChange}
-            onCaptureModeChange={handleCaptureModeChange}
+            onExpandedChange={(isExpanded) => {
+              handleAVPanelCollapsedChange(!isExpanded);
+            }}
           />
         )}
 
