@@ -288,16 +288,16 @@ def save_edge(tree_id: str, edge_data: Dict, team_id: str) -> Dict:
         supabase = get_supabase()
         
         # STRICT: Only accept new action_sets format
-        if not edge_data.get('action_sets'):
+        if 'action_sets' not in edge_data:
             raise ValueError("action_sets is required")
         
         if not edge_data.get('default_action_set_id'):
             raise ValueError("default_action_set_id is required")
         
-        # Validate default_action_set_id exists in action_sets
+        # Validate default_action_set_id exists in action_sets (skip if action_sets is empty for initial setup)
         action_sets = edge_data['action_sets']
         default_id = edge_data['default_action_set_id']
-        if not any(action_set.get('id') == default_id for action_set in action_sets):
+        if action_sets and not any(action_set.get('id') == default_id for action_set in action_sets):
             raise ValueError(f"default_action_set_id '{default_id}' not found in action_sets")
         
         edge_data['tree_id'] = tree_id
