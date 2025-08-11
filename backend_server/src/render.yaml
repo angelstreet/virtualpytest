@@ -1,11 +1,9 @@
 services:
   - type: web
     name: virtualpytest-backend-server
-    env: python
-    buildCommand: |
-      # Install backend_server dependencies
-      pip install -r requirements.txt
-    startCommand: python app.py
+    env: docker
+    dockerfilePath: ./backend_server/Dockerfile
+    dockerContext: .
     plan: free
     region: oregon
     branch: dev
