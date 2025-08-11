@@ -69,8 +69,11 @@ RUN chmod +x /app/backend_host/scripts/generate_services_config.sh && \
     chmod +x /app/backend_host/scripts/start_services.sh && \
     chmod +x /app/backend_host/scripts/run_ffmpeg_and_rename_docker.sh
 
+# Create /var/www directory structure and set permissions
+RUN mkdir -p /var/www/html && chmod 755 /var/www/html
+
 # Create non-root user for security
-RUN useradd -m -u 1000 vptuser && chown -R vptuser:vptuser /app
+RUN useradd -m -u 1000 vptuser && chown -R vptuser:vptuser /app /var/www
 
 # Expose ports
 EXPOSE 6109 6080
