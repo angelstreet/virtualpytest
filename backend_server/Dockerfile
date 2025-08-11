@@ -52,18 +52,23 @@ COPY backend_server/config/ backend_server/config/
 # Set working directory to backend_server
 WORKDIR /app/backend_server
 
-# Create directories for Grafana
+# Create directories for Grafana with proper plugin support
 RUN mkdir -p /var/lib/grafana /var/log/grafana /etc/grafana \
     && mkdir -p /app/backend_server/config/grafana/provisioning/{datasources,dashboards} \
     && mkdir -p /app/backend_server/config/grafana/dashboards \
-    && mkdir -p /var/log/supervisor
+    && mkdir -p /var/log/supervisor \
+    && mkdir -p /usr/share/grafana/data/plugins \
+    && mkdir -p /var/lib/grafana/plugins
 
-# Create non-root user for security
+# Create non-root user for security and fix Grafana permissions
 RUN useradd -m -u 1000 vptuser \
     && chown -R vptuser:vptuser /app \
-    && chown -R vptuser:vptuser /var/lib/grafana \
-    && chown -R vptuser:vptuser /var/log/grafana \
-    && chown -R vptuser:vptuser /etc/grafana
+    && chown -R grafana:grafana /var/lib/grafana \
+    && chown -R grafana:grafana /var/log/grafana \
+    && chown -R grafana:grafana /etc/grafana \
+    && chown -R grafana:grafana /usr/share/grafana/data/plugins \
+    && chmod -R 755 /usr/share/grafana/data/plugins \
+    && chmod -R 755 /var/lib/grafana/plugins
 
 # Copy nginx configuration
 COPY backend_server/config/nginx/virtualpytest.conf /etc/nginx/sites-available/virtualpytest

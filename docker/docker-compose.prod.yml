@@ -13,7 +13,7 @@ services:
       # Production Grafana configuration
       - GRAFANA_DOMAIN=virtualpytest.onrender.com
       - GF_SERVER_DOMAIN=virtualpytest.onrender.com
-      - GF_SERVER_ROOT_URL=https://virtualpytest.onrender.com/grafana/
+                  - GF_SERVER_ROOT_URL=https://virtualpytest.onrender.com/grafana
       - GF_SERVER_PROTOCOL=https
       - GF_SERVER_SERVE_FROM_SUB_PATH=true
       

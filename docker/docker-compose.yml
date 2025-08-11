@@ -57,7 +57,7 @@ services:
       - GF_SERVER_HTTP_PORT=3001
       - GF_SERVER_PROTOCOL=http
       - GF_SERVER_DOMAIN=localhost
-      - GF_SERVER_ROOT_URL=http://localhost:5109/grafana/
+                  - GF_SERVER_ROOT_URL=http://localhost:5109/grafana
       - GF_SERVER_SERVE_FROM_SUB_PATH=true
       # Supabase Database connection (only 1 variable needed)
       - SUPABASE_DB_URI=${SUPABASE_DB_URI}
