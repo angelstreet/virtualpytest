@@ -56,10 +56,8 @@ services:
       - GF_SERVER_DOMAIN=localhost
       - GF_SERVER_ROOT_URL=http://localhost:5109/grafana/
       - GF_SERVER_SERVE_FROM_SUB_PATH=true
-      # Database connection (add your Supabase credentials)
-      - DATABASE_URL=postgresql://postgres:password@db.project-id.supabase.co:5432/postgres
-      - NEXT_PUBLIC_SUPABASE_URL=https://your-project-id.supabase.co
-      - NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+      # Supabase Database connection (only 1 variable needed)
+      - SUPABASE_DB_URI=${SUPABASE_DB_URI}
     depends_on:
       - shared
     restart: unless-stopped
