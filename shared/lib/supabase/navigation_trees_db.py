@@ -245,9 +245,9 @@ def get_tree_edges(tree_id: str, team_id: str, node_ids: List[str] = None) -> Di
         
         result = query.order('created_at').execute()
         
-        # STRICT: All edges must have action_sets
+        # STRICT: All edges must have action_sets field (can be empty array for initial setup)
         for edge in result.data:
-            if not edge.get('action_sets'):
+            if 'action_sets' not in edge:
                 raise ValueError(f"Edge {edge.get('edge_id')} missing action_sets - migration incomplete")
             if not edge.get('default_action_set_id'):
                 raise ValueError(f"Edge {edge.get('edge_id')} missing default_action_set_id - migration incomplete")
