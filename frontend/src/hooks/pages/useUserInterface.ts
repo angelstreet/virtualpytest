@@ -314,6 +314,7 @@ export const useUserInterface = () => {
               },
               body: JSON.stringify({
                 userinterface_data: {
+                  id: userInterface.id,
                   name: userInterface.name,
                   models: userInterface.models,
                   min_version: userInterface.min_version,
