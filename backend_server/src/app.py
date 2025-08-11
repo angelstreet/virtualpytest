@@ -194,21 +194,79 @@ def start_server(app):
     print(f"[@backend_server:start] 🔌 WebSocket enabled for async task notifications")
     
     try:
-        # Use SocketIO to run the server (like the original system)
+        # Validate SocketIO before starting
+        if not hasattr(app, 'socketio'):
+            print("[@backend_server:start] ❌ SocketIO not initialized on app")
+            print("[@backend_server:start] 🔧 Available app attributes:", [attr for attr in dir(app) if not attr.startswith('_')])
+            sys.exit(1)
+            
         socketio = app.socketio
+        print(f"[@backend_server:start] ✅ SocketIO instance: {type(socketio)}")
+        
+        # Additional debugging for Render environment
+        print(f"[@backend_server:start] 🔧 Environment debug:")
+        print(f"    RENDER: {os.getenv('RENDER', 'false')}")
+        print(f"    Working Directory: {os.getcwd()}")
+        print(f"    Server Port: {server_port}")
+        print(f"    Available routes: {len(app.url_map._rules) if hasattr(app, 'url_map') else 'unknown'}")
+        
+        print("[@backend_server:start] 🚀 Calling socketio.run()...")
+        
+        # Add signal handlers for graceful shutdown
+        import signal
+        def signal_handler(signum, frame):
+            print(f"[@backend_server:start] 🛑 Received signal {signum}, shutting down gracefully...")
+        
+        signal.signal(signal.SIGTERM, signal_handler)
+        signal.signal(signal.SIGINT, signal_handler)
+        
+        # Add error monitoring
+        import threading
+        def monitor_health():
+            import time
+            time.sleep(10)  # Wait for startup
+            while True:
+                try:
+                    print("[@backend_server:monitor] ❤️ Health check - app still running")
+                    time.sleep(30)  # Check every 30 seconds
+                except Exception as e:
+                    print(f"[@backend_server:monitor] ❌ Health check failed: {e}")
+                    break
+        
+        if os.getenv('RENDER', 'false').lower() == 'true':
+            monitor_thread = threading.Thread(target=monitor_health, daemon=True)
+            monitor_thread.start()
+            print("[@backend_server:start] 🔍 Health monitoring started for Render")
+        
         socketio.run(app, 
                     host='0.0.0.0', 
                     port=server_port, 
                     debug=debug_mode,
-                    allow_unsafe_werkzeug=True)
+                    allow_unsafe_werkzeug=True,
+                    log_output=True,
+                    use_reloader=False)
         
-    except ImportError:
-        print("[@backend_server:start] ❌ Flask-SocketIO required. Install: pip install flask-socketio")
+    except ImportError as e:
+        print(f"[@backend_server:start] ❌ Import error: {e}")
+        print("[@backend_server:start] Flask-SocketIO required. Install: pip install flask-socketio")
+        import traceback
+        traceback.print_exc()
         sys.exit(1)
     except KeyboardInterrupt:
         print("[@backend_server:start] 🛑 backend_server shutting down...")
     except Exception as e:
         print(f"[@backend_server:start] ❌ Error starting backend_server: {e}")
+        print(f"[@backend_server:start] ❌ Error type: {type(e).__name__}")
+        import traceback
+        print("[@backend_server:start] 📋 Full traceback:")
+        traceback.print_exc()
+        print(f"[@backend_server:start] 🔧 Current working directory: {os.getcwd()}")
+        print(f"[@backend_server:start] 🔧 Python executable: {sys.executable}")
+        print(f"[@backend_server:start] 🔧 Python version: {sys.version}")
+        # Don't exit immediately on Render - let supervisor handle restart
+        if os.getenv('RENDER', 'false').lower() == 'true':
+            print("[@backend_server:start] 🔄 On Render - sleeping before restart...")
+            time.sleep(5)
         sys.exit(1)
     finally:
         print("[@backend_server:start] 👋 backend_server application stopped")
