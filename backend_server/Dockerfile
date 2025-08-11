@@ -8,6 +8,8 @@ RUN apt-get update && apt-get install -y \
     software-properties-common \
     supervisor \
     postgresql-client \
+    libpq-dev \
+    libpq5 \
     nginx \
     libgl1-mesa-glx \
     libglib2.0-0 \
@@ -67,8 +69,11 @@ RUN useradd -m -u 1000 vptuser \
     && chown -R grafana:grafana /var/log/grafana \
     && chown -R grafana:grafana /etc/grafana \
     && chown -R grafana:grafana /usr/share/grafana/data/plugins \
+    && chown -R grafana:grafana /var/lib/grafana/plugins \
     && chmod -R 755 /usr/share/grafana/data/plugins \
-    && chmod -R 755 /var/lib/grafana/plugins
+    && chmod -R 755 /var/lib/grafana/plugins \
+    && chmod -R 755 /var/lib/grafana \
+    && chmod -R 755 /var/log/grafana
 
 # Copy nginx configuration
 COPY backend_server/config/nginx/virtualpytest.conf /etc/nginx/sites-available/virtualpytest
