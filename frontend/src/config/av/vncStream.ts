@@ -19,7 +19,7 @@ export const vncStreamConfig = {
     },
     expanded: {
       width: '700px',
-      height: '48try 0px', // Always landscape - VNC is desktop/host screen
+      height: '480px', // Always landscape - VNC is desktop/host screen
       position: {
         bottom: '20px',
         right: '20px',
