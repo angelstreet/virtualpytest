@@ -21,6 +21,7 @@ RUN apt-get update && apt-get install -y \
     x11vnc \
     fluxbox \
     xterm \
+    android-tools-adb \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
