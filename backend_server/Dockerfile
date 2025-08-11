@@ -60,7 +60,10 @@ RUN mkdir -p /var/lib/grafana /var/log/grafana /etc/grafana \
     && mkdir -p /app/backend_server/config/grafana/dashboards \
     && mkdir -p /var/log/supervisor \
     && mkdir -p /usr/share/grafana/data/plugins \
-    && mkdir -p /var/lib/grafana/plugins
+    && mkdir -p /var/lib/grafana/plugins \
+    && mkdir -p /var/lib/grafana/png \
+    && mkdir -p /var/lib/grafana/csv \
+    && mkdir -p /var/lib/grafana/sessions
 
 # Create non-root user for security and fix Grafana permissions
 RUN useradd -m -u 1000 vptuser \
