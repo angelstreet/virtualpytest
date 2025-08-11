@@ -975,6 +975,347 @@ export const ActionItem: React.FC<ActionItemProps> = ({
           console.log('[ActionItem] NOT rendering image verification UI - check failed');
         }
         break;
+
+      // Desktop actions (PyAutoGUI and Bash)
+      case 'execute_pyautogui_click':
+      case 'execute_pyautogui_rightclick':
+      case 'execute_pyautogui_doubleclick':
+      case 'execute_pyautogui_move':
+        if (currentActionDef?.requiresInput) {
+          fields.push(
+            <TextField
+              key="x"
+              label="X"
+              type="number"
+              size="small"
+              value={getParamValue('x') || ''}
+              onChange={(e) => safeHandleParamChange('x', parseInt(e.target.value) || 0)}
+              sx={{
+                width: 70,
+                '& .MuiInputBase-input': {
+                  padding: '3px 6px',
+                  fontSize: '0.75rem',
+                },
+              }}
+            />,
+            <TextField
+              key="y"
+              label="Y"
+              type="number"
+              size="small"
+              value={getParamValue('y') || ''}
+              onChange={(e) => safeHandleParamChange('y', parseInt(e.target.value) || 0)}
+              sx={{
+                width: 70,
+                '& .MuiInputBase-input': {
+                  padding: '3px 6px',
+                  fontSize: '0.75rem',
+                },
+              }}
+            />,
+          );
+        }
+        break;
+
+      case 'execute_pyautogui_keypress':
+        if (currentActionDef?.requiresInput) {
+          fields.push(
+            <TextField
+              key="key"
+              label="Key"
+              size="small"
+              value={getParamValue('key') || ''}
+              onChange={(e) => safeHandleParamChange('key', e.target.value)}
+              placeholder="enter, space, tab, ctrl"
+              sx={{
+                width: 150,
+                '& .MuiInputBase-input': {
+                  padding: '3px 6px',
+                  fontSize: '0.75rem',
+                },
+              }}
+            />,
+          );
+        }
+        break;
+
+      case 'execute_pyautogui_type':
+        if (currentActionDef?.requiresInput) {
+          fields.push(
+            <TextField
+              key="text"
+              label="Text"
+              size="small"
+              value={getParamValue('text') || ''}
+              onChange={(e) => safeHandleParamChange('text', e.target.value)}
+              placeholder="Text to type"
+              sx={{
+                width: 200,
+                '& .MuiInputBase-input': {
+                  padding: '3px 6px',
+                  fontSize: '0.75rem',
+                },
+              }}
+            />,
+          );
+        }
+        break;
+
+      case 'execute_pyautogui_scroll':
+        if (currentActionDef?.requiresInput) {
+          fields.push(
+            <TextField
+              key="clicks"
+              label="Scroll Clicks"
+              type="number"
+              size="small"
+              value={getParamValue('clicks') || 1}
+              onChange={(e) => safeHandleParamChange('clicks', parseInt(e.target.value) || 1)}
+              placeholder="Positive=up, Negative=down"
+              sx={{
+                width: 120,
+                '& .MuiInputBase-input': {
+                  padding: '3px 6px',
+                  fontSize: '0.75rem',
+                },
+              }}
+            />,
+          );
+        }
+        break;
+
+      case 'execute_pyautogui_locate':
+      case 'execute_pyautogui_locate_and_click':
+        if (currentActionDef?.requiresInput) {
+          fields.push(
+            <TextField
+              key="image_path"
+              label="Image Path"
+              size="small"
+              value={getParamValue('image_path') || ''}
+              onChange={(e) => safeHandleParamChange('image_path', e.target.value)}
+              placeholder="/path/to/image.png"
+              sx={{
+                width: 250,
+                '& .MuiInputBase-input': {
+                  padding: '3px 6px',
+                  fontSize: '0.75rem',
+                },
+              }}
+            />,
+          );
+        }
+        break;
+
+      case 'execute_pyautogui_launch':
+        if (currentActionDef?.requiresInput) {
+          fields.push(
+            <TextField
+              key="app_name"
+              label="App Name"
+              size="small"
+              value={getParamValue('app_name') || ''}
+              onChange={(e) => safeHandleParamChange('app_name', e.target.value)}
+              placeholder="notepad, calc, firefox"
+              sx={{
+                width: 180,
+                '& .MuiInputBase-input': {
+                  padding: '3px 6px',
+                  fontSize: '0.75rem',
+                },
+              }}
+            />,
+          );
+        }
+        break;
+
+      case 'execute_bash_command':
+        if (currentActionDef?.requiresInput) {
+          fields.push(
+            <TextField
+              key="command"
+              label="Bash Command"
+              size="small"
+              value={getParamValue('command') || getParamValue('bash_command') || ''}
+              onChange={(e) => safeHandleParamChange('command', e.target.value)}
+              placeholder="ls -la, ps aux, echo hello"
+              sx={{
+                width: 300,
+                '& .MuiInputBase-input': {
+                  padding: '3px 6px',
+                  fontSize: '0.75rem',
+                },
+              }}
+            />,
+          );
+        }
+        break;
+
+      // Web actions (Playwright)
+      case 'navigate_to_url':
+        if (currentActionDef?.requiresInput) {
+          fields.push(
+            <TextField
+              key="url"
+              label="URL"
+              size="small"
+              value={getParamValue('url') || ''}
+              onChange={(e) => safeHandleParamChange('url', e.target.value)}
+              placeholder="https://google.com"
+              sx={{
+                width: 250,
+                '& .MuiInputBase-input': {
+                  padding: '3px 6px',
+                  fontSize: '0.75rem',
+                },
+              }}
+            />,
+          );
+        }
+        break;
+
+      case 'click_element':
+        // Handle web click_element differently from remote click_element
+        if (action.action_type === 'web' && currentActionDef?.requiresInput) {
+          fields.push(
+            <TextField
+              key="selector"
+              label="Selector/Text"
+              size="small"
+              value={getParamValue('selector') || ''}
+              onChange={(e) => safeHandleParamChange('selector', e.target.value)}
+              placeholder="#submit-button or 'Submit'"
+              sx={{
+                width: 220,
+                '& .MuiInputBase-input': {
+                  padding: '3px 6px',
+                  fontSize: '0.75rem',
+                },
+              }}
+            />,
+          );
+        }
+        break;
+
+      case 'input_text':
+        // Handle web input_text differently from remote input_text
+        if (action.action_type === 'web' && currentActionDef?.requiresInput) {
+          fields.push(
+            <TextField
+              key="selector"
+              label="Selector"
+              size="small"
+              value={getParamValue('selector') || ''}
+              onChange={(e) => safeHandleParamChange('selector', e.target.value)}
+              placeholder="#username"
+              sx={{
+                width: 150,
+                '& .MuiInputBase-input': {
+                  padding: '3px 6px',
+                  fontSize: '0.75rem',
+                },
+              }}
+            />,
+            <TextField
+              key="text"
+              label="Text"
+              size="small"
+              value={getParamValue('text') || ''}
+              onChange={(e) => safeHandleParamChange('text', e.target.value)}
+              placeholder="Text to input"
+              sx={{
+                width: 150,
+                '& .MuiInputBase-input': {
+                  padding: '3px 6px',
+                  fontSize: '0.75rem',
+                },
+              }}
+            />,
+          );
+        }
+        break;
+
+      case 'tap_x_y':
+        // Handle web tap_x_y
+        if (action.action_type === 'web' && currentActionDef?.requiresInput) {
+          fields.push(
+            <TextField
+              key="x"
+              label="X"
+              type="number"
+              size="small"
+              value={getParamValue('x') || ''}
+              onChange={(e) => safeHandleParamChange('x', parseInt(e.target.value) || 0)}
+              sx={{
+                width: 70,
+                '& .MuiInputBase-input': {
+                  padding: '3px 6px',
+                  fontSize: '0.75rem',
+                },
+              }}
+            />,
+            <TextField
+              key="y"
+              label="Y"
+              type="number"
+              size="small"
+              value={getParamValue('y') || ''}
+              onChange={(e) => safeHandleParamChange('y', parseInt(e.target.value) || 0)}
+              sx={{
+                width: 70,
+                '& .MuiInputBase-input': {
+                  padding: '3px 6px',
+                  fontSize: '0.75rem',
+                },
+              }}
+            />,
+          );
+        }
+        break;
+
+      case 'execute_javascript':
+        if (currentActionDef?.requiresInput) {
+          fields.push(
+            <TextField
+              key="script"
+              label="JavaScript"
+              size="small"
+              value={getParamValue('script') || ''}
+              onChange={(e) => safeHandleParamChange('script', e.target.value)}
+              placeholder="alert('Hello World')"
+              sx={{
+                width: 300,
+                '& .MuiInputBase-input': {
+                  padding: '3px 6px',
+                  fontSize: '0.75rem',
+                },
+              }}
+            />,
+          );
+        }
+        break;
+
+      case 'browser_use_task':
+        if (currentActionDef?.requiresInput) {
+          fields.push(
+            <TextField
+              key="task"
+              label="Task Description"
+              size="small"
+              value={getParamValue('task') || ''}
+              onChange={(e) => safeHandleParamChange('task', e.target.value)}
+              placeholder="Search for Python tutorials"
+              sx={{
+                width: 300,
+                '& .MuiInputBase-input': {
+                  padding: '3px 6px',
+                  fontSize: '0.75rem',
+                },
+              }}
+            />,
+          );
+        }
+        break;
     }
 
     // Organize fields based on count

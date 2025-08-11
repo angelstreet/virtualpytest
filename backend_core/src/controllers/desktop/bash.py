@@ -140,4 +140,22 @@ class BashDesktopController(DesktopControllerInterface):
                 'error': f'Unknown command: {command}',
                 'exit_code': -1,
                 'execution_time': 0
-            } 
+            }
+    
+    def get_available_actions(self) -> Dict[str, Any]:
+        """Get available actions for Bash desktop controller."""
+        return {
+            'Desktop': [
+                {
+                    'id': 'bash_command',
+                    'label': 'Execute Bash Command',
+                    'command': 'execute_bash_command',
+                    'action_type': 'desktop',
+                    'params': {},
+                    'description': 'Execute a bash command on the host system',
+                    'requiresInput': True,
+                    'inputLabel': 'Bash command',
+                    'inputPlaceholder': 'ls -la, ps aux, echo "hello"'
+                }
+            ]
+        } 

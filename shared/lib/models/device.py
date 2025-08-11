@@ -157,7 +157,7 @@ class Device:
         action_types = {}
         
         # Check all controller types that can provide actions
-        action_controller_types = ['remote', 'av', 'power', 'network']
+        action_controller_types = ['remote', 'av', 'power', 'desktop', 'web', 'network']
         
         for controller_type in action_controller_types:
             controllers = self.get_controllers(controller_type)

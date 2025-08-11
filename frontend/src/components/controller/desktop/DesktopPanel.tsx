@@ -46,10 +46,10 @@ export const DesktopPanel = React.memo(function DesktopPanel({
   const [pyAutoGUICollapsed, setPyAutoGUICollapsed] = useState(false);
 
   // Updated panel dimensions for split layout with dynamic space allocation
-  const collapsedWidth = '350px';
-  const collapsedHeight = '240px';
-  const expandedWidth = '500px';
-  const expandedHeight = '360px';
+  const collapsedWidth = '300px';
+  const collapsedHeight = '260px';
+  const expandedWidth = '450px';
+  const expandedHeight = '340px';
   const headerHeight = '48px';
   const sectionHeaderHeight = '32px';
 

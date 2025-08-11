@@ -325,4 +325,136 @@ class PyAutoGUIDesktopController(DesktopControllerInterface):
             'error': error,
             'exit_code': -1,
             'execution_time': execution_time
+        }
+    
+    def get_available_actions(self) -> Dict[str, Any]:
+        """Get available actions for PyAutoGUI desktop controller."""
+        return {
+            'Desktop': [
+                # Click actions
+                {
+                    'id': 'pyautogui_click',
+                    'label': 'Click Coordinates',
+                    'command': 'execute_pyautogui_click',
+                    'action_type': 'desktop',
+                    'params': {},
+                    'description': 'Click at specific screen coordinates',
+                    'requiresInput': True,
+                    'inputLabel': 'Coordinates (x,y)',
+                    'inputPlaceholder': '100,200'
+                },
+                {
+                    'id': 'pyautogui_rightclick',
+                    'label': 'Right Click Coordinates',
+                    'command': 'execute_pyautogui_rightclick',
+                    'action_type': 'desktop',
+                    'params': {},
+                    'description': 'Right-click at specific screen coordinates',
+                    'requiresInput': True,
+                    'inputLabel': 'Coordinates (x,y)',
+                    'inputPlaceholder': '100,200'
+                },
+                {
+                    'id': 'pyautogui_doubleclick',
+                    'label': 'Double Click Coordinates',
+                    'command': 'execute_pyautogui_doubleclick',
+                    'action_type': 'desktop',
+                    'params': {},
+                    'description': 'Double-click at specific screen coordinates',
+                    'requiresInput': True,
+                    'inputLabel': 'Coordinates (x,y)',
+                    'inputPlaceholder': '100,200'
+                },
+                # Keyboard actions
+                {
+                    'id': 'pyautogui_keypress',
+                    'label': 'Press Key',
+                    'command': 'execute_pyautogui_keypress',
+                    'action_type': 'desktop',
+                    'params': {},
+                    'description': 'Press a single key',
+                    'requiresInput': True,
+                    'inputLabel': 'Key name',
+                    'inputPlaceholder': 'enter, space, tab, ctrl, alt'
+                },
+                {
+                    'id': 'pyautogui_type',
+                    'label': 'Type Text',
+                    'command': 'execute_pyautogui_type',
+                    'action_type': 'desktop',
+                    'params': {},
+                    'description': 'Type text at current cursor position',
+                    'requiresInput': True,
+                    'inputLabel': 'Text to type',
+                    'inputPlaceholder': 'Hello World'
+                },
+                # Mouse actions
+                {
+                    'id': 'pyautogui_move',
+                    'label': 'Move Mouse',
+                    'command': 'execute_pyautogui_move',
+                    'action_type': 'desktop',
+                    'params': {},
+                    'description': 'Move mouse to specific coordinates',
+                    'requiresInput': True,
+                    'inputLabel': 'Coordinates (x,y)',
+                    'inputPlaceholder': '100,200'
+                },
+                {
+                    'id': 'pyautogui_scroll',
+                    'label': 'Scroll',
+                    'command': 'execute_pyautogui_scroll',
+                    'action_type': 'desktop',
+                    'params': {},
+                    'description': 'Scroll up (positive) or down (negative)',
+                    'requiresInput': True,
+                    'inputLabel': 'Scroll clicks (positive=up, negative=down)',
+                    'inputPlaceholder': '3'
+                },
+                # Image-based actions
+                {
+                    'id': 'pyautogui_locate',
+                    'label': 'Locate Image',
+                    'command': 'execute_pyautogui_locate',
+                    'action_type': 'desktop',
+                    'params': {},
+                    'description': 'Find an image on screen',
+                    'requiresInput': True,
+                    'inputLabel': 'Image file path',
+                    'inputPlaceholder': '/path/to/image.png'
+                },
+                {
+                    'id': 'pyautogui_locate_and_click',
+                    'label': 'Locate and Click Image',
+                    'command': 'execute_pyautogui_locate_and_click',
+                    'action_type': 'desktop',
+                    'params': {},
+                    'description': 'Find an image on screen and click it',
+                    'requiresInput': True,
+                    'inputLabel': 'Image file path',
+                    'inputPlaceholder': '/path/to/image.png'
+                },
+                # App launch action
+                {
+                    'id': 'pyautogui_launch',
+                    'label': 'Launch Application',
+                    'command': 'execute_pyautogui_launch',
+                    'action_type': 'desktop',
+                    'params': {},
+                    'description': 'Launch an application',
+                    'requiresInput': True,
+                    'inputLabel': 'Application name',
+                    'inputPlaceholder': 'notepad, calc, firefox'
+                },
+                # Screenshot action
+                {
+                    'id': 'pyautogui_screenshot',
+                    'label': 'Take Screenshot',
+                    'command': 'execute_pyautogui_screenshot',
+                    'action_type': 'desktop',
+                    'params': {},
+                    'description': 'Take a screenshot',
+                    'requiresInput': False
+                }
+            ]
         } 

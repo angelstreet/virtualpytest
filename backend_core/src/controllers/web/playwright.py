@@ -990,3 +990,119 @@ class PlaywrightWebController(WebControllerInterface):
             }
         
         return self.utils.run_async(_async_dump_elements())
+    
+    def get_available_actions(self) -> Dict[str, Any]:
+        """Get available actions for Playwright web controller."""
+        return {
+            'Web': [
+                # Browser management
+                {
+                    'id': 'open_browser',
+                    'label': 'Open Browser',
+                    'command': 'open_browser',
+                    'action_type': 'web',
+                    'params': {},
+                    'description': 'Open the browser window',
+                    'requiresInput': False
+                },
+                {
+                    'id': 'close_browser',
+                    'label': 'Close Browser',
+                    'command': 'close_browser',
+                    'action_type': 'web',
+                    'params': {},
+                    'description': 'Close the browser window',
+                    'requiresInput': False
+                },
+                # Navigation
+                {
+                    'id': 'navigate_to_url',
+                    'label': 'Navigate to URL',
+                    'command': 'navigate_to_url',
+                    'action_type': 'web',
+                    'params': {},
+                    'description': 'Navigate to a specific URL',
+                    'requiresInput': True,
+                    'inputLabel': 'URL',
+                    'inputPlaceholder': 'https://google.com'
+                },
+                # Element interaction
+                {
+                    'id': 'click_element',
+                    'label': 'Click Element',
+                    'command': 'click_element',
+                    'action_type': 'web',
+                    'params': {},
+                    'description': 'Click an element by CSS selector or text',
+                    'requiresInput': True,
+                    'inputLabel': 'Selector or text',
+                    'inputPlaceholder': '#submit-button or "Submit"'
+                },
+                {
+                    'id': 'input_text',
+                    'label': 'Input Text',
+                    'command': 'input_text',
+                    'action_type': 'web',
+                    'params': {},
+                    'description': 'Type text into an input field',
+                    'requiresInput': True,
+                    'inputLabel': 'CSS selector and text (comma separated)',
+                    'inputPlaceholder': '#username,myusername'
+                },
+                {
+                    'id': 'tap_x_y',
+                    'label': 'Click Coordinates',
+                    'command': 'tap_x_y',
+                    'action_type': 'web',
+                    'params': {},
+                    'description': 'Click at specific coordinates',
+                    'requiresInput': True,
+                    'inputLabel': 'Coordinates (x,y)',
+                    'inputPlaceholder': '100,200'
+                },
+                # JavaScript execution
+                {
+                    'id': 'execute_javascript',
+                    'label': 'Execute JavaScript',
+                    'command': 'execute_javascript',
+                    'action_type': 'web',
+                    'params': {},
+                    'description': 'Execute custom JavaScript code',
+                    'requiresInput': True,
+                    'inputLabel': 'JavaScript code',
+                    'inputPlaceholder': 'alert("Hello World")'
+                },
+                # Page information
+                {
+                    'id': 'get_page_info',
+                    'label': 'Get Page Info',
+                    'command': 'get_page_info',
+                    'action_type': 'web',
+                    'params': {},
+                    'description': 'Get current page URL and title',
+                    'requiresInput': False
+                },
+                # Element inspection
+                {
+                    'id': 'dump_elements',
+                    'label': 'Dump Page Elements',
+                    'command': 'dump_elements',
+                    'action_type': 'web',
+                    'params': {},
+                    'description': 'Get all visible elements on the page',
+                    'requiresInput': False
+                },
+                # AI-powered browser automation
+                {
+                    'id': 'browser_use_task',
+                    'label': 'AI Browser Task',
+                    'command': 'browser_use_task',
+                    'action_type': 'web',
+                    'params': {},
+                    'description': 'Execute a complex browser task using AI',
+                    'requiresInput': True,
+                    'inputLabel': 'Task description',
+                    'inputPlaceholder': 'Search for Python tutorials on Google'
+                }
+            ]
+        }

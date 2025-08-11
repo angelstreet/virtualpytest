@@ -24,6 +24,41 @@ export interface RemoteActionParams {
   duration?: number; // For wait commands
 }
 
+// Desktop action parameters (for PyAutoGUI, Bash, etc.)
+export interface DesktopActionParams {
+  x?: number; // Mouse coordinates
+  y?: number; // Mouse coordinates
+  key?: string; // Key to press
+  keys?: string[]; // Key combinations
+  text?: string; // Text to type
+  command?: string; // Bash command
+  bash_command?: string; // Alternative bash command parameter
+  working_dir?: string; // Working directory for bash commands
+  timeout?: number; // Command timeout
+  image_path?: string; // Path to image for image-based actions
+  confidence?: number; // Image matching confidence
+  region?: number[]; // Screen region [left, top, width, height]
+  app_name?: string; // Application name to launch
+  clicks?: number; // Scroll clicks
+  interval?: number; // Typing interval
+  filename?: string; // Screenshot filename
+}
+
+// Web action parameters (for Playwright)
+export interface WebActionParams {
+  url?: string; // URL to navigate to
+  selector?: string; // CSS selector
+  text?: string; // Text to input
+  x?: number; // Click coordinates
+  y?: number; // Click coordinates
+  timeout?: number; // Action timeout
+  script?: string; // JavaScript code
+  follow_redirects?: boolean; // Whether to follow redirects
+  element_types?: string; // Types of elements to dump
+  include_hidden?: boolean; // Include hidden elements
+  task?: string; // AI browser task description
+}
+
 // AV action parameters (for screenshot, streaming, etc.)
 export interface AVActionParams {
   resolution?: string; // For streaming commands
@@ -106,6 +141,16 @@ export interface PowerAction extends BaseAction {
   params: PowerActionParams;
 }
 
+export interface DesktopAction extends BaseAction {
+  action_type: 'desktop';
+  params: DesktopActionParams;
+}
+
+export interface WebAction extends BaseAction {
+  action_type: 'web';
+  params: WebActionParams;
+}
+
 export interface NetworkAction extends BaseAction {
   action_type: 'network';
   params: NetworkActionParams;
@@ -123,7 +168,7 @@ export interface VerificationAction extends BaseAction {
 }
 
 // Unified action type (discriminated union)
-export type Action = RemoteAction | AVAction | PowerAction | NetworkAction | TimerAction | VerificationAction;
+export type Action = RemoteAction | AVAction | PowerAction | DesktopAction | WebAction | NetworkAction | TimerAction | VerificationAction;
 
 // Actions grouped by action type (mirrors Verifications structure)
 export interface Actions {
@@ -144,10 +189,12 @@ export const DEVICE_MODEL_ACTION_MAPPING = {
   ios_phone: ['remote', 'av'],
   ios_mobile: ['remote', 'av'],
   stb: ['remote', 'av', 'power', 'network'],
+  host_vnc: ['desktop', 'web', 'av'],
+  host_pyautogui: ['desktop', 'web', 'av'],
 } as const;
 
 export type DeviceModel = keyof typeof DEVICE_MODEL_ACTION_MAPPING;
-export type ActionControllerType = 'remote' | 'av' | 'power' | 'network' | 'timer';
+export type ActionControllerType = 'remote' | 'av' | 'power' | 'desktop' | 'web' | 'network' | 'timer';
 
 /**
  * Get action controller types for a device model
