@@ -61,6 +61,7 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
   const [webElements, setWebElements] = useState<WebElement[]>([]);
   const [isElementsVisible, setIsElementsVisible] = useState(false);
   const [selectedElement, setSelectedElement] = useState<string>('');
+  const [browserViewport, setBrowserViewport] = useState({ width: 1024, height: 618 });
   const [isResponseExpanded, setIsResponseExpanded] = useState(false);
   const [isBrowserUseExpanded, setIsBrowserUseExpanded] = useState(true);
   const [isPlaywrightExpanded, setIsPlaywrightExpanded] = useState(true);
@@ -556,14 +557,18 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
     const headerHeight = 40; // VNC header height
     const contentHeight = panelHeight - headerHeight;
     
-    // Position based on state (expanded = right, collapsed = left)
-    const x = vncExpanded 
+    // Position overlay ON TOP of VNC panel content area
+    // VNC panel position based on state (expanded = right, collapsed = left)
+    const vncPanelX = vncExpanded 
       ? window.innerWidth - panelWidth - 20  // Right side when expanded
       : 20; // Left side when collapsed
     
-    // Y position: start BELOW the header, not above it
-    const panelTopY = window.innerHeight - panelHeight - 20; // Panel top position
-    const contentY = panelTopY + headerHeight; // Content starts below header
+    const vncPanelTopY = window.innerHeight - panelHeight - 20; // VNC panel top position
+    const vncContentY = vncPanelTopY + headerHeight; // VNC content starts below header
+    
+    // Overlay should be positioned exactly ON TOP of VNC content area
+    const x = vncPanelX;
+    const contentY = vncContentY;
     
     const panelInfo = {
       position: { 
@@ -571,7 +576,7 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
         y: contentY // Position overlay in content area only
       }, 
       size: { width: panelWidth, height: contentHeight }, // Content area only
-      deviceResolution: { width: panelWidth, height: contentHeight }, // Same as content size
+      deviceResolution: { width: 1024, height: 618 }, // Actual browser viewport size for scaling
       isCollapsed: !vncExpanded,
     };
     
@@ -582,9 +587,11 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
       panelHeight,
       headerHeight,
       contentHeight,
-      x,
-      panelTopY,
-      contentY,
+      vncPanelX,
+      vncPanelTopY,
+      vncContentY,
+      overlayX: x,
+      overlayY: contentY,
       windowWidth: window.innerWidth,
       windowHeight: window.innerHeight,
       panelInfo
