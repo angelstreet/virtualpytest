@@ -580,9 +580,9 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
     const actualContentWidth = panelWidth * vncScaleFactor;
     const actualContentHeight = contentHeight * vncScaleFactor;
     
-    // Simple positioning: bottom - 20px
+    // Simple positioning: bottom - 20px - overlay height
     const x = 20;
-    const contentY = window.innerHeight - 20;
+    const contentY = window.innerHeight - 20 - actualContentHeight;
     
     const panelInfo = {
       position: { 
