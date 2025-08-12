@@ -480,7 +480,20 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
 
       // Store elements for overlay
       if (result.success && result.elements) {
-        setWebElements(result.elements);
+        // Filter elements to only include those within browser viewport
+        const viewport = result.summary?.viewport || browserViewport;
+        const filteredElements = result.elements.filter((element: any) => {
+          const { x, y, width, height } = element.position;
+          // Keep elements that are at least partially within viewport
+          return (
+            x < viewport.width && 
+            y < viewport.height && 
+            x + width > 0 && 
+            y + height > 0
+          );
+        });
+        
+        setWebElements(filteredElements);
         setIsElementsVisible(true);
         
         // Update browser viewport from dump_elements response
