@@ -88,7 +88,13 @@ class ChromeManager:
             '--enable-unsafe-swiftshader',
             '--disable-session-crashed-bubble',  # Disable restore session popup
             '--disable-infobars',  # Disable info bars including restore prompts
-            '--disable-restore-session-state'  # Disable session restore altogether
+            '--disable-restore-session-state',  # Disable session restore altogether
+            '--disable-background-timer-throttling',  # Prevent background issues
+            '--disable-backgrounding-occluded-windows',  # Prevent window management issues
+            '--disable-renderer-backgrounding',  # Keep renderer active
+            '--disable-ipc-flooding-protection',  # Prevent IPC issues
+            '--hide-crashed-bubble',  # Hide crash bubbles
+            '--disable-component-extensions-with-background-pages'  # Disable background extensions
             #'--no-sandbox'  # Important for containers
         ]
     
