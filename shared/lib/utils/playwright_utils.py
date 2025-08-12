@@ -25,6 +25,16 @@ except ImportError:
     from cookie_utils import CookieManager, auto_accept_cookies
 
 
+def resolve_user_data_dir(user_data_dir: str) -> str:
+    """Resolve user_data_dir to absolute path from project root."""
+    if os.path.isabs(user_data_dir):
+        return user_data_dir
+    
+    # Simple: go up 3 levels from /shared/lib/utils to project root
+    project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+    return os.path.abspath(os.path.join(project_root, user_data_dir.lstrip('./')))
+
+
 class ChromeManager:
     """Manages Chrome process lifecycle for remote debugging."""
     
@@ -101,7 +111,7 @@ class ChromeManager:
         executable_path = cls.find_chrome_executable()
         print(f'[ChromeManager] Launching Chrome with remote debugging: {executable_path}')
         
-        # Prepare Chrome flags and user data directory
+        # Prepare Chrome flags and user data directory (path should already be resolved)
         os.makedirs(user_data_dir, exist_ok=True)
         print(f'[ChromeManager] Using persistent profile: {user_data_dir}')
         
@@ -224,10 +234,10 @@ class PlaywrightUtils:
         self.cookie_manager = CookieManager() if auto_accept_cookies else None
         self.auto_accept_cookies = auto_accept_cookies
         self.window_size = window_size
-        self.user_data_dir = user_data_dir
+        self.user_data_dir = resolve_user_data_dir(user_data_dir)
         self.viewport_size = self._calculate_viewport_size(window_size)
         
-        print(f'[PlaywrightUtils] Initialized with auto_accept_cookies={auto_accept_cookies}, user_data_dir={user_data_dir}')
+        print(f'[PlaywrightUtils] Initialized with auto_accept_cookies={auto_accept_cookies}, user_data_dir={self.user_data_dir}')
     
     def _calculate_viewport_size(self, window_size: str) -> dict:
         """Calculate viewport size based on panel visibility and window size."""
@@ -391,7 +401,8 @@ def create_playwright_utils(auto_accept_cookies: bool = True, window_size: str =
 
 def launch_chrome_for_debugging(debug_port: int = 9222, user_data_dir: str = "./backend_host/config/user_data") -> subprocess.Popen:
     """Quick function to launch Chrome with remote debugging and persistent data."""
-    return ChromeManager.launch_chrome_with_remote_debugging(debug_port, user_data_dir=user_data_dir)
+    resolved_user_data_dir = resolve_user_data_dir(user_data_dir)
+    return ChromeManager.launch_chrome_with_remote_debugging(debug_port, user_data_dir=resolved_user_data_dir)
 
 
 def run_async_playwright(coro):
