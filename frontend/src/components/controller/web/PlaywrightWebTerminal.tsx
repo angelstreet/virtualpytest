@@ -569,14 +569,25 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
 
   // Simple VNC panel info - match actual VNC panel position and size
   const getVNCPanelInfo = () => {
-    // VNC panel dimensions based on state
-    const panelWidth = vncExpanded ? 500 : 350;
-    const panelHeight = vncExpanded ? 360 : 240;
+    // Detect VNC panel state by checking if VNC panel element exists and its size
+    // VNC panels use specific fixed dimensions from config
+    const vncPanelElement = document.querySelector('[data-testid="vnc-stream"], .vnc-stream, [class*="VNCStream"]');
+    let actualVncExpanded = true; // Default to expanded
+    
+    if (vncPanelElement) {
+      const rect = vncPanelElement.getBoundingClientRect();
+      // VNC collapsed = 350x240, expanded = 500x360
+      actualVncExpanded = rect.width > 400; // If width > 400, it's expanded (500px)
+    }
+    
+    // VNC panel dimensions based on detected state
+    const panelWidth = actualVncExpanded ? 500 : 350;
+    const panelHeight = actualVncExpanded ? 360 : 240;
     const headerHeight = 40; // VNC header height
     const contentHeight = panelHeight - headerHeight;
     
     // Apply VNC scaling factor to match actual visual content size
-    const vncScaleFactor = vncExpanded ? 0.5 : 0.35; // From vncStream.ts config
+    const vncScaleFactor = actualVncExpanded ? 0.5 : 0.35; // From vncStream.ts config
     const actualContentWidth = panelWidth * vncScaleFactor;
     const actualContentHeight = contentHeight * vncScaleFactor;
     
@@ -591,12 +602,12 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
       }, 
       size: { width: actualContentWidth, height: actualContentHeight }, // Actual scaled content size
       deviceResolution: browserViewport, // Dynamic browser viewport size from dump_elements
-      isCollapsed: !vncExpanded,
+      isCollapsed: !actualVncExpanded,
     };
     
     // Debug logging
     console.log('[PlaywrightWebTerminal] VNC Panel Info:', {
-      vncExpanded,
+      vncExpanded: actualVncExpanded,
       panelWidth,
       panelHeight,
       headerHeight,
