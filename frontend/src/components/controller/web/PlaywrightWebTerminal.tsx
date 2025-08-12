@@ -60,6 +60,7 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
   const [isTapping, setIsTapping] = useState(false);
   const [isFinding, setIsFinding] = useState(false);
   const [isDumping, setIsDumping] = useState(false);
+  const [isActivatingSemantic, setIsActivatingSemantic] = useState(false);
 
   // Success/failure states for visual feedback
   const [navigateStatus, setNavigateStatus] = useState<'idle' | 'success' | 'error'>('idle');
@@ -68,6 +69,7 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
   const [findStatus, setFindStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [dumpStatus, setDumpStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [taskStatus, setTaskStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [semanticStatus, setSemanticStatus] = useState<'idle' | 'success' | 'error'>('idle');
 
   // Tap animation state
   const [tapAnimation, setTapAnimation] = useState<{ x: number; y: number; show: boolean }>({
@@ -146,11 +148,14 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
     if (taskStatus !== 'idle') {
       timers.push(setTimeout(() => setTaskStatus('idle'), 3000));
     }
+    if (semanticStatus !== 'idle') {
+      timers.push(setTimeout(() => setSemanticStatus('idle'), 3000));
+    }
 
     return () => {
       timers.forEach((timer) => clearTimeout(timer));
     };
-  }, [navigateStatus, clickStatus, tapStatus, findStatus, dumpStatus, taskStatus]);
+  }, [navigateStatus, clickStatus, tapStatus, findStatus, dumpStatus, taskStatus, semanticStatus]);
 
   // Handle task execution (placeholder)
   const handleTaskExecution = async () => {
@@ -192,6 +197,7 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
     isTapping ||
     isFinding ||
     isDumping ||
+    isActivatingSemantic ||
     isOpening ||
     isClosing ||
     isConnecting ||
@@ -463,6 +469,35 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
       console.error('Dump elements error:', error);
     } finally {
       setIsDumping(false);
+    }
+  };
+
+  const handleActivateSemantic = async () => {
+    if (isAnyActionExecuting) return;
+
+    setIsActivatingSemantic(true);
+
+    try {
+      // Clear response area before new command
+      clearTerminal();
+
+      // Use proper JSON format for the command
+      const commandJson = JSON.stringify({
+        command: 'activate_semantic',
+        params: {},
+      });
+      const result = await executeCommand(commandJson);
+
+      // Set visual feedback based on result
+      setSemanticStatus(result.success ? 'success' : 'error');
+
+      // Show response area
+      setIsResponseExpanded(true);
+    } catch (error) {
+      setSemanticStatus('error');
+      console.error('Activate semantic error:', error);
+    } finally {
+      setIsActivatingSemantic(false);
     }
   };
 
@@ -823,9 +858,22 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
                       >
                         {isDumping ? 'Dumping...' : 'Dump'}
                       </Button>
+                      <Button
+                        variant="contained"
+                        size="small"
+                        onClick={handleActivateSemantic}
+                        disabled={isAnyActionExecuting}
+                        color={getButtonColor(semanticStatus)}
+                        startIcon={isActivatingSemantic ? <CircularProgress size={16} /> : undefined}
+                        sx={{ minWidth: '100px' }}
+                      >
+                        {isActivatingSemantic ? 'Activating...' : 'Flutter Semantic'}
+                      </Button>
                     </Box>
                   </Box>
                 </Box>
+
+
               </Box>
             </Collapse>
           </Box>

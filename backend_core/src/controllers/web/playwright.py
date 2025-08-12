@@ -685,6 +685,27 @@ class PlaywrightWebController(WebControllerInterface):
         
         return self.utils.run_async(_async_get_page_info())
     
+    def activate_semantic(self) -> Dict[str, Any]:
+        """Activate semantic placeholder for Flutter web apps."""
+        script = """
+        (() => {
+            const shadowHost = document.querySelector('body > flutter-view > flt-glass-pane');
+            if (shadowHost) {
+                const shadowRoot = shadowHost.shadowRoot;
+                if (shadowRoot) {
+                    const element = shadowRoot.querySelector('flt-semantics-placeholder');
+                    if (element) {
+                        element.click();
+                        return true;
+                    }
+                }
+            }
+            return false;
+        })()
+        """
+        
+        return self.execute_javascript(script)
+    
     def get_status(self) -> Dict[str, Any]:
         """Get controller status."""
         try:
@@ -846,6 +867,9 @@ class PlaywrightWebController(WebControllerInterface):
         
         elif command == 'get_page_info':
             return self.get_page_info()
+        
+        elif command == 'activate_semantic':
+            return self.activate_semantic()
         
         elif command == 'open_browser':
             return self.open_browser()
@@ -1188,6 +1212,16 @@ class PlaywrightWebController(WebControllerInterface):
                     'action_type': 'web',
                     'params': {},
                     'description': 'Get current page URL and title',
+                    'requiresInput': False
+                },
+                # Flutter web specific
+                {
+                    'id': 'activate_semantic',
+                    'label': 'Activate Flutter Semantic',
+                    'command': 'activate_semantic',
+                    'action_type': 'web',
+                    'params': {},
+                    'description': 'Activate semantic placeholder for Flutter web apps',
                     'requiresInput': False
                 },
                 # Element inspection
