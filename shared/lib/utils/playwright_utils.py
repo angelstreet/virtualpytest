@@ -81,7 +81,7 @@ class ChromeManager:
             f'--user-data-dir={user_data_dir}',
             '--no-first-run',
             '--no-default-browser-check',
-            '--disable-features=Translate,InfiniteSessionRestore',
+            '--disable-features=Translate,InfiniteSessionRestore,TabRestore',
             '--disable-extensions',
             '--start-maximized',  # Maximized without fixed window size
             '--disable-gpu',
@@ -94,7 +94,16 @@ class ChromeManager:
             '--disable-renderer-backgrounding',  # Keep renderer active
             '--disable-ipc-flooding-protection',  # Prevent IPC issues
             '--hide-crashed-bubble',  # Hide crash bubbles
-            '--disable-component-extensions-with-background-pages'  # Disable background extensions
+            '--disable-component-extensions-with-background-pages',  # Disable background extensions
+            '--disable-popup-blocking',  # Disable popup blocking (for automation)
+            '--disable-prompt-on-repost',  # Disable repost confirmation prompts
+            '--disable-hang-monitor',  # Disable hang detection
+            '--disable-client-side-phishing-detection',  # Disable phishing detection popups
+            '--disable-default-apps',  # Disable default app prompts
+            '--disable-domain-reliability',  # Disable domain reliability reporting
+            '--disable-background-networking',  # Disable background networking
+            '--metrics-recording-only',  # Only record metrics, don't send
+            '--no-crash-upload'  # Don't upload crash reports
             #'--no-sandbox'  # Important for containers
         ]
     

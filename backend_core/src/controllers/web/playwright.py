@@ -51,12 +51,14 @@ class PlaywrightWebController(WebControllerInterface):
     
     def connect(self) -> bool:
         """Connect to Chrome (launch if needed)."""
+        print(f"Web[{self.web_type.upper()}]: connect() called - _chrome_running={self._chrome_running}, _chrome_process={self._chrome_process}")
+        
         if not self._chrome_running:
             try:
                 print(f"Web[{self.web_type.upper()}]: Chrome not running, launching new Chrome process...")
                 self.__class__._chrome_process = self.utils.launch_chrome()
                 self.__class__._chrome_running = True
-                print(f"Web[{self.web_type.upper()}]: Chrome launched with remote debugging successfully")
+                print(f"Web[{self.web_type.upper()}]: Chrome launched with remote debugging successfully (PID: {self._chrome_process.pid})")
             except Exception as e:
                 print(f"Web[{self.web_type.upper()}]: Failed to launch Chrome: {e}")
                 return False
@@ -64,27 +66,36 @@ class PlaywrightWebController(WebControllerInterface):
             print(f"Web[{self.web_type.upper()}]: Chrome process already running (PID: {self._chrome_process.pid if self._chrome_process else 'unknown'})")
         
         self.is_connected = True
+        print(f"Web[{self.web_type.upper()}]: connect() completed - _chrome_running={self._chrome_running}, is_connected={self.is_connected}")
         return True
     
     def disconnect(self) -> bool:
         """Disconnect and cleanup Chrome."""
+        print(f"Web[{self.web_type.upper()}]: disconnect() called - _chrome_running={self._chrome_running}, _chrome_process={self._chrome_process}")
+        
         if self._chrome_running and self._chrome_process:
             try:
-                print(f"Web[{self.web_type.upper()}]: Terminating Chrome process")
+                print(f"Web[{self.web_type.upper()}]: Terminating Chrome process (PID: {self._chrome_process.pid})")
                 self._chrome_process.terminate()
                 time.sleep(2)
                 if self._chrome_process.poll() is None:
+                    print(f"Web[{self.web_type.upper()}]: Process still running, force killing...")
                     self._chrome_process.kill()
+                print(f"Web[{self.web_type.upper()}]: Chrome process terminated successfully")
                 self.__class__._chrome_process = None
                 self.__class__._chrome_running = False
             except Exception as e:
                 print(f"Web[{self.web_type.upper()}]: Error terminating Chrome: {e}")
                 # Force cleanup
+                print(f"Web[{self.web_type.upper()}]: Force cleanup using utils.kill_chrome()")
                 self.utils.kill_chrome()
                 self.__class__._chrome_process = None
                 self.__class__._chrome_running = False
+        else:
+            print(f"Web[{self.web_type.upper()}]: No Chrome process to terminate (running={self._chrome_running}, process={self._chrome_process})")
         
         self.is_connected = False
+        print(f"Web[{self.web_type.upper()}]: disconnect() completed - _chrome_running={self._chrome_running}, is_connected={self.is_connected}")
         return True
     
     def open_browser(self) -> Dict[str, Any]:
