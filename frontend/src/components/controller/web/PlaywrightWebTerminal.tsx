@@ -30,10 +30,12 @@ import { PlaywrightWebOverlay } from './PlaywrightWebOverlay';
 
 interface PlaywrightWebTerminalProps {
   host: Host;
+  vncExpanded?: boolean; // Track VNC panel state
 }
 
 export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
   host,
+  vncExpanded = true, // Default to expanded
 }: PlaywrightWebTerminalProps) {
   const {
     executeCommand,
@@ -548,19 +550,25 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
 
   // Simple VNC panel info - match actual VNC panel position and size
   const getVNCPanelInfo = () => {
-    const panelWidth = 500;
-    const panelHeight = 360;
+    // VNC panel dimensions based on state
+    const panelWidth = vncExpanded ? 500 : 350;
+    const panelHeight = vncExpanded ? 360 : 240;
     const headerHeight = 40; // VNC header height
-    const contentHeight = panelHeight - headerHeight; // 320px content area
+    const contentHeight = panelHeight - headerHeight;
+    
+    // Position based on state (expanded = right, collapsed = left)
+    const x = vncExpanded 
+      ? window.innerWidth - panelWidth - 20  // Right side when expanded
+      : 20; // Left side when collapsed
     
     return {
       position: { 
-        x: window.innerWidth - panelWidth - 20, // Right margin like VNC
+        x,
         y: window.innerHeight - panelHeight - 20 + headerHeight // Bottom margin + below header
       }, 
       size: { width: panelWidth, height: contentHeight }, // Content area only
       deviceResolution: { width: panelWidth, height: contentHeight }, // Same as content size
-      isCollapsed: false,
+      isCollapsed: !vncExpanded,
     };
   };
 
