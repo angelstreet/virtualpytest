@@ -10,7 +10,7 @@ export const vncStreamConfig = {
   },
   panel_layout: {
     collapsed: {
-      width: '370px',
+      width: '350px',
       height: '240px', // Always landscape - VNC is desktop/host screen
       position: {
         bottom: '20px',
@@ -18,7 +18,7 @@ export const vncStreamConfig = {
       },
     },
     expanded: {
-      width: '520px',
+      width: '500px',
       height: '360px', // Always landscape - VNC is desktop/host screen
       position: {
         bottom: '20px',
@@ -45,7 +45,7 @@ export const vncStreamConfig = {
       height: '100%',
       // VNC-specific iframe scaling for small containers
       iframe: {
-        transform: 'scale(0.33)', // Scale down to fit small collapsed panel
+        transform: 'scale(0.34)', // Scale down to fit small collapsed panel
         transformOrigin: 'top left',
         width: '285%', // Inverse of scale to maintain aspect ratio
         height: '285%', // Inverse of scale to maintain aspect ratio
