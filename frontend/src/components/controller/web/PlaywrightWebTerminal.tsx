@@ -14,11 +14,18 @@ import {
   IconButton,
   Collapse,
   Divider,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from '@mui/material';
 import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 
 import { usePlaywrightWeb } from '../../../hooks/controller/usePlaywrightWeb';
 import { Host } from '../../../types/common/Host_Types';
+import { WebElement } from '../../../types/controller/Web_Types';
+import { PlaywrightWebOverlay } from './PlaywrightWebOverlay';
 
 interface PlaywrightWebTerminalProps {
   host: Host;
@@ -46,6 +53,11 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
   const [tapY, setTapY] = useState('');
   const [findSelector, setFindSelector] = useState('');
   const [taskInput, setTaskInput] = useState('');
+
+  // Web overlay state
+  const [webElements, setWebElements] = useState<WebElement[]>([]);
+  const [isElementsVisible, setIsElementsVisible] = useState(false);
+  const [selectedElement, setSelectedElement] = useState<string>('');
   const [isResponseExpanded, setIsResponseExpanded] = useState(false);
   const [isBrowserUseExpanded, setIsBrowserUseExpanded] = useState(true);
   const [isPlaywrightExpanded, setIsPlaywrightExpanded] = useState(true);
@@ -462,10 +474,21 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
       // Set visual feedback based on result
       setDumpStatus(result.success ? 'success' : 'error');
 
+      // Store elements for overlay
+      if (result.success && result.elements) {
+        setWebElements(result.elements);
+        setIsElementsVisible(true);
+      } else {
+        setWebElements([]);
+        setIsElementsVisible(false);
+      }
+
       // Show response area
       setIsResponseExpanded(true);
     } catch (error) {
       setDumpStatus('error');
+      setWebElements([]);
+      setIsElementsVisible(false);
       console.error('Dump elements error:', error);
     } finally {
       setIsDumping(false);
@@ -498,6 +521,27 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
       console.error('Activate semantic error:', error);
     } finally {
       setIsActivatingSemantic(false);
+    }
+  };
+
+  const handleClearElements = () => {
+    setWebElements([]);
+    setIsElementsVisible(false);
+    setSelectedElement('');
+    setDumpStatus('idle');
+  };
+
+  const handleElementClick = async (element: WebElement) => {
+    setSelectedElement(element.selector);
+    setClickSelector(element.selector);
+    await handleClickElement();
+  };
+
+  const handleDropdownElementSelect = async (elementSelector: string) => {
+    const element = webElements.find(el => el.selector === elementSelector);
+    if (element) {
+      setSelectedElement(elementSelector);
+      await handleElementClick(element);
     }
   };
 
@@ -854,9 +898,18 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
                         disabled={isAnyActionExecuting}
                         color={getButtonColor(dumpStatus)}
                         startIcon={isDumping ? <CircularProgress size={16} /> : undefined}
-                        sx={{ minWidth: '80px' }}
+                        sx={{ minWidth: '80px', flex: 1 }}
                       >
                         {isDumping ? 'Dumping...' : 'Dump'}
+                      </Button>
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        onClick={handleClearElements}
+                        disabled={webElements.length === 0}
+                        sx={{ minWidth: '80px', flex: 1 }}
+                      >
+                        Clear
                       </Button>
                       <Button
                         variant="contained"
@@ -870,6 +923,68 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
                         {isActivatingSemantic ? 'Activating...' : 'Flutter Semantic'}
                       </Button>
                     </Box>
+                    
+                    {/* Element Selection Dropdown */}
+                    {webElements.length > 0 && (
+                      <FormControl fullWidth size="small">
+                        <InputLabel>Select element to click...</InputLabel>
+                        <Select
+                          value={selectedElement}
+                          label="Select element to click..."
+                          onChange={(e) => handleDropdownElementSelect(e.target.value)}
+                          MenuProps={{
+                            PaperProps: {
+                              style: {
+                                maxHeight: 200,
+                                width: 'auto',
+                                maxWidth: '100%',
+                              },
+                            },
+                          }}
+                        >
+                          {webElements.map((element, index) => {
+                            // Generate display name
+                            const getElementDisplayName = (el: WebElement): string => {
+                              let displayName = '';
+                              
+                              // Priority: aria-label → textContent → tagName + selector
+                              if (el.attributes['aria-label']) {
+                                displayName = el.attributes['aria-label'];
+                              } else if (el.textContent && el.textContent.trim()) {
+                                displayName = `"${el.textContent.trim()}"`;
+                              } else {
+                                displayName = `${el.tagName}${el.id ? '#' + el.id : ''}`;
+                              }
+                              
+                              // Prepend element index for identification
+                              const fullDisplayName = `${index + 1}. ${displayName}`;
+                              
+                              // Limit length
+                              return fullDisplayName.length > 40 
+                                ? fullDisplayName.substring(0, 37) + '...'
+                                : fullDisplayName;
+                            };
+                            
+                            return (
+                              <MenuItem
+                                key={element.selector}
+                                value={element.selector}
+                                sx={{
+                                  fontSize: '0.875rem',
+                                  py: 1,
+                                  px: 2,
+                                  whiteSpace: 'nowrap',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                }}
+                              >
+                                {getElementDisplayName(element)}
+                              </MenuItem>
+                            );
+                          })}
+                        </Select>
+                      </FormControl>
+                    )}
                   </Box>
                 </Box>
 
@@ -1000,6 +1115,25 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
           }}
         />
       )}
+
+      {/* Web Element Overlay */}
+      {isElementsVisible && webElements.length > 0 && typeof document !== 'undefined' && 
+        createPortal(
+          <PlaywrightWebOverlay
+            elements={webElements}
+            isVisible={isElementsVisible}
+            onElementClick={handleElementClick}
+            panelInfo={{
+              position: { x: 0, y: 0 },
+              size: { width: window.innerWidth, height: window.innerHeight },
+              deviceResolution: { width: window.innerWidth, height: window.innerHeight },
+              isCollapsed: false
+            }}
+            host={host}
+          />,
+          document.body
+        )
+      }
     </Box>
   );
 });
