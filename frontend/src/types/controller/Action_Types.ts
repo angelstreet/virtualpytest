@@ -106,7 +106,7 @@ interface BaseAction {
   label: string; // Required: human-readable label
   command: string; // Required: command to execute
   description: string; // Required: action description
-  action_type: 'remote' | 'av' | 'power' | 'network' | 'timer' | 'verification'; // Required: type of action
+  action_type: 'remote' | 'av' | 'power' | 'network' | 'timer' | 'verification' | 'desktop' | 'web'; // Required: type of action
   requiresInput?: boolean; // Optional: whether action requires user input
   inputLabel?: string; // Optional: label for input field
   inputPlaceholder?: string; // Optional: placeholder for input field
