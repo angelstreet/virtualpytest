@@ -140,8 +140,22 @@ class PlaywrightWebController(WebControllerInterface):
                     else:
                         raise
                 
+                # Log viewport size BEFORE navigation
+                viewport_before = await page.evaluate("() => ({ width: window.innerWidth, height: window.innerHeight })")
+                print(f"Web[{self.web_type.upper()}]: Viewport BEFORE goto: {viewport_before['width']}x{viewport_before['height']}")
+                
                 # Navigate to Google France for a nicer default page
                 await page.goto('https://google.fr')
+                
+                # Log viewport size AFTER navigation
+                viewport_after = await page.evaluate("() => ({ width: window.innerWidth, height: window.innerHeight })")
+                print(f"Web[{self.web_type.upper()}]: Viewport AFTER goto: {viewport_after['width']}x{viewport_after['height']}")
+                
+                # Check if viewport changed
+                if viewport_before['width'] != viewport_after['width'] or viewport_before['height'] != viewport_after['height']:
+                    print(f"Web[{self.web_type.upper()}]: ⚠️ VIEWPORT SIZE CHANGED during page.goto()!")
+                else:
+                    print(f"Web[{self.web_type.upper()}]: ✅ Viewport size remained stable during page.goto()")
                 
                 # Update page state
                 self.current_url = page.url
@@ -219,6 +233,10 @@ class PlaywrightWebController(WebControllerInterface):
                 # Connect to Chrome via CDP with auto-cookie injection for the target URL
                 playwright, browser, context, page = await self.utils.connect_to_chrome(target_url=normalized_url)
                 
+                # Log viewport size BEFORE navigation
+                viewport_before = await page.evaluate("() => ({ width: window.innerWidth, height: window.innerHeight })")
+                print(f"Web[{self.web_type.upper()}]: Viewport BEFORE goto {normalized_url}: {viewport_before['width']}x{viewport_before['height']}")
+                
                 # Navigate to URL with optional redirect control
                 if follow_redirects:
                     # Default behavior - follow redirects
@@ -235,6 +253,16 @@ class PlaywrightWebController(WebControllerInterface):
                     ))
                     
                     await page.goto(normalized_url, timeout=timeout, wait_until='load')
+                
+                # Log viewport size AFTER navigation
+                viewport_after = await page.evaluate("() => ({ width: window.innerWidth, height: window.innerHeight })")
+                print(f"Web[{self.web_type.upper()}]: Viewport AFTER goto {normalized_url}: {viewport_after['width']}x{viewport_after['height']}")
+                
+                # Check if viewport changed
+                if viewport_before['width'] != viewport_after['width'] or viewport_before['height'] != viewport_after['height']:
+                    print(f"Web[{self.web_type.upper()}]: ⚠️ VIEWPORT SIZE CHANGED during page.goto({normalized_url})!")
+                else:
+                    print(f"Web[{self.web_type.upper()}]: ✅ Viewport size remained stable during page.goto({normalized_url})")
                 
                 # Get page info after navigation
                 await page.wait_for_load_state('networkidle', timeout=10000)
