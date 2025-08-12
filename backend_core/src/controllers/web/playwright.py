@@ -122,7 +122,23 @@ class PlaywrightWebController(WebControllerInterface):
                     print(f"Web[{self.web_type.upper()}]: Chrome already connected")
                 
                 # Test connection to Chrome and ensure page is ready with proper scaling
-                playwright, browser, context, page = await self.utils.connect_to_chrome(target_url='https://google.fr')
+                try:
+                    playwright, browser, context, page = await self.utils.connect_to_chrome(target_url='https://google.fr')
+                except Exception as e:
+                    # Chrome is not responding, kill and relaunch
+                    if "ECONNREFUSED" in str(e) or "connect" in str(e).lower():
+                        print(f"Web[{self.web_type.upper()}]: Chrome not responding, killing and relaunching...")
+                        self.utils.kill_chrome()
+                        self.__class__._chrome_process = None
+                        self.__class__._chrome_running = False
+                        self.is_connected = False
+                        
+                        # Try to connect again
+                        if not self.connect():
+                            raise Exception("Failed to relaunch Chrome after connection failure")
+                        playwright, browser, context, page = await self.utils.connect_to_chrome(target_url='https://google.fr')
+                    else:
+                        raise
                 
                 # Navigate to Google France for a nicer default page
                 await page.goto('https://google.fr')
