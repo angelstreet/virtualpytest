@@ -27,6 +27,7 @@ import { Host } from '../../../types/common/Host_Types';
 import { WebElement } from '../../../types/controller/Web_Types';
 import { PlaywrightWebOverlay } from './PlaywrightWebOverlay';
 
+
 interface PlaywrightWebTerminalProps {
   host: Host;
 }
@@ -543,6 +544,16 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
       setSelectedElement(elementSelector);
       await handleElementClick(element);
     }
+  };
+
+  // Simple VNC panel info - just pass the fixed panel size
+  const getVNCPanelInfo = () => {
+    return {
+      position: { x: window.innerWidth - 520, y: window.innerHeight - 400 }, // Bottom right
+      size: { width: 500, height: 360 }, // VNC expanded size
+      deviceResolution: { width: 500, height: 360 }, // Same as panel size
+      isCollapsed: false,
+    };
   };
 
   // Helper function to get button color based on status
@@ -1123,13 +1134,7 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
             elements={webElements}
             isVisible={isElementsVisible}
             onElementClick={handleElementClick}
-            panelInfo={{
-              position: { x: 0, y: 0 },
-              size: { width: window.innerWidth, height: window.innerHeight },
-              deviceResolution: { width: window.innerWidth, height: window.innerHeight },
-              isCollapsed: false
-            }}
-            host={host}
+            panelInfo={getVNCPanelInfo()}
           />,
           document.body
         )

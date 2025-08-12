@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 
 import { PanelInfo } from '../../../types/controller/Panel_Types';
 import { WebElement } from '../../../types/controller/Web_Types';
-import { Host } from '../../../types/common/Host_Types';
 import { getZIndex } from '../../../utils/zIndexUtils';
 import '../../../styles/webOverlayAnimations.css';
 
@@ -22,7 +21,6 @@ interface PlaywrightWebOverlayProps {
   isVisible: boolean;
   onElementClick?: (element: WebElement) => void;
   panelInfo: PanelInfo;
-  host: Host;
 }
 
 // Same colors as Android mobile overlay for consistency
@@ -34,7 +32,6 @@ export const PlaywrightWebOverlay = React.memo(
     isVisible,
     onElementClick,
     panelInfo,
-    host,
   }: PlaywrightWebOverlayProps) {
     const [scaledElements, setScaledElements] = useState<ScaledElement[]>([]);
     const [clickAnimation, setClickAnimation] = useState<{
@@ -55,6 +52,12 @@ export const PlaywrightWebOverlay = React.memo(
         return;
       }
 
+      // Skip calculation if panelInfo is not properly defined
+      if (!panelInfo || !panelInfo.deviceResolution || !panelInfo.size) {
+        setScaledElements([]);
+        return;
+      }
+
       const scaled = elements
         .map((element, index) => {
           const getElementLabel = (el: WebElement) => {
@@ -68,12 +71,18 @@ export const PlaywrightWebOverlay = React.memo(
             }
           };
 
+          // Scale elements from browser viewport to VNC panel size
+          // Browser elements have coordinates in viewport space (1920x1080 or whatever viewport size)
+          // Need to scale to fit VNC panel content area
+          const scaleX = panelInfo.size.width / panelInfo.deviceResolution.width;
+          const scaleY = panelInfo.size.height / panelInfo.deviceResolution.height;
+
           const scaledElement = {
             selector: element.selector,
-            x: element.position.x,
-            y: element.position.y,
-            width: element.position.width,
-            height: element.position.height,
+            x: element.position.x * scaleX,
+            y: element.position.y * scaleY,
+            width: element.position.width * scaleX,
+            height: element.position.height * scaleY,
             color: COLORS[index % COLORS.length],
             label: getElementLabel(element),
             index: element.index,
@@ -84,7 +93,7 @@ export const PlaywrightWebOverlay = React.memo(
         .filter(Boolean) as ScaledElement[];
 
       setScaledElements(scaled);
-    }, [elements]);
+    }, [elements, panelInfo]);
 
     // Handle element click
     const handleElementClick = async (scaledElement: ScaledElement, event: React.MouseEvent) => {
@@ -129,9 +138,16 @@ export const PlaywrightWebOverlay = React.memo(
       const contentX = event.clientX - rect.left;
       const contentY = event.clientY - rect.top;
 
-      console.log(`[PlaywrightWebOverlay] Base tap - Position: (${Math.round(contentX)}, ${Math.round(contentY)})`);
+      // Scale coordinates back to browser viewport space for clicking
+      const scaleX = panelInfo.deviceResolution.width / panelInfo.size.width;
+      const scaleY = panelInfo.deviceResolution.height / panelInfo.size.height;
+      
+      const browserX = Math.round(contentX * scaleX);
+      const browserY = Math.round(contentY * scaleY);
 
-      // Show click animation at tap location
+      console.log(`[PlaywrightWebOverlay] Base tap - Panel: (${Math.round(contentX)}, ${Math.round(contentY)}), Browser: (${browserX}, ${browserY})`);
+
+      // Show click animation at tap location (in panel coordinates)
       const animationId = `base-tap-${Date.now()}`;
       setClickAnimation({ 
         x: contentX, 
@@ -139,7 +155,7 @@ export const PlaywrightWebOverlay = React.memo(
         id: animationId
       });
 
-      // Set coordinate display for 2 seconds
+      // Set coordinate display for 2 seconds (show browser coordinates)
       const coordDisplayId = `coord-${Date.now()}`;
       setCoordinateDisplay({
         x: contentX,
@@ -168,7 +184,7 @@ export const PlaywrightWebOverlay = React.memo(
             top: `${panelInfo.position.y}px`,
             width: `${panelInfo.size.width}px`,
             height: `${panelInfo.size.height}px`,
-            zIndex: getZIndex('DEBUG_OVERLAY'), // Use web overlay z-index
+                          zIndex: getZIndex('DEBUG_OVERLAY', 5), // Use higher z-index above VNC streams
             contain: 'layout style size',
             willChange: 'transform',
             pointerEvents: 'auto',
@@ -187,7 +203,7 @@ export const PlaywrightWebOverlay = React.memo(
               top: `${panelInfo.position.y}px`,
               width: `${panelInfo.size.width}px`,
               height: `${panelInfo.size.height}px`,
-              zIndex: getZIndex('DEBUG_OVERLAY'),
+              zIndex: getZIndex('DEBUG_OVERLAY', 5),
               contain: 'layout style size',
               willChange: 'transform',
               pointerEvents: 'none',
@@ -245,7 +261,7 @@ export const PlaywrightWebOverlay = React.memo(
               borderRadius: '50%',
               backgroundColor: 'rgba(255, 255, 255, 0.8)',
               border: '2px solid rgba(255, 0, 0, 0.8)',
-              zIndex: getZIndex('DEBUG_OVERLAY'),
+              zIndex: getZIndex('DEBUG_OVERLAY', 5),
               pointerEvents: 'none',
               animation: 'webClickPulse 0.3s ease-out forwards',
             }}
@@ -267,12 +283,12 @@ export const PlaywrightWebOverlay = React.memo(
               fontSize: '12px',
               fontFamily: 'monospace',
               fontWeight: 'bold',
-              zIndex: getZIndex('DEBUG_OVERLAY'),
+              zIndex: getZIndex('DEBUG_OVERLAY', 5),
               pointerEvents: 'none',
               whiteSpace: 'nowrap',
             }}
-          >
-            {Math.round(coordinateDisplay.x)}, {Math.round(coordinateDisplay.y)}
+                      >
+            Browser: {Math.round(coordinateDisplay.x * panelInfo.deviceResolution.width / panelInfo.size.width)}, {Math.round(coordinateDisplay.y * panelInfo.deviceResolution.height / panelInfo.size.height)}
           </div>
         )}
       </>
@@ -283,8 +299,7 @@ export const PlaywrightWebOverlay = React.memo(
       prevProps.elements === nextProps.elements &&
       prevProps.isVisible === nextProps.isVisible &&
       prevProps.onElementClick === nextProps.onElementClick &&
-      JSON.stringify(prevProps.panelInfo) === JSON.stringify(nextProps.panelInfo) &&
-      prevProps.host === nextProps.host
+      JSON.stringify(prevProps.panelInfo) === JSON.stringify(nextProps.panelInfo)
     );
   },
 );
