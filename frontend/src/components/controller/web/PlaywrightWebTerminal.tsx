@@ -596,14 +596,14 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
     
     // Calculate overlay dimensions using browser viewport and VNC scaling
     const overlayWidth = browserViewport.width * config.scaleFactor;
-    const overlayHeight = browserViewport.height * config.scaleFactor;
+    const overlayHeight = (browserViewport.height - 40) * config.scaleFactor; // Subtract browser header
     
     // Position overlay to match VNC panel content area (below header)
     const panelX = actualVncExpanded ? window.innerWidth - 20 - config.width : 20;
     const panelY = window.innerHeight - 20 - config.height;
     
-    // Overlay position: panel position + header offset
-    const x = panelX;
+    // Overlay position: always left-aligned at 20px
+    const x = 20;
     const y = panelY + headerHeight;
     
     const panelInfo = {
