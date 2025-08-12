@@ -121,7 +121,7 @@ start_grabber() {
       -hls_segment_filename $capture_dir/segment_%03d.ts \
       $capture_dir/output.m3u8 \
       -map \"[captureout]\" -c:v mjpeg -q:v 5 -r 1 -f image2 \
-      $capture_dir/captures/vnc_capture_%06d.jpg"
+      $capture_dir/captures/test_capture_%06d.jpg"
   else
     echo "ERROR: Unsupported source type: $source_type"
     return 1
