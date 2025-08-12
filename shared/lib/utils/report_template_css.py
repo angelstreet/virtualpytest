@@ -4,9 +4,31 @@ Report Template CSS Styles
 Contains all CSS styles for the HTML validation reports.
 """
 
+def get_css_z_index(component: str, offset: int = 0) -> int:
+    """
+    Get z-index values that align with the frontend centralized z-index system.
+    This keeps report CSS z-indexes consistent with the frontend layout.
+    """
+    # Map CSS components to frontend z-index equivalents (base + offset)
+    css_z_index_map = {
+        'theme_slider': 20,  # UI_ELEMENTS level (60) scaled down for CSS
+        'modal_backdrop': 280,  # MODAL_BACKDROP level
+        'modal_content': 290,  # MODAL_CONTENT level  
+        'nav_arrow': 291,  # MODAL_CONTENT level + 1
+    }
+    
+    base_z_index = css_z_index_map.get(component, 1)
+    return base_z_index + offset
+
 def get_report_css() -> str:
     """Get the complete CSS styles for the report template."""
-    return """:root {{
+    # Generate z-index values
+    theme_slider_z = get_css_z_index('theme_slider')
+    theme_slider_bg_z = get_css_z_index('theme_slider', -1)
+    modal_backdrop_z = get_css_z_index('modal_backdrop')
+    nav_arrow_z = get_css_z_index('nav_arrow')
+    
+    return f""":root {{
     /* Light theme variables */
     --bg-primary: #f8f9fa;
     --bg-secondary: #ffffff;
@@ -133,7 +155,7 @@ body {{
     text-transform: uppercase;
     letter-spacing: 0.5px;
     position: relative;
-    z-index: 2;
+    z-index: {theme_slider_z};
 }}
 
 .theme-option.active {{
@@ -150,7 +172,7 @@ body {{
     background: rgba(255,255,255,0.9);
     border-radius: 16px;
     transition: transform 0.2s ease;
-    z-index: 1;
+    z-index: {theme_slider_bg_z};
 }}
 
 .theme-slider.light {{
@@ -446,7 +468,7 @@ body {{
 .screenshot-modal, .modal {{
     display: none;
     position: fixed;
-    z-index: 1000;
+    z-index: {modal_backdrop_z};
     left: 0;
     top: 0;
     width: 100%;
@@ -524,7 +546,7 @@ body {{
     height: 50px;
     border-radius: 50%;
     cursor: pointer;
-    z-index: 1001;
+    z-index: {nav_arrow_z};
     display: flex;
     align-items: center;
     justify-content: center;

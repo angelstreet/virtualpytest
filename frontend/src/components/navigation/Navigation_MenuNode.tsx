@@ -108,7 +108,7 @@ export const UIMenuNode: React.FC<NodeProps<UINavigationNode['data']>> = ({
             fontWeight: 'bold',
             padding: '2px 6px',
             borderRadius: '4px',
-            zIndex: 15,
+            zIndex: getZIndex('NAVIGATION_NODE_CURRENT_POSITION'),
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -132,7 +132,7 @@ export const UIMenuNode: React.FC<NodeProps<UINavigationNode['data']>> = ({
           fontWeight: 'bold',
           padding: '2px 6px',
           borderRadius: '4px',
-          zIndex: 10,
+          zIndex: getZIndex('NAVIGATION_NODE_BADGES'),
         }}
       >
         MENU
@@ -151,7 +151,7 @@ export const UIMenuNode: React.FC<NodeProps<UINavigationNode['data']>> = ({
             fontWeight: 'bold',
             padding: '2px 6px',
             borderRadius: '4px',
-            zIndex: 10,
+            zIndex: getZIndex('NAVIGATION_NODE_BADGES'),
           }}
         >
           ROOT
@@ -179,7 +179,7 @@ export const UIMenuNode: React.FC<NodeProps<UINavigationNode['data']>> = ({
               transform: 'translateX(-50%)',
               top: -7,
               cursor: 'crosshair',
-              zIndex: 11,
+              zIndex: getZIndex('NAVIGATION_NODE_HANDLES'),
             }}
           />
 
@@ -201,7 +201,7 @@ export const UIMenuNode: React.FC<NodeProps<UINavigationNode['data']>> = ({
               transform: 'translateX(-50%)',
               top: -7,
               cursor: 'crosshair',
-              zIndex: 10,
+              zIndex: getZIndex('NAVIGATION_NODE_BADGES'),
               opacity: 0,
             }}
           />
@@ -227,7 +227,7 @@ export const UIMenuNode: React.FC<NodeProps<UINavigationNode['data']>> = ({
           top: '50%',
           transform: 'translateY(-50%)',
           cursor: 'crosshair',
-          zIndex: 11,
+          zIndex: getZIndex('NAVIGATION_NODE_HANDLES'),
         }}
       />
 
@@ -249,7 +249,7 @@ export const UIMenuNode: React.FC<NodeProps<UINavigationNode['data']>> = ({
           top: '50%',
           transform: 'translateY(-50%)',
           cursor: 'crosshair',
-          zIndex: 10,
+          zIndex: getZIndex('NAVIGATION_NODE_BADGES'),
           opacity: 0,
         }}
       />
@@ -273,7 +273,7 @@ export const UIMenuNode: React.FC<NodeProps<UINavigationNode['data']>> = ({
           top: '50%',
           transform: 'translateY(-50%)',
           cursor: 'crosshair',
-          zIndex: 11,
+          zIndex: getZIndex('NAVIGATION_NODE_HANDLES'),
         }}
       />
 
@@ -295,7 +295,7 @@ export const UIMenuNode: React.FC<NodeProps<UINavigationNode['data']>> = ({
           top: '50%',
           transform: 'translateY(-50%)',
           cursor: 'crosshair',
-          zIndex: 10,
+          zIndex: getZIndex('NAVIGATION_NODE_BADGES'),
           opacity: 0,
         }}
       />
@@ -319,7 +319,7 @@ export const UIMenuNode: React.FC<NodeProps<UINavigationNode['data']>> = ({
           transform: 'translateX(-50%)',
           bottom: -7,
           cursor: 'crosshair',
-          zIndex: 11,
+          zIndex: getZIndex('NAVIGATION_NODE_HANDLES'),
         }}
       />
 
@@ -341,7 +341,7 @@ export const UIMenuNode: React.FC<NodeProps<UINavigationNode['data']>> = ({
           transform: 'translateX(-50%)',
           bottom: -7,
           cursor: 'crosshair',
-          zIndex: 10,
+          zIndex: getZIndex('NAVIGATION_NODE_BADGES'),
           opacity: 0,
         }}
       />

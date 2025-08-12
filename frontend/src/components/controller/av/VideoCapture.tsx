@@ -3,6 +3,7 @@ import { Box, Slider, IconButton, Typography } from '@mui/material';
 import React, { useState, useEffect, useRef } from 'react';
 
 import { getStreamViewerLayout } from '../../../config/layoutConfig';
+import { getZIndex } from '../../../utils/zIndexUtils';
 
 import { DragSelectionOverlay } from './DragSelectionOverlay';
 
@@ -193,7 +194,7 @@ export function VideoCapture({
             imageRef={imageRef}
             onAreaSelected={onAreaSelected}
             selectedArea={selectedArea || null}
-            sx={{ zIndex: 5 }}
+            sx={{ zIndex: getZIndex('VIDEO_CAPTURE_OVERLAY') }}
           />
         )}
 
@@ -250,7 +251,7 @@ export function VideoCapture({
               alignItems: 'center',
               justifyContent: 'center',
               backgroundColor: 'rgba(0,0,0,0.3)',
-              zIndex: 10,
+              zIndex: getZIndex('VIDEO_CAPTURE_OVERLAY'),
             }}
           >
             <Typography
@@ -293,7 +294,7 @@ export function VideoCapture({
             background: 'linear-gradient(transparent, rgba(0,0,0,0.8))',
             p: 1,
             backgroundColor: 'transparent',
-            zIndex: 15,
+            zIndex: getZIndex('VIDEO_CAPTURE_CONTROLS'),
           }}
         >
           {/* Play/Pause button - bottom left */}
@@ -302,7 +303,7 @@ export function VideoCapture({
               position: 'absolute',
               bottom: 8,
               left: 8,
-              zIndex: 20,
+              zIndex: getZIndex('VIDEO_CAPTURE_CONTROLS', 1),
             }}
           >
             <IconButton
@@ -314,7 +315,7 @@ export function VideoCapture({
                 '&:hover': {
                   backgroundColor: 'rgba(255,255,255,0.2)',
                 },
-                zIndex: 20,
+                zIndex: getZIndex('VIDEO_CAPTURE_CONTROLS', 1),
               }}
             >
               {isPlaying ? <Pause /> : <PlayArrow />}
@@ -327,7 +328,7 @@ export function VideoCapture({
               position: 'absolute',
               bottom: 16,
               right: 16,
-              zIndex: 20,
+              zIndex: getZIndex('VIDEO_CAPTURE_CONTROLS', 1),
             }}
           >
             <Typography
@@ -349,7 +350,7 @@ export function VideoCapture({
               bottom: 12,
               left: '80px',
               right: '80px',
-              zIndex: 20,
+              zIndex: getZIndex('VIDEO_CAPTURE_CONTROLS', 1),
             }}
           >
             <Slider

@@ -10,6 +10,7 @@ import { Box, IconButton, Tooltip, Typography } from '@mui/material';
 import React, { useState, useMemo } from 'react';
 
 import { Host } from '../../../types/common/Host_Types';
+import { getZIndex } from '../../../utils/zIndexUtils';
 
 import { BashDesktopTerminal } from './BashDesktopTerminal';
 import { PyAutoGUITerminal } from './PyAutoGUITerminal';
@@ -85,7 +86,7 @@ export const DesktopPanel = React.memo(function DesktopPanel({
       }
     : {
         position: 'fixed',
-        zIndex: 1300,
+        zIndex: getZIndex('DESKTOP_CONTROL_PANEL'),
         bottom: '20px',
         right: '440px', // Offset to the left to make room for WebPanel (420px + 20px margin)
       };

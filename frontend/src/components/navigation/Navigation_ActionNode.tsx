@@ -148,7 +148,7 @@ export const UIActionNode: React.FC<NodeProps<UINavigationNodeType['data']>> = (
               fontWeight: 'bold',
               padding: '2px 6px',
               borderRadius: '4px',
-              zIndex: 15, // Same as navigation node
+              zIndex: getZIndex('NAVIGATION_NODE_CURRENT_POSITION'), // Same as navigation node
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -178,7 +178,7 @@ export const UIActionNode: React.FC<NodeProps<UINavigationNodeType['data']>> = (
               alignItems: 'center',
               justifyContent: 'center',
               border: '2px solid white',
-              zIndex: 10, // Same as navigation node badges
+              zIndex: getZIndex('NAVIGATION_NODE_BADGES'), // Same as navigation node badges
             }}
             title={`${verificationCount} verification${verificationCount !== 1 ? 's' : ''}`}
           >
@@ -204,7 +204,7 @@ export const UIActionNode: React.FC<NodeProps<UINavigationNodeType['data']>> = (
               alignItems: 'center',
               justifyContent: 'center',
               border: '2px solid white',
-              zIndex: 10, // Same as navigation node badges
+              zIndex: getZIndex('NAVIGATION_NODE_BADGES'), // Same as navigation node badges
             }}
             title={`${data.subtree_count} subtree${data.subtree_count !== 1 ? 's' : ''}`}
           >
@@ -279,7 +279,7 @@ export const UIActionNode: React.FC<NodeProps<UINavigationNodeType['data']>> = (
             top: '50%',
             transform: 'translateY(-50%)',
             cursor: 'crosshair',
-            zIndex: 11,
+            zIndex: getZIndex('NAVIGATION_NODE_HANDLES'),
           }}
         />
 
@@ -301,7 +301,7 @@ export const UIActionNode: React.FC<NodeProps<UINavigationNodeType['data']>> = (
             top: '50%',
             transform: 'translateY(-50%)',
             cursor: 'crosshair',
-            zIndex: 10,
+            zIndex: getZIndex('NAVIGATION_NODE_BADGES'),
             opacity: 0,
           }}
         />
@@ -325,7 +325,7 @@ export const UIActionNode: React.FC<NodeProps<UINavigationNodeType['data']>> = (
             top: '50%',
             transform: 'translateY(-50%)',
             cursor: 'crosshair',
-            zIndex: 11,
+            zIndex: getZIndex('NAVIGATION_NODE_HANDLES'),
           }}
         />
 
@@ -347,7 +347,7 @@ export const UIActionNode: React.FC<NodeProps<UINavigationNodeType['data']>> = (
             top: '50%',
             transform: 'translateY(-50%)',
             cursor: 'crosshair',
-            zIndex: 10,
+            zIndex: getZIndex('NAVIGATION_NODE_BADGES'),
             opacity: 0,
           }}
         />
@@ -371,7 +371,7 @@ export const UIActionNode: React.FC<NodeProps<UINavigationNodeType['data']>> = (
             transform: 'translateX(-50%)',
             top: -7,
             cursor: 'crosshair',
-            zIndex: 11,
+            zIndex: getZIndex('NAVIGATION_NODE_HANDLES'),
           }}
         />
 
@@ -393,7 +393,7 @@ export const UIActionNode: React.FC<NodeProps<UINavigationNodeType['data']>> = (
             transform: 'translateX(-50%)',
             top: -7,
             cursor: 'crosshair',
-            zIndex: 10,
+            zIndex: getZIndex('NAVIGATION_NODE_BADGES'),
             opacity: 0,
           }}
         />
@@ -417,7 +417,7 @@ export const UIActionNode: React.FC<NodeProps<UINavigationNodeType['data']>> = (
             transform: 'translateX(-50%)',
             bottom: -7,
             cursor: 'crosshair',
-            zIndex: 11,
+            zIndex: getZIndex('NAVIGATION_NODE_HANDLES'),
           }}
         />
 
@@ -439,7 +439,7 @@ export const UIActionNode: React.FC<NodeProps<UINavigationNodeType['data']>> = (
             transform: 'translateX(-50%)',
             bottom: -7,
             cursor: 'crosshair',
-            zIndex: 10,
+            zIndex: getZIndex('NAVIGATION_NODE_BADGES'),
             opacity: 0,
           }}
         />
@@ -458,7 +458,7 @@ export const UIActionNode: React.FC<NodeProps<UINavigationNodeType['data']>> = (
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            zIndex: 1000, // High z-index for modal
+            zIndex: getZIndex('SCREENSHOT_MODAL'), // High z-index for modal
           }}
           onClick={closeModal}
         >

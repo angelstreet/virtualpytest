@@ -8,31 +8,49 @@
 // Z-index order from bottom to top
 // Each position gets 10 z-index points (index + 1) * 10
 const Z_INDEX_ORDER = [
-  'CONTENT', // 10
-  'NAVIGATION_NODES', // 20
-  'UI_ELEMENTS', // 30
-  'READ_ONLY_INDICATOR', // 40
-  'TOOLTIPS', // 50
-  'HEADER', // 90
-  'HEADER_DROPDOWN', // 100
-  'MODAL_BACKDROP', // 110
-  'MODAL_CONTENT', // 120
-  'STREAM_VIEWER', // 130
-  'VERIFICATION_EDITOR', // 140
-  'HDMI_STREAM', // 150
-  'VNC_STREAM', // 160
-  'REMOTE_PANELS', // 170
-  'APPIUM_OVERLAY', // 180
-  'ANDROID_MOBILE_OVERLAY', // 200
-  'DEBUG_OVERLAY', // 230
-  'SCREENSHOT_MODAL', // 210
-  'NAVIGATION_SELECTION_PANEL', // 190
-  'NAVIGATION_EDGE_PANEL', // 200
-  'NAVIGATION_PANELS', // 60
-  'NAVIGATION_DIALOGS', // 70
-  'NAVIGATION_EDGE_PANEL', // 220
-  'NAVIGATION_GOTO_PANEL', // 180
-  'NAVIGATION_CONFIRMATION', // 80
+  // Base content layers
+  'CONTENT', // 10 - Base content, images, videos
+  'NAVIGATION_NODES', // 20 - Navigation nodes and their handles
+  'NAVIGATION_NODE_HANDLES', // 30 - Node connection handles (slight overlap)
+  'NAVIGATION_NODE_BADGES', // 40 - Node badges (verification, subtree)
+  'NAVIGATION_NODE_CURRENT_POSITION', // 50 - Current position indicators
+  
+  // UI elements and panels (background)
+  'UI_ELEMENTS', // 60 - General UI elements
+  'DESKTOP_CONTROL_PANEL', // 70 - Desktop Control Panel (behind navigation panels)
+  'REMOTE_PANELS', // 80 - Remote control panels
+  'VIDEO_CAPTURE_CONTROLS', // 90 - Video capture playback controls
+  'VIDEO_CAPTURE_OVERLAY', // 100 - Video capture drag selection
+  
+  // Navigation panels (middle layer - above desktop panels)
+  'NAVIGATION_PANELS', // 110 - General navigation panels
+  'NAVIGATION_EDGE_PANEL', // 120 - Edge editing panel
+  'NAVIGATION_SELECTION_PANEL', // 130 - Node selection panel
+  'NAVIGATION_GOTO_PANEL', // 140 - Navigation goto panel
+  'NAVIGATION_CONFIRMATION', // 150 - Navigation confirmation dialogs
+  'NAVIGATION_DIALOGS', // 160 - Navigation dialogs (create/edit)
+  
+  // Streaming and visualization layers
+  'STREAM_VIEWER', // 170 - Stream viewers
+  'HDMI_STREAM', // 180 - HDMI stream displays
+  'VNC_STREAM', // 190 - VNC stream displays
+  'VERIFICATION_EDITOR', // 200 - Verification editors
+  
+  // Interactive overlays
+  'APPIUM_OVERLAY', // 210 - Appium element overlays
+  'ANDROID_MOBILE_OVERLAY', // 220 - Android mobile overlays
+  'DEBUG_OVERLAY', // 230 - Debug information overlays
+  
+  // Top-level UI
+  'TOOLTIPS', // 240 - Tooltips and hints
+  'READ_ONLY_INDICATOR', // 250 - Read-only mode indicators
+  'HEADER', // 260 - Page headers
+  'HEADER_DROPDOWN', // 270 - Header dropdown menus
+  
+  // Modals and screenshots (highest layer)
+  'MODAL_BACKDROP', // 280 - Modal backdrop/overlay
+  'MODAL_CONTENT', // 290 - Modal content windows
+  'SCREENSHOT_MODAL', // 300 - Screenshot viewing modals
 ] as const;
 
 type ZIndexComponent = (typeof Z_INDEX_ORDER)[number];
