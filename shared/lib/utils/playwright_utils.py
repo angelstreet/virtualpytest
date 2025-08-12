@@ -179,7 +179,7 @@ class PlaywrightConnection:
     """Manages Playwright connections to Chrome via CDP."""
     
     @staticmethod
-    async def connect_to_chrome(cdp_url: str = 'http://localhost:9222') -> Tuple[Any, Any, Any, Any]:
+    async def connect_to_chrome(cdp_url: str = 'http://localhost:9222', viewport: dict = None) -> Tuple[Any, Any, Any, Any]:
         """Connect to Chrome via CDP and return playwright, browser, context, page."""
         from playwright.async_api import async_playwright
         
@@ -187,7 +187,13 @@ class PlaywrightConnection:
         browser = await playwright.chromium.connect_over_cdp(cdp_url)
         
         if len(browser.contexts) == 0:
-            context = await browser.new_context()
+            # Create new context with viewport set at context level (prevents page.goto from changing it)
+            context_options = {}
+            if viewport:
+                context_options['viewport'] = viewport
+                print(f'[PlaywrightConnection] Creating context with viewport: {viewport["width"]}x{viewport["height"]}')
+            
+            context = await browser.new_context(**context_options)
             page = await context.new_page()
         else:
             context = browser.contexts[0]
@@ -195,6 +201,11 @@ class PlaywrightConnection:
                 page = await context.new_page()
             else:
                 page = context.pages[0]
+            
+            # If using existing context but viewport specified, set it on the page
+            if viewport:
+                await page.set_viewport_size(viewport)
+                print(f'[PlaywrightConnection] Set viewport on existing page: {viewport["width"]}x{viewport["height"]}')
         
         return playwright, browser, context, page
     
@@ -351,11 +362,9 @@ class PlaywrightUtils:
         Returns:
             Tuple of (playwright, browser, context, page)
         """
-        playwright, browser, context, page = await self.connection.connect_to_chrome(cdp_url)
-        
-        # Set viewport to match the window size for consistent scaling
-        await page.set_viewport_size(self.viewport_size)
-        print(f'[PlaywrightUtils] Set viewport to {self.viewport_size["width"]}x{self.viewport_size["height"]} (matches window size)')
+        # Connect with viewport set at context level (prevents page.goto from changing it)
+        playwright, browser, context, page = await self.connection.connect_to_chrome(cdp_url, viewport=self.viewport_size)
+        print(f'[PlaywrightUtils] Connected with viewport: {self.viewport_size["width"]}x{self.viewport_size["height"]} (context-level, locked)')
         
         # Auto-inject cookies if enabled and target URL provided
         if self.auto_accept_cookies and self.cookie_manager and target_url:
