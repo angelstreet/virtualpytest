@@ -198,6 +198,364 @@ class AVControllerInterface(BaseController):
         self.capture_source = capture_source
 
 
+class FFmpegCaptureController(AVControllerInterface):
+    """
+    Shared FFmpeg-based capture functionality for both HDMI and VNC controllers.
+    Handles screenshot and video capture using the same host-side FFmpeg capture system.
+    """
+    
+    def __init__(self, device_name: str, capture_source: str, video_stream_path: str, video_capture_path: str, **kwargs):
+        """
+        Initialize the FFmpeg capture controller.
+        
+        Args:
+            device_name: Name of the device/controller
+            capture_source: Source type (HDMI, VNC, etc.)
+            video_stream_path: Stream path for URLs (e.g., "/host/stream/capture1")
+            video_capture_path: Local capture path (e.g., "/var/www/html/stream/capture1")
+        """
+        super().__init__(device_name, capture_source)
+        
+        # Stream and capture paths
+        self.video_stream_path = video_stream_path
+        self.video_capture_path = video_capture_path
+        
+        # Video capture state (timestamp-based, no FFmpeg)
+        self.is_capturing_video = False
+        self.capture_start_time = None
+        self.capture_duration = 0
+        self.capture_session_id = None
+        
+        print(f"{capture_source}[{self.capture_source}]: Initialized - Stream: {self.video_stream_path}, Capture: {self.video_capture_path}")
+
+    def take_screenshot(self, filename: str = None) -> Optional[str]:
+        """
+        Take screenshot using FFmpeg timestamp logic.
+        Returns local file path only - routes will build URLs using existing URL building functions.
+        """
+        try:
+            import time
+            from datetime import datetime
+            import pytz
+            import os
+            
+            # Generate timestamp in Zurich timezone (Europe/Zurich) in format: YYYYMMDDHHMMSS
+            now = datetime.now()
+            zurich_tz = pytz.timezone("Europe/Zurich")
+            zurich_time = now.astimezone(zurich_tz)
+            
+            # Format: YYYYMMDDHHMMSS (no separators)
+            year = zurich_time.year
+            month = str(zurich_time.month).zfill(2)
+            day = str(zurich_time.day).zfill(2)
+            hours = str(zurich_time.hour).zfill(2)
+            minutes = str(zurich_time.minute).zfill(2)
+            seconds = str(zurich_time.second).zfill(2)
+            
+            timestamp = f"{year}{month}{day}{hours}{minutes}{seconds}"
+            
+            # Build local screenshot file path using capture path
+            captures_path = os.path.join(self.video_capture_path, 'captures')
+            screenshot_path = f'{captures_path}/capture_{timestamp}.jpg'
+            
+            # Wait 500ms first for FFmpeg to generate the file
+            time.sleep(0.5)
+            if os.path.exists(screenshot_path):
+                return screenshot_path
+            
+            # If not found, wait 1 more second
+            time.sleep(1.0)
+            if os.path.exists(screenshot_path):
+                return screenshot_path
+            
+            # Not found after total 1.5s
+            print(f"{self.capture_source}[{self.capture_source}]: Screenshot not found: {screenshot_path}")
+            return None
+                
+        except Exception as e:
+            print(f'{self.capture_source}[{self.capture_source}]: Error taking screenshot: {e}')
+            return None
+    
+    def save_screenshot(self, filename: str) -> Optional[str]:
+        """
+        Take screenshot and return local path.
+        Used for permanent storage in navigation nodes.
+        The route should handle the R2 upload, not the controller.
+        
+        Args:
+            filename: The filename to use for the screenshot (e.g., node name)
+            
+        Returns:
+            Local file path if successful, None if failed
+        """
+        try:
+            # First take a temporary screenshot to get the image
+            temp_screenshot_path = self.take_screenshot()
+            if not temp_screenshot_path:
+                print(f'{self.capture_source}[{self.capture_source}]: Failed to take temporary screenshot')
+                return None
+            
+            # Extract timestamp from temp screenshot path to get the actual image file
+            import re
+            timestamp_match = re.search(r'capture_(\d{14})\.jpg', temp_screenshot_path)
+            if not timestamp_match:
+                print(f'{self.capture_source}[{self.capture_source}]: Could not extract timestamp from temp path: {temp_screenshot_path}')
+                return None
+            
+            # The temp_screenshot_path is already the local file path we need
+            local_screenshot_path = temp_screenshot_path
+            
+            # Check if local file exists with retry for timing issues
+            import os
+            import time
+            
+            # First attempt
+            if not os.path.exists(local_screenshot_path):
+                time.sleep(1.0)
+                # Retry once
+                if not os.path.exists(local_screenshot_path):
+                    print(f'{self.capture_source}[{self.capture_source}]: Local screenshot file not found after retry: {local_screenshot_path}')
+                    return None
+            
+            # Return the local file path for the route to handle the upload
+            return local_screenshot_path
+            
+        except Exception as e:
+            print(f'{self.capture_source}[{self.capture_source}]: Error saving screenshot: {e}')
+            return None
+
+    def take_video(self, duration_seconds: float = None, test_start_time: float = None) -> Optional[str]:
+        """
+        Upload HLS stream directly to R2 (no MP4 conversion).
+        Fast upload with no processing time.
+        
+        Args:
+            duration_seconds: How many seconds of video to capture (default: 10s)
+            test_start_time: Unix timestamp when test started (for time sync)
+            
+        Returns:
+            R2 URL of HLS playlist (m3u8), or None if failed
+        """
+        try:
+            import time
+            import os
+            import tempfile
+            
+            if duration_seconds is None:
+                duration_seconds = 10.0
+                
+            print(f"{self.capture_source}[{self.capture_source}]: Uploading {duration_seconds}s HLS video (no conversion)")
+            
+            # 1. Find the M3U8 file (HLS playlist)
+            m3u8_path = os.path.join(self.video_capture_path, "output.m3u8")
+            
+            if not os.path.exists(m3u8_path):
+                print(f"{self.capture_source}[{self.capture_source}]: No M3U8 file found")
+                return None
+            
+            # 2. Wait for encoder to finish and get updated playlist
+            if test_start_time:
+                # Wait 18 seconds for encoder to finish and write final segments (3 segments)
+                print(f"{self.capture_source}[{self.capture_source}]: Waiting 18s for final segments to complete...")
+                time.sleep(18)
+            
+            # Read M3U8 playlist to get segment list
+            with open(m3u8_path, 'r') as f:
+                playlist_content = f.read()
+            
+            # Extract .ts segment filenames from playlist
+            all_segments = []
+            for line in playlist_content.splitlines():
+                if line.endswith('.ts'):
+                    segment_path = os.path.join(self.video_capture_path, line.strip())
+                    if os.path.exists(segment_path):
+                        all_segments.append((line.strip(), segment_path))
+            
+            # DURATION-BASED FILTERING: Take last N segments based on test duration + buffer
+            segment_files = []
+            if test_start_time and duration_seconds:
+                # Calculate segments needed: test duration + 18s buffer, 6s per segment
+                buffer_seconds = 18  # 18s buffer (3 segments before + 3 segments after)
+                total_duration = duration_seconds + buffer_seconds
+                segments_needed = int(total_duration / 6) + 1  # +1 for safety
+                
+                print(f"{self.capture_source}[{self.capture_source}]: Test duration: {duration_seconds}s, taking last {segments_needed} segments")
+                
+                # Take the last N segments (most recent)
+                segment_files = all_segments[-segments_needed:] if len(all_segments) >= segments_needed else all_segments
+            else:
+                # No duration provided, take all available segments
+                segment_files = all_segments
+            
+            if not segment_files:
+                print(f"{self.capture_source}[{self.capture_source}]: No video segments found")
+                return None
+            
+            print(f"{self.capture_source}[{self.capture_source}]: Found {len(segment_files)} segments")
+            
+            # 3. Create unique folder for this video
+            timestamp = int(time.time())
+            video_folder = f"videos/test_video_{timestamp}"
+            
+            # 4. Upload HLS files to R2
+            from shared.lib.utils.cloudflare_utils import get_cloudflare_utils
+            uploader = get_cloudflare_utils()
+            
+            # Create new M3U8 playlist with only our selected segments
+            new_playlist_content = "#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:6\n"
+            for segment_name, segment_path in segment_files:
+                new_playlist_content += "#EXTINF:6.0,\n"
+                new_playlist_content += f"{segment_name}\n"
+            new_playlist_content += "#EXT-X-ENDLIST\n"
+            
+            # Write new playlist to temp file and upload
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.m3u8', delete=False) as temp_file:
+                temp_file.write(new_playlist_content)
+                temp_playlist_path = temp_file.name
+            
+            playlist_remote_path = f"{video_folder}/playlist.m3u8"
+            playlist_result = uploader.upload_file(temp_playlist_path, playlist_remote_path)
+            
+            # Clean up temp file
+            try:
+                os.unlink(temp_playlist_path)
+            except:
+                pass
+            
+            if not playlist_result.get('success'):
+                print(f"{self.capture_source}[{self.capture_source}]: Failed to upload playlist")
+                return None
+            
+            # Upload all segment files
+            uploaded_segments = 0
+            for segment_name, segment_path in segment_files:
+                segment_remote_path = f"{video_folder}/{segment_name}"
+                segment_result = uploader.upload_file(segment_path, segment_remote_path)
+                
+                if segment_result.get('success'):
+                    uploaded_segments += 1
+                else:
+                    print(f"{self.capture_source}[{self.capture_source}]: Failed to upload segment {segment_name}")
+            
+            if uploaded_segments == 0:
+                print(f"{self.capture_source}[{self.capture_source}]: No segments uploaded successfully")
+                return None
+            
+            # 5. Return playlist URL for HLS playback
+            playlist_url = playlist_result.get('url')
+            print(f"{self.capture_source}[{self.capture_source}]: HLS uploaded: {playlist_url} ({uploaded_segments}/{len(segment_files)} segments)")
+            return playlist_url
+                
+        except Exception as e:
+            print(f"{self.capture_source}[{self.capture_source}]: Error uploading HLS: {e}")
+            return None
+        
+    def take_control(self) -> Dict[str, Any]:
+        """
+        Take control of stream and verify it's working.
+        
+        Returns:
+            Dictionary with success status and stream information
+        """
+        try:
+            # Check stream status
+            status = self.get_status()
+            is_streaming = status.get('is_streaming', False)
+            
+            # For FFmpeg-based capture, we just need the service to be running
+            # The host continuously captures screenshots regardless
+            return {
+                'success': True,
+                'status': 'stream_ready',
+                'controller_type': 'av',
+                'stream_info': status,
+                'capabilities': ['video_capture', 'screenshot', 'streaming']
+            }
+                
+        except Exception as e:
+            print(f"{self.capture_source}[{self.capture_source}]: Take control error: {e}")
+            return {
+                'success': False,
+                'status': 'error',
+                'error': f'{self.capture_source} controller error: {str(e)}',
+                'controller_type': 'av'
+            }
+        
+    def start_video_capture(self, duration: float = 60.0, filename: str = None, 
+                           resolution: str = None, fps: int = None) -> bool:
+        """
+        Start video capture by recording start time and duration.
+        No FFmpeg usage - just tracks timing for timestamp-based screenshot references.
+        
+        Args:
+            duration: Duration in seconds (default: 60s)
+            filename: Optional filename (ignored - uses timestamps)
+            resolution: Video resolution (ignored - uses host stream resolution)
+            fps: Video FPS (ignored - uses 1 frame per second from screenshots)
+        """
+        if self.is_capturing_video:
+            return True
+            
+        try:
+            import time
+            import threading
+            from datetime import datetime
+            
+            # Record capture session details
+            self.capture_start_time = datetime.now()
+            self.capture_duration = duration
+            self.capture_session_id = f"capture_{int(time.time())}"
+            self.is_capturing_video = True
+            
+            print(f"{self.capture_source}[{self.capture_source}]: Starting video capture - Session: {self.capture_session_id}, Duration: {duration}s")
+            
+            # Start monitoring thread to automatically stop after duration
+            monitoring_thread = threading.Thread(
+                target=self._monitor_capture_duration,
+                args=(duration,),
+                daemon=True
+            )
+            monitoring_thread.start()
+            
+            return True
+            
+        except Exception as e:
+            print(f"{self.capture_source}[{self.capture_source}]: Failed to start video capture: {e}")
+            return False
+        
+    def stop_video_capture(self) -> bool:
+        """Stop video capture session."""
+        if not self.is_capturing_video:
+            return False
+            
+        try:
+            from datetime import datetime
+            
+            # Calculate actual capture duration
+            if self.capture_start_time:
+                actual_duration = (datetime.now() - self.capture_start_time).total_seconds()
+                print(f"{self.capture_source}[{self.capture_source}]: Video capture stopped - Duration: {actual_duration:.1f}s")
+            
+            self.is_capturing_video = False
+            self.capture_session_id = None
+            
+            return True
+            
+        except Exception as e:
+            print(f"{self.capture_source}[{self.capture_source}]: Error stopping video capture: {e}")
+            return False
+        
+    def _monitor_capture_duration(self, duration: float):
+        """Monitor capture duration and automatically stop after specified time."""
+        import time
+        
+        time.sleep(duration)
+        
+        if self.is_capturing_video:
+            print(f"{self.capture_source}[{self.capture_source}]: Capture duration ({duration}s) reached, stopping automatically")
+            self.stop_video_capture()
+
+
 class VerificationControllerInterface(BaseController):
     """Type hint interface for verification controllers."""
     

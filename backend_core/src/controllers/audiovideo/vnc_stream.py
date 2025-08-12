@@ -2,23 +2,16 @@
 VNC Stream Controller Implementation
 
 This controller handles VNC stream acquisition by referencing continuously captured screenshots.
-The host continuously takes screenshots of its own screen via VNC, and this controller references them by timestamp.
-No FFmpeg usage - all video capture is done by referencing timestamped screenshot URLs.
+The host continuously takes screenshots using FFmpeg, and this controller references them by timestamp.
+Uses shared FFmpeg-based capture functionality.
 """
 
-import threading
-import time
-import os
-import json
 import subprocess
-from typing import Dict, Any, Optional, List
-from pathlib import Path
-from datetime import datetime, timedelta
-import pytz
-from ..base_controller import AVControllerInterface
+from typing import Dict, Any, Optional
+from ..base_controller import FFmpegCaptureController
 
 
-class VNCStreamController(AVControllerInterface):
+class VNCStreamController(FFmpegCaptureController):
     """VNC Stream controller that references continuously captured screenshots by timestamp."""
     
     def __init__(self, video_stream_path: str = None, video_capture_path: str = None, **kwargs):
@@ -26,22 +19,20 @@ class VNCStreamController(AVControllerInterface):
         Initialize the VNC Stream controller.
         
         Args:
-            video_stream_path: Stream path for URLs (e.g., "/host/vnc/stream")
-            video_capture_path: Local capture path (e.g., "/var/www/html/vnc/captures")
+            video_stream_path: FFmpeg video stream path (e.g., "/host/stream/capture3")
+            video_capture_path: FFmpeg video capture path (e.g., "/var/www/html/stream/capture3")
+            vnc_stream_path: VNC viewing URL (e.g., "https://virtualpytest.com/host/vnc/vnc_lite.html")
         """
-        super().__init__("VNC Stream Controller", "VNC")
+        super().__init__("VNC Stream Controller", "VNC", video_stream_path, video_capture_path, **kwargs)
         
-        # Stream and capture paths
-        self.video_stream_path = video_stream_path
-        self.video_capture_path = video_capture_path
+        # Store VNC-specific viewing URL
+        self.vnc_stream_path = kwargs.get('vnc_stream_path')
+        if self.vnc_stream_path:
+            print(f"VNC[{self.capture_source}]: VNC Viewer URL: {self.vnc_stream_path}")
         
-        # Video capture state (timestamp-based, no FFmpeg)
-        self.is_capturing_video = False
-        self.capture_start_time = None
-        self.capture_duration = 0
-        self.capture_session_id = None
-        
-        print(f"VNC[{self.capture_source}]: Initialized - Stream: {self.video_stream_path}, Capture: {self.video_capture_path}")
+        # Store additional VNC-related environment variables
+        self.vnc_password = kwargs.get('vnc_password')
+        self.web_browser_path = kwargs.get('web_browser_path', '/usr/bin/chromium')
 
         
     def restart_stream(self) -> bool:
@@ -60,112 +51,16 @@ class VNCStreamController(AVControllerInterface):
             print(f"VNC[{self.capture_source}]: Error restarting VNC stream: {e}")
             return False
 
-    def take_screenshot(self, filename: str = None) -> Optional[str]:
+
+            
+    def get_vnc_viewer_url(self) -> Optional[str]:
         """
-        Take VNC screenshot using vncsnapshot tool.
-        Returns local file path only - routes will build URLs using existing URL building functions.
-        """
-        try:
-            # Generate timestamp in Zurich timezone (Europe/Zurich) in format: YYYYMMDDHHMMSS
-            now = datetime.now()
-            zurich_tz = pytz.timezone("Europe/Zurich")
-            zurich_time = now.astimezone(zurich_tz)
-            
-            # Format: YYYYMMDDHHMMSS (no separators)
-            year = zurich_time.year
-            month = str(zurich_time.month).zfill(2)
-            day = str(zurich_time.day).zfill(2)
-            hours = str(zurich_time.hour).zfill(2)
-            minutes = str(zurich_time.minute).zfill(2)
-            seconds = str(zurich_time.second).zfill(2)
-            
-            timestamp = f"{year}{month}{day}{hours}{minutes}{seconds}"
-            
-            # Build local screenshot file path using capture path
-            captures_path = os.path.join(self.video_capture_path, 'captures')
-            screenshot_path = f'{captures_path}/capture_{timestamp}.jpg'
-            
-            # Ensure captures directory exists
-            os.makedirs(captures_path, exist_ok=True)
-            
-            print(f"VNC[{self.capture_source}]: Taking screenshot using vncsnapshot to {screenshot_path}")
-            
-            # Use vncsnapshot to capture from localhost VNC server on display :1
-            result = subprocess.run([
-                'vncsnapshot',
-                'localhost:1',  # VNC display :1 (port 5901)
-                screenshot_path
-            ], capture_output=True, text=True, timeout=10)
-            
-            if result.returncode == 0 and os.path.exists(screenshot_path):
-                print(f"VNC[{self.capture_source}]: Screenshot captured successfully: {screenshot_path}")
-                
-                # Create thumbnail (same as rename_captures.sh)
-                thumbnail_path = screenshot_path.replace('.jpg', '_thumbnail.jpg')
-                thumbnail_result = subprocess.run([
-                    'convert',
-                    screenshot_path,
-                    '-thumbnail', '498x280',
-                    '-strip',
-                    '-quality', '85',
-                    thumbnail_path
-                ], capture_output=True, text=True, timeout=5)
-                
-                if thumbnail_result.returncode == 0:
-                    print(f"VNC[{self.capture_source}]: Thumbnail created: {thumbnail_path}")
-                else:
-                    print(f"VNC[{self.capture_source}]: Thumbnail creation failed: {thumbnail_result.stderr}")
-                
-                return screenshot_path
-            else:
-                print(f"VNC[{self.capture_source}]: Screenshot failed - vncsnapshot error: {result.stderr}")
-                return None
-                
-        except Exception as e:
-            print(f'VNC[{self.capture_source}]: Error taking screenshot: {e}')
-            return None
-    
-    def save_screenshot(self, filename: str) -> Optional[str]:
-        """
-        Take screenshot and return local path.
-        Used for permanent storage in navigation nodes.
-        The route should handle the R2 upload, not the controller.
+        Get the VNC viewer URL for direct VNC access.
         
-        Args:
-            filename: The filename to use for the screenshot (e.g., node name)
-            
         Returns:
-            Local file path if successful, None if failed
+            VNC viewer URL if configured, None otherwise
         """
-        try:
-            # First take a temporary screenshot to get the image
-            temp_screenshot_path = self.take_screenshot()
-            if not temp_screenshot_path:
-                print(f'VNC[{self.capture_source}]: Failed to take temporary screenshot')
-                return None
-            
-            # Extract timestamp from temp screenshot path to get the actual image file
-            import re
-            timestamp_match = re.search(r'capture_(\d{14})\.jpg', temp_screenshot_path)
-            if not timestamp_match:
-                print(f'VNC[{self.capture_source}]: Could not extract timestamp from temp path: {temp_screenshot_path}')
-                return None
-            
-            # The temp_screenshot_path is already the local file path we need
-            local_screenshot_path = temp_screenshot_path
-            
-            # Check if local file exists
-            import os
-            if not os.path.exists(local_screenshot_path):
-                print(f'VNC[{self.capture_source}]: Local screenshot file not found: {local_screenshot_path}')
-                return None
-            
-            # Return the local file path for the route to handle the upload
-            return local_screenshot_path
-            
-        except Exception as e:
-            print(f'VNC[{self.capture_source}]: Error saving screenshot: {e}')
-            return None
+        return self.vnc_stream_path
         
     def take_control(self) -> Dict[str, Any]:
         """
@@ -179,15 +74,21 @@ class VNCStreamController(AVControllerInterface):
             status = self.get_status()
             is_streaming = status.get('is_streaming', False)
             
-            # For VNC stream, we just need the VNC server to be accessible
-            # The host continuously captures screenshots regardless
-            return {
+            # For VNC stream, we use the same FFmpeg capture system as HDMI
+            # Add VNC-specific capabilities like VNC viewing
+            control_info = {
                 'success': True,
                 'status': 'stream_ready',
                 'controller_type': 'av',
                 'stream_info': status,
                 'capabilities': ['video_capture', 'screenshot', 'streaming', 'vnc_viewing']
             }
+            
+            # Add VNC viewer URL if available
+            if self.vnc_stream_path:
+                control_info['vnc_viewer_url'] = self.vnc_stream_path
+                
+            return control_info
                 
         except Exception as e:
             print(f"VNC[{self.capture_source}]: Take control error: {e}")
@@ -197,78 +98,15 @@ class VNCStreamController(AVControllerInterface):
                 'error': f'VNC controller error: {str(e)}',
                 'controller_type': 'av'
             }
-        
-    def start_video_capture(self, duration: float = 60.0, filename: str = None, 
-                           resolution: str = None, fps: int = None) -> bool:
-        """
-        Start video capture by recording start time and duration.
-        No FFmpeg usage - just tracks timing for timestamp-based screenshot references.
-        
-        Args:
-            duration: Duration in seconds (default: 60s)
-            filename: Optional filename (ignored - uses timestamps)
-            resolution: Video resolution (ignored - uses host screen resolution)
-            fps: Video FPS (ignored - uses 1 frame per second from screenshots)
-        """
-        if self.is_capturing_video:
-            return True
-            
-        try:
-            # Record capture session details
-            self.capture_start_time = datetime.now()
-            self.capture_duration = duration
-            self.capture_session_id = f"vnc_capture_{int(time.time())}"
-            self.is_capturing_video = True
-            
-            print(f"VNC[{self.capture_source}]: Starting video capture - Session: {self.capture_session_id}, Duration: {duration}s")
-            
-            # Start monitoring thread to automatically stop after duration
-            monitoring_thread = threading.Thread(
-                target=self._monitor_capture_duration,
-                args=(duration,),
-                daemon=True
-            )
-            monitoring_thread.start()
-            
-            return True
-            
-        except Exception as e:
-            print(f"VNC[{self.capture_source}]: Failed to start video capture: {e}")
-            return False
-        
-    def stop_video_capture(self) -> bool:
-        """Stop video capture session."""
-        if not self.is_capturing_video:
-            return False
-            
-        try:
-            # Calculate actual capture duration
-            if self.capture_start_time:
-                actual_duration = (datetime.now() - self.capture_start_time).total_seconds()
-                print(f"VNC[{self.capture_source}]: Video capture stopped - Duration: {actual_duration:.1f}s")
-            
-            self.is_capturing_video = False
-            self.capture_session_id = None
-            
-            return True
-            
-        except Exception as e:
-            print(f"VNC[{self.capture_source}]: Error stopping video capture: {e}")
-            return False
-        
-    def _monitor_capture_duration(self, duration: float):
-        """Monitor capture duration and automatically stop after specified time."""
-        time.sleep(duration)
-        
-        if self.is_capturing_video:
-            print(f"VNC[{self.capture_source}]: Capture duration ({duration}s) reached, stopping automatically")
-            self.stop_video_capture()
             
     def get_status(self) -> Dict[str, Any]:
-        """Get controller status by checking VNC connectivity."""
+        """Get controller status by checking FFmpeg capture system (same as HDMI)."""
         try:
-            # For VNC, we check if the capture directory exists and is writable
-            # This indicates the screenshot capture system is working
+            import os
+            import time
+            
+            # For VNC, we use the same FFmpeg capture approach as HDMI
+            # Check if the capture directory exists and has recent screenshots
             captures_path = os.path.join(self.video_capture_path, 'captures')
             
             if os.path.exists(captures_path) and os.access(captures_path, os.W_OK):

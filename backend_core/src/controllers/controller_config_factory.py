@@ -247,8 +247,11 @@ def _get_av_params(implementation: str, device_config: dict) -> dict:
         }
     elif implementation == 'vnc_stream':
         return {
-            'video_stream_path': device_config.get('video_stream_path', '/host/vnc/stream'),
-            'video_capture_path': device_config.get('video_capture_path', '/var/www/html/vnc/captures')
+            'video_stream_path': device_config.get('video_stream_path', '/host/stream/capture3'),
+            'video_capture_path': device_config.get('video_capture_path', '/var/www/html/stream/capture3'),
+            'vnc_stream_path': device_config.get('vnc_stream_path'),
+            'vnc_password': device_config.get('vnc_password'),
+            'web_browser_path': device_config.get('web_browser_path', '/usr/bin/chromium')
         }
     return {}
 
