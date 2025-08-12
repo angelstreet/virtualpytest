@@ -546,12 +546,20 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
     }
   };
 
-  // Simple VNC panel info - just pass the fixed panel size
+  // Simple VNC panel info - match actual VNC panel position and size
   const getVNCPanelInfo = () => {
+    const panelWidth = 500;
+    const panelHeight = 360;
+    const headerHeight = 40; // VNC header height
+    const contentHeight = panelHeight - headerHeight; // 320px content area
+    
     return {
-      position: { x: window.innerWidth - 520, y: window.innerHeight - 400 }, // Bottom right
-      size: { width: 500, height: 360 }, // VNC expanded size
-      deviceResolution: { width: 500, height: 360 }, // Same as panel size
+      position: { 
+        x: window.innerWidth - panelWidth - 20, // Right margin like VNC
+        y: window.innerHeight - panelHeight - 20 + headerHeight // Bottom margin + below header
+      }, 
+      size: { width: panelWidth, height: contentHeight }, // Content area only
+      deviceResolution: { width: panelWidth, height: contentHeight }, // Same as content size
       isCollapsed: false,
     };
   };
