@@ -38,7 +38,7 @@ class PlaywrightWebController(WebControllerInterface):
         """
         super().__init__("Playwright Web", "playwright")
         
-        # Initialize utils with auto-cookie acceptance enabled and dynamic sizing
+        # Simple initialization with persistent user data
         self.utils = PlaywrightUtils(auto_accept_cookies=True, window_size="auto")
         
         # Command execution state
@@ -47,7 +47,7 @@ class PlaywrightWebController(WebControllerInterface):
         self.current_url = ""
         self.page_title = ""
         
-        print(f"[@controller:PlaywrightWeb] Initialized with async Playwright + Chrome remote debugging + auto-cookie acceptance + dynamic viewport sizing")
+        print(f"[@controller:PlaywrightWeb] Initialized with async Playwright + Chrome remote debugging + auto-cookie acceptance + viewport: {viewport_width}x{viewport_height if viewport_width and viewport_height else 'auto'})")
     
     def connect(self) -> bool:
         """Connect to Chrome (launch if needed)."""
@@ -87,11 +87,25 @@ class PlaywrightWebController(WebControllerInterface):
         self.is_connected = False
         return True
     
-    def open_browser(self) -> Dict[str, Any]:
-        """Open/launch the browser window."""
+    def set_viewport_size(self, width: int, height: int) -> None:
+        """Update viewport size for the browser."""
+        self.utils.viewport_size = {"width": width, "height": height}
+        print(f"[@controller:PlaywrightWeb] Updated viewport size to {width}x{height}")
+    
+    def open_browser(self, width: int = None, height: int = None) -> Dict[str, Any]:
+        """Open/launch the browser window with optional dimensions."""
         async def _async_open_browser():
             try:
-                print(f"Web[{self.web_type.upper()}]: Opening browser")
+                print(f"Web[{self.web_type.upper()}]: Opening browser with size: {width}x{height if width and height else 'auto'}")
+                
+                # Update Chrome window size if dimensions provided
+                if width and height:
+                    # Set window size directly for Chrome
+                    window_size = f"{width}x{height}"
+                    self.utils.viewport_size = {"width": width, "height": height}
+                    print(f"Web[{self.web_type.upper()}]: Using panel dimensions: {window_size}")
+                else:
+                    print(f"Web[{self.web_type.upper()}]: Using default dimensions")
                 start_time = time.time()
                 
                 # First, ensure Chrome is launched (this will launch if not running)
@@ -770,7 +784,9 @@ class PlaywrightWebController(WebControllerInterface):
             return self.get_page_info()
         
         elif command == 'open_browser':
-            return self.open_browser()
+            width = params.get('width')
+            height = params.get('height')
+            return self.open_browser(width=width, height=height)
         
         elif command == 'close_browser':
             return self.close_browser()
@@ -791,6 +807,24 @@ class PlaywrightWebController(WebControllerInterface):
                 }
             
             return self.browser_use_task(task)
+        
+        elif command == 'set_viewport_size':
+            width = params.get('width')
+            height = params.get('height')
+            
+            if not width or not height:
+                return {
+                    'success': False,
+                    'error': 'Width and height parameters are required',
+                    'execution_time': 0
+                }
+            
+            self.set_viewport_size(width, height)
+            return {
+                'success': True,
+                'message': f'Viewport size set to {width}x{height}',
+                'execution_time': 0
+            }
         
         else:
             print(f"Web[{self.web_type.upper()}]: Unknown command: {command}")

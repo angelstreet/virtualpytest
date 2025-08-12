@@ -216,7 +216,7 @@ class PlaywrightUtils:
         
         Args:
             auto_accept_cookies: Whether to automatically inject consent cookies
-            window_size: Browser window size ('auto' for dynamic sizing, or custom like '1280x1024')
+            window_size: Browser window size ('auto' for default, or custom like '1280x1024')
             user_data_dir: Chrome user data directory for persistent sessions
         """
         self.chrome_manager = ChromeManager()
@@ -227,7 +227,8 @@ class PlaywrightUtils:
         self.window_size = window_size
         self.user_data_dir = user_data_dir
         self.viewport_size = self._calculate_viewport_size(window_size)
-        print(f'[PlaywrightUtils] Initialized with auto_accept_cookies={auto_accept_cookies}, window_size={window_size}, user_data_dir={user_data_dir}')
+        
+        print(f'[PlaywrightUtils] Initialized with auto_accept_cookies={auto_accept_cookies}, user_data_dir={user_data_dir}')
     
     def _calculate_viewport_size(self, window_size: str) -> dict:
         """Calculate viewport size based on panel visibility and window size."""

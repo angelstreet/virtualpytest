@@ -304,6 +304,14 @@ export const usePlaywrightWeb = (host: Host) => {
     }
   }, [resetState]);
 
+  // Helper function to open browser with specific dimensions
+  const openBrowserWithSize = useCallback(
+    async (width: number, height: number) => {
+      return executeWebCommand('open_browser', { width, height });
+    },
+    [executeWebCommand],
+  );
+
   return {
     // State
     session,
@@ -322,6 +330,7 @@ export const usePlaywrightWeb = (host: Host) => {
 
     // Actions
     executeCommand,
+    openBrowserWithSize,
     clearTerminal,
     resetState,
     handleDisconnect,
