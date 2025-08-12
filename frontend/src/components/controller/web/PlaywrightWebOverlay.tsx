@@ -53,7 +53,7 @@ export const PlaywrightWebOverlay = React.memo(
       }
 
       // Skip calculation if panelInfo is not properly defined
-      if (!panelInfo || !panelInfo.deviceResolution || !panelInfo.size) {
+      if (!panelInfo || !panelInfo.deviceResolution || !panelInfo.vncScaleFactor) {
         setScaledElements([]);
         return;
       }
@@ -71,18 +71,16 @@ export const PlaywrightWebOverlay = React.memo(
             }
           };
 
-          // Scale elements from browser viewport to VNC panel size
-          // Browser elements have coordinates in viewport space (1920x1080 or whatever viewport size)
-          // Need to scale to fit VNC panel content area
-          const scaleX = panelInfo.size.width / panelInfo.deviceResolution.width;
-          const scaleY = panelInfo.size.height / panelInfo.deviceResolution.height;
+          // Simple scaling: use VNC scale factor directly
+          // Browser elements coordinates * VNC scale factor = overlay coordinates
+          const scale = panelInfo.vncScaleFactor!;
 
           // Debug logging for first element
           if (index === 0) {
-            console.log('[PlaywrightWebOverlay] Scaling Debug:', {
-              panelInfo,
-              scaleX,
-              scaleY,
+            console.log('[PlaywrightWebOverlay] Simple Scaling Debug:', {
+              vncScaleFactor: scale,
+              browserViewport: panelInfo.deviceResolution,
+              overlaySize: panelInfo.size,
               originalElement: {
                 x: element.position.x,
                 y: element.position.y,
@@ -90,20 +88,20 @@ export const PlaywrightWebOverlay = React.memo(
                 height: element.position.height
               },
               scaledPosition: {
-                x: element.position.x * scaleX,
-                y: element.position.y * scaleY,
-                width: element.position.width * scaleX,
-                height: element.position.height * scaleY
+                x: element.position.x * scale,
+                y: element.position.y * scale,
+                width: element.position.width * scale,
+                height: element.position.height * scale
               }
             });
           }
 
           const scaledElement = {
             selector: element.selector,
-            x: element.position.x * scaleX,
-            y: element.position.y * scaleY,
-            width: element.position.width * scaleX,
-            height: element.position.height * scaleY,
+            x: element.position.x * scale,
+            y: element.position.y * scale,
+            width: element.position.width * scale,
+            height: element.position.height * scale,
             color: COLORS[index % COLORS.length],
             label: getElementLabel(element),
             index: element.index,
@@ -159,14 +157,12 @@ export const PlaywrightWebOverlay = React.memo(
       const contentX = event.clientX - rect.left;
       const contentY = event.clientY - rect.top;
 
-      // Scale coordinates back to browser viewport space for clicking
-      const scaleX = panelInfo.deviceResolution.width / panelInfo.size.width;
-      const scaleY = panelInfo.deviceResolution.height / panelInfo.size.height;
-      
-      const browserX = Math.round(contentX * scaleX);
-      const browserY = Math.round(contentY * scaleY);
+      // Scale coordinates back to browser viewport space using VNC scale factor
+      const scale = panelInfo.vncScaleFactor!;
+      const browserX = Math.round(contentX / scale);
+      const browserY = Math.round(contentY / scale);
 
-      console.log(`[PlaywrightWebOverlay] Base tap - Panel: (${Math.round(contentX)}, ${Math.round(contentY)}), Browser: (${browserX}, ${browserY})`);
+      console.log(`[PlaywrightWebOverlay] Base tap - Panel: (${Math.round(contentX)}, ${Math.round(contentY)}), Browser: (${browserX}, ${browserY}), Scale: ${scale}`);
 
       // Show click animation at tap location (in panel coordinates)
       const animationId = `base-tap-${Date.now()}`;
@@ -309,7 +305,7 @@ export const PlaywrightWebOverlay = React.memo(
               whiteSpace: 'nowrap',
             }}
                       >
-            Browser: {Math.round(coordinateDisplay.x * panelInfo.deviceResolution.width / panelInfo.size.width)}, {Math.round(coordinateDisplay.y * panelInfo.deviceResolution.height / panelInfo.size.height)}
+            Browser: {Math.round(coordinateDisplay.x / panelInfo.vncScaleFactor!)}, {Math.round(coordinateDisplay.y / panelInfo.vncScaleFactor!)}
           </div>
         )}
       </>

@@ -567,58 +567,50 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
     }
   };
 
-  // Simple VNC panel info - match actual VNC panel position and size
+  // Simple VNC panel info using direct config values
   const getVNCPanelInfo = () => {
+    // Import VNC config values directly
+    const vncConfig = {
+      collapsed: { width: 330, height: 220, scaleFactor: 0.35 },
+      expanded: { width: 520, height: 360, scaleFactor: 0.5 }
+    };
+    
     // Detect VNC panel state by checking if VNC panel element exists and its size
-    // VNC panels use specific fixed dimensions from config
     const vncPanelElement = document.querySelector('[data-testid="vnc-stream"], .vnc-stream, [class*="VNCStream"]');
-    let actualVncExpanded = true; // Default to expanded
+    let actualVncExpanded = vncExpanded; // Use prop as default
     
     if (vncPanelElement) {
       const rect = vncPanelElement.getBoundingClientRect();
-      // VNC collapsed = 350x240, expanded = 500x360
-      actualVncExpanded = rect.width > 400; // If width > 400, it's expanded (500px)
+      // If width > 400, it's expanded (520px), otherwise collapsed (330px)
+      actualVncExpanded = rect.width > 400;
     }
     
-    // VNC panel dimensions based on detected state
-    const panelWidth = actualVncExpanded ? 520 : 330;
-    const panelHeight = actualVncExpanded ? 360 : 240;
-    const headerHeight = 40; // VNC header height
-    const contentHeight = panelHeight - headerHeight;
+    // Get config for current state
+    const config = actualVncExpanded ? vncConfig.expanded : vncConfig.collapsed;
     
-    // Apply VNC scaling factor to match actual visual content size
-    const vncScaleFactor = actualVncExpanded ? 0.5 : 0.34; // From vncStream.ts config
-    const actualContentWidth = panelWidth * vncScaleFactor;
-    const actualContentHeight = contentHeight * vncScaleFactor;
+    // Calculate overlay dimensions using browser viewport and VNC scaling
+    const overlayWidth = browserViewport.width * config.scaleFactor;
+    const overlayHeight = browserViewport.height * config.scaleFactor;
     
-    // Simple positioning: bottom - 20px - overlay height
-    const x = 20;
-    const contentY = window.innerHeight - 20 - actualContentHeight;
+    // Position overlay at bottom-left (collapsed) or bottom-right (expanded)
+    const x = actualVncExpanded ? window.innerWidth - 20 - overlayWidth : 20;
+    const y = window.innerHeight - 20 - overlayHeight;
     
     const panelInfo = {
-      position: { 
-        x,
-        y: contentY // Position overlay in content area only
-      }, 
-      size: { width: actualContentWidth, height: actualContentHeight }, // Actual scaled content size
-      deviceResolution: browserViewport, // Dynamic browser viewport size from dump_elements
+      position: { x, y },
+      size: { width: overlayWidth, height: overlayHeight },
+      deviceResolution: browserViewport, // Browser viewport size from dump_elements
       isCollapsed: !actualVncExpanded,
+      vncScaleFactor: config.scaleFactor, // Pass scale factor for easy access
     };
     
-    // Debug logging
     console.log('[PlaywrightWebTerminal] VNC Panel Info:', {
       vncExpanded: actualVncExpanded,
-      panelWidth,
-      panelHeight,
-      headerHeight,
-      contentHeight,
-      vncScaleFactor,
-      actualContentWidth,
-      actualContentHeight,
-      overlayX: x,
-      overlayY: contentY,
-      windowWidth: window.innerWidth,
-      windowHeight: window.innerHeight,
+      config,
+      browserViewport,
+      overlayWidth,
+      overlayHeight,
+      position: { x, y },
       panelInfo
     });
     
