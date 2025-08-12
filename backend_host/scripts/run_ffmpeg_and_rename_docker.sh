@@ -42,19 +42,7 @@ detect_source_type() {
   fi
 }
 
-# Function to check if source is available
-check_source_available() {
-  local source="$1"
-  local source_type=$(detect_source_type "$source")
-  
-  if [ "$source_type" = "v4l2" ]; then
-    [ -c "$source" ]
-  elif [ "$source_type" = "x11grab" ]; then
-    xdpyinfo -display "$source" >/dev/null 2>&1
-  else
-    false
-  fi
-}
+
 
 # Function to get VNC display resolution
 get_vnc_resolution() {
@@ -96,11 +84,7 @@ start_grabber() {
     return 1
   fi
 
-  # Check if source is available
-  if ! check_source_available "$source"; then
-    echo "Skipping $source - not available"
-    return 1
-  fi
+
 
   # Create capture directory
   mkdir -p "$capture_dir/captures"
@@ -170,16 +154,12 @@ start_grabber() {
   trap "cleanup $FFMPEG_PID $RENAME_PID $CLEAN_PID $source" SIGINT SIGTERM
 }
 
-# Print configuration and check availability
+# Print configuration
 echo "=== Unified Capture Configuration ==="
 for index in "${!GRABBERS[@]}"; do
   IFS='|' read -r source audio_device capture_dir fps <<< "${GRABBERS[$index]}"
   
   source_type=$(detect_source_type "$source")
-  available="YES"
-  if ! check_source_available "$source" 2>/dev/null; then
-    available="NO"
-  fi
   
   echo "Grabber $index:"
   echo "  Source: $source ($source_type)"
@@ -190,20 +170,15 @@ for index in "${!GRABBERS[@]}"; do
   echo "  Audio: $audio_device"
   echo "  Output: $capture_dir"
   echo "  FPS: $fps"
-  echo "  Available: $available"
   echo
 done
 
-# Main loop to start all available grabbers
+# Main loop to start all grabbers
 PIDS=()
 for index in "${!GRABBERS[@]}"; do
   IFS='|' read -r source audio_device capture_dir fps <<< "${GRABBERS[$index]}"
-  if check_source_available "$source" 2>/dev/null; then
-    start_grabber "$source" "$audio_device" "$capture_dir" "$index" "$fps" &
-    PIDS+=($!)
-  else
-    echo "Skipping grabber $index ($source) - not available"
-  fi
+  start_grabber "$source" "$audio_device" "$capture_dir" "$index" "$fps" &
+  PIDS+=($!)
 done
 
 # Wait for all grabber processes

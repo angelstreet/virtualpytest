@@ -4,7 +4,6 @@
 # Hardware video devices: /dev/video0, /dev/video2, etc.
 # VNC displays: :1, :99, etc.
 declare -A GRABBERS=(
-  ["0"]="/dev/video0|plughw:2,0|/var/www/html/stream/capture1|10"
   ["1"]="/dev/video2|plughw:3,0|/var/www/html/stream/capture2|10"
   ["2"]=":1|default|/var/www/html/stream/capture3|1"
 )
@@ -36,19 +35,7 @@ detect_source_type() {
   fi
 }
 
-# Function to check if source is available
-check_source_available() {
-  local source="$1"
-  local source_type=$(detect_source_type "$source")
-  
-  if [ "$source_type" = "v4l2" ]; then
-    [ -c "$source" ]
-  elif [ "$source_type" = "x11grab" ]; then
-    xdpyinfo -display "$source" >/dev/null 2>&1
-  else
-    false
-  fi
-}
+
 
 # Function to get VNC display resolution
 get_vnc_resolution() {
@@ -90,11 +77,7 @@ start_grabber() {
     return 1
   fi
 
-  # Check if source is available
-  if ! check_source_available "$source"; then
-    echo "Skipping $source - not available"
-    return 1
-  fi
+
 
   # Create capture directory
   mkdir -p "$capture_dir/captures"
@@ -106,7 +89,7 @@ start_grabber() {
   if [ "$source_type" = "v4l2" ]; then
     # Hardware video device
     FFMPEG_CMD="/usr/bin/ffmpeg -y -f v4l2 -framerate \"$fps\" -video_size 1024x768 -i $source \
-      -f alsa -thread_queue_size 1024 -i \"$audio_device\" \
+      -f alsa -thread_queue_size 8192 -i \"$audio_device\" \
       -filter_complex \"[0:v]split=2[stream][capture];[stream]scale=640:360[streamout];[capture]fps=1[captureout]\" \
       -map \"[streamout]\" -map 1:a \
       -c:v libx264 -preset veryfast -tune zerolatency -crf 28 -maxrate 1200k -bufsize 2400k -g 30 \
@@ -121,7 +104,7 @@ start_grabber() {
     # VNC display
     local resolution=$(get_vnc_resolution "$source")
     FFMPEG_CMD="/usr/bin/ffmpeg -y -f x11grab -framerate \"$fps\" -video_size $resolution -i $source \
-      -f alsa -thread_queue_size 1024 -i \"$audio_device\" \
+      -f alsa -thread_queue_size 8192 -i \"$audio_device\" \
       -filter_complex \"[0:v]split=2[stream][capture];[stream]scale=640:360[streamout];[capture]fps=1[captureout]\" \
       -map \"[streamout]\" -map 1:a \
       -c:v libx264 -preset veryfast -tune zerolatency -crf 28 -maxrate 1200k -bufsize 2400k -g 30 \
@@ -170,10 +153,6 @@ for index in "${!GRABBERS[@]}"; do
   IFS='|' read -r source audio_device capture_dir fps <<< "${GRABBERS[$index]}"
   
   source_type=$(detect_source_type "$source")
-  available="YES"
-  if ! check_source_available "$source" 2>/dev/null; then
-    available="NO"
-  fi
   
   echo "Grabber $index:"
   echo "  Source: $source ($source_type)"
@@ -184,20 +163,15 @@ for index in "${!GRABBERS[@]}"; do
   echo "  Audio: $audio_device"
   echo "  Output: $capture_dir"
   echo "  FPS: $fps"
-  echo "  Available: $available"
   echo
 done
 
-# Main loop to start all available grabbers
+# Main loop to start all grabbers
 PIDS=()
 for index in "${!GRABBERS[@]}"; do
   IFS='|' read -r source audio_device capture_dir fps <<< "${GRABBERS[$index]}"
-  if check_source_available "$source" 2>/dev/null; then
-    start_grabber "$source" "$audio_device" "$capture_dir" "$index" "$fps" &
-    PIDS+=($!)
-  else
-    echo "Skipping grabber $index ($source) - not available"
-  fi
+  start_grabber "$source" "$audio_device" "$capture_dir" "$index" "$fps" &
+  PIDS+=($!)
 done
 
 # Wait for all grabber processes
