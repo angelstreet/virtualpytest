@@ -975,7 +975,7 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
                         startIcon={isActivatingSemantic ? <CircularProgress size={16} /> : undefined}
                         sx={{ minWidth: '100px' }}
                       >
-                        {isActivatingSemantic ? 'Activating...' : 'Flutter Semantic'}
+                        {isActivatingSemantic ? 'Activating...' : 'Activate Semantic'}
                       </Button>
                     </Box>
                     

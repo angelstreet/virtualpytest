@@ -1426,11 +1426,11 @@ class PlaywrightWebController(WebControllerInterface):
                 # Flutter web specific
                 {
                     'id': 'activate_semantic',
-                    'label': 'Activate Flutter Semantic',
+                    'label': 'Activate Semantic',
                     'command': 'activate_semantic',
                     'action_type': 'web',
                     'params': {},
-                    'description': 'Activate semantic placeholder for Flutter web apps',
+                    'description': 'Activate semantic for Flutter web apps',
                     'requiresInput': False
                 },
                 # Element inspection
