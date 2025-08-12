@@ -115,7 +115,7 @@ class PlaywrightWebController(WebControllerInterface):
                 
                 # Update page state
                 self.current_url = page.url
-                self.page_title = await page.title() or "Google"
+                self.page_title = await page.title() 
                 
                 # Cleanup connection
                 await self.utils.cleanup_connection(playwright, browser)

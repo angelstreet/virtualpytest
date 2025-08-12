@@ -22,19 +22,19 @@ const Z_INDEX_ORDER = [
   'VIDEO_CAPTURE_CONTROLS', // 90 - Video capture playback controls
   'VIDEO_CAPTURE_OVERLAY', // 100 - Video capture drag selection
   
-  // Navigation panels (middle layer - above desktop panels)
-  'NAVIGATION_PANELS', // 110 - General navigation panels
-  'NAVIGATION_EDGE_PANEL', // 120 - Edge editing panel
-  'NAVIGATION_SELECTION_PANEL', // 130 - Node selection panel
-  'NAVIGATION_GOTO_PANEL', // 140 - Navigation goto panel
-  'NAVIGATION_CONFIRMATION', // 150 - Navigation confirmation dialogs
-  'NAVIGATION_DIALOGS', // 160 - Navigation dialogs (create/edit)
+  // Streaming and visualization layers (same level as control panels)
+  'STREAM_VIEWER', // 110 - Stream viewers
+  'HDMI_STREAM', // 120 - HDMI stream displays
+  'VNC_STREAM', // 130 - VNC stream displays
+  'VERIFICATION_EDITOR', // 140 - Verification editors
   
-  // Streaming and visualization layers
-  'STREAM_VIEWER', // 170 - Stream viewers
-  'HDMI_STREAM', // 180 - HDMI stream displays
-  'VNC_STREAM', // 190 - VNC stream displays
-  'VERIFICATION_EDITOR', // 200 - Verification editors
+  // Navigation panels (middle layer - above streams and desktop panels)
+  'NAVIGATION_PANELS', // 150 - General navigation panels
+  'NAVIGATION_EDGE_PANEL', // 160 - Edge editing panel
+  'NAVIGATION_SELECTION_PANEL', // 170 - Node selection panel
+  'NAVIGATION_GOTO_PANEL', // 180 - Navigation goto panel
+  'NAVIGATION_CONFIRMATION', // 190 - Navigation confirmation dialogs
+  'NAVIGATION_DIALOGS', // 200 - Navigation dialogs (create/edit)
   
   // Interactive overlays
   'APPIUM_OVERLAY', // 210 - Appium element overlays

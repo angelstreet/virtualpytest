@@ -32,19 +32,19 @@ const zIndex = getZIndex('NAVIGATION_PANELS', 1); // Returns 111
 - **VIDEO_CAPTURE_CONTROLS** (90) - Video capture playback controls
 - **VIDEO_CAPTURE_OVERLAY** (100) - Video capture drag selection
 
-### Navigation Panels (110-160)
-- **NAVIGATION_PANELS** (110) - General navigation panels
-- **NAVIGATION_EDGE_PANEL** (120) - Edge editing panel
-- **NAVIGATION_SELECTION_PANEL** (130) - Node selection panel
-- **NAVIGATION_GOTO_PANEL** (140) - Navigation goto panel
-- **NAVIGATION_CONFIRMATION** (150) - Navigation confirmation dialogs
-- **NAVIGATION_DIALOGS** (160) - Navigation dialogs (create/edit)
+### Streaming & Visualization (110-140)
+- **STREAM_VIEWER** (110) - Stream viewers
+- **HDMI_STREAM** (120) - HDMI stream displays
+- **VNC_STREAM** (130) - VNC stream displays
+- **VERIFICATION_EDITOR** (140) - Verification editors
 
-### Streaming & Visualization (170-200)
-- **STREAM_VIEWER** (170) - Stream viewers
-- **HDMI_STREAM** (180) - HDMI stream displays
-- **VNC_STREAM** (190) - VNC stream displays
-- **VERIFICATION_EDITOR** (200) - Verification editors
+### Navigation Panels (150-200)
+- **NAVIGATION_PANELS** (150) - General navigation panels
+- **NAVIGATION_EDGE_PANEL** (160) - Edge editing panel
+- **NAVIGATION_SELECTION_PANEL** (170) - Node selection panel
+- **NAVIGATION_GOTO_PANEL** (180) - Navigation goto panel
+- **NAVIGATION_CONFIRMATION** (190) - Navigation confirmation dialogs
+- **NAVIGATION_DIALOGS** (200) - Navigation dialogs (create/edit)
 
 ### Interactive Overlays (210-230)
 - **APPIUM_OVERLAY** (210) - Appium element overlays
@@ -67,7 +67,7 @@ const zIndex = getZIndex('NAVIGATION_PANELS', 1); // Returns 111
 1. **10-Point Intervals**: Each component gets 10 z-index points for micro-adjustments
 2. **Logical Grouping**: Related components are grouped in ranges
 3. **Clear Hierarchy**: Lower numbers = behind, higher numbers = in front
-4. **Desktop Behind Navigation**: Desktop panels (70) are behind navigation panels (110-160)
+4. **Proper Layering**: Streams (110-140) at control panel level, Navigation panels (150-200) above streams
 
 ## Adding New Components
 
