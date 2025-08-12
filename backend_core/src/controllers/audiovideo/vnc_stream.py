@@ -19,14 +19,13 @@ class VNCStreamController(FFmpegCaptureController):
         Initialize the VNC Stream controller.
         
         Args:
-            video_stream_path: FFmpeg video stream path (e.g., "/host/stream/capture3")
+            video_stream_path: VNC stream path for viewing (e.g., "https://virtualpytest.com/host/vnc/vnc_lite.html")
             video_capture_path: FFmpeg video capture path (e.g., "/var/www/html/stream/capture3")
-            vnc_stream_path: VNC viewing URL (e.g., "https://virtualpytest.com/host/vnc/vnc_lite.html")
         """
         super().__init__("VNC Stream Controller", "VNC", video_stream_path, video_capture_path, **kwargs)
         
-        # Store VNC-specific viewing URL
-        self.vnc_stream_path = kwargs.get('vnc_stream_path')
+        # For VNC, video_stream_path is the VNC viewer URL
+        self.vnc_stream_path = video_stream_path
         if self.vnc_stream_path:
             print(f"VNC[{self.capture_source}]: VNC Viewer URL: {self.vnc_stream_path}")
         

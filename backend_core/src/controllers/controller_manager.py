@@ -62,17 +62,12 @@ def create_host_from_environment() -> Host:
     
     # Check for host VNC configuration and create VNC controller if present
     vnc_stream_path = os.getenv('HOST_VNC_STREAM_PATH')
+    video_capture_path = os.getenv('HOST_VIDEO_CAPTURE_PATH')
     
-    # For VNC, use the same capture system as HDMI devices (FFmpeg-based)
-    # Use HOST_VIDEO_STREAM_PATH and HOST_VIDEO_CAPTURE_PATH for the capture system
-    vnc_video_stream_path = os.getenv('HOST_VIDEO_STREAM_PATH')  # e.g., "/host/stream/capture3"
-    vnc_video_capture_path = os.getenv('HOST_VIDEO_CAPTURE_PATH')  # e.g., "/var/www/html/stream/capture3"
-    
-    if vnc_stream_path and vnc_video_capture_path:
+    if vnc_stream_path and video_capture_path:
         print(f"[@controller_manager:create_host_from_environment] VNC configuration detected - creating host VNC controller")
         print(f"[@controller_manager:create_host_from_environment]   VNC Stream Path: {vnc_stream_path}")
-        print(f"[@controller_manager:create_host_from_environment]   VNC Video Stream Path: {vnc_video_stream_path}")
-        print(f"[@controller_manager:create_host_from_environment]   VNC Video Capture Path: {vnc_video_capture_path}")
+        print(f"[@controller_manager:create_host_from_environment]   Video Capture Path: {video_capture_path}")
         
         # Add password to VNC stream path if available
         vnc_password = os.getenv('HOST_VNC_PASSWORD')
@@ -90,9 +85,8 @@ def create_host_from_environment() -> Host:
             'device_id': 'host',
             'device_name': f'{host_name}_Host',
             'device_model': 'host_vnc',  # Keep the model as host_vnc for controller configuration
-            'video_stream_path': vnc_video_stream_path,  # Use for FFmpeg capture system
-            'video_capture_path': vnc_video_capture_path,  # Use for FFmpeg capture system
-            'vnc_stream_path': final_vnc_stream_path,  # VNC viewing URL
+            'video_stream_path': final_vnc_stream_path,  # VNC streaming/viewing URL
+            'video_capture_path': video_capture_path,  # FFmpeg capture system path
             'vnc_password': vnc_password,  # VNC password
             'web_browser_path': web_browser_path,  # Browser path for VNC viewer
             'host_ip': host_ip,  # Add host IP for web controller
