@@ -109,13 +109,11 @@ start_grabber() {
     export XAUTHORITY="/home/sunri-pi1/.Xauthority"
     
     FFMPEG_CMD="DISPLAY=\"$source\" XAUTHORITY=\"/home/sunri-pi1/.Xauthority\" /usr/bin/ffmpeg -y -f x11grab -framerate \"$fps\" -video_size $resolution -i $source \
-      -f alsa -thread_queue_size 8192 -i \"$audio_device\" \
+      -an \
       -filter_complex \"[0:v]split=2[stream][capture];[stream]scale=640:360[streamout];[capture]fps=1[captureout]\" \
-      -map \"[streamout]\" -map 1:a \
+      -map \"[streamout]\" \
       -c:v libx264 -preset veryfast -tune zerolatency -crf 28 -maxrate 1200k -bufsize 2400k -g 30 \
       -pix_fmt yuv420p -profile:v baseline -level 3.0 \
-      -c:a aac -b:a 64k -ar 44100 -ac 2 \
-      -async 1 -vsync 1 -avoid_negative_ts make_zero \
       -f hls -hls_time 6 -hls_list_size 50 -hls_flags delete_segments \
       -hls_segment_filename $capture_dir/segment_%03d.ts \
       $capture_dir/output.m3u8 \
