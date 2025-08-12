@@ -47,7 +47,7 @@ class PlaywrightWebController(WebControllerInterface):
         self.current_url = ""
         self.page_title = ""
         
-        print(f"[@controller:PlaywrightWeb] Initialized with async Playwright + Chrome remote debugging + auto-cookie acceptance + viewport: {viewport_width}x{viewport_height if viewport_width and viewport_height else 'auto'})")
+        print(f"[@controller:PlaywrightWeb] Initialized with async Playwright + Chrome remote debugging + auto-cookie acceptance + persistent user data")
     
     def connect(self) -> bool:
         """Connect to Chrome (launch if needed)."""
