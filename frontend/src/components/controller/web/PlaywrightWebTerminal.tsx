@@ -557,6 +557,11 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
     const headerHeight = 40; // VNC header height
     const contentHeight = panelHeight - headerHeight;
     
+    // Apply VNC scaling factor to match actual visual content size
+    const vncScaleFactor = vncExpanded ? 0.5 : 0.35; // From vncStream.ts config
+    const actualContentWidth = panelWidth * vncScaleFactor;
+    const actualContentHeight = contentHeight * vncScaleFactor;
+    
     // Use EXACT same positioning as VNC stream component
     // VNC stream uses: bottom: '20px', left: '20px' (always left side)
     const bottom = 20;
@@ -575,7 +580,7 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
         x,
         y: contentY // Position overlay in content area only
       }, 
-      size: { width: panelWidth, height: contentHeight }, // Content area only
+      size: { width: actualContentWidth, height: actualContentHeight }, // Actual scaled content size
       deviceResolution: { width: 1024, height: 618 }, // Actual browser viewport size for scaling
       isCollapsed: !vncExpanded,
     };
