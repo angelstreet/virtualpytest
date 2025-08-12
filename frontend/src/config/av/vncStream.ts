@@ -10,7 +10,7 @@ export const vncStreamConfig = {
   },
   panel_layout: {
     collapsed: {
-      width: '350px',
+      width: '370px',
       height: '240px', // Always landscape - VNC is desktop/host screen
       position: {
         bottom: '20px',
@@ -18,7 +18,7 @@ export const vncStreamConfig = {
       },
     },
     expanded: {
-      width: '500px',
+      width: '520px',
       height: '360px', // Always landscape - VNC is desktop/host screen
       position: {
         bottom: '20px',
