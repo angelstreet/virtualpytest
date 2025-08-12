@@ -58,13 +58,13 @@ class ChromeManager:
         raise ValueError('No Chrome executable found in common Linux paths')
     
     @staticmethod
-    def get_chrome_flags(debug_port: int = 9222, user_data_dir: str = "/tmp/chrome_debug_profile", window_size: str = "1280x1024") -> list:
+    def get_chrome_flags(debug_port: int = 9222, user_data_dir: str = "./backend_host/config/user_data", window_size: str = "1280x1024") -> list:
         """
-        Get Chrome launch flags for remote debugging.
+        Get Chrome launch flags for remote debugging with persistent data.
         
         Args:
             debug_port: Debug port for remote debugging
-            user_data_dir: Chrome user data directory
+            user_data_dir: Chrome user data directory (relative to project root)
             window_size: Browser window size (e.g., "1280x1024" for VNC)
         """
         return [
@@ -76,19 +76,21 @@ class ChromeManager:
             '--disable-extensions',
             '--window-position=0,0',
             f'--window-size={window_size}',
+            '--start-maximized',
             '--disable-gpu',
             '--enable-unsafe-swiftshader'
             #'--no-sandbox'  # Important for containers
         ]
     
     @classmethod
-    def launch_chrome_with_remote_debugging(cls, debug_port: int = 9222, window_size: str = "1280x1024") -> subprocess.Popen:
+    def launch_chrome_with_remote_debugging(cls, debug_port: int = 9222, window_size: str = "1280x1024", user_data_dir: str = "./backend_host/config/user_data") -> subprocess.Popen:
         """
-        Launch Chrome with remote debugging enabled (Linux only).
+        Launch Chrome with remote debugging and persistent data.
         
         Args:
             debug_port: Port for remote debugging
             window_size: Browser window size (default optimized for VNC)
+            user_data_dir: Chrome user data directory (relative to project root)
         """
         # Kill existing Chrome instances
         cls.kill_chrome_instances()
@@ -104,8 +106,9 @@ class ChromeManager:
         print(f'[ChromeManager] Launching Chrome with remote debugging: {executable_path}')
         
         # Prepare Chrome flags and user data directory
-        user_data_dir = "/tmp/chrome_debug_profile"
         os.makedirs(user_data_dir, exist_ok=True)
+        print(f'[ChromeManager] Using persistent profile: {user_data_dir}')
+        
         chrome_flags = cls.get_chrome_flags(debug_port, user_data_dir, window_size)
         
         # Launch Chrome with DISPLAY=:1 for VNC visibility
@@ -207,13 +210,14 @@ class PlaywrightConnection:
 class PlaywrightUtils:
     """Main utility class combining Chrome management, Playwright operations, and cookie management."""
     
-    def __init__(self, auto_accept_cookies: bool = True, window_size: str = "auto"):
+    def __init__(self, auto_accept_cookies: bool = True, window_size: str = "auto", user_data_dir: str = "./backend_host/config/user_data"):
         """
         Initialize PlaywrightUtils.
         
         Args:
             auto_accept_cookies: Whether to automatically inject consent cookies
             window_size: Browser window size ('auto' for dynamic sizing, or custom like '1280x1024')
+            user_data_dir: Chrome user data directory for persistent sessions
         """
         self.chrome_manager = ChromeManager()
         self.async_executor = AsyncExecutor()
@@ -221,8 +225,9 @@ class PlaywrightUtils:
         self.cookie_manager = CookieManager() if auto_accept_cookies else None
         self.auto_accept_cookies = auto_accept_cookies
         self.window_size = window_size
+        self.user_data_dir = user_data_dir
         self.viewport_size = self._calculate_viewport_size(window_size)
-        print(f'[PlaywrightUtils] Initialized with auto_accept_cookies={auto_accept_cookies}, window_size={window_size}')
+        print(f'[PlaywrightUtils] Initialized with auto_accept_cookies={auto_accept_cookies}, window_size={window_size}, user_data_dir={user_data_dir}')
     
     def _calculate_viewport_size(self, window_size: str) -> dict:
         """Calculate viewport size based on panel visibility and window size."""
@@ -232,15 +237,10 @@ class PlaywrightUtils:
             base_width = 1280
             base_height = 1024
             
-            # Common panel configurations for web automation:
-            # 1. Full screen mode (VNC only) - use full VNC resolution
-            # 2. Split mode (VNC + Terminal) - reduce width to account for terminal panel
-            # 3. Embedded mode (VNC in browser page) - reduce both dimensions
-            
-            # For now, use a good default that works well in most cases
-            # This optimizes for the embedded browser panel in the web interface
-            viewport_width = int(base_width * 0.75)  # ~960px - leaves space for panels
-            viewport_height = int(base_height * 0.80)  # ~819px - leaves space for header/controls
+            # Use full VNC resolution for better content visibility and scrollbar support
+            # The frontend container will handle scaling as needed
+            viewport_width = base_width   # Use full width for better horizontal space
+            viewport_height = base_height  # Use full height for proper scrollbar visibility
             
             return {"width": viewport_width, "height": viewport_height}
         else:
@@ -266,21 +266,21 @@ class PlaywrightUtils:
         base_height = 1024
         
         if context == "embedded":
-            # Browser automation panel in web interface
-            viewport_width = int(base_width * 0.75)   # Account for side panels
-            viewport_height = int(base_height * 0.80)  # Account for header/controls
+            # Browser automation panel in web interface - use full size for better content visibility
+            viewport_width = base_width    # Use full width for proper content display
+            viewport_height = base_height  # Use full height for scrollbar visibility
         elif context == "modal":
-            # Popup/modal window
-            viewport_width = int(base_width * 0.90)   # Slight reduction for modal frame
-            viewport_height = int(base_height * 0.85)  # Account for modal header
+            # Popup/modal window - use full size as modal handles its own constraints
+            viewport_width = base_width
+            viewport_height = base_height
         elif context == "fullscreen":
             # Full VNC resolution
             viewport_width = base_width
             viewport_height = base_height
         else:
-            # Default to embedded mode
-            viewport_width = int(base_width * 0.75)
-            viewport_height = int(base_height * 0.80)
+            # Default to full size for all contexts
+            viewport_width = base_width
+            viewport_height = base_height
         
         self.viewport_size = {"width": viewport_width, "height": viewport_height}
         print(f'[PlaywrightUtils] Updated viewport for {context} context: {viewport_width}x{viewport_height}')
@@ -317,14 +317,19 @@ class PlaywrightUtils:
         return self._calculate_viewport_size(window_size)
     
     def launch_chrome(self, debug_port: int = 9222) -> subprocess.Popen:
-        """Launch Chrome with remote debugging and dynamic window size."""
+        """Launch Chrome with remote debugging and persistent data."""
         # Convert viewport size back to window size for Chrome launch
         if self.window_size == "auto":
             chrome_window_size = f"{self.viewport_size['width']}x{self.viewport_size['height']}"
         else:
             chrome_window_size = self.window_size
         
-        return self.chrome_manager.launch_chrome_with_remote_debugging(debug_port, chrome_window_size)
+        # Launch Chrome with persistent user data directory
+        return self.chrome_manager.launch_chrome_with_remote_debugging(
+            debug_port, 
+            chrome_window_size, 
+            user_data_dir=self.user_data_dir
+        )
     
     def kill_chrome(self):
         """Kill Chrome instances."""
@@ -388,20 +393,20 @@ class PlaywrightUtils:
 
 
 # Convenience functions for external use
-def create_playwright_utils(auto_accept_cookies: bool = True, window_size: str = "auto") -> PlaywrightUtils:
+def create_playwright_utils(auto_accept_cookies: bool = True, window_size: str = "auto", user_data_dir: str = "./backend_host/config/user_data") -> PlaywrightUtils:
     """Create a PlaywrightUtils instance."""
-    return PlaywrightUtils(auto_accept_cookies=auto_accept_cookies, window_size=window_size)
+    return PlaywrightUtils(auto_accept_cookies=auto_accept_cookies, window_size=window_size, user_data_dir=user_data_dir)
 
 
-def launch_chrome_for_debugging(debug_port: int = 9222, window_size: str = "auto") -> subprocess.Popen:
-    """Quick function to launch Chrome with remote debugging."""
+def launch_chrome_for_debugging(debug_port: int = 9222, window_size: str = "auto", user_data_dir: str = "./backend_host/config/user_data") -> subprocess.Popen:
+    """Quick function to launch Chrome with remote debugging and persistent data."""
     if window_size == "auto":
         # Use default auto-sizing
-        utils = create_playwright_utils(window_size="auto")
+        utils = create_playwright_utils(window_size="auto", user_data_dir=user_data_dir)
         computed_size = f"{utils.viewport_size['width']}x{utils.viewport_size['height']}"
-        return ChromeManager.launch_chrome_with_remote_debugging(debug_port, computed_size)
+        return ChromeManager.launch_chrome_with_remote_debugging(debug_port, computed_size, user_data_dir=user_data_dir)
     else:
-        return ChromeManager.launch_chrome_with_remote_debugging(debug_port, window_size)
+        return ChromeManager.launch_chrome_with_remote_debugging(debug_port, window_size, user_data_dir=user_data_dir)
 
 
 def run_async_playwright(coro):
