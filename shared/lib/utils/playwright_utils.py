@@ -58,14 +58,13 @@ class ChromeManager:
         raise ValueError('No Chrome executable found in common Linux paths')
     
     @staticmethod
-    def get_chrome_flags(debug_port: int = 9222, user_data_dir: str = "./backend_host/config/user_data", window_size: str = "1280x1024") -> list:
+    def get_chrome_flags(debug_port: int = 9222, user_data_dir: str = "./backend_host/config/user_data") -> list:
         """
         Get Chrome launch flags for remote debugging with persistent data.
         
         Args:
             debug_port: Debug port for remote debugging
             user_data_dir: Chrome user data directory (relative to project root)
-            window_size: Browser window size (e.g., "1280x1024" for VNC)
         """
         return [
             f'--remote-debugging-port={debug_port}',
@@ -74,22 +73,19 @@ class ChromeManager:
             '--no-default-browser-check',
             '--disable-features=Translate',
             '--disable-extensions',
-            '--window-position=0,0',
-            f'--window-size={window_size}',
-            '--start-maximized',
+            '--start-maximized',  # Maximized without fixed window size
             '--disable-gpu',
             '--enable-unsafe-swiftshader'
             #'--no-sandbox'  # Important for containers
         ]
     
     @classmethod
-    def launch_chrome_with_remote_debugging(cls, debug_port: int = 9222, window_size: str = "1280x1024", user_data_dir: str = "./backend_host/config/user_data") -> subprocess.Popen:
+    def launch_chrome_with_remote_debugging(cls, debug_port: int = 9222, user_data_dir: str = "./backend_host/config/user_data") -> subprocess.Popen:
         """
         Launch Chrome with remote debugging and persistent data.
         
         Args:
             debug_port: Port for remote debugging
-            window_size: Browser window size (default optimized for VNC)
             user_data_dir: Chrome user data directory (relative to project root)
         """
         # Kill existing Chrome instances
@@ -109,12 +105,12 @@ class ChromeManager:
         os.makedirs(user_data_dir, exist_ok=True)
         print(f'[ChromeManager] Using persistent profile: {user_data_dir}')
         
-        chrome_flags = cls.get_chrome_flags(debug_port, user_data_dir, window_size)
+        chrome_flags = cls.get_chrome_flags(debug_port, user_data_dir)
         
         # Launch Chrome with DISPLAY=:1 for VNC visibility
         cmd_line = [executable_path] + chrome_flags
         print(f'[ChromeManager] Chrome command: {" ".join(cmd_line)}')
-        print(f'[ChromeManager] Using window size: {window_size} (VNC optimized)')
+        print(f'[ChromeManager] Using maximized window (natural VNC sizing)')
         
         env = os.environ.copy()
         env["DISPLAY"] = ":1"
@@ -322,16 +318,9 @@ class PlaywrightUtils:
     
     def launch_chrome(self, debug_port: int = 9222) -> subprocess.Popen:
         """Launch Chrome with remote debugging and persistent data."""
-        # Convert viewport size back to window size for Chrome launch
-        if self.window_size == "auto":
-            chrome_window_size = f"{self.viewport_size['width']}x{self.viewport_size['height']}"
-        else:
-            chrome_window_size = self.window_size
-        
-        # Launch Chrome with persistent user data directory
+        # Launch Chrome maximized with persistent user data directory
         return self.chrome_manager.launch_chrome_with_remote_debugging(
             debug_port, 
-            chrome_window_size, 
             user_data_dir=self.user_data_dir
         )
     
@@ -400,15 +389,9 @@ def create_playwright_utils(auto_accept_cookies: bool = True, window_size: str =
     return PlaywrightUtils(auto_accept_cookies=auto_accept_cookies, window_size=window_size, user_data_dir=user_data_dir)
 
 
-def launch_chrome_for_debugging(debug_port: int = 9222, window_size: str = "auto", user_data_dir: str = "./backend_host/config/user_data") -> subprocess.Popen:
+def launch_chrome_for_debugging(debug_port: int = 9222, user_data_dir: str = "./backend_host/config/user_data") -> subprocess.Popen:
     """Quick function to launch Chrome with remote debugging and persistent data."""
-    if window_size == "auto":
-        # Use default auto-sizing
-        utils = create_playwright_utils(window_size="auto", user_data_dir=user_data_dir)
-        computed_size = f"{utils.viewport_size['width']}x{utils.viewport_size['height']}"
-        return ChromeManager.launch_chrome_with_remote_debugging(debug_port, computed_size, user_data_dir=user_data_dir)
-    else:
-        return ChromeManager.launch_chrome_with_remote_debugging(debug_port, window_size, user_data_dir=user_data_dir)
+    return ChromeManager.launch_chrome_with_remote_debugging(debug_port, user_data_dir=user_data_dir)
 
 
 def run_async_playwright(coro):
