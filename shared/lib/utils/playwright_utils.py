@@ -81,7 +81,7 @@ class ChromeManager:
             f'--user-data-dir={user_data_dir}',
             '--no-first-run',
             '--no-default-browser-check',
-            '--disable-features=Translate',
+            '--disable-features=Translate,InfiniteSessionRestore',
             '--disable-extensions',
             '--start-maximized',  # Maximized without fixed window size
             '--disable-gpu',
