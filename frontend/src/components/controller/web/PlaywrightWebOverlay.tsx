@@ -77,6 +77,27 @@ export const PlaywrightWebOverlay = React.memo(
           const scaleX = panelInfo.size.width / panelInfo.deviceResolution.width;
           const scaleY = panelInfo.size.height / panelInfo.deviceResolution.height;
 
+          // Debug logging for first element
+          if (index === 0) {
+            console.log('[PlaywrightWebOverlay] Scaling Debug:', {
+              panelInfo,
+              scaleX,
+              scaleY,
+              originalElement: {
+                x: element.position.x,
+                y: element.position.y,
+                width: element.position.width,
+                height: element.position.height
+              },
+              scaledPosition: {
+                x: element.position.x * scaleX,
+                y: element.position.y * scaleY,
+                width: element.position.width * scaleX,
+                height: element.position.height * scaleY
+              }
+            });
+          }
+
           const scaledElement = {
             selector: element.selector,
             x: element.position.x * scaleX,

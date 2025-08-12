@@ -561,15 +561,36 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
       ? window.innerWidth - panelWidth - 20  // Right side when expanded
       : 20; // Left side when collapsed
     
-    return {
+    // Y position: start BELOW the header, not above it
+    const panelTopY = window.innerHeight - panelHeight - 20; // Panel top position
+    const contentY = panelTopY + headerHeight; // Content starts below header
+    
+    const panelInfo = {
       position: { 
         x,
-        y: window.innerHeight - panelHeight - 20 + headerHeight // Bottom margin + below header
+        y: contentY // Position overlay in content area only
       }, 
       size: { width: panelWidth, height: contentHeight }, // Content area only
       deviceResolution: { width: panelWidth, height: contentHeight }, // Same as content size
       isCollapsed: !vncExpanded,
     };
+    
+    // Debug logging
+    console.log('[PlaywrightWebTerminal] VNC Panel Info:', {
+      vncExpanded,
+      panelWidth,
+      panelHeight,
+      headerHeight,
+      contentHeight,
+      x,
+      panelTopY,
+      contentY,
+      windowWidth: window.innerWidth,
+      windowHeight: window.innerHeight,
+      panelInfo
+    });
+    
+    return panelInfo;
   };
 
   // Helper function to get button color based on status
