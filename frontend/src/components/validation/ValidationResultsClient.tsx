@@ -38,16 +38,6 @@ interface ValidationResultsClientProps {
 const ValidationResultsClient: React.FC<ValidationResultsClientProps> = ({ treeId, selectedHost, selectedDeviceId }) => {
   const validation = useValidation(treeId, selectedHost, selectedDeviceId);
 
-  // Debug logging to confirm shared state
-  console.log('[@ValidationResultsClient] Render state (SHARED):', {
-    treeId,
-    showResults: validation.showResults,
-    hasResults: !!validation.validationResults,
-    isValidating: validation.isValidating,
-    timestamp: new Date().toISOString(),
-    hookInstance: 'SHARED_STATE',
-  });
-
   const handleClose = () => {
     validation.setShowResults(false);
   };
@@ -55,16 +45,8 @@ const ValidationResultsClient: React.FC<ValidationResultsClientProps> = ({ treeI
   // Loading is now handled by ValidationProgressClient
 
   if (!validation.showResults || !validation.validationResults) {
-    console.log(
-      '[@ValidationResultsClient] Not showing - showResults:',
-      validation.showResults,
-      'hasResults:',
-      !!validation.validationResults,
-    );
     return null;
   }
-
-  console.log('[@ValidationResultsClient] Showing results dialog (SHARED)');
 
   const { summary, edgeResults } = validation.validationResults;
 

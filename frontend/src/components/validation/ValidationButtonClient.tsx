@@ -104,11 +104,13 @@ export default function ValidationButtonClient({ treeId, disabled, selectedHost,
       )}
 
       {/* Progress dialog - shows during validation */}
-      <ValidationProgressClient
-        treeId={treeId}
-        selectedHost={selectedHost}
-        selectedDeviceId={selectedDeviceId}
-      />
+      {validation.isValidating && (
+        <ValidationProgressClient
+          treeId={treeId}
+          selectedHost={selectedHost}
+          selectedDeviceId={selectedDeviceId}
+        />
+      )}
 
       {/* Results dialog - shows after validation completes */}
       {validation.showResults && (

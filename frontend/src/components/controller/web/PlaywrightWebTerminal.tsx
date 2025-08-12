@@ -581,13 +581,13 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
     }
     
     // VNC panel dimensions based on detected state
-    const panelWidth = actualVncExpanded ? 500 : 350;
+    const panelWidth = actualVncExpanded ? 520 : 330;
     const panelHeight = actualVncExpanded ? 360 : 240;
     const headerHeight = 40; // VNC header height
     const contentHeight = panelHeight - headerHeight;
     
     // Apply VNC scaling factor to match actual visual content size
-    const vncScaleFactor = actualVncExpanded ? 0.5 : 0.35; // From vncStream.ts config
+    const vncScaleFactor = actualVncExpanded ? 0.5 : 0.34; // From vncStream.ts config
     const actualContentWidth = panelWidth * vncScaleFactor;
     const actualContentHeight = contentHeight * vncScaleFactor;
     
