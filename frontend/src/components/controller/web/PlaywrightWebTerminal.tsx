@@ -557,17 +557,17 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
     const headerHeight = 40; // VNC header height
     const contentHeight = panelHeight - headerHeight;
     
-    // Position overlay ON TOP of VNC panel content area
-    // VNC panel position based on state (expanded = right, collapsed = left)
-    const vncPanelX = vncExpanded 
-      ? window.innerWidth - panelWidth - 20  // Right side when expanded
-      : 20; // Left side when collapsed
+    // Use EXACT same positioning as VNC stream component
+    // VNC stream uses: bottom: '20px', left: '20px' (always left side)
+    const bottom = 20;
+    const left = 20;
     
-    const vncPanelTopY = window.innerHeight - panelHeight - 20; // VNC panel top position
-    const vncContentY = vncPanelTopY + headerHeight; // VNC content starts below header
+    // Convert bottom positioning to top positioning
+    const vncPanelTopY = window.innerHeight - bottom - panelHeight;
+    const vncContentY = vncPanelTopY + headerHeight; // Content starts below header
     
     // Overlay should be positioned exactly ON TOP of VNC content area
-    const x = vncPanelX;
+    const x = left;
     const contentY = vncContentY;
     
     const panelInfo = {
