@@ -588,13 +588,23 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
     // Get config for current state
     const config = actualVncExpanded ? vncConfig.expanded : vncConfig.collapsed;
     
+    // VNC header height that we need to account for
+    const headerHeight = 40;
+    
+    // Calculate browser content area dimensions (VNC content area minus header)
+    const contentAreaHeight = config.height - headerHeight;
+    
     // Calculate overlay dimensions using browser viewport and VNC scaling
     const overlayWidth = browserViewport.width * config.scaleFactor;
     const overlayHeight = browserViewport.height * config.scaleFactor;
     
-    // Position overlay at bottom-left (collapsed) or bottom-right (expanded)
-    const x = actualVncExpanded ? window.innerWidth - 20 - overlayWidth : 20;
-    const y = window.innerHeight - 20 - overlayHeight;
+    // Position overlay to match VNC panel content area (below header)
+    const panelX = actualVncExpanded ? window.innerWidth - 20 - config.width : 20;
+    const panelY = window.innerHeight - 20 - config.height;
+    
+    // Overlay position: panel position + header offset
+    const x = panelX;
+    const y = panelY + headerHeight;
     
     const panelInfo = {
       position: { x, y },
@@ -608,9 +618,11 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
       vncExpanded: actualVncExpanded,
       config,
       browserViewport,
-      overlayWidth,
-      overlayHeight,
-      position: { x, y },
+      headerHeight,
+      contentAreaHeight,
+      overlayDimensions: { overlayWidth, overlayHeight },
+      panelPosition: { panelX, panelY },
+      overlayPosition: { x, y },
       panelInfo
     });
     
