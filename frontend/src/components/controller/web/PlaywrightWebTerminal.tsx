@@ -52,6 +52,7 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
   const [isBrowserOpen, setIsBrowserOpen] = useState(false);
   const [isOpening, setIsOpening] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
 
   // Execution states for individual actions
   const [isNavigating, setIsNavigating] = useState(false);
@@ -193,6 +194,7 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
     isDumping ||
     isOpening ||
     isClosing ||
+    isConnecting ||
     isBrowserUseExecuting;
 
   // Handle browser open
@@ -216,6 +218,30 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
       console.error('Failed to open browser:', error);
     } finally {
       setIsOpening(false);
+    }
+  };
+
+  // Handle browser connect
+  const handleConnectBrowser = async () => {
+    setIsConnecting(true);
+    try {
+      console.log('Starting browser connect process...');
+      const result = await executeCommand(
+        JSON.stringify({
+          command: 'connect_browser',
+          params: {},
+        }),
+      );
+      if (result.success) {
+        setIsBrowserOpen(true);
+        console.log('Browser connected successfully');
+      } else {
+        console.error('Failed to connect to browser:', result.error);
+      }
+    } catch (error) {
+      console.error('Failed to connect to browser:', error);
+    } finally {
+      setIsConnecting(false);
     }
   };
 
@@ -469,7 +495,7 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
         <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 'bold' }}>
           Browser Control
         </Typography>
-        <Box sx={{ display: 'flex', gap: 1 }}>
+        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
           <Button
             variant={isBrowserOpen ? 'outlined' : 'contained'}
             size="small"
@@ -477,9 +503,20 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
             disabled={isBrowserOpen || isAnyActionExecuting || isOpening}
             startIcon={isOpening ? <CircularProgress size={16} /> : <PlayIcon />}
             color="success"
-            sx={{ flex: 1 }}
+            sx={{ flex: 1, minWidth: '80px' }}
           >
             {isOpening ? 'Opening...' : 'Open'}
+          </Button>
+          <Button
+            variant={isBrowserOpen ? 'outlined' : 'contained'}
+            size="small"
+            onClick={handleConnectBrowser}
+            disabled={isBrowserOpen || isAnyActionExecuting || isConnecting}
+            startIcon={isConnecting ? <CircularProgress size={16} /> : <PlayIcon />}
+            color="primary"
+            sx={{ flex: 1, minWidth: '80px' }}
+          >
+            {isConnecting ? 'Connecting...' : 'Connect'}
           </Button>
           <Button
             variant={isBrowserOpen ? 'contained' : 'outlined'}
@@ -488,7 +525,7 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
             disabled={!isBrowserOpen || isClosing || isAnyActionExecuting}
             startIcon={isClosing ? <CircularProgress size={16} /> : <StopIcon />}
             color="error"
-            sx={{ flex: 1 }}
+            sx={{ flex: 1, minWidth: '80px' }}
           >
             {isClosing ? 'Closing...' : 'Close'}
           </Button>

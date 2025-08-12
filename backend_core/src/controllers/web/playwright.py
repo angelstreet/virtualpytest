@@ -158,6 +158,68 @@ class PlaywrightWebController(WebControllerInterface):
         
         return self.utils.run_async(_async_open_browser())
     
+    def connect_browser(self) -> Dict[str, Any]:
+        """Connect to existing Chrome debug session without killing Chrome first."""
+        async def _async_connect_existing():
+            try:
+                print(f"Web[{self.web_type.upper()}]: Connecting to existing Chrome debug session")
+                start_time = time.time()
+                
+                # Try to connect to existing Chrome debug session (no killing Chrome first)
+                try:
+                    playwright, browser, context, page = await self.utils.connect_to_chrome()
+                    
+                    # Get current page info if available
+                    if len(context.pages) > 0:
+                        current_page = context.pages[0]
+                        self.current_url = current_page.url
+                        self.page_title = await current_page.title()
+                    else:
+                        # No existing page, current_url and page_title will remain empty
+                        self.current_url = ""
+                        self.page_title = ""
+                    
+                    # Cleanup connection
+                    await self.utils.cleanup_connection(playwright, browser)
+                    
+                    # Mark as connected
+                    self.is_connected = True
+                    
+                    execution_time = int((time.time() - start_time) * 1000)
+                    
+                    print(f"Web[{self.web_type.upper()}]: Connected to existing Chrome debug session")
+                    return {
+                        'success': True,
+                        'error': '',
+                        'execution_time': execution_time,
+                        'connected': True,
+                        'current_url': self.current_url,
+                        'page_title': self.page_title
+                    }
+                    
+                except Exception as e:
+                    # Chrome debug session not available
+                    error_msg = f"Could not connect to existing Chrome debug session: {e}. Make sure Chrome is running with --remote-debugging-port=9222"
+                    print(f"Web[{self.web_type.upper()}]: {error_msg}")
+                    return {
+                        'success': False,
+                        'error': error_msg,
+                        'execution_time': 0,
+                        'connected': False
+                    }
+                
+            except Exception as e:
+                error_msg = f"Browser connection error: {e}"
+                print(f"Web[{self.web_type.upper()}]: {error_msg}")
+                return {
+                    'success': False,
+                    'error': error_msg,
+                    'execution_time': 0,
+                    'connected': False
+                }
+        
+        return self.utils.run_async(_async_connect_existing())
+    
     def close_browser(self) -> Dict[str, Any]:
         """Close browser (disconnect Chrome)."""
         try:
@@ -791,6 +853,9 @@ class PlaywrightWebController(WebControllerInterface):
         elif command == 'close_browser':
             return self.close_browser()
         
+        elif command == 'connect_browser':
+            return self.connect_browser()
+        
         elif command == 'dump_elements':
             element_types = params.get('element_types', 'all')
             include_hidden = params.get('include_hidden', False)
@@ -1046,6 +1111,15 @@ class PlaywrightWebController(WebControllerInterface):
                     'action_type': 'web',
                     'params': {},
                     'description': 'Close the browser window',
+                    'requiresInput': False
+                },
+                {
+                    'id': 'connect_browser',
+                    'label': 'Connect Browser',
+                    'command': 'connect_browser',
+                    'action_type': 'web',
+                    'params': {},
+                    'description': 'Connect to existing Chrome debug session',
                     'requiresInput': False
                 },
                 # Navigation
