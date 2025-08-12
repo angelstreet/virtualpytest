@@ -120,9 +120,14 @@ class ChromeManager:
         
         chrome_flags = cls.get_chrome_flags(debug_port, user_data_dir)
         
+        # Log all flags being applied
+        print(f'[ChromeManager] Chrome flags being applied:')
+        for i, flag in enumerate(chrome_flags, 1):
+            print(f'[ChromeManager]   {i}. {flag}')
+        
         # Launch Chrome with DISPLAY=:1 for VNC visibility
         cmd_line = [executable_path] + chrome_flags
-        print(f'[ChromeManager] Chrome command: {" ".join(cmd_line)}')
+        print(f'[ChromeManager] Full Chrome command: {" ".join(cmd_line)}')
         print(f'[ChromeManager] Using maximized window (natural VNC sizing)')
         
         env = os.environ.copy()
