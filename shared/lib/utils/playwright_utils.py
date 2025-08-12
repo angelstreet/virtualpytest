@@ -103,7 +103,10 @@ class ChromeManager:
             '--disable-domain-reliability',  # Disable domain reliability reporting
             '--disable-background-networking',  # Disable background networking
             '--metrics-recording-only',  # Only record metrics, don't send
-            '--no-crash-upload'  # Don't upload crash reports
+            '--no-crash-upload',  # Don't upload crash reports
+            '--disable-session-restore',  # Disable all session restore functionality
+            '--disable-background-tabs',  # Disable background tab restoration
+            '--aggressive-cache-discard'  # Aggressively discard cached data
             #'--no-sandbox'  # Important for containers
         ]
     
@@ -130,8 +133,43 @@ class ChromeManager:
         print(f'[ChromeManager] Launching Chrome with remote debugging: {executable_path}')
         
         # Prepare Chrome flags and user data directory (path should already be resolved)
+        # Clear only session restore files while preserving other user data (cookies, passwords, etc.)
         os.makedirs(user_data_dir, exist_ok=True)
-        print(f'[ChromeManager] Using persistent profile: {user_data_dir}')
+        
+        # Clear specific session restore files only
+        session_files_to_clear = [
+            'Sessions',
+            'Session Storage',
+            'Current Session',
+            'Current Tabs',
+            'Last Session',
+            'Last Tabs',
+            'Top Sites',
+            'Top Sites Old',
+            'Visited Links',
+            'Preferences.bak'  # Backup of preferences that might contain session data
+        ]
+        
+        cleared_files = []
+        for session_file in session_files_to_clear:
+            file_path = os.path.join(user_data_dir, 'Default', session_file)
+            if os.path.exists(file_path):
+                try:
+                    if os.path.isdir(file_path):
+                        import shutil
+                        shutil.rmtree(file_path)
+                    else:
+                        os.remove(file_path)
+                    cleared_files.append(session_file)
+                except Exception as e:
+                    print(f'[ChromeManager] Warning: Could not clear {session_file}: {e}')
+        
+        if cleared_files:
+            print(f'[ChromeManager] Cleared session files: {", ".join(cleared_files)}')
+        else:
+            print(f'[ChromeManager] No session files found to clear')
+        
+        print(f'[ChromeManager] Using persistent profile (session data cleared): {user_data_dir}')
         
         chrome_flags = cls.get_chrome_flags(debug_port, user_data_dir)
         
