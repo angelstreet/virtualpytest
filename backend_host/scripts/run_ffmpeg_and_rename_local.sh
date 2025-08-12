@@ -115,6 +115,7 @@ start_grabber() {
       -c:v libx264 -preset veryfast -tune zerolatency -crf 28 -maxrate 1200k -bufsize 2400k -g 30 \
       -pix_fmt yuv420p -profile:v baseline -level 3.0 \
       -c:a aac -b:a 64k -ar 44100 -ac 2 \
+      -async 1 -vsync 1 -avoid_negative_ts make_zero \
       -f hls -hls_time 6 -hls_list_size 50 -hls_flags delete_segments \
       -hls_segment_filename $capture_dir/segment_%03d.ts \
       $capture_dir/output.m3u8 \
