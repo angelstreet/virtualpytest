@@ -567,21 +567,9 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
     const actualContentWidth = panelWidth * vncScaleFactor;
     const actualContentHeight = contentHeight * vncScaleFactor;
     
-    // Position overlay ON TOP of browser window within VNC stream
-    // VNC panel position
-    const vncBottom = 20;
-    const vncLeft = 20;
-    const vncPanelTopY = window.innerHeight - vncBottom - panelHeight;
-    const vncContentY = vncPanelTopY + headerHeight; // VNC content starts below header
-    
-    // Browser window position within VNC content (estimated)
-    // Browser typically takes most of the desktop space with some taskbar/chrome
-    const browserOffsetX = 0; // Browser starts at left edge of VNC content
-    const browserOffsetY = 30; // Browser starts below desktop taskbar (estimated)
-    
-    // Calculate overlay position: VNC content position + browser offset + scaling
-    const x = vncLeft + (browserOffsetX * vncScaleFactor);
-    const contentY = vncContentY + (browserOffsetY * vncScaleFactor);
+    // Simple positioning: bottom - 20px
+    const x = 20;
+    const contentY = window.innerHeight - 20;
     
     const panelInfo = {
       position: { 
