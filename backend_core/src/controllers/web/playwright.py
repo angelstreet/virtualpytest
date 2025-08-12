@@ -380,14 +380,18 @@ class PlaywrightWebController(WebControllerInterface):
                     # Text-based search - try multiple strategies
                     print(f"Web[{self.web_type.upper()}]: Text-based search for: {selector}")
                     
-                    # Strategy 1: Try exact text match in common clickable elements
+                    # Strategy 1: Try exact text match in common clickable elements and aria-labels
                     text_selectors = [
                         f"button:has-text('{selector}')",
                         f"a:has-text('{selector}')",
                         f"[role='button']:has-text('{selector}')",
                         f"input[value='{selector}']",
                         f"*:text-is('{selector}')",
-                        f"*:text('{selector}')"
+                        f"*:text('{selector}')",
+                        f"[aria-label='{selector}']",
+                        f"[aria-label*='{selector}']",
+                        f"flt-semantics[aria-label='{selector}']",
+                        f"[id*='{selector}'][aria-label]"
                     ]
                     
                     for text_selector in text_selectors:
@@ -407,12 +411,17 @@ class PlaywrightWebController(WebControllerInterface):
                                 () => {{
                                     const text = '{selector}';
                                     
-                                    // Find elements containing the text
+                                    // Find elements containing the text or with matching aria-label
                                     const elements = Array.from(document.querySelectorAll('*')).filter(el => {{
                                         const textContent = el.textContent?.trim();
                                         const innerText = el.innerText?.trim();
-                                        return (textContent === text || innerText === text || 
-                                               textContent?.includes(text) || innerText?.includes(text)) &&
+                                        const ariaLabel = el.getAttribute('aria-label')?.trim();
+                                        const elementId = el.id;
+                                        
+                                        return ((textContent === text || innerText === text || 
+                                               textContent?.includes(text) || innerText?.includes(text)) ||
+                                               (ariaLabel === text || ariaLabel?.includes(text)) ||
+                                               (elementId === text || elementId?.includes(text))) &&
                                                el.offsetWidth > 0 && el.offsetHeight > 0;  // Visible elements only
                                     }});
                                     
@@ -497,6 +506,172 @@ class PlaywrightWebController(WebControllerInterface):
             }
         
         return self.utils.run_async(_async_click_element())
+    
+    def find_element(self, selector: str) -> Dict[str, Any]:
+        """Find an element by selector without clicking it.
+        
+        Args:
+            selector: CSS selector, or text content to search for
+        """
+        async def _async_find_element():
+            try:
+                print(f"Web[{self.web_type.upper()}]: Finding element: {selector}")
+                start_time = time.time()
+                
+                # Update viewport for embedded context
+                self.utils.update_viewport_for_context("embedded")
+                
+                # Connect to Chrome via CDP
+                playwright, browser, context, page = await self.utils.connect_to_chrome()
+                
+                # Use fixed 1 second timeout
+                timeout = 1000
+                
+                # Detect if selector is a CSS selector or text content
+                is_css_selector = (
+                    selector.startswith('#') or  # ID selector
+                    selector.startswith('.') or  # Class selector
+                    selector.startswith('[') or  # Attribute selector
+                    '>' in selector or          # Child combinator
+                    ' ' in selector and ('.' in selector or '#' in selector) or  # Complex selector
+                    selector.lower() in ['button', 'input', 'a', 'div', 'span', 'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6']  # Element tags
+                )
+                
+                element_found = False
+                final_selector = selector
+                element_info = {}
+                
+                if is_css_selector:
+                    # Try direct CSS selector
+                    try:
+                        element = await page.query_selector(selector)
+                        if element:
+                            element_found = True
+                            bounding_box = await element.bounding_box()
+                            if bounding_box:
+                                element_info = {
+                                    'x': bounding_box['x'],
+                                    'y': bounding_box['y'],
+                                    'width': bounding_box['width'],
+                                    'height': bounding_box['height']
+                                }
+                            print(f"Web[{self.web_type.upper()}]: Direct CSS selector found element")
+                    except Exception as e:
+                        print(f"Web[{self.web_type.upper()}]: Direct CSS selector failed: {e}")
+                else:
+                    # Text-based search - try multiple strategies  
+                    print(f"Web[{self.web_type.upper()}]: Text-based search for: {selector}")
+                    
+                    # Use JavaScript to find element with text content or aria-label
+                    try:
+                        js_find_result = await page.evaluate(f"""
+                            () => {{
+                                const text = '{selector}';
+                                
+                                // Find elements containing the text or with matching aria-label
+                                const elements = Array.from(document.querySelectorAll('*')).filter(el => {{
+                                    const textContent = el.textContent?.trim();
+                                    const innerText = el.innerText?.trim();
+                                    const ariaLabel = el.getAttribute('aria-label')?.trim();
+                                    const elementId = el.id;
+                                    
+                                    return ((textContent === text || innerText === text || 
+                                           textContent?.includes(text) || innerText?.includes(text)) ||
+                                           (ariaLabel === text || ariaLabel?.includes(text)) ||
+                                           (elementId === text || elementId?.includes(text))) &&
+                                           el.offsetWidth > 0 && el.offsetHeight > 0;  // Visible elements only
+                                }});
+                                
+                                const targetElement = elements[0];
+                                
+                                if (targetElement) {{
+                                    const rect = targetElement.getBoundingClientRect();
+                                    return {{
+                                        success: true,
+                                        tagName: targetElement.tagName,
+                                        textContent: targetElement.textContent?.trim()?.substring(0, 50),
+                                        ariaLabel: targetElement.getAttribute('aria-label'),
+                                        id: targetElement.id,
+                                        className: targetElement.className,
+                                        selector: targetElement.id ? `#${{targetElement.id}}` : 
+                                                 targetElement.className ? `.${{targetElement.className.split(' ')[0]}}` :
+                                                 targetElement.tagName.toLowerCase(),
+                                        position: {{
+                                            x: Math.round(rect.left),
+                                            y: Math.round(rect.top),
+                                            width: Math.round(rect.width),
+                                            height: Math.round(rect.height)
+                                        }}
+                                    }};
+                                }}
+                                
+                                return {{ success: false, error: 'Element not found' }};
+                            }}
+                        """)
+                        
+                        if js_find_result.get('success'):
+                            element_found = True
+                            final_selector = js_find_result.get('selector', selector)
+                            element_info = js_find_result.get('position', {})
+                            element_info.update({
+                                'tagName': js_find_result.get('tagName'),
+                                'textContent': js_find_result.get('textContent'),
+                                'ariaLabel': js_find_result.get('ariaLabel'),
+                                'id': js_find_result.get('id'),
+                                'className': js_find_result.get('className')
+                            })
+                            print(f"Web[{self.web_type.upper()}]: JavaScript search found element: {js_find_result.get('tagName')}")
+                        else:
+                            print(f"Web[{self.web_type.upper()}]: JavaScript search failed: {js_find_result.get('error')}")
+                    
+                    except Exception as e:
+                        print(f"Web[{self.web_type.upper()}]: JavaScript search error: {e}")
+                
+                # Cleanup connection
+                await self.utils.cleanup_connection(playwright, browser)
+                
+                execution_time = int((time.time() - start_time) * 1000)
+                
+                if element_found:
+                    result = {
+                        'success': True,
+                        'error': '',
+                        'execution_time': execution_time,
+                        'selector_used': final_selector,
+                        'search_type': 'css' if is_css_selector else 'text',
+                        'element_info': element_info
+                    }
+                    print(f"Web[{self.web_type.upper()}]: Element found using {final_selector}")
+                    return result
+                else:
+                    error_msg = f"Could not find element with selector/text: {selector}"
+                    print(f"Web[{self.web_type.upper()}]: {error_msg}")
+                    return {
+                        'success': False,
+                        'error': error_msg,
+                        'execution_time': execution_time,
+                        'selector_attempted': selector,
+                        'search_type': 'css' if is_css_selector else 'text'
+                    }
+                
+            except Exception as e:
+                error_msg = f"Find error: {e}"
+                print(f"Web[{self.web_type.upper()}]: {error_msg}")
+                return {
+                    'success': False,
+                    'error': error_msg,
+                    'execution_time': 0,
+                    'selector_attempted': selector
+                }
+        
+        if not self.is_connected:
+            return {
+                'success': False,
+                'error': 'Not connected to browser',
+                'execution_time': 0
+            }
+        
+        return self.utils.run_async(_async_find_element())
     
     def input_text(self, selector: str, text: str, timeout: int = 30000) -> Dict[str, Any]:
         """Input text into an element using async CDP connection."""
@@ -825,6 +1000,18 @@ class PlaywrightWebController(WebControllerInterface):
                 }
                 
             return self.click_element(selector)
+        
+        elif command == 'find_element':
+            selector = params.get('selector')
+            
+            if not selector:
+                return {
+                    'success': False,
+                    'error': 'Selector parameter is required',
+                    'execution_time': 0
+                }
+                
+            return self.find_element(selector)
         
         elif command == 'input_text':
             selector = params.get('selector')
@@ -1180,6 +1367,17 @@ class PlaywrightWebController(WebControllerInterface):
                     'requiresInput': True,
                     'inputLabel': 'Selector or text',
                     'inputPlaceholder': '#submit-button or "Submit"'
+                },
+                {
+                    'id': 'find_element',
+                    'label': 'Find Element',
+                    'command': 'find_element',
+                    'action_type': 'web',
+                    'params': {},
+                    'description': 'Find an element by CSS selector, text, or aria-label',
+                    'requiresInput': True,
+                    'inputLabel': 'Selector or text',
+                    'inputPlaceholder': 'TV Guide or #flt-semantic-node-6'
                 },
                 {
                     'id': 'input_text',
