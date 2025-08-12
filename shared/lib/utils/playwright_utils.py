@@ -85,7 +85,10 @@ class ChromeManager:
             '--disable-extensions',
             '--start-maximized',  # Maximized without fixed window size
             '--disable-gpu',
-            '--enable-unsafe-swiftshader'
+            '--enable-unsafe-swiftshader',
+            '--disable-session-crashed-bubble',  # Disable restore session popup
+            '--disable-infobars',  # Disable info bars including restore prompts
+            '--disable-restore-session-state'  # Disable session restore altogether
             #'--no-sandbox'  # Important for containers
         ]
     
