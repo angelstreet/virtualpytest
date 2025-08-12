@@ -604,8 +604,6 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
       vncScaleFactor,
       actualContentWidth,
       actualContentHeight,
-      vncPanelTopY,
-      vncContentY,
       overlayX: x,
       overlayY: contentY,
       windowWidth: window.innerWidth,
