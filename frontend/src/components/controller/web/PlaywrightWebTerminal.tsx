@@ -482,6 +482,11 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
       if (result.success && result.elements) {
         setWebElements(result.elements);
         setIsElementsVisible(true);
+        
+        // Update browser viewport from dump_elements response
+        if (result.summary && result.summary.viewport) {
+          setBrowserViewport(result.summary.viewport);
+        }
       } else {
         setWebElements([]);
         setIsElementsVisible(false);
@@ -581,7 +586,7 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
         y: contentY // Position overlay in content area only
       }, 
       size: { width: actualContentWidth, height: actualContentHeight }, // Actual scaled content size
-      deviceResolution: { width: 1024, height: 618 }, // Actual browser viewport size for scaling
+      deviceResolution: browserViewport, // Dynamic browser viewport size from dump_elements
       isCollapsed: !vncExpanded,
     };
     
