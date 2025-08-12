@@ -2,10 +2,10 @@
 
 # Configuration array for grabbers: source|audio_device|capture_dir|fps
 # Hardware video devices: /dev/video0, /dev/video2, etc.
-# VNC displays: :1, :99, etc.
+# VNC displays: :1, :99, etc. no audio for now then pulseaudio
 declare -A GRABBERS=(
   ["1"]="/dev/video2|plughw:3,0|/var/www/html/stream/capture2|10"
-  ["2"]=":1|default|/var/www/html/stream/capture3|1"
+  ["2"]=":1|null|/var/www/html/stream/capture3|1"
 )
 
 # Simple log reset function - truncates log if over 30MB
@@ -101,9 +101,14 @@ start_grabber() {
       -map \"[captureout]\" -c:v mjpeg -q:v 5 -r 1 -f image2 \
       $capture_dir/captures/test_capture_%06d.jpg"
   elif [ "$source_type" = "x11grab" ]; then
-    # VNC display
+    # VNC display - set up X11 environment
     local resolution=$(get_vnc_resolution "$source")
-    FFMPEG_CMD="/usr/bin/ffmpeg -y -f x11grab -framerate \"$fps\" -video_size $resolution -i $source \
+    
+    # Set environment variables for X11 access
+    export DISPLAY="$source"
+    export XAUTHORITY="/home/sunri-pi1/.Xauthority"
+    
+    FFMPEG_CMD="DISPLAY=\"$source\" XAUTHORITY=\"/home/sunri-pi1/.Xauthority\" /usr/bin/ffmpeg -y -f x11grab -framerate \"$fps\" -video_size $resolution -i $source \
       -f alsa -thread_queue_size 8192 -i \"$audio_device\" \
       -filter_complex \"[0:v]split=2[stream][capture];[stream]scale=640:360[streamout];[capture]fps=1[captureout]\" \
       -map \"[streamout]\" -map 1:a \

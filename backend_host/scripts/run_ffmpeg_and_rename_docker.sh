@@ -10,7 +10,7 @@ else
     declare -A GRABBERS=(
         ["0"]="/dev/video0|plughw:2,0|/var/www/html/stream/capture1|10"
         ["1"]="/dev/video2|plughw:3,0|/var/www/html/stream/capture2|10"
-        ["2"]=":1|default|/var/www/html/stream/capture3|1"
+        ["2"]=":1|null|/var/www/html/stream/capture3|1"
     )
     echo "Using default GRABBERS configuration"
 fi
