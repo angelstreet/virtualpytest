@@ -969,6 +969,8 @@ class PlaywrightWebController(WebControllerInterface):
                     if (elementTypes === 'all') {{
                         // Add form elements, media, etc.
                         selectors.push('img', 'video', 'iframe', 'form', 'label');
+                        // Add Flutter semantic elements
+                        selectors.push('flt-semantics', 'flt-semantic-node', '[id^="flt-semantic-node"]');
                     }}
                     
                     // Get all elements matching selectors
@@ -1025,7 +1027,7 @@ class PlaywrightWebController(WebControllerInterface):
                                 }}
                             }}
                             
-                            // Get attributes of interest
+                            // Get attributes of interest including aria labels
                             const attributes = {{}};
                             if (el.href) attributes.href = el.href;
                             if (el.value) attributes.value = el.value;
@@ -1034,6 +1036,15 @@ class PlaywrightWebController(WebControllerInterface):
                             if (el.alt) attributes.alt = el.alt;
                             if (el.type) attributes.type = el.type;
                             if (el.name) attributes.name = el.name;
+                            
+                            // Aria attributes for accessibility and Flutter semantics
+                            if (el.getAttribute('aria-label')) attributes['aria-label'] = el.getAttribute('aria-label');
+                            if (el.getAttribute('aria-labelledby')) attributes['aria-labelledby'] = el.getAttribute('aria-labelledby');
+                            if (el.getAttribute('aria-describedby')) attributes['aria-describedby'] = el.getAttribute('aria-describedby');
+                            if (el.getAttribute('aria-role')) attributes['aria-role'] = el.getAttribute('aria-role');
+                            if (el.getAttribute('role')) attributes.role = el.getAttribute('role');
+                            if (el.getAttribute('data-semantics-role')) attributes['data-semantics-role'] = el.getAttribute('data-semantics-role');
+                            if (el.getAttribute('flt-semantic-role')) attributes['flt-semantic-role'] = el.getAttribute('flt-semantic-role');
                             
                             elements.push({{
                                 index: index,
