@@ -114,13 +114,18 @@ class ChromeManager:
         ]
     
     @classmethod
-    def launch_chrome_with_remote_debugging(cls, debug_port: int = 9222, user_data_dir: str = "./backend_host/config/user_data") -> subprocess.Popen:
+    def launch_chrome_with_remote_debugging(cls, debug_port: int = 9222, user_data_dir: str = "./backend_host/config/user_data", 
+                                          use_cgroup: bool = False, cpu_quota: str = "50%", memory_max: str = "1G", memory_high: str = "768M") -> subprocess.Popen:
         """
         Launch Chrome with remote debugging and persistent data.
         
         Args:
             debug_port: Port for remote debugging
             user_data_dir: Chrome user data directory (relative to project root)
+            use_cgroup: Whether to use systemd-run with cgroup v2 resource limits
+            cpu_quota: CPU quota limit (e.g., "50%" for 50% of one core)
+            memory_max: Maximum memory limit (e.g., "1G", "512M")
+            memory_high: Memory high limit for early pressure (e.g., "768M")
         """
         # Kill existing Chrome instances
         cls.kill_chrome_instances()
@@ -181,14 +186,38 @@ class ChromeManager:
         for i, flag in enumerate(chrome_flags, 1):
             print(f'[ChromeManager]   {i}. {flag}')
         
-        # Launch Chrome with DISPLAY=:1 for VNC visibility
-        cmd_line = [executable_path] + chrome_flags
-        print(f'[ChromeManager] Full Chrome command: {" ".join(cmd_line)}')
+        # Construct Chrome command
+        chrome_cmd = [executable_path] + chrome_flags
+        
+        # Build final command with optional cgroup v2 support
+        if use_cgroup:
+            print(f'[ChromeManager] Using cgroup v2 resource limits: CPU={cpu_quota}, Memory={memory_max}, MemoryHigh={memory_high}')
+            
+            # Build systemd-run command with cgroup v2 resource limits
+            cmd_line = [
+                'systemd-run',
+                '--scope',
+                '--user',
+                f'-p=CPUQuota={cpu_quota}',
+                f'-p=MemoryMax={memory_max}',
+                f'-p=MemoryHigh={memory_high}',
+                '--property=KillMode=mixed',  # Allow proper cleanup
+                '--property=Type=forking',    # Handle Chrome's forking behavior
+                '--slice=user-chrome.slice'   # Put in dedicated slice for better management
+            ] + chrome_cmd
+            
+            print(f'[ChromeManager] Full systemd-run command: {" ".join(cmd_line)}')
+        else:
+            cmd_line = chrome_cmd
+            print(f'[ChromeManager] Full Chrome command: {" ".join(cmd_line)}')
+        
         print(f'[ChromeManager] Using maximized window (natural VNC sizing)')
         
+        # Set environment
         env = os.environ.copy()
         env["DISPLAY"] = ":1"
         
+        # Launch Chrome (with or without cgroup limits)
         process = subprocess.Popen(cmd_line, env=env)
         print(f'[ChromeManager] Chrome launched with PID: {process.pid}')
         
@@ -283,13 +312,18 @@ class PlaywrightConnection:
 class PlaywrightUtils:
     """Main utility class combining Chrome management, Playwright operations, and cookie management."""
     
-    def __init__(self, auto_accept_cookies: bool = True, user_data_dir: str = "./backend_host/config/user_data"):
+    def __init__(self, auto_accept_cookies: bool = True, user_data_dir: str = "./backend_host/config/user_data",
+                 use_cgroup: bool = False, cpu_quota: str = "50%", memory_max: str = "1G", memory_high: str = "768M"):
         """
         Initialize PlaywrightUtils with auto-sizing browser.
         
         Args:
             auto_accept_cookies: Whether to automatically inject consent cookies
             user_data_dir: Chrome user data directory for persistent sessions
+            use_cgroup: Whether to use systemd-run with cgroup v2 resource limits
+            cpu_quota: CPU quota limit (e.g., "50%" for 50% of one core)
+            memory_max: Maximum memory limit (e.g., "1G", "512M")
+            memory_high: Memory high limit for early pressure (e.g., "768M")
         """
         self.chrome_manager = ChromeManager()
         self.async_executor = AsyncExecutor()
@@ -298,7 +332,17 @@ class PlaywrightUtils:
         self.auto_accept_cookies = auto_accept_cookies
         self.user_data_dir = resolve_user_data_dir(user_data_dir)
         
-        print(f'[PlaywrightUtils] Initialized with auto_accept_cookies={auto_accept_cookies}, viewport=auto (browser default), user_data_dir={self.user_data_dir}')
+        # Cgroup v2 resource limits
+        self.use_cgroup = use_cgroup
+        self.cpu_quota = cpu_quota
+        self.memory_max = memory_max
+        self.memory_high = memory_high
+        
+        cgroup_status = f"cgroup={use_cgroup}" if use_cgroup else "cgroup=disabled"
+        if use_cgroup:
+            cgroup_status += f" (CPU={cpu_quota}, Mem={memory_max}/{memory_high})"
+        
+        print(f'[PlaywrightUtils] Initialized with auto_accept_cookies={auto_accept_cookies}, viewport=auto (browser default), user_data_dir={self.user_data_dir}, {cgroup_status}')
     
     def normalize_url(self, url: str) -> str:
         """
@@ -328,10 +372,14 @@ class PlaywrightUtils:
     
     def launch_chrome(self, debug_port: int = 9222) -> subprocess.Popen:
         """Launch Chrome with remote debugging and persistent data."""
-        # Launch Chrome maximized with persistent user data directory
+        # Launch Chrome maximized with persistent user data directory and optional cgroup limits
         return self.chrome_manager.launch_chrome_with_remote_debugging(
             debug_port, 
-            user_data_dir=self.user_data_dir
+            user_data_dir=self.user_data_dir,
+            use_cgroup=self.use_cgroup,
+            cpu_quota=self.cpu_quota,
+            memory_max=self.memory_max,
+            memory_high=self.memory_high
         )
     
     def kill_chrome(self):
@@ -393,15 +441,20 @@ class PlaywrightUtils:
 
 
 # Convenience functions for external use
-def create_playwright_utils(auto_accept_cookies: bool = True, user_data_dir: str = "./backend_host/config/user_data") -> PlaywrightUtils:
+def create_playwright_utils(auto_accept_cookies: bool = True, user_data_dir: str = "./backend_host/config/user_data",
+                           use_cgroup: bool = False, cpu_quota: str = "50%", memory_max: str = "1G", memory_high: str = "768M") -> PlaywrightUtils:
     """Create a PlaywrightUtils instance."""
-    return PlaywrightUtils(auto_accept_cookies=auto_accept_cookies, user_data_dir=user_data_dir)
+    return PlaywrightUtils(auto_accept_cookies=auto_accept_cookies, user_data_dir=user_data_dir,
+                          use_cgroup=use_cgroup, cpu_quota=cpu_quota, memory_max=memory_max, memory_high=memory_high)
 
 
-def launch_chrome_for_debugging(debug_port: int = 9222, user_data_dir: str = "./backend_host/config/user_data") -> subprocess.Popen:
+def launch_chrome_for_debugging(debug_port: int = 9222, user_data_dir: str = "./backend_host/config/user_data",
+                               use_cgroup: bool = False, cpu_quota: str = "50%", memory_max: str = "1G", memory_high: str = "768M") -> subprocess.Popen:
     """Quick function to launch Chrome with remote debugging and persistent data."""
     resolved_user_data_dir = resolve_user_data_dir(user_data_dir)
-    return ChromeManager.launch_chrome_with_remote_debugging(debug_port, user_data_dir=resolved_user_data_dir)
+    return ChromeManager.launch_chrome_with_remote_debugging(debug_port, user_data_dir=resolved_user_data_dir,
+                                                            use_cgroup=use_cgroup, cpu_quota=cpu_quota, 
+                                                            memory_max=memory_max, memory_high=memory_high)
 
 
 def run_async_playwright(coro):
