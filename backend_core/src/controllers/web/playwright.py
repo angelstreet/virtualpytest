@@ -424,18 +424,30 @@ class PlaywrightWebController(WebControllerInterface):
                             js_click_result = await page.evaluate(f"""
                                 () => {{
                                     const text = '{selector}';
+                                    const textLower = text.toLowerCase();
                                     
-                                    // Find elements containing the text or with matching aria-label
+                                    // Find elements containing the text or with matching aria-label (case-insensitive)
                                     const elements = Array.from(document.querySelectorAll('*')).filter(el => {{
                                         const textContent = el.textContent?.trim();
                                         const innerText = el.innerText?.trim();
                                         const ariaLabel = el.getAttribute('aria-label')?.trim();
                                         const elementId = el.id;
                                         
-                                        return ((textContent === text || innerText === text || 
-                                               textContent?.includes(text) || innerText?.includes(text)) ||
-                                               (ariaLabel === text || ariaLabel?.includes(text)) ||
-                                               (elementId === text || elementId?.includes(text))) &&
+                                        // Case-insensitive matching for text content
+                                        const textMatch = (textContent?.toLowerCase() === textLower || 
+                                                         innerText?.toLowerCase() === textLower || 
+                                                         textContent?.toLowerCase()?.includes(textLower) || 
+                                                         innerText?.toLowerCase()?.includes(textLower));
+                                        
+                                        // Case-insensitive matching for aria-label
+                                        const ariaMatch = (ariaLabel?.toLowerCase() === textLower || 
+                                                         ariaLabel?.toLowerCase()?.includes(textLower));
+                                        
+                                        // Case-insensitive matching for element ID
+                                        const idMatch = (elementId?.toLowerCase() === textLower || 
+                                                       elementId?.toLowerCase()?.includes(textLower));
+                                        
+                                        return (textMatch || ariaMatch || idMatch) &&
                                                el.offsetWidth > 0 && el.offsetHeight > 0;  // Visible elements only
                                     }});
                                     
