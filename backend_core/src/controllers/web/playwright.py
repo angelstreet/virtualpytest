@@ -295,7 +295,12 @@ class PlaywrightWebController(WebControllerInterface):
                     await page.goto(normalized_url, timeout=timeout, wait_until='load')
                 
                 # Get page info after navigation
-                await page.wait_for_load_state('networkidle', timeout=10000)
+                try:
+                    # Try to wait for networkidle but don't fail if it times out
+                    await page.wait_for_load_state('networkidle', timeout=5000)
+                except Exception as e:
+                    print(f"Web[{self.web_type.upper()}]: Networkidle timeout ignored: {str(e)}")
+                
                 self.current_url = page.url
                 self.page_title = await page.title()
                 

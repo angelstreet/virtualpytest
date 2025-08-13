@@ -155,46 +155,7 @@ class CookieManager:
             ]
         }
         
-        # SunriseTV.ch configuration - Swiss streaming service
-        sunrisetv_config = {
-            "name": "SunriseTV",
-            "description": "Auto-accept SunriseTV.ch consent and bypass cookie banners",
-            "domains": [".sunrisetv.ch", ".sunrise.ch"],
-            "cookies": [
-                {
-                    "name": "CookieConsent",
-                    "value": "{stamp:'accepted',necessary:true,preferences:true,statistics:true,marketing:true,method:'explicit',ver:1,utc:1699000000000,region:'ch'}",
-                    "domain": ".sunrisetv.ch",
-                    "path": "/",
-                    "secure": True,
-                    "httpOnly": False
-                },
-                {
-                    "name": "cookieconsent_status",
-                    "value": "allow",
-                    "domain": ".sunrisetv.ch",
-                    "path": "/",
-                    "secure": True,
-                    "httpOnly": False
-                },
-                {
-                    "name": "cookie_consent",
-                    "value": "accepted",
-                    "domain": ".sunrise.ch",
-                    "path": "/",
-                    "secure": True,
-                    "httpOnly": False
-                },
-                {
-                    "name": "gdpr_consent",
-                    "value": "all",
-                    "domain": ".sunrisetv.ch",
-                    "path": "/",
-                    "secure": True,
-                    "httpOnly": False
-                }
-            ]
-        }
+
         
         # Common EU GDPR bypass configuration
         gdpr_config = {
@@ -218,7 +179,6 @@ class CookieManager:
             'youtube': youtube_config,
             'google': google_config,
             'facebook': facebook_config,
-            'sunrisetv': sunrisetv_config,
             'gdpr': gdpr_config
         }
         
@@ -346,8 +306,7 @@ class CookieManager:
             configs_to_inject.append('google')
         elif 'facebook.com' in url_lower or 'meta.com' in url_lower:
             configs_to_inject.append('facebook')
-        elif 'sunrisetv.ch' in url_lower or 'sunrise.ch' in url_lower:
-            configs_to_inject.append('sunrisetv')
+
         
         # Always add general GDPR bypass for EU domains
         if any(eu_tld in url_lower for eu_tld in ['.eu', '.fr', '.de', '.it', '.es']):
@@ -385,10 +344,7 @@ async def inject_google_cookies(playwright_context):
     await manager.inject_cookies_for_site(playwright_context, 'google')
 
 
-async def inject_sunrisetv_cookies(playwright_context):
-    """Inject SunriseTV consent cookies."""
-    manager = CookieManager()
-    await manager.inject_cookies_for_site(playwright_context, 'sunrisetv')
+
 
 
 async def inject_multiple_site_cookies(playwright_context, sites: List[str]):
