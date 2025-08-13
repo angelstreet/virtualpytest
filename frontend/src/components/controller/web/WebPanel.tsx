@@ -19,6 +19,7 @@ interface WebPanelProps {
   isConnected?: boolean; // Connection status from parent
   onReleaseControl?: () => void;
   initialCollapsed?: boolean;
+  vncExpanded?: boolean; // VNC panel state for overlay scaling
   // NEW: Stream container dimensions for modal context
   streamContainerDimensions?: {
     width: number;
@@ -35,6 +36,7 @@ export const WebPanel = React.memo(
     deviceModel,
     onReleaseControl,
     initialCollapsed = true,
+    vncExpanded,
     streamContainerDimensions,
   }: WebPanelProps) {
     console.log(`[@component:WebPanel] Props debug:`, {
@@ -144,10 +146,10 @@ export const WebPanel = React.memo(
       switch (deviceModel) {
         case 'host_vnc':
           // Playwright Web Terminal for host_vnc devices with web capability
-          return <PlaywrightWebTerminal host={host} vncExpanded={!isCollapsed} />;
+          return <PlaywrightWebTerminal host={host} vncExpanded={vncExpanded ?? !isCollapsed} />;
         case 'host_web':
           // Legacy case - redirect to host_vnc behavior
-          return <PlaywrightWebTerminal host={host} vncExpanded={!isCollapsed} />;
+          return <PlaywrightWebTerminal host={host} vncExpanded={vncExpanded ?? !isCollapsed} />;
         default:
           return (
             <Box

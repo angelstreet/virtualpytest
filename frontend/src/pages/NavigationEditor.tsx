@@ -989,6 +989,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
                   isConnected={isControlActive}
                   onReleaseControl={handleDisconnectComplete}
                   initialCollapsed={false}
+                  vncExpanded={!isAVPanelCollapsed}
                 />
               </>
             );
