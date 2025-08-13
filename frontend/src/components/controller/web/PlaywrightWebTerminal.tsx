@@ -22,6 +22,7 @@ import {
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 
+import { useVNCState } from '../../../contexts/VNCStateContext';
 import { usePlaywrightWeb } from '../../../hooks/controller/usePlaywrightWeb';
 import { Host } from '../../../types/common/Host_Types';
 import { WebElement } from '../../../types/controller/Web_Types';
@@ -30,13 +31,13 @@ import { PlaywrightWebOverlay } from './PlaywrightWebOverlay';
 
 interface PlaywrightWebTerminalProps {
   host: Host;
-  vncExpanded: boolean; // VNC panel state - required
 }
 
 export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
   host,
-  vncExpanded,
 }: PlaywrightWebTerminalProps) {
+  // Get VNC state from context
+  const { isVNCExpanded } = useVNCState();
   const {
     executeCommand,
     // Removed unused destructured properties to fix linter errors
@@ -569,8 +570,8 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
 
   // Dynamic VNC panel info using same scaling as VNC stream
   const getVNCPanelInfo = () => {
-    // Use the vncExpanded prop directly
-    const actualVncExpanded = vncExpanded;
+    // Use VNC state from context
+    const actualVncExpanded = isVNCExpanded;
     
     // Use same scaling calculation as VNC stream
     const vncResolution = { width: 1440, height: 847 };

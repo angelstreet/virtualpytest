@@ -13,6 +13,7 @@ import { Box, IconButton, Tooltip, Typography } from '@mui/material';
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 
 import { getConfigurableAVPanelLayout, loadAVConfig } from '../../../config/av';
+import { useVNCState } from '../../../contexts/VNCStateContext';
 import { useVncStream, useStream } from '../../../hooks/controller';
 import { Host } from '../../../types/common/Host_Types';
 import { getZIndex } from '../../../utils/zIndexUtils';
@@ -133,8 +134,10 @@ export const VNCStream = React.memo(
     onCaptureModeChange,
     sx = {},
   }: VNCStreamProps) {
+    // VNC state from context
+    const { isVNCExpanded, setIsVNCExpanded } = useVNCState();
+    
     // Stream state
-    const [isExpanded, setIsExpanded] = useState<boolean>(false);
     const [isMinimized, setIsMinimized] = useState<boolean>(false);
     const [isScreenshotLoading, setIsScreenshotLoading] = useState<boolean>(false);
 
@@ -294,13 +297,13 @@ export const VNCStream = React.memo(
     const handleExpandCollapseToggle = () => {
       if (isMinimized) {
         setIsMinimized(false);
-        setIsExpanded(false);
+        setIsVNCExpanded(false);
         console.log(
           `[@component:VNCStream] Restored from minimized to collapsed for ${effectiveDeviceModel}`,
         );
       } else {
-        const newExpanded = !isExpanded;
-        setIsExpanded(newExpanded);
+        const newExpanded = !isVNCExpanded;
+        setIsVNCExpanded(newExpanded);
         onCollapsedChange?.(!newExpanded);
         
         // Calculate and log new scaling
@@ -337,12 +340,12 @@ export const VNCStream = React.memo(
     // Calculate panel dimensions
     const getPanelWidth = () => {
       if (isMinimized) return collapsedWidth;
-      return isExpanded ? expandedWidth : collapsedWidth;
+      return isVNCExpanded ? expandedWidth : collapsedWidth;
     };
 
     const getPanelHeight = () => {
       if (isMinimized) return headerHeight;
-      return isExpanded ? expandedHeight : collapsedHeight;
+      return isVNCExpanded ? expandedHeight : collapsedHeight;
     };
 
     const currentVideoFramePath = '';
@@ -380,7 +383,7 @@ export const VNCStream = React.memo(
               }}
             >
               {/* Left side: Action buttons */}
-              {isExpanded && (
+              {isVNCExpanded && (
                 <Box sx={{ display: 'flex', gap: 0.5 }}>
                   <Tooltip title="Take Screenshot">
                     <IconButton
@@ -488,7 +491,7 @@ export const VNCStream = React.memo(
                     onClick={handleExpandCollapseToggle}
                     sx={{ color: 'inherit' }}
                   >
-                    {isExpanded ? (
+                    {isVNCExpanded ? (
                       <CloseFullscreen fontSize="small" />
                     ) : (
                       <OpenInFull fontSize="small" />
@@ -511,7 +514,7 @@ export const VNCStream = React.memo(
                 <VNCViewer
                   host={host}
                   streamUrl={streamUrl}
-                  isExpanded={isExpanded}
+                  isExpanded={isVNCExpanded}
                   calculateVncScaling={calculateVncScaling}
                   sx={{
                     position: 'absolute',

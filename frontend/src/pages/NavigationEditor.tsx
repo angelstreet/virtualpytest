@@ -282,7 +282,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
     // Track the last loaded tree ID to prevent unnecessary reloads
     const lastLoadedTreeId = useRef<string | null>(null);
 
-    // Track AV panel collapsed state
+    // AV panel collapsed state for other UI elements (keeping for backwards compatibility)
     const [isAVPanelCollapsed, setIsAVPanelCollapsed] = useState(true);
 
     // Goto panel state
@@ -331,7 +331,6 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
 
     // Memoize the AV panel collapsed change handler to prevent infinite loops
     const handleAVPanelCollapsedChange = useCallback((isCollapsed: boolean) => {
-      console.log('[NavigationEditor] VNC panel state changed:', { isCollapsed, vncExpanded: !isCollapsed });
       setIsAVPanelCollapsed(isCollapsed);
     }, []);
 
@@ -990,7 +989,6 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
                   isConnected={isControlActive}
                   onReleaseControl={handleDisconnectComplete}
                   initialCollapsed={false}
-                  vncExpanded={!isAVPanelCollapsed}
                 />
               </>
             );

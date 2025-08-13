@@ -1,6 +1,7 @@
 import React from 'react';
 
 import { DeviceDataProvider } from '../device/DeviceDataContext';
+import { VNCStateProvider } from '../VNCStateContext';
 
 import { NavigationProvider } from './NavigationContext';
 
@@ -14,9 +15,11 @@ interface NavigationEditorProviderProps {
 
 export const NavigationEditorProvider: React.FC<NavigationEditorProviderProps> = ({ children }) => {
   return (
-    <DeviceDataProvider>
-      <NavigationProvider>{children}</NavigationProvider>
-    </DeviceDataProvider>
+    <VNCStateProvider>
+      <DeviceDataProvider>
+        <NavigationProvider>{children}</NavigationProvider>
+      </DeviceDataProvider>
+    </VNCStateProvider>
   );
 };
 
