@@ -588,10 +588,12 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
     // Calculate scale to fit VNC content in panel (same as VNC stream)
     const scaleX = panelSize.width / vncResolution.width;
     const scaleY = panelSize.height / vncResolution.height;
-    const vncScaleFactor = Math.min(scaleX, scaleY); // Maintain aspect ratio
+    let vncScaleFactor = Math.min(scaleX, scaleY); // Maintain aspect ratio
     
-    // VNC header height that we need to account for
-    const headerHeight = 40;
+    // Minimal adjustment for collapsed state - scale down by factor observed from working expanded state
+    if (!actualVncExpanded) {
+      vncScaleFactor *= 0.7; // Adjust this factor if needed
+    }
     
     // Calculate scaled overlay dimensions
     const overlayWidth = browserViewport.width * vncScaleFactor;
