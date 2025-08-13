@@ -360,14 +360,6 @@ def execute_navigation_with_verifications(host, device, transition: Dict[str, An
         retry_actions = transition.get('retryActions', [])
         failure_actions = transition.get('failureActions', [])
         
-        remote_controller = get_controller(device.device_id, 'remote')
-        if not remote_controller:
-            return {
-                'success': False,
-                'error': f'No remote controller found for device {device.device_id}',
-                'verification_results': []
-            }
-        
         # Log detailed action information before execution
         edge_id = transition.get('edge_id', 'unknown')
         from_node = transition.get('from_node_label', 'unknown')
@@ -440,13 +432,11 @@ def execute_navigation_with_verifications(host, device, transition: Dict[str, An
             print(f"[@action_utils:execute_navigation]   Retry actions attempted: {len(retry_actions)}")
             print(f"[@action_utils:execute_navigation]   Failure actions attempted: {len(failure_actions)}")
             
-            # Try to get more specific error from remote controller if available
+            # Set detailed error message
             detailed_error = "Action execution failed"
-            if hasattr(remote_controller, 'get_last_error'):
-                last_error = remote_controller.get_last_error()
-                if last_error:
-                    detailed_error = f"Action execution failed: {last_error}"
-                    print(f"[@action_utils:execute_navigation]   Remote controller error: {last_error}")
+            if action_result.get('error'):
+                detailed_error = f"Action execution failed: {action_result['error']}"
+                print(f"[@action_utils:execute_navigation]   Action result error: {action_result['error']}")
         else:
             print(f"[@action_utils:execute_navigation] Actions completed successfully in {action_execution_time}ms")
             error_details = None
