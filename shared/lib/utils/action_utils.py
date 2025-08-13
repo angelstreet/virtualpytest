@@ -158,15 +158,24 @@ def execute_action_directly(host, device, action: Dict[str, Any]) -> Dict[str, A
                     result = {'success': iteration_success}
                     
                 elif action_type == 'desktop':
-                    # Route to desktop controller (pyautogui by default)
-                    if iteration == 0:  # Only log routing once
-                        print(f"[@action_utils:execute_action_directly] Routing desktop action to desktop controller")
+                    # Intelligent routing to correct desktop controller
+                    bash_commands = {'execute_bash_command'}
                     
-                    desktop_controller = get_controller(device.device_id, 'desktop')
+                    if command in bash_commands:
+                        controller_key = 'desktop_bash'
+                        if iteration == 0:  # Only log routing once
+                            print(f"[@action_utils:execute_action_directly] Routing desktop action to bash controller")
+                    else:
+                        controller_key = 'desktop_pyautogui'
+                        if iteration == 0:  # Only log routing once
+                            print(f"[@action_utils:execute_action_directly] Routing desktop action to pyautogui controller")
+                    
+                    # Try specific controller first, fallback to generic 'desktop'
+                    desktop_controller = get_controller(device.device_id, controller_key) or get_controller(device.device_id, 'desktop')
                     if not desktop_controller:
                         return {
                             'success': False,
-                            'error': f'No desktop controller found for device {device.device_id}',
+                            'error': f'No {controller_key} or desktop controller found for device {device.device_id}',
                             'total_execution_time_ms': 0,
                             'iteration_results': []
                         }

@@ -303,10 +303,22 @@ class ActionExecutor:
                         'device_id': self.device_id or 'device1'
                     }
                 elif action_type == 'desktop':
-                    # Route to desktop endpoint (pyautogui by default)
-                    if iteration == 0:  # Only log routing once
-                        print(f"[@lib:action_executor:_execute_single_action] Routing desktop action to desktop pyautogui endpoint")
-                    endpoint = '/host/desktop/pyautogui/executeCommand'
+                    # Intelligent routing to correct desktop controller
+                    command = action.get('command', '')
+                    
+                    # Bash-specific commands
+                    bash_commands = {'execute_bash_command'}
+                    
+                    if command in bash_commands:
+                        endpoint = '/host/desktop/bash/executeCommand'
+                        if iteration == 0:  # Only log routing once
+                            print(f"[@lib:action_executor:_execute_single_action] Routing desktop action to bash endpoint")
+                    else:
+                        # Default to pyautogui for all other desktop commands
+                        endpoint = '/host/desktop/pyautogui/executeCommand'
+                        if iteration == 0:  # Only log routing once
+                            print(f"[@lib:action_executor:_execute_single_action] Routing desktop action to pyautogui endpoint")
+                    
                     request_data = {
                         'command': action.get('command'),
                         'params': params,
