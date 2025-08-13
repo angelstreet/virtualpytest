@@ -90,16 +90,27 @@ document.addEventListener('DOMContentLoaded', () => {{
 
 function toggleSection(sectionId) {{
     const content = document.getElementById(sectionId);
-    const button = document.querySelector('[onclick="toggleSection(\'' + sectionId + '\')"] .toggle-btn');
+    const sectionElements = document.querySelectorAll('.section-header');
+    let button = null;
+    for (let element of sectionElements) {{
+        if (element.onclick && element.onclick.toString().includes(sectionId)) {{
+            button = element.querySelector('.toggle-btn');
+            break;
+        }}
+    }}
     
-    if (content.classList.contains('expanded')) {{
+    if (content && content.classList.contains('expanded')) {{
         content.classList.remove('expanded');
-        button.classList.remove('expanded');
-        button.textContent = '▶';
-    }} else {{
+        if (button) {{
+            button.classList.remove('expanded');
+            button.textContent = '▶';
+        }}
+    }} else if (content) {{
         content.classList.add('expanded');
-        button.classList.add('expanded');
-        button.textContent = '▼';
+        if (button) {{
+            button.classList.add('expanded');
+            button.textContent = '▼';
+        }}
     }}
 }}
 
