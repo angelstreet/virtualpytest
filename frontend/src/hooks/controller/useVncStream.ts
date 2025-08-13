@@ -180,8 +180,8 @@ export function useVncStream({
     const optimalScale = Math.min(scaleX, scaleY); // Maintain aspect ratio
     
     // Calculate scaled dimensions
-    const scaledWidth = vncResolution.width;
-    const scaledHeight = vncResolution.height;
+    const scaledWidth = vncResolution.width * scaleX;
+    const scaledHeight = vncResolution.height * scaleY;
     
     console.log(`[@hook:useVncStream] VNC scaling calculation:`, {
       panelState,
