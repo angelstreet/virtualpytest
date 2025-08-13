@@ -46,7 +46,45 @@ def execute_action_directly(host, device, action: Dict[str, Any]) -> Dict[str, A
     try:
         command = action.get('command')
         params = action.get('params', {})
-        action_type = action.get('action_type', 'remote')  # Default to remote for backward compatibility
+        action_type = action.get('action_type')
+        
+        # Intelligent action_type detection if not specified (same logic as ActionExecutor)
+        if not action_type:
+            # Web-specific commands (from Playwright web controller)
+            web_commands = {
+                'open_browser', 'close_browser', 'connect_browser',
+                'navigate_to_url', 'click_element', 'find_element', 'input_text', 
+                'tap_x_y', 'execute_javascript', 'get_page_info', 'activate_semantic',
+                'dump_elements', 'browser_use_task', 'press_key'
+            }
+            
+            # Desktop-specific commands (from PyAutoGUI/Bash controllers)
+            desktop_commands = {
+                'execute_pyautogui_click', 'execute_pyautogui_rightclick', 'execute_pyautogui_doubleclick',
+                'execute_pyautogui_move', 'execute_pyautogui_keypress', 'execute_pyautogui_type',
+                'execute_pyautogui_scroll', 'execute_pyautogui_locate', 'execute_pyautogui_locate_and_click',
+                'execute_pyautogui_launch', 'execute_bash_command'
+            }
+            
+            # Verification commands
+            verification_commands = {
+                'waitForTextToAppear', 'waitForTextToDisappear',
+                'waitForImageToAppear', 'waitForImageToDisappear'
+            }
+            
+            if command in web_commands:
+                action_type = 'web'
+                print(f"[@action_utils:execute_action_directly] Auto-detected web action: {command}")
+            elif command in desktop_commands:
+                action_type = 'desktop'
+                print(f"[@action_utils:execute_action_directly] Auto-detected desktop action: {command}")
+            elif command in verification_commands:
+                action_type = 'verification'
+                print(f"[@action_utils:execute_action_directly] Auto-detected verification action: {command}")
+            else:
+                # Default to remote for unknown commands (backward compatibility)
+                action_type = 'remote'
+                print(f"[@action_utils:execute_action_directly] Defaulting to remote action: {command}")
         
         # Get iterator count (default to 1 if not specified)
         # Only allow iterations for non-verification actions (same logic as ActionExecutor)

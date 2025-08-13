@@ -1316,6 +1316,30 @@ export const ActionItem: React.FC<ActionItemProps> = ({
           );
         }
         break;
+
+      // Web-specific press_key actions (handled same as remote press_key but for web)
+      case 'press_key':
+        // Show key field for web press_key actions with requiresInput=true
+        if (action.action_type === 'web' && currentActionDef?.requiresInput) {
+          fields.push(
+            <TextField
+              key="key"
+              label="Key"
+              size="small"
+              value={getParamValue('key') || ''}
+              onChange={(e) => safeHandleParamChange('key', e.target.value)}
+              placeholder="e.g., BACK, OK, ESCAPE"
+              sx={{
+                width: 180,
+                '& .MuiInputBase-input': {
+                  padding: '3px 6px',
+                  fontSize: '0.75rem',
+                },
+              }}
+            />,
+          );
+        }
+        break;
     }
 
     // Organize fields based on count
