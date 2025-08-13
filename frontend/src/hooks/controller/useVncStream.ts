@@ -177,7 +177,6 @@ export function useVncStream({
     // Calculate scale to fit VNC content in panel
     const scaleX = panelSize.width / vncResolution.width;
     const scaleY = panelSize.height / vncResolution.height;
-    const optimalScale = Math.min(scaleX, scaleY); // Maintain aspect ratio
     
     // Calculate scaled dimensions
     const scaledWidth = vncResolution.width * scaleX;
@@ -187,19 +186,15 @@ export function useVncStream({
       panelState,
       vncResolution,
       panelSize,
-      optimalScale: optimalScale.toFixed(3),
       scaledDimensions: `${scaledWidth.toFixed(0)}x${scaledHeight.toFixed(0)}`
     });
     
     return {
-      scale: optimalScale,
-      scaledWidth,
-      scaledHeight,
-      transform: `scale(${optimalScale})`,
+      transform: `scale(${scaleX}, ${scaleY})`,
       transformOrigin: 'top left',
       // Container needs to be larger to accommodate scaled content
-      width: `${(scaledWidth / optimalScale)}px`,
-      height: `${(scaledHeight / optimalScale)}px`
+      width: `${(scaledWidth / scaleX)}px`,
+      height: `${(scaledHeight / scaleY)}px`
     };
   }, []);
 
