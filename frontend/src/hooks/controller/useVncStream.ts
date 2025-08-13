@@ -169,11 +169,10 @@ export function useVncStream({
     // VNC native resolution (detected from your logs)
     const vncResolution = { width: 1440, height: 847 };
     
-    // Target panel sizes (account for header height)
-    const headerHeight = 40; // From config
+    // Target panel sizes
     const panelSize = panelState === 'expanded' 
-      ? { width: 520, height: 360 - headerHeight }
-      : { width: 370, height: 240 - headerHeight };
+      ? { width: 520, height: 360 - 40 }
+      : { width: 370, height: 240 - 40 };
     
     // Calculate scale to fit VNC content in panel
     const scaleX = panelSize.width / vncResolution.width;
@@ -198,9 +197,9 @@ export function useVncStream({
       scaledHeight,
       transform: `scale(${optimalScale})`,
       transformOrigin: 'top left',
-      // Set iframe to scaled dimensions that fit exactly in the panel
-      width: `${scaledWidth}px`,
-      height: `${scaledHeight}px`
+      // Container needs to be larger to accommodate scaled content
+      width: `${(scaledWidth / optimalScale)}px`,
+      height: `${(scaledHeight / optimalScale)}px`
     };
   }, []);
 

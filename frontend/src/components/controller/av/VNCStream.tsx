@@ -282,7 +282,7 @@ export const VNCStream = React.memo(
     const handleMinimizeToggle = () => {
       if (isMinimized) {
         setIsMinimized(false);
-        setIsVNCExpanded(false);
+        setIsExpanded(false);
         onMinimizedChange?.(false);
         console.log(
           `[@component:VNCStream] Restored from minimized to collapsed for ${effectiveDeviceModel}`,
