@@ -75,20 +75,16 @@ class PlaywrightWebController(WebControllerInterface):
         
         if self._chrome_running and self._chrome_process:
             try:
-                print(f"Web[{self.web_type.upper()}]: Terminating Chrome process (PID: {self._chrome_process.pid})")
-                self._chrome_process.terminate()
-                time.sleep(2)
-                if self._chrome_process.poll() is None:
-                    print(f"Web[{self.web_type.upper()}]: Process still running, force killing...")
-                    self._chrome_process.kill()
-                print(f"Web[{self.web_type.upper()}]: Chrome process terminated successfully")
-                self.__class__._chrome_process = None
-                self.__class__._chrome_running = False
+                print(f"Web[{self.web_type.upper()}]: Gracefully closing Chrome process (PID: {self._chrome_process.pid})")
+                
+                # Use graceful close (handles all fallbacks and waiting internally)
+                self.utils.kill_chrome(chrome_process=self._chrome_process)
+                print(f"Web[{self.web_type.upper()}]: Chrome process terminated")
+                
             except Exception as e:
-                print(f"Web[{self.web_type.upper()}]: Error terminating Chrome: {e}")
-                # Force cleanup
-                print(f"Web[{self.web_type.upper()}]: Force cleanup using utils.kill_chrome()")
-                self.utils.kill_chrome()
+                print(f"Web[{self.web_type.upper()}]: Error during Chrome shutdown: {e}")
+            finally:
+                # Clean up state regardless
                 self.__class__._chrome_process = None
                 self.__class__._chrome_running = False
         else:

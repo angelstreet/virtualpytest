@@ -39,13 +39,37 @@ class ChromeManager:
     """Manages Chrome process lifecycle for remote debugging."""
     
     @staticmethod
-    def kill_chrome_instances():
-        """Kill any existing Chrome instances (Linux only)."""
-        print('[ChromeManager] Killing any existing Chrome instances...')
-        os.system('pkill -9 "Google Chrome"')
-        os.system('pkill -9 "chrome"')
-        os.system('pkill -9 "chromium"')
-        time.sleep(2)
+    def close_chrome_gracefully(debug_port: int = 9222, chrome_process = None):
+        """Close Chrome gracefully via CDP, fallback to process termination."""
+        print('[ChromeManager] Closing Chrome gracefully...')
+        
+        # Try to close via CDP first
+        try:
+            import requests
+            close_url = f'http://localhost:{debug_port}/json/close'
+            response = requests.get(close_url, timeout=3)
+            if response.status_code == 200:
+                print('[ChromeManager] Chrome closed via CDP')
+                time.sleep(2)
+                return
+        except:
+            pass
+        
+        # Fallback: use process-specific termination or pkill
+        if chrome_process and chrome_process.poll() is None:
+            print('[ChromeManager] CDP failed, terminating specific process...')
+            chrome_process.terminate()
+            try:
+                chrome_process.wait(timeout=5)
+                print('[ChromeManager] Chrome process terminated')
+            except subprocess.TimeoutExpired:
+                print('[ChromeManager] Force killing process...')
+                chrome_process.kill()
+                chrome_process.wait()
+        else:
+            print('[ChromeManager] CDP failed, using pkill...')
+            os.system('pkill -f chrome')
+            time.sleep(2)
     
     @staticmethod
     def is_port_in_use(port: int) -> bool:
@@ -127,8 +151,8 @@ class ChromeManager:
             memory_max: Maximum memory limit (e.g., "1G", "512M")
             memory_high: Memory high limit for early pressure (e.g., "768M")
         """
-        # Kill existing Chrome instances
-        cls.kill_chrome_instances()
+        # Close existing Chrome instances gracefully
+        cls.close_chrome_gracefully(debug_port)
         
         # Kill any process using the debug port
         if cls.is_port_in_use(debug_port):
@@ -423,9 +447,9 @@ class PlaywrightUtils:
             memory_high=self.memory_high
         )
     
-    def kill_chrome(self):
-        """Kill Chrome instances."""
-        self.chrome_manager.kill_chrome_instances()
+    def kill_chrome(self, chrome_process=None):
+        """Close Chrome instances gracefully."""
+        self.chrome_manager.close_chrome_gracefully(chrome_process=chrome_process)
     
     def run_async(self, coro):
         """Run async coroutine in sync context."""
