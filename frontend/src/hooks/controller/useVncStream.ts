@@ -190,6 +190,9 @@ export function useVncStream({
     });
     
     return {
+      scale: Math.min(scaleX, scaleY),
+      scaledWidth,
+      scaledHeight,
       transform: `scale(${scaleX}, ${scaleY})`,
       transformOrigin: 'top left',
       // Container needs to be larger to accommodate scaled content
