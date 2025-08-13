@@ -352,7 +352,7 @@ class PlaywrightWebController(WebControllerInterface):
         Args:
             selector: CSS selector, or text content to search for
         """
-                async def _async_click_element():
+        async def _async_click_element():
             try:
                 print(f"Web[{self.web_type.upper()}]: Clicking element: {selector}")
                 start_time = time.time()
