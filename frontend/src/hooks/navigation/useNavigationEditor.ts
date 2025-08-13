@@ -267,12 +267,30 @@ export const useNavigationEditor = () => {
         });
       }
 
-      // Handle parent inheritance based on handle direction: 
-      // Vertical handles = parent-child relationship (inherit parent + source node)
-      // Horizontal handles = sibling relationship (inherit same parent)
+      // Handle parent inheritance based on handle direction and ROOT NODE PRIORITY
+      // 
+      // ROOT NODE RULE: Root nodes are ALWAYS parents, never children
+      // This includes:
+      // 1. Main tree root nodes (is_root=true) - the home/entry node
+      // 2. Nested tree root nodes (isParentReference=true) - parent node displayed in nested tree
+      // 
+      // This ensures that when linking to/from any root node, the root node is always 
+      // treated as the parent, maintaining the navigation hierarchy correctly in both
+      // main trees and nested subtrees.
+      //
+      // Standard logic (when no root nodes involved):
+      // - Vertical handles = parent-child relationship (inherit parent + source node)
+      // - Horizontal handles = sibling relationship (inherit same parent)
       let updatedNodes = navigation.nodes;
       const sourceParent = sourceNode.data.parent;
       const targetParent = targetNode.data.parent;
+      
+      // Check if either node is a root/home node
+      // This includes:
+      // 1. Main tree root nodes (is_root === true)
+      // 2. Nested tree root nodes (isParentReference === true - parent node displayed in nested tree)
+      const isSourceRoot = sourceNode.data.is_root === true || sourceNode.data.isParentReference === true;
+      const isTargetRoot = targetNode.data.is_root === true || targetNode.data.isParentReference === true;
       
       // Determine if this is a vertical connection (top/bottom handles)
       const isVerticalConnection = connection.sourceHandle?.includes('top') || 
@@ -280,8 +298,40 @@ export const useNavigationEditor = () => {
                                    connection.targetHandle?.includes('top') || 
                                    connection.targetHandle?.includes('bottom');
 
-      if (!sourceParent && targetParent) {
-        // Source node has no parent, inherit from target
+      // ROOT NODE PRIORITY: If either node is root, it becomes the parent
+      if (isSourceRoot && !isTargetRoot) {
+        // Source is root - it becomes parent of target
+        const newParent = isVerticalConnection 
+          ? [sourceNode.id] // Root becomes direct parent
+          : (sourceParent || []); // For horizontal, target keeps same level as root
+          
+        const rootType = sourceNode.data.is_root ? 'main tree root' : 'nested tree root';
+        console.log(`[@useNavigationEditor:onConnect] ROOT NODE: '${sourceNode.data.label}' (${rootType}) becomes parent of '${targetNode.data.label}':`, newParent);
+        updatedNodes = navigation.nodes.map(node => 
+          node.id === targetNode.id 
+            ? { ...node, data: { ...node.data, parent: newParent } }
+            : node
+        );
+        navigation.setNodes(updatedNodes);
+      } else if (isTargetRoot && !isSourceRoot) {
+        // Target is root - it becomes parent of source
+        const newParent = isVerticalConnection 
+          ? [targetNode.id] // Root becomes direct parent
+          : (targetParent || []); // For horizontal, source keeps same level as root
+          
+        const rootType = targetNode.data.is_root ? 'main tree root' : 'nested tree root';
+        console.log(`[@useNavigationEditor:onConnect] ROOT NODE: '${targetNode.data.label}' (${rootType}) becomes parent of '${sourceNode.data.label}':`, newParent);
+        updatedNodes = navigation.nodes.map(node => 
+          node.id === sourceNode.id 
+            ? { ...node, data: { ...node.data, parent: newParent } }
+            : node
+        );
+        navigation.setNodes(updatedNodes);
+      } else if (isSourceRoot && isTargetRoot) {
+        // Both are root nodes - no parent relationship changes
+        console.log(`[@useNavigationEditor:onConnect] Both nodes are root nodes - no parent-child relationship established`);
+      } else if (!sourceParent && targetParent) {
+        // STANDARD LOGIC: Source node has no parent, inherit from target
         const newParent = isVerticalConnection 
           ? [...targetParent, targetNode.id] // Vertical: parent + target node (child relationship)
           : [...targetParent]; // Horizontal: same parent (sibling relationship)
@@ -294,7 +344,7 @@ export const useNavigationEditor = () => {
         );
         navigation.setNodes(updatedNodes);
       } else if (!targetParent && sourceParent) {
-        // Target node has no parent, inherit from source
+        // STANDARD LOGIC: Target node has no parent, inherit from source
         const newParent = isVerticalConnection 
           ? [...sourceParent, sourceNode.id] // Vertical: parent + source node (child relationship)
           : [...sourceParent]; // Horizontal: same parent (sibling relationship)
