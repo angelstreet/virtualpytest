@@ -101,14 +101,13 @@ start_grabber() {
       -map \"[captureout]\" -c:v mjpeg -q:v 5 -r 1 -f image2 \
       $capture_dir/captures/test_capture_%06d.jpg"
   elif [ "$source_type" = "x11grab" ]; then
-    # VNC display - set up X11 environment
+    # VNC display - use direct access (xhost +local:www-data already configured)
     local resolution=$(get_vnc_resolution "$source")
     
-    # Set environment variables for X11 access
+    # Simple DISPLAY export - no XAUTHORITY needed with xhost +local:
     export DISPLAY="$source"
-    export XAUTHORITY="/home/sunri-pi1/.Xauthority"
     
-    FFMPEG_CMD="DISPLAY=\"$source\" XAUTHORITY=\"/home/sunri-pi1/.Xauthority\" /usr/bin/ffmpeg -y -f x11grab -framerate \"$fps\" -video_size $resolution -i $source \
+    FFMPEG_CMD="DISPLAY=\"$source\" /usr/bin/ffmpeg -y -f x11grab -framerate \"$fps\" -video_size $resolution -i $source \
       -an \
       -filter_complex \"[0:v]split=2[stream][capture];[stream]scale=640:360[streamout];[capture]fps=1[captureout]\" \
       -map \"[streamout]\" \

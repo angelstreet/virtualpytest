@@ -108,15 +108,18 @@ start_grabber() {
       -map \"[captureout]\" -c:v mjpeg -q:v 5 -r 1 -f image2 \
       $capture_dir/captures/test_capture_%06d.jpg"
   elif [ "$source_type" = "x11grab" ]; then
-    # VNC display
+    # VNC display - use direct access (xhost +local:www-data already configured)
     local resolution=$(get_vnc_resolution "$source")
-    FFMPEG_CMD="/usr/bin/ffmpeg -y -f x11grab -framerate \"$fps\" -video_size $resolution -i $source \
-      -f alsa -thread_queue_size 1024 -i \"$audio_device\" \
+    
+    # Simple DISPLAY export - no XAUTHORITY needed with xhost +local:
+    export DISPLAY="$source"
+    
+    FFMPEG_CMD="DISPLAY=\"$source\" /usr/bin/ffmpeg -y -f x11grab -framerate \"$fps\" -video_size $resolution -i $source \
+      -an \
       -filter_complex \"[0:v]split=2[stream][capture];[stream]scale=640:360[streamout];[capture]fps=1[captureout]\" \
-      -map \"[streamout]\" -map 1:a \
+      -map \"[streamout]\" \
       -c:v libx264 -preset veryfast -tune zerolatency -crf 28 -maxrate 1200k -bufsize 2400k -g 30 \
       -pix_fmt yuv420p -profile:v baseline -level 3.0 \
-      -c:a aac -b:a 64k -ar 44100 -ac 2 \
       -f hls -hls_time 2 -hls_list_size 5 -hls_flags delete_segments \
       -hls_segment_filename $capture_dir/segment_%03d.ts \
       $capture_dir/output.m3u8 \
