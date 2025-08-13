@@ -145,6 +145,8 @@ export const VNCStream = React.memo(
     const { streamUrl, urlError } = useStream({ host, device_id: deviceId });
     const isStreamActive = !!streamUrl && !urlError; // VNC is active if we have a valid stream URL
 
+
+
     // Get device model (always host_vnc for VNC)
     const effectiveDeviceModel = useMemo(() => {
       return deviceModel || 'host_vnc';
@@ -186,6 +188,7 @@ export const VNCStream = React.memo(
       handleAreaSelected,
       handleImageLoad,
       handleTakeScreenshot: hookTakeScreenshot,
+      resizeForVncPanel,
     } = useVncStream({
       host,
       deviceModel: effectiveDeviceModel,
@@ -292,6 +295,7 @@ export const VNCStream = React.memo(
       if (isMinimized) {
         setIsMinimized(false);
         setIsExpanded(false);
+        resizeForVncPanel('collapsed');
         console.log(
           `[@component:VNCStream] Restored from minimized to collapsed for ${effectiveDeviceModel}`,
         );
@@ -299,6 +303,7 @@ export const VNCStream = React.memo(
         const newExpanded = !isExpanded;
         setIsExpanded(newExpanded);
         onCollapsedChange?.(!newExpanded);
+        resizeForVncPanel(newExpanded ? 'expanded' : 'collapsed');
         console.log(
           `[@component:VNCStream] Toggling panel to ${newExpanded ? 'expanded' : 'collapsed'} for ${effectiveDeviceModel}`,
         );

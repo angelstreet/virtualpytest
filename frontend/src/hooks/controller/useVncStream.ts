@@ -164,6 +164,22 @@ export function useVncStream({
     _setVideoFramesPath(path);
   }, []);
 
+  // VNC panel resize handler
+  const resizeForVncPanel = useCallback((panelState: 'expanded' | 'collapsed') => {
+    const targetSize = panelState === 'expanded' 
+      ? { width: 520, height: 360 }
+      : { width: 370, height: 240 };
+    
+    if (typeof window !== 'undefined') {
+      try {
+        window.resizeTo(targetSize.width, targetSize.height);
+        console.log(`[@hook:useVncStream] Browser resized to ${targetSize.width}x${targetSize.height}`);
+      } catch (error) {
+        console.error(`[@hook:useVncStream] Failed to resize browser:`, error);
+      }
+    }
+  }, []);
+
   // Return combined state and actions
   return {
     // State
@@ -226,5 +242,6 @@ export function useVncStream({
     handleAreaSelected,
     handleImageLoad,
     handleTakeScreenshot,
+    resizeForVncPanel,
   };
 }
