@@ -39,7 +39,7 @@ class PlaywrightWebController(WebControllerInterface):
         super().__init__("Playwright Web", "playwright")
         
         # Simple initialization with persistent user data
-        self.utils = PlaywrightUtils(auto_accept_cookies=True, window_size="auto")
+        self.utils = PlaywrightUtils(auto_accept_cookies=True)
         
         # Command execution state
         self.last_command_output = ""
@@ -272,8 +272,7 @@ class PlaywrightWebController(WebControllerInterface):
                 print(f"Web[{self.web_type.upper()}]: Navigating to {url} (normalized: {normalized_url})")
                 start_time = time.time()
                 
-                # Update viewport for embedded context
-                self.utils.update_viewport_for_context("embedded")
+
                 
                 # Connect to Chrome via CDP with auto-cookie injection for the target URL
                 playwright, browser, context, page = await self.utils.connect_to_chrome(target_url=normalized_url)
@@ -357,8 +356,7 @@ class PlaywrightWebController(WebControllerInterface):
                 print(f"Web[{self.web_type.upper()}]: Clicking element: {selector}")
                 start_time = time.time()
                 
-                # Update viewport for embedded context
-                self.utils.update_viewport_for_context("embedded")
+
                 
                 # Connect to Chrome via CDP
                 playwright, browser, context, page = await self.utils.connect_to_chrome()
@@ -529,8 +527,7 @@ class PlaywrightWebController(WebControllerInterface):
                 print(f"Web[{self.web_type.upper()}]: Finding element: {selector}")
                 start_time = time.time()
                 
-                # Update viewport for embedded context
-                self.utils.update_viewport_for_context("embedded")
+
                 
                 # Connect to Chrome via CDP
                 playwright, browser, context, page = await self.utils.connect_to_chrome()
@@ -1134,8 +1131,7 @@ class PlaywrightWebController(WebControllerInterface):
                 print(f"Web[{self.web_type.upper()}]: Dumping elements (type: {element_types}, include_hidden: {include_hidden})")
                 start_time = time.time()
                 
-                # Update viewport for embedded context
-                self.utils.update_viewport_for_context("embedded")
+
                 
                 # Connect to Chrome via CDP
                 playwright, browser, context, page = await self.utils.connect_to_chrome()

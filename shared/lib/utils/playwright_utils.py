@@ -257,17 +257,17 @@ class PlaywrightConnection:
         browser = await playwright.chromium.connect_over_cdp(cdp_url)
         
         if len(browser.contexts) == 0:
-            # Create new context with natural viewport (no forced sizing)
+            # Create new context with browser default viewport
             context = await browser.new_context()
             page = await context.new_page()
-            print(f'[PlaywrightConnection] Created new context with natural viewport')
+            print(f'[PlaywrightConnection] Created new context with browser default viewport')
         else:
             context = browser.contexts[0]
             if len(context.pages) == 0:
                 page = await context.new_page()
             else:
                 page = context.pages[0]
-            print(f'[PlaywrightConnection] Using existing context with natural viewport')
+            print(f'[PlaywrightConnection] Using existing context with browser default viewport')
         
         return playwright, browser, context, page
     
@@ -283,13 +283,12 @@ class PlaywrightConnection:
 class PlaywrightUtils:
     """Main utility class combining Chrome management, Playwright operations, and cookie management."""
     
-    def __init__(self, auto_accept_cookies: bool = True, window_size: str = "auto", user_data_dir: str = "./backend_host/config/user_data"):
+    def __init__(self, auto_accept_cookies: bool = True, user_data_dir: str = "./backend_host/config/user_data"):
         """
-        Initialize PlaywrightUtils.
+        Initialize PlaywrightUtils with auto-sizing browser.
         
         Args:
             auto_accept_cookies: Whether to automatically inject consent cookies
-            window_size: Browser window size ('auto' for default, or custom like '1280x1024')
             user_data_dir: Chrome user data directory for persistent sessions
         """
         self.chrome_manager = ChromeManager()
@@ -297,68 +296,9 @@ class PlaywrightUtils:
         self.connection = PlaywrightConnection()
         self.cookie_manager = CookieManager() if auto_accept_cookies else None
         self.auto_accept_cookies = auto_accept_cookies
-        self.window_size = window_size
         self.user_data_dir = resolve_user_data_dir(user_data_dir)
-        self.viewport_size = self._calculate_viewport_size(window_size)
         
-        print(f'[PlaywrightUtils] Initialized with auto_accept_cookies={auto_accept_cookies}, user_data_dir={self.user_data_dir}')
-    
-    def _calculate_viewport_size(self, window_size: str) -> dict:
-        """Calculate viewport size based on panel visibility and window size."""
-        if window_size == "auto":
-            # Dynamic sizing based on typical panel configurations
-            # VNC desktop resolution is typically 1280x1024
-            base_width = 1280
-            base_height = 1024
-            
-            # Use full VNC resolution for better content visibility and scrollbar support
-            # The frontend container will handle scaling as needed
-            viewport_width = base_width   # Use full width for better horizontal space
-            viewport_height = base_height  # Use full height for proper scrollbar visibility
-            
-            return {"width": viewport_width, "height": viewport_height}
-        else:
-            # Parse custom window size
-            try:
-                width, height = window_size.split('x')
-                return {"width": int(width), "height": int(height)}
-            except:
-                print(f'[PlaywrightUtils] Warning: Invalid window_size format "{window_size}", using auto-sizing')
-                return self._calculate_viewport_size("auto")
-    
-    def update_viewport_for_context(self, context: str = "embedded") -> dict:
-        """
-        Update viewport size based on usage context.
-        
-        Args:
-            context: 'embedded' (browser page), 'modal' (popup), 'fullscreen' (dedicated)
-            
-        Returns:
-            New viewport size dict
-        """
-        base_width = 1280
-        base_height = 1024
-        
-        if context == "embedded":
-            # Browser automation panel in web interface - use full size for better content visibility
-            viewport_width = base_width    # Use full width for proper content display
-            viewport_height = base_height  # Use full height for scrollbar visibility
-        elif context == "modal":
-            # Popup/modal window - use full size as modal handles its own constraints
-            viewport_width = base_width
-            viewport_height = base_height
-        elif context == "fullscreen":
-            # Full VNC resolution
-            viewport_width = base_width
-            viewport_height = base_height
-        else:
-            # Default to full size for all contexts
-            viewport_width = base_width
-            viewport_height = base_height
-        
-        self.viewport_size = {"width": viewport_width, "height": viewport_height}
-        print(f'[PlaywrightUtils] Updated viewport for {context} context: {viewport_width}x{viewport_height}')
-        return self.viewport_size
+        print(f'[PlaywrightUtils] Initialized with auto_accept_cookies={auto_accept_cookies}, viewport=auto (browser default), user_data_dir={self.user_data_dir}')
     
     def normalize_url(self, url: str) -> str:
         """
@@ -385,10 +325,6 @@ class PlaywrightUtils:
         
         # For all other URLs, default to https
         return f'https://{url}'
-    
-    def _parse_window_size(self, window_size: str) -> dict:
-        """Parse window size string to viewport dict (legacy method for compatibility)."""
-        return self._calculate_viewport_size(window_size)
     
     def launch_chrome(self, debug_port: int = 9222) -> subprocess.Popen:
         """Launch Chrome with remote debugging and persistent data."""
@@ -417,9 +353,8 @@ class PlaywrightUtils:
         Returns:
             Tuple of (playwright, browser, context, page)
         """
-        # Connect with natural viewport sizing
+        # Connect with browser default viewport
         playwright, browser, context, page = await self.connection.connect_to_chrome(cdp_url)
-        print(f'[PlaywrightUtils] Connected with natural viewport sizing')
         
         # Auto-inject cookies if enabled and target URL provided
         if self.auto_accept_cookies and self.cookie_manager and target_url:
@@ -458,9 +393,9 @@ class PlaywrightUtils:
 
 
 # Convenience functions for external use
-def create_playwright_utils(auto_accept_cookies: bool = True, window_size: str = "auto", user_data_dir: str = "./backend_host/config/user_data") -> PlaywrightUtils:
+def create_playwright_utils(auto_accept_cookies: bool = True, user_data_dir: str = "./backend_host/config/user_data") -> PlaywrightUtils:
     """Create a PlaywrightUtils instance."""
-    return PlaywrightUtils(auto_accept_cookies=auto_accept_cookies, window_size=window_size, user_data_dir=user_data_dir)
+    return PlaywrightUtils(auto_accept_cookies=auto_accept_cookies, user_data_dir=user_data_dir)
 
 
 def launch_chrome_for_debugging(debug_port: int = 9222, user_data_dir: str = "./backend_host/config/user_data") -> subprocess.Popen:
@@ -481,16 +416,15 @@ def get_available_cookie_sites() -> list:
 
 
 # Browser-use compatibility functions
-async def get_playwright_context_with_cookies(target_url: str = None, window_size: str = "auto"):
+async def get_playwright_context_with_cookies(target_url: str = None):
     """
     Get a Playwright context with auto-injected cookies for browser-use compatibility.
     
     Args:
         target_url: URL to inject cookies for
-        window_size: Browser window size (auto-sizing by default)
         
     Returns:
         Tuple of (playwright, browser, context, page)
     """
-    utils = PlaywrightUtils(auto_accept_cookies=True, window_size=window_size)
+    utils = PlaywrightUtils(auto_accept_cookies=True)
     return await utils.connect_to_chrome(target_url=target_url) 
