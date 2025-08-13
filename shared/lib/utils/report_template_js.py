@@ -349,7 +349,7 @@ function openVerificationImageModal(modalData) {{
         
         // Extract timestamp from filename (capture_YYYYMMDDHHMMSS.jpg)
         const extractTimestamp = (url) => {{
-            const match = url.match(/capture_(\d{{8}})(\d{{6}})/);
+            const match = url.match(/capture_(\\d{{8}})(\\d{{6}})/);
             if (match) {{
                 const date = match[1]; // YYYYMMDD
                 const time = match[2]; // HHMMSS

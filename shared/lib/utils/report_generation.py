@@ -85,7 +85,7 @@ def generate_validation_report(report_data: Dict) -> str:
     try:
         print(f"[@utils:report_utils:generate_validation_report] Generating report for {report_data.get('script_name')}")
         
-        # Extract report data
+        # Extract report data with safe defaults
         script_name = report_data.get('script_name', 'Unknown Script')
         device_info = report_data.get('device_info', {})
         host_info = report_data.get('host_info', {})
@@ -106,6 +106,11 @@ def generate_validation_report(report_data: Dict) -> str:
         # Generate HTML content
         html_template = create_themed_html_template()
         
+        # Safely handle video URL - ensure it's either a valid URL or empty string
+        test_video_url = report_data.get('test_video_url', '')
+        if test_video_url is None:
+            test_video_url = ''
+        
         # Replace placeholders with actual content
         html_content = html_template.format(
             script_name=script_name,
@@ -125,15 +130,18 @@ def generate_validation_report(report_data: Dict) -> str:
             execution_summary=format_console_summary_for_html(report_data.get('execution_summary', '')),
             initial_screenshot=get_thumbnail_screenshot_html(screenshots.get('initial')),
             final_screenshot=get_thumbnail_screenshot_html(screenshots.get('final')),
-            test_video=get_video_thumbnail_html(report_data.get('test_video_url'), 'Test Execution')
+            test_video=get_video_thumbnail_html(test_video_url, 'Test Execution')
         )
         
         print(f"[@utils:report_utils:generate_validation_report] Report generated successfully")
         return html_content
         
     except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
         print(f"[@utils:report_utils:generate_validation_report] Error: {str(e)}")
-        return create_error_report(str(e))
+        print(f"[@utils:report_utils:generate_validation_report] Full traceback: {error_details}")
+        return create_error_report(f"Report generation failed: {str(e)}")
 
 
 def generate_and_upload_script_report(

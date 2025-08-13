@@ -420,6 +420,7 @@ class ScriptExecutor:
             
             # Capture test execution video (duration based on test execution time)
             print(f"🎥 [{self.script_name}] Capturing test execution video...")
+            context.test_video_url = ""  # Initialize with empty string
             try:
                 # Use same pattern as screenshots - get AV controller directly
                 from .host_utils import get_controller
@@ -443,11 +444,14 @@ class ScriptExecutor:
                         context.test_video_url = test_video_url
                         print(f"✅ [{self.script_name}] Test execution video captured: {test_video_url}")
                     else:
-                        print(f"⚠️ [{self.script_name}] Failed to capture test video, continuing...")
+                        print(f"⚠️ [{self.script_name}] Failed to capture test video, continuing with report generation...")
+                        context.test_video_url = ""  # Ensure it's empty string, not None
                 else:
-                    print(f"⚠️ [{self.script_name}] AV controller doesn't support video capture")
+                    print(f"⚠️ [{self.script_name}] AV controller doesn't support video capture, continuing with report generation...")
+                    context.test_video_url = ""
             except Exception as e:
-                print(f"⚠️ [{self.script_name}] Error capturing test video: {e}")
+                print(f"⚠️ [{self.script_name}] Error capturing test video: {e}, continuing with report generation...")
+                context.test_video_url = ""  # Ensure report generation continues
             
             # Generate and upload report
             device_info = {
@@ -470,7 +474,7 @@ class ScriptExecutor:
                 error_message=context.error_message,
                 userinterface_name=userinterface_name,
                 execution_summary=getattr(context, 'execution_summary', ''),
-                test_video_url=getattr(context, 'test_video_url', '')
+                test_video_url=getattr(context, 'test_video_url', '') or ''
             )
             
             if report_result.get('success') and report_result.get('report_url'):

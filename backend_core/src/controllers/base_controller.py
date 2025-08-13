@@ -350,7 +350,8 @@ class FFmpegCaptureController(AVControllerInterface):
             m3u8_path = os.path.join(self.video_capture_path, "output.m3u8")
             
             if not os.path.exists(m3u8_path):
-                print(f"{self.capture_source}[{self.capture_source}]: No M3U8 file found")
+                print(f"{self.capture_source}[{self.capture_source}]: No M3U8 file found at {m3u8_path}")
+                print(f"{self.capture_source}[{self.capture_source}]: This is expected if video capture is not active. Report will continue without video.")
                 return None
             
             # 2. Wait for encoder to finish and get updated playlist

@@ -12,8 +12,8 @@ from .report_step_formatter import create_compact_step_results_section
 
 def get_video_thumbnail_html(video_url: str, label: str = "Video") -> str:
     """Generate HTML for video thumbnail that opens video URL in modal"""
-    if not video_url:
-        return ""
+    if not video_url or video_url is None:
+        return '<div class="video-placeholder" style="text-align: center; color: #888; font-style: italic; padding: 20px;">No video available</div>'
     
     # Escape quotes in the URL and label for JavaScript
     escaped_url = video_url.replace("'", "\\'").replace('"', '\\"')
