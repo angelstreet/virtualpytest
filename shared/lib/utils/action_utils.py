@@ -154,8 +154,8 @@ def execute_action_directly(host, device, action: Dict[str, Any]) -> Dict[str, A
                             'iteration_results': []
                         }
                     
-                    iteration_success = web_controller.execute_command(command, params)
-                    result = {'success': iteration_success}
+                    result = web_controller.execute_command(command, params)
+                    iteration_success = result.get('success', False)
                     
                 elif action_type == 'desktop':
                     # Intelligent routing to correct desktop controller
@@ -180,8 +180,8 @@ def execute_action_directly(host, device, action: Dict[str, Any]) -> Dict[str, A
                             'iteration_results': []
                         }
                     
-                    iteration_success = desktop_controller.execute_command(command, params)
-                    result = {'success': iteration_success}
+                    result = desktop_controller.execute_command(command, params)
+                    iteration_success = result.get('success', False)
                     
                 else:
                     # Route to remote controller (default behavior for remote actions)
