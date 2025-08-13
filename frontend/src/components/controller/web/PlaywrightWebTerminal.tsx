@@ -30,12 +30,12 @@ import { PlaywrightWebOverlay } from './PlaywrightWebOverlay';
 
 interface PlaywrightWebTerminalProps {
   host: Host;
-  vncExpanded?: boolean; // Track VNC panel state
+  vncExpanded: boolean; // VNC panel state - required
 }
 
 export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
   host,
-  vncExpanded = true, // Default to expanded
+  vncExpanded,
 }: PlaywrightWebTerminalProps) {
   const {
     executeCommand,
@@ -569,7 +569,7 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
 
   // Dynamic VNC panel info using same scaling as VNC stream
   const getVNCPanelInfo = () => {
-    // Use the vncExpanded prop directly - it reflects the actual VNC panel state
+    // Use the vncExpanded prop directly
     const actualVncExpanded = vncExpanded;
     
     // Use same scaling calculation as VNC stream

@@ -43,6 +43,7 @@ export const WebPanel = React.memo(
       deviceId,
       deviceModel,
       initialCollapsed,
+      vncExpanded,
     });
 
     // Panel state - three states: expanded, collapsed, minimized
@@ -146,10 +147,10 @@ export const WebPanel = React.memo(
       switch (deviceModel) {
         case 'host_vnc':
           // Playwright Web Terminal for host_vnc devices with web capability
-          return <PlaywrightWebTerminal host={host} vncExpanded={vncExpanded ?? !isCollapsed} />;
+          return <PlaywrightWebTerminal host={host} vncExpanded={vncExpanded} />;
         case 'host_web':
           // Legacy case - redirect to host_vnc behavior
-          return <PlaywrightWebTerminal host={host} vncExpanded={vncExpanded ?? !isCollapsed} />;
+          return <PlaywrightWebTerminal host={host} vncExpanded={vncExpanded} />;
         default:
           return (
             <Box
