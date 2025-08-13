@@ -13,9 +13,9 @@ def create_themed_html_template() -> str:
     css_content = get_report_css().strip()
     js_content = get_report_javascript().strip()
     
-    # Escape CSS and JS content to prevent template conflicts
+    # Escape CSS content to prevent template conflicts
     css_content = css_content.replace('{', '{{').replace('}', '}}')
-    js_content = js_content.replace('{', '{{').replace('}', '}}')
+    # JavaScript should NOT be escaped - it's already properly formatted
     
     return f"""<!DOCTYPE html>
 <html lang="en">
