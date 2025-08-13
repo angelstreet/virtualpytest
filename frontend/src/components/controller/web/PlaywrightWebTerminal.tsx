@@ -600,6 +600,8 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
       size: { width: overlayWidth, height: overlayHeight },
       deviceResolution: browserViewport, // Browser viewport size from dump_elements
       isCollapsed: !actualVncExpanded,
+      scaleX: scaleX,
+      scaleY: scaleY,
     };
     
     console.log('[PlaywrightWebTerminal] Dynamic VNC Panel Info:', {
@@ -607,6 +609,8 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
       vncResolution,
       panelSize,
       browserViewport,
+      scaleX: scaleX.toFixed(3),
+      scaleY: scaleY.toFixed(3),
       overlayDimensions: `${overlayWidth.toFixed(0)}x${overlayHeight.toFixed(0)}`,
       panelPosition: { panelX, panelY },
       overlayPosition: { x, y },

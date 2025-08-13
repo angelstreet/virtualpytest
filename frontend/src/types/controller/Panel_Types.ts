@@ -11,7 +11,9 @@ export interface PanelInfo {
   size: { width: number; height: number };
   deviceResolution: { width: number; height: number };
   isCollapsed: boolean;
-  vncScaleFactor?: number; // VNC scaling factor for easy element scaling
+  vncScaleFactor?: number; // Legacy: VNC scaling factor for easy element scaling
+  scaleX?: number; // X-axis scaling factor for accurate element scaling
+  scaleY?: number; // Y-axis scaling factor for accurate element scaling
 }
 
 // Panel dimensions for both states
