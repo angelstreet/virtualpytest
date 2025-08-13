@@ -166,14 +166,39 @@ export function useVncStream({
 
   // VNC panel resize handler
   const resizeForVncPanel = useCallback((panelState: 'expanded' | 'collapsed') => {
+    console.log(`[@hook:useVncStream] Resize requested for panel state: ${panelState}`);
+    
     const targetSize = panelState === 'expanded' 
       ? { width: 520, height: 360 }
       : { width: 370, height: 240 };
     
+    console.log(`[@hook:useVncStream] Target size for ${panelState}: ${targetSize.width}x${targetSize.height}`);
+    
     if (typeof window !== 'undefined') {
+      // Log current browser size before resize
+      const currentSize = {
+        innerWidth: window.innerWidth,
+        innerHeight: window.innerHeight,
+        outerWidth: window.outerWidth,
+        outerHeight: window.outerHeight
+      };
+      console.log(`[@hook:useVncStream] Current browser size before resize:`, currentSize);
+      
       try {
         window.resizeTo(targetSize.width, targetSize.height);
-        console.log(`[@hook:useVncStream] Browser resized to ${targetSize.width}x${targetSize.height}`);
+        console.log(`[@hook:useVncStream] Resize command sent: ${targetSize.width}x${targetSize.height}`);
+        
+        // Log size after resize (with small delay to see the result)
+        setTimeout(() => {
+          const newSize = {
+            innerWidth: window.innerWidth,
+            innerHeight: window.innerHeight,
+            outerWidth: window.outerWidth,
+            outerHeight: window.outerHeight
+          };
+          console.log(`[@hook:useVncStream] Browser size after resize:`, newSize);
+        }, 100);
+        
       } catch (error) {
         console.error(`[@hook:useVncStream] Failed to resize browser:`, error);
       }
