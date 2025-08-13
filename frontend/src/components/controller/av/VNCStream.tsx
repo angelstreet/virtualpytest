@@ -483,7 +483,7 @@ export const VNCStream = React.memo(
 
                 <Tooltip
                   title={
-                    isMinimized ? 'Restore Panel' : isExpanded ? 'Collapse Panel' : 'Expand Panel'
+                    isMinimized ? 'Restore Panel' : isVNCExpanded ? 'Collapse Panel' : 'Expand Panel'
                   }
                 >
                   <IconButton
@@ -576,7 +576,7 @@ export const VNCStream = React.memo(
                 <RecordingOverlay isCapturing={isCaptureActive} />
 
                 {/* Mode indicator dot for collapsed view */}
-                {!isExpanded && <ModeIndicatorDot viewMode={captureMode} />}
+                {!isVNCExpanded && <ModeIndicatorDot viewMode={captureMode} />}
               </Box>
             )}
           </Box>
