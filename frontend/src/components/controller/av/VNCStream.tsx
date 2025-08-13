@@ -34,17 +34,17 @@ interface VNCStreamProps {
   sx?: any;
 }
 
-// VNC Viewer Component for iframe display with responsive scaling
+// VNC Viewer Component for iframe display with dynamic scaling
 const VNCViewer = ({ 
   streamUrl, 
   isExpanded, 
-  contentLayout, 
+  calculateVncScaling,
   sx = {} 
 }: { 
   host: Host; 
   streamUrl: string | null; 
   isExpanded: boolean;
-  contentLayout?: any;
+  calculateVncScaling: (panelState: 'expanded' | 'collapsed') => any;
   sx?: any;
 }) => {
   const [isVncLoading, setIsVncLoading] = useState(true);
@@ -69,9 +69,9 @@ const VNCViewer = ({
     );
   }
 
-  // Get the appropriate layout configuration
-  const layoutConfig = isExpanded ? contentLayout?.expanded : contentLayout?.collapsed;
-  const iframeConfig = layoutConfig?.iframe;
+  // Calculate dynamic scaling based on current panel state
+  const panelState = isExpanded ? 'expanded' : 'collapsed';
+  const scaling = calculateVncScaling(panelState);
 
   return (
     <Box
@@ -103,16 +103,16 @@ const VNCViewer = ({
         </Box>
       )}
 
-      {/* VNC iframe with responsive scaling to prevent cropping */}
+      {/* VNC iframe with dynamic scaling to fit panel */}
       <iframe
         src={streamUrl}
         style={{
-          width: iframeConfig?.width || '100%',
-          height: iframeConfig?.height || '100%',
+          width: scaling.width,
+          height: scaling.height,
           border: 'none',
           backgroundColor: '#000',
-          transform: iframeConfig?.transform || 'none',
-          transformOrigin: iframeConfig?.transformOrigin || 'top left',
+          transform: scaling.transform,
+          transformOrigin: scaling.transformOrigin,
         }}
         onLoad={handleVncLoad}
         title="VNC Desktop Stream"
@@ -188,7 +188,7 @@ export const VNCStream = React.memo(
       handleAreaSelected,
       handleImageLoad,
       handleTakeScreenshot: hookTakeScreenshot,
-      resizeForVncPanel,
+      calculateVncScaling,
     } = useVncStream({
       host,
       deviceModel: effectiveDeviceModel,
@@ -295,7 +295,6 @@ export const VNCStream = React.memo(
       if (isMinimized) {
         setIsMinimized(false);
         setIsExpanded(false);
-        resizeForVncPanel('collapsed');
         console.log(
           `[@component:VNCStream] Restored from minimized to collapsed for ${effectiveDeviceModel}`,
         );
@@ -303,10 +302,10 @@ export const VNCStream = React.memo(
         const newExpanded = !isExpanded;
         setIsExpanded(newExpanded);
         onCollapsedChange?.(!newExpanded);
-        resizeForVncPanel(newExpanded ? 'expanded' : 'collapsed');
-        console.log(
-          `[@component:VNCStream] Toggling panel to ${newExpanded ? 'expanded' : 'collapsed'} for ${effectiveDeviceModel}`,
-        );
+        
+        // Calculate and log new scaling
+        const scaling = calculateVncScaling(newExpanded ? 'expanded' : 'collapsed');
+        console.log(`[@component:VNCStream] Panel toggled to ${newExpanded ? 'expanded' : 'collapsed'} with scaling:`, scaling);
       }
     };
 
@@ -513,7 +512,7 @@ export const VNCStream = React.memo(
                   host={host}
                   streamUrl={streamUrl}
                   isExpanded={isExpanded}
-                  contentLayout={avConfig?.content_layout}
+                  calculateVncScaling={calculateVncScaling}
                   sx={{
                     position: 'absolute',
                     top: 0,

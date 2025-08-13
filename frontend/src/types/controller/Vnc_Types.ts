@@ -116,4 +116,13 @@ export interface VncStreamActions {
   handleAreaSelected: (area: DragArea) => void;
   handleImageLoad: (imageDimensions: { width: number; height: number }) => void;
   handleTakeScreenshot: () => Promise<void>;
+  calculateVncScaling: (panelState: 'expanded' | 'collapsed') => {
+    scale: number;
+    scaledWidth: number;
+    scaledHeight: number;
+    transform: string;
+    transformOrigin: string;
+    width: string;
+    height: string;
+  };
 }

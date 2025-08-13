@@ -164,45 +164,43 @@ export function useVncStream({
     _setVideoFramesPath(path);
   }, []);
 
-  // VNC panel resize handler
-  const resizeForVncPanel = useCallback((panelState: 'expanded' | 'collapsed') => {
-    console.log(`[@hook:useVncStream] Resize requested for panel state: ${panelState}`);
+  // Calculate optimal VNC stream scaling for panel sizes
+  const calculateVncScaling = useCallback((panelState: 'expanded' | 'collapsed') => {
+    // VNC native resolution (detected from your logs)
+    const vncResolution = { width: 1440, height: 847 };
     
-    const targetSize = panelState === 'expanded' 
+    // Target panel sizes
+    const panelSize = panelState === 'expanded' 
       ? { width: 520, height: 360 }
       : { width: 370, height: 240 };
     
-    console.log(`[@hook:useVncStream] Target size for ${panelState}: ${targetSize.width}x${targetSize.height}`);
+    // Calculate scale to fit VNC content in panel
+    const scaleX = panelSize.width / vncResolution.width;
+    const scaleY = panelSize.height / vncResolution.height;
+    const optimalScale = Math.min(scaleX, scaleY); // Maintain aspect ratio
     
-    if (typeof window !== 'undefined') {
-      // Log current browser size before resize
-      const currentSize = {
-        innerWidth: window.innerWidth,
-        innerHeight: window.innerHeight,
-        outerWidth: window.outerWidth,
-        outerHeight: window.outerHeight
-      };
-      console.log(`[@hook:useVncStream] Current browser size before resize:`, currentSize);
-      
-      try {
-        window.resizeTo(targetSize.width, targetSize.height);
-        console.log(`[@hook:useVncStream] Resize command sent: ${targetSize.width}x${targetSize.height}`);
-        
-        // Log size after resize (with small delay to see the result)
-        setTimeout(() => {
-          const newSize = {
-            innerWidth: window.innerWidth,
-            innerHeight: window.innerHeight,
-            outerWidth: window.outerWidth,
-            outerHeight: window.outerHeight
-          };
-          console.log(`[@hook:useVncStream] Browser size after resize:`, newSize);
-        }, 100);
-        
-      } catch (error) {
-        console.error(`[@hook:useVncStream] Failed to resize browser:`, error);
-      }
-    }
+    // Calculate scaled dimensions
+    const scaledWidth = vncResolution.width * optimalScale;
+    const scaledHeight = vncResolution.height * optimalScale;
+    
+    console.log(`[@hook:useVncStream] VNC scaling calculation:`, {
+      panelState,
+      vncResolution,
+      panelSize,
+      optimalScale: optimalScale.toFixed(3),
+      scaledDimensions: `${scaledWidth.toFixed(0)}x${scaledHeight.toFixed(0)}`
+    });
+    
+    return {
+      scale: optimalScale,
+      scaledWidth,
+      scaledHeight,
+      transform: `scale(${optimalScale})`,
+      transformOrigin: 'top left',
+      // Container needs to be larger to accommodate scaled content
+      width: `${(scaledWidth / optimalScale)}px`,
+      height: `${(scaledHeight / optimalScale)}px`
+    };
   }, []);
 
   // Return combined state and actions
@@ -267,6 +265,6 @@ export function useVncStream({
     handleAreaSelected,
     handleImageLoad,
     handleTakeScreenshot,
-    resizeForVncPanel,
+    calculateVncScaling,
   };
 }
