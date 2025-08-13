@@ -90,7 +90,7 @@ document.addEventListener('DOMContentLoaded', () => {{
 
 function toggleSection(sectionId) {{
     const content = document.getElementById(sectionId);
-    const button = document.querySelector("[onclick=\"toggleSection('" + sectionId + "')\"] .toggle-btn");
+    const button = document.querySelector('[onclick="toggleSection(\'' + sectionId + '\')"] .toggle-btn');
     
     if (content.classList.contains('expanded')) {{
         content.classList.remove('expanded');
