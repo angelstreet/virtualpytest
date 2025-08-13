@@ -331,6 +331,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
 
     // Memoize the AV panel collapsed change handler to prevent infinite loops
     const handleAVPanelCollapsedChange = useCallback((isCollapsed: boolean) => {
+      console.log('[NavigationEditor] VNC panel state changed:', { isCollapsed, vncExpanded: !isCollapsed });
       setIsAVPanelCollapsed(isCollapsed);
     }, []);
 
