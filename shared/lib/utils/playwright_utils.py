@@ -83,6 +83,7 @@ class ChromeManager:
             '--no-default-browser-check',
             '--disable-features=Translate,InfiniteSessionRestore,TabRestore',
             '--disable-extensions',
+            '--window-size=1440,847',  # Fixed window size to fit VNC display (1440x847)
             '--use-gl=egl',                    # Use EGL for rendering
             '--ignore-gpu-blocklist',          # Override GPU blocklist
             '--enable-gpu-rasterization',      # Use GPU for rasterizing web content
