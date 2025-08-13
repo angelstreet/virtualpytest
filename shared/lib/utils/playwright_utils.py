@@ -83,7 +83,6 @@ class ChromeManager:
             '--no-default-browser-check',
             '--disable-features=Translate,InfiniteSessionRestore,TabRestore',
             '--disable-extensions',
-            '--window-size=1440,847',  # Fixed window size to fit VNC display (1440x847)
             '--use-gl=egl',                    # Use EGL for rendering
             '--ignore-gpu-blocklist',          # Override GPU blocklist
             '--enable-gpu-rasterization',      # Use GPU for rasterizing web content
@@ -211,7 +210,31 @@ class ChromeManager:
             cmd_line = chrome_cmd
             print(f'[ChromeManager] Full Chrome command: {" ".join(cmd_line)}')
         
-        print(f'[ChromeManager] Using maximized window (natural VNC sizing)')
+        # Log VNC display information before launching Chrome
+        vnc_display = ":1"
+        try:
+            result = subprocess.run(['xdpyinfo', '-display', vnc_display], 
+                                  capture_output=True, text=True, timeout=5)
+            if result.returncode == 0:
+                for line in result.stdout.split('\n'):
+                    if 'dimensions:' in line:
+                        actual_vnc_size = line.split()[1]
+                        print(f'[ChromeManager] Detected VNC display {vnc_display} actual size: {actual_vnc_size}')
+                        break
+            else:
+                print(f'[ChromeManager] Could not detect VNC display {vnc_display} size')
+        except Exception as e:
+            print(f'[ChromeManager] VNC size detection failed: {e}')
+        
+        # Log the Chrome window size being set
+        chrome_window_size = None
+        for flag in chrome_flags:
+            if flag.startswith('--window-size='):
+                chrome_window_size = flag.replace('--window-size=', '')
+                print(f'[ChromeManager] Setting Chrome window size to: {chrome_window_size}')
+                break
+        
+        print(f'[ChromeManager] Chrome configured for VNC display')
         
         # Set environment
         env = os.environ.copy()
@@ -220,6 +243,7 @@ class ChromeManager:
         # Launch Chrome (with or without cgroup limits)
         process = subprocess.Popen(cmd_line, env=env)
         print(f'[ChromeManager] Chrome launched with PID: {process.pid}')
+        print(f'[ChromeManager] Chrome should open with size: {chrome_window_size} on VNC display: {vnc_display}')
         
         # Wait for Chrome to be ready
         cls._wait_for_chrome_ready(debug_port)
@@ -297,6 +321,22 @@ class PlaywrightConnection:
             else:
                 page = context.pages[0]
             print(f'[PlaywrightConnection] Using existing context with browser default viewport')
+        
+        # Log actual browser viewport size after connection
+        try:
+            viewport_info = await page.evaluate("""() => ({
+                innerWidth: window.innerWidth,
+                innerHeight: window.innerHeight,
+                outerWidth: window.outerWidth,
+                outerHeight: window.outerHeight,
+                screenWidth: screen.width,
+                screenHeight: screen.height
+            })""")
+            print(f'[PlaywrightConnection] Browser viewport: {viewport_info["innerWidth"]}x{viewport_info["innerHeight"]}')
+            print(f'[PlaywrightConnection] Browser window: {viewport_info["outerWidth"]}x{viewport_info["outerHeight"]}')
+            print(f'[PlaywrightConnection] Screen size: {viewport_info["screenWidth"]}x{viewport_info["screenHeight"]}')
+        except Exception as e:
+            print(f'[PlaywrightConnection] Could not get browser size info: {e}')
         
         return playwright, browser, context, page
     
