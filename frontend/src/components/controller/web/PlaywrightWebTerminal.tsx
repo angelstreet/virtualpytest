@@ -593,7 +593,7 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
     
     // Overlay position: always left-aligned at 20px, matching VNC panel bottom position
     const x = 20;
-    const y = window.innerHeight - overlayHeight + 40;
+    const y = window.innerHeight - overlayHeight + 30;
     
     const panelInfo = {
       position: { x, y },
