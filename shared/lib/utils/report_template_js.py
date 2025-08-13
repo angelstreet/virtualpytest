@@ -78,7 +78,7 @@ class ThemeManager {{
     updateSlider() {{
         const slider = document.querySelector('.theme-slider');
         if (slider) {{
-            slider.className = `theme-slider ${{this.currentMode}}`;
+            slider.className = 'theme-slider ' + this.currentMode;
         }}
     }}
 }}
@@ -90,7 +90,7 @@ document.addEventListener('DOMContentLoaded', () => {{
 
 function toggleSection(sectionId) {{
     const content = document.getElementById(sectionId);
-    const button = document.querySelector(`[onclick="toggleSection('${{sectionId}}')"] .toggle-btn`);
+    const button = document.querySelector("[onclick=\"toggleSection('" + sectionId + "')\"] .toggle-btn");
     
     if (content.classList.contains('expanded')) {{
         content.classList.remove('expanded');
@@ -149,8 +149,8 @@ function updateModalContent() {{
         const cmd = current.command;
         const params = current.params || {{}};
         const paramsStr = Object.keys(params).length > 0 ? 
-            ' ' + Object.entries(params).map(([k,v]) => `${{k}}="${{v}}"`).join(' ') : '';
-        actionInfo.textContent = `${{current.label}}: ${{cmd}}${{paramsStr}}`;
+            ' ' + Object.entries(params).map(([k,v]) => k + '="' + v + '"').join(' ') : '';
+        actionInfo.textContent = current.label + ': ' + cmd + paramsStr;
         actionInfo.style.display = 'block';
     }} else {{
         actionInfo.textContent = current.label;
@@ -159,7 +159,7 @@ function updateModalContent() {{
     
     // Update counter
     const counter = document.getElementById('modal-counter');
-    counter.textContent = `${{currentScreenshotIndex + 1}} / ${{screenshots.length}}`;
+    counter.textContent = (currentScreenshotIndex + 1) + ' / ' + screenshots.length;
     
     // Update navigation buttons
     const prevBtn = document.getElementById('modal-prev');
@@ -220,7 +220,7 @@ function openHLSVideoModal(videoUrl, label) {{
         videoModal.innerHTML = `
             <div class="modal-content video-modal-content">
                 <div class="modal-header">
-                    <h3 id="hls-video-modal-title">${{label}}</h3>
+                    <h3 id="hls-video-modal-title">' + label + '</h3>
                     <button class="modal-close" onclick="closeHLSVideoModal()">&times;</button>
                 </div>
                 <div class="modal-body">
@@ -359,7 +359,7 @@ function openVerificationImageModal(modalData) {{
                 const hour = time.substring(0, 2);
                 const minute = time.substring(2, 4);
                 const second = time.substring(4, 6);
-                return `${{hour}}:${{minute}}:${{second}}`;
+                return hour + ':' + minute + ':' + second;
             }}
             return '';
         }};
