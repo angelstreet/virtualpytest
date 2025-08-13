@@ -1,15 +1,20 @@
 #!/usr/bin/env python3
 """
-Simple Navigation Script for VirtualPyTest
+Smart Navigation Script for VirtualPyTest
 
-This script navigates to the live node using the unified script framework.
+This script intelligently navigates to the appropriate live node based on device type:
+- For mobile devices: navigates to 'live_fullscreen'
+- For other devices: navigates to 'live'
+
+Device type is determined by checking if the device model contains 'mobile' (case-insensitive).
 
 Usage:
     python scripts/goto_live.py [userinterface_name] [--host <host>] [--device <device>]
     
 Example:
     python scripts/goto_live.py
-    python scripts/goto_live.py horizon_android_mobile
+    python scripts/goto_live.py horizon_android_mobile    # Will go to live_fullscreen
+    python scripts/goto_live.py horizon_android_tv        # Will go to live
     python scripts/goto_live.py horizon_android_mobile --device device2
 """
 
@@ -67,12 +72,21 @@ def main():
             executor.cleanup_and_exit(context, args.userinterface_name)
             return
         
-        # Find path to live
-        print(f"🗺️ [{script_name}] Finding path to live...")
-        navigation_path = find_shortest_path(context.tree_id, "live", context.team_id)
+        # Determine target node based on device model
+        if "mobile" in context.selected_device.device_model.lower():
+            target_node = "live_fullscreen"
+        else:
+            target_node = "live"
+        
+        print(f"🎯 [{script_name}] Device model: {context.selected_device.device_model}")
+        print(f"🎯 [{script_name}] Target node: {target_node}")
+        
+        # Find path to target node
+        print(f"🗺️ [{script_name}] Finding path to {target_node}...")
+        navigation_path = find_shortest_path(context.tree_id, target_node, context.team_id)
         
         if not navigation_path:
-            context.error_message = "No path found to live"
+            context.error_message = f"No path found to {target_node}"
             print(f"❌ [{script_name}] {context.error_message}")
             executor.cleanup_and_exit(context, args.userinterface_name)
             return
@@ -84,11 +98,11 @@ def main():
         context.overall_success = success
         
         # Capture summary for report
-        summary_text = capture_navigation_summary(context, args.userinterface_name, "live", len(navigation_path))
+        summary_text = capture_navigation_summary(context, args.userinterface_name, target_node, len(navigation_path))
         context.execution_summary = summary_text
         
         if success:
-            print(f"🎉 [{script_name}] Successfully navigated to live!")
+            print(f"🎉 [{script_name}] Successfully navigated to {target_node}!")
         
     except KeyboardInterrupt:
         handle_keyboard_interrupt(script_name)
