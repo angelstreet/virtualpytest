@@ -468,8 +468,8 @@ class PlaywrightWebController(WebControllerInterface):
                                             success: true,
                                             tagName: targetElement.tagName,
                                             textContent: targetElement.textContent?.trim()?.substring(0, 50),
-                                            selector: targetElement.id ? `#${{targetElement.id}}` : 
-                                                     targetElement.className ? `.${{targetElement.className.split(' ')[0]}}` :
+                                            selector: targetElement.id ? '#' + targetElement.id : 
+                                                     targetElement.className ? '.' + targetElement.className.split(' ')[0] :
                                                      targetElement.tagName.toLowerCase()
                                         }};
                                     }}
@@ -618,8 +618,8 @@ class PlaywrightWebController(WebControllerInterface):
                                         ariaLabel: targetElement.getAttribute('aria-label'),
                                         id: targetElement.id,
                                         className: targetElement.className,
-                                        selector: targetElement.id ? `#${{targetElement.id}}` : 
-                                                 targetElement.className ? `.${{targetElement.className.split(' ')[0]}}` :
+                                        selector: targetElement.id ? '#' + targetElement.id : 
+                                                 targetElement.className ? '.' + targetElement.className.split(' ')[0] :
                                                  targetElement.tagName.toLowerCase(),
                                         position: {{
                                             x: Math.round(rect.left),
@@ -1292,7 +1292,7 @@ class PlaywrightWebController(WebControllerInterface):
                             
                             // Add ID if available
                             if (el.id) {{
-                                selector = `#${{el.id}}`;
+                                selector = '#' + el.id;
                             }} else {{
                                 // Add class if available
                                 if (el.className && typeof el.className === 'string') {{
