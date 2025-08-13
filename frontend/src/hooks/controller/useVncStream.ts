@@ -171,8 +171,8 @@ export function useVncStream({
     
     // Target panel sizes
     const panelSize = panelState === 'expanded' 
-      ? { width: 520, height: 360 - 40 }
-      : { width: 370, height: 240 - 40 };
+      ? { width: 520, height: 320 }
+      : { width: 370, height: 200 };
     
     // Calculate scale to fit VNC content in panel
     const scaleX = panelSize.width / vncResolution.width;
