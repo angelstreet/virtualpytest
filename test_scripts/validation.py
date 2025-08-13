@@ -92,11 +92,15 @@ def capture_validation_summary(context: ScriptExecutionContext, userinterface_na
             step_num = failed_step.get('step_number')
             from_node = failed_step.get('from_node')
             to_node = failed_step.get('to_node')
-            # Get the error from verification results if available
-            error = 'Unknown error'
-            verification_results = failed_step.get('verification_results', [])
-            if verification_results and verification_results[0].get('error'):
-                error = verification_results[0].get('error')
+            # Get the error from step-level error field first, then verification results
+            error = failed_step.get('error')
+            if not error:
+                # Check verification results as fallback
+                verification_results = failed_step.get('verification_results', [])
+                if verification_results and verification_results[0].get('error'):
+                    error = verification_results[0].get('error')
+                else:
+                    error = 'Unknown error'
             lines.append(f"   Step {step_num}: {from_node} → {to_node}")
             lines.append(f"     Error: {error}")
     
@@ -186,11 +190,15 @@ def print_validation_summary(context: ScriptExecutionContext, userinterface_name
             step_num = failed_step.get('step_number')
             from_node = failed_step.get('from_node')
             to_node = failed_step.get('to_node')
-            # Get the error from verification results if available
-            error = 'Unknown error'
-            verification_results = failed_step.get('verification_results', [])
-            if verification_results and verification_results[0].get('error'):
-                error = verification_results[0].get('error')
+            # Get the error from step-level error field first, then verification results
+            error = failed_step.get('error')
+            if not error:
+                # Check verification results as fallback
+                verification_results = failed_step.get('verification_results', [])
+                if verification_results and verification_results[0].get('error'):
+                    error = verification_results[0].get('error')
+                else:
+                    error = 'Unknown error'
             print(f"   Step {step_num}: {from_node} → {to_node}")
             print(f"     Error: {error}")
     

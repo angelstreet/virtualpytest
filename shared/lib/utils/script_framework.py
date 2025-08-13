@@ -313,6 +313,7 @@ class ScriptExecutor:
                     'actions': step.get('actions', []),
                     'verifications': step.get('verifications', []),
                     'verification_results': result.get('verification_results', []),
+                    'error': result.get('error'),  # Store actual error message from action execution
                     'recovered': False  # Will be updated if recovery happens
                 }
                 context.step_results.append(step_result)

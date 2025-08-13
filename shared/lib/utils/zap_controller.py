@@ -810,7 +810,7 @@ class ZapController:
         }
         
         if not action_result.get('success'):
-            step_result['error_message'] = action_result.get('error', 'Unknown error')
+            step_result['error'] = action_result.get('error', 'Unknown error')
         
         context.step_results.append(step_result)
     

@@ -575,7 +575,8 @@ def goto_node(host, device, target_node_label: str, tree_id: str, team_id: str, 
                     'to_node': to_node,
                     'actions': step.get('actions', []),
                     'verifications': step.get('verifications', []),
-                    'verification_results': result.get('verification_results', [])
+                    'verification_results': result.get('verification_results', []),
+                    'error': result.get('error')  # Store actual error message from action execution
                 }
                 context.step_results.append(step_result)
             

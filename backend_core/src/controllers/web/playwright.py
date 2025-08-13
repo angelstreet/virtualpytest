@@ -352,18 +352,19 @@ class PlaywrightWebController(WebControllerInterface):
         Args:
             selector: CSS selector, or text content to search for
         """
-        async def _async_click_element():
+                async def _async_click_element():
             try:
                 print(f"Web[{self.web_type.upper()}]: Clicking element: {selector}")
                 start_time = time.time()
                 
-
-                
                 # Connect to Chrome via CDP
+                connect_start = time.time()
                 playwright, browser, context, page = await self.utils.connect_to_chrome()
+                connect_time = int((time.time() - connect_start) * 1000)
+                print(f"Web[{self.web_type.upper()}]: Chrome connection took {connect_time}ms")
                 
-                # Use fixed 1 second timeout
-                timeout = 1000
+                # Use much shorter timeout - 200ms per selector attempt
+                timeout = 200
                 
                 # Detect if selector is a CSS selector or text content
                 is_css_selector = (
@@ -380,46 +381,53 @@ class PlaywrightWebController(WebControllerInterface):
                 
                 if is_css_selector:
                     # Try direct CSS selector click
+                    selector_start = time.time()
                     try:
                         await page.click(selector, timeout=timeout)
                         click_successful = True
-                        print(f"Web[{self.web_type.upper()}]: Direct CSS selector click successful")
+                        selector_time = int((time.time() - selector_start) * 1000)
+                        print(f"Web[{self.web_type.upper()}]: Direct CSS selector click successful ({selector_time}ms)")
                     except Exception as e:
-                        print(f"Web[{self.web_type.upper()}]: Direct CSS selector failed: {e}")
+                        selector_time = int((time.time() - selector_start) * 1000)
+                        print(f"Web[{self.web_type.upper()}]: Direct CSS selector failed ({selector_time}ms): {e}")
                 else:
                     # Text-based search - try multiple strategies
                     print(f"Web[{self.web_type.upper()}]: Text-based search for: {selector}")
                     
-                    # Strategy 1: Try exact text match in common clickable elements and aria-labels
+                    # Strategy 1: Try most common selectors first (prioritized list)
                     text_selectors = [
-                        f"button:has-text('{selector}')",
-                        f"a:has-text('{selector}')",
-                        f"[role='button']:has-text('{selector}')",
-                        f"input[value='{selector}']",
-                        f"*:text-is('{selector}')",
-                        f"*:text('{selector}')",
-                        f"[aria-label='{selector}']",
-                        f"[aria-label*='{selector}']",
-                        f"flt-semantics[aria-label='{selector}']",
-                        f"[id*='{selector}'][aria-label]"
+                        f"[aria-label='{selector}']",           # Most common for buttons/links
+                        f"button:has-text('{selector}')",       # Actual buttons
+                        f"a:has-text('{selector}')",            # Links
+                        f"[role='button']:has-text('{selector}')", # Role-based buttons
+                        f"*:text-is('{selector}')",             # Exact text match
+                        f"flt-semantics[aria-label='{selector}']" # Flutter semantics (reduced list)
                     ]
                     
-                    for text_selector in text_selectors:
+                    for i, text_selector in enumerate(text_selectors):
+                        selector_start = time.time()
                         try:
                             await page.click(text_selector, timeout=timeout)
                             click_successful = True
                             final_selector = text_selector
-                            print(f"Web[{self.web_type.upper()}]: Text selector click successful: {text_selector}")
+                            selector_time = int((time.time() - selector_start) * 1000)
+                            print(f"Web[{self.web_type.upper()}]: Text selector click successful: {text_selector} ({selector_time}ms, attempt {i+1})")
                             break
                         except Exception:
+                            selector_time = int((time.time() - selector_start) * 1000)
+                            print(f"Web[{self.web_type.upper()}]: Selector {i+1}/{len(text_selectors)} failed ({selector_time}ms): {text_selector}")
                             continue
                     
 
                 
                 # Cleanup connection
+                cleanup_start = time.time()
                 await self.utils.cleanup_connection(playwright, browser)
+                cleanup_time = int((time.time() - cleanup_start) * 1000)
+                print(f"Web[{self.web_type.upper()}]: Cleanup took {cleanup_time}ms")
                 
                 execution_time = int((time.time() - start_time) * 1000)
+                print(f"Web[{self.web_type.upper()}]: Total execution time: {execution_time}ms")
                 
                 if click_successful:
                     result = {
@@ -472,13 +480,14 @@ class PlaywrightWebController(WebControllerInterface):
                 print(f"Web[{self.web_type.upper()}]: Finding element: {selector}")
                 start_time = time.time()
                 
-
-                
                 # Connect to Chrome via CDP
+                connect_start = time.time()
                 playwright, browser, context, page = await self.utils.connect_to_chrome()
+                connect_time = int((time.time() - connect_start) * 1000)
+                print(f"Web[{self.web_type.upper()}]: Chrome connection took {connect_time}ms")
                 
-                # Use fixed 1 second timeout
-                timeout = 1000
+                # Use much shorter timeout - 200ms per selector attempt
+                timeout = 200
                 
                 # Detect if selector is a CSS selector or text content
                 is_css_selector = (
@@ -496,6 +505,7 @@ class PlaywrightWebController(WebControllerInterface):
                 
                 if is_css_selector:
                     # Try direct CSS selector
+                    selector_start = time.time()
                     try:
                         element = await page.query_selector(selector)
                         if element:
@@ -508,27 +518,27 @@ class PlaywrightWebController(WebControllerInterface):
                                     'width': bounding_box['width'],
                                     'height': bounding_box['height']
                                 }
-                            print(f"Web[{self.web_type.upper()}]: Direct CSS selector found element")
+                            selector_time = int((time.time() - selector_start) * 1000)
+                            print(f"Web[{self.web_type.upper()}]: Direct CSS selector found element ({selector_time}ms)")
                     except Exception as e:
-                        print(f"Web[{self.web_type.upper()}]: Direct CSS selector failed: {e}")
+                        selector_time = int((time.time() - selector_start) * 1000)
+                        print(f"Web[{self.web_type.upper()}]: Direct CSS selector failed ({selector_time}ms): {e}")
                 else:
-                    # Text-based search - try multiple strategies  
+                    # Text-based search - try prioritized selectors
                     print(f"Web[{self.web_type.upper()}]: Text-based search for: {selector}")
                     
-                    # Try standard Playwright text selectors for find operation
+                    # Prioritized selectors (same as click_element for consistency)
                     text_selectors = [
-                        f"button:has-text('{selector}')",
-                        f"a:has-text('{selector}')",
-                        f"[role='button']:has-text('{selector}')",
-                        f"*:text-is('{selector}')",
-                        f"*:text('{selector}')",
-                        f"[aria-label='{selector}']",
-                        f"[aria-label*='{selector}']",
-                        f"flt-semantics[aria-label='{selector}']",
-                        f"[id*='{selector}'][aria-label]"
+                        f"[aria-label='{selector}']",           # Most common for buttons/links
+                        f"button:has-text('{selector}')",       # Actual buttons
+                        f"a:has-text('{selector}')",            # Links
+                        f"[role='button']:has-text('{selector}')", # Role-based buttons
+                        f"*:text-is('{selector}')",             # Exact text match
+                        f"flt-semantics[aria-label='{selector}']" # Flutter semantics
                     ]
                     
-                    for text_selector in text_selectors:
+                    for i, text_selector in enumerate(text_selectors):
+                        selector_start = time.time()
                         try:
                             element = await page.query_selector(text_selector)
                             if element:
@@ -542,15 +552,22 @@ class PlaywrightWebController(WebControllerInterface):
                                         'width': bounding_box['width'],
                                         'height': bounding_box['height']
                                     }
-                                print(f"Web[{self.web_type.upper()}]: Text selector found element: {text_selector}")
+                                selector_time = int((time.time() - selector_start) * 1000)
+                                print(f"Web[{self.web_type.upper()}]: Text selector found element: {text_selector} ({selector_time}ms, attempt {i+1})")
                                 break
                         except Exception:
+                            selector_time = int((time.time() - selector_start) * 1000)
+                            print(f"Web[{self.web_type.upper()}]: Selector {i+1}/{len(text_selectors)} failed ({selector_time}ms): {text_selector}")
                             continue
                 
                 # Cleanup connection
+                cleanup_start = time.time()
                 await self.utils.cleanup_connection(playwright, browser)
+                cleanup_time = int((time.time() - cleanup_start) * 1000)
+                print(f"Web[{self.web_type.upper()}]: Cleanup took {cleanup_time}ms")
                 
                 execution_time = int((time.time() - start_time) * 1000)
+                print(f"Web[{self.web_type.upper()}]: Total find execution time: {execution_time}ms")
                 
                 if element_found:
                     result = {
