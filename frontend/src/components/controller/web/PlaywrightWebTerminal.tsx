@@ -569,15 +569,8 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
 
   // Dynamic VNC panel info using same scaling as VNC stream
   const getVNCPanelInfo = () => {
-    // Detect VNC panel state by checking if VNC panel element exists and its size
-    const vncPanelElement = document.querySelector('[data-testid="vnc-stream"], .vnc-stream, [class*="VNCStream"]');
-    let actualVncExpanded = vncExpanded; // Use prop as default
-    
-    if (vncPanelElement) {
-      const rect = vncPanelElement.getBoundingClientRect();
-      // If width > 400, it's expanded (520px), otherwise collapsed (330px)
-      actualVncExpanded = rect.width > 400;
-    }
+    // Use the vncExpanded prop directly - it reflects the actual VNC panel state
+    const actualVncExpanded = vncExpanded;
     
     // Use same scaling calculation as VNC stream
     const vncResolution = { width: 1440, height: 847 };
@@ -592,7 +585,7 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
     
     // Minimal adjustment for collapsed state - scale down by factor observed from working expanded state
     if (!actualVncExpanded) {
-      vncScaleFactor *= 0.7; // Adjust this factor if needed
+      vncScaleFactor *= 0.5; // Smaller factor for collapsed state
     }
     
     // Calculate scaled overlay dimensions
