@@ -85,8 +85,8 @@ const RecHostStreamModalContent: React.FC<{
   // Hooks - now only run when modal is actually open
   const { showError, showWarning } = useToast();
 
-  // Get baseUrlPatterns for monitoring
-  const { baseUrlPatterns } = useRec();
+  // Get baseUrlPatterns and VNC scaling for monitoring
+  const { baseUrlPatterns, calculateVncScaling } = useRec();
 
   // NEW: Use device control hook (replaces all duplicate control logic)
   const { isControlActive, isControlLoading, controlError, handleToggleControl, clearError } =
@@ -588,9 +588,19 @@ const RecHostStreamModalContent: React.FC<{
                 (() => {
                   const panelCount = (showRemote ? 1 : 0) + (showWeb ? 1 : 0);
                   const hasPanel = panelCount > 0 && isControlActive;
+                  
+                  // Calculate target size based on current modal stream area
+                  const targetWidth = hasPanel 
+                    ? streamContainerDimensions.width * 0.75  // 75% when panels shown
+                    : streamContainerDimensions.width;        // 100% when no panels
+                  const targetHeight = streamContainerDimensions.height;
+                  
+                  const vncScaling = calculateVncScaling({ 
+                    width: targetWidth, 
+                    height: targetHeight 
+                  });
 
-                  return hasPanel ? (
-                    // When panel is shown, use scaling approach like RecHostPreview to prevent cropping
+                  return (
                     <Box
                       sx={{
                         position: 'relative',
@@ -603,30 +613,14 @@ const RecHostStreamModalContent: React.FC<{
                       <iframe
                         src={streamUrl}
                         style={{
-                          width: '200%', // Make iframe larger to contain full desktop
-                          height: '200%', // Make iframe larger to contain full desktop
                           border: 'none',
                           backgroundColor: '#000',
-                          transform: 'scale(0.5)', // Scale down to 50% to fit
-                          transformOrigin: 'top left',
+                          ...vncScaling, // Apply calculated scaling
                         }}
                         title="VNC Desktop Stream"
                         allow="fullscreen"
                       />
                     </Box>
-                  ) : (
-                    // When no panel, use full size
-                    <iframe
-                      src={streamUrl}
-                      style={{
-                        width: '100%',
-                        height: '100%',
-                        border: 'none',
-                        backgroundColor: '#000',
-                      }}
-                      title="VNC Desktop Stream"
-                      allow="fullscreen"
-                    />
                   );
                 })()
               ) : (

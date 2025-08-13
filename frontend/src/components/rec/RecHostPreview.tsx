@@ -4,6 +4,7 @@ import React, { useState, useCallback, useEffect, useMemo } from 'react';
 
 import { useModal } from '../../contexts/ModalContext';
 import { useStream } from '../../hooks/controller';
+import { useRec } from '../../hooks/pages/useRec';
 import { useToast } from '../../hooks/useToast';
 import { Host, Device } from '../../types/common/Host_Types';
 
@@ -57,6 +58,9 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
     host,
     device_id: device?.device_id || 'device1',
   });
+
+  // Get VNC scaling function from useRec
+  const { calculateVncScaling } = useRec();
 
   // Hook for notifications only
   const { showError } = useToast();
@@ -328,13 +332,10 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
                 <iframe
                   src={vncStreamUrl}
                   style={{
-                    width: '400%',
-                    height: '400%',
                     border: 'none',
                     backgroundColor: '#000',
                     pointerEvents: 'none',
-                    transform: 'scale(0.25)',
-                    transformOrigin: 'top left',
+                    ...calculateVncScaling({ width: 300, height: 150 }), // Preview card target size
                   }}
                   title="VNC Desktop Preview"
                 />

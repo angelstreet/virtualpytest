@@ -17,6 +17,12 @@ interface UseRecReturn {
   generateThumbnailUrl: (host: Host, device: Device) => string | null; // Generate URL with current timestamp (blocked when modal open)
   restartStreams: () => Promise<void>; // Restart streams for all AV devices
   isRestarting: boolean; // Loading state for restart operation
+  calculateVncScaling: (targetSize: { width: number; height: number }) => { // VNC scaling calculation for any target size
+    transform: string;
+    transformOrigin: string;
+    width: string;
+    height: string;
+  };
 }
 
 /**
@@ -223,6 +229,26 @@ export const useRec = (): UseRecReturn => {
     };
   }, [refreshHosts]);
 
+  // Calculate VNC scaling for any target size (reusable logic)
+  const calculateVncScaling = useCallback((targetSize: { width: number; height: number }) => {
+    // VNC native resolution (from useVncStream logic)
+    const vncResolution = { width: 1440, height: 847 };
+    
+    // Calculate scale to fit VNC content in target container
+    const scaleX = targetSize.width / vncResolution.width;
+    const scaleY = targetSize.height / vncResolution.height;
+    
+    // Use the smaller scale to maintain aspect ratio and prevent overflow
+    const scale = Math.min(scaleX, scaleY);
+    
+    return {
+      transform: `scale(${scale})`,
+      transformOrigin: 'top left',
+      width: `${vncResolution.width}px`,
+      height: `${vncResolution.height}px`
+    };
+  }, []);
+
   // Restart streams for all AV devices
   const restartStreams = useCallback(async (): Promise<void> => {
     if (isRestarting) return; // Prevent multiple concurrent restarts
@@ -294,5 +320,6 @@ export const useRec = (): UseRecReturn => {
     generateThumbnailUrl,
     restartStreams,
     isRestarting,
+    calculateVncScaling,
   };
 };
