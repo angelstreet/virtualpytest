@@ -567,14 +567,8 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
     }
   };
 
-  // Simple VNC panel info using direct config values
+  // Dynamic VNC panel info using same scaling as VNC stream
   const getVNCPanelInfo = () => {
-    // Import VNC config values directly
-    const vncConfig = {
-      collapsed: { width: 330, height: 220, scaleFactor: 0.35 },
-      expanded: { width: 520, height: 360, scaleFactor: 0.5 }
-    };
-    
     // Detect VNC panel state by checking if VNC panel element exists and its size
     const vncPanelElement = document.querySelector('[data-testid="vnc-stream"], .vnc-stream, [class*="VNCStream"]');
     let actualVncExpanded = vncExpanded; // Use prop as default
@@ -585,24 +579,29 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
       actualVncExpanded = rect.width > 400;
     }
     
-    // Get config for current state
-    const config = actualVncExpanded ? vncConfig.expanded : vncConfig.collapsed;
+    // Use same scaling calculation as VNC stream
+    const vncResolution = { width: 1440, height: 847 };
+    const panelSize = actualVncExpanded 
+      ? { width: 520, height: 360 }
+      : { width: 370, height: 240 };
+    
+    // Calculate scale to fit VNC content in panel (same as VNC stream)
+    const scaleX = panelSize.width / vncResolution.width;
+    const scaleY = panelSize.height / vncResolution.height;
+    const vncScaleFactor = Math.min(scaleX, scaleY); // Maintain aspect ratio
     
     // VNC header height that we need to account for
     const headerHeight = 40;
     
-    // Calculate browser content area dimensions (VNC content area minus header)
-    const contentAreaHeight = config.height - headerHeight;
-    
-    // Calculate overlay dimensions using browser viewport and VNC scaling
-    const overlayWidth = browserViewport.width * config.scaleFactor;
-    const overlayHeight = (browserViewport.height - 40) * config.scaleFactor; // Subtract browser header
+    // Calculate scaled overlay dimensions
+    const overlayWidth = browserViewport.width * vncScaleFactor;
+    const overlayHeight = browserViewport.height * vncScaleFactor;
     
     // Position overlay to match VNC panel content area (below header)
-    const panelX = actualVncExpanded ? window.innerWidth - 20 - config.width : 20;
-    const panelY = window.innerHeight - 20 - config.height;
+    const panelX = actualVncExpanded ? window.innerWidth - 20 - panelSize.width : 20;
+    const panelY = window.innerHeight - 20 - panelSize.height;
     
-    // Overlay position: always left-aligned at 20px
+    // Overlay position: always left-aligned at 20px, below VNC header
     const x = 20;
     const y = panelY + headerHeight;
     
@@ -611,16 +610,16 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
       size: { width: overlayWidth, height: overlayHeight },
       deviceResolution: browserViewport, // Browser viewport size from dump_elements
       isCollapsed: !actualVncExpanded,
-      vncScaleFactor: config.scaleFactor, // Pass scale factor for easy access
+      vncScaleFactor, // Dynamic scale factor matching VNC stream
     };
     
-    console.log('[PlaywrightWebTerminal] VNC Panel Info:', {
+    console.log('[PlaywrightWebTerminal] Dynamic VNC Panel Info:', {
       vncExpanded: actualVncExpanded,
-      config,
+      vncResolution,
+      panelSize,
       browserViewport,
-      headerHeight,
-      contentAreaHeight,
-      overlayDimensions: { overlayWidth, overlayHeight },
+      vncScaleFactor: vncScaleFactor.toFixed(3),
+      overlayDimensions: `${overlayWidth.toFixed(0)}x${overlayHeight.toFixed(0)}`,
       panelPosition: { panelX, panelY },
       overlayPosition: { x, y },
       panelInfo
