@@ -414,75 +414,7 @@ class PlaywrightWebController(WebControllerInterface):
                         except Exception:
                             continue
                     
-                    # Strategy 2: Use JavaScript to find and click element with text content
-                    if not click_successful:
-                        try:
-                            js_click_result = await page.evaluate(f"""
-                                () => {{
-                                    const text = '{selector}';
-                                    const textLower = text.toLowerCase();
-                                    
-                                    // Find elements containing the text or with matching aria-label (case-insensitive)
-                                    const elements = Array.from(document.querySelectorAll('*')).filter(el => {{
-                                        const textContent = el.textContent?.trim();
-                                        const innerText = el.innerText?.trim();
-                                        const ariaLabel = el.getAttribute('aria-label')?.trim();
-                                        const elementId = el.id;
-                                        
-                                        // Case-insensitive matching for text content
-                                        const textMatch = (textContent?.toLowerCase() === textLower || 
-                                                         innerText?.toLowerCase() === textLower || 
-                                                         textContent?.toLowerCase()?.includes(textLower) || 
-                                                         innerText?.toLowerCase()?.includes(textLower));
-                                        
-                                        // Case-insensitive matching for aria-label
-                                        const ariaMatch = (ariaLabel?.toLowerCase() === textLower || 
-                                                         ariaLabel?.toLowerCase()?.includes(textLower));
-                                        
-                                        // Case-insensitive matching for element ID
-                                        const idMatch = (elementId?.toLowerCase() === textLower || 
-                                                       elementId?.toLowerCase()?.includes(textLower));
-                                        
-                                        return (textMatch || ariaMatch || idMatch) &&
-                                               el.offsetWidth > 0 && el.offsetHeight > 0;  // Visible elements only
-                                    }});
-                                    
-                                    // Prioritize clickable elements
-                                    const clickableElements = elements.filter(el => {{
-                                        const tag = el.tagName.toLowerCase();
-                                        const role = el.getAttribute('role');
-                                        const onclick = el.onclick;
-                                        return tag === 'button' || tag === 'a' || role === 'button' || 
-                                               onclick || el.style.cursor === 'pointer';
-                                    }});
-                                    
-                                    const targetElement = clickableElements[0] || elements[0];
-                                    
-                                    if (targetElement) {{
-                                        targetElement.click();
-                                        return {{
-                                            success: true,
-                                            tagName: targetElement.tagName,
-                                            textContent: targetElement.textContent?.trim()?.substring(0, 50),
-                                            selector: targetElement.id ? '#' + targetElement.id : 
-                                                     targetElement.className ? '.' + targetElement.className.split(' ')[0] :
-                                                     targetElement.tagName.toLowerCase()
-                                        }};
-                                    }}
-                                    
-                                    return {{ success: false, error: 'Element not found' }};
-                                }}
-                            """)
-                            
-                            if js_click_result.get('success'):
-                                click_successful = True
-                                final_selector = f"JS: {js_click_result.get('selector', selector)}"
-                                print(f"Web[{self.web_type.upper()}]: JavaScript click successful on {js_click_result.get('tagName')}")
-                            else:
-                                print(f"Web[{self.web_type.upper()}]: JavaScript click failed: {js_click_result.get('error')}")
-                        
-                        except Exception as e:
-                            print(f"Web[{self.web_type.upper()}]: JavaScript click error: {e}")
+
                 
                 # Cleanup connection
                 await self.utils.cleanup_connection(playwright, browser)
@@ -583,70 +515,37 @@ class PlaywrightWebController(WebControllerInterface):
                     # Text-based search - try multiple strategies  
                     print(f"Web[{self.web_type.upper()}]: Text-based search for: {selector}")
                     
-                    # Use JavaScript to find element with text content or aria-label
-                    try:
-                        js_find_result = await page.evaluate(f"""
-                            () => {{
-                                const text = '{selector}';
-                                
-                                // Find elements containing the text or with matching aria-label
-                                const elements = Array.from(document.querySelectorAll('*')).filter(el => {{
-                                    const textContent = el.textContent?.trim();
-                                    const innerText = el.innerText?.trim();
-                                    const ariaLabel = el.getAttribute('aria-label')?.trim();
-                                    const elementId = el.id;
-                                    
-                                    return ((textContent === text || innerText === text || 
-                                           textContent?.includes(text) || innerText?.includes(text)) ||
-                                           (ariaLabel === text || ariaLabel?.includes(text)) ||
-                                           (elementId === text || elementId?.includes(text))) &&
-                                           el.offsetWidth > 0 && el.offsetHeight > 0;  // Visible elements only
-                                }});
-                                
-                                const targetElement = elements[0];
-                                
-                                if (targetElement) {{
-                                    const rect = targetElement.getBoundingClientRect();
-                                    return {{
-                                        success: true,
-                                        tagName: targetElement.tagName,
-                                        textContent: targetElement.textContent?.trim()?.substring(0, 50),
-                                        ariaLabel: targetElement.getAttribute('aria-label'),
-                                        id: targetElement.id,
-                                        className: targetElement.className,
-                                        selector: targetElement.id ? '#' + targetElement.id : 
-                                                 targetElement.className ? '.' + targetElement.className.split(' ')[0] :
-                                                 targetElement.tagName.toLowerCase(),
-                                        position: {{
-                                            x: Math.round(rect.left),
-                                            y: Math.round(rect.top),
-                                            width: Math.round(rect.width),
-                                            height: Math.round(rect.height)
-                                        }}
-                                    }};
-                                }}
-                                
-                                return {{ success: false, error: 'Element not found' }};
-                            }}
-                        """)
-                        
-                        if js_find_result.get('success'):
-                            element_found = True
-                            final_selector = js_find_result.get('selector', selector)
-                            element_info = js_find_result.get('position', {})
-                            element_info.update({
-                                'tagName': js_find_result.get('tagName'),
-                                'textContent': js_find_result.get('textContent'),
-                                'ariaLabel': js_find_result.get('ariaLabel'),
-                                'id': js_find_result.get('id'),
-                                'className': js_find_result.get('className')
-                            })
-                            print(f"Web[{self.web_type.upper()}]: JavaScript search found element: {js_find_result.get('tagName')}")
-                        else:
-                            print(f"Web[{self.web_type.upper()}]: JavaScript search failed: {js_find_result.get('error')}")
+                    # Try standard Playwright text selectors for find operation
+                    text_selectors = [
+                        f"button:has-text('{selector}')",
+                        f"a:has-text('{selector}')",
+                        f"[role='button']:has-text('{selector}')",
+                        f"*:text-is('{selector}')",
+                        f"*:text('{selector}')",
+                        f"[aria-label='{selector}']",
+                        f"[aria-label*='{selector}']",
+                        f"flt-semantics[aria-label='{selector}']",
+                        f"[id*='{selector}'][aria-label]"
+                    ]
                     
-                    except Exception as e:
-                        print(f"Web[{self.web_type.upper()}]: JavaScript search error: {e}")
+                    for text_selector in text_selectors:
+                        try:
+                            element = await page.query_selector(text_selector)
+                            if element:
+                                element_found = True
+                                final_selector = text_selector
+                                bounding_box = await element.bounding_box()
+                                if bounding_box:
+                                    element_info = {
+                                        'x': bounding_box['x'],
+                                        'y': bounding_box['y'],
+                                        'width': bounding_box['width'],
+                                        'height': bounding_box['height']
+                                    }
+                                print(f"Web[{self.web_type.upper()}]: Text selector found element: {text_selector}")
+                                break
+                        except Exception:
+                            continue
                 
                 # Cleanup connection
                 await self.utils.cleanup_connection(playwright, browser)
