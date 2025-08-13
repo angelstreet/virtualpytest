@@ -581,7 +581,7 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
     
     // Calculate scale to fit VNC content in panel (same as VNC stream)
     const scaleX = panelSize.width / vncResolution.width;
-    const scaleY = (panelSize.height-60) / vncResolution.height;
+    const scaleY = (panelSize.height-80) / vncResolution.height;
     
     // Calculate scaled overlay dimensions
     const overlayWidth = browserViewport.width * scaleX;
@@ -600,7 +600,6 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
       size: { width: overlayWidth, height: overlayHeight },
       deviceResolution: browserViewport, // Browser viewport size from dump_elements
       isCollapsed: !actualVncExpanded,
-      vncScaleFactor, // Dynamic scale factor matching VNC stream
     };
     
     console.log('[PlaywrightWebTerminal] Dynamic VNC Panel Info:', {
@@ -608,7 +607,6 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
       vncResolution,
       panelSize,
       browserViewport,
-      vncScaleFactor: vncScaleFactor.toFixed(3),
       overlayDimensions: `${overlayWidth.toFixed(0)}x${overlayHeight.toFixed(0)}`,
       panelPosition: { panelX, panelY },
       overlayPosition: { x, y },
