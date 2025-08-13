@@ -260,36 +260,36 @@ export const ActionItem: React.FC<ActionItemProps> = ({
         // Only show coordinate fields if the action requires input
         if (currentActionDef?.requiresInput) {
           fields.push(
-            <TextField
-              key="x"
-              label="X"
-              type="number"
-              size="small"
-              value={getParamValue('x') || ''}
-              onChange={(e) => safeHandleParamChange('x', parseInt(e.target.value) || 0)}
-              sx={{
-                width: 70,
-                '& .MuiInputBase-input': {
-                  padding: '3px 6px',
-                  fontSize: '0.75rem',
-                },
-              }}
-            />,
-            <TextField
-              key="y"
-              label="Y"
-              type="number"
-              size="small"
-              value={getParamValue('y') || ''}
-              onChange={(e) => safeHandleParamChange('y', parseInt(e.target.value) || 0)}
-              sx={{
-                width: 70,
-                '& .MuiInputBase-input': {
-                  padding: '3px 6px',
-                  fontSize: '0.75rem',
-                },
-              }}
-            />,
+            <Box key="coordinates" sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
+              <TextField
+                label="X"
+                type="number"
+                size="small"
+                value={getParamValue('x') || ''}
+                onChange={(e) => safeHandleParamChange('x', parseInt(e.target.value) || 0)}
+                sx={{
+                  width: 70,
+                  '& .MuiInputBase-input': {
+                    padding: '3px 6px',
+                    fontSize: '0.75rem',
+                  },
+                }}
+              />
+              <TextField
+                label="Y"
+                type="number"
+                size="small"
+                value={getParamValue('y') || ''}
+                onChange={(e) => safeHandleParamChange('y', parseInt(e.target.value) || 0)}
+                sx={{
+                  width: 70,
+                  '& .MuiInputBase-input': {
+                    padding: '3px 6px',
+                    fontSize: '0.75rem',
+                  },
+                }}
+              />
+            </Box>,
           );
         }
         break;
@@ -983,36 +983,36 @@ export const ActionItem: React.FC<ActionItemProps> = ({
       case 'execute_pyautogui_move':
         if (currentActionDef?.requiresInput) {
           fields.push(
-            <TextField
-              key="x"
-              label="X"
-              type="number"
-              size="small"
-              value={getParamValue('x') || ''}
-              onChange={(e) => safeHandleParamChange('x', parseInt(e.target.value) || 0)}
-              sx={{
-                width: 70,
-                '& .MuiInputBase-input': {
-                  padding: '3px 6px',
-                  fontSize: '0.75rem',
-                },
-              }}
-            />,
-            <TextField
-              key="y"
-              label="Y"
-              type="number"
-              size="small"
-              value={getParamValue('y') || ''}
-              onChange={(e) => safeHandleParamChange('y', parseInt(e.target.value) || 0)}
-              sx={{
-                width: 70,
-                '& .MuiInputBase-input': {
-                  padding: '3px 6px',
-                  fontSize: '0.75rem',
-                },
-              }}
-            />,
+            <Box key="coordinates" sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
+              <TextField
+                label="X"
+                type="number"
+                size="small"
+                value={getParamValue('x') || ''}
+                onChange={(e) => safeHandleParamChange('x', parseInt(e.target.value) || 0)}
+                sx={{
+                  width: 70,
+                  '& .MuiInputBase-input': {
+                    padding: '3px 6px',
+                    fontSize: '0.75rem',
+                  },
+                }}
+              />
+              <TextField
+                label="Y"
+                type="number"
+                size="small"
+                value={getParamValue('y') || ''}
+                onChange={(e) => safeHandleParamChange('y', parseInt(e.target.value) || 0)}
+                sx={{
+                  width: 70,
+                  '& .MuiInputBase-input': {
+                    padding: '3px 6px',
+                    fontSize: '0.75rem',
+                  },
+                }}
+              />
+            </Box>,
           );
         }
         break;
@@ -1239,36 +1239,36 @@ export const ActionItem: React.FC<ActionItemProps> = ({
         // Handle web tap_x_y
         if (action.action_type === 'web' && currentActionDef?.requiresInput) {
           fields.push(
-            <TextField
-              key="x"
-              label="X"
-              type="number"
-              size="small"
-              value={getParamValue('x') || ''}
-              onChange={(e) => safeHandleParamChange('x', parseInt(e.target.value) || 0)}
-              sx={{
-                width: 70,
-                '& .MuiInputBase-input': {
-                  padding: '3px 6px',
-                  fontSize: '0.75rem',
-                },
-              }}
-            />,
-            <TextField
-              key="y"
-              label="Y"
-              type="number"
-              size="small"
-              value={getParamValue('y') || ''}
-              onChange={(e) => safeHandleParamChange('y', parseInt(e.target.value) || 0)}
-              sx={{
-                width: 70,
-                '& .MuiInputBase-input': {
-                  padding: '3px 6px',
-                  fontSize: '0.75rem',
-                },
-              }}
-            />,
+            <Box key="coordinates" sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
+              <TextField
+                label="X"
+                type="number"
+                size="small"
+                value={getParamValue('x') || ''}
+                onChange={(e) => safeHandleParamChange('x', parseInt(e.target.value) || 0)}
+                sx={{
+                  width: 70,
+                  '& .MuiInputBase-input': {
+                    padding: '3px 6px',
+                    fontSize: '0.75rem',
+                  },
+                }}
+              />
+              <TextField
+                label="Y"
+                type="number"
+                size="small"
+                value={getParamValue('y') || ''}
+                onChange={(e) => safeHandleParamChange('y', parseInt(e.target.value) || 0)}
+                sx={{
+                  width: 70,
+                  '& .MuiInputBase-input': {
+                    padding: '3px 6px',
+                    fontSize: '0.75rem',
+                  },
+                }}
+              />
+            </Box>,
           );
         }
         break;
