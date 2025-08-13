@@ -906,6 +906,82 @@ class PlaywrightWebController(WebControllerInterface):
         
         return self.execute_javascript(script)
     
+    def press_key(self, key: str) -> Dict[str, Any]:
+        """Press keyboard key using async CDP connection.
+        
+        Args:
+            key: Key to press ('BACK', 'ESCAPE', 'ENTER', 'OK', etc.)
+        """
+        async def _async_press_key():
+            try:
+                print(f"Web[{self.web_type.upper()}]: Pressing key: {key}")
+                start_time = time.time()
+                
+                # Connect to Chrome via CDP
+                playwright, browser, context, page = await self.utils.connect_to_chrome()
+                
+                # Map web-specific keys to Playwright key names
+                key_mapping = {
+                    'BACK': 'Escape',
+                    'ESC': 'Escape', 
+                    'ESCAPE': 'Escape',
+                    'OK': 'Enter',
+                    'ENTER': 'Enter',
+                    'HOME': 'Home',
+                    'END': 'End',
+                    'UP': 'ArrowUp',
+                    'DOWN': 'ArrowDown', 
+                    'LEFT': 'ArrowLeft',
+                    'RIGHT': 'ArrowRight',
+                    'TAB': 'Tab',
+                    'SPACE': 'Space',
+                    'DELETE': 'Delete',
+                    'BACKSPACE': 'Backspace',
+                    'F1': 'F1', 'F2': 'F2', 'F3': 'F3', 'F4': 'F4',
+                    'F5': 'F5', 'F6': 'F6', 'F7': 'F7', 'F8': 'F8',
+                    'F9': 'F9', 'F10': 'F10', 'F11': 'F11', 'F12': 'F12'
+                }
+                
+                playwright_key = key_mapping.get(key.upper(), key)
+                
+                # Press the key
+                await page.keyboard.press(playwright_key)
+                
+                # Cleanup connection
+                await self.utils.cleanup_connection(playwright, browser)
+                
+                execution_time = int((time.time() - start_time) * 1000)
+                
+                result = {
+                    'success': True,
+                    'error': '',
+                    'execution_time': execution_time,
+                    'key_pressed': key,
+                    'playwright_key': playwright_key
+                }
+                
+                print(f"Web[{self.web_type.upper()}]: Key press successful: {key} -> {playwright_key}")
+                return result
+                
+            except Exception as e:
+                error_msg = f"Key press error: {e}"
+                print(f"Web[{self.web_type.upper()}]: {error_msg}")
+                return {
+                    'success': False,
+                    'error': error_msg,
+                    'execution_time': 0,
+                    'key_attempted': key
+                }
+        
+        if not self.is_connected:
+            return {
+                'success': False,
+                'error': 'Not connected to browser',
+                'execution_time': 0
+            }
+        
+        return self.utils.run_async(_async_press_key())
+    
     def get_status(self) -> Dict[str, Any]:
         """Get controller status."""
         try:
@@ -1108,6 +1184,18 @@ class PlaywrightWebController(WebControllerInterface):
                 }
             
             return self.browser_use_task(task)
+        
+        elif command == 'press_key':
+            key = params.get('key')
+            
+            if not key:
+                return {
+                    'success': False,
+                    'error': 'Key parameter is required',
+                    'execution_time': 0
+                }
+            
+            return self.press_key(key)
         
         elif command == 'set_viewport_size':
             width = params.get('width')
@@ -1478,6 +1566,34 @@ class PlaywrightWebController(WebControllerInterface):
                     'requiresInput': True,
                     'inputLabel': 'Task description',
                     'inputPlaceholder': 'Search for Python tutorials on Google'
+                },
+                # Keyboard controls
+                {
+                    'id': 'press_key_back',
+                    'label': 'Back',
+                    'command': 'press_key',
+                    'action_type': 'web',
+                    'params': {'key': 'BACK'},
+                    'description': 'Press Escape key (browser back)',
+                    'requiresInput': False
+                },
+                {
+                    'id': 'press_key_ok',
+                    'label': 'OK',
+                    'command': 'press_key',
+                    'action_type': 'web',
+                    'params': {'key': 'OK'},
+                    'description': 'Press Enter key (confirm)',
+                    'requiresInput': False
+                },
+                {
+                    'id': 'press_key_esc',
+                    'label': 'Esc',
+                    'command': 'press_key',
+                    'action_type': 'web',
+                    'params': {'key': 'ESCAPE'},
+                    'description': 'Press Escape key (cancel)',
+                    'requiresInput': False
                 }
             ]
         }

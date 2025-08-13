@@ -79,6 +79,11 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
   const [isDumping, setIsDumping] = useState(false);
   const [isActivatingSemantic, setIsActivatingSemantic] = useState(false);
 
+  // Key press execution states
+  const [isPressBackKey, setIsPressBackKey] = useState(false);
+  const [isPressOkKey, setIsPressOkKey] = useState(false);
+  const [isPressEscKey, setIsPressEscKey] = useState(false);
+
   // Success/failure states for visual feedback
   const [navigateStatus, setNavigateStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [clickStatus, setClickStatus] = useState<'idle' | 'success' | 'error'>('idle');
@@ -87,6 +92,9 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
   const [dumpStatus, setDumpStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [taskStatus, setTaskStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [semanticStatus, setSemanticStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [backKeyStatus, setBackKeyStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [okKeyStatus, setOkKeyStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [escKeyStatus, setEscKeyStatus] = useState<'idle' | 'success' | 'error'>('idle');
 
   // Tap animation state
   const [tapAnimation, setTapAnimation] = useState<{ x: number; y: number; show: boolean }>({
@@ -168,11 +176,20 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
     if (semanticStatus !== 'idle') {
       timers.push(setTimeout(() => setSemanticStatus('idle'), 3000));
     }
+    if (backKeyStatus !== 'idle') {
+      timers.push(setTimeout(() => setBackKeyStatus('idle'), 3000));
+    }
+    if (okKeyStatus !== 'idle') {
+      timers.push(setTimeout(() => setOkKeyStatus('idle'), 3000));
+    }
+    if (escKeyStatus !== 'idle') {
+      timers.push(setTimeout(() => setEscKeyStatus('idle'), 3000));
+    }
 
     return () => {
       timers.forEach((timer) => clearTimeout(timer));
     };
-  }, [navigateStatus, clickStatus, tapStatus, findStatus, dumpStatus, taskStatus, semanticStatus]);
+  }, [navigateStatus, clickStatus, tapStatus, findStatus, dumpStatus, taskStatus, semanticStatus, backKeyStatus, okKeyStatus, escKeyStatus]);
 
   // Handle task execution (placeholder)
   const handleTaskExecution = async () => {
@@ -218,7 +235,10 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
     isOpening ||
     isClosing ||
     isConnecting ||
-    isBrowserUseExecuting;
+    isBrowserUseExecuting ||
+    isPressBackKey ||
+    isPressOkKey ||
+    isPressEscKey;
 
   // Handle browser open
   const handleOpenBrowser = async () => {
@@ -547,6 +567,41 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
     }
   };
 
+  // Handle key press actions
+  const handlePressKey = async (key: string, setExecuting: React.Dispatch<React.SetStateAction<boolean>>, setStatus: React.Dispatch<React.SetStateAction<'idle' | 'success' | 'error'>>) => {
+    if (isAnyActionExecuting) return;
+
+    setExecuting(true);
+    setStatus('idle');
+
+    try {
+      // Clear response area before new command
+      clearTerminal();
+
+      // Use proper JSON format for the command
+      const commandJson = JSON.stringify({
+        command: 'press_key',
+        params: { key },
+      });
+      const result = await executeCommand(commandJson);
+
+      // Set visual feedback based on result
+      setStatus(result.success ? 'success' : 'error');
+
+      // Show response area
+      setIsResponseExpanded(true);
+    } catch (error) {
+      setStatus('error');
+      console.error(`Press ${key} key error:`, error);
+    } finally {
+      setExecuting(false);
+    }
+  };
+
+  const handlePressBackKey = () => handlePressKey('BACK', setIsPressBackKey, setBackKeyStatus);
+  const handlePressOkKey = () => handlePressKey('OK', setIsPressOkKey, setOkKeyStatus);
+  const handlePressEscKey = () => handlePressKey('ESCAPE', setIsPressEscKey, setEscKeyStatus);
+
   const handleClearElements = () => {
     setWebElements([]);
     setIsElementsVisible(false);
@@ -745,6 +800,50 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
                 </Box>
               </Box>
             </Collapse>
+          </Box>
+
+          <Divider sx={{ my: 2 }} />
+
+          {/* Keyboard Controls Section */}
+          <Box sx={{ mb: 2 }}>
+            <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 'bold' }}>
+              Keyboard Controls
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 0.5, mb: 1 }}>
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={handlePressBackKey}
+                disabled={isAnyActionExecuting}
+                color={getButtonColor(backKeyStatus)}
+                startIcon={isPressBackKey ? <CircularProgress size={16} /> : undefined}
+                sx={{ flex: 1 }}
+              >
+                {isPressBackKey ? 'Pressing...' : 'Back'}
+              </Button>
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={handlePressOkKey}
+                disabled={isAnyActionExecuting}
+                color={getButtonColor(okKeyStatus)}
+                startIcon={isPressOkKey ? <CircularProgress size={16} /> : undefined}
+                sx={{ flex: 1 }}
+              >
+                {isPressOkKey ? 'Pressing...' : 'OK'}
+              </Button>
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={handlePressEscKey}
+                disabled={isAnyActionExecuting}
+                color={getButtonColor(escKeyStatus)}
+                startIcon={isPressEscKey ? <CircularProgress size={16} /> : undefined}
+                sx={{ flex: 1 }}
+              >
+                {isPressEscKey ? 'Pressing...' : 'Esc'}
+              </Button>
+            </Box>
           </Box>
 
           <Divider sx={{ my: 2 }} />
