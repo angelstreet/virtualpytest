@@ -192,6 +192,12 @@ TZ="Europe/Zurich"        # Used by rename_captures.sh
 - **Storage**: Fast SD card or SSD for captures
 - **Network**: Stable connection for streaming
 
+### VNC Server Requirements (for x11grab capture)
+- **TigerVNC Server**: Required for FFmpeg x11grab compatibility
+- **Configuration**: Must use `-localhost no` to allow FFmpeg access
+- **TightVNC Issues**: Known to cause black screen issues with FFmpeg x11grab
+- **Setup**: `vncserver :1 -rfbauth ~/.vnc/passwd -rfbport 5901 -localhost no`
+
 ### Dependencies
 ```bash
 # System packages
@@ -266,6 +272,29 @@ df -h
 
 # Manual cleanup
 find /var/www/html/stream/*/captures -type f -mmin +10 -delete
+```
+
+#### VNC/FFmpeg Black Screen Issues
+```bash
+# Check VNC server type and configuration
+sudo apt update && sudo apt install tigervnc-standalone-server
+sudo -u sunri-pi1 DISPLAY=:1 xhost +local:www-data
+sudo usermod -a -G video,audio,render www-data
+
+ps aux | grep vnc
+netstat -an | grep 5901
+
+# Test VNC display access
+DISPLAY=:1 xdpyinfo | grep -E "(visual|depth)"
+DISPLAY=:1 xwd -root | convert xwd:- test_vnc.png
+
+# Fix TigerVNC binding (if using TigerVNC)
+# Restart VNC with -localhost no flag
+vncserver -kill :1
+vncserver :1 -rfbauth ~/.vnc/passwd -rfbport 5901 -localhost no
+
+# Test FFmpeg x11grab after VNC restart
+DISPLAY=:1 ffmpeg -f x11grab -video_size 1024x768 -i :1 -frames:v 1 -update 1 -y test_ffmpeg.jpg
 ```
 
 ### Script Debugging

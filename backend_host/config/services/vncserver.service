@@ -1,5 +1,5 @@
 [Unit]
-Description=TigerVNC server for display 1 (FFmpeg compatible)
+Description=Tigervnc full-control service for display 1
 After=network.target
 
 [Service]
