@@ -108,7 +108,8 @@ class ChromeManager:
             '--no-crash-upload',  # Don't upload crash reports
             '--disable-session-restore',  # Disable all session restore functionality
             '--disable-background-tabs',  # Disable background tab restoration
-            '--aggressive-cache-discard'  # Aggressively discard cached data
+            '--aggressive-cache-discard',  # Aggressively discard cached data
+            '--hide-crash-restore-bubble',  # Hide crash restore bubble
             #'--no-sandbox'  # Important for containers
         ]
     
