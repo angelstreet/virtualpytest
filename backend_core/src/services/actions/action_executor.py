@@ -362,17 +362,15 @@ class ActionExecutor:
                     # Stop on first failure - don't continue iterations
                     break
                 
-                # Wait after successful action execution if wait_time is specified
-                wait_time = params.get('wait_time', 0)
-                if iteration_success and wait_time > 0:
-                    wait_seconds = wait_time / 1000.0
-                    print(f"[@lib:action_executor:_execute_single_action] Waiting {wait_time}ms after successful {action.get('command')} execution")
-                    time.sleep(wait_seconds)
-                
-                # Additional wait between iterations if there are more iterations
-                if iteration < iterator_count - 1 and wait_time > 0:
-                    print(f"[@lib:action_executor:_execute_single_action] Waiting {wait_time}ms between iterations")
-                    time.sleep(wait_time / 1000.0)
+                # Wait between iterations if there are more iterations (same wait_time)
+                if iteration < iterator_count - 1:
+                    wait_time = params.get('wait_time', 0)
+                    if wait_time > 0:
+                        iter_time = time.strftime("%H:%M:%S", time.localtime())
+                        print(f"[@lib:action_executor:_execute_single_action] [{iter_time}] Waiting {wait_time}ms between iterations")
+                        time.sleep(wait_time / 1000.0)
+                        iter_end_time = time.strftime("%H:%M:%S", time.localtime())
+                        print(f"[@lib:action_executor:_execute_single_action] [{iter_end_time}] Iteration wait completed")
                 
             except Exception as e:
                 iteration_execution_time = int((time.time() - iteration_start_time) * 1000)
@@ -389,6 +387,16 @@ class ActionExecutor:
                 print(f"[@lib:action_executor:_execute_single_action] Action {action_number} iteration {iteration + 1}/{iterator_count} error: {str(e)}")
                 # Stop on exception - don't continue iterations
                 break
+        
+        # Wait after successful action execution (once per action, after all iterations)
+        wait_time = params.get('wait_time', 0)
+        if all_iterations_successful and wait_time > 0:
+            wait_seconds = wait_time / 1000.0
+            current_time = time.strftime("%H:%M:%S", time.localtime())
+            print(f"[@lib:action_executor:_execute_single_action] [{current_time}] Waiting {wait_time}ms after successful {action.get('command')} execution")
+            time.sleep(wait_seconds)
+            end_time = time.strftime("%H:%M:%S", time.localtime())
+            print(f"[@lib:action_executor:_execute_single_action] [{end_time}] Wait completed after {action.get('command')}")
         
         # Record execution to database (summary of all iterations)
         self._record_execution_to_database(

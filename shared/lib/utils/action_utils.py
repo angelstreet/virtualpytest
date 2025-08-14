@@ -223,17 +223,15 @@ def execute_action_directly(host, device, action: Dict[str, Any]) -> Dict[str, A
                     # Stop on first failure - don't continue iterations
                     break
                 
-                # Wait after successful action execution if wait_time is specified
-                wait_time = params.get('wait_time', 0)
-                if iteration_success and wait_time > 0:
-                    wait_seconds = wait_time / 1000.0
-                    print(f"[@action_utils:execute_action_directly] Waiting {wait_time}ms after successful {command} execution")
-                    time.sleep(wait_seconds)
-                
-                # Additional wait between iterations if there are more iterations
-                if iteration < iterator_count - 1 and wait_time > 0:
-                    print(f"[@action_utils:execute_action_directly] Waiting {wait_time}ms between iterations")
-                    time.sleep(wait_time / 1000.0)
+                # Wait between iterations if there are more iterations (same wait_time)
+                if iteration < iterator_count - 1:
+                    wait_time = params.get('wait_time', 0)
+                    if wait_time > 0:
+                        iter_time = time.strftime("%H:%M:%S", time.localtime())
+                        print(f"[@action_utils:execute_action_directly] [{iter_time}] Waiting {wait_time}ms between iterations")
+                        time.sleep(wait_time / 1000.0)
+                        iter_end_time = time.strftime("%H:%M:%S", time.localtime())
+                        print(f"[@action_utils:execute_action_directly] [{iter_end_time}] Iteration wait completed")
                 
             except Exception as e:
                 iteration_execution_time = int((time.time() - iteration_start_time) * 1000)
@@ -250,6 +248,16 @@ def execute_action_directly(host, device, action: Dict[str, Any]) -> Dict[str, A
                 
                 print(f"[@action_utils:execute_action_directly] Iteration {iteration + 1} error: {str(e)}")
                 break
+        
+        # Wait after successful action execution (once per action, after all iterations)
+        wait_time = params.get('wait_time', 0)
+        if all_iterations_successful and wait_time > 0:
+            wait_seconds = wait_time / 1000.0
+            current_time = time.strftime("%H:%M:%S", time.localtime())
+            print(f"[@action_utils:execute_action_directly] [{current_time}] Waiting {wait_time}ms after successful {command} execution")
+            time.sleep(wait_seconds)
+            end_time = time.strftime("%H:%M:%S", time.localtime())
+            print(f"[@action_utils:execute_action_directly] [{end_time}] Wait completed after {command}")
         
         # Return comprehensive results (same format as ActionExecutor)
         return {
