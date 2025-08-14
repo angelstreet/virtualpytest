@@ -223,8 +223,14 @@ def execute_action_directly(host, device, action: Dict[str, Any]) -> Dict[str, A
                     # Stop on first failure - don't continue iterations
                     break
                 
-                # Wait between iterations if there are more iterations and wait_time is specified
+                # Wait after successful action execution if wait_time is specified
                 wait_time = params.get('wait_time', 0)
+                if iteration_success and wait_time > 0:
+                    wait_seconds = wait_time / 1000.0
+                    print(f"[@action_utils:execute_action_directly] Waiting {wait_time}ms after successful {command} execution")
+                    time.sleep(wait_seconds)
+                
+                # Additional wait between iterations if there are more iterations
                 if iteration < iterator_count - 1 and wait_time > 0:
                     print(f"[@action_utils:execute_action_directly] Waiting {wait_time}ms between iterations")
                     time.sleep(wait_time / 1000.0)
