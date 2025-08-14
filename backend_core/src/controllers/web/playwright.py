@@ -57,6 +57,11 @@ class PlaywrightWebController(WebControllerInterface):
     
     async def _get_persistent_page(self, target_url: str = None):
         """Get the persistent page from browser+context. Creates browser+context+page if needed."""
+        # Auto-connect Chrome if not connected
+        if not self.is_connected or not self._chrome_running:
+            print(f"[PLAYWRIGHT]: Auto-connecting Chrome...")
+            self.connect()  # This launches Chrome if needed
+        
         # Establish persistent browser+context if not exists
         if not self.__class__._browser_connected or not self.__class__._browser or not self.__class__._context:
             print(f"[PLAYWRIGHT]: Creating persistent browser+context+page...")
