@@ -33,8 +33,7 @@ def get_video_thumbnail_html(video_url: str, label: str = "Video") -> str:
 def format_console_summary_for_html(console_text: str) -> str:
     """Convert console summary text to HTML format."""
     if not console_text:
-        return """<h3>Execution Summary</h3>
-<div class="summary-stats">
+        return """<div class="summary-stats">
     <pre style="white-space: pre-wrap; font-family: 'Courier New', monospace; margin: 0;">📊 Execution summary not available<br>ℹ️  This may be from an older script run<br>🔄 Run the script again to see detailed summary</pre>
 </div>"""
     
@@ -43,8 +42,7 @@ def format_console_summary_for_html(console_text: str) -> str:
     html_text = html_text.replace('=', '')  # Remove separator lines
     html_text = html_text.replace('  •', '<br>  •')  # Better bullet formatting
     
-    return f"""<h3>Execution Summary</h3>
-<div class="summary-stats">
+    return f"""<div class="summary-stats">
     <pre style="white-space: pre-wrap; font-family: 'Courier New', monospace; margin: 0;">{html_text}</pre>
 </div>"""
 
