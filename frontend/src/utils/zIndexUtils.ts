@@ -36,21 +36,21 @@ const Z_INDEX_ORDER = [
   'NAVIGATION_CONFIRMATION', // 190 - Navigation confirmation dialogs
   'NAVIGATION_DIALOGS', // 200 - Navigation dialogs (create/edit)
   
-  // Interactive overlays
-  'APPIUM_OVERLAY', // 210 - Appium element overlays
-  'ANDROID_MOBILE_OVERLAY', // 220 - Android mobile overlays
-  'DEBUG_OVERLAY', // 230 - Debug information overlays
-  
   // Top-level UI
-  'TOOLTIPS', // 240 - Tooltips and hints
-  'READ_ONLY_INDICATOR', // 250 - Read-only mode indicators
-  'HEADER', // 260 - Page headers
-  'HEADER_DROPDOWN', // 270 - Header dropdown menus
+  'TOOLTIPS', // 210 - Tooltips and hints
+  'READ_ONLY_INDICATOR', // 220 - Read-only mode indicators
+  'HEADER', // 230 - Page headers
+  'HEADER_DROPDOWN', // 240 - Header dropdown menus
   
-  // Modals and screenshots (highest layer)
-  'MODAL_BACKDROP', // 280 - Modal backdrop/overlay
-  'MODAL_CONTENT', // 290 - Modal content windows
-  'SCREENSHOT_MODAL', // 300 - Screenshot viewing modals
+  // Modals and screenshots (high layer)
+  'MODAL_BACKDROP', // 250 - Modal backdrop/overlay
+  'MODAL_CONTENT', // 260 - Modal content windows
+  'SCREENSHOT_MODAL', // 270 - Screenshot viewing modals
+  
+  // Interactive overlays (highest layer - on top of everything)
+  'APPIUM_OVERLAY', // 280 - Appium element overlays
+  'ANDROID_MOBILE_OVERLAY', // 290 - Android mobile overlays
+  'DEBUG_OVERLAY', // 300 - Debug information overlays
 ] as const;
 
 type ZIndexComponent = (typeof Z_INDEX_ORDER)[number];
