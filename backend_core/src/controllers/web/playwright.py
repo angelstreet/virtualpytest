@@ -387,13 +387,16 @@ class PlaywrightWebController(WebControllerInterface):
                 connect_time = int((time.time() - connect_start) * 1000)
                 print(f"[PLAYWRIGHT]: Persistent page access took {connect_time}ms")
                 
-                # Try obvious selectors with short timeout (max 1 second total)
-                timeout = 500  # 200ms per attempt
+                # Try obvious selectors with short timeout
+                timeout = 500  # 500ms per attempt
                 
-                # Most obvious selectors for text-based elements
+                # Most obvious selectors for text-based elements (including Flutter)
                 selectors_to_try = [
                     selector,  # Try exact selector first (could be CSS or text)
                     f"[aria-label='{selector}']",  # Most common for buttons/links
+                    f"[aria-label='{selector}' i]",  # Case-insensitive aria-label
+                    f"flt-semantics[aria-label='{selector}']",  # Flutter semantics exact
+                    f"flt-semantics[aria-label='{selector}' i]",  # Flutter semantics case-insensitive
                     f"button:has-text('{selector}')",  # Actual buttons with text
                     f"a:has-text('{selector}')"  # Links with text
                 ]
@@ -458,13 +461,16 @@ class PlaywrightWebController(WebControllerInterface):
                 connect_time = int((time.time() - connect_start) * 1000)
                 print(f"[PLAYWRIGHT]: Persistent page access took {connect_time}ms")
                 
-                # Try obvious selectors with short timeout (max 1 second total)
-                timeout = 500  # 200ms per attempt
+                # Try obvious selectors with short timeout
+                timeout = 500  # 500ms per attempt
                 
-                # Most obvious selectors for text-based elements
+                # Most obvious selectors for text-based elements (including Flutter)
                 selectors_to_try = [
                     selector,  # Try exact selector first (could be CSS or text)
                     f"[aria-label='{selector}']",  # Most common for buttons/links
+                    f"[aria-label='{selector}' i]",  # Case-insensitive aria-label
+                    f"flt-semantics[aria-label='{selector}']",  # Flutter semantics exact
+                    f"flt-semantics[aria-label='{selector}' i]",  # Flutter semantics case-insensitive
                     f"button:has-text('{selector}')",  # Actual buttons with text
                     f"a:has-text('{selector}')"  # Links with text
                 ]
