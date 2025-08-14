@@ -306,8 +306,9 @@ class PlaywrightWebController(WebControllerInterface):
                 
                 # Get persistent page from browser+context
                 page = await self._get_persistent_page(target_url=normalized_url)
-                    # Navigate to URL with optional redirect control
-                    if follow_redirects:
+                
+                # Navigate to URL with optional redirect control
+                if follow_redirects:
                         # Default behavior - follow redirects
                         await page.goto(normalized_url, timeout=timeout, wait_until='load')
                     else:
