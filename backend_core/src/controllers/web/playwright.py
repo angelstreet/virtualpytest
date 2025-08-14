@@ -383,7 +383,7 @@ class PlaywrightWebController(WebControllerInterface):
                 print(f"[PLAYWRIGHT]: Persistent page access took {connect_time}ms")
                 
                 # Try obvious selectors with short timeout (max 1 second total)
-                timeout = 200  # 200ms per attempt
+                timeout = 1000  # 200ms per attempt
                 
                 # Most obvious selectors for text-based elements
                 selectors_to_try = [
@@ -404,7 +404,7 @@ class PlaywrightWebController(WebControllerInterface):
                             'execution_time': execution_time
                         }
                     except Exception as e:
-                        print(f"[PLAYWRIGHT]: Selector {i+1} failed ({timeout}ms): {sel}")
+                        print(f"[PLAYWRIGHT]: Selector {i+1} failed ({timeout}ms): {sel} - Exception: {str(e)}")
                         continue
                 
                 # All selectors failed
