@@ -309,30 +309,30 @@ class PlaywrightWebController(WebControllerInterface):
                 
                 # Navigate to URL with optional redirect control
                 if follow_redirects:
-                        # Default behavior - follow redirects
-                        await page.goto(normalized_url, timeout=timeout, wait_until='load')
-                    else:
-                        # Disable redirects by intercepting navigation
-                        print(f"Web[{self.web_type.upper()}]: Navigation with redirects disabled")
-                        
-                        # Set up request interception to block redirects
-                        await page.route('**/*', lambda route: (
-                            route.fulfill(status=200, body=f'<html><body><h1>Redirect blocked</h1><p>Original URL: {normalized_url}</p><p>This page would normally redirect to another domain.</p></body></html>')
-                            if route.request.is_navigation_request() and route.request.url != normalized_url
-                            else route.continue_()
-                        ))
-                        
-                        await page.goto(normalized_url, timeout=timeout, wait_until='load')
+                    # Default behavior - follow redirects
+                    await page.goto(normalized_url, timeout=timeout, wait_until='load')
+                else:
+                    # Disable redirects by intercepting navigation
+                    print(f"Web[{self.web_type.upper()}]: Navigation with redirects disabled")
                     
-                    # Get page info after navigation
-                    try:
-                        # Try to wait for networkidle but don't fail if it times out
-                        await page.wait_for_load_state('networkidle', timeout=5000)
-                    except Exception as e:
-                        print(f"Web[{self.web_type.upper()}]: Networkidle timeout ignored: {str(e)}")
+                    # Set up request interception to block redirects
+                    await page.route('**/*', lambda route: (
+                        route.fulfill(status=200, body=f'<html><body><h1>Redirect blocked</h1><p>Original URL: {normalized_url}</p><p>This page would normally redirect to another domain.</p></body></html>')
+                        if route.request.is_navigation_request() and route.request.url != normalized_url
+                        else route.continue_()
+                    ))
                     
-                    self.current_url = page.url
-                    self.page_title = await page.title()
+                    await page.goto(normalized_url, timeout=timeout, wait_until='load')
+                
+                # Get page info after navigation
+                try:
+                    # Try to wait for networkidle but don't fail if it times out
+                    await page.wait_for_load_state('networkidle', timeout=5000)
+                except Exception as e:
+                    print(f"Web[{self.web_type.upper()}]: Networkidle timeout ignored: {str(e)}")
+                
+                self.current_url = page.url
+                self.page_title = await page.title()
                 
                 # Page remains persistent for next actions
                 
