@@ -157,7 +157,22 @@ class ChromeManager:
         # Kill any process using the debug port
         if cls.is_port_in_use(debug_port):
             print(f'[ChromeManager] Port {debug_port} is in use. Killing processes...')
-            os.system(f'lsof -ti:{debug_port} | xargs kill -9')
+            # Use subprocess to avoid xargs executing kill with no arguments
+            try:
+                result = subprocess.run(['lsof', '-ti', f':{debug_port}'], 
+                                      capture_output=True, text=True, timeout=5)
+                if result.returncode == 0 and result.stdout.strip():
+                    pids = result.stdout.strip().split('\n')
+                    for pid in pids:
+                        if pid.strip():
+                            subprocess.run(['kill', '-9', pid.strip()], timeout=3)
+                            print(f'[ChromeManager] Killed process {pid.strip()} using port {debug_port}')
+                else:
+                    print(f'[ChromeManager] No processes found using port {debug_port}')
+            except subprocess.TimeoutExpired:
+                print(f'[ChromeManager] Timeout finding processes on port {debug_port}')
+            except Exception as e:
+                print(f'[ChromeManager] Error killing processes on port {debug_port}: {e}')
             time.sleep(1)
         
         # Find Chrome executable
@@ -165,43 +180,9 @@ class ChromeManager:
         print(f'[ChromeManager] Launching Chrome with remote debugging: {executable_path}')
         
         # Prepare Chrome flags and user data directory (path should already be resolved)
-        # Clear only session restore files while preserving other user data (cookies, passwords, etc.)
+        # Note: No need to clear session files since we force-kill Chrome (no session data is saved)
         os.makedirs(user_data_dir, exist_ok=True)
-        
-        # Clear specific session restore files only
-        session_files_to_clear = [
-            'Sessions',
-            'Session Storage',
-            'Current Session',
-            'Current Tabs',
-            'Last Session',
-            'Last Tabs',
-            'Top Sites',
-            'Top Sites Old',
-            'Visited Links',
-            'Preferences.bak'  # Backup of preferences that might contain session data
-        ]
-        
-        cleared_files = []
-        for session_file in session_files_to_clear:
-            file_path = os.path.join(user_data_dir, 'Default', session_file)
-            if os.path.exists(file_path):
-                try:
-                    if os.path.isdir(file_path):
-                        import shutil
-                        shutil.rmtree(file_path)
-                    else:
-                        os.remove(file_path)
-                    cleared_files.append(session_file)
-                except Exception as e:
-                    print(f'[ChromeManager] Warning: Could not clear {session_file}: {e}')
-        
-        if cleared_files:
-            print(f'[ChromeManager] Cleared session files: {", ".join(cleared_files)}')
-        else:
-            print(f'[ChromeManager] No session files found to clear')
-        
-        print(f'[ChromeManager] Using persistent profile (session data cleared): {user_data_dir}')
+        print(f'[ChromeManager] Using persistent profile: {user_data_dir}')
         
         chrome_flags = cls.get_chrome_flags(debug_port, user_data_dir)
         
@@ -235,32 +216,6 @@ class ChromeManager:
             cmd_line = chrome_cmd
             print(f'[ChromeManager] Full Chrome command: {" ".join(cmd_line)}')
         
-        # Log VNC display information before launching Chrome
-        vnc_display = ":1"
-        try:
-            result = subprocess.run(['xdpyinfo', '-display', vnc_display], 
-                                  capture_output=True, text=True, timeout=5)
-            if result.returncode == 0:
-                for line in result.stdout.split('\n'):
-                    if 'dimensions:' in line:
-                        actual_vnc_size = line.split()[1]
-                        print(f'[ChromeManager] Detected VNC display {vnc_display} actual size: {actual_vnc_size}')
-                        break
-            else:
-                print(f'[ChromeManager] Could not detect VNC display {vnc_display} size')
-        except Exception as e:
-            print(f'[ChromeManager] VNC size detection failed: {e}')
-        
-        # Log the Chrome window size being set
-        chrome_window_size = None
-        for flag in chrome_flags:
-            if flag.startswith('--window-size='):
-                chrome_window_size = flag.replace('--window-size=', '')
-                print(f'[ChromeManager] Setting Chrome window size to: {chrome_window_size}')
-                break
-        
-        print(f'[ChromeManager] Chrome configured for VNC display')
-        
         # Set environment
         env = os.environ.copy()
         env["DISPLAY"] = ":1"
@@ -268,7 +223,6 @@ class ChromeManager:
         # Launch Chrome (with or without cgroup limits)
         process = subprocess.Popen(cmd_line, env=env)
         print(f'[ChromeManager] Chrome launched with PID: {process.pid}')
-        print(f'[ChromeManager] Chrome should open with size: {chrome_window_size} on VNC display: {vnc_display}')
         
         # Wait for Chrome to be ready
         cls._wait_for_chrome_ready(debug_port)
@@ -346,22 +300,6 @@ class PlaywrightConnection:
             else:
                 page = context.pages[0]
             print(f'[PlaywrightConnection] Using existing context with browser default viewport')
-        
-        # Log actual browser viewport size after connection
-        try:
-            viewport_info = await page.evaluate("""() => ({
-                innerWidth: window.innerWidth,
-                innerHeight: window.innerHeight,
-                outerWidth: window.outerWidth,
-                outerHeight: window.outerHeight,
-                screenWidth: screen.width,
-                screenHeight: screen.height
-            })""")
-            print(f'[PlaywrightConnection] Browser viewport: {viewport_info["innerWidth"]}x{viewport_info["innerHeight"]}')
-            print(f'[PlaywrightConnection] Browser window: {viewport_info["outerWidth"]}x{viewport_info["outerHeight"]}')
-            print(f'[PlaywrightConnection] Screen size: {viewport_info["screenWidth"]}x{viewport_info["screenHeight"]}')
-        except Exception as e:
-            print(f'[PlaywrightConnection] Could not get browser size info: {e}')
         
         return playwright, browser, context, page
     
