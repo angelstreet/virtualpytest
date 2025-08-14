@@ -52,7 +52,20 @@ def capture_and_upload_screenshot(host, device, step_name: str, script_context: 
             from .cloudflare_utils import get_cloudflare_utils
             uploader = get_cloudflare_utils()
             remote_path = f"{script_context}-screenshots/{device.device_id}/{step_name}.png"
-            upload_result = uploader.upload_file(screenshot_path, remote_path)
+            file_mappings = [{'local_path': screenshot_path, 'remote_path': remote_path}]
+            upload_result = uploader.upload_files(file_mappings)
+            
+            # Convert to single file result format
+            if upload_result['uploaded_files']:
+                upload_result = {
+                    'success': True,
+                    'url': upload_result['uploaded_files'][0]['url']
+                }
+            else:
+                upload_result = {
+                    'success': False,
+                    'error': upload_result['failed_uploads'][0]['error'] if upload_result['failed_uploads'] else 'Upload failed'
+                }
             
             if upload_result.get('success'):
                 result['screenshot_url'] = upload_result.get('url')

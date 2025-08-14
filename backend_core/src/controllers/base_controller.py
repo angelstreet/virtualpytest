@@ -415,7 +415,20 @@ class FFmpegCaptureController(AVControllerInterface):
                 temp_playlist_path = temp_file.name
             
             playlist_remote_path = f"{video_folder}/playlist.m3u8"
-            playlist_result = uploader.upload_file(temp_playlist_path, playlist_remote_path)
+            file_mappings = [{'local_path': temp_playlist_path, 'remote_path': playlist_remote_path}]
+            upload_result = uploader.upload_files(file_mappings)
+            
+            # Convert to single file result
+            if upload_result['uploaded_files']:
+                playlist_result = {
+                    'success': True,
+                    'url': upload_result['uploaded_files'][0]['url']
+                }
+            else:
+                playlist_result = {
+                    'success': False,
+                    'error': upload_result['failed_uploads'][0]['error'] if upload_result['failed_uploads'] else 'Upload failed'
+                }
             
             # Clean up temp file
             try:
@@ -431,7 +444,14 @@ class FFmpegCaptureController(AVControllerInterface):
             uploaded_segments = 0
             for segment_name, segment_path in segment_files:
                 segment_remote_path = f"{video_folder}/{segment_name}"
-                segment_result = uploader.upload_file(segment_path, segment_remote_path)
+                file_mappings = [{'local_path': segment_path, 'remote_path': segment_remote_path}]
+                upload_result = uploader.upload_files(file_mappings)
+                
+                # Convert to single file result
+                if upload_result['uploaded_files']:
+                    segment_result = {'success': True}
+                else:
+                    segment_result = {'success': False}
                 
                 if segment_result.get('success'):
                     uploaded_segments += 1

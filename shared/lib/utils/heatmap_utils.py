@@ -547,8 +547,28 @@ def process_heatmap_generation(job_id: str, images_by_timestamp: Dict[str, List[
                         
                         print(f"[@heatmap_utils] Uploading mosaic and metadata for timestamp {timestamp}")
                         
-                        mosaic_upload = uploader.upload_file(temp_path, mosaic_r2_path)
-                        metadata_upload = uploader.upload_file(temp_json_path, metadata_r2_path)
+                        # Upload mosaic and metadata files
+                        file_mappings = [
+                            {'local_path': temp_path, 'remote_path': mosaic_r2_path},
+                            {'local_path': temp_json_path, 'remote_path': metadata_r2_path}
+                        ]
+                        upload_result = uploader.upload_files(file_mappings)
+                        
+                        # Extract individual results
+                        mosaic_upload = {'success': False}
+                        metadata_upload = {'success': False}
+                        
+                        for uploaded_file in upload_result.get('uploaded_files', []):
+                            if uploaded_file['remote_path'] == mosaic_r2_path:
+                                mosaic_upload = {
+                                    'success': True,
+                                    'url': uploaded_file['url']
+                                }
+                            elif uploaded_file['remote_path'] == metadata_r2_path:
+                                metadata_upload = {
+                                    'success': True,
+                                    'url': uploaded_file['url']
+                                }
                         
                         # Check upload success
                         if mosaic_upload['success'] and metadata_upload['success']:

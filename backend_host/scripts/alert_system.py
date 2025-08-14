@@ -480,7 +480,17 @@ def upload_freeze_frames_to_r2(last_3_filenames, last_3_thumbnails, device_id, t
             # R2 path: alerts/freeze/device1/20250124123456/frame_0.jpg
             r2_path = f"{base_r2_path}/frame_{i}.jpg"
             
-            upload_result = uploader.upload_file(filename, r2_path)
+            file_mappings = [{'local_path': filename, 'remote_path': r2_path}]
+            upload_result = uploader.upload_files(file_mappings)
+            
+            # Convert to single file result
+            if upload_result['uploaded_files']:
+                upload_result = {
+                    'success': True,
+                    'url': upload_result['uploaded_files'][0]['url']
+                }
+            else:
+                upload_result = {'success': False}
             if upload_result.get('success'):
                 r2_results['original_urls'].append(upload_result['url'])
                 r2_results['original_r2_paths'].append(r2_path)
@@ -511,7 +521,17 @@ def upload_freeze_frames_to_r2(last_3_filenames, last_3_thumbnails, device_id, t
             # R2 path: alerts/freeze/device1/20250124123456/thumb_0.jpg
             r2_path = f"{base_r2_path}/thumb_{i}.jpg"
             
-            upload_result = uploader.upload_file(thumbnail_path, r2_path)
+            file_mappings = [{'local_path': thumbnail_path, 'remote_path': r2_path}]
+            upload_result = uploader.upload_files(file_mappings)
+            
+            # Convert to single file result
+            if upload_result['uploaded_files']:
+                upload_result = {
+                    'success': True,
+                    'url': upload_result['uploaded_files'][0]['url']
+                }
+            else:
+                upload_result = {'success': False}
             if upload_result.get('success'):
                 r2_results['thumbnail_urls'].append(upload_result['url'])
                 r2_results['thumbnail_r2_paths'].append(r2_path)

@@ -39,6 +39,7 @@ def format_single_step(step: Dict, step_index: int, screenshots: Dict) -> str:
     
     # Format step content
     actions_html = format_step_actions(step)
+    error_html = format_step_error(step)  # Add error formatting
     verifications_html = format_step_verifications(step)
     script_output_html = format_script_output(step)
     analysis_html = format_analysis_results(step)
@@ -61,6 +62,7 @@ def format_single_step(step: Dict, step_index: int, screenshots: Dict) -> str:
          <div class="step-details-content">
              <div class="step-info">
                  {actions_html}
+                 {error_html}
                  {verifications_html}
                  {script_output_html}
                  {analysis_html}
@@ -69,6 +71,100 @@ def format_single_step(step: Dict, step_index: int, screenshots: Dict) -> str:
          </div>
     </div>
     """
+
+
+def format_step_error(step: Dict) -> str:
+    """Format error details section for a step."""
+    error = step.get('error')
+    success = step.get('success', False)
+    
+    # Only show error section for failed steps with error details
+    if success or not error:
+        return ""
+    
+    # Clean and format the error message
+    error_html = "<div><strong>❌ Error Details:</strong></div>"
+    error_html += '<div class="error-details-container" style="background-color: #fff5f5; border-left: 4px solid #e53e3e; padding: 12px; margin: 8px 0; border-radius: 4px;">'
+    
+    # Split error message by common delimiters to make it more readable
+    error_text = str(error)
+    
+    # Handle specific error patterns for better formatting
+    if "Actions failed:" in error_text:
+        # Parse action failure details
+        parts = error_text.split("Actions failed:")
+        if len(parts) > 1:
+            main_error = parts[0].strip()
+            failed_actions = parts[1].strip()
+            
+            if main_error:
+                error_html += f'<div class="error-summary" style="font-weight: bold; color: #e53e3e; margin-bottom: 8px;">{main_error}</div>'
+            
+            error_html += f'<div class="failed-actions" style="color: #a0a0a0; font-size: 14px;">Failed Actions: <span style="color: #e53e3e; font-weight: bold;">{failed_actions}</span></div>'
+    
+    elif "Detailed selector attempts:" in error_text:
+        # Handle Playwright detailed selector failures
+        parts = error_text.split("Detailed selector attempts:")
+        if len(parts) > 1:
+            main_error = parts[0].strip()
+            selector_details = parts[1].strip()
+            
+            error_html += f'<div class="error-summary" style="font-weight: bold; color: #e53e3e; margin-bottom: 8px;">🔍 {main_error}</div>'
+            
+            # Format selector attempts in a collapsible section
+            error_html += '<div class="selector-attempts" style="margin-top: 12px;">'
+            error_html += '<div style="font-weight: bold; color: #666; margin-bottom: 6px; cursor: pointer;" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === \'none\' ? \'block\' : \'none\'">📋 View All Selector Attempts ▼</div>'
+            error_html += '<div style="display: none; background-color: #f8f8f8; padding: 8px; border-radius: 4px; font-family: monospace; font-size: 12px; max-height: 200px; overflow-y: auto;">'
+            
+            # Format each selector attempt
+            attempt_lines = selector_details.split('\n')
+            for line in attempt_lines:
+                if line.strip():
+                    # Color-code the attempts
+                    if "failed" in line.lower():
+                        error_html += f'<div style="color: #e53e3e; margin: 2px 0;">{line.strip()}</div>'
+                    else:
+                        error_html += f'<div style="color: #666; margin: 2px 0;">{line.strip()}</div>'
+            
+            error_html += '</div></div>'
+        else:
+            # Fallback if parsing fails
+            error_html += f'<div style="color: #e53e3e; font-size: 14px;">{error_text}</div>'
+    
+    elif "Timeout" in error_text or "timeout" in error_text:
+        # Format timeout errors with better structure
+        error_html += f'<div class="timeout-error" style="color: #e53e3e;">'
+        error_html += f'<div style="font-weight: bold;">⏱️ Timeout Error</div>'
+        error_html += f'<div style="margin-top: 4px; font-size: 14px;">{error_text}</div>'
+        error_html += f'</div>'
+        
+    elif "element not found" in error_text.lower():
+        # Format element not found errors
+        error_html += f'<div class="element-error" style="color: #e53e3e;">'
+        error_html += f'<div style="font-weight: bold;">🔍 Element Not Found</div>'
+        error_html += f'<div style="margin-top: 4px; font-size: 14px;">{error_text}</div>'
+        error_html += f'</div>'
+        
+    else:
+        # Generic error formatting with better line break handling
+        error_html += f'<div class="generic-error" style="color: #e53e3e; font-size: 14px; line-height: 1.4;">'
+        
+        # Handle multiline errors better
+        if '\n' in error_text:
+            lines = error_text.split('\n')
+            for line in lines:
+                if line.strip():
+                    # Preserve indentation for structured error messages
+                    formatted_line = line.replace('  ', '&nbsp;&nbsp;').replace('\t', '&nbsp;&nbsp;&nbsp;&nbsp;')
+                    error_html += f'<div style="margin: 2px 0;">{formatted_line}</div>'
+        else:
+            # Single line error
+            error_html += error_text
+        
+        error_html += f'</div>'
+    
+    error_html += '</div>'
+    return error_html
 
 
 def format_step_actions(step: Dict) -> str:

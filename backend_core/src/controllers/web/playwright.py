@@ -401,6 +401,9 @@ class PlaywrightWebController(WebControllerInterface):
                     f"a:has-text('{selector}')"  # Links with text
                 ]
                 
+                # Track detailed error information for reporting
+                detailed_errors = []
+                
                 for i, sel in enumerate(selectors_to_try):
                     try:
                         await page.click(sel, timeout=timeout)
@@ -412,17 +415,27 @@ class PlaywrightWebController(WebControllerInterface):
                             'execution_time': execution_time
                         }
                     except Exception as e:
-                        print(f"[PLAYWRIGHT]: Selector {i+1} failed ({timeout}ms): {sel} - Exception: {str(e)}")
+                        error_detail = f"Selector {i+1} failed ({timeout}ms): {sel} - Exception: {str(e)}"
+                        print(f"[PLAYWRIGHT]: {error_detail}")
+                        detailed_errors.append(error_detail)
                         continue
                 
-                # All selectors failed
+                # All selectors failed - create detailed error message
                 execution_time = int((time.time() - start_time) * 1000)
-                error_msg = f"Click failed - element not found with any selector"
-                print(f"[PLAYWRIGHT]: {error_msg}")
+                error_summary = f"Click failed - element not found with any selector"
+                
+                # Create comprehensive error message including all attempts
+                detailed_error_msg = f"{error_summary}\n\nDetailed selector attempts:\n"
+                for i, error_detail in enumerate(detailed_errors, 1):
+                    detailed_error_msg += f"{i}. {error_detail}\n"
+                
+                print(f"[PLAYWRIGHT]: {error_summary}")
                 return {
                     'success': False,
-                    'error': error_msg,
-                    'execution_time': execution_time
+                    'error': detailed_error_msg.strip(),
+                    'execution_time': execution_time,
+                    'selector_attempts': len(selectors_to_try),
+                    'attempted_selectors': selectors_to_try
                 }
                 
             except Exception as e:

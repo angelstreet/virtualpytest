@@ -14,11 +14,13 @@ import os
 import boto3
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, Optional, List
 from mimetypes import guess_type
 import logging
 from botocore.client import Config
 from botocore.exceptions import ClientError
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import time
 
 # Configure logging
 logging.basicConfig(
@@ -126,52 +128,81 @@ class CloudflareUtils:
             logger.error(f"Failed to initialize Cloudflare R2 client: {str(e)}")
             raise
     
-    def upload_file(self, local_path: str, remote_path: str) -> Dict:
+    def upload_files(self, file_mappings: List[Dict], max_workers: int = 10) -> Dict:
         """
-        Upload a file to R2.
+        Upload files concurrently.
         
         Args:
-            local_path: Path to local file
-            remote_path: Path in R2 (e.g., 'images/screenshot.jpg')
+            file_mappings: List of dicts with 'local_path' and 'remote_path' keys
+            max_workers: Maximum number of concurrent upload threads
             
         Returns:
-            Dict with success status and public URL
+            Dict with upload results
         """
-        try:
-            if not os.path.exists(local_path):
-                return {'success': False, 'error': f"File not found: {local_path}"}
+        uploaded_files = []
+        failed_uploads = []
+        
+        def upload_single_file(mapping):
+            local_path = mapping['local_path']
+            remote_path = mapping['remote_path']
             
-            # Get content type
-            content_type, _ = guess_type(local_path)
-            if not content_type:
-                content_type = 'application/octet-stream'
-            
-            # Upload file using bucket name (required by boto3)
-            with open(local_path, 'rb') as f:
-                self.s3_client.upload_fileobj(
-                    f,
-                    self.bucket_name,
-                    remote_path,
-                    ExtraArgs={
-                        'ContentType': content_type
+            try:
+                if not os.path.exists(local_path):
+                    return {
+                        'success': False,
+                        'local_path': local_path,
+                        'remote_path': remote_path,
+                        'error': f"File not found: {local_path}"
                     }
-                )
+                
+                content_type, _ = guess_type(local_path)
+                if not content_type:
+                    content_type = 'application/octet-stream'
+                
+                with open(local_path, 'rb') as f:
+                    self.s3_client.upload_fileobj(
+                        f,
+                        self.bucket_name,
+                        remote_path,
+                        ExtraArgs={'ContentType': content_type}
+                    )
+                
+                file_url = self.get_public_url(remote_path)
+                
+                return {
+                    'success': True,
+                    'local_path': local_path,
+                    'remote_path': remote_path,
+                    'url': file_url,
+                    'size': os.path.getsize(local_path)
+                }
+                
+            except Exception as e:
+                return {
+                    'success': False,
+                    'local_path': local_path,
+                    'remote_path': remote_path,
+                    'error': str(e)
+                }
+        
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = [executor.submit(upload_single_file, mapping) for mapping in file_mappings]
             
-            # Get public URL
-            file_url = self.get_public_url(remote_path)
-            
-            logger.info(f"Uploaded: {local_path} -> {remote_path}")
-            
-            return {
-                'success': True,
-                'remote_path': remote_path,
-                'url': file_url,
-                'size': os.path.getsize(local_path)
-            }
-            
-        except Exception as e:
-            logger.error(f"Upload failed: {str(e)}")
-            return {'success': False, 'error': str(e)}
+            for future in as_completed(futures):
+                result = future.result()
+                
+                if result['success']:
+                    uploaded_files.append(result)
+                else:
+                    failed_uploads.append(result)
+        
+        return {
+            'success': len(failed_uploads) == 0,
+            'uploaded_count': len(uploaded_files),
+            'failed_count': len(failed_uploads),
+            'uploaded_files': uploaded_files,
+            'failed_uploads': failed_uploads
+        }
     
     def download_file(self, remote_path: str, local_path: str) -> Dict:
         """
@@ -297,7 +328,22 @@ def upload_reference_image(local_path: str, model: str, image_name: str) -> Dict
     """Upload a reference image to R2 in the reference-images/{model} folder."""
     uploader = get_cloudflare_utils()
     remote_path = f"reference-images/{model}/{image_name}"
-    return uploader.upload_file(local_path, remote_path)
+    file_mappings = [{'local_path': local_path, 'remote_path': remote_path}]
+    result = uploader.upload_files(file_mappings)
+    
+    # Return single file format for compatibility
+    if result['uploaded_files']:
+        return {
+            'success': True,
+            'url': result['uploaded_files'][0]['url'],
+            'remote_path': result['uploaded_files'][0]['remote_path'],
+            'size': result['uploaded_files'][0]['size']
+        }
+    else:
+        return {
+            'success': False,
+            'error': result['failed_uploads'][0]['error'] if result['failed_uploads'] else 'Upload failed'
+        }
 
 def download_reference_image(model: str, image_name: str, local_path: str) -> Dict:
     """Download a reference image from R2 in the reference-images/{model} folder."""
@@ -309,7 +355,22 @@ def upload_navigation_screenshot(local_path: str, model: str, screenshot_name: s
     """Upload a navigation screenshot to R2 in the navigation/{model} folder."""
     uploader = get_cloudflare_utils()
     remote_path = f"navigation/{model}/{screenshot_name}"
-    return uploader.upload_file(local_path, remote_path)
+    file_mappings = [{'local_path': local_path, 'remote_path': remote_path}]
+    result = uploader.upload_files(file_mappings)
+    
+    # Return single file format for compatibility
+    if result['uploaded_files']:
+        return {
+            'success': True,
+            'url': result['uploaded_files'][0]['url'],
+            'remote_path': result['uploaded_files'][0]['remote_path'],
+            'size': result['uploaded_files'][0]['size']
+        }
+    else:
+        return {
+            'success': False,
+            'error': result['failed_uploads'][0]['error'] if result['failed_uploads'] else 'Upload failed'
+        }
 
 def upload_heatmap_html(html_content: str, timestamp: str) -> Dict:
     """Upload heatmap HTML to R2 in the heatmaps folder."""
@@ -329,7 +390,21 @@ def upload_heatmap_html(html_content: str, timestamp: str) -> Dict:
         
         try:
             # Upload HTML file
-            result = uploader.upload_file(temp_file_path, html_path)
+            file_mappings = [{'local_path': temp_file_path, 'remote_path': html_path}]
+            upload_result = uploader.upload_files(file_mappings)
+            
+            # Convert to single file result
+            if upload_result['uploaded_files']:
+                result = {
+                    'success': True,
+                    'url': upload_result['uploaded_files'][0]['url'],
+                    'remote_path': upload_result['uploaded_files'][0]['remote_path']
+                }
+            else:
+                result = {
+                    'success': False,
+                    'error': upload_result['failed_uploads'][0]['error'] if upload_result['failed_uploads'] else 'Upload failed'
+                }
             
             if result['success']:
                 logger.info(f"Uploaded heatmap HTML: {html_path}")
@@ -376,7 +451,21 @@ def upload_script_report(html_content: str, device_model: str, script_name: str,
         
         try:
             # Upload HTML report
-            result = uploader.upload_file(temp_file_path, report_path)
+            file_mappings = [{'local_path': temp_file_path, 'remote_path': report_path}]
+            upload_result = uploader.upload_files(file_mappings)
+            
+            # Convert to single file result
+            if upload_result['uploaded_files']:
+                result = {
+                    'success': True,
+                    'url': upload_result['uploaded_files'][0]['url'],
+                    'remote_path': upload_result['uploaded_files'][0]['remote_path']
+                }
+            else:
+                result = {
+                    'success': False,
+                    'error': upload_result['failed_uploads'][0]['error'] if upload_result['failed_uploads'] else 'Upload failed'
+                }
             
             if result['success']:
                 logger.info(f"Uploaded script report: {report_path}")
@@ -405,83 +494,69 @@ def upload_script_report(html_content: str, device_model: str, script_name: str,
         }
 
 def upload_validation_screenshots(screenshot_paths: list, device_model: str, script_name: str, timestamp: str) -> Dict:
-    """Upload validation screenshots to R2 in the same folder as the report."""
-    try:
-        uploader = get_cloudflare_utils()
+    """Upload validation screenshots to R2 using batch upload."""
+    uploader = get_cloudflare_utils()
+    
+    # Create report folder path
+    date_str = timestamp[:8]  # YYYYMMDD from YYYYMMDDHHMMSS
+    folder_name = f"{script_name}_{date_str}_{timestamp}"
+    base_folder = f"script-reports/{device_model}/{folder_name}"
+    
+    # Prepare file mappings for batch upload
+    file_mappings = []
+    
+    for local_path in screenshot_paths:
+        if not os.path.exists(local_path):
+            continue
         
-        # Create report folder path
-        date_str = timestamp[:8]  # YYYYMMDD from YYYYMMDDHHMMSS
-        folder_name = f"{script_name}_{date_str}_{timestamp}"
-        base_folder = f"script-reports/{device_model}/{folder_name}"
+        # Add main screenshot
+        filename = os.path.basename(local_path)
+        file_mappings.append({
+            'local_path': local_path,
+            'remote_path': f"{base_folder}/{filename}"
+        })
         
-        uploaded_screenshots = []
-        failed_uploads = []
-        
-        for local_path in screenshot_paths:
-            if not os.path.exists(local_path):
-                logger.warning(f"Screenshot not found: {local_path}")
-                failed_uploads.append({'path': local_path, 'error': 'File not found'})
-                continue
-            
-            # Extract filename from local path
-            filename = os.path.basename(local_path)
-            remote_path = f"{base_folder}/{filename}"
-            
-            # Upload full-size screenshot
-            result = uploader.upload_file(local_path, remote_path)
-            
-            if result['success']:
-                uploaded_screenshots.append({
-                    'local_path': local_path,
-                    'remote_path': remote_path,
-                    'url': result['url']
-                })
-                logger.info(f"Uploaded screenshot: {remote_path}")
-            else:
-                failed_uploads.append({
-                    'path': local_path,
-                    'error': result.get('error', 'Upload failed')
-                })
-                logger.error(f"Failed to upload screenshot {local_path}: {result.get('error')}")
-            
-            # Also upload thumbnail if it exists (for consistent URL-based display)
-            thumbnail_path = local_path.replace('.jpg', '_thumbnail.jpg')
-            if os.path.exists(thumbnail_path):
-                thumbnail_filename = os.path.basename(thumbnail_path)
-                thumbnail_remote_path = f"{base_folder}/{thumbnail_filename}"
-                
-                thumbnail_result = uploader.upload_file(thumbnail_path, thumbnail_remote_path)
-                
-                if thumbnail_result['success']:
-                    uploaded_screenshots.append({
-                        'local_path': thumbnail_path,
-                        'remote_path': thumbnail_remote_path,
-                        'url': thumbnail_result['url']
-                    })
-                    logger.info(f"Uploaded thumbnail: {thumbnail_remote_path}")
-                else:
-                    # Don't fail the whole process if thumbnail upload fails
-                    logger.warning(f"Thumbnail upload failed for {thumbnail_path}: {thumbnail_result.get('error')}")
-            else:
-                logger.info(f"No thumbnail found for {local_path} (expected: {thumbnail_path})")
-        
-        return {
-            'success': len(failed_uploads) == 0,
-            'uploaded_count': len(uploaded_screenshots),
-            'failed_count': len(failed_uploads),
-            'uploaded_screenshots': uploaded_screenshots,
-            'failed_uploads': failed_uploads,
-            'folder_path': base_folder
-        }
-        
-    except Exception as e:
-        logger.error(f"Validation screenshots upload failed: {str(e)}")
+        # Add thumbnail if exists
+        thumbnail_path = local_path.replace('.jpg', '_thumbnail.jpg')
+        if os.path.exists(thumbnail_path):
+            thumbnail_filename = os.path.basename(thumbnail_path)
+            file_mappings.append({
+                'local_path': thumbnail_path,
+                'remote_path': f"{base_folder}/{thumbnail_filename}"
+            })
+    
+    if not file_mappings:
         return {
             'success': False,
-            'error': str(e),
+            'error': 'No valid files found',
+            'uploaded_count': 0,
+            'failed_count': 0,
             'uploaded_screenshots': [],
             'failed_uploads': []
         }
+    
+    # Upload all files
+    batch_result = uploader.upload_files(file_mappings)
+    
+    return {
+        'success': batch_result['success'],
+        'uploaded_count': batch_result['uploaded_count'],
+        'failed_count': batch_result['failed_count'],
+        'uploaded_screenshots': [
+            {
+                'local_path': f['local_path'],
+                'remote_path': f['remote_path'],
+                'url': f['url']
+            } for f in batch_result['uploaded_files']
+        ],
+        'failed_uploads': [
+            {
+                'path': f['local_path'],
+                'error': f['error']
+            } for f in batch_result['failed_uploads']
+        ],
+        'folder_path': base_folder
+    }
 
 def get_script_report_folder_url(device_model: str, script_name: str, timestamp: str) -> str:
     """Get base URL for script report folder."""
