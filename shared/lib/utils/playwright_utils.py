@@ -105,7 +105,7 @@ class ChromeManager:
             f'--user-data-dir={user_data_dir}',
             '--no-first-run',
             '--no-default-browser-check',
-            '--disable-features=Translate,InfiniteSessionRestore,TabRestore',
+            '--disable-features=Translate,InfiniteSessionRestore,TabRestore,MediaRouter',
             '--disable-extensions',
             '--disable-gpu',                   # Disable GPU acceleration entirely
             '--disable-dev-shm-usage',        # Overcome limited resource problems
