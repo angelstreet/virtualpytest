@@ -42,20 +42,7 @@ class ChromeManager:
     def close_chrome_gracefully(debug_port: int = 9222, chrome_process = None):
         """Close Chrome gracefully via CDP, fallback to process termination."""
         print('[ChromeManager] Closing Chrome gracefully...')
-        
-        # Try to close via CDP first
-        try:
-            import requests
-            close_url = f'http://localhost:{debug_port}/json/close'
-            response = requests.get(close_url, timeout=3)
-            if response.status_code == 200:
-                print('[ChromeManager] Chrome closed via CDP')
-                time.sleep(2)
-                return
-        except:
-            pass
-        
-        # Fallback: use process-specific termination or pkill
+              
         if chrome_process and chrome_process.poll() is None:
             print('[ChromeManager] CDP failed, terminating specific process...')
             chrome_process.terminate()
@@ -66,10 +53,6 @@ class ChromeManager:
                 print('[ChromeManager] Force killing process...')
                 chrome_process.kill()
                 chrome_process.wait()
-        else:
-            print('[ChromeManager] CDP failed, using pkill...')
-            os.system('pkill -f chrome')
-            time.sleep(2)
     
     @staticmethod
     def is_port_in_use(port: int) -> bool:
