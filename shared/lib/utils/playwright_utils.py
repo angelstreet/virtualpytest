@@ -107,13 +107,6 @@ class ChromeManager:
             '--no-default-browser-check',
             '--disable-features=Translate,InfiniteSessionRestore,TabRestore,MediaRouter',
             '--disable-extensions',
-            '--disable-gpu',                   # Disable GPU acceleration entirely
-            '--disable-dev-shm-usage',        # Overcome limited resource problems
-            '--disable-webgl',                # Disable WebGL to avoid software fallback warnings
-            '--disable-webgl2',               # Disable WebGL2 as well
-            '--disable-3d-apis',              # Disable all 3D APIs
-            '--disable-accelerated-2d-canvas', # Disable 2D canvas acceleration
-            '--disable-accelerated-video-decode', # Disable video decode acceleration
             '--disable-session-crashed-bubble',  # Disable restore session popup
             '--disable-infobars',  # Disable info bars including restore prompts
             '--disable-restore-session-state',  # Disable session restore altogether
