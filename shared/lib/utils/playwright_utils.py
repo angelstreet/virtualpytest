@@ -105,15 +105,17 @@ class ChromeManager:
             f'--user-data-dir={user_data_dir}',
             '--no-first-run',
             '--no-default-browser-check',
-            '--disable-features=Translate,InfiniteSessionRestore,TabRestore',
+            '--disable-features=Translate,InfiniteSessionRestore,TabRestore,VizDisplayCompositor',
             '--disable-extensions',
             '--use-gl=egl',                    # Use EGL for rendering
             '--use-angle=default',             # Use default ANGLE implementation
             '--ignore-gpu-blocklist',          # Override GPU blocklist
             '--enable-gpu-rasterization',      # Use GPU for rasterizing web content
             '--enable-zero-copy',              # Enable zero-copy rasterizer
-            '--disable-gpu-sandbox',           # Disable GPU sandbox to avoid init issues
             '--disable-software-rasterizer',   # Force hardware acceleration
+            '--force-gpu-mem-available-mb=1024',  # Set GPU memory limit
+            '--enable-logging=stderr',         # Enable logging to see what's happening
+            '--disable-gpu-process-crash-limit',  # Don't limit GPU process crashes
             '--disable-session-crashed-bubble',  # Disable restore session popup
             '--disable-infobars',  # Disable info bars including restore prompts
             '--disable-restore-session-state',  # Disable session restore altogether
