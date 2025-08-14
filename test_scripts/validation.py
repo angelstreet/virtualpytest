@@ -105,7 +105,8 @@ def capture_validation_summary(context: ScriptExecutionContext, userinterface_na
             lines.append(f"     Error: {error}")
     
     # Add detailed step results for frontend parsing
-    lines.append("\n📋 [VALIDATION] DETAILED STEP RESULTS")
+    lines.append("")
+    lines.append("📋 [VALIDATION] DETAILED STEP RESULTS")
     lines.append("="*60)
     for i, step in enumerate(context.step_results):
         step_success = step.get('success', False)
