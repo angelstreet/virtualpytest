@@ -32,6 +32,12 @@ class PlaywrightWebController(WebControllerInterface):
     _chrome_process = None
     _chrome_running = False
     
+    # Class-level persistent Playwright browser and context (reuse)
+    _playwright = None
+    _browser = None
+    _context = None
+    _browser_connected = False
+    
     def __init__(self, **kwargs):
         """
         Initialize the Playwright web controller.
@@ -48,6 +54,34 @@ class PlaywrightWebController(WebControllerInterface):
         self.page_title = ""
         
         print(f"[@controller:PlaywrightWeb] Initialized with async Playwright + Chrome remote debugging + auto-cookie acceptance + persistent user data")
+    
+    async def _get_fresh_page(self, target_url: str = None):
+        """Get a fresh page from persistent browser+context. Creates browser+context if needed."""
+        # Establish persistent browser+context if not exists
+        if not self.__class__._browser_connected or not self.__class__._browser or not self.__class__._context:
+            print(f"Web[{self.web_type.upper()}]: Creating persistent browser+context...")
+            self.__class__._playwright, self.__class__._browser, self.__class__._context, _ = await self.utils.connect_to_chrome(target_url=target_url)
+            self.__class__._browser_connected = True
+            print(f"Web[{self.web_type.upper()}]: Persistent browser+context established")
+        
+        # Create fresh page for this action
+        page = await self.__class__._context.new_page()
+        return page
+    
+    async def _cleanup_persistent_browser(self):
+        """Clean up persistent browser+context."""
+        if self.__class__._browser_connected:
+            print(f"Web[{self.web_type.upper()}]: Cleaning up persistent browser+context...")
+            if self.__class__._browser:
+                await self.__class__._browser.close()
+            if self.__class__._playwright:
+                await self.__class__._playwright.stop()
+            
+            self.__class__._playwright = None
+            self.__class__._browser = None
+            self.__class__._context = None
+            self.__class__._browser_connected = False
+            print(f"Web[{self.web_type.upper()}]: Persistent browser+context cleaned up")
     
     def connect(self) -> bool:
         """Connect to Chrome (launch if needed)."""
@@ -72,6 +106,9 @@ class PlaywrightWebController(WebControllerInterface):
     def disconnect(self) -> bool:
         """Disconnect and cleanup Chrome."""
         print(f"Web[{self.web_type.upper()}]: disconnect() called - _chrome_running={self._chrome_running}, _chrome_process={self._chrome_process}")
+        
+        # Clean up persistent browser connection first
+        self.utils.run_async(self._cleanup_persistent_browser())
         
         if self._chrome_running and self._chrome_process:
             try:
@@ -116,7 +153,7 @@ class PlaywrightWebController(WebControllerInterface):
                 
                 # Test connection to Chrome and ensure page is ready
                 try:
-                    playwright, browser, context, page = await self.utils.connect_to_chrome(target_url='https://google.fr')
+                    page = await self._get_fresh_page(target_url='https://google.fr')
                 except Exception as e:
                     # Chrome is not responding, kill and relaunch
                     if "ECONNREFUSED" in str(e) or "connect" in str(e).lower():
@@ -124,24 +161,27 @@ class PlaywrightWebController(WebControllerInterface):
                         self.utils.kill_chrome()
                         self.__class__._chrome_process = None
                         self.__class__._chrome_running = False
+                        self.__class__._browser_connected = False
                         self.is_connected = False
                         
                         # Try to connect again
                         if not self.connect():
                             raise Exception("Failed to relaunch Chrome after connection failure")
-                        playwright, browser, context, page = await self.utils.connect_to_chrome(target_url='https://google.fr')
+                        page = await self._get_fresh_page(target_url='https://google.fr')
                     else:
                         raise
                 
-                # Navigate to Google France for a nicer default page
-                await page.goto('https://google.fr')
+                try:
+                    # Navigate to Google France for a nicer default page
+                    await page.goto('https://google.fr')
+                    
+                    # Update page state
+                    self.current_url = page.url
+                    self.page_title = await page.title()
                 
-                # Update page state
-                self.current_url = page.url
-                self.page_title = await page.title() 
-                
-                # Cleanup connection
-                await self.utils.cleanup_connection(playwright, browser)
+                finally:
+                    # Clean up fresh page
+                    await page.close()
                 
                 execution_time = int((time.time() - start_time) * 1000)
                 
@@ -174,20 +214,22 @@ class PlaywrightWebController(WebControllerInterface):
                 
                 # Try to connect to existing Chrome debug session (no killing Chrome first)
                 try:
-                    playwright, browser, context, page = await self.utils.connect_to_chrome()
+                    page = await self._get_fresh_page()
                     
-                    # Get current page info if available
-                    if len(context.pages) > 0:
-                        current_page = context.pages[0]
-                        self.current_url = current_page.url
-                        self.page_title = await current_page.title()
-                    else:
-                        # No existing page, current_url and page_title will remain empty
-                        self.current_url = ""
-                        self.page_title = ""
+                    try:
+                        # Get current page info if available
+                        if len(self.__class__._context.pages) > 1:  # More than just our fresh page
+                            existing_page = self.__class__._context.pages[0]  # Get first existing page
+                            self.current_url = existing_page.url
+                            self.page_title = await existing_page.title()
+                        else:
+                            # No existing page, current_url and page_title will remain empty
+                            self.current_url = ""
+                            self.page_title = ""
                     
-                    # Cleanup connection
-                    await self.utils.cleanup_connection(playwright, browser)
+                    finally:
+                        # Clean up fresh page
+                        await page.close()
                     
                     # Mark as connected
                     self.is_connected = True
@@ -270,38 +312,40 @@ class PlaywrightWebController(WebControllerInterface):
                 
 
                 
-                # Connect to Chrome via CDP with auto-cookie injection for the target URL
-                playwright, browser, context, page = await self.utils.connect_to_chrome(target_url=normalized_url)
+                # Get fresh page from persistent browser+context
+                page = await self._get_fresh_page(target_url=normalized_url)
                 
-                # Navigate to URL with optional redirect control
-                if follow_redirects:
-                    # Default behavior - follow redirects
-                    await page.goto(normalized_url, timeout=timeout, wait_until='load')
-                else:
-                    # Disable redirects by intercepting navigation
-                    print(f"Web[{self.web_type.upper()}]: Navigation with redirects disabled")
-                    
-                    # Set up request interception to block redirects
-                    await page.route('**/*', lambda route: (
-                        route.fulfill(status=200, body=f'<html><body><h1>Redirect blocked</h1><p>Original URL: {normalized_url}</p><p>This page would normally redirect to another domain.</p></body></html>')
-                        if route.request.is_navigation_request() and route.request.url != normalized_url
-                        else route.continue_()
-                    ))
-                    
-                    await page.goto(normalized_url, timeout=timeout, wait_until='load')
-                
-                # Get page info after navigation
                 try:
-                    # Try to wait for networkidle but don't fail if it times out
-                    await page.wait_for_load_state('networkidle', timeout=5000)
-                except Exception as e:
-                    print(f"Web[{self.web_type.upper()}]: Networkidle timeout ignored: {str(e)}")
+                    # Navigate to URL with optional redirect control
+                    if follow_redirects:
+                        # Default behavior - follow redirects
+                        await page.goto(normalized_url, timeout=timeout, wait_until='load')
+                    else:
+                        # Disable redirects by intercepting navigation
+                        print(f"Web[{self.web_type.upper()}]: Navigation with redirects disabled")
+                        
+                        # Set up request interception to block redirects
+                        await page.route('**/*', lambda route: (
+                            route.fulfill(status=200, body=f'<html><body><h1>Redirect blocked</h1><p>Original URL: {normalized_url}</p><p>This page would normally redirect to another domain.</p></body></html>')
+                            if route.request.is_navigation_request() and route.request.url != normalized_url
+                            else route.continue_()
+                        ))
+                        
+                        await page.goto(normalized_url, timeout=timeout, wait_until='load')
+                    
+                    # Get page info after navigation
+                    try:
+                        # Try to wait for networkidle but don't fail if it times out
+                        await page.wait_for_load_state('networkidle', timeout=5000)
+                    except Exception as e:
+                        print(f"Web[{self.web_type.upper()}]: Networkidle timeout ignored: {str(e)}")
+                    
+                    self.current_url = page.url
+                    self.page_title = await page.title()
                 
-                self.current_url = page.url
-                self.page_title = await page.title()
-                
-                # Cleanup connection
-                await self.utils.cleanup_connection(playwright, browser)
+                finally:
+                    # Clean up fresh page (browser+context remain persistent)
+                    await page.close()
                 
                 execution_time = int((time.time() - start_time) * 1000)
                 
@@ -357,74 +401,74 @@ class PlaywrightWebController(WebControllerInterface):
                 print(f"Web[{self.web_type.upper()}]: Clicking element: {selector}")
                 start_time = time.time()
                 
-                # Connect to Chrome via CDP
+                # Get fresh page from persistent browser+context
                 connect_start = time.time()
-                playwright, browser, context, page = await self.utils.connect_to_chrome()
+                page = await self._get_fresh_page()
                 connect_time = int((time.time() - connect_start) * 1000)
-                print(f"Web[{self.web_type.upper()}]: Chrome connection took {connect_time}ms")
+                print(f"Web[{self.web_type.upper()}]: Fresh page creation took {connect_time}ms")
                 
-                # Use much shorter timeout - 200ms per selector attempt
-                timeout = 200
-                
-                # Detect if selector is a CSS selector or text content
-                is_css_selector = (
-                    selector.startswith('#') or  # ID selector
-                    selector.startswith('.') or  # Class selector
-                    selector.startswith('[') or  # Attribute selector
-                    '>' in selector or          # Child combinator
-                    ' ' in selector and ('.' in selector or '#' in selector) or  # Complex selector
-                    selector.lower() in ['button', 'input', 'a', 'div', 'span', 'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6']  # Element tags
-                )
-                
-                click_successful = False
-                final_selector = selector
-                
-                if is_css_selector:
-                    # Try direct CSS selector click
-                    selector_start = time.time()
-                    try:
-                        await page.click(selector, timeout=timeout)
-                        click_successful = True
-                        selector_time = int((time.time() - selector_start) * 1000)
-                        print(f"Web[{self.web_type.upper()}]: Direct CSS selector click successful ({selector_time}ms)")
-                    except Exception as e:
-                        selector_time = int((time.time() - selector_start) * 1000)
-                        print(f"Web[{self.web_type.upper()}]: Direct CSS selector failed ({selector_time}ms): {e}")
-                else:
-                    # Text-based search - try multiple strategies
-                    print(f"Web[{self.web_type.upper()}]: Text-based search for: {selector}")
+                try:
+                    # Use much shorter timeout - 200ms per selector attempt
+                    timeout = 200
                     
-                    # Strategy 1: Try most common selectors first (prioritized list)
-                    text_selectors = [
-                        f"[aria-label='{selector}']",           # Most common for buttons/links
-                        f"button:has-text('{selector}')",       # Actual buttons
-                        f"a:has-text('{selector}')",            # Links
-                        f"[role='button']:has-text('{selector}')", # Role-based buttons
-                        f"*:text-is('{selector}')",             # Exact text match
-                        f"flt-semantics[aria-label='{selector}']" # Flutter semantics (reduced list)
-                    ]
+                    # Detect if selector is a CSS selector or text content
+                    is_css_selector = (
+                        selector.startswith('#') or  # ID selector
+                        selector.startswith('.') or  # Class selector
+                        selector.startswith('[') or  # Attribute selector
+                        '>' in selector or          # Child combinator
+                        ' ' in selector and ('.' in selector or '#' in selector) or  # Complex selector
+                        selector.lower() in ['button', 'input', 'a', 'div', 'span', 'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6']  # Element tags
+                    )
                     
-                    for i, text_selector in enumerate(text_selectors):
+                    click_successful = False
+                    final_selector = selector
+                    
+                    if is_css_selector:
+                        # Try direct CSS selector click
                         selector_start = time.time()
                         try:
-                            await page.click(text_selector, timeout=timeout)
+                            await page.click(selector, timeout=timeout)
                             click_successful = True
-                            final_selector = text_selector
                             selector_time = int((time.time() - selector_start) * 1000)
-                            print(f"Web[{self.web_type.upper()}]: Text selector click successful: {text_selector} ({selector_time}ms, attempt {i+1})")
-                            break
-                        except Exception:
+                            print(f"Web[{self.web_type.upper()}]: Direct CSS selector click successful ({selector_time}ms)")
+                        except Exception as e:
                             selector_time = int((time.time() - selector_start) * 1000)
-                            print(f"Web[{self.web_type.upper()}]: Selector {i+1}/{len(text_selectors)} failed ({selector_time}ms): {text_selector}")
-                            continue
-                    
-
+                            print(f"Web[{self.web_type.upper()}]: Direct CSS selector failed ({selector_time}ms): {e}")
+                    else:
+                        # Text-based search - try multiple strategies
+                        print(f"Web[{self.web_type.upper()}]: Text-based search for: {selector}")
+                        
+                        # Strategy 1: Try most common selectors first (prioritized list)
+                        text_selectors = [
+                            f"[aria-label='{selector}']",           # Most common for buttons/links
+                            f"button:has-text('{selector}')",       # Actual buttons
+                            f"a:has-text('{selector}')",            # Links
+                            f"[role='button']:has-text('{selector}')", # Role-based buttons
+                            f"*:text-is('{selector}')",             # Exact text match
+                            f"flt-semantics[aria-label='{selector}']" # Flutter semantics (reduced list)
+                        ]
+                        
+                        for i, text_selector in enumerate(text_selectors):
+                            selector_start = time.time()
+                            try:
+                                await page.click(text_selector, timeout=timeout)
+                                click_successful = True
+                                final_selector = text_selector
+                                selector_time = int((time.time() - selector_start) * 1000)
+                                print(f"Web[{self.web_type.upper()}]: Text selector click successful: {text_selector} ({selector_time}ms, attempt {i+1})")
+                                break
+                            except Exception:
+                                selector_time = int((time.time() - selector_start) * 1000)
+                                print(f"Web[{self.web_type.upper()}]: Selector {i+1}/{len(text_selectors)} failed ({selector_time}ms): {text_selector}")
+                                continue
                 
-                # Cleanup connection
-                cleanup_start = time.time()
-                await self.utils.cleanup_connection(playwright, browser)
-                cleanup_time = int((time.time() - cleanup_start) * 1000)
-                print(f"Web[{self.web_type.upper()}]: Cleanup took {cleanup_time}ms")
+                finally:
+                    # Clean up fresh page
+                    cleanup_start = time.time()
+                    await page.close()
+                    cleanup_time = int((time.time() - cleanup_start) * 1000)
+                    print(f"Web[{self.web_type.upper()}]: Page cleanup took {cleanup_time}ms")
                 
                 execution_time = int((time.time() - start_time) * 1000)
                 print(f"Web[{self.web_type.upper()}]: Total execution time: {execution_time}ms")
@@ -480,70 +524,37 @@ class PlaywrightWebController(WebControllerInterface):
                 print(f"Web[{self.web_type.upper()}]: Finding element: {selector}")
                 start_time = time.time()
                 
-                # Connect to Chrome via CDP
+                # Get fresh page from persistent browser+context
                 connect_start = time.time()
-                playwright, browser, context, page = await self.utils.connect_to_chrome()
+                page = await self._get_fresh_page()
                 connect_time = int((time.time() - connect_start) * 1000)
-                print(f"Web[{self.web_type.upper()}]: Chrome connection took {connect_time}ms")
+                print(f"Web[{self.web_type.upper()}]: Fresh page creation took {connect_time}ms")
                 
-                # Use much shorter timeout - 200ms per selector attempt
-                timeout = 200
-                
-                # Detect if selector is a CSS selector or text content
-                is_css_selector = (
-                    selector.startswith('#') or  # ID selector
-                    selector.startswith('.') or  # Class selector
-                    selector.startswith('[') or  # Attribute selector
-                    '>' in selector or          # Child combinator
-                    ' ' in selector and ('.' in selector or '#' in selector) or  # Complex selector
-                    selector.lower() in ['button', 'input', 'a', 'div', 'span', 'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6']  # Element tags
-                )
-                
-                element_found = False
-                final_selector = selector
-                element_info = {}
-                
-                if is_css_selector:
-                    # Try direct CSS selector
-                    selector_start = time.time()
-                    try:
-                        element = await page.query_selector(selector)
-                        if element:
-                            element_found = True
-                            bounding_box = await element.bounding_box()
-                            if bounding_box:
-                                element_info = {
-                                    'x': bounding_box['x'],
-                                    'y': bounding_box['y'],
-                                    'width': bounding_box['width'],
-                                    'height': bounding_box['height']
-                                }
-                            selector_time = int((time.time() - selector_start) * 1000)
-                            print(f"Web[{self.web_type.upper()}]: Direct CSS selector found element ({selector_time}ms)")
-                    except Exception as e:
-                        selector_time = int((time.time() - selector_start) * 1000)
-                        print(f"Web[{self.web_type.upper()}]: Direct CSS selector failed ({selector_time}ms): {e}")
-                else:
-                    # Text-based search - try prioritized selectors
-                    print(f"Web[{self.web_type.upper()}]: Text-based search for: {selector}")
+                try:
+                    # Use much shorter timeout - 200ms per selector attempt
+                    timeout = 200
                     
-                    # Prioritized selectors (same as click_element for consistency)
-                    text_selectors = [
-                        f"[aria-label='{selector}']",           # Most common for buttons/links
-                        f"button:has-text('{selector}')",       # Actual buttons
-                        f"a:has-text('{selector}')",            # Links
-                        f"[role='button']:has-text('{selector}')", # Role-based buttons
-                        f"*:text-is('{selector}')",             # Exact text match
-                        f"flt-semantics[aria-label='{selector}']" # Flutter semantics
-                    ]
+                    # Detect if selector is a CSS selector or text content
+                    is_css_selector = (
+                        selector.startswith('#') or  # ID selector
+                        selector.startswith('.') or  # Class selector
+                        selector.startswith('[') or  # Attribute selector
+                        '>' in selector or          # Child combinator
+                        ' ' in selector and ('.' in selector or '#' in selector) or  # Complex selector
+                        selector.lower() in ['button', 'input', 'a', 'div', 'span', 'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6']  # Element tags
+                    )
                     
-                    for i, text_selector in enumerate(text_selectors):
+                    element_found = False
+                    final_selector = selector
+                    element_info = {}
+                    
+                    if is_css_selector:
+                        # Try direct CSS selector
                         selector_start = time.time()
                         try:
-                            element = await page.query_selector(text_selector)
+                            element = await page.query_selector(selector)
                             if element:
                                 element_found = True
-                                final_selector = text_selector
                                 bounding_box = await element.bounding_box()
                                 if bounding_box:
                                     element_info = {
@@ -553,18 +564,53 @@ class PlaywrightWebController(WebControllerInterface):
                                         'height': bounding_box['height']
                                     }
                                 selector_time = int((time.time() - selector_start) * 1000)
-                                print(f"Web[{self.web_type.upper()}]: Text selector found element: {text_selector} ({selector_time}ms, attempt {i+1})")
-                                break
-                        except Exception:
+                                print(f"Web[{self.web_type.upper()}]: Direct CSS selector found element ({selector_time}ms)")
+                        except Exception as e:
                             selector_time = int((time.time() - selector_start) * 1000)
-                            print(f"Web[{self.web_type.upper()}]: Selector {i+1}/{len(text_selectors)} failed ({selector_time}ms): {text_selector}")
-                            continue
+                            print(f"Web[{self.web_type.upper()}]: Direct CSS selector failed ({selector_time}ms): {e}")
+                    else:
+                        # Text-based search - try prioritized selectors
+                        print(f"Web[{self.web_type.upper()}]: Text-based search for: {selector}")
+                        
+                        # Prioritized selectors (same as click_element for consistency)
+                        text_selectors = [
+                            f"[aria-label='{selector}']",           # Most common for buttons/links
+                            f"button:has-text('{selector}')",       # Actual buttons
+                            f"a:has-text('{selector}')",            # Links
+                            f"[role='button']:has-text('{selector}')", # Role-based buttons
+                            f"*:text-is('{selector}')",             # Exact text match
+                            f"flt-semantics[aria-label='{selector}']" # Flutter semantics
+                        ]
+                        
+                        for i, text_selector in enumerate(text_selectors):
+                            selector_start = time.time()
+                            try:
+                                element = await page.query_selector(text_selector)
+                                if element:
+                                    element_found = True
+                                    final_selector = text_selector
+                                    bounding_box = await element.bounding_box()
+                                    if bounding_box:
+                                        element_info = {
+                                            'x': bounding_box['x'],
+                                            'y': bounding_box['y'],
+                                            'width': bounding_box['width'],
+                                            'height': bounding_box['height']
+                                        }
+                                    selector_time = int((time.time() - selector_start) * 1000)
+                                    print(f"Web[{self.web_type.upper()}]: Text selector found element: {text_selector} ({selector_time}ms, attempt {i+1})")
+                                    break
+                            except Exception:
+                                selector_time = int((time.time() - selector_start) * 1000)
+                                print(f"Web[{self.web_type.upper()}]: Selector {i+1}/{len(text_selectors)} failed ({selector_time}ms): {text_selector}")
+                                continue
                 
-                # Cleanup connection
-                cleanup_start = time.time()
-                await self.utils.cleanup_connection(playwright, browser)
-                cleanup_time = int((time.time() - cleanup_start) * 1000)
-                print(f"Web[{self.web_type.upper()}]: Cleanup took {cleanup_time}ms")
+                finally:
+                    # Clean up fresh page
+                    cleanup_start = time.time()
+                    await page.close()
+                    cleanup_time = int((time.time() - cleanup_start) * 1000)
+                    print(f"Web[{self.web_type.upper()}]: Page cleanup took {cleanup_time}ms")
                 
                 execution_time = int((time.time() - start_time) * 1000)
                 print(f"Web[{self.web_type.upper()}]: Total find execution time: {execution_time}ms")
@@ -617,14 +663,16 @@ class PlaywrightWebController(WebControllerInterface):
                 print(f"Web[{self.web_type.upper()}]: Inputting text to: {selector}")
                 start_time = time.time()
                 
-                # Connect to Chrome via CDP
-                playwright, browser, context, page = await self.utils.connect_to_chrome()
+                # Get fresh page from persistent browser+context
+                page = await self._get_fresh_page()
                 
-                # Input text
-                await page.fill(selector, text, timeout=timeout)
+                try:
+                    # Input text
+                    await page.fill(selector, text, timeout=timeout)
                 
-                # Cleanup connection
-                await self.utils.cleanup_connection(playwright, browser)
+                finally:
+                    # Clean up fresh page
+                    await page.close()
                 
                 execution_time = int((time.time() - start_time) * 1000)
                 
@@ -662,14 +710,16 @@ class PlaywrightWebController(WebControllerInterface):
                 print(f"Web[{self.web_type.upper()}]: Tapping at coordinates: ({x}, {y})")
                 start_time = time.time()
                 
-                # Connect to Chrome via CDP
-                playwright, browser, context, page = await self.utils.connect_to_chrome()
+                # Get fresh page from persistent browser+context
+                page = await self._get_fresh_page()
                 
-                # Click at coordinates
-                await page.mouse.click(x, y)
+                try:
+                    # Click at coordinates
+                    await page.mouse.click(x, y)
                 
-                # Cleanup connection
-                await self.utils.cleanup_connection(playwright, browser)
+                finally:
+                    # Clean up fresh page
+                    await page.close()
                 
                 execution_time = int((time.time() - start_time) * 1000)
                 
@@ -707,14 +757,16 @@ class PlaywrightWebController(WebControllerInterface):
                 print(f"Web[{self.web_type.upper()}]: Executing JavaScript")
                 start_time = time.time()
                 
-                # Connect to Chrome via CDP
-                playwright, browser, context, page = await self.utils.connect_to_chrome()
+                # Get fresh page from persistent browser+context
+                page = await self._get_fresh_page()
                 
-                # Execute JavaScript
-                result = await page.evaluate(script)
+                try:
+                    # Execute JavaScript
+                    result = await page.evaluate(script)
                 
-                # Cleanup connection
-                await self.utils.cleanup_connection(playwright, browser)
+                finally:
+                    # Clean up fresh page
+                    await page.close()
                 
                 execution_time = int((time.time() - start_time) * 1000)
                 
@@ -752,15 +804,17 @@ class PlaywrightWebController(WebControllerInterface):
                 print(f"Web[{self.web_type.upper()}]: Getting page info")
                 start_time = time.time()
                 
-                # Connect to Chrome via CDP
-                playwright, browser, context, page = await self.utils.connect_to_chrome()
+                # Get fresh page from persistent browser+context
+                page = await self._get_fresh_page()
                 
-                # Get page info
-                self.current_url = page.url
-                self.page_title = await page.title()
+                try:
+                    # Get page info
+                    self.current_url = page.url
+                    self.page_title = await page.title()
                 
-                # Cleanup connection
-                await self.utils.cleanup_connection(playwright, browser)
+                finally:
+                    # Clean up fresh page
+                    await page.close()
                 
                 execution_time = int((time.time() - start_time) * 1000)
                 
@@ -829,38 +883,40 @@ class PlaywrightWebController(WebControllerInterface):
                 print(f"Web[{self.web_type.upper()}]: Pressing key: {key}")
                 start_time = time.time()
                 
-                # Connect to Chrome via CDP
-                playwright, browser, context, page = await self.utils.connect_to_chrome()
+                # Get fresh page from persistent browser+context
+                page = await self._get_fresh_page()
                 
-                # Map web-specific keys to Playwright key names
-                key_mapping = {
-                    'BACK': 'Escape',
-                    'ESC': 'Escape', 
-                    'ESCAPE': 'Escape',
-                    'OK': 'Enter',
-                    'ENTER': 'Enter',
-                    'HOME': 'Home',
-                    'END': 'End',
-                    'UP': 'ArrowUp',
-                    'DOWN': 'ArrowDown', 
-                    'LEFT': 'ArrowLeft',
-                    'RIGHT': 'ArrowRight',
-                    'TAB': 'Tab',
-                    'SPACE': 'Space',
-                    'DELETE': 'Delete',
-                    'BACKSPACE': 'Backspace',
-                    'F1': 'F1', 'F2': 'F2', 'F3': 'F3', 'F4': 'F4',
-                    'F5': 'F5', 'F6': 'F6', 'F7': 'F7', 'F8': 'F8',
-                    'F9': 'F9', 'F10': 'F10', 'F11': 'F11', 'F12': 'F12'
-                }
+                try:
+                    # Map web-specific keys to Playwright key names
+                    key_mapping = {
+                        'BACK': 'Escape',
+                        'ESC': 'Escape', 
+                        'ESCAPE': 'Escape',
+                        'OK': 'Enter',
+                        'ENTER': 'Enter',
+                        'HOME': 'Home',
+                        'END': 'End',
+                        'UP': 'ArrowUp',
+                        'DOWN': 'ArrowDown', 
+                        'LEFT': 'ArrowLeft',
+                        'RIGHT': 'ArrowRight',
+                        'TAB': 'Tab',
+                        'SPACE': 'Space',
+                        'DELETE': 'Delete',
+                        'BACKSPACE': 'Backspace',
+                        'F1': 'F1', 'F2': 'F2', 'F3': 'F3', 'F4': 'F4',
+                        'F5': 'F5', 'F6': 'F6', 'F7': 'F7', 'F8': 'F8',
+                        'F9': 'F9', 'F10': 'F10', 'F11': 'F11', 'F12': 'F12'
+                    }
+                    
+                    playwright_key = key_mapping.get(key.upper(), key)
+                    
+                    # Press the key
+                    await page.keyboard.press(playwright_key)
                 
-                playwright_key = key_mapping.get(key.upper(), key)
-                
-                # Press the key
-                await page.keyboard.press(playwright_key)
-                
-                # Cleanup connection
-                await self.utils.cleanup_connection(playwright, browser)
+                finally:
+                    # Clean up fresh page
+                    await page.close()
                 
                 execution_time = int((time.time() - start_time) * 1000)
                 
@@ -1150,11 +1206,12 @@ class PlaywrightWebController(WebControllerInterface):
                 
 
                 
-                # Connect to Chrome via CDP
-                playwright, browser, context, page = await self.utils.connect_to_chrome()
+                # Get fresh page from persistent browser+context
+                page = await self._get_fresh_page()
                 
-                # JavaScript code to extract visible elements
-                js_code = f"""
+                try:
+                    # JavaScript code to extract visible elements
+                    js_code = f"""
                 () => {{
                     const elementTypes = '{element_types}';
                     const includeHidden = {str(include_hidden).lower()};
@@ -1290,11 +1347,12 @@ class PlaywrightWebController(WebControllerInterface):
                 }}
                 """
                 
-                # Execute the JavaScript
-                result = await page.evaluate(js_code)
+                    # Execute the JavaScript
+                    result = await page.evaluate(js_code)
                 
-                # Cleanup connection
-                await self.utils.cleanup_connection(playwright, browser)
+                finally:
+                    # Clean up fresh page
+                    await page.close()
                 
                 execution_time = int((time.time() - start_time) * 1000)
                 
