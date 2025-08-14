@@ -28,7 +28,7 @@ from shared.lib.utils.action_utils import execute_navigation_with_verifications
 
 
 def custom_validation_step_handler(context: ScriptExecutionContext, step, step_num):
-    """Enhanced validation step handler with failure tolerance"""
+    """Enhanced validation step handler with failure tolerance and position tracking"""
     try:
         result = execute_navigation_with_verifications(
             context.host, context.selected_device, step, context.team_id, 
@@ -40,6 +40,15 @@ def custom_validation_step_handler(context: ScriptExecutionContext, step, step_n
         counter_increment = result.get('global_verification_counter_increment', 0)
         context.global_verification_counter += counter_increment
         print(f"🔢 [validation] Updated global verification counter: +{counter_increment} = {context.global_verification_counter}")
+        
+        # Update current position tracking
+        if result.get('success', False):
+            # If step was successful, update current position to the target node
+            context.current_node_id = step.get('to_node_id')
+            print(f"📍 [validation] Updated current position to: {context.current_node_id} ({step.get('to_node_label', 'unknown')})")
+        else:
+            # If step failed, we might still be at the previous position or unknown
+            print(f"⚠️ [validation] Step failed, current position uncertain. Staying at: {context.current_node_id}")
         
         # Note: Failed step recording is handled by the main execution sequence
         # to avoid duplicate entries
@@ -226,6 +235,19 @@ def main():
         if not executor.load_navigation_tree(context, args.userinterface_name):
             executor.cleanup_and_exit(context, args.userinterface_name)
             return
+        
+        # Initialize current position to entry point for pathfinding
+        from shared.lib.utils.navigation_cache import get_cached_unified_graph
+        from shared.lib.utils.navigation_graph import get_entry_points
+        
+        unified_graph = get_cached_unified_graph(context.tree_id, context.team_id)
+        if unified_graph:
+            entry_points = get_entry_points(unified_graph)
+            if entry_points:
+                context.current_node_id = entry_points[0]
+                print(f"📍 [validation] Starting validation from entry point: {context.current_node_id}")
+            else:
+                print(f"⚠️ [validation] No entry points found, starting with unknown position")
         
         # Get validation sequence
         print("📋 [validation] Getting validation sequence...")
