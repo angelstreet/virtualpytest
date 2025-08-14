@@ -108,10 +108,12 @@ class ChromeManager:
             '--disable-features=Translate,InfiniteSessionRestore,TabRestore',
             '--disable-extensions',
             '--use-gl=egl',                    # Use EGL for rendering
+            '--use-angle=default',             # Use default ANGLE implementation
             '--ignore-gpu-blocklist',          # Override GPU blocklist
             '--enable-gpu-rasterization',      # Use GPU for rasterizing web content
             '--enable-zero-copy',              # Enable zero-copy rasterizer
-            '--enable-gpu-sandbox',            # Enable GPU sandbox for security
+            '--disable-gpu-sandbox',           # Disable GPU sandbox to avoid init issues
+            '--disable-software-rasterizer',   # Force hardware acceleration
             '--disable-session-crashed-bubble',  # Disable restore session popup
             '--disable-infobars',  # Disable info bars including restore prompts
             '--disable-restore-session-state',  # Disable session restore altogether
