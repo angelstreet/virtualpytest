@@ -59,27 +59,27 @@ class PlaywrightWebController(WebControllerInterface):
         """Get the persistent page from browser+context. Creates browser+context+page if needed."""
         # Establish persistent browser+context if not exists
         if not self.__class__._browser_connected or not self.__class__._browser or not self.__class__._context:
-            print(f"Web[{self.web_type.upper()}]: Creating persistent browser+context+page...")
+            print(f"[PLAYWRIGHT]: Creating persistent browser+context+page...")
             self.__class__._playwright, self.__class__._browser, self.__class__._context, initial_page = await self.utils.connect_to_chrome(target_url=target_url)
             self.__class__._browser_connected = True
-            print(f"Web[{self.web_type.upper()}]: Persistent browser+context+page established")
+            print(f"[PLAYWRIGHT]: Persistent browser+context+page established")
             return initial_page
         
         # Get existing page 0 from context (persistent page)
         if len(self.__class__._context.pages) > 0:
             page = self.__class__._context.pages[0]
-            print(f"Web[{self.web_type.upper()}]: Using existing persistent page (page 0)")
+            print(f"[PLAYWRIGHT]: Using existing persistent page (page 0)")
             return page
         else:
             # No pages exist, create one
             page = await self.__class__._context.new_page()
-            print(f"Web[{self.web_type.upper()}]: Created new persistent page")
+            print(f"[PLAYWRIGHT]: Created new persistent page")
             return page
     
     async def _cleanup_persistent_browser(self):
         """Clean up persistent browser+context."""
         if self.__class__._browser_connected:
-            print(f"Web[{self.web_type.upper()}]: Cleaning up persistent browser+context...")
+            print(f"[PLAYWRIGHT]: Cleaning up persistent browser+context...")
             if self.__class__._browser:
                 await self.__class__._browser.close()
             if self.__class__._playwright:
@@ -89,66 +89,66 @@ class PlaywrightWebController(WebControllerInterface):
             self.__class__._browser = None
             self.__class__._context = None
             self.__class__._browser_connected = False
-            print(f"Web[{self.web_type.upper()}]: Persistent browser+context cleaned up")
+            print(f"[PLAYWRIGHT]: Persistent browser+context cleaned up")
     
     def connect(self) -> bool:
         """Connect to Chrome (launch if needed)."""
-        print(f"Web[{self.web_type.upper()}]: connect() called - _chrome_running={self._chrome_running}, _chrome_process={self._chrome_process}")
+        print(f"[PLAYWRIGHT]: connect() called - _chrome_running={self._chrome_running}, _chrome_process={self._chrome_process}")
         
         if not self._chrome_running:
             try:
-                print(f"Web[{self.web_type.upper()}]: Chrome not running, launching new Chrome process...")
+                print(f"[PLAYWRIGHT]: Chrome not running, launching new Chrome process...")
                 self.__class__._chrome_process = self.utils.launch_chrome()
                 self.__class__._chrome_running = True
-                print(f"Web[{self.web_type.upper()}]: Chrome launched with remote debugging successfully (PID: {self._chrome_process.pid})")
+                print(f"[PLAYWRIGHT]: Chrome launched with remote debugging successfully (PID: {self._chrome_process.pid})")
             except Exception as e:
-                print(f"Web[{self.web_type.upper()}]: Failed to launch Chrome: {e}")
+                print(f"[PLAYWRIGHT]: Failed to launch Chrome: {e}")
                 return False
         else:
-            print(f"Web[{self.web_type.upper()}]: Chrome process already running (PID: {self._chrome_process.pid if self._chrome_process else 'unknown'})")
+            print(f"[PLAYWRIGHT]: Chrome process already running (PID: {self._chrome_process.pid if self._chrome_process else 'unknown'})")
         
         self.is_connected = True
-        print(f"Web[{self.web_type.upper()}]: connect() completed - _chrome_running={self._chrome_running}, is_connected={self.is_connected}")
+        print(f"[PLAYWRIGHT]: connect() completed - _chrome_running={self._chrome_running}, is_connected={self.is_connected}")
         return True
     
     def disconnect(self) -> bool:
         """Disconnect and cleanup Chrome."""
-        print(f"Web[{self.web_type.upper()}]: disconnect() called - _chrome_running={self._chrome_running}, _chrome_process={self._chrome_process}")
+        print(f"[PLAYWRIGHT]: disconnect() called - _chrome_running={self._chrome_running}, _chrome_process={self._chrome_process}")
         
         # Clean up persistent browser connection first
         self.utils.run_async(self._cleanup_persistent_browser())
         
         if self._chrome_running and self._chrome_process:
             try:
-                print(f"Web[{self.web_type.upper()}]: Gracefully closing Chrome process (PID: {self._chrome_process.pid})")
+                print(f"[PLAYWRIGHT]: Gracefully closing Chrome process (PID: {self._chrome_process.pid})")
                 
                 # Use graceful close (handles all fallbacks and waiting internally)
                 self.utils.kill_chrome(chrome_process=self._chrome_process)
-                print(f"Web[{self.web_type.upper()}]: Chrome process terminated")
+                print(f"[PLAYWRIGHT]: Chrome process terminated")
                 
             except Exception as e:
-                print(f"Web[{self.web_type.upper()}]: Error during Chrome shutdown: {e}")
+                print(f"[PLAYWRIGHT]: Error during Chrome shutdown: {e}")
             finally:
                 # Clean up state regardless
                 self.__class__._chrome_process = None
                 self.__class__._chrome_running = False
         else:
-            print(f"Web[{self.web_type.upper()}]: No Chrome process to terminate (running={self._chrome_running}, process={self._chrome_process})")
+            print(f"[PLAYWRIGHT]: No Chrome process to terminate (running={self._chrome_running}, process={self._chrome_process})")
         
         self.is_connected = False
-        print(f"Web[{self.web_type.upper()}]: disconnect() completed - _chrome_running={self._chrome_running}, is_connected={self.is_connected}")
+        print(f"[PLAYWRIGHT]: disconnect() completed - _chrome_running={self._chrome_running}, is_connected={self.is_connected}")
         return True
     
     def open_browser(self) -> Dict[str, Any]:
         """Open/launch the browser window."""
         async def _async_open_browser():
             try:
-                print(f"Web[{self.web_type.upper()}]: Opening browser with natural sizing")
+                print(f"[PLAYWRIGHT]: Opening browser with natural sizing")
                 start_time = time.time()
                 
                 # First, ensure Chrome is launched (this will launch if not running)
                 if not self.is_connected:
-                    print(f"Web[{self.web_type.upper()}]: Chrome not connected, launching...")
+                    print(f"[PLAYWRIGHT]: Chrome not connected, launching...")
                     if not self.connect():
                         return {
                             'success': False,
@@ -157,7 +157,7 @@ class PlaywrightWebController(WebControllerInterface):
                             'connected': False
                         }
                 else:
-                    print(f"Web[{self.web_type.upper()}]: Chrome already connected")
+                    print(f"[PLAYWRIGHT]: Chrome already connected")
                 
                 # Test connection to Chrome and ensure page is ready
                 try:
@@ -165,7 +165,7 @@ class PlaywrightWebController(WebControllerInterface):
                 except Exception as e:
                     # Chrome is not responding, kill and relaunch
                     if "ECONNREFUSED" in str(e) or "connect" in str(e).lower():
-                        print(f"Web[{self.web_type.upper()}]: Chrome not responding, killing and relaunching...")
+                        print(f"[PLAYWRIGHT]: Chrome not responding, killing and relaunching...")
                         self.utils.kill_chrome()
                         self.__class__._chrome_process = None
                         self.__class__._chrome_running = False
@@ -188,7 +188,7 @@ class PlaywrightWebController(WebControllerInterface):
                 
                 execution_time = int((time.time() - start_time) * 1000)
                 
-                print(f"Web[{self.web_type.upper()}]: Browser opened and ready")
+                print(f"[PLAYWRIGHT]: Browser opened and ready")
                 return {
                     'success': True,
                     'error': '',
@@ -198,7 +198,7 @@ class PlaywrightWebController(WebControllerInterface):
                 
             except Exception as e:
                 error_msg = f"Browser open error: {e}"
-                print(f"Web[{self.web_type.upper()}]: {error_msg}")
+                print(f"[PLAYWRIGHT]: {error_msg}")
                 return {
                     'success': False,
                     'error': error_msg,
@@ -212,7 +212,7 @@ class PlaywrightWebController(WebControllerInterface):
         """Connect to existing Chrome debug session without killing Chrome first."""
         async def _async_connect_existing():
             try:
-                print(f"Web[{self.web_type.upper()}]: Connecting to existing Chrome debug session")
+                print(f"[PLAYWRIGHT]: Connecting to existing Chrome debug session")
                 start_time = time.time()
                 
                 # Try to connect to existing Chrome debug session (no killing Chrome first)
@@ -228,7 +228,7 @@ class PlaywrightWebController(WebControllerInterface):
                     
                     execution_time = int((time.time() - start_time) * 1000)
                     
-                    print(f"Web[{self.web_type.upper()}]: Connected to existing Chrome debug session")
+                    print(f"[PLAYWRIGHT]: Connected to existing Chrome debug session")
                     return {
                         'success': True,
                         'error': '',
@@ -241,7 +241,7 @@ class PlaywrightWebController(WebControllerInterface):
                 except Exception as e:
                     # Chrome debug session not available
                     error_msg = f"Could not connect to existing Chrome debug session: {e}. Make sure Chrome is running with --remote-debugging-port=9222"
-                    print(f"Web[{self.web_type.upper()}]: {error_msg}")
+                    print(f"[PLAYWRIGHT]: {error_msg}")
                     return {
                         'success': False,
                         'error': error_msg,
@@ -251,7 +251,7 @@ class PlaywrightWebController(WebControllerInterface):
                 
             except Exception as e:
                 error_msg = f"Browser connection error: {e}"
-                print(f"Web[{self.web_type.upper()}]: {error_msg}")
+                print(f"[PLAYWRIGHT]: {error_msg}")
                 return {
                     'success': False,
                     'error': error_msg,
@@ -264,7 +264,7 @@ class PlaywrightWebController(WebControllerInterface):
     def close_browser(self) -> Dict[str, Any]:
         """Close browser (disconnect Chrome)."""
         try:
-            print(f"Web[{self.web_type.upper()}]: Closing browser")
+            print(f"[PLAYWRIGHT]: Closing browser")
             start_time = time.time()
             
             self.disconnect()
@@ -275,7 +275,7 @@ class PlaywrightWebController(WebControllerInterface):
             
             execution_time = int((time.time() - start_time) * 1000)
             
-            print(f"Web[{self.web_type.upper()}]: Browser closed")
+            print(f"[PLAYWRIGHT]: Browser closed")
             return {
                 'success': True,
                 'error': '',
@@ -285,7 +285,7 @@ class PlaywrightWebController(WebControllerInterface):
             
         except Exception as e:
             error_msg = f"Browser close error: {e}"
-            print(f"Web[{self.web_type.upper()}]: {error_msg}")
+            print(f"[PLAYWRIGHT]: {error_msg}")
             return {
                 'success': False,
                 'error': error_msg,
@@ -299,7 +299,7 @@ class PlaywrightWebController(WebControllerInterface):
             try:
                 # Normalize URL to add protocol if missing
                 normalized_url = self.utils.normalize_url(url)
-                print(f"Web[{self.web_type.upper()}]: Navigating to {url} (normalized: {normalized_url})")
+                print(f"[PLAYWRIGHT]: Navigating to {url} (normalized: {normalized_url})")
                 start_time = time.time()
                 
 
@@ -315,7 +315,7 @@ class PlaywrightWebController(WebControllerInterface):
                     # Try to wait for networkidle but don't fail if it times out
                     await page.wait_for_load_state('networkidle', timeout=5000)
                 except Exception as e:
-                    print(f"Web[{self.web_type.upper()}]: Networkidle timeout ignored: {str(e)}")
+                    print(f"[PLAYWRIGHT]: Networkidle timeout ignored: {str(e)}")
                 
                 self.current_url = page.url
                 self.page_title = await page.title()
@@ -336,14 +336,14 @@ class PlaywrightWebController(WebControllerInterface):
                 }
                 
                 if result['redirected']:
-                    print(f"Web[{self.web_type.upper()}]: Navigation completed with redirect: {normalized_url} -> {self.current_url}")
+                    print(f"[PLAYWRIGHT]: Navigation completed with redirect: {normalized_url} -> {self.current_url}")
                 else:
-                    print(f"Web[{self.web_type.upper()}]: Navigation successful - {self.page_title}")
+                    print(f"[PLAYWRIGHT]: Navigation successful - {self.page_title}")
                 return result
                 
             except Exception as e:
                 error_msg = f"Navigation error: {e}"
-                print(f"Web[{self.web_type.upper()}]: {error_msg}")
+                print(f"[PLAYWRIGHT]: {error_msg}")
                 return {
                     'success': False,
                     'error': error_msg,
@@ -373,38 +373,53 @@ class PlaywrightWebController(WebControllerInterface):
         """
         async def _async_click_element():
             try:
-                print(f"Web[{self.web_type.upper()}]: Clicking element: {selector}")
+                print(f"[PLAYWRIGHT]: Clicking element: {selector}")
                 start_time = time.time()
                 
                 # Get persistent page from browser+context
                 connect_start = time.time()
                 page = await self._get_persistent_page()
                 connect_time = int((time.time() - connect_start) * 1000)
-                print(f"Web[{self.web_type.upper()}]: Persistent page access took {connect_time}ms")
+                print(f"[PLAYWRIGHT]: Persistent page access took {connect_time}ms")
                 
-                # Just click the element - let Playwright handle finding it
-                try:
-                    await page.click(selector, timeout=30000)
-                    execution_time = int((time.time() - start_time) * 1000)
-                    print(f"Web[{self.web_type.upper()}]: Click successful")
-                    return {
-                        'success': True,
-                        'error': '',
-                        'execution_time': execution_time
-                    }
-                except Exception as e:
-                    execution_time = int((time.time() - start_time) * 1000)
-                    error_msg = f"Click failed: {e}"
-                    print(f"Web[{self.web_type.upper()}]: {error_msg}")
-                    return {
-                        'success': False,
-                        'error': error_msg,
-                        'execution_time': execution_time
-                    }
+                # Try obvious selectors with short timeout (max 1 second total)
+                timeout = 200  # 200ms per attempt
+                
+                # Most obvious selectors for text-based elements
+                selectors_to_try = [
+                    selector,  # Try exact selector first (could be CSS or text)
+                    f"[aria-label='{selector}']",  # Most common for buttons/links
+                    f"button:has-text('{selector}')",  # Actual buttons with text
+                    f"a:has-text('{selector}')"  # Links with text
+                ]
+                
+                for i, sel in enumerate(selectors_to_try):
+                    try:
+                        await page.click(sel, timeout=timeout)
+                        execution_time = int((time.time() - start_time) * 1000)
+                        print(f"[PLAYWRIGHT]: Click successful using selector {i+1}: {sel}")
+                        return {
+                            'success': True,
+                            'error': '',
+                            'execution_time': execution_time
+                        }
+                    except Exception as e:
+                        print(f"[PLAYWRIGHT]: Selector {i+1} failed ({timeout}ms): {sel}")
+                        continue
+                
+                # All selectors failed
+                execution_time = int((time.time() - start_time) * 1000)
+                error_msg = f"Click failed - element not found with any selector"
+                print(f"[PLAYWRIGHT]: {error_msg}")
+                return {
+                    'success': False,
+                    'error': error_msg,
+                    'execution_time': execution_time
+                }
                 
             except Exception as e:
                 error_msg = f"Click error: {e}"
-                print(f"Web[{self.web_type.upper()}]: {error_msg}")
+                print(f"[PLAYWRIGHT]: {error_msg}")
                 return {
                     'success': False,
                     'error': error_msg,
@@ -429,52 +444,66 @@ class PlaywrightWebController(WebControllerInterface):
         """
         async def _async_find_element():
             try:
-                print(f"Web[{self.web_type.upper()}]: Finding element: {selector}")
+                print(f"[PLAYWRIGHT]: Finding element: {selector}")
                 start_time = time.time()
                 
                 # Get persistent page from browser+context
                 connect_start = time.time()
                 page = await self._get_persistent_page()
                 connect_time = int((time.time() - connect_start) * 1000)
-                print(f"Web[{self.web_type.upper()}]: Persistent page access took {connect_time}ms")
+                print(f"[PLAYWRIGHT]: Persistent page access took {connect_time}ms")
                 
-                # Just find the element - let Playwright handle selector logic
-                try:
-                    element = await page.locator(selector).first
-                    if await element.is_visible():
-                        bounding_box = await element.bounding_box()
-                        element_info = {}
-                        if bounding_box:
-                            element_info = {
-                                'x': bounding_box['x'],
-                                'y': bounding_box['y'],
-                                'width': bounding_box['width'],
-                                'height': bounding_box['height']
+                # Try obvious selectors with short timeout (max 1 second total)
+                timeout = 200  # 200ms per attempt
+                
+                # Most obvious selectors for text-based elements
+                selectors_to_try = [
+                    selector,  # Try exact selector first (could be CSS or text)
+                    f"[aria-label='{selector}']",  # Most common for buttons/links
+                    f"button:has-text('{selector}')",  # Actual buttons with text
+                    f"a:has-text('{selector}')"  # Links with text
+                ]
+                
+                for i, sel in enumerate(selectors_to_try):
+                    try:
+                        element = await page.locator(sel).first
+                        await element.wait_for(timeout=timeout)
+                        if await element.is_visible():
+                            bounding_box = await element.bounding_box()
+                            element_info = {}
+                            if bounding_box:
+                                element_info = {
+                                    'x': bounding_box['x'],
+                                    'y': bounding_box['y'],
+                                    'width': bounding_box['width'],
+                                    'height': bounding_box['height']
+                                }
+                            
+                            execution_time = int((time.time() - start_time) * 1000)
+                            print(f"[PLAYWRIGHT]: Element found using selector {i+1}: {sel}")
+                            return {
+                                'success': True,
+                                'error': '',
+                                'execution_time': execution_time,
+                                'element_info': element_info
                             }
-                        
-                        execution_time = int((time.time() - start_time) * 1000)
-                        print(f"Web[{self.web_type.upper()}]: Element found")
-                        return {
-                            'success': True,
-                            'error': '',
-                            'execution_time': execution_time,
-                            'element_info': element_info
-                        }
-                    else:
-                        raise Exception("Element not visible")
-                except Exception as e:
-                    execution_time = int((time.time() - start_time) * 1000)
-                    error_msg = f"Element not found: {e}"
-                    print(f"Web[{self.web_type.upper()}]: {error_msg}")
-                    return {
-                        'success': False,
-                        'error': error_msg,
-                        'execution_time': execution_time
-                    }
+                    except Exception:
+                        print(f"[PLAYWRIGHT]: Selector {i+1} failed ({timeout}ms): {sel}")
+                        continue
+                
+                # All selectors failed
+                execution_time = int((time.time() - start_time) * 1000)
+                error_msg = f"Element not found with any selector"
+                print(f"[PLAYWRIGHT]: {error_msg}")
+                return {
+                    'success': False,
+                    'error': error_msg,
+                    'execution_time': execution_time
+                }
                 
             except Exception as e:
                 error_msg = f"Find error: {e}"
-                print(f"Web[{self.web_type.upper()}]: {error_msg}")
+                print(f"[PLAYWRIGHT]: {error_msg}")
                 return {
                     'success': False,
                     'error': error_msg,
@@ -495,7 +524,7 @@ class PlaywrightWebController(WebControllerInterface):
         """Input text into an element using async CDP connection."""
         async def _async_input_text():
             try:
-                print(f"Web[{self.web_type.upper()}]: Inputting text to: {selector}")
+                print(f"[PLAYWRIGHT]: Inputting text to: {selector}")
                 start_time = time.time()
                 
                 # Get persistent page from browser+context
@@ -512,12 +541,12 @@ class PlaywrightWebController(WebControllerInterface):
                     'execution_time': execution_time
                 }
                 
-                print(f"Web[{self.web_type.upper()}]: Text input successful")
+                print(f"[PLAYWRIGHT]: Text input successful")
                 return result
                 
             except Exception as e:
                 error_msg = f"Input error: {e}"
-                print(f"Web[{self.web_type.upper()}]: {error_msg}")
+                print(f"[PLAYWRIGHT]: {error_msg}")
                 return {
                     'success': False,
                     'error': error_msg,
@@ -537,7 +566,7 @@ class PlaywrightWebController(WebControllerInterface):
         """Tap/click at specific coordinates using async CDP connection."""
         async def _async_tap_x_y():
             try:
-                print(f"Web[{self.web_type.upper()}]: Tapping at coordinates: ({x}, {y})")
+                print(f"[PLAYWRIGHT]: Tapping at coordinates: ({x}, {y})")
                 start_time = time.time()
                 
                 # Get persistent page from browser+context
@@ -554,12 +583,12 @@ class PlaywrightWebController(WebControllerInterface):
                     'execution_time': execution_time
                 }
                 
-                print(f"Web[{self.web_type.upper()}]: Tap successful")
+                print(f"[PLAYWRIGHT]: Tap successful")
                 return result
                 
             except Exception as e:
                 error_msg = f"Tap error: {e}"
-                print(f"Web[{self.web_type.upper()}]: {error_msg}")
+                print(f"[PLAYWRIGHT]: {error_msg}")
                 return {
                     'success': False,
                     'error': error_msg,
@@ -579,7 +608,7 @@ class PlaywrightWebController(WebControllerInterface):
         """Execute JavaScript code in the page using async CDP connection."""
         async def _async_execute_javascript():
             try:
-                print(f"Web[{self.web_type.upper()}]: Executing JavaScript")
+                print(f"[PLAYWRIGHT]: Executing JavaScript")
                 start_time = time.time()
                 
                 # Get persistent page from browser+context
@@ -599,7 +628,7 @@ class PlaywrightWebController(WebControllerInterface):
                 
             except Exception as e:
                 error_msg = f"JavaScript execution error: {e}"
-                print(f"Web[{self.web_type.upper()}]: {error_msg}")
+                print(f"[PLAYWRIGHT]: {error_msg}")
                 return {
                     'success': False,
                     'result': None,
@@ -621,7 +650,7 @@ class PlaywrightWebController(WebControllerInterface):
         """Get current page information using async CDP connection."""
         async def _async_get_page_info():
             try:
-                print(f"Web[{self.web_type.upper()}]: Getting page info")
+                print(f"[PLAYWRIGHT]: Getting page info")
                 start_time = time.time()
                 
                 # Get persistent page from browser+context
@@ -641,12 +670,12 @@ class PlaywrightWebController(WebControllerInterface):
                     'execution_time': execution_time
                 }
                 
-                print(f"Web[{self.web_type.upper()}]: Page info retrieved - {self.page_title}")
+                print(f"[PLAYWRIGHT]: Page info retrieved - {self.page_title}")
                 return result
                 
             except Exception as e:
                 error_msg = f"Get page info error: {e}"
-                print(f"Web[{self.web_type.upper()}]: {error_msg}")
+                print(f"[PLAYWRIGHT]: {error_msg}")
                 return {
                     'success': False,
                     'error': error_msg,
@@ -695,7 +724,7 @@ class PlaywrightWebController(WebControllerInterface):
         """
         async def _async_press_key():
             try:
-                print(f"Web[{self.web_type.upper()}]: Pressing key: {key}")
+                print(f"[PLAYWRIGHT]: Pressing key: {key}")
                 start_time = time.time()
                 
                 # Get persistent page from browser+context
@@ -740,12 +769,12 @@ class PlaywrightWebController(WebControllerInterface):
                     'playwright_key': playwright_key
                 }
                 
-                print(f"Web[{self.web_type.upper()}]: Key press successful: {key} -> {playwright_key}")
+                print(f"[PLAYWRIGHT]: Key press successful: {key} -> {playwright_key}")
                 return result
                 
             except Exception as e:
                 error_msg = f"Key press error: {e}"
-                print(f"Web[{self.web_type.upper()}]: {error_msg}")
+                print(f"[PLAYWRIGHT]: {error_msg}")
                 return {
                     'success': False,
                     'error': error_msg,
@@ -793,7 +822,7 @@ class PlaywrightWebController(WebControllerInterface):
         """Execute browser-use task using existing Chrome instance."""
         async def _async_browser_use_task():
             try:
-                print(f"Web[{self.web_type.upper()}]: Executing browser-use task: {task}")
+                print(f"[PLAYWRIGHT]: Executing browser-use task: {task}")
                 
                 # Import browseruse_utils only when needed
                 try:
@@ -822,7 +851,7 @@ class PlaywrightWebController(WebControllerInterface):
                 
             except Exception as e:
                 error_msg = f"Browser-use task error: {e}"
-                print(f"Web[{self.web_type.upper()}]: {error_msg}")
+                print(f"[PLAYWRIGHT]: {error_msg}")
                 return {
                     'success': False,
                     'error': error_msg,
@@ -854,7 +883,7 @@ class PlaywrightWebController(WebControllerInterface):
         if params is None:
             params = {}
         
-        print(f"Web[{self.web_type.upper()}]: Executing command '{command}' with params: {params}")
+        print(f"[PLAYWRIGHT]: Executing command '{command}' with params: {params}")
         
         if command == 'navigate_to_url':
             url = params.get('url')
@@ -996,7 +1025,7 @@ class PlaywrightWebController(WebControllerInterface):
             }
         
         else:
-            print(f"Web[{self.web_type.upper()}]: Unknown command: {command}")
+            print(f"[PLAYWRIGHT]: Unknown command: {command}")
             return {
                 'success': False,
                 'error': f'Unknown command: {command}',
@@ -1013,7 +1042,7 @@ class PlaywrightWebController(WebControllerInterface):
         """
         async def _async_dump_elements():
             try:
-                print(f"Web[{self.web_type.upper()}]: Dumping elements (type: {element_types}, include_hidden: {include_hidden})")
+                print(f"[PLAYWRIGHT]: Dumping elements (type: {element_types}, include_hidden: {include_hidden})")
                 start_time = time.time()
                 
 
@@ -1165,7 +1194,7 @@ class PlaywrightWebController(WebControllerInterface):
                 
                 execution_time = int((time.time() - start_time) * 1000)
                 
-                print(f"Web[{self.web_type.upper()}]: Found {result['totalCount']} elements ({result['visibleCount']} visible)")
+                print(f"[PLAYWRIGHT]: Found {result['totalCount']} elements ({result['visibleCount']} visible)")
                 
                 return {
                     'success': True,
@@ -1185,7 +1214,7 @@ class PlaywrightWebController(WebControllerInterface):
                 
             except Exception as e:
                 error_msg = f"Dump elements error: {e}"
-                print(f"Web[{self.web_type.upper()}]: {error_msg}")
+                print(f"[PLAYWRIGHT]: {error_msg}")
                 return {
                     'success': False,
                     'error': error_msg,
