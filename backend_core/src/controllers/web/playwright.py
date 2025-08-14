@@ -318,7 +318,7 @@ class PlaywrightWebController(WebControllerInterface):
                 # Get page info after navigation
                 try:
                     # Try to wait for networkidle but don't fail if it times out
-                    await page.wait_for_load_state('networkidle', timeout=5000)
+                    await page.wait_for_load_state('networkidle', timeout=20000)
                 except Exception as e:
                     print(f"[PLAYWRIGHT]: Networkidle timeout ignored: {str(e)}")
                 
