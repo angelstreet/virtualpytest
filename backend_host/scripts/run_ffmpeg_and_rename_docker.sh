@@ -116,8 +116,8 @@ start_grabber() {
     
     FFMPEG_CMD="DISPLAY=\"$source\" /usr/bin/ffmpeg -y -f x11grab -framerate \"$fps\" -video_size $resolution -i $source \
       -an \
-      -filter_complex \"[0:v]split=2[stream][capture];[capture]fps=1[captureout]\" \
-      -map \"[stream]\" \
+      -filter_complex \"[0:v]split=2[stream][capture];[stream]scale=512:384[streamout];[capture]fps=1[captureout]\" \
+      -map \"[streamout]\" \
       -c:v libx264 -preset veryfast -tune zerolatency -crf 28 -maxrate 1200k -bufsize 2400k -g 30 \
       -pix_fmt yuv420p -profile:v baseline -level 3.0 \
       -f hls -hls_time 2 -hls_list_size 5 -hls_flags delete_segments \
