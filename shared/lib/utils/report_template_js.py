@@ -238,19 +238,6 @@ function openHLSVideoModal(videoUrl, label) {{
                     <video id="hls-modal-video" controls style="width: 100%; max-width: 800px;">
                         Your browser does not support HLS video playback.
                     </video>
-                    <style>
-                        #hls-modal-video::-webkit-media-controls-timeline {
-                            background-color: white !important;
-                            border-radius: 2px !important;
-                        }
-                        #hls-modal-video::-webkit-media-controls-current-time-display,
-                        #hls-modal-video::-webkit-media-controls-time-remaining-display {
-                            color: white !important;
-                        }
-                        #hls-modal-video::-webkit-media-controls-volume-slider {
-                            background-color: white !important;
-                        }
-                    </style>
                 </div>
             </div>
         `;
