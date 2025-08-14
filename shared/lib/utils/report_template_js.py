@@ -231,7 +231,7 @@ function openHLSVideoModal(videoUrl, label) {{
         videoModal.innerHTML = `
             <div class="modal-content video-modal-content">
                 <div class="modal-header">
-                    <h3 id="hls-video-modal-title">${label}</h3>
+                    <h3 id="hls-video-modal-title">${{label}}</h3>
                     <button class="modal-close" onclick="closeHLSVideoModal()">&times;</button>
                 </div>
                 <div class="modal-body">
