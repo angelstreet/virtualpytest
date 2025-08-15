@@ -672,6 +672,8 @@ const RunTests: React.FC = () => {
             status: executionStatus,
             testResult: testResult,
             reportUrl: result.report_url,
+            // Preserve deviceModel when updating
+            deviceModel: exec.deviceModel,
           } : exec
         ));
 
@@ -722,7 +724,9 @@ const RunTests: React.FC = () => {
           e.id === exec.id && e.status === 'running' ? { 
             ...e, 
             status: 'aborted', 
-            endTime: new Date().toLocaleTimeString() 
+            endTime: new Date().toLocaleTimeString(),
+            // Preserve deviceModel when updating
+            deviceModel: e.deviceModel,
           } : e
         ));
       });
