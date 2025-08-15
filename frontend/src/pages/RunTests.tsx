@@ -1031,6 +1031,7 @@ const RunTests: React.FC = () => {
                     <TableHead>
                       <TableRow>
                         <TableCell>Script</TableCell>
+                        <TableCell>Device</TableCell>
                         <TableCell>Start Time</TableCell>
                         <TableCell>End Time</TableCell>
                         <TableCell>Status</TableCell>
@@ -1049,6 +1050,7 @@ const RunTests: React.FC = () => {
                           }}
                         >
                           <TableCell>{execution.scriptName}</TableCell>
+                          <TableCell>{execution.hostName}:{execution.deviceId}</TableCell>
                           <TableCell>{execution.startTime}</TableCell>
                           <TableCell>{execution.endTime || '-'}</TableCell>
                           <TableCell>{getStatusChip(execution.status)}</TableCell>
