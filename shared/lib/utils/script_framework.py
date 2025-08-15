@@ -239,8 +239,16 @@ class ScriptExecutor:
             return False
     
     def execute_navigation_sequence(self, context: ScriptExecutionContext, navigation_path: List[Dict],
-                                  custom_step_handler: Callable = None) -> bool:
-        """Execute navigation sequence with single-retry recovery on failures"""
+                                  custom_step_handler: Callable = None, early_stop_on_failure: bool = False) -> bool:
+        """Execute navigation sequence with single-retry recovery on failures
+        
+        Args:
+            context: Script execution context
+            navigation_path: List of navigation steps to execute
+            custom_step_handler: Optional custom handler for step execution
+            early_stop_on_failure: If True, stop immediately when first step fails (goto behavior)
+                                  If False, continue with recovery attempts (validation behavior)
+        """
         try:
             print(f"🎮 [{self.script_name}] Starting resilient navigation on device {context.selected_device.device_id}")
             
@@ -332,7 +340,14 @@ class ScriptExecutor:
                         'verification_results': result.get('verification_results', [])
                     })
                     
-                    # Single recovery attempt
+                    # For goto functions: stop immediately on first failure
+                    if early_stop_on_failure:
+                        print(f"🛑 [{self.script_name}] Early stop enabled - stopping navigation after first step failure")
+                        context.error_message = f"Navigation stopped early: {failure_msg}"
+                        context.overall_success = False
+                        return False
+                    
+                    # For validation: attempt single recovery and continue
                     recovery_success = self._attempt_single_recovery(context, step, step_num)
                     if recovery_success:
                         step_result['recovered'] = True

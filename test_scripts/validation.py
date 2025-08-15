@@ -261,9 +261,9 @@ def main():
         
         print(f"✅ [validation] Found {len(validation_sequence)} validation steps")
         
-        # Execute validation sequence with custom step handler
+        # Execute validation sequence with custom step handler and recovery (no early stopping)
         success = executor.execute_navigation_sequence(
-            context, validation_sequence, custom_validation_step_handler
+            context, validation_sequence, custom_validation_step_handler, early_stop_on_failure=False
         )
         
         # Calculate validation success based on actual step results

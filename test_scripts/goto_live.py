@@ -93,8 +93,8 @@ def main():
         
         print(f"✅ [{script_name}] Found path with {len(navigation_path)} steps")
         
-        # Execute navigation sequence
-        success = executor.execute_navigation_sequence(context, navigation_path)
+        # Execute navigation sequence with early stopping for goto functions
+        success = executor.execute_navigation_sequence(context, navigation_path, early_stop_on_failure=True)
         context.overall_success = success
         
         # Capture summary for report

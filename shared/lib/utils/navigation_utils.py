@@ -542,7 +542,7 @@ def goto_node(host, device, target_node_label: str, tree_id: str, team_id: str, 
         
         print(f"[@navigation_utils:goto_node] Found path with {len(navigation_path)} steps")
         
-        # Execute navigation sequence
+        # Execute navigation sequence with early stopping for goto functions
         for i, step in enumerate(navigation_path):
             step_num = i + 1
             from_node = step.get('from_node_label', 'unknown')
@@ -609,6 +609,8 @@ def goto_node(host, device, target_node_label: str, tree_id: str, team_id: str, 
                             params = action.get('params', {})
                             print(f"[@navigation_utils:goto_node]     {i+1}. {cmd}: {params}")
                 
+                # GOTO FUNCTIONS: Stop immediately on ANY step failure (no recovery attempts)
+                print(f"🛑 [@navigation_utils:goto_node] STOPPING navigation - goto functions do not recover from failures")
                 detailed_error_msg = f"Navigation failed at step {step_num} ({from_node} → {to_node}): {error_msg}"
                 return {
                     'success': False, 
