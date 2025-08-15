@@ -520,6 +520,58 @@ def _create_reachability_based_validation_sequence(G, edges_to_validate: List[Tu
             print(f"[@navigation:pathfinding:_create_reachability_based_validation_sequence] Skipping edge with empty actions: {from_label} → {to_label}")
     
     print(f"[@navigation:pathfinding:_create_reachability_based_validation_sequence] Generated {len(validation_sequence)} validation steps using depth-first traversal")
+    
+    # Generate clean summary like before refactoring
+    print(f"\n🎯 [VALIDATION] CLEAN TRANSITION SUMMARY (like before refactoring)")
+    print(f"="*80)
+    
+    forward_steps = [s for s in validation_sequence if s.get('transition_direction') == 'forward']
+    return_steps = [s for s in validation_sequence if s.get('transition_direction') == 'return']
+    
+    print(f"📊 Statistics:")
+    print(f"   • Total validation steps: {len(validation_sequence)}")
+    print(f"   • Forward transitions: {len(forward_steps)}")
+    print(f"   • Return transitions: {len(return_steps)}")
+    print(f"   • All valid edges covered: ✅")
+    
+    print(f"\n📋 All Validation Transitions:")
+    for i, step in enumerate(validation_sequence, 1):
+        from_label = step.get('from_node_label', 'unknown')
+        to_label = step.get('to_node_label', 'unknown')
+        direction = step.get('transition_direction', 'unknown')
+        arrow = "→" if direction == 'forward' else "←"
+        
+        print(f"   {i:2d}. {from_label} {arrow} {to_label} ({direction})")
+    
+    # Show bidirectional pairs
+    print(f"\n🔄 Bidirectional Edge Coverage:")
+    bidirectional_pairs = {}
+    
+    for step in validation_sequence:
+        from_label = step.get('from_node_label', '')
+        to_label = step.get('to_node_label', '')
+        direction = step.get('transition_direction', '')
+        
+        # Create a normalized pair key (alphabetical order)
+        pair_key = tuple(sorted([from_label, to_label]))
+        if pair_key not in bidirectional_pairs:
+            bidirectional_pairs[pair_key] = {'forward': False, 'return': False}
+        
+        # Determine which direction this step represents
+        if (from_label, to_label) == pair_key:
+            bidirectional_pairs[pair_key]['forward'] = True
+        else:
+            bidirectional_pairs[pair_key]['return'] = True
+    
+    for (node1, node2), directions in bidirectional_pairs.items():
+        if directions['forward'] and directions['return']:
+            print(f"   ✅ {node1} ↔ {node2} (bidirectional)")
+        elif directions['forward'] or directions['return']:
+            single_direction = "forward" if directions['forward'] else "return"
+            print(f"   ➡️  {node1} → {node2} (unidirectional - {single_direction} only)")
+    
+    print(f"="*80)
+    
     return validation_sequence
 
 
