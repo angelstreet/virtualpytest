@@ -79,7 +79,7 @@ export const useEdgeEdit = ({
         // The form will be updated when saving, not during initialization
       }
     }
-  }, [isOpen, edgeForm?.direction]);
+  }, [isOpen, edgeForm?.direction, edgeForm?.action_sets]);
 
   // Reset state when dialog closes
   useEffect(() => {

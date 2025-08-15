@@ -1046,6 +1046,19 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
                // Update selected edge with server data
                setSelectedEdge(updatedEdgeFromServer);
                
+               // RELOAD EDGE FORM: Update edgeForm state with fresh data from server
+               if (edgeForm && edgeForm.edgeId === currentSelectedEdge.id) {
+                 const refreshedEdgeForm = {
+                   edgeId: updatedEdgeFromServer.id,
+                   action_sets: updatedEdgeFromServer.data.action_sets,
+                   default_action_set_id: updatedEdgeFromServer.data.default_action_set_id,
+                   final_wait_time: updatedEdgeFromServer.data.final_wait_time || 2000,
+                   direction: edgeForm.direction, // Preserve current direction
+                 };
+                 setEdgeForm(refreshedEdgeForm);
+                 console.log('[@NavigationContext] Reloaded edge form with server data');
+               }
+               
                console.log('[@NavigationContext] Updated frontend state with server response');
              }
 
@@ -1256,6 +1269,19 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
                );
                setEdges(updatedEdges);
                setSelectedEdge(updatedEdgeFromServer);
+               
+               // RELOAD EDGE FORM: Update edgeForm state if it's currently editing this edge
+               if (edgeForm && edgeForm.edgeId === edge.id) {
+                 const refreshedEdgeForm = {
+                   edgeId: updatedEdgeFromServer.id,
+                   action_sets: updatedEdgeFromServer.data.action_sets,
+                   default_action_set_id: updatedEdgeFromServer.data.default_action_set_id,
+                   final_wait_time: updatedEdgeFromServer.data.final_wait_time || 2000,
+                   direction: edgeForm.direction, // Preserve current direction
+                 };
+                 setEdgeForm(refreshedEdgeForm);
+                 console.log('[@NavigationContext] Reloaded edge form after direction deletion');
+               }
              }
 
              console.log('[@NavigationContext] Updated edge direction and saved to database');
