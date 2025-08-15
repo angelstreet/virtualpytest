@@ -58,9 +58,7 @@ def find_shortest_path_unified(root_tree_id: str, target_node_id: str, team_id: 
     from shared.lib.utils.navigation_cache import get_cached_unified_graph, get_node_tree_location, get_tree_hierarchy_metadata
     from shared.lib.utils.navigation_graph import get_entry_points, get_node_info
     
-    # Get unified cached graph - MANDATORY
     unified_graph = get_cached_unified_graph(root_tree_id, team_id)
-    
     if not unified_graph:
         print(f"[@navigation:pathfinding:find_shortest_path_unified] No unified graph cached for root tree {root_tree_id}")
         raise UnifiedCacheError(f"No unified graph cached for root tree {root_tree_id}. Unified pathfinding is required - no fallback available.")
@@ -113,9 +111,12 @@ def find_shortest_path_unified(root_tree_id: str, target_node_id: str, team_id: 
         entry_points = get_entry_points(unified_graph)
         
         if not entry_points:
-            # This should never happen if we're using root tree ID correctly
-            print(f"[@navigation:pathfinding:find_shortest_path_unified] ERROR: No entry points found in root tree - this indicates a data problem")
-            raise PathfindingError("No entry points found in root tree unified graph - check tree data integrity")
+            print(f"[@navigation:pathfinding:find_shortest_path_unified] No entry points found, using first node")
+            nodes = list(unified_graph.nodes())
+            if not nodes:
+                print(f"[@navigation:pathfinding:find_shortest_path_unified] No nodes in unified graph")
+                raise PathfindingError("No nodes in unified graph")
+            actual_start_node = nodes[0]
         else:
             # Prioritize dedicated entry node over home node
             dedicated_entry = None
@@ -320,28 +321,25 @@ def find_optimal_edge_validation_sequence(tree_id: str, team_id: str) -> List[Di
     print(f"[@navigation:pathfinding:find_optimal_edge_validation_sequence] Found {len(edges_to_validate)} edges to validate")
     
     # Use depth-first traversal for optimal validation sequence
-    validation_sequence = _create_reachability_based_validation_sequence(G, edges_to_validate, tree_id, team_id)
+    validation_sequence = _create_reachability_based_validation_sequence(G, edges_to_validate)
     
     return validation_sequence
 
 
-def _create_reachability_based_validation_sequence(G, edges_to_validate: List[Tuple], tree_id: str, team_id: str) -> List[Dict]:
+def _create_reachability_based_validation_sequence(G, edges_to_validate: List[Tuple]) -> List[Dict]:
     """
-    Create validation sequence using PROPER depth-first traversal.
-    Goes all the way deep before coming back, ensuring optimal path without position jumps.
+    Create validation sequence using depth-first traversal that goes deep into each branch before coming back.
     
     Args:
         G: NetworkX graph
         edges_to_validate: List of (from_node, to_node, edge_data) tuples
-        tree_id: Navigation tree ID  
-        team_id: Team ID for security
         
     Returns:
-        List of validation steps ordered by true depth-first traversal
+        List of validation steps ordered by depth-first traversal
     """
     from shared.lib.utils.navigation_graph import get_entry_points, get_node_info
     
-    print(f"[@navigation:pathfinding:_create_reachability_based_validation_sequence] Creating PROPER depth-first validation sequence")
+    print(f"[@navigation:pathfinding:_create_reachability_based_validation_sequence] Creating depth-first validation sequence")
     
     # Build edge mapping for quick lookup
     edge_map = {}
@@ -373,24 +371,19 @@ def _create_reachability_based_validation_sequence(G, edges_to_validate: List[Tu
     visited_edges = set()
     step_number = 1
     
-    def depth_first_traversal(current_node, visited_nodes=None):
-        """TRUE depth-first: go ALL the way deep before any returns"""
+    def depth_first_traversal(current_node, parent_node=None):
+        """Recursively traverse depth-first, going as deep as possible then coming back"""
         nonlocal step_number
         
-        if visited_nodes is None:
-            visited_nodes = set()
-        
-        if current_node in visited_nodes or current_node not in adjacency:
+        if current_node not in adjacency:
             return
         
-        visited_nodes.add(current_node)
-        
-        # Process each child: go DEEP first, then come back
+        # Process all children of current node depth-first
         for child_node in adjacency[current_node]:
             forward_edge = (current_node, child_node)
             
-            # Skip if already processed this edge
-            if forward_edge in visited_edges:
+            # Skip if already visited or if it's the parent (avoid immediate back-and-forth)
+            if forward_edge in visited_edges or child_node == parent_node:
                 continue
             
             # Add forward edge
@@ -406,10 +399,10 @@ def _create_reachability_based_validation_sequence(G, edges_to_validate: List[Tu
             print(f"[@navigation:pathfinding:_create_reachability_based_validation_sequence] Step {step_number}: {from_label} → {to_label} (forward)")
             step_number += 1
             
-            # CRITICAL: Go deep FIRST before processing any returns
-            depth_first_traversal(child_node, visited_nodes.copy())
+            # Recursively go deeper into this child's branch
+            depth_first_traversal(child_node, current_node)
             
-            # ONLY after going all the way deep, add return edge if it exists
+            # After exploring the child branch completely, add return edge if it exists
             return_edge = (child_node, current_node)
             if return_edge in edge_map and return_edge not in visited_edges:
                 validation_step = _create_validation_step(G, child_node, current_node, edge_map[return_edge], step_number, 'depth_first_return')
@@ -423,7 +416,7 @@ def _create_reachability_based_validation_sequence(G, edges_to_validate: List[Tu
     for entry_point in entry_points:
         depth_first_traversal(entry_point)
     
-    # Add any remaining unvisited edges (disconnected components)
+    # Add any remaining unvisited edges
     remaining_edges = [(u, v) for u, v in edge_map.keys() if (u, v) not in visited_edges]
     for edge in remaining_edges:
         from_node, to_node = edge
@@ -432,14 +425,14 @@ def _create_reachability_based_validation_sequence(G, edges_to_validate: List[Tu
         from_label = from_info.get('label', from_node)
         to_label = to_info.get('label', to_node)
         
-        validation_step = _create_validation_step(G, from_node, to_node, edge_map[edge], step_number, 'disconnected')
+        validation_step = _create_validation_step(G, from_node, to_node, edge_map[edge], step_number, 'remaining')
         validation_sequence.append(validation_step)
         visited_edges.add(edge)
         
-        print(f"[@navigation:pathfinding:_create_reachability_based_validation_sequence] Step {step_number} (disconnected): {from_label} → {to_label}")
+        print(f"[@navigation:pathfinding:_create_reachability_based_validation_sequence] Step {step_number} (remaining): {from_label} → {to_label}")
         step_number += 1
     
-    print(f"[@navigation:pathfinding:_create_reachability_based_validation_sequence] Generated {len(validation_sequence)} validation steps using PROPER depth-first traversal")
+    print(f"[@navigation:pathfinding:_create_reachability_based_validation_sequence] Generated {len(validation_sequence)} validation steps using depth-first traversal")
     return validation_sequence
 
 
