@@ -599,6 +599,14 @@ const RecHostStreamModalContent: React.FC<{
                     width: targetWidth, 
                     height: targetHeight 
                   });
+                  
+                  console.log(`[@component:RecHostStreamModal] VNC scaling for modal:`, {
+                    streamContainerDimensions,
+                    hasPanel,
+                    panelCount,
+                    targetDimensions: `${targetWidth}x${targetHeight}`,
+                    vncScaling
+                  });
 
                   return (
                     <Box
