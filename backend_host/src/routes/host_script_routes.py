@@ -30,10 +30,15 @@ def _execute_script():
             import requests
             
             def execute_async():
+                print(f"[@route:host_script:_execute_script] THREAD START: Async execution thread started for task {task_id}")
                 try:
                     print(f"[@route:host_script:_execute_script] Starting async script execution for task {task_id}")
+                    print(f"[@route:host_script:_execute_script] About to call execute_script({script_name}, {device_id}, {parameters})")
+                    
                     result = execute_script(script_name, device_id, parameters)
-                    print(f"[@route:host_script:_execute_script] Script execution completed for task {task_id}, success: {result.get('success')}")
+                    
+                    print(f"[@route:host_script:_execute_script] SCRIPT COMPLETED: Script execution completed for task {task_id}, success: {result.get('success')}")
+                    print(f"[@route:host_script:_execute_script] Result keys: {list(result.keys()) if result else 'None'}")
                     
                     # Determine if there was an error
                     script_success = result.get('success', False)
@@ -46,9 +51,12 @@ def _execute_script():
                         'error': error_message
                     }
                     
+                    print(f"[@route:host_script:_execute_script] CALLBACK PREP: About to send callback for task {task_id}")
+                    print(f"[@route:host_script:_execute_script] Callback URL: {callback_url}")
+                    print(f"[@route:host_script:_execute_script] Callback data prepared: task_id={task_id}, success={script_success}, error={error_message}")
+                    
                     try:
-                        print(f"[@route:host_script:_execute_script] Sending callback to: {callback_url}")
-                        print(f"[@route:host_script:_execute_script] Callback data: task_id={task_id}, success={script_success}, error={error_message}")
+                        print(f"[@route:host_script:_execute_script] CALLBACK SEND: Sending callback to: {callback_url}")
                         
                         callback_response = requests.post(
                             callback_url, 
@@ -57,22 +65,22 @@ def _execute_script():
                             verify=False
                         )
                         
-                        print(f"[@route:host_script:_execute_script] Callback sent for task {task_id}, status: {callback_response.status_code}")
+                        print(f"[@route:host_script:_execute_script] CALLBACK RESPONSE: Callback sent for task {task_id}, status: {callback_response.status_code}")
                         
                         # Log response for debugging
                         if callback_response.status_code != 200:
                             print(f"[@route:host_script:_execute_script] Callback response error: {callback_response.text}")
                         else:
-                            print(f"[@route:host_script:_execute_script] Callback successful for task {task_id}")
+                            print(f"[@route:host_script:_execute_script] CALLBACK SUCCESS: Callback successful for task {task_id}")
                             
                     except Exception as callback_error:
-                        print(f"[@route:host_script:_execute_script] Callback failed for task {task_id}: {callback_error}")
+                        print(f"[@route:host_script:_execute_script] CALLBACK ERROR: Callback failed for task {task_id}: {callback_error}")
                         print(f"[@route:host_script:_execute_script] Callback URL was: {callback_url}")
                         import traceback
                         traceback.print_exc()
                         
                 except Exception as e:
-                    print(f"[@route:host_script:_execute_script] Async execution failed for task {task_id}: {e}")
+                    print(f"[@route:host_script:_execute_script] ASYNC ERROR: Async execution failed for task {task_id}: {e}")
                     import traceback
                     traceback.print_exc()
                     
@@ -84,13 +92,13 @@ def _execute_script():
                     }
                     
                     try:
-                        print(f"[@route:host_script:_execute_script] Sending error callback to: {callback_url}")
+                        print(f"[@route:host_script:_execute_script] ERROR CALLBACK: Sending error callback to: {callback_url}")
                         requests.post(callback_url, json=callback_data, timeout=30, verify=False)
-                        print(f"[@route:host_script:_execute_script] Error callback sent for task {task_id}")
+                        print(f"[@route:host_script:_execute_script] ERROR CALLBACK SENT: Error callback sent for task {task_id}")
                     except Exception as callback_error:
-                        print(f"[@route:host_script:_execute_script] Error callback also failed for task {task_id}: {callback_error}")
+                        print(f"[@route:host_script:_execute_script] ERROR CALLBACK FAILED: Error callback also failed for task {task_id}: {callback_error}")
                 
-                print(f"[@route:host_script:_execute_script] Async execution thread completed for task {task_id}")
+                print(f"[@route:host_script:_execute_script] THREAD END: Async execution thread completed for task {task_id}")
             
             # Start background execution
             threading.Thread(target=execute_async, daemon=True).start()
