@@ -837,7 +837,8 @@ const RunTests: React.FC = () => {
   // Filter to show required parameters and important optional ones, excluding host/device (auto-filled)
   const displayParameters = scriptAnalysis?.parameters.filter((param) => 
     (param.required && param.name !== 'host' && param.name !== 'device') ||
-    param.name === 'blackscreen_area'  // Always show blackscreen_area for configuration
+    param.name === 'blackscreen_area' ||  // Always show blackscreen_area for configuration
+    param.name === 'node'  // Always show node parameter for goto scripts
   ) || [];
 
   // These variables are no longer needed since we moved to grid layout
