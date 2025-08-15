@@ -441,7 +441,7 @@ const RunTests: React.FC = () => {
             suggested = 'horizon_android_mobile';
           } else if (modelLower.includes('tv') || modelLower.includes('android_tv')) {
             suggested = 'horizon_android_tv';
-          } else if (modelLower.includes('web')) {
+          } else if (modelLower.includes('host')) {
             suggested = 'perseus_360_web';
           } else {
             // Default to mobile interface for unknown device types
@@ -490,7 +490,7 @@ const RunTests: React.FC = () => {
             value = 'horizon_android_mobile';
           } else if (modelLower.includes('tv') || modelLower.includes('android_tv')) {
             value = 'horizon_android_tv';
-          } else if (modelLower.includes('web') || modelLower.includes('browser') || modelLower.includes('vnc')) {
+          } else if (modelLower.includes('host')) {
             value = 'perseus_360_web';
           } else {
             // Default to mobile interface for unknown device types
@@ -518,7 +518,7 @@ const RunTests: React.FC = () => {
           paramStrings.push('horizon_android_mobile');
         } else if (modelLower.includes('tv') || modelLower.includes('android_tv')) {
           paramStrings.push('horizon_android_tv');
-        } else if (modelLower.includes('web') || modelLower.includes('browser') || modelLower.includes('vnc')) {
+        } else if (modelLower.includes('host')) {
           paramStrings.push('perseus_360_web');
         } else {
           paramStrings.push('horizon_android_mobile');
