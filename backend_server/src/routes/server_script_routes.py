@@ -125,45 +125,7 @@ def analyze_script_parameters(script_path):
     except Exception as e:
         return {'success': False, 'error': f'Error analyzing script: {str(e)}'}
 
-def suggest_parameter_value(param_name, device_model=None, device_id=None):
-    """
-    Suggest parameter values based on parameter name and device context
-    """
-    suggestions = {}
-    
-    if param_name == 'userinterface_name' and device_model:
-        # Map device model to userinterface_name
-        model_lower = device_model.lower()
-        if 'mobile' in model_lower or 'phone' in model_lower:
-            if 'horizon' in model_lower:
-                suggestions['suggested'] = 'horizon_android_mobile'
-            elif 'vz' in model_lower or 'verizon' in model_lower:
-                suggestions['suggested'] = 'vz_android_mobile'
-            else:
-                suggestions['suggested'] = 'horizon_android_mobile'  # default
-        elif 'tv' in model_lower or 'android_tv' in model_lower:
-            if 'horizon' in model_lower:
-                suggestions['suggested'] = 'horizon_android_tv'
-            elif 'vz' in model_lower or 'verizon' in model_lower:
-                suggestions['suggested'] = 'vz_android_tv'
-            else:
-                suggestions['suggested'] = 'horizon_android_tv'  # default
-        else:
-            # Default fallback
-            suggestions['suggested'] = 'horizon_android_mobile'
-        
-        suggestions['confidence'] = 'high' if any(keyword in model_lower for keyword in ['horizon', 'vz', 'mobile', 'tv']) else 'medium'
-    
-    elif param_name == 'device' and device_id:
-        suggestions['suggested'] = device_id
-        suggestions['confidence'] = 'high'
-    
-    elif param_name == 'host':
-        # Will be filled by the frontend based on selected host
-        suggestions['suggested'] = ''
-        suggestions['confidence'] = 'low'
-    
-    return suggestions
+
 
 @server_script_bp.route('/script/analyze', methods=['POST'])
 def analyze_script():
@@ -200,13 +162,7 @@ def analyze_script():
         if not analysis['success']:
             return jsonify(analysis), 404
         
-        # Add parameter suggestions based on device context
-        for param in analysis.get('parameters', []):
-            param['suggestions'] = suggest_parameter_value(
-                param['name'], 
-                device_model=device_model, 
-                device_id=device_id
-            )
+
         
         return jsonify(analysis)
         

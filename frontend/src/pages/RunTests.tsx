@@ -29,6 +29,7 @@ import { useStream } from '../hooks/controller/useStream';
 import { useScript } from '../hooks/script/useScript';
 import { useHostManager } from '../hooks/useHostManager';
 import { useToast } from '../hooks/useToast';
+import { useRun } from '../hooks/useRun';
 import { calculateVncScaling } from '../utils/vncUtils';
 
 
@@ -260,10 +261,21 @@ const RunTests: React.FC = () => {
     successful: number;
   }>({ total: 0, completed: 0, successful: 0 });
 
-  // Script parameters state
-  const [scriptAnalysis, setScriptAnalysis] = useState<ScriptAnalysis | null>(null);
-  const [parameterValues, setParameterValues] = useState<Record<string, string>>({});
-  const [_analyzingScript, setAnalyzingScript] = useState<boolean>(false);
+  // Use run hook for script analysis and parameter management
+  const { 
+    scriptAnalysis, 
+    parameterValues, 
+    analyzingScript,
+    handleParameterChange,
+    validateParameters,
+    getUserinterfaceName 
+  } = useRun({
+    selectedScript,
+    selectedDevice,
+    selectedHost,
+    deviceModel: getPrimaryDeviceModel(),
+    showWizard
+  });
 
   // Only fetch host data when wizard is shown
   const { getAllHosts, getDevicesFromHost } = useHostManager();
@@ -369,106 +381,11 @@ const RunTests: React.FC = () => {
     loadScripts();
   }, [selectedScript, showError]);
 
-  // Analyze script parameters when script selection changes
-  useEffect(() => {
-    const analyzeScript = async () => {
-      if (!selectedScript || !showWizard) {
-        setScriptAnalysis(null);
-        setParameterValues({});
-        return;
-      }
 
-      setAnalyzingScript(true);
-      try {
-        const response = await fetch('/server/script/analyze', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            script_name: selectedScript,
-            device_model: getPrimaryDeviceModel(),
-            device_id: selectedDevice,
-          }),
-        });
 
-        const analysis: ScriptAnalysis = await response.json();
 
-        if (analysis.success) {
-          setScriptAnalysis(analysis);
 
-          // Pre-fill parameter values with suggestions
-          const newParameterValues: Record<string, string> = {};
-          analysis.parameters.forEach((param) => {
-            if (param.suggestions?.suggested) {
-              newParameterValues[param.name] = param.suggestions.suggested;
-            } else if (param.default) {
-              newParameterValues[param.name] = param.default;
-            } else if (param.name === 'node') {
-              // Default 'node' parameter to 'home' (matching goto.py default)
-              newParameterValues[param.name] = 'home';
-            } else {
-              newParameterValues[param.name] = '';
-            }
-          });
-          setParameterValues(newParameterValues);
-        } else {
-          setScriptAnalysis(null);
-          setParameterValues({});
-        }
-      } catch (error) {
-        console.error('Error analyzing script:', error);
-        setScriptAnalysis(null);
-        setParameterValues({});
-      } finally {
-        setAnalyzingScript(false);
-      }
-    };
 
-    analyzeScript();
-  }, [selectedScript, selectedDevice, selectedHost, showWizard]);
-
-  // Update parameter suggestions when device changes
-  useEffect(() => {
-    const deviceModel = getPrimaryDeviceModel();
-    if (scriptAnalysis && selectedDevice && deviceModel) {
-      const newParameterValues = { ...parameterValues };
-
-      scriptAnalysis.parameters.forEach((param) => {
-        // Re-evaluate suggestions based on new device context
-        if (param.name === 'userinterface_name' && deviceModel) {
-          const modelLower = deviceModel.toLowerCase();
-          let suggested = '';
-
-          if (modelLower.includes('mobile') || modelLower.includes('phone')) {
-            suggested = 'horizon_android_mobile';
-          } else if (modelLower.includes('tv') || modelLower.includes('android_tv')) {
-            suggested = 'horizon_android_tv';
-          } else if (modelLower.includes('host')) {
-            suggested = 'perseus_360_web';
-          } else {
-            // Default to mobile interface for unknown device types
-            suggested = 'horizon_android_mobile';
-          }
-
-          newParameterValues[param.name] = suggested;
-        } else if (param.name === 'device' && selectedDevice) {
-          newParameterValues[param.name] = selectedDevice;
-        } else if (param.name === 'host' && selectedHost) {
-          newParameterValues[param.name] = selectedHost;
-        }
-      });
-
-      setParameterValues(newParameterValues);
-    }
-  }, [selectedDevice, selectedHost, scriptAnalysis]);
-
-  const handleParameterChange = (paramName: string, value: string) => {
-    setParameterValues((prev) => ({
-      ...prev,
-      [paramName]: value,
-    }));
-  };
 
   const buildParameterString = (deviceHost?: string, deviceId?: string) => {
     const paramStrings: string[] = [];
@@ -487,18 +404,7 @@ const RunTests: React.FC = () => {
           const hostDevices = getDevicesFromHost(targetHost);
           const deviceObject = hostDevices.find(device => device.device_id === targetDevice);
           const deviceModel = deviceObject?.device_model || 'unknown';
-          const modelLower = deviceModel.toLowerCase();
-          
-          if (modelLower.includes('mobile') || modelLower.includes('phone')) {
-            value = 'horizon_android_mobile';
-          } else if (modelLower.includes('tv') || modelLower.includes('android_tv')) {
-            value = 'horizon_android_tv';
-          } else if (modelLower.includes('host')) {
-            value = 'perseus_360_web';
-          } else {
-            // Default to mobile interface for unknown device types
-            value = 'horizon_android_mobile';
-          }
+          value = getUserinterfaceName(deviceModel);
         }
         
         if (value) {
@@ -515,17 +421,7 @@ const RunTests: React.FC = () => {
         const hostDevices = getDevicesFromHost(targetHost);
         const deviceObject = hostDevices.find(device => device.device_id === targetDevice);
         const deviceModel = deviceObject?.device_model || 'unknown';
-        const modelLower = deviceModel.toLowerCase();
-        
-        if (modelLower.includes('mobile') || modelLower.includes('phone')) {
-          paramStrings.push('horizon_android_mobile');
-        } else if (modelLower.includes('tv') || modelLower.includes('android_tv')) {
-          paramStrings.push('horizon_android_tv');
-        } else if (modelLower.includes('host')) {
-          paramStrings.push('perseus_360_web');
-        } else {
-          paramStrings.push('horizon_android_mobile');
-        }
+        paramStrings.push(getUserinterfaceName(deviceModel));
       } else {
         paramStrings.push('horizon_android_mobile');
       }
@@ -542,20 +438,7 @@ const RunTests: React.FC = () => {
     return paramStrings.join(' ');
   };
 
-  const validateParameters = () => {
-    if (!scriptAnalysis) return { valid: true, errors: [] };
 
-    const errors: string[] = [];
-
-    scriptAnalysis.parameters.forEach((param) => {
-      const value = parameterValues[param.name]?.trim();
-      if (param.required && !value) {
-        errors.push(`${param.name} is required`);
-      }
-    });
-
-    return { valid: errors.length === 0, errors };
-  };
 
   // Helper function to determine test result from script output
   const determineTestResult = (result: any): 'success' | 'failure' | undefined => {
