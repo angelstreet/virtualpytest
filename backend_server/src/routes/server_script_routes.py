@@ -297,6 +297,7 @@ def execute_script():
         from shared.lib.utils.build_url_utils import buildServerUrl
         callback_url = buildServerUrl('server/script/taskComplete')
         payload['callback_url'] = callback_url
+        print(f"[@route:server_script:execute_script] Callback URL set to: {callback_url}")
         
         # Execute in background thread
         import threading
