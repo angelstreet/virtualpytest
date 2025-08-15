@@ -65,13 +65,17 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
         return { fromLabel: sourceLabel, toLabel: targetLabel };
       }
 
-      // Simple direction parsing: action set ID is always source_to_target or target_to_source
+      // Parse action set ID format: source_to_target
       if (actionSet.id.includes('_to_')) {
-        const [fromPart, toPart] = actionSet.id.split('_to_');
-        return {
-          fromLabel: fromPart,
-          toLabel: toPart,
-        };
+        const toIndex = actionSet.id.indexOf('_to_');
+        if (toIndex > 0) {
+          const fromLabel = actionSet.id.substring(0, toIndex);
+          const toLabel = actionSet.id.substring(toIndex + 4); // Skip '_to_'
+          return {
+            fromLabel: fromLabel, // Keep underscores for consistency
+            toLabel: toLabel,     // Keep underscores for consistency
+          };
+        }
       }
 
       return { fromLabel: sourceLabel, toLabel: targetLabel };
