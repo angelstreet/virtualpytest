@@ -148,43 +148,40 @@ export const useNavigationEditor = () => {
         return;
       }
 
-      // Helper function to create edge data
+      // Helper function to create bidirectional edge data
       const createEdgeData = (sourceLabel: string, targetLabel: string) => {
-        // Create coherent action set ID using node labels (cleaned up for ID format)
+        // Clean labels for ID format
         const cleanSourceLabel = sourceLabel.toLowerCase().replace(/[^a-z0-9]/g, '_');
         const cleanTargetLabel = targetLabel.toLowerCase().replace(/[^a-z0-9]/g, '_');
-        const defaultActionSetId = `${cleanSourceLabel}_to_${cleanTargetLabel}_1`;
-        const actionSetLabel = `${sourceLabel}→${targetLabel}_1`;
+        
         return {
           label: `${sourceLabel}→${targetLabel}`,
           action_sets: [
             {
-              id: defaultActionSetId,
-              label: actionSetLabel,
+              id: `${cleanSourceLabel}_to_${cleanTargetLabel}`,
+              label: `${sourceLabel} → ${targetLabel}`,
               actions: [],
               retry_actions: [],
-        failure_actions: [],
-              priority: 1,
+              failure_actions: [],
+            },
+            {
+              id: `${cleanTargetLabel}_to_${cleanSourceLabel}`,
+              label: `${targetLabel} → ${sourceLabel}`,
+              actions: [],
+              retry_actions: [],
+              failure_actions: [],
             }
           ],
-          default_action_set_id: defaultActionSetId,
+          default_action_set_id: `${cleanSourceLabel}_to_${cleanTargetLabel}`,
           final_wait_time: 2000,
         };
       };
 
-      // Determine if either node is an entry node, protected, or an action node
-      const isSourceProtected = connection.source === 'entry-node' || 
-                               sourceNode.data.label?.toLowerCase().includes('entry') ||
-                               sourceNode.data.label?.toLowerCase().includes('home') ||
-                               sourceNode.data.type === 'action';
-      const isTargetProtected = connection.target === 'entry-node' || 
-                               targetNode.data.label?.toLowerCase().includes('entry') ||
-                               targetNode.data.label?.toLowerCase().includes('home') ||
-                               targetNode.data.type === 'action';
+      // Simplified: no special handling needed since edges are now bidirectional by default
 
       const timestamp = Date.now();
 
-      // Create primary edge (original direction)
+      // Create single bidirectional edge
       const newEdge: UINavigationEdge = {
         id: `edge-${connection.source}-${connection.target}-${timestamp}`,
         source: connection.source,
@@ -201,16 +198,15 @@ export const useNavigationEditor = () => {
           type: MarkerType.ArrowClosed,
           color: '#555',
         },
-        data: createEdgeData(sourceNode.data.label, targetNode.data.label),
+        data: createEdgeData(sourceNode?.data?.label || 'unknown', targetNode?.data?.label || 'unknown'),
       };
 
-      console.log('[@useNavigationEditor:onConnect] Creating primary edge:', newEdge);
+      console.log('[@useNavigationEditor:onConnect] Creating bidirectional edge:', newEdge);
 
       let edgesToAdd = [newEdge];
 
-      // Create bidirectional edge (reverse direction) unless one of the nodes is protected or an action
-      // Protected nodes and action nodes should only have incoming edges, not outgoing bidirectional edges
-      if (!isSourceProtected && !isTargetProtected) {
+      // No need for separate reverse edges - bidirectional logic is built into action sets
+      if (false) { // Disabled complex reverse edge logic
         // Map target handles to their corresponding source handles
         const getCorrespondingSourceHandle = (targetHandle: string): string => {
           const handleMap: Record<string, string> = {
@@ -260,19 +256,14 @@ export const useNavigationEditor = () => {
             type: MarkerType.ArrowClosed,
             color: '#555',
           },
-          data: createEdgeData(targetNode.data.label, sourceNode.data.label),
+          data: createEdgeData(targetNode?.data?.label || 'unknown', sourceNode?.data?.label || 'unknown'),
         };
 
         console.log('[@useNavigationEditor:onConnect] Creating reverse edge:', reverseEdge);
         edgesToAdd.push(reverseEdge);
-      } else {
-        console.log('[@useNavigationEditor:onConnect] Skipping bidirectional edge due to protected/action node:', {
-          sourceProtected: isSourceProtected,
-          targetProtected: isTargetProtected,
-          sourceType: sourceNode.data.type,
-          targetType: targetNode.data.type
-        });
-      }
+              } else {
+          console.log('[@useNavigationEditor:onConnect] Simplified edge creation - no complex logic needed');
+        }
 
       // Handle parent inheritance based on handle direction and ROOT NODE PRIORITY
       // 

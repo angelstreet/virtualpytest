@@ -36,25 +36,19 @@ export const useEdgeEdit = ({
   const [localFailureActions, setLocalFailureActions] = useState<Action[]>([]);
   const [dependencyCheckResult, setDependencyCheckResult] = useState<any>(null);
 
-  // Initialize actions when dialog opens or edgeForm/selectedEdge changes
+  // Initialize actions when dialog opens - SIMPLIFIED
   useEffect(() => {
-    if (isOpen && edgeForm?.action_sets?.length > 0) {
-      // Find the target action set to edit (based on targetActionSetId or default to first)
-      const targetActionSetId = edgeForm.targetActionSetId;
-      let actionSet = edgeForm.action_sets[0]; // Default to first
+    if (isOpen && edgeForm?.action_sets?.length >= 2) {
+      // Simple direction-based action set selection
+      const direction = edgeForm.direction || 'forward';
+      const actionSet = direction === 'forward' ? edgeForm.action_sets[0] : edgeForm.action_sets[1];
       
-      if (targetActionSetId) {
-        const foundActionSet = edgeForm.action_sets.find(as => as.id === targetActionSetId);
-        if (foundActionSet) {
-          actionSet = foundActionSet;
-        }
-      }
-      
-      console.log('[@useEdgeEdit] Loading from form action set:', actionSet.id, { 
+      console.log('[@useEdgeEdit] Loading action set for direction:', direction, actionSet.id, { 
         actions: actionSet.actions?.length || 0, 
         retry_actions: actionSet.retry_actions?.length || 0,
         failure_actions: actionSet.failure_actions?.length || 0
       });
+      
       setLocalActions(actionSet.actions || []);
       setLocalRetryActions(actionSet.retry_actions || []);
       setLocalFailureActions(actionSet.failure_actions || []);
@@ -85,7 +79,7 @@ export const useEdgeEdit = ({
         // The form will be updated when saving, not during initialization
       }
     }
-  }, [isOpen, edgeForm?.targetActionSetId, selectedEdge]);
+  }, [isOpen, edgeForm?.direction]);
 
   // Reset state when dialog closes
   useEffect(() => {

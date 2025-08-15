@@ -10,16 +10,14 @@ export interface Action {
   iterator?: number; // Optional: number of times to repeat this action (1-100, default: 1) - NOT used for verification actions
 }
 
-// Action Set interface for new edge structure
+// Action Set interface for bidirectional edge structure
 export interface ActionSet {
-  id: string;
-  label: string;
+  id: string; // Format: nodeA_to_nodeB
+  label: string; // Format: nodeA → nodeB
   actions: Action[];
   retry_actions?: Action[];
   failure_actions?: Action[];
-  priority: number;
-  conditions?: any;
-  timer?: number; // Timer action support
+  // REMOVED: priority, conditions, timer for simplicity
 }
 import { Verification } from '../verification/Verification_Types';
 
@@ -77,19 +75,18 @@ export interface UINavigationNodeData {
   parentNodeId?: string; // Immediate parent node ID
 }
 
-// Define the data type for navigation edges - NEW STRUCTURE ONLY, NO LEGACY
+// Define the data type for navigation edges - BIDIRECTIONAL STRUCTURE
 export interface UINavigationEdgeData {
   label?: string; // Auto-generated label in format "source_label→target_label"
-  priority?: 'p1' | 'p2' | 'p3'; // Priority level (default: p3)
-  threshold?: number; // Threshold for edge traversal (default: 0)
-  action_sets: ActionSet[]; // REQUIRED
-  default_action_set_id: string; // REQUIRED
+  action_sets: ActionSet[]; // REQUIRED: Always exactly 2 action sets (enforced by convention)
+  default_action_set_id: string; // REQUIRED: Always source_to_target
   final_wait_time: number;
   metrics?: {
     volume: number;
     success_rate: number;
     avg_execution_time: number;
   };
+  // REMOVED: priority, threshold for simplicity
 }
 
 // =====================================================
@@ -237,15 +234,14 @@ export interface NodeForm {
   verifications?: Verification[];
 }
 
-// NEW: EdgeForm interface for action_sets structure - NO LEGACY
+// EdgeForm interface for bidirectional edge structure
 export interface EdgeForm {
   edgeId: string; // Required edge ID to track which edge is being edited
-  action_sets: ActionSet[]; // REQUIRED: Array of action sets
-  default_action_set_id: string; // REQUIRED: ID of default action set
-  final_wait_time: number; // Using standard naming convention
-  priority?: 'p1' | 'p2' | 'p3'; // Priority level (default: p3)
-  threshold?: number; // Threshold in milliseconds (default: 0)
-  targetActionSetId?: string; // Optional: ID of the specific action set to edit
+  action_sets: ActionSet[]; // REQUIRED: Always exactly 2 action sets (enforced by convention)
+  default_action_set_id: string; // REQUIRED: Always source_to_target
+  final_wait_time: number;
+  direction?: 'forward' | 'reverse'; // Simple direction indicator for editing
+  // REMOVED: priority, threshold, targetActionSetId for simplicity
 }
 
 // =====================================================

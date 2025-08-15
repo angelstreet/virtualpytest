@@ -253,8 +253,7 @@ export const useEdge = (props?: UseEdgeProps) => {
         action_sets: actionSets, // REQUIRED: action sets structure
         default_action_set_id: defaultActionSetId, // REQUIRED: default action set ID
         final_wait_time: edge.data?.final_wait_time ?? 2000,
-        priority: edge.data?.priority || 'p3', // Default to p3 if not set
-        threshold: edge.data?.threshold ?? 0, // Default to 0 if not set
+        // REMOVED: priority, threshold for simplicity
       };
     },
     [getActionSetsFromEdge],

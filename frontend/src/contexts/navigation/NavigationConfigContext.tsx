@@ -47,15 +47,13 @@ export interface NavigationNode {
   subtree_count?: number;
 }
 
-// Action Set interface for new edge structure
+// Action Set interface for bidirectional edge structure
 export interface ActionSet {
-  id: string;
-  label: string;
+  id: string; // Format: nodeA_to_nodeB
+  label: string; // Format: nodeA → nodeB
   actions: any[];
   retry_actions?: any[];
-  priority: number;
-  conditions?: any;
-  timer?: number; // Timer action support
+  // REMOVED: priority, conditions, timer for simplicity
 }
 
 export interface NavigationEdge {

@@ -52,41 +52,29 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
   }) => {
     const { getNodes } = useReactFlow();
 
-    // Get actual node labels for from/to display
+    // Simple hardcoded direction lookup based on action set ID
     const { fromLabel, toLabel } = useMemo(() => {
       const nodes = getNodes();
       const sourceNode = nodes.find((node) => node.id === selectedEdge.source);
       const targetNode = nodes.find((node) => node.id === selectedEdge.target);
+      
+      const sourceLabel = sourceNode?.data?.label || selectedEdge.source;
+      const targetLabel = targetNode?.data?.label || selectedEdge.target;
 
-      // For fallback panel (actionSet === null), show reverse direction
-      if (actionSet === null) {
+      if (!actionSet?.id) {
+        return { fromLabel: sourceLabel, toLabel: targetLabel };
+      }
+
+      // Simple direction parsing: action set ID is always source_to_target or target_to_source
+      if (actionSet.id.includes('_to_')) {
+        const [fromPart, toPart] = actionSet.id.split('_to_');
         return {
-          fromLabel: targetNode?.data?.label || selectedEdge.target,
-          toLabel: sourceNode?.data?.label || selectedEdge.source,
+          fromLabel: fromPart,
+          toLabel: toPart,
         };
       }
 
-      // For real action sets, parse direction from action set ID
-      // Action set ID format: "from_to_priority" (e.g., "home_to_home_saved_1")
-      if (actionSet?.id) {
-        const idParts = actionSet.id.split('_');
-        if (idParts.length >= 3 && idParts.includes('to')) {
-          // Find the "to" index and split accordingly
-          const toIndex = idParts.indexOf('to');
-          const fromPart = idParts.slice(0, toIndex).join('_');
-          const toPart = idParts.slice(toIndex + 1, -1).join('_'); // Remove last part (priority number)
-          
-          return {
-            fromLabel: fromPart, // Keep underscores for consistency
-            toLabel: toPart,     // Keep underscores for consistency
-          };
-        }
-      }
-
-      return {
-        fromLabel: sourceNode?.data?.label || selectedEdge.source,
-        toLabel: targetNode?.data?.label || selectedEdge.target,
-      };
+      return { fromLabel: sourceLabel, toLabel: targetLabel };
     }, [getNodes, selectedEdge.source, selectedEdge.target, actionSet]);
 
     // Use edge hook only for action execution
@@ -142,36 +130,18 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
     }, [edgeMetrics.volume, edgeMetrics.success_rate]);
 
     const handleEdit = () => {
-      // Always create the full edge form with all action sets to avoid losing data
+      // Simple edge form creation
       const edgeForm = edgeHook.createEdgeForm(selectedEdge);
       
-      // For fallback panel (actionSet === null), add a new empty action set for the missing direction
-      if (actionSet === null) {
-        // Create coherent action set ID using node labels (cleaned up for ID format)
-        const cleanFromLabel = fromLabel.toLowerCase().replace(/[^a-z0-9]/g, '_');
-        const cleanToLabel = toLabel.toLowerCase().replace(/[^a-z0-9]/g, '_');
-        const newActionSetId = `${cleanFromLabel}_to_${cleanToLabel}_1`; // Use fromLabel_to_toLabel format
-        const emptyActionSet = {
-          id: newActionSetId,
-          label: `${fromLabel.toLowerCase().replace(/[^a-z0-9]/g, '_')}_to_${toLabel.toLowerCase().replace(/[^a-z0-9]/g, '_')}_1`,
-          actions: [],
-          retry_actions: [],
-          failure_actions: [],
-          priority: 1
-        };
-        edgeForm.action_sets.push(emptyActionSet);
-        // Set the new action set as the target for editing
-        edgeForm.targetActionSetId = newActionSetId;
-      } else {
-        // For normal panels, set the existing action set as the target for editing
-        edgeForm.targetActionSetId = actionSet.id;
+      // Set direction based on which action set is being edited
+      if (actionSet?.id) {
+        edgeForm.direction = actionSet.id.startsWith(fromLabel) ? 'forward' : 'reverse';
       }
       
       setEdgeForm(edgeForm);
       setIsEdgeDialogOpen(true);
       onClose(); // Close the selection panel when opening the edit dialog
-      // Note: Dependency check happens in EdgeEditDialog when saving
-      // If no dependencies are found, the edge will be saved directly
+      
       if (onEditWithLabels) {
         onEditWithLabels(fromLabel, toLabel);
       }
