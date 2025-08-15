@@ -66,6 +66,26 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
         };
       }
 
+      // For real action sets, determine direction based on action set label/id
+      if (actionSet?.label || actionSet?.id) {
+        const actionSetName = (actionSet.label || actionSet.id).toLowerCase();
+        const sourceName = sourceNode?.data?.label?.toLowerCase() || selectedEdge.source.toLowerCase();
+        const targetName = targetNode?.data?.label?.toLowerCase() || selectedEdge.target.toLowerCase();
+        
+        // Check if action set represents reverse direction
+        // Look for patterns like "target_to_source" or "replay_to_home"
+        const isReverseDirection = actionSetName.includes(`${targetName.replace(/[^a-z0-9]/g, '_')}_to_${sourceName.replace(/[^a-z0-9]/g, '_')}`) ||
+                                 actionSetName.includes(`${targetName}_to_${sourceName}`) ||
+                                 actionSetName.startsWith(targetName);
+        
+        if (isReverseDirection) {
+          return {
+            fromLabel: targetNode?.data?.label || selectedEdge.target,
+            toLabel: sourceNode?.data?.label || selectedEdge.source,
+          };
+        }
+      }
+
       return {
         fromLabel: sourceNode?.data?.label || selectedEdge.source,
         toLabel: targetNode?.data?.label || selectedEdge.target,
