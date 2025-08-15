@@ -29,6 +29,7 @@ import { useStream } from '../hooks/controller/useStream';
 import { useScript } from '../hooks/script/useScript';
 import { useHostManager } from '../hooks/useHostManager';
 import { useToast } from '../hooks/useToast';
+import { useRec } from '../hooks/pages/useRec';
 
 // Simple execution record interface
 interface ExecutionRecord {
@@ -68,6 +69,9 @@ interface ScriptAnalysis {
 const RunTests: React.FC = () => {
   const { executeMultipleScripts, isExecuting, executingIds } = useScript();
   const { showInfo, showSuccess, showError } = useToast();
+  
+  // Get VNC scaling function from useRec
+  const { calculateVncScaling } = useRec();
 
   const [selectedHost, setSelectedHost] = useState<string>('');
   const [selectedDevice, setSelectedDevice] = useState<string>('');
@@ -888,17 +892,28 @@ const RunTests: React.FC = () => {
                   {streamUrl && streamHostObject ? (
                     // VNC devices: Show iframe with VNC URL, Other devices: Show HLS player
                     deviceModel === 'host_vnc' ? (
-                      <iframe
-                        src={streamUrl}
-                        style={{
-                          width: '100%',
-                          height: '100%',
-                          border: 'none',
-                          backgroundColor: '#000',
-                        }}
-                        title="VNC Desktop Stream"
-                        allow="fullscreen"
-                      />
+                      (() => {
+                        // Calculate VNC scaling for the container size
+                        const containerWidth = isMobileModel ? Math.round(250 * (9/16)) : Math.round(250 * (16/9));
+                        const containerHeight = 250; // minHeight from container
+                        const vncScaling = calculateVncScaling({ 
+                          width: containerWidth, 
+                          height: containerHeight 
+                        });
+                        
+                        return (
+                          <iframe
+                            src={streamUrl}
+                            style={{
+                              border: 'none',
+                              backgroundColor: '#000',
+                              ...vncScaling, // Apply VNC scaling (transform, transformOrigin, width, height)
+                            }}
+                            title="VNC Desktop Stream"
+                            allow="fullscreen"
+                          />
+                        );
+                      })()
                     ) : (
                       <HLSVideoPlayer
                         streamUrl={streamUrl}
