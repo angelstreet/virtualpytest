@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useModal } from '../../contexts/ModalContext';
 import { Host, Device } from '../../types/common/Host_Types';
 import { useHostManager } from '../useHostManager';
+import { calculateVncScaling } from '../../utils/vncUtils';
 
 // Global state to persist across React remounts in development mode
 const globalBaseUrlPatterns = new Map<string, string>();
@@ -229,26 +230,6 @@ export const useRec = (): UseRecReturn => {
     };
   }, [refreshHosts]);
 
-  // Calculate VNC scaling for any target size (reusable logic)
-  const calculateVncScaling = useCallback((targetSize: { width: number; height: number }) => {
-    // VNC native resolution (from useVncStream logic)
-    const vncResolution = { width: 1440, height: 847 };
-    
-    // Calculate scale to fit VNC content in target container
-    const scaleX = targetSize.width / vncResolution.width;
-    const scaleY = targetSize.height / vncResolution.height;
-    
-    // Use the smaller scale to maintain aspect ratio and prevent overflow
-    const scale = Math.min(scaleX, scaleY);
-    
-    return {
-      transform: `scale(${scale})`,
-      transformOrigin: 'top left',
-      width: `${vncResolution.width}px`,
-      height: `${vncResolution.height}px`
-    };
-  }, []);
-
   // Restart streams for all AV devices
   const restartStreams = useCallback(async (): Promise<void> => {
     if (isRestarting) return; // Prevent multiple concurrent restarts
@@ -320,6 +301,6 @@ export const useRec = (): UseRecReturn => {
     generateThumbnailUrl,
     restartStreams,
     isRestarting,
-    calculateVncScaling,
+    calculateVncScaling, // Now using the imported version
   };
 };

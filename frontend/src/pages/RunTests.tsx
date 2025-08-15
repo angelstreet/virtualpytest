@@ -29,6 +29,7 @@ import { useStream } from '../hooks/controller/useStream';
 import { useScript } from '../hooks/script/useScript';
 import { useHostManager } from '../hooks/useHostManager';
 import { useToast } from '../hooks/useToast';
+import { calculateVncScaling } from '../utils/vncUtils';
 
 
 // Simple execution record interface
@@ -616,6 +617,10 @@ const RunTests: React.FC = () => {
   // Check if device is mobile model for proper aspect ratio
   const isMobileModel = !!(deviceModel && deviceModel.toLowerCase().includes('mobile'));
 
+  const previewHeight = 250;
+  const previewAspect = isMobileModel ? (9 / 16) : (16 / 9);
+  const previewWidth = Math.round(previewHeight * previewAspect);
+
   return (
     <Box sx={{ p: 1 }}>
       <Typography variant="h5" sx={{ mb: 1 }}>
@@ -894,10 +899,10 @@ const RunTests: React.FC = () => {
                       <iframe
                         src={streamUrl}
                         style={{
-                          width: '100%',
-                          height: '100%',
                           border: 'none',
                           backgroundColor: '#000',
+                          pointerEvents: 'none',
+                          ...calculateVncScaling({ width: previewWidth, height: previewHeight }),
                         }}
                         title="VNC Desktop Stream"
                         allow="fullscreen"
