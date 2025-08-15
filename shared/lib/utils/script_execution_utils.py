@@ -304,7 +304,6 @@ def execute_script(script_name: str, device_id: str, parameters: str = "") -> Di
                     if '[@cloudflare_utils:upload_script_report] INFO: Uploaded script report:' in line:
                         try:
                             report_path = line.split('Uploaded script report: ')[1]
-                            import os
                             base_url = os.environ.get('CLOUDFLARE_R2_PUBLIC_URL', 'https://pub-604f1a4ce32747778c6d5ac5e3100217.r2.dev')
                             report_url = f"{base_url.rstrip('/')}/{report_path}"
                             print(f"📊 [Script] Report URL captured: {report_url}")
