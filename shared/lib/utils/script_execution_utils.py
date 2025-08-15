@@ -286,7 +286,6 @@ def execute_script(script_name: str, device_id: str, parameters: str = "") -> Di
         # Stream output in real-time with timeout
         stdout_lines = []
         report_url = ""
-        script_success = None
         timeout_seconds = 3600  # 1 hour timeout
         start_time_for_timeout = time.time()
         
@@ -301,17 +300,19 @@ def execute_script(script_name: str, device_id: str, parameters: str = "") -> Di
                 if output:
                     line = output.rstrip()
                     
-                    # Extract script metadata while streaming
-                    if line.startswith('SCRIPT_REPORT_URL:'):
-                        report_url = line[18:]  # Remove prefix
-                        print(f"📊 [Script] Report URL captured: {report_url}")
-                    elif line.startswith('SCRIPT_SUCCESS:'):
-                        script_success = line.split('SCRIPT_SUCCESS:', 1)[1].lower() == 'true'
-                        status_emoji = "✅" if script_success else "❌"
-                        print(f"{status_emoji} [Script] Final result: {'SUCCESS' if script_success else 'FAILED'}")
-                    else:
-                        # Stream all other output with prefix
-                        print(f"[{script_name}] {line}")
+                    # Extract report URL from upload logs  
+                    if '[@cloudflare_utils:upload_script_report] INFO: Uploaded script report:' in line:
+                        try:
+                            report_path = line.split('Uploaded script report: ')[1]
+                            import os
+                            base_url = os.environ.get('CLOUDFLARE_R2_PUBLIC_URL', 'https://pub-604f1a4ce32747778c6d5ac5e3100217.r2.dev')
+                            report_url = f"{base_url.rstrip('/')}/{report_path}"
+                            print(f"📊 [Script] Report URL captured: {report_url}")
+                        except Exception as e:
+                            print(f"⚠️ [Script] Failed to extract report URL: {e}")
+                    
+                    # Stream all output with prefix
+                    print(f"[{script_name}] {line}")
                     
                     stdout_lines.append(output)
                 elif poll_result is not None:
@@ -350,36 +351,25 @@ def execute_script(script_name: str, device_id: str, parameters: str = "") -> Di
         print(f"[@script_execution_utils:execute_script] === SCRIPT OUTPUT END ===")
         print(f"[@script_execution_utils:execute_script] Process completed with exit code: {exit_code}")
         
-        # Add final check - if we captured SCRIPT_SUCCESS/SCRIPT_REPORT_URL, ensure they're in stdout
-        if script_success is not None and 'SCRIPT_SUCCESS:' not in stdout:
-            success_line = f"SCRIPT_SUCCESS:{str(script_success).lower()}\n"
-            stdout += success_line
-            print(f"[@script_execution_utils:execute_script] Added SCRIPT_SUCCESS to stdout: {script_success}")
-        
-        if report_url and 'SCRIPT_REPORT_URL:' not in stdout:
-            report_line = f"SCRIPT_REPORT_URL:{report_url}\n"
-            stdout += report_line
-            print(f"[@script_execution_utils:execute_script] Added SCRIPT_REPORT_URL to stdout: {report_url}")
+        # Simple logic: exit code 0 = success, report URL captured from upload logs
         
         total_execution_time = int((time.time() - start_time) * 1000)
-        success = exit_code == 0
         
         print(f"[@script_execution_utils:execute_script] PREPARE RETURN: Creating return dictionary...")
-        print(f"[@script_execution_utils:execute_script] SUCCESS: {success}, EXIT_CODE: {exit_code}, EXECUTION_TIME: {total_execution_time}ms")
-        print(f"[@script_execution_utils:execute_script] SCRIPT_SUCCESS_CAPTURED: {script_success}")
+        print(f"[@script_execution_utils:execute_script] EXIT_CODE: {exit_code}, EXECUTION_TIME: {total_execution_time}ms")
         print(f"[@script_execution_utils:execute_script] REPORT_URL: {report_url}")
         
         result = {
-            'success': success,
             'stdout': stdout,
             'stderr': '',  # We merged stderr into stdout
-            'exit_code': exit_code,
+            'exit_code': exit_code,  # Raw exit code (0 = process success)
             'script_name': script_name,
             'device_id': device_id,
             'script_path': script_path,
             'parameters': parameters,
             'execution_time_ms': total_execution_time,
             'report_url': report_url
+            # script_success determined from actual test results, not process exit code
         }
         
         print(f"[@script_execution_utils:execute_script] RETURNING: About to return result dictionary")
