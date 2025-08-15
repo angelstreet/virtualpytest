@@ -830,6 +830,7 @@ const RunTests: React.FC = () => {
         fullWidth
         error={param.required && !value.trim()}
         placeholder={param.default || ''}
+        helperText={param.name === 'node' ? 'Target navigation node (default: home)' : undefined}
       />
     );
   };
