@@ -261,7 +261,6 @@ const RunTests: React.FC = () => {
   // Get hosts and devices - ensure hosts are available for stream
   const allHosts = getAllHosts(); // Always get the current hosts
   const hosts = showWizard ? allHosts : []; // Only show hosts in wizard when opened
-  const availableDevices = showWizard && selectedHost ? getDevicesFromHost(selectedHost) : [];
 
   // Function to get available devices for selection (excluding already selected ones)
   const getAvailableDevicesForSelection = () => {
@@ -321,6 +320,16 @@ const RunTests: React.FC = () => {
     return allDevices;
   };
 
+  // Get device model for the primary selected device (for script analysis)
+  const getPrimaryDeviceModel = () => {
+    if (!selectedHost || !selectedDevice) return 'unknown';
+    
+    const hostDevices = getDevicesFromHost(selectedHost);
+    const deviceObject = hostDevices.find(device => device.device_id === selectedDevice);
+    
+    return deviceObject?.device_model || 'unknown';
+  };
+
   // Load available scripts from virtualpytest/scripts folder
   useEffect(() => {
     const loadScripts = async () => {
@@ -368,7 +377,7 @@ const RunTests: React.FC = () => {
           },
           body: JSON.stringify({
             script_name: selectedScript,
-            device_model: deviceModel,
+            device_model: getPrimaryDeviceModel(),
             device_id: selectedDevice,
           }),
         });
@@ -404,10 +413,11 @@ const RunTests: React.FC = () => {
     };
 
     analyzeScript();
-  }, [selectedScript, deviceModel, selectedDevice, showWizard]);
+  }, [selectedScript, selectedDevice, selectedHost, showWizard]);
 
   // Update parameter suggestions when device changes
   useEffect(() => {
+    const deviceModel = getPrimaryDeviceModel();
     if (scriptAnalysis && selectedDevice && deviceModel) {
       const newParameterValues = { ...parameterValues };
 
@@ -438,7 +448,7 @@ const RunTests: React.FC = () => {
 
       setParameterValues(newParameterValues);
     }
-  }, [selectedDevice, deviceModel, selectedHost, scriptAnalysis]);
+  }, [selectedDevice, selectedHost, scriptAnalysis]);
 
   const handleParameterChange = (paramName: string, value: string) => {
     setParameterValues((prev) => ({
@@ -746,12 +756,7 @@ const RunTests: React.FC = () => {
     param.name === 'blackscreen_area'  // Always show blackscreen_area for configuration
   ) || [];
 
-  // Check if device is mobile model for proper aspect ratio
-  const isMobileModel = !!(deviceModel && deviceModel.toLowerCase().includes('mobile'));
-
-  const previewHeight = 250;
-  const previewAspect = isMobileModel ? (9 / 16) : (16 / 9);
-  const previewWidth = Math.round(previewHeight * previewAspect);
+  // These variables are no longer needed since we moved to grid layout
 
   return (
     <Box sx={{ p: 1 }}>
