@@ -138,8 +138,11 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
       const edgeForm = edgeHook.createEdgeForm(selectedEdge);
       
       // Set direction based on which action set is being edited
-      if (actionSet?.id) {
-        edgeForm.direction = actionSet.id.startsWith(fromLabel) ? 'forward' : 'reverse';
+      // Forward direction: source_to_target (index 0)
+      // Reverse direction: target_to_source (index 1)
+      if (actionSet?.id && edgeForm.action_sets?.length >= 2) {
+        const forwardActionSetId = edgeForm.action_sets[0].id;
+        edgeForm.direction = actionSet.id === forwardActionSetId ? 'forward' : 'reverse';
       }
       
       setEdgeForm(edgeForm);
