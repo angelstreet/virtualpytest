@@ -466,13 +466,37 @@ const RunTests: React.FC = () => {
     }));
   };
 
-  const buildParameterString = () => {
+  const buildParameterString = (deviceHost?: string, deviceId?: string) => {
     const paramStrings: string[] = [];
+
+    // Use provided device info or fall back to selected values
+    const targetHost = deviceHost || selectedHost;
+    const targetDevice = deviceId || selectedDevice;
 
     // Always add userinterface_name as the first positional parameter if we have script analysis
     if (scriptAnalysis) {
       scriptAnalysis.parameters.forEach((param) => {
-        const value = parameterValues[param.name]?.trim();
+        let value = parameterValues[param.name]?.trim();
+        
+        // Override userinterface_name based on target device's model
+        if (param.name === 'userinterface_name' && targetHost && targetDevice) {
+          const hostDevices = getDevicesFromHost(targetHost);
+          const deviceObject = hostDevices.find(device => device.device_id === targetDevice);
+          const deviceModel = deviceObject?.device_model || 'unknown';
+          const modelLower = deviceModel.toLowerCase();
+          
+          if (modelLower.includes('mobile') || modelLower.includes('phone')) {
+            value = 'horizon_android_mobile';
+          } else if (modelLower.includes('tv') || modelLower.includes('android_tv')) {
+            value = 'horizon_android_tv';
+          } else if (modelLower.includes('web') || modelLower.includes('browser') || modelLower.includes('vnc')) {
+            value = 'perseus_360_web';
+          } else {
+            // Default to mobile interface for unknown device types
+            value = 'horizon_android_mobile';
+          }
+        }
+        
         if (value) {
           if (param.type === 'positional') {
             paramStrings.push(value);
@@ -482,16 +506,33 @@ const RunTests: React.FC = () => {
         }
       });
     } else {
-      // If no script analysis, add default userinterface_name
-      paramStrings.push('horizon_android_mobile');
+      // If no script analysis, determine userinterface_name based on device model
+      if (targetHost && targetDevice) {
+        const hostDevices = getDevicesFromHost(targetHost);
+        const deviceObject = hostDevices.find(device => device.device_id === targetDevice);
+        const deviceModel = deviceObject?.device_model || 'unknown';
+        const modelLower = deviceModel.toLowerCase();
+        
+        if (modelLower.includes('mobile') || modelLower.includes('phone')) {
+          paramStrings.push('horizon_android_mobile');
+        } else if (modelLower.includes('tv') || modelLower.includes('android_tv')) {
+          paramStrings.push('horizon_android_tv');
+        } else if (modelLower.includes('web') || modelLower.includes('browser') || modelLower.includes('vnc')) {
+          paramStrings.push('perseus_360_web');
+        } else {
+          paramStrings.push('horizon_android_mobile');
+        }
+      } else {
+        paramStrings.push('horizon_android_mobile');
+      }
     }
 
-    // Always add --host and --device parameters from frontend selections
-    if (selectedHost) {
-      paramStrings.push(`--host ${selectedHost}`);
+    // Always add --host and --device parameters
+    if (targetHost) {
+      paramStrings.push(`--host ${targetHost}`);
     }
-    if (selectedDevice) {
-      paramStrings.push(`--device ${selectedDevice}`);
+    if (targetDevice) {
+      paramStrings.push(`--device ${targetDevice}`);
     }
 
     return paramStrings.join(' ');
@@ -514,7 +555,7 @@ const RunTests: React.FC = () => {
 
   // Helper function to determine test result from script output
   const determineTestResult = (result: any): 'success' | 'failure' | undefined => {
-    // Scripts provide clear SCRIPT_SUCCESS:true/false in stdout
+    // First, check for explicit SCRIPT_SUCCESS in stdout (most reliable)
     if (result.stdout && result.stdout.includes('SCRIPT_SUCCESS:')) {
       const successMatch = result.stdout.match(/SCRIPT_SUCCESS:(true|false)/);
       if (successMatch) {
@@ -522,7 +563,20 @@ const RunTests: React.FC = () => {
       }
     }
     
-    // If script doesn't provide SCRIPT_SUCCESS, we don't guess
+    // If script executed successfully (exit_code 0) and has a report URL, 
+    // it likely completed its test logic - determine from execution status
+    if (result.success && result.exit_code === 0 && result.report_url) {
+      // If script completed successfully and generated a report, 
+      // but no explicit SCRIPT_SUCCESS marker, assume success
+      return 'success';
+    }
+    
+    // If script execution failed completely (exit_code != 0 or success=false)
+    if (!result.success || (result.exit_code !== undefined && result.exit_code !== 0)) {
+      return 'failure';
+    }
+    
+    // If script completed but no clear test result indicator, leave undefined
     return undefined;
   };
 
@@ -550,15 +604,13 @@ const RunTests: React.FC = () => {
       return;
     }
 
-    const parameterString = buildParameterString();
-
-    // Prepare executions for concurrent processing
+    // Prepare executions for concurrent processing - build parameters per device
     const executions = allDevices.map((hostDevice) => ({
       id: `exec_${Date.now()}_${hostDevice.hostName}_${hostDevice.deviceId}`,
       scriptName: selectedScript,
       hostName: hostDevice.hostName,
       deviceId: hostDevice.deviceId,
-      parameters: parameterString,
+      parameters: buildParameterString(hostDevice.hostName, hostDevice.deviceId), // Device-specific parameters
     }));
 
     // Initialize completion stats
@@ -587,12 +639,21 @@ const RunTests: React.FC = () => {
       // LIVE UPDATES: Define callback for real-time completion updates
       const onExecutionComplete = (executionId: string, result: any) => {
         console.log(`[@RunTests] Execution ${executionId} completed with success: ${result.success}`);
+        console.log(`[@RunTests] Result details:`, {
+          success: result.success,
+          exit_code: result.exit_code,
+          report_url: result.report_url,
+          has_stdout: !!result.stdout,
+          stdout_length: result.stdout?.length || 0,
+        });
         
         // Update execution record immediately
         // Determine if script execution completed (vs system error)
         const scriptCompleted = result.stdout || result.stderr || result.exit_code !== undefined;
         const executionStatus = scriptCompleted ? 'completed' : 'failed';
         const testResult = determineTestResult(result);
+
+        console.log(`[@RunTests] Determined status: ${executionStatus}, testResult: ${testResult}, reportUrl: ${result.report_url}`);
 
         // IMMEDIATE UI UPDATE
         setExecutions(prev => prev.map(exec => 
