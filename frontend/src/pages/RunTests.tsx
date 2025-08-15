@@ -29,7 +29,7 @@ import { useStream } from '../hooks/controller/useStream';
 import { useScript } from '../hooks/script/useScript';
 import { useHostManager } from '../hooks/useHostManager';
 import { useToast } from '../hooks/useToast';
-import { useRec } from '../hooks/pages/useRec';
+
 
 // Simple execution record interface
 interface ExecutionRecord {
@@ -70,8 +70,25 @@ const RunTests: React.FC = () => {
   const { executeMultipleScripts, isExecuting, executingIds } = useScript();
   const { showInfo, showSuccess, showError } = useToast();
   
-  // Get VNC scaling function from useRec
-  const { calculateVncScaling } = useRec();
+  // VNC scaling function (extracted from useRec to avoid ModalProvider dependency)
+  const calculateVncScaling = (targetSize: { width: number; height: number }) => {
+    // VNC native resolution (from useVncStream logic)
+    const vncResolution = { width: 1440, height: 847 };
+    
+    // Calculate scale to fit VNC content in target container
+    const scaleX = targetSize.width / vncResolution.width;
+    const scaleY = targetSize.height / vncResolution.height;
+    
+    // Use the smaller scale to maintain aspect ratio and prevent overflow
+    const scale = Math.min(scaleX, scaleY);
+    
+    return {
+      transform: `scale(${scale})`,
+      transformOrigin: 'top left',
+      width: `${vncResolution.width}px`,
+      height: `${vncResolution.height}px`
+    };
+  };
 
   const [selectedHost, setSelectedHost] = useState<string>('');
   const [selectedDevice, setSelectedDevice] = useState<string>('');
