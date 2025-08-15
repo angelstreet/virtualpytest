@@ -288,34 +288,35 @@ def format_verification_item(verification: Dict, verification_index: int) -> str
 def format_verification_result(result: Dict, step: Dict) -> str:
     """Format verification result with badges and extras."""
     result_success = result.get('success', False)
-    result_badge = f'<span class="verification-result-badge {"success" if result_success else "failure"}">{"PASS" if result_success else "FAIL"}</span>'
+    
+    # Add percentage right after PASS/FAIL for image verifications
+    badge_text = "PASS" if result_success else "FAIL"
+    if result.get('verification_type') == 'image':
+        details = result.get('details', {})
+        match_score = details.get('match_score') or details.get('matching_result')
+        if match_score is not None:
+            badge_text += f" <strong>{match_score*100:.0f}%</strong>"
+    
+    result_badge = f'<span class="verification-result-badge {"success" if result_success else "failure"}">{badge_text}</span>'
     verification_result_html = f" {result_badge}"
     
     if not result_success and result.get('error'):
         verification_result_html += f" <span class='verification-error'>({result['error']})</span>"
     
-    # Add image verification extras (match score and thumbnails)
+    # Add image verification extras (thumbnails only now)
     verification_result_html += format_image_verification_extras(result, step)
     
     return verification_result_html
 
 
 def format_image_verification_extras(result: Dict, step: Dict) -> str:
-    """Format match score and thumbnails for image verifications."""
+    """Format thumbnails for image verifications."""
     if result.get('verification_type') != 'image':
         return ""
     
     extras_html = ""
     details = result.get('details', {})
-    result_success = result.get('success', False)
-    
-    # Add match score
-    if details.get('match_score') is not None:
-        match_score = details.get('match_score', 0)
-        required_score = details.get('threshold', details.get('required_score', 'N/A'))
-        score_class = 'success' if result_success else 'failure'
-        extras_html += f" <span class='verification-score {score_class}'>Match score: {match_score:.3f} (required: {required_score})</span>"
-    
+match score    
     # Add small thumbnails
     source_image = None
     reference_image = None
