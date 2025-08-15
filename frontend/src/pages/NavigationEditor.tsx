@@ -924,7 +924,33 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
                                 />
                               );
                             });
-                            panelIndexOffset += edge.data.action_sets.length;
+                            
+                            // Add fallback panel only if we have less than 2 action sets (missing direction)
+                            if (edge.data.action_sets.length < 2) {
+                              console.log('[@NavigationEditor] Adding fallback panel for missing direction at index:', panelIndexOffset + edge.data.action_sets.length);
+                              panels.push(
+                                <EdgeSelectionPanel
+                                  key={`${edge.id}-fallback`}
+                                  selectedEdge={edge}
+                                  panelIndex={panelIndexOffset + edge.data.action_sets.length}
+                                  onClose={closeSelectionPanel}
+                                  onEdit={() => {}}
+                                  onDelete={deleteSelected}
+                                  setEdgeForm={setEdgeForm as React.Dispatch<React.SetStateAction<EdgeForm>>}
+                                  setIsEdgeDialogOpen={setIsEdgeDialogOpen}
+                                  isControlActive={isControlActive}
+                                  selectedHost={selectedHost || undefined}
+                                  selectedDeviceId={selectedDeviceId || undefined}
+                                  onEditWithLabels={(fromLabel, toLabel) =>
+                                    setEdgeLabels({ fromLabel, toLabel })
+                                  }
+                                  currentEdgeForm={edgeForm}
+                                />
+                              );
+                              panelIndexOffset += 2; // Always reserve space for 2 panels (defined + fallback)
+                            } else {
+                              panelIndexOffset += edge.data.action_sets.length; // Use actual count when we have 2
+                            }
                           } else {
                             console.log('[@NavigationEditor] Edge has no action sets, using fallback panel at index:', panelIndexOffset);
                             // Fallback for edges with empty or missing action_sets
