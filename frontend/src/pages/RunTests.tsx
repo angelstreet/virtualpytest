@@ -566,14 +566,14 @@ const RunTests: React.FC = () => {
     
     // If script executed successfully (exit_code 0) and has a report URL, 
     // it likely completed its test logic - determine from execution status
-    if (result.success && result.exit_code === 0 && result.report_url) {
+    if (result.exit_code === 0 && result.report_url) {
       // If script completed successfully and generated a report, 
       // but no explicit SCRIPT_SUCCESS marker, assume success
       return 'success';
     }
     
-    // If script execution failed completely (exit_code != 0 or success=false)
-    if (!result.success || (result.exit_code !== undefined && result.exit_code !== 0)) {
+    // If script execution failed completely (exit_code != 0)
+    if (result.exit_code !== undefined && result.exit_code !== 0) {
       return 'failure';
     }
     
