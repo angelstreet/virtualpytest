@@ -65,17 +65,10 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
         return { fromLabel: sourceLabel, toLabel: targetLabel };
       }
 
-      // Parse action set ID format: source_to_target
+      // Simple parsing: action set ID is always "from_to_to"
       if (actionSet.id.includes('_to_')) {
-        const toIndex = actionSet.id.indexOf('_to_');
-        if (toIndex > 0) {
-          const fromLabel = actionSet.id.substring(0, toIndex);
-          const toLabel = actionSet.id.substring(toIndex + 4); // Skip '_to_'
-          return {
-            fromLabel: fromLabel, // Keep underscores for consistency
-            toLabel: toLabel,     // Keep underscores for consistency
-          };
-        }
+        const [fromLabel, toLabel] = actionSet.id.split('_to_');
+        return { fromLabel, toLabel };
       }
 
       return { fromLabel: sourceLabel, toLabel: targetLabel };
@@ -137,12 +130,9 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
       // Simple edge form creation
       const edgeForm = edgeHook.createEdgeForm(selectedEdge);
       
-      // Set direction based on which action set is being edited
-      // Forward direction: source_to_target (index 0)
-      // Reverse direction: target_to_source (index 1)
+      // Simple direction detection: index 0 = forward, index 1 = reverse
       if (actionSet?.id && edgeForm.action_sets?.length >= 2) {
-        const forwardActionSetId = edgeForm.action_sets[0].id;
-        edgeForm.direction = actionSet.id === forwardActionSetId ? 'forward' : 'reverse';
+        edgeForm.direction = actionSet.id === edgeForm.action_sets[0].id ? 'forward' : 'reverse';
       }
       
       setEdgeForm(edgeForm);

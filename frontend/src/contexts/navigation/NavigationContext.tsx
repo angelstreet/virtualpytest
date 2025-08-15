@@ -982,27 +982,7 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
             },
           };
 
-           const updatedEdges = edges.map((edge) =>
-             edge.id === currentSelectedEdge.id ? updatedEdge : edge,
-           );
-
-           setEdges(updatedEdges);
-           
-           // Preserve bidirectional edge relationship if it exists
-           const updatedSelectedEdge = updatedEdge as UINavigationEdge;
-           if (selectedEdge && (selectedEdge as any).bidirectionalEdge) {
-             // Find the bidirectional edge in the updated edges array to get its latest state
-             const bidirectionalEdgeId = (selectedEdge as any).bidirectionalEdge.id;
-             const updatedBidirectionalEdge = updatedEdges.find(e => e.id === bidirectionalEdgeId);
-             if (updatedBidirectionalEdge) {
-               (updatedSelectedEdge as any).bidirectionalEdge = updatedBidirectionalEdge;
-               console.log('[@NavigationContext] Preserved bidirectional edge relationship after save');
-             }
-           }
-           
-           setSelectedEdge(updatedSelectedEdge);
-
-           // Save to database via NavigationConfigContext
+           // DATABASE FIRST: Save to database, then update frontend with server response
            if (navigationConfig.actualTreeId) {
              // Get current edge from ReactFlow canvas (edges state) to capture current handle positions
              const currentEdge = edges.find(edge => edge.id === updatedEdge.id);
@@ -1035,11 +1015,36 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
               final_wait_time: updatedEdge.data.final_wait_time || 0,
             };
 
-                         await navigationConfig.saveEdge(navigationConfig.actualTreeId, normalizedEdge as any);
+             const saveResponse = await navigationConfig.saveEdge(navigationConfig.actualTreeId, normalizedEdge as any);
+             
+             // Update frontend state with server response (source of truth)
+             if (saveResponse?.edge) {
+               const serverEdge = saveResponse.edge;
+               const updatedEdgeFromServer = {
+                 ...currentSelectedEdge,
+                 data: {
+                   ...serverEdge,
+                   // Preserve ReactFlow properties
+                   sourceHandle: currentSourceHandle,
+                   targetHandle: currentTargetHandle,
+                 },
+               };
+               
+               // Update edges list with server data
+               const updatedEdges = edges.map((edge) =>
+                 edge.id === currentSelectedEdge.id ? updatedEdgeFromServer : edge,
+               );
+               setEdges(updatedEdges);
+               
+               // Update selected edge with server data
+               setSelectedEdge(updatedEdgeFromServer);
+               
+               console.log('[@NavigationContext] Updated frontend state with server response');
+             }
 
-            // Refresh navigation cache (non-blocking, continue even if it fails)
+            // Refresh navigation cache (non-blocking)
             try {
-              const cacheResponse = await fetch('/server/pathfinding/cache/refresh', {
+              await fetch('/server/pathfinding/cache/refresh', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
@@ -1047,12 +1052,8 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
                   team_id: 'default' 
                 })
               });
-              
-              if (!cacheResponse.ok) {
-                console.warn('Cache refresh failed, but continuing with edge save:', cacheResponse.status);
-              }
             } catch (cacheError) {
-              console.warn('Cache refresh failed, but continuing with edge save:', cacheError);
+              console.warn('Cache refresh failed:', cacheError);
             }
            }
 

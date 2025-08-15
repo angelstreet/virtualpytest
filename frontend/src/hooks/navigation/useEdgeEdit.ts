@@ -97,16 +97,25 @@ export const useEdgeEdit = ({
     return { success: true, has_shared_actions: false, edges: [], count: 0 };
   }, []);
 
-  // Handle actions change
+  // Handle actions change - SIMPLIFIED DIRECTION-BASED
   const handleActionsChange = useCallback(
     (newActions: Action[]) => {
       if (!edgeForm) return;
 
       setLocalActions(newActions);
+      
+      // Simple direction-based index selection
+      const direction = edgeForm.direction || 'forward';
+      const targetIndex = direction === 'forward' ? 0 : 1;
+      
       const updatedActionSets = [...(edgeForm.action_sets || [])];
-      if (updatedActionSets[0]) {
-        updatedActionSets[0] = { ...updatedActionSets[0], actions: newActions };
+      if (updatedActionSets[targetIndex]) {
+        updatedActionSets[targetIndex] = { 
+          ...updatedActionSets[targetIndex], 
+          actions: newActions 
+        };
       }
+      
       setEdgeForm({
         ...edgeForm,
         action_sets: updatedActionSets,
@@ -115,16 +124,25 @@ export const useEdgeEdit = ({
     [edgeForm, setEdgeForm],
   );
 
-  // Handle retry actions change
+  // Handle retry actions change - SIMPLIFIED DIRECTION-BASED
   const handleRetryActionsChange = useCallback(
     (newRetryActions: Action[]) => {
       if (!edgeForm) return;
 
       setLocalRetryActions(newRetryActions);
+      
+      // Simple direction-based index selection
+      const direction = edgeForm.direction || 'forward';
+      const targetIndex = direction === 'forward' ? 0 : 1;
+      
       const updatedActionSets = [...(edgeForm.action_sets || [])];
-      if (updatedActionSets[0]) {
-        updatedActionSets[0] = { ...updatedActionSets[0], retry_actions: newRetryActions };
+      if (updatedActionSets[targetIndex]) {
+        updatedActionSets[targetIndex] = { 
+          ...updatedActionSets[targetIndex], 
+          retry_actions: newRetryActions 
+        };
       }
+      
       setEdgeForm({
         ...edgeForm,
         action_sets: updatedActionSets,
@@ -133,16 +151,25 @@ export const useEdgeEdit = ({
     [edgeForm, setEdgeForm],
   );
 
-  // Handle failure actions change
+  // Handle failure actions change - SIMPLIFIED DIRECTION-BASED
   const handleFailureActionsChange = useCallback(
     (newFailureActions: Action[]) => {
       if (!edgeForm) return;
 
       setLocalFailureActions(newFailureActions);
+      
+      // Simple direction-based index selection
+      const direction = edgeForm.direction || 'forward';
+      const targetIndex = direction === 'forward' ? 0 : 1;
+      
       const updatedActionSets = [...(edgeForm.action_sets || [])];
-      if (updatedActionSets[0]) {
-        updatedActionSets[0] = { ...updatedActionSets[0], failure_actions: newFailureActions };
+      if (updatedActionSets[targetIndex]) {
+        updatedActionSets[targetIndex] = { 
+          ...updatedActionSets[targetIndex], 
+          failure_actions: newFailureActions 
+        };
       }
+      
       setEdgeForm({
         ...edgeForm,
         action_sets: updatedActionSets,

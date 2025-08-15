@@ -237,23 +237,26 @@ export const useEdge = (props?: UseEdgeProps) => {
   );
 
   /**
-   * Create edge form from edge data - STRICT: Only action_sets structure, NO LEGACY
+   * Create edge form from edge data - CLEAN BIDIRECTIONAL STRUCTURE ONLY
    */
   const createEdgeForm = useCallback(
     (edge: UINavigationEdge): EdgeForm => {
+      // Ensure edge has exactly 2 action sets
       const actionSets = getActionSetsFromEdge(edge);
-      const defaultActionSetId = edge.data.default_action_set_id;
+      if (actionSets.length !== 2) {
+        throw new Error(`Edge must have exactly 2 action sets, found ${actionSets.length}`);
+      }
       
+      const defaultActionSetId = edge.data.default_action_set_id;
       if (!defaultActionSetId) {
-        throw new Error("Edge missing default_action_set_id - no legacy support");
+        throw new Error("Edge missing default_action_set_id");
       }
 
       return {
-        edgeId: edge.id, // Include edge ID for tracking
-        action_sets: actionSets, // REQUIRED: action sets structure
-        default_action_set_id: defaultActionSetId, // REQUIRED: default action set ID
+        edgeId: edge.id,
+        action_sets: actionSets,
+        default_action_set_id: defaultActionSetId,
         final_wait_time: edge.data?.final_wait_time ?? 2000,
-        // REMOVED: priority, threshold for simplicity
       };
     },
     [getActionSetsFromEdge],
