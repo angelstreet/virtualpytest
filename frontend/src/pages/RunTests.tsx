@@ -67,6 +67,167 @@ interface ScriptAnalysis {
   error?: string;
 }
 
+// Component for displaying a grid of device streams
+interface DeviceStreamGridProps {
+  devices: {hostName: string, deviceId: string}[];
+  allHosts: any[];
+  getDevicesFromHost: (hostName: string) => any[];
+}
+
+const DeviceStreamGrid: React.FC<DeviceStreamGridProps> = ({ devices, allHosts, getDevicesFromHost }) => {
+  return (
+    <Box
+      sx={{
+        display: 'grid',
+        gridTemplateColumns: `repeat(${Math.min(devices.length, 3)}, 1fr)`, // Max 3 columns
+        gap: 2,
+        maxWidth: '100%',
+      }}
+    >
+      {devices.map((device, index) => (
+        <DeviceStreamItem
+          key={`${device.hostName}-${device.deviceId}-${index}`}
+          device={device}
+          allHosts={allHosts}
+          getDevicesFromHost={getDevicesFromHost}
+        />
+      ))}
+    </Box>
+  );
+};
+
+// Component for individual device stream
+interface DeviceStreamItemProps {
+  device: {hostName: string, deviceId: string};
+  allHosts: any[];
+  getDevicesFromHost: (hostName: string) => any[];
+}
+
+const DeviceStreamItem: React.FC<DeviceStreamItemProps> = ({ device, allHosts, getDevicesFromHost }) => {
+  const hostObject = allHosts.find((host) => host.host_name === device.hostName);
+  
+  // Use stream hook to get device stream
+  const { streamUrl, isLoadingUrl, urlError } = useStream({
+    host: hostObject!,
+    device_id: device.deviceId || '',
+  });
+
+  // Get device model
+  const deviceObject = getDevicesFromHost(device.hostName).find(
+    (d) => d.device_id === device.deviceId
+  );
+  const deviceModel = deviceObject?.device_model || 'unknown';
+  
+  // Check if mobile model for sizing
+  const isMobileModel = !!(deviceModel && deviceModel.toLowerCase().includes('mobile'));
+  
+  // Calculate sizes for grid layout
+  const streamHeight = 200;
+  const streamWidth = isMobileModel ? Math.round(streamHeight * (9/16)) : Math.round(streamHeight * (16/9));
+
+  return (
+    <Box
+      sx={{
+        backgroundColor: 'black',
+        borderRadius: 1,
+        overflow: 'hidden',
+        height: streamHeight,
+        minWidth: streamWidth,
+        display: 'flex',
+        flexDirection: 'column',
+      }}
+    >
+      {/* Device label */}
+      <Box sx={{ px: 1, py: 0.5, backgroundColor: 'rgba(0,0,0,0.8)', color: 'white' }}>
+        <Typography variant="caption" noWrap>
+          {device.hostName}:{device.deviceId} ({deviceModel})
+        </Typography>
+      </Box>
+      
+      {/* Stream content */}
+      <Box sx={{ flex: 1, position: 'relative', backgroundColor: 'black' }}>
+        {streamUrl && hostObject ? (
+          // VNC devices: Show iframe, Others: Use HLSVideoPlayer
+          deviceModel === 'host_vnc' ? (
+            <Box
+              sx={{
+                position: 'relative',
+                width: '100%',
+                height: '100%',
+                backgroundColor: 'black',
+                overflow: 'hidden',
+              }}
+            >
+              <iframe
+                src={streamUrl}
+                style={{
+                  border: 'none',
+                  backgroundColor: '#000',
+                  pointerEvents: 'none',
+                  display: 'block',
+                  margin: '0 auto',
+                  ...calculateVncScaling({ width: streamWidth, height: streamHeight - 24 }), // Subtract label height
+                }}
+                title={`VNC Desktop - ${device.hostName}:${device.deviceId}`}
+                allow="fullscreen"
+              />
+            </Box>
+          ) : (
+            <HLSVideoPlayer
+              streamUrl={streamUrl}
+              isStreamActive={true}
+              isCapturing={false}
+              model={deviceModel}
+              layoutConfig={{
+                minHeight: `${streamHeight - 24}px`,
+                aspectRatio: isMobileModel ? '9/16' : '16/9',
+                objectFit: 'contain',
+                isMobileModel,
+              }}
+              isExpanded={false}
+              muted={true}
+              sx={{
+                width: '100%',
+                height: '100%',
+              }}
+            />
+          )
+        ) : (
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'white',
+              textAlign: 'center',
+              height: '100%',
+            }}
+          >
+            {isLoadingUrl ? (
+              <>
+                <CircularProgress sx={{ color: 'white', mb: 1 }} size={20} />
+                <Typography variant="caption">Loading...</Typography>
+              </>
+            ) : urlError ? (
+              <>
+                <Typography color="error" variant="caption" sx={{ mb: 1 }}>
+                  Stream Error
+                </Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem' }}>
+                  {urlError}
+                </Typography>
+              </>
+            ) : (
+              <Typography variant="caption">No stream available</Typography>
+            )}
+          </Box>
+        )}
+      </Box>
+    </Box>
+  );
+};
+
 const RunTests: React.FC = () => {
   const { executeMultipleScripts, isExecuting, executingIds } = useScript();
   const { showInfo, showSuccess, showError } = useToast();
@@ -83,7 +244,6 @@ const RunTests: React.FC = () => {
 
   // Multi-device support state
   const [additionalDevices, setAdditionalDevices] = useState<{hostName: string, deviceId: string}[]>([]);
-  const [streamViewIndex, setStreamViewIndex] = useState<number>(0);
   const [completionStats, setCompletionStats] = useState<{
     total: number;
     completed: number;
@@ -146,48 +306,20 @@ const RunTests: React.FC = () => {
     return false; // No more devices available across all hosts
   };
 
-  // Get stream device (primary device or selected additional device)
-  const getStreamDevice = () => {
-    if (streamViewIndex === 0) {
-      return { hostName: selectedHost, deviceId: selectedDevice };
-    } else {
-      return additionalDevices[streamViewIndex - 1];
-    }
-  };
-
-  const streamDevice = getStreamDevice();
-  const streamHostObject = allHosts.find((host) => host.host_name === streamDevice?.hostName);
-
-  // Use stream hook to get device stream - only when both host and device are selected
-  const { streamUrl, isLoadingUrl, urlError } = useStream({
-    host: streamHostObject!,
-    device_id: streamDevice?.deviceId || '',
-  });
-
-  // Get the device model for the currently displayed stream
-  const getStreamDeviceModel = () => {
-    if (!streamDevice?.hostName || !streamDevice?.deviceId) return 'unknown';
+  // Get all devices for grid display (primary device + additional devices)
+  const getAllSelectedDevices = () => {
+    const allDevices: {hostName: string, deviceId: string}[] = [];
     
-    // If we're showing the primary selected device, use availableDevices for efficiency
-    if (streamViewIndex === 0 && selectedDevice) {
-      const selectedDeviceObject = availableDevices.find(
-        device => device.device_id === selectedDevice
-      );
-      if (selectedDeviceObject) {
-        return selectedDeviceObject.device_model || 'unknown';
-      }
+    // Add primary device if selected
+    if (selectedHost && selectedDevice) {
+      allDevices.push({ hostName: selectedHost, deviceId: selectedDevice });
     }
     
-    // For additional devices, get devices for the stream host
-    const streamHostDevices = getDevicesFromHost(streamDevice.hostName);
-    const streamDeviceObject = streamHostDevices.find(
-      device => device.device_id === streamDevice.deviceId
-    );
+    // Add additional devices
+    allDevices.push(...additionalDevices);
     
-    return streamDeviceObject?.device_model || 'unknown';
+    return allDevices;
   };
-  
-  const deviceModel = getStreamDeviceModel();
 
   // Load available scripts from virtualpytest/scripts folder
   useEffect(() => {
@@ -764,10 +896,6 @@ const RunTests: React.FC = () => {
                             label={`${hd.hostName}:${hd.deviceId}`}
                             onDelete={() => {
                               setAdditionalDevices(prev => prev.filter((_, i) => i !== index));
-                              // Reset stream view if we're viewing a removed device
-                              if (streamViewIndex > 0 && streamViewIndex - 1 === index) {
-                                setStreamViewIndex(0);
-                              }
                             }}
                             color="secondary"
                             variant="outlined"
@@ -847,129 +975,16 @@ const RunTests: React.FC = () => {
           </Card>
         </Grid>
 
-        {/* Device Stream Viewer - Show when we have at least one device */}
+        {/* Device Stream Grid - Show when we have at least one device */}
         {showWizard && ((selectedHost && selectedDevice) || additionalDevices.length > 0) && (
           <Grid item xs={12}>
             <Card sx={{ '& .MuiCardContent-root': { p: 2, '&:last-child': { pb: 2 } } }}>
               <CardContent>
-                <Typography variant="h6" sx={{ mb: 1 }}>
-                  Device Stream Preview
+                <Typography variant="h6" sx={{ mb: 2 }}>
+                  Device Streams ({getAllSelectedDevices().length})
                 </Typography>
-                {/* Device switcher dropdown - only show if we have multiple devices */}
-                {additionalDevices.length > 0 && (selectedHost && selectedDevice) && (
-                  <Box sx={{ mb: 1 }}>
-                    <FormControl size="small" sx={{ minWidth: 200 }}>
-                      <InputLabel>View Stream</InputLabel>
-                      <Select
-                        value={streamViewIndex}
-                        label="View Stream"
-                        onChange={(e) => setStreamViewIndex(Number(e.target.value))}
-                      >
-                        <MenuItem value={0}>
-                          {selectedHost}:{selectedDevice} (Primary)
-                        </MenuItem>
-                        {additionalDevices.map((hd, index) => (
-                          <MenuItem key={index} value={index + 1}>
-                            {hd.hostName}:{hd.deviceId}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-                  </Box>
-                )}
-                <Box
-                  sx={{
-                    minHeight: 250, // Use minHeight instead of fixed height
-                    maxHeight: 300, // Limit maximum height for preview
-                    width: isMobileModel ? Math.round(250 * (9/16)) : Math.round(250 * (16/9)), // Calculate width based on aspect ratio
-                    maxWidth: '100%', // Don't exceed container width
-                    backgroundColor: 'black',
-                    borderRadius: 1,
-                    overflow: 'hidden',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    boxSizing: 'border-box',
-                    margin: '0 auto', // Center the stream preview
-                  }}
-                >
-                  {streamUrl && streamHostObject ? (
-                    // VNC devices: Show iframe with VNC URL, Other devices: Use HLSVideoPlayer
-                    deviceModel === 'host_vnc' ? (
-                      <Box
-                        sx={{
-                          position: 'relative',
-                          width: '100%',
-                          height: '100%',
-                          backgroundColor: 'black',
-                          overflow: 'hidden',
-                        }}
-                      >
-                        <iframe
-                          src={streamUrl}
-                          style={{
-                            border: 'none',
-                            backgroundColor: '#000',
-                            pointerEvents: 'none',
-                            display: 'block',
-                            margin: '0 auto', // Center horizontally like RecHostStreamModal
-                            ...calculateVncScaling({ width: previewWidth, height: previewHeight }),
-                          }}
-                          title="VNC Desktop Stream"
-                          allow="fullscreen"
-                        />
-                      </Box>
-                    ) : (
-                      <HLSVideoPlayer
-                        streamUrl={streamUrl}
-                        isStreamActive={true}
-                        isCapturing={false}
-                        model={deviceModel}
-                        layoutConfig={{
-                          minHeight: '250px',
-                          aspectRatio: isMobileModel ? '9/16' : '16/9',
-                          objectFit: 'contain',
-                          isMobileModel,
-                        }}
-                        isExpanded={false}
-                        muted={true}
-                        sx={{
-                          maxHeight: '300px',
-                          maxWidth: '100%',
-                        }}
-                      />
-                    )
-                  ) : (
-                    <Box
-                      sx={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        color: 'white',
-                        textAlign: 'center',
-                      }}
-                    >
-                      {isLoadingUrl ? (
-                        <>
-                          <CircularProgress sx={{ color: 'white', mb: 1 }} size={24} />
-                          <Typography variant="body2">Loading device stream...</Typography>
-                        </>
-                      ) : urlError ? (
-                        <>
-                          <Typography color="error" variant="body2" sx={{ mb: 1 }}>
-                            Stream Error
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            {urlError}
-                          </Typography>
-                        </>
-                      ) : (
-                        <Typography variant="body2">No stream available</Typography>
-                      )}
-                    </Box>
-                  )}
-                </Box>
+                
+                <DeviceStreamGrid devices={getAllSelectedDevices()} allHosts={allHosts} getDevicesFromHost={getDevicesFromHost} />
               </CardContent>
             </Card>
           </Grid>
