@@ -121,8 +121,8 @@ const DeviceStreamItem: React.FC<DeviceStreamItemProps> = ({ device, allHosts, g
   // Check if mobile model for sizing
   const isMobileModel = !!(deviceModel && deviceModel.toLowerCase().includes('mobile'));
   
-  // Calculate sizes for grid layout
-  const streamHeight = 200;
+  // Calculate sizes for grid layout - use larger height to show full content
+  const streamHeight = 250; // Increased from 200 to show more content
   const streamWidth = isMobileModel ? Math.round(streamHeight * (9/16)) : Math.round(streamHeight * (16/9));
 
   return (
@@ -135,6 +135,7 @@ const DeviceStreamItem: React.FC<DeviceStreamItemProps> = ({ device, allHosts, g
         minWidth: streamWidth,
         display: 'flex',
         flexDirection: 'column',
+        position: 'relative', // Add positioning context like RecHostStreamModal
       }}
     >
       {/* Device label */}
@@ -145,7 +146,15 @@ const DeviceStreamItem: React.FC<DeviceStreamItemProps> = ({ device, allHosts, g
       </Box>
       
       {/* Stream content */}
-      <Box sx={{ flex: 1, position: 'relative', backgroundColor: 'black' }}>
+      <Box sx={{ 
+        flex: 1, 
+        position: 'relative', 
+        backgroundColor: 'black',
+        overflow: 'hidden', // Ensure content doesn't overflow
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}>
         {streamUrl && hostObject ? (
           // VNC devices: Show iframe, Others: Use HLSVideoPlayer
           deviceModel === 'host_vnc' ? (
@@ -181,7 +190,7 @@ const DeviceStreamItem: React.FC<DeviceStreamItemProps> = ({ device, allHosts, g
               layoutConfig={{
                 minHeight: `${streamHeight - 24}px`,
                 aspectRatio: isMobileModel ? '9/16' : '16/9',
-                objectFit: 'contain',
+                objectFit: 'contain', // Prevent cropping like RecHostStreamModal
                 isMobileModel,
               }}
               isExpanded={false}
