@@ -22,7 +22,7 @@ import {
   TextField,
   Autocomplete,
 } from '@mui/material';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 
 import { HLSVideoPlayer } from '../components/common/HLSVideoPlayer';
 import { useStream } from '../hooks/controller/useStream';
