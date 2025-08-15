@@ -682,7 +682,7 @@ const RunTests: React.FC = () => {
         setCompletionStats(prev => ({
           ...prev,
           completed: prev.completed + 1,
-          successful: prev.successful + (testResult === 'success' ? 1 : 0)
+          successful: prev.successful + (scriptCompleted ? 1 : 0)
         }));
 
         // Show individual completion toast
@@ -702,7 +702,7 @@ const RunTests: React.FC = () => {
       const results = await executeMultipleScripts(executions, onExecutionComplete);
 
       // Final summary (all executions are now complete)
-      const successCount = Object.values(results).filter((r: any) => determineTestResult(r) === 'success').length;
+      const successCount = Object.values(results).filter((r: any) => r.success).length;
       
       if (allDevices.length === 1) {
         // Single device summary already shown in callback
@@ -829,8 +829,7 @@ const RunTests: React.FC = () => {
         size="small"
         fullWidth
         error={param.required && !value.trim()}
-        placeholder={param.default || ''}
-        helperText={param.name === 'node' ? 'Target navigation node (default: home)' : undefined}
+        placeholder={param.name === 'node' ? 'home' : (param.default || '')}
       />
     );
   };
