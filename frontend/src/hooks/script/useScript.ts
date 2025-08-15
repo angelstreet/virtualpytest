@@ -281,7 +281,7 @@ export const useScript = (): UseScriptReturn => {
               results[execution.id] = result;
               setExecutingIds(prev => prev.filter(id => id !== execution.id));
               onExecutionComplete?.(execution.id, result);
-              console.log(`[@hook:useScript] Execution ${execution.id} completed with success: ${result.success}`);
+              console.log(`[@hook:useScript] Execution ${execution.id} completed with exit_code: ${result.exit_code}`);
             }
           );
           

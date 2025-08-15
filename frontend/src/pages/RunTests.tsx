@@ -647,9 +647,8 @@ const RunTests: React.FC = () => {
     try {
       // LIVE UPDATES: Define callback for real-time completion updates
       const onExecutionComplete = (executionId: string, result: any) => {
-        console.log(`[@RunTests] Execution ${executionId} completed with success: ${result.success}`);
+        console.log(`[@RunTests] Execution ${executionId} completed with exit_code: ${result.exit_code}`);
         console.log(`[@RunTests] Result details:`, {
-          success: result.success,
           exit_code: result.exit_code,
           report_url: result.report_url,
           has_stdout: !!result.stdout,
