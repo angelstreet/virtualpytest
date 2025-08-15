@@ -441,7 +441,7 @@ const RunTests: React.FC = () => {
             suggested = 'horizon_android_mobile';
           } else if (modelLower.includes('tv') || modelLower.includes('android_tv')) {
             suggested = 'horizon_android_tv';
-          } else if (modelLower.includes('web') || modelLower.includes('browser')) {
+          } else if (modelLower.includes('web')) {
             suggested = 'perseus_360_web';
           } else {
             // Default to mobile interface for unknown device types
