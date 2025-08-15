@@ -3,14 +3,21 @@ export const calculateVncScaling = (targetSize: { width: number; height: number 
   const scaleX = targetSize.width / vncResolution.width;
   const scaleY = targetSize.height / vncResolution.height;
   
-  // Calculate scaled dimensions
-  const scaledWidth = vncResolution.width * scaleX;
-  const scaledHeight = vncResolution.height * scaleY;
-  
-  return {
+  const result = {
     transform: `scale(${scaleX}, ${scaleY})`, // Use both scaleX and scaleY to fill container
     transformOrigin: 'top left',
-    width: `${(scaledWidth / scaleX)}px`, // Container needs to be larger to accommodate scaled content
-    height: `${(scaledHeight / scaleY)}px`
+    width: `${vncResolution.width}px`, // iframe needs to be VNC resolution size
+    height: `${vncResolution.height}px` // iframe needs to be VNC resolution size
   };
+  
+  console.log(`[@utils:vncUtils] VNC scaling calculation:`, {
+    targetSize,
+    vncResolution,
+    scales: { scaleX: scaleX.toFixed(3), scaleY: scaleY.toFixed(3) },
+    targetDimensions: `${targetSize.width}x${targetSize.height}`,
+    iframeDimensions: `${result.width} x ${result.height}`,
+    transform: result.transform
+  });
+  
+  return result;
 };
