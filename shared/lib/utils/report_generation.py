@@ -246,12 +246,23 @@ def generate_and_upload_script_report(
                 print(f"[@utils:report_utils:generate_and_upload_script_report] Screenshots uploaded: {screenshot_result['uploaded_count']} files")
                 # Create mapping from local paths to R2 URLs
                 print(f"[@utils:report_utils:generate_and_upload_script_report] DEBUG: Step A3 - Processing URL mappings...")
-                for upload_info in screenshot_result.get('uploaded_screenshots', []):
-                    local_path = upload_info['local_path']
-                    r2_url = upload_info['url']
-                    url_mapping[local_path] = r2_url
-                    print(f"[@utils:report_utils:generate_and_upload_script_report] Mapped: {local_path} -> {r2_url}")
-                print(f"[@utils:report_utils:generate_and_upload_script_report] DEBUG: Step A4 - URL mapping completed")
+                uploaded_screenshots = screenshot_result.get('uploaded_screenshots', [])
+                print(f"[@utils:report_utils:generate_and_upload_script_report] DEBUG: Processing {len(uploaded_screenshots)} upload results...")
+                
+                for i, upload_info in enumerate(uploaded_screenshots):
+                    try:
+                        print(f"[@utils:report_utils:generate_and_upload_script_report] DEBUG: Processing mapping {i+1}/{len(uploaded_screenshots)}")
+                        local_path = upload_info['local_path']
+                        r2_url = upload_info['url']
+                        url_mapping[local_path] = r2_url
+                        print(f"[@utils:report_utils:generate_and_upload_script_report] Mapped: {local_path} -> {r2_url}")
+                    except Exception as mapping_error:
+                        print(f"[@utils:report_utils:generate_and_upload_script_report] ERROR: Failed to process mapping {i+1}: {mapping_error}")
+                        print(f"[@utils:report_utils:generate_and_upload_script_report] ERROR: upload_info: {upload_info}")
+                        # Continue with next mapping instead of crashing
+                        continue
+                        
+                print(f"[@utils:report_utils:generate_and_upload_script_report] DEBUG: Step A4 - URL mapping completed ({len(url_mapping)} mappings created)")
             else:
                 print(f"[@utils:report_utils:generate_and_upload_script_report] Screenshot upload failed: {screenshot_result.get('error', 'Unknown error')}")
         else:
