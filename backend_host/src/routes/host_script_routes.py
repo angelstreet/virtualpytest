@@ -73,7 +73,7 @@ def _execute_script():
             print(f"[@route:host_script:_execute_script] SYNC: Direct execution (no callback)")
             result = execute_script(script_name, device_id, parameters)
             
-            print(f"[@route:host_script:_execute_script] Script completed - success: {result.get('success')}")
+            print(f"[@route:host_script:_execute_script] Script completed - exit_code: {result.get('exit_code')}")
             print(f"[@route:host_script:_execute_script] Script has report_url: {bool(result.get('report_url'))}")
             print(f"[@route:host_script:_execute_script] Result keys: {list(result.keys()) if result else 'None'}")
             
