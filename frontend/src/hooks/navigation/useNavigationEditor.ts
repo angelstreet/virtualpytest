@@ -412,38 +412,10 @@ export const useNavigationEditor = () => {
         targetHandle: edge.targetHandle
       });
       
-      // Find bidirectional edge (opposite direction)
-      const oppositeEdge = navigation.edges.find(
-        (e) => e.source === edge.target && e.target === edge.source && e.id !== edge.id,
-      );
-
-      console.log('[@useNavigationEditor:onEdgeClick] Looking for opposite edge:', {
-        source: edge.target,
-        target: edge.source,
-        excludeId: edge.id
-      });
-      console.log('[@useNavigationEditor:onEdgeClick] Found opposite edge:', oppositeEdge);
-
-      if (oppositeEdge) {
-        // Simple check: if any edge involves an action node, don't treat as bidirectional
-        const sourceNode = navigation.nodes.find((n) => n.id === edge.source);
-        const targetNode = navigation.nodes.find((n) => n.id === edge.target);
-        const isActionInvolved = sourceNode?.data.type === 'action' || targetNode?.data.type === 'action';
-        
-        if (isActionInvolved) {
-          // Action edges are unidirectional - just select the clicked edge
-          navigation.setSelectedEdge(edge);
-        } else {
-          // Regular edges can be bidirectional
-          const edgeWithBidirectional = {
-            ...edge,
-            bidirectionalEdge: oppositeEdge,
-          };
-          navigation.setSelectedEdge(edgeWithBidirectional);
-        }
-      } else {
-        // No opposite edge found - proceed with normal single edge selection
-        navigation.setSelectedEdge(edge);
+      // After migration: all edges contain both directions as action sets
+      // No need to look for separate bidirectional edges
+      console.log('[@useNavigationEditor:onEdgeClick] Post-migration: selecting single edge with both directions as action sets');
+      navigation.setSelectedEdge(edge);
         
         // Auto-create reverse edge for non-action edges if needed
         const sourceNode = navigation.nodes.find((n) => n.id === edge.source);
