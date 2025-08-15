@@ -894,7 +894,7 @@ const RunTests: React.FC = () => {
                   }}
                 >
                   {streamUrl && streamHostObject ? (
-                    // VNC devices: Show iframe with VNC URL, Other devices: Show HLS player
+                    // VNC devices: Show iframe with VNC URL, Other devices: Use HLSVideoPlayer
                     deviceModel === 'host_vnc' ? (
                       <Box
                         sx={{
@@ -911,6 +911,8 @@ const RunTests: React.FC = () => {
                             border: 'none',
                             backgroundColor: '#000',
                             pointerEvents: 'none',
+                            display: 'block',
+                            margin: '0 auto', // Center horizontally like RecHostStreamModal
                             ...calculateVncScaling({ width: previewWidth, height: previewHeight }),
                           }}
                           title="VNC Desktop Stream"
@@ -924,7 +926,7 @@ const RunTests: React.FC = () => {
                         isCapturing={false}
                         model={deviceModel}
                         layoutConfig={{
-                          minHeight: '250px', // Use minHeight like before
+                          minHeight: '250px',
                           aspectRatio: isMobileModel ? '9/16' : '16/9',
                           objectFit: 'contain',
                           isMobileModel,
