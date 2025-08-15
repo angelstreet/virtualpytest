@@ -715,13 +715,13 @@ export const useNavigationEditor = () => {
           edgesToDelete = [bidirectionalEdge.id];
           console.log('[@useNavigationEditor:deleteSelected] Main edge has actions, bidirectional empty - deleting only bidirectional edge');
         } else {
-          // Both edges have actions - ask for confirmation
-          const confirmMessage = 'Both directions of this edge have configured actions. Delete both directions?';
+          // Both edges have actions - ask for confirmation about the selected edge only
+          const confirmMessage = 'Are you sure you want to delete this edge?';
           if (window.confirm(confirmMessage)) {
-            edgesToDelete = [mainEdge.id, bidirectionalEdge.id];
-            console.log('[@useNavigationEditor:deleteSelected] User confirmed deletion of both edges with actions');
+            edgesToDelete = [mainEdge.id]; // Only delete the selected edge
+            console.log('[@useNavigationEditor:deleteSelected] User confirmed deletion of selected edge');
           } else {
-            console.log('[@useNavigationEditor:deleteSelected] User cancelled deletion of edges with actions');
+            console.log('[@useNavigationEditor:deleteSelected] User cancelled deletion');
             return; // User cancelled
           }
         }
