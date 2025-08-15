@@ -66,16 +66,15 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
         };
       }
 
-      // For real action sets, determine direction from the action set label or ID
-      if (actionSet?.label || actionSet?.id) {
-        // Try label first, then fallback to ID
-        const actionSetName = actionSet.label || actionSet.id;
-        
-        // Parse direction from name like "home_to_movies_1" or "movies_to_home_1"
-        const nameParts = actionSetName.split('_to_');
-        if (nameParts.length === 2) {
-          const fromPart = nameParts[0];
-          const toPart = nameParts[1].split('_').slice(0, -1).join('_'); // Remove the last "_1" part
+      // For real action sets, parse direction from action set ID
+      // Action set ID format: "from_to_priority" (e.g., "home_to_saved_1")
+      if (actionSet?.id) {
+        const idParts = actionSet.id.split('_');
+        if (idParts.length >= 3 && idParts.includes('to')) {
+          // Find the "to" index and split accordingly
+          const toIndex = idParts.indexOf('to');
+          const fromPart = idParts.slice(0, toIndex).join('_');
+          const toPart = idParts.slice(toIndex + 1, -1).join('_'); // Remove last part (priority number)
           
           return {
             fromLabel: fromPart.replace(/_/g, ' '),
@@ -158,11 +157,8 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
           priority: 1
         };
         edgeForm.action_sets.push(emptyActionSet);
-        // Set the new action set as the target for editing
-        edgeForm.targetActionSetId = newActionSetId;
-      } else {
-        // For normal panels, set the existing action set as the target for editing
-        edgeForm.targetActionSetId = actionSet.id;
+        // Note: Removed targetActionSetId as it doesn't exist in EdgeForm type
+        // The edit dialog will handle action set selection through other means
       }
       
       setEdgeForm(edgeForm);
