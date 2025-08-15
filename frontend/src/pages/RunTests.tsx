@@ -556,28 +556,17 @@ const RunTests: React.FC = () => {
 
   // Helper function to determine test result from script output
   const determineTestResult = (result: any): 'success' | 'failure' | undefined => {
-    // First, check for explicit SCRIPT_SUCCESS in stdout (most reliable)
-    if (result.stdout && result.stdout.includes('SCRIPT_SUCCESS:')) {
-      const successMatch = result.stdout.match(/SCRIPT_SUCCESS:(true|false)/);
-      if (successMatch) {
-        return successMatch[1] === 'true' ? 'success' : 'failure';
-      }
+    // Use the script_success field provided by the host - this is the authoritative result
+    if (result.script_success !== undefined && result.script_success !== null) {
+      return result.script_success ? 'success' : 'failure';
     }
     
-    // If script executed successfully (exit_code 0) and has a report URL, 
-    // it likely completed its test logic - determine from execution status
-    if (result.exit_code === 0 && result.report_url) {
-      // If script completed successfully and generated a report, 
-      // but no explicit SCRIPT_SUCCESS marker, assume success
-      return 'success';
-    }
-    
-    // If script execution failed completely (exit_code != 0)
+    // If no script_success field, script execution likely failed at system level
     if (result.exit_code !== undefined && result.exit_code !== 0) {
       return 'failure';
     }
     
-    // If script completed but no clear test result indicator, leave undefined
+    // If script completed but no script_success field, leave undefined
     return undefined;
   };
 

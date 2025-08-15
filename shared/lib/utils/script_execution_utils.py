@@ -358,6 +358,15 @@ def execute_script(script_name: str, device_id: str, parameters: str = "") -> Di
         print(f"[@script_execution_utils:execute_script] EXIT_CODE: {exit_code}, EXECUTION_TIME: {total_execution_time}ms")
         print(f"[@script_execution_utils:execute_script] REPORT_URL: {report_url}")
         
+        # Extract SCRIPT_SUCCESS marker from stdout (critical for frontend result accuracy)
+        script_success = None
+        if stdout and 'SCRIPT_SUCCESS:' in stdout:
+            import re
+            success_match = re.search(r'SCRIPT_SUCCESS:(true|false)', stdout)
+            if success_match:
+                script_success = success_match.group(1) == 'true'
+                print(f"[@script_execution_utils:execute_script] SCRIPT_SUCCESS extracted: {script_success}")
+        
         result = {
             'stdout': stdout,
             'stderr': '',  # We merged stderr into stdout
@@ -367,8 +376,8 @@ def execute_script(script_name: str, device_id: str, parameters: str = "") -> Di
             'script_path': script_path,
             'parameters': parameters,
             'execution_time_ms': total_execution_time,
-            'report_url': report_url
-            # script_success determined from actual test results, not process exit code
+            'report_url': report_url,
+            'script_success': script_success  # Extracted from SCRIPT_SUCCESS marker
         }
         
         print(f"[@script_execution_utils:execute_script] RETURNING: About to return result dictionary")
