@@ -294,9 +294,15 @@ def save_edge(tree_id: str, edge_data: Dict, team_id: str) -> Dict:
         if not edge_data.get('default_action_set_id'):
             raise ValueError("default_action_set_id is required")
         
-        # Validate default_action_set_id exists in action_sets (skip if action_sets is empty for initial setup)
+        # Validate action_sets constraints
         action_sets = edge_data['action_sets']
         default_id = edge_data['default_action_set_id']
+        
+        # Validate maximum action sets limit (2 for bidirectional, 1 for unidirectional)
+        if len(action_sets) > 2:
+            raise ValueError(f"Maximum 2 action sets allowed per edge, got {len(action_sets)}")
+        
+        # Validate default_action_set_id exists in action_sets (skip if action_sets is empty for initial setup)
         if action_sets and not any(action_set.get('id') == default_id for action_set in action_sets):
             raise ValueError(f"default_action_set_id '{default_id}' not found in action_sets")
         
