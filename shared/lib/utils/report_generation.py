@@ -252,13 +252,26 @@ def generate_and_upload_script_report(
                 for i, upload_info in enumerate(uploaded_screenshots):
                     try:
                         print(f"[@utils:report_utils:generate_and_upload_script_report] DEBUG: Processing mapping {i+1}/{len(uploaded_screenshots)}")
+                        print(f"[@utils:report_utils:generate_and_upload_script_report] DEBUG: upload_info type: {type(upload_info)}")
+                        print(f"[@utils:report_utils:generate_and_upload_script_report] DEBUG: upload_info keys: {list(upload_info.keys()) if isinstance(upload_info, dict) else 'not_dict'}")
+                        
+                        print(f"[@utils:report_utils:generate_and_upload_script_report] DEBUG: Accessing local_path...")
                         local_path = upload_info['local_path']
+                        print(f"[@utils:report_utils:generate_and_upload_script_report] DEBUG: local_path = {local_path}")
+                        
+                        print(f"[@utils:report_utils:generate_and_upload_script_report] DEBUG: Accessing url...")
                         r2_url = upload_info['url']
+                        print(f"[@utils:report_utils:generate_and_upload_script_report] DEBUG: r2_url = {r2_url}")
+                        
+                        print(f"[@utils:report_utils:generate_and_upload_script_report] DEBUG: Creating mapping...")
                         url_mapping[local_path] = r2_url
                         print(f"[@utils:report_utils:generate_and_upload_script_report] Mapped: {local_path} -> {r2_url}")
+                        print(f"[@utils:report_utils:generate_and_upload_script_report] DEBUG: Mapping {i+1} completed successfully")
                     except Exception as mapping_error:
                         print(f"[@utils:report_utils:generate_and_upload_script_report] ERROR: Failed to process mapping {i+1}: {mapping_error}")
                         print(f"[@utils:report_utils:generate_and_upload_script_report] ERROR: upload_info: {upload_info}")
+                        import traceback
+                        print(f"[@utils:report_utils:generate_and_upload_script_report] ERROR: Traceback: {traceback.format_exc()}")
                         # Continue with next mapping instead of crashing
                         continue
                         
