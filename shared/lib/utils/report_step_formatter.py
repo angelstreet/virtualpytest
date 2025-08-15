@@ -316,7 +316,7 @@ def format_image_verification_extras(result: Dict, step: Dict) -> str:
     
     extras_html = ""
     details = result.get('details', {})
-match score    
+    
     # Add small thumbnails
     source_image = None
     reference_image = None
