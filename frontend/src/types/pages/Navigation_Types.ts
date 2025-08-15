@@ -245,6 +245,7 @@ export interface EdgeForm {
   final_wait_time: number; // Using standard naming convention
   priority?: 'p1' | 'p2' | 'p3'; // Priority level (default: p3)
   threshold?: number; // Threshold in milliseconds (default: 0)
+  targetActionSetId?: string; // Optional: ID of the specific action set to edit
 }
 
 // =====================================================

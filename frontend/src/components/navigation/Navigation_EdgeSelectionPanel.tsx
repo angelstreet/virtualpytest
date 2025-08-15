@@ -67,7 +67,7 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
       }
 
       // For real action sets, parse direction from action set ID
-      // Action set ID format: "from_to_priority" (e.g., "home_to_saved_1")
+      // Action set ID format: "from_to_priority" (e.g., "home_to_home_saved_1")
       if (actionSet?.id) {
         const idParts = actionSet.id.split('_');
         if (idParts.length >= 3 && idParts.includes('to')) {
@@ -77,8 +77,8 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
           const toPart = idParts.slice(toIndex + 1, -1).join('_'); // Remove last part (priority number)
           
           return {
-            fromLabel: fromPart.replace(/_/g, ' '),
-            toLabel: toPart.replace(/_/g, ' '),
+            fromLabel: fromPart, // Keep underscores for consistency
+            toLabel: toPart,     // Keep underscores for consistency
           };
         }
       }
@@ -160,8 +160,11 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
           priority: 1
         };
         edgeForm.action_sets.push(emptyActionSet);
-        // Note: Removed targetActionSetId as it doesn't exist in EdgeForm type
-        // The edit dialog will handle action set selection through other means
+        // Set the new action set as the target for editing
+        edgeForm.targetActionSetId = newActionSetId;
+      } else {
+        // For normal panels, set the existing action set as the target for editing
+        edgeForm.targetActionSetId = actionSet.id;
       }
       
       setEdgeForm(edgeForm);
