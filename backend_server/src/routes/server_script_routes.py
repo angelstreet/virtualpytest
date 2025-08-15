@@ -300,6 +300,8 @@ def execute_script():
                 
                 # Build host URL
                 host_url = buildHostUrl(host_info, '/host/script/execute')
+                print(f"[@route:server_script:execute_script] Making request to host URL: {host_url}")
+                print(f"[@route:server_script:execute_script] Payload: {payload}")
                 
                 # Make request to host with extended timeout (host now executes synchronously)
                 response = requests.post(
@@ -307,12 +309,17 @@ def execute_script():
                     json=payload,
                     timeout=3600  # 1 hour timeout for long-running scripts
                 )
+                print(f"[@route:server_script:execute_script] Got response with status: {response.status_code}")
                 
                 if response.status_code == 200:
                     result = response.json()
                     print(f"[@route:server_script:execute_script] Host execution completed for task {task_id}")
+                    print(f"[@route:server_script:execute_script] RECEIVED FROM HOST: {result}")
+                    print(f"[@route:server_script:execute_script] Host result success: {result.get('success')}")
+                    print(f"[@route:server_script:execute_script] Host result report_url: {result.get('report_url', 'None')}")
                     # Complete task directly with result (no callback needed)
                     task_manager.complete_task(task_id, result)
+                    print(f"[@route:server_script:execute_script] Task {task_id} completed and stored")
                 else:
                     error_data = response.json() if response.headers.get('content-type') == 'application/json' else {}
                     error_msg = error_data.get('error', f'Host execution failed with status {response.status_code}')
@@ -321,6 +328,9 @@ def execute_script():
                         
             except Exception as e:
                 print(f"[@route:server_script:execute_script] Background execution error for task {task_id}: {e}")
+                print(f"[@route:server_script:execute_script] Exception type: {type(e).__name__}")
+                import traceback
+                print(f"[@route:server_script:execute_script] Traceback: {traceback.format_exc()}")
                 task_manager.complete_task(task_id, {}, error=str(e))
         
         threading.Thread(target=execute_async, daemon=True).start()
