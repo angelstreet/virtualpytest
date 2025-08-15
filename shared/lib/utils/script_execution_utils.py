@@ -291,7 +291,10 @@ def execute_script(script_name: str, device_id: str, parameters: str = "") -> Di
         
         while True:
             output = process.stdout.readline()
-            if output == '' and process.poll() is not None:
+            poll_result = process.poll()
+            
+            if output == '' and poll_result is not None:
+                print(f"[@script_execution_utils:execute_script] LOOP EXIT: No more output and process ended (exit code: {poll_result})")
                 break
             if output:
                 line = output.rstrip()
@@ -333,7 +336,11 @@ def execute_script(script_name: str, device_id: str, parameters: str = "") -> Di
         total_execution_time = int((time.time() - start_time) * 1000)
         success = exit_code == 0
         
-        return {
+        print(f"[@script_execution_utils:execute_script] PREPARE RETURN: Creating return dictionary...")
+        print(f"[@script_execution_utils:execute_script] SUCCESS: {success}, EXIT_CODE: {exit_code}, EXECUTION_TIME: {total_execution_time}ms")
+        print(f"[@script_execution_utils:execute_script] REPORT_URL: {report_url}")
+        
+        result = {
             'success': success,
             'stdout': stdout,
             'stderr': '',  # We merged stderr into stdout
@@ -345,6 +352,9 @@ def execute_script(script_name: str, device_id: str, parameters: str = "") -> Di
             'execution_time_ms': total_execution_time,
             'report_url': report_url
         }
+        
+        print(f"[@script_execution_utils:execute_script] RETURNING: About to return result dictionary")
+        return result
         
     except Exception as e:
         total_execution_time = int((time.time() - start_time) * 1000)
