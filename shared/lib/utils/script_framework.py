@@ -514,6 +514,12 @@ class ScriptExecutor:
             if context.host and context.selected_device:
                 report_result = self.generate_final_report(context, userinterface_name)
             
+            # Output results for execution system IMMEDIATELY after report generation
+            success_str = str(context.overall_success).lower()
+            print(f"SCRIPT_SUCCESS:{success_str}")
+            if report_result and report_result.get('success') and report_result.get('report_url'):
+                print(f"SCRIPT_REPORT_URL:{report_result['report_url']}")
+            
             # Update database if tracking is enabled
             if context.script_result_id:
                 if context.overall_success:
@@ -547,15 +553,7 @@ class ScriptExecutor:
         # Print summary
         self.print_execution_summary(context, userinterface_name)
         
-        # Output results for execution system
-        # Convert boolean to lowercase string for frontend parsing
-        success_str = str(context.overall_success).lower()
-        print(f"SCRIPT_SUCCESS:{success_str}")
-        if report_result and report_result.get('success') and report_result.get('report_url'):
-            print(f"SCRIPT_REPORT_URL:{report_result['report_url']}")
-        
         # Exit with proper code
-        # Always exit with 0 for completed execution (test result is in SCRIPT_SUCCESS)
         print(f"✅ [{self.script_name}] Script execution completed (test result: {'PASS' if context.overall_success else 'FAIL'})")
         sys.exit(0)
     
