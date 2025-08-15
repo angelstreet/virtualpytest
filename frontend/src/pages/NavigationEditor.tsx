@@ -881,13 +881,8 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
                         console.log('[@NavigationEditor] Rendering edge panels for selectedEdge:', selectedEdge);
                         console.log('[@NavigationEditor] selectedEdge.bidirectionalEdge:', selectedEdge.bidirectionalEdge);
                         
+                        // Post-migration: Only show the selected edge, no bidirectional logic
                         const edgesToShow = [selectedEdge];
-                        if (selectedEdge.bidirectionalEdge) {
-                          console.log('[@NavigationEditor] Adding bidirectional edge to panels');
-                          edgesToShow.push(selectedEdge.bidirectionalEdge);
-                        } else {
-                          console.log('[@NavigationEditor] No bidirectional edge found');
-                        }
 
                         console.log('[@NavigationEditor] Total edges to show:', edgesToShow.length);
                         console.log('[@NavigationEditor] Edges to show:', edgesToShow);
