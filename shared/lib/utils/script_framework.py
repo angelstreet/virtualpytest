@@ -527,18 +527,20 @@ class ScriptExecutor:
     def cleanup_and_exit(self, context: ScriptExecutionContext, userinterface_name: str):
         """Cleanup resources and exit with appropriate code"""
         try:
-            # Generate report if we have valid execution context
-            report_result = None
-            if context.host and context.selected_device:
-                report_result = self.generate_final_report(context, userinterface_name)
-            
-            # Output results for execution system IMMEDIATELY after report generation
+            # Output results for execution system FIRST (before potentially failing report generation)
             success_str = str(context.overall_success).lower()
             print(f"[@script_framework:cleanup_and_exit] DEBUG: About to output SCRIPT_SUCCESS marker")
             print(f"[@script_framework:cleanup_and_exit] DEBUG: context.overall_success = {context.overall_success}")
             print(f"[@script_framework:cleanup_and_exit] DEBUG: success_str = {success_str}")
             print(f"SCRIPT_SUCCESS:{success_str}")
-            print(f"[@script_framework:cleanup_and_exit] DEBUG: SCRIPT_SUCCESS marker printed")
+            import sys
+            sys.stdout.flush()  # Force immediate output so it gets captured even if process crashes
+            print(f"[@script_framework:cleanup_and_exit] DEBUG: SCRIPT_SUCCESS marker printed and flushed")
+            
+            # Generate report AFTER outputting success marker (so it's captured even if report fails)
+            report_result = None
+            if context.host and context.selected_device:
+                report_result = self.generate_final_report(context, userinterface_name)
             if report_result and report_result.get('success') and report_result.get('report_url'):
                 print(f"SCRIPT_REPORT_URL:{report_result['report_url']}")
                 print(f"[@script_framework:cleanup_and_exit] DEBUG: SCRIPT_REPORT_URL printed")
