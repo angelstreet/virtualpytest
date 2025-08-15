@@ -66,22 +66,17 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
         };
       }
 
-      // For real action sets, determine direction based on action set label/id
-      if (actionSet?.label || actionSet?.id) {
-        const actionSetName = (actionSet.label || actionSet.id).toLowerCase();
-        const sourceName = sourceNode?.data?.label?.toLowerCase() || selectedEdge.source.toLowerCase();
-        const targetName = targetNode?.data?.label?.toLowerCase() || selectedEdge.target.toLowerCase();
-        
-        // Check if action set represents reverse direction
-        // Look for patterns like "target_to_source" or "replay_to_home"
-        const isReverseDirection = actionSetName.includes(`${targetName.replace(/[^a-z0-9]/g, '_')}_to_${sourceName.replace(/[^a-z0-9]/g, '_')}`) ||
-                                 actionSetName.includes(`${targetName}_to_${sourceName}`) ||
-                                 actionSetName.startsWith(targetName);
-        
-        if (isReverseDirection) {
+      // For real action sets, determine direction from the action set label
+      if (actionSet?.label) {
+        // Parse direction from label like "home_to_replay_1" or "replay_to_home_1"
+        const labelParts = actionSet.label.split('_to_');
+        if (labelParts.length === 2) {
+          const fromPart = labelParts[0];
+          const toPart = labelParts[1].split('_').slice(0, -1).join('_'); // Remove the last "_1" part
+          
           return {
-            fromLabel: targetNode?.data?.label || selectedEdge.target,
-            toLabel: sourceNode?.data?.label || selectedEdge.source,
+            fromLabel: fromPart.replace(/_/g, ' '),
+            toLabel: toPart.replace(/_/g, ' '),
           };
         }
       }
