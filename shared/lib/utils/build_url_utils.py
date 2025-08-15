@@ -481,19 +481,27 @@ def buildStreamUrlForDevice(host_info: dict, device_id: str) -> str:
         device_id: Device ID (required)
         
     Returns:
-        Complete URL to HLS stream for the device (HLS for all device types)
+        Complete URL to stream for the device (HLS for video, raw URL for VNC)
         
     Example:
         buildStreamUrlForDevice(host_info, 'device1')
         -> 'https://host:444/host/stream/capture1/output.m3u8'
         
         buildStreamUrlForDevice(host_info, 'host_vnc')
-        -> 'https://host:444/host/stream/capture3/output.m3u8'
+        -> 'https://host:444/host/vnc/stream'
     """
-    # All devices (including VNC) use the same HLS streaming mechanism
-    # VNC devices inherit from FFmpegCaptureController and generate HLS streams
-    # The video_stream_path for VNC devices points to the HLS stream location
-    return buildStreamUrl(host_info, device_id)
+    # Check if this is a VNC device
+    device = get_device_by_id(host_info, device_id)
+    if device and device.get('device_model') == 'host_vnc':
+        # For VNC devices, return the video_stream_path directly
+        # The VNC controller should handle password injection
+        vnc_stream_url = device.get('video_stream_path')
+        if not vnc_stream_url:
+            raise ValueError(f"VNC device {device_id} has no video_stream_path configured")
+        return vnc_stream_url
+    else:
+        # For regular devices, return HLS stream URL
+        return buildStreamUrl(host_info, device_id)
 
 def resolveCaptureFilePath(filename: str) -> str:
     """

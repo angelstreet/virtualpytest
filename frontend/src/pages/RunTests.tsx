@@ -895,24 +895,39 @@ const RunTests: React.FC = () => {
                   }}
                 >
                   {streamUrl && streamHostObject ? (
-                    <HLSVideoPlayer
-                      streamUrl={streamUrl}
-                      isStreamActive={true}
-                      isCapturing={false}
-                      model={deviceModel}
-                      layoutConfig={{
-                        minHeight: '250px', // Use minHeight like before
-                        aspectRatio: isMobileModel ? '9/16' : '16/9',
-                        objectFit: 'contain',
-                        isMobileModel,
-                      }}
-                      isExpanded={false}
-                      muted={true}
-                      sx={{
-                        maxHeight: '300px',
-                        maxWidth: '100%',
-                      }}
-                    />
+                    // VNC devices: Show iframe with VNC URL, Other devices: Show HLS player
+                    deviceModel === 'host_vnc' ? (
+                      <iframe
+                        src={streamUrl}
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          border: 'none',
+                          backgroundColor: '#000',
+                        }}
+                        title="VNC Desktop Stream"
+                        allow="fullscreen"
+                      />
+                    ) : (
+                      <HLSVideoPlayer
+                        streamUrl={streamUrl}
+                        isStreamActive={true}
+                        isCapturing={false}
+                        model={deviceModel}
+                        layoutConfig={{
+                          minHeight: '250px', // Use minHeight like before
+                          aspectRatio: isMobileModel ? '9/16' : '16/9',
+                          objectFit: 'contain',
+                          isMobileModel,
+                        }}
+                        isExpanded={false}
+                        muted={true}
+                        sx={{
+                          maxHeight: '300px',
+                          maxWidth: '100%',
+                        }}
+                      />
+                    )
                   ) : (
                     <Box
                       sx={{
