@@ -896,17 +896,27 @@ const RunTests: React.FC = () => {
                   {streamUrl && streamHostObject ? (
                     // VNC devices: Show iframe with VNC URL, Other devices: Show HLS player
                     deviceModel === 'host_vnc' ? (
-                      <iframe
-                        src={streamUrl}
-                        style={{
-                          border: 'none',
-                          backgroundColor: '#000',
-                          pointerEvents: 'none',
-                          ...calculateVncScaling({ width: previewWidth, height: previewHeight }),
+                      <Box
+                        sx={{
+                          position: 'relative',
+                          width: '100%',
+                          height: '100%',
+                          backgroundColor: 'black',
+                          overflow: 'hidden',
                         }}
-                        title="VNC Desktop Stream"
-                        allow="fullscreen"
-                      />
+                      >
+                        <iframe
+                          src={streamUrl}
+                          style={{
+                            border: 'none',
+                            backgroundColor: '#000',
+                            pointerEvents: 'none',
+                            ...calculateVncScaling({ width: previewWidth, height: previewHeight }),
+                          }}
+                          title="VNC Desktop Stream"
+                          allow="fullscreen"
+                        />
+                      </Box>
                     ) : (
                       <HLSVideoPlayer
                         streamUrl={streamUrl}
