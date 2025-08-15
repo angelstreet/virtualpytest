@@ -608,6 +608,9 @@ const RecHostStreamModalContent: React.FC<{
                         height: '100%',
                         backgroundColor: 'black',
                         overflow: 'hidden',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
                       }}
                     >
                       <iframe
