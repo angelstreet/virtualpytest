@@ -151,44 +151,17 @@ def create_networkx_graph(nodes: List[Dict], edges: List[Dict]) -> nx.DiGraph:
         print(f"[@navigation:graph:create_networkx_graph]   Default Retry Actions ({len(retry_actions_list)}): {[a.get('command') for a in retry_actions_list]}")
         print(f"[@navigation:graph:create_networkx_graph]   Default Failure Actions ({len(failure_actions_list)}): {[a.get('command') for a in failure_actions_list]}")
         
-        # Get the primary action for pathfinding
-        primary_action = actions_list[0]['command'] if actions_list else None
-        
-        # Add edge with NEW action_sets structure only
+        # Add edge with essential data only
         G.add_edge(source_id, target_id, **{
             'edge_id': edge.get('edge_id'),
             'action_sets': action_sets,
             'default_action_set_id': default_action_set_id,
-            'default_actions': actions_list,  # From default set for pathfinding compatibility
-            'go_action': primary_action,
-            'alternatives_count': len(action_sets),
-            'has_timer_actions': any(s.get('timer', 0) > 0 for s in action_sets),
-            'comeback_action': edge_data.get('comeback_action'),
             'edge_type': edge.get('edge_type', 'navigation'),
-            'description': edge_data.get('description', ''),
-            'is_bidirectional': edge_data.get('is_bidirectional', False),
-            'conditions': edge_data.get('conditions', {}),
-            'metadata': edge_data.get('metadata', {}),
             'finalWaitTime': edge.get('final_wait_time', 2000),
             'weight': 1
         })
         
-        # Add reverse edge if bidirectional
-        if edge_data.get('is_bidirectional', False):
-            comeback_action = edge_data.get('comeback_action') or primary_action
-            print(f"[@navigation:graph:create_networkx_graph] Adding Bidirectional Edge: {target_label} → {source_label}")
-            print(f"[@navigation:graph:create_networkx_graph]   Comeback Action: {comeback_action}")
-            
-            G.add_edge(target_id, source_id, **{
-                'go_action': comeback_action,
-                'comeback_action': primary_action,
-                'edge_type': edge_data.get('edge_type', 'navigation'),
-                'description': f"Reverse: {edge_data.get('description', '')}",
-                'is_bidirectional': True,
-                'conditions': edge_data.get('conditions', {}),
-                'metadata': edge_data.get('metadata', {}),
-                'weight': 1
-            })
+
         
         edges_added += 1
         print(f"[@navigation:graph:create_networkx_graph] -----")
@@ -396,13 +369,23 @@ def get_edge_action(graph: nx.DiGraph, from_node: str, to_node: str) -> Optional
         to_node: Target node ID
         
     Returns:
-        Navigation action string or None if edge doesn't exist
+        Primary action command string or None if edge doesn't exist
     """
     if not graph.has_edge(from_node, to_node):
         return None
         
     edge_data = graph.edges[from_node, to_node]
-    return edge_data.get('go_action')
+    action_sets = edge_data.get('action_sets', [])
+    default_action_set_id = edge_data.get('default_action_set_id')
+    
+    if action_sets and default_action_set_id:
+        default_set = next((s for s in action_sets if s['id'] == default_action_set_id), None)
+        if default_set:
+            actions = default_set.get('actions', [])
+            if actions:
+                return actions[0].get('command')
+    
+    return None
 
 def get_entry_points(graph: nx.DiGraph) -> List[str]:
     """
@@ -471,14 +454,15 @@ def validate_graph(graph: nx.DiGraph) -> Dict:
         if unreachable:
             warnings.append(f"Found {len(unreachable)} unreachable nodes: {list(unreachable)}")
     
-    # Check for missing actions
-    missing_actions = []
+    # Check for missing action sets
+    missing_action_sets = []
     for from_node, to_node, edge_data in graph.edges(data=True):
-        if not edge_data.get('go_action'):
-            missing_actions.append(f"{from_node} -> {to_node}")
+        action_sets = edge_data.get('action_sets', [])
+        if not action_sets:
+            missing_action_sets.append(f"{from_node} -> {to_node}")
     
-    if missing_actions:
-        warnings.append(f"Found {len(missing_actions)} edges without go_action")
+    if missing_action_sets:
+        warnings.append(f"Found {len(missing_action_sets)} edges without action_sets")
     
     return {
         'is_valid': len(issues) == 0,

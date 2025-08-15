@@ -288,7 +288,7 @@ def validate_action_availability(nodes: List[Dict], edges: List[Dict], action_co
 
 def find_optimal_edge_validation_sequence(tree_id: str, team_id: str) -> List[Dict]:
     """
-    Find optimal sequence for validating all edges in the navigation tree.
+    Find optimal sequence for validating all edges with enhanced bidirectional support.
     Uses depth-first traversal to ensure systematic coverage.
     
     Args:
@@ -321,12 +321,15 @@ def find_optimal_edge_validation_sequence(tree_id: str, team_id: str) -> List[Di
     print(f"[@navigation:pathfinding:find_optimal_edge_validation_sequence] Found {len(edges_to_validate)} edges to validate")
     
     # Use depth-first traversal for optimal validation sequence
-    validation_sequence = _create_reachability_based_validation_sequence(G, edges_to_validate)
+    validation_sequence = _create_reachability_based_validation_sequence(
+        G, edges_to_validate, tree_id, team_id
+    )
     
     return validation_sequence
 
 
-def _create_reachability_based_validation_sequence(G, edges_to_validate: List[Tuple]) -> List[Dict]:
+def _create_reachability_based_validation_sequence(G, edges_to_validate: List[Tuple], 
+                                                 tree_id: str, team_id: str) -> List[Dict]:
     """
     Create validation sequence using depth-first traversal that goes deep into each branch before coming back.
     
@@ -341,10 +344,32 @@ def _create_reachability_based_validation_sequence(G, edges_to_validate: List[Tu
     
     print(f"[@navigation:pathfinding:_create_reachability_based_validation_sequence] Creating depth-first validation sequence")
     
-    # Build edge mapping for quick lookup
+    # Build edge mapping for quick lookup INCLUDING bidirectional edges
     edge_map = {}
+    bidirectional_edges = set()
+    
     for u, v, data in edges_to_validate:
         edge_map[(u, v)] = data
+        
+        # Check if there are actions available for reverse direction
+        action_sets = data.get('action_sets', [])
+        if len(action_sets) >= 2:
+            # Check if reverse direction has actions
+            default_action_set_id = data.get('default_action_set_id')
+            reverse_set = next((s for s in action_sets if s['id'] != default_action_set_id), None)
+            if reverse_set and reverse_set.get('actions'):
+                # Add reverse edge to map - reverse direction has valid actions
+                edge_map[(v, u)] = data
+                bidirectional_edges.add((u, v))
+                bidirectional_edges.add((v, u))
+                
+                from_info = get_node_info(G, u) or {}
+                to_info = get_node_info(G, v) or {}
+                from_label = from_info.get('label', u)
+                to_label = to_info.get('label', v)
+                print(f"[@navigation:pathfinding] Reverse direction available: {from_label} ↔ {to_label}")
+    
+    print(f"[@navigation:pathfinding] Edge mapping complete: {len(edge_map)} total edges, {len(bidirectional_edges)//2} with reverse actions")
     
     # Build adjacency list for traversal
     adjacency = {}
@@ -402,15 +427,51 @@ def _create_reachability_based_validation_sequence(G, edges_to_validate: List[Tu
             # Recursively go deeper into this child's branch
             depth_first_traversal(child_node, current_node)
             
-            # After exploring the child branch completely, add return edge if it exists
+            # ENHANCED RETURN EDGE DETECTION
             return_edge = (child_node, current_node)
+            return_edge_data = None
+            return_method = None
+            
+            # Strategy 1: Direct return edge exists
             if return_edge in edge_map and return_edge not in visited_edges:
-                validation_step = _create_validation_step(G, child_node, current_node, edge_map[return_edge], step_number, 'depth_first_return')
+                return_edge_data = edge_map[return_edge]
+                return_method = "direct"
+                print(f"[@navigation:pathfinding] Found direct return edge: {to_label} → {from_label}")
+            
+            # Strategy 2: Reverse direction has actions available
+            elif forward_edge in bidirectional_edges and return_edge not in visited_edges:
+                return_edge_data = edge_map[forward_edge]  # Same edge data
+                return_method = "reverse_actions"
+                print(f"[@navigation:pathfinding] Found reverse actions: {to_label} → {from_label}")
+            
+            # Strategy 3: Transitional edge using pathfinding (always enabled)
+            elif return_edge not in visited_edges:
+                try:
+                    # Try to find a path back using unified pathfinding
+                    transitional_path = find_shortest_path_unified(tree_id, current_node, team_id, child_node)
+                    if transitional_path:
+                        print(f"[@navigation:pathfinding] Using transitional path: {to_label} → {from_label} ({len(transitional_path)} steps)")
+                        for i, step in enumerate(transitional_path):
+                            step['step_type'] = 'transitional_return'
+                            step['step_number'] = step_number + i
+                            validation_sequence.append(step)
+                        step_number += len(transitional_path)
+                        visited_edges.add(return_edge)  # Mark as handled
+                        continue
+                except Exception as e:
+                    print(f"[@navigation:pathfinding] Transitional path failed: {e}")
+            
+            # Execute return if found
+            if return_edge_data:
+                validation_step = _create_validation_step(G, child_node, current_node, return_edge_data, step_number, f'depth_first_return_{return_method}')
                 validation_sequence.append(validation_step)
                 visited_edges.add(return_edge)
                 
-                print(f"[@navigation:pathfinding:_create_reachability_based_validation_sequence] Step {step_number}: {to_label} → {from_label} (return)")
+                print(f"[@navigation:pathfinding:_create_reachability_based_validation_sequence] Step {step_number}: {to_label} → {from_label} (return via {return_method})")
                 step_number += 1
+            else:
+                # Strategy 4: Skip unreachable branches
+                print(f"[@navigation:pathfinding:_create_reachability_based_validation_sequence] Skipping unreachable return: {to_label} → {from_label}")
     
     # Start depth-first traversal from each entry point
     for entry_point in entry_points:
@@ -456,22 +517,41 @@ def _create_validation_step(G, from_node: str, to_node: str, edge_data: Dict, st
     from_info = get_node_info(G, from_node) or {}
     to_info = get_node_info(G, to_node) or {}
     
-    # Get actions from action_sets structure ONLY
+    # Get actions from action_sets structure with direction awareness
     action_sets = edge_data.get('action_sets', [])
     default_action_set_id = edge_data.get('default_action_set_id')
     
-    if action_sets and default_action_set_id:
-        # Find default action set
-        default_set = next((s for s in action_sets if s['id'] == default_action_set_id), None)
-        if default_set:
-            actions = default_set.get('actions', [])
-            retry_actions = default_set.get('retry_actions') or []
+    actions = []
+    retry_actions = []
+    action_set_used = None
+    
+    # ENHANCED ACTION SET SELECTION
+    if 'return' in step_type and len(action_sets) >= 2:
+        # For return steps, try to find reverse action set (not the default)
+        reverse_set = next((s for s in action_sets if s['id'] != default_action_set_id), None)
+        if reverse_set:
+            actions = reverse_set.get('actions', [])
+            retry_actions = reverse_set.get('retry_actions') or []
+            action_set_used = reverse_set['id']
+            print(f"[@navigation:pathfinding] Using reverse action set: {action_set_used}")
         else:
-            actions = []
-            retry_actions = []
+            # Fallback to default set if no reverse found
+            default_set = next((s for s in action_sets if s['id'] == default_action_set_id), None)
+            if default_set:
+                actions = default_set.get('actions', [])
+                retry_actions = default_set.get('retry_actions') or []
+                action_set_used = default_set['id']
+                print(f"[@navigation:pathfinding] Warning: No reverse action set found, using default: {action_set_used}")
     else:
-        actions = []
-        retry_actions = []
+        # Forward direction or single action set - use default
+        if action_sets and default_action_set_id:
+            default_set = next((s for s in action_sets if s['id'] == default_action_set_id), None)
+            if default_set:
+                actions = default_set.get('actions', [])
+                retry_actions = default_set.get('retry_actions') or []
+                action_set_used = default_set['id']
+        else:
+            print(f"[@navigation:pathfinding] Warning: No action sets found for edge {from_node} → {to_node}")
     
     verifications = get_node_info(G, to_node).get('verifications', []) if get_node_info(G, to_node) else []
     
@@ -484,12 +564,14 @@ def _create_validation_step(G, from_node: str, to_node: str, edge_data: Dict, st
         'to_node_label': to_info.get('label', to_node),
         'actions': actions,
         'retryActions': retry_actions,
+        'action_set_id': action_set_used,  # Track which action set was used
         'verifications': verifications,
         'total_actions': len(actions),
         'total_retry_actions': len(retry_actions),
         'total_verifications': len(verifications),
         'finalWaitTime': edge_data.get('finalWaitTime', 2000),
         'edge_id': edge_data.get('edge_id', 'unknown'),
+        'transition_direction': 'return' if 'return' in step_type else 'forward',  # Track direction
         'description': f"Validate transition: {from_info.get('label', from_node)} → {to_info.get('label', to_node)}"
     }
     
