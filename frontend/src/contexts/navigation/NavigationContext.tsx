@@ -1023,7 +1023,11 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
                const updatedEdgeFromServer = {
                  ...currentSelectedEdge,
                  data: {
-                   ...serverEdge,
+                   // Map server response to frontend data structure
+                   action_sets: serverEdge.action_sets || [],
+                   default_action_set_id: serverEdge.default_action_set_id || '',
+                   final_wait_time: serverEdge.final_wait_time || 2000,
+                   priority: serverEdge.data?.priority || 'p3',
                    // Preserve ReactFlow properties
                    sourceHandle: currentSourceHandle,
                    targetHandle: currentTargetHandle,
