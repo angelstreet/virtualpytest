@@ -282,22 +282,13 @@ const RunTests: React.FC = () => {
           let suggested = '';
 
           if (modelLower.includes('mobile') || modelLower.includes('phone')) {
-            if (modelLower.includes('horizon')) {
-              suggested = 'horizon_android_mobile';
-            } else if (modelLower.includes('vz') || modelLower.includes('verizon')) {
-              suggested = 'vz_android_mobile';
-            } else {
-              suggested = 'horizon_android_mobile';
-            }
+            suggested = 'horizon_android_mobile';
           } else if (modelLower.includes('tv') || modelLower.includes('android_tv')) {
-            if (modelLower.includes('horizon')) {
-              suggested = 'horizon_android_tv';
-            } else if (modelLower.includes('vz') || modelLower.includes('verizon')) {
-              suggested = 'vz_android_tv';
-            } else {
-              suggested = 'horizon_android_tv';
-            }
+            suggested = 'horizon_android_tv';
+          } else if (modelLower.includes('web') || modelLower.includes('browser')) {
+            suggested = 'perseus_360_web';
           } else {
+            // Default to mobile interface for unknown device types
             suggested = 'horizon_android_mobile';
           }
 
@@ -536,7 +527,7 @@ const RunTests: React.FC = () => {
 
     // Special handling for userinterface_name with autocomplete
     if (param.name === 'userinterface_name') {
-      const options = ['horizon_android_mobile', 'horizon_android_tv'];
+      const options = ['horizon_android_mobile', 'horizon_android_tv', 'perseus_360_web'];
 
       return (
         <Autocomplete
