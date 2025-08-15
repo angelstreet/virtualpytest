@@ -261,6 +261,19 @@ const RunTests: React.FC = () => {
     successful: number;
   }>({ total: 0, completed: 0, successful: 0 });
 
+  // Get host manager functions first
+  const { getAllHosts, getDevicesFromHost } = useHostManager();
+
+  // Get device model for the primary selected device (for script analysis)
+  const getPrimaryDeviceModel = () => {
+    if (!selectedHost || !selectedDevice) return 'unknown';
+    
+    const hostDevices = getDevicesFromHost(selectedHost);
+    const deviceObject = hostDevices.find(device => device.device_id === selectedDevice);
+    
+    return deviceObject?.device_model || 'unknown';
+  };
+
   // Use run hook for script analysis and parameter management
   const { 
     scriptAnalysis, 
@@ -276,9 +289,6 @@ const RunTests: React.FC = () => {
     deviceModel: getPrimaryDeviceModel(),
     showWizard
   });
-
-  // Only fetch host data when wizard is shown
-  const { getAllHosts, getDevicesFromHost } = useHostManager();
 
   // Get hosts and devices - ensure hosts are available for stream
   const allHosts = getAllHosts(); // Always get the current hosts
@@ -340,16 +350,6 @@ const RunTests: React.FC = () => {
     allDevices.push(...additionalDevices);
     
     return allDevices;
-  };
-
-  // Get device model for the primary selected device (for script analysis)
-  const getPrimaryDeviceModel = () => {
-    if (!selectedHost || !selectedDevice) return 'unknown';
-    
-    const hostDevices = getDevicesFromHost(selectedHost);
-    const deviceObject = hostDevices.find(device => device.device_id === selectedDevice);
-    
-    return deviceObject?.device_model || 'unknown';
   };
 
   // Load available scripts from virtualpytest/scripts folder
