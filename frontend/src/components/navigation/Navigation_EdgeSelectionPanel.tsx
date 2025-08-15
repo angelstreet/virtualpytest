@@ -58,11 +58,19 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
       const sourceNode = nodes.find((node) => node.id === selectedEdge.source);
       const targetNode = nodes.find((node) => node.id === selectedEdge.target);
 
+      // For fallback panel (actionSet === null), show reverse direction
+      if (actionSet === null) {
+        return {
+          fromLabel: targetNode?.data?.label || selectedEdge.target,
+          toLabel: sourceNode?.data?.label || selectedEdge.source,
+        };
+      }
+
       return {
         fromLabel: sourceNode?.data?.label || selectedEdge.source,
         toLabel: targetNode?.data?.label || selectedEdge.target,
       };
-    }, [getNodes, selectedEdge.source, selectedEdge.target]);
+    }, [getNodes, selectedEdge.source, selectedEdge.target, actionSet]);
 
     // Use edge hook only for action execution
     const edgeHook = useEdge({

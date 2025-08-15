@@ -5,6 +5,7 @@ import { useNavigationConfig } from '../../contexts/navigation/NavigationConfigC
 import NavigationContext from '../../contexts/navigation/NavigationContext';
 import { useHostManager } from '../useHostManager';
 import { UINavigationEdge } from '../../types/pages/Navigation_Types';
+import { useEdge } from './useEdge';
 
 export const useNavigationEditor = () => {
   // Get the navigation config context (save/load functionality)
@@ -18,6 +19,9 @@ export const useNavigationEditor = () => {
 
   // Get host manager
   const hostManager = useHostManager();
+
+  // Get edge helper functions
+  const edgeHook = useEdge();
 
   // New normalized API functions
   const loadTreeData = useCallback(
@@ -545,73 +549,44 @@ export const useNavigationEditor = () => {
       navigation.markUnsavedChanges();
     }
     if (navigation.selectedEdge) {
-      const mainEdge = navigation.selectedEdge;
-      const bidirectionalEdge = mainEdge.bidirectionalEdge;
+      const selectedEdge = navigation.selectedEdge;
       
-      // Helper function to check if an edge has actions
-      const hasActions = (edge: any): boolean => {
-        if (!edge?.data?.action_sets) return false;
-        return edge.data.action_sets.some((actionSet: any) => 
-          (actionSet.actions && actionSet.actions.length > 0) ||
-          (actionSet.retry_actions && actionSet.retry_actions.length > 0) ||
-          (actionSet.failure_actions && actionSet.failure_actions.length > 0)
-        );
-      };
-      
-      const mainHasActions = hasActions(mainEdge);
-      const bidirectionalHasActions = bidirectionalEdge ? hasActions(bidirectionalEdge) : false;
+      // NEW: Check deletion rules based on directional action sets
+      const edgeDecision = edgeHook.shouldDeleteEdge(selectedEdge);
       
       console.log('[@useNavigationEditor:deleteSelected] Edge deletion analysis:', {
-        mainEdgeId: mainEdge.id,
-        mainHasActions,
-        bidirectionalEdgeId: bidirectionalEdge?.id,
-        bidirectionalHasActions,
+        edgeId: selectedEdge.id,
+        edgeDecision,
         currentEdgeCount: navigation.edges.length
       });
       
-      let edgesToDelete: string[] = [];
-      
-      if (bidirectionalEdge) {
-        // Bidirectional edge exists - apply smart deletion logic
-        if (!mainHasActions && !bidirectionalHasActions) {
-          // Both edges are empty - delete both (remove visual link completely)
-          edgesToDelete = [mainEdge.id, bidirectionalEdge.id];
-          console.log('[@useNavigationEditor:deleteSelected] Both edges empty - deleting both to remove visual link');
-        } else if (!mainHasActions && bidirectionalHasActions) {
-          // Main edge is empty, bidirectional has actions - only delete main edge
-          edgesToDelete = [mainEdge.id];
-          console.log('[@useNavigationEditor:deleteSelected] Main edge empty, bidirectional has actions - deleting only main edge');
-        } else if (mainHasActions && !bidirectionalHasActions) {
-          // Main edge has actions, bidirectional is empty - only delete bidirectional edge
-          edgesToDelete = [bidirectionalEdge.id];
-          console.log('[@useNavigationEditor:deleteSelected] Main edge has actions, bidirectional empty - deleting only bidirectional edge');
-        } else {
-          // Both edges have actions - ask for confirmation about the selected edge only
-          const confirmMessage = 'Are you sure you want to delete this edge?';
-          if (window.confirm(confirmMessage)) {
-            edgesToDelete = [mainEdge.id]; // Only delete the selected edge
-            console.log('[@useNavigationEditor:deleteSelected] User confirmed deletion of selected edge');
-          } else {
-            console.log('[@useNavigationEditor:deleteSelected] User cancelled deletion');
-            return; // User cancelled
-          }
-        }
-      } else {
-        // Single edge - delete it regardless of actions (existing behavior)
-        edgesToDelete = [mainEdge.id];
-        console.log('[@useNavigationEditor:deleteSelected] Single edge - deleting normally');
-      }
-      
-      if (edgesToDelete.length > 0) {
-        const filteredEdges = navigation.edges.filter((e) => !edgesToDelete.includes(e.id));
-        console.log('[@useNavigationEditor:deleteSelected] Deleting edges:', edgesToDelete,
+      if (edgeDecision.shouldDelete) {
+        // Delete the edge completely (all directions are empty)
+        const filteredEdges = navigation.edges.filter((e) => e.id !== selectedEdge.id);
+        console.log('[@useNavigationEditor:deleteSelected] Deleting edge (all directions empty):', selectedEdge.id,
           'Edges before:', navigation.edges.length, 'Edges after:', filteredEdges.length);
         navigation.setEdges(filteredEdges);
         navigation.setSelectedEdge(null);
         navigation.markUnsavedChanges();
+      } else if (edgeDecision.shouldUpdate) {
+        // Update edge (clear empty directions, keep active directions)
+        const updatedEdges = navigation.edges.map(edge => {
+          if (edge.id === selectedEdge.id) {
+            return edgeHook.clearEdgeActionSets(edge);
+          }
+          return edge;
+        });
+        console.log('[@useNavigationEditor:deleteSelected] Updating edge to clear empty directions:', selectedEdge.id);
+        navigation.setEdges(updatedEdges);
+        navigation.setSelectedEdge(null);
+        navigation.markUnsavedChanges();
+      } else {
+        // Keep the edge as is (all directions have actions)
+        console.log('[@useNavigationEditor:deleteSelected] Edge has active directions - no deletion:', selectedEdge.id);
+        return; // Don't modify the edge
       }
     }
-  }, [navigation]);
+  }, [navigation, edgeHook]);
 
   const resetNode = useCallback(
     (nodeId: string) => {

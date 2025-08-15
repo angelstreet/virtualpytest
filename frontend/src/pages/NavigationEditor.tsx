@@ -927,6 +927,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
                                 <EdgeSelectionPanel
                                   key={`${edge.id}-fallback`}
                                   selectedEdge={edge}
+                                  actionSet={null}
                                   panelIndex={panelIndexOffset + edge.data.action_sets.length}
                                   onClose={closeSelectionPanel}
                                   onEdit={() => {}}
@@ -953,6 +954,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
                               <EdgeSelectionPanel
                                 key={`${edge.id}-fallback`}
                                 selectedEdge={edge}
+                                actionSet={null}
                                 panelIndex={panelIndexOffset}
                                 onClose={closeSelectionPanel}
                                 onEdit={() => {}}

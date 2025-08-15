@@ -261,6 +261,83 @@ export const useEdge = (props?: UseEdgeProps) => {
   );
 
   /**
+   * Check if an action set is null or empty (no actions in any category)
+   */
+  const isActionSetEmpty = useCallback((actionSet: ActionSet): boolean => {
+    if (!actionSet) return true;
+    
+    const hasActions = (actionSet.actions && actionSet.actions.length > 0);
+    const hasRetryActions = (actionSet.retry_actions && actionSet.retry_actions.length > 0);
+    const hasFailureActions = (actionSet.failure_actions && actionSet.failure_actions.length > 0);
+    
+    return !hasActions && !hasRetryActions && !hasFailureActions;
+  }, []);
+
+  /**
+   * Check if an edge should be deleted based on directional action set rules:
+   * - If both directions (action sets) are empty: delete the edge
+   * - If one direction has actions and other is empty: update (clear empty direction)
+   * - If both directions have actions: keep as is (no deletion)
+   * - If only one direction exists and has actions: keep as is (no deletion)
+   */
+  const shouldDeleteEdge = useCallback((edge: UINavigationEdge): { shouldDelete: boolean, shouldUpdate: boolean } => {
+    const actionSets = getActionSetsFromEdge(edge);
+    
+    if (actionSets.length === 0) {
+      // No action sets - delete the edge
+      return { shouldDelete: true, shouldUpdate: false };
+    }
+    
+    const emptyActionSets = actionSets.filter(set => isActionSetEmpty(set));
+    const nonEmptyActionSets = actionSets.filter(set => !isActionSetEmpty(set));
+    
+    if (emptyActionSets.length === actionSets.length) {
+      // All directions are empty - delete the edge
+      return { shouldDelete: true, shouldUpdate: false };
+    }
+    
+    if (nonEmptyActionSets.length === actionSets.length) {
+      // All directions have actions - keep the edge as is
+      return { shouldDelete: false, shouldUpdate: false };
+    }
+    
+    // Mixed: some directions have actions, others are empty - update (clear empty directions)
+    return { shouldDelete: false, shouldUpdate: true };
+  }, [getActionSetsFromEdge, isActionSetEmpty]);
+
+  /**
+   * Clear only the empty action sets (directional cleanup)
+   * Returns the updated edge data structure
+   */
+  const clearEdgeActionSets = useCallback((edge: UINavigationEdge): any => {
+    const actionSets = getActionSetsFromEdge(edge);
+    
+    // Only clear action sets that are already empty (this is for cleanup)
+    // Keep non-empty action sets as they represent active directions
+    const updatedActionSets = actionSets.map(actionSet => {
+      if (isActionSetEmpty(actionSet)) {
+        // Clear empty action sets completely
+        return {
+          ...actionSet,
+          actions: [],
+          retry_actions: [],
+          failure_actions: []
+        };
+      }
+      // Keep non-empty action sets unchanged
+      return actionSet;
+    });
+    
+    return {
+      ...edge,
+      data: {
+        ...edge.data,
+        action_sets: updatedActionSets
+      }
+    };
+  }, [getActionSetsFromEdge, isActionSetEmpty]);
+
+  /**
    * Clear results when edge changes
    */
   const clearResults = useCallback(() => {
@@ -290,5 +367,10 @@ export const useEdge = (props?: UseEdgeProps) => {
     // Action functions
     executeEdgeActions,
     clearResults,
+
+    // NEW: Edge deletion logic helpers
+    isActionSetEmpty,
+    shouldDeleteEdge,
+    clearEdgeActionSets,
   };
 };
