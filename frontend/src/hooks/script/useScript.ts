@@ -14,6 +14,7 @@ interface ScriptExecutionResult {
   exit_code: number;
   host?: string;
   report_url?: string;
+  script_success?: boolean; // Extracted from SCRIPT_SUCCESS marker
 }
 
 interface UseScriptReturn {
@@ -186,6 +187,14 @@ export const useScript = (): UseScriptReturn => {
               report_url: task.result?.report_url,
             };
             
+            // Extract SCRIPT_SUCCESS marker from stdout
+            if (result.stdout && result.stdout.includes('SCRIPT_SUCCESS:')) {
+              const successMatch = result.stdout.match(/SCRIPT_SUCCESS:(true|false)/);
+              if (successMatch) {
+                result.script_success = successMatch[1] === 'true';
+              }
+            }
+            
             // IMMEDIATE CALLBACK: Notify completion right away
             onComplete(result);
             return result;
@@ -280,6 +289,14 @@ export const useScript = (): UseScriptReturn => {
         } else {
           if (!response.ok) {
             throw new Error(initialResult.stderr || initialResult.error || 'Script execution failed');
+          }
+          
+          // Extract SCRIPT_SUCCESS marker for immediate completion
+          if (initialResult.stdout && initialResult.stdout.includes('SCRIPT_SUCCESS:')) {
+            const successMatch = initialResult.stdout.match(/SCRIPT_SUCCESS:(true|false)/);
+            if (successMatch) {
+              initialResult.script_success = successMatch[1] === 'true';
+            }
           }
           
           // Immediate completion for synchronous response

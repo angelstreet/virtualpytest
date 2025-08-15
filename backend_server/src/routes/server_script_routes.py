@@ -282,24 +282,17 @@ def execute_script():
             'parameters': parameters
         })
         
-        # Prepare request payload with callback
+        # Prepare request payload (no callback needed - host executes synchronously)
         payload = {
             'script_name': script_name,
-            'device_id': device_id,
-            'task_id': task_id
+            'device_id': device_id
         }
         
         # Add parameters if provided
         if parameters and parameters.strip():
             payload['parameters'] = parameters.strip()
         
-        # Add callback URL for async completion
-        from shared.lib.utils.build_url_utils import buildServerUrl
-        callback_url = buildServerUrl('server/script/taskComplete')
-        payload['callback_url'] = callback_url
-        print(f"[@route:server_script:execute_script] Callback URL set to: {callback_url}")
-        
-        # Execute in background thread
+        # Execute in background thread (keep async for frontend polling)
         import threading
         def execute_async():
             try:
@@ -308,24 +301,23 @@ def execute_script():
                 # Build host URL
                 host_url = buildHostUrl(host_info, '/host/script/execute')
                 
-                # Make request to host with extended timeout
+                # Make request to host with extended timeout (host now executes synchronously)
                 response = requests.post(
                     host_url,
                     json=payload,
-                    timeout=300  # 5 minutes timeout for long-running scripts
+                    timeout=3600  # 1 hour timeout for long-running scripts
                 )
                 
-                result = response.json()
-                
-                if response.status_code not in [200, 202]:
-                    # Host execution failed, complete task with error
-                    print(f"[@route:server_script:execute_script] Host execution failed for task {task_id}")
-                    task_manager.complete_task(task_id, {}, error=result.get('error', 'Host execution failed'))
-                else:
+                if response.status_code == 200:
+                    result = response.json()
                     print(f"[@route:server_script:execute_script] Host execution completed for task {task_id}")
-                    # Task will be completed by the host's callback or directly here if no callback
-                    if 'callback_url' not in payload:
-                        task_manager.complete_task(task_id, result)
+                    # Complete task directly with result (no callback needed)
+                    task_manager.complete_task(task_id, result)
+                else:
+                    error_data = response.json() if response.headers.get('content-type') == 'application/json' else {}
+                    error_msg = error_data.get('error', f'Host execution failed with status {response.status_code}')
+                    print(f"[@route:server_script:execute_script] Host execution failed for task {task_id}: {error_msg}")
+                    task_manager.complete_task(task_id, {}, error=error_msg)
                         
             except Exception as e:
                 print(f"[@route:server_script:execute_script] Background execution error for task {task_id}: {e}")
