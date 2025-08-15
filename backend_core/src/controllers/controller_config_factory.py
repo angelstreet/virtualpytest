@@ -201,6 +201,100 @@ def create_controller_configs_from_device_info(device_config: dict) -> dict:
     print(f"[@controller_factory:create_controller_configs_from_device_info] Created {len(configs)} controller configs")
     return configs
 
+def get_controller_type_for_device(device_model: str, action_type: str) -> str:
+    """
+    Get the correct controller type for a device model and action type.
+    
+    Args:
+        device_model: Device model (e.g., 'android_mobile', 'host_vnc')
+        action_type: Action type ('remote', 'web', 'desktop', 'verification', etc.)
+        
+    Returns:
+        Controller type key to use with get_controller()
+    """
+    if device_model not in DEVICE_CONTROLLER_MAP:
+        # Default routing for unknown device models
+        if action_type == 'web':
+            return 'web'
+        elif action_type == 'desktop':
+            return 'desktop_pyautogui'  # Default desktop controller
+        elif action_type == 'verification':
+            return 'verification_text'  # Default verification controller
+        else:
+            return 'remote'  # Default for unknown
+    
+    device_mapping = DEVICE_CONTROLLER_MAP[device_model]
+    
+    if action_type == 'remote':
+        # Remote actions go to remote controller
+        remote_implementations = device_mapping.get('remote', [])
+        if remote_implementations:
+            return 'remote'
+        else:
+            return None  # Device doesn't support remote actions
+    
+    elif action_type == 'web':
+        # Web actions go to web controller
+        web_implementations = device_mapping.get('web', [])
+        if web_implementations:
+            return 'web'
+        else:
+            return None  # Device doesn't support web actions
+    
+    elif action_type == 'desktop':
+        # Desktop actions go to desktop controller (prefer bash, fallback to pyautogui)
+        desktop_implementations = device_mapping.get('desktop', [])
+        if 'bash' in desktop_implementations:
+            return 'desktop_bash'
+        elif 'pyautogui' in desktop_implementations:
+            return 'desktop_pyautogui'
+        else:
+            return None  # Device doesn't support desktop actions
+    
+    elif action_type == 'verification':
+        # Verification actions - determine based on available verification types
+        verification_types = []
+        for controller_list in device_mapping.values():
+            for controller_impl in controller_list:
+                verification_types.extend(CONTROLLER_VERIFICATION_MAP.get(controller_impl, []))
+        
+        # Default verification type selection based on device capabilities
+        if 'adb' in verification_types:
+            return 'verification_adb'
+        elif 'image' in verification_types:
+            return 'verification_image'
+        elif 'text' in verification_types:
+            return 'verification_text'
+        else:
+            return 'verification_text'  # Fallback
+    
+    elif action_type == 'av':
+        # AV actions go to av controller
+        av_implementations = device_mapping.get('av', [])
+        if av_implementations:
+            return 'av'
+        else:
+            return None
+    
+    elif action_type == 'power':
+        # Power actions go to power controller
+        power_implementations = device_mapping.get('power', [])
+        if power_implementations:
+            return 'power'
+        else:
+            return None
+    
+    elif action_type == 'ai':
+        # AI actions go to ai controller
+        ai_implementations = device_mapping.get('ai', [])
+        if ai_implementations:
+            return 'ai'
+        else:
+            return None
+    
+    # Unknown action type
+    return None
+
 def get_device_capabilities(device_model: str) -> dict:
     """Get detailed capabilities for a device model."""
     if device_model not in DEVICE_CONTROLLER_MAP:

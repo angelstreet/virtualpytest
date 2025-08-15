@@ -48,43 +48,85 @@ def execute_action_directly(host, device, action: Dict[str, Any]) -> Dict[str, A
         params = action.get('params', {})
         action_type = action.get('action_type')
         
-        # Intelligent action_type detection if not specified (same logic as ActionExecutor)
+        # Device-aware action_type detection using controller factory (same as ActionExecutor)
         if not action_type:
-            # Web-specific commands (from Playwright web controller)
-            web_commands = {
+            command = action.get('command', '')
+            
+            # Get device model for intelligent routing
+            device_model = device.device_model if device else 'unknown'
+            print(f"[@action_utils:execute_action_directly] Device model: {device_model}")
+            
+            # Specific command-based detection for commands that are controller-specific
+            web_only_commands = {
                 'open_browser', 'close_browser', 'connect_browser',
-                'navigate_to_url', 'click_element', 'find_element', 'input_text', 
-                'tap_x_y', 'execute_javascript', 'get_page_info', 'activate_semantic',
-                'dump_elements', 'browser_use_task', 'press_key'
+                'navigate_to_url', 'find_element', 'execute_javascript', 
+                'get_page_info', 'activate_semantic', 'dump_elements', 
+                'browser_use_task'
             }
             
-            # Desktop-specific commands (from PyAutoGUI/Bash controllers)
-            desktop_commands = {
+            desktop_only_commands = {
                 'execute_pyautogui_click', 'execute_pyautogui_rightclick', 'execute_pyautogui_doubleclick',
                 'execute_pyautogui_move', 'execute_pyautogui_keypress', 'execute_pyautogui_type',
                 'execute_pyautogui_scroll', 'execute_pyautogui_locate', 'execute_pyautogui_locate_and_click',
                 'execute_pyautogui_launch', 'execute_bash_command'
             }
             
-            # Verification commands
             verification_commands = {
                 'waitForTextToAppear', 'waitForTextToDisappear',
                 'waitForImageToAppear', 'waitForImageToDisappear'
             }
             
-            if command in web_commands:
+            # First check for controller-specific commands
+            if command in web_only_commands:
                 action_type = 'web'
-                print(f"[@action_utils:execute_action_directly] Auto-detected web action: {command}")
-            elif command in desktop_commands:
+                print(f"[@action_utils:execute_action_directly] Web-only command detected: {command}")
+            elif command in desktop_only_commands:
                 action_type = 'desktop'
-                print(f"[@action_utils:execute_action_directly] Auto-detected desktop action: {command}")
+                print(f"[@action_utils:execute_action_directly] Desktop-only command detected: {command}")
             elif command in verification_commands:
                 action_type = 'verification'
-                print(f"[@action_utils:execute_action_directly] Auto-detected verification action: {command}")
+                print(f"[@action_utils:execute_action_directly] Verification command detected: {command}")
             else:
-                # Default to remote for unknown commands (backward compatibility)
-                action_type = 'remote'
-                print(f"[@action_utils:execute_action_directly] Defaulting to remote action: {command}")
+                # For generic commands (click_element, input_text, press_key), use device capabilities
+                try:
+                    # Add project root to path for controller factory import
+                    import sys
+                    import os
+                    current_dir = os.path.dirname(os.path.abspath(__file__))
+                    lib_dir = os.path.dirname(current_dir)
+                    shared_dir = os.path.dirname(lib_dir)
+                    project_root = os.path.dirname(shared_dir)
+                    if project_root not in sys.path:
+                        sys.path.insert(0, project_root)
+                    
+                    from backend_core.src.controllers.controller_config_factory import DEVICE_CONTROLLER_MAP
+                    
+                    # Check what controllers this device has and route accordingly
+                    if device_model in DEVICE_CONTROLLER_MAP:
+                        device_mapping = DEVICE_CONTROLLER_MAP[device_model]
+                        
+                        # Priority order: web > desktop > remote (most specific to least specific)
+                        if device_mapping.get('web', []):
+                            action_type = 'web'
+                            print(f"[@action_utils:execute_action_directly] Generic command '{command}' routed to web (device has web controller)")
+                        elif device_mapping.get('desktop', []):
+                            action_type = 'desktop'
+                            print(f"[@action_utils:execute_action_directly] Generic command '{command}' routed to desktop (device has desktop controller)")
+                        elif device_mapping.get('remote', []):
+                            action_type = 'remote'
+                            print(f"[@action_utils:execute_action_directly] Generic command '{command}' routed to remote (device has remote controller)")
+                        else:
+                            # Fallback to remote
+                            action_type = 'remote'
+                            print(f"[@action_utils:execute_action_directly] Generic command '{command}' defaulted to remote (no specific controllers found)")
+                    else:
+                        # Unknown device model - default to remote
+                        action_type = 'remote'
+                        print(f"[@action_utils:execute_action_directly] Unknown device model '{device_model}', defaulting to remote for command '{command}'")
+                except Exception as e:
+                    # Fallback to remote on any import/lookup error
+                    action_type = 'remote'
+                    print(f"[@action_utils:execute_action_directly] Error in device routing: {e}, defaulting to remote for command '{command}'")
         
         # Get iterator count (default to 1 if not specified)
         # Only allow iterations for non-verification actions (same logic as ActionExecutor)

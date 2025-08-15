@@ -229,49 +229,79 @@ class ActionExecutor:
                 params = action.get('params', {})
                 action_type = action.get('action_type')
                 
-                # Intelligent action_type detection if not specified
+                # Device-aware action_type detection using controller factory
                 if not action_type:
                     command = action.get('command', '')
                     
-                    # Web-specific commands (from Playwright web controller)
-                    web_commands = {
+                    # Get device model for intelligent routing
+                    device_model = self._get_device_model()
+                    if iteration == 0:  # Only log once
+                        print(f"[@lib:action_executor:_execute_single_action] Device model: {device_model}")
+                    
+                    # Specific command-based detection for commands that are controller-specific
+                    web_only_commands = {
                         'open_browser', 'close_browser', 'connect_browser',
-                        'navigate_to_url', 'click_element', 'find_element', 'input_text', 
-                        'tap_x_y', 'execute_javascript', 'get_page_info', 'activate_semantic',
-                        'dump_elements', 'browser_use_task', 'press_key'
+                        'navigate_to_url', 'find_element', 'execute_javascript', 
+                        'get_page_info', 'activate_semantic', 'dump_elements', 
+                        'browser_use_task'
                     }
                     
-                    # Desktop-specific commands (from PyAutoGUI/Bash controllers)
-                    desktop_commands = {
+                    desktop_only_commands = {
                         'execute_pyautogui_click', 'execute_pyautogui_rightclick', 'execute_pyautogui_doubleclick',
                         'execute_pyautogui_move', 'execute_pyautogui_keypress', 'execute_pyautogui_type',
                         'execute_pyautogui_scroll', 'execute_pyautogui_locate', 'execute_pyautogui_locate_and_click',
                         'execute_pyautogui_launch', 'execute_bash_command'
                     }
                     
-                    # Verification commands
                     verification_commands = {
                         'waitForTextToAppear', 'waitForTextToDisappear',
                         'waitForImageToAppear', 'waitForImageToDisappear'
                     }
                     
-                    if command in web_commands:
+                    # First check for controller-specific commands
+                    if command in web_only_commands:
                         action_type = 'web'
-                        if iteration == 0:  # Only log once
-                            print(f"[@lib:action_executor:_execute_single_action] Auto-detected web action: {command}")
-                    elif command in desktop_commands:
+                        if iteration == 0:
+                            print(f"[@lib:action_executor:_execute_single_action] Web-only command detected: {command}")
+                    elif command in desktop_only_commands:
                         action_type = 'desktop'
-                        if iteration == 0:  # Only log once
-                            print(f"[@lib:action_executor:_execute_single_action] Auto-detected desktop action: {command}")
+                        if iteration == 0:
+                            print(f"[@lib:action_executor:_execute_single_action] Desktop-only command detected: {command}")
                     elif command in verification_commands:
                         action_type = 'verification'
-                        if iteration == 0:  # Only log once
-                            print(f"[@lib:action_executor:_execute_single_action] Auto-detected verification action: {command}")
+                        if iteration == 0:
+                            print(f"[@lib:action_executor:_execute_single_action] Verification command detected: {command}")
                     else:
-                        # Default to remote for unknown commands (backward compatibility)
-                        action_type = 'remote'
-                        if iteration == 0:  # Only log once
-                            print(f"[@lib:action_executor:_execute_single_action] Defaulting to remote action: {command}")
+                        # For generic commands (click_element, input_text, press_key), use device capabilities
+                        from backend_core.src.controllers.controller_config_factory import get_controller_type_for_device, DEVICE_CONTROLLER_MAP
+                        
+                        # Check what controllers this device has and route accordingly
+                        if device_model in DEVICE_CONTROLLER_MAP:
+                            device_mapping = DEVICE_CONTROLLER_MAP[device_model]
+                            
+                            # Priority order: web > desktop > remote (most specific to least specific)
+                            if device_mapping.get('web', []):
+                                action_type = 'web'
+                                if iteration == 0:
+                                    print(f"[@lib:action_executor:_execute_single_action] Generic command '{command}' routed to web (device has web controller)")
+                            elif device_mapping.get('desktop', []):
+                                action_type = 'desktop'
+                                if iteration == 0:
+                                    print(f"[@lib:action_executor:_execute_single_action] Generic command '{command}' routed to desktop (device has desktop controller)")
+                            elif device_mapping.get('remote', []):
+                                action_type = 'remote'
+                                if iteration == 0:
+                                    print(f"[@lib:action_executor:_execute_single_action] Generic command '{command}' routed to remote (device has remote controller)")
+                            else:
+                                # Fallback to remote
+                                action_type = 'remote'
+                                if iteration == 0:
+                                    print(f"[@lib:action_executor:_execute_single_action] Generic command '{command}' defaulted to remote (no specific controllers found)")
+                        else:
+                            # Unknown device model - default to remote
+                            action_type = 'remote'
+                            if iteration == 0:
+                                print(f"[@lib:action_executor:_execute_single_action] Unknown device model '{device_model}', defaulting to remote for command '{command}'")
                 
                 if iteration == 0:  # Only log action type once
                     print(f"[@lib:action_executor:_execute_single_action] Action type: {action_type}")
@@ -421,6 +451,22 @@ class ActionExecutor:
             'action_category': action_category,
             'iterations': iteration_results if iterator_count > 1 else None
         }
+    
+    def _get_device_model(self) -> str:
+        """Get device model for the current device_id."""
+        try:
+            # Import here to avoid circular imports
+            from shared.lib.utils.host_utils import get_device_by_id
+            
+            device = get_device_by_id(self.device_id or 'device1')
+            if device:
+                return device.device_model
+            else:
+                print(f"[@lib:action_executor:_get_device_model] Device {self.device_id} not found, using 'unknown'")
+                return 'unknown'
+        except Exception as e:
+            print(f"[@lib:action_executor:_get_device_model] Error getting device model: {e}")
+            return 'unknown'
     
     def _record_execution_to_database(self, success: bool, execution_time_ms: int, message: str, error_details: Optional[Dict] = None):
         """Record single execution directly to database"""
