@@ -919,16 +919,26 @@ const RunTests: React.FC = () => {
                         });
                         
                         return (
-                          <iframe
-                            src={streamUrl}
-                            style={{
-                              border: 'none',
-                              backgroundColor: '#000',
-                              ...vncScaling, // Apply VNC scaling (transform, transformOrigin, width, height)
+                          <Box
+                            sx={{
+                              position: 'relative',
+                              width: '100%',
+                              height: '100%',
+                              backgroundColor: 'black',
+                              overflow: 'hidden',
                             }}
-                            title="VNC Desktop Stream"
-                            allow="fullscreen"
-                          />
+                          >
+                            <iframe
+                              src={streamUrl}
+                              style={{
+                                border: 'none',
+                                backgroundColor: '#000',
+                                ...vncScaling, // Apply VNC scaling (transform, transformOrigin, width, height)
+                              }}
+                              title="VNC Desktop Stream"
+                              allow="fullscreen"
+                            />
+                          </Box>
                         );
                       })()
                     ) : (
