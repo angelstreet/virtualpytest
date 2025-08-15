@@ -15,6 +15,7 @@ import uuid
 import time
 import glob
 from typing import Tuple, Dict, Any, Optional, List
+import select
 
 # Add project root to path for imports
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -290,41 +291,57 @@ def execute_script(script_name: str, device_id: str, parameters: str = "") -> Di
         start_time_for_timeout = time.time()
         
         while True:
-            output = process.stdout.readline()
+            # Use select to wait for output with timeout
+            ready = select.select([process.stdout], [], [], 1.0)[0]  # 1 second timeout
+            
             poll_result = process.poll()
             
-            if output == '' and poll_result is not None:
-                print(f"[@script_execution_utils:execute_script] LOOP EXIT: No more output and process ended (exit code: {poll_result})")
+            if ready:
+                output = process.stdout.readline()
+                if output:
+                    line = output.rstrip()
+                    
+                    # Extract script metadata while streaming
+                    if line.startswith('SCRIPT_REPORT_URL:'):
+                        report_url = line[18:]  # Remove prefix
+                        print(f"📊 [Script] Report URL captured: {report_url}")
+                    elif line.startswith('SCRIPT_SUCCESS:'):
+                        script_success = line.split('SCRIPT_SUCCESS:', 1)[1].lower() == 'true'
+                        status_emoji = "✅" if script_success else "❌"
+                        print(f"{status_emoji} [Script] Final result: {'SUCCESS' if script_success else 'FAILED'}")
+                    else:
+                        # Stream all other output with prefix
+                        print(f"[{script_name}] {line}")
+                    
+                    stdout_lines.append(output)
+                elif poll_result is not None:
+                    print(f"[@script_execution_utils:execute_script] LOOP EXIT: Empty output and process ended (exit code: {poll_result})")
+                    break
+            elif poll_result is not None:
+                print(f"[@script_execution_utils:execute_script] LOOP EXIT: No output ready and process ended (exit code: {poll_result})")
                 break
-            if output:
-                line = output.rstrip()
-                
-                # Extract script metadata while streaming
-                if line.startswith('SCRIPT_REPORT_URL:'):
-                    report_url = line[18:]  # Remove prefix
-                    print(f"📊 [Script] Report URL captured: {report_url}")
-                elif line.startswith('SCRIPT_SUCCESS:'):
-                    script_success = line.split('SCRIPT_SUCCESS:', 1)[1].lower() == 'true'
-                    status_emoji = "✅" if script_success else "❌"
-                    print(f"{status_emoji} [Script] Final result: {'SUCCESS' if script_success else 'FAILED'}")
-                else:
-                    # Stream all other output with prefix
-                    print(f"[{script_name}] {line}")
-                
-                stdout_lines.append(output)
             
             # Check for timeout
-            if time.time() - start_time_for_timeout > timeout_seconds:
-                print(f"⚠️ [Script] Timeout after {timeout_seconds} seconds, terminating...")
-                process.terminate()
-                try:
-                    process.wait(timeout=10)  # Give it 10 seconds to terminate gracefully
-                except subprocess.TimeoutExpired:
-                    print(f"❌ [Script] Force killing process...")
+            current_time = time.time()
+            elapsed_time = current_time - start_time_for_timeout
+            if elapsed_time > timeout_seconds:
+                print(f"❌ [Script] Script execution timed out after {timeout_seconds} seconds (elapsed: {elapsed_time:.1f}s)")
+                if poll_result is None:
+                    print(f"❌ [Script] Process still running, force killing...")
                     process.kill()
                     process.wait()
+                else:
+                    print(f"❌ [Script] Process already ended but loop didn't exit properly")
                 stdout_lines.append(f"\n[TIMEOUT] Script execution timed out after {timeout_seconds} seconds\n")
                 break
+            
+            # Log progress every 30 seconds to track long-running scripts
+            if int(elapsed_time) % 30 == 0 and int(elapsed_time) > 0:
+                poll_status = poll_result
+                if poll_status is None:
+                    print(f"[@script_execution_utils:execute_script] PROGRESS: Script running for {elapsed_time:.0f}s, process still active")
+                else:
+                    print(f"[@script_execution_utils:execute_script] PROGRESS: Script at {elapsed_time:.0f}s, process ended with code {poll_status} but loop still running")
         
         # Wait for process completion
         exit_code = process.wait()
