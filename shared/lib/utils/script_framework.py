@@ -516,9 +516,14 @@ class ScriptExecutor:
             
             # Output results for execution system IMMEDIATELY after report generation
             success_str = str(context.overall_success).lower()
+            print(f"[@script_framework:cleanup_and_exit] DEBUG: About to output SCRIPT_SUCCESS marker")
+            print(f"[@script_framework:cleanup_and_exit] DEBUG: context.overall_success = {context.overall_success}")
+            print(f"[@script_framework:cleanup_and_exit] DEBUG: success_str = {success_str}")
             print(f"SCRIPT_SUCCESS:{success_str}")
+            print(f"[@script_framework:cleanup_and_exit] DEBUG: SCRIPT_SUCCESS marker printed")
             if report_result and report_result.get('success') and report_result.get('report_url'):
                 print(f"SCRIPT_REPORT_URL:{report_result['report_url']}")
+                print(f"[@script_framework:cleanup_and_exit] DEBUG: SCRIPT_REPORT_URL printed")
             
             # Update database if tracking is enabled
             if context.script_result_id:

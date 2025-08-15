@@ -349,6 +349,8 @@ def execute_script(script_name: str, device_id: str, parameters: str = "") -> Di
         
         print(f"[@script_execution_utils:execute_script] === SCRIPT OUTPUT END ===")
         print(f"[@script_execution_utils:execute_script] Process completed with exit code: {exit_code}")
+        print(f"[@script_execution_utils:execute_script] DEBUG: Total stdout lines captured: {len(stdout_lines)}")
+        print(f"[@script_execution_utils:execute_script] DEBUG: Final stdout length: {len(stdout)}")
         
         # Simple logic: exit code 0 = success, report URL captured from upload logs
         
@@ -360,13 +362,26 @@ def execute_script(script_name: str, device_id: str, parameters: str = "") -> Di
         
         # Extract SCRIPT_SUCCESS marker from stdout (critical for frontend result accuracy)
         script_success = None
+        print(f"[@script_execution_utils:execute_script] DEBUG: Checking for SCRIPT_SUCCESS marker in stdout...")
+        print(f"[@script_execution_utils:execute_script] DEBUG: stdout length: {len(stdout) if stdout else 0}")
+        print(f"[@script_execution_utils:execute_script] DEBUG: stdout contains 'SCRIPT_SUCCESS:': {'SCRIPT_SUCCESS:' in stdout if stdout else False}")
+        
         if stdout and 'SCRIPT_SUCCESS:' in stdout:
             import re
             success_match = re.search(r'SCRIPT_SUCCESS:(true|false)', stdout)
             if success_match:
                 script_success = success_match.group(1) == 'true'
                 print(f"[@script_execution_utils:execute_script] SCRIPT_SUCCESS extracted: {script_success}")
-        
+            else:
+                print(f"[@script_execution_utils:execute_script] DEBUG: SCRIPT_SUCCESS found but regex didn't match")
+        else:
+            print(f"[@script_execution_utils:execute_script] DEBUG: No SCRIPT_SUCCESS marker found in stdout")
+            # Print last 500 chars of stdout to see what's there
+            if stdout:
+                stdout_tail = stdout[-500:] if len(stdout) > 500 else stdout
+                print(f"[@script_execution_utils:execute_script] DEBUG: Last 500 chars of stdout: {repr(stdout_tail)}")
+            else:
+                print(f"[@script_execution_utils:execute_script] DEBUG: stdout is empty or None")
         result = {
             'stdout': stdout,
             'stderr': '',  # We merged stderr into stdout
