@@ -84,6 +84,8 @@ export interface NavigationContextType {
   setNodeForm: (form: NodeForm) => void;
   edgeForm: EdgeForm;
   setEdgeForm: (form: EdgeForm) => void;
+  edgeLabels: {fromLabel: string, toLabel: string};
+  setEdgeLabels: (labels: {fromLabel: string, toLabel: string}) => void;
 
   // Loading and error states
   isLoading: boolean;
@@ -247,12 +249,8 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
     description: '',
     verifications: [],
   });
-  const [edgeForm, setEdgeForm] = useState<EdgeForm>({
-    edgeId: '',
-    action_sets: [],
-    default_action_set_id: '',
-    final_wait_time: 2000,
-  });
+  const [edgeForm, setEdgeForm] = useState<any | null>(null);
+  const [edgeLabels, setEdgeLabels] = useState<{fromLabel: string, toLabel: string}>({fromLabel: '', toLabel: ''});
 
   // Loading and error states
   const [isLoading, setIsLoading] = useState(false);
@@ -766,10 +764,12 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
       // Form states
       isNewNode,
       setIsNewNode,
-      nodeForm: stableNodeForm,
+      nodeForm,
       setNodeForm,
-      edgeForm: stableEdgeForm,
+      edgeForm,
       setEdgeForm,
+      edgeLabels,
+      setEdgeLabels,
 
       // Loading and error states
       isLoading,
