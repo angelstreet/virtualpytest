@@ -147,7 +147,10 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
       
       // For fallback panel (actionSet === null), add a new empty action set for the missing direction
       if (actionSet === null) {
-        const newActionSetId = `actionset-${Date.now()}`;
+        // Create coherent action set ID using node labels (cleaned up for ID format)
+        const cleanFromLabel = fromLabel.toLowerCase().replace(/[^a-z0-9]/g, '_');
+        const cleanToLabel = toLabel.toLowerCase().replace(/[^a-z0-9]/g, '_');
+        const newActionSetId = `${cleanFromLabel}_to_${cleanToLabel}_1`; // Use fromLabel_to_toLabel format
         const emptyActionSet = {
           id: newActionSetId,
           label: `${fromLabel.toLowerCase().replace(/[^a-z0-9]/g, '_')}_to_${toLabel.toLowerCase().replace(/[^a-z0-9]/g, '_')}_1`,

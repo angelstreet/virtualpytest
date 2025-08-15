@@ -149,8 +149,11 @@ export const useNavigationEditor = () => {
       }
 
       // Helper function to create edge data
-      const createEdgeData = (sourceLabel: string, targetLabel: string, timestamp: number) => {
-        const defaultActionSetId = `actionset-${timestamp}`;
+      const createEdgeData = (sourceLabel: string, targetLabel: string) => {
+        // Create coherent action set ID using node labels (cleaned up for ID format)
+        const cleanSourceLabel = sourceLabel.toLowerCase().replace(/[^a-z0-9]/g, '_');
+        const cleanTargetLabel = targetLabel.toLowerCase().replace(/[^a-z0-9]/g, '_');
+        const defaultActionSetId = `${cleanSourceLabel}_to_${cleanTargetLabel}_1`;
         const actionSetLabel = `${sourceLabel}→${targetLabel}_1`;
         return {
           label: `${sourceLabel}→${targetLabel}`,
@@ -198,7 +201,7 @@ export const useNavigationEditor = () => {
           type: MarkerType.ArrowClosed,
           color: '#555',
         },
-        data: createEdgeData(sourceNode.data.label, targetNode.data.label, timestamp),
+        data: createEdgeData(sourceNode.data.label, targetNode.data.label),
       };
 
       console.log('[@useNavigationEditor:onConnect] Creating primary edge:', newEdge);
@@ -257,7 +260,7 @@ export const useNavigationEditor = () => {
             type: MarkerType.ArrowClosed,
             color: '#555',
           },
-          data: createEdgeData(targetNode.data.label, sourceNode.data.label, timestamp + 1),
+          data: createEdgeData(targetNode.data.label, sourceNode.data.label),
         };
 
         console.log('[@useNavigationEditor:onConnect] Creating reverse edge:', reverseEdge);
