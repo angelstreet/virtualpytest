@@ -470,15 +470,18 @@ def _create_reachability_based_validation_sequence(G, edges_to_validate: List[Tu
                 print(f"[@navigation:pathfinding:_create_reachability_based_validation_sequence] Step {step_number}: {to_label} → {from_label} (return via {return_method})")
                 step_number += 1
             else:
-                # Strategy 4: Skip unreachable branches
-                print(f"[@navigation:pathfinding:_create_reachability_based_validation_sequence] Skipping unreachable return: {to_label} → {from_label}")
+                # Strategy 4: No return path available - this is OK for unidirectional actions
+                print(f"[@navigation:pathfinding:_create_reachability_based_validation_sequence] No return path for: {to_label} → {from_label} (unidirectional action - OK)")
     
     # Start depth-first traversal from each entry point
     for entry_point in entry_points:
         depth_first_traversal(entry_point)
     
-    # Add any remaining unvisited edges
+    # Add any remaining unvisited edges INCLUDING all valid bidirectional edges
     remaining_edges = [(u, v) for u, v in edge_map.keys() if (u, v) not in visited_edges]
+    
+    print(f"[@navigation:pathfinding:_create_reachability_based_validation_sequence] Found {len(remaining_edges)} remaining unvisited edges")
+    
     for edge in remaining_edges:
         from_node, to_node = edge
         from_info = get_node_info(G, from_node) or {}
@@ -486,12 +489,35 @@ def _create_reachability_based_validation_sequence(G, edges_to_validate: List[Tu
         from_label = from_info.get('label', from_node)
         to_label = to_info.get('label', to_node)
         
-        validation_step = _create_validation_step(G, from_node, to_node, edge_map[edge], step_number, 'remaining')
-        validation_sequence.append(validation_step)
-        visited_edges.add(edge)
+        # Check if this is a valid edge (has non-empty actions)
+        edge_data = edge_map[edge]
+        action_sets = edge_data.get('action_sets', [])
         
-        print(f"[@navigation:pathfinding:_create_reachability_based_validation_sequence] Step {step_number} (remaining): {from_label} → {to_label}")
-        step_number += 1
+        # For bidirectional edges, determine which action set to use
+        is_bidirectional_return = edge in bidirectional_edges and (to_node, from_node) in visited_edges
+        
+        has_valid_actions = False
+        if is_bidirectional_return:
+            # This is a reverse direction of a bidirectional edge
+            default_action_set_id = edge_data.get('default_action_set_id')
+            reverse_set = next((s for s in action_sets if s['id'] != default_action_set_id), None)
+            has_valid_actions = reverse_set and reverse_set.get('actions')
+        else:
+            # This is a forward edge or direct edge
+            default_action_set_id = edge_data.get('default_action_set_id')
+            default_set = next((s for s in action_sets if s['id'] == default_action_set_id), None)
+            has_valid_actions = default_set and default_set.get('actions')
+        
+        if has_valid_actions:
+            step_type = 'remaining_reverse' if is_bidirectional_return else 'remaining_forward'
+            validation_step = _create_validation_step(G, from_node, to_node, edge_data, step_number, step_type)
+            validation_sequence.append(validation_step)
+            visited_edges.add(edge)
+            
+            print(f"[@navigation:pathfinding:_create_reachability_based_validation_sequence] Step {step_number} (remaining): {from_label} → {to_label} ({step_type})")
+            step_number += 1
+        else:
+            print(f"[@navigation:pathfinding:_create_reachability_based_validation_sequence] Skipping edge with empty actions: {from_label} → {to_label}")
     
     print(f"[@navigation:pathfinding:_create_reachability_based_validation_sequence] Generated {len(validation_sequence)} validation steps using depth-first traversal")
     return validation_sequence
