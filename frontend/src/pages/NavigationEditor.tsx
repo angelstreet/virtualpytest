@@ -900,7 +900,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
                               console.log('[@NavigationEditor] Creating panel for action set:', actionSet.id, 'at index:', panelIndexOffset + actionSetIndex);
                               panels.push(
                                 <EdgeSelectionPanel
-                                  key={`${edge.id}-${actionSet.id}-${actionSetIndex}`}
+                                  key={`${edge.id}-${actionSet.id}-${actionSet.actions?.length || 0}`}
                                   selectedEdge={edge}
                                   actionSet={actionSet}
                                   panelIndex={panelIndexOffset + actionSetIndex}
