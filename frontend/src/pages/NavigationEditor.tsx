@@ -906,7 +906,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
                                   panelIndex={panelIndexOffset + actionSetIndex}
                                   onClose={closeSelectionPanel}
                                   onEdit={() => {}}
-                                  onDelete={deleteSelected}
+                                  onDelete={() => navigation.deleteEdgeDirection(edge.id, actionSet.id)}
                                   setEdgeForm={setEdgeForm as React.Dispatch<React.SetStateAction<EdgeForm>>}
                                   setIsEdgeDialogOpen={setIsEdgeDialogOpen}
                                   isControlActive={isControlActive}
@@ -931,7 +931,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
                                   panelIndex={panelIndexOffset + edge.data.action_sets.length}
                                   onClose={closeSelectionPanel}
                                   onEdit={() => {}}
-                                  onDelete={deleteSelected}
+                                  onDelete={() => navigation.deleteEdgeDirection(edge.id, 'fallback')}
                                   setEdgeForm={setEdgeForm as React.Dispatch<React.SetStateAction<EdgeForm>>}
                                   setIsEdgeDialogOpen={setIsEdgeDialogOpen}
                                   isControlActive={isControlActive}

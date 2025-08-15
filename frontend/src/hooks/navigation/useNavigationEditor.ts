@@ -521,6 +521,7 @@ export const useNavigationEditor = () => {
       currentEdgeCount: navigation.edges.length
     });
 
+    // Handle node deletion
     if (navigation.selectedNode) {
       const nodeId = navigation.selectedNode.id;
       const node = navigation.selectedNode;
@@ -542,42 +543,44 @@ export const useNavigationEditor = () => {
       navigation.setSelectedNode(null);
       navigation.markUnsavedChanges();
     }
+
+    // Handle edge deletion - DELEGATED TO useEdge
     if (navigation.selectedEdge) {
       const selectedEdge = navigation.selectedEdge;
       
-      // NEW: Check deletion rules based on directional action sets
-      const edgeDecision = edgeHook.shouldDeleteEdge(selectedEdge);
+      // Simple confirmation for entire edge deletion (keyboard shortcut scenario)
+      if (!window.confirm('Delete this entire edge and all its directions?')) {
+        return;
+      }
       
-      console.log('[@useNavigationEditor:deleteSelected] Edge deletion analysis:', {
-        edgeId: selectedEdge.id,
-        edgeDecision,
-        currentEdgeCount: navigation.edges.length
-      });
+      // Delegate to edge hook for proper deletion workflow
+      const deletionResult = await edgeHook.handleEdgeDeletion(selectedEdge);
       
-      if (edgeDecision.shouldDelete) {
-        // Delete the edge completely (all directions are empty)
-        const filteredEdges = navigation.edges.filter((e) => e.id !== selectedEdge.id);
-        console.log('[@useNavigationEditor:deleteSelected] Deleting edge (all directions empty):', selectedEdge.id,
-          'Edges before:', navigation.edges.length, 'Edges after:', filteredEdges.length);
-        navigation.setEdges(filteredEdges);
-        navigation.setSelectedEdge(null);
-        navigation.markUnsavedChanges();
-      } else if (edgeDecision.shouldUpdate) {
-        // Update edge (clear empty directions, keep active directions)
-        const updatedEdges = navigation.edges.map(edge => {
-          if (edge.id === selectedEdge.id) {
-            return edgeHook.clearEdgeActionSets(edge);
-          }
-          return edge;
-        });
-        console.log('[@useNavigationEditor:deleteSelected] Updating edge to clear empty directions:', selectedEdge.id);
-        navigation.setEdges(updatedEdges);
-        navigation.setSelectedEdge(null);
-        navigation.markUnsavedChanges();
-      } else {
-        // Keep the edge as is (all directions have actions)
-        console.log('[@useNavigationEditor:deleteSelected] Edge has active directions - no deletion:', selectedEdge.id);
-        return; // Don't modify the edge
+      console.log('[@useNavigationEditor:deleteSelected] Edge deletion result:', deletionResult);
+      
+      switch (deletionResult.action) {
+        case 'delete_entire_edge':
+          const filteredEdges = navigation.edges.filter(e => e.id !== selectedEdge.id);
+          navigation.setEdges(filteredEdges);
+          navigation.setSelectedEdge(null);
+          navigation.markUnsavedChanges();
+          break;
+          
+        case 'update_edge':
+          const updatedEdges = navigation.edges.map(edge => 
+            edge.id === selectedEdge.id ? deletionResult.edge : edge
+          );
+          navigation.setEdges(updatedEdges);
+          navigation.setSelectedEdge(null);
+          navigation.markUnsavedChanges();
+          break;
+          
+        case 'no_change':
+          console.log('[@useNavigationEditor:deleteSelected] No changes made to edge');
+          break;
+          
+        default:
+          console.warn('[@useNavigationEditor:deleteSelected] Unknown deletion action:', deletionResult.action);
       }
     }
   }, [navigation, edgeHook]);

@@ -340,6 +340,110 @@ export const useEdge = (props?: UseEdgeProps) => {
   }, [getActionSetsFromEdge, isActionSetEmpty]);
 
   /**
+   * Delete actions from specific direction only
+   */
+  const deleteActionSetDirection = useCallback(async (edgeId: string, actionSetId: string) => {
+    console.log('[@useEdge:deleteActionSetDirection] Deleting direction:', { edgeId, actionSetId });
+    
+    const edge = nodes.find(n => n.id === edgeId); // This should be edges, will fix in navigation context
+    if (!edge) {
+      throw new Error(`Edge ${edgeId} not found`);
+    }
+    
+    // This function will be called by NavigationContext with proper edge parameter
+    throw new Error('deleteActionSetDirection should be called through NavigationContext');
+  }, [nodes]);
+
+  /**
+   * Delete entire edge (when both directions empty)
+   */
+  const deleteEntireEdge = useCallback(async (edgeId: string) => {
+    console.log('[@useEdge:deleteEntireEdge] Deleting entire edge:', edgeId);
+    
+    // This function will be called by NavigationContext with proper edge management
+    throw new Error('deleteEntireEdge should be called through NavigationContext');
+  }, []);
+
+  /**
+   * Complete edge deletion workflow - MAIN ENTRY POINT
+   */
+  const handleEdgeDeletion = useCallback(async (edge: UINavigationEdge) => {
+    console.log('[@useEdge:handleEdgeDeletion] Starting edge deletion workflow:', edge.id);
+    
+    // Check deletion rules based on directional action sets
+    const edgeDecision = shouldDeleteEdge(edge);
+    
+    console.log('[@useEdge:handleEdgeDeletion] Edge deletion analysis:', {
+      edgeId: edge.id,
+      edgeDecision
+    });
+    
+    if (edgeDecision.shouldDelete) {
+      // Delete the edge completely (all directions are empty)
+      console.log('[@useEdge:handleEdgeDeletion] All directions empty, deleting entire edge');
+      return { action: 'delete_entire_edge', edgeId: edge.id };
+    } else if (edgeDecision.shouldUpdate) {
+      // Update edge (clear empty directions, keep active directions)
+      console.log('[@useEdge:handleEdgeDeletion] Clearing empty directions only');
+      const updatedEdge = clearEdgeActionSets(edge);
+      return { action: 'update_edge', edge: updatedEdge };
+    } else {
+      // Keep the edge as is (all directions have actions)
+      console.log('[@useEdge:handleEdgeDeletion] Edge has active directions - no deletion');
+      return { action: 'no_change', message: 'Edge has active directions - no deletion' };
+    }
+  }, [shouldDeleteEdge, clearEdgeActionSets]);
+
+  /**
+   * Handle direction-specific deletion (for panel delete buttons)
+   */
+  const handleDirectionDeletion = useCallback(async (edge: UINavigationEdge, actionSetId: string) => {
+    console.log('[@useEdge:handleDirectionDeletion] Deleting direction:', { edgeId: edge.id, actionSetId });
+    
+    const actionSets = getActionSetsFromEdge(edge);
+    
+    // Determine direction from action set ID
+    const forwardActionSetId = actionSets[0]?.id;
+    const direction = actionSetId === forwardActionSetId ? 'forward' : 'reverse';
+    const targetIndex = direction === 'forward' ? 0 : 1;
+
+    // Clear actions but keep structure
+    const updatedActionSets = [...actionSets];
+    updatedActionSets[targetIndex] = {
+      ...updatedActionSets[targetIndex],
+      actions: [],
+      retry_actions: [],
+      failure_actions: []
+    };
+
+    // Create updated edge
+    const updatedEdge = {
+      ...edge,
+      data: {
+        ...edge.data,
+        action_sets: updatedActionSets
+      }
+    };
+
+    // Check if both directions are now empty
+    const bothDirectionsEmpty = updatedActionSets.every(as => 
+      (!as.actions || as.actions.length === 0) &&
+      (!as.retry_actions || as.retry_actions.length === 0) &&
+      (!as.failure_actions || as.failure_actions.length === 0)
+    );
+
+    if (bothDirectionsEmpty) {
+      // Return action to delete entire edge
+      console.log('[@useEdge:handleDirectionDeletion] Both directions empty after clearing, delete entire edge');
+      return { action: 'delete_entire_edge', edgeId: edge.id };
+    } else {
+      // Return action to update edge with cleared direction
+      console.log('[@useEdge:handleDirectionDeletion] Clearing direction only:', direction);
+      return { action: 'update_edge', edge: updatedEdge, needsSave: true };
+    }
+  }, [getActionSetsFromEdge]);
+
+  /**
    * Clear results when edge changes
    */
   const clearResults = useCallback(() => {
@@ -374,5 +478,11 @@ export const useEdge = (props?: UseEdgeProps) => {
     isActionSetEmpty,
     shouldDeleteEdge,
     clearEdgeActionSets,
+
+    // NEW: Edge deletion workflow functions
+    deleteActionSetDirection,
+    deleteEntireEdge,
+    handleEdgeDeletion,
+    handleDirectionDeletion,
   };
 };

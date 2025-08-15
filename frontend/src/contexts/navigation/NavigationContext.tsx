@@ -171,6 +171,9 @@ export interface NavigationContextType {
   saveEdgeWithStateUpdate: (edgeForm: any) => Promise<void>;
   saveTreeWithStateUpdate: (treeId: string) => Promise<void>;
   executeActionsWithPositionUpdate: (actions: any[], retryActions: any[], failureActions?: any[], targetNodeId?: string) => Promise<any>;
+  
+  // Edge deletion methods
+  deleteEdgeDirection: (edgeId: string, actionSetId: string) => Promise<void>;
 }
 
 interface NavigationProviderProps {
@@ -1144,6 +1147,123 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
          } catch (error) {
            console.error('Error saving tree:', error);
            setError('Failed to save tree');
+           throw error;
+         } finally {
+           setIsLoading(false);
+         }
+       },
+
+       // NEW: Direction-specific deletion for edge panels
+       deleteEdgeDirection: async (edgeId: string, actionSetId: string) => {
+         try {
+           setIsLoading(true);
+           setError(null);
+
+           console.log('[@NavigationContext] Deleting edge direction:', { edgeId, actionSetId });
+
+           const edge = edges.find(e => e.id === edgeId);
+           if (!edge) {
+             throw new Error(`Edge ${edgeId} not found`);
+           }
+
+           // Inline direction deletion logic (from useEdge pattern)
+           const actionSets = edge.data?.action_sets || [];
+           
+           // Determine direction from action set ID
+           const forwardActionSetId = actionSets[0]?.id;
+           const direction = actionSetId === forwardActionSetId ? 'forward' : 'reverse';
+           const targetIndex = direction === 'forward' ? 0 : 1;
+
+           // Clear actions but keep structure
+           const updatedActionSets = [...actionSets];
+           updatedActionSets[targetIndex] = {
+             ...updatedActionSets[targetIndex],
+             actions: [],
+             retry_actions: [],
+             failure_actions: []
+           };
+
+           // Create updated edge
+           const updatedEdge = {
+             ...edge,
+             data: {
+               ...edge.data,
+               action_sets: updatedActionSets
+             }
+           };
+
+           // Check if both directions are now empty
+           const bothDirectionsEmpty = updatedActionSets.every(as => 
+             (!as.actions || as.actions.length === 0) &&
+             (!as.retry_actions || as.retry_actions.length === 0) &&
+             (!as.failure_actions || as.failure_actions.length === 0)
+           );
+
+           if (bothDirectionsEmpty) {
+             // Delete entire edge
+             const filteredEdges = edges.filter(e => e.id !== edgeId);
+             setEdges(filteredEdges);
+             setSelectedEdge(null);
+             setHasUnsavedChanges(true);
+             console.log('[@NavigationContext] Deleted entire edge after clearing last direction');
+           } else {
+             // Update edge and save to database
+             const edgeForm = {
+               edgeId: updatedEdge.id,
+               action_sets: updatedEdge.data.action_sets,
+               default_action_set_id: updatedEdge.data.default_action_set_id,
+               final_wait_time: updatedEdge.data.final_wait_time || 2000,
+             };
+
+             // Save to database and update frontend state
+             console.log('[@NavigationContext] Saving updated edge to database');
+             
+             // Save to database
+             const normalizedEdge = {
+               edge_id: edgeForm.edgeId,
+               source_node_id: edge.source,
+               target_node_id: edge.target,
+               label: edge.label,
+               data: {
+                 priority: edge.data?.priority || 'p3',
+                 sourceHandle: edge.sourceHandle,
+                 targetHandle: edge.targetHandle,
+               },
+               action_sets: edgeForm.action_sets,
+               default_action_set_id: edgeForm.default_action_set_id,
+               final_wait_time: edgeForm.final_wait_time,
+             };
+
+             const saveResponse = await navigationConfig.saveEdge(navigationConfig.actualTreeId, normalizedEdge as any);
+             
+             // Update frontend state with server response
+             if (saveResponse?.edge) {
+               const serverEdge = saveResponse.edge;
+               const updatedEdgeFromServer = {
+                 ...edge,
+                 data: {
+                   action_sets: serverEdge.action_sets || [],
+                   default_action_set_id: serverEdge.default_action_set_id || '',
+                   final_wait_time: serverEdge.final_wait_time || 2000,
+                   priority: serverEdge.data?.priority || 'p3',
+                   sourceHandle: edge.sourceHandle,
+                   targetHandle: edge.targetHandle,
+                 },
+               };
+               
+               const updatedEdges = edges.map((e) =>
+                 e.id === edge.id ? updatedEdgeFromServer : e,
+               );
+               setEdges(updatedEdges);
+               setSelectedEdge(updatedEdgeFromServer);
+             }
+
+             console.log('[@NavigationContext] Updated edge direction and saved to database');
+           }
+
+         } catch (error) {
+           console.error('[@NavigationContext] Error deleting edge direction:', error);
+           setError(`Failed to delete edge direction: ${error instanceof Error ? error.message : 'Unknown error'}`);
            throw error;
          } finally {
            setIsLoading(false);
