@@ -81,13 +81,11 @@ export const useEdgeEdit = ({
             failure_actions: actionSet.failure_actions || []
           };
         }
-        setEdgeForm({
-          ...edgeForm,
-          action_sets: updatedActionSets,
-        });
+        // Remove setEdgeForm call to prevent infinite loop
+        // The form will be updated when saving, not during initialization
       }
     }
-  }, [isOpen, edgeForm, selectedEdge, setEdgeForm]);
+  }, [isOpen, edgeForm?.targetActionSetId, selectedEdge]);
 
   // Reset state when dialog closes
   useEffect(() => {
