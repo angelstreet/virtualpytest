@@ -654,7 +654,9 @@ const RunTests: React.FC = () => {
           report_url: result.report_url,
           has_stdout: !!result.stdout,
           stdout_length: result.stdout?.length || 0,
+          script_success: result.script_success,
         });
+        console.log(`[@RunTests] FULL RESULT OBJECT:`, result);
         
         // Update execution record immediately
         // Determine if script execution completed (vs system error)
