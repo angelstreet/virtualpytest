@@ -424,7 +424,10 @@ class ScriptExecutor:
     def generate_final_report(self, context: ScriptExecutionContext, userinterface_name: str) -> Dict[str, str]:
         """Generate and upload final execution report"""
         try:
+            print(f"[@script_framework:generate_final_report] DEBUG: Starting final report generation...")
+            
             # Capture final screenshot
+            print(f"[@script_framework:generate_final_report] DEBUG: Step 1 - Capturing final screenshot...")
             print(f"📸 [{self.script_name}] Capturing final state screenshot...")
             final_screenshot = capture_validation_screenshot(
                 context.host, context.selected_device, "final_state", self.script_name
@@ -433,8 +436,10 @@ class ScriptExecutor:
             
             if final_screenshot:
                 print(f"✅ [{self.script_name}] Final screenshot captured")
+            print(f"[@script_framework:generate_final_report] DEBUG: Step 1 completed")
             
             # Capture test execution video (duration based on test execution time)
+            print(f"[@script_framework:generate_final_report] DEBUG: Step 2 - Capturing video...")
             print(f"🎥 [{self.script_name}] Capturing test execution video...")
             context.test_video_url = ""  # Initialize with empty string
             try:
@@ -468,8 +473,10 @@ class ScriptExecutor:
             except Exception as e:
                 print(f"⚠️ [{self.script_name}] Error capturing test video: {e}, continuing with report generation...")
                 context.test_video_url = ""  # Ensure report generation continues
+            print(f"[@script_framework:generate_final_report] DEBUG: Step 2 completed")
             
             # Generate and upload report
+            print(f"[@script_framework:generate_final_report] DEBUG: Step 3 - Preparing report data...")
             device_info = {
                 'device_name': context.selected_device.device_name,
                 'device_model': context.selected_device.device_model,
@@ -478,6 +485,11 @@ class ScriptExecutor:
             host_info = {
                 'host_name': context.host.host_name
             }
+            print(f"[@script_framework:generate_final_report] DEBUG: Step 3 completed")
+            
+            print(f"[@script_framework:generate_final_report] DEBUG: Step 4 - Calling generate_and_upload_script_report...")
+            print(f"[@script_framework:generate_final_report] DEBUG: Screenshot count: {len(context.screenshot_paths)}")
+            print(f"[@script_framework:generate_final_report] DEBUG: Step results count: {len(context.step_results)}")
             
             report_result = generate_and_upload_script_report(
                 script_name=f"{self.script_name}.py",
@@ -492,13 +504,19 @@ class ScriptExecutor:
                 execution_summary=getattr(context, 'execution_summary', ''),
                 test_video_url=getattr(context, 'test_video_url', '') or ''
             )
+            print(f"[@script_framework:generate_final_report] DEBUG: Step 4 completed - generate_and_upload_script_report returned")
+            print(f"[@script_framework:generate_final_report] DEBUG: Report result keys: {list(report_result.keys()) if report_result else 'None'}")
             
             if report_result.get('success') and report_result.get('report_url'):
                 print(f"📊 [{self.script_name}] Report generated: {report_result['report_url']}")
             
+            print(f"[@script_framework:generate_final_report] DEBUG: Step 5 - About to return report_result")
             return report_result
             
         except Exception as e:
+            print(f"[@script_framework:generate_final_report] ERROR: Exception in generate_final_report: {e}")
+            import traceback
+            print(f"[@script_framework:generate_final_report] ERROR: Traceback: {traceback.format_exc()}")
             print(f"⚠️ [{self.script_name}] Error in report generation: {e}")
             return {
                 'success': False,
