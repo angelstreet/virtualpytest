@@ -24,95 +24,22 @@ def _execute_script():
                 'error': 'script_name and device_id required'
             }), 400
         
-        # Handle async execution with callback
-        if callback_url and task_id:
-            import threading
-            import requests
-            
-            def execute_async():
-                print(f"[@route:host_script:_execute_script] THREAD START: Async execution thread started for task {task_id}")
-                try:
-                    print(f"[@route:host_script:_execute_script] Starting async script execution for task {task_id}")
-                    print(f"[@route:host_script:_execute_script] About to call execute_script({script_name}, {device_id}, {parameters})")
-                    
-                    result = execute_script(script_name, device_id, parameters)
-                    
-                    print(f"[@route:host_script:_execute_script] SCRIPT COMPLETED: Script execution completed for task {task_id}, success: {result.get('success')}")
-                    print(f"[@route:host_script:_execute_script] Result keys: {list(result.keys()) if result else 'None'}")
-                    
-                    # Determine if there was an error
-                    script_success = result.get('success', False)
-                    error_message = None if script_success else result.get('stderr', 'Script execution failed')
-                    
-                    # Send callback with result
-                    callback_data = {
-                        'task_id': task_id,
-                        'result': result,
-                        'error': error_message
-                    }
-                    
-                    print(f"[@route:host_script:_execute_script] CALLBACK PREP: About to send callback for task {task_id}")
-                    print(f"[@route:host_script:_execute_script] Callback URL: {callback_url}")
-                    print(f"[@route:host_script:_execute_script] Callback data prepared: task_id={task_id}, success={script_success}, error={error_message}")
-                    
-                    try:
-                        print(f"[@route:host_script:_execute_script] CALLBACK SEND: Sending callback to: {callback_url}")
-                        
-                        callback_response = requests.post(
-                            callback_url, 
-                            json=callback_data, 
-                            timeout=30, 
-                            verify=False
-                        )
-                        
-                        print(f"[@route:host_script:_execute_script] CALLBACK RESPONSE: Callback sent for task {task_id}, status: {callback_response.status_code}")
-                        
-                        # Log response for debugging
-                        if callback_response.status_code != 200:
-                            print(f"[@route:host_script:_execute_script] Callback response error: {callback_response.text}")
-                        else:
-                            print(f"[@route:host_script:_execute_script] CALLBACK SUCCESS: Callback successful for task {task_id}")
-                            
-                    except Exception as callback_error:
-                        print(f"[@route:host_script:_execute_script] CALLBACK ERROR: Callback failed for task {task_id}: {callback_error}")
-                        print(f"[@route:host_script:_execute_script] Callback URL was: {callback_url}")
-                        import traceback
-                        traceback.print_exc()
-                        
-                except Exception as e:
-                    print(f"[@route:host_script:_execute_script] ASYNC ERROR: Async execution failed for task {task_id}: {e}")
-                    import traceback
-                    traceback.print_exc()
-                    
-                    # Send callback with error
-                    callback_data = {
-                        'task_id': task_id,
-                        'result': {},
-                        'error': str(e)
-                    }
-                    
-                    try:
-                        print(f"[@route:host_script:_execute_script] ERROR CALLBACK: Sending error callback to: {callback_url}")
-                        requests.post(callback_url, json=callback_data, timeout=30, verify=False)
-                        print(f"[@route:host_script:_execute_script] ERROR CALLBACK SENT: Error callback sent for task {task_id}")
-                    except Exception as callback_error:
-                        print(f"[@route:host_script:_execute_script] ERROR CALLBACK FAILED: Error callback also failed for task {task_id}: {callback_error}")
-                
-                print(f"[@route:host_script:_execute_script] THREAD END: Async execution thread completed for task {task_id}")
-            
-            # Start background execution
-            threading.Thread(target=execute_async, daemon=True).start()
-            
-            return jsonify({
-                'success': True,
-                'message': f'Script {script_name} started in background',
-                'task_id': task_id
-            }), 202
+        print(f"[@route:host_script:_execute_script] Executing {script_name} on {device_id} with parameters: {parameters}")
         
-        else:
-            # Execute synchronously as before for backward compatibility
-            result = execute_script(script_name, device_id, parameters)
-            return jsonify(result)
+        # Execute script directly and wait for completion (no callback complexity)
+        result = execute_script(script_name, device_id, parameters)
+        
+        print(f"[@route:host_script:_execute_script] Script completed - success: {result.get('success')}")
+        print(f"[@route:host_script:_execute_script] Script has report_url: {bool(result.get('report_url'))}")
+        print(f"[@route:host_script:_execute_script] Result keys: {list(result.keys()) if result else 'None'}")
+        
+        # ENSURE CONSISTENT OUTPUT: Every script must have SCRIPT_SUCCESS
+        stdout = result.get('stdout', '')
+        if not stdout or 'SCRIPT_SUCCESS:' not in stdout:
+            print(f"⚠️ [@route:host_script:_execute_script] WARNING: Script {script_name} did not output SCRIPT_SUCCESS marker")
+            print(f"⚠️ [@route:host_script:_execute_script] Stdout length: {len(stdout)} chars")
+        
+        return jsonify(result)
         
     except Exception as e:
         return jsonify({
