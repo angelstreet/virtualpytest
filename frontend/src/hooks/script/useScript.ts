@@ -185,15 +185,8 @@ export const useScript = (): UseScriptReturn => {
               exit_code: task.result?.exit_code || 0,
               host: hostName,
               report_url: task.result?.report_url,
+              script_success: task.result?.script_success, // Use field directly from host
             };
-            
-            // Extract SCRIPT_SUCCESS marker from stdout
-            if (result.stdout && result.stdout.includes('SCRIPT_SUCCESS:')) {
-              const successMatch = result.stdout.match(/SCRIPT_SUCCESS:(true|false)/);
-              if (successMatch) {
-                result.script_success = successMatch[1] === 'true';
-              }
-            }
             
             // IMMEDIATE CALLBACK: Notify completion right away
             onComplete(result);

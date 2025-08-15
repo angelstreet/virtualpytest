@@ -404,6 +404,9 @@ const RunTests: React.FC = () => {
               newParameterValues[param.name] = param.suggestions.suggested;
             } else if (param.default) {
               newParameterValues[param.name] = param.default;
+            } else if (param.name === 'node') {
+              // Default 'node' parameter to 'home' (matching goto.py default)
+              newParameterValues[param.name] = 'home';
             } else {
               newParameterValues[param.name] = '';
             }
