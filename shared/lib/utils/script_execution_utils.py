@@ -350,11 +350,23 @@ def execute_script(script_name: str, device_id: str, parameters: str = "") -> Di
         print(f"[@script_execution_utils:execute_script] === SCRIPT OUTPUT END ===")
         print(f"[@script_execution_utils:execute_script] Process completed with exit code: {exit_code}")
         
+        # Add final check - if we captured SCRIPT_SUCCESS/SCRIPT_REPORT_URL, ensure they're in stdout
+        if script_success is not None and 'SCRIPT_SUCCESS:' not in stdout:
+            success_line = f"SCRIPT_SUCCESS:{str(script_success).lower()}\n"
+            stdout += success_line
+            print(f"[@script_execution_utils:execute_script] Added SCRIPT_SUCCESS to stdout: {script_success}")
+        
+        if report_url and 'SCRIPT_REPORT_URL:' not in stdout:
+            report_line = f"SCRIPT_REPORT_URL:{report_url}\n"
+            stdout += report_line
+            print(f"[@script_execution_utils:execute_script] Added SCRIPT_REPORT_URL to stdout: {report_url}")
+        
         total_execution_time = int((time.time() - start_time) * 1000)
         success = exit_code == 0
         
         print(f"[@script_execution_utils:execute_script] PREPARE RETURN: Creating return dictionary...")
         print(f"[@script_execution_utils:execute_script] SUCCESS: {success}, EXIT_CODE: {exit_code}, EXECUTION_TIME: {total_execution_time}ms")
+        print(f"[@script_execution_utils:execute_script] SCRIPT_SUCCESS_CAPTURED: {script_success}")
         print(f"[@script_execution_utils:execute_script] REPORT_URL: {report_url}")
         
         result = {
