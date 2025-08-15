@@ -608,9 +608,6 @@ const RecHostStreamModalContent: React.FC<{
                         height: '100%',
                         backgroundColor: 'black',
                         overflow: 'hidden',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
                       }}
                     >
                       <iframe
@@ -618,6 +615,8 @@ const RecHostStreamModalContent: React.FC<{
                         style={{
                           border: 'none',
                           backgroundColor: '#000',
+                          display: 'block',
+                          margin: '0 auto', // Center horizontally
                           ...vncScaling, // Apply calculated scaling
                         }}
                         title="VNC Desktop Stream"
