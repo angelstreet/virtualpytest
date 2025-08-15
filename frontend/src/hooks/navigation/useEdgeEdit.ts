@@ -38,10 +38,19 @@ export const useEdgeEdit = ({
 
   // Initialize actions when dialog opens or edgeForm/selectedEdge changes
   useEffect(() => {
-    if (isOpen && edgeForm?.action_sets?.[0]) {
-      // Load actions from form
-      const actionSet = edgeForm.action_sets[0];
-      console.log('[@useEdgeEdit] Loading from form:', { 
+    if (isOpen && edgeForm?.action_sets?.length > 0) {
+      // Find the target action set to edit (based on targetActionSetId or default to first)
+      const targetActionSetId = edgeForm.targetActionSetId;
+      let actionSet = edgeForm.action_sets[0]; // Default to first
+      
+      if (targetActionSetId) {
+        const foundActionSet = edgeForm.action_sets.find(as => as.id === targetActionSetId);
+        if (foundActionSet) {
+          actionSet = foundActionSet;
+        }
+      }
+      
+      console.log('[@useEdgeEdit] Loading from form action set:', actionSet.id, { 
         actions: actionSet.actions?.length || 0, 
         retry_actions: actionSet.retry_actions?.length || 0,
         failure_actions: actionSet.failure_actions?.length || 0

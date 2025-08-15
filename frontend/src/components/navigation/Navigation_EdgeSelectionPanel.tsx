@@ -145,10 +145,11 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
     }, [edgeMetrics.volume, edgeMetrics.success_rate]);
 
     const handleEdit = () => {
-      // For fallback panel (actionSet === null), create an edge form with empty action set for the missing direction
+      // Always create the full edge form with all action sets to avoid losing data
+      const edgeForm = edgeHook.createEdgeForm(selectedEdge);
+      
+      // For fallback panel (actionSet === null), add a new empty action set for the missing direction
       if (actionSet === null) {
-        const edgeForm = edgeHook.createEdgeForm(selectedEdge);
-        // Create a new empty action set for the missing direction
         const newActionSetId = `actionset-${Date.now()}`;
         const emptyActionSet = {
           id: newActionSetId,
@@ -159,13 +160,14 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
           priority: 1
         };
         edgeForm.action_sets.push(emptyActionSet);
-        setEdgeForm(edgeForm);
+        // Set the new action set as the target for editing
+        edgeForm.targetActionSetId = newActionSetId;
       } else {
-        // For normal panels, use the existing edge form
-        const edgeForm = edgeHook.createEdgeForm(selectedEdge);
-        setEdgeForm(edgeForm);
+        // For normal panels, set the existing action set as the target for editing
+        edgeForm.targetActionSetId = actionSet.id;
       }
       
+      setEdgeForm(edgeForm);
       setIsEdgeDialogOpen(true);
       onClose(); // Close the selection panel when opening the edit dialog
       // Note: Dependency check happens in EdgeEditDialog when saving
