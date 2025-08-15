@@ -38,6 +38,7 @@ interface ExecutionRecord {
   scriptName: string;
   hostName: string;
   deviceId: string;
+  deviceModel?: string; // Add device model field
   startTime: string;
   endTime?: string;
   status: 'running' | 'completed' | 'failed' | 'aborted';
@@ -617,15 +618,23 @@ const RunTests: React.FC = () => {
     setCompletionStats({ total: executions.length, completed: 0, successful: 0 });
 
     // Create execution records upfront
-    const newExecutions: ExecutionRecord[] = executions.map(exec => ({
-      id: exec.id,
-      scriptName: exec.scriptName,
-      hostName: exec.hostName,
-      deviceId: exec.deviceId,
-      startTime: new Date().toLocaleTimeString(),
-      status: 'running',
-      parameters: exec.parameters,
-    }));
+    const newExecutions: ExecutionRecord[] = executions.map(exec => {
+      // Get device model for this execution
+      const hostDevices = getDevicesFromHost(exec.hostName);
+      const deviceObject = hostDevices.find(device => device.device_id === exec.deviceId);
+      const deviceModel = deviceObject?.device_model || 'unknown';
+      
+      return {
+        id: exec.id,
+        scriptName: exec.scriptName,
+        hostName: exec.hostName,
+        deviceId: exec.deviceId,
+        deviceModel: deviceModel,
+        startTime: new Date().toLocaleTimeString(),
+        status: 'running',
+        parameters: exec.parameters,
+      };
+    });
 
     setExecutions(prev => [...newExecutions, ...prev]);
 
@@ -1111,7 +1120,14 @@ const RunTests: React.FC = () => {
                           }}
                         >
                           <TableCell>{execution.scriptName}</TableCell>
-                          <TableCell>{execution.hostName}:{execution.deviceId}</TableCell>
+                          <TableCell>
+                            {execution.hostName}:{execution.deviceId}
+                            {execution.deviceModel && (
+                              <Typography variant="caption" display="block" color="text.secondary">
+                                ({execution.deviceModel})
+                              </Typography>
+                            )}
+                          </TableCell>
                           <TableCell>{execution.startTime}</TableCell>
                           <TableCell>{execution.endTime || '-'}</TableCell>
                           <TableCell>{getStatusChip(execution.status)}</TableCell>
