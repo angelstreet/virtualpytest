@@ -217,7 +217,8 @@ def main():
         options = {
             'bind': f'0.0.0.0:{host_port}',
             'workers': 1,
-            'timeout': 60,
+            'threads': 4,  # Enable 4 threads for parallel script execution
+            'timeout': 3600,  # 1 hour timeout to match server timeout
         }
         
         StandaloneApplication(app, options).run()
