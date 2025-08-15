@@ -66,13 +66,16 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
         };
       }
 
-      // For real action sets, determine direction from the action set label
-      if (actionSet?.label) {
-        // Parse direction from label like "home_to_replay_1" or "replay_to_home_1"
-        const labelParts = actionSet.label.split('_to_');
-        if (labelParts.length === 2) {
-          const fromPart = labelParts[0];
-          const toPart = labelParts[1].split('_').slice(0, -1).join('_'); // Remove the last "_1" part
+      // For real action sets, determine direction from the action set label or ID
+      if (actionSet?.label || actionSet?.id) {
+        // Try label first, then fallback to ID
+        const actionSetName = actionSet.label || actionSet.id;
+        
+        // Parse direction from name like "home_to_movies_1" or "movies_to_home_1"
+        const nameParts = actionSetName.split('_to_');
+        if (nameParts.length === 2) {
+          const fromPart = nameParts[0];
+          const toPart = nameParts[1].split('_').slice(0, -1).join('_'); // Remove the last "_1" part
           
           return {
             fromLabel: fromPart.replace(/_/g, ' '),
