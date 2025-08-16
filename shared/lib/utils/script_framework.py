@@ -563,15 +563,15 @@ class ScriptExecutor:
                         html_report_r2_url=report_result.get('report_url') if report_result and report_result.get('success') else None,
                         error_msg=None
                     )
-                elif context.error_message:
-                    print(f"📝 [{self.script_name}] Recording error in database...")
+                else:
+                    print(f"📝 [{self.script_name}] Recording failure in database...")
                     update_script_execution_result(
                         script_result_id=context.script_result_id,
                         success=False,
                         execution_time_ms=context.get_execution_time_ms(),
                         html_report_r2_path=report_result.get('report_path') if report_result and report_result.get('success') else None,
                         html_report_r2_url=report_result.get('report_url') if report_result and report_result.get('success') else None,
-                        error_msg=context.error_message
+                        error_msg=context.error_message or 'Script execution failed'
                     )
         except Exception as e:
             print(f"⚠️ [{self.script_name}] Error during report generation: {e}")
