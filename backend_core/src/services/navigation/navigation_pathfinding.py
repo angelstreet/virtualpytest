@@ -401,19 +401,7 @@ def _create_reachability_based_validation_sequence(G, edges_to_validate: List[Tu
         """Recursively traverse depth-first, going as deep as possible then coming back"""
         nonlocal step_number, current_position
         
-        # Insert forced transition if we're not where we need to be
-        if current_position != current_node:
-            forced_path = find_shortest_path_unified(tree_id, current_node, team_id, current_position)
-            if not forced_path:
-                # If no direct path, do a goto from none to target
-                forced_path = find_shortest_path_unified(tree_id, current_node, team_id)
-            if forced_path:
-                for forced_step in forced_path:
-                    forced_step['step_number'] = step_number
-                    forced_step['step_type'] = 'forced_transition'
-                    validation_sequence.append(forced_step)
-                    step_number += 1
-                current_position = current_node
+
         
         if current_node not in adjacency:
             return
@@ -432,12 +420,13 @@ def _create_reachability_based_validation_sequence(G, edges_to_validate: List[Tu
             from_label = from_info.get('label', current_node)
             to_label = to_info.get('label', child_node)
             
-            validation_step = _create_validation_step(G, current_node, child_node, edge_map[forward_edge], step_number, 'depth_first_forward')
+            forced_steps, validation_step = _create_validation_step(G, current_node, child_node, edge_map[forward_edge], step_number, 'depth_first_forward', current_position, tree_id, team_id)
+            validation_sequence.extend(forced_steps)
             validation_sequence.append(validation_step)
             visited_edges.add(forward_edge)
             
-            print(f"[@navigation:pathfinding:_create_reachability_based_validation_sequence] Step {step_number}: {from_label} → {to_label} (forward)")
-            step_number += 1
+            print(f"[@navigation:pathfinding:_create_reachability_based_validation_sequence] Step {validation_step['step_number']}: {from_label} → {to_label} (forward)")
+            step_number = validation_step['step_number'] + 1
             current_position = child_node
             
             # Recursively go deeper into this child's branch
@@ -479,12 +468,13 @@ def _create_reachability_based_validation_sequence(G, edges_to_validate: List[Tu
             
             # Execute return if found
             if return_edge_data:
-                validation_step = _create_validation_step(G, child_node, current_node, return_edge_data, step_number, f'depth_first_return_{return_method}')
+                forced_steps, validation_step = _create_validation_step(G, child_node, current_node, return_edge_data, step_number, f'depth_first_return_{return_method}', current_position, tree_id, team_id)
+                validation_sequence.extend(forced_steps)
                 validation_sequence.append(validation_step)
                 visited_edges.add(return_edge)
                 
-                print(f"[@navigation:pathfinding:_create_reachability_based_validation_sequence] Step {step_number}: {to_label} → {from_label} (return via {return_method})")
-                step_number += 1
+                print(f"[@navigation:pathfinding:_create_reachability_based_validation_sequence] Step {validation_step['step_number']}: {to_label} → {from_label} (return via {return_method})")
+                step_number = validation_step['step_number'] + 1
                 current_position = current_node
             else:
                 # Strategy 4: No return path available - this is OK for unidirectional actions
@@ -502,19 +492,7 @@ def _create_reachability_based_validation_sequence(G, edges_to_validate: List[Tu
     for edge in remaining_edges:
         from_node, to_node = edge
         
-        # Insert forced transition if we're not at the starting position
-        if current_position != from_node:
-            forced_path = find_shortest_path_unified(tree_id, from_node, team_id, current_position)
-            if not forced_path:
-                # If no direct path, do a goto from none to target
-                forced_path = find_shortest_path_unified(tree_id, from_node, team_id)
-            if forced_path:
-                for forced_step in forced_path:
-                    forced_step['step_number'] = step_number
-                    forced_step['step_type'] = 'forced_transition'
-                    validation_sequence.append(forced_step)
-                    step_number += 1
-                current_position = from_node
+
         
         from_info = get_node_info(G, from_node) or {}
         to_info = get_node_info(G, to_node) or {}
@@ -542,12 +520,13 @@ def _create_reachability_based_validation_sequence(G, edges_to_validate: List[Tu
         
         if has_valid_actions:
             step_type = 'remaining_reverse' if is_bidirectional_return else 'remaining_forward'
-            validation_step = _create_validation_step(G, from_node, to_node, edge_data, step_number, step_type)
+            forced_steps, validation_step = _create_validation_step(G, from_node, to_node, edge_data, step_number, step_type, current_position, tree_id, team_id)
+            validation_sequence.extend(forced_steps)
             validation_sequence.append(validation_step)
             visited_edges.add(edge)
             
-            print(f"[@navigation:pathfinding:_create_reachability_based_validation_sequence] Step {step_number} (remaining): {from_label} → {to_label} ({step_type})")
-            step_number += 1
+            print(f"[@navigation:pathfinding:_create_reachability_based_validation_sequence] Step {validation_step['step_number']} (remaining): {from_label} → {to_label} ({step_type})")
+            step_number = validation_step['step_number'] + 1
             current_position = to_node
         else:
             print(f"[@navigation:pathfinding:_create_reachability_based_validation_sequence] Skipping edge with empty actions: {from_label} → {to_label}")
@@ -581,7 +560,7 @@ def _create_reachability_based_validation_sequence(G, edges_to_validate: List[Tu
     return validation_sequence
 
 
-def _create_validation_step(G, from_node: str, to_node: str, edge_data: Dict, step_number: int, step_type: str) -> Dict:
+def _create_validation_step(G, from_node: str, to_node: str, edge_data: Dict, step_number: int, step_type: str, current_position: str = None, tree_id: str = None, team_id: str = None) -> Tuple[List[Dict], Dict]:
     """
     Create a validation step for an edge transition
     
@@ -592,11 +571,28 @@ def _create_validation_step(G, from_node: str, to_node: str, edge_data: Dict, st
         edge_data: Edge data dictionary
         step_number: Step number in sequence
         step_type: Type of step (depth_first_forward, depth_first_return, remaining)
+        current_position: Where we currently are
+        tree_id: Tree ID for forced transitions
+        team_id: Team ID for forced transitions
         
     Returns:
-        Validation step dictionary
+        Tuple of (forced_steps, validation_step)
     """
     from shared.lib.utils.navigation_graph import get_node_info
+    
+    # SYSTEMATIC CHECK: Insert forced transition if needed
+    forced_steps = []
+    if current_position and current_position != from_node:
+        print(f"[@navigation:pathfinding] Forced transition needed: {current_position} → {from_node}")
+        if tree_id and team_id:
+            forced_path = find_shortest_path_unified(tree_id, from_node, team_id, current_position)
+            if not forced_path:
+                forced_path = find_shortest_path_unified(tree_id, from_node, team_id)
+            if forced_path:
+                for i, forced_step in enumerate(forced_path):
+                    forced_step['step_number'] = step_number + i
+                    forced_step['step_type'] = 'forced_transition'
+                    forced_steps.append(forced_step)
     
     from_info = get_node_info(G, from_node) or {}
     to_info = get_node_info(G, to_node) or {}
@@ -639,8 +635,11 @@ def _create_validation_step(G, from_node: str, to_node: str, edge_data: Dict, st
     
     verifications = get_node_info(G, to_node).get('verifications', []) if get_node_info(G, to_node) else []
     
+    # Adjust step number for the actual validation step
+    actual_step_number = step_number + len(forced_steps)
+    
     validation_step = {
-        'step_number': step_number,
+        'step_number': actual_step_number,
         'step_type': step_type,
         'from_node_id': from_node,
         'to_node_id': to_node,
@@ -659,4 +658,4 @@ def _create_validation_step(G, from_node: str, to_node: str, edge_data: Dict, st
         'description': f"Validate transition: {from_info.get('label', from_node)} → {to_info.get('label', to_node)}"
     }
     
-    return validation_step
+    return forced_steps, validation_step
