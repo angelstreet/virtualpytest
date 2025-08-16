@@ -33,6 +33,8 @@ interface AppiumRemoteProps {
   streamCollapsed?: boolean;
   // Stream minimized state for overlay coordination
   streamMinimized?: boolean;
+  // Stream hidden state for overlay coordination
+  streamHidden?: boolean;
   // Current capture mode from HDMIStream
   captureMode?: 'stream' | 'screenshot' | 'video';
   // NEW: Stream container dimensions for modal context
@@ -56,6 +58,7 @@ export const AppiumRemote = React.memo(
     deviceResolution,
     streamCollapsed,
     streamMinimized = false,
+    streamHidden = false,
     captureMode = 'stream',
     streamContainerDimensions,
   }: AppiumRemoteProps) {
@@ -546,17 +549,18 @@ export const AppiumRemote = React.memo(
           </Box>
         </Box>
 
-        {/* AppiumOverlay - Only visible when in stream mode (not during screenshot/video capture) and not minimized */}
+        {/* AppiumOverlay - Only visible when in stream mode (not during screenshot/video capture), not minimized, and not hidden */}
         {panelInfo &&
           typeof document !== 'undefined' &&
           captureMode === 'stream' &&
           !streamMinimized &&
+          !streamHidden &&
           createPortal(
             <AppiumOverlay
               elements={appiumElements} // Can be empty array when no UI dumped yet
               deviceWidth={1080} // Use same device resolution as Android for now
               deviceHeight={2340} // Use same device resolution as Android for now
-              isVisible={captureMode === 'stream' && !streamMinimized} // Only visible in stream mode, not during screenshot/video capture
+              isVisible={captureMode === 'stream' && !streamMinimized && !streamHidden} // Only visible in stream mode, not during screenshot/video capture, and not hidden
               onElementClick={handleOverlayElementClick}
               panelInfo={panelInfo}
               host={host}

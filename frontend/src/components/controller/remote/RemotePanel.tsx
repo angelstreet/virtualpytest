@@ -27,6 +27,8 @@ interface RemotePanelProps {
   streamCollapsed?: boolean;
   // Stream minimized state for overlay coordination
   streamMinimized?: boolean;
+  // Stream hidden state for overlay coordination
+  streamHidden?: boolean;
   
   // Alternative props for DeviceManagement usage
   remoteType?: string;
@@ -54,6 +56,7 @@ export const RemotePanel = React.memo(
     deviceResolution,
     streamCollapsed = true,
     streamMinimized = false,
+    streamHidden = false,
     captureMode = 'stream',
     streamContainerDimensions,
   }: RemotePanelProps) {
@@ -197,6 +200,7 @@ export const RemotePanel = React.memo(
               deviceResolution={effectiveDeviceResolution}
               streamCollapsed={streamCollapsed}
               streamMinimized={streamMinimized}
+              streamHidden={streamHidden}
               captureMode={captureMode}
               streamContainerDimensions={stableStreamContainerDimensions}
               sx={{
@@ -268,6 +272,7 @@ export const RemotePanel = React.memo(
               deviceResolution={effectiveDeviceResolution}
               streamCollapsed={streamCollapsed}
               streamMinimized={streamMinimized}
+              streamHidden={streamHidden}
               captureMode={captureMode}
               sx={{
                 height: '100%',
@@ -307,6 +312,7 @@ export const RemotePanel = React.memo(
       effectiveDeviceResolution,
       streamCollapsed,
       streamMinimized,
+      streamHidden,
       captureMode,
       stableStreamContainerDimensions,
     ]);

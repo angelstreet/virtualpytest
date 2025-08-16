@@ -229,8 +229,8 @@ export const useNavigationEditor = () => {
           return handleMap[sourceHandle] || sourceHandle;
         };
 
-        const reverseSourceHandle = connection.targetHandle ? getCorrespondingSourceHandle(connection.targetHandle) : undefined;
-        const reverseTargetHandle = connection.sourceHandle ? getCorrespondingTargetHandle(connection.sourceHandle) : undefined;
+        const reverseSourceHandle = connection.targetHandle ? getCorrespondingSourceHandle(connection.targetHandle as string) : undefined;
+        const reverseTargetHandle = connection.sourceHandle ? getCorrespondingTargetHandle(connection.sourceHandle as string) : undefined;
 
         console.log('[@useNavigationEditor:onConnect] Mapped handles for reverse edge:', {
           originalTargetHandle: connection.targetHandle,
@@ -241,8 +241,8 @@ export const useNavigationEditor = () => {
 
         const reverseEdge: UINavigationEdge = {
           id: `edge-${connection.target}-${connection.source}-${timestamp + 1}`,
-          source: connection.target,
-          target: connection.source,
+          source: connection.target ?? '',  // Add null check
+          target: connection.source ?? '',  // Add null check
           // Use the mapped handles for the reverse direction
           sourceHandle: reverseSourceHandle,
           targetHandle: reverseTargetHandle,
@@ -261,9 +261,9 @@ export const useNavigationEditor = () => {
 
         console.log('[@useNavigationEditor:onConnect] Creating reverse edge:', reverseEdge);
         edgesToAdd.push(reverseEdge);
-              } else {
-          console.log('[@useNavigationEditor:onConnect] Simplified edge creation - no complex logic needed');
-        }
+      } else {
+        console.log('[@useNavigationEditor:onConnect] Simplified edge creation - no complex logic needed');
+      }
 
       // Handle parent inheritance based on handle direction and ROOT NODE PRIORITY
       // 
@@ -475,6 +475,11 @@ export const useNavigationEditor = () => {
   const handleEdgeFormSubmit = useCallback(
     async (edgeForm: any) => {
       await navigation.saveEdgeWithStateUpdate(edgeForm);
+      // After save, update selectedEdge if this was the selected one
+      const updatedEdge = navigation.edges.find(e => e.id === edgeForm.edgeId);
+      if (updatedEdge && navigation.selectedEdge?.id === edgeForm.edgeId) {
+        navigation.setSelectedEdge(updatedEdge);
+      }
     },
     [navigation],
   );

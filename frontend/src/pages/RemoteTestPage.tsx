@@ -561,6 +561,7 @@ export default function RemoteTestPage() {
                 deviceResolution={{ width: 1920, height: 1080 }}
                 streamCollapsed={streamCollapsed}
                 streamMinimized={streamMinimized}
+                streamHidden={!selectedHost.controller_configs?.av} // Stream is hidden when no AV config
                 captureMode={captureMode}
               />
             )}
