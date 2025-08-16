@@ -31,6 +31,8 @@ import { useHostManager } from '../hooks/useHostManager';
 import { useToast } from '../hooks/useToast';
 import { useRun } from '../hooks/useRun';
 import { calculateVncScaling } from '../utils/vncUtils';
+import { AITestCaseGenerator } from '../components/testcase/AITestCaseGenerator';
+import { TestCase } from '../types/pages/TestCase_Types';
 
 
 // Simple execution record interface
@@ -930,6 +932,18 @@ const RunTests: React.FC = () => {
               )}
             </CardContent>
           </Card>
+        </Grid>
+
+        {/* AI Test Case Generator */}
+        <Grid item xs={12}>
+          <AITestCaseGenerator 
+            onTestCaseGenerated={(testCase: TestCase) => {
+              // When AI generates a test case, we could show it in the script selection
+              // For now, just show a success toast
+              showSuccess(`AI Test Case Generated: ${testCase.name}`);
+              console.log('AI Generated Test Case:', testCase);
+            }}
+          />
         </Grid>
 
         {/* Device Stream Grid - Show when we have at least one device */}

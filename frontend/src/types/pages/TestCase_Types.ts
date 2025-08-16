@@ -20,6 +20,14 @@ export interface TestCase {
   tags?: string[];
   priority?: number; // 1-5 scale
   estimated_duration?: number; // in seconds
+  
+  // AI-specific fields - clean modern implementation
+  creator?: 'ai' | 'manual';
+  original_prompt?: string;
+  ai_analysis?: AIAnalysis;
+  compatible_devices?: string[];
+  compatible_userinterfaces?: string[];
+  device_adaptations?: Record<string, any>;
 }
 
 export interface Campaign {
@@ -66,4 +74,35 @@ export interface VerificationCondition {
   parameters: { [key: string]: any };
   timeout: number;
   critical: boolean; // If true, test fails if this condition fails
+}
+
+// AI-specific types - clean modern implementation
+export interface AIAnalysis {
+  feasibility: 'possible' | 'impossible' | 'partial';
+  reasoning: string;
+  required_capabilities: string[];
+  estimated_steps: number;
+  generated_at: string;
+}
+
+export interface AITestCaseRequest {
+  prompt: string;
+  device_model: string;
+  interface_name: string;
+}
+
+export interface CompatibilityResult {
+  interface_name: string;
+  compatible: boolean;
+  reasoning: string;
+  missing_capabilities?: string[];
+  required_nodes?: string[];
+  available_nodes?: string[];
+}
+
+export interface AITestCaseResponse {
+  success: boolean;
+  test_case?: TestCase;
+  compatibility_results?: CompatibilityResult[];
+  error?: string;
 }

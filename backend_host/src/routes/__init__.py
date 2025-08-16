@@ -6,6 +6,7 @@ from . import (
     host_control_routes,
     host_web_routes,
     host_aiagent_routes,
+    host_aitestcase_routes,
     host_verification_routes,
     host_power_routes,
     host_av_routes,
