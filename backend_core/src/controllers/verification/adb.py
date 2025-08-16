@@ -513,7 +513,17 @@ class ADBVerificationController(VerificationControllerInterface):
                 }
             
             # Optional parameters with defaults
-            timeout = int(params.get('timeout', 0))
+            timeout_ms = float(params.get('timeout', 0))
+            
+            # Convert milliseconds to seconds (system passes timeout in ms)
+            timeout = timeout_ms / 1000.0
+            
+            print(f"[@controller:ADBVerification] Timeout conversion: {timeout_ms}ms -> {timeout}s")
+            
+            # Validate timeout (prevent unreasonably large values)
+            if timeout > 60:  # 1 minute max
+                print(f"[@controller:ADBVerification] WARNING: Large timeout value {timeout}s detected, capping at 60s")
+                timeout = 60
             
             print(f"[@controller:ADBVerification] Executing {command} with search term: '{search_term}'")
             print(f"[@controller:ADBVerification] Parameters: timeout={timeout}")
