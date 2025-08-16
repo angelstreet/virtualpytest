@@ -404,6 +404,9 @@ def _create_reachability_based_validation_sequence(G, edges_to_validate: List[Tu
         # Insert forced transition if we're not where we need to be
         if current_position != current_node:
             forced_path = find_shortest_path_unified(tree_id, current_node, team_id, current_position)
+            if not forced_path:
+                # If no direct path, do a goto from none to target
+                forced_path = find_shortest_path_unified(tree_id, current_node, team_id)
             if forced_path:
                 for forced_step in forced_path:
                     forced_step['step_number'] = step_number
@@ -502,6 +505,9 @@ def _create_reachability_based_validation_sequence(G, edges_to_validate: List[Tu
         # Insert forced transition if we're not at the starting position
         if current_position != from_node:
             forced_path = find_shortest_path_unified(tree_id, from_node, team_id, current_position)
+            if not forced_path:
+                # If no direct path, do a goto from none to target
+                forced_path = find_shortest_path_unified(tree_id, from_node, team_id)
             if forced_path:
                 for forced_step in forced_path:
                     forced_step['step_number'] = step_number
