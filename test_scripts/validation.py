@@ -314,7 +314,9 @@ def capture_validation_summary(context: ScriptExecutionContext, userinterface_na
     context.recovered_steps = recovered_steps  # Update context for consistency
     
     lines = []
+    lines.append("-"*60)
     lines.append("🎯 [VALIDATION] EXECUTION SUMMARY")
+    lines.append("-"*60)
     lines.append(f"📱 Device: {context.selected_device.device_name} ({context.selected_device.device_model})")
     lines.append(f"🖥️  Host: {context.host.host_name}")
     lines.append(f"📋 Interface: {userinterface_name}")
