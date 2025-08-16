@@ -718,6 +718,7 @@ def _create_validation_step(G, from_node: str, to_node: str, edge_data: Dict, st
         'actions': actions,
         'retryActions': retry_actions,
         'action_set_id': action_set_used,  # Track which action set was used
+        'original_edge_data': edge_data,  # Pass the original edge with all action sets
         'verifications': verifications,
         'total_actions': len(actions),
         'total_retry_actions': len(retry_actions),
