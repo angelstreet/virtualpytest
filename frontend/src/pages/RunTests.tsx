@@ -926,8 +926,7 @@ const RunTests: React.FC = () => {
                         setShowWizard(false);
                         setSelectedHost('');
                         setSelectedDevice('');
-                        setScriptAnalysis(null);
-                        setParameterValues({});
+                        setAdditionalDevices([]);
                       }}
                       size="small"
                     >

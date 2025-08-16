@@ -94,8 +94,8 @@ export const useScript = (): UseScriptReturn => {
 
           // Poll for task completion
           const taskId = initialResult.task_id;
-          const pollInterval = 2000; // 2 seconds
-          const maxWaitTime = 300000; // 5 minutes
+          const pollInterval = 10000; // 10 seconds - less frequent polling for long scripts
+          const maxWaitTime = 7200000; // 2 hours - validation scripts can take very long
           const startTime = Date.now();
 
           while (Date.now() - startTime < maxWaitTime) {
@@ -163,8 +163,8 @@ export const useScript = (): UseScriptReturn => {
     hostName: string,
     onComplete: (result: ScriptExecutionResult) => void
   ): Promise<ScriptExecutionResult> => {
-    const pollInterval = 2000;
-    const maxWaitTime = 300000;
+    const pollInterval = 10000; // 10 seconds - less frequent polling for long scripts
+    const maxWaitTime = 7200000; // 2 hours - validation scripts can take very long
     const startTime = Date.now();
 
     while (Date.now() - startTime < maxWaitTime) {
