@@ -15,9 +15,9 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '../../../backend_core/s
 
 from controllers.ai.ai_agent import AIAgentController
 from controllers.controller_config_factory import get_device_capabilities
-from shared.lib.supabase.testcase_db import TestcaseDB
-from shared.lib.supabase.navigation_trees_db import NavigationTreesDB
-from shared.lib.supabase.userinterface_db import UserinterfaceDB
+from shared.lib.supabase.testcase_db import save_test_case, get_test_case
+from shared.lib.supabase.navigation_trees_db import get_full_tree, get_root_tree_for_interface
+from shared.lib.supabase.userinterface_db import get_all_userinterfaces, get_userinterface_by_name
 from shared.lib.utils.auth_utils import get_team_id
 from shared.lib.utils.proxy_utils import proxy_to_host
 
@@ -51,13 +51,15 @@ def generate_test_case():
         # Get device capabilities and navigation context
         device_capabilities = get_device_capabilities(device_model)
         
-        # Get navigation tree for interface
-        nav_db = NavigationTreesDB()
-        unified_graph = nav_db.get_unified_graph(interface_name, team_id)
+        # Get userinterface info for compatibility analysis  
+        userinterface_info = get_userinterface_by_name(interface_name, team_id)
         
-        # Get userinterface info for compatibility analysis
-        ui_db = UserinterfaceDB()
-        userinterface_info = ui_db.get_userinterface_by_name(interface_name, team_id)
+        # Get navigation tree for interface
+        if userinterface_info:
+            root_tree = get_root_tree_for_interface(userinterface_info.get('userinterface_id'), team_id)
+            unified_graph = get_full_tree(root_tree.get('tree_id'), team_id) if root_tree else None
+        else:
+            unified_graph = None
         
         if not userinterface_info:
             return jsonify({
@@ -127,9 +129,9 @@ def generate_test_case():
             'device_adaptations': compatibility_results.get('device_adaptations', {})
         }
         
-        # Store in database
-        test_cases_db = TestcaseDB()
-        stored_test_case = test_cases_db.create_test_case(test_case_data)
+        # Store in database  
+        save_test_case(test_case_data, team_id)
+        stored_test_case = test_case_data  # Return the data we just saved
         
         if not stored_test_case:
             return jsonify({
@@ -173,8 +175,7 @@ def execute_test_case():
             }), 400
         
         # Get test case from database
-        test_cases_db = TestcaseDB()
-        test_case = test_cases_db.get_test_case_by_id(test_case_id, team_id)
+        test_case = get_test_case(test_case_id, team_id)
         
         if not test_case:
             return jsonify({
@@ -223,8 +224,7 @@ def validate_compatibility():
             }), 400
         
         # Get test case
-        test_cases_db = TestcaseDB()
-        test_case = test_cases_db.get_test_case_by_id(test_case_id, team_id)
+        test_case = get_test_case(test_case_id, team_id)
         
         if not test_case:
             return jsonify({
@@ -261,11 +261,8 @@ def validate_compatibility():
 def analyze_userinterface_compatibility(ai_result, team_id, device_model):
     """Analyze compatibility across all userinterfaces - clean implementation"""
     try:
-        ui_db = UserinterfaceDB()
-        nav_db = NavigationTreesDB()
-        
         # Get all userinterfaces for this team
-        all_interfaces = ui_db.get_all_userinterfaces(team_id)
+        all_interfaces = get_all_userinterfaces(team_id)
         
         compatible_interfaces = []
         compatibility_analysis = []
@@ -294,7 +291,8 @@ def analyze_userinterface_compatibility(ai_result, team_id, device_model):
                 continue
             
             # Get navigation graph for this interface
-            unified_graph = nav_db.get_unified_graph(interface_name, team_id)
+            root_tree = get_root_tree_for_interface(interface.get('userinterface_id'), team_id)
+            unified_graph = get_full_tree(root_tree.get('tree_id'), team_id) if root_tree else None
             
             if not unified_graph:
                 compatibility_analysis.append({
@@ -351,10 +349,17 @@ def analyze_userinterface_compatibility(ai_result, team_id, device_model):
 def analyze_single_interface_compatibility(test_case, interface_name, team_id):
     """Analyze compatibility for a single interface"""
     try:
-        nav_db = NavigationTreesDB()
+        # Get userinterface info
+        userinterface_info = get_userinterface_by_name(interface_name, team_id)
+        if not userinterface_info:
+            return {
+                'compatible': False,
+                'reasoning': 'Userinterface not found'
+            }
         
         # Get navigation graph
-        unified_graph = nav_db.get_unified_graph(interface_name, team_id)
+        root_tree = get_root_tree_for_interface(userinterface_info.get('userinterface_id'), team_id)
+        unified_graph = get_full_tree(root_tree.get('tree_id'), team_id) if root_tree else None
         
         if not unified_graph:
             return {
