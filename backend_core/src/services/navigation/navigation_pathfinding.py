@@ -442,6 +442,9 @@ def _create_reachability_based_validation_sequence(G, edges_to_validate: List[Tu
                 
                 print(f"[@navigation:pathfinding:_create_reachability_based_validation_sequence] Step {validation_step['step_number']}: {from_label} → {to_label} (forward)")
                 step_number = validation_step['step_number'] + 1
+            else:
+                print(f"[@navigation:pathfinding:_create_reachability_based_validation_sequence] Skipping unreachable step: {from_label} → {to_label} (forward)")
+                step_number += 1
             
             # Update position: if target is action node, stay at current node, otherwise move to target
             child_node_info = get_node_info(G, child_node) or {}
@@ -495,11 +498,14 @@ def _create_reachability_based_validation_sequence(G, edges_to_validate: List[Tu
                 validation_sequence.extend(forced_steps)
                 if validation_step is not None:
                     validation_sequence.append(validation_step)
-                visited_edges.add(return_edge)
-                
-                print(f"[@navigation:pathfinding:_create_reachability_based_validation_sequence] Step {validation_step['step_number']}: {to_label} → {from_label} (return via {return_method})")
-                step_number = validation_step['step_number'] + 1
-                current_position = current_node
+                    visited_edges.add(return_edge)
+                    
+                    print(f"[@navigation:pathfinding:_create_reachability_based_validation_sequence] Step {validation_step['step_number']}: {to_label} → {from_label} (return via {return_method})")
+                    step_number = validation_step['step_number'] + 1
+                    current_position = current_node
+                else:
+                    print(f"[@navigation:pathfinding:_create_reachability_based_validation_sequence] Skipping unreachable return step: {to_label} → {from_label} (return via {return_method})")
+                    step_number += 1
             else:
                 # Strategy 4: No return path available - this is OK for unidirectional actions
                 print(f"[@navigation:pathfinding:_create_reachability_based_validation_sequence] No return path for: {to_label} → {from_label} (unidirectional action - OK)")
@@ -549,9 +555,14 @@ def _create_reachability_based_validation_sequence(G, edges_to_validate: List[Tu
             if validation_step is not None:
                 validation_sequence.append(validation_step)
                 visited_edges.add(edge)
-            
-            print(f"[@navigation:pathfinding:_create_reachability_based_validation_sequence] Step {validation_step['step_number']} (remaining): {from_label} → {to_label} ({step_type})")
-            step_number = validation_step['step_number'] + 1
+                
+                print(f"[@navigation:pathfinding:_create_reachability_based_validation_sequence] Step {validation_step['step_number']} (remaining): {from_label} → {to_label} ({step_type})")
+                step_number = validation_step['step_number'] + 1
+            else:
+                print(f"[@navigation:pathfinding:_create_reachability_based_validation_sequence] Skipping unreachable remaining step: {from_label} → {to_label} ({step_type})")
+                step_number += 1
+                # Don't update position if step is unreachable
+                continue
             
             # Update position: if target is action node, stay at from_node, otherwise move to to_node
             to_node_info = get_node_info(G, to_node) or {}
