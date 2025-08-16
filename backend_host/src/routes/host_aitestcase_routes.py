@@ -47,8 +47,12 @@ def execute_test_case():
             }), 500
         
         # Execute using existing script framework
-        script_executor = ScriptExecutor()
-        execution_result = script_executor.execute_script(script_config)
+        script_executor = ScriptExecutor(
+            script_name=f"ai_test_{test_case.get('test_id', 'unknown')}",
+            description=f"AI generated test: {test_case.get('original_prompt', 'Unknown')}"
+        )
+        
+        execution_result = execute_script(script_executor, script_config, device_id, team_id)
         
         if not execution_result:
             return jsonify({

@@ -18,10 +18,259 @@ from controllers.controller_config_factory import get_device_capabilities
 from shared.lib.supabase.testcase_db import save_test_case, get_test_case
 from shared.lib.supabase.navigation_trees_db import get_full_tree, get_root_tree_for_interface
 from shared.lib.supabase.userinterface_db import get_all_userinterfaces, get_userinterface_by_name
+from shared.lib.supabase.ai_analysis_cache_db import save_analysis_cache, get_analysis_cache
 from shared.lib.utils.app_utils import get_team_id
 from shared.lib.utils.route_utils import proxy_to_host
 
-server_aitestcase_bp = Blueprint('server_aitestcase', __name__, url_prefix='/server/aitestcase')
+server_aitestcase_bp = Blueprint('server_aitestcase', __name__, url_prefix='/server')
+
+@server_aitestcase_bp.route('/analyzeTestCase', methods=['POST'])
+def analyze_test_case():
+    """
+    STEP 1: Analyze test case compatibility against ALL userinterfaces
+    
+    Input: { "prompt": "Go to live and check audio" }
+    
+    Output: { 
+        "analysis_id": "uuid",
+        "understanding": "Navigate to live TV and verify audio functionality",
+        "compatibility_matrix": {
+            "compatible_userinterfaces": ["horizon_android_mobile", "horizon_android_tv"],
+            "incompatible": ["web_interface"],
+            "reasons": {"horizon_android_mobile": "Has required navigation and audio verification"}
+        },
+        "requires_multiple_testcases": false,
+        "estimated_complexity": "medium"
+    }
+    """
+    try:
+        team_id = get_team_id()
+        request_data = request.get_json() or {}
+        prompt = request_data.get('prompt')
+        
+        if not prompt:
+            return jsonify({'success': False, 'error': 'Prompt is required'}), 400
+        
+        print(f"[@route:server_aitestcase:analyze] Analyzing prompt: {prompt}")
+        
+        # Get all available userinterfaces for this team
+        userinterfaces = get_all_userinterfaces(team_id)
+        
+        if not userinterfaces:
+            return jsonify({
+                'success': False, 
+                'error': 'No userinterfaces found for analysis'
+            }), 404
+        
+        # Initialize AI agent
+        ai_agent = AIAgentController()
+        
+        # Analyze compatibility with each userinterface
+        compatibility_results = []
+        
+        for ui in userinterfaces:
+            try:
+                # Get navigation graph for this interface
+                root_tree = get_root_tree_for_interface(ui.get('userinterface_id'), team_id)
+                unified_graph = get_full_tree(root_tree.get('tree_id'), team_id) if root_tree else None
+                
+                # Prepare analysis context
+                analysis_context = {
+                    'prompt': prompt,
+                    'userinterface_name': ui['name'],
+                    'navigation_nodes': list(unified_graph.get('nodes', {}).keys()) if unified_graph else [],
+                    'available_actions': ['click_element', 'navigate', 'wait', 'press_key'],
+                    'available_verifications': ['verify_image', 'verify_audio', 'verify_video', 'verify_text']
+                }
+                
+                # Quick compatibility analysis using AI agent
+                compatibility = ai_agent.execute_task(
+                    f"Analyze feasibility: Can '{prompt}' be executed on interface '{ui['name']}'?",
+                    available_actions=[],  # Simplified for analysis
+                    available_verifications=[],
+                    device_model=None,
+                    userinterface_name=ui['name']
+                )
+                
+                is_compatible = compatibility.get('success', False) and 'impossible' not in compatibility.get('reasoning', '').lower()
+                
+                compatibility_results.append({
+                    'userinterface': ui['name'],
+                    'compatible': is_compatible,
+                    'reasoning': compatibility.get('reasoning', 'AI analysis completed'),
+                    'confidence': compatibility.get('confidence', 0.7)
+                })
+                
+            except Exception as e:
+                print(f"Error analyzing {ui['name']}: {e}")
+                compatibility_results.append({
+                    'userinterface': ui['name'],
+                    'compatible': False,
+                    'reasoning': f'Analysis failed: {str(e)}',
+                    'confidence': 0.0
+                })
+        
+        # Separate compatible and incompatible interfaces
+        compatible = [r for r in compatibility_results if r['compatible']]
+        incompatible = [r for r in compatibility_results if not r['compatible']]
+        
+        # Generate unique analysis ID
+        analysis_id = str(uuid.uuid4())
+        
+        # Build analysis result
+        analysis_result = {
+            'analysis_id': analysis_id,
+            'understanding': f"AI analysis: {prompt}",
+            'compatibility_matrix': {
+                'compatible_userinterfaces': [ui['userinterface'] for ui in compatible],
+                'incompatible': [ui['userinterface'] for ui in incompatible],
+                'reasons': {ui['userinterface']: ui['reasoning'] for ui in compatibility_results}
+            },
+            'requires_multiple_testcases': len(compatible) > 1,
+            'estimated_complexity': 'medium',
+            'total_analyzed': len(userinterfaces),
+            'compatible_count': len(compatible)
+        }
+        
+        # Cache analysis result
+        save_analysis_cache(
+            analysis_id, 
+            prompt, 
+            analysis_result, 
+            analysis_result['compatibility_matrix'], 
+            team_id
+        )
+        
+        print(f"[@route:server_aitestcase:analyze] Analysis complete. Compatible: {len(compatible)}/{len(userinterfaces)}")
+        
+        return jsonify(analysis_result)
+        
+    except Exception as e:
+        print(f"Analysis error: {e}")
+        return jsonify({
+            'success': False,
+            'error': f'Analysis failed: {str(e)}'
+        }), 500
+
+@server_aitestcase_bp.route('/generateTestCases', methods=['POST'])
+def generate_test_cases():
+    """
+    STEP 2: Generate actual test cases for confirmed userinterfaces
+    
+    Input: { 
+        "analysis_id": "uuid",
+        "confirmed_userinterfaces": ["horizon_android_mobile", "horizon_android_tv"]
+    }
+    
+    Output: {
+        "success": true,
+        "generated_testcases": [
+            {
+                "id": "uuid",
+                "name": "Go to live and check audio - Android Mobile",
+                "creator": "ai",
+                "original_prompt": "Go to live and check audio",
+                "steps": [...],
+                "compatible_userinterfaces": ["horizon_android_mobile"]
+            }
+        ]
+    }
+    """
+    try:
+        team_id = get_team_id()
+        request_data = request.get_json() or {}
+        analysis_id = request_data.get('analysis_id')
+        confirmed_interfaces = request_data.get('confirmed_userinterfaces', [])
+        
+        if not analysis_id or not confirmed_interfaces:
+            return jsonify({
+                'success': False,
+                'error': 'analysis_id and confirmed_userinterfaces are required'
+            }), 400
+        
+        print(f"[@route:server_aitestcase:generate] Generating for interfaces: {confirmed_interfaces}")
+        
+        # Retrieve cached analysis
+        cached_analysis = get_analysis_cache(analysis_id, team_id)
+        
+        if not cached_analysis:
+            return jsonify({
+                'success': False,
+                'error': 'Analysis not found or expired. Please run analysis again.'
+            }), 404
+        
+        original_prompt = cached_analysis['prompt']
+        
+        # Generate test cases for each confirmed interface
+        ai_agent = AIAgentController()
+        generated_testcases = []
+        
+        for interface_name in confirmed_interfaces:
+            try:
+                print(f"[@route:server_aitestcase:generate] Generating for {interface_name}")
+                
+                # Get interface data and navigation graph
+                interface_data = get_userinterface_by_name(interface_name, team_id)
+                root_tree = get_root_tree_for_interface(interface_data.get('userinterface_id'), team_id)
+                unified_graph = get_full_tree(root_tree.get('tree_id'), team_id) if root_tree else None
+                
+                # Generate specific test case using AI agent
+                test_case_result = ai_agent.execute_task(
+                    task_description=original_prompt,
+                    available_actions=[],  # Will be populated by AI agent
+                    available_verifications=[],
+                    device_model=None,  # Generic for now
+                    userinterface_name=interface_name
+                )
+                
+                if test_case_result.get('success', True):
+                    # Create test case object
+                    test_case = {
+                        'test_id': str(uuid.uuid4()),
+                        'name': f"{original_prompt} - {interface_name}",
+                        'test_type': 'functional',
+                        'start_node': test_case_result.get('start_node', ''),
+                        'steps': test_case_result.get('steps', []),
+                        'creator': 'ai',
+                        'original_prompt': original_prompt,
+                        'ai_analysis': {
+                            'analysis_id': analysis_id,
+                            'generated_at': datetime.utcnow().isoformat(),
+                            'interface_specific': True
+                        },
+                        'compatible_userinterfaces': [interface_name],
+                        'verification_conditions': test_case_result.get('verification_conditions', []),
+                        'expected_results': test_case_result.get('expected_results', {}),
+                        'execution_config': test_case_result.get('execution_config', {}),
+                        'tags': ['ai-generated', interface_name],
+                        'priority': 2,
+                        'estimated_duration': test_case_result.get('estimated_duration', 60)
+                    }
+                    
+                    # Save to database
+                    saved_test_case = save_test_case(test_case, team_id)
+                    generated_testcases.append(saved_test_case)
+                    
+                    print(f"[@route:server_aitestcase:generate] Generated test case: {saved_test_case.get('test_id')}")
+                    
+                else:
+                    print(f"Generation failed for {interface_name}: {test_case_result.get('error')}")
+                    
+            except Exception as e:
+                print(f"Error generating test case for {interface_name}: {e}")
+        
+        return jsonify({
+            'success': True,
+            'generated_testcases': generated_testcases,
+            'total_generated': len(generated_testcases)
+        })
+        
+    except Exception as e:
+        print(f"Generation error: {e}")
+        return jsonify({
+            'success': False,
+            'error': f'Generation failed: {str(e)}'
+        }), 500
 
 @server_aitestcase_bp.route('/generateTestCase', methods=['POST'])
 def generate_test_case():

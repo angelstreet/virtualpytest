@@ -78,13 +78,47 @@ export interface VerificationCondition {
 
 // AI-specific types - clean modern implementation
 export interface AIAnalysis {
+  analysis_id?: string;
   feasibility: 'possible' | 'impossible' | 'partial';
   reasoning: string;
   required_capabilities: string[];
   estimated_steps: number;
   generated_at: string;
+  interface_specific?: boolean;
 }
 
+// Two-step analysis types
+export interface AIAnalysisRequest {
+  prompt: string;
+}
+
+export interface AIAnalysisResponse {
+  analysis_id: string;
+  understanding: string;
+  compatibility_matrix: {
+    compatible_userinterfaces: string[];
+    incompatible: string[];
+    reasons: Record<string, string>;
+  };
+  requires_multiple_testcases: boolean;
+  estimated_complexity: 'low' | 'medium' | 'high';
+  total_analyzed: number;
+  compatible_count: number;
+}
+
+export interface AIGenerationRequest {
+  analysis_id: string;
+  confirmed_userinterfaces: string[];
+}
+
+export interface AIGenerationResponse {
+  success: boolean;
+  generated_testcases: TestCase[];
+  total_generated: number;
+  error?: string;
+}
+
+// Legacy types for compatibility
 export interface AITestCaseRequest {
   prompt: string;
   device_model: string;

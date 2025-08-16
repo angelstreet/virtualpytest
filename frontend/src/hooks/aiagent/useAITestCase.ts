@@ -7,15 +7,106 @@ import { useState, useCallback } from 'react';
 import { 
   AITestCaseRequest, 
   AITestCaseResponse, 
-  CompatibilityResult
+  CompatibilityResult,
+  AIAnalysisRequest,
+  AIAnalysisResponse,
+  AIGenerationRequest,
+  TestCase
 } from '../../types/pages/TestCase_Types';
 
 export const useAITestCase = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isExecuting, setIsExecuting] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [compatibilityResults, setCompatibilityResults] = useState<CompatibilityResult[]>([]);
   const [error, setError] = useState<string | null>(null);
 
+  // Two-step process: Step 1 - Analysis
+  const analyzeTestCase = useCallback(async (prompt: string): Promise<AIAnalysisResponse> => {
+    setIsAnalyzing(true);
+    setError(null);
+
+    try {
+      console.log('[@useAITestCase:analyzeTestCase] Starting analysis for prompt:', prompt);
+
+      const response = await fetch('/server/analyzeTestCase', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Team-ID': localStorage.getItem('team_id') || '',
+          'X-User-ID': localStorage.getItem('user_id') || ''
+        },
+        body: JSON.stringify({ prompt } as AIAnalysisRequest)
+      });
+
+      if (!response.ok) {
+        throw new Error(`Analysis failed: ${response.status} ${response.statusText}`);
+      }
+
+      const result = await response.json() as AIAnalysisResponse;
+      console.log('[@useAITestCase:analyzeTestCase] Analysis completed:', result.compatible_count, 'compatible interfaces');
+
+      return result;
+
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Analysis failed';
+      console.error('[@useAITestCase:analyzeTestCase] Error:', errorMessage);
+      setError(errorMessage);
+      throw new Error(errorMessage);
+    } finally {
+      setIsAnalyzing(false);
+    }
+  }, []);
+
+  // Two-step process: Step 2 - Generation
+  const generateTestCases = useCallback(async (
+    analysisId: string, 
+    confirmedInterfaces: string[]
+  ): Promise<TestCase[]> => {
+    setIsGenerating(true);
+    setError(null);
+
+    try {
+      console.log('[@useAITestCase:generateTestCases] Generating for interfaces:', confirmedInterfaces);
+
+      const response = await fetch('/server/generateTestCases', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Team-ID': localStorage.getItem('team_id') || '',
+          'X-User-ID': localStorage.getItem('user_id') || ''
+        },
+        body: JSON.stringify({
+          analysis_id: analysisId,
+          confirmed_userinterfaces: confirmedInterfaces
+        } as AIGenerationRequest)
+      });
+
+      if (!response.ok) {
+        throw new Error(`Generation failed: ${response.status} ${response.statusText}`);
+      }
+
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.error || 'Generation failed');
+      }
+
+      console.log('[@useAITestCase:generateTestCases] Generated', result.total_generated, 'test cases');
+
+      return result.generated_testcases;
+
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Generation failed';
+      console.error('[@useAITestCase:generateTestCases] Error:', errorMessage);
+      setError(errorMessage);
+      throw new Error(errorMessage);
+    } finally {
+      setIsGenerating(false);
+    }
+  }, []);
+
+  // Legacy single-step generation (kept for compatibility)
   const generateTestCase = useCallback(async (request: AITestCaseRequest): Promise<AITestCaseResponse> => {
     setIsGenerating(true);
     setError(null);
@@ -169,7 +260,11 @@ export const useAITestCase = () => {
   }, []);
 
   return {
-    // Actions
+    // Two-step process actions
+    analyzeTestCase,
+    generateTestCases,
+    
+    // Legacy actions
     generateTestCase,
     executeTestCase,
     validateCompatibility,
@@ -177,6 +272,7 @@ export const useAITestCase = () => {
     clearCompatibilityResults,
     
     // State
+    isAnalyzing,
     isGenerating,
     isExecuting,
     compatibilityResults,

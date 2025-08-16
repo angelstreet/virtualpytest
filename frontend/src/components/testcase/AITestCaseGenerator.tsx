@@ -1,190 +1,361 @@
 /**
- * AI Test Case Generator Component - Clean Modern Implementation
- * No fallbacks, no legacy code, minimalist UI
+ * AI Test Case Generator Component - Two-Step Process
+ * Step 1: Analysis -> Step 2: Generation
+ * Clean modern implementation with no fallbacks
  */
 
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
+import {
+  Box,
+  TextField,
+  Button,
+  Typography,
+  Alert,
+  CircularProgress,
+  Card,
+  Checkbox,
+  FormControlLabel,
+  List,
+  ListItem,
+  ListItemText,
+  Divider,
+  Chip,
+  Stack
+} from '@mui/material';
+import { 
+  AutoAwesome as AIIcon,
+  Analytics as AnalyticsIcon,
+  Check as CheckIcon,
+  Warning as WarningIcon
+} from '@mui/icons-material';
+
 import { useAITestCase } from '../../hooks/aiagent/useAITestCase';
-import { TestCase, AITestCaseRequest } from '../../types/pages/TestCase_Types';
+import { AIAnalysisResponse, TestCase } from '../../types/pages/TestCase_Types';
 
 interface AITestCaseGeneratorProps {
-  onTestCaseGenerated: (testCase: TestCase) => void;
+  onTestCasesCreated: (testCases: TestCase[]) => void;
+  onCancel: () => void;
 }
 
-export const AITestCaseGenerator: React.FC<AITestCaseGeneratorProps> = ({
-  onTestCaseGenerated
-}) => {
-  const [prompt, setPrompt] = useState('');
-  const [deviceModel, setDeviceModel] = useState('');
-  const [interfaceName, setInterfaceName] = useState('');
+type GenerationStep = 'input' | 'analysis' | 'generation';
 
-  const {
-    generateTestCase,
-    isGenerating,
-    compatibilityResults,
-    error,
-    clearError
+export const AITestCaseGenerator: React.FC<AITestCaseGeneratorProps> = ({
+  onTestCasesCreated,
+  onCancel
+}) => {
+  // State management
+  const [currentStep, setCurrentStep] = useState<GenerationStep>('input');
+  const [prompt, setPrompt] = useState('');
+  const [analysis, setAnalysis] = useState<AIAnalysisResponse | null>(null);
+  const [selectedInterfaces, setSelectedInterfaces] = useState<string[]>([]);
+  
+  // Hook for AI operations
+  const { 
+    analyzeTestCase, 
+    generateTestCases, 
+    isAnalyzing, 
+    isGenerating, 
+    error 
   } = useAITestCase();
 
-  const handleGenerate = async () => {
-    if (!prompt.trim() || !deviceModel || !interfaceName) {
-      return;
+  // Helper function to get sample prompts
+  const getSamplePrompts = () => [
+    "Go to live and check audio",
+    "Navigate to settings and change language to English", 
+    "Go to live TV and zap 3 times, verify audio and video each time",
+    "Open recordings and play the first video",
+    "Check system information and verify all details are correct"
+  ];
+
+  // Step 1: Handle analysis
+  const handleAnalyze = useCallback(async () => {
+    if (!prompt.trim()) return;
+
+    try {
+      const analysisResult = await analyzeTestCase(prompt);
+      setAnalysis(analysisResult);
+      setCurrentStep('analysis');
+      
+      // Pre-select all compatible interfaces by default
+      setSelectedInterfaces(analysisResult.compatibility_matrix.compatible_userinterfaces);
+    } catch (err) {
+      console.error('Analysis failed:', err);
+      // Error is already handled by the hook
     }
+  }, [prompt, analyzeTestCase]);
 
-    clearError();
+  // Step 2: Handle generation
+  const handleGenerate = useCallback(async () => {
+    if (!analysis || selectedInterfaces.length === 0) return;
 
-    const request: AITestCaseRequest = {
-      prompt: prompt.trim(),
-      device_model: deviceModel,
-      interface_name: interfaceName
+    try {
+      const generatedTestCases = await generateTestCases(
+        analysis.analysis_id,
+        selectedInterfaces
+      );
+      
+      if (generatedTestCases.length > 0) {
+        onTestCasesCreated(generatedTestCases);
+      }
+    } catch (err) {
+      console.error('Generation failed:', err);
+      // Error is already handled by the hook
+    }
+  }, [analysis, selectedInterfaces, generateTestCases, onTestCasesCreated]);
+
+  // Interface toggle handler
+  const handleInterfaceToggle = useCallback((interfaceName: string) => {
+    setSelectedInterfaces(prev => 
+      prev.includes(interfaceName)
+        ? prev.filter(name => name !== interfaceName)
+        : [...prev, interfaceName]
+    );
+  }, []);
+
+  // Helper to get devices for an interface (mock data for now)
+  const getDevicesForInterface = useCallback((interfaceName: string): string[] => {
+    // This would come from actual device data in production
+    const deviceMap: Record<string, string[]> = {
+      'horizon_android_mobile': ['Samsung Galaxy', 'Pixel 6'],
+      'horizon_android_tv': ['NVIDIA Shield', 'Sony Bravia'],
+      'web_interface': ['Chrome Browser', 'Firefox Browser']
     };
+    return deviceMap[interfaceName] || ['Compatible Device'];
+  }, []);
 
-    const result = await generateTestCase(request);
+  // Render Step 1: Input
+  const renderInputStep = () => (
+    <Box sx={{ minHeight: 400 }}>
+      <Stack spacing={3}>
+        <Box sx={{ textAlign: 'center' }}>
+          <AIIcon sx={{ fontSize: 48, color: 'primary.main', mb: 2 }} />
+          <Typography variant="h5" gutterBottom>
+            🤖 Describe Your Test Case
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Use natural language to describe what you want to test
+          </Typography>
+        </Box>
 
-    if (result.success && result.test_case) {
-      onTestCaseGenerated(result.test_case);
-      setPrompt(''); // Clear form on success
-    }
+        <TextField
+          fullWidth
+          multiline
+          rows={4}
+          placeholder="Example: Go to live and check audio"
+          value={prompt}
+          onChange={(e) => setPrompt(e.target.value)}
+          variant="outlined"
+          sx={{ 
+            '& .MuiOutlinedInput-root': {
+              fontSize: '1.1rem'
+            }
+          }}
+        />
+
+        {/* Sample prompts */}
+        <Box>
+          <Typography variant="subtitle2" gutterBottom>
+            Sample prompts:
+          </Typography>
+          <Stack direction="row" spacing={1} flexWrap="wrap" gap={1}>
+            {getSamplePrompts().map((sample, index) => (
+              <Chip
+                key={index}
+                label={sample}
+                variant="outlined"
+                size="small"
+                onClick={() => setPrompt(sample)}
+                sx={{ cursor: 'pointer' }}
+              />
+            ))}
+          </Stack>
+        </Box>
+
+        <Stack direction="row" justifyContent="space-between" sx={{ mt: 4 }}>
+          <Button onClick={onCancel} variant="outlined">
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleAnalyze}
+            disabled={!prompt.trim() || isAnalyzing}
+            startIcon={isAnalyzing ? <CircularProgress size={16} /> : <AnalyticsIcon />}
+            size="large"
+          >
+            {isAnalyzing ? 'Analyzing...' : 'Analyze Compatibility'}
+          </Button>
+        </Stack>
+      </Stack>
+    </Box>
+  );
+
+  // Render Step 2: Analysis Results
+  const renderAnalysisStep = () => {
+    if (!analysis) return null;
+
+    const { compatibility_matrix } = analysis;
+    const hasCompatible = compatibility_matrix.compatible_userinterfaces.length > 0;
+    const hasIncompatible = compatibility_matrix.incompatible.length > 0;
+
+    return (
+      <Box sx={{ minHeight: 400 }}>
+        <Stack spacing={3}>
+          <Box sx={{ textAlign: 'center' }}>
+            <AnalyticsIcon sx={{ fontSize: 48, color: 'success.main', mb: 2 }} />
+            <Typography variant="h5" gutterBottom>
+              🔍 Compatibility Analysis
+            </Typography>
+          </Box>
+
+          {/* AI Understanding */}
+          <Alert severity="info">
+            <Typography variant="subtitle2">AI Understanding:</Typography>
+            <Typography>{analysis.understanding}</Typography>
+          </Alert>
+
+          {/* Analysis Stats */}
+          <Box sx={{ display: 'flex', justifyContent: 'center', gap: 3 }}>
+            <Chip 
+              label={`${analysis.compatible_count} Compatible`} 
+              color="success" 
+              icon={<CheckIcon />}
+            />
+            <Chip 
+              label={`${analysis.total_analyzed} Total Analyzed`} 
+              variant="outlined"
+            />
+            <Chip 
+              label={analysis.estimated_complexity.toUpperCase()} 
+              color={analysis.estimated_complexity === 'low' ? 'success' : 
+                     analysis.estimated_complexity === 'medium' ? 'warning' : 'error'}
+            />
+          </Box>
+
+          {/* Compatible Interfaces */}
+          {hasCompatible && (
+            <Box>
+              <Typography variant="h6" gutterBottom>
+                ✅ Compatible User Interfaces
+              </Typography>
+              <List>
+                {compatibility_matrix.compatible_userinterfaces.map((interfaceName) => (
+                  <ListItem key={interfaceName} sx={{ pl: 0 }}>
+                    <Card sx={{ width: '100%', p: 2 }}>
+                      <FormControlLabel
+                        control={
+                          <Checkbox
+                            checked={selectedInterfaces.includes(interfaceName)}
+                            onChange={() => handleInterfaceToggle(interfaceName)}
+                          />
+                        }
+                        label={
+                          <Box>
+                            <Typography variant="body1" fontWeight="bold">
+                              {interfaceName}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">
+                              Compatible devices: {getDevicesForInterface(interfaceName).join(', ')}
+                            </Typography>
+                            <Typography variant="caption" color="success.main">
+                              ✅ {compatibility_matrix.reasons[interfaceName]}
+                            </Typography>
+                          </Box>
+                        }
+                      />
+                    </Card>
+                  </ListItem>
+                ))}
+              </List>
+            </Box>
+          )}
+
+          {/* Incompatible Interfaces */}
+          {hasIncompatible && (
+            <Box>
+              <Typography variant="h6" gutterBottom>
+                ⚠️ Incompatible User Interfaces
+              </Typography>
+              <Alert severity="warning">
+                <List dense>
+                  {compatibility_matrix.incompatible.map((interfaceName) => (
+                    <ListItem key={interfaceName} sx={{ pl: 0 }}>
+                      <ListItemText
+                        primary={<strong>{interfaceName}</strong>}
+                        secondary={compatibility_matrix.reasons[interfaceName]}
+                      />
+                    </ListItem>
+                  ))}
+                </List>
+              </Alert>
+            </Box>
+          )}
+
+          {/* Action Buttons */}
+          <Stack direction="row" justifyContent="space-between" sx={{ mt: 4 }}>
+            <Button 
+              onClick={() => setCurrentStep('input')} 
+              variant="outlined"
+            >
+              Back
+            </Button>
+            <Button
+              variant="contained"
+              onClick={handleGenerate}
+              disabled={selectedInterfaces.length === 0 || isGenerating}
+              startIcon={isGenerating ? <CircularProgress size={16} /> : <AIIcon />}
+              size="large"
+            >
+              {isGenerating 
+                ? 'Generating...' 
+                : `Generate ${selectedInterfaces.length} Test Case${selectedInterfaces.length !== 1 ? 's' : ''}`
+              }
+            </Button>
+          </Stack>
+        </Stack>
+      </Box>
+    );
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && e.ctrlKey) {
-      handleGenerate();
-    }
-  };
-
-  const isFormValid = prompt.trim() && deviceModel && interfaceName;
+  // Render Step 3: Generation Progress
+  const renderGenerationStep = () => (
+    <Box sx={{ minHeight: 400, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <Stack spacing={3} alignItems="center">
+        <CircularProgress size={80} />
+        <Typography variant="h5" textAlign="center">
+          🔧 Generating Test Cases...
+        </Typography>
+        <Typography variant="body1" color="text.secondary" textAlign="center">
+          Creating {selectedInterfaces.length} executable test case{selectedInterfaces.length !== 1 ? 's' : ''} 
+          <br />for selected user interfaces
+        </Typography>
+        <Box sx={{ mt: 2 }}>
+          {selectedInterfaces.map((interfaceName, index) => (
+            <Chip 
+              key={interfaceName}
+              label={interfaceName}
+              variant="outlined"
+              sx={{ mr: 1, mb: 1 }}
+            />
+          ))}
+        </Box>
+      </Stack>
+    </Box>
+  );
 
   return (
-    <div className="ai-test-case-generator bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-      <div className="flex items-center gap-3 mb-6">
-        <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
-          <span className="text-white text-sm font-semibold">AI</span>
-        </div>
-        <h3 className="text-lg font-semibold text-gray-900">Generate Test Case</h3>
-      </div>
-
-      <div className="space-y-4">
-        {/* Prompt Input */}
-        <div>
-          <label htmlFor="ai-prompt" className="block text-sm font-medium text-gray-700 mb-2">
-            Test Case Description
-          </label>
-          <textarea
-            id="ai-prompt"
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-            onKeyDown={handleKeyPress}
-            placeholder="Describe what you want to test (e.g., 'Go to live zap 3 times for each zap check audio video')"
-            rows={3}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-            disabled={isGenerating}
-          />
-          <p className="text-xs text-gray-500 mt-1">
-            Tip: Press Ctrl+Enter to generate
-          </p>
-        </div>
-
-        {/* Device and Interface Selection */}
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label htmlFor="device-model" className="block text-sm font-medium text-gray-700 mb-2">
-              Device Model
-            </label>
-            <select
-              id="device-model"
-              value={deviceModel}
-              onChange={(e) => setDeviceModel(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              disabled={isGenerating}
-            >
-              <option value="">Select device...</option>
-              <option value="android_mobile">Android Mobile</option>
-              <option value="android_tv">Android TV</option>
-              <option value="web_browser">Web Browser</option>
-            </select>
-          </div>
-
-          <div>
-            <label htmlFor="interface-name" className="block text-sm font-medium text-gray-700 mb-2">
-              User Interface
-            </label>
-            <select
-              id="interface-name"
-              value={interfaceName}
-              onChange={(e) => setInterfaceName(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              disabled={isGenerating}
-            >
-              <option value="">Select interface...</option>
-              <option value="horizon_android_mobile">Horizon Android Mobile</option>
-              <option value="horizon_android_tv">Horizon Android TV</option>
-              <option value="horizon_web_browser">Horizon Web Browser</option>
-            </select>
-          </div>
-        </div>
-
-        {/* Generate Button */}
-        <button
-          onClick={handleGenerate}
-          disabled={!isFormValid || isGenerating}
-          className={`w-full py-2 px-4 rounded-md font-medium transition-colors ${
-            isFormValid && !isGenerating
-              ? 'bg-blue-600 hover:bg-blue-700 text-white'
-              : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-          }`}
-        >
-          {isGenerating ? (
-            <div className="flex items-center justify-center gap-2">
-              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-              <span>Generating...</span>
-            </div>
-          ) : (
-            '🚀 Generate Test Case'
-          )}
-        </button>
-      </div>
-
+    <Box sx={{ width: '100%' }}>
       {/* Error Display */}
       {error && (
-        <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-md">
-          <div className="flex items-start gap-2">
-            <span className="text-red-500 text-sm">❌</span>
-            <span className="text-red-700 text-sm">{error}</span>
-          </div>
-        </div>
+        <Alert severity="error" sx={{ mb: 3 }}>
+          <Typography variant="subtitle2">Error:</Typography>
+          <Typography>{error}</Typography>
+        </Alert>
       )}
 
-      {/* Compatibility Results */}
-      {compatibilityResults.length > 0 && (
-        <div className="mt-4 p-4 bg-gray-50 border border-gray-200 rounded-md">
-          <h4 className="text-sm font-medium text-gray-900 mb-3">💡 Compatibility Analysis</h4>
-          <div className="space-y-2">
-            {compatibilityResults.map((result, index) => (
-              <div
-                key={index}
-                className={`flex items-center justify-between p-2 rounded ${
-                  result.compatible
-                    ? 'bg-green-100 border border-green-200'
-                    : 'bg-red-100 border border-red-200'
-                }`}
-              >
-                <div className="flex items-center gap-2">
-                  <span className={`text-sm ${result.compatible ? 'text-green-700' : 'text-red-700'}`}>
-                    {result.compatible ? '✅' : '❌'}
-                  </span>
-                  <span className="text-sm font-medium text-gray-900">
-                    {result.interface_name}
-                  </span>
-                </div>
-                <span className={`text-xs ${result.compatible ? 'text-green-600' : 'text-red-600'}`}>
-                  {result.compatible ? 'Compatible' : 'Not Compatible'}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
+      {/* Step Content */}
+      {currentStep === 'input' && renderInputStep()}
+      {currentStep === 'analysis' && renderAnalysisStep()}
+      {currentStep === 'generation' && renderGenerationStep()}
+    </Box>
   );
 };
