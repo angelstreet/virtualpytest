@@ -41,6 +41,8 @@ import React, { useState, useEffect } from 'react';
 
 // Import registration context
 import { TestCase } from '../types';
+import { AITestCaseGenerator } from '../components/testcase/AITestCaseGenerator';
+import { TestCase as AITestCase } from '../types/pages/TestCase_Types';
 
 interface TabPanelProps {
   children?: React.ReactNode;
