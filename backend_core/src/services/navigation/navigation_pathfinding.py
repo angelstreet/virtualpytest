@@ -395,10 +395,22 @@ def _create_reachability_based_validation_sequence(G, edges_to_validate: List[Tu
     validation_sequence = []
     visited_edges = set()
     step_number = 1
+    current_position = entry_points[0] if entry_points else None
     
     def depth_first_traversal(current_node, parent_node=None):
         """Recursively traverse depth-first, going as deep as possible then coming back"""
-        nonlocal step_number
+        nonlocal step_number, current_position
+        
+        # Insert forced transition if we're not where we need to be
+        if current_position != current_node:
+            forced_path = find_shortest_path_unified(tree_id, current_node, team_id, current_position)
+            if forced_path:
+                for forced_step in forced_path:
+                    forced_step['step_number'] = step_number
+                    forced_step['step_type'] = 'forced_transition'
+                    validation_sequence.append(forced_step)
+                    step_number += 1
+                current_position = current_node
         
         if current_node not in adjacency:
             return
@@ -423,6 +435,7 @@ def _create_reachability_based_validation_sequence(G, edges_to_validate: List[Tu
             
             print(f"[@navigation:pathfinding:_create_reachability_based_validation_sequence] Step {step_number}: {from_label} → {to_label} (forward)")
             step_number += 1
+            current_position = child_node
             
             # Recursively go deeper into this child's branch
             depth_first_traversal(child_node, current_node)
@@ -469,6 +482,7 @@ def _create_reachability_based_validation_sequence(G, edges_to_validate: List[Tu
                 
                 print(f"[@navigation:pathfinding:_create_reachability_based_validation_sequence] Step {step_number}: {to_label} → {from_label} (return via {return_method})")
                 step_number += 1
+                current_position = current_node
             else:
                 # Strategy 4: No return path available - this is OK for unidirectional actions
                 print(f"[@navigation:pathfinding:_create_reachability_based_validation_sequence] No return path for: {to_label} → {from_label} (unidirectional action - OK)")
@@ -484,6 +498,18 @@ def _create_reachability_based_validation_sequence(G, edges_to_validate: List[Tu
     
     for edge in remaining_edges:
         from_node, to_node = edge
+        
+        # Insert forced transition if we're not at the starting position
+        if current_position != from_node:
+            forced_path = find_shortest_path_unified(tree_id, from_node, team_id, current_position)
+            if forced_path:
+                for forced_step in forced_path:
+                    forced_step['step_number'] = step_number
+                    forced_step['step_type'] = 'forced_transition'
+                    validation_sequence.append(forced_step)
+                    step_number += 1
+                current_position = from_node
+        
         from_info = get_node_info(G, from_node) or {}
         to_info = get_node_info(G, to_node) or {}
         from_label = from_info.get('label', from_node)
@@ -516,6 +542,7 @@ def _create_reachability_based_validation_sequence(G, edges_to_validate: List[Tu
             
             print(f"[@navigation:pathfinding:_create_reachability_based_validation_sequence] Step {step_number} (remaining): {from_label} → {to_label} ({step_type})")
             step_number += 1
+            current_position = to_node
         else:
             print(f"[@navigation:pathfinding:_create_reachability_based_validation_sequence] Skipping edge with empty actions: {from_label} → {to_label}")
     
