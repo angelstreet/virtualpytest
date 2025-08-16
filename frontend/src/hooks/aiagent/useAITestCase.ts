@@ -29,7 +29,7 @@ export const useAITestCase = () => {
     try {
       console.log('[@useAITestCase:analyzeTestCase] Starting analysis for prompt:', prompt);
 
-      const response = await fetch('/server/analyzeTestCase', {
+      const response = await fetch('/server/aitestcase/analyzeTestCase', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -69,7 +69,7 @@ export const useAITestCase = () => {
     try {
       console.log('[@useAITestCase:generateTestCases] Generating for interfaces:', confirmedInterfaces);
 
-      const response = await fetch('/server/generateTestCases', {
+      const response = await fetch('/server/aitestcase/generateTestCases', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

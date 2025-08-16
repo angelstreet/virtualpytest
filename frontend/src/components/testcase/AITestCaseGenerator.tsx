@@ -125,7 +125,7 @@ export const AITestCaseGenerator: React.FC<AITestCaseGeneratorProps> = ({
 
   // Render Step 1: Input
   const renderInputStep = () => (
-    <Box sx={{ minHeight: 400 }}>
+    <Box>
       <Stack spacing={3}>
         <Box sx={{ textAlign: 'center' }}>
           <AIIcon sx={{ fontSize: 48, color: 'primary.main', mb: 2 }} />
@@ -140,16 +140,11 @@ export const AITestCaseGenerator: React.FC<AITestCaseGeneratorProps> = ({
         <TextField
           fullWidth
           multiline
-          rows={4}
-          placeholder="Example: Go to live and check audio"
+          rows={3}
+          placeholder="Go to live and check audio"
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
           variant="outlined"
-          sx={{ 
-            '& .MuiOutlinedInput-root': {
-              fontSize: '1.1rem'
-            }
-          }}
         />
 
         {/* Sample prompts */}
@@ -171,10 +166,7 @@ export const AITestCaseGenerator: React.FC<AITestCaseGeneratorProps> = ({
           </Stack>
         </Box>
 
-        <Stack direction="row" justifyContent="space-between" sx={{ mt: 4 }}>
-          <Button onClick={onCancel} variant="outlined">
-            Cancel
-          </Button>
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 3 }}>
           <Button
             variant="contained"
             onClick={handleAnalyze}
@@ -184,7 +176,7 @@ export const AITestCaseGenerator: React.FC<AITestCaseGeneratorProps> = ({
           >
             {isAnalyzing ? 'Analyzing...' : 'Analyze Compatibility'}
           </Button>
-        </Stack>
+        </Box>
       </Stack>
     </Box>
   );
@@ -198,7 +190,7 @@ export const AITestCaseGenerator: React.FC<AITestCaseGeneratorProps> = ({
     const hasIncompatible = compatibility_matrix.incompatible.length > 0;
 
     return (
-      <Box sx={{ minHeight: 400 }}>
+      <Box>
         <Stack spacing={3}>
           <Box sx={{ textAlign: 'center' }}>
             <AnalyticsIcon sx={{ fontSize: 48, color: 'success.main', mb: 2 }} />
@@ -318,7 +310,7 @@ export const AITestCaseGenerator: React.FC<AITestCaseGeneratorProps> = ({
 
   // Render Step 3: Generation Progress
   const renderGenerationStep = () => (
-    <Box sx={{ minHeight: 400, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', py: 4 }}>
       <Stack spacing={3} alignItems="center">
         <CircularProgress size={80} />
         <Typography variant="h5" textAlign="center">

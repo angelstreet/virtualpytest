@@ -22,7 +22,7 @@ from shared.lib.supabase.ai_analysis_cache_db import save_analysis_cache, get_an
 from shared.lib.utils.app_utils import get_team_id
 from shared.lib.utils.route_utils import proxy_to_host
 
-server_aitestcase_bp = Blueprint('server_aitestcase', __name__, url_prefix='/server')
+server_aitestcase_bp = Blueprint('server_aitestcase', __name__, url_prefix='/server/aitestcase')
 
 @server_aitestcase_bp.route('/analyzeTestCase', methods=['POST'])
 def analyze_test_case():
