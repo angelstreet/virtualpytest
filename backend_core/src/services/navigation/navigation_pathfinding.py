@@ -394,7 +394,7 @@ def _create_reachability_based_validation_sequence(G, edges_to_validate: List[Tu
     
     # Sort children for consistent ordering
     for node in adjacency:
-        adjacency[node].sort()
+        # adjacency[node].sort()  # Comment out to preserve original order
     
     # Find entry points
     entry_points = get_entry_points(G)
