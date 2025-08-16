@@ -427,7 +427,15 @@ def _create_reachability_based_validation_sequence(G, edges_to_validate: List[Tu
             
             print(f"[@navigation:pathfinding:_create_reachability_based_validation_sequence] Step {validation_step['step_number']}: {from_label} → {to_label} (forward)")
             step_number = validation_step['step_number'] + 1
-            current_position = child_node
+            
+            # Update position: if target is action node, stay at current node, otherwise move to target
+            child_node_info = get_node_info(G, child_node) or {}
+            if child_node_info.get('node_type') == 'action':
+                # Action nodes don't change position - we stay where we were
+                print(f"[@navigation:pathfinding] Action node {to_label} - staying at {from_label}")
+                # current_position stays the same
+            else:
+                current_position = child_node
             
             # Recursively go deeper into this child's branch
             depth_first_traversal(child_node, current_node)
@@ -527,7 +535,15 @@ def _create_reachability_based_validation_sequence(G, edges_to_validate: List[Tu
             
             print(f"[@navigation:pathfinding:_create_reachability_based_validation_sequence] Step {validation_step['step_number']} (remaining): {from_label} → {to_label} ({step_type})")
             step_number = validation_step['step_number'] + 1
-            current_position = to_node
+            
+            # Update position: if target is action node, stay at from_node, otherwise move to to_node
+            to_node_info = get_node_info(G, to_node) or {}
+            if to_node_info.get('node_type') == 'action':
+                # Action nodes don't change position - we stay at from_node
+                print(f"[@navigation:pathfinding] Action node {to_label} - staying at {from_label}")
+                current_position = from_node
+            else:
+                current_position = to_node
         else:
             print(f"[@navigation:pathfinding:_create_reachability_based_validation_sequence] Skipping edge with empty actions: {from_label} → {to_label}")
     
@@ -585,14 +601,17 @@ def _create_validation_step(G, from_node: str, to_node: str, edge_data: Dict, st
     if current_position and current_position != from_node:
         print(f"[@navigation:pathfinding] Forced transition needed: {current_position} → {from_node}")
         if tree_id and team_id:
-            forced_path = find_shortest_path_unified(tree_id, from_node, team_id, current_position)
-            if not forced_path:
-                forced_path = find_shortest_path_unified(tree_id, from_node, team_id)
-            if forced_path:
-                for i, forced_step in enumerate(forced_path):
-                    forced_step['step_number'] = step_number + i
-                    forced_step['step_type'] = 'forced_transition'
-                    forced_steps.append(forced_step)
+            try:
+                forced_path = find_shortest_path_unified(tree_id, from_node, team_id, current_position)
+                if not forced_path:
+                    forced_path = find_shortest_path_unified(tree_id, from_node, team_id)
+                if forced_path:
+                    for i, forced_step in enumerate(forced_path):
+                        forced_step['step_number'] = step_number + i
+                        forced_step['step_type'] = 'forced_transition'
+                        forced_steps.append(forced_step)
+            except Exception as e:
+                print(f"[@navigation:pathfinding] Forced transition failed: {e} - continuing without forced transition")
     
     from_info = get_node_info(G, from_node) or {}
     to_info = get_node_info(G, to_node) or {}
