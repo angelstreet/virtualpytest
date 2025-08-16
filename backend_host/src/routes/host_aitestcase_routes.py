@@ -13,8 +13,6 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '../../../backend_core/s
 from shared.lib.utils.script_execution_utils import execute_script
 from shared.lib.utils.script_framework import ScriptExecutor
 
-from controllers.controller_config_factory import get_controller
-
 host_aitestcase_bp = Blueprint('host_aitestcase', __name__)
 
 @host_aitestcase_bp.route('/executeTestCase', methods=['POST'])
