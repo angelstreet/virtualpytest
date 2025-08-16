@@ -7,8 +7,7 @@ import { useState, useCallback } from 'react';
 import { 
   AITestCaseRequest, 
   AITestCaseResponse, 
-  CompatibilityResult, 
-  TestCase 
+  CompatibilityResult
 } from '../../types/pages/TestCase_Types';
 
 export const useAITestCase = () => {
