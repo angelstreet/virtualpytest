@@ -446,18 +446,11 @@ def execute_navigation_with_verifications(host, device, transition: Dict[str, An
         
         action_start_time = time.time()
         
-        # Create proper edge structure for execute_edge_actions
-        edge_data = {
-            'action_sets': [{
-                'id': 'main',
-                'actions': actions,
-                'retry_actions': retry_actions,
-                'failure_actions': failure_actions
-            }],
-            'default_action_set_id': 'main'
-        }
+        # Use the original edge data with the correct action set selection
+        original_edge_data = transition.get('original_edge_data')
+        action_set_id = transition.get('action_set_id') 
         
-        action_result = execute_edge_actions(host, device, edge_data, team_id=team_id)
+        action_result = execute_edge_actions(host, device, original_edge_data, action_set_id=action_set_id, team_id=team_id)
         action_execution_time = int((time.time() - action_start_time) * 1000)
         
         # Get action screenshots from execute_edge_actions
@@ -700,22 +693,20 @@ def execute_edge_actions(host, device, edge: Dict, action_set_id: str = None, te
         Execution result dictionary with success status and details (same format as ActionExecutor)
     """
     try:
-        # Get action set (specific or default)
+        # Get action set by ID or use forward action set (index 0) as fallback
         action_sets = edge.get('action_sets', [])
-        default_action_set_id = edge.get('default_action_set_id')
         
         if action_set_id:
             # Find specific action set by ID
             action_set = next((s for s in action_sets if s.get('id') == action_set_id), None)
         else:
-            # Use default action set
-            action_set = next((s for s in action_sets if s.get('id') == default_action_set_id), 
-                            action_sets[0] if action_sets else None)
+            # Use forward action set (index 0) as fallback
+            action_set = action_sets[0] if action_sets else None
         
         if not action_set:
             return {
                 'success': False, 
-                'error': f'Action set not found (looking for: {action_set_id or default_action_set_id})'
+                'error': f'Action set not found (looking for: {action_set_id or "forward set"})'
             }
         
         actions = action_set.get('actions', [])

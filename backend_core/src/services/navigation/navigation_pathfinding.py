@@ -167,26 +167,21 @@ def find_shortest_path_unified(root_tree_id: str, target_node_id: str, team_id: 
             # Get edge data - check multiple possible action formats
             edge_data = unified_graph.edges[from_node, to_node] if unified_graph.has_edge(from_node, to_node) else {}
             
-            # Extract actions from action_sets structure ONLY
+            # Use standardized 2-action-set structure: forward (index 0) then reverse (index 1)
             action_sets = edge_data.get('action_sets', [])
-            default_action_set_id = edge_data.get('default_action_set_id')
             
-            if not action_sets or not default_action_set_id:
-                raise PathfindingError(f"Edge {from_node} -> {to_node} missing action_sets or default_action_set_id")
+            if not action_sets:
+                raise PathfindingError(f"Edge {from_node} -> {to_node} missing action_sets")
             
-            # Find default action set
-            default_set = next((s for s in action_sets if s['id'] == default_action_set_id), None)
-            if not default_set:
-                raise PathfindingError(f"Edge {from_node} -> {to_node} default action set '{default_action_set_id}' not found")
-            
-            # Extract actions from default action set
-            actions_list = default_set.get('actions', [])
-            retry_actions_list = default_set.get('retry_actions') or []
+            # Always use forward action set (first in array) for regular pathfinding
+            forward_set = action_sets[0]
+            actions_list = forward_set.get('actions', [])
+            retry_actions_list = forward_set.get('retry_actions') or []
             verifications_list = to_node_info.get('verifications', [])
             
             # Debug logging
             print(f"[@navigation:pathfinding:find_shortest_path_unified]   Action sets: {len(action_sets)}")
-            print(f"[@navigation:pathfinding:find_shortest_path_unified]   Default set: {default_action_set_id}")
+            print(f"[@navigation:pathfinding:find_shortest_path_unified]   Using forward set: {forward_set.get('id')}")
             print(f"[@navigation:pathfinding:find_shortest_path_unified]   Actions found: {len(actions_list)}")
             print(f"[@navigation:pathfinding:find_shortest_path_unified]   Retry actions found: {len(retry_actions_list)}")
             
@@ -217,6 +212,8 @@ def find_shortest_path_unified(root_tree_id: str, target_node_id: str, team_id: 
                 'tree_context_change': tree_context_change,
                 'actions': actions_list,
                 'retryActions': retry_actions_list,
+                'action_set_id': forward_set.get('id'),  # Track forward action set used
+                'original_edge_data': edge_data,  # Preserve original edge structure
                 'verifications': verifications_list,
                 'finalWaitTime': edge_data.get('finalWaitTime', 2000),
                 'edge_id': edge_data.get('edge_id', 'unknown'),
@@ -365,12 +362,10 @@ def _create_reachability_based_validation_sequence(G, edges_to_validate: List[Tu
     for u, v, data in edges_to_validate:
         edge_map[(u, v)] = data
         
-        # Check if there are actions available for reverse direction
+        # Check if reverse direction has actions (action set at index 1)
         action_sets = data.get('action_sets', [])
         if len(action_sets) >= 2:
-            # Check if reverse direction has actions
-            default_action_set_id = data.get('default_action_set_id')
-            reverse_set = next((s for s in action_sets if s['id'] != default_action_set_id), None)
+            reverse_set = action_sets[1]  # Index 1 = reverse action set
             if reverse_set and reverse_set.get('actions'):
                 # Add reverse edge to map - reverse direction has valid actions
                 edge_map[(v, u)] = data
@@ -549,15 +544,13 @@ def _create_reachability_based_validation_sequence(G, edges_to_validate: List[Tu
         
         has_valid_actions = False
         if is_bidirectional_return:
-            # This is a reverse direction of a bidirectional edge
-            default_action_set_id = edge_data.get('default_action_set_id')
-            reverse_set = next((s for s in action_sets if s['id'] != default_action_set_id), None)
+            # This is a reverse direction - use action set at index 1
+            reverse_set = action_sets[1] if len(action_sets) >= 2 else None
             has_valid_actions = reverse_set and reverse_set.get('actions')
         else:
-            # This is a forward edge or direct edge
-            default_action_set_id = edge_data.get('default_action_set_id')
-            default_set = next((s for s in action_sets if s['id'] == default_action_set_id), None)
-            has_valid_actions = default_set and default_set.get('actions')
+            # This is a forward direction - use action set at index 0
+            forward_set = action_sets[0] if action_sets else None
+            has_valid_actions = forward_set and forward_set.get('actions')
         
         if has_valid_actions:
             step_type = 'remaining_reverse' if is_bidirectional_return else 'remaining_forward'
@@ -687,41 +680,28 @@ def _create_validation_step(G, from_node: str, to_node: str, edge_data: Dict, st
     from_info = get_node_info(G, from_node) or {}
     to_info = get_node_info(G, to_node) or {}
     
-    # Get actions from action_sets structure with direction awareness
+    # Use standardized 2-action-set structure: forward (index 0) then reverse (index 1)
     action_sets = edge_data.get('action_sets', [])
-    default_action_set_id = edge_data.get('default_action_set_id')
     
-    actions = []
-    retry_actions = []
-    action_set_used = None
-    
-    # ENHANCED ACTION SET SELECTION
-    if 'return' in step_type and len(action_sets) >= 2:
-        # For return steps, try to find reverse action set (not the default)
-        reverse_set = next((s for s in action_sets if s['id'] != default_action_set_id), None)
-        if reverse_set:
-            actions = reverse_set.get('actions', [])
-            retry_actions = reverse_set.get('retry_actions') or []
-            action_set_used = reverse_set['id']
-            print(f"[@navigation:pathfinding] Using reverse action set: {action_set_used}")
-        else:
-            # Fallback to default set if no reverse found
-            default_set = next((s for s in action_sets if s['id'] == default_action_set_id), None)
-            if default_set:
-                actions = default_set.get('actions', [])
-                retry_actions = default_set.get('retry_actions') or []
-                action_set_used = default_set['id']
-                print(f"[@navigation:pathfinding] Warning: No reverse action set found, using default: {action_set_used}")
+    if not action_sets:
+        print(f"[@navigation:pathfinding] Warning: No action sets found for edge {from_node} → {to_node}")
+        actions = []
+        retry_actions = []
+        action_set_used = None
+    elif 'return' in step_type and len(action_sets) >= 2:
+        # For return steps, use reverse action set (index 1)
+        reverse_set = action_sets[1]
+        actions = reverse_set.get('actions', [])
+        retry_actions = reverse_set.get('retry_actions') or []
+        action_set_used = reverse_set['id']
+        print(f"[@navigation:pathfinding] Using reverse action set: {action_set_used}")
     else:
-        # Forward direction or single action set - use default
-        if action_sets and default_action_set_id:
-            default_set = next((s for s in action_sets if s['id'] == default_action_set_id), None)
-            if default_set:
-                actions = default_set.get('actions', [])
-                retry_actions = default_set.get('retry_actions') or []
-                action_set_used = default_set['id']
-        else:
-            print(f"[@navigation:pathfinding] Warning: No action sets found for edge {from_node} → {to_node}")
+        # For forward steps, use forward action set (index 0)
+        forward_set = action_sets[0]
+        actions = forward_set.get('actions', [])
+        retry_actions = forward_set.get('retry_actions') or []
+        action_set_used = forward_set['id']
+        print(f"[@navigation:pathfinding] Using forward action set: {action_set_used}")
     
     verifications = get_node_info(G, to_node).get('verifications', []) if get_node_info(G, to_node) else []
     
