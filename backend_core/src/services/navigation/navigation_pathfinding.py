@@ -245,8 +245,22 @@ def find_shortest_path_unified(root_tree_id: str, target_node_id: str, team_id: 
         return navigation_transitions
         
     except nx.NetworkXNoPath:
-        print(f"[@navigation:pathfinding:find_shortest_path_unified] No path found from {actual_start_node} to {actual_target_node}")
-        raise PathfindingError(f"No path found from {actual_start_node} to {actual_target_node} in unified graph")
+        # Enhanced error logging with node labels
+        start_label = "unknown"
+        target_label = "unknown"
+        try:
+            start_node_info = get_node_info(unified_graph, actual_start_node)
+            if start_node_info:
+                start_label = start_node_info.get('label', 'unknown')
+            
+            target_node_info = get_node_info(unified_graph, actual_target_node)
+            if target_node_info:
+                target_label = target_node_info.get('label', 'unknown')
+        except:
+            pass  # Fall back to 'unknown' if label lookup fails
+            
+        print(f"[@navigation:pathfinding:find_shortest_path_unified] No path found from {start_label} ({actual_start_node}) to {target_label} ({actual_target_node})")
+        raise PathfindingError(f"No path found from '{start_label} ({actual_start_node})' to '{target_label} ({actual_target_node})' in unified graph")
     except Exception as e:
         print(f"[@navigation:pathfinding:find_shortest_path_unified] Error finding path: {e}")
         raise PathfindingError(f"Error finding unified path: {str(e)}")

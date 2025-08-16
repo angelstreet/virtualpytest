@@ -29,6 +29,36 @@ from datetime import datetime
 import time
 
 
+def get_node_label_from_id(node_id: str, tree_id: str, team_id: str) -> str:
+    """
+    Helper function to get node label from node ID for better error logging
+    
+    Args:
+        node_id: Node ID to resolve
+        tree_id: Tree ID for unified graph access
+        team_id: Team ID for security
+        
+    Returns:
+        Node label if found, otherwise returns the node_id with (unknown) suffix
+    """
+    try:
+        from shared.lib.utils.navigation_cache import get_cached_unified_graph
+        from shared.lib.utils.navigation_graph import get_node_info
+        
+        unified_graph = get_cached_unified_graph(tree_id, team_id)
+        if unified_graph:
+            node_info = get_node_info(unified_graph, node_id)
+            if node_info:
+                label = node_info.get('label', 'unknown')
+                return f"{label} ({node_id})"
+        
+        return f"{node_id} (unknown label)"
+        
+    except Exception as e:
+        print(f"[@validation] Error resolving node label for {node_id}: {e}")
+        return f"{node_id} (label lookup failed)"
+
+
 def custom_validation_step_handler(context: ScriptExecutionContext, step, step_num):
     """Enhanced validation step handler with force navigation recovery on failure"""
     try:
@@ -47,7 +77,8 @@ def custom_validation_step_handler(context: ScriptExecutionContext, step, step_n
         # If step was successful, update position and return
         if result.get('success', False):
             context.current_node_id = step.get('to_node_id')
-            print(f"📍 [validation] Updated current position to: {context.current_node_id} ({step.get('to_node_label', 'unknown')})")
+            target_label = step.get('to_node_label', 'unknown')
+            print(f"📍 [validation] Updated current position to: {target_label} ({context.current_node_id})")
             return result
         
         # Step failed - attempt force navigation recovery to target node
@@ -78,7 +109,7 @@ def custom_validation_step_handler(context: ScriptExecutionContext, step, step_n
                 
                 # Update position to target node since force navigation succeeded
                 context.current_node_id = step.get('to_node_id')
-                print(f"📍 [validation] Updated current position to: {context.current_node_id} ({target_node_label})")
+                print(f"📍 [validation] Updated current position to: {target_node_label} ({context.current_node_id})")
                 
                 # Return successful result with force navigation flag
                 return {
@@ -95,11 +126,15 @@ def custom_validation_step_handler(context: ScriptExecutionContext, step, step_n
                 print(f"❌ [validation] Force navigation to '{target_node_label}' failed: {force_nav_error}")
                 print(f"🛑 [validation] CRITICAL: Both normal step and force navigation failed - stopping validation")
                 
+                # Enhanced error message with current position context
+                current_pos_label = get_node_label_from_id(context.current_node_id, context.tree_id, context.team_id) if context.current_node_id else "unknown position"
+                enhanced_error = f"Cannot reach '{target_node_label}' from {current_pos_label}. Both normal step execution and force navigation failed. {force_nav_error}"
+                
                 # Mark this as a critical failure that should stop the script
                 return {
                     'success': False,
                     'critical_failure': True,
-                    'error': f'Both normal navigation and force navigation failed: {force_nav_error}',
+                    'error': enhanced_error,
                     'verification_results': [],
                     'global_verification_counter_increment': 0,
                     'original_error': result.get('error', 'Original step failed'),
@@ -110,11 +145,15 @@ def custom_validation_step_handler(context: ScriptExecutionContext, step, step_n
             print(f"❌ [validation] Force navigation exception: {str(force_nav_exception)}")
             print(f"🛑 [validation] CRITICAL: Force navigation failed with exception - stopping validation")
             
+            # Enhanced error message with current position context
+            current_pos_label = get_node_label_from_id(context.current_node_id, context.tree_id, context.team_id) if context.current_node_id else "unknown position"
+            enhanced_error = f"Cannot reach '{target_node_label}' from {current_pos_label}. Force navigation failed with exception: {str(force_nav_exception)}"
+            
             # Critical failure due to force navigation exception
             return {
                 'success': False,
                 'critical_failure': True,
-                'error': f'Force navigation exception: {str(force_nav_exception)}',
+                'error': enhanced_error,
                 'verification_results': [],
                 'global_verification_counter_increment': 0,
                 'original_error': result.get('error', 'Original step failed')
@@ -131,6 +170,47 @@ def custom_validation_step_handler(context: ScriptExecutionContext, step, step_n
         }
 
 
+def _record_skipped_steps(context: ScriptExecutionContext, navigation_path: list, start_step_num: int):
+    """Record all remaining steps as skipped when validation stops early"""
+    if not hasattr(context, 'skipped_steps'):
+        context.skipped_steps = []
+    
+    total_steps = len(navigation_path)
+    for i in range(start_step_num - 1, total_steps):  # start_step_num is 1-based
+        step = navigation_path[i]
+        step_num = i + 1
+        from_node = step.get('from_node_label', 'unknown')
+        to_node = step.get('to_node_label', 'unknown')
+        
+        skipped_step = {
+            'step_number': step_num,
+            'from_node': from_node,
+            'to_node': to_node,
+            'skipped': True,
+            'reason': 'Validation stopped due to critical failure in previous step'
+        }
+        context.skipped_steps.append(skipped_step)
+        
+        # Also add to step_results for consistent reporting
+        step_result = {
+            'step_number': step_num,
+            'success': False,
+            'skipped': True,
+            'message': f"Skipped step {step_num}: {from_node} → {to_node}",
+            'from_node': from_node,
+            'to_node': to_node,
+            'actions': step.get('actions', []),
+            'verifications': step.get('verifications', []),
+            'verification_results': [],
+            'error': 'Skipped due to critical failure',
+            'execution_time_ms': 0
+        }
+        context.step_results.append(step_result)
+    
+    skipped_count = total_steps - (start_step_num - 1)
+    print(f"⏭️  [validation] Marked {skipped_count} remaining steps as skipped")
+
+
 def execute_validation_sequence_with_force_recovery(executor: ScriptExecutor, context: ScriptExecutionContext, 
                                                    navigation_path: list, custom_step_handler) -> bool:
     """
@@ -138,6 +218,10 @@ def execute_validation_sequence_with_force_recovery(executor: ScriptExecutor, co
     Stops immediately if both normal navigation and force navigation fail for any step.
     """
     try:
+        # Initialize skipped steps tracking
+        if not hasattr(context, 'skipped_steps'):
+            context.skipped_steps = []
+            
         print(f"🎮 [validation] Starting validation sequence with force recovery on device {context.selected_device.device_id}")
         
         for i, step in enumerate(navigation_path):
@@ -222,6 +306,9 @@ def execute_validation_sequence_with_force_recovery(executor: ScriptExecutor, co
                     'force_navigation_error': result.get('force_navigation_error')
                 })
                 
+                # Record all remaining steps as skipped
+                _record_skipped_steps(context, navigation_path, step_num + 1)
+                
                 context.error_message = f"Critical failure at step {step_num}: {critical_error}"
                 context.overall_success = False
                 return False
@@ -277,7 +364,8 @@ def capture_validation_summary(context: ScriptExecutionContext, userinterface_na
     )
     
     successful_steps = sum(1 for step in context.step_results if step.get('success', False))
-    failed_steps = sum(1 for step in context.step_results if not step.get('success', False))
+    failed_steps = sum(1 for step in context.step_results if not step.get('success', False) and not step.get('skipped', False))
+    skipped_steps = sum(1 for step in context.step_results if step.get('skipped', False))
     recovered_steps = sum(1 for step in context.step_results if step.get('force_navigation_used', False))
     context.recovered_steps = recovered_steps  # Update context for consistency
     
@@ -290,12 +378,13 @@ def capture_validation_summary(context: ScriptExecutionContext, userinterface_na
     lines.append(f"📊 Steps: {successful_steps}/{len(context.step_results)} steps successful")
     lines.append(f"✅ Successful: {successful_steps}")
     lines.append(f"❌ Failed: {failed_steps}")
+    lines.append(f"⏭️ Skipped: {skipped_steps}")
     lines.append(f"🔄 Force Navigation Recoveries: {recovered_steps}")
     lines.append(f"🔍 Verifications: {passed_verifications}/{total_verifications} passed")
     lines.append(f"📸 Screenshots: {len(context.screenshot_paths)} captured")
     lines.append(f"🎯 Coverage: {((successful_steps + recovered_steps) / len(context.step_results) * 100):.1f}%")
     
-    failed_step_details = [step for step in context.step_results if not step.get('success', False)]
+    failed_step_details = [step for step in context.step_results if not step.get('success', False) and not step.get('skipped', False)]
     if failed_step_details:
         lines.append("\n❌ Failed Steps Details:")
         for failed_step in failed_step_details:
@@ -313,6 +402,12 @@ def capture_validation_summary(context: ScriptExecutionContext, userinterface_na
                     error = 'Unknown error'
             lines.append(f"   Step {step_num}: {from_node} → {to_node}")
             lines.append(f"     Error: {error}")
+    
+    # Add skipped steps summary in one line
+    skipped_step_details = [step for step in context.step_results if step.get('skipped', False)]
+    if skipped_step_details:
+        skipped_step_numbers = [str(step.get('step_number')) for step in skipped_step_details]
+        lines.append(f"\n⏭️ Skipped Steps: {', '.join(skipped_step_numbers)}")
     
     # Add detailed step results for frontend parsing
     lines.append("")
@@ -354,14 +449,28 @@ def capture_validation_summary(context: ScriptExecutionContext, userinterface_na
         verifications_executed = len(verification_results) if verification_results else 0
         total_verifications = len(verifications) if verifications else 0
         
-        # Get error message
+        # Get error message and status
         error_msg = "-"
-        if not step_success and verification_results:
-            error_msg = verification_results[0].get('error', 'Step failed') if verification_results[0] else 'Step failed'
+        step_status = "PASS"
         
-        lines.append(f"STEP_DETAIL:{i+1}|{from_node}|{to_node}|{'PASS' if step_success else 'FAIL'}|{duration_value:.1f}s|{actions_executed}|{total_actions}|{verifications_executed}|{total_verifications}|{error_msg}")
+        if step.get('skipped', False):
+            step_status = "SKIP"
+            error_msg = "Skipped due to critical failure"
+        elif not step_success:
+            step_status = "FAIL"
+            if verification_results:
+                error_msg = verification_results[0].get('error', 'Step failed') if verification_results[0] else 'Step failed'
+            else:
+                error_msg = step.get('error', 'Step failed')
+        
+        lines.append(f"STEP_DETAIL:{i+1}|{from_node}|{to_node}|{step_status}|{duration_value:.1f}s|{actions_executed}|{total_actions}|{verifications_executed}|{total_verifications}|{error_msg}")
     
     lines.append("="*60)
+    
+    # Add script report URL if available
+    if hasattr(context, 'script_report_url') and context.script_report_url:
+        lines.append("")
+        lines.append(f"SCRIPT_REPORT_URL:{context.script_report_url}")
     
     return "\n".join(lines)
 
@@ -376,7 +485,8 @@ def print_validation_summary(context: ScriptExecutionContext, userinterface_name
     )
     
     successful_steps = sum(1 for step in context.step_results if step.get('success', False))
-    failed_steps = sum(1 for step in context.step_results if not step.get('success', False))
+    failed_steps = sum(1 for step in context.step_results if not step.get('success', False) and not step.get('skipped', False))
+    skipped_steps = sum(1 for step in context.step_results if step.get('skipped', False))
     recovered_steps = sum(1 for step in context.step_results if step.get('force_navigation_used', False))
     
     print("\n" + "="*60)
@@ -389,12 +499,13 @@ def print_validation_summary(context: ScriptExecutionContext, userinterface_name
     print(f"📊 Steps: {successful_steps}/{len(context.step_results)} steps successful")
     print(f"✅ Successful: {successful_steps}")
     print(f"❌ Failed: {failed_steps}")
+    print(f"⏭️ Skipped: {skipped_steps}")
     print(f"🔄 Force Navigation Recoveries: {recovered_steps}")
     print(f"🔍 Verifications: {passed_verifications}/{total_verifications} passed")
     print(f"📸 Screenshots: {len(context.screenshot_paths)} captured")
     print(f"🎯 Coverage: {((successful_steps + recovered_steps) / len(context.step_results) * 100):.1f}%")
     
-    failed_step_details = [step for step in context.step_results if not step.get('success', False)]
+    failed_step_details = [step for step in context.step_results if not step.get('success', False) and not step.get('skipped', False)]
     if failed_step_details:
         print(f"\n❌ Failed Steps Details:")
         for failed_step in failed_step_details:
@@ -413,7 +524,18 @@ def print_validation_summary(context: ScriptExecutionContext, userinterface_name
             print(f"   Step {step_num}: {from_node} → {to_node}")
             print(f"     Error: {error}")
     
+    # Add skipped steps summary in one line
+    skipped_step_details = [step for step in context.step_results if step.get('skipped', False)]
+    if skipped_step_details:
+        skipped_step_numbers = [str(step.get('step_number')) for step in skipped_step_details]
+        print(f"\n⏭️ Skipped Steps: {', '.join(skipped_step_numbers)}")
+    
     print("="*60)
+    
+    # Add script report URL if available
+    if hasattr(context, 'script_report_url') and context.script_report_url:
+        print("")
+        print(f"SCRIPT_REPORT_URL:{context.script_report_url}")
 
 
 def main():
