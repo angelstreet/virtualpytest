@@ -55,6 +55,7 @@ import {
 } from '../contexts/navigation/NavigationStackContext';
 import { useNavigationEditor } from '../hooks/navigation/useNavigationEditor';
 import { useNestedNavigation } from '../hooks/navigation/useNestedNavigation';
+import { useEdge } from '../hooks/navigation/useEdge';
 import { useUserInterface } from '../hooks/pages/useUserInterface';
 import {
   NodeForm,
@@ -278,6 +279,13 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
       handleToggleRemotePanel,
       handleDisconnectComplete,
     } = useHostManager();
+
+    // Initialize edge hook for action set filtering
+    const edgeHook = useEdge({
+      selectedHost: selectedHost || null,
+      selectedDeviceId: selectedDeviceId || null,
+      isControlActive,
+    });
 
     // Track the last loaded tree ID to prevent unnecessary reloads
     const lastLoadedTreeId = useRef<string | null>(null);
@@ -893,10 +901,14 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
                           console.log('[@NavigationEditor] Creating panels for edge:', edge.id, 'with action_sets:', edge.data?.action_sets);
                           const panels = [];
                           
-                          if (edge.data?.action_sets?.length > 0) {
-                            console.log('[@NavigationEditor] Edge has', edge.data.action_sets.length, 'action sets');
-                            // Render panels for each action set in this edge
-                            edge.data.action_sets.forEach((actionSet: any, actionSetIndex: number) => {
+                          // Use filtered action sets for display - only forward direction for action edges
+                          const displayActionSets = edgeHook.getDisplayActionSets(edge);
+                          
+                          if (displayActionSets.length > 0) {
+                            console.log('[@NavigationEditor] Edge has', displayActionSets.length, 'display action sets (filtered for action type)');
+                            console.log('[@NavigationEditor] Is action edge:', edgeHook.isActionEdge(edge));
+                            // Render panels for each display action set in this edge
+                            displayActionSets.forEach((actionSet: any, actionSetIndex: number) => {
                               console.log('[@NavigationEditor] Creating panel for action set:', actionSet.id, 'at index:', panelIndexOffset + actionSetIndex);
                               panels.push(
                                 <EdgeSelectionPanel
@@ -920,15 +932,17 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
                               );
                             });
                             
-                            // Add fallback panel only if we have less than 2 action sets (missing direction)
-                            if (edge.data.action_sets.length < 2) {
-                              console.log('[@NavigationEditor] Adding fallback panel for missing direction at index:', panelIndexOffset + edge.data.action_sets.length);
+                            // Add fallback panel only for non-action edges that have less than 2 action sets
+                            // Action edges should only show forward direction - no fallback for missing reverse
+                            const isActionEdge = edgeHook.isActionEdge(edge);
+                            if (!isActionEdge && edge.data.action_sets.length < 2) {
+                              console.log('[@NavigationEditor] Adding fallback panel for missing direction at index:', panelIndexOffset + displayActionSets.length);
                               panels.push(
                                 <EdgeSelectionPanel
                                   key={`${edge.id}-fallback`}
                                   selectedEdge={edge}
                                   actionSet={null}
-                                  panelIndex={panelIndexOffset + edge.data.action_sets.length}
+                                  panelIndex={panelIndexOffset + displayActionSets.length}
                                   onClose={closeSelectionPanel}
                                   onEdit={() => {}}
                                   onDelete={() => navigation.deleteEdgeDirection(edge.id, 'fallback')}
@@ -945,7 +959,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
                               );
                               panelIndexOffset += 2; // Always reserve space for 2 panels (defined + fallback)
                             } else {
-                              panelIndexOffset += edge.data.action_sets.length; // Use actual count when we have 2
+                              panelIndexOffset += displayActionSets.length; // Use filtered count
                             }
                           } else {
                             console.log('[@NavigationEditor] Edge has no action sets, using fallback panel at index:', panelIndexOffset);

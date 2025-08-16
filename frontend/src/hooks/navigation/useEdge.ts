@@ -71,8 +71,6 @@ export const useEdge = (props?: UseEdgeProps) => {
     );
   }, []);
 
-
-
   /**
    * NEW: Get action sets from edge data
    */
@@ -450,6 +448,31 @@ export const useEdge = (props?: UseEdgeProps) => {
     setRunResult(null);
   }, []);
 
+  /**
+   * Check if an edge involves an action node (source or target is action type)
+   */
+  const isActionEdge = useCallback((edge: UINavigationEdge): boolean => {
+    const sourceNode = nodes.find((n) => n.id === edge.source);
+    const targetNode = nodes.find((n) => n.id === edge.target);
+    return sourceNode?.data.type === 'action' || targetNode?.data.type === 'action';
+  }, [nodes]);
+
+  /**
+   * Get action sets for display - filter to only forward direction for action edges
+   */
+  const getDisplayActionSets = useCallback((edge: UINavigationEdge): ActionSet[] => {
+    const actionSets = getActionSetsFromEdge(edge);
+    
+    // For action edges, only show the first action set (forward direction)
+    // since actions are unidirectional operations
+    if (isActionEdge(edge)) {
+      return actionSets.length > 0 ? [actionSets[0]] : [];
+    }
+    
+    // For regular edges, show all action sets (bidirectional)
+    return actionSets;
+  }, [getActionSetsFromEdge, isActionEdge]);
+
   return {
     // Action hook
     actionHook,
@@ -465,6 +488,8 @@ export const useEdge = (props?: UseEdgeProps) => {
     // Utility functions
     getEdgeColorsForEdge,
     isProtectedEdge,
+    isActionEdge,
+    getDisplayActionSets,
 
     canRunActions,
     formatRunResult,

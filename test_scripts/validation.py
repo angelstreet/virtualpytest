@@ -126,37 +126,38 @@ def custom_validation_step_handler(context: ScriptExecutionContext, step, step_n
                 print(f"❌ [validation] Force navigation to '{target_node_label}' failed: {force_nav_error}")
                 print(f"🛑 [validation] CRITICAL: Both normal step and force navigation failed - stopping validation")
                 
-                # Enhanced error message with current position context
-                current_pos_label = get_node_label_from_id(context.current_node_id, context.tree_id, context.team_id) if context.current_node_id else "unknown position"
-                enhanced_error = f"Cannot reach '{target_node_label}' from {current_pos_label}. Both normal step execution and force navigation failed. {force_nav_error}"
+                # Preserve the original error as the primary error
+                original_error = result.get('error', 'Original step failed')
                 
                 # Mark this as a critical failure that should stop the script
                 return {
                     'success': False,
                     'critical_failure': True,
-                    'error': enhanced_error,
-                    'verification_results': [],
+                    'error': original_error,  # Keep original error as primary
+                    'verification_results': result.get('verification_results', []),  # Preserve original verification results
                     'global_verification_counter_increment': 0,
-                    'original_error': result.get('error', 'Original step failed'),
-                    'force_navigation_error': force_nav_error
+                    'original_error': original_error,
+                    'force_navigation_error': force_nav_error,
+                    'additional_context': f"Force navigation recovery also failed: {force_nav_error}"
                 }
                 
         except Exception as force_nav_exception:
             print(f"❌ [validation] Force navigation exception: {str(force_nav_exception)}")
             print(f"🛑 [validation] CRITICAL: Force navigation failed with exception - stopping validation")
             
-            # Enhanced error message with current position context
-            current_pos_label = get_node_label_from_id(context.current_node_id, context.tree_id, context.team_id) if context.current_node_id else "unknown position"
-            enhanced_error = f"Cannot reach '{target_node_label}' from {current_pos_label}. Force navigation failed with exception: {str(force_nav_exception)}"
+            # Preserve the original error as the primary error
+            original_error = result.get('error', 'Original step failed')
             
             # Critical failure due to force navigation exception
             return {
                 'success': False,
                 'critical_failure': True,
-                'error': enhanced_error,
-                'verification_results': [],
+                'error': original_error,  # Keep original error as primary
+                'verification_results': result.get('verification_results', []),  # Preserve original verification results
                 'global_verification_counter_increment': 0,
-                'original_error': result.get('error', 'Original step failed')
+                'original_error': original_error,
+                'force_navigation_error': f"Force navigation exception: {str(force_nav_exception)}",
+                'additional_context': f"Force navigation recovery failed with exception: {str(force_nav_exception)}"
             }
         
     except Exception as e:
@@ -284,7 +285,9 @@ def execute_validation_sequence_with_force_recovery(executor: ScriptExecutor, co
                 'error': result.get('error'),
                 'recovered': result.get('force_navigation_used', False),
                 'force_navigation_used': result.get('force_navigation_used', False),
-                'force_navigation_time_ms': result.get('force_navigation_time_ms', 0)
+                'force_navigation_time_ms': result.get('force_navigation_time_ms', 0),
+                'additional_context': result.get('additional_context'),
+                'force_navigation_error': result.get('force_navigation_error')
             }
             context.step_results.append(step_result)
             
@@ -402,6 +405,11 @@ def capture_validation_summary(context: ScriptExecutionContext, userinterface_na
                     error = 'Unknown error'
             lines.append(f"   Step {step_num}: {from_node} → {to_node}")
             lines.append(f"     Error: {error}")
+            
+            # Show additional context if available (e.g., force navigation failure details)
+            additional_context = failed_step.get('additional_context')
+            if additional_context:
+                lines.append(f"     Additional: {additional_context}")
     
     # Add skipped steps summary in one line
     skipped_step_details = [step for step in context.step_results if step.get('skipped', False)]
@@ -523,6 +531,11 @@ def print_validation_summary(context: ScriptExecutionContext, userinterface_name
                     error = 'Unknown error'
             print(f"   Step {step_num}: {from_node} → {to_node}")
             print(f"     Error: {error}")
+            
+            # Show additional context if available (e.g., force navigation failure details)
+            additional_context = failed_step.get('additional_context')
+            if additional_context:
+                print(f"     Additional: {additional_context}")
     
     # Add skipped steps summary in one line
     skipped_step_details = [step for step in context.step_results if step.get('skipped', False)]
