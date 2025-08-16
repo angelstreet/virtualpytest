@@ -581,19 +581,55 @@ def main():
             except Exception as e:
                 print(f"⚠️ [validation] Error generating report: {e}")
         
-        # Print detailed validation summary with report URL
+        # Print detailed validation summary and store extra info for framework summary
         if 'context' in locals() and context:
-            # Store report URL in context for summary
-            if report_url:
-                context.custom_data['report_url'] = report_url
-            
             summary_text = capture_validation_summary(context, args.userinterface_name)
             print(summary_text)
             context.execution_summary = summary_text
             
-            # Store the report result to prevent double generation in cleanup_and_exit
-            if report_result:
-                context.custom_data['existing_report_result'] = report_result
+            # Extract validation-specific metrics for framework summary
+            if report_url:
+                context.custom_data['report_url'] = report_url
+            
+            # Calculate validation-specific stats
+            successful_steps = sum(1 for step in context.step_results if step.get('success', False))
+            failed_steps = sum(1 for step in context.step_results if not step.get('success', False) and not step.get('skipped', False))
+            skipped_steps = sum(1 for step in context.step_results if step.get('skipped', False))
+            recovered_steps = sum(1 for step in context.step_results if step.get('recovered', False))
+            
+            total_verifications = sum(len(step.get('verification_results', [])) for step in context.step_results)
+            passed_verifications = sum(
+                sum(1 for v in step.get('verification_results', []) if v.get('success', False)) 
+                for step in context.step_results
+            )
+            
+            coverage = ((successful_steps + recovered_steps) / len(context.step_results) * 100) if context.step_results else 0
+            
+            # Store validation metrics in custom_data
+            context.custom_data['successful_steps'] = f"{successful_steps}/{len(context.step_results)}"
+            context.custom_data['failed_steps'] = str(failed_steps)
+            context.custom_data['skipped_steps'] = str(skipped_steps)
+            context.custom_data['recovery_navigations'] = str(recovered_steps)
+            context.custom_data['verifications'] = f"{passed_verifications}/{total_verifications}"
+            context.custom_data['coverage'] = f"{coverage:.1f}%"
+            
+            # Add failed steps details if any
+            failed_step_details = [step for step in context.step_results if not step.get('success', False) and not step.get('skipped', False)]
+            if failed_step_details:
+                failed_details = []
+                for failed_step in failed_step_details:
+                    step_num = failed_step.get('step_number')
+                    from_node = failed_step.get('from_node')
+                    to_node = failed_step.get('to_node')
+                    error = failed_step.get('error')
+                    if not error:
+                        verification_results = failed_step.get('verification_results', [])
+                        if verification_results and verification_results[0].get('error'):
+                            error = verification_results[0].get('error')
+                        else:
+                            error = 'Unknown error'
+                    failed_details.append(f"Step {step_num}: {from_node} → {to_node} ({error})")
+                context.custom_data['failed_steps_details'] = "; ".join(failed_details)
         
         # Use the same cleanup approach as goto_live_fullscreen.py
         executor.cleanup_and_exit(context, args.userinterface_name)

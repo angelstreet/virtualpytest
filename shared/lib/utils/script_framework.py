@@ -83,7 +83,7 @@ class ScriptExecutionContext:
         # Global verification counter to prevent overwriting verification images
         self.global_verification_counter: int = 0
         
-        # Custom data for specific scripts
+        # Custom data for display in final summary
         self.custom_data = {}
     
     def get_execution_time_ms(self) -> int:
@@ -538,18 +538,18 @@ class ScriptExecutor:
             print(f"[@script_framework:cleanup_and_exit] DEBUG: SCRIPT_SUCCESS marker printed and flushed")
             
             # Generate report AFTER outputting success marker (so it's captured even if report fails)
-            # Check if report was already generated (e.g., by validation script)
-            report_result = context.custom_data.get('existing_report_result') if hasattr(context, 'custom_data') else None
-            
-            if not report_result and context.host and context.selected_device:
+            report_result = None
+            if context.host and context.selected_device:
                 print(f"📊 [{self.script_name}] Generating report...")
                 report_result = self.generate_final_report(context, userinterface_name)
-            elif report_result:
-                print(f"📊 [{self.script_name}] Using existing report result...")
                 
             if report_result and report_result.get('success') and report_result.get('report_url'):
                 print(f"SCRIPT_REPORT_URL:{report_result['report_url']}")
                 print(f"[@script_framework:cleanup_and_exit] DEBUG: SCRIPT_REPORT_URL printed")
+                # Store report URL for final summary in custom_data (consistent with validation.py)
+                if not hasattr(context, 'custom_data'):
+                    context.custom_data = {}
+                context.custom_data['report_url'] = report_result['report_url']
             
             # Update database if tracking is enabled
             if context.script_result_id:
@@ -606,6 +606,11 @@ class ScriptExecutor:
         
         if context.error_message:
             print(f"❌ Error: {context.error_message}")
+        
+        # Show custom data from scripts
+        if hasattr(context, 'custom_data') and context.custom_data:
+            for key, value in context.custom_data.items():
+                print(f"{key}: {value}")
         
         print("="*60)
 
