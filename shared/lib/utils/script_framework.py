@@ -538,9 +538,15 @@ class ScriptExecutor:
             print(f"[@script_framework:cleanup_and_exit] DEBUG: SCRIPT_SUCCESS marker printed and flushed")
             
             # Generate report AFTER outputting success marker (so it's captured even if report fails)
-            report_result = None
-            if context.host and context.selected_device:
+            # Check if report was already generated (e.g., by validation script)
+            report_result = context.custom_data.get('existing_report_result') if hasattr(context, 'custom_data') else None
+            
+            if not report_result and context.host and context.selected_device:
+                print(f"📊 [{self.script_name}] Generating report...")
                 report_result = self.generate_final_report(context, userinterface_name)
+            elif report_result:
+                print(f"📊 [{self.script_name}] Using existing report result...")
+                
             if report_result and report_result.get('success') and report_result.get('report_url'):
                 print(f"SCRIPT_REPORT_URL:{report_result['report_url']}")
                 print(f"[@script_framework:cleanup_and_exit] DEBUG: SCRIPT_REPORT_URL printed")

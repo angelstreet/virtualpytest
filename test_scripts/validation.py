@@ -571,6 +571,7 @@ def main():
     finally:
         # Generate report first to get the URL
         report_url = None
+        report_result = None
         if 'context' in locals() and context and context.host and context.selected_device:
             try:
                 report_result = executor.generate_final_report(context, args.userinterface_name)
@@ -589,6 +590,10 @@ def main():
             summary_text = capture_validation_summary(context, args.userinterface_name)
             print(summary_text)
             context.execution_summary = summary_text
+            
+            # Store the report result to prevent double generation in cleanup_and_exit
+            if report_result:
+                context.custom_data['existing_report_result'] = report_result
         
         # Use the same cleanup approach as goto_live_fullscreen.py
         executor.cleanup_and_exit(context, args.userinterface_name)
