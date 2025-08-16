@@ -89,6 +89,7 @@ def custom_validation_step_handler(context: ScriptExecutionContext, step, step_n
         print(f"📍 [validation] Reset current position to Entry for recovery")
         
         # Return failed result but with recovery flag - validation will continue
+        # Preserve all screenshot and image data from the original result
         return {
             'success': False,  # Original step still failed
             'recovered': True,  # But we recovered position for next steps
@@ -96,7 +97,14 @@ def custom_validation_step_handler(context: ScriptExecutionContext, step, step_n
             'error': result.get('error', 'Step failed'),
             'verification_results': result.get('verification_results', []),
             'global_verification_counter_increment': result.get('global_verification_counter_increment', 0),
-            'message': f"Step failed but reset to Entry - validation continues"
+            'message': f"Step failed but reset to Entry - validation continues",
+            # Preserve screenshot data so failed steps show images in reports
+            'step_start_screenshot_path': result.get('step_start_screenshot_path'),
+            'step_end_screenshot_path': result.get('step_end_screenshot_path'),
+            'screenshot_path': result.get('screenshot_path'),
+            'screenshot_url': result.get('screenshot_url'),
+            'action_screenshots': result.get('action_screenshots', []),
+            'verification_images': result.get('verification_images', [])
         }
         
     except Exception as e:
