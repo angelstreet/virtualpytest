@@ -391,6 +391,13 @@ def _create_reachability_based_validation_sequence(G, edges_to_validate: List[Tu
         if u not in adjacency:
             adjacency[u] = []
         adjacency[u].append(v)
+        
+        # Make adjacency symmetric for bidirectional edges to ensure all directions are traversed as children
+        if (v, u) in edge_map:  # If reverse exists
+            if v not in adjacency:
+                adjacency[v] = []
+            if u not in adjacency[v]:
+                adjacency[v].append(u)  # Add reverse as child
     
     # Sort children for consistent ordering
     for node in adjacency:
@@ -410,25 +417,25 @@ def _create_reachability_based_validation_sequence(G, edges_to_validate: List[Tu
     visited_edges = set()
     step_number = 1
     current_position = entry_points[0] if entry_points else None
-    
+    recursion_stack = set()  # For cycle detection in DFS
+
     def depth_first_traversal(current_node, parent_node=None):
-        """Recursively traverse depth-first, going as deep as possible then coming back"""
+        """Recursively traverse depth-first, going deep into each branch before coming back"""
         nonlocal step_number, current_position
         
-
-        
-        if current_node not in adjacency:
+        if current_node in recursion_stack:
+            print(f"[@navigation:pathfinding] Cycle detected at {current_node} - skipping recursion")
             return
         
+        recursion_stack.add(current_node)
+        
         # Process all children of current node depth-first
-        for child_node in adjacency[current_node]:
+        for child_node in adjacency.get(current_node, []):
             forward_edge = (current_node, child_node)
             
             # Skip if already visited or if it's the parent (avoid immediate back-and-forth)
-            # if forward_edge in visited_edges or child_node == parent_node:  # Removed to ensure all children are processed
-            #     continue
-            
-            # Add comment: Removed visited check for forward to prevent skipping bidirectional children; DFS structure prevents cycles
+            if forward_edge in visited_edges or child_node == parent_node:
+                continue
             
             # Add forward edge
             from_info = get_node_info(G, current_node) or {}
@@ -511,6 +518,8 @@ def _create_reachability_based_validation_sequence(G, edges_to_validate: List[Tu
             else:
                 # Strategy 4: No return path available - this is OK for unidirectional actions
                 print(f"[@navigation:pathfinding:_create_reachability_based_validation_sequence] No return path for: {to_label} → {from_label} (unidirectional action - OK)")
+        
+        recursion_stack.remove(current_node)
     
     # Start depth-first traversal from each entry point
     for entry_point in entry_points:
