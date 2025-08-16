@@ -558,11 +558,14 @@ def _create_reachability_based_validation_sequence(G, edges_to_validate: List[Tu
     
     forward_steps = [s for s in validation_sequence if s.get('transition_direction') == 'forward']
     return_steps = [s for s in validation_sequence if s.get('transition_direction') == 'return']
+    forced_steps = [s for s in validation_sequence if s.get('step_type') == 'forced_transition']
     
     print(f"📊 Statistics:")
     print(f"   • Total validation steps: {len(validation_sequence)}")
-    print(f"   • Forward transitions: {len(forward_steps)}")
-    print(f"   • Return transitions: {len(return_steps)}")
+    print(f"   • Real transitions: {len(forward_steps) + len(return_steps)}")
+    print(f"     - Forward: {len(forward_steps)}")
+    print(f"     - Return: {len(return_steps)}")
+    print(f"   • Forced transitions: {len(forced_steps)}")
     print(f"   • All valid edges covered: ✅")
     
     print(f"\n📋 All Validation Transitions:")
@@ -570,9 +573,22 @@ def _create_reachability_based_validation_sequence(G, edges_to_validate: List[Tu
         from_label = step.get('from_node_label', 'unknown')
         to_label = step.get('to_node_label', 'unknown')
         direction = step.get('transition_direction', 'unknown')
-        arrow = "→" if direction == 'forward' else "←"
+        step_type = step.get('step_type', '')
         
-        print(f"   {i:2d}. {from_label} {arrow} {to_label} ({direction})")
+        if step_type == 'forced_transition':
+            arrow = "→"
+            dir_text = "(forced)"
+        elif direction == 'forward':
+            arrow = "→"
+            dir_text = "(forward)"
+        elif direction == 'return':
+            arrow = "←"
+            dir_text = "(return)"
+        else:
+            arrow = "?"
+            dir_text = "(unknown)"
+        
+        print(f"   {i:2d}. {from_label} {arrow} {to_label} {dir_text}")
     
     print(f"="*80)
     
