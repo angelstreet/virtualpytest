@@ -121,25 +121,91 @@ def custom_validation_step_handler(context: ScriptExecutionContext, step, step_n
                     'message': f"Force navigation to '{target_node_label}' successful after step failure"
                 }
             else:
-                # Force navigation also failed - this is a critical failure
+                # Force navigation from current position failed - try fallback from Entry node
                 force_nav_error = force_nav_result.get('error', 'Force navigation failed')
-                print(f"❌ [validation] Force navigation to '{target_node_label}' failed: {force_nav_error}")
-                print(f"🛑 [validation] CRITICAL: Both normal step and force navigation failed - stopping validation")
+                print(f"❌ [validation] Force navigation from current position to '{target_node_label}' failed: {force_nav_error}")
+                print(f"🔄 [validation] Attempting fallback force navigation from Entry node...")
                 
-                # Preserve the original error as the primary error
-                original_error = result.get('error', 'Original step failed')
-                
-                # Mark this as a critical failure that should stop the script
-                return {
-                    'success': False,
-                    'critical_failure': True,
-                    'error': original_error,  # Keep original error as primary
-                    'verification_results': result.get('verification_results', []),  # Preserve original verification results
-                    'global_verification_counter_increment': 0,
-                    'original_error': original_error,
-                    'force_navigation_error': force_nav_error,
-                    'additional_context': f"Force navigation recovery also failed: {force_nav_error}"
-                }
+                # Try force navigation from Entry node (no context position = starts from Entry)
+                try:
+                    fallback_nav_start_time = time.time()
+                    
+                    # Create a temporary context without current position to force Entry node start
+                    from shared.lib.utils.script_framework import ScriptExecutionContext
+                    temp_context = ScriptExecutionContext(
+                        context.host, context.selected_device, context.tree_id, 
+                        context.team_id, context.script_result_id
+                    )
+                    # Don't set current_node_id so it defaults to Entry node
+                    
+                    fallback_nav_result = goto_node(
+                        context.host, 
+                        context.selected_device, 
+                        target_node_label, 
+                        context.tree_id, 
+                        context.team_id,
+                        temp_context  # Use temp context without current position
+                    )
+                    fallback_nav_time = int((time.time() - fallback_nav_start_time) * 1000)
+                    
+                    if fallback_nav_result.get('success'):
+                        print(f"✅ [validation] Fallback force navigation from Entry to '{target_node_label}' successful in {fallback_nav_time}ms")
+                        
+                        # Update position to target node since fallback navigation succeeded
+                        context.current_node_id = step.get('to_node_id')
+                        print(f"📍 [validation] Updated current position to: {target_node_label} ({context.current_node_id})")
+                        
+                        # Return successful result with fallback navigation flag
+                        return {
+                            'success': True,
+                            'force_navigation_used': True,
+                            'fallback_navigation_used': True,
+                            'force_navigation_time_ms': force_nav_time + fallback_nav_time,
+                            'verification_results': fallback_nav_result.get('verification_results', []),
+                            'global_verification_counter_increment': fallback_nav_result.get('global_verification_counter_increment', 0),
+                            'message': f"Fallback force navigation from Entry to '{target_node_label}' successful after step failure"
+                        }
+                    else:
+                        # Both force navigation attempts failed - this is a critical failure
+                        fallback_nav_error = fallback_nav_result.get('error', 'Fallback force navigation failed')
+                        print(f"❌ [validation] Fallback force navigation from Entry to '{target_node_label}' failed: {fallback_nav_error}")
+                        print(f"🛑 [validation] CRITICAL: Normal step, force navigation from current position, and fallback from Entry all failed - stopping validation")
+                        
+                        # Preserve the original error as the primary error
+                        original_error = result.get('error', 'Original step failed')
+                        
+                        # Mark this as a critical failure that should stop the script
+                        return {
+                            'success': False,
+                            'critical_failure': True,
+                            'error': original_error,  # Keep original error as primary
+                            'verification_results': result.get('verification_results', []),  # Preserve original verification results
+                            'global_verification_counter_increment': 0,
+                            'original_error': original_error,
+                            'force_navigation_error': force_nav_error,
+                            'fallback_navigation_error': fallback_nav_error,
+                            'additional_context': f"Force navigation from current position failed: {force_nav_error}. Fallback from Entry also failed: {fallback_nav_error}"
+                        }
+                        
+                except Exception as fallback_nav_exception:
+                    print(f"❌ [validation] Fallback force navigation exception: {str(fallback_nav_exception)}")
+                    print(f"🛑 [validation] CRITICAL: Fallback force navigation failed with exception - stopping validation")
+                    
+                    # Preserve the original error as the primary error
+                    original_error = result.get('error', 'Original step failed')
+                    
+                    # Critical failure due to fallback navigation exception
+                    return {
+                        'success': False,
+                        'critical_failure': True,
+                        'error': original_error,  # Keep original error as primary
+                        'verification_results': result.get('verification_results', []),  # Preserve original verification results
+                        'global_verification_counter_increment': 0,
+                        'original_error': original_error,
+                        'force_navigation_error': force_nav_error,
+                        'fallback_navigation_error': f"Fallback navigation exception: {str(fallback_nav_exception)}",
+                        'additional_context': f"Force navigation from current position failed: {force_nav_error}. Fallback from Entry failed with exception: {str(fallback_nav_exception)}"
+                    }
                 
         except Exception as force_nav_exception:
             print(f"❌ [validation] Force navigation exception: {str(force_nav_exception)}")
@@ -285,9 +351,11 @@ def execute_validation_sequence_with_force_recovery(executor: ScriptExecutor, co
                 'error': result.get('error'),
                 'recovered': result.get('force_navigation_used', False),
                 'force_navigation_used': result.get('force_navigation_used', False),
+                'fallback_navigation_used': result.get('fallback_navigation_used', False),
                 'force_navigation_time_ms': result.get('force_navigation_time_ms', 0),
                 'additional_context': result.get('additional_context'),
-                'force_navigation_error': result.get('force_navigation_error')
+                'force_navigation_error': result.get('force_navigation_error'),
+                'fallback_navigation_error': result.get('fallback_navigation_error')
             }
             context.step_results.append(step_result)
             
@@ -306,7 +374,8 @@ def execute_validation_sequence_with_force_recovery(executor: ScriptExecutor, co
                     'verification_results': result.get('verification_results', []),
                     'critical_failure': True,
                     'original_error': result.get('original_error'),
-                    'force_navigation_error': result.get('force_navigation_error')
+                    'force_navigation_error': result.get('force_navigation_error'),
+                    'fallback_navigation_error': result.get('fallback_navigation_error')
                 })
                 
                 # Record all remaining steps as skipped
@@ -334,7 +403,10 @@ def execute_validation_sequence_with_force_recovery(executor: ScriptExecutor, co
             else:
                 # Step was successful (either normally or via force navigation)
                 if result.get('force_navigation_used'):
-                    print(f"🔄 [validation] Step {step_num} recovered via force navigation in {step_execution_time}ms")
+                    if result.get('fallback_navigation_used'):
+                        print(f"🔙 [validation] Step {step_num} recovered via fallback navigation from Entry in {step_execution_time}ms")
+                    else:
+                        print(f"🔄 [validation] Step {step_num} recovered via force navigation in {step_execution_time}ms")
                     context.recovered_steps += 1
                 else:
                     print(f"✅ [validation] Step {step_num} completed successfully in {step_execution_time}ms")
@@ -369,7 +441,9 @@ def capture_validation_summary(context: ScriptExecutionContext, userinterface_na
     successful_steps = sum(1 for step in context.step_results if step.get('success', False))
     failed_steps = sum(1 for step in context.step_results if not step.get('success', False) and not step.get('skipped', False))
     skipped_steps = sum(1 for step in context.step_results if step.get('skipped', False))
-    recovered_steps = sum(1 for step in context.step_results if step.get('force_navigation_used', False))
+    force_navigation_steps = sum(1 for step in context.step_results if step.get('force_navigation_used', False) and not step.get('fallback_navigation_used', False))
+    fallback_navigation_steps = sum(1 for step in context.step_results if step.get('fallback_navigation_used', False))
+    recovered_steps = force_navigation_steps + fallback_navigation_steps
     context.recovered_steps = recovered_steps  # Update context for consistency
     
     lines = []
@@ -495,7 +569,9 @@ def print_validation_summary(context: ScriptExecutionContext, userinterface_name
     successful_steps = sum(1 for step in context.step_results if step.get('success', False))
     failed_steps = sum(1 for step in context.step_results if not step.get('success', False) and not step.get('skipped', False))
     skipped_steps = sum(1 for step in context.step_results if step.get('skipped', False))
-    recovered_steps = sum(1 for step in context.step_results if step.get('force_navigation_used', False))
+    force_navigation_steps = sum(1 for step in context.step_results if step.get('force_navigation_used', False) and not step.get('fallback_navigation_used', False))
+    fallback_navigation_steps = sum(1 for step in context.step_results if step.get('fallback_navigation_used', False))
+    recovered_steps = force_navigation_steps + fallback_navigation_steps
     
     print("\n" + "="*60)
     print(f"🎯 [VALIDATION] EXECUTION SUMMARY")
@@ -508,7 +584,12 @@ def print_validation_summary(context: ScriptExecutionContext, userinterface_name
     print(f"✅ Successful: {successful_steps}")
     print(f"❌ Failed: {failed_steps}")
     print(f"⏭️ Skipped: {skipped_steps}")
-    print(f"🔄 Force Navigation Recoveries: {recovered_steps}")
+    if fallback_navigation_steps > 0:
+        print(f"🔄 Force Navigation Recoveries: {force_navigation_steps}")
+        print(f"🔙 Fallback Navigation Recoveries: {fallback_navigation_steps}")
+        print(f"🛠️  Total Recoveries: {recovered_steps}")
+    else:
+        print(f"🔄 Force Navigation Recoveries: {recovered_steps}")
     print(f"🔍 Verifications: {passed_verifications}/{total_verifications} passed")
     print(f"📸 Screenshots: {len(context.screenshot_paths)} captured")
     print(f"🎯 Coverage: {((successful_steps + recovered_steps) / len(context.step_results) * 100):.1f}%")
