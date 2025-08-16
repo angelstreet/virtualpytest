@@ -584,7 +584,7 @@ def _create_reachability_based_validation_sequence(G, edges_to_validate: List[Tu
     forward_steps = [s for s in validation_sequence if s.get('transition_direction') == 'forward']
     return_steps = [s for s in validation_sequence if s.get('transition_direction') == 'return']
     forced_steps = [s for s in validation_sequence if s.get('step_type') == 'forced_transition']
-    action_steps = [s for s in validation_sequence if s.get('total_actions', 0) > 0 and s.get('transition_direction') == 'forward']  # Assuming actions are forward to action nodes
+    action_steps = [s for s in validation_sequence if s.get('transition_direction') == 'forward' and get_node_info(G, s['to_node_id']).get('node_type') == 'action']
     
     print(f"📊 Statistics:")
     print(f"   • Total validation steps: {len(validation_sequence)}")
@@ -607,7 +607,7 @@ def _create_reachability_based_validation_sequence(G, edges_to_validate: List[Tu
             dir_text = "(forced)"
         elif direction == 'forward':
             arrow = "→"
-            if step.get('total_actions', 0) > 0:
+            if get_node_info(G, step['to_node_id']).get('node_type') == 'action':
                 dir_text = "forward (action)"
             else:
                 dir_text = "(forward)"
