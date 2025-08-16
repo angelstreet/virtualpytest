@@ -13,8 +13,8 @@ import os
 # Add backend_core to path for direct access
 sys.path.append(os.path.join(os.path.dirname(__file__), '../../../backend_core/src'))
 
-from controllers.ai.ai_agent import AIAgent
-from controllers.controller_config_factory import get_controller_mapping, get_device_capabilities
+from controllers.ai.ai_agent import AIAgentController
+from controllers.controller_config_factory import get_device_capabilities
 from shared.lib.supabase.test_cases_db import TestCasesDB
 from shared.lib.supabase.navigation_trees_db import NavigationTreesDB
 from shared.lib.supabase.userinterfaces_db import UserInterfacesDB
@@ -46,11 +46,10 @@ def generate_test_case():
         print(f"[@route:server_aitestcase:generate_test_case] Device: {device_model}, Interface: {interface_name}")
         
         # Server directly accesses backend_core - no proxy needed for generation
-        ai_agent = AIAgent()
+        ai_agent = AIAgentController()
         
         # Get device capabilities and navigation context
         device_capabilities = get_device_capabilities(device_model)
-        controller_mapping = get_controller_mapping(device_model)
         
         # Get navigation tree for interface
         nav_db = NavigationTreesDB()
@@ -72,15 +71,20 @@ def generate_test_case():
             'device_model': device_model,
             'interface_name': interface_name,
             'device_capabilities': device_capabilities,
-            'controller_mapping': controller_mapping,
             'navigation_graph': unified_graph,
             'userinterface_info': userinterface_info
         }
         
         print("[@route:server_aitestcase:generate_test_case] Calling AI agent")
         
-        # Generate test case using AI
-        ai_result = ai_agent.generate_test_case_from_prompt(ai_context)
+        # Generate test case using AI - use existing execute_task method
+        ai_result = ai_agent.execute_task(
+            task_description=prompt,
+            available_actions=[],  # Will be populated by the AI agent
+            available_verifications=[],  # Will be populated by the AI agent  
+            device_model=device_model,
+            userinterface_name=interface_name
+        )
         
         if not ai_result.get('success'):
             return jsonify({

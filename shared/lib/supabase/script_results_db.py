@@ -71,6 +71,8 @@ def update_script_execution_result(
     execution_time_ms: Optional[int] = None,
     html_report_r2_path: Optional[str] = None,
     html_report_r2_url: Optional[str] = None,
+    logs_r2_path: Optional[str] = None,
+    logs_r2_url: Optional[str] = None,
     error_msg: Optional[str] = None,
     metadata: Optional[Dict] = None
 ) -> bool:
@@ -88,6 +90,10 @@ def update_script_execution_result(
             update_data['html_report_r2_path'] = html_report_r2_path
         if html_report_r2_url:
             update_data['html_report_r2_url'] = html_report_r2_url
+        if logs_r2_path:
+            update_data['logs_r2_path'] = logs_r2_path
+        if logs_r2_url:
+            update_data['logs_r2_url'] = logs_r2_url
         if error_msg:
             update_data['error_msg'] = error_msg
         if metadata:

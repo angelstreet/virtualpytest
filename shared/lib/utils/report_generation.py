@@ -187,7 +187,7 @@ def generate_and_upload_script_report(
         print(f"[@utils:report_utils:generate_and_upload_script_report] DEBUG: Parameters - device_info: {device_info}")
         print(f"[@utils:report_utils:generate_and_upload_script_report] DEBUG: Parameters - screenshot_paths length: {len(screenshot_paths) if screenshot_paths else 0}")
         
-        from .cloudflare_utils import upload_script_report, upload_validation_screenshots
+        from .cloudflare_utils import upload_script_report, upload_validation_screenshots, upload_script_logs
         from datetime import datetime
         
         execution_timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
@@ -261,6 +261,27 @@ def generate_and_upload_script_report(
         # Update step_results to use R2 URLs instead of local paths
         updated_step_results = update_step_results_with_r2_urls(step_results, url_mapping)
         
+        # Upload script logs to R2 if stdout is provided
+        logs_url = ""
+        logs_path = ""
+        if stdout and stdout.strip():
+            print(f"[@utils:report_utils:generate_and_upload_script_report] Uploading script logs...")
+            logs_upload_result = upload_script_logs(
+                log_content=stdout,
+                device_model=device_info.get('device_model', 'unknown'),
+                script_name=script_name.replace('.py', ''),
+                timestamp=execution_timestamp
+            )
+            
+            if logs_upload_result['success']:
+                logs_url = logs_upload_result['url']
+                logs_path = logs_upload_result['path']
+                print(f"[@utils:report_utils:generate_and_upload_script_report] Logs uploaded: {logs_url}")
+            else:
+                print(f"[@utils:report_utils:generate_and_upload_script_report] Logs upload failed: {logs_upload_result.get('error', 'Unknown error')}")
+        else:
+            print(f"[@utils:report_utils:generate_and_upload_script_report] No stdout provided, skipping log upload")
+        
         # Prepare report data (same structure as validation.py) - now with R2 URLs
         report_data = {
             'script_name': script_name,
@@ -304,14 +325,18 @@ def generate_and_upload_script_report(
             return {
                 'success': True,
                 'report_url': report_url,
-                'report_path': report_path
+                'report_path': report_path,
+                'logs_url': logs_url,
+                'logs_path': logs_path
             }
         else:
             print(f"[@utils:report_utils:generate_and_upload_script_report] Upload failed: {upload_result.get('error', 'Unknown error')}")
             return {
                 'success': False,
                 'report_url': '',
-                'report_path': ''
+                'report_path': '',
+                'logs_url': '',
+                'logs_path': ''
             }
         
     except Exception as e:
@@ -319,7 +344,9 @@ def generate_and_upload_script_report(
         return {
             'success': False,
             'report_url': '',
-            'report_path': ''
+            'report_path': '',
+            'logs_url': '',
+            'logs_path': ''
         }
 
 

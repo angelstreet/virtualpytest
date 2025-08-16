@@ -20,6 +20,8 @@ export interface ScriptResult {
   completed_at: string;
   html_report_r2_path: string | null;
   html_report_r2_url: string | null;
+  logs_r2_path: string | null;
+  logs_r2_url: string | null;
   discard: boolean;
   error_msg: string | null;
   metadata: any;

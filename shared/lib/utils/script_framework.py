@@ -85,6 +85,9 @@ class ScriptExecutionContext:
         
         # Custom data for display in final summary
         self.custom_data = {}
+        
+        # Stdout capture for log upload
+        self.stdout_buffer = []
     
     def get_execution_time_ms(self) -> int:
         """Get current execution time in milliseconds"""
@@ -94,6 +97,48 @@ class ScriptExecutionContext:
         """Add a screenshot to the collection"""
         if screenshot_path:
             self.screenshot_paths.append(screenshot_path)
+    
+    def start_stdout_capture(self):
+        """Start capturing stdout for log upload"""
+        import sys
+        import io
+        
+        # Store original stdout
+        self.original_stdout = sys.stdout
+        
+        # Create a custom stdout that captures and forwards
+        class StdoutCapture:
+            def __init__(self, original_stdout, buffer):
+                self.original_stdout = original_stdout
+                self.buffer = buffer
+            
+            def write(self, text):
+                # Write to original stdout (so output still shows)
+                self.original_stdout.write(text)
+                # Capture in buffer for log upload
+                self.buffer.append(text)
+                return len(text)
+            
+            def flush(self):
+                self.original_stdout.flush()
+            
+            def __getattr__(self, name):
+                # Forward other attributes to original stdout
+                return getattr(self.original_stdout, name)
+        
+        # Replace stdout with capturing version
+        sys.stdout = StdoutCapture(self.original_stdout, self.stdout_buffer)
+    
+    def stop_stdout_capture(self):
+        """Stop capturing stdout and restore original"""
+        import sys
+        if self.original_stdout:
+            sys.stdout = self.original_stdout
+            self.original_stdout = None
+    
+    def get_captured_stdout(self) -> str:
+        """Get captured stdout as string"""
+        return ''.join(self.stdout_buffer)
 
 
 class ScriptExecutor:
@@ -123,6 +168,9 @@ class ScriptExecutor:
     def setup_execution_context(self, args, enable_db_tracking: bool = False) -> ScriptExecutionContext:
         """Setup execution context with infrastructure components"""
         context = ScriptExecutionContext(self.script_name)
+        
+        # Start capturing stdout for log upload
+        context.start_stdout_capture()
         
         print(f"🎯 [{self.script_name}] Starting execution for: {args.userinterface_name}")
         
@@ -491,6 +539,10 @@ class ScriptExecutor:
             print(f"[@script_framework:generate_final_report] DEBUG: Screenshot count: {len(context.screenshot_paths)}")
             print(f"[@script_framework:generate_final_report] DEBUG: Step results count: {len(context.step_results)}")
             
+            # Stop stdout capture before generating report
+            context.stop_stdout_capture()
+            captured_stdout = context.get_captured_stdout()
+            
             report_result = generate_and_upload_script_report(
                 script_name=f"{self.script_name}.py",
                 device_info=device_info,
@@ -502,7 +554,8 @@ class ScriptExecutor:
                 error_message=context.error_message,
                 userinterface_name=userinterface_name,
                 execution_summary=getattr(context, 'execution_summary', ''),
-                test_video_url=getattr(context, 'test_video_url', '') or ''
+                test_video_url=getattr(context, 'test_video_url', '') or '',
+                stdout=captured_stdout
             )
             print(f"[@script_framework:generate_final_report] DEBUG: Step 4 completed - generate_and_upload_script_report returned")
             print(f"[@script_framework:generate_final_report] DEBUG: Report result keys: {list(report_result.keys()) if report_result else 'None'}")
@@ -561,6 +614,8 @@ class ScriptExecutor:
                         execution_time_ms=context.get_execution_time_ms(),
                         html_report_r2_path=report_result.get('report_path') if report_result and report_result.get('success') else None,
                         html_report_r2_url=report_result.get('report_url') if report_result and report_result.get('success') else None,
+                        logs_r2_path=report_result.get('logs_path') if report_result and report_result.get('success') else None,
+                        logs_r2_url=report_result.get('logs_url') if report_result and report_result.get('success') else None,
                         error_msg=None
                     )
                 else:
@@ -571,12 +626,16 @@ class ScriptExecutor:
                         execution_time_ms=context.get_execution_time_ms(),
                         html_report_r2_path=report_result.get('report_path') if report_result and report_result.get('success') else None,
                         html_report_r2_url=report_result.get('report_url') if report_result and report_result.get('success') else None,
+                        logs_r2_path=report_result.get('logs_path') if report_result and report_result.get('success') else None,
+                        logs_r2_url=report_result.get('logs_url') if report_result and report_result.get('success') else None,
                         error_msg=context.error_message or 'Script execution failed'
                     )
         except Exception as e:
             print(f"⚠️ [{self.script_name}] Error during report generation: {e}")
         
-        # Always release device control
+        # Always stop stdout capture and release device control
+        context.stop_stdout_capture()
+        
         if context.device_key and context.session_id:
             print(f"🔓 [{self.script_name}] Releasing control of device...")
             release_device_control(context.device_key, context.session_id, self.script_name)

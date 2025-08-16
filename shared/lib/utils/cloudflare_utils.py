@@ -493,6 +493,63 @@ def upload_script_report(html_content: str, device_model: str, script_name: str,
             'error': str(e)
         }
 
+def upload_script_logs(log_content: str, device_model: str, script_name: str, timestamp: str) -> Dict:
+    """Upload script execution logs to R2."""
+    try:
+        uploader = get_cloudflare_utils()
+        
+        # Create report folder path (same as reports for consistency)
+        date_str = timestamp[:8]  # YYYYMMDD from YYYYMMDDHHMMSS
+        folder_name = f"{script_name}_{date_str}_{timestamp}"
+        remote_path = f"script-logs/{device_model}/{folder_name}/execution.log"
+        
+        logger.info(f"Uploading script logs to R2: {remote_path}")
+        
+        # Create temporary log file
+        import tempfile
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.log', delete=False) as temp_file:
+            temp_file.write(log_content)
+            temp_log_path = temp_file.name
+        
+        try:
+            # Upload log file
+            file_mappings = [{'local_path': temp_log_path, 'remote_path': remote_path}]
+            upload_result = uploader.upload_files(file_mappings)
+            
+            # Clean up temporary file
+            os.unlink(temp_log_path)
+            
+            if upload_result['success'] and upload_result['uploaded_files']:
+                uploaded_file = upload_result['uploaded_files'][0]
+                logger.info(f"Uploaded script logs: {uploaded_file['url']}")
+                return {
+                    'success': True,
+                    'url': uploaded_file['url'],
+                    'path': remote_path
+                }
+            else:
+                error_msg = 'Upload failed'
+                if upload_result['failed_uploads']:
+                    error_msg = upload_result['failed_uploads'][0]['error']
+                logger.error(f"Script logs upload failed: {error_msg}")
+                return {
+                    'success': False,
+                    'error': error_msg
+                }
+                
+        except Exception as upload_error:
+            # Clean up temporary file on error
+            if os.path.exists(temp_log_path):
+                os.unlink(temp_log_path)
+            raise upload_error
+            
+    except Exception as e:
+        logger.error(f"Script logs upload failed: {str(e)}")
+        return {
+            'success': False,
+            'error': str(e)
+        }
+
 def upload_validation_screenshots(screenshot_paths: list, device_model: str, script_name: str, timestamp: str) -> Dict:
     """Upload validation screenshots to R2 using batch upload."""
     uploader = get_cloudflare_utils()

@@ -114,7 +114,7 @@ const TestReports: React.FC = () => {
   // Empty state component
   const EmptyState = () => (
     <TableRow>
-      <TableCell colSpan={9} sx={{ textAlign: 'center', py: 4 }}>
+      <TableCell colSpan={10} sx={{ textAlign: 'center', py: 4 }}>
         <Typography variant="body2" color="textSecondary">
           No script results available yet
         </Typography>
@@ -213,6 +213,9 @@ const TestReports: React.FC = () => {
                     <strong>Report</strong>
                   </TableCell>
                   <TableCell sx={{ py: 1 }}>
+                    <strong>Logs</strong>
+                  </TableCell>
+                  <TableCell sx={{ py: 1 }}>
                     <strong>Discard</strong>
                   </TableCell>
                 </TableRow>
@@ -220,7 +223,7 @@ const TestReports: React.FC = () => {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={9}>
+                    <TableCell colSpan={10}>
                       <LoadingState />
                     </TableCell>
                   </TableRow>
@@ -268,6 +271,21 @@ const TestReports: React.FC = () => {
                           />
                         ) : (
                           <Chip label="No Report" size="small" variant="outlined" disabled />
+                        )}
+                      </TableCell>
+                      <TableCell sx={{ py: 0.5 }}>
+                        {result.logs_r2_url ? (
+                          <Chip
+                            icon={<LinkIcon />}
+                            label="View Logs"
+                            size="small"
+                            clickable
+                            onClick={() => window.open(result.logs_r2_url!, '_blank')}
+                            color="secondary"
+                            variant="outlined"
+                          />
+                        ) : (
+                          <Chip label="No Logs" size="small" variant="outlined" disabled />
                         )}
                       </TableCell>
                       <TableCell sx={{ py: 0.5 }}>
