@@ -1112,7 +1112,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
           <EdgeEditDialog
             isOpen={isEdgeDialogOpen}
             edgeForm={edgeForm}
-            setEdgeForm={setEdgeForm as React.Dispatch<React.SetStateAction<EdgeForm>>}
+            setEdgeForm={setEdgeForm as any}
                             onSubmit={saveEdgeWithStateUpdate}
             onClose={() => setIsEdgeDialogOpen(false)}
             selectedEdge={selectedEdge}

@@ -82,8 +82,8 @@ export interface NavigationContextType {
   setIsNewNode: (isNew: boolean) => void;
   nodeForm: NodeForm;
   setNodeForm: (form: NodeForm) => void;
-  edgeForm: EdgeForm;
-  setEdgeForm: (form: EdgeForm) => void;
+  edgeForm: EdgeForm | null;
+  setEdgeForm: (form: EdgeForm | null) => void;
   edgeLabels: {fromLabel: string, toLabel: string};
   setEdgeLabels: (labels: {fromLabel: string, toLabel: string}) => void;
 
@@ -252,7 +252,7 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
     description: '',
     verifications: [],
   });
-  const [edgeForm, setEdgeForm] = useState<any | null>(null);
+  const [edgeForm, setEdgeForm] = useState<EdgeForm | null>(null);
   const [edgeLabels, setEdgeLabels] = useState<{fromLabel: string, toLabel: string}>({fromLabel: '', toLabel: ''});
 
   // Loading and error states
@@ -895,8 +895,8 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
              setSelectedNode(updatedNodeData);
            }
 
-           // Save to database via NavigationConfigContext with smart routing
-           if (updatedNodeData && navigationConfig.actualTreeId) {
+                       // Save to database via NavigationConfigContext with smart routing
+            if (updatedNodeData && navigationConfig?.actualTreeId) {
              // SMART SAVE ROUTING: Determine which tree to save to
              const isParentReference = updatedNodeData.data.isParentReference;
              const targetTreeId = isParentReference 
@@ -939,7 +939,7 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
               dataHasVerifications: 'verifications' in normalizedNode.data
             });
 
-            await navigationConfig.saveNode(targetTreeId, normalizedNode as any);
+            await navigationConfig?.saveNode(targetTreeId, normalizedNode as any);
 
             // Note: Cache refresh removed to prevent tree reload that breaks selectedNode reference
             // The cache will be refreshed on next navigation operation if needed
@@ -985,8 +985,8 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
             },
           };
 
-           // DATABASE FIRST: Save to database, then update frontend with server response
-           if (navigationConfig.actualTreeId) {
+                       // DATABASE FIRST: Save to database, then update frontend with server response
+            if (navigationConfig?.actualTreeId) {
              // Get current edge from ReactFlow canvas (edges state) to capture current handle positions
              const currentEdge = edges.find(edge => edge.id === updatedEdge.id);
              const currentSourceHandle = currentEdge?.sourceHandle || updatedEdge.sourceHandle;
@@ -1018,43 +1018,47 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
               final_wait_time: updatedEdge.data.final_wait_time || 0,
             };
 
-             const saveResponse = await navigationConfig.saveEdge(navigationConfig.actualTreeId, normalizedEdge as any);
+             const saveResponse = await navigationConfig?.saveEdge(navigationConfig?.actualTreeId || 'unknown', normalizedEdge as any);
              
-             // Update frontend state with server response (source of truth)
-             if (saveResponse?.edge) {
-               const serverEdge = saveResponse.edge;
-               const updatedEdgeFromServer = {
-                 ...currentSelectedEdge,
-                 data: {
-                   // Map server response to frontend data structure
-                   action_sets: serverEdge.action_sets || [],
-                   default_action_set_id: serverEdge.default_action_set_id || '',
-                   final_wait_time: serverEdge.final_wait_time || 2000,
-                   priority: serverEdge.data?.priority || 'p3',
-                   // Preserve ReactFlow properties
-                   sourceHandle: currentSourceHandle,
-                   targetHandle: currentTargetHandle,
-                 },
-               };
-               
-               // Update edges list with server data
-               const updatedEdges = edges.map((edge) =>
-                 edge.id === currentSelectedEdge.id ? updatedEdgeFromServer : edge,
-               );
-               setEdges(updatedEdges);
-               
-               // Update selected edge with server data
-               setSelectedEdge(updatedEdgeFromServer);
+                           // Update frontend state with server response (source of truth)
+              if (saveResponse && 'edge' in saveResponse) {
+                const serverEdge = (saveResponse as any).edge;
+                             const updatedEdgeFromServer: UINavigationEdge = {
+                ...currentSelectedEdge,
+                data: {
+                  // Map server response to frontend data structure
+                  action_sets: serverEdge.action_sets || [],
+                  default_action_set_id: serverEdge.default_action_set_id || '',
+                  final_wait_time: serverEdge.final_wait_time || 2000,
+                  priority: serverEdge.data?.priority || 'p3',
+                  // Preserve ReactFlow properties
+                  sourceHandle: currentSourceHandle || undefined,
+                  targetHandle: currentTargetHandle || undefined,
+                },
+                type: currentSelectedEdge.type || 'smoothstep', // Ensure type is never undefined
+                label: typeof currentSelectedEdge.label === 'string' ? currentSelectedEdge.label : undefined,
+                sourceHandle: currentSourceHandle || undefined,
+                targetHandle: currentTargetHandle || undefined,
+              };
+              
+              // Update edges list with server data
+              const updatedEdges = edges.map((edge) =>
+                edge.id === currentSelectedEdge.id ? updatedEdgeFromServer : edge,
+              );
+              setEdges(updatedEdges);
+              
+              // Update selected edge with server data
+              setSelectedEdge(updatedEdgeFromServer);
                
                // RELOAD EDGE FORM: Update edgeForm state with fresh data from server
                if (edgeForm && edgeForm.edgeId === currentSelectedEdge.id) {
-                 const refreshedEdgeForm = {
-                   edgeId: updatedEdgeFromServer.id,
-                   action_sets: updatedEdgeFromServer.data.action_sets,
-                   default_action_set_id: updatedEdgeFromServer.data.default_action_set_id,
-                   final_wait_time: updatedEdgeFromServer.data.final_wait_time || 2000,
-                   direction: edgeForm.direction, // Preserve current direction
-                 };
+                               const refreshedEdgeForm: EdgeForm = {
+                edgeId: updatedEdgeFromServer.id,
+                action_sets: updatedEdgeFromServer.data.action_sets,
+                default_action_set_id: updatedEdgeFromServer.data.default_action_set_id,
+                final_wait_time: updatedEdgeFromServer.data.final_wait_time || 2000,
+                direction: edgeForm.direction, // Preserve current direction
+              };
                  setEdgeForm(refreshedEdgeForm);
                  console.log('[@NavigationContext] Reloaded edge form with server data');
                }
@@ -1062,19 +1066,19 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
                console.log('[@NavigationContext] Updated frontend state with server response');
              }
 
-            // Refresh navigation cache (non-blocking)
-            try {
-              await fetch('/server/pathfinding/cache/refresh', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                  tree_id: navigationConfig.actualTreeId,
-                  team_id: 'default' 
-                })
-              });
-            } catch (cacheError) {
-              console.warn('Cache refresh failed:', cacheError);
-            }
+                          // Refresh navigation cache (non-blocking)
+              try {
+                await fetch('/server/pathfinding/cache/refresh', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ 
+                    tree_id: navigationConfig?.actualTreeId || 'unknown',
+                    team_id: 'default' 
+                  })
+                });
+              } catch (cacheError) {
+                console.warn('Cache refresh failed:', cacheError);
+              }
            }
 
            setIsEdgeDialogOpen(false);
@@ -1147,9 +1151,9 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
            const deletedNodeIds = initialNodeIds.filter(id => !currentNodeIds.has(id));
            const deletedEdgeIds = initialEdgeIds.filter(id => !currentEdgeIds.has(id));
 
-           // Capture viewport and save
-           const viewport = reactFlowInstance?.getViewport();
-           await navigationConfig.saveTreeData(treeId, normalizedNodes, normalizedEdges, deletedNodeIds, deletedEdgeIds, viewport);
+                     // Capture viewport and save
+          const viewport = reactFlowInstance?.getViewport();
+          await navigationConfig?.saveTreeData(treeId, normalizedNodes, normalizedEdges, deletedNodeIds, deletedEdgeIds, viewport);
            
            setInitialState({ 
              nodes: nodes as UINavigationNode[], 
@@ -1247,41 +1251,45 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
                final_wait_time: edgeForm.final_wait_time,
              };
 
-             const saveResponse = await navigationConfig.saveEdge(navigationConfig.actualTreeId, normalizedEdge as any);
+             const saveResponse = await navigationConfig?.saveEdge(navigationConfig?.actualTreeId || 'unknown', normalizedEdge as any);
              
-             // Update frontend state with server response
-             if (saveResponse?.edge) {
-               const serverEdge = saveResponse.edge;
-               const updatedEdgeFromServer = {
-                 ...edge,
-                 data: {
-                   action_sets: serverEdge.action_sets || [],
-                   default_action_set_id: serverEdge.default_action_set_id || '',
-                   final_wait_time: serverEdge.final_wait_time || 2000,
-                   priority: serverEdge.data?.priority || 'p3',
-                   sourceHandle: edge.sourceHandle,
-                   targetHandle: edge.targetHandle,
-                 },
-               };
+                         // Update frontend state with server response
+            if (saveResponse && 'edge' in saveResponse) {
+              const serverEdge = (saveResponse as any).edge;
+                             const updatedEdgeFromServer: UINavigationEdge = {
+                ...edge,
+                data: {
+                  action_sets: serverEdge.action_sets || [],
+                  default_action_set_id: serverEdge.default_action_set_id || '',
+                  final_wait_time: serverEdge.final_wait_time || 2000,
+                  priority: serverEdge.data?.priority || 'p3',
+                  sourceHandle: edge.sourceHandle || undefined,
+                  targetHandle: edge.targetHandle || undefined,
+                },
+                type: edge.type || 'smoothstep', // Ensure type is never undefined
+                label: typeof edge.label === 'string' ? edge.label : undefined,
+                sourceHandle: edge.sourceHandle || undefined,
+                targetHandle: edge.targetHandle || undefined,
+              };
+              
+              const updatedEdges = edges.map((e) =>
+                e.id === edge.id ? updatedEdgeFromServer : e,
+              );
+              setEdges(updatedEdges);
+              setSelectedEdge(updatedEdgeFromServer);
                
-               const updatedEdges = edges.map((e) =>
-                 e.id === edge.id ? updatedEdgeFromServer : e,
-               );
-               setEdges(updatedEdges);
-               setSelectedEdge(updatedEdgeFromServer);
-               
-               // RELOAD EDGE FORM: Update edgeForm state if it's currently editing this edge
-               if (edgeForm && edgeForm.edgeId === edge.id) {
-                 const refreshedEdgeForm = {
-                   edgeId: updatedEdgeFromServer.id,
-                   action_sets: updatedEdgeFromServer.data.action_sets,
-                   default_action_set_id: updatedEdgeFromServer.data.default_action_set_id,
-                   final_wait_time: updatedEdgeFromServer.data.final_wait_time || 2000,
-                   direction: edgeForm.direction, // Preserve current direction
-                 };
-                 setEdgeForm(refreshedEdgeForm);
-                 console.log('[@NavigationContext] Reloaded edge form after direction deletion');
-               }
+                             // RELOAD EDGE FORM: Update edgeForm state if it's currently editing this edge
+              if (edgeForm && edgeForm.edgeId === edge.id) {
+                const refreshedEdgeForm: EdgeForm = {
+                  edgeId: updatedEdgeFromServer.id,
+                  action_sets: updatedEdgeFromServer.data.action_sets,
+                  default_action_set_id: updatedEdgeFromServer.data.default_action_set_id,
+                  final_wait_time: updatedEdgeFromServer.data.final_wait_time || 2000,
+                  direction: (edgeForm as any).direction, // Preserve current direction
+                };
+                setEdgeForm(refreshedEdgeForm);
+                console.log('[@NavigationContext] Reloaded edge form after direction deletion');
+              }
              }
 
              console.log('[@NavigationContext] Updated edge direction and saved to database');

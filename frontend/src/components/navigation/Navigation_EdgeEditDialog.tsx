@@ -28,8 +28,8 @@ import { ActionDependencyDialog } from '../actions/ActionDependencyDialog';
 
 interface EdgeEditDialogProps {
   isOpen: boolean;
-  edgeForm: EdgeForm;
-  setEdgeForm: React.Dispatch<React.SetStateAction<EdgeForm>>;
+  edgeForm: EdgeForm | null;
+  setEdgeForm: React.Dispatch<React.SetStateAction<EdgeForm | null>>;
   onSubmit: (formData: any) => void;
   onClose: () => void;
   selectedEdge?: UINavigationEdge | null;

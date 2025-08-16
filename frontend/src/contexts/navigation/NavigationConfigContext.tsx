@@ -87,7 +87,7 @@ interface NavigationConfigContextType {
 
   // Save operations
   saveNode: (treeId: string, nodeData: NavigationNode) => Promise<void>;
-  saveEdge: (treeId: string, edgeData: NavigationEdge) => Promise<void>;
+  saveEdge: (treeId: string, edgeData: NavigationEdge) => Promise<any>;
   
   // Batch operations
   saveTreeData: (treeId: string, nodes: any[], edges: any[], deletedNodeIds?: string[], deletedEdgeIds?: string[], viewport?: any) => Promise<void>;
@@ -189,7 +189,7 @@ export const NavigationConfigProvider: React.FC<{ children: React.ReactNode }> =
     }
   };
 
-  const saveEdge = async (treeId: string, edge: NavigationEdge): Promise<void> => {
+  const saveEdge = async (treeId: string, edge: NavigationEdge): Promise<any> => {
     const response = await fetch(`/server/navigationTrees/${treeId}/edges`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -200,6 +200,7 @@ export const NavigationConfigProvider: React.FC<{ children: React.ReactNode }> =
     if (!result.success) {
       throw new Error(result.error);
     }
+    return result;
   };
 
 

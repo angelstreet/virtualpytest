@@ -38,7 +38,7 @@ export const useEdgeEdit = ({
 
   // Initialize actions when dialog opens - SIMPLIFIED
   useEffect(() => {
-    if (isOpen && edgeForm?.action_sets?.length >= 2) {
+    if (isOpen && edgeForm?.action_sets && edgeForm.action_sets.length >= 2) {
       // Simple direction-based action set selection
       const direction = edgeForm.direction || 'forward';
       const actionSet = direction === 'forward' ? edgeForm.action_sets[0] : edgeForm.action_sets[1];
@@ -65,8 +65,8 @@ export const useEdgeEdit = ({
       setLocalFailureActions(actionSet.failure_actions || []);
 
       // Update the form with the loaded actions
-      if (edgeForm) {
-        const updatedActionSets = [...(edgeForm.action_sets || [])];
+      if (edgeForm && edgeForm.action_sets) {
+        const updatedActionSets = [...edgeForm.action_sets];
         if (updatedActionSets[0]) {
           updatedActionSets[0] = {
             ...updatedActionSets[0],

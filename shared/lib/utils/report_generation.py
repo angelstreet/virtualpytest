@@ -190,8 +190,6 @@ def generate_and_upload_script_report(
         from .cloudflare_utils import upload_script_report, upload_validation_screenshots
         from datetime import datetime
         
-        print(f"[@utils:report_utils:generate_and_upload_script_report] DEBUG: Imports successful")
-        
         execution_timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
         print(f"[@utils:report_utils:generate_and_upload_script_report] DEBUG: Timestamp generated: {execution_timestamp}")
         
@@ -230,43 +228,25 @@ def generate_and_upload_script_report(
         failed_verifications = total_verifications - passed_verifications
         
         # Upload screenshots FIRST to get R2 URLs
-        print(f"[@utils:report_utils:generate_and_upload_script_report] DEBUG: Step A - Starting screenshot upload...")
         url_mapping = {}  # Map local paths to R2 URLs
         if screenshot_paths:
-            print(f"[@utils:report_utils:generate_and_upload_script_report] DEBUG: Step A1 - Calling upload_validation_screenshots...")
             screenshot_result = upload_validation_screenshots(
                 screenshot_paths=screenshot_paths,
                 device_model=device_info.get('device_model', 'unknown'),
                 script_name=script_name.replace('.py', ''),
                 timestamp=execution_timestamp
             )
-            print(f"[@utils:report_utils:generate_and_upload_script_report] DEBUG: Step A2 - upload_validation_screenshots returned")
             
             if screenshot_result['success']:
-                print(f"[@utils:report_utils:generate_and_upload_script_report] Screenshots uploaded: {screenshot_result['uploaded_count']} files")
-                # Create mapping from local paths to R2 URLs
-                print(f"[@utils:report_utils:generate_and_upload_script_report] DEBUG: Step A3 - Processing URL mappings...")
                 uploaded_screenshots = screenshot_result.get('uploaded_screenshots', [])
-                print(f"[@utils:report_utils:generate_and_upload_script_report] DEBUG: Processing {len(uploaded_screenshots)} upload results...")
                 
                 for i, upload_info in enumerate(uploaded_screenshots):
                     try:
                         print(f"[@utils:report_utils:generate_and_upload_script_report] DEBUG: Processing mapping {i+1}/{len(uploaded_screenshots)}")
-                        print(f"[@utils:report_utils:generate_and_upload_script_report] DEBUG: upload_info type: {type(upload_info)}")
-                        print(f"[@utils:report_utils:generate_and_upload_script_report] DEBUG: upload_info keys: {list(upload_info.keys()) if isinstance(upload_info, dict) else 'not_dict'}")
-                        
-                        print(f"[@utils:report_utils:generate_and_upload_script_report] DEBUG: Accessing local_path...")
                         local_path = upload_info['local_path']
-                        print(f"[@utils:report_utils:generate_and_upload_script_report] DEBUG: local_path = {local_path}")
-                        
-                        print(f"[@utils:report_utils:generate_and_upload_script_report] DEBUG: Accessing url...")
                         r2_url = upload_info['url']
-                        print(f"[@utils:report_utils:generate_and_upload_script_report] DEBUG: r2_url = {r2_url}")
-                        
-                        print(f"[@utils:report_utils:generate_and_upload_script_report] DEBUG: Creating mapping...")
                         url_mapping[local_path] = r2_url
                         print(f"[@utils:report_utils:generate_and_upload_script_report] Mapped: {local_path} -> {r2_url}")
-                        print(f"[@utils:report_utils:generate_and_upload_script_report] DEBUG: Mapping {i+1} completed successfully")
                     except Exception as mapping_error:
                         print(f"[@utils:report_utils:generate_and_upload_script_report] ERROR: Failed to process mapping {i+1}: {mapping_error}")
                         print(f"[@utils:report_utils:generate_and_upload_script_report] ERROR: upload_info: {upload_info}")
@@ -275,19 +255,13 @@ def generate_and_upload_script_report(
                         # Continue with next mapping instead of crashing
                         continue
                         
-                print(f"[@utils:report_utils:generate_and_upload_script_report] DEBUG: Step A4 - URL mapping completed ({len(url_mapping)} mappings created)")
             else:
                 print(f"[@utils:report_utils:generate_and_upload_script_report] Screenshot upload failed: {screenshot_result.get('error', 'Unknown error')}")
         else:
             print(f"[@utils:report_utils:generate_and_upload_script_report] DEBUG: No screenshots to upload")
         
         # Update step_results to use R2 URLs instead of local paths
-        print(f"[@utils:report_utils:generate_and_upload_script_report] DEBUG: Step B - Updating step results with R2 URLs...")
         updated_step_results = update_step_results_with_r2_urls(step_results, url_mapping)
-        print(f"[@utils:report_utils:generate_and_upload_script_report] DEBUG: Step B completed")
-        
-        # Debug execution summary
-        print(f"[@utils:report_utils:generate_and_upload_script_report] Execution summary received: '{execution_summary[:100] if execution_summary else 'EMPTY'}'...")
         
         # Prepare report data (same structure as validation.py) - now with R2 URLs
         report_data = {
@@ -315,26 +289,20 @@ def generate_and_upload_script_report(
             'test_video_url': test_video_url
         }
         
-        # Generate HTML content using existing function - now with R2 URLs
-        print(f"[@utils:report_utils:generate_and_upload_script_report] DEBUG: Step C - Generating HTML content...")
         html_content = generate_validation_report(report_data)
-        print(f"[@utils:report_utils:generate_and_upload_script_report] DEBUG: Step C completed - HTML generated")
         
         # Upload report to R2
-        print(f"[@utils:report_utils:generate_and_upload_script_report] DEBUG: Step D - Uploading report to R2...")
         upload_result = upload_script_report(
             html_content=html_content,
             device_model=device_info.get('device_model', 'unknown'),
             script_name=script_name.replace('.py', ''),
             timestamp=execution_timestamp
         )
-        print(f"[@utils:report_utils:generate_and_upload_script_report] DEBUG: Step D completed - upload_script_report returned")
-        
+       
         if upload_result['success']:
             report_url = upload_result['report_url']
             report_path = upload_result['report_path']
             print(f"[@utils:report_utils:generate_and_upload_script_report] Report uploaded: {report_url}")
-            print(f"[@utils:report_utils:generate_and_upload_script_report] DEBUG: Step E - About to return success result")
             return {
                 'success': True,
                 'report_url': report_url,
@@ -342,7 +310,6 @@ def generate_and_upload_script_report(
             }
         else:
             print(f"[@utils:report_utils:generate_and_upload_script_report] Upload failed: {upload_result.get('error', 'Unknown error')}")
-            print(f"[@utils:report_utils:generate_and_upload_script_report] DEBUG: Step E - About to return failure result")
             return {
                 'success': False,
                 'report_url': '',

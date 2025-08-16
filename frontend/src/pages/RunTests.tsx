@@ -61,13 +61,7 @@ interface ScriptParameter {
   };
 }
 
-interface ScriptAnalysis {
-  success: boolean;
-  parameters: ScriptParameter[];
-  script_name: string;
-  has_parameters: boolean;
-  error?: string;
-}
+
 
 // Component for displaying a grid of device streams
 interface DeviceStreamGridProps {
@@ -278,7 +272,6 @@ const RunTests: React.FC = () => {
   const { 
     scriptAnalysis, 
     parameterValues, 
-    analyzingScript,
     handleParameterChange,
     validateParameters,
     getUserinterfaceName 

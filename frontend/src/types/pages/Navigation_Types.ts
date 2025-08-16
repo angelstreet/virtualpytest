@@ -17,7 +17,9 @@ export interface ActionSet {
   actions: Action[];
   retry_actions?: Action[];
   failure_actions?: Action[];
-  // REMOVED: priority, conditions, timer for simplicity
+  priority?: number; // Priority for action set execution
+  conditions?: Record<string, any>; // Conditions for action set execution
+  timer?: number; // Timer in milliseconds
 }
 import { Verification } from '../verification/Verification_Types';
 
@@ -81,12 +83,15 @@ export interface UINavigationEdgeData {
   action_sets: ActionSet[]; // REQUIRED: Always exactly 2 action sets (enforced by convention)
   default_action_set_id: string; // REQUIRED: Always source_to_target
   final_wait_time: number;
+  priority?: 'p1' | 'p2' | 'p3'; // Priority level
+  threshold?: number; // Threshold in milliseconds
+  sourceHandle?: string; // ReactFlow source handle
+  targetHandle?: string; // ReactFlow target handle
   metrics?: {
     volume: number;
     success_rate: number;
     avg_execution_time: number;
   };
-  // REMOVED: priority, threshold for simplicity
 }
 
 // =====================================================
@@ -241,7 +246,8 @@ export interface EdgeForm {
   default_action_set_id: string; // REQUIRED: Always source_to_target
   final_wait_time: number;
   direction?: 'forward' | 'reverse'; // Simple direction indicator for editing
-  // REMOVED: priority, threshold, targetActionSetId for simplicity
+  priority?: 'p1' | 'p2' | 'p3'; // Priority level
+  threshold?: number; // Threshold in milliseconds
 }
 
 // =====================================================
