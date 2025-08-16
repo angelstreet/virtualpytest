@@ -392,6 +392,9 @@ def _create_reachability_based_validation_sequence(G, edges_to_validate: List[Tu
             adjacency[u] = []
         adjacency[u].append(v)
     
+    # Sort children for consistent ordering
+    for node in adjacency:
+        adjacency[node].sort()
     
     # Find entry points
     entry_points = get_entry_points(G)
@@ -422,8 +425,10 @@ def _create_reachability_based_validation_sequence(G, edges_to_validate: List[Tu
             forward_edge = (current_node, child_node)
             
             # Skip if already visited or if it's the parent (avoid immediate back-and-forth)
-            if forward_edge in visited_edges or child_node == parent_node:
-                continue
+            # if forward_edge in visited_edges or child_node == parent_node:  # Removed to ensure all children are processed
+            #     continue
+            
+            # Add comment: Removed visited check for forward to prevent skipping bidirectional children; DFS structure prevents cycles
             
             # Add forward edge
             from_info = get_node_info(G, current_node) or {}
