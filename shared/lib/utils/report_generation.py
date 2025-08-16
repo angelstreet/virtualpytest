@@ -242,11 +242,9 @@ def generate_and_upload_script_report(
                 
                 for i, upload_info in enumerate(uploaded_screenshots):
                     try:
-                        print(f"[@utils:report_utils:generate_and_upload_script_report] DEBUG: Processing mapping {i+1}/{len(uploaded_screenshots)}")
                         local_path = upload_info['local_path']
                         r2_url = upload_info['url']
                         url_mapping[local_path] = r2_url
-                        print(f"[@utils:report_utils:generate_and_upload_script_report] Mapped: {local_path} -> {r2_url}")
                     except Exception as mapping_error:
                         print(f"[@utils:report_utils:generate_and_upload_script_report] ERROR: Failed to process mapping {i+1}: {mapping_error}")
                         print(f"[@utils:report_utils:generate_and_upload_script_report] ERROR: upload_info: {upload_info}")

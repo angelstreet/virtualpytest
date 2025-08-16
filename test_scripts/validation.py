@@ -323,9 +323,15 @@ def capture_validation_summary(context: ScriptExecutionContext, userinterface_na
     lines.append(f"✅ Successful: {successful_steps}")
     lines.append(f"❌ Failed: {failed_steps}")
     lines.append(f"⏭️ Skipped: {skipped_steps}")
-    lines.append(f"🔄 Force Navigation Recoveries: {recovered_steps}")
+    lines.append(f"🔄 Recovery Navigations: {recovered_steps}")
     lines.append(f"🔍 Verifications: {passed_verifications}/{total_verifications} passed")
     lines.append(f"📸 Screenshots: {len(context.screenshot_paths)} captured")
+    
+    # Add report URL if available
+    report_url = context.custom_data.get('report_url') if hasattr(context, 'custom_data') else None
+    if report_url:
+        lines.append(f"📋 Report: {report_url}")
+    
     lines.append(f"🎯 Coverage: {((successful_steps + recovered_steps) / len(context.step_results) * 100):.1f}%")
     
     failed_step_details = [step for step in context.step_results if not step.get('success', False) and not step.get('skipped', False)]
@@ -551,16 +557,6 @@ def main():
         # For validation, we need 100% success rate
         context.overall_success = successful_steps == total_steps and total_steps > 0
         
-        # Print custom validation summary and capture it
-        summary_text = capture_validation_summary(context, args.userinterface_name)
-        print_validation_summary(context, args.userinterface_name)
-        
-        # Print the detailed summary to stdout for frontend parsing
-        print(summary_text)
-        
-        # Store summary for report
-        context.execution_summary = summary_text
-        
         if context.overall_success:
             print(f"🎉 [validation] All {successful_steps}/{total_steps} validation steps passed successfully!")
         else:
@@ -571,6 +567,27 @@ def main():
     except Exception as e:
         handle_unexpected_error(script_name, e)
     finally:
+        # Generate report first to get the URL
+        report_url = None
+        if 'context' in locals() and context and context.host and context.selected_device:
+            try:
+                report_result = executor.generate_final_report(context, args.userinterface_name)
+                if report_result and report_result.get('success') and report_result.get('report_url'):
+                    report_url = report_result.get('report_url')
+                    print(f"SCRIPT_REPORT_URL:{report_url}")
+            except Exception as e:
+                print(f"⚠️ [validation] Error generating report: {e}")
+        
+        # Print detailed validation summary with report URL
+        if 'context' in locals() and context:
+            # Store report URL in context for summary
+            if report_url:
+                context.custom_data['report_url'] = report_url
+            
+            summary_text = capture_validation_summary(context, args.userinterface_name)
+            print(summary_text)
+            context.execution_summary = summary_text
+        
         # Use the same cleanup approach as goto_live_fullscreen.py
         executor.cleanup_and_exit(context, args.userinterface_name)
 
