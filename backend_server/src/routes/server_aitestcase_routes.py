@@ -18,8 +18,8 @@ from controllers.controller_config_factory import get_device_capabilities
 from shared.lib.supabase.testcase_db import save_test_case, get_test_case
 from shared.lib.supabase.navigation_trees_db import get_full_tree, get_root_tree_for_interface
 from shared.lib.supabase.userinterface_db import get_all_userinterfaces, get_userinterface_by_name
-from shared.lib.utils.auth_utils import get_team_id
-from shared.lib.utils.proxy_utils import proxy_to_host
+from shared.lib.utils.app_utils import get_team_id
+from shared.lib.utils.route_utils import proxy_to_host
 
 server_aitestcase_bp = Blueprint('server_aitestcase', __name__, url_prefix='/server/aitestcase')
 
