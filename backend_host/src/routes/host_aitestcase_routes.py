@@ -10,8 +10,8 @@ import os
 # Add backend_core to path for access to controllers
 sys.path.append(os.path.join(os.path.dirname(__file__), '../../../backend_core/src'))
 
-from shared.lib.utils.script_execution_utils import execute_test_case_script
-from shared.lib.utils.script_framework import ScriptFramework
+from shared.lib.utils.script_execution_utils import execute_script
+from shared.lib.utils.script_framework import ScriptExecutor
 
 from controllers.controller_config_factory import get_controller
 
@@ -49,8 +49,8 @@ def execute_test_case():
             }), 500
         
         # Execute using existing script framework
-        script_framework = ScriptFramework()
-        execution_result = script_framework.execute_script(script_config)
+        script_executor = ScriptExecutor()
+        execution_result = script_executor.execute_script(script_config)
         
         if not execution_result:
             return jsonify({
