@@ -15,9 +15,9 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '../../../backend_core/s
 
 from controllers.ai.ai_agent import AIAgentController
 from controllers.controller_config_factory import get_device_capabilities
-from shared.lib.supabase.test_cases_db import TestCasesDB
+from shared.lib.supabase.testcase_db import TestcaseDB
 from shared.lib.supabase.navigation_trees_db import NavigationTreesDB
-from shared.lib.supabase.userinterfaces_db import UserInterfacesDB
+from shared.lib.supabase.userinterface_db import UserinterfaceDB
 from shared.lib.utils.auth_utils import get_team_id
 from shared.lib.utils.proxy_utils import proxy_to_host
 
@@ -56,7 +56,7 @@ def generate_test_case():
         unified_graph = nav_db.get_unified_graph(interface_name, team_id)
         
         # Get userinterface info for compatibility analysis
-        ui_db = UserInterfacesDB()
+        ui_db = UserinterfaceDB()
         userinterface_info = ui_db.get_userinterface_by_name(interface_name, team_id)
         
         if not userinterface_info:
@@ -128,7 +128,7 @@ def generate_test_case():
         }
         
         # Store in database
-        test_cases_db = TestCasesDB()
+        test_cases_db = TestcaseDB()
         stored_test_case = test_cases_db.create_test_case(test_case_data)
         
         if not stored_test_case:
@@ -173,7 +173,7 @@ def execute_test_case():
             }), 400
         
         # Get test case from database
-        test_cases_db = TestCasesDB()
+        test_cases_db = TestcaseDB()
         test_case = test_cases_db.get_test_case_by_id(test_case_id, team_id)
         
         if not test_case:
@@ -223,7 +223,7 @@ def validate_compatibility():
             }), 400
         
         # Get test case
-        test_cases_db = TestCasesDB()
+        test_cases_db = TestcaseDB()
         test_case = test_cases_db.get_test_case_by_id(test_case_id, team_id)
         
         if not test_case:
@@ -261,7 +261,7 @@ def validate_compatibility():
 def analyze_userinterface_compatibility(ai_result, team_id, device_model):
     """Analyze compatibility across all userinterfaces - clean implementation"""
     try:
-        ui_db = UserInterfacesDB()
+        ui_db = UserinterfaceDB()
         nav_db = NavigationTreesDB()
         
         # Get all userinterfaces for this team
