@@ -12,7 +12,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '../../../backend_core/s
 
 from shared.lib.utils.script_execution_utils import execute_test_case_script
 from shared.lib.utils.script_framework import ScriptFramework
-from shared.lib.utils.auth_utils import check_supabase
+
 from controllers.controller_config_factory import get_controller
 
 host_aitestcase_bp = Blueprint('host_aitestcase', __name__)
@@ -20,10 +20,6 @@ host_aitestcase_bp = Blueprint('host_aitestcase', __name__)
 @host_aitestcase_bp.route('/executeTestCase', methods=['POST'])
 def execute_test_case():
     """Execute AI-generated test case on host device"""
-    error = check_supabase()
-    if error:
-        return error
-        
     try:
         print("[@route:host_aitestcase:execute_test_case] Starting test case execution")
         
