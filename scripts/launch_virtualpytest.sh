@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # VirtualPyTest Launch Script - Delegates to setup/local/launch_all.sh
-echo "🚀 Starting VirtualPyTest System..."
+echo "🚀 Starting VirtualPyTest System (including AI Discard Service)..."
 
 # Get the script directory and navigate to project root
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

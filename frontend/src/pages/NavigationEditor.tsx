@@ -31,6 +31,7 @@ import { VNCStream } from '../components/controller/av/VNCStream';
 import { HDMIStream } from '../components/controller/av/HDMIStream';
 import { NavigationBreadcrumbCompact } from '../components/navigation/NavigationBreadcrumbCompact';
 import { EdgeEditDialog } from '../components/navigation/Navigation_EdgeEditDialog';
+import { AIGenerationModal } from '../components/navigation/AIGenerationModal';
 import { EdgeSelectionPanel } from '../components/navigation/Navigation_EdgeSelectionPanel';
 import { NavigationEditorHeader } from '../components/navigation/Navigation_EditorHeader';
 import { UIMenuNode } from '../components/navigation/Navigation_MenuNode';
@@ -298,6 +299,27 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
     const [selectedNodeForGoto, setSelectedNodeForGoto] = useState<UINavigationNodeType | null>(
       null,
     );
+
+    // AI Generation modal state
+    const [isAIGenerationOpen, setIsAIGenerationOpen] = useState(false);
+
+    // AI Generation handler
+    const handleToggleAIGeneration = useCallback(() => {
+      setIsAIGenerationOpen(true);
+    }, []);
+
+    // Handle AI generation completion
+    const handleAIGenerated = useCallback(() => {
+      // Refresh the navigation tree after AI generation
+      const refreshData = async () => {
+        try {
+          await loadNavigationData(actualTreeId || '');
+        } catch (error) {
+          console.error('[@NavigationEditor:handleAIGenerated] Failed to refresh tree data:', error);
+        }
+      };
+      refreshData();
+    }, [actualTreeId, loadNavigationData]);
 
     // Wrap the original click handlers to close goto panel
     const wrappedOnNodeClick = useCallback(
@@ -742,6 +764,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
           onToggleRemotePanel={handleToggleRemotePanel}
           onControlStateChange={handleControlStateChange}
           onDeviceSelect={handleDeviceSelect}
+          onToggleAIGeneration={handleToggleAIGeneration}
         />
 
         {/* Compact Breadcrumb - positioned below header, aligned left */}
@@ -1120,6 +1143,18 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
             selectedHost={selectedHost}
             fromLabel={edgeLabels.fromLabel}
             toLabel={edgeLabels.toLabel}
+          />
+        )}
+
+        {/* AI Generation Modal - Only when control active */}
+        {isAIGenerationOpen && isControlActive && selectedHost && selectedDeviceId && actualTreeId && (
+          <AIGenerationModal
+            isOpen={isAIGenerationOpen}
+            onClose={() => setIsAIGenerationOpen(false)}
+            treeId={actualTreeId}
+            selectedHost={selectedHost}
+            selectedDeviceId={selectedDeviceId}
+            onGenerated={handleAIGenerated}
           />
         )}
 

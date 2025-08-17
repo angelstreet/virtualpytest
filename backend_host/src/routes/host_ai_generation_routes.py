@@ -108,7 +108,7 @@ def get_exploration_status(exploration_id):
         
         session = exploration_sessions[exploration_id]
         
-        return jsonify({
+        response_data = {
             'success': True,
             'exploration_id': exploration_id,
             'status': session['status'],
@@ -116,7 +116,14 @@ def get_exploration_status(exploration_id):
             'progress': session['progress'],
             'current_analysis': session['current_analysis'],
             'error': session.get('error')
-        }), 200
+        }
+        
+        # Include proposed nodes and edges when exploration is completed
+        if session['status'] == 'completed':
+            response_data['proposed_nodes'] = session['proposed_nodes']
+            response_data['proposed_edges'] = session['proposed_edges']
+        
+        return jsonify(response_data), 200
         
     except Exception as e:
         print(f"[@route:host_ai_generation:get_exploration_status] Error: {str(e)}")
@@ -125,31 +132,7 @@ def get_exploration_status(exploration_id):
             'error': str(e)
         }), 500
 
-@host_ai_generation_bp.route('/proposed-changes/<exploration_id>', methods=['GET'])
-def get_proposed_changes(exploration_id):
-    """Get proposed nodes and edges from exploration"""
-    try:
-        if exploration_id not in exploration_sessions:
-            return jsonify({
-                'success': False,
-                'error': 'Exploration not found'
-            }), 404
-        
-        session = exploration_sessions[exploration_id]
-        
-        return jsonify({
-            'success': True,
-            'exploration_id': exploration_id,
-            'proposed_nodes': session['proposed_nodes'],
-            'proposed_edges': session['proposed_edges']
-        }), 200
-        
-    except Exception as e:
-        print(f"[@route:host_ai_generation:get_proposed_changes] Error: {str(e)}")
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
+
 
 @host_ai_generation_bp.route('/cancel-exploration', methods=['POST'])
 def cancel_exploration():

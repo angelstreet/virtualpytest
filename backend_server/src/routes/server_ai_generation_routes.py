@@ -136,61 +136,7 @@ def get_exploration_status(exploration_id):
             'error': str(e)
         }), 500
 
-@server_ai_generation_bp.route('/proposed-changes/<exploration_id>', methods=['GET'])
-def get_proposed_changes(exploration_id):
-    """
-    Get proposed nodes and edges from exploration
-    
-    Response:
-    {
-        "success": true,
-        "exploration_id": "uuid",
-        "proposed_nodes": [
-            {
-                "id": "home",
-                "name": "Home",
-                "screen_type": "menu",
-                "reasoning": "Main home screen with 4 menu options"
-            }
-        ],
-        "proposed_edges": [
-            {
-                "id": "home_to_live",
-                "source": "home",
-                "target": "live", 
-                "action_sets": [...],
-                "reasoning": "Navigate from home to live via right arrow"
-            }
-        ]
-    }
-    """
-    try:
-        print(f"[@route:server_ai_generation:get_proposed_changes] Getting proposed changes for exploration {exploration_id}")
-        
-        # Get host IP from request args
-        host_ip = request.args.get('host_ip')
-        if not host_ip:
-            return jsonify({
-                'success': False,
-                'error': 'Missing host_ip parameter'
-            }), 400
-        
-        # Proxy to host
-        response_data, status_code = proxy_to_host(
-            f'/host/ai-generation/proposed-changes/{exploration_id}',
-            'GET',
-            {},
-            host_ip=host_ip
-        )
-        
-        return jsonify(response_data), status_code
-        
-    except Exception as e:
-        print(f"[@route:server_ai_generation:get_proposed_changes] Error: {str(e)}")
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
+
 
 @server_ai_generation_bp.route('/approve-generation', methods=['POST'])
 def approve_generation():
@@ -231,9 +177,9 @@ def approve_generation():
                 'error': 'Missing required fields: exploration_id, tree_id, host_ip'
             }), 400
         
-        # Get proposed changes from host first
+        # Get proposed changes from host exploration status
         changes_response, changes_status = proxy_to_host(
-            f'/host/ai-generation/proposed-changes/{exploration_id}',
+            f'/host/ai-generation/exploration-status/{exploration_id}',
             'GET',
             {},
             host_ip=host_ip
@@ -242,7 +188,7 @@ def approve_generation():
         if changes_status != 200 or not changes_response.get('success'):
             return jsonify({
                 'success': False,
-                'error': 'Failed to get proposed changes from host'
+                'error': 'Failed to get exploration status from host'
             }), 400
         
         proposed_nodes = changes_response.get('proposed_nodes', [])

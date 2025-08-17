@@ -1,4 +1,5 @@
-import { AppBar, Toolbar, Typography, Box } from '@mui/material';
+import { AppBar, Toolbar, Typography, Box, Button } from '@mui/material';
+import { SmartToy as SmartToyIcon } from '@mui/icons-material';
 import React from 'react';
 
 import { useNavigation } from '../../contexts/navigation/NavigationContext';
@@ -40,6 +41,7 @@ export const NavigationEditorHeader: React.FC<{
   onDeviceSelect: (host: any, deviceId: string | null) => void;
   onUpdateNode?: (nodeId: string, updatedData: any) => void;
   onUpdateEdge?: (edgeId: string, updatedData: any) => void;
+  onToggleAIGeneration?: () => void;
 }> = ({
   hasUnsavedChanges,
   focusNodeId,
@@ -66,6 +68,7 @@ export const NavigationEditorHeader: React.FC<{
   onToggleRemotePanel,
   onControlStateChange,
   onDeviceSelect,
+  onToggleAIGeneration,
 }) => {
   // Get toast notifications
   const { showError } = useToast();
@@ -212,26 +215,41 @@ export const NavigationEditorHeader: React.FC<{
             />
 
             {/* Section 4: Device Controls - now with proper device-oriented locking */}
-            <NavigationEditorDeviceControls
-              selectedHost={selectedHost}
-              selectedDeviceId={selectedDeviceId || null}
-              isControlActive={isControlActive}
-              isControlLoading={isControlLoading}
-              isRemotePanelOpen={isRemotePanelOpen}
-              availableHosts={availableHosts}
-              isDeviceLocked={(deviceKey: string) => {
-                // Parse deviceKey format: "hostname:device_id"
-                const [hostName, deviceId] = deviceKey.includes(':')
-                  ? deviceKey.split(':')
-                  : [deviceKey, 'device1'];
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <NavigationEditorDeviceControls
+                selectedHost={selectedHost}
+                selectedDeviceId={selectedDeviceId || null}
+                isControlActive={isControlActive}
+                isControlLoading={isControlLoading}
+                isRemotePanelOpen={isRemotePanelOpen}
+                availableHosts={availableHosts}
+                isDeviceLocked={(deviceKey: string) => {
+                  // Parse deviceKey format: "hostname:device_id"
+                  const [hostName, deviceId] = deviceKey.includes(':')
+                    ? deviceKey.split(':')
+                    : [deviceKey, 'device1'];
 
-                const host = availableHosts.find((h) => h.host_name === hostName);
-                return isDeviceLocked(host, deviceId);
-              }}
-              onDeviceSelect={onDeviceSelect}
-              onTakeControl={handleDeviceControl}
-              onToggleRemotePanel={onToggleRemotePanel}
-            />
+                  const host = availableHosts.find((h) => h.host_name === hostName);
+                  return isDeviceLocked(host, deviceId);
+                }}
+                onDeviceSelect={onDeviceSelect}
+                onTakeControl={handleDeviceControl}
+                onToggleRemotePanel={onToggleRemotePanel}
+              />
+              
+              {/* AI Generate Button - Only show when control is active */}
+              {isControlActive && selectedHost && selectedDeviceId && onToggleAIGeneration && (
+                <Button
+                  variant="outlined"
+                  startIcon={<SmartToyIcon />}
+                  onClick={onToggleAIGeneration}
+                  size="small"
+                  sx={{ minWidth: 'auto', whiteSpace: 'nowrap' }}
+                >
+                  AI Generate
+                </Button>
+              )}
+            </Box>
           </Box>
         </Toolbar>
       </AppBar>
