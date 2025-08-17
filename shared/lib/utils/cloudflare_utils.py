@@ -134,6 +134,7 @@ class CloudflareUtils:
         
         Args:
             file_mappings: List of dicts with 'local_path' and 'remote_path' keys
+            Optional 'content_type' key to override auto-detection
             max_workers: Maximum number of concurrent upload threads
             
         Returns:
@@ -145,6 +146,7 @@ class CloudflareUtils:
         def upload_single_file(mapping):
             local_path = mapping['local_path']
             remote_path = mapping['remote_path']
+            custom_content_type = mapping.get('content_type')
             
             try:
                 if not os.path.exists(local_path):
@@ -155,9 +157,13 @@ class CloudflareUtils:
                         'error': f"File not found: {local_path}"
                     }
                 
-                content_type, _ = guess_type(local_path)
-                if not content_type:
-                    content_type = 'application/octet-stream'
+                # Use custom content type if provided, otherwise auto-detect
+                if custom_content_type:
+                    content_type = custom_content_type
+                else:
+                    content_type, _ = guess_type(local_path)
+                    if not content_type:
+                        content_type = 'application/octet-stream'
                 
                 with open(local_path, 'rb') as f:
                     self.s3_client.upload_fileobj(
@@ -512,8 +518,12 @@ def upload_script_logs(log_content: str, device_model: str, script_name: str, ti
             temp_log_path = temp_file.name
         
         try:
-            # Upload as .txt with inline disposition for browser display
-            file_mappings = [{'local_path': temp_log_path, 'remote_path': remote_path}]
+            # Upload with explicit text/plain content type for inline browser display
+            file_mappings = [{
+                'local_path': temp_log_path, 
+                'remote_path': remote_path,
+                'content_type': 'text/plain; charset=utf-8'
+            }]
             upload_result = uploader.upload_files(file_mappings)
             
             # Clean up temporary file

@@ -32,8 +32,8 @@ def get_all_script_results():
     team_id = get_team_id()
     
     try:
-        # Get script results from database
-        result = get_script_results(team_id, include_discarded=False, limit=100)
+        # Get script results from database (include all records for complete view)
+        result = get_script_results(team_id, include_discarded=True, limit=100)
         
         if result['success']:
             return jsonify(result['script_results'])
