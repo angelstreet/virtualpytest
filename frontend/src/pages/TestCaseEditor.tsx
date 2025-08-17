@@ -217,7 +217,7 @@ const TestCaseEditor: React.FC = () => {
     localStorage.setItem('preselected_from_testcase', 'true');
     
     // Navigate to RunTests page
-    window.location.href = '/run-tests';
+    window.location.href = '/test-execution/run-tests';
   };
 
   const getPriorityColor = (priority: number) => {
