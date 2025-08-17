@@ -2,6 +2,7 @@ import {
   Add as AddIcon,
   Delete as DeleteIcon,
   Edit as EditIcon,
+  PlayArrow as PlayArrowIcon,
   Settings as SettingsIcon,
 } from '@mui/icons-material';
 import {
@@ -375,7 +376,7 @@ const TestCaseEditor: React.FC = () => {
                         size="small"
                         title="Execute in RunTests"
                       >
-                        <SettingsIcon />
+                        <PlayArrowIcon />
                       </IconButton>
                     )}
                     <IconButton 
