@@ -338,7 +338,7 @@ def generate_test_cases():
                 
                 # Create test case object
                 test_case = {
-                    'test_id': f"ai_{int(datetime.utcnow().timestamp())}_{interface_name}",
+                    'test_id': str(uuid.uuid4()),
                     'name': f"AI: {original_prompt[:50]}{'...' if len(original_prompt) > 50 else ''}",
                     'test_type': 'functional',
                     'start_node': 'home',
