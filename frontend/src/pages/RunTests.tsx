@@ -405,8 +405,9 @@ const RunTests: React.FC = () => {
       const fromTestCase = localStorage.getItem('preselected_from_testcase');
       
       if (fromTestCase === 'true' && preselectedScript && availableScripts.includes(preselectedScript)) {
-        // Set the script
+        // Set the script and open the wizard to show pre-selection
         setSelectedScript(preselectedScript);
+        setShowWizard(true);
         
         // TODO: Auto-select compatible device/host based on userinterface
         // For now, user still needs to select device manually
