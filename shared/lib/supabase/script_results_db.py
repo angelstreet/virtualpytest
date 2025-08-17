@@ -104,6 +104,7 @@ def update_script_execution_result(
         print(f"  - success: {success}")
         print(f"  - execution_time_ms: {execution_time_ms}")
         print(f"  - html_report_r2_url: {html_report_r2_url}")
+        print(f"  - logs_r2_url: {logs_r2_url}")
         print(f"  - error_msg: {error_msg}")
         
         supabase = get_supabase()

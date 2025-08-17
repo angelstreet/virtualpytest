@@ -367,11 +367,9 @@ def execute_script(script_name: str, device_id: str, parameters: str = "") -> Di
                     line = output.rstrip()
                     
                     # Extract report URL from upload logs  
-                    if '[@cloudflare_utils:upload_script_report] INFO: Uploaded script report:' in line:
+                    if '[@utils:report_utils:generate_and_upload_script_report] Report uploaded:' in line:
                         try:
-                            report_path = line.split('Uploaded script report: ')[1]
-                            base_url = os.environ.get('CLOUDFLARE_R2_PUBLIC_URL', 'https://pub-604f1a4ce32747778c6d5ac5e3100217.r2.dev')
-                            report_url = f"{base_url.rstrip('/')}/{report_path}"
+                            report_url = line.split('Report uploaded: ')[1].strip()
                             print(f"📊 [Script] Report URL captured: {report_url}")
                         except Exception as e:
                             print(f"⚠️ [Script] Failed to extract report URL: {e}")
