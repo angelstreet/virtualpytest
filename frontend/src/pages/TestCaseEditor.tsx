@@ -361,15 +361,30 @@ const TestCaseEditor: React.FC = () => {
                         handleOpenDialog(testCase);
                       }} 
                       color="primary"
+                      size="small"
                     >
                       <EditIcon />
                     </IconButton>
+                    {testCase.creator === 'ai' && (
+                      <IconButton 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleExecuteTestCase(testCase);
+                        }} 
+                        color="success"
+                        size="small"
+                        title="Execute in RunTests"
+                      >
+                        <SettingsIcon />
+                      </IconButton>
+                    )}
                     <IconButton 
                       onClick={(e) => {
                         e.stopPropagation();
                         handleDelete(testCase);
                       }} 
                       color="error"
+                      size="small"
                     >
                       <DeleteIcon />
                     </IconButton>
@@ -422,136 +437,78 @@ const TestCaseEditor: React.FC = () => {
           </Box>
         </DialogTitle>
         
-        <DialogContent>
+        <DialogContent sx={{ py: 1 }}>
           {selectedTestCase && (
-            <Box sx={{ py: 2 }}>
-              {/* Original Prompt (for AI test cases) */}
-              {selectedTestCase.creator === 'ai' && selectedTestCase.original_prompt && (
-                <Box sx={{ mb: 3 }}>
-                  <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'bold' }}>
-                    🎯 Original Prompt
+            <Box>
+              {/* Compact AI Info for AI test cases */}
+              {selectedTestCase.creator === 'ai' && (
+                <Alert severity="info" sx={{ mb: 2, py: 1 }}>
+                  <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 0.5 }}>
+                    🎯 Original Prompt: <span style={{ fontWeight: 'normal' }}>{selectedTestCase.original_prompt}</span>
                   </Typography>
-                  <Alert severity="info" sx={{ mb: 2 }}>
-                    <Typography variant="body2">
-                      {selectedTestCase.original_prompt}
-                    </Typography>
-                  </Alert>
-                </Box>
+                  <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+                    🤖 AI Analysis: <span style={{ fontWeight: 'normal' }}>{selectedTestCase.ai_analysis?.reasoning}</span>
+                  </Typography>
+                </Alert>
               )}
 
-              {/* AI Reasoning (for AI test cases) */}
-              {selectedTestCase.creator === 'ai' && selectedTestCase.ai_analysis?.reasoning && (
-                <Box sx={{ mb: 3 }}>
-                  <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'bold' }}>
-                    🤖 AI Analysis & Reasoning
-                  </Typography>
-                  <Paper sx={{ p: 2, bgcolor: 'background.default' }}>
-                    <Typography variant="body2">
-                      {selectedTestCase.ai_analysis.reasoning}
-                    </Typography>
-                  </Paper>
-                </Box>
-              )}
-
-              {/* Test Case Info */}
-              <Box sx={{ mb: 3 }}>
-                <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'bold' }}>
-                  📋 Test Case Information
-                </Typography>
-                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
-                  <Box>
-                    <Typography variant="body2" color="text.secondary">Type:</Typography>
-                    <Chip label={selectedTestCase.test_type} size="small" variant="outlined" />
-                  </Box>
-                  <Box>
-                    <Typography variant="body2" color="text.secondary">Priority:</Typography>
-                    <Chip 
-                      label={getPriorityLabel(selectedTestCase.priority || 1)} 
-                      size="small" 
-                      color={getPriorityColor(selectedTestCase.priority || 1) as any}
-                    />
-                  </Box>
-                  {selectedTestCase.compatible_userinterfaces?.length > 0 && (
-                    <Box sx={{ gridColumn: '1 / -1' }}>
-                      <Typography variant="body2" color="text.secondary" gutterBottom>
-                        Compatible Interfaces:
-                      </Typography>
-                      <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                        {selectedTestCase.compatible_userinterfaces.map((ui, index) => (
-                          <Chip key={index} label={ui} size="small" variant="outlined" />
-                        ))}
-                      </Box>
-                    </Box>
-                  )}
-                </Box>
+              {/* Compact Test Case Info */}
+              <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+                <Chip label={selectedTestCase.test_type} size="small" variant="outlined" />
+                <Chip 
+                  label={getPriorityLabel(selectedTestCase.priority || 1)} 
+                  size="small" 
+                  color={getPriorityColor(selectedTestCase.priority || 1) as any}
+                />
+                {selectedTestCase.compatible_userinterfaces?.length > 0 && (
+                  <>
+                    <Typography variant="caption" color="text.secondary">Compatible:</Typography>
+                    {selectedTestCase.compatible_userinterfaces.map((ui, index) => (
+                      <Chip key={index} label={ui} size="small" variant="outlined" />
+                    ))}
+                  </>
+                )}
               </Box>
 
-              {/* Steps & Commands */}
-              <Box sx={{ mb: 3 }}>
-                <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'bold' }}>
-                  ⚡ Execution Steps & Commands
+              {/* Compact Steps & Commands */}
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold' }}>
+                  ⚡ Steps ({selectedTestCase.steps?.length || 0})
                 </Typography>
                 {selectedTestCase.steps?.length > 0 ? (
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                     {selectedTestCase.steps.map((step, index) => (
-                      <Paper key={index} sx={{ p: 2, border: '1px solid', borderColor: 'divider' }}>
-                        <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1 }}>
-                          Step {index + 1}: {step.type || 'action'}
+                      <Paper key={index} sx={{ p: 1.5, bgcolor: 'grey.50', border: '1px solid', borderColor: 'grey.200' }}>
+                        <Typography variant="caption" sx={{ fontWeight: 'bold', display: 'block' }}>
+                          Step {index + 1}: {step.command}
                         </Typography>
-                        <Box sx={{ pl: 2 }}>
-                          <Typography variant="body2" color="text.secondary">
-                            Command: <code>{step.command}</code>
-                          </Typography>
-                          {step.params && Object.keys(step.params).length > 0 && (
-                            <Typography variant="body2" color="text.secondary">
-                              Parameters: <code>{JSON.stringify(step.params)}</code>
-                            </Typography>
-                          )}
-                          {step.description && (
-                            <Typography variant="body2" sx={{ mt: 1 }}>
-                              {step.description}
-                            </Typography>
-                          )}
-                        </Box>
+                        <Typography variant="caption" color="text.secondary">
+                          {step.params && `Params: ${JSON.stringify(step.params)} • `}
+                          {step.description}
+                        </Typography>
                       </Paper>
                     ))}
                   </Box>
                 ) : (
-                  <Typography variant="body2" color="text.secondary">
-                    No steps defined for this test case.
-                  </Typography>
+                  <Typography variant="caption" color="text.secondary">No steps defined</Typography>
                 )}
               </Box>
 
-              {/* Verification Conditions */}
+              {/* Compact Verification Conditions */}
               {selectedTestCase.verification_conditions?.length > 0 && (
-                <Box sx={{ mb: 3 }}>
-                  <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'bold' }}>
-                    ✅ Verification Conditions
+                <Box sx={{ mb: 2 }}>
+                  <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold' }}>
+                    ✅ Verifications ({selectedTestCase.verification_conditions.length})
                   </Typography>
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                     {selectedTestCase.verification_conditions.map((verification, index) => (
-                      <Paper key={index} sx={{ p: 2, border: '1px solid', borderColor: 'success.main', bgcolor: 'success.50' }}>
-                        <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1 }}>
-                          Verification {index + 1}: {verification.verification_type}
+                      <Paper key={index} sx={{ p: 1.5, bgcolor: 'success.50', border: '1px solid', borderColor: 'success.200' }}>
+                        <Typography variant="caption" sx={{ fontWeight: 'bold', display: 'block' }}>
+                          {verification.verification_type}: {verification.command}
                         </Typography>
-                        <Box sx={{ pl: 2 }}>
-                          {verification.command && (
-                            <Typography variant="body2" color="text.secondary">
-                              Command: <code>{verification.command}</code>
-                            </Typography>
-                          )}
-                          {verification.params && (
-                            <Typography variant="body2" color="text.secondary">
-                              Parameters: <code>{JSON.stringify(verification.params)}</code>
-                            </Typography>
-                          )}
-                          {verification.expected_result && (
-                            <Typography variant="body2" sx={{ mt: 1 }}>
-                              Expected: {verification.expected_result}
-                            </Typography>
-                          )}
-                        </Box>
+                        <Typography variant="caption" color="text.secondary">
+                          Expected: {verification.expected_result}
+                        </Typography>
                       </Paper>
                     ))}
                   </Box>

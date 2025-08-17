@@ -191,119 +191,105 @@ export const AITestCaseGenerator: React.FC<AITestCaseGeneratorProps> = ({
 
     return (
       <Box>
-        <Stack spacing={3}>
-          <Box sx={{ textAlign: 'center' }}>
-            <AnalyticsIcon sx={{ fontSize: 48, color: 'success.main', mb: 2 }} />
-            <Typography variant="h5" gutterBottom>
+        {/* Compact Header */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2, p: 2, bgcolor: 'background.paper', borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
+          <AnalyticsIcon sx={{ fontSize: 24, color: 'success.main' }} />
+          <Box sx={{ flex: 1 }}>
+            <Typography variant="h6" sx={{ mb: 0.5 }}>
               🔍 Compatibility Analysis
             </Typography>
+            <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', flexWrap: 'wrap' }}>
+              <Chip size="small" label={`${analysis.compatible_count} Compatible`} color="success" />
+              <Chip size="small" label={`${analysis.total_analyzed} Total`} variant="outlined" />
+              <Chip size="small" label={analysis.estimated_complexity.toUpperCase()} 
+                color={analysis.estimated_complexity === 'low' ? 'success' : 
+                       analysis.estimated_complexity === 'medium' ? 'warning' : 'error'} />
+            </Box>
           </Box>
+        </Box>
 
-          {/* AI Understanding */}
-          <Alert severity="info">
-            <Typography variant="subtitle2">AI Understanding:</Typography>
-            <Typography>{analysis.understanding}</Typography>
+        {/* AI Understanding & Context - Compact */}
+        <Alert severity="info" sx={{ mb: 2 }}>
+          <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 0.5 }}>
+            🎯 Original Prompt: <span style={{ fontWeight: 'normal' }}>{prompt}</span>
+          </Typography>
+          <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 0.5 }}>
+            🤖 AI Understanding: <span style={{ fontWeight: 'normal' }}>{analysis.understanding}</span>
+          </Typography>
+          <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+            📋 AI Analysis: <span style={{ fontWeight: 'normal' }}>{analysis.reasoning || 'Task analyzed for compatibility across all user interfaces'}</span>
+          </Typography>
+        </Alert>
+
+        {/* Compatible Interfaces - Compact Grid */}
+        {hasCompatible && (
+          <Box sx={{ mb: 2 }}>
+            <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'bold' }}>
+              ✅ Compatible Interfaces ({compatibility_matrix.compatible_userinterfaces.length})
+            </Typography>
+            <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 1 }}>
+              {compatibility_matrix.compatible_userinterfaces.map((interfaceName) => (
+                <Card key={interfaceName} sx={{ p: 1.5, border: '1px solid', borderColor: 'success.light' }}>
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        size="small"
+                        checked={selectedInterfaces.includes(interfaceName)}
+                        onChange={() => handleInterfaceToggle(interfaceName)}
+                      />
+                    }
+                    label={
+                      <Box>
+                        <Typography variant="body2" fontWeight="bold">
+                          {interfaceName}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          Devices: {getDevicesForInterface(interfaceName).join(', ')}
+                        </Typography>
+                        <Typography variant="caption" color="success.main" display="block">
+                          ✅ {compatibility_matrix.reasons[interfaceName]}
+                        </Typography>
+                      </Box>
+                    }
+                  />
+                </Card>
+              ))}
+            </Box>
+          </Box>
+        )}
+
+        {/* Incompatible Interfaces - Compact */}
+        {hasIncompatible && (
+          <Alert severity="warning" sx={{ mb: 2 }}>
+            <Typography variant="subtitle2" gutterBottom>
+              ⚠️ Incompatible: {compatibility_matrix.incompatible.join(', ')}
+            </Typography>
+            {compatibility_matrix.incompatible.map((interfaceName) => (
+              <Typography key={interfaceName} variant="caption" display="block">
+                • {interfaceName}: {compatibility_matrix.reasons[interfaceName]}
+              </Typography>
+            ))}
           </Alert>
+        )}
 
-          {/* Analysis Stats */}
-          <Box sx={{ display: 'flex', justifyContent: 'center', gap: 3 }}>
-            <Chip 
-              label={`${analysis.compatible_count} Compatible`} 
-              color="success" 
-              icon={<CheckIcon />}
-            />
-            <Chip 
-              label={`${analysis.total_analyzed} Total Analyzed`} 
-              variant="outlined"
-            />
-            <Chip 
-              label={analysis.estimated_complexity.toUpperCase()} 
-              color={analysis.estimated_complexity === 'low' ? 'success' : 
-                     analysis.estimated_complexity === 'medium' ? 'warning' : 'error'}
-            />
-          </Box>
-
-          {/* Compatible Interfaces */}
-          {hasCompatible && (
-            <Box>
-              <Typography variant="h6" gutterBottom>
-                ✅ Compatible User Interfaces
-              </Typography>
-              <List>
-                {compatibility_matrix.compatible_userinterfaces.map((interfaceName) => (
-                  <ListItem key={interfaceName} sx={{ pl: 0 }}>
-                    <Card sx={{ width: '100%', p: 2 }}>
-                      <FormControlLabel
-                        control={
-                          <Checkbox
-                            checked={selectedInterfaces.includes(interfaceName)}
-                            onChange={() => handleInterfaceToggle(interfaceName)}
-                          />
-                        }
-                        label={
-                          <Box>
-                            <Typography variant="body1" fontWeight="bold">
-                              {interfaceName}
-                            </Typography>
-                            <Typography variant="body2" color="text.secondary">
-                              Compatible devices: {getDevicesForInterface(interfaceName).join(', ')}
-                            </Typography>
-                            <Typography variant="caption" color="success.main">
-                              ✅ {compatibility_matrix.reasons[interfaceName]}
-                            </Typography>
-                          </Box>
-                        }
-                      />
-                    </Card>
-                  </ListItem>
-                ))}
-              </List>
-            </Box>
-          )}
-
-          {/* Incompatible Interfaces */}
-          {hasIncompatible && (
-            <Box>
-              <Typography variant="h6" gutterBottom>
-                ⚠️ Incompatible User Interfaces
-              </Typography>
-              <Alert severity="warning">
-                <List dense>
-                  {compatibility_matrix.incompatible.map((interfaceName) => (
-                    <ListItem key={interfaceName} sx={{ pl: 0 }}>
-                      <ListItemText
-                        primary={<strong>{interfaceName}</strong>}
-                        secondary={compatibility_matrix.reasons[interfaceName]}
-                      />
-                    </ListItem>
-                  ))}
-                </List>
-              </Alert>
-            </Box>
-          )}
-
-          {/* Action Buttons */}
-          <Stack direction="row" justifyContent="space-between" sx={{ mt: 4 }}>
-            <Button 
-              onClick={() => setCurrentStep('input')} 
-              variant="outlined"
-            >
-              Back
-            </Button>
-            <Button
-              variant="contained"
-              onClick={handleGenerate}
-              disabled={selectedInterfaces.length === 0 || isGenerating}
-              startIcon={isGenerating ? <CircularProgress size={16} /> : <AIIcon />}
-              size="large"
-            >
-              {isGenerating 
-                ? 'Generating...' 
-                : `Generate ${selectedInterfaces.length} Test Case${selectedInterfaces.length !== 1 ? 's' : ''}`
-              }
-            </Button>
-          </Stack>
-        </Stack>
+        {/* Compact Action Buttons */}
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2 }}>
+          <Button 
+            onClick={() => setCurrentStep('input')} 
+            variant="outlined"
+            size="small"
+          >
+            ← Back
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleGenerate}
+            disabled={selectedInterfaces.length === 0 || isGenerating}
+            startIcon={isGenerating ? <CircularProgress size={16} /> : <AIIcon />}
+          >
+            {isGenerating ? 'Generating...' : `Generate Test Case for ${selectedInterfaces.length} Interface${selectedInterfaces.length !== 1 ? 's' : ''}`}
+          </Button>
+        </Box>
       </Box>
     );
   };
