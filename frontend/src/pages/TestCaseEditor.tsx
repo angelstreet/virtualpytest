@@ -201,9 +201,10 @@ const TestCaseEditor: React.FC = () => {
     fetchTestCases();
     handleCloseDialog();
     
-    // Show success message
-    const count = aiTestCases.length;
-    console.log(`Successfully generated ${count} AI test case${count > 1 ? 's' : ''}`);
+    // Show success message - now always 1 unified test case
+    const testCase = aiTestCases[0];
+    const interfaceCount = testCase?.compatible_userinterfaces?.length || 1;
+    console.log(`Successfully generated 1 AI test case compatible with ${interfaceCount} interface${interfaceCount > 1 ? 's' : ''}`);
   };
 
   const handleOpenTestCaseDetails = (testCase: TestCase) => {

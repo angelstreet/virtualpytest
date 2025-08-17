@@ -314,11 +314,11 @@ export const AITestCaseGenerator: React.FC<AITestCaseGeneratorProps> = ({
       <Stack spacing={3} alignItems="center">
         <CircularProgress size={80} />
         <Typography variant="h5" textAlign="center">
-          🔧 Generating Test Cases...
+          🔧 Generating Test Case...
         </Typography>
         <Typography variant="body1" color="text.secondary" textAlign="center">
-          Creating {selectedInterfaces.length} executable test case{selectedInterfaces.length !== 1 ? 's' : ''} 
-          <br />for selected user interfaces
+          Creating 1 unified test case
+          <br />compatible with {selectedInterfaces.length} user interface{selectedInterfaces.length !== 1 ? 's' : ''}
         </Typography>
         <Box sx={{ mt: 2 }}>
           {selectedInterfaces.map((interfaceName, index) => (
