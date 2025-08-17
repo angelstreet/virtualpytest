@@ -258,6 +258,43 @@ def execute_script(script_name: str, device_id: str, parameters: str = "") -> Di
     """Execute a script with parameters and real-time output streaming"""
     start_time = time.time()
     
+    # Database tracking for script execution
+    script_result_id = None
+    try:
+        # Import here to avoid circular dependencies
+        from shared.lib.supabase.script_results_db import record_script_execution_start
+        from shared.lib.utils.host_utils import get_host_info
+        
+        # Get team_id from environment
+        team_id = os.getenv('TEAM_ID', '123e4567-e89b-12d3-a456-426614174000')
+        
+        # Get host info
+        host_info = get_host_info()
+        host_name = host_info.get('host_name', os.getenv('HOST_NAME', 'localhost'))
+        
+        # Record script execution start in database
+        script_result_id = record_script_execution_start(
+            team_id=team_id,
+            script_name=script_name,
+            script_type='manual',  # From RunTests page
+            host_name=host_name,
+            device_name=device_id,  # Use device_id as device_name for now
+            userinterface_name=None,  # Will be updated if available
+            metadata={
+                'device_id': device_id,
+                'parameters': parameters,
+                'execution_source': 'run_tests'
+            }
+        )
+        
+        if script_result_id:
+            print(f"[@script_execution_utils:execute_script] Script execution recorded with ID: {script_result_id}")
+        else:
+            print(f"[@script_execution_utils:execute_script] Warning: Failed to record script execution in database")
+    except Exception as e:
+        print(f"[@script_execution_utils:execute_script] Warning: Database tracking failed: {e}")
+        # Continue execution even if database tracking fails
+    
     # Check if this is an AI test case - redirect to ai_testcase_executor.py
     # IMPORTANT: Exclude the executor script itself to prevent infinite recursion
     if script_name.startswith("ai_testcase_") and script_name != "ai_testcase_executor":
@@ -314,6 +351,7 @@ def execute_script(script_name: str, device_id: str, parameters: str = "") -> Di
         # Stream output in real-time with timeout
         stdout_lines = []
         report_url = ""
+        logs_url = ""
         timeout_seconds = 3600  # 1 hour timeout
         start_time_for_timeout = time.time()
         
@@ -337,6 +375,14 @@ def execute_script(script_name: str, device_id: str, parameters: str = "") -> Di
                             print(f"📊 [Script] Report URL captured: {report_url}")
                         except Exception as e:
                             print(f"⚠️ [Script] Failed to extract report URL: {e}")
+                    
+                    # Extract logs URL from upload logs
+                    if '[@utils:report_utils:generate_and_upload_script_report] Logs uploaded:' in line:
+                        try:
+                            logs_url = line.split('Logs uploaded: ')[1].strip()
+                            print(f"📝 [Script] Logs URL captured: {logs_url}")
+                        except Exception as e:
+                            print(f"⚠️ [Script] Failed to extract logs URL: {e}")
                     
                     # Stream all output with prefix
                     print(f"[{script_name}] {line}")
@@ -420,8 +466,30 @@ def execute_script(script_name: str, device_id: str, parameters: str = "") -> Di
             'parameters': parameters,
             'execution_time_ms': total_execution_time,
             'report_url': report_url,
-            'script_success': script_success  # Extracted from SCRIPT_SUCCESS marker
+            'logs_url': logs_url,
+            'script_success': script_success,  # Extracted from SCRIPT_SUCCESS marker
+            'script_result_id': script_result_id  # Database tracking ID
         }
+        
+        # Update database with completion status
+        if script_result_id:
+            try:
+                from shared.lib.supabase.script_results_db import update_script_execution_result
+                
+                # Determine success based on script_success marker (most reliable)
+                execution_success = script_success if script_success is not None else (exit_code == 0)
+                
+                update_script_execution_result(
+                    script_result_id=script_result_id,
+                    success=execution_success,
+                    execution_time_ms=total_execution_time,
+                    html_report_r2_url=report_url if report_url else None,
+                    logs_r2_url=logs_url if logs_url else None,
+                    error_msg=None if execution_success else f"Script failed with exit code {exit_code}"
+                )
+                print(f"[@script_execution_utils:execute_script] Database updated with completion status: {execution_success}")
+            except Exception as e:
+                print(f"[@script_execution_utils:execute_script] Warning: Failed to update database: {e}")
         
         print(f"[@script_execution_utils:execute_script] RETURNING: About to return result dictionary")
         return result
@@ -429,6 +497,20 @@ def execute_script(script_name: str, device_id: str, parameters: str = "") -> Di
     except Exception as e:
         total_execution_time = int((time.time() - start_time) * 1000)
         print(f"[@script_execution_utils:execute_script] ERROR: {str(e)}")
+        
+        # Update database with error status
+        if script_result_id:
+            try:
+                from shared.lib.supabase.script_results_db import update_script_execution_result
+                update_script_execution_result(
+                    script_result_id=script_result_id,
+                    success=False,
+                    execution_time_ms=total_execution_time,
+                    error_msg=str(e)
+                )
+                print(f"[@script_execution_utils:execute_script] Database updated with error status")
+            except Exception as db_error:
+                print(f"[@script_execution_utils:execute_script] Warning: Failed to update database with error: {db_error}")
         
         return {
             'success': False,
@@ -439,7 +521,8 @@ def execute_script(script_name: str, device_id: str, parameters: str = "") -> Di
             'device_id': device_id,
             'parameters': parameters,
             'execution_time_ms': total_execution_time,
-            'report_url': ""
+            'report_url': "",
+            'script_result_id': script_result_id
         }
 
 

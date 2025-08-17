@@ -501,13 +501,13 @@ def upload_script_logs(log_content: str, device_model: str, script_name: str, ti
         # Create report folder path (same as reports for consistency)
         date_str = timestamp[:8]  # YYYYMMDD from YYYYMMDDHHMMSS
         folder_name = f"{script_name}_{date_str}_{timestamp}"
-        remote_path = f"script-logs/{device_model}/{folder_name}/execution.log"
+        remote_path = f"script-logs/{device_model}/{folder_name}/execution.txt"
         
         logger.info(f"Uploading script logs to R2: {remote_path}")
         
         # Create temporary log file
         import tempfile
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.log', delete=False) as temp_file:
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as temp_file:
             temp_file.write(log_content)
             temp_log_path = temp_file.name
         

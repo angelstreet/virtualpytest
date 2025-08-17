@@ -625,35 +625,33 @@ const MonitoringIncidents: React.FC = () => {
         </Card>
       </Box>
 
-      {/* Detailed Columns Toggle */}
-      <Box sx={{ mb: 1 }}>
-        <FormControlLabel
-          control={
-            <Switch
-              checked={showDetailedColumns}
-              onChange={(e) => setShowDetailedColumns(e.target.checked)}
-              size="small"
-            />
-          }
-          label={
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              {showDetailedColumns ? <HideDetailsIcon /> : <DetailsIcon />}
-              <Typography variant="body2">
-                {showDetailedColumns ? 'Hide' : 'Show'} Discard Analysis Details
-              </Typography>
-            </Box>
-          }
-        />
-      </Box>
-
       <Grid container spacing={1}>
         {/* Alerts In Progress */}
         <Grid item xs={12}>
           <Card>
             <CardContent>
-              <Typography variant="h6" sx={{ mb: 0.5 }}>
-                In Progress
-              </Typography>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+                <Typography variant="h6">
+                  In Progress
+                </Typography>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={showDetailedColumns}
+                      onChange={(e) => setShowDetailedColumns(e.target.checked)}
+                      size="small"
+                    />
+                  }
+                  label={
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      {showDetailedColumns ? <HideDetailsIcon /> : <DetailsIcon />}
+                      <Typography variant="body2">
+                        {showDetailedColumns ? 'Hide' : 'Show'} Discard Analysis Details
+                      </Typography>
+                    </Box>
+                  }
+                />
+              </Box>
 
               <TableContainer
                 component={Paper}
@@ -808,9 +806,28 @@ const MonitoringIncidents: React.FC = () => {
         <Grid item xs={12}>
           <Card>
             <CardContent>
-              <Typography variant="h6" sx={{ mb: 0.5 }}>
-                Closed
-              </Typography>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+                <Typography variant="h6">
+                  Closed
+                </Typography>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={showDetailedColumns}
+                      onChange={(e) => setShowDetailedColumns(e.target.checked)}
+                      size="small"
+                    />
+                  }
+                  label={
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      {showDetailedColumns ? <HideDetailsIcon /> : <DetailsIcon />}
+                      <Typography variant="body2">
+                        {showDetailedColumns ? 'Hide' : 'Show'} Discard Analysis Details
+                      </Typography>
+                    </Box>
+                  }
+                />
+              </Box>
 
               <TableContainer
                 component={Paper}

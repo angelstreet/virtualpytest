@@ -5,7 +5,7 @@ This module provides functions for managing script execution results in the data
 Script results track validation and test script executions with reports and metrics.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, List, Optional
 from uuid import uuid4
 
@@ -37,8 +37,8 @@ def record_script_execution_start(
             'host_name': host_name,
             'device_name': device_name,
             'success': False,  # Will be updated on completion
-            'started_at': datetime.now().isoformat(),
-            'completed_at': datetime.now().isoformat(),  # Temporary, will be updated
+            'started_at': datetime.now(timezone.utc).isoformat(),
+            'completed_at': datetime.now(timezone.utc).isoformat(),  # Temporary, will be updated
             'metadata': metadata
         }
         
@@ -80,8 +80,8 @@ def update_script_execution_result(
     try:
         update_data = {
             'success': success,
-            'completed_at': datetime.now().isoformat(),
-            'updated_at': datetime.now().isoformat()
+            'completed_at': datetime.now(timezone.utc).isoformat(),
+            'updated_at': datetime.now(timezone.utc).isoformat()
         }
         
         if execution_time_ms is not None:

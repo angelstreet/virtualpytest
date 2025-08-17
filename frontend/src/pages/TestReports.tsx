@@ -2,6 +2,7 @@ import {
   Assessment as ReportsIcon,
   CheckCircle as PassIcon,
   Error as FailIcon,
+  HourglassEmpty as RunningIcon,
   Link as LinkIcon,
   SmartToy as AiIcon,
   Person as ManualIcon,
@@ -73,6 +74,24 @@ const TestReports: React.FC = () => {
     loadScriptResults();
   }, [getAllScriptResults]);
 
+  // Auto-refresh when there are running scripts
+  useEffect(() => {
+    const hasRunningScripts = scriptResults.some(result => getExecutionStatus(result) === 'running');
+    
+    if (hasRunningScripts) {
+      const intervalId = setInterval(async () => {
+        try {
+          const results = await getAllScriptResults();
+          setScriptResults(results);
+        } catch (err) {
+          console.error('[@component:TestReports] Error refreshing script results:', err);
+        }
+      }, 5000); // Refresh every 5 seconds
+
+      return () => clearInterval(intervalId);
+    }
+  }, [scriptResults, getAllScriptResults]);
+
   // Calculate stats
   const totalReports = scriptResults.length;
   const passedReports = scriptResults.filter((result) => result.success).length;
@@ -107,6 +126,29 @@ const TestReports: React.FC = () => {
   // Format date helper
   function formatDate(dateString: string): string {
     return new Date(dateString).toLocaleString();
+  }
+
+  // Determine execution status helper
+  function getExecutionStatus(result: ScriptResult): 'running' | 'passed' | 'failed' {
+    // If success is true, it's definitely passed
+    if (result.success) {
+      return 'passed';
+    }
+    
+    // If success is false, check if it's still running or actually failed
+    // Logic: If started_at and completed_at are very close (< 5 seconds), it's likely still running
+    // because update_script_execution_result hasn't been called yet
+    const startTime = new Date(result.started_at).getTime();
+    const completedTime = new Date(result.completed_at).getTime();
+    const timeDiff = Math.abs(completedTime - startTime);
+    
+    // If less than 5 seconds difference AND no execution time recorded, likely still running
+    if (timeDiff < 5000 && !result.execution_time_ms) {
+      return 'running';
+    }
+    
+    // Otherwise, it's actually failed
+    return 'failed';
   }
 
   // Note: handleDiscardToggle removed - discard status is now managed by AI analysis
@@ -294,33 +336,31 @@ const TestReports: React.FC = () => {
         </Card>
       </Box>
 
-      {/* Detailed Columns Toggle */}
-      <Box sx={{ mb: 1 }}>
-        <FormControlLabel
-          control={
-            <Switch
-              checked={showDetailedColumns}
-              onChange={(e) => setShowDetailedColumns(e.target.checked)}
-              size="small"
-            />
-          }
-          label={
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              {showDetailedColumns ? <HideDetailsIcon /> : <DetailsIcon />}
-              <Typography variant="body2">
-                {showDetailedColumns ? 'Hide' : 'Show'} Discard Analysis Details
-              </Typography>
-            </Box>
-          }
-        />
-      </Box>
-
       {/* Recent Test Reports */}
       <Card>
         <CardContent>
-          <Typography variant="h6" sx={{ mb: 2 }}>
-            Recent Test Reports
-          </Typography>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+            <Typography variant="h6">
+              Recent Test Reports
+            </Typography>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={showDetailedColumns}
+                  onChange={(e) => setShowDetailedColumns(e.target.checked)}
+                  size="small"
+                />
+              }
+              label={
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  {showDetailedColumns ? <HideDetailsIcon /> : <DetailsIcon />}
+                  <Typography variant="body2">
+                    {showDetailedColumns ? 'Hide' : 'Show'} Discard Analysis Details
+                  </Typography>
+                </Box>
+              }
+            />
+          </Box>
 
           <TableContainer component={Paper} variant="outlined">
             <Table size="small" sx={{ '& .MuiTableRow-root': { height: '40px' } }}>
@@ -405,12 +445,47 @@ const TestReports: React.FC = () => {
                       <TableCell sx={{ py: 0.5 }}>{result.host_name}</TableCell>
                       <TableCell sx={{ py: 0.5 }}>{result.device_name}</TableCell>
                       <TableCell sx={{ py: 0.5 }}>
-                        <Chip
-                          icon={result.success ? <PassIcon /> : <FailIcon />}
-                          label={result.success ? 'PASS' : 'FAIL'}
-                          color={result.success ? 'success' : 'error'}
-                          size="small"
-                        />
+                        {(() => {
+                          const status = getExecutionStatus(result);
+                          switch (status) {
+                            case 'running':
+                              return (
+                                <Chip
+                                  icon={<RunningIcon />}
+                                  label="RUNNING"
+                                  color="warning"
+                                  size="small"
+                                />
+                              );
+                            case 'passed':
+                              return (
+                                <Chip
+                                  icon={<PassIcon />}
+                                  label="PASS"
+                                  color="success"
+                                  size="small"
+                                />
+                              );
+                            case 'failed':
+                              return (
+                                <Chip
+                                  icon={<FailIcon />}
+                                  label="FAIL"
+                                  color="error"
+                                  size="small"
+                                />
+                              );
+                            default:
+                              return (
+                                <Chip
+                                  icon={<UnknownIcon />}
+                                  label="UNKNOWN"
+                                  color="default"
+                                  size="small"
+                                />
+                              );
+                          }
+                        })()}
                       </TableCell>
                       <TableCell sx={{ py: 0.5 }}>
                         {result.execution_time_ms
