@@ -39,10 +39,10 @@ docker run -d --env-file ../.env backend_discard
 
 ## ⚙️ **Configuration**
 
-Uses environment variables from project root `.env`:
+Uses environment variables from **project root** `.env`:
 
 ```bash
-# Required
+# Required (shared across host and discard services)
 UPSTASH_REDIS_REST_URL=your_upstash_redis_url
 UPSTASH_REDIS_REST_TOKEN=your_upstash_redis_token
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_url

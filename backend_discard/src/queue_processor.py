@@ -13,10 +13,34 @@ from typing import Optional, Dict, Any
 from datetime import datetime
 
 
+def _ensure_environment_loaded():
+    """Ensure project environment variables are loaded"""
+    # Check if critical Redis variables are already loaded
+    if os.getenv('UPSTASH_REDIS_REST_URL') and os.getenv('UPSTASH_REDIS_REST_TOKEN'):
+        return  # Already loaded
+    
+    try:
+        # Load project environment if not already loaded
+        from shared.lib.utils.app_utils import load_environment_variables
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        load_environment_variables(mode='discard', calling_script_dir=current_dir)
+    except Exception as e:
+        # Fallback: try loading project .env directly
+        from dotenv import load_dotenv
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(current_dir)))
+        project_env_path = os.path.join(project_root, '.env')
+        if os.path.exists(project_env_path):
+            load_dotenv(project_env_path)
+
+
 class SimpleQueueProcessor:
     """Simple queue processor using Upstash Redis REST API"""
     
     def __init__(self):
+        # Ensure environment variables are loaded (especially when called from shared services)
+        _ensure_environment_loaded()
+        
         # Use Upstash Redis REST API (from root .env)
         self.redis_url = os.getenv('UPSTASH_REDIS_REST_URL')
         self.redis_token = os.getenv('UPSTASH_REDIS_REST_TOKEN')

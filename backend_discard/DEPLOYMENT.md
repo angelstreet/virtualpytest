@@ -23,10 +23,10 @@ docker-compose up backend_discard
 
 ## ⚙️ **Environment Setup**
 
-Ensure these variables are set in your root `.env`:
+Ensure these variables are set in your **project root** `.env`:
 
 ```bash
-# Required
+# Required (shared across host and discard services)
 UPSTASH_REDIS_REST_URL=your_upstash_redis_url
 UPSTASH_REDIS_REST_TOKEN=your_upstash_redis_token
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_url

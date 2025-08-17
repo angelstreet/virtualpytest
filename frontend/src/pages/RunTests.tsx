@@ -47,6 +47,7 @@ interface ExecutionRecord {
   testResult?: 'success' | 'failure'; // New field for actual test outcome
   parameters?: string;
   reportUrl?: string;
+  logsUrl?: string; // Add logs URL field
 }
 
 // Script parameter interface
@@ -593,6 +594,7 @@ const RunTests: React.FC = () => {
             status: executionStatus,
             testResult: testResult,
             reportUrl: result.report_url,
+            logsUrl: result.logs_url,
             // Preserve deviceModel when updating
             deviceModel: exec.deviceModel,
           } : exec
@@ -1050,6 +1052,7 @@ const RunTests: React.FC = () => {
                         <TableCell>Status</TableCell>
                         <TableCell>Results</TableCell>
                         <TableCell>Report</TableCell>
+                        <TableCell>Logs</TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
@@ -1103,6 +1106,21 @@ const RunTests: React.FC = () => {
                               />
                             ) : (
                               <Chip label="No Report" size="small" variant="outlined" disabled />
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {execution.logsUrl ? (
+                              <Chip
+                                icon={<LinkIcon />}
+                                label="Logs"
+                                size="small"
+                                clickable
+                                onClick={() => window.open(execution.logsUrl!, '_blank')}
+                                color="secondary"
+                                variant="outlined"
+                              />
+                            ) : (
+                              <Chip label="No Logs" size="small" variant="outlined" disabled />
                             )}
                           </TableCell>
                         </TableRow>

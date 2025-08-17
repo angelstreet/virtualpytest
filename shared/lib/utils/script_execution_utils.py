@@ -45,18 +45,16 @@ def setup_script_environment(script_name: str = "script") -> Dict[str, Any]:
     print(f"[@script_execution_utils:setup_script_environment] Setting up environment for {script_name}...")
     
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    # Navigate to project root and then to backend_host/src/.env
-    project_root = os.path.dirname(os.path.dirname(os.path.dirname(script_dir)))
-    env_path = os.path.join(project_root, 'backend_host', 'src', '.env')
+    # Load environment variables using shared utility (loads project root .env + service-specific if available)
+    print(f"[@script_execution_utils:setup_script_environment] Loading environment variables...")
     
-    print(f"[@script_execution_utils:setup_script_environment] Looking for .env at: {env_path}")
-    
-    if os.path.exists(env_path):
-        print(f"[@script_execution_utils:setup_script_environment] Found .env file, loading environment variables")
-        load_environment_variables(mode='host', calling_script_dir=os.path.dirname(env_path))
-    else:
-        print(f"[@script_execution_utils:setup_script_environment] ERROR: .env file not found at {env_path}")
-        return {'success': False, 'error': f'.env file not found at {env_path}'}
+    try:
+        # Use the shared load_environment_variables which handles project root .env + service-specific .env
+        load_environment_variables(mode='host', calling_script_dir=script_dir)
+        print(f"[@script_execution_utils:setup_script_environment] Environment variables loaded successfully")
+    except Exception as e:
+        print(f"[@script_execution_utils:setup_script_environment] ERROR: Failed to load environment variables: {e}")
+        return {'success': False, 'error': f'Failed to load environment variables: {e}'}
     
     # Check if critical environment variables are set
     host_name = os.getenv('HOST_NAME')
