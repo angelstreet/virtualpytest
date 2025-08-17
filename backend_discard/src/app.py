@@ -62,8 +62,8 @@ class BackendDiscardService:
         try:
             print("🤖 Backend Discard Service - Initializing...")
             
-            # Load environment variables
-            load_environment_variables(mode='discard')
+            # Load environment variables (service-specific + project shared)
+            load_environment_variables(mode='discard', calling_script_dir=current_dir)
             
             # Initialize components
             self.queue_processor = SimpleQueueProcessor()
@@ -211,11 +211,76 @@ class BackendDiscardService:
         print(f"   • DB Updates: {self.stats['db_updates']}")
         print(f"   • Queue Lengths: P1={queue_lengths.get('p1_alerts', 0)}, P2={queue_lengths.get('p2_scripts', 0)}, P3={queue_lengths.get('p3_reserved', 0)}")
     
+    def _start_health_server(self, port):
+        """Start HTTP health check server in background thread"""
+        from http.server import HTTPServer, BaseHTTPRequestHandler
+        import json
+        
+        class HealthHandler(BaseHTTPRequestHandler):
+            def __init__(self, service_instance, *args, **kwargs):
+                self.service = service_instance
+                super().__init__(*args, **kwargs)
+            
+            def do_GET(self):
+                if self.path == '/health':
+                    is_healthy = self.service.queue_processor.health_check() if self.service.queue_processor else False
+                    status_code = 200 if is_healthy else 500
+                    # Make stats JSON serializable
+                    stats = {}
+                    if hasattr(self.service, 'stats') and self.service.stats:
+                        stats = {k: (v.isoformat() if isinstance(v, datetime) else v) 
+                                for k, v in self.service.stats.items()}
+                    
+                    response = {
+                        'status': 'healthy' if is_healthy else 'unhealthy',
+                        'service': 'backend_discard',
+                        'timestamp': datetime.now(timezone.utc).isoformat(),
+                        'stats': stats
+                    }
+                    
+                    self.send_response(status_code)
+                    self.send_header('Content-type', 'application/json')
+                    self.send_header('Access-Control-Allow-Origin', '*')
+                    self.end_headers()
+                    self.wfile.write(json.dumps(response).encode())
+                else:
+                    self.send_response(404)
+                    self.end_headers()
+            
+            def log_message(self, format, *args):
+                # Suppress HTTP server logs
+                pass
+        
+        def create_handler(*args, **kwargs):
+            return HealthHandler(self, *args, **kwargs)
+        
+        def start_server():
+            try:
+                server = HTTPServer(('localhost', port), create_handler)
+                print(f"✅ Health server started on port {port}")
+                server.serve_forever()
+            except Exception as e:
+                print(f"❌ Could not start health server on port {port}: {e}")
+        
+        health_thread = threading.Thread(target=start_server, daemon=True)
+        health_thread.start()
+        return health_thread
+    
     def run(self):
         """Main service loop"""
         self.running = True
-        print("🚀 Backend Discard Service started")
-        print("   Processing priority: P1 (alerts) → P2 (scripts) → P3 (reserved)")
+        # Get configuration and log startup details
+        service_port = int(os.getenv('SERVER_PORT', '6209'))
+        debug_mode = os.getenv('DEBUG', 'false').lower() == 'true'
+        
+        print(f"🚀 Backend Discard Service started")
+        print(f"   Service Port: {service_port}")
+        print(f"   Debug Mode: {debug_mode}")
+        print(f"   Processing priority: P1 (alerts) → P2 (scripts) → P3 (reserved)")
+        print(f"   Health endpoint: http://localhost:{service_port}/health")
+        
+        # Start health check server in background thread
+        health_server = self._start_health_server(service_port)
         
         last_stats_time = time.time()
         stats_interval = 300  # Print stats every 5 minutes

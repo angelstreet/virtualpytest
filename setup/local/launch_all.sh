@@ -163,10 +163,11 @@ if lsof -ti:3000 > /dev/null 2>&1; then
     sleep 1
 fi
 
-# Port 6209 (backend_discard)
-if lsof -ti:6209 > /dev/null 2>&1; then
-    echo "🛑 Killing processes on port 6209..."
-    lsof -ti:6209 | xargs kill -9 2>/dev/null || true
+# Port for backend_discard (configurable via DISCARD_SERVER_PORT, default 6209)
+DISCARD_PORT=${DISCARD_SERVER_PORT:-6209}
+if lsof -ti:$DISCARD_PORT > /dev/null 2>&1; then
+    echo "🛑 Killing processes on port $DISCARD_PORT..."
+    lsof -ti:$DISCARD_PORT | xargs kill -9 2>/dev/null || true
     sleep 1
 fi
 
@@ -200,7 +201,7 @@ echo -e "${NC}🌐 URLs:${NC}"
 echo -e "${NC}   Frontend: http://localhost:3000${NC}"
 echo -e "${NC}   backend_server: http://localhost:5109${NC}"
 echo -e "${NC}   backend_host: http://localhost:6109${NC}"
-echo -e "${NC}   backend_discard: AI analysis service (port 6209)${NC}"
+echo -e "${NC}   backend_discard: AI analysis service (port ${DISCARD_PORT:-6209})${NC}"
 echo "=================================================================================="
 
 # Wait for all background jobs
