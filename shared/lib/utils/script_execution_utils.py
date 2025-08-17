@@ -258,16 +258,26 @@ def execute_script(script_name: str, device_id: str, parameters: str = "") -> Di
     # Check if this is an AI test case - redirect to ai_testcase_executor.py
     if script_name.startswith("ai_testcase_"):
         print(f"[@script_execution_utils:execute_script] AI test case detected: {script_name}")
-        test_case_id = script_name.replace("ai_testcase_", "")
         
-        # Execute via ai_testcase_executor.py subprocess (same as normal scripts)
+        # Execute via ai_testcase_executor.py with SAME parameters as normal scripts
         actual_script = "ai_testcase_executor"
-        new_parameters = f"{test_case_id} {parameters}"
         
-        print(f"[@script_execution_utils:execute_script] Redirecting to: {actual_script} with params: {new_parameters}")
+        print(f"[@script_execution_utils:execute_script] Redirecting to: {actual_script} with params: {parameters}")
         
-        # Continue with normal subprocess execution
-        return execute_script(actual_script, device_id, new_parameters)
+        # Pass the original AI script name via environment so executor can find the test case
+        original_env = os.environ.copy()
+        os.environ['AI_SCRIPT_NAME'] = script_name
+        
+        try:
+            # Continue with normal subprocess execution (same parameters format)
+            result = execute_script(actual_script, device_id, parameters)
+            # Restore the script_name in the result to maintain transparency
+            result['script_name'] = script_name
+            return result
+        finally:
+            # Restore original environment
+            os.environ.clear()
+            os.environ.update(original_env)
     
     try:
         script_path = get_script_path(script_name)

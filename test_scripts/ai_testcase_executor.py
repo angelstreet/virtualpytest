@@ -25,30 +25,37 @@ def main():
     try:
         print(f"[@ai_testcase_executor] Starting AI test case executor")
         
-        # Parse command line arguments
+        # Parse command line arguments - SAME FORMAT AS NORMAL SCRIPTS
+        # Expected: python ai_testcase_executor.py horizon_android_mobile --host sunri-pi1 --device device2
         parser = argparse.ArgumentParser(description='Execute AI-generated test case')
-        parser.add_argument('test_case_id', help='AI test case ID')
-        parser.add_argument('userinterface_name', nargs='?', default='horizon_android_mobile', 
-                          help='User interface name (default: horizon_android_mobile)')
+        parser.add_argument('userinterface_name', help='User interface name')
         parser.add_argument('--host', required=True, help='Host name')
         parser.add_argument('--device', required=True, help='Device ID')
         
         args = parser.parse_args()
         
-        print(f"[@ai_testcase_executor] Test Case ID: {args.test_case_id}")
         print(f"[@ai_testcase_executor] User Interface: {args.userinterface_name}")
         print(f"[@ai_testcase_executor] Host: {args.host}")
         print(f"[@ai_testcase_executor] Device: {args.device}")
+        
+        # Extract test case ID from script name (passed via environment)
+        script_name = os.environ.get('AI_SCRIPT_NAME', '')
+        if not script_name.startswith('ai_testcase_'):
+            print(f"[@ai_testcase_executor] ERROR: Invalid AI script name: {script_name}")
+            sys.exit(1)
+            
+        test_case_id = script_name.replace('ai_testcase_', '')
+        print(f"[@ai_testcase_executor] Test Case ID: {test_case_id}")
         
         # Load test case from database
         from shared.lib.utils.app_utils import DEFAULT_TEAM_ID
         from shared.lib.supabase.testcase_db import get_test_case
         
         print(f"[@ai_testcase_executor] Loading test case from database...")
-        test_case = get_test_case(args.test_case_id, DEFAULT_TEAM_ID)
+        test_case = get_test_case(test_case_id, DEFAULT_TEAM_ID)
         
         if not test_case:
-            print(f"[@ai_testcase_executor] ERROR: Test case not found: {args.test_case_id}")
+            print(f"[@ai_testcase_executor] ERROR: Test case not found: {test_case_id}")
             sys.exit(1)
             
         print(f"[@ai_testcase_executor] Loaded test case: {test_case.get('name', 'Unknown')}")
