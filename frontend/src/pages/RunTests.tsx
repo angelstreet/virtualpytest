@@ -244,6 +244,7 @@ const RunTests: React.FC = () => {
   const [selectedDevice, setSelectedDevice] = useState<string>('');
   const [selectedScript, setSelectedScript] = useState<string>('');
   const [availableScripts, setAvailableScripts] = useState<string[]>([]);
+  const [aiTestCasesInfo, setAiTestCasesInfo] = useState<any[]>([]);
   const [loadingScripts, setLoadingScripts] = useState<boolean>(false);
   const [showWizard, setShowWizard] = useState<boolean>(false);
   const [executions, setExecutions] = useState<ExecutionRecord[]>([]);
@@ -267,6 +268,23 @@ const RunTests: React.FC = () => {
     const deviceObject = hostDevices.find(device => device.device_id === selectedDevice);
     
     return deviceObject?.device_model || 'unknown';
+  };
+
+  // Helper function to get display name for scripts (especially AI test cases)
+  const getScriptDisplayName = (scriptName: string) => {
+    if (scriptName.startsWith('ai_testcase_')) {
+      const aiInfo = aiTestCasesInfo.find(info => info.script_name === scriptName);
+      if (aiInfo) {
+        return aiInfo.name || 'Unnamed AI Test Case';
+      }
+      return `AI Test Case ${scriptName.replace('ai_testcase_', '').substring(0, 8)}...`;
+    }
+    return scriptName;
+  };
+
+  // Helper function to check if script is AI generated
+  const isAIScript = (scriptName: string) => {
+    return scriptName.startsWith('ai_testcase_');
   };
 
   // Use run hook for script analysis and parameter management
@@ -356,6 +374,11 @@ const RunTests: React.FC = () => {
 
         if (data.success && data.scripts) {
           setAvailableScripts(data.scripts);
+          
+          // Store AI test case metadata for display
+          if (data.ai_test_cases_info) {
+            setAiTestCasesInfo(data.ai_test_cases_info);
+          }
 
           // Set default selection to first script if available
           if (data.scripts.length > 0 && !selectedScript) {
@@ -762,7 +785,19 @@ const RunTests: React.FC = () => {
                           ) : (
                             availableScripts.map((script) => (
                               <MenuItem key={script} value={script}>
-                                {script}
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                  {isAIScript(script) && (
+                                    <Chip 
+                                      label="AI" 
+                                      size="small" 
+                                      color="primary" 
+                                      sx={{ fontSize: '0.7rem', height: '18px' }} 
+                                    />
+                                  )}
+                                  <Typography variant="body2">
+                                    {getScriptDisplayName(script)}
+                                  </Typography>
+                                </Box>
                               </MenuItem>
                             ))
                           )}

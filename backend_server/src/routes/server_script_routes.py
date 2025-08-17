@@ -175,25 +175,64 @@ def analyze_script():
 
 @server_script_bp.route('/script/list', methods=['GET'])
 def list_scripts():
-    """List all available Python scripts using centralized script utils"""
+    """List all available Python scripts AND AI test cases"""
     try:
-        # Use centralized script listing logic
+        # Get regular Python scripts
         from shared.lib.utils.script_execution_utils import list_available_scripts, get_scripts_directory
         
-        available_scripts = list_available_scripts()
+        regular_scripts = list_available_scripts()
         scripts_dir = get_scripts_directory()
         
-        if not available_scripts:
+        # Get AI test cases from database
+        ai_scripts = []
+        ai_test_cases_info = []
+        
+        try:
+            from shared.lib.utils.app_utils import get_team_id
+            from shared.lib.supabase.testcase_db import get_all_test_cases
+            
+            team_id = get_team_id()
+            all_test_cases = get_all_test_cases(team_id)
+            
+            # Filter for AI-created test cases and format as script names
+            for tc in all_test_cases:
+                if tc.get('creator') == 'ai':
+                    script_name = f"ai_testcase_{tc['test_id']}"
+                    ai_scripts.append(script_name)
+                    
+                    # Store metadata for frontend display
+                    ai_test_cases_info.append({
+                        'script_name': script_name,
+                        'test_case_id': tc['test_id'],
+                        'name': tc.get('name', 'Unnamed AI Test Case'),
+                        'original_prompt': tc.get('original_prompt', ''),
+                        'compatible_userinterfaces': tc.get('compatible_userinterfaces', []),
+                        'created_at': tc.get('created_at', '')
+                    })
+            
+            print(f"[@server_script_routes:list_scripts] Found {len(ai_scripts)} AI test cases")
+            
+        except Exception as e:
+            print(f"[@server_script_routes:list_scripts] Error loading AI test cases: {e}")
+            # Continue without AI test cases if there's an error
+        
+        # Combine both types
+        all_scripts = regular_scripts + ai_scripts
+        
+        if not all_scripts:
             return jsonify({
                 'success': False,
-                'error': f'No scripts found in directory: {scripts_dir}'
+                'error': f'No scripts found in directory: {scripts_dir} and no AI test cases'
             }), 404
         
         return jsonify({
             'success': True,
-            'scripts': available_scripts,
-            'count': len(available_scripts),
-            'scripts_directory': scripts_dir
+            'scripts': all_scripts,
+            'count': len(all_scripts),
+            'scripts_directory': scripts_dir,
+            'regular_scripts': regular_scripts,
+            'ai_scripts': ai_scripts,
+            'ai_test_cases_info': ai_test_cases_info  # Metadata for frontend
         })
         
     except Exception as e:
