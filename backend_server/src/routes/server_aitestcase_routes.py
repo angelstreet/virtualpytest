@@ -70,8 +70,9 @@ def analyze_test_case():
         
         for ui in userinterfaces:
             try:
-                # Get navigation graph for this interface
-                root_tree = get_root_tree_for_interface(ui.get('userinterface_id'), team_id)
+                # Get navigation graph for this interface  
+                ui_id = ui.get('id') or ui.get('userinterface_id')
+                root_tree = get_root_tree_for_interface(ui_id, team_id) if ui_id else None
                 unified_graph = get_full_tree(root_tree.get('tree_id'), team_id) if root_tree else None
                 
                 # Prepare analysis context
@@ -84,21 +85,21 @@ def analyze_test_case():
                 }
                 
                 # Quick compatibility analysis using AI agent
-                compatibility = ai_agent.execute_task(
-                    f"Analyze feasibility: Can '{prompt}' be executed on interface '{ui['name']}'?",
-                    available_actions=[],  # Simplified for analysis
-                    available_verifications=[],
+                compatibility = ai_agent.analyze_compatibility(
+                    prompt,
+                    available_actions=analysis_context['available_actions'],
+                    available_verifications=analysis_context['available_verifications'],
                     device_model=None,
                     userinterface_name=ui['name']
                 )
                 
-                is_compatible = compatibility.get('success', False) and 'impossible' not in compatibility.get('reasoning', '').lower()
+                is_compatible = compatibility.get('feasible', False)
                 
                 compatibility_results.append({
                     'userinterface': ui['name'],
                     'compatible': is_compatible,
                     'reasoning': compatibility.get('reasoning', 'AI analysis completed'),
-                    'confidence': compatibility.get('confidence', 0.7)
+                    'confidence': 0.8 if is_compatible else 0.2
                 })
                 
             except Exception as e:
@@ -211,41 +212,24 @@ def generate_test_cases():
                 
                 # Get interface data and navigation graph
                 interface_data = get_userinterface_by_name(interface_name, team_id)
-                root_tree = get_root_tree_for_interface(interface_data.get('userinterface_id'), team_id)
+                ui_id = interface_data.get('id') or interface_data.get('userinterface_id')
+                root_tree = get_root_tree_for_interface(ui_id, team_id) if ui_id else None
                 unified_graph = get_full_tree(root_tree.get('tree_id'), team_id) if root_tree else None
                 
                 # Generate specific test case using AI agent
-                test_case_result = ai_agent.execute_task(
-                    task_description=original_prompt,
-                    available_actions=[],  # Will be populated by AI agent
-                    available_verifications=[],
-                    device_model=None,  # Generic for now
-                    userinterface_name=interface_name
+                test_case_result = ai_agent.generate_test_case(
+                    prompt=original_prompt,
+                    userinterface_name=interface_name,
+                    available_actions=['click_element', 'navigate', 'wait', 'press_key'],
+                    available_verifications=['verify_image', 'verify_audio', 'verify_video', 'verify_text']
                 )
                 
-                if test_case_result.get('success', True):
-                    # Create test case object
-                    test_case = {
-                        'test_id': str(uuid.uuid4()),
-                        'name': f"{original_prompt} - {interface_name}",
-                        'test_type': 'functional',
-                        'start_node': test_case_result.get('start_node', ''),
-                        'steps': test_case_result.get('steps', []),
-                        'creator': 'ai',
-                        'original_prompt': original_prompt,
-                        'ai_analysis': {
-                            'analysis_id': analysis_id,
-                            'generated_at': datetime.utcnow().isoformat(),
-                            'interface_specific': True
-                        },
-                        'compatible_userinterfaces': [interface_name],
-                        'verification_conditions': test_case_result.get('verification_conditions', []),
-                        'expected_results': test_case_result.get('expected_results', {}),
-                        'execution_config': test_case_result.get('execution_config', {}),
-                        'tags': ['ai-generated', interface_name],
-                        'priority': 2,
-                        'estimated_duration': test_case_result.get('estimated_duration', 60)
-                    }
+                if test_case_result.get('success', False):
+                    # Use the generated test case directly
+                    test_case = test_case_result['test_case']
+                    
+                    # Update with analysis metadata
+                    test_case['ai_analysis']['analysis_id'] = analysis_id
                     
                     # Save to database
                     saved_test_case = save_test_case(test_case, team_id)

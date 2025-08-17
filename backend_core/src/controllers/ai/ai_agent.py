@@ -148,6 +148,197 @@ class AIAgentController(BaseController):
             return {'success': False, 'error': error_msg}
 
 
+    def analyze_compatibility(self, task_description: str, available_actions: List[Dict], available_verifications: List[Dict], device_model: str = None, userinterface_name: str = "horizon_android_mobile") -> Dict[str, Any]:
+        """
+        Analyze compatibility WITHOUT executing - just check if task can be done.
+        
+        Args:
+            task_description: User's task description (e.g., "go to live and check audio")
+            available_actions: Real actions from device capabilities
+            available_verifications: Real verifications from device capabilities
+            device_model: Device model for context
+            userinterface_name: Name of the userinterface for navigation tree loading
+            
+        Returns:
+            Dict with analysis results (feasible, reasoning, etc.)
+        """
+        try:
+            print(f"AI[{self.device_name}]: Starting compatibility analysis: {task_description}")
+            
+            # Load navigation tree only when needed (no execution setup)
+            navigation_tree = self._get_navigation_tree(userinterface_name)
+            
+            # Generate plan using AI (same logic as execute_task)
+            ai_plan = self._generate_plan(task_description, available_actions, available_verifications, device_model, navigation_tree)
+            
+            if not ai_plan.get('success'):
+                return {
+                    'success': False,
+                    'feasible': False,
+                    'reasoning': ai_plan.get('error', 'Failed to generate plan'),
+                    'required_capabilities': [],
+                    'estimated_steps': 0
+                }
+            
+            plan = ai_plan['plan']
+            
+            # Analyze plan without executing
+            feasible = plan.get('feasible', True)
+            analysis = plan.get('analysis', 'AI analysis completed')
+            plan_steps = plan.get('plan', [])
+            
+            # Extract required capabilities from plan
+            required_capabilities = []
+            for step in plan_steps:
+                command = step.get('command', '')
+                if command and command not in required_capabilities:
+                    required_capabilities.append(command)
+            
+            print(f"AI[{self.device_name}]: Compatibility analysis complete. Feasible: {feasible}")
+            
+            return {
+                'success': True,
+                'feasible': feasible,
+                'reasoning': analysis,
+                'required_capabilities': required_capabilities,
+                'estimated_steps': len(plan_steps),
+                'generated_at': time.strftime('%Y-%m-%d %H:%M:%S')
+            }
+                
+        except Exception as e:
+            print(f"AI[{self.device_name}]: Compatibility analysis error: {e}")
+            return {
+                'success': False,
+                'feasible': False,
+                'reasoning': f'Analysis failed: {str(e)}',
+                'required_capabilities': [],
+                'estimated_steps': 0
+            }
+
+    def generate_test_case(self, prompt: str, userinterface_name: str, available_actions: List[str] = None, available_verifications: List[str] = None) -> Dict[str, Any]:
+        """
+        Generate a structured test case from a prompt for a specific userinterface.
+        
+        Args:
+            prompt: User's natural language test description
+            userinterface_name: Target userinterface name
+            available_actions: Available actions for this interface
+            available_verifications: Available verifications for this interface
+            
+        Returns:
+            Dict with test case data ready for database storage
+        """
+        try:
+            print(f"AI[{self.device_name}]: Generating test case for '{prompt}' on {userinterface_name}")
+            
+            # Use default actions/verifications if not provided
+            if available_actions is None:
+                available_actions = ['click_element', 'navigate', 'wait', 'press_key']
+            if available_verifications is None:
+                available_verifications = ['verify_image', 'verify_audio', 'verify_video', 'verify_text']
+            
+            # Load navigation tree
+            navigation_tree = self._get_navigation_tree(userinterface_name)
+            
+            # Generate detailed plan for execution
+            ai_plan = self._generate_plan(prompt, available_actions, available_verifications, None, navigation_tree)
+            
+            if not ai_plan.get('success'):
+                return {
+                    'success': False,
+                    'error': ai_plan.get('error', 'Failed to generate test case plan'),
+                    'test_case': None
+                }
+            
+            plan = ai_plan['plan']
+            plan_steps = plan.get('plan', [])
+            
+            # Convert AI plan to test case format
+            test_case = {
+                'test_id': f"ai_{int(time.time())}_{userinterface_name}",
+                'name': f"AI: {prompt[:50]}{'...' if len(prompt) > 50 else ''}",
+                'test_type': 'functional',
+                'start_node': 'home',  # Default start node
+                'steps': self._convert_plan_to_steps(plan_steps),
+                'creator': 'ai',
+                'original_prompt': prompt,
+                'ai_analysis': {
+                    'feasibility': plan.get('feasible', True) and 'possible' or 'impossible',
+                    'reasoning': plan.get('analysis', 'AI generated test case'),
+                    'required_capabilities': [step.get('command') for step in plan_steps if step.get('command')],
+                    'estimated_steps': len(plan_steps),
+                    'generated_at': time.strftime('%Y-%m-%d %H:%M:%S'),
+                    'interface_specific': True
+                },
+                'compatible_userinterfaces': [userinterface_name],
+                'compatible_devices': ['all'],  # Will be refined based on interface models
+                'device_adaptations': {},
+                'verification_conditions': self._extract_verifications(plan_steps),
+                'expected_results': {
+                    'success_criteria': f"Successfully execute: {prompt}",
+                    'failure_conditions': ['Navigation failed', 'Verification failed', 'Timeout']
+                },
+                'execution_config': {
+                    'timeout': 60,
+                    'retry_count': 1,
+                    'screenshot_on_failure': True
+                },
+                'tags': ['ai-generated', userinterface_name],
+                'priority': 2,
+                'estimated_duration': max(30, len(plan_steps) * 10)  # 10 seconds per step minimum
+            }
+            
+            print(f"AI[{self.device_name}]: Generated test case with {len(plan_steps)} steps")
+            
+            return {
+                'success': True,
+                'test_case': test_case
+            }
+                
+        except Exception as e:
+            print(f"AI[{self.device_name}]: Test case generation error: {e}")
+            return {
+                'success': False,
+                'error': f'Test case generation failed: {str(e)}',
+                'test_case': None
+            }
+
+    def _convert_plan_to_steps(self, plan_steps: List[Dict]) -> List[Dict]:
+        """Convert AI plan steps to test case step format."""
+        test_steps = []
+        
+        for i, step in enumerate(plan_steps):
+            test_step = {
+                'step_number': i + 1,
+                'type': step.get('type', 'action'),
+                'command': step.get('command', ''),
+                'params': step.get('params', {}),
+                'description': step.get('description', f'Step {i + 1}'),
+                'wait_time': step.get('params', {}).get('wait_time', 1000),
+                'timeout': 30,
+                'retry_count': 1
+            }
+            test_steps.append(test_step)
+        
+        return test_steps
+
+    def _extract_verifications(self, plan_steps: List[Dict]) -> List[Dict]:
+        """Extract verification conditions from AI plan steps."""
+        verifications = []
+        
+        for step in plan_steps:
+            if step.get('type') == 'verification':
+                verification = {
+                    'verification_type': step.get('verification_type', 'image'),
+                    'command': step.get('command', ''),
+                    'params': step.get('params', {}),
+                    'expected_result': step.get('description', 'Verification passed'),
+                    'timeout': 30
+                }
+                verifications.append(verification)
+        
+        return verifications
+
     def execute_task(self, task_description: str, available_actions: List[Dict], available_verifications: List[Dict], device_model: str = None, userinterface_name: str = "horizon_android_mobile") -> Dict[str, Any]:
         """
         Execute a task: generate plan with AI, execute it, and summarize results.
@@ -294,7 +485,7 @@ JSON ONLY - NO OTHER TEXT"""
                     navigation_context = """
 - execute_navigation (params: {"target_node": "node_name"}): Navigate to a specific node in the navigation tree"""
                 
-                prompt = f"""You are a device automation AI for {device_model}. Generate an execution plan for this task.
+                prompt = f"""You are a device automation AI for {device_model}. Analyze if this task is feasible with available actions.
 
 Task: "{task_description}"
 Device: {device_model}
@@ -302,6 +493,8 @@ Navigation Tree Available: {context['has_navigation_tree']}
 
 Available Actions:
 {action_context}{navigation_context}
+
+FEASIBILITY FOCUS: Determine if this task CAN be completed with available actions. Be optimistic - if there's a reasonable way to accomplish the task, mark it as feasible.
 
 CRITICAL COMMAND DISTINCTIONS:
 
