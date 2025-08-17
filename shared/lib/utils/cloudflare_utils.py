@@ -512,7 +512,7 @@ def upload_script_logs(log_content: str, device_model: str, script_name: str, ti
             temp_log_path = temp_file.name
         
         try:
-            # Upload log file
+            # Upload as .txt with inline disposition for browser display
             file_mappings = [{'local_path': temp_log_path, 'remote_path': remote_path}]
             upload_result = uploader.upload_files(file_mappings)
             
