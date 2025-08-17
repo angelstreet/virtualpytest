@@ -396,7 +396,7 @@ const RunTests: React.FC = () => {
     };
 
     loadScripts();
-  }, [selectedScript, showError]);
+  }, [showError]); // Remove selectedScript dependency - no need to reload scripts when selection changes
 
   // Handle pre-selection from TestCase page
   useEffect(() => {

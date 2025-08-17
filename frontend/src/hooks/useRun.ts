@@ -68,6 +68,44 @@ export const useRun = ({ selectedScript, selectedDevice, selectedHost, deviceMod
         return;
       }
 
+      // Skip analysis for AI test cases - they have predefined parameters
+      if (selectedScript.startsWith('ai_testcase_')) {
+        // AI test cases have standard parameters: userinterface_name --host --device
+        const aiAnalysis: ScriptAnalysis = {
+          success: true,
+          script_name: selectedScript,
+          parameters: [
+            {
+              name: 'userinterface_name',
+              type: 'positional',
+              required: true,
+              help: 'User interface name (e.g., horizon_android_mobile)',
+              default: null
+            },
+            {
+              name: 'host',
+              type: 'optional',
+              required: true,
+              help: 'Host name',
+              default: null
+            },
+            {
+              name: 'device',
+              type: 'optional', 
+              required: true,
+              help: 'Device ID',
+              default: null
+            }
+          ],
+          has_userinterface_param: true,
+          userinterface_param: 'userinterface_name'
+        };
+        
+        setScriptAnalysis(aiAnalysis);
+        setAnalyzingScript(false);
+        return;
+      }
+
       setAnalyzingScript(true);
       try {
         const response = await fetch('/server/script/analyze', {

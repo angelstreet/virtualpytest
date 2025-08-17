@@ -219,6 +219,11 @@ def list_available_scripts() -> list:
     for script_file in script_files:
         filename = os.path.basename(script_file)
         script_name = os.path.splitext(filename)[0]  # Remove .py extension
+        
+        # Hide internal AI executor script from user interface
+        if script_name == 'ai_testcase_executor':
+            continue
+            
         available_scripts.append(script_name)
     
     # Sort alphabetically
