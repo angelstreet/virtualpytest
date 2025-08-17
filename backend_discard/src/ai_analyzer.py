@@ -81,8 +81,20 @@ class SimpleAIAnalyzer:
             consecutive_count = complete_alert_data.get('consecutive_count', 0)
             metadata = complete_alert_data.get('metadata', {})
             
-            prompt = self._create_alert_analysis_prompt(complete_alert_data)
             print(f"[@ai_analyzer] Analyzing alert {alert_id} ({incident_type})")
+            
+            # For now, use text-only analysis (visual analysis needs debugging)
+            # TODO: Re-enable visual analysis after fixing vision AI response parsing
+            # if self._alert_has_images(metadata):
+            #     print(f"[@ai_analyzer] Attempting visual analysis for {incident_type} alert")
+            #     image_result = self._analyze_alert_with_images(complete_alert_data)
+            #     if image_result.success:
+            #         return image_result
+            #     else:
+            #         print(f"[@ai_analyzer] Image analysis failed, falling back to text analysis")
+            
+            # Text-only analysis with rich metadata
+            prompt = self._create_alert_analysis_prompt(complete_alert_data)
             return self._call_text_ai(prompt)
             
         except Exception as e:
@@ -290,6 +302,8 @@ Respond ONLY in this JSON format:
             if response.status_code == 200:
                 result = response.json()
                 content = result['choices'][0]['message']['content']
+                
+                print(f"[@ai_analyzer] Vision AI raw response: {content[:200]}...")
                 
                 # Parse JSON response
                 ai_result = json.loads(content)
@@ -615,6 +629,134 @@ Respond ONLY in this JSON format:
             print(f"[@ai_analyzer] Error converting image to base64: {e}")
         
         return None
+    
+    def _alert_has_images(self, metadata: Dict[str, Any]) -> bool:
+        """Check if alert has accessible images for visual analysis"""
+        try:
+            r2_images = metadata.get('r2_images', {})
+            original_urls = r2_images.get('original_urls', [])
+            thumbnail_urls = r2_images.get('thumbnail_urls', [])
+            
+            return len(original_urls) > 0 or len(thumbnail_urls) > 0
+        except Exception:
+            return False
+    
+    def _analyze_alert_with_images(self, alert_data: Dict[str, Any]) -> AnalysisResult:
+        """Analyze alert using visual analysis of alert images"""
+        try:
+            alert_id = alert_data.get('id', 'Unknown')
+            incident_type = alert_data.get('incident_type', 'Unknown')
+            metadata = alert_data.get('metadata', {})
+            
+            # Get image URLs from metadata
+            r2_images = metadata.get('r2_images', {})
+            original_urls = r2_images.get('original_urls', [])
+            thumbnail_urls = r2_images.get('thumbnail_urls', [])
+            
+            # Use thumbnail for faster analysis (smaller images)
+            if thumbnail_urls:
+                image_url = thumbnail_urls[0]  # Use first thumbnail
+                print(f"[@ai_analyzer] Using thumbnail image: {image_url[:50]}...")
+            elif original_urls:
+                image_url = original_urls[0]  # Use first original image
+                print(f"[@ai_analyzer] Using original image: {image_url[:50]}...")
+            else:
+                return AnalysisResult(success=False, error="No image URLs found in alert metadata")
+            
+            # Convert image to base64
+            image_b64 = self._image_to_base64(image_url)
+            if not image_b64:
+                return AnalysisResult(success=False, error="Failed to download or encode alert image")
+            
+            # Create visual analysis prompt for alerts
+            prompt = self._create_alert_visual_analysis_prompt(alert_data)
+            
+            return self._call_vision_ai(prompt, image_b64)
+            
+        except Exception as e:
+            print(f"[@ai_analyzer] Error in alert image analysis: {e}")
+            return AnalysisResult(success=False, error=str(e))
+    
+    def _create_alert_visual_analysis_prompt(self, alert_data: Dict[str, Any]) -> str:
+        """Create specialized visual analysis prompt for alerts"""
+        alert_id = alert_data.get('id', 'Unknown')
+        incident_type = alert_data.get('incident_type', 'Unknown')
+        host_name = alert_data.get('host_name', 'Unknown')
+        device_id = alert_data.get('device_id', 'Unknown')
+        consecutive_count = alert_data.get('consecutive_count', 0)
+        status = alert_data.get('status', 'Unknown')
+        metadata = alert_data.get('metadata', {})
+        
+        # Extract key metadata for context
+        freeze_diffs = metadata.get('freeze_diffs', [])
+        blackscreen = metadata.get('blackscreen', False)
+        audio = metadata.get('audio', False)
+        volume_percentage = metadata.get('volume_percentage', 0)
+        blackscreen_percentage = metadata.get('blackscreen_percentage', 0)
+        
+        return f"""ALERT VISUAL ANALYSIS
+
+ALERT DETAILS:
+- Alert ID: {alert_id}
+- Incident Type: {incident_type}
+- Host: {host_name}
+- Device: {device_id}
+- Status: {status}
+- Consecutive Count: {consecutive_count}
+
+TECHNICAL METADATA:
+- Freeze Diffs: {freeze_diffs}
+- Blackscreen: {blackscreen}
+- Audio Present: {audio}
+- Volume %: {volume_percentage}
+- Blackscreen %: {blackscreen_percentage}
+
+TASK: Analyze the alert screenshot to determine if this is a false positive or valid incident.
+
+VISUAL ANALYSIS CRITERIA:
+
+1. **FREEZE INCIDENT ANALYSIS**:
+   - Is the screen actually frozen/stuck or showing normal content?
+   - Does the image show identical frames that indicate technical freeze?
+   - Could this be paused content, menu screen, or loading state?
+   - Are there visible UI elements suggesting normal operation?
+
+2. **BLACKSCREEN INCIDENT ANALYSIS**:
+   - Is the screen completely black or just dark content?
+   - Are there any UI elements, logos, or text visible?
+   - Could this be normal content transition or loading screen?
+   - Is this expected behavior (channel change, app launch)?
+
+3. **CONTENT CONTEXT EVALUATION**:
+   - What type of content is displayed (TV show, menu, app, loading)?
+   - Does the content suggest normal viewing vs technical issue?
+   - Are there timestamps, progress bars, or other dynamic elements?
+   - Does the screen layout suggest active vs frozen state?
+
+4. **DEVICE STATE INDICATORS**:
+   - Are there visible device status indicators?
+   - Do channel numbers, volume indicators, or UI overlays suggest normal operation?
+   - Is this a streaming app, live TV, or system interface?
+   - Are there any error messages or technical indicators visible?
+
+5. **FALSE POSITIVE PATTERNS**:
+   - Static content during pause/menu navigation
+   - Loading screens or buffering states
+   - Dark scenes in movies/shows that trigger blackscreen detection
+   - Identical frames during content pauses or user inactivity
+   - App launch screens or interface transitions
+
+DECISION CRITERIA:
+- **DISCARD (false positive)** if: Normal content pause, menu screen, loading state, or expected user interface behavior
+- **KEEP (valid incident)** if: Clear technical freeze, unexpected blackscreen, or obvious system malfunction
+
+Respond ONLY in this JSON format:
+{{
+    "discard": true/false,
+    "category": "false_positive" or "valid_incident",
+    "confidence": 0-100,
+    "explanation": "Visual analysis summary (max 80 words)"
+}}"""
     
     def _create_alert_analysis_prompt(self, alert_data: Dict[str, Any]) -> str:
         """Create specialized prompt for alert analysis"""
