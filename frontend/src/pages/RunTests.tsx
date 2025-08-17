@@ -572,6 +572,7 @@ const RunTests: React.FC = () => {
         console.log(`[@RunTests] Result details:`, {
           exit_code: result.exit_code,
           report_url: result.report_url,
+          logs_url: result.logs_url,
           has_stdout: !!result.stdout,
           stdout_length: result.stdout?.length || 0,
           script_success: result.script_success,
