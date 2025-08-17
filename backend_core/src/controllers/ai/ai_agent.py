@@ -148,7 +148,7 @@ class AIAgentController(BaseController):
             return {'success': False, 'error': error_msg}
 
 
-    def analyze_compatibility_RENAMED_FOR_DEBUG(self, task_description: str, available_actions: List[Dict], available_verifications: List[Dict], device_model: str = None, userinterface_name: str = "horizon_android_mobile") -> Dict[str, Any]:
+    def analyze_compatibility(self, task_description: str, available_actions: List[Dict], available_verifications: List[Dict], device_model: str = None, userinterface_name: str = "horizon_android_mobile") -> Dict[str, Any]:
         """
         Analyze compatibility WITHOUT executing - just check if task can be done.
         
