@@ -3,6 +3,12 @@ import {
   CheckCircle as PassIcon,
   Error as FailIcon,
   Link as LinkIcon,
+  SmartToy as AiIcon,
+  Person as ManualIcon,
+  Help as UnknownIcon,
+  Comment as CommentIcon,
+  Check as ValidIcon,
+  Warning as DiscardedIcon,
 } from '@mui/icons-material';
 import {
   Box,
@@ -19,7 +25,13 @@ import {
   Chip,
   CircularProgress,
   Alert,
-  Checkbox,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
+  Tooltip,
+  IconButton,
 } from '@mui/material';
 import React, { useState, useEffect } from 'react';
 
@@ -30,6 +42,11 @@ const TestReports: React.FC = () => {
   const [scriptResults, setScriptResults] = useState<ScriptResult[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [discardModalOpen, setDiscardModalOpen] = useState(false);
+  const [selectedDiscardComment, setSelectedDiscardComment] = useState<{
+    comment: string;
+    result: ScriptResult;
+  } | null>(null);
 
   // Load script results on component mount
   useEffect(() => {
@@ -86,22 +103,86 @@ const TestReports: React.FC = () => {
     return new Date(dateString).toLocaleString();
   }
 
-  // Handle discard toggle
-  const handleDiscardToggle = async (resultId: string, discardValue: boolean) => {
-    try {
-      // TODO: Implement API call to update discard status
-      console.log(`Toggling discard for result ${resultId} to ${discardValue}`);
+  // Note: handleDiscardToggle removed - discard status is now managed by AI analysis
+  // Users can view AI analysis results but cannot manually toggle discard status
 
-      // Update local state immediately for better UX
-      setScriptResults((prev) =>
-        prev.map((result) =>
-          result.id === resultId ? { ...result, discard: discardValue } : result,
-        ),
-      );
-    } catch (error) {
-      console.error('Error toggling discard status:', error);
-      setError('Failed to update discard status');
+  // Handle discard comment modal
+  const handleDiscardCommentClick = (result: ScriptResult) => {
+    if (result.discard_comment) {
+      setSelectedDiscardComment({
+        comment: result.discard_comment,
+        result: result,
+      });
+      setDiscardModalOpen(true);
     }
+  };
+
+  const handleCloseDiscardModal = () => {
+    setDiscardModalOpen(false);
+    setSelectedDiscardComment(null);
+  };
+
+  // Get AI analysis status display
+  const getAIAnalysisDisplay = (result: ScriptResult) => {
+    if (!result.checked) {
+      return (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Chip
+            icon={<UnknownIcon />}
+            label="Pending"
+            color="default"
+            size="small"
+            variant="outlined"
+          />
+        </Box>
+      );
+    }
+
+    const isAI = result.check_type === 'ai';
+    const isDiscarded = result.discard;
+    
+    return (
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        {/* Check type indicator */}
+        <Chip
+          icon={isAI ? <AiIcon /> : <ManualIcon />}
+          label={isAI ? 'AI' : 'Manual'}
+          color="primary"
+          size="small"
+          variant="outlined"
+        />
+        
+        {/* Discard status */}
+        {isDiscarded ? (
+          <Chip
+            icon={<DiscardedIcon />}
+            label={result.discard_type || 'Discarded'}
+            color="warning"
+            size="small"
+          />
+        ) : (
+          <Chip
+            icon={<ValidIcon />}
+            label="Valid"
+            color="success"
+            size="small"
+          />
+        )}
+        
+        {/* Comment icon if available */}
+        {result.discard_comment && (
+          <Tooltip title="View AI analysis comment">
+            <IconButton
+              size="small"
+              onClick={() => handleDiscardCommentClick(result)}
+              sx={{ p: 0.25 }}
+            >
+              <CommentIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        )}
+      </Box>
+    );
   };
 
   // Loading state component
@@ -216,7 +297,7 @@ const TestReports: React.FC = () => {
                     <strong>Logs</strong>
                   </TableCell>
                   <TableCell sx={{ py: 1 }}>
-                    <strong>Discard</strong>
+                    <strong>AI Analysis</strong>
                   </TableCell>
                 </TableRow>
               </TableHead>
@@ -289,14 +370,7 @@ const TestReports: React.FC = () => {
                         )}
                       </TableCell>
                       <TableCell sx={{ py: 0.5 }}>
-                        <Checkbox
-                          size="small"
-                          checked={result.discard || false}
-                          onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                            handleDiscardToggle(result.id, e.target.checked)
-                          }
-                          title={result.discard ? 'Discarded' : 'Not discarded'}
-                        />
+                        {getAIAnalysisDisplay(result)}
                       </TableCell>
                     </TableRow>
                   ))
@@ -306,6 +380,42 @@ const TestReports: React.FC = () => {
           </TableContainer>
         </CardContent>
       </Card>
+
+      {/* Discard Comment Modal */}
+      <Dialog 
+        open={discardModalOpen} 
+        onClose={handleCloseDiscardModal}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <CommentIcon />
+            AI Analysis Comment
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          {selectedDiscardComment && (
+            <Box>
+              <Typography variant="subtitle2" sx={{ mb: 1, color: 'text.secondary' }}>
+                Script: {selectedDiscardComment.result.script_name}
+              </Typography>
+              <Typography variant="subtitle2" sx={{ mb: 2, color: 'text.secondary' }}>
+                Analysis Type: {selectedDiscardComment.result.check_type === 'ai' ? 'AI Analysis' : 'Manual Review'}
+                {selectedDiscardComment.result.discard_type && ` • Category: ${selectedDiscardComment.result.discard_type}`}
+              </Typography>
+              <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap' }}>
+                {selectedDiscardComment.comment}
+              </Typography>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseDiscardModal} color="primary">
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

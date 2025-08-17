@@ -4,6 +4,11 @@ import {
   Visibility as MonitorIcon,
   KeyboardArrowDown as ExpandMoreIcon,
   KeyboardArrowRight as ExpandLessIcon,
+  SmartToy as AiIcon,
+  Person as ManualIcon,
+  CheckCircle as CheckedIcon,
+  Help as UnknownIcon,
+  Comment as CommentIcon,
 } from '@mui/icons-material';
 import {
   Box,
@@ -23,6 +28,12 @@ import {
   Grid,
   IconButton,
   Collapse,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
+  Tooltip,
 } from '@mui/material';
 import React, { useState, useEffect } from 'react';
 
@@ -36,6 +47,11 @@ const MonitoringIncidents: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  const [discardModalOpen, setDiscardModalOpen] = useState(false);
+  const [selectedDiscardComment, setSelectedDiscardComment] = useState<{
+    comment: string;
+    alert: Alert;
+  } | null>(null);
 
   // Load alerts data on component mount - optimized single query
   useEffect(() => {
@@ -196,6 +212,80 @@ const MonitoringIncidents: React.FC = () => {
         return 'info';
     }
   }
+
+  // Get check status chip
+  const getCheckStatusChip = (alert: Alert) => {
+    if (!alert.checked) {
+      return (
+        <Chip
+          icon={<UnknownIcon />}
+          label="Pending"
+          color="default"
+          size="small"
+          variant="outlined"
+        />
+      );
+    }
+
+    const isAI = alert.check_type === 'ai';
+    return (
+      <Chip
+        icon={isAI ? <AiIcon /> : <ManualIcon />}
+        label={isAI ? 'AI Checked' : 'Manual'}
+        color="primary"
+        size="small"
+      />
+    );
+  };
+
+  // Get discard status chip
+  const getDiscardStatusChip = (alert: Alert) => {
+    if (!alert.checked) {
+      return (
+        <Chip
+          label="N/A"
+          color="default"
+          size="small"
+          variant="outlined"
+        />
+      );
+    }
+
+    if (alert.discard) {
+      return (
+        <Chip
+          label={`Discarded${alert.discard_type ? ` (${alert.discard_type})` : ''}`}
+          color="warning"
+          size="small"
+        />
+      );
+    } else {
+      return (
+        <Chip
+          icon={<CheckedIcon />}
+          label="Valid Alert"
+          color="success"
+          size="small"
+        />
+      );
+    }
+  };
+
+  // Handle discard comment modal
+  const handleDiscardCommentClick = (alert: Alert) => {
+    if (alert.discard_comment) {
+      setSelectedDiscardComment({
+        comment: alert.discard_comment,
+        alert: alert,
+      });
+      setDiscardModalOpen(true);
+    }
+  };
+
+  const handleCloseDiscardModal = () => {
+    setDiscardModalOpen(false);
+    setSelectedDiscardComment(null);
+  };
 
   // Toggle expanded row
   const toggleRowExpansion = (alertId: string) => {
@@ -525,17 +615,26 @@ const MonitoringIncidents: React.FC = () => {
                       <TableCell sx={{ py: 0.5 }}>
                         <strong>Duration</strong>
                       </TableCell>
+                      <TableCell sx={{ py: 0.5 }}>
+                        <strong>AI Check</strong>
+                      </TableCell>
+                      <TableCell sx={{ py: 0.5 }}>
+                        <strong>Status</strong>
+                      </TableCell>
+                      <TableCell sx={{ py: 0.5 }}>
+                        <strong>Comment</strong>
+                      </TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
                     {loading ? (
                       <TableRow sx={{ '&:hover': { backgroundColor: 'transparent !important' } }}>
-                        <TableCell colSpan={6}>
+                        <TableCell colSpan={9}>
                           <LoadingState />
                         </TableCell>
                       </TableRow>
                     ) : activeAlerts.length === 0 ? (
-                      <EmptyState message="No active alerts" colSpan={6} />
+                      <EmptyState message="No active alerts" colSpan={9} />
                     ) : (
                       activeAlerts.map((alert) => (
                         <React.Fragment key={alert.id}>
@@ -574,6 +673,29 @@ const MonitoringIncidents: React.FC = () => {
                             <TableCell sx={{ py: 0.5 }}>
                               {formatDuration(alert.start_time)}
                             </TableCell>
+                            <TableCell sx={{ py: 0.5 }}>
+                              {getCheckStatusChip(alert)}
+                            </TableCell>
+                            <TableCell sx={{ py: 0.5 }}>
+                              {getDiscardStatusChip(alert)}
+                            </TableCell>
+                            <TableCell sx={{ py: 0.5 }}>
+                              {alert.discard_comment ? (
+                                <Tooltip title="View AI analysis comment">
+                                  <IconButton
+                                    size="small"
+                                    onClick={() => handleDiscardCommentClick(alert)}
+                                    sx={{ p: 0.25 }}
+                                  >
+                                    <CommentIcon fontSize="small" />
+                                  </IconButton>
+                                </Tooltip>
+                              ) : (
+                                <Typography variant="body2" color="text.disabled">
+                                  -
+                                </Typography>
+                              )}
+                            </TableCell>
                           </TableRow>
                           {expandedRows.has(alert.id) && (
                             <TableRow
@@ -583,7 +705,7 @@ const MonitoringIncidents: React.FC = () => {
                                 },
                               }}
                             >
-                              <TableCell colSpan={6} sx={{ p: 0, borderBottom: 0 }}>
+                              <TableCell colSpan={9} sx={{ p: 0, borderBottom: 0 }}>
                                 <Collapse
                                   in={expandedRows.has(alert.id)}
                                   timeout="auto"
@@ -647,17 +769,26 @@ const MonitoringIncidents: React.FC = () => {
                       <TableCell sx={{ py: 0.5 }}>
                         <strong>Total Duration</strong>
                       </TableCell>
+                      <TableCell sx={{ py: 0.5 }}>
+                        <strong>AI Check</strong>
+                      </TableCell>
+                      <TableCell sx={{ py: 0.5 }}>
+                        <strong>Status</strong>
+                      </TableCell>
+                      <TableCell sx={{ py: 0.5 }}>
+                        <strong>Comment</strong>
+                      </TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
                     {loading ? (
                       <TableRow sx={{ '&:hover': { backgroundColor: 'transparent !important' } }}>
-                        <TableCell colSpan={7}>
+                        <TableCell colSpan={10}>
                           <LoadingState />
                         </TableCell>
                       </TableRow>
                     ) : closedAlerts.length === 0 ? (
-                      <EmptyState message="No closed alerts" colSpan={7} />
+                      <EmptyState message="No closed alerts" colSpan={10} />
                     ) : (
                       closedAlerts.map((alert) => (
                         <React.Fragment key={alert.id}>
@@ -702,6 +833,29 @@ const MonitoringIncidents: React.FC = () => {
                                 ? formatDuration(alert.start_time, alert.end_time)
                                 : 'N/A'}
                             </TableCell>
+                            <TableCell sx={{ py: 0.5 }}>
+                              {getCheckStatusChip(alert)}
+                            </TableCell>
+                            <TableCell sx={{ py: 0.5 }}>
+                              {getDiscardStatusChip(alert)}
+                            </TableCell>
+                            <TableCell sx={{ py: 0.5 }}>
+                              {alert.discard_comment ? (
+                                <Tooltip title="View AI analysis comment">
+                                  <IconButton
+                                    size="small"
+                                    onClick={() => handleDiscardCommentClick(alert)}
+                                    sx={{ p: 0.25 }}
+                                  >
+                                    <CommentIcon fontSize="small" />
+                                  </IconButton>
+                                </Tooltip>
+                              ) : (
+                                <Typography variant="body2" color="text.disabled">
+                                  -
+                                </Typography>
+                              )}
+                            </TableCell>
                           </TableRow>
                           {expandedRows.has(alert.id) && (
                             <TableRow
@@ -711,7 +865,7 @@ const MonitoringIncidents: React.FC = () => {
                                 },
                               }}
                             >
-                              <TableCell colSpan={7} sx={{ p: 0, borderBottom: 0 }}>
+                              <TableCell colSpan={10} sx={{ p: 0, borderBottom: 0 }}>
                                 <Collapse
                                   in={expandedRows.has(alert.id)}
                                   timeout="auto"
@@ -734,6 +888,42 @@ const MonitoringIncidents: React.FC = () => {
           </Card>
         </Grid>
       </Grid>
+
+      {/* Discard Comment Modal */}
+      <Dialog 
+        open={discardModalOpen} 
+        onClose={handleCloseDiscardModal}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <CommentIcon />
+            AI Analysis Comment
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          {selectedDiscardComment && (
+            <Box>
+              <Typography variant="subtitle2" sx={{ mb: 1, color: 'text.secondary' }}>
+                Alert: {selectedDiscardComment.alert.incident_type} on {selectedDiscardComment.alert.device_id}
+              </Typography>
+              <Typography variant="subtitle2" sx={{ mb: 2, color: 'text.secondary' }}>
+                Analysis Type: {selectedDiscardComment.alert.check_type === 'ai' ? 'AI Analysis' : 'Manual Review'}
+                {selectedDiscardComment.alert.discard_type && ` • Category: ${selectedDiscardComment.alert.discard_type}`}
+              </Typography>
+              <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap' }}>
+                {selectedDiscardComment.comment}
+              </Typography>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseDiscardModal} color="primary">
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

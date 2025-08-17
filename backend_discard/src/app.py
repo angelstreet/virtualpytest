@@ -294,14 +294,17 @@ class BackendDiscardService:
         
         while self.running:
             try:
+                # Check queue lengths before attempting to get tasks
+                queue_lengths_before = self.queue_processor.get_all_queue_lengths()
+                total_tasks = queue_lengths_before.get('p1_alerts', 0) + queue_lengths_before.get('p2_scripts', 0) + queue_lengths_before.get('p3_reserved', 0)
+                
+                if total_tasks > 0:
+                    print(f"📊 Queue lengths before retrieval: P1={queue_lengths_before.get('p1_alerts', 0)}, P2={queue_lengths_before.get('p2_scripts', 0)}, P3={queue_lengths_before.get('p3_reserved', 0)}")
+                
                 # Get next task from queues (priority order built into queue_processor)
                 task = self.queue_processor.get_next_task()
                 
                 if task:
-                    # Show queue lengths before processing
-                    queue_lengths = self.queue_processor.get_all_queue_lengths()
-                    print(f"📊 Queue lengths before processing: P1={queue_lengths.get('p1_alerts', 0)}, P2={queue_lengths.get('p2_scripts', 0)}, P3={queue_lengths.get('p3_reserved', 0)}")
-                    
                     self.process_task(task)
                     
                     # Show queue lengths after processing

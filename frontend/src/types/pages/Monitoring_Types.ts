@@ -58,6 +58,14 @@ export interface Alert {
   start_time: string; // ISO datetime string
   end_time?: string; // ISO datetime string (optional)
   metadata: AlertMetadata; // JSONB metadata from backend
+  
+  // AI Discard Analysis fields (from backend_discard service)
+  checked?: boolean; // Whether AI has analyzed this alert
+  check_type?: string; // Type of check performed ('ai' | 'manual')
+  discard?: boolean; // Whether AI determined this is a false positive
+  discard_type?: string; // Category of false positive ('brief_glitch' | 'channel_change' | etc.)
+  discard_comment?: string; // AI explanation for the discard decision
+  updated_at?: string; // When the discard analysis was performed
 }
 
 // Alert metadata structure (from alert_system.py)

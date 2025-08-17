@@ -27,6 +27,12 @@ export interface ScriptResult {
   metadata: any;
   created_at: string;
   updated_at: string;
+  
+  // AI Discard Analysis fields (from backend_discard service)
+  checked?: boolean; // Whether AI has analyzed this script result
+  check_type?: string; // Type of check performed ('ai' | 'manual')
+  discard_type?: string; // Category of false positive if discarded
+  discard_comment?: string; // AI explanation for the discard decision
 }
 
 export const useScriptResults = () => {
