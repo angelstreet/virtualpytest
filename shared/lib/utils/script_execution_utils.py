@@ -255,9 +255,19 @@ def execute_script(script_name: str, device_id: str, parameters: str = "") -> Di
     """Execute a script with parameters and real-time output streaming"""
     start_time = time.time()
     
-    # Check if this is an AI test case
+    # Check if this is an AI test case - redirect to ai_testcase_executor.py
     if script_name.startswith("ai_testcase_"):
-        return execute_ai_test_case_as_script(script_name, device_id, parameters)
+        print(f"[@script_execution_utils:execute_script] AI test case detected: {script_name}")
+        test_case_id = script_name.replace("ai_testcase_", "")
+        
+        # Execute via ai_testcase_executor.py subprocess (same as normal scripts)
+        actual_script = "ai_testcase_executor"
+        new_parameters = f"{test_case_id} {parameters}"
+        
+        print(f"[@script_execution_utils:execute_script] Redirecting to: {actual_script} with params: {new_parameters}")
+        
+        # Continue with normal subprocess execution
+        return execute_script(actual_script, device_id, new_parameters)
     
     try:
         script_path = get_script_path(script_name)
@@ -467,176 +477,3 @@ def get_host_info_for_report() -> Dict[str, Any]:
         }
 
 
-def execute_ai_test_case_as_script(script_name: str, device_id: str, parameters: str = "") -> Dict[str, Any]:
-    """Execute AI test case through script framework pipeline"""
-    start_time = time.time()
-    
-    try:
-        print(f"[@script_execution_utils:execute_ai_test_case_as_script] Executing AI test case: {script_name}")
-        
-        # Extract test case ID
-        test_case_id = script_name.replace("ai_testcase_", "")
-        
-        # Load test case from database
-        from .app_utils import get_team_id
-        from shared.lib.supabase.testcase_db import get_test_case
-        
-        team_id = get_team_id()
-        test_case = get_test_case(test_case_id, team_id)
-        
-        if not test_case:
-            raise ValueError(f"AI test case not found: {test_case_id}")
-        
-        print(f"[@script_execution_utils:execute_ai_test_case_as_script] Loaded test case: {test_case.get('name', 'Unknown')}")
-        
-        # Create virtual script executor
-        from .script_framework import ScriptExecutor
-        
-        script_display_name = test_case.get('name', f"AI Test Case {test_case_id}")
-        executor = ScriptExecutor(script_name, script_display_name)
-        
-        # Parse parameters (same format as regular scripts)
-        userinterface_name = "horizon_android_mobile"  # Default
-        host_name = None
-        device_name = None
-        
-        if parameters:
-            # Parse parameters: "horizon_android_tv --host sunri-pi1 --device device2"
-            parts = parameters.split()
-            if parts:
-                userinterface_name = parts[0]
-            
-            # Extract --host and --device
-            if '--host' in parts:
-                host_idx = parts.index('--host')
-                if host_idx + 1 < len(parts):
-                    host_name = parts[host_idx + 1]
-            
-            if '--device' in parts:
-                device_idx = parts.index('--device')
-                if device_idx + 1 < len(parts):
-                    device_name = parts[device_idx + 1]
-        
-        print(f"[@script_execution_utils:execute_ai_test_case_as_script] Using userinterface: {userinterface_name}, host: {host_name}, device: {device_name}")
-        
-        # Create args object (similar to argparse)
-        class Args:
-            def __init__(self):
-                self.userinterface_name = userinterface_name
-                self.host = host_name
-                self.device = device_name
-        
-        args = Args()
-        
-        # Execute through script framework
-        context = executor.setup_execution_context(args, enable_db_tracking=True)
-        
-        if context.error_message:
-            raise Exception(context.error_message)
-        
-        # Load navigation tree
-        if not executor.load_navigation_tree(context, userinterface_name):
-            raise Exception(context.error_message or "Failed to load navigation tree")
-        
-        # Convert AI test case steps to navigation sequence
-        navigation_path = convert_ai_steps_to_navigation_path(test_case.get('steps', []))
-        
-        print(f"[@script_execution_utils:execute_ai_test_case_as_script] Converted to {len(navigation_path)} navigation steps")
-        
-        # Execute navigation sequence
-        success = executor.execute_navigation_sequence(context, navigation_path)
-        context.overall_success = success
-        
-        # Capture execution summary for report
-        summary_text = f"AI Test Case: {script_display_name}\nOriginal Prompt: {test_case.get('original_prompt', 'N/A')}\nSteps: {len(navigation_path)}\nResult: {'SUCCESS' if success else 'FAILED'}"
-        context.execution_summary = summary_text
-        
-        # Generate report (same as regular scripts)
-        report_result = executor.generate_final_report(context, userinterface_name)
-        
-        # Release device control manually (cleanup_and_exit would exit the process)
-        if context.device_key and context.session_id:
-            release_device_control(context.device_key, context.session_id, script_name)
-        
-        # Return same format as regular script execution
-        total_execution_time = int((time.time() - start_time) * 1000)
-        
-        result = {
-            'stdout': f"AI Test Case: {script_display_name}\nOriginal Prompt: {test_case.get('original_prompt', 'N/A')}\nSteps: {len(navigation_path)}\nResult: {'SUCCESS' if success else 'FAILED'}\nSCRIPT_SUCCESS:{str(success).lower()}",
-            'stderr': context.error_message if not success else '',
-            'exit_code': 0 if success else 1,
-            'script_name': script_name,
-            'device_id': device_id,
-            'script_path': f"ai_testcase:{test_case_id}",
-            'parameters': parameters,
-            'execution_time_ms': total_execution_time,
-            'report_url': report_result.get('report_url', ''),
-            'script_success': success  # Critical for UI
-        }
-        
-        print(f"[@script_execution_utils:execute_ai_test_case_as_script] Execution completed. Success: {success}")
-        return result
-        
-    except Exception as e:
-        total_execution_time = int((time.time() - start_time) * 1000)
-        print(f"[@script_execution_utils:execute_ai_test_case_as_script] Error: {e}")
-        
-        return {
-            'success': False,
-            'stdout': '',
-            'stderr': str(e),
-            'exit_code': 1,
-            'script_name': script_name,
-            'device_id': device_id,
-            'parameters': parameters,
-            'execution_time_ms': total_execution_time,
-            'report_url': "",
-            'script_success': False
-        }
-
-
-def convert_ai_steps_to_navigation_path(ai_steps: List[Dict]) -> List[Dict]:
-    """Convert AI test case steps to navigation framework format"""
-    navigation_path = []
-    
-    for i, step in enumerate(ai_steps):
-        if step.get('type') == 'action':
-            command = step.get('command')
-            params = step.get('params', {})
-            
-            if command == 'navigate':
-                target_node = params.get('target_node')
-                if target_node:
-                    navigation_path.append({
-                        'step_number': i + 1,
-                        'from_node_label': 'current',
-                        'to_node_label': target_node,
-                        'actions': [step],
-                        'verifications': []
-                    })
-            elif command in ['click_element', 'wait', 'press_key']:
-                # Convert other actions to navigation steps
-                navigation_path.append({
-                    'step_number': i + 1,
-                    'from_node_label': 'current',
-                    'to_node_label': 'current',  # Stay in same node
-                    'actions': [step],
-                    'verifications': []
-                })
-    
-    # If no navigation steps, create a simple wait step
-    if not navigation_path:
-        navigation_path.append({
-            'step_number': 1,
-            'from_node_label': 'home',
-            'to_node_label': 'home',
-            'actions': [{
-                'type': 'action',
-                'command': 'wait',
-                'params': {'duration': 2000},
-                'description': 'Execute AI test case'
-            }],
-            'verifications': []
-        })
-    
-    return navigation_path
