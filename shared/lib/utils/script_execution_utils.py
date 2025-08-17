@@ -261,7 +261,8 @@ def execute_script(script_name: str, device_id: str, parameters: str = "") -> Di
     start_time = time.time()
     
     # Check if this is an AI test case - redirect to ai_testcase_executor.py
-    if script_name.startswith("ai_testcase_"):
+    # IMPORTANT: Exclude the executor script itself to prevent infinite recursion
+    if script_name.startswith("ai_testcase_") and script_name != "ai_testcase_executor":
         print(f"[@script_execution_utils:execute_script] AI test case detected: {script_name}")
         
         # Execute via ai_testcase_executor.py with SAME parameters as normal scripts
