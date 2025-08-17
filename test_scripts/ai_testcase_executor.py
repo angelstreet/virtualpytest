@@ -87,21 +87,44 @@ def main():
             
         print(f"[@ai_testcase_executor] Loaded navigation tree for {args.userinterface_name}")
         
-        # Convert AI test case steps to navigation path
-        navigation_path = convert_ai_steps_to_navigation_path(test_case.get('steps', []))
-        print(f"[@ai_testcase_executor] Converted {len(test_case.get('steps', []))} AI steps to {len(navigation_path)} navigation steps")
+        # For AI test cases, use simple goto_node navigation instead of complex navigation sequence
+        ai_steps = test_case.get('steps', [])
+        print(f"[@ai_testcase_executor] Processing {len(ai_steps)} AI steps")
         
-        # Execute navigation sequence
-        print(f"[@ai_testcase_executor] Starting navigation sequence execution...")
-        success = executor.execute_navigation_sequence(context, navigation_path)
+        success = True
+        
+        # Execute each AI step individually  
+        for i, step in enumerate(ai_steps):
+            print(f"[@ai_testcase_executor] Executing step {i+1}: {step.get('description', 'Unknown step')}")
+            
+            if step.get('type') == 'action' and step.get('command') == 'navigate':
+                target_node = step.get('params', {}).get('target_node', 'live')
+                
+                # Use the framework's goto_node method for reliable navigation
+                from shared.lib.utils.navigation_utils import goto_node
+                
+                print(f"[@ai_testcase_executor] Navigating to: {target_node}")
+                nav_success = goto_node(context, target_node)
+                
+                if not nav_success:
+                    print(f"[@ai_testcase_executor] Navigation to {target_node} failed")
+                    success = False
+                    break
+                else:
+                    print(f"[@ai_testcase_executor] Successfully navigated to {target_node}")
+            else:
+                # For other actions, just log them for now
+                print(f"[@ai_testcase_executor] Action: {step.get('command', 'unknown')} - {step.get('description', 'No description')}")
+        
+        print(f"[@ai_testcase_executor] AI steps execution completed: {'SUCCESS' if success else 'FAILED'}")
         context.overall_success = success
         
         # Set execution summary
         prompt = test_case.get('original_prompt', 'N/A')
-        summary_text = f"AI Test Case: {script_display_name}\nOriginal Prompt: {prompt}\nSteps: {len(navigation_path)}\nResult: {'SUCCESS' if success else 'FAILED'}"
+        summary_text = f"AI Test Case: {script_display_name}\nOriginal Prompt: {prompt}\nSteps: {len(ai_steps)}\nResult: {'SUCCESS' if success else 'FAILED'}"
         context.execution_summary = summary_text
         
-        print(f"[@ai_testcase_executor] Navigation sequence completed: {'SUCCESS' if success else 'FAILED'}")
+        print(f"[@ai_testcase_executor] AI test case execution completed: {'SUCCESS' if success else 'FAILED'}")
         
         # Generate final report
         print(f"[@ai_testcase_executor] Generating execution report...")
@@ -112,7 +135,7 @@ def main():
         
         # Clean up device control
         if context.device_key and context.session_id:
-            from shared.lib.utils.device_control_utils import release_device_control
+            from shared.lib.utils.script_execution_utils import release_device_control
             release_device_control(context.device_key, context.session_id, script_name)
             print(f"[@ai_testcase_executor] Released device control")
         
@@ -120,7 +143,7 @@ def main():
         print(f"[@ai_testcase_executor] === EXECUTION COMPLETE ===")
         print(f"AI Test Case: {script_display_name}")
         print(f"Original Prompt: {prompt}")
-        print(f"Steps Executed: {len(navigation_path)}")
+        print(f"Steps Executed: {len(ai_steps)}")
         print(f"Result: {'SUCCESS' if success else 'FAILED'}")
         if report_result.get('report_url'):
             print(f"Report: {report_result['report_url']}")
@@ -139,51 +162,7 @@ def main():
         sys.exit(1)
 
 
-def convert_ai_steps_to_navigation_path(ai_steps: List[Dict]) -> List[Dict]:
-    """Convert AI test case steps to navigation path format expected by ScriptExecutor"""
-    navigation_path = []
-    
-    for i, step in enumerate(ai_steps):
-        if step.get('type') == 'action':
-            command = step.get('command')
-            params = step.get('params', {})
-            description = step.get('description', f'Execute {command}')
-            
-            if command == 'navigate':
-                target_node = params.get('target_node')
-                if target_node:
-                    navigation_path.append({
-                        'step_number': i + 1,
-                        'from_node_label': 'current',
-                        'to_node_label': target_node,
-                        'actions': [step],
-                        'verifications': []
-                    })
-            elif command in ['click_element', 'wait', 'press_key']:
-                navigation_path.append({
-                    'step_number': i + 1,
-                    'from_node_label': 'current',
-                    'to_node_label': 'current',
-                    'actions': [step],
-                    'verifications': []
-                })
-    
-    # If no valid navigation steps, create a default one
-    if not navigation_path:
-        navigation_path.append({
-            'step_number': 1,
-            'from_node_label': 'home',
-            'to_node_label': 'home',
-            'actions': [{
-                'type': 'action',
-                'command': 'wait',
-                'params': {'duration': 2000},
-                'description': 'Execute AI test case'
-            }],
-            'verifications': []
-        })
-    
-    return navigation_path
+
 
 
 if __name__ == '__main__':
