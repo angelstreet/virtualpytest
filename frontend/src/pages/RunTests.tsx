@@ -609,9 +609,13 @@ const RunTests: React.FC = () => {
         const device = allDevices.find(d => executionId.includes(`${d.hostName}_${d.deviceId}`));
         if (device) {
           if (scriptCompleted) {
-            const testResultText = testResult === 'success' ? ' - Test PASSED' : 
-                                 testResult === 'failure' ? ' - Test FAILED' : '';
-            showSuccess(`✅ ${device.hostName}:${device.deviceId} completed successfully${testResultText}`);
+            if (testResult === 'success') {
+              showSuccess(`✅ ${device.hostName}:${device.deviceId} completed successfully - Test PASSED`);
+            } else if (testResult === 'failure') {
+              showError(`❌ ${device.hostName}:${device.deviceId} completed - Test FAILED`);
+            } else {
+              showSuccess(`✅ ${device.hostName}:${device.deviceId} completed successfully`);
+            }
           } else {
             showError(`❌ ${device.hostName}:${device.deviceId} execution failed`);
           }
@@ -1058,7 +1062,7 @@ const RunTests: React.FC = () => {
                             },
                           }}
                         >
-                          <TableCell>{execution.scriptName}</TableCell>
+                          <TableCell>{getScriptDisplayName(execution.scriptName)}</TableCell>
                           <TableCell>
                             {execution.hostName}:{execution.deviceId}
                             {execution.deviceModel && (
