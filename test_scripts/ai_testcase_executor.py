@@ -64,8 +64,8 @@ def main():
         # Initialize ScriptExecutor
         from shared.lib.utils.script_framework import ScriptExecutor
         
-        script_name = f"ai_testcase_{args.test_case_id}"
-        script_display_name = test_case.get('name', f"AI Test Case {args.test_case_id}")
+        script_name = f"ai_testcase_{test_case_id}"
+        script_display_name = test_case.get('name', f"AI Test Case {test_case_id}")
         executor = ScriptExecutor(script_name, script_display_name)
         
         print(f"[@ai_testcase_executor] Initialized ScriptExecutor: {script_display_name}")
