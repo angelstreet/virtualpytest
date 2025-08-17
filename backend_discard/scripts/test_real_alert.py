@@ -215,23 +215,38 @@ def test_alert_image_access():
             print(f"   🆔 Alert ID: {alert_id}")
             print(f"   🚨 Type: {incident_type}")
             
-            # Check for image-related metadata
-            image_fields = ['image_url', 'screenshot_url', 'image_path', 'screenshot_path', 'images']
-            found_images = []
-            
-            for field in image_fields:
-                if field in metadata and metadata[field]:
-                    found_images.append((field, metadata[field]))
-                    print(f"   🖼️  Found {field}: {metadata[field]}")
-            
-            if found_images:
-                print(f"   ✅ Alert has {len(found_images)} image reference(s)")
+            # Check for r2_images metadata (the actual field used)
+            if 'r2_images' in metadata and metadata['r2_images']:
+                r2_images = metadata['r2_images']
+                original_urls = r2_images.get('original_urls', [])
+                thumbnail_urls = r2_images.get('thumbnail_urls', [])
                 
-                # Test if AI can access the image
-                # Note: This would require implementing image analysis for alerts
-                print(f"   ℹ️  Image analysis for alerts not yet implemented")
+                print(f"   🖼️  Found r2_images with:")
+                print(f"      • {len(original_urls)} original images")
+                print(f"      • {len(thumbnail_urls)} thumbnail images")
+                
+                if thumbnail_urls:
+                    print(f"   📸 Sample thumbnail: {thumbnail_urls[0][:60]}...")
+                
+                # Test AI image access using the analyzer's method
+                from ai_analyzer import SimpleAIAnalyzer
+                ai_analyzer = SimpleAIAnalyzer()
+                
+                if ai_analyzer._alert_has_images(metadata):
+                    print(f"   ✅ AI analyzer detects images available")
+                    
+                    # Test actual image download
+                    if thumbnail_urls:
+                        test_url = thumbnail_urls[0]
+                        image_b64 = ai_analyzer._image_to_base64(test_url)
+                        if image_b64:
+                            print(f"   ✅ Successfully downloaded image ({len(image_b64)} chars)")
+                        else:
+                            print(f"   ❌ Failed to download image")
+                else:
+                    print(f"   ❌ AI analyzer fails to detect images")
             else:
-                print(f"   ⚠️  No image references found in alert metadata")
+                print(f"   ⚠️  No r2_images found in alert metadata")
                 print(f"   📄 Available metadata fields: {list(metadata.keys())}")
         
         return True
