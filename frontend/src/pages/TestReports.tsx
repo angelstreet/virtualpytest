@@ -262,7 +262,7 @@ const TestReports: React.FC = () => {
                         {result.html_report_r2_url ? (
                           <Chip
                             icon={<LinkIcon />}
-                            label="View Report"
+                            label="Report"
                             size="small"
                             clickable
                             onClick={() => window.open(result.html_report_r2_url!, '_blank')}
@@ -277,7 +277,7 @@ const TestReports: React.FC = () => {
                         {result.logs_r2_url ? (
                           <Chip
                             icon={<LinkIcon />}
-                            label="View Logs"
+                            label="Logs"
                             size="small"
                             clickable
                             onClick={() => window.open(result.logs_r2_url!, '_blank')}

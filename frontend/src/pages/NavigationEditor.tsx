@@ -313,13 +313,31 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
       // Refresh the navigation tree after AI generation
       const refreshData = async () => {
         try {
-          await loadNavigationData(actualTreeId || '');
+          if (userInterface?.id) {
+            // Re-fetch tree data after AI generation
+            const response = await fetch(
+              `/server/navigationTrees/getTreeByUserInterfaceId/${userInterface.id}`,
+              {
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+              },
+            );
+
+            if (response.ok) {
+              const data = await response.json();
+              if (data.success && data.tree) {
+                // Force refresh by reloading the current tree
+                window.location.reload();
+              }
+            }
+          }
         } catch (error) {
           console.error('[@NavigationEditor:handleAIGenerated] Failed to refresh tree data:', error);
         }
       };
       refreshData();
-    }, [actualTreeId, loadNavigationData]);
+    }, [userInterface?.id]);
 
     // Wrap the original click handlers to close goto panel
     const wrappedOnNodeClick = useCallback(

@@ -15,18 +15,12 @@ import {
   Card,
   Checkbox,
   FormControlLabel,
-  List,
-  ListItem,
-  ListItemText,
-  Divider,
   Chip,
   Stack
 } from '@mui/material';
 import { 
   AutoAwesome as AIIcon,
-  Analytics as AnalyticsIcon,
-  Check as CheckIcon,
-  Warning as WarningIcon
+  Analytics as AnalyticsIcon
 } from '@mui/icons-material';
 
 import { useAITestCase } from '../../hooks/aiagent/useAITestCase';
@@ -40,8 +34,7 @@ interface AITestCaseGeneratorProps {
 type GenerationStep = 'input' | 'analysis' | 'generation';
 
 export const AITestCaseGenerator: React.FC<AITestCaseGeneratorProps> = ({
-  onTestCasesCreated,
-  onCancel
+  onTestCasesCreated
 }) => {
   // State management
   const [currentStep, setCurrentStep] = useState<GenerationStep>('input');
@@ -217,7 +210,7 @@ export const AITestCaseGenerator: React.FC<AITestCaseGeneratorProps> = ({
             🤖 AI Understanding: <span style={{ fontWeight: 'normal' }}>{analysis.understanding}</span>
           </Typography>
           <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
-            📋 AI Analysis: <span style={{ fontWeight: 'normal' }}>{analysis.reasoning || 'Task analyzed for compatibility across all user interfaces'}</span>
+            📋 AI Analysis: <span style={{ fontWeight: 'normal' }}>Task analyzed for compatibility across all user interfaces</span>
           </Typography>
         </Alert>
 
@@ -307,7 +300,7 @@ export const AITestCaseGenerator: React.FC<AITestCaseGeneratorProps> = ({
           <br />compatible with {selectedInterfaces.length} user interface{selectedInterfaces.length !== 1 ? 's' : ''}
         </Typography>
         <Box sx={{ mt: 2 }}>
-          {selectedInterfaces.map((interfaceName, index) => (
+          {selectedInterfaces.map((interfaceName) => (
             <Chip 
               key={interfaceName}
               label={interfaceName}

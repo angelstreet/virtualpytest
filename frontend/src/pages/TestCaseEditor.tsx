@@ -9,16 +9,7 @@ import {
   Box,
   Paper,
   Typography,
-  TextField,
   Button,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
-  Card,
-  CardContent,
-  CardActions,
-  Grid,
   IconButton,
   Alert,
   CircularProgress,
@@ -33,10 +24,6 @@ import {
   TableHead,
   TableRow,
   Chip,
-  Tabs,
-  Tab,
-  Autocomplete,
-  Slider,
 } from '@mui/material';
 import React, { useState, useEffect } from 'react';
 
@@ -45,49 +32,16 @@ import { TestCase } from '../types';
 import { AITestCaseGenerator } from '../components/testcase/AITestCaseGenerator';
 import { TestCase as AITestCase } from '../types/pages/TestCase_Types';
 
-interface TabPanelProps {
-  children?: React.ReactNode;
-  index: number;
-  value: number;
-}
 
-function TabPanel(props: TabPanelProps) {
-  const { children, value, index, ...other } = props;
-  return (
-    <div
-      role="tabpanel"
-      hidden={value !== index}
-      id={`simple-tabpanel-${index}`}
-      aria-labelledby={`simple-tab-${index}`}
-      {...other}
-    >
-      {value === index && <Box sx={{ p: 3 }}>{children}</Box>}
-    </div>
-  );
-}
 
 const TestCaseEditor: React.FC = () => {
   // Use registration context for centralized URL management
   const [testCases, setTestCases] = useState<TestCase[]>([]);
-  const [isEditing, setIsEditing] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
   const [selectedTestCase, setSelectedTestCase] = useState<TestCase | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [tabValue, setTabValue] = useState(0);
-
-  const [formData, setFormData] = useState<TestCase>({
-    test_id: '',
-    name: '',
-    test_type: 'functional',
-    start_node: '',
-    steps: [],
-    // Simplified fields - removed device and environment dependencies
-    tags: [],
-    priority: 1,
-    estimated_duration: 60,
-  });
 
   useEffect(() => {
     fetchTestCases();
@@ -106,35 +60,7 @@ const TestCaseEditor: React.FC = () => {
     }
   };
 
-  const handleSave = async () => {
-    try {
-      setLoading(true);
-      const method = isEditing ? 'PUT' : 'POST';
-      // Use correct testcases endpoints
-      const url = isEditing
-        ? `/server/testcases/updateTestCase/${formData.test_id}`
-        : '/server/testcases/createTestCase';
 
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
-      });
-
-      if (response.ok) {
-        await fetchTestCases();
-        handleCloseDialog();
-      } else {
-        setError('Failed to save test case');
-      }
-    } catch (err) {
-      setError('Error saving test case');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleDelete = async (testCase: TestCase) => {
     if (!window.confirm(`Are you sure you want to delete "${testCase.name}"?`)) {
@@ -160,23 +86,7 @@ const TestCaseEditor: React.FC = () => {
     }
   };
 
-  const handleOpenDialog = (testCase?: TestCase) => {
-    if (testCase) {
-      setFormData(testCase);
-      setIsEditing(true);
-    } else {
-      setFormData({
-        test_id: `test_${Date.now()}`,
-        name: '',
-        test_type: 'functional',
-        start_node: '',
-        steps: [],
-        tags: [],
-        priority: 1,
-        estimated_duration: 60,
-      });
-      setIsEditing(false);
-    }
+  const handleOpenDialog = () => {
     setIsDialogOpen(true);
   };
 
@@ -359,7 +269,7 @@ const TestCaseEditor: React.FC = () => {
                     <IconButton 
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleOpenDialog(testCase);
+                        handleOpenDialog();
                       }} 
                       color="primary"
                       size="small"
@@ -461,7 +371,7 @@ const TestCaseEditor: React.FC = () => {
                   size="small" 
                   color={getPriorityColor(selectedTestCase.priority || 1) as any}
                 />
-                {selectedTestCase.compatible_userinterfaces?.length > 0 && (
+                {selectedTestCase.compatible_userinterfaces && selectedTestCase.compatible_userinterfaces.length > 0 && (
                   <>
                     <Typography variant="caption" color="text.secondary">Compatible:</Typography>
                     {selectedTestCase.compatible_userinterfaces.map((ui, index) => (
@@ -481,11 +391,10 @@ const TestCaseEditor: React.FC = () => {
                     {selectedTestCase.steps.map((step, index) => (
                       <Paper key={index} sx={{ p: 1.5, bgcolor: 'grey.50', border: '1px solid', borderColor: 'grey.200' }}>
                         <Typography variant="caption" sx={{ fontWeight: 'bold', display: 'block' }}>
-                          Step {index + 1}: {step.command}
+                          Step {index + 1}: {step.target_node}
                         </Typography>
                         <Typography variant="caption" color="text.secondary">
-                          {step.params && `Params: ${JSON.stringify(step.params)} • `}
-                          {step.description}
+                          Verify: {step.verify.type} ({step.verify.conditions.length} conditions)
                         </Typography>
                       </Paper>
                     ))}
@@ -496,7 +405,7 @@ const TestCaseEditor: React.FC = () => {
               </Box>
 
               {/* Compact Verification Conditions */}
-              {selectedTestCase.verification_conditions?.length > 0 && (
+              {selectedTestCase.verification_conditions && selectedTestCase.verification_conditions.length > 0 && (
                 <Box sx={{ mb: 2 }}>
                   <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold' }}>
                     ✅ Verifications ({selectedTestCase.verification_conditions.length})
@@ -505,10 +414,10 @@ const TestCaseEditor: React.FC = () => {
                     {selectedTestCase.verification_conditions.map((verification, index) => (
                       <Paper key={index} sx={{ p: 1.5, bgcolor: 'success.50', border: '1px solid', borderColor: 'success.200' }}>
                         <Typography variant="caption" sx={{ fontWeight: 'bold', display: 'block' }}>
-                          {verification.verification_type}: {verification.command}
+                          {verification.type}: {verification.description}
                         </Typography>
                         <Typography variant="caption" color="text.secondary">
-                          Expected: {verification.expected_result}
+                          Critical: {verification.critical ? 'Yes' : 'No'} • Timeout: {verification.timeout}s
                         </Typography>
                       </Paper>
                     ))}

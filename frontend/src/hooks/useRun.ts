@@ -14,6 +14,8 @@ interface ScriptAnalysis {
   script_name: string;
   has_parameters: boolean;
   error?: string;
+  has_userinterface_param?: boolean;
+  userinterface_param?: string;
 }
 
 interface UseRunParams {
@@ -80,23 +82,24 @@ export const useRun = ({ selectedScript, selectedDevice, selectedHost, deviceMod
               type: 'positional',
               required: true,
               help: 'User interface name (e.g., horizon_android_mobile)',
-              default: null
+              default: undefined
             },
             {
               name: 'host',
               type: 'optional',
               required: true,
               help: 'Host name',
-              default: null
+              default: undefined
             },
             {
               name: 'device',
               type: 'optional', 
               required: true,
               help: 'Device ID',
-              default: null
+              default: undefined
             }
           ],
+          has_parameters: true,
           has_userinterface_param: true,
           userinterface_param: 'userinterface_name'
         };

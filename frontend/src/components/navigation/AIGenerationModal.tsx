@@ -11,7 +11,6 @@ import {
   Chip,
   FormControlLabel,
   Checkbox,
-  Divider,
   Alert,
   Paper,
   CircularProgress,
@@ -50,7 +49,6 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
   const [selectedEdgeIds, setSelectedEdgeIds] = useState<string[]>([]);
 
   const {
-    explorationId,
     isExploring,
     status,
     currentStep,
