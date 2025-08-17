@@ -96,7 +96,18 @@ def kill_process_on_port(port):
                         pid = proc.info['pid']
                         if pid != os.getpid():  # Don't kill ourselves
                             print(f"🎯 Killing process PID {pid} using port {port}")
-                            psutil.Process(pid).terminate()
+                            try:
+                                psutil.Process(pid).kill()  # Force kill instead of terminate
+                            except psutil.AccessDenied:
+                                # Try with system command as fallback
+                                print(f"🔐 Access denied for PID {pid}, trying system kill...")
+                                import subprocess
+                                try:
+                                    subprocess.run(['sudo', 'kill', '-9', str(pid)], 
+                                                 check=True, capture_output=True)
+                                    print(f"✅ Successfully killed PID {pid} with sudo")
+                                except subprocess.CalledProcessError:
+                                    print(f"❌ Failed to kill PID {pid} even with sudo")
             except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
                 continue
                 
