@@ -70,6 +70,8 @@ const TestCaseEditor: React.FC = () => {
   const [testCases, setTestCases] = useState<TestCase[]>([]);
   const [isEditing, setIsEditing] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
+  const [selectedTestCase, setSelectedTestCase] = useState<TestCase | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [tabValue, setTabValue] = useState(0);
@@ -184,6 +186,30 @@ const TestCaseEditor: React.FC = () => {
     handleCloseDialog();
   };
 
+  const handleOpenTestCaseDetails = (testCase: TestCase) => {
+    setSelectedTestCase(testCase);
+    setIsDetailsDialogOpen(true);
+  };
+
+  const handleCloseTestCaseDetails = () => {
+    setIsDetailsDialogOpen(false);
+    setSelectedTestCase(null);
+  };
+
+  const handleExecuteTestCase = (testCase: TestCase) => {
+    // Redirect to RunTests page with pre-filled data
+    const aiScriptName = `ai_testcase_${testCase.test_id}`;
+    const userinterface = testCase.compatible_userinterfaces?.[0] || 'horizon_android_mobile';
+    
+    // Store the script selection and parameters in localStorage for RunTests to pick up
+    localStorage.setItem('preselected_script', aiScriptName);
+    localStorage.setItem('preselected_userinterface', userinterface);
+    localStorage.setItem('preselected_from_testcase', 'true');
+    
+    // Navigate to RunTests page
+    window.location.href = '/run-tests';
+  };
+
   const getPriorityColor = (priority: number) => {
     switch (priority) {
       case 1:
@@ -254,12 +280,9 @@ const TestCaseEditor: React.FC = () => {
         >
           <TableHead>
             <TableRow>
-              <TableCell>Test ID</TableCell>
               <TableCell>Name</TableCell>
               <TableCell>Type</TableCell>
-              <TableCell>Creator</TableCell>
               <TableCell>Priority</TableCell>
-              <TableCell>Duration</TableCell>
               <TableCell>Tags</TableCell>
               <TableCell>Steps</TableCell>
               <TableCell>Actions</TableCell>
@@ -268,7 +291,7 @@ const TestCaseEditor: React.FC = () => {
           <TableBody>
             {testCases.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} align="center">
+                <TableCell colSpan={6} align="center">
                   <Typography variant="body2" color="textSecondary" sx={{ py: 4 }}>
                     No test cases found. Create your first test case to get started.
                   </Typography>
@@ -276,19 +299,31 @@ const TestCaseEditor: React.FC = () => {
               </TableRow>
             ) : (
               testCases.map((testCase) => (
-                <TableRow key={testCase.test_id}>
-                  <TableCell>{testCase.test_id}</TableCell>
-                  <TableCell>{testCase.name}</TableCell>
+                <TableRow 
+                  key={testCase.test_id}
+                  onClick={() => handleOpenTestCaseDetails(testCase)}
+                  sx={{ 
+                    cursor: 'pointer',
+                    '&:hover': { backgroundColor: 'rgba(0, 0, 0, 0.04)' }
+                  }}
+                >
                   <TableCell>
-                    <Chip label={testCase.test_type} size="small" variant="outlined" />
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      {testCase.creator === 'ai' && (
+                        <Chip 
+                          label="AI" 
+                          size="small" 
+                          color="primary" 
+                          sx={{ fontSize: '0.7rem', height: '18px' }} 
+                        />
+                      )}
+                      <Typography variant="body2">
+                        {testCase.name}
+                      </Typography>
+                    </Box>
                   </TableCell>
                   <TableCell>
-                    <Chip 
-                      label={testCase.creator === 'ai' ? '🤖 AI' : '👤 Manual'} 
-                      size="small" 
-                      color={testCase.creator === 'ai' ? 'primary' : 'default'}
-                      variant="outlined"
-                    />
+                    <Chip label={testCase.test_type} size="small" variant="outlined" />
                   </TableCell>
                   <TableCell>
                     <Chip
@@ -296,9 +331,6 @@ const TestCaseEditor: React.FC = () => {
                       size="small"
                       color={getPriorityColor(testCase.priority || 1) as any}
                     />
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="body2">{testCase.estimated_duration || 60}s</Typography>
                   </TableCell>
                   <TableCell>
                     <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
@@ -314,10 +346,22 @@ const TestCaseEditor: React.FC = () => {
                   </TableCell>
                   <TableCell>{testCase.steps.length}</TableCell>
                   <TableCell>
-                    <IconButton onClick={() => handleOpenDialog(testCase)} color="primary">
+                    <IconButton 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleOpenDialog(testCase);
+                      }} 
+                      color="primary"
+                    >
                       <EditIcon />
                     </IconButton>
-                    <IconButton onClick={() => handleDelete(testCase.test_id)} color="error">
+                    <IconButton 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDelete(testCase.test_id);
+                      }} 
+                      color="error"
+                    >
                       <DeleteIcon />
                     </IconButton>
                   </TableCell>
@@ -338,6 +382,189 @@ const TestCaseEditor: React.FC = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseDialog}>Cancel</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Test Case Details Modal */}
+      <Dialog 
+        open={isDetailsDialogOpen} 
+        onClose={handleCloseTestCaseDetails} 
+        maxWidth="md" 
+        fullWidth
+      >
+        <DialogTitle>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              {selectedTestCase?.creator === 'ai' && (
+                <Chip 
+                  label="AI Generated" 
+                  size="small" 
+                  color="primary" 
+                  sx={{ fontSize: '0.7rem' }} 
+                />
+              )}
+              <Typography variant="h6">
+                {selectedTestCase?.name}
+              </Typography>
+            </Box>
+          </Box>
+        </DialogTitle>
+        
+        <DialogContent>
+          {selectedTestCase && (
+            <Box sx={{ py: 2 }}>
+              {/* Original Prompt (for AI test cases) */}
+              {selectedTestCase.creator === 'ai' && selectedTestCase.original_prompt && (
+                <Box sx={{ mb: 3 }}>
+                  <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'bold' }}>
+                    🎯 Original Prompt
+                  </Typography>
+                  <Alert severity="info" sx={{ mb: 2 }}>
+                    <Typography variant="body2">
+                      {selectedTestCase.original_prompt}
+                    </Typography>
+                  </Alert>
+                </Box>
+              )}
+
+              {/* AI Reasoning (for AI test cases) */}
+              {selectedTestCase.creator === 'ai' && selectedTestCase.ai_analysis?.reasoning && (
+                <Box sx={{ mb: 3 }}>
+                  <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'bold' }}>
+                    🤖 AI Analysis & Reasoning
+                  </Typography>
+                  <Paper sx={{ p: 2, bgcolor: 'background.default' }}>
+                    <Typography variant="body2">
+                      {selectedTestCase.ai_analysis.reasoning}
+                    </Typography>
+                  </Paper>
+                </Box>
+              )}
+
+              {/* Test Case Info */}
+              <Box sx={{ mb: 3 }}>
+                <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'bold' }}>
+                  📋 Test Case Information
+                </Typography>
+                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+                  <Box>
+                    <Typography variant="body2" color="text.secondary">Type:</Typography>
+                    <Chip label={selectedTestCase.test_type} size="small" variant="outlined" />
+                  </Box>
+                  <Box>
+                    <Typography variant="body2" color="text.secondary">Priority:</Typography>
+                    <Chip 
+                      label={getPriorityLabel(selectedTestCase.priority || 1)} 
+                      size="small" 
+                      color={getPriorityColor(selectedTestCase.priority || 1) as any}
+                    />
+                  </Box>
+                  {selectedTestCase.compatible_userinterfaces?.length > 0 && (
+                    <Box sx={{ gridColumn: '1 / -1' }}>
+                      <Typography variant="body2" color="text.secondary" gutterBottom>
+                        Compatible Interfaces:
+                      </Typography>
+                      <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                        {selectedTestCase.compatible_userinterfaces.map((ui, index) => (
+                          <Chip key={index} label={ui} size="small" variant="outlined" />
+                        ))}
+                      </Box>
+                    </Box>
+                  )}
+                </Box>
+              </Box>
+
+              {/* Steps & Commands */}
+              <Box sx={{ mb: 3 }}>
+                <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'bold' }}>
+                  ⚡ Execution Steps & Commands
+                </Typography>
+                {selectedTestCase.steps?.length > 0 ? (
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                    {selectedTestCase.steps.map((step, index) => (
+                      <Paper key={index} sx={{ p: 2, border: '1px solid', borderColor: 'divider' }}>
+                        <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1 }}>
+                          Step {index + 1}: {step.type || 'action'}
+                        </Typography>
+                        <Box sx={{ pl: 2 }}>
+                          <Typography variant="body2" color="text.secondary">
+                            Command: <code>{step.command}</code>
+                          </Typography>
+                          {step.params && Object.keys(step.params).length > 0 && (
+                            <Typography variant="body2" color="text.secondary">
+                              Parameters: <code>{JSON.stringify(step.params)}</code>
+                            </Typography>
+                          )}
+                          {step.description && (
+                            <Typography variant="body2" sx={{ mt: 1 }}>
+                              {step.description}
+                            </Typography>
+                          )}
+                        </Box>
+                      </Paper>
+                    ))}
+                  </Box>
+                ) : (
+                  <Typography variant="body2" color="text.secondary">
+                    No steps defined for this test case.
+                  </Typography>
+                )}
+              </Box>
+
+              {/* Verification Conditions */}
+              {selectedTestCase.verification_conditions?.length > 0 && (
+                <Box sx={{ mb: 3 }}>
+                  <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'bold' }}>
+                    ✅ Verification Conditions
+                  </Typography>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                    {selectedTestCase.verification_conditions.map((verification, index) => (
+                      <Paper key={index} sx={{ p: 2, border: '1px solid', borderColor: 'success.main', bgcolor: 'success.50' }}>
+                        <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1 }}>
+                          Verification {index + 1}: {verification.verification_type}
+                        </Typography>
+                        <Box sx={{ pl: 2 }}>
+                          {verification.command && (
+                            <Typography variant="body2" color="text.secondary">
+                              Command: <code>{verification.command}</code>
+                            </Typography>
+                          )}
+                          {verification.params && (
+                            <Typography variant="body2" color="text.secondary">
+                              Parameters: <code>{JSON.stringify(verification.params)}</code>
+                            </Typography>
+                          )}
+                          {verification.expected_result && (
+                            <Typography variant="body2" sx={{ mt: 1 }}>
+                              Expected: {verification.expected_result}
+                            </Typography>
+                          )}
+                        </Box>
+                      </Paper>
+                    ))}
+                  </Box>
+                </Box>
+              )}
+            </Box>
+          )}
+        </DialogContent>
+        
+        <DialogActions>
+          <Button onClick={handleCloseTestCaseDetails}>
+            Close
+          </Button>
+          {selectedTestCase?.creator === 'ai' && (
+            <Button 
+              variant="contained" 
+              onClick={() => {
+                handleExecuteTestCase(selectedTestCase);
+                handleCloseTestCaseDetails();
+              }}
+              startIcon={<SettingsIcon />}
+            >
+              Execute in RunTests
+            </Button>
+          )}
         </DialogActions>
       </Dialog>
     </Box>
