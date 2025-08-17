@@ -247,6 +247,16 @@ def create_alert(
         
         if result.data:
             print(f"[@db:alerts:create_alert] Success: {alert_id}")
+            
+            # Add to discard processing queue
+            try:
+                from backend_discard.src.queue_processor import get_queue_processor
+                queue_processor = get_queue_processor()
+                queue_processor.add_alert_to_queue(alert_id, result.data[0])
+                print(f"[@db:alerts:create_alert] Added to discard queue: {alert_id}")
+            except Exception as e:
+                print(f"[@db:alerts:create_alert] Warning: Failed to add to discard queue: {e}")
+            
             return {
                 'success': True,
                 'alert_id': alert_id,

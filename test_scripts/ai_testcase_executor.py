@@ -93,30 +93,39 @@ def main():
         
         success = True
         
-        # Execute each AI step individually  
-        for i, step in enumerate(ai_steps):
-            print(f"[@ai_testcase_executor] Executing step {i+1}: {step.get('description', 'Unknown step')}")
-            
-            if step.get('type') == 'action' and step.get('command') == 'navigate':
-                target_node = step.get('params', {}).get('target_node', 'live')
-                
-                # Use the framework's goto_node method for reliable navigation
-                from shared.lib.utils.navigation_utils import goto_node
-                
-                print(f"[@ai_testcase_executor] Navigating to: {target_node}")
-                nav_success = goto_node(context, target_node)
-                
-                if not nav_success:
-                    print(f"[@ai_testcase_executor] Navigation to {target_node} failed")
-                    success = False
-                    break
-                else:
-                    print(f"[@ai_testcase_executor] Successfully navigated to {target_node}")
-            else:
-                # For other actions, just log them for now
-                print(f"[@ai_testcase_executor] Action: {step.get('command', 'unknown')} - {step.get('description', 'No description')}")
+        # Use AIAgentController._execute() with the PRE-GENERATED STEPS
+        # This leverages the existing AI execution framework without re-generating from prompt
+        from backend_core.src.controllers.ai.ai_agent import AIAgentController
         
-        print(f"[@ai_testcase_executor] AI steps execution completed: {'SUCCESS' if success else 'FAILED'}")
+        print(f"[@ai_testcase_executor] Using AIAgentController._execute() with pre-generated steps")
+        original_prompt = test_case.get('original_prompt', 'Navigate to home')
+        stored_steps = test_case.get('steps', [])
+        
+        print(f"[@ai_testcase_executor] Stored steps format: {stored_steps}")
+        
+        # Create a fake plan using the stored steps (now in AI Agent format)
+        fake_plan = {
+            'analysis': f'Pre-generated test case for: {original_prompt}',
+            'feasible': True,
+            'plan': stored_steps  # Steps are now in AI Agent format!
+        }
+        
+        # Initialize AI agent and execute using stored steps
+        ai_agent = AIAgentController(device_name=context.selected_device.get('device_name', 'device'))
+        
+        ai_result = ai_agent._execute(
+            plan=fake_plan,
+            navigation_tree=None,
+            userinterface_name=args.userinterface_name
+        )
+        
+        success = ai_result.get('success', False)
+        print(f"[@ai_testcase_executor] AIAgentController execution result: {'SUCCESS' if success else 'FAILED'}")
+        
+        if not success:
+            error_msg = ai_result.get('error', 'Unknown AI execution error')
+            print(f"[@ai_testcase_executor] AI execution error: {error_msg}")
+        
         context.overall_success = success
         
         # Set execution summary

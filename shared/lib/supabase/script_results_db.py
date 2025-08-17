@@ -111,6 +111,27 @@ def update_script_execution_result(
         
         if result.data:
             print(f"[@db:script_results:update_script_execution_result] Success")
+            
+            # Add to discard processing queue
+            try:
+                from backend_discard.src.queue_processor import get_queue_processor
+                queue_processor = get_queue_processor()
+                
+                # Prepare script data for analysis
+                script_data = {
+                    'id': script_result_id,
+                    'success': success,
+                    'html_report_r2_url': html_report_r2_url,
+                    'error_msg': error_msg,
+                    'execution_time_ms': execution_time_ms,
+                    'metadata': metadata
+                }
+                
+                queue_processor.add_script_to_queue(script_result_id, script_data)
+                print(f"[@db:script_results:update_script_execution_result] Added to discard queue: {script_result_id}")
+            except Exception as e:
+                print(f"[@db:script_results:update_script_execution_result] Warning: Failed to add to discard queue: {e}")
+            
             return True
         else:
             print(f"[@db:script_results:update_script_execution_result] Failed")

@@ -1,0 +1,304 @@
+#!/usr/bin/env python3
+"""
+Backend Discard Service - Main Application
+
+AI-powered false positive detection for alerts and test execution results.
+Monitors Redis queues and updates database with AI analysis results.
+
+Priority Processing: P1 (alerts) → P2 (scripts) → P3 (reserved)
+AI Models: moonshotai/kimi-k2:free (text), qwen/qwen-2-vl-7b-instruct (vision)
+"""
+
+import sys
+import os
+import time
+import signal
+import threading
+from datetime import datetime, timezone
+from typing import Dict, Any, Optional
+
+# Add project paths
+current_dir = os.path.dirname(os.path.abspath(__file__))
+backend_discard_dir = os.path.dirname(current_dir)
+project_root = os.path.dirname(backend_discard_dir)
+
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
+# Import shared utilities
+try:
+    from shared.lib.utils.app_utils import load_environment_variables
+    from shared.lib.utils.supabase_utils import get_supabase_client
+except ImportError as e:
+    print(f"❌ CRITICAL: Cannot import shared utilities: {e}")
+    print("   Make sure project structure is correct")
+    sys.exit(1)
+
+# Import service components
+from queue_processor import SimpleQueueProcessor
+from ai_analyzer import SimpleAIAnalyzer, AnalysisResult
+
+
+class BackendDiscardService:
+    """Main service class for backend discard operations"""
+    
+    def __init__(self):
+        self.running = False
+        self.queue_processor = None
+        self.ai_analyzer = None
+        self.supabase = None
+        self.stats = {
+            'tasks_processed': 0,
+            'alerts_processed': 0,
+            'scripts_processed': 0,
+            'ai_successes': 0,
+            'ai_failures': 0,
+            'db_updates': 0,
+            'started_at': None
+        }
+    
+    def initialize(self) -> bool:
+        """Initialize service components"""
+        try:
+            print("🤖 Backend Discard Service - Initializing...")
+            
+            # Load environment variables
+            load_environment_variables(mode='discard')
+            
+            # Initialize components
+            self.queue_processor = SimpleQueueProcessor()
+            self.ai_analyzer = SimpleAIAnalyzer()
+            self.supabase = get_supabase_client()
+            
+            if not self.supabase:
+                print("❌ Failed to initialize Supabase client")
+                return False
+            
+            # Test Redis connection
+            if not self.queue_processor.health_check():
+                print("❌ Redis health check failed")
+                return False
+            
+            print("✅ Backend Discard Service initialized successfully")
+            print(f"   • Redis: Connected")
+            print(f"   • Supabase: Connected")
+            print(f"   • AI: OpenRouter ready")
+            
+            self.stats['started_at'] = datetime.now(timezone.utc)
+            return True
+            
+        except Exception as e:
+            print(f"❌ Failed to initialize service: {e}")
+            return False
+    
+    def process_task(self, task: Dict[str, Any]) -> bool:
+        """Process a single task from the queue"""
+        try:
+            task_type = task.get('type')
+            task_id = task.get('id')
+            task_data = task.get('data', {})
+            created_at = task.get('created_at')
+            
+            print(f"🔄 Processing {task_type} task: {task_id}")
+            self.stats['tasks_processed'] += 1
+            
+            # Analyze based on task type
+            analysis = None
+            if task_type == 'alert':
+                analysis = self.ai_analyzer.analyze_alert(task_data)
+                self.stats['alerts_processed'] += 1
+                
+            elif task_type == 'script':
+                analysis = self.ai_analyzer.analyze_script_result(task_data)
+                self.stats['scripts_processed'] += 1
+            
+            else:
+                print(f"⚠️ Unknown task type: {task_type}")
+                return False
+            
+            # Check AI analysis result
+            if not analysis or not analysis.success:
+                print(f"❌ AI analysis failed for {task_id}: {analysis.error if analysis else 'Unknown error'}")
+                self.stats['ai_failures'] += 1
+                return False
+            
+            print(f"🤖 AI Analysis: discard={analysis.discard}, confidence={analysis.confidence:.2f}, reason='{analysis.explanation}'")
+            self.stats['ai_successes'] += 1
+            
+            # Update database
+            if task_type == 'alert':
+                success = self.update_alert(task_id, analysis)
+            elif task_type == 'script':
+                success = self.update_script_result(task_id, analysis)
+            else:
+                success = False
+            
+            if success:
+                self.stats['db_updates'] += 1
+                status = "✅ SUCCESS"
+            else:
+                status = "❌ DB UPDATE FAILED"
+            
+            print(f"{status} - Task {task_id} processed")
+            return success
+            
+        except Exception as e:
+            print(f"❌ Error processing task {task_id}: {e}")
+            return False
+    
+    def update_alert(self, alert_id: str, analysis: AnalysisResult) -> bool:
+        """Update alert with AI analysis results"""
+        try:
+            update_data = {
+                'checked': True,
+                'check_type': 'ai',
+                'discard': analysis.discard,
+                'discard_type': analysis.category,
+                'discard_comment': analysis.explanation,
+                'updated_at': datetime.now(timezone.utc).isoformat()
+            }
+            
+            result = self.supabase.table('alerts').update(update_data).eq('id', alert_id).execute()
+            
+            if result.data:
+                print(f"📝 Updated alert {alert_id} in database")
+                return True
+            else:
+                print(f"❌ Failed to update alert {alert_id} - not found")
+                return False
+                
+        except Exception as e:
+            print(f"❌ Error updating alert {alert_id}: {e}")
+            return False
+    
+    def update_script_result(self, script_id: str, analysis: AnalysisResult) -> bool:
+        """Update script result with AI analysis results"""
+        try:
+            update_data = {
+                'checked': True,
+                'check_type': 'ai',
+                'discard': analysis.discard,
+                'discard_type': analysis.category,
+                'discard_comment': analysis.explanation,
+                'updated_at': datetime.now(timezone.utc).isoformat()
+            }
+            
+            result = self.supabase.table('script_results').update(update_data).eq('id', script_id).execute()
+            
+            if result.data:
+                print(f"📝 Updated script result {script_id} in database")
+                return True
+            else:
+                print(f"❌ Failed to update script result {script_id} - not found")
+                return False
+                
+        except Exception as e:
+            print(f"❌ Error updating script result {script_id}: {e}")
+            return False
+    
+    def print_stats(self):
+        """Print service statistics"""
+        uptime = datetime.now(timezone.utc) - self.stats['started_at'] if self.stats['started_at'] else None
+        uptime_str = f"{uptime.total_seconds():.0f}s" if uptime else "Unknown"
+        
+        queue_lengths = self.queue_processor.get_all_queue_lengths()
+        
+        print(f"\n📊 Service Statistics (Uptime: {uptime_str}):")
+        print(f"   • Tasks Processed: {self.stats['tasks_processed']}")
+        print(f"   • Alerts: {self.stats['alerts_processed']}")
+        print(f"   • Scripts: {self.stats['scripts_processed']}")
+        print(f"   • AI Success Rate: {self.stats['ai_successes']}/{self.stats['ai_successes'] + self.stats['ai_failures']}")
+        print(f"   • DB Updates: {self.stats['db_updates']}")
+        print(f"   • Queue Lengths: P1={queue_lengths.get('p1_alerts', 0)}, P2={queue_lengths.get('p2_scripts', 0)}, P3={queue_lengths.get('p3_reserved', 0)}")
+    
+    def run(self):
+        """Main service loop"""
+        self.running = True
+        print("🚀 Backend Discard Service started")
+        print("   Processing priority: P1 (alerts) → P2 (scripts) → P3 (reserved)")
+        
+        last_stats_time = time.time()
+        stats_interval = 300  # Print stats every 5 minutes
+        
+        while self.running:
+            try:
+                # Get next task from queues (priority order built into queue_processor)
+                task = self.queue_processor.get_next_task()
+                
+                if task:
+                    self.process_task(task)
+                else:
+                    # No tasks available, short sleep
+                    time.sleep(2)
+                
+                # Print stats periodically
+                current_time = time.time()
+                if current_time - last_stats_time >= stats_interval:
+                    self.print_stats()
+                    last_stats_time = current_time
+                    
+            except Exception as e:
+                print(f"❌ Error in main loop: {e}")
+                time.sleep(5)
+        
+        print("🛑 Backend Discard Service stopped")
+        self.print_stats()
+    
+    def stop(self):
+        """Stop the service gracefully"""
+        print("🛑 Stopping Backend Discard Service...")
+        self.running = False
+
+
+# Global service instance
+service = None
+
+def signal_handler(signum, frame):
+    """Handle shutdown signals gracefully"""
+    global service
+    print(f"\n🛑 Received signal {signum}, shutting down gracefully...")
+    if service:
+        service.stop()
+
+def health_check() -> bool:
+    """Simple health check"""
+    try:
+        # Check if service is initialized and running
+        if service and service.queue_processor:
+            return service.queue_processor.health_check()
+        return False
+    except Exception:
+        return False
+
+def main():
+    """Main function"""
+    global service
+    
+    print("🤖 VIRTUALPYTEST Backend Discard Service")
+    print("AI-powered false positive detection")
+    
+    # Setup signal handlers for graceful shutdown
+    signal.signal(signal.SIGTERM, signal_handler)
+    signal.signal(signal.SIGINT, signal_handler)
+    
+    # Create and initialize service
+    service = BackendDiscardService()
+    
+    if not service.initialize():
+        print("❌ Service initialization failed")
+        sys.exit(1)
+    
+    # Start service
+    try:
+        service.run()
+    except KeyboardInterrupt:
+        print("\n🛑 Keyboard interrupt received")
+    except Exception as e:
+        print(f"❌ Service error: {e}")
+        sys.exit(1)
+    finally:
+        if service:
+            service.stop()
+
+if __name__ == '__main__':
+    main()

@@ -1,0 +1,348 @@
+"""
+Server AI Interface Generation Routes
+
+Routes for AI-driven interface exploration and automated navigation tree generation.
+Handles step-by-step exploration, image analysis, and node/edge generation.
+"""
+
+from flask import Blueprint, request, jsonify
+from shared.lib.utils.route_utils import proxy_to_host
+from shared.lib.supabase.navigation_trees_db import NavigationTreesDB
+from shared.lib.supabase.navigation_nodes_db import NavigationNodesDB
+from shared.lib.supabase.navigation_edges_db import NavigationEdgesDB
+import uuid
+import time
+
+# Create blueprint
+server_ai_generation_bp = Blueprint('server_ai_generation', __name__, url_prefix='/server/ai-generation')
+
+@server_ai_generation_bp.route('/start-exploration', methods=['POST'])
+def start_exploration():
+    """
+    Start AI interface exploration
+    
+    Request body:
+    {
+        "tree_id": "uuid",
+        "host_ip": "192.168.1.100",
+        "device_id": "device_uuid",
+        "exploration_depth": 5,
+        "start_node_id": "home_node_id"  # Optional, defaults to finding home
+    }
+    
+    Response:
+    {
+        "success": true,
+        "exploration_id": "uuid",
+        "message": "Exploration started"
+    }
+    """
+    try:
+        print("[@route:server_ai_generation:start_exploration] Starting AI interface exploration")
+        
+        # Get request data
+        request_data = request.get_json() or {}
+        tree_id = request_data.get('tree_id')
+        host_ip = request_data.get('host_ip')
+        device_id = request_data.get('device_id')
+        exploration_depth = request_data.get('exploration_depth', 5)
+        start_node_id = request_data.get('start_node_id')
+        
+        # Validate required fields
+        if not tree_id or not host_ip or not device_id:
+            return jsonify({
+                'success': False,
+                'error': 'Missing required fields: tree_id, host_ip, device_id'
+            }), 400
+        
+        # Generate exploration ID
+        exploration_id = str(uuid.uuid4())
+        
+        # Prepare host request
+        host_request = {
+            'exploration_id': exploration_id,
+            'tree_id': tree_id,
+            'device_id': device_id,
+            'exploration_depth': exploration_depth,
+            'start_node_id': start_node_id
+        }
+        
+        # Proxy to host AI agent
+        response_data, status_code = proxy_to_host(
+            '/host/ai-generation/start-exploration', 
+            'POST', 
+            host_request,
+            host_ip=host_ip
+        )
+        
+        return jsonify(response_data), status_code
+        
+    except Exception as e:
+        print(f"[@route:server_ai_generation:start_exploration] Error: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@server_ai_generation_bp.route('/exploration-status/<exploration_id>', methods=['GET'])
+def get_exploration_status(exploration_id):
+    """
+    Get current exploration status and progress
+    
+    Response:
+    {
+        "success": true,
+        "exploration_id": "uuid",
+        "status": "exploring|completed|failed",
+        "current_step": "Analyzing home screen...",
+        "progress": {
+            "total_screens_found": 15,
+            "screens_analyzed": 8,
+            "nodes_proposed": 12,
+            "edges_proposed": 15
+        },
+        "current_analysis": {
+            "screen_name": "home",
+            "elements_found": ["Live", "VOD", "Settings", "Guide"],
+            "reasoning": "Found 4 main menu items on home screen"
+        }
+    }
+    """
+    try:
+        print(f"[@route:server_ai_generation:get_exploration_status] Getting status for exploration {exploration_id}")
+        
+        # Get host IP from request args
+        host_ip = request.args.get('host_ip')
+        if not host_ip:
+            return jsonify({
+                'success': False,
+                'error': 'Missing host_ip parameter'
+            }), 400
+        
+        # Proxy to host
+        response_data, status_code = proxy_to_host(
+            f'/host/ai-generation/exploration-status/{exploration_id}',
+            'GET',
+            {},
+            host_ip=host_ip
+        )
+        
+        return jsonify(response_data), status_code
+        
+    except Exception as e:
+        print(f"[@route:server_ai_generation:get_exploration_status] Error: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@server_ai_generation_bp.route('/proposed-changes/<exploration_id>', methods=['GET'])
+def get_proposed_changes(exploration_id):
+    """
+    Get proposed nodes and edges from exploration
+    
+    Response:
+    {
+        "success": true,
+        "exploration_id": "uuid",
+        "proposed_nodes": [
+            {
+                "id": "home",
+                "name": "Home",
+                "screen_type": "menu",
+                "reasoning": "Main home screen with 4 menu options"
+            }
+        ],
+        "proposed_edges": [
+            {
+                "id": "home_to_live",
+                "source": "home",
+                "target": "live", 
+                "action_sets": [...],
+                "reasoning": "Navigate from home to live via right arrow"
+            }
+        ]
+    }
+    """
+    try:
+        print(f"[@route:server_ai_generation:get_proposed_changes] Getting proposed changes for exploration {exploration_id}")
+        
+        # Get host IP from request args
+        host_ip = request.args.get('host_ip')
+        if not host_ip:
+            return jsonify({
+                'success': False,
+                'error': 'Missing host_ip parameter'
+            }), 400
+        
+        # Proxy to host
+        response_data, status_code = proxy_to_host(
+            f'/host/ai-generation/proposed-changes/{exploration_id}',
+            'GET',
+            {},
+            host_ip=host_ip
+        )
+        
+        return jsonify(response_data), status_code
+        
+    except Exception as e:
+        print(f"[@route:server_ai_generation:get_proposed_changes] Error: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@server_ai_generation_bp.route('/approve-generation', methods=['POST'])
+def approve_generation():
+    """
+    Approve and generate nodes/edges in database
+    
+    Request body:
+    {
+        "exploration_id": "uuid",
+        "tree_id": "uuid",
+        "approved_nodes": ["node_id1", "node_id2"],
+        "approved_edges": ["edge_id1", "edge_id2"]
+    }
+    
+    Response:
+    {
+        "success": true,
+        "nodes_created": 5,
+        "edges_created": 8,
+        "message": "Navigation tree updated successfully"
+    }
+    """
+    try:
+        print("[@route:server_ai_generation:approve_generation] Approving AI generated nodes/edges")
+        
+        # Get request data
+        request_data = request.get_json() or {}
+        exploration_id = request_data.get('exploration_id')
+        tree_id = request_data.get('tree_id')
+        approved_nodes = request_data.get('approved_nodes', [])
+        approved_edges = request_data.get('approved_edges', [])
+        host_ip = request_data.get('host_ip')
+        
+        # Validate required fields
+        if not exploration_id or not tree_id or not host_ip:
+            return jsonify({
+                'success': False,
+                'error': 'Missing required fields: exploration_id, tree_id, host_ip'
+            }), 400
+        
+        # Get proposed changes from host first
+        changes_response, changes_status = proxy_to_host(
+            f'/host/ai-generation/proposed-changes/{exploration_id}',
+            'GET',
+            {},
+            host_ip=host_ip
+        )
+        
+        if changes_status != 200 or not changes_response.get('success'):
+            return jsonify({
+                'success': False,
+                'error': 'Failed to get proposed changes from host'
+            }), 400
+        
+        proposed_nodes = changes_response.get('proposed_nodes', [])
+        proposed_edges = changes_response.get('proposed_edges', [])
+        
+        # Initialize database connections
+        nodes_db = NavigationNodesDB()
+        edges_db = NavigationEdgesDB()
+        
+        nodes_created = 0
+        edges_created = 0
+        
+        # Create approved nodes
+        for node_data in proposed_nodes:
+            if node_data['id'] in approved_nodes:
+                try:
+                    # Add tree_id to node data
+                    node_data['tree_id'] = tree_id
+                    
+                    # Create node in database
+                    result = nodes_db.create_node(node_data)
+                    if result.get('success'):
+                        nodes_created += 1
+                        print(f"[@route:server_ai_generation:approve_generation] Created node: {node_data['id']}")
+                    else:
+                        print(f"[@route:server_ai_generation:approve_generation] Failed to create node {node_data['id']}: {result.get('error')}")
+                        
+                except Exception as e:
+                    print(f"[@route:server_ai_generation:approve_generation] Error creating node {node_data['id']}: {str(e)}")
+        
+        # Create approved edges
+        for edge_data in proposed_edges:
+            if edge_data['id'] in approved_edges:
+                try:
+                    # Add tree_id to edge data
+                    edge_data['tree_id'] = tree_id
+                    
+                    # Create edge in database
+                    result = edges_db.create_edge(edge_data)
+                    if result.get('success'):
+                        edges_created += 1
+                        print(f"[@route:server_ai_generation:approve_generation] Created edge: {edge_data['id']}")
+                    else:
+                        print(f"[@route:server_ai_generation:approve_generation] Failed to create edge {edge_data['id']}: {result.get('error')}")
+                        
+                except Exception as e:
+                    print(f"[@route:server_ai_generation:approve_generation] Error creating edge {edge_data['id']}: {str(e)}")
+        
+        return jsonify({
+            'success': True,
+            'nodes_created': nodes_created,
+            'edges_created': edges_created,
+            'message': f'Successfully created {nodes_created} nodes and {edges_created} edges'
+        }), 200
+        
+    except Exception as e:
+        print(f"[@route:server_ai_generation:approve_generation] Error: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@server_ai_generation_bp.route('/cancel-exploration', methods=['POST'])
+def cancel_exploration():
+    """
+    Cancel ongoing exploration
+    
+    Request body:
+    {
+        "exploration_id": "uuid",
+        "host_ip": "192.168.1.100"
+    }
+    """
+    try:
+        print("[@route:server_ai_generation:cancel_exploration] Cancelling AI exploration")
+        
+        # Get request data
+        request_data = request.get_json() or {}
+        exploration_id = request_data.get('exploration_id')
+        host_ip = request_data.get('host_ip')
+        
+        if not exploration_id or not host_ip:
+            return jsonify({
+                'success': False,
+                'error': 'Missing required fields: exploration_id, host_ip'
+            }), 400
+        
+        # Proxy to host
+        response_data, status_code = proxy_to_host(
+            '/host/ai-generation/cancel-exploration',
+            'POST',
+            {'exploration_id': exploration_id},
+            host_ip=host_ip
+        )
+        
+        return jsonify(response_data), status_code
+        
+    except Exception as e:
+        print(f"[@route:server_ai_generation:cancel_exploration] Error: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500

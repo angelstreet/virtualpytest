@@ -65,6 +65,24 @@ services:
       - shared
     restart: unless-stopped
 
+  # Backend discard service (AI false positive detection)
+  backend_discard:
+    build:
+      context: ../
+      dockerfile: backend_discard/Dockerfile
+    volumes:
+      - ../shared:/app/shared:ro
+    environment:
+      - UPSTASH_REDIS_REST_URL=${UPSTASH_REDIS_REST_URL}
+      - UPSTASH_REDIS_REST_TOKEN=${UPSTASH_REDIS_REST_TOKEN}
+      - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
+      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - DEBUG=false
+    depends_on:
+      - shared
+    restart: unless-stopped
+
   # Frontend service
   frontend:
     build:

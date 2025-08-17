@@ -261,19 +261,16 @@ def generate_test_cases():
                 # Generate test case directly - bypass AI agent issues
                 prompt_lower = original_prompt.lower()
                 
-                # Smart test case generation based on prompt analysis
+                # Smart test case generation based on prompt analysis - using AI Agent format
                 if 'home' in prompt_lower or 'go' in prompt_lower:
                     # Navigation test case
                     steps = [
                         {
-                            'step_number': 1,
+                            'step': 1,
                             'type': 'action',
-                            'command': 'navigate',
+                            'command': 'execute_navigation',
                             'params': {'target_node': 'home'},
-                            'description': 'Navigate to home screen',
-                            'wait_time': 2000,
-                            'timeout': 30,
-                            'retry_count': 1
+                            'description': 'Navigate to home screen'
                         }
                     ]
                     verification_conditions = []
@@ -281,37 +278,31 @@ def generate_test_cases():
                     # Audio verification test case
                     steps = [
                         {
-                            'step_number': 1,
+                            'step': 1,
                             'type': 'action',
-                            'command': 'navigate',
+                            'command': 'execute_navigation',
                             'params': {'target_node': 'live'},
-                            'description': 'Navigate to live content',
-                            'wait_time': 2000,
-                            'timeout': 30,
-                            'retry_count': 1
-                        }
-                    ]
-                    verification_conditions = [
+                            'description': 'Navigate to live content'
+                        },
                         {
+                            'step': 2,
+                            'type': 'verification',
                             'verification_type': 'verify_audio',
                             'command': 'check_audio_quality',
                             'params': {'threshold': 0.8},
-                            'expected_result': 'Audio quality verified',
-                            'timeout': 30
+                            'description': 'Verify audio quality'
                         }
                     ]
+                    verification_conditions = []
                 elif 'click' in prompt_lower or 'tap' in prompt_lower:
                     # Interaction test case
                     steps = [
                         {
-                            'step_number': 1,
+                            'step': 1,
                             'type': 'action',
                             'command': 'click_element',
                             'params': {'element_id': 'main_button'},
-                            'description': 'Click main element',
-                            'wait_time': 1000,
-                            'timeout': 30,
-                            'retry_count': 1
+                            'description': 'Click main element'
                         }
                     ]
                     verification_conditions = []
@@ -319,14 +310,11 @@ def generate_test_cases():
                     # General test case
                     steps = [
                         {
-                            'step_number': 1,
+                            'step': 1,
                             'type': 'action',
-                            'command': 'wait',
-                            'params': {'duration': 2000},
-                            'description': f'Execute: {original_prompt}',
-                            'wait_time': 2000,
-                            'timeout': 30,
-                            'retry_count': 1
+                            'command': 'execute_navigation',
+                            'params': {'target_node': 'home'},
+                            'description': f'Execute: {original_prompt}'
                         }
                     ]
                     verification_conditions = []
