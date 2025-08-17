@@ -233,23 +233,6 @@ const TestReports: React.FC = () => {
     );
   };
 
-  const getDiscardType = (result: ScriptResult) => {
-    if (!result.discard_type) {
-      return (
-        <Typography variant="body2" color="text.disabled">
-          -
-        </Typography>
-      );
-    }
-    return (
-      <Chip
-        label={result.discard_type}
-        color="info"
-        size="small"
-        variant="outlined"
-      />
-    );
-  };
 
   const getDiscardComment = (result: ScriptResult) => {
     if (!result.discard_comment) {
@@ -402,10 +385,7 @@ const TestReports: React.FC = () => {
                         <strong>Discard</strong>
                       </TableCell>
                       <TableCell sx={{ py: 1 }}>
-                        <strong>Check Type</strong>
-                      </TableCell>
-                      <TableCell sx={{ py: 1 }}>
-                        <strong>Discard Type</strong>
+                        <strong>Checked By</strong>
                       </TableCell>
                       <TableCell sx={{ py: 1 }}>
                         <strong>Comment</strong>
@@ -417,13 +397,13 @@ const TestReports: React.FC = () => {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={showDetailedColumns ? 14 : 9}>
+                    <TableCell colSpan={showDetailedColumns ? 13 : 9}>
                       <LoadingState />
                     </TableCell>
                   </TableRow>
                 ) : scriptResults.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={showDetailedColumns ? 14 : 9} sx={{ textAlign: 'center', py: 4 }}>
+                    <TableCell colSpan={showDetailedColumns ? 13 : 9} sx={{ textAlign: 'center', py: 4 }}>
                       <Typography variant="body2" color="textSecondary">
                         No script results available yet
                       </Typography>
@@ -533,9 +513,6 @@ const TestReports: React.FC = () => {
                           </TableCell>
                           <TableCell sx={{ py: 0.5 }}>
                             {getCheckType(result)}
-                          </TableCell>
-                          <TableCell sx={{ py: 0.5 }}>
-                            {getDiscardType(result)}
                           </TableCell>
                           <TableCell sx={{ py: 0.5 }}>
                             {getDiscardComment(result)}

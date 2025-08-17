@@ -53,44 +53,36 @@ class SimpleAIAnalyzer:
         self.vision_model = 'qwen/qwen-2-vl-7b-instruct'
         self.base_url = 'https://openrouter.ai/api/v1/chat/completions'
         
+        # Initialize Supabase client for database access
+        try:
+            from shared.lib.utils.supabase_utils import get_supabase_client
+            self.supabase = get_supabase_client()
+        except Exception as e:
+            print(f"[@ai_analyzer] Warning: Could not initialize Supabase client: {e}")
+            self.supabase = None
+        
         print(f"[@ai_analyzer] Initialized with OpenRouter API")
     
     def analyze_alert(self, alert_data: Dict[str, Any]) -> AnalysisResult:
         """Analyze alert for false positive detection"""
         try:
-            incident_type = alert_data.get('incident_type', 'Unknown')
-            host_name = alert_data.get('host_name', 'Unknown')
-            device_id = alert_data.get('device_id', 'Unknown')
-            consecutive_count = alert_data.get('consecutive_count', 0)
-            metadata = alert_data.get('metadata', {})
+            alert_id = alert_data.get('id')
+            if not alert_id:
+                return AnalysisResult(success=False, error="No alert ID provided")
             
-            prompt = f"""Alert Analysis Task:
-
-Incident Details:
-- Type: {incident_type}
-- Host: {host_name}
-- Device: {device_id}
-- Consecutive Count: {consecutive_count}
-- Metadata: {json.dumps(metadata, indent=2)}
-
-Your task: Determine if this is a false positive alert based on monitoring patterns.
-
-Common false positive patterns:
-- Brief blackscreen during channel changes (< 5 seconds)
-- Audio glitches during streaming startup
-- Temporary connection issues
-- Expected system restarts
-- Test environment artifacts
-
-Respond ONLY in this JSON format:
-{{
-    "discard": true/false,
-    "category": "false_positive" or "valid_incident",
-    "confidence": 0-100,
-    "explanation": "Brief reason (max 50 words)"
-}}"""
-
-            print(f"[@ai_analyzer] Analyzing alert {alert_data.get('id', 'unknown')} ({incident_type})")
+            # Get complete alert data from database
+            complete_alert_data = self._get_alert_from_database(alert_id)
+            if not complete_alert_data:
+                return AnalysisResult(success=False, error=f"Alert {alert_id} not found in database")
+            
+            incident_type = complete_alert_data.get('incident_type', 'Unknown')
+            host_name = complete_alert_data.get('host_name', 'Unknown')
+            device_id = complete_alert_data.get('device_id', 'Unknown')
+            consecutive_count = complete_alert_data.get('consecutive_count', 0)
+            metadata = complete_alert_data.get('metadata', {})
+            
+            prompt = self._create_alert_analysis_prompt(complete_alert_data)
+            print(f"[@ai_analyzer] Analyzing alert {alert_id} ({incident_type})")
             return self._call_text_ai(prompt)
             
         except Exception as e:
@@ -100,25 +92,34 @@ Respond ONLY in this JSON format:
     def analyze_script_result(self, script_data: Dict[str, Any]) -> AnalysisResult:
         """Analyze script result with optional report image analysis"""
         try:
-            script_name = script_data.get('script_name', 'Unknown')
-            success = script_data.get('success', False)
-            error_msg = script_data.get('error_msg', '')
-            execution_time = script_data.get('execution_time_ms', 0)
-            report_url = script_data.get('html_report_r2_url', '')
+            script_id = script_data.get('id')
+            if not script_id:
+                return AnalysisResult(success=False, error="No script ID provided")
             
-            print(f"[@ai_analyzer] Analyzing script {script_data.get('id', 'unknown')} ({script_name})")
+            # Get complete script data from database
+            complete_script_data = self._get_script_from_database(script_id)
+            if not complete_script_data:
+                return AnalysisResult(success=False, error=f"Script {script_id} not found in database")
+            
+            script_name = complete_script_data.get('script_name', 'Unknown')
+            success = complete_script_data.get('success', False)
+            error_msg = complete_script_data.get('error_msg', '')
+            execution_time = complete_script_data.get('execution_time_ms', 0)
+            report_url = complete_script_data.get('html_report_r2_url', '')
+            
+            print(f"[@ai_analyzer] Analyzing script {script_id} ({script_name})")
             
             # Try image analysis first if report URL available
             if report_url and self._is_valid_report_url(report_url):
                 print(f"[@ai_analyzer] Attempting image analysis for {script_name}")
-                image_result = self._analyze_with_images(script_data, report_url)
+                image_result = self._analyze_with_images(complete_script_data, report_url)
                 if image_result.success:
                     return image_result
                 else:
                     print(f"[@ai_analyzer] Image analysis failed, falling back to text analysis")
             
             # Fallback to text-only analysis
-            return self._analyze_text_only(script_data)
+            return self._analyze_text_only(complete_script_data)
             
         except Exception as e:
             print(f"[@ai_analyzer] Error analyzing script result: {e}")
@@ -143,25 +144,40 @@ Respond ONLY in this JSON format:
             success = script_data.get('success', False)
             error_msg = script_data.get('error_msg', 'None')
             
-            prompt = f"""Test Result Analysis:
+            prompt = f"""Test Script Visual Analysis:
 
 Script: {script_name}
-Reported Success: {success}
+Execution Result: {"PASSED" if success else "FAILED"}
 Error Message: {error_msg}
 
-Analyze the screenshot to determine if this test failure is a false positive.
+TASK: Analyze the screenshot to determine if this script result should be discarded as a false positive or kept as valid.
 
-Common false positive patterns in test screenshots:
-- UI loading states or animations
-- Expected error dialogs
-- Environment-specific styling differences
-- Timing-related UI states
-- Browser rendering variations
+ANALYSIS RULES:
+1. SUCCESSFUL SCRIPTS (success=true):
+   - NEVER discard successful scripts based on visual appearance alone
+   - Focus on confirming the test achieved its intended goal
+   - Minor UI variations are acceptable if core functionality works
+
+2. FAILED SCRIPTS (success=false):
+   - Look for clear evidence the failure is environmental/infrastructure related
+   - Common false positive visual patterns:
+     * UI loading states or animations in progress
+     * Expected error dialogs that are part of normal flow
+     * Environment-specific styling differences
+     * Timing-related UI states (elements still loading)
+     * Browser rendering variations
+
+3. VALIDATION APPROACH:
+   - Does the screenshot show the expected final state?
+   - Are any errors shown actually application bugs vs environment issues?
+   - Is the UI in a reasonable state given the test context?
+
+CRITICAL: Success=true should almost never be discarded based on screenshots.
 
 Respond ONLY in this JSON format:
 {{
     "discard": true/false,
-    "category": "false_positive" or "valid_failure",
+    "category": "valid_success" or "valid_failure" or "false_positive",
     "confidence": 0-100,
     "explanation": "Brief reason based on screenshot (max 50 words)"
 }}"""
@@ -173,37 +189,27 @@ Respond ONLY in this JSON format:
             return AnalysisResult(success=False, error=str(e))
     
     def _analyze_text_only(self, script_data: Dict[str, Any]) -> AnalysisResult:
-        """Analyze using text-only approach"""
+        """Analyze using text-only approach with step-by-step verification if report available"""
         try:
             script_name = script_data.get('script_name', 'Unknown')
+            script_type = script_data.get('script_type', 'Unknown')
+            userinterface_name = script_data.get('userinterface_name', 'Unknown')
+            device_name = script_data.get('device_name', 'Unknown')
+            host_name = script_data.get('host_name', 'Unknown')
             success = script_data.get('success', False)
             error_msg = script_data.get('error_msg', 'None')
             execution_time = script_data.get('execution_time_ms', 0)
+            report_url = script_data.get('html_report_r2_url', '')
             
-            prompt = f"""Test Result Analysis:
-
-Script: {script_name}
-Success: {success}
-Error Message: {error_msg}
-Execution Time: {execution_time}ms
-
-Determine if this test failure is a false positive based on common patterns.
-
-Common false positive patterns:
-- Network timeouts during heavy load
-- Selenium element not found during page transitions
-- Timing issues in automation
-- Environment-specific configuration issues
-- Infrastructure problems
-
-Respond ONLY in this JSON format:
-{{
-    "discard": true/false,
-    "category": "false_positive" or "valid_failure",
-    "confidence": 0-100,
-    "explanation": "Brief reason (max 50 words)"
-}}"""
-
+            # Convert execution time to seconds for clearer analysis
+            execution_seconds = execution_time / 1000.0
+            
+            # Try to get detailed report content for step-by-step analysis
+            report_content = ""
+            if report_url and self._is_valid_report_url(report_url):
+                report_content = self._fetch_report_content(report_url)
+            
+            prompt = self._create_script_analysis_prompt(complete_script_data, report_content)
             return self._call_text_ai(prompt)
             
         except Exception as e:
@@ -316,6 +322,201 @@ Respond ONLY in this JSON format:
         except Exception:
             return False
     
+    def _fetch_report_content(self, report_url: str) -> str:
+        """Fetch and parse HTML report content for step-by-step analysis"""
+        try:
+            print(f"[@ai_analyzer] Fetching report content from: {report_url[:50]}...")
+            
+            # Fetch the HTML report
+            response = requests.get(report_url, timeout=30)
+            if response.status_code != 200:
+                print(f"[@ai_analyzer] Failed to fetch report: HTTP {response.status_code}")
+                return ""
+            
+            html_content = response.text
+            
+            # Parse HTML to extract relevant content
+            # Look for test steps, actions, verifications, and results
+            parsed_content = self._parse_report_html(html_content)
+            
+            print(f"[@ai_analyzer] Successfully parsed report content ({len(parsed_content)} chars)")
+            return parsed_content
+            
+        except Exception as e:
+            print(f"[@ai_analyzer] Error fetching report content: {e}")
+            return ""
+    
+    def _parse_report_html(self, html_content: str) -> str:
+        """Parse HTML report to extract structured test execution information"""
+        try:
+            from bs4 import BeautifulSoup
+            
+            soup = BeautifulSoup(html_content, 'html.parser')
+            
+            # Extract key sections from the report
+            sections = []
+            
+            # Look for test summary
+            summary_section = soup.find(['div', 'section'], class_=re.compile(r'summary|overview|result', re.I))
+            if summary_section:
+                sections.append("=== TEST SUMMARY ===")
+                sections.append(summary_section.get_text(strip=True))
+            
+            # Look for step-by-step execution details
+            steps_sections = soup.find_all(['div', 'section', 'table'], class_=re.compile(r'step|action|verification|execution', re.I))
+            if steps_sections:
+                sections.append("\n=== EXECUTION STEPS ===")
+                for i, step_section in enumerate(steps_sections[:20]):  # Limit to first 20 steps
+                    step_text = step_section.get_text(strip=True)
+                    if step_text and len(step_text) > 10:  # Filter out tiny sections
+                        sections.append(f"Step {i+1}: {step_text[:500]}...")  # Limit step length
+            
+            # Look for error details
+            error_sections = soup.find_all(['div', 'section', 'span'], class_=re.compile(r'error|fail|exception', re.I))
+            if error_sections:
+                sections.append("\n=== ERROR DETAILS ===")
+                for error_section in error_sections[:5]:  # Limit to first 5 errors
+                    error_text = error_section.get_text(strip=True)
+                    if error_text and len(error_text) > 5:
+                        sections.append(error_text[:300])  # Limit error length
+            
+            # Look for verification results
+            verification_sections = soup.find_all(['div', 'span', 'td'], class_=re.compile(r'verify|check|assert|pass|fail', re.I))
+            if verification_sections:
+                sections.append("\n=== VERIFICATION RESULTS ===")
+                for i, verify_section in enumerate(verification_sections[:10]):  # Limit to first 10 verifications
+                    verify_text = verify_section.get_text(strip=True)
+                    if verify_text and len(verify_text) > 5:
+                        sections.append(f"Verification {i+1}: {verify_text[:200]}")
+            
+            # Look for timing information
+            timing_sections = soup.find_all(['span', 'td', 'div'], class_=re.compile(r'time|duration|ms|seconds', re.I))
+            if timing_sections:
+                sections.append("\n=== TIMING INFORMATION ===")
+                timing_info = []
+                for timing_section in timing_sections[:5]:  # Limit timing entries
+                    timing_text = timing_section.get_text(strip=True)
+                    if timing_text and ('ms' in timing_text or 'second' in timing_text):
+                        timing_info.append(timing_text[:100])
+                sections.extend(timing_info)
+            
+            # If no structured content found, extract general text
+            if len(sections) <= 1:
+                sections.append("\n=== GENERAL REPORT CONTENT ===")
+                # Remove script tags and style tags
+                for script in soup(["script", "style"]):
+                    script.decompose()
+                
+                # Get text content
+                text_content = soup.get_text()
+                # Clean up whitespace
+                lines = (line.strip() for line in text_content.splitlines())
+                chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
+                clean_text = ' '.join(chunk for chunk in chunks if chunk)
+                
+                if clean_text:
+                    sections.append(clean_text[:3000])  # Limit general content
+            
+            return '\n'.join(sections)
+            
+        except ImportError:
+            # Fallback if BeautifulSoup not available - use simple regex parsing
+            return self._parse_report_html_simple(html_content)
+        except Exception as e:
+            print(f"[@ai_analyzer] Error parsing HTML report: {e}")
+            return html_content[:2000]  # Return raw content as fallback
+    
+    def _parse_report_html_simple(self, html_content: str) -> str:
+        """Simple HTML parsing fallback without BeautifulSoup"""
+        try:
+            # Remove HTML tags using regex
+            import re
+            
+            # Remove script and style elements
+            html_content = re.sub(r'<script[^>]*>.*?</script>', '', html_content, flags=re.DOTALL | re.IGNORECASE)
+            html_content = re.sub(r'<style[^>]*>.*?</style>', '', html_content, flags=re.DOTALL | re.IGNORECASE)
+            
+            # Remove HTML tags
+            clean_text = re.sub(r'<[^>]+>', ' ', html_content)
+            
+            # Clean up whitespace
+            clean_text = re.sub(r'\s+', ' ', clean_text).strip()
+            
+            # Look for key patterns in the text
+            sections = []
+            
+            # Look for step patterns
+            step_matches = re.findall(r'(step\s*\d+[^.]*[.!])', clean_text, re.IGNORECASE)
+            if step_matches:
+                sections.append("=== EXECUTION STEPS ===")
+                for i, step in enumerate(step_matches[:10]):
+                    sections.append(f"Step {i+1}: {step[:200]}")
+            
+            # Look for verification patterns
+            verify_matches = re.findall(r'(verif[^.]*[.!]|check[^.]*[.!]|assert[^.]*[.!])', clean_text, re.IGNORECASE)
+            if verify_matches:
+                sections.append("\n=== VERIFICATION RESULTS ===")
+                for i, verify in enumerate(verify_matches[:5]):
+                    sections.append(f"Verification {i+1}: {verify[:150]}")
+            
+            # Look for error patterns
+            error_matches = re.findall(r'(error[^.]*[.!]|fail[^.]*[.!]|exception[^.]*[.!])', clean_text, re.IGNORECASE)
+            if error_matches:
+                sections.append("\n=== ERROR DETAILS ===")
+                for error in error_matches[:3]:
+                    sections.append(error[:200])
+            
+            # If no patterns found, return cleaned text
+            if not sections:
+                sections.append("=== REPORT CONTENT ===")
+                sections.append(clean_text[:2000])
+            
+            return '\n'.join(sections)
+            
+        except Exception as e:
+            print(f"[@ai_analyzer] Error in simple HTML parsing: {e}")
+            return html_content[:1000]  # Return raw content as last resort
+    
+    def _get_script_from_database(self, script_id: str) -> Optional[Dict[str, Any]]:
+        """Get complete script result data from database"""
+        try:
+            if not self.supabase:
+                print(f"[@ai_analyzer] No Supabase client available")
+                return None
+            
+            result = self.supabase.table('script_results').select('*').eq('id', script_id).single().execute()
+            
+            if result.data:
+                print(f"[@ai_analyzer] Retrieved script data from database: {result.data.get('script_name', 'Unknown')}")
+                return result.data
+            else:
+                print(f"[@ai_analyzer] Script {script_id} not found in database")
+                return None
+                
+        except Exception as e:
+            print(f"[@ai_analyzer] Error retrieving script from database: {e}")
+            return None
+    
+    def _get_alert_from_database(self, alert_id: str) -> Optional[Dict[str, Any]]:
+        """Get complete alert data from database"""
+        try:
+            if not self.supabase:
+                print(f"[@ai_analyzer] No Supabase client available")
+                return None
+            
+            result = self.supabase.table('alerts').select('*').eq('id', alert_id).single().execute()
+            
+            if result.data:
+                print(f"[@ai_analyzer] Retrieved alert data from database: {result.data.get('incident_type', 'Unknown')}")
+                return result.data
+            else:
+                print(f"[@ai_analyzer] Alert {alert_id} not found in database")
+                return None
+                
+        except Exception as e:
+            print(f"[@ai_analyzer] Error retrieving alert from database: {e}")
+            return None
+    
     def _extract_report_images(self, report_url: str) -> List[str]:
         """Extract image paths from HTML report (simplified)"""
         try:
@@ -343,6 +544,217 @@ Respond ONLY in this JSON format:
             print(f"[@ai_analyzer] Error converting image to base64: {e}")
         
         return None
+    
+    def _create_alert_analysis_prompt(self, alert_data: Dict[str, Any]) -> str:
+        """Create specialized prompt for alert analysis"""
+        incident_type = alert_data.get('incident_type', 'Unknown')
+        host_name = alert_data.get('host_name', 'Unknown')
+        device_id = alert_data.get('device_id', 'Unknown')
+        consecutive_count = alert_data.get('consecutive_count', 0)
+        metadata = alert_data.get('metadata', {})
+        started_at = alert_data.get('started_at', 'Unknown')
+        status = alert_data.get('status', 'Unknown')
+        
+        return f"""MONITORING ALERT ANALYSIS
+
+ALERT DETAILS:
+- Alert ID: {alert_data.get('id', 'Unknown')}
+- Incident Type: {incident_type}
+- Host Name: {host_name}
+- Device ID: {device_id}
+- Status: {status}
+- Started At: {started_at}
+- Consecutive Count: {consecutive_count}
+- Metadata: {json.dumps(metadata, indent=2)}
+
+TASK: Determine if this monitoring alert is a false positive or a valid incident requiring attention.
+
+ALERT-SPECIFIC ANALYSIS CRITERIA:
+
+1. **INCIDENT TYPE PATTERNS**:
+   - **blackscreen**: Normal during channel changes (< 5s), app launches, or content transitions
+   - **audio_loss**: Expected during stream startup, channel switching, or mute operations  
+   - **connection_issues**: Temporary network fluctuations, WiFi handoffs, or brief connectivity drops
+   - **system_restart**: Scheduled maintenance, firmware updates, or expected device reboots
+   - **performance_degradation**: Brief CPU/memory spikes during intensive operations
+
+2. **CONSECUTIVE COUNT EVALUATION**:
+   - Count 1-2: Likely transient issue, high probability of false positive
+   - Count 3-5: Possible real issue, but check for patterns
+   - Count 6+: Strong indication of genuine problem
+
+3. **TEMPORAL PATTERNS**:
+   - Alerts during scheduled maintenance windows
+   - Alerts coinciding with known system operations
+   - Brief duration alerts (< 30 seconds total)
+
+4. **DEVICE/HOST CONTEXT**:
+   - Test environment vs production environment
+   - Device model-specific known issues
+   - Host-specific maintenance or configuration changes
+
+5. **METADATA ANALYSIS**:
+   - Check for system logs indicating expected operations
+   - Look for error patterns that suggest infrastructure vs application issues
+   - Analyze timing correlation with other system events
+
+DECISION CRITERIA:
+- **DISCARD (false positive)** if: Transient issue, expected system behavior, test environment artifact, or infrastructure-related
+- **KEEP (valid incident)** if: Persistent problem, unexpected system failure, or genuine application/service issue
+
+Respond ONLY in this JSON format:
+{{
+    "discard": true/false,
+    "category": "false_positive" or "valid_incident",
+    "confidence": 0-100,
+    "explanation": "Alert-specific reasoning (max 80 words)"
+}}"""
+    
+    def _create_script_analysis_prompt(self, script_data: Dict[str, Any], report_content: str = "") -> str:
+        """Create specialized prompt for script execution analysis"""
+        script_name = script_data.get('script_name', 'Unknown')
+        script_type = script_data.get('script_type', 'Unknown')
+        userinterface_name = script_data.get('userinterface_name', 'Unknown')
+        device_name = script_data.get('device_name', 'Unknown')
+        host_name = script_data.get('host_name', 'Unknown')
+        success = script_data.get('success', False)
+        error_msg = script_data.get('error_msg', 'None')
+        execution_time = script_data.get('execution_time_ms', 0)
+        started_at = script_data.get('started_at', 'Unknown')
+        completed_at = script_data.get('completed_at', 'Unknown')
+        
+        execution_seconds = execution_time / 1000.0
+        
+        if report_content:
+            return f"""COMPREHENSIVE TEST SCRIPT EXECUTION ANALYSIS
+
+SCRIPT EXECUTION DETAILS:
+- Script ID: {script_data.get('id', 'Unknown')}
+- Script Name: {script_name}
+- Script Type: {script_type}
+- Interface: {userinterface_name}
+- Device: {device_name}
+- Host: {host_name}
+- Execution Result: {"PASSED" if success else "FAILED"}
+- Error Message: {error_msg}
+- Execution Time: {execution_seconds:.1f} seconds ({execution_time}ms)
+- Started At: {started_at}
+- Completed At: {completed_at}
+
+HTML EXECUTION REPORT:
+{report_content[:8000]}
+{"..." if len(report_content) > 8000 else ""}
+
+TASK: Perform COMPREHENSIVE STEP-BY-STEP analysis to determine if this test execution result is valid or should be discarded.
+
+SCRIPT-SPECIFIC ANALYSIS REQUIREMENTS:
+
+1. **STEP-BY-STEP EXECUTION VERIFICATION**:
+   - Examine each navigation step in the report
+   - Verify each action (click, swipe, type, wait) executed correctly
+   - Check each verification/assertion passed or failed appropriately
+   - Identify any step sequence inconsistencies or unexpected jumps
+   - Analyze action timing and response delays
+
+2. **ACTION EXECUTION VALIDATION**:
+   - **Navigation actions**: Did each navigation command reach the intended target?
+   - **Input actions**: Were text inputs, button clicks, and gestures executed properly?
+   - **Wait actions**: Did waits complete appropriately for UI loading?
+   - **Timing analysis**: Are action execution times reasonable for the device/interface?
+
+3. **VERIFICATION AND ASSERTION ANALYSIS**:
+   - **UI verifications**: Do screenshots match expected interface states?
+   - **Content verifications**: Is displayed content correct for the navigation path?
+   - **State verifications**: Are device/app states as expected after each step?
+   - **Error handling**: Are verification failures due to real issues or false positives?
+
+4. **SCRIPT TYPE-SPECIFIC LOGIC**:
+   - **goto/navigation**: Focus on successful path completion and final destination
+   - **validation**: Emphasize verification accuracy and content correctness
+   - **performance**: Analyze timing thresholds and response patterns
+   - **regression**: Compare against expected baseline behaviors
+
+5. **INFRASTRUCTURE VS APPLICATION ISSUES**:
+   - **Infrastructure failures**: Network timeouts, device connectivity, test framework issues
+   - **Application failures**: UI bugs, functional regressions, content errors
+   - **Environmental factors**: Test data issues, configuration problems, timing dependencies
+
+6. **EXECUTION CONTEXT EVALUATION**:
+   - **Success with long execution**: Normal for complex navigation sequences
+   - **Failure patterns**: Distinguish between systematic issues and transient problems
+   - **Device-specific behaviors**: Account for device model performance characteristics
+
+DECISION CRITERIA:
+- **DISCARD (false positive)** if: Infrastructure/environment issues, test framework problems, timing-related transient failures
+- **KEEP (valid result)** if: Legitimate functional issues, real application bugs, or successful test completion
+
+CRITICAL RULES:
+- SUCCESS=true should almost NEVER be discarded unless clear infrastructure evidence
+- Long execution times alone (30s-120s) are NOT grounds for discard if steps completed successfully
+- Only discard failures if you can clearly identify infrastructure/environment root cause from step analysis
+
+Respond ONLY in this JSON format:
+{{
+    "discard": true/false,
+    "category": "valid_success" or "valid_failure" or "false_positive",
+    "confidence": 0-100,
+    "explanation": "Step-by-step analysis summary (max 120 words)"
+}}"""
+        else:
+            return f"""BASIC TEST SCRIPT ANALYSIS (No Detailed Report Available)
+
+SCRIPT EXECUTION DETAILS:
+- Script ID: {script_data.get('id', 'Unknown')}
+- Script Name: {script_name}
+- Script Type: {script_type}
+- Interface: {userinterface_name}
+- Device: {device_name}
+- Host: {host_name}
+- Execution Result: {"PASSED" if success else "FAILED"}
+- Error Message: {error_msg}
+- Execution Time: {execution_seconds:.1f} seconds ({execution_time}ms)
+- Started At: {started_at}
+- Completed At: {completed_at}
+
+TASK: Analyze test script execution result without detailed step information.
+
+BASIC ANALYSIS CRITERIA:
+
+1. **SUCCESS ANALYSIS**:
+   - Successful scripts (success=true) should almost NEVER be discarded
+   - Long execution times (30s-120s) are acceptable for navigation/goto scripts
+   - Only discard successful scripts if error message indicates clear infrastructure issues
+
+2. **FAILURE ANALYSIS**:
+   - **Script Type Context**: {script_type} scripts have specific expected behaviors
+   - **Error Message Patterns**: Analyze error for infrastructure vs application indicators
+   - **Execution Time Context**: Very short failures (< 5s) often indicate infrastructure issues
+
+3. **COMMON FALSE POSITIVE PATTERNS**:
+   - Network connectivity timeouts
+   - "Element not found" during page/UI transitions  
+   - Device communication failures
+   - Test framework initialization errors
+   - Configuration or environment setup issues
+
+4. **SCRIPT TYPE-SPECIFIC EXPECTATIONS**:
+   - **goto**: Should reach target destination, timing varies by complexity
+   - **validation**: Should verify specific conditions, focus on verification logic
+   - **navigation**: Should complete path traversal, timing depends on UI responsiveness
+
+DECISION CRITERIA:
+- **DISCARD (false positive)** if: Clear infrastructure/environment error patterns
+- **KEEP (valid result)** if: Functional test results or successful execution
+
+CRITICAL: Success=true results should almost never be discarded regardless of execution time.
+
+Respond ONLY in this JSON format:
+{{
+    "discard": true/false,
+    "category": "valid_success" or "valid_failure" or "false_positive",
+    "confidence": 0-100,
+    "explanation": "Basic analysis reasoning (max 60 words)"
+}}"""
 
 
 # Global instance for easy import

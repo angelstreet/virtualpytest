@@ -169,7 +169,7 @@ class BackendDiscardService:
                 'checked': True,
                 'check_type': 'ai',
                 'discard': analysis.discard,
-                'discard_type': analysis.category,
+
                 'discard_comment': analysis.explanation,
                 'updated_at': datetime.now(timezone.utc).isoformat()
             }
@@ -194,7 +194,7 @@ class BackendDiscardService:
                 'checked': True,
                 'check_type': 'ai',
                 'discard': analysis.discard,
-                'discard_type': analysis.category,
+
                 'discard_comment': analysis.explanation,
                 'updated_at': datetime.now(timezone.utc).isoformat()
             }
