@@ -9,6 +9,9 @@ import {
   Comment as CommentIcon,
   Check as ValidIcon,
   Warning as DiscardedIcon,
+  Visibility as DetailsIcon,
+  VisibilityOff as HideDetailsIcon,
+  CheckCircle as CheckedIcon,
 } from '@mui/icons-material';
 import {
   Box,
@@ -32,6 +35,8 @@ import {
   Button,
   Tooltip,
   IconButton,
+  Switch,
+  FormControlLabel,
 } from '@mui/material';
 import React, { useState, useEffect } from 'react';
 
@@ -47,6 +52,7 @@ const TestReports: React.FC = () => {
     comment: string;
     result: ScriptResult;
   } | null>(null);
+  const [showDetailedColumns, setShowDetailedColumns] = useState(false);
 
   // Load script results on component mount
   useEffect(() => {
@@ -122,66 +128,105 @@ const TestReports: React.FC = () => {
     setSelectedDiscardComment(null);
   };
 
-  // Get AI analysis status display
-  const getAIAnalysisDisplay = (result: ScriptResult) => {
-    if (!result.checked) {
-      return (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Chip
-            icon={<UnknownIcon />}
-            label="Pending"
-            color="default"
-            size="small"
-            variant="outlined"
-          />
-        </Box>
-      );
-    }
+  // Note: toggleRowExpansion removed - not needed for this implementation
 
-    const isAI = result.check_type === 'ai';
-    const isDiscarded = result.discard;
-    
-    return (
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-        {/* Check type indicator */}
+  // Get individual discard analysis components
+  const getCheckedStatus = (result: ScriptResult) => {
+    if (result.checked === undefined || result.checked === null) {
+      return (
         <Chip
-          icon={isAI ? <AiIcon /> : <ManualIcon />}
-          label={isAI ? 'AI' : 'Manual'}
-          color="primary"
+          icon={<UnknownIcon />}
+          label="Pending"
+          color="default"
           size="small"
           variant="outlined"
         />
-        
-        {/* Discard status */}
-        {isDiscarded ? (
-          <Chip
-            icon={<DiscardedIcon />}
-            label={result.discard_type || 'Discarded'}
-            color="warning"
-            size="small"
-          />
-        ) : (
-          <Chip
-            icon={<ValidIcon />}
-            label="Valid"
-            color="success"
-            size="small"
-          />
-        )}
-        
-        {/* Comment icon if available */}
-        {result.discard_comment && (
-          <Tooltip title="View AI analysis comment">
-            <IconButton
-              size="small"
-              onClick={() => handleDiscardCommentClick(result)}
-              sx={{ p: 0.25 }}
-            >
-              <CommentIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-        )}
-      </Box>
+      );
+    }
+    return (
+      <Chip
+        icon={<CheckedIcon />}
+        label={result.checked ? 'Checked' : 'Unchecked'}
+        color={result.checked ? 'success' : 'default'}
+        size="small"
+      />
+    );
+  };
+
+  const getDiscardStatus = (result: ScriptResult) => {
+    if (!result.checked) {
+      return (
+        <Typography variant="body2" color="text.disabled">
+          -
+        </Typography>
+      );
+    }
+    return (
+      <Chip
+        icon={result.discard ? <DiscardedIcon /> : <ValidIcon />}
+        label={result.discard ? 'Discarded' : 'Valid'}
+        color={result.discard ? 'warning' : 'success'}
+        size="small"
+      />
+    );
+  };
+
+  const getCheckType = (result: ScriptResult) => {
+    if (!result.check_type) {
+      return (
+        <Typography variant="body2" color="text.disabled">
+          -
+        </Typography>
+      );
+    }
+    const isAI = result.check_type === 'ai';
+    return (
+      <Chip
+        icon={isAI ? <AiIcon /> : <ManualIcon />}
+        label={isAI ? 'AI' : 'Manual'}
+        color="primary"
+        size="small"
+        variant="outlined"
+      />
+    );
+  };
+
+  const getDiscardType = (result: ScriptResult) => {
+    if (!result.discard_type) {
+      return (
+        <Typography variant="body2" color="text.disabled">
+          -
+        </Typography>
+      );
+    }
+    return (
+      <Chip
+        label={result.discard_type}
+        color="info"
+        size="small"
+        variant="outlined"
+      />
+    );
+  };
+
+  const getDiscardComment = (result: ScriptResult) => {
+    if (!result.discard_comment) {
+      return (
+        <Typography variant="body2" color="text.disabled">
+          -
+        </Typography>
+      );
+    }
+    return (
+      <Tooltip title="View full comment">
+        <IconButton
+          size="small"
+          onClick={() => handleDiscardCommentClick(result)}
+          sx={{ p: 0.25 }}
+        >
+          <CommentIcon fontSize="small" />
+        </IconButton>
+      </Tooltip>
     );
   };
 
@@ -192,16 +237,7 @@ const TestReports: React.FC = () => {
     </Box>
   );
 
-  // Empty state component
-  const EmptyState = () => (
-    <TableRow>
-      <TableCell colSpan={10} sx={{ textAlign: 'center', py: 4 }}>
-        <Typography variant="body2" color="textSecondary">
-          No script results available yet
-        </Typography>
-      </TableCell>
-    </TableRow>
-  );
+  // Note: EmptyState component removed - now handled inline with dynamic colspan
 
   return (
     <Box>
@@ -258,6 +294,27 @@ const TestReports: React.FC = () => {
         </Card>
       </Box>
 
+      {/* Detailed Columns Toggle */}
+      <Box sx={{ mb: 1 }}>
+        <FormControlLabel
+          control={
+            <Switch
+              checked={showDetailedColumns}
+              onChange={(e) => setShowDetailedColumns(e.target.checked)}
+              size="small"
+            />
+          }
+          label={
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              {showDetailedColumns ? <HideDetailsIcon /> : <DetailsIcon />}
+              <Typography variant="body2">
+                {showDetailedColumns ? 'Hide' : 'Show'} Discard Analysis Details
+              </Typography>
+            </Box>
+          }
+        />
+      </Box>
+
       {/* Recent Test Reports */}
       <Card>
         <CardContent>
@@ -296,20 +353,42 @@ const TestReports: React.FC = () => {
                   <TableCell sx={{ py: 1 }}>
                     <strong>Logs</strong>
                   </TableCell>
-                  <TableCell sx={{ py: 1 }}>
-                    <strong>AI Analysis</strong>
-                  </TableCell>
+                  {showDetailedColumns && (
+                    <>
+                      <TableCell sx={{ py: 1 }}>
+                        <strong>Checked</strong>
+                      </TableCell>
+                      <TableCell sx={{ py: 1 }}>
+                        <strong>Discard</strong>
+                      </TableCell>
+                      <TableCell sx={{ py: 1 }}>
+                        <strong>Check Type</strong>
+                      </TableCell>
+                      <TableCell sx={{ py: 1 }}>
+                        <strong>Discard Type</strong>
+                      </TableCell>
+                      <TableCell sx={{ py: 1 }}>
+                        <strong>Comment</strong>
+                      </TableCell>
+                    </>
+                  )}
                 </TableRow>
               </TableHead>
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={10}>
+                    <TableCell colSpan={showDetailedColumns ? 14 : 9}>
                       <LoadingState />
                     </TableCell>
                   </TableRow>
                 ) : scriptResults.length === 0 ? (
-                  <EmptyState />
+                  <TableRow>
+                    <TableCell colSpan={showDetailedColumns ? 14 : 9} sx={{ textAlign: 'center', py: 4 }}>
+                      <Typography variant="body2" color="textSecondary">
+                        No script results available yet
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
                 ) : (
                   scriptResults.map((result) => (
                     <TableRow
@@ -369,9 +448,25 @@ const TestReports: React.FC = () => {
                           <Chip label="No Logs" size="small" variant="outlined" disabled />
                         )}
                       </TableCell>
-                      <TableCell sx={{ py: 0.5 }}>
-                        {getAIAnalysisDisplay(result)}
-                      </TableCell>
+                      {showDetailedColumns && (
+                        <>
+                          <TableCell sx={{ py: 0.5 }}>
+                            {getCheckedStatus(result)}
+                          </TableCell>
+                          <TableCell sx={{ py: 0.5 }}>
+                            {getDiscardStatus(result)}
+                          </TableCell>
+                          <TableCell sx={{ py: 0.5 }}>
+                            {getCheckType(result)}
+                          </TableCell>
+                          <TableCell sx={{ py: 0.5 }}>
+                            {getDiscardType(result)}
+                          </TableCell>
+                          <TableCell sx={{ py: 0.5 }}>
+                            {getDiscardComment(result)}
+                          </TableCell>
+                        </>
+                      )}
                     </TableRow>
                   ))
                 )}

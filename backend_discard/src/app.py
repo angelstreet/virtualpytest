@@ -54,6 +54,10 @@ class BackendDiscardService:
             'ai_successes': 0,
             'ai_failures': 0,
             'db_updates': 0,
+            'alerts_discarded': 0,
+            'alerts_validated': 0,
+            'scripts_discarded': 0,
+            'scripts_validated': 0,
             'started_at': None
         }
     
@@ -124,6 +128,18 @@ class BackendDiscardService:
             
             print(f"🤖 AI Analysis: discard={analysis.discard}, confidence={analysis.confidence:.2f}, reason='{analysis.explanation}'")
             self.stats['ai_successes'] += 1
+            
+            # Track discard statistics
+            if task_type == 'alert':
+                if analysis.discard:
+                    self.stats['alerts_discarded'] += 1
+                else:
+                    self.stats['alerts_validated'] += 1
+            elif task_type == 'script':
+                if analysis.discard:
+                    self.stats['scripts_discarded'] += 1
+                else:
+                    self.stats['scripts_validated'] += 1
             
             # Update database
             if task_type == 'alert':
@@ -203,11 +219,17 @@ class BackendDiscardService:
         
         queue_lengths = self.queue_processor.get_all_queue_lengths()
         
+        # Calculate discard rates
+        total_alerts = self.stats['alerts_discarded'] + self.stats['alerts_validated']
+        total_scripts = self.stats['scripts_discarded'] + self.stats['scripts_validated']
+        alert_discard_rate = f"{(self.stats['alerts_discarded']/total_alerts*100):.1f}%" if total_alerts > 0 else "N/A"
+        script_discard_rate = f"{(self.stats['scripts_discarded']/total_scripts*100):.1f}%" if total_scripts > 0 else "N/A"
+        
         print(f"\n📊 Service Statistics (Uptime: {uptime_str}):")
         print(f"   • Tasks Processed: {self.stats['tasks_processed']}")
-        print(f"   • Alerts: {self.stats['alerts_processed']}")
-        print(f"   • Scripts: {self.stats['scripts_processed']}")
-        print(f"   • AI Success Rate: {self.stats['ai_successes']}/{self.stats['ai_successes'] + self.stats['ai_failures']}")
+        print(f"   • Alerts: {self.stats['alerts_processed']} (🗑️  {self.stats['alerts_discarded']} discarded, ✅ {self.stats['alerts_validated']} valid - {alert_discard_rate} false positive rate)")
+        print(f"   • Scripts: {self.stats['scripts_processed']} (🗑️  {self.stats['scripts_discarded']} discarded, ✅ {self.stats['scripts_validated']} valid - {script_discard_rate} false positive rate)")
+        print(f"   • AI Analysis: {self.stats['ai_successes']} successful, {self.stats['ai_failures']} failed")
         print(f"   • DB Updates: {self.stats['db_updates']}")
         print(f"   • Queue Lengths: P1={queue_lengths.get('p1_alerts', 0)}, P2={queue_lengths.get('p2_scripts', 0)}, P3={queue_lengths.get('p3_reserved', 0)}")
     
