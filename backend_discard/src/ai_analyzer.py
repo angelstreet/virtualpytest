@@ -209,7 +209,7 @@ Respond ONLY in this JSON format:
             if report_url and self._is_valid_report_url(report_url):
                 report_content = self._fetch_report_content(report_url)
             
-            prompt = self._create_script_analysis_prompt(complete_script_data, report_content)
+            prompt = self._create_script_analysis_prompt(script_data, report_content)
             return self._call_text_ai(prompt)
             
         except Exception as e:
@@ -356,66 +356,137 @@ Respond ONLY in this JSON format:
             # Extract key sections from the report
             sections = []
             
-            # Look for test summary
-            summary_section = soup.find(['div', 'section'], class_=re.compile(r'summary|overview|result', re.I))
-            if summary_section:
-                sections.append("=== TEST SUMMARY ===")
-                sections.append(summary_section.get_text(strip=True))
+            # Remove script tags and style tags first
+            for script in soup(["script", "style"]):
+                script.decompose()
             
-            # Look for step-by-step execution details
-            steps_sections = soup.find_all(['div', 'section', 'table'], class_=re.compile(r'step|action|verification|execution', re.I))
-            if steps_sections:
-                sections.append("\n=== EXECUTION STEPS ===")
-                for i, step_section in enumerate(steps_sections[:20]):  # Limit to first 20 steps
-                    step_text = step_section.get_text(strip=True)
-                    if step_text and len(step_text) > 10:  # Filter out tiny sections
-                        sections.append(f"Step {i+1}: {step_text[:500]}...")  # Limit step length
+            # Get all text content for parsing
+            all_text = soup.get_text()
             
-            # Look for error details
-            error_sections = soup.find_all(['div', 'section', 'span'], class_=re.compile(r'error|fail|exception', re.I))
-            if error_sections:
-                sections.append("\n=== ERROR DETAILS ===")
-                for error_section in error_sections[:5]:  # Limit to first 5 errors
-                    error_text = error_section.get_text(strip=True)
-                    if error_text and len(error_text) > 5:
-                        sections.append(error_text[:300])  # Limit error length
+            # Look for specific report structure patterns from your example
+            sections.append("=== SCRIPT EXECUTION REPORT ===")
             
-            # Look for verification results
-            verification_sections = soup.find_all(['div', 'span', 'td'], class_=re.compile(r'verify|check|assert|pass|fail', re.I))
-            if verification_sections:
-                sections.append("\n=== VERIFICATION RESULTS ===")
-                for i, verify_section in enumerate(verification_sections[:10]):  # Limit to first 10 verifications
-                    verify_text = verify_section.get_text(strip=True)
-                    if verify_text and len(verify_text) > 5:
-                        sections.append(f"Verification {i+1}: {verify_text[:200]}")
+            # Extract status information
+            status_info = []
+            if 'Status:' in all_text:
+                for line in all_text.split('\n'):
+                    line = line.strip()
+                    if any(keyword in line for keyword in ['Status:', 'Duration:', 'Device:', 'Host:', 'Steps:', 'Target:']):
+                        if line:
+                            status_info.append(line)
             
-            # Look for timing information
-            timing_sections = soup.find_all(['span', 'td', 'div'], class_=re.compile(r'time|duration|ms|seconds', re.I))
-            if timing_sections:
+            if status_info:
+                sections.append("\n=== EXECUTION STATUS ===")
+                sections.extend(status_info[:10])  # Limit status lines
+            
+            # Extract execution summary
+            if 'EXECUTION SUMMARY' in all_text:
+                summary_start = all_text.find('EXECUTION SUMMARY')
+                summary_end = all_text.find('Test Steps', summary_start)
+                if summary_end == -1:
+                    summary_end = summary_start + 1000  # Fallback limit
+                
+                summary_text = all_text[summary_start:summary_end].strip()
+                if summary_text:
+                    sections.append("\n=== EXECUTION SUMMARY ===")
+                    sections.append(summary_text[:800])  # Limit summary length
+            
+            # Extract test steps information
+            if 'Test Steps' in all_text or 'Navigation step' in all_text:
+                sections.append("\n=== TEST STEPS ===")
+                
+                # Look for step patterns
+                step_patterns = [
+                    r'Navigation step \d+:.*?(?=Navigation step|\n\n|$)',
+                    r'Step \d+.*?(?=Step \d+|\n\n|$)',
+                    r'\d+\s+PASS.*?(?=\d+\s+PASS|\n\n|$)',
+                    r'\d+\s+FAIL.*?(?=\d+\s+FAIL|\n\n|$)'
+                ]
+                
+                steps_found = []
+                for pattern in step_patterns:
+                    matches = re.findall(pattern, all_text, re.DOTALL | re.IGNORECASE)
+                    steps_found.extend(matches[:10])  # Limit steps
+                
+                if steps_found:
+                    for i, step in enumerate(steps_found):
+                        clean_step = ' '.join(step.split())  # Clean whitespace
+                        sections.append(f"Step {i+1}: {clean_step[:400]}")  # Limit step length
+            
+            # Extract actions and verifications
+            action_patterns = [
+                r'Actions?:\s*(.*?)(?=Verifications?:|$)',
+                r'click_element\([^)]*\)',
+                r'waitForElementToAppear\([^)]*\)',
+                r'swipe_[a-z]+\([^)]*\)',
+                r'type_text\([^)]*\)'
+            ]
+            
+            actions_found = []
+            for pattern in action_patterns:
+                matches = re.findall(pattern, all_text, re.DOTALL | re.IGNORECASE)
+                actions_found.extend([match.strip() for match in matches if match.strip()])
+            
+            if actions_found:
+                sections.append("\n=== ACTIONS EXECUTED ===")
+                for i, action in enumerate(actions_found[:8]):  # Limit actions
+                    sections.append(f"Action {i+1}: {action[:200]}")
+            
+            # Extract verification results
+            verification_patterns = [
+                r'Verifications?:\s*(.*?)(?=Actions?:|$)',
+                r'waitForElementToAppear.*?PASS',
+                r'waitForElementToAppear.*?FAIL',
+                r'verify.*?PASS',
+                r'verify.*?FAIL',
+                r'assert.*?PASS',
+                r'assert.*?FAIL'
+            ]
+            
+            verifications_found = []
+            for pattern in verification_patterns:
+                matches = re.findall(pattern, all_text, re.DOTALL | re.IGNORECASE)
+                verifications_found.extend([match.strip() for match in matches if match.strip()])
+            
+            if verifications_found:
+                sections.append("\n=== VERIFICATIONS ===")
+                for i, verification in enumerate(verifications_found[:8]):  # Limit verifications
+                    sections.append(f"Verification {i+1}: {verification[:200]}")
+            
+            # Extract timing information
+            timing_patterns = [
+                r'Duration:\s*[\d.]+s',
+                r'Start:\s*\d{2}:\d{2}:\d{2}',
+                r'End:\s*\d{2}:\d{2}:\d{2}',
+                r'Total Time:\s*[\d.]+s',
+                r'[\d.]+s\s*$'
+            ]
+            
+            timing_found = []
+            for pattern in timing_patterns:
+                matches = re.findall(pattern, all_text, re.IGNORECASE)
+                timing_found.extend(matches)
+            
+            if timing_found:
                 sections.append("\n=== TIMING INFORMATION ===")
-                timing_info = []
-                for timing_section in timing_sections[:5]:  # Limit timing entries
-                    timing_text = timing_section.get_text(strip=True)
-                    if timing_text and ('ms' in timing_text or 'second' in timing_text):
-                        timing_info.append(timing_text[:100])
-                sections.extend(timing_info)
+                for timing in timing_found[:5]:  # Limit timing entries
+                    sections.append(timing)
             
-            # If no structured content found, extract general text
+            # If no structured content found, extract key lines
             if len(sections) <= 1:
-                sections.append("\n=== GENERAL REPORT CONTENT ===")
-                # Remove script tags and style tags
-                for script in soup(["script", "style"]):
-                    script.decompose()
+                sections.append("\n=== REPORT CONTENT ===")
                 
-                # Get text content
-                text_content = soup.get_text()
-                # Clean up whitespace
-                lines = (line.strip() for line in text_content.splitlines())
-                chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
-                clean_text = ' '.join(chunk for chunk in chunks if chunk)
+                # Extract meaningful lines (skip empty and very short lines)
+                meaningful_lines = []
+                for line in all_text.split('\n'):
+                    clean_line = line.strip()
+                    if (len(clean_line) > 5 and 
+                        not clean_line.isdigit() and 
+                        clean_line not in ['▶', '×', '‹', '›', '▼']):
+                        meaningful_lines.append(clean_line)
                 
-                if clean_text:
-                    sections.append(clean_text[:3000])  # Limit general content
+                # Take first 30 meaningful lines
+                sections.extend(meaningful_lines[:30])
             
             return '\n'.join(sections)
             
