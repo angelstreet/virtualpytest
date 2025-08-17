@@ -398,7 +398,34 @@ const RunTests: React.FC = () => {
     loadScripts();
   }, [selectedScript, showError]);
 
+  // Handle pre-selection from TestCase page
+  useEffect(() => {
+    const handlePreSelection = () => {
+      const preselectedScript = localStorage.getItem('preselected_script');
+      const fromTestCase = localStorage.getItem('preselected_from_testcase');
+      
+      if (fromTestCase === 'true' && preselectedScript && availableScripts.includes(preselectedScript)) {
+        // Set the script
+        setSelectedScript(preselectedScript);
+        
+        // TODO: Auto-select compatible device/host based on userinterface
+        // For now, user still needs to select device manually
+        
+        // Clear the localStorage flags
+        localStorage.removeItem('preselected_script');
+        localStorage.removeItem('preselected_userinterface');
+        localStorage.removeItem('preselected_from_testcase');
+        
+        // Show toast to inform user
+        showSuccess(`Pre-selected AI test case: ${getScriptDisplayName(preselectedScript)}`);
+      }
+    };
 
+    // Only run after scripts are loaded
+    if (availableScripts.length > 0) {
+      handlePreSelection();
+    }
+  }, [availableScripts, showSuccess]);
 
 
 
