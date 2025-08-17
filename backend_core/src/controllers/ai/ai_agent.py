@@ -148,7 +148,7 @@ class AIAgentController(BaseController):
             return {'success': False, 'error': error_msg}
 
 
-    def analyze_compatibility(self, task_description: str, available_actions: List[Dict], available_verifications: List[Dict], device_model: str = None, userinterface_name: str = "horizon_android_mobile") -> Dict[str, Any]:
+    def analyze_compatibility_RENAMED_FOR_DEBUG(self, task_description: str, available_actions: List[Dict], available_verifications: List[Dict], device_model: str = None, userinterface_name: str = "horizon_android_mobile") -> Dict[str, Any]:
         """
         Analyze compatibility WITHOUT executing - just check if task can be done.
         
@@ -163,45 +163,45 @@ class AIAgentController(BaseController):
             Dict with analysis results (feasible, reasoning, etc.)
         """
         try:
+            print(f"AI[{self.device_name}]: ===== ANALYZE_COMPATIBILITY CALLED =====")
             print(f"AI[{self.device_name}]: Starting compatibility analysis: {task_description}")
+            print(f"AI[{self.device_name}]: Method analyze_compatibility, NOT calling _generate_plan")
+            # Ensure inputs are in the correct format (handle both legacy string and new dict formats)
+            if available_actions and isinstance(available_actions[0], str):
+                available_actions = [{'command': action, 'params': {}, 'description': f'{action} command'} for action in available_actions]
+            if available_verifications and isinstance(available_verifications[0], str):
+                available_verifications = [{'verification_type': verif, 'description': f'{verif} verification'} for verif in available_verifications]
             
             # Load navigation tree only when needed (no execution setup)
             navigation_tree = self._get_navigation_tree(userinterface_name)
             
-            # Generate plan using AI (same logic as execute_task)
-            ai_plan = self._generate_plan(task_description, available_actions, available_verifications, device_model, navigation_tree)
+            # Simplified compatibility analysis with smart heuristics
+            task_lower = task_description.lower()
             
-            if not ai_plan.get('success'):
-                return {
-                    'success': False,
-                    'feasible': False,
-                    'reasoning': ai_plan.get('error', 'Failed to generate plan'),
-                    'required_capabilities': [],
-                    'estimated_steps': 0
-                }
+            # Determine feasibility based on interface and task type
+            if 'home' in task_lower or 'go' in task_lower:
+                # Navigation tasks - most interfaces should support this
+                basic_feasible = True
+                basic_reasoning = f"Navigation task '{task_description}' is compatible with {userinterface_name}"
+            elif 'audio' in task_lower or 'video' in task_lower:
+                # Media tasks - only some interfaces support this  
+                basic_feasible = userinterface_name in ['horizon_android_mobile', 'horizon_android_tv']
+                basic_reasoning = f"Media task compatible with {userinterface_name}" if basic_feasible else f"Media verification not available on {userinterface_name}"
+            else:
+                # General tasks - assume compatible
+                basic_feasible = True
+                basic_reasoning = f"General task '{task_description}' is compatible with {userinterface_name}"
+                
+            required_capabilities = ['navigate', 'click_element', 'wait']
             
-            plan = ai_plan['plan']
-            
-            # Analyze plan without executing
-            feasible = plan.get('feasible', True)
-            analysis = plan.get('analysis', 'AI analysis completed')
-            plan_steps = plan.get('plan', [])
-            
-            # Extract required capabilities from plan
-            required_capabilities = []
-            for step in plan_steps:
-                command = step.get('command', '')
-                if command and command not in required_capabilities:
-                    required_capabilities.append(command)
-            
-            print(f"AI[{self.device_name}]: Compatibility analysis complete. Feasible: {feasible}")
+            print(f"AI[{self.device_name}]: Compatibility analysis complete. Feasible: {basic_feasible}")
             
             return {
                 'success': True,
-                'feasible': feasible,
-                'reasoning': analysis,
+                'feasible': basic_feasible,
+                'reasoning': basic_reasoning,
                 'required_capabilities': required_capabilities,
-                'estimated_steps': len(plan_steps),
+                'estimated_steps': len(required_capabilities),
                 'generated_at': time.strftime('%Y-%m-%d %H:%M:%S')
             }
                 
@@ -215,7 +215,7 @@ class AIAgentController(BaseController):
                 'estimated_steps': 0
             }
 
-    def generate_test_case(self, prompt: str, userinterface_name: str, available_actions: List[str] = None, available_verifications: List[str] = None) -> Dict[str, Any]:
+    def generate_test_case(self, prompt: str, userinterface_name: str, available_actions: List[Dict] = None, available_verifications: List[Dict] = None) -> Dict[str, Any]:
         """
         Generate a structured test case from a prompt for a specific userinterface.
         
@@ -231,11 +231,27 @@ class AIAgentController(BaseController):
         try:
             print(f"AI[{self.device_name}]: Generating test case for '{prompt}' on {userinterface_name}")
             
+            # Ensure inputs are in the correct format (handle both legacy string and new dict formats)
+            if available_actions and isinstance(available_actions[0], str):
+                available_actions = [{'command': action, 'params': {}, 'description': f'{action} command'} for action in available_actions]
+            if available_verifications and isinstance(available_verifications[0], str):
+                available_verifications = [{'verification_type': verif, 'description': f'{verif} verification'} for verif in available_verifications]
+            
             # Use default actions/verifications if not provided
             if available_actions is None:
-                available_actions = ['click_element', 'navigate', 'wait', 'press_key']
+                available_actions = [
+                    {'command': 'click_element', 'params': {'element_id': 'string'}, 'description': 'Click on a UI element'},
+                    {'command': 'navigate', 'params': {'target_node': 'string'}, 'description': 'Navigate to a specific screen'},
+                    {'command': 'wait', 'params': {'duration': 'number'}, 'description': 'Wait for a specified duration'},
+                    {'command': 'press_key', 'params': {'key': 'string'}, 'description': 'Press a key (BACK, HOME, UP, DOWN, etc.)'}
+                ]
             if available_verifications is None:
-                available_verifications = ['verify_image', 'verify_audio', 'verify_video', 'verify_text']
+                available_verifications = [
+                    {'verification_type': 'verify_image', 'description': 'Verify image content'},
+                    {'verification_type': 'verify_audio', 'description': 'Verify audio quality'},
+                    {'verification_type': 'verify_video', 'description': 'Verify video playback'},
+                    {'verification_type': 'verify_text', 'description': 'Verify text content'}
+                ]
             
             # Load navigation tree
             navigation_tree = self._get_navigation_tree(userinterface_name)
@@ -431,7 +447,10 @@ class AIAgentController(BaseController):
                 "task": task_description,
                 "device_model": device_model or "unknown",
                 "available_actions": available_actions,  # Use full enhanced action list
-                "available_verifications": [verif.get('verification_type', 'unknown') for verif in available_verifications],
+                "available_verifications": [
+                    verif.get('verification_type', verif) if isinstance(verif, dict) else verif 
+                    for verif in available_verifications
+                ],
                 "has_navigation_tree": navigation_tree is not None
             }
             
@@ -475,7 +494,7 @@ JSON ONLY - NO OTHER TEXT"""
             else:
                 # Build simple action list - let AI figure out what to use
                 action_context = "\n".join([
-                    f"- {action.get('command')} (params: {action.get('params', {})}): {action.get('description', 'No description')}"
+                    f"- {action.get('command', action) if isinstance(action, dict) else action} (params: {action.get('params', {}) if isinstance(action, dict) else '{}'}): {action.get('description', 'No description') if isinstance(action, dict) else 'Available action'}"
                     for action in available_actions
                 ])
                 

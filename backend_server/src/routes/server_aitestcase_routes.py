@@ -80,8 +80,18 @@ def analyze_test_case():
                     'prompt': prompt,
                     'userinterface_name': ui['name'],
                     'navigation_nodes': list(unified_graph.get('nodes', {}).keys()) if unified_graph else [],
-                    'available_actions': ['click_element', 'navigate', 'wait', 'press_key'],
-                    'available_verifications': ['verify_image', 'verify_audio', 'verify_video', 'verify_text']
+                    'available_actions': [
+                        {'command': 'click_element', 'params': {'element_id': 'string'}, 'description': 'Click on a UI element'},
+                        {'command': 'navigate', 'params': {'target_node': 'string'}, 'description': 'Navigate to a specific screen'},
+                        {'command': 'wait', 'params': {'duration': 'number'}, 'description': 'Wait for a specified duration'},
+                        {'command': 'press_key', 'params': {'key': 'string'}, 'description': 'Press a key (BACK, HOME, UP, DOWN, etc.)'}
+                    ],
+                    'available_verifications': [
+                        {'verification_type': 'verify_image', 'description': 'Verify image content'},
+                        {'verification_type': 'verify_audio', 'description': 'Verify audio quality'},
+                        {'verification_type': 'verify_video', 'description': 'Verify video playback'},
+                        {'verification_type': 'verify_text', 'description': 'Verify text content'}
+                    ]
                 }
                 
                 # Quick compatibility analysis using AI agent
@@ -93,17 +103,21 @@ def analyze_test_case():
                     userinterface_name=ui['name']
                 )
                 
-                is_compatible = compatibility.get('feasible', False)
+                print(f"AI compatibility result type: {type(compatibility)}, content: {compatibility}")
+                is_compatible = compatibility.get('feasible', False) if isinstance(compatibility, dict) else False
+                reasoning = compatibility.get('reasoning', 'AI analysis completed') if isinstance(compatibility, dict) else str(compatibility)
                 
                 compatibility_results.append({
                     'userinterface': ui['name'],
                     'compatible': is_compatible,
-                    'reasoning': compatibility.get('reasoning', 'AI analysis completed'),
+                    'reasoning': reasoning,
                     'confidence': 0.8 if is_compatible else 0.2
                 })
                 
             except Exception as e:
                 print(f"Error analyzing {ui['name']}: {e}")
+                import traceback
+                print(f"Full traceback: {traceback.format_exc()}")
                 compatibility_results.append({
                     'userinterface': ui['name'],
                     'compatible': False,
@@ -220,8 +234,18 @@ def generate_test_cases():
                 test_case_result = ai_agent.generate_test_case(
                     prompt=original_prompt,
                     userinterface_name=interface_name,
-                    available_actions=['click_element', 'navigate', 'wait', 'press_key'],
-                    available_verifications=['verify_image', 'verify_audio', 'verify_video', 'verify_text']
+                    available_actions=[
+                        {'command': 'click_element', 'params': {'element_id': 'string'}, 'description': 'Click on a UI element'},
+                        {'command': 'navigate', 'params': {'target_node': 'string'}, 'description': 'Navigate to a specific screen'},
+                        {'command': 'wait', 'params': {'duration': 'number'}, 'description': 'Wait for a specified duration'},
+                        {'command': 'press_key', 'params': {'key': 'string'}, 'description': 'Press a key (BACK, HOME, UP, DOWN, etc.)'}
+                    ],
+                    available_verifications=[
+                        {'verification_type': 'verify_image', 'description': 'Verify image content'},
+                        {'verification_type': 'verify_audio', 'description': 'Verify audio quality'},
+                        {'verification_type': 'verify_video', 'description': 'Verify video playback'},
+                        {'verification_type': 'verify_text', 'description': 'Verify text content'}
+                    ]
                 )
                 
                 if test_case_result.get('success', False):
