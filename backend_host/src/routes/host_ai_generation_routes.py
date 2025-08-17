@@ -181,10 +181,10 @@ def run_exploration(exploration_id: str):
         session = exploration_sessions[exploration_id]
         session['status'] = 'exploring'
         
-        # Import necessary modules for exploration
-        from backend_core.src.controllers.ai.ai_agent import AIAgent
-        from backend_core.src.controllers.verification.image import ImageController
+        # Import necessary modules for exploration using existing infrastructure
+        from backend_core.src.controllers.ai.ai_agent import AIAgentController
         from backend_core.src.controllers.remote.android_mobile import AndroidMobileController
+        from backend_core.src.controllers.verification.video_ai_helpers import VideoAIHelpers
         
         # Update progress
         update_progress(exploration_id, "Initializing AI agent and controllers...")
@@ -193,41 +193,47 @@ def run_exploration(exploration_id: str):
         device_id = session['device_id']
         tree_id = session['tree_id']
         
-        # For now, assume android_mobile - expand later for other device types
-        remote_controller = AndroidMobileController()
-        image_controller = ImageController()
-        ai_agent = AIAgent()
+        # Initialize controllers using existing infrastructure
+        remote_controller = AndroidMobileController(device_id)
+        ai_agent = AIAgentController(device_id)
+        
+        # Initialize AI helpers for image analysis - use existing VideoAIHelpers
+        ai_helpers = VideoAIHelpers(device_model='android_mobile')
         
         # Update progress
         update_progress(exploration_id, "Taking initial screenshot...")
         
-        # Take initial screenshot for analysis
-        screenshot_result = image_controller.take_screenshot(device_id)
-        if not screenshot_result.get('success'):
-            raise Exception(f"Failed to take screenshot: {screenshot_result.get('error')}")
+        # Take initial screenshot for analysis using remote controller
+        success, screenshot_data, error = remote_controller.take_screenshot()
+        if not success:
+            raise Exception(f"Failed to take screenshot: {error}")
         
-        screenshot_path = screenshot_result.get('screenshot_path')
+        # Note: screenshot_data is base64, we'll need to save it as a file for AI analysis
+        # For now, let's use a simple approach - save the base64 as temp file
+        import base64
+        import tempfile
+        
+        screenshot_bytes = base64.b64decode(screenshot_data)
+        temp_file = tempfile.NamedTemporaryFile(suffix='.jpg', delete=False)
+        temp_file.write(screenshot_bytes)
+        temp_file.flush()
+        screenshot_path = temp_file.name
         
         # Update progress
         update_progress(exploration_id, "Analyzing home screen with AI...")
         
-        # Analyze screenshot with AI
-        analysis_prompt = f"""
-        Analyze this interface screenshot and identify:
-        1. Interactive elements (buttons, menu items, clickable areas)
-        2. Current screen type (home, menu, settings, etc.)
-        3. Navigation elements (arrows, tabs, etc.)
-        4. Text labels and their positions
+        # Use existing VideoAIHelpers to analyze the screenshot
+        analysis_question = """Analyze this mobile interface screenshot and identify:
+1. Interactive elements (buttons, menu items, clickable areas)
+2. Current screen type (home, menu, settings, etc.)
+3. Navigation elements (arrows, tabs, etc.)
+4. Text labels and their positions
+
+Focus on main navigation elements. List the main menu items you can see."""
+
+        analysis_text = ai_helpers.analyze_full_image_with_ai(screenshot_path, analysis_question)
         
-        Provide a structured response with element locations and descriptions.
-        Focus on main navigation elements first (home menu items).
-        """
-        
-        ai_analysis = ai_agent.analyze_image(screenshot_path, analysis_prompt)
-        if not ai_analysis.get('success'):
-            raise Exception(f"AI analysis failed: {ai_analysis.get('error')}")
-        
-        analysis_text = ai_analysis.get('analysis', '')
+        print(f"[@run_exploration] AI Analysis Result: {analysis_text}")
         
         # Update current analysis
         session['current_analysis'] = {
@@ -239,14 +245,14 @@ def run_exploration(exploration_id: str):
         # Update progress
         update_progress(exploration_id, "Testing navigation elements...")
         
-        # Start exploration from home screen
-        explore_screen(
+        # Start real exploration using existing controllers
+        explore_interface_step_by_step(
             exploration_id=exploration_id,
             current_screen='home',
             screenshot_path=screenshot_path,
-            ai_agent=ai_agent,
+            ai_helpers=ai_helpers,
             remote_controller=remote_controller,
-            image_controller=image_controller,
+            device_id=device_id,
             depth=0,
             max_depth=session['exploration_depth']
         )
@@ -264,16 +270,10 @@ def run_exploration(exploration_id: str):
             exploration_sessions[exploration_id]['error'] = str(e)
             exploration_sessions[exploration_id]['current_step'] = f"Exploration failed: {str(e)}"
 
-def explore_screen(exploration_id: str, current_screen: str, screenshot_path: str, 
-                  ai_agent, remote_controller, image_controller, depth: int, max_depth: int):
+def explore_interface_step_by_step(exploration_id: str, current_screen: str, screenshot_path: str,
+                                   ai_helpers, remote_controller, device_id: str, depth: int, max_depth: int):
     """
-    Explore a single screen and its navigation options
-    
-    Implements sibling-first strategy:
-    1. Identify all interactive elements on current screen
-    2. Test each element to understand where it leads
-    3. Create nodes and edges for discovered screens
-    4. Only go deeper after exploring all siblings
+    Real exploration using existing controllers - implements step-by-step UI exploration
     """
     try:
         session = exploration_sessions[exploration_id]
@@ -282,143 +282,89 @@ def explore_screen(exploration_id: str, current_screen: str, screenshot_path: st
         if session['status'] == 'cancelled':
             return
         
-        # Check depth limit
+        # Check depth limit  
         if depth >= max_depth:
-            print(f"[@explore_screen] Reached max depth {max_depth} for {current_screen}")
+            print(f"[@explore_interface] Reached max depth {max_depth}")
             return
+            
+        update_progress(exploration_id, f"Analyzing screen elements at depth {depth}...")
         
-        update_progress(exploration_id, f"Exploring {current_screen} screen (depth {depth})...")
+        # Use AI to identify navigation elements
+        elements_question = f"""What interactive elements can you see on this mobile interface?
+List the main navigation buttons, menu items, or controls that a user can interact with.
+Focus on elements that would lead to different screens or sections.
+Provide a simple list of element names."""
+
+        ai_response = ai_helpers.analyze_full_image_with_ai(screenshot_path, elements_question)
+        elements = extract_elements_from_analysis(ai_response)
         
-        # Analyze current screen for interactive elements
-        elements_prompt = f"""
-        Analyze this interface screenshot for interactive elements:
-        1. List all clickable buttons and menu items
-        2. Identify navigation controls (arrows, directional buttons)
-        3. Determine element positions and how to interact with them
-        4. Focus on main navigation elements first
+        print(f"[@explore_interface] AI found elements: {elements}")
         
-        Current screen: {current_screen}
-        Depth: {depth}/{max_depth}
-        """
+        # Create home node
+        create_proposed_node(session, 'home', 'Home', 'menu', 'Main home screen')
         
-        ai_analysis = ai_agent.analyze_image(screenshot_path, elements_prompt)
-        if not ai_analysis.get('success'):
-            print(f"[@explore_screen] Failed to analyze {current_screen}: {ai_analysis.get('error')}")
-            return
+        # Test navigation with directional keys (common for TV/mobile interfaces)
+        navigation_commands = [
+            {'command': 'press_key', 'key': 'DPAD_RIGHT'},
+            {'command': 'press_key', 'key': 'DPAD_DOWN'}, 
+            {'command': 'press_key', 'key': 'DPAD_LEFT'},
+            {'command': 'press_key', 'key': 'DPAD_UP'}
+        ]
         
-        analysis_text = ai_analysis.get('analysis', '')
-        elements = extract_elements_from_analysis(analysis_text)
-        
-        # Update current analysis
-        session['current_analysis'] = {
-            'screen_name': current_screen,
-            'elements_found': elements,
-            'reasoning': f"Found {len(elements)} interactive elements on {current_screen}"
-        }
-        
-        # Create node for current screen if not exists
-        node_id = current_screen
-        if not node_exists(session, node_id):
-            create_proposed_node(session, node_id, current_screen, 'menu', f"Screen: {current_screen}")
-        
-        # Test each interactive element (sibling-first strategy)
-        for element in elements[:5]:  # Limit to first 5 elements for initial implementation
+        for i, nav_cmd in enumerate(navigation_commands):
             if session['status'] == 'cancelled':
                 break
                 
-            test_navigation_element(
-                exploration_id=exploration_id,
-                current_screen=current_screen,
-                element=element,
-                ai_agent=ai_agent,
-                remote_controller=remote_controller,
-                image_controller=image_controller,
-                depth=depth
-            )
+            update_progress(exploration_id, f"Testing navigation: {nav_cmd['key']}")
             
-            # Wait between tests to avoid issues
-            time.sleep(2)
+            # Execute navigation command using existing remote controller
+            result = remote_controller.execute_command(device_id, nav_cmd)
+            
+            if result.get('success'):
+                # Wait for screen to change
+                time.sleep(3)
+                
+                # Take new screenshot
+                success, new_screenshot_data, error = remote_controller.take_screenshot()
+                if success:
+                    # Save new screenshot
+                    import base64
+                    import tempfile
+                    
+                    screenshot_bytes = base64.b64decode(new_screenshot_data)
+                    temp_file = tempfile.NamedTemporaryFile(suffix='.jpg', delete=False)
+                    temp_file.write(screenshot_bytes)
+                    temp_file.flush()
+                    new_screenshot_path = temp_file.name
+                    
+                    # Create node and edge for successful navigation
+                    target_node_id = f"home_{nav_cmd['key'].lower()}"
+                    edge_id = f"home_to_{nav_cmd['key'].lower()}"
+                    
+                    # Create proposed node and edge
+                    create_proposed_node(session, target_node_id, f"Screen via {nav_cmd['key']}", 'menu', 
+                                       f"Screen reached by pressing {nav_cmd['key']} from home")
+                    
+                    create_proposed_edge(session, 'home', target_node_id, nav_cmd, nav_cmd['key'])
+                    
+                    print(f"[@explore_interface] Created navigation: home -> {target_node_id}")
+                    
+                    # Navigate back to home
+                    back_result = remote_controller.execute_command(device_id, {'command': 'press_key', 'key': 'BACK'})
+                    time.sleep(2)
+                else:
+                    print(f"[@explore_interface] Failed to take screenshot after {nav_cmd['key']}")
+            else:
+                print(f"[@explore_interface] Navigation command failed: {nav_cmd}")
         
-        print(f"[@explore_screen] Completed exploration of {current_screen} at depth {depth}")
+        print(f"[@explore_interface] Completed exploration - created {len(session['proposed_nodes'])} nodes, {len(session['proposed_edges'])} edges")
         
     except Exception as e:
-        print(f"[@explore_screen] Error exploring {current_screen}: {str(e)}")
+        print(f"[@explore_interface] Error: {str(e)}")
+        session['status'] = 'failed'
+        session['error'] = str(e)
 
-def test_navigation_element(exploration_id: str, current_screen: str, element: str,
-                           ai_agent, remote_controller, image_controller, depth: int):
-    """
-    Test a single navigation element to see where it leads
-    """
-    try:
-        session = exploration_sessions[exploration_id]
-        device_id = session['device_id']
-        
-        update_progress(exploration_id, f"Testing {element} from {current_screen}...")
-        
-        # Take screenshot before interaction
-        before_screenshot = image_controller.take_screenshot(device_id)
-        if not before_screenshot.get('success'):
-            return
-        
-        # Determine interaction method based on element
-        # For simplicity, try directional navigation first
-        navigation_commands = determine_navigation_command(element)
-        
-        for command in navigation_commands:
-            # Execute navigation command
-            result = remote_controller.execute_command(device_id, command)
-            if not result.get('success'):
-                continue
-            
-            # Wait for screen to load
-            time.sleep(3)
-            
-            # Take screenshot after interaction
-            after_screenshot = image_controller.take_screenshot(device_id)
-            if not after_screenshot.get('success'):
-                continue
-            
-            # Compare screenshots to detect screen change
-            comparison = image_controller.compare_screenshots(
-                before_screenshot['screenshot_path'],
-                after_screenshot['screenshot_path']
-            )
-            
-            if comparison.get('similarity', 100) < 90:  # Screen changed significantly
-                # Analyze new screen
-                new_screen_analysis = ai_agent.analyze_image(
-                    after_screenshot['screenshot_path'],
-                    f"What screen is this? Provide a short screen name/identifier."
-                )
-                
-                if new_screen_analysis.get('success'):
-                    new_screen_name = extract_screen_name(new_screen_analysis.get('analysis', ''))
-                    new_node_id = f"{current_screen}_{new_screen_name.lower()}"
-                    
-                    # Create edge for successful navigation
-                    create_proposed_edge(
-                        session=session,
-                        source=current_screen,
-                        target=new_node_id,
-                        command=command,
-                        element=element
-                    )
-                    
-                    # Create node for new screen
-                    if not node_exists(session, new_node_id):
-                        create_proposed_node(session, new_node_id, new_screen_name, 'menu', 
-                                           f"Navigated from {current_screen} via {element}")
-                    
-                    print(f"[@test_navigation_element] Found navigation: {current_screen} -> {new_node_id} via {element}")
-                    
-                # Navigate back to original screen for next test
-                back_result = remote_controller.execute_command(device_id, {"command": "back"})
-                time.sleep(2)
-                
-                break  # Successfully tested this element
-        
-    except Exception as e:
-        print(f"[@test_navigation_element] Error testing {element}: {str(e)}")
+
 
 def update_progress(exploration_id: str, step: str):
     """Update exploration progress"""

@@ -7,9 +7,8 @@ Handles step-by-step exploration, image analysis, and node/edge generation.
 
 from flask import Blueprint, request, jsonify
 from shared.lib.utils.route_utils import proxy_to_host
-from shared.lib.supabase.navigation_trees_db import NavigationTreesDB
-from shared.lib.supabase.navigation_nodes_db import NavigationNodesDB
-from shared.lib.supabase.navigation_edges_db import NavigationEdgesDB
+from shared.lib.supabase.navigation_trees_db import save_node, save_edge
+from shared.lib.utils.app_utils import DEFAULT_TEAM_ID
 import uuid
 import time
 
@@ -194,22 +193,15 @@ def approve_generation():
         proposed_nodes = changes_response.get('proposed_nodes', [])
         proposed_edges = changes_response.get('proposed_edges', [])
         
-        # Initialize database connections
-        nodes_db = NavigationNodesDB()
-        edges_db = NavigationEdgesDB()
-        
         nodes_created = 0
         edges_created = 0
         
-        # Create approved nodes
+        # Create approved nodes using existing save_node function
         for node_data in proposed_nodes:
             if node_data['id'] in approved_nodes:
                 try:
-                    # Add tree_id to node data
-                    node_data['tree_id'] = tree_id
-                    
-                    # Create node in database
-                    result = nodes_db.create_node(node_data)
+                    # Use existing save_node function from navigation_trees_db
+                    result = save_node(tree_id, node_data, DEFAULT_TEAM_ID)
                     if result.get('success'):
                         nodes_created += 1
                         print(f"[@route:server_ai_generation:approve_generation] Created node: {node_data['id']}")
@@ -219,15 +211,12 @@ def approve_generation():
                 except Exception as e:
                     print(f"[@route:server_ai_generation:approve_generation] Error creating node {node_data['id']}: {str(e)}")
         
-        # Create approved edges
+        # Create approved edges using existing save_edge function
         for edge_data in proposed_edges:
             if edge_data['id'] in approved_edges:
                 try:
-                    # Add tree_id to edge data
-                    edge_data['tree_id'] = tree_id
-                    
-                    # Create edge in database
-                    result = edges_db.create_edge(edge_data)
+                    # Use existing save_edge function from navigation_trees_db
+                    result = save_edge(tree_id, edge_data, DEFAULT_TEAM_ID)
                     if result.get('success'):
                         edges_created += 1
                         print(f"[@route:server_ai_generation:approve_generation] Created edge: {edge_data['id']}")
