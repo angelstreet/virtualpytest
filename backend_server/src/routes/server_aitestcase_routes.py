@@ -249,19 +249,14 @@ def generate_test_cases():
         
         original_prompt = cached_analysis['prompt']
         
-        # Generate test cases for each confirmed interface
+        # Generate ONE test case with ALL confirmed interfaces
         ai_agent = AIAgentController()
         generated_testcases = []
         
-        for interface_name in confirmed_interfaces:
+        # Generate ONE test case with ALL confirmed interfaces
+        if confirmed_interfaces:
             try:
-                print(f"[@route:server_aitestcase:generate] Generating for {interface_name}")
-                
-                # Get interface data and navigation graph
-                interface_data = get_userinterface_by_name(interface_name, team_id)
-                ui_id = interface_data.get('id') or interface_data.get('userinterface_id')
-                root_tree = get_root_tree_for_interface(ui_id, team_id) if ui_id else None
-                unified_graph = get_full_tree(root_tree.get('tree_id'), team_id) if root_tree else None
+                print(f"[@route:server_aitestcase:generate] Generating single test case for interfaces: {confirmed_interfaces}")
                 
                 # Generate test case directly - bypass AI agent issues
                 prompt_lower = original_prompt.lower()
@@ -336,7 +331,10 @@ def generate_test_cases():
                     ]
                     verification_conditions = []
                 
-                # Create test case object
+                # Create unified tags from all interfaces
+                all_tags = ['ai-generated'] + confirmed_interfaces
+                
+                # Create test case object with ALL compatible interfaces
                 test_case = {
                     'test_id': str(uuid.uuid4()),
                     'name': f"AI: {original_prompt[:50]}{'...' if len(original_prompt) > 50 else ''}",
@@ -348,13 +346,14 @@ def generate_test_cases():
                     'ai_analysis': {
                         'analysis_id': analysis_id,
                         'feasibility': 'possible',
-                        'reasoning': f'AI generated test case for {interface_name}',
+                        'reasoning': f'AI generated test case compatible with {len(confirmed_interfaces)} interfaces: {", ".join(confirmed_interfaces)}',
                         'required_capabilities': ['navigate', 'click_element', 'wait'],
                         'estimated_steps': len(steps),
                         'generated_at': datetime.utcnow().isoformat(),
-                        'interface_specific': True
+                        'interface_specific': False,  # Now supports multiple interfaces
+                        'supported_interfaces': confirmed_interfaces
                     },
-                    'compatible_userinterfaces': [interface_name],
+                    'compatible_userinterfaces': confirmed_interfaces,  # ALL compatible interfaces
                     'compatible_devices': ['all'],
                     'device_adaptations': {},
                     'verification_conditions': verification_conditions,
@@ -367,7 +366,7 @@ def generate_test_cases():
                         'retry_count': 1,
                         'screenshot_on_failure': True
                     },
-                    'tags': ['ai-generated', interface_name],
+                    'tags': all_tags,  # Include all interface names as tags
                     'priority': 2,
                     'estimated_duration': max(30, len(steps) * 10)
                 }
@@ -376,10 +375,10 @@ def generate_test_cases():
                 saved_test_case = save_test_case(test_case, team_id)
                 generated_testcases.append(saved_test_case)
                 
-                print(f"[@route:server_aitestcase:generate] Generated test case: {saved_test_case.get('test_id')}")
+                print(f"[@route:server_aitestcase:generate] Generated unified test case: {saved_test_case.get('test_id')} for {len(confirmed_interfaces)} interfaces")
                     
             except Exception as e:
-                print(f"Error generating test case for {interface_name}: {e}")
+                print(f"Error generating unified test case: {e}")
         
         return jsonify({
             'success': True,

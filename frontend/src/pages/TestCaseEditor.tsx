@@ -180,10 +180,14 @@ const TestCaseEditor: React.FC = () => {
     setError(null);
   };
 
-  const handleAITestCaseGenerated = (aiTestCase: AITestCase) => {
-    // Refresh test cases list to show the newly generated one
+  const handleAITestCasesCreated = (aiTestCases: AITestCase[]) => {
+    // Refresh test cases list to show the newly generated ones
     fetchTestCases();
     handleCloseDialog();
+    
+    // Show success message
+    const count = aiTestCases.length;
+    console.log(`Successfully generated ${count} AI test case${count > 1 ? 's' : ''}`);
   };
 
   const handleOpenTestCaseDetails = (testCase: TestCase) => {
@@ -377,7 +381,10 @@ const TestCaseEditor: React.FC = () => {
         <DialogTitle>🤖 AI Test Case Generator</DialogTitle>
         <DialogContent>
           <Box sx={{ pt: 2 }}>
-            <AITestCaseGenerator onTestCaseGenerated={handleAITestCaseGenerated} />
+            <AITestCaseGenerator 
+              onTestCasesCreated={handleAITestCasesCreated} 
+              onCancel={handleCloseDialog}
+            />
           </Box>
         </DialogContent>
         <DialogActions>
