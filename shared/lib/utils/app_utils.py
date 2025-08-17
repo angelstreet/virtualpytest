@@ -59,7 +59,7 @@ def load_environment_variables(mode='server', calling_script_dir=None):
         print(f"[@app_utils:load_environment_variables] Looking for service .env at: {service_env_path}")
         
         if os.path.exists(service_env_path):
-            load_dotenv(service_env_path)
+            load_dotenv(service_env_path, override=True)  # Override project .env values
             print(f"✅ Loaded service environment from: {service_env_path}")
             
             # Check for critical variables after loading
