@@ -187,12 +187,12 @@ echo -e "${GREEN}🟢 Starting backend_host...${NC}"
 run_with_prefix "HOST" "$GREEN" "$PROJECT_ROOT/backend_host" python src/app.py
 sleep 3
 
-echo -e "${RED}🔴 Starting backend_discard...${NC}"
-run_with_prefix "DISCARD" "$RED" "$PROJECT_ROOT/backend_discard" python src/app.py
-sleep 3
-
 echo -e "${YELLOW}🟡 Starting Frontend...${NC}"
 run_with_prefix "FRONTEND" "$YELLOW" "$PROJECT_ROOT/frontend" npm run dev
+sleep 3
+
+echo -e "${RED}🔴 Starting backend_discard (AI analysis service)...${NC}"
+run_with_prefix "DISCARD" "$RED" "$PROJECT_ROOT/backend_discard" python src/app.py
 
 echo "=================================================================================="
 echo -e "${NC}✅ All processes started! Watching for logs...${NC}"
