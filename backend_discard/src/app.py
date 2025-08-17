@@ -279,11 +279,18 @@ class BackendDiscardService:
         print(f"   Processing priority: P1 (alerts) → P2 (scripts) → P3 (reserved)")
         print(f"   Health endpoint: http://localhost:{service_port}/health")
         
+        # Show initial queue lengths
+        initial_queue_lengths = self.queue_processor.get_all_queue_lengths()
+        print(f"📊 Initial queue lengths: P1={initial_queue_lengths.get('p1_alerts', 0)}, P2={initial_queue_lengths.get('p2_scripts', 0)}, P3={initial_queue_lengths.get('p3_reserved', 0)}")
+        
         # Start health check server in background thread
         health_server = self._start_health_server(service_port)
         
         last_stats_time = time.time()
-        stats_interval = 300  # Print stats every 5 minutes
+        last_queue_check_time = time.time()
+        stats_interval = 60 if debug_mode else 300  # Print stats every 1 minute in debug, 5 minutes in production
+        queue_check_interval = 10  # Check queue lengths every 10 seconds when idle
+        task_check_interval = 10  # Check for new tasks every 10 seconds when idle
         
         while self.running:
             try:
@@ -291,12 +298,27 @@ class BackendDiscardService:
                 task = self.queue_processor.get_next_task()
                 
                 if task:
+                    # Show queue lengths before processing
+                    queue_lengths = self.queue_processor.get_all_queue_lengths()
+                    print(f"📊 Queue lengths before processing: P1={queue_lengths.get('p1_alerts', 0)}, P2={queue_lengths.get('p2_scripts', 0)}, P3={queue_lengths.get('p3_reserved', 0)}")
+                    
                     self.process_task(task)
+                    
+                    # Show queue lengths after processing
+                    queue_lengths_after = self.queue_processor.get_all_queue_lengths()
+                    print(f"📊 Queue lengths after processing: P1={queue_lengths_after.get('p1_alerts', 0)}, P2={queue_lengths_after.get('p2_scripts', 0)}, P3={queue_lengths_after.get('p3_reserved', 0)}")
                 else:
-                    # No tasks available, short sleep
-                    time.sleep(2)
+                    # No tasks available, check queue lengths periodically
+                    current_time = time.time()
+                    if current_time - last_queue_check_time >= queue_check_interval:
+                        queue_lengths = self.queue_processor.get_all_queue_lengths()
+                        print(f"📊 [IDLE] Queue check: P1={queue_lengths.get('p1_alerts', 0)}, P2={queue_lengths.get('p2_scripts', 0)}, P3={queue_lengths.get('p3_reserved', 0)}")
+                        last_queue_check_time = current_time
+                    
+                    # Sleep for task check interval (10 seconds) when no tasks
+                    time.sleep(task_check_interval)
                 
-                # Print stats periodically
+                # Print full stats periodically
                 current_time = time.time()
                 if current_time - last_stats_time >= stats_interval:
                     self.print_stats()
