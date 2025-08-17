@@ -71,9 +71,7 @@ const TestCaseEditor: React.FC = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedTestCase, setSelectedTestCase] = useState<TestCase | null>(null);
-  const [testCaseToDelete, setTestCaseToDelete] = useState<TestCase | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [tabValue, setTabValue] = useState(0);
@@ -137,25 +135,20 @@ const TestCaseEditor: React.FC = () => {
     }
   };
 
-  const handleDelete = (testCase: TestCase) => {
-    setTestCaseToDelete(testCase);
-    setIsDeleteDialogOpen(true);
-  };
-
-  const handleConfirmDelete = async () => {
-    if (!testCaseToDelete) return;
+  const handleDelete = async (testCase: TestCase) => {
+    if (!window.confirm(`Are you sure you want to delete "${testCase.name}"?`)) {
+      return;
+    }
 
     try {
       setLoading(true);
       // Use correct testcases endpoint
-      const response = await fetch(`/server/testcases/deleteTestCase/${testCaseToDelete.test_id}`, {
+      const response = await fetch(`/server/testcases/deleteTestCase/${testCase.test_id}`, {
         method: 'DELETE',
       });
 
       if (response.ok) {
         await fetchTestCases();
-        setIsDeleteDialogOpen(false);
-        setTestCaseToDelete(null);
       } else {
         setError('Failed to delete test case');
       }
@@ -164,11 +157,6 @@ const TestCaseEditor: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleCancelDelete = () => {
-    setIsDeleteDialogOpen(false);
-    setTestCaseToDelete(null);
   };
 
   const handleOpenDialog = (testCase?: TestCase) => {
@@ -592,58 +580,7 @@ const TestCaseEditor: React.FC = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
-      <Dialog open={isDeleteDialogOpen} onClose={handleCancelDelete} maxWidth="sm" fullWidth>
-        <DialogTitle>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <DeleteIcon color="error" />
-            <Typography variant="h6">
-              Confirm Delete
-            </Typography>
-          </Box>
-        </DialogTitle>
-        
-        <DialogContent>
-          <Typography variant="body1" gutterBottom>
-            Are you sure you want to delete this test case?
-          </Typography>
-          
-          {testCaseToDelete && (
-            <Box sx={{ mt: 2, p: 2, bgcolor: 'grey.100', borderRadius: 1 }}>
-              <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
-                {testCaseToDelete.name}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                ID: {testCaseToDelete.test_id}
-              </Typography>
-              {testCaseToDelete.creator === 'ai' && (
-                <Box sx={{ mt: 1 }}>
-                  <Chip label="AI Generated" size="small" color="primary" />
-                </Box>
-              )}
-            </Box>
-          )}
-          
-          <Typography variant="body2" color="error" sx={{ mt: 2 }}>
-            This action cannot be undone.
-          </Typography>
-        </DialogContent>
-        
-        <DialogActions>
-          <Button onClick={handleCancelDelete} disabled={loading}>
-            Cancel
-          </Button>
-          <Button 
-            onClick={handleConfirmDelete} 
-            color="error" 
-            variant="contained"
-            disabled={loading}
-            startIcon={loading ? <CircularProgress size={16} /> : <DeleteIcon />}
-          >
-            {loading ? 'Deleting...' : 'Delete'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+
     </Box>
   );
 };
