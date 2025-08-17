@@ -32,9 +32,7 @@ export const useAITestCase = () => {
       const response = await fetch('/server/aitestcase/analyzeTestCase', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'X-Team-ID': localStorage.getItem('team_id') || '',
-          'X-User-ID': localStorage.getItem('user_id') || ''
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({ prompt } as AIAnalysisRequest)
       });
@@ -72,9 +70,7 @@ export const useAITestCase = () => {
       const response = await fetch('/server/aitestcase/generateTestCases', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'X-Team-ID': localStorage.getItem('team_id') || '',
-          'X-User-ID': localStorage.getItem('user_id') || ''
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
           analysis_id: analysisId,
@@ -118,9 +114,7 @@ export const useAITestCase = () => {
       const response = await fetch('/server/aitestcase/generateTestCase', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'X-Team-ID': localStorage.getItem('team_id') || '',
-          'X-User-ID': localStorage.getItem('user_id') || ''
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify(request)
       });
@@ -171,9 +165,7 @@ export const useAITestCase = () => {
       const response = await fetch('/server/aitestcase/executeTestCase', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'X-Team-ID': localStorage.getItem('team_id') || '',
-          'X-User-ID': localStorage.getItem('user_id') || ''
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
           test_case_id: testCaseId,
@@ -220,9 +212,7 @@ export const useAITestCase = () => {
       const response = await fetch('/server/aitestcase/validateCompatibility', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'X-Team-ID': localStorage.getItem('team_id') || '',
-          'X-User-ID': localStorage.getItem('user_id') || ''
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
           test_case_id: testCaseId,
