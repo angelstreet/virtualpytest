@@ -45,6 +45,10 @@ opencv-python>=4.5.0
 ffmpeg-python>=0.2.0
 PyP100>=0.1.2  # Tapo power control
 
+# OCR and text recognition
+pytesseract>=0.3.10
+langdetect>=1.0.9
+#sudo apt-get install tesseract-ocr tesseract-ocr-eng tesseract-ocr-fra tesseract-ocr-deu tesseract-ocr-ita
 # Device communication
 paramiko>=2.9.0  # SSH
 Appium-Python-Client>=3.1.0  # Mobile devices

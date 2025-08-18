@@ -343,7 +343,7 @@ class VideoContentHelpers:
             elif extract_text and has_subtitles and not OCR_AVAILABLE:
                 # If OCR is not available but we want text extraction, we can't verify subtitles
                 print(f"VideoContent[{self.device_name}]: OCR not available - cannot verify subtitle text")
-                # Keep has_subtitles as True since we detected edges but can't verify text
+                has_subtitles = False
             
             # Calculate confidence based on actual findings
             if has_subtitles and extracted_text:
