@@ -275,24 +275,24 @@ export const WebPanel = React.memo(
                     />
                   )}
                 </IconButton>
-              </Tooltip>
+                </Tooltip>
+              </Box>
             </Box>
-          </Box>
 
-          {/* Web Content - hidden when minimized */}
-          {!isMinimized && (
-            <Box
-              sx={{
-                height: `calc(100% - ${headerHeight})`,
-                overflow: 'hidden',
-              }}
-            >
-              {renderWebComponent}
-            </Box>
-          )}
+            {/* Web Content - hidden when minimized */}
+            {!isMinimized && (
+              <Box
+                sx={{
+                  height: `calc(100% - ${headerHeight})`,
+                  overflow: 'hidden',
+                }}
+              >
+                {renderWebComponent}
+              </Box>
+            )}
+          </Box>
         </Box>
-      </Box>
-    );
+      );
   },
   (prevProps, nextProps) => {
     // Custom comparison function to prevent unnecessary re-renders

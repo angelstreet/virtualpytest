@@ -19,6 +19,7 @@ import tempfile
 import json
 import re
 import cv2
+import numpy as np
 from datetime import datetime
 from typing import Dict, Any, Optional, Tuple, List
 

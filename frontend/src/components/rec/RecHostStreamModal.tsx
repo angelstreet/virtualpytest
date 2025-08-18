@@ -12,6 +12,7 @@ import { Box, IconButton, Typography, Button, CircularProgress, TextField } from
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 
 import { useModal } from '../../contexts/ModalContext';
+import { VNCStateProvider } from '../../contexts/VNCStateContext';
 import { useAIAgent } from '../../hooks/aiagent/useAIAgent';
 import { useStream } from '../../hooks/controller';
 import { useRec } from '../../hooks/pages/useRec';
@@ -47,12 +48,14 @@ export const RecHostStreamModal: React.FC<RecHostStreamModalProps> = ({
   if (!isOpen || !host) return null;
 
   return (
-    <RecHostStreamModalContent
-      host={host}
-      device={device}
-      onClose={onClose}
-      showRemoteByDefault={showRemoteByDefault}
-    />
+    <VNCStateProvider>
+      <RecHostStreamModalContent
+        host={host}
+        device={device}
+        onClose={onClose}
+        showRemoteByDefault={showRemoteByDefault}
+      />
+    </VNCStateProvider>
   );
 };
 
