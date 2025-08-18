@@ -543,6 +543,15 @@ class ScriptExecutor:
             context.stop_stdout_capture()
             captured_stdout = context.get_captured_stdout()
             
+            # Capture report generation output to get URLs
+            import io
+            import sys
+            
+            # Capture the report generation output
+            old_stdout = sys.stdout
+            report_output = io.StringIO()
+            sys.stdout = report_output
+            
             report_result = generate_and_upload_script_report(
                 script_name=f"{self.script_name}.py",
                 device_info=device_info,
@@ -557,6 +566,26 @@ class ScriptExecutor:
                 test_video_url=getattr(context, 'test_video_url', '') or '',
                 stdout=captured_stdout
             )
+            
+            # Restore stdout and get the captured output
+            sys.stdout = old_stdout
+            report_generation_output = report_output.getvalue()
+            
+            # Print the captured output so it appears in logs
+            print(report_generation_output, end='')
+            
+            # Extract logs URL from the captured output
+            if 'Logs uploaded:' in report_generation_output:
+                try:
+                    logs_line = [line for line in report_generation_output.split('\n') if 'Logs uploaded:' in line][0]
+                    logs_url = logs_line.split('Logs uploaded: ')[1].strip()
+                    # Add logs_url to report_result if not already there
+                    if report_result and not report_result.get('logs_url'):
+                        report_result['logs_url'] = logs_url
+                        print(f"[@script_framework] Extracted logs URL: {logs_url}")
+                except Exception as e:
+                    print(f"[@script_framework] Failed to extract logs URL: {e}")
+            
             print(f"[@script_framework:generate_final_report] DEBUG: Step 4 completed - generate_and_upload_script_report returned")
             print(f"[@script_framework:generate_final_report] DEBUG: Report result keys: {list(report_result.keys()) if report_result else 'None'}")
             
