@@ -218,6 +218,9 @@ class ActionExecutor:
         total_execution_time = 0
         iteration_results = []
         
+        # Get wait_time once to avoid repeated retrieval and ensure type safety
+        wait_time = int(action.get('params', {}).get('wait_time', 0))
+        
         for iteration in range(iterator_count):
             iteration_start_time = time.time()
             
@@ -392,9 +395,8 @@ class ActionExecutor:
                     # Stop on first failure - don't continue iterations
                     break
                 
-                # Wait between iterations if there are more iterations (same wait_time)
-                if iteration < iterator_count - 1:
-                    wait_time = params.get('wait_time', 0)
+                # Wait between iterations if there are more iterations AND current iteration succeeded
+                if iteration_success and iteration < iterator_count - 1:
                     if wait_time > 0:
                         iter_time = time.strftime("%H:%M:%S", time.localtime())
                         print(f"[@lib:action_executor:_execute_single_action] [{iter_time}] Waiting {wait_time}ms between iterations")
@@ -419,7 +421,6 @@ class ActionExecutor:
                 break
         
         # Wait after successful action execution (once per action, after all iterations)
-        wait_time = params.get('wait_time', 0)
         if all_iterations_successful and wait_time > 0:
             wait_seconds = wait_time / 1000.0
             current_time = time.strftime("%H:%M:%S", time.localtime())
