@@ -216,8 +216,8 @@ JSON ONLY - NO OTHER TEXT"""
                     height, width = img.shape[:2]
                     
                     # Enhanced subtitle detection with adaptive region processing (same as OCR method)
-                    # Expanded to capture 2-line subtitles - start from 70% to bottom (30% of screen height)
-                    subtitle_height_start = int(height * 0.7)
+                    # Expanded to capture 3-line subtitles - start from 60% to bottom (40% of screen height)
+                    subtitle_height_start = int(height * 0.6)
                     subtitle_width_start = int(width * 0.2)  # Skip left 20%
                     subtitle_width_end = int(width * 0.8)    # Skip right 20%
                     
