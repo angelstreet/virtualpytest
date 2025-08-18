@@ -481,11 +481,18 @@ class ZapController:
                     # Capture and analyze using unified approach
                     screenshot_result = capture_and_upload_screenshot(context.host, context.selected_device, f"audio_menu_{iteration}", "zap")
                     screenshot_path = screenshot_result['screenshot_path'] if screenshot_result['success'] else ""
+                    screenshot_url = screenshot_result['screenshot_url'] if screenshot_result['success'] else None
                     if screenshot_result['success']:
                         context.add_screenshot(screenshot_path)
                     
                     # Call the same method that HTTP routes would call
                     result = video_controller.analyze_language_menu_ai(screenshot_path)
+                    
+                    # Add screenshot information to the result for reporting
+                    if screenshot_url:
+                        result['analyzed_screenshot'] = screenshot_url
+                    elif screenshot_path:
+                        result['analyzed_screenshot'] = screenshot_path
                     
                     # Navigate back to live
                     goto_node(context.host, context.selected_device, "live", context.tree_id, context.team_id, context)
@@ -517,10 +524,18 @@ class ZapController:
                     # Capture and analyze audio menu
                     audio_screenshot_result = capture_and_upload_screenshot(context.host, context.selected_device, f"audio_menu_{iteration}", "zap")
                     audio_screenshot_path = audio_screenshot_result['screenshot_path'] if audio_screenshot_result['success'] else ""
+                    audio_screenshot_url = audio_screenshot_result['screenshot_url'] if audio_screenshot_result['success'] else None
                     if audio_screenshot_result['success']:
                         context.add_screenshot(audio_screenshot_path)
                     
                     audio_result = video_controller.analyze_language_menu_ai(audio_screenshot_path)
+                    
+                    # Add screenshot information to the audio result for reporting
+                    if audio_screenshot_url:
+                        audio_result['analyzed_screenshot'] = audio_screenshot_url
+                    elif audio_screenshot_path:
+                        audio_result['analyzed_screenshot'] = audio_screenshot_path
+                    
                     combined_result["audio_analysis"] = audio_result
                     if audio_result.get('menu_detected', False):
                         combined_result["audio_detected"] = True
@@ -541,10 +556,18 @@ class ZapController:
                     # Capture and analyze subtitle menu
                     subtitle_screenshot_result = capture_and_upload_screenshot(context.host, context.selected_device, f"subtitle_menu_{iteration}", "zap")
                     subtitle_screenshot_path = subtitle_screenshot_result['screenshot_path'] if subtitle_screenshot_result['success'] else ""
+                    subtitle_screenshot_url = subtitle_screenshot_result['screenshot_url'] if subtitle_screenshot_result['success'] else None
                     if subtitle_screenshot_result['success']:
                         context.add_screenshot(subtitle_screenshot_path)
                     
                     subtitle_result = video_controller.analyze_language_menu_ai(subtitle_screenshot_path)
+                    
+                    # Add screenshot information to the subtitle result for reporting
+                    if subtitle_screenshot_url:
+                        subtitle_result['analyzed_screenshot'] = subtitle_screenshot_url
+                    elif subtitle_screenshot_path:
+                        subtitle_result['analyzed_screenshot'] = subtitle_screenshot_path
+                    
                     combined_result["subtitle_analysis"] = subtitle_result
                     if subtitle_result.get('menu_detected', False):
                         combined_result["subtitles_detected"] = True
@@ -559,13 +582,22 @@ class ZapController:
                 # Navigate back to live
                 goto_node(context.host, context.selected_device, "live", context.tree_id, context.team_id, context)
                 
-                # Set combined message
+                # Set combined message and analyzed_screenshot
                 if combined_result["audio_detected"] and combined_result["subtitles_detected"]:
                     combined_result["message"] = "Both audio and subtitle menus detected"
+                    # Prioritize audio menu screenshot if both detected
+                    if combined_result["audio_analysis"].get('analyzed_screenshot'):
+                        combined_result["analyzed_screenshot"] = combined_result["audio_analysis"]['analyzed_screenshot']
+                    elif combined_result["subtitle_analysis"].get('analyzed_screenshot'):
+                        combined_result["analyzed_screenshot"] = combined_result["subtitle_analysis"]['analyzed_screenshot']
                 elif combined_result["audio_detected"]:
                     combined_result["message"] = "Only audio menu detected"
+                    if combined_result["audio_analysis"].get('analyzed_screenshot'):
+                        combined_result["analyzed_screenshot"] = combined_result["audio_analysis"]['analyzed_screenshot']
                 elif combined_result["subtitles_detected"]:
                     combined_result["message"] = "Only subtitle menu detected"
+                    if combined_result["subtitle_analysis"].get('analyzed_screenshot'):
+                        combined_result["analyzed_screenshot"] = combined_result["subtitle_analysis"]['analyzed_screenshot']
                 else:
                     combined_result["message"] = "No audio or subtitle menus detected"
                 

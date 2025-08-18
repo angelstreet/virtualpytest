@@ -470,6 +470,27 @@ def format_analysis_results(step: Dict) -> str:
                 analysis_html += f'<div class="analysis-detail">Subtitle Languages: {", ".join(subtitle_languages)}</div>'
         elif audio_menu_analysis.get('message'):
             analysis_html += f'<div class="analysis-detail">Details: {audio_menu_analysis.get("message")}</div>'
+
+        # Add screenshot display for audio menu analysis (similar to subtitle analysis)
+        analyzed_screenshot = audio_menu_analysis.get('analyzed_screenshot')
+        if analyzed_screenshot:
+            import json
+            # Create single image modal data
+            modal_data = {
+                'title': 'Audio Menu Analysis Screenshot',
+                'images': [{'url': analyzed_screenshot, 'label': 'Analyzed for Audio Menu'}]
+            }
+            modal_data_json = json.dumps(modal_data).replace('"', '&quot;').replace("'", "&#x27;")
+            
+            analysis_html += f"""
+            <div class='audio-menu-screenshot' style='margin-top: 8px;'>
+                <div style='text-align: center;'>
+                    <div style='font-size: 11px; color: #666; margin-bottom: 2px;'>Analyzed Image</div>
+                    <img src='{analyzed_screenshot}' style='width: 60px; height: 40px; object-fit: contain; border: 1px solid #ddd; border-radius: 3px; cursor: pointer;' 
+                         onclick='openVerificationImageModal({modal_data_json})' title='Click to view audio menu analysis screenshot'>
+                </div>
+            </div>
+            """
     
     # Zapping Analysis Results  
     if zapping_analysis and zapping_analysis.get('success') is not None:
