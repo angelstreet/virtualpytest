@@ -48,9 +48,16 @@ def setup_script_environment(script_name: str = "script") -> Dict[str, Any]:
     # Load environment variables using shared utility (loads project root .env + service-specific if available)
     print(f"[@script_execution_utils:setup_script_environment] Loading environment variables...")
     
+    # Find the backend_host/src directory for service-specific .env (where device configs are)
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    lib_dir = os.path.dirname(current_dir)
+    shared_dir = os.path.dirname(lib_dir)
+    project_root = os.path.dirname(shared_dir)
+    backend_host_src = os.path.join(project_root, 'backend_host', 'src')
+    
     try:
         # Use the shared load_environment_variables which handles project root .env + service-specific .env
-        load_environment_variables(mode='host', calling_script_dir=script_dir)
+        load_environment_variables(mode='host', calling_script_dir=backend_host_src)
         print(f"[@script_execution_utils:setup_script_environment] Environment variables loaded successfully")
     except Exception as e:
         print(f"[@script_execution_utils:setup_script_environment] ERROR: Failed to load environment variables: {e}")
