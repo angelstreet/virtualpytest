@@ -151,7 +151,7 @@ def create_networkx_graph(nodes: List[Dict], edges: List[Dict]) -> nx.DiGraph:
         print(f"[@navigation:graph:create_networkx_graph]   Default Retry Actions ({len(retry_actions_list)}): {[a.get('command') for a in retry_actions_list]}")
         print(f"[@navigation:graph:create_networkx_graph]   Default Failure Actions ({len(failure_actions_list)}): {[a.get('command') for a in failure_actions_list]}")
         
-        # Add edge with essential data only
+        # Add forward edge with essential data only
         G.add_edge(source_id, target_id, **{
             'edge_id': edge.get('edge_id'),
             'action_sets': action_sets,
@@ -161,7 +161,25 @@ def create_networkx_graph(nodes: List[Dict], edges: List[Dict]) -> nx.DiGraph:
             'weight': 1
         })
         
-
+        # BIDIRECTIONAL FIX: Create reverse edge if action set index 1 has valid actions
+        if len(action_sets) >= 2:
+            reverse_set = action_sets[1]
+            reverse_actions = reverse_set.get('actions', [])
+            if reverse_actions:  # Only create reverse edge if it has actions
+                reverse_edge_id = f"{edge.get('edge_id')}_reverse"
+                print(f"[@navigation:graph:create_networkx_graph] Creating REVERSE edge: {target_label} → {source_label}")
+                print(f"[@navigation:graph:create_networkx_graph]   Reverse Actions ({len(reverse_actions)}): {[a.get('command') for a in reverse_actions]}")
+                
+                G.add_edge(target_id, source_id, **{
+                    'edge_id': reverse_edge_id,
+                    'action_sets': [reverse_set],  # Only include the reverse action set
+                    'default_action_set_id': reverse_set.get('id'),
+                    'edge_type': edge.get('edge_type', 'navigation'),
+                    'finalWaitTime': edge.get('final_wait_time', 2000),
+                    'weight': 1,
+                    'is_reverse_edge': True  # Mark as reverse for debugging
+                })
+                edges_added += 1
         
         edges_added += 1
         print(f"[@navigation:graph:create_networkx_graph] -----")
