@@ -366,18 +366,18 @@ def execute_script(script_name: str, device_id: str, parameters: str = "") -> Di
                 if output:
                     line = output.rstrip()
                     
-                    # Extract report URL from upload logs  
-                    if '[@utils:report_utils:generate_and_upload_script_report] Report uploaded:' in line:
+                    # Extract report URL from script framework format
+                    if 'SCRIPT_REPORT_URL:' in line:
                         try:
-                            report_url = line.split('Report uploaded: ')[1].strip()
+                            report_url = line.split('SCRIPT_REPORT_URL:')[1].strip()
                             print(f"📊 [Script] Report URL captured: {report_url}")
                         except Exception as e:
                             print(f"⚠️ [Script] Failed to extract report URL: {e}")
                     
-                    # Extract logs URL from upload logs
-                    if '[@utils:report_utils:generate_and_upload_script_report] Logs uploaded:' in line:
+                    # Extract logs URL from script framework format
+                    if 'SCRIPT_LOGS_URL:' in line:
                         try:
-                            logs_url = line.split('Logs uploaded: ')[1].strip()
+                            logs_url = line.split('SCRIPT_LOGS_URL:')[1].strip()
                             print(f"📝 [Script] Logs URL captured: {logs_url}")
                         except Exception as e:
                             print(f"⚠️ [Script] Failed to extract logs URL: {e}")

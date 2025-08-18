@@ -596,13 +596,18 @@ class ScriptExecutor:
                 print(f"📊 [{self.script_name}] Generating report...")
                 report_result = self.generate_final_report(context, userinterface_name)
                 
-            if report_result and report_result.get('success') and report_result.get('report_url'):
-                print(f"SCRIPT_REPORT_URL:{report_result['report_url']}")
-                print(f"[@script_framework:cleanup_and_exit] DEBUG: SCRIPT_REPORT_URL printed")
-                # Store report URL for final summary in custom_data (consistent with validation.py)
-                if not hasattr(context, 'custom_data'):
-                    context.custom_data = {}
-                context.custom_data['report_url'] = report_result['report_url']
+            if report_result and report_result.get('success'):
+                if report_result.get('report_url'):
+                    print(f"SCRIPT_REPORT_URL:{report_result['report_url']}")
+                    print(f"[@script_framework:cleanup_and_exit] DEBUG: SCRIPT_REPORT_URL printed")
+                    # Store report URL for final summary in custom_data (consistent with validation.py)
+                    if not hasattr(context, 'custom_data'):
+                        context.custom_data = {}
+                    context.custom_data['report_url'] = report_result['report_url']
+                
+                if report_result.get('logs_url'):
+                    print(f"SCRIPT_LOGS_URL:{report_result['logs_url']}")
+                    print(f"[@script_framework:cleanup_and_exit] DEBUG: SCRIPT_LOGS_URL printed")
             
             # Update database if tracking is enabled
             if context.script_result_id:
