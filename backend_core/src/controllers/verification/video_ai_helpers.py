@@ -217,7 +217,7 @@ JSON ONLY - NO OTHER TEXT"""
                     
                     # Enhanced subtitle detection with adaptive region processing (same as OCR method)
                     # Expanded to capture 3-line subtitles - start from 60% to bottom (40% of screen height)
-                    subtitle_height_start = int(height * 0.7)
+                    subtitle_height_start = int(height * 0.65)
                     subtitle_width_start = int(width * 0.2)  # Skip left 20%
                     subtitle_width_end = int(width * 0.8)    # Skip right 20%
                     
