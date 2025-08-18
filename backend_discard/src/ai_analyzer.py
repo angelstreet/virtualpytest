@@ -768,7 +768,9 @@ Respond ONLY in this JSON format:
         started_at = alert_data.get('started_at', 'Unknown')
         status = alert_data.get('status', 'Unknown')
         
-        return f"""MONITORING ALERT ANALYSIS
+        return f"""EXPERT LIVE TV MONITORING ANALYSIS
+
+You are an expert TV broadcast monitoring specialist with deep understanding of live television content and technical systems. Your goal is to identify REAL technical issues affecting live broadcasts and differentiate them from normal content patterns.
 
 ALERT DETAILS:
 - Alert ID: {alert_data.get('id', 'Unknown')}
@@ -778,7 +780,45 @@ ALERT DETAILS:
 - Status: {status}
 - Started At: {started_at}
 - Consecutive Count: {consecutive_count}
-- Metadata: {json.dumps(metadata, indent=2)}
+- Technical Metadata: {json.dumps(metadata, indent=2)}
+
+EXPERT ANALYSIS FRAMEWORK:
+Your broadcast monitoring expertise allows you to differentiate between:
+
+**1. REAL TECHNICAL ISSUES (KEEP - Genuine Problems)**:
+- Persistent stream freezes (multiple consecutive alerts, high freeze_diffs)
+- Complete signal loss or blackouts (extended blackscreen, no audio)
+- Hardware malfunctions (device unresponsive, capture failure)
+- Encoding/transmission errors affecting broadcast quality
+- Infrastructure failures (network, power, equipment)
+- Persistent audio loss or sync issues
+
+**2. NORMAL CONTENT PATTERNS (DISCARD - Expected Behavior)**:
+- **Weather Programs**: Often show static maps, satellite images, or radar loops
+- **News Broadcasting**: Journalists talking with minimal background change
+- **Breaking News**: Static graphics, emergency broadcasts, or standby screens
+- **Commercial Breaks**: May include static sponsor cards or paused content
+- **Program Transitions**: Brief blackscreens, loading screens, or channel idents
+- **Live Events**: Natural pauses, audience shots, or static event graphics
+
+**3. CONTENT-RELATED "FREEZES" (DISCARD - Not Technical Issues)**:
+- Paused video content during news analysis or sports replays
+- Static infographics, charts, or data displays
+- Live camera shots of stationary subjects (buildings, landscapes)
+- Presenter talking without camera movement
+- Single-frame differences (freeze_diffs close to 0.0) during content pause
+
+**4. TRANSIENT TECHNICAL ARTIFACTS (DISCARD - Temporary Glitches)**:
+- Brief buffering during high network load
+- Momentary capture delays (single occurrence, low consecutive_count)
+- Short audio dropouts during channel switching
+- Brief blackscreens during legitimate content transitions
+
+**5. BLACKSCREEN ANALYSIS**:
+- **REAL ISSUE**: Unexpected complete signal loss, equipment failure
+- **NORMAL**: Channel changes, program transitions, commercial breaks, "zapping" between channels
+
+BROADCAST EXPERTISE ANALYSIS: Determine if this alert represents a genuine technical issue affecting live broadcast quality or normal content/operational behavior.
 
 TASK: Determine if this monitoring alert is a false positive or a valid incident requiring attention.
 
@@ -839,7 +879,9 @@ Respond ONLY in this JSON format:
         execution_seconds = execution_time / 1000.0
         
         if report_content:
-            return f"""COMPREHENSIVE TEST SCRIPT EXECUTION ANALYSIS
+            return f"""EXPERT TEST AUTOMATION ANALYSIS
+
+You are an expert test automation engineer specializing in interface/application testing. Your primary goal is to identify REAL interface/app bugs and differentiate between different types of issues to ensure only genuine user-facing problems are escalated.
 
 SCRIPT EXECUTION DETAILS:
 - Script ID: {script_data.get('id', 'Unknown')}
@@ -854,11 +896,44 @@ SCRIPT EXECUTION DETAILS:
 - Started At: {started_at}
 - Completed At: {completed_at}
 
-HTML EXECUTION REPORT:
+DETAILED EXECUTION REPORT:
 {report_content[:8000]}
 {"..." if len(report_content) > 8000 else ""}
 
-TASK: Perform COMPREHENSIVE STEP-BY-STEP analysis to determine if this test execution result is valid or should be discarded.
+EXPERT ANALYSIS FRAMEWORK:
+Your expertise allows you to differentiate between:
+
+**1. USER INTERFACE/APP BUGS (KEEP - Real Issues)**:
+- App crashes, freezes, or unresponsive interfaces
+- Navigation failures (buttons not working, incorrect page loads)
+- Content not loading properly in apps
+- UI elements missing, malformed, or positioned incorrectly
+- Functionality broken (search, login, playback controls, settings)
+- Unexpected app behavior, error screens, or crashes
+- Real performance issues affecting user experience
+
+**2. PLATFORM/SCRIPT/AUTOMATION BUGS (DISCARD - Our Issues)**:
+- Test script logic errors or incorrect timing
+- Outdated element selectors or script dependencies
+- Script timeouts due to slow execution, not app issues
+- Automation framework errors or connection problems
+- Incorrect test data or setup issues
+- Script race conditions or synchronization problems
+
+**3. INFRASTRUCTURE ISSUES (DISCARD - Environment Problems)**:
+- Network connectivity problems affecting test execution
+- Device/host hardware issues or resource constraints
+- ADB connection failures or device communication errors
+- Stream capture, video pipeline, or monitoring issues
+- Environment setup problems or configuration errors
+
+**4. EXPECTED BEHAVIORS (DISCARD - Normal Operations)**:
+- Long execution times for complex navigation (goto scripts taking 20-60s is normal)
+- Successful operations that naturally take time (app launches, page loads, transitions)
+- Valid error states that scripts correctly detect and handle
+- Normal app loading screens, buffering states, or transitions
+
+COMPREHENSIVE ANALYSIS TASK: Perform detailed step-by-step analysis to determine if this represents a genuine interface/app issue or should be discarded.
 
 SCRIPT-SPECIFIC ANALYSIS REQUIREMENTS:
 
@@ -914,7 +989,9 @@ Respond ONLY in this JSON format:
     "explanation": "Step-by-step analysis summary (max 120 words)"
 }}"""
         else:
-            return f"""BASIC TEST SCRIPT ANALYSIS (No Detailed Report Available)
+            return f"""EXPERT TEST AUTOMATION ANALYSIS (Basic Analysis)
+
+You are an expert test automation engineer specializing in interface/application testing. Even without detailed execution reports, your expertise helps identify genuine issues vs false positives.
 
 SCRIPT EXECUTION DETAILS:
 - Script ID: {script_data.get('id', 'Unknown')}
@@ -929,7 +1006,14 @@ SCRIPT EXECUTION DETAILS:
 - Started At: {started_at}
 - Completed At: {completed_at}
 
-TASK: Analyze test script execution result without detailed step information.
+EXPERT ANALYSIS GUIDELINES:
+Focus on differentiating between:
+- **User Interface/App Bugs** (KEEP): Real functionality issues affecting users
+- **Platform/Script Issues** (DISCARD): Test automation or timing problems  
+- **Infrastructure Problems** (DISCARD): Environment, network, or device issues
+- **Expected Behaviors** (DISCARD): Normal operation patterns (long goto scripts, etc.)
+
+ANALYSIS TASK: Determine if this represents a genuine interface/app issue or should be discarded.
 
 BASIC ANALYSIS CRITERIA:
 
