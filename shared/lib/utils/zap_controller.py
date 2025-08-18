@@ -369,6 +369,11 @@ class ZapController:
                 strict_mode=False
             )
             
+            # Collect the 3 motion analysis images for thumbnails and add paths to result (similar to zapping detection)
+            motion_images = self._add_motion_analysis_images_to_screenshots(context, device_id, iteration)
+            if motion_images:
+                result['motion_analysis_images'] = motion_images
+            
             # Add screenshot information to the result for reporting
             if screenshot_result['success']:
                 context.add_screenshot(screenshot_result['screenshot_path'])
@@ -848,6 +853,52 @@ class ZapController:
             
         except Exception as e:
             print(f"⚠️ [ZapController] Failed to add zapping images to screenshot collection: {e}")
+
+    def _add_motion_analysis_images_to_screenshots(self, context, device_id: str, iteration: int):
+        """Add the 3 most recent motion analysis images to context screenshot collection for R2 upload"""
+        motion_images = []
+        try:
+            if not hasattr(context, 'screenshot_paths'):
+                context.screenshot_paths = []
+            
+            # Get the capture path from AV controller
+            av_controller = get_controller(device_id, 'av')
+            if not av_controller:
+                print(f"⚠️ [ZapController] No AV controller found for motion image collection")
+                return motion_images
+                
+            capture_folder = f"{av_controller.video_capture_path}/captures"
+            
+            # Load the 3 most recent analysis files using the same method as motion detection
+            from shared.lib.utils.analysis_utils import load_recent_analysis_data_from_path
+            data_result = load_recent_analysis_data_from_path(av_controller.video_capture_path, timeframe_minutes=5, max_count=3)
+            
+            if data_result['success'] and data_result['analysis_data']:
+                print(f"🖼️ [ZapController] Found {len(data_result['analysis_data'])} motion analysis images")
+                
+                # Add the corresponding image files to screenshot collection
+                for i, file_item in enumerate(data_result['analysis_data'], 1):
+                    image_filename = file_item['filename']  # e.g., "capture_20240101120000.jpg"
+                    image_path = f"{capture_folder}/{image_filename}"
+                    
+                    if image_path not in context.screenshot_paths:
+                        context.screenshot_paths.append(image_path)
+                        print(f"🖼️ [ZapController] Added motion analysis image {i}/3 for R2 upload: {image_filename}")
+                    
+                    # Store image info for result (for thumbnails in reports)
+                    motion_images.append({
+                        'filename': image_filename,
+                        'path': image_path,
+                        'timestamp': file_item['timestamp'],
+                        'analysis_data': file_item.get('analysis_json', {})
+                    })
+            else:
+                print(f"⚠️ [ZapController] No motion analysis images found: {data_result.get('error', 'Unknown error')}")
+                
+        except Exception as e:
+            print(f"⚠️ [ZapController] Failed to add motion analysis images to screenshot collection: {e}")
+        
+        return motion_images
 
     
     def _record_step_result(self, context, iteration: int, max_iterations: int, action_command: str,

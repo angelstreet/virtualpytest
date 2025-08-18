@@ -419,26 +419,45 @@ def format_analysis_results(step: Dict) -> str:
         if motion_analysis.get('message'):
             analysis_html += f'<div class="analysis-detail">Details: {motion_analysis.get("message")}</div>'
 
-        # Add screenshot display for motion analysis (similar to subtitle analysis)
-        analyzed_screenshot = motion_analysis.get('analyzed_screenshot')
-        if analyzed_screenshot:
+        # Motion analysis thumbnails (3 analyzed images) - similar to zapping detection
+        motion_images = motion_analysis.get('motion_analysis_images', [])
+        if motion_images:
             import json
-            # Create single image modal data
+            
+            # Convert motion images to modal format
+            images = []
+            for motion_img in motion_images:
+                image_url = motion_img.get('path', '')  # Will be converted to R2 URL by report utils
+                # Extract analysis info for label
+                analysis_data = motion_img.get('analysis_data', {})
+                freeze_status = "Freeze" if analysis_data.get('freeze', False) else "No Freeze"
+                blackscreen_status = "Blackscreen" if analysis_data.get('blackscreen', False) else "Content"
+                audio_status = "Audio" if analysis_data.get('audio', True) else "No Audio"
+                
+                label = f"{motion_img.get('timestamp', 'Unknown')} ({freeze_status}, {blackscreen_status}, {audio_status})"
+                images.append({'url': image_url, 'label': label})
+            
             modal_data = {
-                'title': 'Motion Analysis Screenshot',
-                'images': [{'url': analyzed_screenshot, 'label': 'Analyzed for Motion'}]
+                'title': 'Motion Analysis - 3 Recent Captures',
+                'images': images
             }
             modal_data_json = json.dumps(modal_data).replace('"', '&quot;').replace("'", "&#x27;")
             
-            analysis_html += f"""
-            <div class='motion-screenshot' style='margin-top: 8px;'>
-                <div style='text-align: center;'>
-                    <div style='font-size: 11px; color: #666; margin-bottom: 2px;'>Analyzed Image</div>
-                    <img src='{analyzed_screenshot}' style='width: 60px; height: 40px; object-fit: contain; border: 1px solid #ddd; border-radius: 3px; cursor: pointer;' 
-                         onclick='openVerificationImageModal({modal_data_json})' title='Click to view motion analysis screenshot'>
-                </div>
-            </div>
-            """
+            thumbnails_html = "<div class='motion-analysis-thumbnails' style='margin-top: 8px; display: flex; gap: 8px;'>"
+            
+            for i, image in enumerate(images):
+                # Show first 3 images as thumbnails
+                if i < 3:
+                    thumbnails_html += f"""
+                    <div style='text-align: center;'>
+                        <div style='font-size: 11px; color: #666; margin-bottom: 2px;'>Image {i+1}</div>
+                        <img src='{image['url']}' style='width: 55px; height: 37px; object-fit: contain; border: 1px solid #ddd; border-radius: 3px; cursor: pointer;' 
+                             onclick='openVerificationImageModal({modal_data_json})' title='Click to view motion analysis images'>
+                    </div>
+                    """
+            
+            thumbnails_html += "</div>"
+            analysis_html += thumbnails_html
     
     # Subtitle Analysis Results
     if subtitle_analysis and subtitle_analysis.get('success') is not None:

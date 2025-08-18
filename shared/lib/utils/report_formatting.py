@@ -155,6 +155,19 @@ def update_step_results_with_r2_urls(step_results: List[Dict], url_mapping: Dict
                         if not original_path.startswith('http'):
                             r2_url = url_mapping.get(original_path, original_path)
                             analysis[img_field] = r2_url
+                
+                # Update motion analysis images array (for motion detection thumbnails)
+                if 'motion_analysis_images' in analysis and analysis['motion_analysis_images']:
+                    updated_motion_images = []
+                    for motion_img in analysis['motion_analysis_images']:
+                        updated_img = motion_img.copy()
+                        if 'path' in updated_img and updated_img['path']:
+                            original_path = updated_img['path']
+                            if not original_path.startswith('http'):
+                                r2_url = url_mapping.get(original_path, original_path)
+                                updated_img['path'] = r2_url
+                        updated_motion_images.append(updated_img)
+                    analysis['motion_analysis_images'] = updated_motion_images
         
         updated_results.append(updated_step)
     
