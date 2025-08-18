@@ -494,12 +494,28 @@ class ZapController:
                     elif screenshot_path:
                         result['analyzed_screenshot'] = screenshot_path
                     
-                    # Navigate back to live
-                    goto_node(context.host, context.selected_device, "live", context.tree_id, context.team_id, context)
+                    # Navigate back to live (best effort - don't fail if navigation fails)
+                    try:
+                        goto_node(context.host, context.selected_device, "live", context.tree_id, context.team_id, context)
+                    except Exception as nav_error:
+                        print(f"⚠️ [ZapController] Navigation back to live failed: {nav_error}")
+                        # Continue anyway - we have the analysis result
                     
                     return result
                 else:
-                    return {"success": False, "message": "Failed to navigate to combined audio menu"}
+                    # Even on navigation failure, try to capture screenshot for debugging
+                    screenshot_result = capture_and_upload_screenshot(context.host, context.selected_device, f"audio_menu_{iteration}_failed", "zap")
+                    result = {"success": False, "message": "Failed to navigate to combined audio menu"}
+                    
+                    # Include screenshot even on failure for debugging
+                    if screenshot_result['success']:
+                        context.add_screenshot(screenshot_result['screenshot_path'])
+                        if screenshot_result['screenshot_url']:
+                            result['analyzed_screenshot'] = screenshot_result['screenshot_url']
+                        elif screenshot_result['screenshot_path']:
+                            result['analyzed_screenshot'] = screenshot_result['screenshot_path']
+                    
+                    return result
             
             else:
                 # Desktop/TV devices: separate audio and subtitle menus
@@ -544,7 +560,19 @@ class ZapController:
                     else:
                         print(f"⚠️ [ZapController] No audio menu detected")
                 else:
-                    combined_result["audio_analysis"] = {"success": False, "message": "Failed to navigate to audio menu"}
+                    # Even on navigation failure, try to capture screenshot for debugging
+                    audio_screenshot_result = capture_and_upload_screenshot(context.host, context.selected_device, f"audio_menu_{iteration}_failed", "zap")
+                    audio_analysis_result = {"success": False, "message": "Failed to navigate to audio menu"}
+                    
+                    # Include screenshot even on failure for debugging
+                    if audio_screenshot_result['success']:
+                        context.add_screenshot(audio_screenshot_result['screenshot_path'])
+                        if audio_screenshot_result['screenshot_url']:
+                            audio_analysis_result['analyzed_screenshot'] = audio_screenshot_result['screenshot_url']
+                        elif audio_screenshot_result['screenshot_path']:
+                            audio_analysis_result['analyzed_screenshot'] = audio_screenshot_result['screenshot_path']
+                    
+                    combined_result["audio_analysis"] = audio_analysis_result
                     print(f"❌ [ZapController] Failed to navigate to audio menu")
                 
                 # 2. Analyze subtitle menu
@@ -579,8 +607,12 @@ class ZapController:
                     combined_result["subtitle_analysis"] = {"success": False, "message": "Failed to navigate to subtitle menu"}
                     print(f"❌ [ZapController] Failed to navigate to subtitle menu")
                 
-                # Navigate back to live
-                goto_node(context.host, context.selected_device, "live", context.tree_id, context.team_id, context)
+                # Navigate back to live (best effort - don't fail if navigation fails)
+                try:
+                    goto_node(context.host, context.selected_device, "live", context.tree_id, context.team_id, context)
+                except Exception as nav_error:
+                    print(f"⚠️ [ZapController] Navigation back to live failed: {nav_error}")
+                    # Continue anyway - we have the analysis results
                 
                 # Set combined message and analyzed_screenshot
                 if combined_result["audio_detected"] and combined_result["subtitles_detected"]:
@@ -706,6 +738,12 @@ class ZapController:
                     return {
                         "success": False,
                         "zapping_detected": False,
+                        # Include image paths even on failure so they show in reports
+                        "first_image": zapping_result.get('first_image'),
+                        "blackscreen_start_image": zapping_result.get('blackscreen_start_image'),
+                        "blackscreen_end_image": zapping_result.get('blackscreen_end_image'),
+                        "first_content_after_blackscreen": zapping_result.get('first_content_after_blackscreen'),
+                        "last_image": zapping_result.get('last_image'),
                         "analyzed_images": analyzed_images,
                         "total_images_available": zapping_result.get('total_images_available', 0),
                         "debug_images": zapping_result.get('debug_images', []),
@@ -722,6 +760,9 @@ class ZapController:
                 total_available = zapping_result.get('total_images_available', 0)
                 analyzed_count = zapping_result.get('analyzed_images', 0)
                 
+                # Still add images for debugging even on complete failure
+                self._add_zapping_images_to_screenshots(context, zapping_result, capture_folder)
+                
                 detailed_message = f"Zapping analysis failed: {error_msg}"
                 if total_available > 0:
                     detailed_message += f" (found {total_available} images, analyzed {analyzed_count})"
@@ -729,6 +770,12 @@ class ZapController:
                 return {
                     "success": False,
                     "zapping_detected": False,
+                    # Include image paths even on complete failure so they show in reports
+                    "first_image": zapping_result.get('first_image'),
+                    "blackscreen_start_image": zapping_result.get('blackscreen_start_image'),
+                    "blackscreen_end_image": zapping_result.get('blackscreen_end_image'),
+                    "first_content_after_blackscreen": zapping_result.get('first_content_after_blackscreen'),
+                    "last_image": zapping_result.get('last_image'),
                     "debug_images": debug_images,
                     "analyzed_images": analyzed_count,
                     "total_images_available": total_available,
