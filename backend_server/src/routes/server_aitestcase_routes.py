@@ -65,131 +65,24 @@ def analyze_test_case():
                 'error': 'No userinterfaces found for analysis'
             }), 404
         
-        # Initialize AI agent
-        ai_agent = AIAgentController()
+        # Initialize AI Test Case Analyzer (server-side, no device dependencies)
+        from backend_core.src.controllers.ai.ai_testcase_analyzer import AITestCaseAnalyzer
+        analyzer = AITestCaseAnalyzer()
+        print(f"[@route:server_aitestcase:analyze] Using AITestCaseAnalyzer for server-side analysis")
         
-        # Debug: Check what methods exist on ai_agent
-        methods = [method for method in dir(ai_agent) if not method.startswith('_')]
-        has_method = hasattr(ai_agent, 'analyze_compatibility')
-        print(f"[@DEBUG] AI agent methods: {methods}")
-        print(f"[@DEBUG] Has analyze_compatibility: {has_method}")
-        print(f"[@DEBUG] AI agent class: {ai_agent.__class__}")
-        print(f"[@DEBUG] AI agent file: {ai_agent.__class__.__module__}")
-        
-        # Analyze compatibility with each userinterface
-        compatibility_results = []
-        
-        for ui in userinterfaces:
-            try:
-                # Get navigation graph for this interface  
-                ui_id = ui.get('id') or ui.get('userinterface_id')
-                root_tree = get_root_tree_for_interface(ui_id, team_id) if ui_id else None
-                unified_graph = get_full_tree(root_tree.get('tree_id'), team_id) if root_tree else None
-                
-                # Prepare analysis context
-                analysis_context = {
-                    'prompt': prompt,
-                    'userinterface_name': ui['name'],
-                    'navigation_nodes': list(unified_graph.get('nodes', {}).keys()) if unified_graph else [],
-                    'available_actions': [
-                        {'command': 'click_element', 'params': {'element_id': 'string'}, 'description': 'Click on a UI element'},
-                        {'command': 'navigate', 'params': {'target_node': 'string'}, 'description': 'Navigate to a specific screen'},
-                        {'command': 'wait', 'params': {'duration': 'number'}, 'description': 'Wait for a specified duration'},
-                        {'command': 'press_key', 'params': {'key': 'string'}, 'description': 'Press a key (BACK, HOME, UP, DOWN, etc.)'}
-                    ],
-                    'available_verifications': [
-                        {'verification_type': 'verify_image', 'description': 'Verify image content'},
-                        {'verification_type': 'verify_audio', 'description': 'Verify audio quality'},
-                        {'verification_type': 'verify_video', 'description': 'Verify video playback'},
-                        {'verification_type': 'verify_text', 'description': 'Verify text content'}
-                    ]
-                }
-                
-                # Simple compatibility analysis - bypass AI agent import issues
-                prompt_lower = prompt.lower()
-                ui_name = ui['name']
-                
-                # Smart heuristics for compatibility
-                if 'home' in prompt_lower or 'navigate' in prompt_lower or 'go' in prompt_lower:
-                    # Navigation tasks - most interfaces support this
-                    feasible = True
-                    reasoning = f"Navigation task '{prompt}' is compatible with {ui_name}"
-                elif 'audio' in prompt_lower or 'video' in prompt_lower or 'media' in prompt_lower:
-                    # Media tasks - only some interfaces support this
-                    feasible = ui_name in ['horizon_android_mobile', 'horizon_android_tv']
-                    reasoning = f"Media task compatible with {ui_name}" if feasible else f"Media verification not available on {ui_name}"
-                elif 'click' in prompt_lower or 'tap' in prompt_lower or 'press' in prompt_lower:
-                    # Interaction tasks - all interfaces support this
-                    feasible = True
-                    reasoning = f"UI interaction task '{prompt}' is compatible with {ui_name}"
-                else:
-                    # General tasks - assume compatible
-                    feasible = True
-                    reasoning = f"General task '{prompt}' is compatible with {ui_name}"
-                
-                compatibility = {
-                    'success': True,
-                    'feasible': feasible,
-                    'reasoning': reasoning,
-                    'required_capabilities': ['navigate', 'click_element', 'wait'],
-                    'estimated_steps': 3,
-                    'generated_at': datetime.utcnow().isoformat()
-                }
-                
-                print(f"AI compatibility result type: {type(compatibility)}, content: {compatibility}")
-                is_compatible = compatibility.get('feasible', False) if isinstance(compatibility, dict) else False
-                reasoning = compatibility.get('reasoning', 'AI analysis completed') if isinstance(compatibility, dict) else str(compatibility)
-                
-                compatibility_results.append({
-                    'userinterface': ui['name'],
-                    'compatible': is_compatible,
-                    'reasoning': reasoning,
-                    'confidence': 0.8 if is_compatible else 0.2
-                })
-                
-            except Exception as e:
-                print(f"Error analyzing {ui['name']}: {e}")
-                import traceback
-                print(f"Full traceback: {traceback.format_exc()}")
-                compatibility_results.append({
-                    'userinterface': ui['name'],
-                    'compatible': False,
-                    'reasoning': f'Analysis failed: {str(e)}',
-                    'confidence': 0.0
-                })
-        
-        # Separate compatible and incompatible interfaces
-        compatible = [r for r in compatibility_results if r['compatible']]
-        incompatible = [r for r in compatibility_results if not r['compatible']]
-        
-        # Generate unique analysis ID
-        analysis_id = str(uuid.uuid4())
-        
-        # Build analysis result
-        analysis_result = {
-            'analysis_id': analysis_id,
-            'understanding': f"AI analysis: {prompt}",
-            'compatibility_matrix': {
-                'compatible_userinterfaces': [ui['userinterface'] for ui in compatible],
-                'incompatible': [ui['userinterface'] for ui in incompatible],
-                'reasons': {ui['userinterface']: ui['reasoning'] for ui in compatibility_results}
-            },
-            'requires_multiple_testcases': len(compatible) > 1,
-            'estimated_complexity': 'medium',
-            'total_analyzed': len(userinterfaces),
-            'compatible_count': len(compatible)
-        }
+        # Use AITestCaseAnalyzer for clean compatibility analysis
+        analysis_result = analyzer.analyze_compatibility(prompt, userinterfaces)
         
         # Cache analysis result
         save_analysis_cache(
-            analysis_id, 
+            analysis_result['analysis_id'], 
             prompt, 
             analysis_result, 
             analysis_result['compatibility_matrix'], 
             team_id
         )
         
-        print(f"[@route:server_aitestcase:analyze] Analysis complete. Compatible: {len(compatible)}/{len(userinterfaces)}")
+        print(f"[@route:server_aitestcase:analyze] Analysis complete. Compatible: {analysis_result['compatible_count']}/{analysis_result['total_analyzed']}")
         
         return jsonify(analysis_result)
         
@@ -249,8 +142,9 @@ def generate_test_cases():
         
         original_prompt = cached_analysis['prompt']
         
-        # Generate ONE test case with ALL confirmed interfaces
-        ai_agent = AIAgentController()
+        # Initialize AI Test Case Analyzer (server-side, no device dependencies)
+        from backend_core.src.controllers.ai.ai_testcase_analyzer import AITestCaseAnalyzer
+        analyzer = AITestCaseAnalyzer()
         generated_testcases = []
         
         # Generate ONE test case with ALL confirmed interfaces
@@ -258,66 +152,11 @@ def generate_test_cases():
             try:
                 print(f"[@route:server_aitestcase:generate] Generating single test case for interfaces: {confirmed_interfaces}")
                 
-                # Generate test case directly - bypass AI agent issues
-                prompt_lower = original_prompt.lower()
-                
-                # Smart test case generation based on prompt analysis - using AI Agent format
-                if 'home' in prompt_lower or 'go' in prompt_lower:
-                    # Navigation test case
-                    steps = [
-                        {
-                            'step': 1,
-                            'type': 'action',
-                            'command': 'execute_navigation',
-                            'params': {'target_node': 'home'},
-                            'description': 'Navigate to home screen'
-                        }
-                    ]
-                    verification_conditions = []
-                elif 'audio' in prompt_lower:
-                    # Audio verification test case
-                    steps = [
-                        {
-                            'step': 1,
-                            'type': 'action',
-                            'command': 'execute_navigation',
-                            'params': {'target_node': 'live'},
-                            'description': 'Navigate to live content'
-                        },
-                        {
-                            'step': 2,
-                            'type': 'verification',
-                            'verification_type': 'verify_audio',
-                            'command': 'check_audio_quality',
-                            'params': {'threshold': 0.8},
-                            'description': 'Verify audio quality'
-                        }
-                    ]
-                    verification_conditions = []
-                elif 'click' in prompt_lower or 'tap' in prompt_lower:
-                    # Interaction test case
-                    steps = [
-                        {
-                            'step': 1,
-                            'type': 'action',
-                            'command': 'click_element',
-                            'params': {'element_id': 'main_button'},
-                            'description': 'Click main element'
-                        }
-                    ]
-                    verification_conditions = []
-                else:
-                    # General test case
-                    steps = [
-                        {
-                            'step': 1,
-                            'type': 'action',
-                            'command': 'execute_navigation',
-                            'params': {'target_node': 'home'},
-                            'description': f'Execute: {original_prompt}'
-                        }
-                    ]
-                    verification_conditions = []
+                # Use AITestCaseAnalyzer to generate test steps
+                # Generate steps for the primary interface (first one)
+                primary_interface = confirmed_interfaces[0]
+                steps = analyzer.generate_test_steps(original_prompt, primary_interface)
+                verification_conditions = []
                 
                 # Create unified tags from all interfaces
                 all_tags = ['ai-generated'] + confirmed_interfaces

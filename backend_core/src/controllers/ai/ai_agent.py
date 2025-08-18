@@ -18,14 +18,11 @@ class AIAgentController(BaseController):
     # Class-level cache for navigation trees (singleton pattern)
     _navigation_trees_cache: Dict[str, Dict] = {}
     
-    def __init__(self, device_name: str = 'default_device', device_id: str = None, **kwargs):
-        super().__init__("ai", device_name)
+    def __init__(self, device_id: str, device_name: str = None, **kwargs):
+        # Clean API: device_id is mandatory, device_name is optional
+        super().__init__("ai", device_name or device_id)
         
-        # EARLY FAILURE: device_id is required for controller access
-        if device_id is None:
-            raise ValueError(f"AI Agent requires device_id for controller access. Provided device_name: {device_name}")
-        
-        # Store device_id for controller access (only use device_id, not device_name)
+        # Store device_id for controller access
         self.device_id = device_id
         
         self.is_executing = False
