@@ -1,7 +1,36 @@
 #!/bin/bash
 
 # VirtualPyTest Launch Script - Real-time Unified Logging
-echo "🚀 Starting VirtualPyTest System with Real-time Unified Logging..."
+# Usage: ./launch_all.sh [--discard]
+#   --discard: Include the AI Discard Service (uses many tokens)
+
+# Parse command line arguments
+INCLUDE_DISCARD=false
+for arg in "$@"; do
+    case $arg in
+        --discard)
+            INCLUDE_DISCARD=true
+            shift
+            ;;
+        -h|--help)
+            echo "Usage: $0 [--discard]"
+            echo "  --discard    Include the AI Discard Service (uses many tokens)"
+            echo "  -h, --help   Show this help message"
+            exit 0
+            ;;
+        *)
+            echo "❌ Unknown parameter: $arg"
+            echo "Use --help for usage information"
+            exit 1
+            ;;
+    esac
+done
+
+if [ "$INCLUDE_DISCARD" = true ]; then
+    echo "🚀 Starting VirtualPyTest System with Real-time Unified Logging (including AI Discard Service)..."
+else
+    echo "🚀 Starting VirtualPyTest System with Real-time Unified Logging (without AI Discard Service)..."
+fi
 
 set -e
 
@@ -31,7 +60,7 @@ if [ ! -d "frontend/node_modules" ]; then
     MISSING_COMPONENTS="$MISSING_COMPONENTS frontend-deps"
 fi
 
-if [ ! -d "backend_discard/src" ]; then
+if [ "$INCLUDE_DISCARD" = true ] && [ ! -d "backend_discard/src" ]; then
     MISSING_COMPONENTS="$MISSING_COMPONENTS backend_discard"
 fi
 
@@ -164,11 +193,13 @@ if lsof -ti:3000 > /dev/null 2>&1; then
 fi
 
 # Port for backend_discard (configurable via DISCARD_SERVER_PORT, default 6209)
-DISCARD_PORT=${DISCARD_SERVER_PORT:-6209}
-if lsof -ti:$DISCARD_PORT > /dev/null 2>&1; then
-    echo "🛑 Killing processes on port $DISCARD_PORT..."
-    lsof -ti:$DISCARD_PORT | xargs kill -9 2>/dev/null || true
-    sleep 1
+if [ "$INCLUDE_DISCARD" = true ]; then
+    DISCARD_PORT=${DISCARD_SERVER_PORT:-6209}
+    if lsof -ti:$DISCARD_PORT > /dev/null 2>&1; then
+        echo "🛑 Killing processes on port $DISCARD_PORT..."
+        lsof -ti:$DISCARD_PORT | xargs kill -9 2>/dev/null || true
+        sleep 1
+    fi
 fi
 
 echo "✅ All required ports are available"

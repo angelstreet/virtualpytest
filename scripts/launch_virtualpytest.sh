@@ -1,7 +1,36 @@
 #!/bin/bash
 
 # VirtualPyTest Launch Script - Delegates to setup/local/launch_all.sh
-echo "🚀 Starting VirtualPyTest System (including AI Discard Service)..."
+# Usage: ./launch_virtualpytest.sh [--discard]
+#   --discard: Include the AI Discard Service (uses many tokens)
+
+# Parse command line arguments
+INCLUDE_DISCARD=false
+for arg in "$@"; do
+    case $arg in
+        --discard)
+            INCLUDE_DISCARD=true
+            shift
+            ;;
+        -h|--help)
+            echo "Usage: $0 [--discard]"
+            echo "  --discard    Include the AI Discard Service (uses many tokens)"
+            echo "  -h, --help   Show this help message"
+            exit 0
+            ;;
+        *)
+            echo "❌ Unknown parameter: $arg"
+            echo "Use --help for usage information"
+            exit 1
+            ;;
+    esac
+done
+
+if [ "$INCLUDE_DISCARD" = true ]; then
+    echo "🚀 Starting VirtualPyTest System (including AI Discard Service)..."
+else
+    echo "🚀 Starting VirtualPyTest System (without AI Discard Service)..."
+fi
 
 # Get the script directory and navigate to project root
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -25,6 +54,10 @@ fi
 # Make sure the script is executable
 chmod +x "$LAUNCH_ALL_SCRIPT"
 
-# Delegate to launch_all.sh
+# Delegate to launch_all.sh with appropriate parameters
 echo "🔄 Delegating to setup/local/launch_all.sh..."
-exec "$LAUNCH_ALL_SCRIPT"
+if [ "$INCLUDE_DISCARD" = true ]; then
+    exec "$LAUNCH_ALL_SCRIPT" --discard
+else
+    exec "$LAUNCH_ALL_SCRIPT"
+fi
