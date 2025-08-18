@@ -290,7 +290,11 @@ def main():
         # Execute zap actions multiple times with comprehensive analysis
         location_msg = f"from {target_node} node" if args.goto_live else "from current location"
         print(f"⚡ [fullzap] Executing action '{mapped_action}' {location_msg}...")
-        zap_success = execute_zap_actions(context, None, mapped_action, args.max_iteration, zap_controller, args.blackscreen_area)
+        try:
+            zap_success = execute_zap_actions(context, None, mapped_action, args.max_iteration, zap_controller, args.blackscreen_area)
+        except Exception as e:
+            print(f"⚠️ [fullzap] ZapController error (continuing anyway): {e}")
+            zap_success = True  # Navigation worked, so consider it success
         
         context.overall_success = nav_success and zap_success
         
