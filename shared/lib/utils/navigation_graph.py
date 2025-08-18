@@ -157,7 +157,7 @@ def create_networkx_graph(nodes: List[Dict], edges: List[Dict]) -> nx.DiGraph:
             'action_sets': action_sets,
             'default_action_set_id': default_action_set_id,
             'edge_type': edge.get('edge_type', 'navigation'),
-            'finalWaitTime': edge.get('final_wait_time', 2000),
+            'final_wait_time': edge.get('final_wait_time', 2000),
             'weight': 1
         })
         
@@ -175,7 +175,7 @@ def create_networkx_graph(nodes: List[Dict], edges: List[Dict]) -> nx.DiGraph:
                     'action_sets': [reverse_set],  # Only include the reverse action set
                     'default_action_set_id': reverse_set.get('id'),
                     'edge_type': edge.get('edge_type', 'navigation'),
-                    'finalWaitTime': edge.get('final_wait_time', 2000),
+                    'final_wait_time': edge.get('final_wait_time', 2000),
                     'weight': 1,
                     'is_reverse_edge': True  # Mark as reverse for debugging
                 })
