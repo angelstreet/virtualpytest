@@ -206,7 +206,11 @@ echo "✅ All required ports are available"
 
 echo "📺 Starting all processes with real-time unified logging..."
 echo "💡 Press Ctrl+C to stop all processes"
-echo "💡 Logs will appear with colored prefixes: [SERVER], [HOST], [DISCARD], [FRONTEND]"
+if [ "$INCLUDE_DISCARD" = true ]; then
+    echo "💡 Logs will appear with colored prefixes: [SERVER], [HOST], [DISCARD], [FRONTEND]"
+else
+    echo "💡 Logs will appear with colored prefixes: [SERVER], [HOST], [FRONTEND]"
+fi
 echo "=================================================================================="
 
 # Start all processes with prefixed output and real-time logging
@@ -222,8 +226,10 @@ echo -e "${YELLOW}🟡 Starting Frontend...${NC}"
 run_with_prefix "FRONTEND" "$YELLOW" "$PROJECT_ROOT/frontend" npm run dev
 sleep 3
 
-echo -e "${RED}🔴 Starting backend_discard (AI analysis service)...${NC}"
-run_with_prefix "DISCARD" "$RED" "$PROJECT_ROOT/backend_discard" python src/app.py
+if [ "$INCLUDE_DISCARD" = true ]; then
+    echo -e "${RED}🔴 Starting backend_discard (AI analysis service)...${NC}"
+    run_with_prefix "DISCARD" "$RED" "$PROJECT_ROOT/backend_discard" python src/app.py
+fi
 
 echo "=================================================================================="
 echo -e "${NC}✅ All processes started! Watching for logs...${NC}"
@@ -232,7 +238,9 @@ echo -e "${NC}🌐 URLs:${NC}"
 echo -e "${NC}   Frontend: http://localhost:3000${NC}"
 echo -e "${NC}   backend_server: http://localhost:5109${NC}"
 echo -e "${NC}   backend_host: http://localhost:6109${NC}"
-echo -e "${NC}   backend_discard: AI analysis service (port ${DISCARD_PORT:-6209})${NC}"
+if [ "$INCLUDE_DISCARD" = true ]; then
+    echo -e "${NC}   backend_discard: AI analysis service (port ${DISCARD_PORT:-6209})${NC}"
+fi
 echo "=================================================================================="
 
 # Wait for all background jobs
