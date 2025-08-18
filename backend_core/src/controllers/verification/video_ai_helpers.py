@@ -132,9 +132,15 @@ JSON ONLY - NO OTHER TEXT"""
                     timeout=30
                 )
                 
+                print(f"VideoAI[{self.device_name}]: API call complete - status: {response.status_code}")
+                
                 if response.status_code == 200:
+                    print(f"VideoAI[{self.device_name}]: Full API response text (len {len(response.text)}): {repr(response.text)}")
+                    
                     result = response.json()
                     content = result['choices'][0]['message']['content']
+                    
+                    print(f"VideoAI[{self.device_name}]: Extracted content (len {len(content)}): {repr(content)}")
                     
                     # Parse JSON response with fallback logic
                     try:
@@ -155,7 +161,8 @@ JSON ONLY - NO OTHER TEXT"""
                         return extracted_text, detected_language, confidence
                         
                     except json.JSONDecodeError as e:
-                        print(f"VideoAI[{self.device_name}]: Failed to parse AI JSON response: {e}")
+                        print(f"VideoAI[{self.device_name}]: Parse error: {e}")
+                        print(f"VideoAI[{self.device_name}]: Raw content for parsing (len {len(content)}): {repr(content)}")
                         print(f"VideoAI[{self.device_name}]: Raw AI response: {content[:200]}...")
                         
                         # Fallback: try to extract information from natural language response
@@ -168,7 +175,7 @@ JSON ONLY - NO OTHER TEXT"""
                             print(f"VideoAI[{self.device_name}]: Fallback extraction failed")
                             return '', 'unknown', 0.0
                 else:
-                    print(f"VideoAI[{self.device_name}]: OpenRouter API error: {response.status_code} - {response.text}")
+                    print(f"VideoAI[{self.device_name}]: API error {response.status_code} - full response text: {repr(response.text)}")
                     return '', 'unknown', 0.0
                     
             finally:
