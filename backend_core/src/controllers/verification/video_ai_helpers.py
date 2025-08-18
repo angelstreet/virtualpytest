@@ -557,46 +557,125 @@ JSON ONLY - NO OTHER TEXT"""
                     timeout=30
                 )
                 
+                # Enhanced logging for debugging
+                print(f"VideoAI[{self.device_name}]: API Response Status: {response.status_code}")
+                print(f"VideoAI[{self.device_name}]: API Response Headers: {dict(response.headers)}")
+                
                 if response.status_code == 200:
-                    result = response.json()
-                    content = result['choices'][0]['message']['content'].strip()
-                    
-                    # Parse JSON response
                     try:
-                        ai_result = json.loads(content)
+                        result = response.json()
+                        print(f"VideoAI[{self.device_name}]: API Response JSON keys: {list(result.keys())}")
                         
-                        # Validate and normalize the result
-                        menu_detected = ai_result.get('menu_detected', False)
-                        audio_languages = ai_result.get('audio_languages', [])
-                        subtitle_languages = ai_result.get('subtitle_languages', [])
-                        selected_audio = ai_result.get('selected_audio', -1)
-                        selected_subtitle = ai_result.get('selected_subtitle', -1)
+                        if 'choices' not in result:
+                            print(f"VideoAI[{self.device_name}]: ERROR - No 'choices' in response: {result}")
+                            return {
+                                'success': False,
+                                'error': 'Invalid API response structure - no choices',
+                                'api_response': result
+                            }
                         
-                        # Return standardized result
-                        return {
-                            'success': True,
-                            'menu_detected': menu_detected,
-                            'audio_languages': audio_languages,
-                            'subtitle_languages': subtitle_languages,
-                            'selected_audio': selected_audio,
-                            'selected_subtitle': selected_subtitle,
-                            'image_path': os.path.basename(image_path),
-                            'analysis_type': 'ai_language_menu_analysis'
-                        }
+                        if not result['choices'] or len(result['choices']) == 0:
+                            print(f"VideoAI[{self.device_name}]: ERROR - Empty choices array: {result}")
+                            return {
+                                'success': False,
+                                'error': 'Empty choices in API response',
+                                'api_response': result
+                            }
                         
-                    except json.JSONDecodeError as e:
-                        print(f"VideoAI[{self.device_name}]: JSON parsing error: {e}")
-                        print(f"VideoAI[{self.device_name}]: Raw AI response: {content}")
+                        if 'message' not in result['choices'][0]:
+                            print(f"VideoAI[{self.device_name}]: ERROR - No 'message' in choice: {result['choices'][0]}")
+                            return {
+                                'success': False,
+                                'error': 'Invalid choice structure - no message',
+                                'api_response': result
+                            }
+                        
+                        content = result['choices'][0]['message']['content']
+                        if content is None:
+                            content = ""
+                        else:
+                            content = content.strip()
+                        
+                        print(f"VideoAI[{self.device_name}]: Raw content length: {len(content)}")
+                        print(f"VideoAI[{self.device_name}]: Raw content preview: {repr(content[:200])}")
+                        
+                        # Parse JSON response
+                        try:
+                            if not content:
+                                print(f"VideoAI[{self.device_name}]: ERROR - Empty content from API")
+                                return {
+                                    'success': False,
+                                    'error': 'Empty content from AI API',
+                                    'api_response': result,
+                                    'raw_content': content
+                                }
+                            
+                            ai_result = json.loads(content)
+                            print(f"VideoAI[{self.device_name}]: Successfully parsed AI JSON: {list(ai_result.keys())}")
+                            
+                            # Validate and normalize the result
+                            menu_detected = ai_result.get('menu_detected', False)
+                            audio_languages = ai_result.get('audio_languages', [])
+                            subtitle_languages = ai_result.get('subtitle_languages', [])
+                            selected_audio = ai_result.get('selected_audio', -1)
+                            selected_subtitle = ai_result.get('selected_subtitle', -1)
+                            
+                            # Return standardized result
+                            return {
+                                'success': True,
+                                'menu_detected': menu_detected,
+                                'audio_languages': audio_languages,
+                                'subtitle_languages': subtitle_languages,
+                                'selected_audio': selected_audio,
+                                'selected_subtitle': selected_subtitle,
+                                'image_path': os.path.basename(image_path),
+                                'analysis_type': 'ai_language_menu_analysis'
+                            }
+                            
+                        except json.JSONDecodeError as e:
+                            print(f"VideoAI[{self.device_name}]: JSON parsing error: {e}")
+                            print(f"VideoAI[{self.device_name}]: Raw AI response: {repr(content)}")
+                            return {
+                                'success': False,
+                                'error': 'Invalid AI response format',
+                                'raw_response': content,
+                                'api_response': result,
+                                'json_error': str(e)
+                            }
+                            
+                    except Exception as e:
+                        print(f"VideoAI[{self.device_name}]: Error parsing API response: {e}")
+                        print(f"VideoAI[{self.device_name}]: Raw response text: {response.text[:500]}")
                         return {
                             'success': False,
-                            'error': 'Invalid AI response format',
-                            'raw_response': content
+                            'error': f'Error parsing API response: {str(e)}',
+                            'raw_response_text': response.text
                         }
                 else:
+                    # Enhanced error logging for non-200 responses
+                    response_text = response.text[:1000] if response.text else "No response text"
                     print(f"VideoAI[{self.device_name}]: OpenRouter API error: {response.status_code}")
+                    print(f"VideoAI[{self.device_name}]: Error response body: {response_text}")
+                    print(f"VideoAI[{self.device_name}]: Error response headers: {dict(response.headers)}")
+                    
+                    # Check for specific error types
+                    error_type = "unknown"
+                    if response.status_code == 429:
+                        error_type = "rate_limit"
+                    elif response.status_code == 401:
+                        error_type = "authentication"
+                    elif response.status_code == 402:
+                        error_type = "payment_required"
+                    elif response.status_code == 503:
+                        error_type = "service_unavailable"
+                    
                     return {
                         'success': False,
-                        'error': f'AI service error: {response.status_code}'
+                        'error': f'AI API error: {response.status_code}',
+                        'error_type': error_type,
+                        'status_code': response.status_code,
+                        'response_text': response_text,
+                        'response_headers': dict(response.headers)
                     }
                     
             except Exception as e:
