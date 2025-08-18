@@ -271,8 +271,8 @@ def execute_script(script_name: str, device_id: str, parameters: str = "") -> Di
         # Import here to avoid circular dependencies
         from shared.lib.supabase.script_results_db import record_script_execution_start
         
-        # Get team_id from environment
-        team_id = os.getenv('TEAM_ID', '123e4567-e89b-12d3-a456-426614174000')
+        # Get team_id from environment (use same default as script framework)
+        team_id = os.getenv('TEAM_ID', '7fdeb4bb-3639-4ec3-959f-b54769a219ce')
         
         # Get host info using existing function
         host_info = get_host_info_for_report()
@@ -316,11 +316,118 @@ def execute_script(script_name: str, device_id: str, parameters: str = "") -> Di
         os.environ['AI_SCRIPT_NAME'] = script_name
         
         try:
-            # Continue with normal subprocess execution (same parameters format)
-            result = execute_script(actual_script, device_id, parameters)
-            # Restore the script_name in the result to maintain transparency
-            result['script_name'] = script_name
-            return result
+            # DIRECT EXECUTION: Execute the actual script directly without recursive call
+            # This prevents double execution and ensures proper context setup
+            actual_script_path = get_script_path(actual_script)
+            
+            hostname = os.getenv('HOST_NAME', 'localhost')
+            
+            # Build command with parameters for direct execution
+            base_command = f"bash -c 'source /home/{hostname}/myvenv/bin/activate && python {actual_script_path}"
+            
+            if parameters and parameters.strip():
+                command = f"{base_command} {parameters.strip()}'"
+            else:
+                command = f"{base_command}'"
+            
+            print(f"[@script_execution_utils:execute_script] DIRECT EXECUTION: {command}")
+            
+            # Execute directly using the same subprocess logic as normal scripts
+            # (Copy the subprocess execution logic from below to avoid recursion)
+            process = subprocess.Popen(
+                command,
+                shell=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1,
+                universal_newlines=True
+            )
+            
+            # Use the same streaming logic as normal scripts
+            stdout_lines = []
+            report_url = ""
+            logs_url = ""
+            timeout_seconds = 3600
+            start_time_for_timeout = time.time()
+            
+            while True:
+                ready = select.select([process.stdout], [], [], 1.0)[0]
+                poll_result = process.poll()
+                
+                if ready:
+                    output = process.stdout.readline()
+                    if output:
+                        line = output.rstrip()
+                        
+                        # Extract report URL from cloudflare upload logs  
+                        if '[@cloudflare_utils:upload_script_report] INFO: Uploaded script report:' in line:
+                            try:
+                                report_path = line.split('Uploaded script report: ')[1]
+                                base_url = os.environ.get('CLOUDFLARE_R2_PUBLIC_URL', 'https://pub-604f1a4ce32747778c6d5ac5e3100217.r2.dev')
+                                report_url = f"{base_url.rstrip('/')}/{report_path}"
+                                print(f"📊 [Script] Report URL captured: {report_url}")
+                            except Exception as e:
+                                print(f"⚠️ [Script] Failed to extract report URL: {e}")
+                        
+                        # Extract logs URL from upload logs
+                        if '[@utils:report_utils:generate_and_upload_script_report] Logs uploaded:' in line:
+                            try:
+                                logs_url = line.split('Logs uploaded: ')[1].strip()
+                                print(f"📝 [Script] Logs URL captured: {logs_url}")
+                            except Exception as e:
+                                print(f"⚠️ [Script] Failed to extract logs URL: {e}")
+                        
+                        # Stream output with original script name
+                        print(f"[{script_name}] {line}")
+                        stdout_lines.append(output)
+                    elif poll_result is not None:
+                        break
+                elif poll_result is not None:
+                    break
+                
+                # Check for timeout
+                current_time = time.time()
+                elapsed_time = current_time - start_time_for_timeout
+                if elapsed_time > timeout_seconds:
+                    print(f"❌ [Script] Script execution timed out after {timeout_seconds} seconds")
+                    if poll_result is None:
+                        process.kill()
+                        process.wait()
+                    stdout_lines.append(f"\n[TIMEOUT] Script execution timed out after {timeout_seconds} seconds\n")
+                    break
+            
+            # Wait for process completion
+            exit_code = process.wait()
+            stdout = ''.join(stdout_lines)
+            
+            print(f"[@script_execution_utils:execute_script] Process completed with exit code: {exit_code}")
+            
+            # Extract SCRIPT_SUCCESS marker from stdout
+            script_success = None
+            if stdout and 'SCRIPT_SUCCESS:' in stdout:
+                import re
+                success_match = re.search(r'SCRIPT_SUCCESS:(true|false)', stdout)
+                if success_match:
+                    script_success = success_match.group(1) == 'true'
+                    print(f"[@script_execution_utils:execute_script] SCRIPT_SUCCESS extracted: {script_success}")
+            
+            # Return result with original script name for transparency
+            return {
+                'stdout': stdout,
+                'stderr': '',
+                'exit_code': exit_code,
+                'script_name': script_name,  # Use original AI test case name
+                'device_id': device_id,
+                'script_path': actual_script_path,
+                'parameters': parameters,
+                'execution_time_ms': int((time.time() - start_time) * 1000),
+                'report_url': report_url,
+                'logs_url': logs_url,
+                'script_success': script_success,
+                'script_result_id': script_result_id
+            }
+            
         finally:
             # Restore original environment
             os.environ.clear()
