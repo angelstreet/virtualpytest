@@ -236,21 +236,14 @@ def main():
             executor.cleanup_and_exit(context, args.userinterface_name)
             return
         
-        # Determine target node and action based on device model - same logic as goto_live.py
+        # Determine target node based on device model - same logic as goto_live.py
         if "mobile" in context.selected_device.device_model.lower():
             target_node = "live_fullscreen"
-            # Map actions to fullscreen variants for mobile
-            action_map = {
-                'live_chup': 'live_fullscreen_chup',
-                'live_chdown': 'live_fullscreen_chdown', 
-                'live_audiomenu': 'live_fullscreen_audiomenu'
-            }
-            mapped_action = action_map.get(args.action, args.action)
-            if mapped_action != args.action:
-                print(f"📱 [fullzap] Mobile device detected - mapping action '{args.action}' → '{mapped_action}'")
+            print(f"📱 [fullzap] Mobile device detected - using live_fullscreen as base node")
         else:
             target_node = "live"
-            mapped_action = args.action
+        
+        mapped_action = args.action
         
         print(f"🎯 [fullzap] Device model: {context.selected_device.device_model}")
         print(f"🎯 [fullzap] Target node: {target_node}")
