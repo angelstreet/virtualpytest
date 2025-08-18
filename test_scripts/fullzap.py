@@ -255,16 +255,7 @@ def main():
         print(f"🎯 [fullzap] Device model: {context.selected_device.device_model}")
         print(f"🎯 [fullzap] Target node: {target_node}")
         
-        # Validate mapped action availability before navigation (fail fast)
-        print(f"🔍 [fullzap] Validating action '{mapped_action}' availability before navigation...")
-        action_edge, error_msg = validate_action_availability(
-            context.nodes, context.edges, mapped_action, context.tree_id, context.team_id
-        )
-        if not action_edge:
-            context.error_message = error_msg
-            print(f"❌ [fullzap] {context.error_message}")
-            executor.cleanup_and_exit(context, args.userinterface_name)
-            return
+
         
         # Conditionally navigate to target node based on parameter
         nav_success = True
@@ -298,8 +289,8 @@ def main():
         
         # Execute zap actions multiple times with comprehensive analysis
         location_msg = f"from {target_node} node" if args.goto_live else "from current location"
-        print(f"⚡ [fullzap] Executing pre-validated action '{mapped_action}' {location_msg}...")
-        zap_success = execute_zap_actions(context, action_edge, mapped_action, args.max_iteration, zap_controller, args.blackscreen_area)
+        print(f"⚡ [fullzap] Executing action '{mapped_action}' {location_msg}...")
+        zap_success = execute_zap_actions(context, None, mapped_action, args.max_iteration, zap_controller, args.blackscreen_area)
         
         context.overall_success = nav_success and zap_success
         
