@@ -418,6 +418,27 @@ def format_analysis_results(step: Dict) -> str:
             analysis_html += f'<div class="analysis-detail">Files analyzed: {motion_analysis.get("total_analyzed", 0)}</div>'
         if motion_analysis.get('message'):
             analysis_html += f'<div class="analysis-detail">Details: {motion_analysis.get("message")}</div>'
+
+        # Add screenshot display for motion analysis (similar to subtitle analysis)
+        analyzed_screenshot = motion_analysis.get('analyzed_screenshot')
+        if analyzed_screenshot:
+            import json
+            # Create single image modal data
+            modal_data = {
+                'title': 'Motion Analysis Screenshot',
+                'images': [{'url': analyzed_screenshot, 'label': 'Analyzed for Motion'}]
+            }
+            modal_data_json = json.dumps(modal_data).replace('"', '&quot;').replace("'", "&#x27;")
+            
+            analysis_html += f"""
+            <div class='motion-screenshot' style='margin-top: 8px;'>
+                <div style='text-align: center;'>
+                    <div style='font-size: 11px; color: #666; margin-bottom: 2px;'>Analyzed Image</div>
+                    <img src='{analyzed_screenshot}' style='width: 60px; height: 40px; object-fit: contain; border: 1px solid #ddd; border-radius: 3px; cursor: pointer;' 
+                         onclick='openVerificationImageModal({modal_data_json})' title='Click to view motion analysis screenshot'>
+                </div>
+            </div>
+            """
     
     # Subtitle Analysis Results
     if subtitle_analysis and subtitle_analysis.get('success') is not None:

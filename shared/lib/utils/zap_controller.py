@@ -198,6 +198,8 @@ class ZapController:
             print(f"🔍 [ZapController] Analyzing zap results for {action_command} (iteration {iteration})...")
             
             # 1. Motion detection first
+            # Set current iteration for screenshot naming
+            context.current_iteration = iteration
             motion_result = self._detect_motion(context)
             result.motion_detected = motion_result.get('success', False)
             result.motion_details = motion_result
@@ -357,11 +359,23 @@ class ZapController:
             if not video_controller:
                 return {"success": False, "message": f"No video verification controller found for device {device_id}"}
             
+            # Capture screenshot for motion analysis reporting
+            iteration = getattr(context, 'current_iteration', 1)
+            screenshot_result = capture_and_upload_screenshot(context.host, context.selected_device, f"motion_analysis_{iteration}", "zap")
+            
             # Call the same method that HTTP routes call
             result = video_controller.detect_motion_from_json(
                 json_count=3, 
                 strict_mode=False
             )
+            
+            # Add screenshot information to the result for reporting
+            if screenshot_result['success']:
+                context.add_screenshot(screenshot_result['screenshot_path'])
+                if screenshot_result['screenshot_url']:
+                    result['analyzed_screenshot'] = screenshot_result['screenshot_url']
+                elif screenshot_result['screenshot_path']:
+                    result['analyzed_screenshot'] = screenshot_result['screenshot_path']
             
             success = result.get('success', False)
             if success:
