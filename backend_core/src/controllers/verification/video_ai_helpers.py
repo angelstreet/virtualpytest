@@ -137,8 +137,14 @@ JSON ONLY - NO OTHER TEXT"""
                 if response.status_code == 200:
                     print(f"VideoAI[{self.device_name}]: Full API response text (len {len(response.text)}): {repr(response.text)}")
                     
-                    result = response.json()
-                    content = result['choices'][0]['message']['content']
+                    # Clean response text to handle leading/trailing whitespace from OpenRouter
+                    clean_response_text = response.text.strip()
+                    if not clean_response_text:
+                        print(f"VideoAI[{self.device_name}]: Empty response after cleaning")
+                        return '', 'unknown', 0.0
+                    
+                    result = json.loads(clean_response_text)
+                    content = result['choices'][0]['message']['content'].strip()
                     
                     print(f"VideoAI[{self.device_name}]: Extracted content (len {len(content)}): {repr(content)}")
                     
@@ -224,7 +230,7 @@ JSON ONLY - NO OTHER TEXT"""
                     
                     # Enhanced subtitle detection with adaptive region processing (same as OCR method)
                     # Expanded to capture 3-line subtitles - start from 60% to bottom (40% of screen height)
-                    subtitle_height_start = int(height * 0.66)
+                    subtitle_height_start = int(height * 0.62)
                     subtitle_width_start = int(width * 0.2)  # Skip left 20%
                     subtitle_width_end = int(width * 0.8)    # Skip right 20%
                     
