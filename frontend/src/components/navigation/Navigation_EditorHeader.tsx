@@ -246,7 +246,7 @@ export const NavigationEditorHeader: React.FC<{
                   size="small"
                   sx={{ minWidth: 'auto', whiteSpace: 'nowrap' }}
                 >
-                  AI Generate
+                  AI
                 </Button>
               )}
             </Box>
