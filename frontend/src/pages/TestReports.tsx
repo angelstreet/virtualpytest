@@ -128,6 +128,11 @@ const TestReports: React.FC = () => {
     return new Date(dateString).toLocaleString();
   }
 
+  // Convert report URL to logs URL helper
+  function getLogsUrl(reportUrl: string): string {
+    return reportUrl.replace('script-reports', 'script-logs').replace('report.html', 'execution.txt');
+  }
+
   // Determine execution status helper
   function getExecutionStatus(result: ScriptResult): 'running' | 'passed' | 'failed' {
     // If success is true, it's definitely passed
@@ -489,13 +494,13 @@ const TestReports: React.FC = () => {
                         )}
                       </TableCell>
                       <TableCell sx={{ py: 0.5 }}>
-                        {result.logs_r2_url ? (
+                        {result.html_report_r2_url ? (
                           <Chip
                             icon={<LinkIcon />}
                             label="Logs"
                             size="small"
                             clickable
-                            onClick={() => window.open(result.logs_r2_url!, '_blank')}
+                            onClick={() => window.open(getLogsUrl(result.html_report_r2_url!), '_blank')}
                             color="secondary"
                             variant="outlined"
                           />
