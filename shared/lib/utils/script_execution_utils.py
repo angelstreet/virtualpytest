@@ -49,8 +49,8 @@ def setup_script_environment(script_name: str = "script") -> Dict[str, Any]:
     print(f"[@script_execution_utils:setup_script_environment] Loading environment variables...")
     
     try:
-        # Load only project root .env (host-specific variables are already loaded by the host service)
-        load_environment_variables(mode='host', calling_script_dir=None)
+        # Use the shared load_environment_variables which handles project root .env + service-specific .env
+        load_environment_variables(mode='host', calling_script_dir=script_dir)
         print(f"[@script_execution_utils:setup_script_environment] Environment variables loaded successfully")
     except Exception as e:
         print(f"[@script_execution_utils:setup_script_environment] ERROR: Failed to load environment variables: {e}")
