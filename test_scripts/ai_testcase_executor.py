@@ -111,7 +111,7 @@ def main():
         }
         
         # Initialize AI agent and execute using stored steps
-        ai_agent = AIAgentController(device_name=context.selected_device.get('device_name', 'device'))
+        ai_agent = AIAgentController(device_name=context.selected_device.device_name)
         
         ai_result = ai_agent._execute(
             plan=fake_plan,

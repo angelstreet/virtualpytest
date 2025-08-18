@@ -99,7 +99,11 @@ def main():
         
         # Capture summary for report
         summary_text = capture_navigation_summary(context, args.userinterface_name, target_node, len(navigation_path))
-        context.execution_summary = summary_text
+        
+        # Store custom summary in custom_data for display in final summary
+        if not hasattr(context, 'custom_data'):
+            context.custom_data = {}
+        context.custom_data['execution_summary'] = summary_text
         
         if success:
             print(f"🎉 [{script_name}] Successfully navigated to {target_node}!")
