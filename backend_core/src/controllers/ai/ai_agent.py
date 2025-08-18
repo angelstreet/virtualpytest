@@ -18,14 +18,21 @@ class AIAgentController(BaseController):
     # Class-level cache for navigation trees (singleton pattern)
     _navigation_trees_cache: Dict[str, Dict] = {}
     
-    def __init__(self, device_name: str = 'default_device', **kwargs):
+    def __init__(self, device_name: str = 'default_device', device_id: str = None, **kwargs):
         super().__init__("ai", device_name)
+        
+        # EARLY FAILURE: device_id is required for controller access
+        if device_id is None:
+            raise ValueError(f"AI Agent requires device_id for controller access. Provided device_name: {device_name}")
+        
+        # Store device_id for controller access (only use device_id, not device_name)
+        self.device_id = device_id
         
         self.is_executing = False
         self.current_step = ""
         self.execution_log = []
         
-        print(f"AI[{self.device_name}]: Initialized")
+        print(f"AI[{self.device_name}]: Initialized with device_id: {self.device_id}")
     
     def _get_navigation_tree(self, userinterface_name: str) -> Dict[str, Any]:
         """
@@ -96,8 +103,8 @@ class AIAgentController(BaseController):
             host = setup_result['host']
             team_id = setup_result['team_id']
             
-            # Select device (same as validation.py)
-            device_result = select_device(host, self.device_name, "ai_agent")
+            # Select device (same as validation.py) - use device_id, not device_name
+            device_result = select_device(host, self.device_id, "ai_agent")
             if not device_result['success']:
                 return {'success': False, 'error': f"Device selection failed: {device_result['error']}"}
             
@@ -741,9 +748,9 @@ JSON ONLY - NO OTHER TEXT"""
             # Get remote controller for this device
             from shared.lib.utils.host_utils import get_controller
             
-            remote_controller = get_controller(self.device_name, 'remote')
+            remote_controller = get_controller(self.device_id, 'remote')
             if not remote_controller:
-                print(f"AI[{self.device_name}]: No remote controller available for action execution")
+                print(f"AI[{self.device_name}]: No remote controller available for action execution (device_id: {self.device_id})")
                 return {
                     'success': False,
                     'error': 'No remote controller available for action execution',
@@ -884,7 +891,7 @@ JSON ONLY - NO OTHER TEXT"""
                 
                 try:
                     # Get the verification controller for this device (same as script_utils.py)
-                    verification_controller = get_controller(self.device_name, f'verification_{verification_type}')
+                    verification_controller = get_controller(self.device_id, f'verification_{verification_type}')
                     if not verification_controller:
                         failed_verifications.append(step_num)
                         verification_results.append({

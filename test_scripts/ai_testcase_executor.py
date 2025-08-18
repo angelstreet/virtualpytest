@@ -115,7 +115,20 @@ def main():
         }
         
         # Initialize AI agent and execute using stored steps
-        ai_agent = AIAgentController(device_name=context.selected_device.device_name)
+        # EARLY VALIDATION: Ensure we have a valid device_id
+        if not context.selected_device or not context.selected_device.device_id:
+            context.error_message = "No valid device_id available for AI agent initialization"
+            print(f"[@ai_testcase_executor] ERROR: {context.error_message}")
+            executor.cleanup_and_exit(context, args.userinterface_name)
+            return
+        
+        try:
+            ai_agent = AIAgentController(device_id=context.selected_device.device_id)
+        except ValueError as e:
+            context.error_message = f"AI agent initialization failed: {str(e)}"
+            print(f"[@ai_testcase_executor] ERROR: {context.error_message}")
+            executor.cleanup_and_exit(context, args.userinterface_name)
+            return
         
         ai_result = ai_agent._execute(
             plan=fake_plan,
