@@ -16,11 +16,15 @@ import {
   Checkbox,
   FormControlLabel,
   Chip,
-  Stack
+  Stack,
+  IconButton,
+  Collapse
 } from '@mui/material';
 import { 
   AutoAwesome as AIIcon,
-  Analytics as AnalyticsIcon
+  Analytics as AnalyticsIcon,
+  ExpandMore as ExpandMoreIcon,
+  ExpandLess as ExpandLessIcon
 } from '@mui/icons-material';
 
 import { useAITestCase } from '../../hooks/aiagent/useAITestCase';
@@ -214,51 +218,127 @@ export const AITestCaseGenerator: React.FC<AITestCaseGeneratorProps> = ({
               borderColor: 'primary.light',
               boxShadow: 1
             }}>
-              {analysis.step_preview.map((step, index) => (
-                <Box key={index} sx={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: 2, 
-                  py: 1,
-                  borderBottom: index < analysis.step_preview.length - 1 ? '1px solid' : 'none',
-                  borderColor: 'divider'
-                }}>
-                  <Chip 
-                    label={step.step} 
-                    size="small" 
-                    color="primary" 
-                    sx={{ minWidth: 32 }}
-                  />
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1 }}>
-                    {step.type === 'action' ? (
-                      <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
-                        🧭 {step.description}
-                      </Typography>
-                    ) : (
-                      <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
-                        🔍 {step.description}
-                      </Typography>
-                    )}
+              {analysis.step_preview.map((step, index) => {
+                const [expanded, setExpanded] = React.useState(false);
+                
+                return (
+                  <Box key={index} sx={{ 
+                    borderBottom: index < analysis.step_preview.length - 1 ? '1px solid' : 'none',
+                    borderColor: 'divider'
+                  }}>
+                    {/* Main Step Row - Clickable */}
+                    <Box 
+                      sx={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: 2, 
+                        py: 1,
+                        cursor: 'pointer',
+                        '&:hover': { bgcolor: 'action.hover' },
+                        borderRadius: 1
+                      }}
+                      onClick={() => setExpanded(!expanded)}
+                    >
+                      <Chip 
+                        label={step.step} 
+                        size="small" 
+                        color="primary" 
+                        sx={{ minWidth: 32 }}
+                      />
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1 }}>
+                        {step.type === 'action' ? (
+                          <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+                            🧭 {step.description}
+                          </Typography>
+                        ) : (
+                          <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+                            🔍 {step.description}
+                          </Typography>
+                        )}
+                      </Box>
+                      <Chip 
+                        label={step.type} 
+                        size="small" 
+                        variant="outlined"
+                        color={step.type === 'action' ? 'primary' : 'secondary'}
+                      />
+                      <IconButton size="small">
+                        {expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                      </IconButton>
+                    </Box>
+                    
+                    {/* Expanded Details - Show exact commands */}
+                    <Collapse in={expanded}>
+                      <Box sx={{ 
+                        ml: 6, 
+                        mr: 2, 
+                        mb: 1, 
+                        p: 2, 
+                        bgcolor: 'grey.50', 
+                        borderRadius: 1,
+                        border: '1px solid',
+                        borderColor: 'grey.200'
+                      }}>
+                        {step.type === 'action' ? (
+                          <Box>
+                            <Typography variant="caption" color="text.secondary" fontWeight="bold">
+                              Action Command:
+                            </Typography>
+                            <Box sx={{ 
+                              fontFamily: 'monospace', 
+                              fontSize: '0.85rem', 
+                              bgcolor: 'background.paper', 
+                              p: 1, 
+                              borderRadius: 0.5,
+                              border: '1px solid',
+                              borderColor: 'divider',
+                              mt: 0.5
+                            }}>
+                              {step.command}({Object.entries(step.params || {}).map(([key, value]) => 
+                                `${key}='${value}'`
+                              ).join(', ')})
+                            </Box>
+                          </Box>
+                        ) : (
+                          <Box>
+                            <Typography variant="caption" color="text.secondary" fontWeight="bold">
+                              Verification Command:
+                            </Typography>
+                            <Box sx={{ 
+                              fontFamily: 'monospace', 
+                              fontSize: '0.85rem', 
+                              bgcolor: 'background.paper', 
+                              p: 1, 
+                              borderRadius: 0.5,
+                              border: '1px solid',
+                              borderColor: 'divider',
+                              mt: 0.5
+                            }}>
+                              {step.verification_type && (
+                                <Box sx={{ color: 'secondary.main', fontWeight: 'bold' }}>
+                                  {step.verification_type}
+                                </Box>
+                              )}
+                              {step.command}({Object.entries(step.params || {}).map(([key, value]) => 
+                                `${key}='${value}'`
+                              ).join(', ')})
+                            </Box>
+                          </Box>
+                        )}
+                      </Box>
+                    </Collapse>
                   </Box>
-                  <Chip 
-                    label={step.type} 
-                    size="small" 
-                    variant="outlined"
-                    color={step.type === 'action' ? 'primary' : 'secondary'}
-                  />
-                </Box>
-              ))}
+                );
+              })}
             </Box>
           </Box>
         )}
 
-        {/* Compatible Interfaces - COMPACT ONE LINE */}
+        {/* Compatible Interfaces - MINIMAL */}
         {hasCompatible && (
           <Alert severity="success" sx={{ mb: 2 }}>
             <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
-              💡 This test will work on: <span style={{ fontWeight: 'normal' }}>
-                {compatibility_matrix.compatible_userinterfaces.join(', ')}
-              </span>
+              💡 Compatible with {compatibility_matrix.compatible_userinterfaces.length} interface{compatibility_matrix.compatible_userinterfaces.length !== 1 ? 's' : ''}
             </Typography>
           </Alert>
         )}
