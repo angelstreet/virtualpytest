@@ -453,6 +453,11 @@ const RunTests: React.FC = () => {
           value = getUserinterfaceName(deviceModel);
         }
         
+        // Skip host and device parameters from script analysis - they'll be added separately
+        if (param.name === 'host' || param.name === 'device') {
+          return;
+        }
+        
         if (value) {
           if (param.type === 'positional') {
             paramStrings.push(value);

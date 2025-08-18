@@ -49,8 +49,8 @@ def setup_script_environment(script_name: str = "script") -> Dict[str, Any]:
     print(f"[@script_execution_utils:setup_script_environment] Loading environment variables...")
     
     try:
-        # Use the shared load_environment_variables which handles project root .env + service-specific .env
-        load_environment_variables(mode='host', calling_script_dir=script_dir)
+        # Load only project root .env (host-specific variables are already loaded by the host service)
+        load_environment_variables(mode='host', calling_script_dir=None)
         print(f"[@script_execution_utils:setup_script_environment] Environment variables loaded successfully")
     except Exception as e:
         print(f"[@script_execution_utils:setup_script_environment] ERROR: Failed to load environment variables: {e}")
@@ -263,13 +263,12 @@ def execute_script(script_name: str, device_id: str, parameters: str = "") -> Di
     try:
         # Import here to avoid circular dependencies
         from shared.lib.supabase.script_results_db import record_script_execution_start
-        from shared.lib.utils.host_utils import get_host_info
         
         # Get team_id from environment
         team_id = os.getenv('TEAM_ID', '123e4567-e89b-12d3-a456-426614174000')
         
-        # Get host info
-        host_info = get_host_info()
+        # Get host info using existing function
+        host_info = get_host_info_for_report()
         host_name = host_info.get('host_name', os.getenv('HOST_NAME', 'localhost'))
         
         # Record script execution start in database
