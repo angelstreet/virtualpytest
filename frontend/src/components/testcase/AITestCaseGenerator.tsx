@@ -185,84 +185,110 @@ export const AITestCaseGenerator: React.FC<AITestCaseGeneratorProps> = ({
     return (
       <Box>
         {/* Compact Header */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2, p: 2, bgcolor: 'background.paper', borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3, p: 2, bgcolor: 'background.paper', borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
           <AnalyticsIcon sx={{ fontSize: 24, color: 'success.main' }} />
           <Box sx={{ flex: 1 }}>
             <Typography variant="h6" sx={{ mb: 0.5 }}>
-              🔍 Compatibility Analysis
+              🔍 Analysis Results
             </Typography>
             <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', flexWrap: 'wrap' }}>
               <Chip size="small" label={`${analysis.compatible_count} Compatible`} color="success" />
-              <Chip size="small" label={`${analysis.total_analyzed} Total`} variant="outlined" />
-              <Chip size="small" label={analysis.estimated_complexity.toUpperCase()} 
+              <Chip size="small" label={`Complexity: ${analysis.estimated_complexity.toUpperCase()}`} 
                 color={analysis.estimated_complexity === 'low' ? 'success' : 
                        analysis.estimated_complexity === 'medium' ? 'warning' : 'error'} />
             </Box>
           </Box>
         </Box>
 
-        {/* AI Understanding & Context - Compact */}
-        <Alert severity="info" sx={{ mb: 2 }}>
-          <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 0.5 }}>
-            🎯 Original Prompt: <span style={{ fontWeight: 'normal' }}>{prompt}</span>
-          </Typography>
-          <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 0.5 }}>
-            🤖 AI Understanding: <span style={{ fontWeight: 'normal' }}>{analysis.understanding}</span>
-          </Typography>
-          <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
-            📋 AI Analysis: <span style={{ fontWeight: 'normal' }}>Task analyzed for compatibility across all user interfaces</span>
-          </Typography>
-        </Alert>
-
-        {/* Compatible Interfaces - Compact Grid */}
-        {hasCompatible && (
-          <Box sx={{ mb: 2 }}>
-            <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'bold' }}>
-              ✅ Compatible Interfaces ({compatibility_matrix.compatible_userinterfaces.length})
+        {/* Step Preview - MAIN FOCUS */}
+        {analysis.step_preview && analysis.step_preview.length > 0 && (
+          <Box sx={{ mb: 3 }}>
+            <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold', color: 'primary.main' }}>
+              📋 Generated Test Steps Preview
             </Typography>
-            <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 1 }}>
-              {compatibility_matrix.compatible_userinterfaces.map((interfaceName) => (
-                <Card key={interfaceName} sx={{ p: 1.5, border: '1px solid', borderColor: 'success.light' }}>
-                  <FormControlLabel
-                    control={
-                      <Checkbox
-                        size="small"
-                        checked={selectedInterfaces.includes(interfaceName)}
-                        onChange={() => handleInterfaceToggle(interfaceName)}
-                      />
-                    }
-                    label={
-                      <Box>
-                        <Typography variant="body2" fontWeight="bold">
-                          {interfaceName}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          Devices: {getDevicesForInterface(interfaceName).join(', ')}
-                        </Typography>
-                        <Typography variant="caption" color="success.main" display="block">
-                          ✅ {compatibility_matrix.reasons[interfaceName]}
-                        </Typography>
-                      </Box>
-                    }
+            <Box sx={{ 
+              p: 2, 
+              bgcolor: 'background.paper', 
+              borderRadius: 1, 
+              border: '2px solid', 
+              borderColor: 'primary.light',
+              boxShadow: 1
+            }}>
+              {analysis.step_preview.map((step, index) => (
+                <Box key={index} sx={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: 2, 
+                  py: 1,
+                  borderBottom: index < analysis.step_preview.length - 1 ? '1px solid' : 'none',
+                  borderColor: 'divider'
+                }}>
+                  <Chip 
+                    label={step.step} 
+                    size="small" 
+                    color="primary" 
+                    sx={{ minWidth: 32 }}
                   />
-                </Card>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1 }}>
+                    {step.type === 'action' ? (
+                      <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+                        🧭 {step.description}
+                      </Typography>
+                    ) : (
+                      <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+                        🔍 {step.description}
+                      </Typography>
+                    )}
+                  </Box>
+                  <Chip 
+                    label={step.type} 
+                    size="small" 
+                    variant="outlined"
+                    color={step.type === 'action' ? 'primary' : 'secondary'}
+                  />
+                </Box>
               ))}
             </Box>
           </Box>
         )}
 
-        {/* Incompatible Interfaces - Compact */}
-        {hasIncompatible && (
-          <Alert severity="warning" sx={{ mb: 2 }}>
-            <Typography variant="subtitle2" gutterBottom>
-              ⚠️ Incompatible: {compatibility_matrix.incompatible.join(', ')}
+        {/* Compatible Interfaces - COMPACT ONE LINE */}
+        {hasCompatible && (
+          <Alert severity="success" sx={{ mb: 2 }}>
+            <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+              💡 This test will work on: <span style={{ fontWeight: 'normal' }}>
+                {compatibility_matrix.compatible_userinterfaces.join(', ')}
+              </span>
             </Typography>
-            {compatibility_matrix.incompatible.map((interfaceName) => (
-              <Typography key={interfaceName} variant="caption" display="block">
-                • {interfaceName}: {compatibility_matrix.reasons[interfaceName]}
-              </Typography>
-            ))}
           </Alert>
+        )}
+
+        {/* Interface Selection - Simple Checkboxes */}
+        {hasCompatible && (
+          <Box sx={{ mb: 2 }}>
+            <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'bold' }}>
+              🎯 Select Interfaces for Generation
+            </Typography>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+              {compatibility_matrix.compatible_userinterfaces.map((interfaceName) => (
+                <FormControlLabel
+                  key={interfaceName}
+                  control={
+                    <Checkbox
+                      size="small"
+                      checked={selectedInterfaces.includes(interfaceName)}
+                      onChange={() => handleInterfaceToggle(interfaceName)}
+                    />
+                  }
+                  label={
+                    <Typography variant="body2" fontWeight="bold">
+                      {interfaceName}
+                    </Typography>
+                  }
+                />
+              ))}
+            </Box>
+          </Box>
         )}
 
         {/* Compact Action Buttons */}

@@ -98,6 +98,12 @@ class AITestCaseAnalyzer:
         requires_multiple = len(compatible) > 1
         complexity = self._estimate_complexity(prompt, compatible)
         
+        # Generate step preview for the first compatible interface (if any)
+        step_preview = []
+        if compatible:
+            primary_interface = compatible[0]['userinterface']
+            step_preview = self.generate_test_steps(prompt, primary_interface)
+        
         result = {
             'analysis_id': analysis_id,
             'understanding': understanding,
@@ -106,7 +112,8 @@ class AITestCaseAnalyzer:
             'estimated_complexity': complexity,
             'total_analyzed': len(userinterfaces),
             'compatible_count': len(compatible),
-            'incompatible_count': len(incompatible)
+            'incompatible_count': len(incompatible),
+            'step_preview': step_preview  # NEW: Show what steps will be generated
         }
         
         print(f"[@AITestCaseAnalyzer:analyze] Analysis complete: {len(compatible)}/{len(userinterfaces)} compatible")
@@ -316,20 +323,39 @@ class AITestCaseAnalyzer:
         prompt_lower = prompt.lower()
         actions = []
         
+        # Navigation actions - be more specific
         if any(word in prompt_lower for word in ['go to', 'navigate to', 'open']):
-            # Extract navigation target
-            if 'live' in prompt_lower:
-                actions.append('navigate_to_live')
-            elif 'menu' in prompt_lower:
-                actions.append('navigate_to_menu')
-            elif 'settings' in prompt_lower:
+            if 'settings' in prompt_lower:
                 actions.append('navigate_to_settings')
-            else:
+            if 'live' in prompt_lower or 'tv' in prompt_lower:
+                actions.append('navigate_to_live')
+            if 'menu' in prompt_lower:
+                actions.append('navigate_to_menu')
+            if 'recording' in prompt_lower:
+                actions.append('navigate_to_recordings')
+            if not any(target in prompt_lower for target in ['settings', 'live', 'tv', 'menu', 'recording']):
                 actions.append('navigate_generic')
         
+        # Configuration/change actions
+        if any(word in prompt_lower for word in ['change', 'set', 'configure']):
+            if 'language' in prompt_lower:
+                actions.append('change_language')
+            else:
+                actions.append('change_setting')
+        
+        # Interaction actions
         if any(word in prompt_lower for word in ['click', 'press', 'select']):
             actions.append('click_element')
         
+        # Playback actions
+        if any(word in prompt_lower for word in ['play', 'start']):
+            actions.append('start_playback')
+        
+        # Zapping/channel actions
+        if any(word in prompt_lower for word in ['zap', 'channel']):
+            actions.append('zap_channels')
+        
+        # Wait actions
         if any(word in prompt_lower for word in ['wait', 'pause']):
             actions.append('wait')
         
@@ -361,7 +387,13 @@ class AITestCaseAnalyzer:
         steps = []
         
         for action in required_actions:
-            if action == 'navigate_to_live':
+            if action == 'navigate_to_settings':
+                steps.append({
+                    'command': 'execute_navigation',
+                    'params': {'target_node': 'settings'},
+                    'description': 'Navigate to settings'
+                })
+            elif action == 'navigate_to_live':
                 steps.append({
                     'command': 'execute_navigation',
                     'params': {'target_node': 'live'},
@@ -373,17 +405,41 @@ class AITestCaseAnalyzer:
                     'params': {'target_node': 'main_menu'},
                     'description': 'Navigate to main menu'
                 })
-            elif action == 'navigate_to_settings':
+            elif action == 'navigate_to_recordings':
                 steps.append({
                     'command': 'execute_navigation',
-                    'params': {'target_node': 'settings'},
-                    'description': 'Navigate to settings'
+                    'params': {'target_node': 'recordings'},
+                    'description': 'Navigate to recordings'
                 })
             elif action == 'navigate_generic':
                 steps.append({
                     'command': 'execute_navigation',
                     'params': {'target_node': 'home'},
                     'description': 'Navigate to specified location'
+                })
+            elif action == 'change_language':
+                steps.append({
+                    'command': 'click_element',
+                    'params': {'element_id': 'language_setting'},
+                    'description': 'Change language to English'
+                })
+            elif action == 'change_setting':
+                steps.append({
+                    'command': 'click_element',
+                    'params': {'element_id': 'setting_option'},
+                    'description': 'Change configuration setting'
+                })
+            elif action == 'start_playback':
+                steps.append({
+                    'command': 'click_element',
+                    'params': {'element_id': 'play_button'},
+                    'description': 'Start video playback'
+                })
+            elif action == 'zap_channels':
+                steps.append({
+                    'command': 'press_key',
+                    'params': {'key': 'CHANNEL_UP'},
+                    'description': 'Zap to next channel'
                 })
             elif action == 'click_element':
                 steps.append({

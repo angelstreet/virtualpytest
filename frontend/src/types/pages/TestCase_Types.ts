@@ -104,6 +104,7 @@ export interface AIAnalysisResponse {
   estimated_complexity: 'low' | 'medium' | 'high';
   total_analyzed: number;
   compatible_count: number;
+  step_preview: TestStep[];  // NEW: Preview of generated test steps
 }
 
 export interface AIGenerationRequest {
