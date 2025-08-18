@@ -24,6 +24,11 @@ import {
 } from '@mui/material';
 import React, { useState, useEffect } from 'react';
 
+// Convert report URL to logs URL helper
+const getLogsUrl = (reportUrl: string): string => {
+  return reportUrl.replace('script-reports', 'script-logs').replace('report.html', 'execution.txt');
+};
+
 import { HLSVideoPlayer } from '../components/common/HLSVideoPlayer';
 import { useStream } from '../hooks/controller/useStream';
 import { useScript } from '../hooks/script/useScript';
@@ -600,7 +605,7 @@ const RunTests: React.FC = () => {
             status: executionStatus,
             testResult: testResult,
             reportUrl: result.report_url,
-            logsUrl: result.logs_url,
+            logsUrl: result.report_url ? getLogsUrl(result.report_url) : undefined,
             // Preserve deviceModel when updating
             deviceModel: exec.deviceModel,
           } : exec
