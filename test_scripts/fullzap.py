@@ -36,6 +36,9 @@ from shared.lib.utils.navigation_utils import (
 )
 
 
+
+
+
 def create_zap_controller(context: ScriptExecutionContext) -> ZapController:
     """Create a ZapController with direct Python video analysis capabilities"""
     print("🔧 [fullzap] Creating ZapController with direct Python video analysis...")
@@ -233,10 +236,29 @@ def main():
             executor.cleanup_and_exit(context, args.userinterface_name)
             return
         
-        # Validate action availability before navigation (fail fast)
-        print(f"🔍 [fullzap] Validating action '{args.action}' availability before navigation...")
+        # Determine target node and action based on device model - same logic as goto_live.py
+        if "mobile" in context.selected_device.device_model.lower():
+            target_node = "live_fullscreen"
+            # Map actions to fullscreen variants for mobile
+            action_map = {
+                'live_chup': 'live_fullscreen_chup',
+                'live_chdown': 'live_fullscreen_chdown', 
+                'live_audiomenu': 'live_fullscreen_audiomenu'
+            }
+            mapped_action = action_map.get(args.action, args.action)
+            if mapped_action != args.action:
+                print(f"📱 [fullzap] Mobile device detected - mapping action '{args.action}' → '{mapped_action}'")
+        else:
+            target_node = "live"
+            mapped_action = args.action
+        
+        print(f"🎯 [fullzap] Device model: {context.selected_device.device_model}")
+        print(f"🎯 [fullzap] Target node: {target_node}")
+        
+        # Validate mapped action availability before navigation (fail fast)
+        print(f"🔍 [fullzap] Validating action '{mapped_action}' availability before navigation...")
         action_edge, error_msg = validate_action_availability(
-            context.nodes, context.edges, args.action, context.tree_id, context.team_id
+            context.nodes, context.edges, mapped_action, context.tree_id, context.team_id
         )
         if not action_edge:
             context.error_message = error_msg
@@ -244,42 +266,45 @@ def main():
             executor.cleanup_and_exit(context, args.userinterface_name)
             return
         
-        # Conditionally navigate to live node based on parameter
+        # Conditionally navigate to target node based on parameter
         nav_success = True
         if args.goto_live:
-            print("🗺️ [fullzap] Navigating to live node...")
-            live_result = goto_node(context.host, context.selected_device, "live", context.tree_id, context.team_id, context)
+            print(f"🗺️ [fullzap] Navigating to {target_node} node...")
+            live_result = goto_node(context.host, context.selected_device, target_node, context.tree_id, context.team_id, context)
             
             if not live_result.get('success'):
-                context.error_message = f"Failed to navigate to live: {live_result.get('error', 'Unknown error')}"
+                context.error_message = f"Failed to navigate to {target_node}: {live_result.get('error', 'Unknown error')}"
                 print(f"❌ [fullzap] {context.error_message}")
                 executor.cleanup_and_exit(context, args.userinterface_name)
                 return
             
-            print("🎉 [fullzap] Successfully navigated to live!")
+            print(f"🎉 [fullzap] Successfully navigated to {target_node}!")
         else:
-            print("⏭️ [fullzap] Skipping navigation to live node (--goto_live false specified)")
+            print(f"⏭️ [fullzap] Skipping navigation to {target_node} node (--goto_live false specified)")
             
-            # IMPORTANT: Manually set current node to live since we're assuming we're already there
+            # IMPORTANT: Manually set current node to target since we're assuming we're already there
             # This prevents navigation from going back to home during script execution
             from shared.lib.utils.navigation_utils import find_node_by_label
-            live_node = find_node_by_label(context.nodes, "live")
-            if live_node:
-                live_node_id = live_node.get('node_id')
-                context.current_node_id = live_node_id
-                print(f"🎯 [fullzap] Manually set current position to live node: {live_node_id}")
+            target_node_obj = find_node_by_label(context.nodes, target_node)
+            if target_node_obj:
+                target_node_id = target_node_obj.get('node_id')
+                context.current_node_id = target_node_id
+                print(f"🎯 [fullzap] Manually set current position to {target_node} node: {target_node_id}")
             else:
-                print("⚠️ [fullzap] Warning: Could not find live node in navigation tree - navigation context may be incorrect")
+                print(f"⚠️ [fullzap] Warning: Could not find {target_node} node in navigation tree - navigation context may be incorrect")
+        
+        # Store mapped action in context for summary display
+        context.custom_data['action_command'] = mapped_action
         
         # Execute zap actions multiple times with comprehensive analysis
-        location_msg = "from live node" if args.goto_live else "from current location"
-        print(f"⚡ [fullzap] Executing pre-validated action '{args.action}' {location_msg}...")
-        zap_success = execute_zap_actions(context, action_edge, args.action, args.max_iteration, zap_controller, args.blackscreen_area)
+        location_msg = f"from {target_node} node" if args.goto_live else "from current location"
+        print(f"⚡ [fullzap] Executing pre-validated action '{mapped_action}' {location_msg}...")
+        zap_success = execute_zap_actions(context, action_edge, mapped_action, args.max_iteration, zap_controller, args.blackscreen_area)
         
         context.overall_success = nav_success and zap_success
         
         if context.overall_success:
-            print(f"✅ [fullzap] All {args.max_iteration} iterations of action '{args.action}' completed successfully!")
+            print(f"✅ [fullzap] All {args.max_iteration} iterations of action '{mapped_action}' completed successfully!")
         else:
             if not zap_success:
                 context.error_message = f"Some zap actions failed"

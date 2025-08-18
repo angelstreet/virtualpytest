@@ -901,6 +901,19 @@ class AndroidMobileRemoteController(RemoteControllerInterface):
             duration = params.get('duration', 300)
             result = self.swipe_right(int(from_x), int(from_y), int(to_x), int(to_y), int(duration))
         
+        # Handle uppercase swipe commands from frontend
+        elif command == 'SWIPE_UP':
+            result = self.swipe_up()
+        
+        elif command == 'SWIPE_DOWN':
+            result = self.swipe_down()
+        
+        elif command == 'SWIPE_LEFT':
+            result = self.swipe_left()
+        
+        elif command == 'SWIPE_RIGHT':
+            result = self.swipe_right()
+        
         elif command == 'click_element_by_id':
             # Android Mobile specific - always dumps UI for edge actions to ensure current state
             element_id = params.get('element_id')

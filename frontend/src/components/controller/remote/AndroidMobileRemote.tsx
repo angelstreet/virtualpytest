@@ -513,34 +513,43 @@ export const AndroidMobileRemote = React.memo(
                 </Button>
               </Box>
 
-              {/* Phone specific buttons */}
+              {/* Scroll buttons */}
               <Box sx={{ display: 'flex', gap: 0.5 }}>
                 <Button
                   variant="outlined"
                   size="small"
-                  onClick={() => handleRemoteCommand('CAMERA')}
+                  onClick={() => handleRemoteCommand('SWIPE_UP')}
                   disabled={!session.connected}
-                  sx={{ flex: 1 }}
+                  sx={{ flex: 1, fontSize: '0.7rem', padding: '4px 6px' }}
                 >
-                  Camera
+                  Scr↑
                 </Button>
                 <Button
                   variant="outlined"
                   size="small"
-                  onClick={() => handleRemoteCommand('CALL')}
+                  onClick={() => handleRemoteCommand('SWIPE_DOWN')}
                   disabled={!session.connected}
-                  sx={{ flex: 1 }}
+                  sx={{ flex: 1, fontSize: '0.7rem', padding: '4px 6px' }}
                 >
-                  Call
+                  Scr↓
                 </Button>
                 <Button
                   variant="outlined"
                   size="small"
-                  onClick={() => handleRemoteCommand('ENDCALL')}
+                  onClick={() => handleRemoteCommand('SWIPE_LEFT')}
                   disabled={!session.connected}
-                  sx={{ flex: 1 }}
+                  sx={{ flex: 1, fontSize: '0.7rem', padding: '4px 6px' }}
                 >
-                  End
+                  Scr←
+                </Button>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={() => handleRemoteCommand('SWIPE_RIGHT')}
+                  disabled={!session.connected}
+                  sx={{ flex: 1, fontSize: '0.7rem', padding: '4px 6px' }}
+                >
+                  Scr→
                 </Button>
               </Box>
             </Box>
