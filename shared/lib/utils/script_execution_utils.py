@@ -350,8 +350,6 @@ def execute_script(script_name: str, device_id: str, parameters: str = "") -> Di
         
         # Stream output in real-time with timeout
         stdout_lines = []
-        report_url = ""
-        logs_url = ""
         timeout_seconds = 3600  # 1 hour timeout
         start_time_for_timeout = time.time()
         
@@ -366,21 +364,7 @@ def execute_script(script_name: str, device_id: str, parameters: str = "") -> Di
                 if output:
                     line = output.rstrip()
                     
-                    # Extract report URL from script framework format
-                    if 'SCRIPT_REPORT_URL:' in line:
-                        try:
-                            report_url = line.split('SCRIPT_REPORT_URL:')[1].strip()
-                            print(f"📊 [Script] Report URL captured: {report_url}")
-                        except Exception as e:
-                            print(f"⚠️ [Script] Failed to extract report URL: {e}")
-                    
-                    # Extract logs URL from script framework format
-                    if 'SCRIPT_LOGS_URL:' in line:
-                        try:
-                            logs_url = line.split('SCRIPT_LOGS_URL:')[1].strip()
-                            print(f"📝 [Script] Logs URL captured: {logs_url}")
-                        except Exception as e:
-                            print(f"⚠️ [Script] Failed to extract logs URL: {e}")
+
                     
                     # Stream all output with prefix
                     print(f"[{script_name}] {line}")
@@ -419,12 +403,24 @@ def execute_script(script_name: str, device_id: str, parameters: str = "") -> Di
         exit_code = process.wait()
         stdout = ''.join(stdout_lines)
         
+        # Read URLs from environment variables (set by script framework)
+        report_url = os.environ.get('SCRIPT_REPORT_URL', '')
+        logs_url = os.environ.get('SCRIPT_LOGS_URL', '')
+        
+        # Clean up environment variables
+        if 'SCRIPT_REPORT_URL' in os.environ:
+            del os.environ['SCRIPT_REPORT_URL']
+        if 'SCRIPT_LOGS_URL' in os.environ:
+            del os.environ['SCRIPT_LOGS_URL']
+        
         print(f"[@script_execution_utils:execute_script] === SCRIPT OUTPUT END ===")
         print(f"[@script_execution_utils:execute_script] Process completed with exit code: {exit_code}")
         print(f"[@script_execution_utils:execute_script] DEBUG: Total stdout lines captured: {len(stdout_lines)}")
         print(f"[@script_execution_utils:execute_script] DEBUG: Final stdout length: {len(stdout)}")
+        print(f"[@script_execution_utils:execute_script] DEBUG: Report URL from env: {report_url}")
+        print(f"[@script_execution_utils:execute_script] DEBUG: Logs URL from env: {logs_url}")
         
-        # Simple logic: exit code 0 = success, report URL captured from upload logs
+        # Simple logic: exit code 0 = success, report URL from environment variables
         
         total_execution_time = int((time.time() - start_time) * 1000)
         

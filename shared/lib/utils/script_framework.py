@@ -599,6 +599,8 @@ class ScriptExecutor:
             if report_result and report_result.get('success'):
                 if report_result.get('report_url'):
                     print(f"SCRIPT_REPORT_URL:{report_result['report_url']}")
+                    # Write to env var for script_execution_utils to read
+                    os.environ['SCRIPT_REPORT_URL'] = report_result['report_url']
                     print(f"[@script_framework:cleanup_and_exit] DEBUG: SCRIPT_REPORT_URL printed")
                     # Store report URL for final summary in custom_data (consistent with validation.py)
                     if not hasattr(context, 'custom_data'):
@@ -607,6 +609,8 @@ class ScriptExecutor:
                 
                 if report_result.get('logs_url'):
                     print(f"SCRIPT_LOGS_URL:{report_result['logs_url']}")
+                    # Write to env var for script_execution_utils to read
+                    os.environ['SCRIPT_LOGS_URL'] = report_result['logs_url']
                     print(f"[@script_framework:cleanup_and_exit] DEBUG: SCRIPT_LOGS_URL printed")
             
             # Update database if tracking is enabled
