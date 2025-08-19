@@ -563,16 +563,6 @@ def goto_node(host, device, target_node_label: str, tree_id: str, team_id: str, 
                 step_screenshot = capture_validation_screenshot(host, device, f"goto_step_{step_num}", "goto")
                 context.add_screenshot(step_screenshot)
                 
-                # Auto-trigger audio menu analysis if we reached an audio menu node
-                to_node_label = step.get('to_node_label', '')
-                if 'audiomenu' in to_node_label.lower():
-                    print(f"🎧 [@navigation_utils:goto_node] Auto-triggering audio menu analysis for node: {to_node_label}")
-                    try:
-                        from .audio_menu_analyzer import add_audio_menu_analysis_to_step
-                        add_audio_menu_analysis_to_step(context)
-                    except Exception as audio_error:
-                        print(f"⚠️ [@navigation_utils:goto_node] Audio menu analysis failed: {audio_error}")
-                
                 step_result = {
                     'success': result.get('success', False),
                     'screenshot_path': step_screenshot,

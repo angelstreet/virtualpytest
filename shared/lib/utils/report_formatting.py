@@ -137,7 +137,7 @@ def update_step_results_with_r2_urls(step_results: List[Dict], url_mapping: Dict
                     updated_step[field] = r2_url
         
         # Update analysis results with R2 URLs (for zap controller analysis)
-        for analysis_field in ['subtitle_analysis', 'audio_menu_analysis', 'motion_analysis', 'zapping_analysis']:
+        for analysis_field in ['subtitle_analysis', 'audio_analysis', 'audio_menu_analysis', 'motion_analysis', 'zapping_analysis']:
             if analysis_field in updated_step and updated_step[analysis_field]:
                 analysis = updated_step[analysis_field]
                 # Update analyzed_screenshot field if it exists

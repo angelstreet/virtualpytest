@@ -400,10 +400,11 @@ def format_analysis_results(step: Dict) -> str:
     """Format analysis results section for a step."""
     motion_analysis = step.get('motion_analysis', {})
     subtitle_analysis = step.get('subtitle_analysis', {})
+    audio_analysis = step.get('audio_analysis', {})
     audio_menu_analysis = step.get('audio_menu_analysis', {})
     zapping_analysis = step.get('zapping_analysis', {})
     
-    if not (motion_analysis or subtitle_analysis or audio_menu_analysis or zapping_analysis):
+    if not (motion_analysis or subtitle_analysis or audio_analysis or audio_menu_analysis or zapping_analysis):
         return ""
     
     analysis_html = "<div><strong>Analysis Results:</strong></div>"
@@ -494,6 +495,37 @@ def format_analysis_results(step: Dict) -> str:
                 </div>
             </div>
             """
+    
+    # Audio Speech Analysis Results
+    if audio_analysis and audio_analysis.get('success') is not None:
+        speech_detected = audio_analysis.get('speech_detected', False)
+        speech_status = "✅ DETECTED" if speech_detected else "❌ NOT DETECTED"
+        analysis_html += f'<div class="analysis-item audio"><strong>Audio Speech Detection:</strong> {speech_status}</div>'
+        
+        if speech_detected:
+            if audio_analysis.get('detected_language'):
+                analysis_html += f'<div class="analysis-detail">Language: {audio_analysis.get("detected_language")}</div>'
+            if audio_analysis.get('combined_transcript'):
+                transcript_preview = audio_analysis.get('combined_transcript')[:100] + ('...' if len(audio_analysis.get('combined_transcript', '')) > 100 else '')
+                analysis_html += f'<div class="analysis-detail">Transcript: {transcript_preview}</div>'
+            if audio_analysis.get('confidence'):
+                analysis_html += f'<div class="analysis-detail">Confidence: {audio_analysis.get("confidence"):.2f}</div>'
+            if audio_analysis.get('segments_analyzed'):
+                successful_segments = audio_analysis.get('successful_segments', 0)
+                total_segments = audio_analysis.get('segments_analyzed', 0)
+                analysis_html += f'<div class="analysis-detail">Segments: {successful_segments}/{total_segments} with speech</div>'
+            
+            # Show R2 audio URLs if available for traceability
+            audio_urls = audio_analysis.get('audio_urls', [])
+            if audio_urls:
+                analysis_html += '<div class="analysis-detail">Audio files:'
+                for i, url in enumerate(audio_urls, 1):
+                    if url:
+                        analysis_html += f' <a href="{url}" target="_blank" style="font-size: 10px; margin-left: 4px;">Segment {i}</a>'
+                analysis_html += '</div>'
+                
+        elif audio_analysis.get('message'):
+            analysis_html += f'<div class="analysis-detail">Details: {audio_analysis.get("message")}</div>'
     
     # Audio Menu Analysis Results
     if audio_menu_analysis and audio_menu_analysis.get('success') is not None:
