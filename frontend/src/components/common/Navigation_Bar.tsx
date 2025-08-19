@@ -38,6 +38,7 @@ const NavigationBar: React.FC = () => {
 
   const testExecutionItems = [
     { label: 'Run Tests', path: '/test-execution/run-tests', icon: <RunIcon fontSize="small" /> },
+    { label: 'Run Campaigns', path: '/test-execution/run-campaigns', icon: <CampaignIcon fontSize="small" /> },
   ];
 
   const monitoringItems = [

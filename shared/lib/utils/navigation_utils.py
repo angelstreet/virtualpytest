@@ -564,7 +564,6 @@ def goto_node(host, device, target_node_label: str, tree_id: str, team_id: str, 
                 context.add_screenshot(step_screenshot)
                 
                 step_result = {
-                    'step_number': len(context.step_results) + 1,
                     'success': result.get('success', False),
                     'screenshot_path': step_screenshot,
                     'message': f"Navigation step {step_num}: {from_node} → {to_node}",
@@ -576,9 +575,16 @@ def goto_node(host, device, target_node_label: str, tree_id: str, team_id: str, 
                     'actions': step.get('actions', []),
                     'verifications': step.get('verifications', []),
                     'verification_results': result.get('verification_results', []),
-                    'error': result.get('error')  # Store actual error message from action execution
+                    'error': result.get('error'),  # Store actual error message from action execution
+                    'step_category': 'navigation'
                 }
-                context.step_results.append(step_result)
+                
+                # Use hierarchical context if available, otherwise fall back to legacy
+                if hasattr(context, 'record_step_in_context'):
+                    context.record_step_in_context(step_result)
+                else:
+                    step_result['step_number'] = len(context.step_results) + 1
+                    context.step_results.append(step_result)
             
             if not result.get('success', False):
                 error_msg = result.get('error', 'Unknown error')

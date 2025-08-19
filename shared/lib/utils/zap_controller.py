@@ -252,40 +252,49 @@ class ZapController:
         return result
     
     def execute_zap_iterations(self, context, action_edge, action_command: str, max_iterations: int, blackscreen_area: str = None, goto_live: bool = True) -> bool:
-        """Execute multiple zap iterations with analysis"""
+        """Execute multiple zap iterations with analysis using hierarchical contexts"""
         print(f"🔄 [ZapController] Starting {max_iterations} iterations of '{action_command}'...")
         
-        self.statistics = ZapStatistics()
-        self.statistics.total_iterations = max_iterations
-        self.blackscreen_area = blackscreen_area  # Store for later use
-        self.goto_live = goto_live  # Store for audio menu analysis logic
+        # Create zap execution context
+        zap_context = context.push_context("Zap Execution")
         
-        # Pre-action screenshot using unified approach
-        from .report_utils import capture_and_upload_screenshot
-        screenshot_result = capture_and_upload_screenshot(context.host, context.selected_device, "pre_action", "zap")
-        if screenshot_result['success']:
-            context.add_screenshot(screenshot_result['screenshot_path'])
+        try:
+            self.statistics = ZapStatistics()
+            self.statistics.total_iterations = max_iterations
+            self.blackscreen_area = blackscreen_area  # Store for later use
+            self.goto_live = goto_live  # Store for audio menu analysis logic
+            
+            # Pre-action screenshot using unified approach
+            from .report_utils import capture_and_upload_screenshot
+            screenshot_result = capture_and_upload_screenshot(context.host, context.selected_device, "pre_action", "zap")
+            if screenshot_result['success']:
+                context.add_screenshot(screenshot_result['screenshot_path'])
+            
+            for iteration in range(1, max_iterations + 1):
+                # Create context for each iteration
+                iteration_context = context.push_context(f"Iteration {iteration}")
+                try:
+                    success = self._execute_single_zap(context, action_edge, action_command, iteration, max_iterations)
+                    if success:
+                        self.statistics.successful_iterations += 1
+                finally:
+                    context.pop_context()
+            
+            # Post-action screenshot using unified approach
+            screenshot_result = capture_and_upload_screenshot(context.host, context.selected_device, "post_action", "zap")
+            if screenshot_result['success']:
+                context.add_screenshot(screenshot_result['screenshot_path'])
+            
+            # Print statistics
+            self.statistics.print_summary(action_command)
+            
+            # Store in context for reporting
+            self._store_statistics_in_context(context, action_command)
+            
+            return self.statistics.successful_iterations == max_iterations
         
-        for iteration in range(1, max_iterations + 1):
-            success = self._execute_single_zap(context, action_edge, action_command, iteration, max_iterations)
-            if success:
-                self.statistics.successful_iterations += 1
-        
-        # Post-action screenshot using unified approach
-        screenshot_result = capture_and_upload_screenshot(context.host, context.selected_device, "post_action", "zap")
-        if screenshot_result['success']:
-            context.add_screenshot(screenshot_result['screenshot_path'])
-        
-        # Print statistics
-        self.statistics.print_summary(action_command)
-        
-        # Store in context for reporting
-        self._store_statistics_in_context(context, action_command)
-        
-        # Post-process step_results to reorganize
-        self._reorganize_step_results(context)
-        
-        return self.statistics.successful_iterations == max_iterations
+        finally:
+            context.pop_context()
     
     def _execute_single_zap(self, context, action_edge, action_command: str, iteration: int, max_iterations: int) -> bool:
         """Execute a single zap iteration with timing and analysis"""
@@ -366,9 +375,9 @@ class ZapController:
         # Add step end screenshot to action result for step recording
         action_result['step_end_screenshot_path'] = step_end_screenshot_path
         
-        # Record step result
-        self._record_step_result(context, iteration, max_iterations, action_command, action_result, 
-                               execution_time, start_time, end_time, analysis_result, screenshot_path, action_edge)
+        # Record step result using hierarchical context
+        self._record_step_result_hierarchical(context, iteration, max_iterations, action_command, action_result, 
+                                             execution_time, start_time, end_time, analysis_result, screenshot_path, action_edge)
         
         success = action_result.get('success', False)
         if success:
@@ -946,12 +955,10 @@ class ZapController:
         return motion_images
 
     
-    def _record_step_result(self, context, iteration: int, max_iterations: int, action_command: str,
-                          action_result: Dict, execution_time: int, start_time: float, end_time: float,
-                          analysis_result: ZapAnalysisResult, screenshot_path: str, action_edge: Dict):
-        """Record step result in context"""
-        step_num = len(context.step_results) + 1
-        
+    def _record_step_result_hierarchical(self, context, iteration: int, max_iterations: int, action_command: str,
+                                        action_result: Dict, execution_time: int, start_time: float, end_time: float,
+                                        analysis_result: ZapAnalysisResult, screenshot_path: str, action_edge: Dict):
+        """Record step result using hierarchical context system"""
         # Extract real actions from edge
         real_actions, real_retry_actions, real_failure_actions = self._extract_edge_actions(action_edge)
         
@@ -970,13 +977,12 @@ class ZapController:
             action_screenshots.append(analysis_result.audio_menu_details['screenshot_path'])
         
         step_result = {
-            'step_number': step_num,
             'success': action_result.get('success', False),
             'screenshot_path': action_result.get('screenshot_path', ''),
             'screenshot_url': action_result.get('screenshot_url'),
-            'step_start_screenshot_path': action_result.get('step_start_screenshot_path', ''),  # Add step start screenshot
-            'step_end_screenshot_path': action_result.get('step_end_screenshot_path', ''),      # Add step end screenshot
-            'action_screenshots': action_screenshots,  # Add this field to match navigation behavior
+            'step_start_screenshot_path': action_result.get('step_start_screenshot_path', ''),
+            'step_end_screenshot_path': action_result.get('step_end_screenshot_path', ''),
+            'action_screenshots': action_screenshots,
             'message': f"Zap iteration {iteration}: {action_command} ({iteration}/{max_iterations})",
             'execution_time_ms': execution_time,
             'start_time': datetime.fromtimestamp(start_time).strftime('%H:%M:%S'),
@@ -1003,7 +1009,16 @@ class ZapController:
         if not action_result.get('success'):
             step_result['error'] = action_result.get('error', 'Unknown error')
         
-        context.step_results.append(step_result)
+        # Record using hierarchical context system
+        context.record_step_in_context(step_result)
+    
+    def _record_step_result(self, context, iteration: int, max_iterations: int, action_command: str,
+                          action_result: Dict, execution_time: int, start_time: float, end_time: float,
+                          analysis_result: ZapAnalysisResult, screenshot_path: str, action_edge: Dict):
+        """Legacy step recording - kept for compatibility"""
+        return self._record_step_result_hierarchical(context, iteration, max_iterations, action_command,
+                                                   action_result, execution_time, start_time, end_time,
+                                                   analysis_result, screenshot_path, action_edge)
     
     def _extract_edge_actions(self, action_edge: Dict) -> tuple:
         """Extract real actions from action edge"""
@@ -1044,54 +1059,3 @@ class ZapController:
             'detected_channels': self.statistics.detected_channels,
             'channel_info_results': self.statistics.channel_info_results
         })
-
-    def _reorganize_step_results(self, context):
-        """Post-process step_results to group by iteration and sort sub-steps"""
-        if not context.step_results:
-            return
-
-        # Collect all steps
-        all_steps = context.step_results[:]
-        context.step_results.clear()
-
-        # Group by iteration
-        groups = {}
-        for step in all_steps:
-            iteration = step.get('iteration')
-            if iteration not in groups:
-                groups[iteration] = []
-            groups[iteration].append(step)
-
-        # For each iteration group
-        for iter_num in sorted(groups.keys()):
-            group_steps = groups[iter_num]
-
-            # Find the main zap step (has 'step_category': 'action')
-            main_step = next((s for s in group_steps if s.get('step_category') == 'action'), None)
-            if not main_step:
-                # If no main step, just add the group as is
-                context.step_results.extend(group_steps)
-                continue
-
-            # The rest are sub-steps (navigations from analysis)
-            sub_steps = [s for s in group_steps if s != main_step]
-
-            # Sort sub-steps by start_time (convert to seconds for sorting)
-            def time_to_seconds(t):
-                try:
-                    h, m, s = map(int, t.split(':'))
-                    return h*3600 + m*60 + s
-                except:
-                    return 0
-
-            sub_steps.sort(key=lambda s: time_to_seconds(s.get('start_time', '00:00:00')))
-
-            # Add main step first, with original step_number reset
-            main_step['step_number'] = f"{iter_num}"
-            main_step['sub_steps'] = []  # Add field for sub-steps
-            context.step_results.append(main_step)
-
-            # Add sub-steps with numbering like 1.1, 1.2
-            for sub_idx, sub_step in enumerate(sub_steps, 1):
-                sub_step['step_number'] = f"{iter_num}.{sub_idx}"
-                main_step['sub_steps'].append(sub_step)

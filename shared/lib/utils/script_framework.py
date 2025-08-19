@@ -47,6 +47,36 @@ from shared.lib.utils.report_utils import generate_and_upload_script_report
 from shared.lib.supabase.script_results_db import record_script_execution_start, update_script_execution_result
 
 
+class ExecutionContext:
+    """Hierarchical execution context for organizing complex workflows"""
+    
+    def __init__(self, name: str, parent: 'ExecutionContext' = None):
+        self.name = name
+        self.parent = parent
+        self.children: List['ExecutionContext'] = []
+        self.start_time = time.time()
+        self.end_time = None
+        self.step_results = []
+        
+    def create_child_context(self, name: str) -> 'ExecutionContext':
+        """Create and return a child execution context"""
+        child = ExecutionContext(name, parent=self)
+        self.children.append(child)
+        return child
+        
+    def get_hierarchical_number(self) -> str:
+        """Get hierarchical step number (e.g., 1.2.3)"""
+        if not self.parent:
+            return "1"
+        siblings = self.parent.children
+        my_index = siblings.index(self) + 1
+        return f"{self.parent.get_hierarchical_number()}.{my_index}"
+    
+    def end_context(self):
+        """Mark context as ended"""
+        self.end_time = time.time()
+
+
 class ScriptExecutionContext:
     """Context object that holds all execution state"""
     
@@ -88,11 +118,55 @@ class ScriptExecutionContext:
         
         # Stdout capture for log upload
         self.stdout_buffer = []
+        
+        # Hierarchical execution context system
+        self.execution_context_stack: List[ExecutionContext] = []
+        self.root_context = ExecutionContext("Script Execution")
+        self.current_context = self.root_context
     
     def get_execution_time_ms(self) -> int:
         """Get current execution time in milliseconds"""
         return int((time.time() - self.start_time) * 1000)
     
+    def push_context(self, name: str) -> ExecutionContext:
+        """Create and enter a child execution context"""
+        child = self.current_context.create_child_context(name)
+        self.execution_context_stack.append(self.current_context)
+        self.current_context = child
+        return child
+        
+    def pop_context(self) -> ExecutionContext:
+        """Exit current context and return to parent"""
+        if self.current_context != self.root_context:
+            self.current_context.end_context()
+        if self.execution_context_stack:
+            self.current_context = self.execution_context_stack.pop()
+        return self.current_context
+    
+    def record_step_in_context(self, step_data: Dict[str, Any]):
+        """Record step in current execution context with hierarchical numbering"""
+        # Generate hierarchical step number
+        context_step_count = len(self.current_context.step_results)
+        hierarchical_number = f"{self.current_context.get_hierarchical_number()}.{context_step_count + 1}"
+        
+        step_data['step_number'] = hierarchical_number
+        step_data['context_name'] = self.current_context.name
+        step_data['context_path'] = self._get_context_path()
+        
+        # Add to current context
+        self.current_context.step_results.append(step_data)
+        # Also add to flat list for compatibility
+        self.step_results.append(step_data)
+        
+    def _get_context_path(self) -> str:
+        """Get full context path (e.g., 'Script Execution > Zap Execution > Iteration 1')"""
+        path_parts = []
+        ctx = self.current_context
+        while ctx:
+            path_parts.append(ctx.name)
+            ctx = ctx.parent
+        return " > ".join(reversed(path_parts))
+
     def add_screenshot(self, screenshot_path: str):
         """Add a screenshot to the collection"""
         if screenshot_path:
@@ -704,7 +778,7 @@ class ScriptExecutor:
         sys.exit(0)
     
     def print_execution_summary(self, context: ScriptExecutionContext, userinterface_name: str):
-        """Print execution summary"""
+        """Print execution summary with hierarchical structure"""
         print("\n" + "="*60)
         print(f"🎯 [{self.script_name.upper()}] EXECUTION SUMMARY")
         print("="*60)
@@ -722,12 +796,42 @@ class ScriptExecutor:
         if context.error_message:
             print(f"❌ Error: {context.error_message}")
         
+        # Show hierarchical execution structure
+        if hasattr(context, 'root_context') and context.root_context.children:
+            print(f"\n📋 Execution Structure:")
+            self._print_hierarchical_structure(context.root_context, 0)
+        
         # Show custom data from scripts
         if hasattr(context, 'custom_data') and context.custom_data:
             for key, value in context.custom_data.items():
                 print(f"{key}: {value}")
         
         print("="*60)
+    
+    def _print_hierarchical_structure(self, exec_context: ExecutionContext, indent: int):
+        """Print hierarchical execution structure"""
+        prefix = "  " * indent
+        duration = ""
+        if exec_context.end_time:
+            duration = f" ({(exec_context.end_time - exec_context.start_time):.1f}s)"
+        
+        # Show context with step count
+        step_count = len(exec_context.step_results)
+        if exec_context.children or step_count > 0:
+            print(f"{prefix}{exec_context.get_hierarchical_number()}. {exec_context.name}{duration}")
+            
+            # Show steps in this context
+            if step_count > 0:
+                step_prefix = "  " * (indent + 1)
+                for step in exec_context.step_results:
+                    status = "✅" if step.get('success', False) else "❌"
+                    step_time = step.get('execution_time_ms', 0)
+                    step_duration = f" ({step_time}ms)" if step_time > 0 else ""
+                    print(f"{step_prefix}{step.get('step_number', '?')} {status} {step.get('message', 'Unknown step')}{step_duration}")
+        
+        # Show child contexts
+        for child in exec_context.children:
+            self._print_hierarchical_structure(child, indent + 1)
 
 
 def handle_keyboard_interrupt(script_name: str):

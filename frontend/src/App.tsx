@@ -23,6 +23,7 @@ const Library = React.lazy(() => import('./pages/Library'));
 const Models = React.lazy(() => import('./pages/Models'));
 const SystemMonitoring = React.lazy(() => import('./pages/SystemMonitoring'));
 const RunTests = React.lazy(() => import('./pages/RunTests'));
+const RunCampaigns = React.lazy(() => import('./pages/RunCampaigns'));
 const TestReports = React.lazy(() => import('./pages/TestReports'));
 const CampaignReports = React.lazy(() => import('./pages/CampaignReports'));
 const ModelReports = React.lazy(() => import('./pages/ModelReports'));
@@ -164,6 +165,7 @@ const App: React.FC = () => {
 
                   {/* Test Execution Routes */}
                   <Route path="/test-execution/run-tests" element={<RunTests />} />
+                  <Route path="/test-execution/run-campaigns" element={<RunCampaigns />} />
 
                   {/* Monitoring Routes */}
                   <Route path="/monitoring/system" element={<SystemMonitoring />} />

@@ -18,6 +18,7 @@ export * from './pages/Environment_Types';
 // Page-specific types (Navigation_Types includes its own ActionExecutionResult)
 export * from './pages/Navigation_Types';
 export * from './pages/TestCase_Types';
+export * from './pages/Campaign_Types';
 
 // Export UserInterface types
 export type {
