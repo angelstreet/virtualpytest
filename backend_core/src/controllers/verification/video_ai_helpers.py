@@ -105,7 +105,7 @@ class VideoAIHelpers:
                                 ]
                             }
                         ],
-                        'max_tokens': 300,
+                        'max_tokens': 200,
                         'temperature': 0.0
                     },
                     timeout=60
