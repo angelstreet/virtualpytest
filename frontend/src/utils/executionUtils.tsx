@@ -117,7 +117,7 @@ export type CampaignStatus = 'pending' | 'running' | 'completed' | 'failed' | 'a
 export type ScriptStatus = 'pending' | 'running' | 'completed' | 'failed' | 'skipped';
 
 // Centralized status chip helper - extracted from RunTests.tsx to be shared
-export const getStatusChip = (status: ExecutionStatus | CampaignStatus | ScriptStatus) => {
+export const getStatusChip = (status: ExecutionStatus | CampaignStatus | ScriptStatus): React.JSX.Element => {
   switch (status) {
     case 'pending':
       return <Chip label="Pending" color="default" size="small" />;

@@ -55,7 +55,7 @@ const RunCampaigns: React.FC = () => {
     loadAvailableScripts,
     addScript,
     removeScript,
-    reorderScripts,
+
     updateScriptConfiguration,
     scriptAnalysisCache,
     loadScriptAnalysis,
@@ -197,7 +197,7 @@ const RunCampaigns: React.FC = () => {
             scriptAnalysisCache={scriptAnalysisCache}
             onAddScript={addScript}
             onRemoveScript={removeScript}
-            onReorderScripts={reorderScripts}
+
             onUpdateScript={updateScriptConfiguration}
             onLoadScriptAnalysis={loadScriptAnalysis}
           />

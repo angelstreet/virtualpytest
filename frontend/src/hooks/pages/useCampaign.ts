@@ -17,7 +17,7 @@ import {
   CampaignValidationResult,
   ScriptConfiguration,
   ScriptAnalysis,
-  ScriptExecutionStatus,
+
   CampaignBuilderState,
   ScriptConfigurationValidation
 } from '../../types/pages/Campaign_Types';
@@ -101,6 +101,54 @@ export const useCampaign = (): UseCampaignReturn => {
   // General State
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Validation Functions (defined early to avoid hoisting issues)
+  const validateCampaignConfig = useCallback((config?: CampaignConfig): CampaignValidationResult => {
+    const configToValidate = config || (campaignConfig as CampaignConfig);
+    const errors: string[] = [];
+    const warnings: string[] = [];
+
+    // Required fields
+    if (!configToValidate.campaign_id) errors.push('Campaign ID is required');
+    if (!configToValidate.name) errors.push('Campaign name is required');
+    if (!configToValidate.host) errors.push('Host is required');
+    if (!configToValidate.device) errors.push('Device is required');
+    if (!configToValidate.userinterface_name) errors.push('User interface is required');
+
+    // Script configurations
+    if (!configToValidate.script_configurations || configToValidate.script_configurations.length === 0) {
+      errors.push('At least one script must be configured');
+    } else {
+      // Validate each script configuration
+      configToValidate.script_configurations.forEach((script, index) => {
+        if (!script.script_name) errors.push(`Script ${index + 1}: Script name is required`);
+        if (!script.script_type) errors.push(`Script ${index + 1}: Script type is required`);
+        if (script.order === undefined || script.order < 0) errors.push(`Script ${index + 1}: Valid order is required`);
+        
+        // Validate parameters if available
+        if (script.parameters) {
+          Object.entries(script.parameters).forEach(([paramName, paramValue]) => {
+            if (paramValue === '' || paramValue === null || paramValue === undefined) {
+              warnings.push(`Script ${index + 1}: Parameter '${paramName}' is empty`);
+            }
+          });
+        }
+      });
+    }
+
+    // Execution config validation
+    if (configToValidate.execution_config) {
+      if (configToValidate.execution_config.timeout_minutes <= 0) {
+        errors.push('Timeout must be greater than 0 minutes');
+      }
+    }
+
+    return {
+      valid: errors.length === 0,
+      errors,
+      warnings,
+    };
+  }, [campaignConfig]);
 
   // Builder State (computed)
   const builderState: CampaignBuilderState = {
@@ -386,49 +434,7 @@ export const useCampaign = (): UseCampaignReturn => {
     return null;
   }, [scriptAnalysisCache]);
 
-  // Validation Functions
-  const validateCampaignConfig = useCallback((config?: CampaignConfig): CampaignValidationResult => {
-    const configToValidate = config || (campaignConfig as CampaignConfig);
-    const errors: string[] = [];
-    const warnings: string[] = [];
 
-    // Required fields
-    if (!configToValidate.campaign_id) errors.push('Campaign ID is required');
-    if (!configToValidate.name) errors.push('Campaign name is required');
-    if (!configToValidate.host) errors.push('Host is required');
-    if (!configToValidate.device) errors.push('Device is required');
-    if (!configToValidate.userinterface_name) errors.push('User interface is required');
-
-    // Script configurations
-    if (!configToValidate.script_configurations || configToValidate.script_configurations.length === 0) {
-      errors.push('At least one script must be configured');
-    } else {
-      configToValidate.script_configurations.forEach((script, index) => {
-        if (!script.script_name) {
-          errors.push(`Script ${index + 1}: Script name is required`);
-        }
-        if (!script.script_type) {
-          errors.push(`Script ${index + 1}: Script type is required`);
-        }
-      });
-    }
-
-    // Execution config
-    if (configToValidate.execution_config) {
-      if (configToValidate.execution_config.timeout_minutes <= 0) {
-        errors.push('Timeout must be greater than 0');
-      }
-      if (configToValidate.execution_config.timeout_minutes > 480) {
-        warnings.push('Timeout is very long (>8 hours)');
-      }
-    }
-
-    return {
-      valid: errors.length === 0,
-      errors,
-      warnings,
-    };
-  }, [campaignConfig]);
 
   const validateScriptConfiguration = useCallback((scriptConfig: ScriptConfiguration): ScriptConfigurationValidation => {
     const errors: string[] = [];

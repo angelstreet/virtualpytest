@@ -80,7 +80,7 @@ const RunTests: React.FC = () => {
   const [selectedDevice, setSelectedDevice] = useState<string>('');
   const [selectedScript, setSelectedScript] = useState<string>('');
   const [availableScripts, setAvailableScripts] = useState<string[]>([]);
-  const [aiTestCasesInfo, setAiTestCasesInfo] = useState<any[]>([]);
+
   const [loadingScripts, setLoadingScripts] = useState<boolean>(false);
   const [showWizard, setShowWizard] = useState<boolean>(false);
   const [executions, setExecutions] = useState<ExecutionRecord[]>([]);
@@ -197,9 +197,7 @@ const RunTests: React.FC = () => {
           setAvailableScripts(data.scripts);
           
           // Store AI test case metadata for display
-          if (data.ai_test_cases_info) {
-            setAiTestCasesInfo(data.ai_test_cases_info);
-          }
+          // AI test cases info is now handled by the centralized utility functions
 
           // Set default selection to first script if available
           if (data.scripts.length > 0 && !selectedScript) {

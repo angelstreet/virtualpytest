@@ -32,7 +32,7 @@ import {
   Delete as DeleteIcon,
   DragIndicator as DragIcon,
   ExpandMore as ExpandMoreIcon,
-  Edit as EditIcon,
+
   PlayArrow as ScriptIcon,
 } from '@mui/icons-material';
 import { ScriptConfiguration } from '../../types/pages/Campaign_Types';
@@ -46,7 +46,7 @@ interface ScriptSequenceBuilderProps {
   scriptAnalysisCache: { [scriptName: string]: any };
   onAddScript: (scriptName: string) => void;
   onRemoveScript: (index: number) => void;
-  onReorderScripts: (fromIndex: number, toIndex: number) => void;
+
   onUpdateScript: (index: number, updates: Partial<ScriptConfiguration>) => void;
   onLoadScriptAnalysis: (scriptName: string) => Promise<any>;
 }
@@ -58,7 +58,7 @@ export const ScriptSequenceBuilder: React.FC<ScriptSequenceBuilderProps> = ({
   scriptAnalysisCache,
   onAddScript,
   onRemoveScript,
-  onReorderScripts,
+
   onUpdateScript,
   onLoadScriptAnalysis,
 }) => {
@@ -84,7 +84,7 @@ export const ScriptSequenceBuilder: React.FC<ScriptSequenceBuilderProps> = ({
     onUpdateScript(scriptIndex, { parameters: updatedParameters });
   };
 
-  const handleAccordionChange = (scriptId: string) => (event: React.SyntheticEvent, isExpanded: boolean) => {
+  const handleAccordionChange = (scriptId: string) => (_event: React.SyntheticEvent, isExpanded: boolean) => {
     setExpandedScript(isExpanded ? scriptId : false);
     
     // Load script analysis when expanding
@@ -128,7 +128,7 @@ export const ScriptSequenceBuilder: React.FC<ScriptSequenceBuilderProps> = ({
             key={param.name}
             parameter={param}
             value={script.parameters[param.name] || param.default || ''}
-            onChange={(name, value) => handleScriptParameterChange(scriptIndex, name, value)}
+            onChange={(name: string, value: any) => handleScriptParameterChange(scriptIndex, name, value)}
             error={param.required && !script.parameters[param.name]}
           />
         ))}
@@ -166,7 +166,8 @@ export const ScriptSequenceBuilder: React.FC<ScriptSequenceBuilderProps> = ({
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
           {scripts.map((script, index) => {
             const scriptId = `${script.script_name}-${script.order}`;
-            const analysis = scriptAnalysisCache[script.script_name];
+            // Analysis cached for future use
+            scriptAnalysisCache[script.script_name];
             
             return (
               <Accordion
