@@ -710,10 +710,33 @@ class ZapController:
                 
                 if zapping_detected:
                     print(f"✅ [ZapController] Zapping detected - Duration: {blackscreen_duration}s")
+                    
+                    # Always show banner analysis results, regardless of detection success
+                    banner_detected = any([
+                        channel_info.get('channel_name'),
+                        channel_info.get('program_name'),
+                        channel_info.get('start_time'),
+                        channel_info.get('end_time')
+                    ])
+                    banner_status = "✅ DETECTED" if banner_detected else "❌ NOT DETECTED"
+                    print(f"🏷️ [ZapController] Banner Detection: {banner_status}")
+                    
                     if channel_info.get('channel_name'):
                         print(f"   📺 Channel: {channel_info['channel_name']}")
                     if channel_info.get('program_name'):
                         print(f"   📺 Program: {channel_info['program_name']}")
+                    if channel_info.get('start_time') and channel_info.get('end_time'):
+                        print(f"   ⏰ Time: {channel_info['start_time']}-{channel_info['end_time']}")
+                    
+                    # Show banner analysis image used
+                    banner_image = zapping_result.get('channel_detection_image') or zapping_result.get('first_content_after_blackscreen')
+                    if banner_image:
+                        print(f"   🖼️ Banner analysis image: {banner_image}")
+                    
+                    # Show banner confidence if available
+                    banner_confidence = channel_info.get('confidence', 0.0)
+                    if banner_confidence > 0:
+                        print(f"   📊 Banner confidence: {banner_confidence:.2f}")
                     
                     # Add zapping images to context screenshot collection for R2 upload
                     self._add_zapping_images_to_screenshots(context, zapping_result, capture_folder)
@@ -740,6 +763,35 @@ class ZapController:
                     # Analysis completed but no blackscreen detected - this is an error for zapping tests
                     print(f"❌ [ZapController] No blackscreen detected (analyzed {analyzed_images} images)")
                     
+                    # Still show banner analysis results even when no zapping detected
+                    channel_info = zapping_result.get('channel_info', {})
+                    if channel_info:
+                        banner_detected = any([
+                            channel_info.get('channel_name'),
+                            channel_info.get('program_name'),
+                            channel_info.get('start_time'),
+                            channel_info.get('end_time')
+                        ])
+                        banner_status = "✅ DETECTED" if banner_detected else "❌ NOT DETECTED"
+                        print(f"🏷️ [ZapController] Banner Detection: {banner_status}")
+                        
+                        if channel_info.get('channel_name'):
+                            print(f"   📺 Channel: {channel_info['channel_name']}")
+                        if channel_info.get('program_name'):
+                            print(f"   📺 Program: {channel_info['program_name']}")
+                        if channel_info.get('start_time') and channel_info.get('end_time'):
+                            print(f"   ⏰ Time: {channel_info['start_time']}-{channel_info['end_time']}")
+                        
+                        # Show banner analysis image used
+                        banner_image = zapping_result.get('channel_detection_image') or zapping_result.get('first_content_after_blackscreen')
+                        if banner_image:
+                            print(f"   🖼️ Banner analysis image: {banner_image}")
+                        
+                        # Show banner confidence if available
+                        banner_confidence = channel_info.get('confidence', 0.0)
+                        if banner_confidence > 0:
+                            print(f"   📊 Banner confidence: {banner_confidence:.2f}")
+                    
                     # Still add images for debugging
                     self._add_zapping_images_to_screenshots(context, zapping_result, capture_folder)
                     
@@ -762,6 +814,37 @@ class ZapController:
                 # Analysis actually failed (couldn't load images, configuration error, etc.)
                 error_msg = zapping_result.get('error', f'Analysis could not be performed - no images were analyzed (folder: {capture_folder})')
                 print(f"❌ [ZapController] Zapping analysis failed: {error_msg}")
+                
+                # Show banner analysis results even when zapping analysis fails
+                channel_info = zapping_result.get('channel_info', {})
+                if channel_info:
+                    banner_detected = any([
+                        channel_info.get('channel_name'),
+                        channel_info.get('program_name'),
+                        channel_info.get('start_time'),
+                        channel_info.get('end_time')
+                    ])
+                    banner_status = "✅ DETECTED" if banner_detected else "❌ NOT DETECTED"
+                    print(f"🏷️ [ZapController] Banner Detection: {banner_status}")
+                    
+                    if channel_info.get('channel_name'):
+                        print(f"   📺 Channel: {channel_info['channel_name']}")
+                    if channel_info.get('program_name'):
+                        print(f"   📺 Program: {channel_info['program_name']}")
+                    if channel_info.get('start_time') and channel_info.get('end_time'):
+                        print(f"   ⏰ Time: {channel_info['start_time']}-{channel_info['end_time']}")
+                    
+                    # Show banner analysis image used
+                    banner_image = zapping_result.get('channel_detection_image') or zapping_result.get('first_content_after_blackscreen')
+                    if banner_image:
+                        print(f"   🖼️ Banner analysis image: {banner_image}")
+                    
+                    # Show banner confidence if available
+                    banner_confidence = channel_info.get('confidence', 0.0)
+                    if banner_confidence > 0:
+                        print(f"   📊 Banner confidence: {banner_confidence:.2f}")
+                else:
+                    print(f"🏷️ [ZapController] Banner Detection: ❌ NOT ATTEMPTED (zapping analysis failed)")
                 
                 # Still include debug images if available for debugging
                 debug_images = zapping_result.get('debug_images', [])
