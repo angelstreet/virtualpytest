@@ -492,8 +492,12 @@ class ZapController:
                 # Mobile devices: combined audio/subtitle menu
                 print(f"🎧 [ZapController] Analyzing combined audio/subtitle menu for mobile...")
                 
+                # Use audio menu node provided by parent script, or fallback to default
+                audio_menu_target = getattr(context, 'audio_menu_node', 'live_audiomenu')
+                print(f"🎧 [ZapController] Using audio menu target: {audio_menu_target}")
+                
                 # Navigate to combined audio menu
-                audio_menu_nav = goto_node(context.host, context.selected_device, "live_audiomenu", 
+                audio_menu_nav = goto_node(context.host, context.selected_device, audio_menu_target, 
                                          context.tree_id, context.team_id, context)
                 
                 if audio_menu_nav.get('success'):
@@ -524,7 +528,7 @@ class ZapController:
                 else:
                     # Even on navigation failure, try to capture screenshot for debugging
                     screenshot_result = capture_and_upload_screenshot(context.host, context.selected_device, f"audio_menu_{iteration}_failed", "zap")
-                    result = {"success": False, "message": "Failed to navigate to combined audio menu"}
+                    result = {"success": False, "message": f"Failed to navigate to {audio_menu_target}"}
                     
                     # Include screenshot even on failure for debugging
                     if screenshot_result['success']:

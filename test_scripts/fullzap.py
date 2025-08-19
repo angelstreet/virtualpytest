@@ -288,6 +288,13 @@ def main():
         # Store mapped action in context for summary display
         context.custom_data['action_command'] = mapped_action
         
+        # For mobile devices, determine correct audio menu node and pass to zap_controller
+        if "mobile" in context.selected_device.device_model.lower():
+            context.audio_menu_node = "live_fullscreen_audiomenu"
+            print(f"🎧 [fullzap] Set mobile audio menu target: {context.audio_menu_node}")
+        else:
+            context.audio_menu_node = "live_audiomenu"
+        
         # Find the actual action edge from current node to target node
         print(f"🔍 [fullzap] Finding edge for action '{mapped_action}' from current node...")
         from shared.lib.utils.navigation_utils import find_edge_by_target_label
