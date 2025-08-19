@@ -30,6 +30,13 @@ class ZapAnalysisResult:
         self.motion_details = {}
         self.subtitle_details = {}
         self.zapping_details = {}
+        
+        # Audio speech analysis results
+        self.audio_speech_detected = False
+        self.audio_transcript = ""
+        self.audio_language = None
+        self.audio_details = {}
+        
         self.success = False
         self.message = ""
     
@@ -45,7 +52,13 @@ class ZapAnalysisResult:
             "extracted_text": self.extracted_text,
             "motion_details": self.motion_details,
             "subtitle_analysis": self.subtitle_details,
-            "zapping_analysis": self.zapping_details
+            "zapping_analysis": self.zapping_details,
+            
+            # Audio speech analysis results
+            "audio_speech_detected": self.audio_speech_detected,
+            "audio_transcript": self.audio_transcript,
+            "audio_language": self.audio_language,
+            "audio_analysis": self.audio_details
         }
 
 
@@ -61,6 +74,10 @@ class ZapStatistics:
         self.detected_languages = []
         self.total_execution_time = 0
         self.analysis_results = []
+        
+        # Audio speech analysis statistics
+        self.audio_speech_detected_count = 0
+        self.audio_languages = []
         
         # Enhanced zapping statistics
         self.zapping_durations = []        # List of zapping durations
@@ -85,6 +102,10 @@ class ZapStatistics:
         return (self.zapping_detected_count / self.total_iterations * 100) if self.total_iterations > 0 else 0
     
     @property
+    def audio_speech_success_rate(self) -> float:
+        return (self.audio_speech_detected_count / self.total_iterations * 100) if self.total_iterations > 0 else 0
+    
+    @property
     def average_execution_time(self) -> float:
         return self.total_execution_time / self.total_iterations if self.total_iterations > 0 else 0
     
@@ -92,6 +113,11 @@ class ZapStatistics:
         """Add a detected language if not already present"""
         if language and language not in self.detected_languages:
             self.detected_languages.append(language)
+    
+    def add_audio_language(self, language: str):
+        """Add a detected audio language if not already present"""
+        if language and language not in self.audio_languages:
+            self.audio_languages.append(language)
     
     def add_zapping_result(self, zapping_details: Dict[str, Any]):
         """Add enhanced zapping analysis results"""
@@ -143,6 +169,7 @@ class ZapStatistics:
         print(f"   • Total action time: {self.total_execution_time}ms")
         print(f"   • Motion detected: {self.motion_detected_count}/{self.total_iterations} ({self.motion_success_rate:.1f}%)")
         print(f"   • Subtitles detected: {self.subtitles_detected_count}/{self.total_iterations} ({self.subtitle_success_rate:.1f}%)")
+        print(f"   • Audio speech detected: {self.audio_speech_detected_count}/{self.total_iterations} ({self.audio_speech_success_rate:.1f}%)")
         print(f"   • Zapping detected: {self.zapping_detected_count}/{self.total_iterations} ({self.zapping_success_rate:.1f}%)")
         
         # Enhanced zapping duration information
@@ -173,7 +200,10 @@ class ZapStatistics:
                     print(f"      {i}. {channel_display} (zap: {info['zapping_duration']:.2f}s, confidence: {info['channel_confidence']:.1f})")
         
         if self.detected_languages:
-            print(f"   🌐 Languages detected: {', '.join(self.detected_languages)}")
+            print(f"   🌐 Subtitle languages detected: {', '.join(self.detected_languages)}")
+        
+        if self.audio_languages:
+            print(f"   🎤 Audio languages detected: {', '.join(self.audio_languages)}")
         
         no_motion_count = self.total_iterations - self.motion_detected_count
         if no_motion_count > 0:
@@ -220,13 +250,17 @@ class ZapController:
                 # 3. Audio speech analysis if motion detected (after subtitles)
                 if context:
                     audio_speech_result = self._analyze_audio_speech(context, iteration, action_command)
-                    # result.audio_speech_detected = audio_speech_result.get('speech_detected', False) # Removed
-                    # result.audio_transcript = audio_speech_result.get('combined_transcript', '') # Removed
-                    # result.audio_language = audio_speech_result.get('detected_language', 'unknown') # Removed
-                    # result.audio_details = audio_speech_result # Removed
+                    result.audio_speech_detected = audio_speech_result.get('speech_detected', False)
+                    result.audio_transcript = audio_speech_result.get('combined_transcript', '')
+                    result.audio_language = audio_speech_result.get('detected_language', 'unknown')
+                    result.audio_details = audio_speech_result
                 
-                # 4. Audio menu analysis removed - now handled by dedicated navigation steps
-                # No placeholders or attributes set
+                # 4. Audio menu analysis if motion detected and goto_live enabled
+                if context and self.goto_live:
+                    # Add audio menu analysis to current step - this will trigger navigation steps  
+                    from .audio_menu_analyzer import add_audio_menu_analysis_to_step
+                    audio_menu_success = add_audio_menu_analysis_to_step(context)
+                    print(f"🎧 [ZapController] Audio menu analysis {'added successfully' if audio_menu_success else 'failed or skipped'}")
                 
                 # 5. Only analyze zapping if motion detected and it's a channel up action
                 if context and 'chup' in action_command.lower():
@@ -340,11 +374,15 @@ class ZapController:
             self.statistics.motion_detected_count += 1
         if analysis_result.subtitles_detected:
             self.statistics.subtitles_detected_count += 1
+        if analysis_result.audio_speech_detected:
+            self.statistics.audio_speech_detected_count += 1
         if analysis_result.zapping_detected:
             self.statistics.zapping_detected_count += 1
             self.statistics.add_zapping_result(analysis_result.zapping_details)
         if analysis_result.detected_language:
             self.statistics.add_language(analysis_result.detected_language)
+        if analysis_result.audio_language and analysis_result.audio_language != 'unknown':
+            self.statistics.add_audio_language(analysis_result.audio_language)
 
         # Update the ZAP step (not the last step) with analysis results
         if context.step_results and zap_step_index < len(context.step_results):
@@ -363,10 +401,11 @@ class ZapController:
             if analysis_result.subtitle_details.get('analyzed_screenshot') and analysis_result.subtitle_details['analyzed_screenshot'] != screenshot_result['screenshot_path']:
                 action_screenshots.append(analysis_result.subtitle_details['analyzed_screenshot'])
             
-            # Remove audio_menu_analysis from step results
+            # Store all analysis results in step
             zap_step['motion_detection'] = analysis_result.to_dict()
             zap_step['motion_analysis'] = analysis_result.motion_details
             zap_step['subtitle_analysis'] = analysis_result.subtitle_details
+            zap_step['audio_analysis'] = analysis_result.audio_details
             zap_step['zapping_analysis'] = analysis_result.zapping_details
             
             zap_step['action_screenshots'] = action_screenshots
@@ -922,8 +961,10 @@ class ZapController:
             'successful_iterations': self.statistics.successful_iterations,
             'motion_detected_count': self.statistics.motion_detected_count,
             'subtitles_detected_count': self.statistics.subtitles_detected_count,
+            'audio_speech_detected_count': self.statistics.audio_speech_detected_count,
             'zapping_detected_count': self.statistics.zapping_detected_count,
             'detected_languages': self.statistics.detected_languages,
+            'audio_languages': self.statistics.audio_languages,
             'motion_results': [r.to_dict() for r in self.statistics.analysis_results],
             'total_action_time': self.statistics.total_execution_time,
             
