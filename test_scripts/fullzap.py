@@ -54,12 +54,13 @@ def create_zap_controller(context: ScriptExecutionContext) -> ZapController:
 
 
 
-def execute_zap_actions(context: ScriptExecutionContext, action_edge, action_command: str, max_iteration: int, zap_controller: ZapController, blackscreen_area: str = None):
+def execute_zap_actions(context: ScriptExecutionContext, action_edge, action_command: str, max_iteration: int, zap_controller: ZapController, blackscreen_area: str = None, goto_live: bool = True):
     """Execute zap actions using ZapController - simple wrapper"""
     print(f"⚡ [fullzap] Delegating zap execution to ZapController...")
     if blackscreen_area:
         print(f"🎯 [fullzap] Using custom blackscreen area: {blackscreen_area}")
-    return zap_controller.execute_zap_iterations(context, action_edge, action_command, max_iteration, blackscreen_area)
+    print(f"🎯 [fullzap] Audio menu analysis will be {'done once outside loop' if goto_live else 'done in each zap iteration'}")
+    return zap_controller.execute_zap_iterations(context, action_edge, action_command, max_iteration, blackscreen_area, goto_live)
 
 
 def capture_fullzap_summary(context: ScriptExecutionContext, userinterface_name: str) -> str:
@@ -288,10 +289,6 @@ def main():
         # Store mapped action in context for summary display
         context.custom_data['action_command'] = mapped_action
         
-        # Pass goto_live setting to context so ZapController can respect it
-        context.goto_live_enabled = args.goto_live
-        print(f"🎯 [fullzap] Set goto_live_enabled in context: {context.goto_live_enabled}")
-        
         # For mobile devices, determine correct audio menu node and pass to zap_controller
         if "mobile" in context.selected_device.device_model.lower():
             context.audio_menu_node = "live_fullscreen_audiomenu"
@@ -324,7 +321,7 @@ def main():
         location_msg = f"from {target_node} node" if args.goto_live else "from current location"
         print(f"⚡ [fullzap] Executing action '{mapped_action}' {location_msg}...")
         try:
-            zap_success = execute_zap_actions(context, action_edge, mapped_action, args.max_iteration, zap_controller, args.blackscreen_area)
+            zap_success = execute_zap_actions(context, action_edge, mapped_action, args.max_iteration, zap_controller, args.blackscreen_area, args.goto_live)
         except Exception as e:
             print(f"⚠️ [fullzap] ZapController error (continuing anyway): {e}")
             zap_success = True  # Navigation worked, so consider it success

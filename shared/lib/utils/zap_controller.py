@@ -215,11 +215,16 @@ class ZapController:
                     result.extracted_text = subtitle_result.get('extracted_text', '')
                     result.subtitle_details = subtitle_result
                 
-                # 3. Only analyze audio menu if motion detected
-                if context:
+                # 3. Only analyze audio menu if motion detected AND goto_live=false (in-loop analysis)
+                if context and not getattr(self, 'goto_live', True):
+                    print(f"🎧 [ZapController] Performing in-loop audio menu analysis (goto_live=false)")
                     audio_result = self._analyze_audio_menu(context, iteration)
                     result.audio_menu_detected = audio_result.get('menu_detected', False)
                     result.audio_menu_details = audio_result
+                else:
+                    if getattr(self, 'goto_live', True):
+                        print(f"🎧 [ZapController] Skipping audio menu analysis (goto_live=true, done once outside loop)")
+                    result.audio_menu_details = {"success": True, "message": "Skipped - audio menu analyzed outside loop"}
                 
                 # 4. Only analyze zapping if motion detected and it's a channel up action
                 if context and 'chup' in action_command.lower():
@@ -246,13 +251,14 @@ class ZapController:
         
         return result
     
-    def execute_zap_iterations(self, context, action_edge, action_command: str, max_iterations: int, blackscreen_area: str = None) -> bool:
+    def execute_zap_iterations(self, context, action_edge, action_command: str, max_iterations: int, blackscreen_area: str = None, goto_live: bool = True) -> bool:
         """Execute multiple zap iterations with analysis"""
         print(f"🔄 [ZapController] Starting {max_iterations} iterations of '{action_command}'...")
         
         self.statistics = ZapStatistics()
         self.statistics.total_iterations = max_iterations
         self.blackscreen_area = blackscreen_area  # Store for later use
+        self.goto_live = goto_live  # Store for audio menu analysis logic
         
         # Pre-action screenshot using unified approach
         from .report_utils import capture_and_upload_screenshot
@@ -507,16 +513,11 @@ class ZapController:
             device_model = context.selected_device.device_model if context.selected_device else 'unknown'
             device_id = context.selected_device.device_id
             
-            # Check if we should skip audio menu analysis based on goto_live setting
-            # For mobile devices especially, we don't need to navigate to audio menu when goto_live is false
-            goto_live_enabled = getattr(context, 'goto_live_enabled', True)  # Default to True for backward compatibility
-            if device_model in ['android_mobile', 'ios_mobile'] and not goto_live_enabled:
-                print(f"🎧 [ZapController] Skipping audio menu analysis for mobile device (goto_live disabled)")
-                return {
-                    "success": True,
-                    "menu_detected": False,
-                    "message": "Skipped audio menu analysis (goto_live disabled for mobile)"
-                }
+            # Determine the correct target node to return to
+            if device_model in ['android_mobile', 'ios_mobile']:
+                target_node = "live_fullscreen"
+            else:
+                target_node = "live"
             
             # Get video verification controller - same as HTTP routes
             video_controller = get_controller(device_id, 'verification_video')
@@ -552,11 +553,12 @@ class ZapController:
                     elif screenshot_path:
                         result['analyzed_screenshot'] = screenshot_path
                     
-                    # Navigate back to live (best effort - don't fail if navigation fails)
+                    # Navigate back to correct target node (live_fullscreen for mobile, live for desktop)
                     try:
-                        goto_node(context.host, context.selected_device, "live", context.tree_id, context.team_id, context)
+                        print(f"🔄 [ZapController] Navigating back to {target_node}")
+                        goto_node(context.host, context.selected_device, target_node, context.tree_id, context.team_id, context)
                     except Exception as nav_error:
-                        print(f"⚠️ [ZapController] Navigation back to live failed: {nav_error}")
+                        print(f"⚠️ [ZapController] Navigation back to {target_node} failed: {nav_error}")
                         # Continue anyway - we have the analysis result
                     
                     return result
@@ -577,15 +579,6 @@ class ZapController:
             
             else:
                 # Desktop/TV devices: separate audio and subtitle menus
-                # Also respect goto_live setting for consistency
-                if not goto_live_enabled:
-                    print(f"🎧 [ZapController] Skipping audio/subtitle menu analysis for desktop/TV device (goto_live disabled)")
-                    return {
-                        "success": True,
-                        "menu_detected": False,
-                        "message": "Skipped audio/subtitle menu analysis (goto_live disabled for desktop/TV)"
-                    }
-                
                 print(f"🎧 [ZapController] Analyzing separate audio and subtitle menus for desktop/TV...")
                 
                 combined_result = {
@@ -674,11 +667,12 @@ class ZapController:
                     combined_result["subtitle_analysis"] = {"success": False, "message": "Failed to navigate to subtitle menu"}
                     print(f"❌ [ZapController] Failed to navigate to subtitle menu")
                 
-                # Navigate back to live (best effort - don't fail if navigation fails)
+                # Navigate back to correct target node (best effort - don't fail if navigation fails)
                 try:
-                    goto_node(context.host, context.selected_device, "live", context.tree_id, context.team_id, context)
+                    print(f"🔄 [ZapController] Navigating back to {target_node}")
+                    goto_node(context.host, context.selected_device, target_node, context.tree_id, context.team_id, context)
                 except Exception as nav_error:
-                    print(f"⚠️ [ZapController] Navigation back to live failed: {nav_error}")
+                    print(f"⚠️ [ZapController] Navigation back to {target_node} failed: {nav_error}")
                     # Continue anyway - we have the analysis results
                 
                 # Set combined message and analyzed_screenshot
