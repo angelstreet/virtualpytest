@@ -348,7 +348,14 @@ const CampaignReports: React.FC = () => {
                                   </TableHead>
                                   <TableBody>
                                     {scriptResults[result.id].map((script) => (
-                                      <TableRow key={script.id}>
+                                      <TableRow 
+                                        key={script.id}
+                                        sx={{
+                                          '&:hover': {
+                                            backgroundColor: 'rgba(0, 0, 0, 0.04) !important',
+                                          },
+                                        }}
+                                      >
                                         <TableCell>{script.script_name}</TableCell>
                                         <TableCell>
                                           <Chip
