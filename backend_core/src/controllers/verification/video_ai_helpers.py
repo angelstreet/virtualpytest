@@ -638,7 +638,10 @@ JSON ONLY - NO OTHER TEXT - ALWAYS RESPOND"""
                                     'raw_content': content
                                 }
                             
-                            ai_result = json.loads(content)
+                            # Remove markdown code block markers
+                            json_content = content.replace('```json', '').replace('```', '').strip()
+                            
+                            ai_result = json.loads(json_content)
                             print(f"VideoAI[{self.device_name}]: Successfully parsed AI JSON: {list(ai_result.keys())}")
                             
                             # Validate and normalize the result
