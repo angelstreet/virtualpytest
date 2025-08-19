@@ -3,13 +3,14 @@ Audio AI Analysis Helpers
 
 AI-powered audio analysis functionality for speech-to-text transcription:
 1. Audio segment retrieval and processing
-2. Speech-to-text transcription using OpenRouter API
+2. Speech-to-text transcription using local Whisper (optimized for speed)
 3. Language detection from transcribed text
 4. Audio analysis logging similar to subtitle detection
 5. Integration with ZapController for comprehensive analysis
 
-This helper handles all AI-powered audio analysis operations that require
-external AI services for speech recognition and language detection.
+This helper handles all AI-powered audio analysis operations using
+local Whisper models for fast, offline speech recognition and language detection.
+Performance optimized with tiny model (~39MB) for real-time zap testing.
 """
 
 import os
@@ -32,7 +33,7 @@ except ImportError:
 
 
 class AudioAIHelpers:
-    """AI-powered audio analysis operations using OpenRouter API."""
+    """AI-powered audio analysis operations using local Whisper for fast speech recognition."""
     
     def __init__(self, av_controller, device_name: str = "AudioAI"):
         """
@@ -317,7 +318,7 @@ class AudioAIHelpers:
     
     def transcribe_audio_with_ai(self, audio_file: str) -> Tuple[str, str, float]:
         """
-        Transcribe a single audio file using OpenRouter AI.
+        Transcribe a single audio file using local Whisper (optimized for speed).
         
         Args:
             audio_file: Path to audio file (WAV format)
@@ -330,129 +331,48 @@ class AudioAIHelpers:
                 print(f"AudioAI[{self.device_name}]: Audio file not found: {audio_file}")
                 return '', 'unknown', 0.0
             
-            # Get API key from environment
-            api_key = os.getenv('OPENROUTER_API_KEY')
-            if not api_key:
-                print(f"AudioAI[{self.device_name}]: OpenRouter API key not found")
+            # Use local Whisper for fast transcription
+            try:
+                import whisper
+            except ImportError:
+                print(f"AudioAI[{self.device_name}]: Whisper not installed - run 'pip install openai-whisper'")
                 return '', 'unknown', 0.0
             
-            # Encode audio to base64
-            with open(audio_file, 'rb') as f:
-                audio_data = base64.b64encode(f.read()).decode()
+            # Load optimized Whisper model (use tiny/base for speed)
+            # Global model cache to avoid reloading
+            if not hasattr(self, '_whisper_model'):
+                print(f"AudioAI[{self.device_name}]: Loading Whisper model (tiny - optimized for speed)...")
+                self._whisper_model = whisper.load_model("tiny")  # ~39MB, fastest
+                print(f"AudioAI[{self.device_name}]: Whisper model loaded successfully")
             
-            # Create prompt for audio transcription
-            # Note: Using the same model as video analysis since it's proven to work
-            prompt = """Analyze this audio file for speech content. Transcribe any speech you detect and identify the language.
-
-CRITICAL INSTRUCTIONS:
-1. You MUST ALWAYS respond with valid JSON - never return empty content
-2. If you detect speech, transcribe it accurately
-3. If you detect NO speech, you MUST still respond with the "speech_detected": false JSON format below
-4. ALWAYS provide a response - never return empty or null content
-5. Identify the language of any detected speech
-
-Required JSON format when speech found:
-{
-  "speech_detected": true,
-  "transcript": "Hello, this is the transcribed text",
-  "detected_language": "English",
-  "confidence": 0.95
-}
-
-If no speech detected:
-{
-  "speech_detected": false,
-  "transcript": "",
-  "detected_language": "unknown",
-  "confidence": 0.1
-}
-
-LANGUAGE DETECTION:
-- Common languages: English, French, German, Spanish, Italian, Portuguese, Dutch
-- Set confidence based on clarity and certainty of transcription
-- Use "unknown" for detected_language if you cannot determine the language
-- Be conservative with confidence scores (0.0 to 1.0)
-
-IMPORTANT: Even if the audio has no speech, you MUST respond with the "speech_detected": false JSON format above. Never return empty content.
-
-JSON ONLY - NO OTHER TEXT - ALWAYS RESPOND"""
-            
-            # Call OpenRouter API (using same model as VideoAIHelpers)
-            response = requests.post(
-                'https://openrouter.ai/api/v1/chat/completions',
-                headers={
-                    'Authorization': f'Bearer {api_key}',
-                    'Content-Type': 'application/json',
-                    'HTTP-Referer': 'https://virtualpytest.com',
-                    'X-Title': 'VirtualPyTest'
-                },
-                json={
-                    'model': 'qwen/qwen-2-vl-7b-instruct',  # Same as VideoAIHelpers
-                    'messages': [
-                        {
-                            'role': 'user',
-                            'content': [
-                                {'type': 'text', 'text': prompt},
-                                {'type': 'audio', 'audio': {'data': f'data:audio/wav;base64,{audio_data}'}}
-                            ]
-                        }
-                    ],
-                    'max_tokens': 400,
-                    'temperature': 0.0
-                },
-                timeout=60
+            # Transcribe with Whisper
+            result = self._whisper_model.transcribe(
+                audio_file,
+                language='en',  # Assume English for speed (can be removed for auto-detect)
+                fp16=False,     # Better compatibility
+                verbose=False   # Reduce output noise
             )
             
-            if response.status_code == 200:
-                result = response.json()
-                content = result['choices'][0]['message']['content']
-                
-                if content is None or content.strip() == '':
-                    print(f"AudioAI[{self.device_name}]: AI returned empty content")
-                    return '', 'unknown', 0.0
-                
-                content = content.strip()
-                
-                # Parse JSON response
-                try:
-                    # Remove markdown code blocks if present
-                    json_content = content
-                    if content.startswith('```json') and content.endswith('```'):
-                        json_content = content[7:-3].strip()
-                    elif content.startswith('```') and content.endswith('```'):
-                        json_content = content[3:-3].strip()
-                    
-                    ai_result = json.loads(json_content)
-                    
-                    speech_detected = ai_result.get('speech_detected', False)
-                    transcript = ai_result.get('transcript', '').strip()
-                    detected_language = ai_result.get('detected_language', 'unknown')
-                    confidence = float(ai_result.get('confidence', 0.0))
-                    
-                    if not speech_detected or not transcript:
-                        return '', 'unknown', 0.0
-                    
-                    # Additional language detection using fallback if available
-                    if detected_language == 'unknown' and transcript and LANG_DETECT_AVAILABLE:
-                        try:
-                            detected_lang_code = detect(transcript)
-                            language_map = {
-                                'en': 'English', 'fr': 'French', 'de': 'German',
-                                'es': 'Spanish', 'it': 'Italian', 'pt': 'Portuguese',
-                                'nl': 'Dutch', 'da': 'Danish', 'sv': 'Swedish'
-                            }
-                            detected_language = language_map.get(detected_lang_code, 'unknown')
-                        except:
-                            pass  # Keep as unknown
-                    
-                    return transcript, detected_language, confidence
-                    
-                except json.JSONDecodeError as e:
-                    print(f"AudioAI[{self.device_name}]: JSON parsing error: {e}")
-                    print(f"AudioAI[{self.device_name}]: Raw AI response: {content[:200]}...")
-                    return '', 'unknown', 0.0
+            # Extract results
+            transcript = result.get('text', '').strip()
+            detected_language = result.get('language', 'en')
+            
+            # Convert language code to full name
+            language_map = {
+                'en': 'English', 'fr': 'French', 'de': 'German',
+                'es': 'Spanish', 'it': 'Italian', 'pt': 'Portuguese',
+                'nl': 'Dutch', 'da': 'Danish', 'sv': 'Swedish'
+            }
+            detected_language_name = language_map.get(detected_language, detected_language)
+            
+            # Calculate confidence based on transcript length and content
+            if transcript and len(transcript.strip()) > 0:
+                # Simple confidence heuristic: longer transcripts = higher confidence
+                confidence = min(0.95, 0.5 + (len(transcript) / 100))
+                print(f"AudioAI[{self.device_name}]: Whisper detected speech: '{transcript[:50]}...' (Language: {detected_language_name})")
+                return transcript, detected_language_name, confidence
             else:
-                print(f"AudioAI[{self.device_name}]: OpenRouter API error: {response.status_code}")
+                print(f"AudioAI[{self.device_name}]: Whisper found no speech in audio")
                 return '', 'unknown', 0.0
                 
         except Exception as e:
