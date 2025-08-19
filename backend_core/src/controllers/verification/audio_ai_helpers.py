@@ -78,47 +78,60 @@ class AudioAIHelpers:
                 print(f"AudioAI[{self.device_name}]: Capture folder does not exist: {capture_folder}")
                 return []
             
-            # Find recent video files (last 2 minutes to ensure we have audio data)
-            cutoff_time = time.time() - (2 * 60)  # 2 minutes ago
-            video_files = []
+            # Find recent HLS segment files (last 30 seconds since segments rotate quickly)
+            cutoff_time = time.time() - 30  # 30 seconds ago
+            ts_files = []
             
             for filename in os.listdir(capture_folder):
-                if filename.startswith('capture_') and filename.endswith('.mp4'):
+                if filename.startswith('segment_') and filename.endswith('.ts'):
                     filepath = os.path.join(capture_folder, filename)
                     if os.path.getmtime(filepath) >= cutoff_time:
-                        video_files.append({
+                        ts_files.append({
                             'path': filepath,
                             'filename': filename,
                             'mtime': os.path.getmtime(filepath)
                         })
             
             # Sort by modification time (newest first)
-            video_files.sort(key=lambda x: x['mtime'], reverse=True)
+            ts_files.sort(key=lambda x: x['mtime'], reverse=True)
             
             # Take the most recent files (up to segment_count)
-            recent_files = video_files[:segment_count]
+            recent_files = ts_files[:segment_count]
             
             if not recent_files:
-                print(f"AudioAI[{self.device_name}]: No recent video files found for audio extraction")
-                return []
+                # Check if we have image captures but no TS files (device compatibility check)
+                jpg_files = []
+                for filename in os.listdir(capture_folder):
+                    if filename.startswith('capture_') and filename.endswith('.jpg'):
+                        jpg_files.append(filename)
+                
+                if jpg_files:
+                    print(f"AudioAI[{self.device_name}]: Device uses image-only capture, audio analysis not available")
+                    print(f"AudioAI[{self.device_name}]: Found {len(jpg_files)} image captures but no HLS segments")
+                    return []
+                else:
+                    print(f"AudioAI[{self.device_name}]: No recent HLS segments found for audio extraction")
+                    print(f"AudioAI[{self.device_name}]: Checked folder: {capture_folder}")
+                    return []
             
-            # Extract audio from video files
+            # Extract audio from HLS segment files
             audio_files = []
             temp_dir = tempfile.gettempdir()
             
-            for i, video_file in enumerate(recent_files):
+            print(f"AudioAI[{self.device_name}]: Found {len(recent_files)} recent HLS segments for audio extraction")
+            
+            for i, ts_file in enumerate(recent_files):
                 try:
                     # Create temporary audio file
                     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S_%f')[:-3]
                     audio_filename = f"audio_segment_{i}_{timestamp}.wav"
                     audio_path = os.path.join(temp_dir, audio_filename)
                     
-                    # Extract audio using ffmpeg (assuming it's available)
-                    # Extract last N seconds of audio from the video file
+                    # Extract audio using ffmpeg from HLS segment
+                    # TS files are already 2-second segments, so no duration needed
                     cmd = [
                         'ffmpeg', '-y',  # -y to overwrite existing files
-                        '-i', video_file['path'],
-                        '-t', str(segment_duration),  # Duration
+                        '-i', ts_file['path'],
                         '-vn',  # No video
                         '-acodec', 'pcm_s16le',  # WAV format
                         '-ar', '16000',  # 16kHz sample rate (good for speech)
@@ -138,14 +151,14 @@ class AudioAIHelpers:
                             if os.path.exists(audio_path):
                                 os.unlink(audio_path)
                     else:
-                        print(f"AudioAI[{self.device_name}]: Failed to extract audio from {video_file['filename']}: {result.stderr}")
+                        print(f"AudioAI[{self.device_name}]: Failed to extract audio from HLS segment {ts_file['filename']}: {result.stderr}")
                         
                 except subprocess.TimeoutExpired:
-                    print(f"AudioAI[{self.device_name}]: Audio extraction timeout for {video_file['filename']}")
+                    print(f"AudioAI[{self.device_name}]: Audio extraction timeout for HLS segment {ts_file['filename']}")
                 except Exception as e:
-                    print(f"AudioAI[{self.device_name}]: Error extracting audio from {video_file['filename']}: {e}")
+                    print(f"AudioAI[{self.device_name}]: Error extracting audio from HLS segment {ts_file['filename']}: {e}")
             
-            print(f"AudioAI[{self.device_name}]: Successfully extracted {len(audio_files)} audio segments")
+            print(f"AudioAI[{self.device_name}]: Successfully extracted {len(audio_files)} audio segments from HLS")
             return audio_files
             
         except Exception as e:

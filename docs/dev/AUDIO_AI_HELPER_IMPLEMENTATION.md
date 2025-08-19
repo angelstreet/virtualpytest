@@ -2,7 +2,62 @@
 
 ## Overview
 
-The Audio AI Helper system extends VirtualPyTest's analysis capabilities by adding AI-powered speech-to-text transcription and language detection for audio content. This system analyzes the last 3 audio segments from video captures, transcribes speech using OpenRouter's AI models, detects languages, and logs results in the same format as subtitle detection.
+The Audio AI Helper system extends VirtualPyTest's analysis capabilities by adding AI-powered speech-to-text transcription and language detection for audio content. This system analyzes the last 3 HLS audio segments (`.ts` files) from the host-side video capture, transcribes speech using OpenRouter's AI models, detects languages, and logs results in the same format as subtitle detection.
+
+## ⚠️ **CRITICAL ISSUE IDENTIFIED**
+
+**Current Status**: AudioAIHelpers is looking for `.mp4` files that don't exist in the host capture system.
+
+**Root Cause**: The host-side video capture system creates:
+- **HLS Segments**: `segment_*.ts` files (2-second segments with audio) 
+- **Image Captures**: `capture_YYYYMMDDHHMMSS.jpg` files (1 fps snapshots)
+- **NO MP4 FILES** are created during normal operation
+
+**Fix Required**: AudioAIHelpers must be updated to extract audio from `.ts` HLS segments, not `.mp4` files.
+
+## 🚨 **COMPLETE FIX PLAN**
+
+### **Phase 1: Core AudioAIHelpers Fix**
+1. **Update `get_recent_audio_segments()` method**:
+   - Change file pattern from `capture_*.mp4` to `segment_*.ts`
+   - Update file search logic to find HLS segments
+   - Adjust ffmpeg command for `.ts` input format
+   - Test audio extraction from actual HLS segments
+
+2. **Verify audio extraction**:
+   - Ensure ffmpeg can extract audio from `.ts` files
+   - Validate 16kHz WAV output quality
+   - Test with actual device capture folders
+
+### **Phase 2: Integration Testing**
+1. **Test with real zap execution**:
+   - Run fullzap script with audio analysis enabled
+   - Verify HLS segments are found and processed
+   - Confirm AI transcription works with extracted audio
+   - Check R2 upload functionality
+
+2. **Validate reporting integration**:
+   - Ensure audio statistics appear in console output
+   - Verify fullzap.py displays audio results
+   - Check web report shows audio analysis section
+
+### **Phase 3: Error Handling**
+1. **Graceful degradation**:
+   - Handle cases where no HLS segments exist
+   - Manage ffmpeg extraction failures
+   - Provide clear error messages when audio analysis fails
+
+2. **Device compatibility**:
+   - Detect image-only vs HLS-enabled devices
+   - Skip audio analysis for incompatible setups
+   - Log appropriate messages for debugging
+
+### **Phase 4: Documentation Update**
+1. **Update implementation guide**:
+   - Correct architecture diagrams
+   - Fix technical specifications
+   - Update usage examples
+   - Document HLS segment workflow
 
 ## 🏗️ Architecture
 
@@ -51,20 +106,21 @@ test_scripts/
 #### Key Methods:
 
 ##### `get_recent_audio_segments(segment_count=3, segment_duration=None)`
-- **Purpose**: Retrieves recent audio segments from video captures
-- **Process**:
+- **Purpose**: Retrieves recent audio segments from HLS capture
+- **UPDATED Process**:
   1. Uses global `AVControllerInterface.HLS_SEGMENT_DURATION` configuration (currently 2 seconds)
-  2. Scans video capture folder for recent MP4 files (last 2 minutes)
+  2. **FIXED**: Scans video capture folder for recent `.ts` HLS segment files (not MP4)
   3. Extracts audio using ffmpeg with optimized settings:
+     - Input: `segment_*.ts` files (HLS segments with audio)
      - Format: WAV, 16kHz, mono
-     - Duration: Uses global HLS segment duration (automatically matches host-side configuration)
+     - Duration: Uses global HLS segment duration (matches host-side 2s segments)
      - Quality: PCM 16-bit for speech recognition
   4. Creates temporary audio files for AI analysis
   5. Returns list of audio file paths
 
 ```python
-# ffmpeg command used (duration automatically matches global config):
-ffmpeg -y -i video_file.mp4 -t {HLS_SEGMENT_DURATION} -vn -acodec pcm_s16le -ar 16000 -ac 1 audio_segment.wav
+# CORRECTED ffmpeg command for HLS segments:
+ffmpeg -y -i segment_001.ts -vn -acodec pcm_s16le -ar 16000 -ac 1 audio_segment.wav
 ```
 
 ##### `analyze_audio_segments_ai(audio_files, upload_to_r2=True)`
