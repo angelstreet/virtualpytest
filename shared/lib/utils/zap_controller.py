@@ -324,6 +324,11 @@ class ZapController:
         print(f"⏰ [ZapController] Waiting 8 seconds for banner to disappear...")
         time.sleep(8)
         
+        # Capture a clean screenshot after banner disappears for analysis
+        analysis_step_name = f"zap_analysis_{iteration}_{action_command}"
+        analysis_screenshot_result = capture_and_upload_screenshot(context.host, context.selected_device, analysis_step_name, "zap")
+        print(f"📸 [ZapController] Captured clean screenshot for analysis: {analysis_screenshot_result['screenshot_path']}")
+        
         # Analyze results (this may trigger navigation steps)
         analysis_result = self.analyze_after_zap(iteration, action_command, context)
         self.statistics.analysis_results.append(analysis_result)
