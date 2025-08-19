@@ -294,6 +294,15 @@ class ScriptExecutor:
             print(f"   • Unified graph: {tree_result['unified_graph_nodes']} nodes, {tree_result['unified_graph_edges']} edges")
             print(f"   • Cross-tree pathfinding: {'ENABLED' if tree_result['cross_tree_capabilities'] else 'SINGLE-TREE'}")
             
+            # After hierarchy loading
+            all_nodes = []
+            for tree in context.tree_hierarchy:
+                all_nodes.extend(tree.get('nodes', []))
+
+            # Store in context
+            context.all_nodes = all_nodes
+            print(f"   • Total nodes across hierarchy: {len(all_nodes)}")
+            
             return True
             
         except (NavigationTreeError, UnifiedCacheError) as e:
