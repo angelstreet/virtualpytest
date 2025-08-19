@@ -88,18 +88,18 @@ start_grabber() {
   # Build FFmpeg command based on source type
   if [ "$source_type" = "v4l2" ]; then
     # Hardware video device
-    FFMPEG_CMD="/usr/bin/ffmpeg -y -f v4l2 -framerate \"$fps\" -video_size 1024x768 -i $source \
-      -f alsa -thread_queue_size 8192 -i \"$audio_device\" \
-      -filter_complex \"[0:v]split=2[stream][capture];[stream]scale=640:360[streamout];[capture]fps=1[captureout]\" \
-      -map \"[streamout]\" -map 1:a \
-      -c:v libx264 -preset veryfast -tune zerolatency -crf 28 -maxrate 1200k -bufsize 2400k -g 30 \
-      -pix_fmt yuv420p -profile:v baseline -level 3.0 \
-      -c:a aac -b:a 64k -ar 44100 -ac 2 \
-      -f hls -hls_time 2 -hls_list_size 150 -hls_flags delete_segments \
-      -hls_segment_filename $capture_dir/segment_%03d.ts \
-      $capture_dir/output.m3u8 \
-      -map \"[captureout]\" -c:v mjpeg -q:v 5 -r 1 -f image2 \
-      $capture_dir/captures/test_capture_%06d.jpg"
+    FFMPEG_CMD="/usr/bin/ffmpeg -y -f v4l2 -framerate "$fps" -video_size 1024x768 -i $source \
+    -f alsa -thread_queue_size 512 -i "$audio_device" \
+    -filter_complex "[0:v]split=2[stream][capture];[stream]scale=640:360[streamout];[capture]fps=1[captureout]" \
+    -map "[streamout]" -map 1:a \
+    -c:v libx264 -preset veryfast -tune zerolatency -crf 28 -maxrate 1200k -bufsize 1200k -g "$fps" -rc-lookahead 0 \
+    -pix_fmt yuv420p -profile:v baseline -level 3.0 \
+    -c:a aac -b:a 64k -ar 44100 -ac 2 \
+    -f hls -hls_time 1 -hls_list_size 600 -hls_flags low_delay+delete_segments \
+    -hls_segment_filename $capture_dir/segment_%03d.ts \
+    $capture_dir/output.m3u8 \
+    -map "[captureout]" -c:v mjpeg -q:v 5 -r 1 -f image2 \
+    $capture_dir/captures/test_capture_%06d.jpg"
   elif [ "$source_type" = "x11grab" ]; then
     # VNC display - use direct access (xhost +local:www-data already configured)
     local resolution=$(get_vnc_resolution "$source")
