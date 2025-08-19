@@ -111,9 +111,9 @@ start_grabber() {
       -an \
       -filter_complex \"[0:v]split=2[stream][capture];[stream]scale=512:384[streamout];[capture]fps=1[captureout]\" \
       -map \"[streamout]\" \
-      -c:v libx264 -preset veryfast -tune zerolatency -crf 28 -maxrate 1200k -bufsize 2400k -g 30 \
+      -c:v libx264 -preset veryfast -tune zerolatency -crf 28 -maxrate 1200k -bufsize 1200k -g "$fps" -rc-lookahead 0 \
       -pix_fmt yuv420p -profile:v baseline -level 3.0 \
-      -f hls -hls_time 2 -hls_list_size 150 -hls_flags delete_segments \
+      -f hls -hls_time 1 -hls_list_size 600 -hls_flags low_delay+delete_segments \
       -hls_segment_filename $capture_dir/segment_%03d.ts \
       $capture_dir/output.m3u8 \
       -map \"[captureout]\" -c:v mjpeg -q:v 5 -r 1 -f image2 \
