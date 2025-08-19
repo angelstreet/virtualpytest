@@ -99,12 +99,13 @@ class ScriptExecutionContext:
         """Get current execution time in milliseconds"""
         return int((time.time() - self.start_time) * 1000)
     
-    def record_step_immediately(self, step_data: Dict[str, Any]):
-        """Record step immediately with simple sequential numbering"""
+    def record_step_immediately(self, step_data: Dict[str, Any]) -> int:
+        """Record step immediately with simple sequential numbering - returns step number"""
         self.step_counter += 1
         step_data['step_number'] = self.step_counter
         step_data['timestamp'] = time.time()
         self.step_results.append(step_data)
+        return self.step_counter
 
     def add_screenshot(self, screenshot_path: str):
         """Add a screenshot to the collection"""

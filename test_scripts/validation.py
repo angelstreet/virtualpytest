@@ -243,8 +243,10 @@ def execute_validation_sequence_with_force_recovery(executor: ScriptExecutor, co
                 'step_category': 'validation'
             }
             
-            # Record step immediately using simple sequential recording
-            context.record_step_immediately(step_result)
+            # Record step immediately and get step number
+            step_number = context.record_step_immediately(step_result)
+            # Update message with actual step number
+            step_result['message'] = f"Step {step_number} - Validation step {step_num}: {from_node} → {to_node}"
             
             # Check for critical failure (both normal and force navigation failed)
             if result.get('critical_failure', False):

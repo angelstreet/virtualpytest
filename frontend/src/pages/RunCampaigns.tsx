@@ -30,7 +30,6 @@ import {
 } from '@mui/material';
 import {
   PlayArrow as LaunchIcon,
-  Timeline as HistoryIcon,
   Link as LinkIcon,
 } from '@mui/icons-material';
 
@@ -64,7 +63,6 @@ const RunCampaigns: React.FC = () => {
     isExecuting,
     currentExecution,
     campaignHistory,
-    refreshCampaignHistory,
     isLoading,
     error,
   } = useCampaign();
@@ -187,67 +185,32 @@ const RunCampaigns: React.FC = () => {
       case 2:
         return (
           <Box>
-            {/* Campaign Summary */}
-            <Card variant="outlined" sx={{ mb: 2 }}>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  Campaign Summary
-                </Typography>
-                <Grid container spacing={2}>
-                  <Grid item xs={12} md={6}>
-                    <Typography variant="body2" color="text.secondary">Campaign Name:</Typography>
-                    <Typography variant="body1">{campaignConfig.name}</Typography>
-                  </Grid>
-                  <Grid item xs={12} md={6}>
-                    <Typography variant="body2" color="text.secondary">Device:</Typography>
-                    <Typography variant="body1">
-                      {campaignConfig.host}:{campaignConfig.device}
-                    </Typography>
-                  </Grid>
-                  <Grid item xs={12} md={6}>
-                    <Typography variant="body2" color="text.secondary">Scripts:</Typography>
-                    <Typography variant="body1">
-                      {campaignConfig.script_configurations?.length || 0} scripts
-                    </Typography>
-                  </Grid>
-                  <Grid item xs={12} md={6}>
-                    <Typography variant="body2" color="text.secondary">Timeout:</Typography>
-                    <Typography variant="body1">
-                      {campaignConfig.execution_config?.timeout_minutes} minutes
-                    </Typography>
-                  </Grid>
-                </Grid>
-              </CardContent>
-            </Card>
+            {/* Compact Campaign Summary */}
+            <Box sx={{ mb: 1 }}>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                <strong>{campaignConfig.name}</strong> on {campaignConfig.host}:{campaignConfig.device} 
+                • {campaignConfig.script_configurations?.length || 0} scripts • Timeout: 2h
+              </Typography>
+            </Box>
 
             {/* Device Stream Preview */}
             {getSelectedDevices().length > 0 && (
-              <Card variant="outlined" sx={{ mb: 2 }}>
-                <CardContent>
-                  <Typography variant="h6" gutterBottom>
-                    Device Preview
-                  </Typography>
-                  <DeviceStreamGrid
-                    devices={getSelectedDevices()}
-                    allHosts={allHosts}
-                    getDevicesFromHost={getDevicesFromHost}
-                    maxColumns={1}
-                  />
-                </CardContent>
-              </Card>
+              <Box sx={{ mb: 1 }}>
+                <DeviceStreamGrid
+                  devices={getSelectedDevices()}
+                  allHosts={allHosts}
+                  getDevicesFromHost={getDevicesFromHost}
+                  maxColumns={1}
+                />
+              </Box>
             )}
 
             {/* Validation Errors */}
             {!validation.valid && (
-              <Alert severity="error" sx={{ mb: 2 }}>
-                <Typography variant="body2" gutterBottom>
-                  Please fix the following issues:
+              <Alert severity="error" sx={{ mb: 1 }}>
+                <Typography variant="body2">
+                  Issues: {validation.errors.join(', ')}
                 </Typography>
-                <ul style={{ margin: 0, paddingLeft: 20 }}>
-                  {validation.errors.map((error, index) => (
-                    <li key={index}>{error}</li>
-                  ))}
-                </ul>
               </Alert>
             )}
           </Box>
@@ -259,7 +222,7 @@ const RunCampaigns: React.FC = () => {
 
   return (
     <Box sx={{ p: 1 }}>
-      <Typography variant="h5" sx={{ mb: 1 }}>
+      <Typography variant="h5" sx={{ mb: 0.5 }}>
         Campaign Runner
       </Typography>
 
@@ -270,18 +233,18 @@ const RunCampaigns: React.FC = () => {
         </Alert>
       )}
 
-      <Grid container spacing={2}>
+      <Grid container spacing={1}>
         {/* Campaign Builder / Execution */}
         <Grid item xs={12}>
-          <Card sx={{ '& .MuiCardContent-root': { p: 2, '&:last-child': { pb: 2 } } }}>
+          <Card sx={{ '& .MuiCardContent-root': { p: 1, '&:last-child': { pb: 1 } } }}>
             <CardContent>
-              <Typography variant="h6" sx={{ mb: 1 }}>
+              <Typography variant="h6" sx={{ mb: 0.5 }}>
                 Campaign Execution
               </Typography>
 
               {!showBuilder && !currentExecution ? (
                 // Show launch button when builder is not active
-                <Box display="flex" justifyContent="center" py={2}>
+                <Box display="flex" justifyContent="center" py={1}>
                   <Button
                     variant="contained"
                     size="large"
@@ -295,20 +258,20 @@ const RunCampaigns: React.FC = () => {
               ) : currentExecution ? (
                 // Show simple execution progress (same as RunTests.tsx)
                 <Box>
-                  <Typography variant="h6" sx={{ mb: 2 }}>
+                  <Typography variant="h6" sx={{ mb: 1 }}>
                     Campaign Execution: {currentExecution.campaign_name}
                   </Typography>
                   
                   {/* Simple progress indicator (same as RunTests.tsx) */}
                   {isExecuting && (
-                    <Box sx={{ mb: 2 }}>
+                    <Box sx={{ mb: 1 }}>
                       <Card variant="outlined">
-                        <CardContent sx={{ py: 1 }}>
+                        <CardContent sx={{ py: 0.5 }}>
                           <Typography variant="body2" color="text.secondary">
                             Campaign Progress: {currentExecution.completed_scripts}/{currentExecution.total_scripts} scripts completed 
                             ({currentExecution.successful_scripts} successful)
                           </Typography>
-                          <Box sx={{ display: 'flex', gap: 1, mt: 1, flexWrap: 'wrap' }}>
+                          <Box sx={{ display: 'flex', gap: 1, mt: 0.5, flexWrap: 'wrap' }}>
                             <Chip
                               label={`${currentExecution.hostName}:${currentExecution.deviceId}`}
                               color="warning"
@@ -330,7 +293,7 @@ const RunCampaigns: React.FC = () => {
                   
                   {/* Campaign completion status */}
                   {!isExecuting && currentExecution.status === 'completed' && (
-                    <Alert severity={currentExecution.overall_success ? "success" : "error"} sx={{ mb: 2 }}>
+                    <Alert severity={currentExecution.overall_success ? "success" : "error"} sx={{ mb: 1 }}>
                       Campaign {currentExecution.overall_success ? 'completed successfully' : 'failed'}! 
                       {currentExecution.successful_scripts}/{currentExecution.total_scripts} scripts successful.
                     </Alert>
@@ -344,7 +307,7 @@ const RunCampaigns: React.FC = () => {
                       <Step key={label}>
                         <StepLabel>{label}</StepLabel>
                         <StepContent>
-                          <Box sx={{ mb: 2 }}>
+                          <Box sx={{ mb: 1 }}>
                             {renderStepContent(index)}
                           </Box>
                           <Box sx={{ display: 'flex', gap: 1 }}>
@@ -391,26 +354,16 @@ const RunCampaigns: React.FC = () => {
 
         {/* Campaign History */}
         <Grid item xs={12}>
-          <Card sx={{ '& .MuiCardContent-root': { p: 2, '&:last-child': { pb: 2 } } }}>
+          <Card sx={{ '& .MuiCardContent-root': { p: 1, '&:last-child': { pb: 1 } } }}>
             <CardContent>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                <Typography variant="h6">
-                  Campaign History
-                </Typography>
-                <Button
-                  size="small"
-                  onClick={refreshCampaignHistory}
-                  disabled={isLoading}
-                  startIcon={<HistoryIcon />}
-                >
-                  Refresh
-                </Button>
-              </Box>
+              <Typography variant="h6" sx={{ mb: 0.5 }}>
+                Campaign History
+              </Typography>
 
               {campaignHistory.length === 0 ? (
                 <Box
                   sx={{
-                    p: 2,
+                    p: 1,
                     textAlign: 'center',
                     borderRadius: 1,
                     backgroundColor: 'background.default',

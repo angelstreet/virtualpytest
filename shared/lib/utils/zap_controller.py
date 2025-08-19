@@ -938,7 +938,7 @@ class ZapController:
             'screenshot_path': screenshot_path,
             'screenshot_url': action_result.get('screenshot_url'),
             'step_start_screenshot_path': action_result.get('step_start_screenshot_path', ''),
-            'message': f"Zap iteration {iteration}: {action_command} ({iteration}/{max_iterations})",
+            'message': f"Zap iteration {iteration}: {action_command} ({iteration}/{max_iterations})",  # Will be updated with step number
             'execution_time_ms': execution_time,
             'start_time': datetime.fromtimestamp(start_time).strftime('%H:%M:%S'),
             'end_time': datetime.fromtimestamp(end_time).strftime('%H:%M:%S'),
@@ -958,8 +958,10 @@ class ZapController:
         if not action_result.get('success'):
             step_result['error'] = action_result.get('error', 'Unknown error')
         
-        # Record immediately using simple sequential recording
-        context.record_step_immediately(step_result)
+        # Record immediately and get step number
+        step_number = context.record_step_immediately(step_result)
+        # Update message with actual step number
+        step_result['message'] = f"Step {step_number} - Zap iteration {iteration}: {action_command} ({iteration}/{max_iterations})"
     
     # Legacy step recording removed - using immediate recording only
     

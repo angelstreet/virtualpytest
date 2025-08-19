@@ -59,7 +59,6 @@ interface UseCampaignReturn {
 
   // Campaign History
   campaignHistory: CampaignHistoryItem[];
-  refreshCampaignHistory: () => void;
 
   // State Management
   builderState: CampaignBuilderState;
@@ -86,7 +85,7 @@ export const useCampaign = (): UseCampaignReturn => {
   const [campaignConfig, setCampaignConfig] = useState<Partial<CampaignConfig>>({
     execution_config: {
       continue_on_failure: true,
-      timeout_minutes: 60,
+      timeout_minutes: 120, // Fixed to 2 hours
       parallel: false,
     },
     script_configurations: [],
@@ -138,11 +137,16 @@ export const useCampaign = (): UseCampaignReturn => {
       });
     }
 
-    // Execution config validation
-    if (configToValidate.execution_config) {
-      if (configToValidate.execution_config.timeout_minutes <= 0) {
-        errors.push('Timeout must be greater than 0 minutes');
-      }
+    // Execution config validation (timeout fixed to 2h)
+    if (!configToValidate.execution_config) {
+      configToValidate.execution_config = {
+        timeout_minutes: 120,
+        continue_on_failure: true,
+        parallel: false,
+      };
+    } else {
+      // Always ensure timeout is 2 hours
+      configToValidate.execution_config.timeout_minutes = 120;
     }
 
     return {
@@ -515,12 +519,7 @@ export const useCampaign = (): UseCampaignReturn => {
     };
   }, [scriptAnalysisCache]);
 
-  // Campaign History (local state management like RunTests.tsx)
-  const refreshCampaignHistory = useCallback(() => {
-    // History is managed locally - no API call needed
-    // This function exists for UI consistency but doesn't need to do anything
-    console.log('[@hook:useCampaign] Campaign history refreshed (local state)');
-  }, []);
+  // Campaign History (local state management like RunTests.tsx - no refresh function needed)
 
   return {
     // Execution
@@ -553,7 +552,6 @@ export const useCampaign = (): UseCampaignReturn => {
 
     // History
     campaignHistory,
-    refreshCampaignHistory,
 
     // State
     builderState,

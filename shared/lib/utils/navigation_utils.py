@@ -566,7 +566,7 @@ def goto_node(host, device, target_node_label: str, tree_id: str, team_id: str, 
                 step_result = {
                     'success': result.get('success', False),
                     'screenshot_path': step_screenshot,
-                    'message': f"Navigation step {step_num}: {from_node} → {to_node}",
+                    'message': f"Navigation step: {from_node} → {to_node}",  # Will be updated with step number
                     'execution_time_ms': step_execution_time,
                     'start_time': step_start_timestamp,
                     'end_time': step_end_timestamp,
@@ -579,8 +579,10 @@ def goto_node(host, device, target_node_label: str, tree_id: str, team_id: str, 
                     'step_category': 'navigation'
                 }
                 
-                # Record step immediately - no legacy fallback needed
-                context.record_step_immediately(step_result)
+                # Record step immediately and get the step number
+                step_number = context.record_step_immediately(step_result)
+                # Update message with actual step number
+                step_result['message'] = f"Navigation step {step_number}: {from_node} → {to_node}"
             
             if not result.get('success', False):
                 error_msg = result.get('error', 'Unknown error')
