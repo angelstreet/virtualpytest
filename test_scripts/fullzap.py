@@ -288,6 +288,10 @@ def main():
         # Store mapped action in context for summary display
         context.custom_data['action_command'] = mapped_action
         
+        # Pass goto_live setting to context so ZapController can respect it
+        context.goto_live_enabled = args.goto_live
+        print(f"🎯 [fullzap] Set goto_live_enabled in context: {context.goto_live_enabled}")
+        
         # For mobile devices, determine correct audio menu node and pass to zap_controller
         if "mobile" in context.selected_device.device_model.lower():
             context.audio_menu_node = "live_fullscreen_audiomenu"

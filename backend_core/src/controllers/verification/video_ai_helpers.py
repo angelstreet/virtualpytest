@@ -418,7 +418,7 @@ Be specific about what you see on the device interface."""
                         'X-Title': 'VirtualPyTest'
                     },
                     json={
-                        'model': 'openai/gpt-4o-mini',
+                        'model': 'qwen/qwen-2-vl-7b-instruct',
                         'messages': [
                             {
                                 'role': 'user',
@@ -518,15 +518,25 @@ Be specific about what you see on the device interface."""
                     image_data = base64.b64encode(f.read()).decode()
                 
                 # Enhanced prompt for language/subtitle menu detection with better categorization
-                prompt = """Analyze this image for language/subtitle/audio menu options. Look for sections labeled AUDIO, SUBTITLES, AUDIO DESCRIPTION, etc.
+                prompt = """Analyze this image for language/subtitle/audio menu options. This could be a TV settings menu, streaming app menu, or media player interface.
+
+LOOK FOR THESE UI PATTERNS:
+- Settings menus with AUDIO, SUBTITLES, or LANGUAGE sections
+- Dropdown menus or lists showing language options
+- Media player controls with language/subtitle buttons
+- TV/STB interface menus for audio/subtitle settings
+- Streaming app (Netflix, Prime, etc.) audio/subtitle menus
+- Any interface showing language choices like "English", "French", "Spanish", etc.
+- Audio tracks, subtitle tracks, or closed caption options
 
 CRITICAL INSTRUCTIONS:
 1. You MUST ALWAYS respond with valid JSON - never return empty content
-2. If you find a language/subtitle menu, extract the options and selections
+2. If you find ANY language/audio/subtitle menu or options, extract them
 3. If you find NO menu, you MUST still respond with the "menu_detected": false JSON format below
 4. ALWAYS provide a response - never return empty or null content
+5. Be liberal in detecting menus - if there are any language-related options, consider it a menu
 
-Required JSON format:
+Required JSON format when menu found:
 {
   "menu_detected": true,
   "audio_languages": ["English", "French", "Spanish"],
@@ -544,20 +554,19 @@ If no language/subtitle menu found:
   "selected_subtitle": -1
 }
 
-IMPORTANT CATEGORIZATION RULES:
-- AUDIO section: List main audio languages (English, French, Spanish, etc.)
-- SUBTITLE section: List subtitle options (Off, English, French, etc.)
+CATEGORIZATION RULES:
+- AUDIO section: Main audio languages (English, French, Spanish, etc.)
+- SUBTITLE section: Subtitle options (Off, English, French, etc.)
 - AUDIO DESCRIPTION: These belong in audio_languages, not subtitle_languages
-- Audio description tracks should be included in audio_languages (e.g., "English - Audio description")
-- Look for section headers like "AUDIO", "SUBTITLES", "AUDIO DESCRIPTION" to properly categorize
+- Look for section headers like "AUDIO", "SUBTITLES", "AUDIO DESCRIPTION", "LANGUAGE", "CC"
 - List languages in the order they appear within each section (index 0, 1, 2, etc.)
 - Use "Off" for disabled subtitles
 - Set selected_audio/selected_subtitle to the index of the currently selected option (-1 if none)
-- Check for visual indicators like checkmarks (✓) or highlighting to identify selected options
+- Check for visual indicators like checkmarks (✓), highlighting, arrows, or bold text
 
 IMPORTANT: Even if the image has no language/subtitle menu, you MUST respond with the "menu_detected": false JSON format above. Never return empty content.
 
-JSON ONLY - NO OTHER TEXT - ALWAYS RESPOND"""
+RESPOND WITH JSON ONLY - NO MARKDOWN - NO OTHER TEXT"""
                 
                 # Call OpenRouter API
                 response = requests.post(
@@ -569,7 +578,7 @@ JSON ONLY - NO OTHER TEXT - ALWAYS RESPOND"""
                         'X-Title': 'VirtualPyTest'
                     },
                     json={
-                        'model': 'openai/gpt-4o-mini',
+                        'model': 'qwen/qwen-2-vl-7b-instruct',
                         'messages': [
                             {
                                 'role': 'user',
@@ -626,6 +635,7 @@ JSON ONLY - NO OTHER TEXT - ALWAYS RESPOND"""
                         
                         print(f"VideoAI[{self.device_name}]: Raw content length: {len(content)}")
                         print(f"VideoAI[{self.device_name}]: Raw content preview: {repr(content[:200])}")
+                        print(f"VideoAI[{self.device_name}]: Full raw content: {repr(content)}")
                         
                         # Parse JSON response
                         try:
@@ -650,6 +660,13 @@ JSON ONLY - NO OTHER TEXT - ALWAYS RESPOND"""
                             subtitle_languages = ai_result.get('subtitle_languages', [])
                             selected_audio = ai_result.get('selected_audio', -1)
                             selected_subtitle = ai_result.get('selected_subtitle', -1)
+                            
+                            # Enhanced logging for debugging
+                            print(f"VideoAI[{self.device_name}]: Menu detected: {menu_detected}")
+                            print(f"VideoAI[{self.device_name}]: Audio languages: {audio_languages}")
+                            print(f"VideoAI[{self.device_name}]: Subtitle languages: {subtitle_languages}")
+                            print(f"VideoAI[{self.device_name}]: Selected audio: {selected_audio}")
+                            print(f"VideoAI[{self.device_name}]: Selected subtitle: {selected_subtitle}")
                             
                             # Return standardized result
                             return {
@@ -910,7 +927,7 @@ JSON ONLY - NO OTHER TEXT - ALWAYS RESPOND"""
                             'X-Title': 'VirtualPyTest'
                         },
                         json={
-                            'model': 'openai/gpt-4o-mini',
+                            'model': 'qwen/qwen-2-vl-7b-instruct',
                             'messages': [
                                 {
                                     'role': 'user',

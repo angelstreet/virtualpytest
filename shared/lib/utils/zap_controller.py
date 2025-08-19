@@ -507,6 +507,17 @@ class ZapController:
             device_model = context.selected_device.device_model if context.selected_device else 'unknown'
             device_id = context.selected_device.device_id
             
+            # Check if we should skip audio menu analysis based on goto_live setting
+            # For mobile devices especially, we don't need to navigate to audio menu when goto_live is false
+            goto_live_enabled = getattr(context, 'goto_live_enabled', True)  # Default to True for backward compatibility
+            if device_model in ['android_mobile', 'ios_mobile'] and not goto_live_enabled:
+                print(f"🎧 [ZapController] Skipping audio menu analysis for mobile device (goto_live disabled)")
+                return {
+                    "success": True,
+                    "menu_detected": False,
+                    "message": "Skipped audio menu analysis (goto_live disabled for mobile)"
+                }
+            
             # Get video verification controller - same as HTTP routes
             video_controller = get_controller(device_id, 'verification_video')
             if not video_controller:
@@ -566,6 +577,15 @@ class ZapController:
             
             else:
                 # Desktop/TV devices: separate audio and subtitle menus
+                # Also respect goto_live setting for consistency
+                if not goto_live_enabled:
+                    print(f"🎧 [ZapController] Skipping audio/subtitle menu analysis for desktop/TV device (goto_live disabled)")
+                    return {
+                        "success": True,
+                        "menu_detected": False,
+                        "message": "Skipped audio/subtitle menu analysis (goto_live disabled for desktop/TV)"
+                    }
+                
                 print(f"🎧 [ZapController] Analyzing separate audio and subtitle menus for desktop/TV...")
                 
                 combined_result = {
