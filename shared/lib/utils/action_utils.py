@@ -693,24 +693,6 @@ def execute_edge_actions(host, device, edge: Dict, action_set_id: str = None, te
         Execution result dictionary with success status and details (same format as ActionExecutor)
     """
     try:
-        # Critical validation: edge must not be None
-        if edge is None:
-            error_msg = "CRITICAL ERROR: execute_edge_actions called with None edge parameter"
-            print(f"[@action_utils:execute_edge_actions] ERROR: {error_msg}")
-            print(f"[@action_utils:execute_edge_actions] This indicates a navigation or action mapping problem:")
-            print(f"[@action_utils:execute_edge_actions]   - The action command may not exist in the current node's available edges")
-            print(f"[@action_utils:execute_edge_actions]   - The current node context may be incorrect")
-            print(f"[@action_utils:execute_edge_actions]   - The action command may need to be node-specific (e.g., 'live_fullscreen_chup' instead of 'live_chup')")
-            print(f"[@action_utils:execute_edge_actions] SOLUTION: Verify the action command matches an available edge from the current node")
-            return {
-                'success': False,
-                'error': error_msg,
-                'results': [],
-                'passed_count': 0,
-                'total_count': 0,
-                'action_screenshots': []
-            }
-        
         # Get action set by ID or use forward action set (index 0) as fallback
         action_sets = edge.get('action_sets', [])
         
