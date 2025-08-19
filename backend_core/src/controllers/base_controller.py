@@ -196,7 +196,7 @@ class AVControllerInterface(BaseController):
     """Type hint interface for AV controllers."""
     
     # Global configuration for video segments
-    HLS_SEGMENT_DURATION = 1  # seconds per segment
+    HLS_SEGMENT_DURATION = 2  # seconds per segment
     
     def __init__(self, device_name: str = "Unknown Device", capture_source: str = "HDMI"):
         super().__init__("av", device_name)
