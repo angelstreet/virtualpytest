@@ -295,7 +295,7 @@ def main():
         action_edge = find_edge_by_target_label(
             context.current_node_id, 
             context.edges, 
-            context.nodes, 
+            context.all_nodes, 
             mapped_action  # e.g., 'live_fullscreen_chup'
         )
         
