@@ -5,6 +5,7 @@ import {
   SubtitleAnalysis,
   SubtitleTrendAnalysis,
 } from '../../types/pages/Monitoring_Types';
+import { useToast } from '../useToast';
 
 interface FrameRef {
   timestamp: string;
@@ -49,6 +50,9 @@ export const useMonitoringSubtitles = ({
 }: UseMonitoringSubtitlesProps): UseMonitoringSubtitlesReturn => {
   const [isDetectingSubtitles, setIsDetectingSubtitles] = useState(false);
   const [isDetectingSubtitlesAI, setIsDetectingSubtitlesAI] = useState(false);
+  
+  // Toast notifications
+  const { showSuccess, showWarning, showError } = useToast();
 
   // Check if current frame has subtitle detection results
   const hasSubtitleDetectionResults =
@@ -177,17 +181,27 @@ export const useMonitoringSubtitles = ({
             '[useMonitoringSubtitles] Updated frame with subtitle data:',
             newSubtitleData,
           );
+
+          // Show toast notification based on results
+          if (hasSubtitles && extractedText) {
+            showSuccess(`Subtitles found: "${extractedText.substring(0, 50)}${extractedText.length > 50 ? '...' : ''}"`);
+          } else {
+            showWarning('No subtitles detected in this frame');
+          }
         } else {
           console.error('[useMonitoringSubtitles] Subtitle detection failed:', result.error);
+          showError('Subtitle detection failed. Please try again.');
         }
       } else {
         console.error(
           '[useMonitoringSubtitles] Subtitle detection request failed:',
           response.status,
         );
+        showError(`Subtitle detection request failed (${response.status}). Please try again.`);
       }
     } catch (error) {
       console.error('[useMonitoringSubtitles] Subtitle detection error:', error);
+      showError('Network error during subtitle detection. Please check your connection.');
     } finally {
       setIsDetectingSubtitles(false);
     }
@@ -200,6 +214,9 @@ export const useMonitoringSubtitles = ({
     setFrames,
     setIsPlaying,
     setUserSelectedFrame,
+    showSuccess,
+    showWarning,
+    showError,
   ]);
 
   // AI Subtitle detection function
@@ -280,17 +297,27 @@ export const useMonitoringSubtitles = ({
             '[useMonitoringSubtitles] Updated frame with AI subtitle data:',
             newSubtitleData,
           );
+
+          // Show toast notification based on AI results
+          if (hasSubtitles && extractedText) {
+            showSuccess(`AI found subtitles: "${extractedText.substring(0, 50)}${extractedText.length > 50 ? '...' : ''}"`);
+          } else {
+            showWarning('AI analysis complete: No subtitles detected in this frame');
+          }
         } else {
           console.error('[useMonitoringSubtitles] AI Subtitle detection failed:', result.error);
+          showError('AI subtitle detection failed. Please try again.');
         }
       } else {
         console.error(
           '[useMonitoringSubtitles] AI Subtitle detection request failed:',
           response.status,
         );
+        showError(`AI subtitle detection request failed (${response.status}). Please try again.`);
       }
     } catch (error) {
       console.error('[useMonitoringSubtitles] AI Subtitle detection error:', error);
+      showError('Network error during AI subtitle detection. Please check your connection.');
     } finally {
       setIsDetectingSubtitlesAI(false);
     }
@@ -303,6 +330,9 @@ export const useMonitoringSubtitles = ({
     setFrames,
     setIsPlaying,
     setUserSelectedFrame,
+    showSuccess,
+    showWarning,
+    showError,
   ]);
 
   return {

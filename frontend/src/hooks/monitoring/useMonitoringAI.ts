@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
+import { useToast } from '../useToast';
 
 interface FrameRef {
   timestamp: string;
@@ -41,6 +42,9 @@ export const useMonitoringAI = ({
   const [aiQuery, setAiQuery] = useState('');
   const [aiResponse, setAiResponse] = useState('');
   const [isProcessingAIQuery, setIsProcessingAIQuery] = useState(false);
+
+  // Toast notifications
+  const { showSuccess, showError } = useToast();
 
   // AI Query functions
   const toggleAIPanel = useCallback(() => {
@@ -114,16 +118,20 @@ export const useMonitoringAI = ({
 
         if (result.success && result.response) {
           setAiResponse(result.response);
+          showSuccess('AI analysis completed successfully');
         } else {
           setAiResponse('Unable to analyze image. Please try again.');
+          showError('AI image analysis failed. Please try again.');
         }
       } else {
         console.error('[useMonitoringAI] AI query request failed:', response.status);
         setAiResponse('Request failed. Please try again.');
+        showError(`AI analysis request failed (${response.status}). Please try again.`);
       }
     } catch (error) {
       console.error('[useMonitoringAI] AI query error:', error);
       setAiResponse('Error processing request. Please try again.');
+      showError('Network error during AI analysis. Please check your connection.');
     } finally {
       setIsProcessingAIQuery(false);
       // No auto-close - response stays until user action
@@ -137,6 +145,8 @@ export const useMonitoringAI = ({
     device?.device_id,
     setIsPlaying,
     setUserSelectedFrame,
+    showSuccess,
+    showError,
   ]);
 
   // Clear AI query when frame changes (timeline navigation)

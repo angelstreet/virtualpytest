@@ -82,35 +82,8 @@ class VideoAIHelpers:
                 with open(temp_path, 'rb') as f:
                     image_data = base64.b64encode(f.read()).decode()
                 
-                # Enhanced prompt for subtitle analysis with stronger JSON enforcement
-                prompt = """You are a subtitle detection system. Analyze this image for subtitles in the bottom portion.
-
-CRITICAL INSTRUCTIONS:
-1. You MUST ALWAYS respond with valid JSON - never return empty content
-2. If you find subtitles, extract the text and detect the language
-3. If you find NO subtitles, you MUST still respond with the "no subtitles" JSON format below
-4. ALWAYS provide a response - never return empty or null content
-
-Required JSON format when subtitles ARE found:
-{
-  "subtitles_detected": true,
-  "extracted_text": "exact subtitle text here",
-  "detected_language": "German",
-  "confidence": 0.95
-}
-
-Required JSON format when NO subtitles are found:
-{
-  "subtitles_detected": false,
-  "extracted_text": "",
-  "detected_language": "unknown",
-  "confidence": 0.1
-}
-
-IMPORTANT: Even if the image has no subtitles, you MUST respond with the "subtitles_detected": false JSON format above. Never return empty content.
-
-Languages: English, French, German, Spanish, Italian, Portuguese, Dutch, or unknown
-JSON ONLY - NO OTHER TEXT - ALWAYS RESPOND"""
+                # Working prompt that routes to InferenceNet provider
+                prompt = "Analyze this image for subtitles. Respond with JSON: {\"subtitles_detected\": true/false, \"extracted_text\": \"text or empty\", \"detected_language\": \"language or unknown\", \"confidence\": 0.0-1.0}"
                 
                 # Call OpenRouter API
                 response = requests.post(
@@ -433,7 +406,7 @@ Be specific about what you see on the device interface."""
                         'X-Title': 'VirtualPyTest'
                     },
                     json={
-                        'model': 'qwen/qwen-2-vl-7b-instruct',
+                        'model': 'openai/gpt-4o-mini',
                         'messages': [
                             {
                                 'role': 'user',
@@ -584,7 +557,7 @@ JSON ONLY - NO OTHER TEXT - ALWAYS RESPOND"""
                         'X-Title': 'VirtualPyTest'
                     },
                     json={
-                        'model': 'qwen/qwen-2-vl-7b-instruct',
+                        'model': 'openai/gpt-4o-mini',
                         'messages': [
                             {
                                 'role': 'user',
@@ -922,7 +895,7 @@ JSON ONLY - NO OTHER TEXT - ALWAYS RESPOND"""
                             'X-Title': 'VirtualPyTest'
                         },
                         json={
-                            'model': 'qwen/qwen-2-vl-7b-instruct',
+                            'model': 'openai/gpt-4o-mini',
                             'messages': [
                                 {
                                     'role': 'user',
