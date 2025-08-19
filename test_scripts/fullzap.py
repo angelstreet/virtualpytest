@@ -34,6 +34,7 @@ from shared.lib.utils.navigation_utils import (
     validate_action_availability,
     goto_node
 )
+from shared.lib.utils.audio_menu_analyzer import analyze_audio_menu
 
 def create_zap_controller(context: ScriptExecutionContext) -> ZapController:
     """Create a ZapController with direct Python video analysis capabilities"""
@@ -347,6 +348,11 @@ def main():
         
         # Store summary for report
         context.execution_summary = summary_text
+        
+        if zap_success:
+            print("🎧 [fullzap] Performing audio menu analysis after zap...")
+            audio_result = analyze_audio_menu(context)
+            context.custom_data['audio_menu_analysis'] = audio_result
         
         if context.overall_success:
             print("✅ [fullzap] Fullzap execution completed successfully!")
