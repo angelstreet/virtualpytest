@@ -360,9 +360,10 @@ language_map = {
 
 ### File System Requirements
 
-- **Video Capture Folder**: Must be accessible with recent MP4 files
+- **Video Capture Folder**: Must be accessible with recent HLS `.ts` files
 - **Temporary Directory**: For audio segment storage (auto-cleanup)
 - **Write Permissions**: For creating/deleting temporary audio files
+- **Model Cache**: ~/.cache/whisper/ for storing tiny model (~39MB)
 
 ## 🔍 Troubleshooting
 
@@ -378,12 +379,14 @@ if not os.path.exists(capture_folder):
 subprocess.run(['ffmpeg', '-version'], capture_output=True)
 ```
 
-#### 2. API Authentication Errors
+#### 2. Whisper Installation Issues
 ```python
-# Verify API key is set
-api_key = os.getenv('OPENROUTER_API_KEY')
-if not api_key:
-    print("OpenRouter API key not found")
+# Verify Whisper is installed
+try:
+    import whisper
+    print("Whisper available")
+except ImportError:
+    print("Run: pip install openai-whisper")
 ```
 
 #### 3. Audio Extraction Failures
@@ -433,7 +436,7 @@ logging.basicConfig(level=logging.DEBUG)
 - **Language Detection Accuracy**: Accuracy of language identification
 - **Transcription Confidence**: AI confidence scores for transcriptions
 - **Processing Time**: Time taken for audio analysis per iteration
-- **API Success Rate**: OpenRouter API call success percentage
+- **Processing Speed**: Local Whisper transcription time per segment
 
 ### Data Collection
 
@@ -449,7 +452,7 @@ All metrics are automatically collected and stored in:
 
 1. **Error Handling**: Always include comprehensive error handling
 2. **Resource Cleanup**: Ensure temporary files are cleaned up
-3. **API Limits**: Respect OpenRouter rate limits and quotas
+3. **Model Caching**: Ensure Whisper model is loaded once and reused
 4. **Logging**: Use consistent emoji-based logging format (🎤)
 5. **Configuration**: Make parameters easily configurable
 
@@ -457,13 +460,13 @@ All metrics are automatically collected and stored in:
 
 1. **Unit Tests**: Test individual methods with mock audio files
 2. **Integration Tests**: Test full pipeline with real video captures
-3. **API Tests**: Test OpenRouter integration with various audio types
+3. **Whisper Tests**: Test local Whisper with various audio types and languages
 4. **Performance Tests**: Measure processing time and resource usage
 5. **Edge Cases**: Test with silent audio, noise, multiple languages
 
 ### Monitoring
 
-1. **API Usage**: Monitor OpenRouter API usage and costs
+1. **Model Usage**: Monitor Whisper model loading and cache efficiency
 2. **Success Rates**: Track audio speech detection success rates
 3. **Error Rates**: Monitor and alert on analysis failures
 4. **Performance**: Track processing times and resource usage
@@ -473,4 +476,4 @@ All metrics are automatically collected and stored in:
 
 ## 📋 Summary
 
-The Audio AI Helper system provides a comprehensive solution for AI-powered audio analysis in VirtualPyTest, seamlessly integrating with existing systems while maintaining the same high standards of error handling, logging, and performance. The implementation leverages proven AI models and follows established patterns from the VideoAIHelpers system, ensuring reliability and maintainability.
+The Audio AI Helper system provides a comprehensive solution for fast, local audio analysis in VirtualPyTest, seamlessly integrating with existing systems while maintaining high standards of error handling, logging, and performance. The implementation leverages optimized local Whisper models for 4x faster processing with no network dependencies, ensuring reliability and maintainability for real-time zap testing.
