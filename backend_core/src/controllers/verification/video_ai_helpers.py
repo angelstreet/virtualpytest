@@ -108,7 +108,7 @@ class VideoAIHelpers:
                         'max_tokens': 300,
                         'temperature': 0.0
                     },
-                    timeout=30
+                    timeout=60
                 )
                 
                 print(f"VideoAI[{self.device_name}]: API call complete - status: {response.status_code}")
@@ -419,7 +419,7 @@ Be specific about what you see on the device interface."""
                         'max_tokens': 200,
                         'temperature': 0.0
                     },
-                    timeout=30
+                    timeout=60
                 )
                 
                 if response.status_code == 200:
@@ -570,7 +570,7 @@ JSON ONLY - NO OTHER TEXT - ALWAYS RESPOND"""
                         'max_tokens': 400,
                         'temperature': 0.0
                     },
-                    timeout=30
+                    timeout=60
                 )
                 
                 # Enhanced logging for debugging
@@ -908,7 +908,7 @@ JSON ONLY - NO OTHER TEXT - ALWAYS RESPOND"""
                             'max_tokens': 400,
                             'temperature': 0.0
                         },
-                        timeout=30
+                        timeout=60
                     )
                     
                     if response.status_code == 200:
