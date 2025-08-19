@@ -346,6 +346,29 @@ class ZapController:
         if analysis_result.detected_language:
             self.statistics.add_language(analysis_result.detected_language)
         
+        # Update the recorded step with analysis results
+        if context.step_results:
+            last_step = context.step_results[-1]
+            last_step['motion_detection'] = analysis_result.to_dict()
+            last_step['motion_analysis'] = analysis_result.motion_details
+            last_step['subtitle_analysis'] = analysis_result.subtitle_details
+            last_step['audio_menu_analysis'] = analysis_result.audio_menu_details
+            last_step['zapping_analysis'] = analysis_result.zapping_details
+            
+            # Collect all screenshots for this zap iteration (like original)
+            action_screenshots = []
+            if screenshot_result['screenshot_path']:
+                action_screenshots.append(screenshot_result['screenshot_path'])
+            
+            # Add analysis screenshots if different from main screenshot
+            if analysis_result.subtitle_details.get('analyzed_screenshot') and analysis_result.subtitle_details['analyzed_screenshot'] != screenshot_result['screenshot_path']:
+                action_screenshots.append(analysis_result.subtitle_details['analyzed_screenshot'])
+            
+            if analysis_result.audio_menu_details.get('analyzed_screenshot') and analysis_result.audio_menu_details['analyzed_screenshot'] != screenshot_result['screenshot_path']:
+                action_screenshots.append(analysis_result.audio_menu_details['analyzed_screenshot'])
+            
+            last_step['action_screenshots'] = action_screenshots
+        
         context.add_screenshot(screenshot_result['screenshot_path'])
         
         # Step end screenshot
