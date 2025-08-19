@@ -243,7 +243,15 @@ def main():
         else:
             target_node = "live"
         
-        mapped_action = args.action
+        # Map action command to be node-specific
+        if target_node == "live_fullscreen" and args.action == "live_chup":
+            mapped_action = "live_fullscreen_chup"
+            print(f"🔄 [fullzap] Mapped action '{args.action}' to '{mapped_action}' for {target_node} node")
+        elif target_node == "live_fullscreen" and args.action == "live_chdown":
+            mapped_action = "live_fullscreen_chdown"
+            print(f"🔄 [fullzap] Mapped action '{args.action}' to '{mapped_action}' for {target_node} node")
+        else:
+            mapped_action = args.action
         
         print(f"🎯 [fullzap] Device model: {context.selected_device.device_model}")
         print(f"🎯 [fullzap] Target node: {target_node}")

@@ -195,9 +195,75 @@ class WebControllerInterface(BaseController):
 class AVControllerInterface(BaseController):
     """Type hint interface for AV controllers."""
     
+    # Global configuration for video segments
+    HLS_SEGMENT_DURATION = 2  # seconds per segment
+    
     def __init__(self, device_name: str = "Unknown Device", capture_source: str = "HDMI"):
         super().__init__("av", device_name)
         self.capture_source = capture_source
+    
+    def take_video(self, duration_seconds: float = None, test_start_time: float = None) -> Optional[str]:
+        """
+        Upload HLS stream directly to R2 (no MP4 conversion).
+        Fast upload with no processing time.
+        
+        Args:
+            duration_seconds: How many seconds of video to capture (default: 10s)
+            test_start_time: Unix timestamp when test started (for time sync)
+            
+        Returns:
+            R2 URL of HLS playlist (m3u8), or None if failed
+        """
+        # Default implementation - override in concrete classes
+        raise NotImplementedError("AV controllers must implement take_video")
+    
+    def start_video_capture(self, duration: float = 60.0, filename: str = None, 
+                           resolution: str = None, fps: int = None) -> bool:
+        """
+        Start video capture by recording start time and duration.
+        
+        Args:
+            duration: Duration in seconds (default: 60s)
+            filename: Optional filename
+            resolution: Video resolution
+            fps: Video FPS
+            
+        Returns:
+            bool: True if capture started successfully
+        """
+        # Default implementation - override in concrete classes
+        raise NotImplementedError("AV controllers must implement start_video_capture")
+    
+    def stop_video_capture(self) -> bool:
+        """Stop video capture session."""
+        # Default implementation - override in concrete classes
+        raise NotImplementedError("AV controllers must implement stop_video_capture")
+    
+    def take_screenshot(self, filename: str = None) -> Optional[str]:
+        """
+        Take screenshot and return local file path.
+        
+        Args:
+            filename: Optional filename
+            
+        Returns:
+            Local file path if successful, None if failed
+        """
+        # Default implementation - override in concrete classes
+        raise NotImplementedError("AV controllers must implement take_screenshot")
+    
+    def save_screenshot(self, filename: str) -> Optional[str]:
+        """
+        Take screenshot and return local path for permanent storage.
+        
+        Args:
+            filename: The filename to use for the screenshot
+            
+        Returns:
+            Local file path if successful, None if failed
+        """
+        # Default implementation - override in concrete classes  
+        raise NotImplementedError("AV controllers must implement save_screenshot")
 
 
 class FFmpegCaptureController(AVControllerInterface):
@@ -205,9 +271,6 @@ class FFmpegCaptureController(AVControllerInterface):
     Shared FFmpeg-based capture functionality for both HDMI and VNC controllers.
     Handles screenshot and video capture using the same host-side FFmpeg capture system.
     """
-    
-    # Global configuration for video segments
-    HLS_SEGMENT_DURATION = 6  # seconds per segment
     
     def __init__(self, device_name: str, capture_source: str, video_stream_path: str, video_capture_path: str, **kwargs):
         """

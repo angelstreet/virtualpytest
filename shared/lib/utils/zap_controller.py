@@ -250,6 +250,38 @@ class ZapController:
         """Execute multiple zap iterations with analysis"""
         print(f"🔄 [ZapController] Starting {max_iterations} iterations of '{action_command}'...")
         
+        # If no action_edge provided, find it from the current node using the action command
+        if action_edge is None:
+            print(f"🔍 [ZapController] No action_edge provided, searching for edge with action '{action_command}' from current node")
+            
+            # Import navigation utilities
+            from .navigation_utils import find_edge_with_action_command
+            
+            # Find edge that contains this action command from current node
+            current_node_id = getattr(context, 'current_node_id', None)
+            if current_node_id and hasattr(context, 'edges'):
+                action_edge = find_edge_with_action_command(current_node_id, context.edges, action_command)
+                
+                if action_edge:
+                    print(f"✅ [ZapController] Found edge for action '{action_command}' from node {current_node_id}")
+                else:
+                    print(f"❌ [ZapController] No edge found with action '{action_command}' from node {current_node_id}")
+                    print(f"📋 [ZapController] Available edges from current node:")
+                    from .navigation_utils import find_edges_from_node
+                    available_edges = find_edges_from_node(current_node_id, context.edges)
+                    for i, edge in enumerate(available_edges, 1):
+                        edge_id = edge.get('edge_id', 'unknown')
+                        target_node = edge.get('target_node_id', 'unknown')
+                        action_sets = edge.get('action_sets', [])
+                        if action_sets:
+                            actions = action_sets[0].get('actions', [])
+                            action_commands = [a.get('command') for a in actions]
+                            print(f"📋 [ZapController]   {i}. Edge {edge_id} -> {target_node}: {action_commands}")
+                    return False
+            else:
+                print(f"❌ [ZapController] Cannot find edge - missing current_node_id or edges in context")
+                return False
+        
         self.statistics = ZapStatistics()
         self.statistics.total_iterations = max_iterations
         self.blackscreen_area = blackscreen_area  # Store for later use
