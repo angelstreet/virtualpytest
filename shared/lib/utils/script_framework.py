@@ -262,7 +262,26 @@ class ScriptExecutor:
             context.tree_data = tree_result['root_tree']['tree']
             context.tree_id = tree_result['tree_id']
             context.nodes = tree_result['root_tree']['nodes']
-            context.edges = tree_result['root_tree']['edges']
+            
+            # CRITICAL: Load unified graph edges for cross-tree action resolution
+            # This ensures scripts can find actions in subtrees (e.g., live_fullscreen_chup)
+            from shared.lib.utils.navigation_cache import get_cached_unified_graph
+            unified_graph = get_cached_unified_graph(tree_result['tree_id'], context.team_id)
+            if unified_graph:
+                # Convert NetworkX graph edges to dictionary format for script usage
+                unified_edges = []
+                for from_node, to_node, edge_data in unified_graph.edges(data=True):
+                    unified_edges.append({
+                        'source_node_id': from_node,
+                        'target_node_id': to_node,
+                        **edge_data
+                    })
+                context.edges = unified_edges
+                print(f"[@script_framework] Loaded unified graph edges: {len(unified_edges)} edges (includes cross-tree)")
+            else:
+                context.edges = tree_result['root_tree']['edges']
+                print(f"[@script_framework] Fallback to root tree edges: {len(context.edges)} edges")
+            
             context.tree_hierarchy = tree_result['hierarchy']
             context.unified_pathfinding_enabled = True
             
