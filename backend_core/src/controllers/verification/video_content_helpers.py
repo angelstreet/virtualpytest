@@ -1105,24 +1105,39 @@ class VideoContentHelpers:
             
             print(f"VideoContent[{self.device_name}]: Using banner region: {banner_region}")
             
-            # Try to extract channel info from images after blackscreen ends
+            # Try to extract channel info from images AFTER blackscreen ends
             # Banner might take a few seconds to appear, so try multiple images
-            max_attempts = min(3, len(image_data) - blackscreen_end_index)
+            # Start from blackscreen_end_index + 1 to skip the blackscreen end image itself
+            start_index = blackscreen_end_index + 1
+            max_attempts = min(3, len(image_data) - start_index)
             
             for i in range(max_attempts):
-                image_index = blackscreen_end_index + i
+                image_index = start_index + i
                 if image_index >= len(image_data):
                     break
                 
                 image_path = image_data[image_index]['path']
                 filename = image_data[image_index]['filename']
                 
-                print(f"VideoContent[{self.device_name}]: Trying AI analysis on {filename} for channel info")
+                print(f"VideoContent[{self.device_name}]: Trying AI analysis on {filename} for channel info (image {i+1} after blackscreen)")
                 print(f"VideoContent[{self.device_name}]: Using banner region: {banner_region}")
                 
-                # Use AI helper for channel banner analysis
+                # Use AI helper for channel banner analysis with cropped region first
                 channel_result = self.ai_helpers.analyze_channel_banner_ai(image_path, banner_region)
                 print(f"VideoContent[{self.device_name}]: AI analysis result: {channel_result}")
+                
+                # If banner region analysis fails, try with full image as fallback
+                if not (channel_result.get('success', False) and channel_result.get('banner_detected', False)):
+                    print(f"VideoContent[{self.device_name}]: Banner region analysis failed, trying full image analysis on {filename}")
+                    full_image_result = self.ai_helpers.analyze_channel_banner_ai(image_path, None)
+                    print(f"VideoContent[{self.device_name}]: Full image AI analysis result: {full_image_result}")
+                    
+                    # Use full image result if it's better
+                    if (full_image_result.get('success', False) and 
+                        full_image_result.get('banner_detected', False) and
+                        full_image_result.get('channel_info', {}).get('channel_name')):
+                        channel_result = full_image_result
+                        print(f"VideoContent[{self.device_name}]: Using full image analysis result for {filename}")
                 
                 if (channel_result.get('success', False) and 
                     channel_result.get('banner_detected', False) and
