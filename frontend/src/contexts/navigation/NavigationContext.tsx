@@ -903,7 +903,16 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
                ? updatedNodeData.data.originalTreeId || navigationConfig.actualTreeId
                : navigationConfig.actualTreeId;
                
-             console.log(`[@NavigationContext] Saving node to ${isParentReference ? 'original' : 'current'} tree: ${targetTreeId}`);
+             console.log(`[@NavigationContext] SMART ROUTING - Node save details:`, {
+               nodeId: updatedNodeData.id,
+               nodeLabel: updatedNodeData.data.label,
+               isParentReference,
+               originalTreeId: updatedNodeData.data.originalTreeId,
+               actualTreeId: navigationConfig.actualTreeId,
+               targetTreeId,
+               hasScreenshot: !!updatedNodeData.data.screenshot,
+               screenshotUrl: updatedNodeData.data.screenshot
+             });
                          
              // Get current position from ReactFlow canvas (nodes state)
             const currentNode = nodes.find(node => node.id === updatedNodeData.id);
@@ -1097,29 +1106,33 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
            setIsLoading(true);
            setError(null);
 
-           // Convert frontend format to normalized format with current canvas positions
-           console.log(`[@NavigationContext] Bulk saving tree with ${nodes.length} nodes at their current canvas positions`);
-           const normalizedNodes = nodes.map(node => ({
-             node_id: node.id,
-             label: node.data.label,
-             position_x: node.position?.x || 0,
-             position_y: node.position?.y || 0,
-             node_type: node.data.type || 'default',
-             verifications: node.data.verifications || [],
-             data: {
-               // Only include non-verification data to avoid duplication
-               description: node.data.description,
-               screenshot: node.data.screenshot,
-               depth: node.data.depth,
-               parent: node.data.parent,
-               menu_type: node.data.menu_type,
-               priority: node.data.priority,
-               is_root: node.data.is_root,
-               isParentReference: node.data.isParentReference,
-               originalTreeId: node.data.originalTreeId,
-               // DO NOT include verifications here - they're already at top level
-             }
-           }));
+                     // Convert frontend format to normalized format with current canvas positions
+          // FILTER OUT parent reference nodes - they should not be saved to database
+          const nodesToSave = nodes.filter(node => !node.data.isParentReference);
+          const filteredOutCount = nodes.length - nodesToSave.length;
+          
+          console.log(`[@NavigationContext] Bulk saving tree with ${nodesToSave.length} nodes (filtered out ${filteredOutCount} parent references)`);
+          
+          const normalizedNodes = nodesToSave.map(node => ({
+            node_id: node.id,
+            label: node.data.label,
+            position_x: node.position?.x || 0,
+            position_y: node.position?.y || 0,
+            node_type: node.data.type || 'default',
+            verifications: node.data.verifications || [],
+            data: {
+              // Only include non-verification data to avoid duplication
+              description: node.data.description,
+              screenshot: node.data.screenshot,
+              depth: node.data.depth,
+              parent: node.data.parent,
+              menu_type: node.data.menu_type,
+              priority: node.data.priority,
+              is_root: node.data.is_root,
+              // REMOVED: isParentReference, originalTreeId (frontend-only metadata)
+              // DO NOT include verifications here - they're already at top level
+            }
+          }));
 
                      const normalizedEdges = edges.map(edge => ({
             edge_id: edge.id,
