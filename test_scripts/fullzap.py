@@ -353,6 +353,21 @@ def main():
             print("🎧 [fullzap] Performing audio menu analysis after zap...")
             audio_result = analyze_audio_menu(context)
             context.custom_data['audio_menu_analysis'] = audio_result
+            
+            # IMPORTANT: Add audio menu analysis to the most recent step that went to audio menu
+            # Find the last step that navigated to an audio menu node
+            audio_menu_step_found = False
+            for i in range(len(context.step_results) - 1, -1, -1):  # Search backwards
+                step = context.step_results[i]
+                to_node = step.get('to_node', '')
+                if 'audiomenu' in to_node.lower():
+                    step['audio_menu_analysis'] = audio_result
+                    print(f"🎧 [fullzap] Added audio menu analysis to step {i + 1}: {to_node}")
+                    audio_menu_step_found = True
+                    break
+            
+            if not audio_menu_step_found:
+                print("⚠️ [fullzap] No audio menu navigation step found to attach analysis results")
         
         if context.overall_success:
             print("✅ [fullzap] Fullzap execution completed successfully!")
