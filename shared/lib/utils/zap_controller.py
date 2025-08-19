@@ -249,11 +249,9 @@ class ZapController:
                     result.audio_language = audio_speech_result.get('detected_language', 'unknown')
                     result.audio_details = audio_speech_result
                 
-                # 4. Audio menu analysis using dedicated analyzer
-                if context:
-                    audio_menu_result = analyze_audio_menu(context)
-                    result.audio_menu_detected = audio_menu_result.get('menu_detected', False)
-                    result.audio_menu_details = audio_menu_result
+                # 4. Audio menu analysis removed - now handled by dedicated navigation steps
+                # Audio menu analysis only runs when navigating TO audio menu nodes, not during zap actions
+                result.audio_menu_details = {"success": True, "message": "Audio menu analysis handled by dedicated navigation steps"}
                 
                 # 5. Only analyze zapping if motion detected and it's a channel up action
                 if context and 'chup' in action_command.lower():
@@ -267,7 +265,8 @@ class ZapController:
             else:
                 print(f"⚠️ [ZapController] No motion detected - skipping additional analysis")
                 result.subtitle_details = {"success": True, "message": "Skipped due to no motion"}
-                result.audio_menu_details = {"success": True, "message": "Skipped due to no motion"}
+                result.audio_details = {"success": True, "message": "Skipped due to no motion"}
+                result.audio_menu_details = {"success": True, "message": "Audio menu analysis handled by dedicated navigation steps"}
                 result.zapping_details = {"success": True, "message": "Skipped due to no motion"}
             
             result.success = True

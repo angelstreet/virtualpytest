@@ -870,6 +870,214 @@ RESPOND WITH JSON ONLY - NO MARKDOWN - NO OTHER TEXT"""
     # Channel Banner Analysis
     # =============================================================================
     
+    def _analyze_banner_with_image(self, img, banner_region: Dict[str, int] = None, analysis_type: str = "image") -> Dict[str, Any]:
+        """
+        Helper method to analyze banner with a given image (cropped or full).
+        
+        Args:
+            img: OpenCV image (BGR format)
+            banner_region: Original banner region for metadata
+            analysis_type: Description of analysis type for logging
+            
+        Returns:
+            Dictionary with channel banner analysis results
+        """
+        try:
+            # Get API key from environment
+            api_key = os.getenv('OPENROUTER_API_KEY')
+            if not api_key:
+                print(f"VideoAI[{self.device_name}]: OpenRouter API key not found in environment")
+                return {'success': False, 'error': 'AI service not available'}
+            
+            # Save processed image to temporary file for encoding
+            with tempfile.NamedTemporaryFile(suffix='.jpg', delete=False) as tmp_file:
+                cv2.imwrite(tmp_file.name, img)
+                temp_path = tmp_file.name
+            
+            try:
+                # Encode image to base64
+                with open(temp_path, 'rb') as f:
+                    image_data = base64.b64encode(f.read()).decode()
+                
+                # Create specialized prompt for banner analysis
+                prompt = self._create_banner_analysis_prompt()
+                
+                # Call OpenRouter API
+                response = requests.post(
+                    'https://openrouter.ai/api/v1/chat/completions',
+                    headers={
+                        'Authorization': f'Bearer {api_key}',
+                        'Content-Type': 'application/json',
+                        'HTTP-Referer': 'https://virtualpytest.com',
+                        'X-Title': 'VirtualPyTest'
+                    },
+                    json={
+                        'model': 'qwen/qwen-2-vl-7b-instruct',
+                        'messages': [
+                            {
+                                'role': 'user',
+                                'content': [
+                                    {'type': 'text', 'text': prompt},
+                                    {'type': 'image_url', 'image_url': {'url': f'data:image/jpeg;base64,{image_data}'}}
+                                ]
+                            }
+                        ],
+                        'max_tokens': 400,
+                        'temperature': 0.0
+                    },
+                    timeout=60
+                )
+                
+                # Enhanced logging for debugging (same as language menu analysis)
+                print(f"VideoAI[{self.device_name}]: API Response Status: {response.status_code} ({analysis_type})")
+                print(f"VideoAI[{self.device_name}]: API Response Headers: {dict(response.headers)}")
+                
+                if response.status_code == 200:
+                    try:
+                        result = response.json()
+                        print(f"VideoAI[{self.device_name}]: API Response JSON keys: {list(result.keys())}")
+                        
+                        if 'choices' not in result:
+                            print(f"VideoAI[{self.device_name}]: ERROR - No 'choices' in response: {result}")
+                            return {
+                                'success': False,
+                                'error': 'Invalid API response structure - no choices',
+                                'api_response': result
+                            }
+                        
+                        if not result['choices'] or len(result['choices']) == 0:
+                            print(f"VideoAI[{self.device_name}]: ERROR - Empty choices array: {result}")
+                            return {
+                                'success': False,
+                                'error': 'Empty choices in API response',
+                                'api_response': result
+                            }
+                        
+                        if 'message' not in result['choices'][0]:
+                            print(f"VideoAI[{self.device_name}]: ERROR - No 'message' in choice: {result['choices'][0]}")
+                            return {
+                                'success': False,
+                                'error': 'Invalid choice structure - no message',
+                                'api_response': result
+                            }
+                        
+                        content = result['choices'][0]['message']['content']
+                        if content is None:
+                            content = ""
+                        else:
+                            content = content.strip()
+                        
+                        print(f"VideoAI[{self.device_name}]: Raw content length: {len(content)} ({analysis_type})")
+                        print(f"VideoAI[{self.device_name}]: Raw content preview: {repr(content[:200])}")
+                        print(f"VideoAI[{self.device_name}]: Full raw content: {repr(content)}")
+                        
+                        # Parse JSON response
+                        try:
+                            if not content:
+                                print(f"VideoAI[{self.device_name}]: ERROR - Empty content from API ({analysis_type})")
+                                return {
+                                    'success': False,
+                                    'error': 'Empty content from AI API',
+                                    'api_response': result,
+                                    'raw_content': content
+                                }
+                            
+                            # Remove markdown code block markers
+                            json_content = content.replace('```json', '').replace('```', '').strip()
+                            
+                            ai_result = json.loads(json_content)
+                            print(f"VideoAI[{self.device_name}]: Successfully parsed AI JSON: {list(ai_result.keys())} ({analysis_type})")
+                            
+                            # Validate and normalize the result
+                            banner_detected = ai_result.get('banner_detected', False)
+                            channel_name = ai_result.get('channel_name', '')
+                            program_name = ai_result.get('program_name', '')
+                            start_time = ai_result.get('start_time', '')
+                            end_time = ai_result.get('end_time', '')
+                            confidence = float(ai_result.get('confidence', 0.0))
+                            
+                            # Enhanced logging for debugging
+                            print(f"VideoAI[{self.device_name}]: Banner detected: {banner_detected} ({analysis_type})")
+                            print(f"VideoAI[{self.device_name}]: Channel name: {channel_name}")
+                            print(f"VideoAI[{self.device_name}]: Program name: {program_name}")
+                            print(f"VideoAI[{self.device_name}]: Start time: {start_time}")
+                            print(f"VideoAI[{self.device_name}]: End time: {end_time}")
+                            print(f"VideoAI[{self.device_name}]: Confidence: {confidence}")
+                            
+                            # Return standardized result
+                            return {
+                                'success': True,
+                                'banner_detected': banner_detected,
+                                'channel_info': {
+                                    'channel_name': channel_name,
+                                    'program_name': program_name,
+                                    'start_time': start_time,
+                                    'end_time': end_time
+                                },
+                                'confidence': confidence,
+                                'banner_region': banner_region,
+                                'analysis_type': f'ai_channel_banner_analysis_{analysis_type.replace(" ", "_")}',
+                                'image_path': None  # Will be set by calling method
+                            }
+                            
+                        except json.JSONDecodeError as e:
+                            print(f"VideoAI[{self.device_name}]: JSON parsing error: {e} ({analysis_type})")
+                            print(f"VideoAI[{self.device_name}]: Raw AI response: {repr(content)}")
+                            return {
+                                'success': False,
+                                'error': 'Invalid AI response format',
+                                'raw_response': content,
+                                'api_response': result,
+                                'json_error': str(e)
+                            }
+                            
+                    except Exception as e:
+                        print(f"VideoAI[{self.device_name}]: Error parsing API response: {e} ({analysis_type})")
+                        print(f"VideoAI[{self.device_name}]: Raw response text: {response.text[:500]}")
+                        return {
+                            'success': False,
+                            'error': f'Error parsing API response: {str(e)}',
+                            'raw_response_text': response.text
+                        }
+                else:
+                    # Enhanced error logging for non-200 responses
+                    response_text = response.text[:1000] if response.text else "No response text"
+                    print(f"VideoAI[{self.device_name}]: OpenRouter API error: {response.status_code} ({analysis_type})")
+                    print(f"VideoAI[{self.device_name}]: Error response body: {response_text}")
+                    print(f"VideoAI[{self.device_name}]: Error response headers: {dict(response.headers)}")
+                    
+                    # Check for specific error types
+                    error_type = "unknown"
+                    if response.status_code == 429:
+                        error_type = "rate_limit"
+                    elif response.status_code == 401:
+                        error_type = "authentication"
+                    elif response.status_code == 402:
+                        error_type = "payment_required"
+                    elif response.status_code == 503:
+                        error_type = "service_unavailable"
+                    
+                    return {
+                        'success': False,
+                        'error': f'AI API error: {response.status_code}',
+                        'error_type': error_type,
+                        'status_code': response.status_code,
+                        'response_text': response_text,
+                        'response_headers': dict(response.headers)
+                    }
+                    
+            finally:
+                # Clean up temporary file
+                if os.path.exists(temp_path):
+                    os.unlink(temp_path)
+                    
+        except Exception as e:
+            print(f"VideoAI[{self.device_name}]: Banner analysis helper error: {e} ({analysis_type})")
+            return {
+                'success': False,
+                'error': f'Analysis error: {str(e)}'
+            }
+
     def analyze_channel_banner_ai(self, image_path: str, banner_region: Dict[str, int] = None) -> Dict[str, Any]:
         """
         AI-powered channel banner analysis using OpenRouter.
@@ -902,7 +1110,13 @@ RESPOND WITH JSON ONLY - NO MARKDOWN - NO OTHER TEXT"""
                 if img is None:
                     return {'success': False, 'error': 'Could not load image'}
                 
-                # Crop to banner region if specified
+                # Enhanced banner detection with fallback approach (same as subtitle analysis)
+                # 1. Try cropped banner region first (optimized for banner detection)
+                # 2. If no banner detected or analysis fails, retry with full image (more context)
+                
+                analysis_result = None
+                
+                # Step 1: Try cropped banner region first (if region specified)
                 if banner_region:
                     x = banner_region.get('x', 0)
                     y = banner_region.get('y', 0)
@@ -910,99 +1124,37 @@ RESPOND WITH JSON ONLY - NO MARKDOWN - NO OTHER TEXT"""
                     height = banner_region.get('height', img.shape[0])
                     
                     # Crop to specified region
-                    img = img[y:y+height, x:x+width]
+                    cropped_img = img[y:y+height, x:x+width]
                     print(f"VideoAI[{self.device_name}]: Cropped image to banner region {x},{y} {width}x{height}")
+                    
+                    # Try analysis with cropped region first
+                    analysis_result = self._analyze_banner_with_image(cropped_img, banner_region, "cropped region")
                 
-                # Save processed image to temporary file for encoding
-                with tempfile.NamedTemporaryFile(suffix='.jpg', delete=False) as tmp_file:
-                    cv2.imwrite(tmp_file.name, img)
-                    temp_path = tmp_file.name
-                
-                try:
-                    # Encode image to base64
-                    with open(temp_path, 'rb') as f:
-                        image_data = base64.b64encode(f.read()).decode()
+                # Step 2: Fallback to full image if cropped region failed or no region specified
+                if (analysis_result is None or 
+                    not analysis_result.get('success', False) or 
+                    not analysis_result.get('banner_detected', False) or
+                    analysis_result.get('error') == 'Empty content from AI API'):
                     
-                    # Create specialized prompt for banner analysis
-                    prompt = self._create_banner_analysis_prompt()
-                    
-                    # Call OpenRouter API
-                    response = requests.post(
-                        'https://openrouter.ai/api/v1/chat/completions',
-                        headers={
-                            'Authorization': f'Bearer {api_key}',
-                            'Content-Type': 'application/json',
-                            'HTTP-Referer': 'https://virtualpytest.com',
-                            'X-Title': 'VirtualPyTest'
-                        },
-                        json={
-                            'model': 'qwen/qwen-2-vl-7b-instruct',
-                            'messages': [
-                                {
-                                    'role': 'user',
-                                    'content': [
-                                        {'type': 'text', 'text': prompt},
-                                        {'type': 'image_url', 'image_url': {'url': f'data:image/jpeg;base64,{image_data}'}}
-                                    ]
-                                }
-                            ],
-                            'max_tokens': 400,
-                            'temperature': 0.0
-                        },
-                        timeout=60
-                    )
-                    
-                    if response.status_code == 200:
-                        result = response.json()
-                        content = result['choices'][0]['message']['content'].strip()
-                        
-                        # Parse JSON response
-                        try:
-                            ai_result = json.loads(content)
-                            
-                            # Validate and normalize the result
-                            banner_detected = ai_result.get('banner_detected', False)
-                            channel_name = ai_result.get('channel_name', '')
-                            program_name = ai_result.get('program_name', '')
-                            start_time = ai_result.get('start_time', '')
-                            end_time = ai_result.get('end_time', '')
-                            confidence = float(ai_result.get('confidence', 0.0))
-                            
-                            # Return standardized result
-                            return {
-                                'success': True,
-                                'banner_detected': banner_detected,
-                                'channel_info': {
-                                    'channel_name': channel_name,
-                                    'program_name': program_name,
-                                    'start_time': start_time,
-                                    'end_time': end_time
-                                },
-                                'confidence': confidence,
-                                'banner_region': banner_region,
-                                'image_path': os.path.basename(image_path),
-                                'analysis_type': 'ai_channel_banner_analysis'
-                            }
-                            
-                        except json.JSONDecodeError as e:
-                            print(f"VideoAI[{self.device_name}]: JSON parsing error: {e}")
-                            print(f"VideoAI[{self.device_name}]: Raw AI response: {content}")
-                            return {
-                                'success': False,
-                                'error': 'Invalid AI response format',
-                                'raw_response': content
-                            }
+                    if banner_region and analysis_result is not None:
+                        print(f"VideoAI[{self.device_name}]: Cropped region analysis failed, retrying with full image")
                     else:
-                        print(f"VideoAI[{self.device_name}]: OpenRouter API error: {response.status_code}")
-                        return {
-                            'success': False,
-                            'error': f'AI service error: {response.status_code}'
-                        }
-                        
-                finally:
-                    # Clean up temporary file
-                    if os.path.exists(temp_path):
-                        os.unlink(temp_path)
+                        print(f"VideoAI[{self.device_name}]: Starting analysis with full image")
+                    
+                    # Try analysis with full image
+                    analysis_result = self._analyze_banner_with_image(img, banner_region, "full image")
+                    
+                    if (analysis_result.get('success', False) and 
+                        analysis_result.get('banner_detected', False)):
+                        print(f"VideoAI[{self.device_name}]: Full image fallback successful")
+                    else:
+                        print(f"VideoAI[{self.device_name}]: Both cropped and full image analysis failed")
+                
+                # Set image path in the final result
+                if analysis_result and analysis_result.get('success', False):
+                    analysis_result['image_path'] = os.path.basename(image_path)
+                
+                return analysis_result
                         
             except Exception as e:
                 print(f"VideoAI[{self.device_name}]: Image processing error: {e}")
