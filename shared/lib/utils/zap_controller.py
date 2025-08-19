@@ -4,7 +4,7 @@ ZapController - Handles zap action execution and comprehensive analysis
 This controller manages:
 - Zap action execution with motion detection
 - Subtitle analysis using AI
-- Audio menu analysis
+- Zapping detection and analysis
 - Statistics collection and reporting
 """
 
@@ -23,13 +23,11 @@ class ZapAnalysisResult:
     def __init__(self):
         self.motion_detected = False
         self.subtitles_detected = False
-        self.audio_menu_detected = False
         self.zapping_detected = False
         self.detected_language = None
         self.extracted_text = ""
         self.motion_details = {}
         self.subtitle_details = {}
-        self.audio_menu_details = {}
         self.zapping_details = {}
         self.success = False
         self.message = ""
@@ -41,13 +39,11 @@ class ZapAnalysisResult:
             "message": self.message,
             "motion_detected": self.motion_detected,
             "subtitles_detected": self.subtitles_detected,
-            "audio_menu_detected": self.audio_menu_detected,
             "zapping_detected": self.zapping_detected,
             "detected_language": self.detected_language,
             "extracted_text": self.extracted_text,
             "motion_details": self.motion_details,
             "subtitle_analysis": self.subtitle_details,
-            "audio_menu_analysis": self.audio_menu_details,
             "zapping_analysis": self.zapping_details
         }
 
@@ -60,7 +56,6 @@ class ZapStatistics:
         self.successful_iterations = 0
         self.motion_detected_count = 0
         self.subtitles_detected_count = 0
-        self.audio_menu_detected_count = 0
         self.zapping_detected_count = 0
         self.detected_languages = []
         self.total_execution_time = 0
@@ -215,11 +210,7 @@ class ZapController:
                     result.extracted_text = subtitle_result.get('extracted_text', '')
                     result.subtitle_details = subtitle_result
                 
-                # 3. Only analyze audio menu if motion detected
-                if context:
-                    audio_result = self._analyze_audio_menu(context, iteration)
-                    result.audio_menu_detected = audio_result.get('menu_detected', False)
-                    result.audio_menu_details = audio_result
+                # 3. Audio menu analysis removed - now handled by dedicated audio_menu_analyzer
                 
                 # 4. Only analyze zapping if motion detected and it's a channel up action
                 if context and 'chup' in action_command.lower():
@@ -334,8 +325,6 @@ class ZapController:
             self.statistics.motion_detected_count += 1
         if analysis_result.subtitles_detected:
             self.statistics.subtitles_detected_count += 1
-        if analysis_result.audio_menu_detected:
-            self.statistics.audio_menu_detected_count += 1
         if analysis_result.zapping_detected:
             self.statistics.zapping_detected_count += 1
             self.statistics.add_zapping_result(analysis_result.zapping_details)
@@ -348,7 +337,6 @@ class ZapController:
             zap_step['motion_detection'] = analysis_result.to_dict()
             zap_step['motion_analysis'] = analysis_result.motion_details
             zap_step['subtitle_analysis'] = analysis_result.subtitle_details
-            zap_step['audio_menu_analysis'] = analysis_result.audio_menu_details
             zap_step['zapping_analysis'] = analysis_result.zapping_details
             
             # Collect all screenshots for this zap iteration (like original)
@@ -519,198 +507,7 @@ class ZapController:
                 "message": error_msg
             }
     
-    def _analyze_audio_menu(self, context, iteration: int) -> Dict[str, Any]:
-        """Analyze audio/subtitle menu using direct controller call - handles mobile (combined) and desktop/TV (separate) menus"""
-        try:
-            device_model = context.selected_device.device_model if context.selected_device else 'unknown'
-            device_id = context.selected_device.device_id
-            
-            # Determine the correct target node to return to
-            if device_model in ['android_mobile', 'ios_mobile']:
-                target_node = "live_fullscreen"
-            else:
-                target_node = "live"
-            
-            # Get video verification controller - same as HTTP routes
-            video_controller = get_controller(device_id, 'verification_video')
-            if not video_controller:
-                return {"success": False, "message": f"No video verification controller found for device {device_id}"}
-            
-            if device_model in ['android_mobile', 'ios_mobile']:
-                # Mobile devices: combined audio/subtitle menu
-                print(f"🎧 [ZapController] Analyzing combined audio/subtitle menu for mobile...")
-                
-                # Use audio menu node provided by parent script, or fallback to default
-                audio_menu_target = getattr(context, 'audio_menu_node', 'live_audiomenu')
-                print(f"🎧 [ZapController] Using audio menu target: {audio_menu_target}")
-                
-                # Navigate to combined audio menu
-                audio_menu_nav = goto_node(context.host, context.selected_device, audio_menu_target, 
-                                         context.tree_id, context.team_id, context)
-                
-                if audio_menu_nav.get('success'):
-                    # Capture and analyze using unified approach
-                    screenshot_result = capture_and_upload_screenshot(context.host, context.selected_device, f"audio_menu_{iteration}", "zap")
-                    screenshot_path = screenshot_result['screenshot_path'] if screenshot_result['success'] else ""
-                    screenshot_url = screenshot_result['screenshot_url'] if screenshot_result['success'] else None
-                    if screenshot_result['success']:
-                        context.add_screenshot(screenshot_path)
-                    
-                    # Call the same method that HTTP routes would call
-                    result = video_controller.analyze_language_menu_ai(screenshot_path)
-                    
-                    # Add screenshot information to the result for reporting
-                    if screenshot_url:
-                        result['analyzed_screenshot'] = screenshot_url
-                    elif screenshot_path:
-                        result['analyzed_screenshot'] = screenshot_path
-                    
-                    # Navigate back to correct target node (live_fullscreen for mobile, live for desktop)
-                    try:
-                        print(f"🔄 [ZapController] Navigating back to {target_node}")
-                        goto_node(context.host, context.selected_device, target_node, context.tree_id, context.team_id, context)
-                    except Exception as nav_error:
-                        print(f"⚠️ [ZapController] Navigation back to {target_node} failed: {nav_error}")
-                        # Continue anyway - we have the analysis result
-                    
-                    return result
-                else:
-                    # Even on navigation failure, try to capture screenshot for debugging
-                    screenshot_result = capture_and_upload_screenshot(context.host, context.selected_device, f"audio_menu_{iteration}_failed", "zap")
-                    result = {"success": False, "message": f"Failed to navigate to {audio_menu_target}"}
-                    
-                    # Include screenshot even on failure for debugging
-                    if screenshot_result['success']:
-                        context.add_screenshot(screenshot_result['screenshot_path'])
-                        if screenshot_result['screenshot_url']:
-                            result['analyzed_screenshot'] = screenshot_result['screenshot_url']
-                        elif screenshot_result['screenshot_path']:
-                            result['analyzed_screenshot'] = screenshot_result['screenshot_path']
-                    
-                    return result
-            
-            else:
-                # Desktop/TV devices: separate audio and subtitle menus
-                print(f"🎧 [ZapController] Analyzing separate audio and subtitle menus for desktop/TV...")
-                
-                combined_result = {
-                    "success": True,
-                    "menu_detected": False,
-                    "audio_detected": False,
-                    "subtitles_detected": False,
-                    "audio_analysis": {},
-                    "subtitle_analysis": {},
-                    "message": ""
-                }
-                
-                # 1. Analyze audio menu
-                print(f"🔊 [ZapController] Checking audio menu...")
-                audio_nav = goto_node(context.host, context.selected_device, "live_menu_audio", 
-                                    context.tree_id, context.team_id, context)
-                
-                if audio_nav.get('success'):
-                    # Capture and analyze audio menu
-                    audio_screenshot_result = capture_and_upload_screenshot(context.host, context.selected_device, f"audio_menu_{iteration}", "zap")
-                    audio_screenshot_path = audio_screenshot_result['screenshot_path'] if audio_screenshot_result['success'] else ""
-                    audio_screenshot_url = audio_screenshot_result['screenshot_url'] if audio_screenshot_result['success'] else None
-                    if audio_screenshot_result['success']:
-                        context.add_screenshot(audio_screenshot_path)
-                    
-                    audio_result = video_controller.analyze_language_menu_ai(audio_screenshot_path)
-                    
-                    # Add screenshot information to the audio result for reporting
-                    if audio_screenshot_url:
-                        audio_result['analyzed_screenshot'] = audio_screenshot_url
-                    elif audio_screenshot_path:
-                        audio_result['analyzed_screenshot'] = audio_screenshot_path
-                    
-                    combined_result["audio_analysis"] = audio_result
-                    if audio_result.get('menu_detected', False):
-                        combined_result["audio_detected"] = True
-                        combined_result["menu_detected"] = True
-                        print(f"✅ [ZapController] Audio menu detected")
-                    else:
-                        print(f"⚠️ [ZapController] No audio menu detected")
-                else:
-                    # Even on navigation failure, try to capture screenshot for debugging
-                    audio_screenshot_result = capture_and_upload_screenshot(context.host, context.selected_device, f"audio_menu_{iteration}_failed", "zap")
-                    audio_analysis_result = {"success": False, "message": "Failed to navigate to audio menu"}
-                    
-                    # Include screenshot even on failure for debugging
-                    if audio_screenshot_result['success']:
-                        context.add_screenshot(audio_screenshot_result['screenshot_path'])
-                        if audio_screenshot_result['screenshot_url']:
-                            audio_analysis_result['analyzed_screenshot'] = audio_screenshot_result['screenshot_url']
-                        elif audio_screenshot_result['screenshot_path']:
-                            audio_analysis_result['analyzed_screenshot'] = audio_screenshot_result['screenshot_path']
-                    
-                    combined_result["audio_analysis"] = audio_analysis_result
-                    print(f"❌ [ZapController] Failed to navigate to audio menu")
-                
-                # 2. Analyze subtitle menu
-                print(f"📝 [ZapController] Checking subtitle menu...")
-                subtitle_nav = goto_node(context.host, context.selected_device, "live_menu_subtitles", 
-                                       context.tree_id, context.team_id, context)
-                
-                if subtitle_nav.get('success'):
-                    # Capture and analyze subtitle menu
-                    subtitle_screenshot_result = capture_and_upload_screenshot(context.host, context.selected_device, f"subtitle_menu_{iteration}", "zap")
-                    subtitle_screenshot_path = subtitle_screenshot_result['screenshot_path'] if subtitle_screenshot_result['success'] else ""
-                    subtitle_screenshot_url = subtitle_screenshot_result['screenshot_url'] if subtitle_screenshot_result['success'] else None
-                    if subtitle_screenshot_result['success']:
-                        context.add_screenshot(subtitle_screenshot_path)
-                    
-                    subtitle_result = video_controller.analyze_language_menu_ai(subtitle_screenshot_path)
-                    
-                    # Add screenshot information to the subtitle result for reporting
-                    if subtitle_screenshot_url:
-                        subtitle_result['analyzed_screenshot'] = subtitle_screenshot_url
-                    elif subtitle_screenshot_path:
-                        subtitle_result['analyzed_screenshot'] = subtitle_screenshot_path
-                    
-                    combined_result["subtitle_analysis"] = subtitle_result
-                    if subtitle_result.get('menu_detected', False):
-                        combined_result["subtitles_detected"] = True
-                        combined_result["menu_detected"] = True
-                        print(f"✅ [ZapController] Subtitle menu detected")
-                    else:
-                        print(f"⚠️ [ZapController] No subtitle menu detected")
-                else:
-                    combined_result["subtitle_analysis"] = {"success": False, "message": "Failed to navigate to subtitle menu"}
-                    print(f"❌ [ZapController] Failed to navigate to subtitle menu")
-                
-                # Navigate back to correct target node (best effort - don't fail if navigation fails)
-                try:
-                    print(f"🔄 [ZapController] Navigating back to {target_node}")
-                    goto_node(context.host, context.selected_device, target_node, context.tree_id, context.team_id, context)
-                except Exception as nav_error:
-                    print(f"⚠️ [ZapController] Navigation back to {target_node} failed: {nav_error}")
-                    # Continue anyway - we have the analysis results
-                
-                # Set combined message and analyzed_screenshot
-                if combined_result["audio_detected"] and combined_result["subtitles_detected"]:
-                    combined_result["message"] = "Both audio and subtitle menus detected"
-                    # Prioritize audio menu screenshot if both detected
-                    if combined_result["audio_analysis"].get('analyzed_screenshot'):
-                        combined_result["analyzed_screenshot"] = combined_result["audio_analysis"]['analyzed_screenshot']
-                    elif combined_result["subtitle_analysis"].get('analyzed_screenshot'):
-                        combined_result["analyzed_screenshot"] = combined_result["subtitle_analysis"]['analyzed_screenshot']
-                elif combined_result["audio_detected"]:
-                    combined_result["message"] = "Only audio menu detected"
-                    if combined_result["audio_analysis"].get('analyzed_screenshot'):
-                        combined_result["analyzed_screenshot"] = combined_result["audio_analysis"]['analyzed_screenshot']
-                elif combined_result["subtitles_detected"]:
-                    combined_result["message"] = "Only subtitle menu detected"
-                    if combined_result["subtitle_analysis"].get('analyzed_screenshot'):
-                        combined_result["analyzed_screenshot"] = combined_result["subtitle_analysis"]['analyzed_screenshot']
-                else:
-                    combined_result["message"] = "No audio or subtitle menus detected"
-                
-                print(f"📊 [ZapController] Menu analysis complete: {combined_result['message']}")
-                return combined_result
-                
-        except Exception as e:
-            return {"success": False, "message": f"Audio menu analysis error: {e}"}
+    # Audio menu analysis moved to dedicated audio_menu_analyzer.py
     
     def _analyze_zapping(self, context, iteration: int, action_command: str, blackscreen_area: str = None, action_end_time: float = None) -> Dict[str, Any]:
         """Analyze zapping sequence using the new zapping detection functionality"""
