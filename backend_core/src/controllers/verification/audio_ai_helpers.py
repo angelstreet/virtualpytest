@@ -195,14 +195,15 @@ class AudioAIHelpers:
                     'analysis_type': 'ai_audio_transcription'
                 }
             
-            # Get API key from environment
-            api_key = os.getenv('OPENROUTER_API_KEY')
-            if not api_key:
-                print(f"AudioAI[{self.device_name}]: OpenRouter API key not found in environment")
+            # Check Whisper availability (no API key needed for local processing)
+            try:
+                import whisper
+            except ImportError:
+                print(f"AudioAI[{self.device_name}]: Whisper not installed - run 'pip install openai-whisper'")
                 return {
                     'success': False,
-                    'error': 'AI service not available - no API key',
-                    'analysis_type': 'ai_audio_transcription'
+                    'error': 'Local Whisper not available - please install openai-whisper',
+                    'analysis_type': 'local_whisper_transcription'
                 }
             
             segment_results = []
@@ -291,7 +292,7 @@ class AudioAIHelpers:
                 'segments': segment_results,
                 'audio_urls': audio_urls,  # NEW: List of R2 URLs for traceability
                 'uploaded_segments': uploaded_count,  # NEW: Count of uploaded segments
-                'analysis_type': 'ai_audio_transcription',
+                'analysis_type': 'local_whisper_transcription',
                 'timestamp': datetime.now().isoformat()
             }
             
@@ -312,8 +313,8 @@ class AudioAIHelpers:
             self._cleanup_audio_files(audio_files)
             return {
                 'success': False,
-                'error': f'AI audio analysis failed: {str(e)}',
-                'analysis_type': 'ai_audio_transcription'
+                'error': f'Local Whisper analysis failed: {str(e)}',
+                'analysis_type': 'local_whisper_transcription'
             }
     
     def transcribe_audio_with_ai(self, audio_file: str) -> Tuple[str, str, float]:
