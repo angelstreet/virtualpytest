@@ -105,7 +105,7 @@ const RunCampaigns: React.FC = () => {
     if (!campaignConfig.campaign_id) {
       const timestamp = new Date().toISOString().slice(0, 16).replace(/[-:T]/g, '');
       updateCampaignConfig({
-        campaign_id: `campaign-${timestamp}`,
+        campaign_id: `campaign_${timestamp}`,
         name: `Test Campaign ${timestamp}`,
       });
     }
@@ -238,9 +238,6 @@ const RunCampaigns: React.FC = () => {
         <Grid item xs={12}>
           <Card sx={{ '& .MuiCardContent-root': { p: 1, '&:last-child': { pb: 1 } } }}>
             <CardContent>
-              <Typography variant="h6" sx={{ mb: 0.5 }}>
-                Campaign Execution
-              </Typography>
 
               {!showBuilder && !currentExecution ? (
                 // Show launch button when builder is not active

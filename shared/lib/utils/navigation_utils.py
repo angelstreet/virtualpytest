@@ -579,10 +579,10 @@ def goto_node(host, device, target_node_label: str, tree_id: str, team_id: str, 
                     'step_category': 'navigation'
                 }
                 
-                # Record step immediately and get the step number
-                step_number = context.record_step_immediately(step_result)
-                # Update message with actual step number
-                step_result['message'] = f"Navigation step {step_number}: {from_node} → {to_node}"
+                # Record step immediately - step number shown in table
+                context.record_step_immediately(step_result)
+                # Simple message without redundant step number
+                step_result['message'] = f"{from_node} → {to_node}"
             
             if not result.get('success', False):
                 error_msg = result.get('error', 'Unknown error')

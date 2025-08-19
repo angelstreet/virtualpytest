@@ -8,7 +8,6 @@
 import React from 'react';
 import {
   Box,
-  TextField,
   FormControl,
   InputLabel,
   Select,
@@ -32,7 +31,6 @@ export const CampaignConfigForm: React.FC<CampaignConfigFormProps> = ({
   hosts,
   getDevicesFromHost,
   onConfigChange,
-  errors,
 }) => {
   const handleBasicInfoChange = (field: keyof CampaignConfig, value: string) => {
     onConfigChange({ [field]: value });
@@ -61,24 +59,25 @@ export const CampaignConfigForm: React.FC<CampaignConfigFormProps> = ({
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
       {/* Compact form - all fields in minimal space */}
       <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
-        <TextField
-          label="Campaign Name *"
-          value={config.name || ''}
-          onChange={(e) => handleBasicInfoChange('name', e.target.value)}
-          size="small"
-          fullWidth
-          error={errors.some(e => e.includes('name'))}
-        />
-        
-        <TextField
-          label="Campaign ID *"
-          value={config.campaign_id || ''}
-          onChange={(e) => handleBasicInfoChange('campaign_id', e.target.value)}
-          size="small"
-          fullWidth
-          error={errors.some(e => e.includes('Campaign ID'))}
-          placeholder="e.g., fullzap-test-2024"
-        />
+        <FormControl fullWidth size="small">
+          <InputLabel>Campaign *</InputLabel>
+          <Select
+            value={config.name || ''}
+            label="Campaign *"
+            onChange={(e) => {
+              const campaignName = e.target.value;
+              const campaignId = `${campaignName.replace(/\s+/g, '_').toLowerCase()}_${Date.now()}`;
+              handleBasicInfoChange('name', campaignName);
+              handleBasicInfoChange('campaign_id', campaignId);
+            }}
+            error={!config.name}
+          >
+            <MenuItem value="fullzap_double">Fullzap Double</MenuItem>
+            <MenuItem value="validation_suite">Validation Suite</MenuItem>
+            <MenuItem value="goto_live_test">Goto Live Test</MenuItem>
+            <MenuItem value="custom_campaign">Custom Campaign</MenuItem>
+          </Select>
+        </FormControl>
       </Box>
 
       <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
@@ -88,7 +87,7 @@ export const CampaignConfigForm: React.FC<CampaignConfigFormProps> = ({
             value={config.host || ''}
             label="Host *"
             onChange={(e) => handleHostChange(e.target.value)}
-            error={errors.some(e => e.includes('Host'))}
+            error={!config.host}
           >
             {hosts.map((host) => (
               <MenuItem key={host.host_name} value={host.host_name}>
@@ -105,7 +104,7 @@ export const CampaignConfigForm: React.FC<CampaignConfigFormProps> = ({
             label="Device *"
             onChange={(e) => handleBasicInfoChange('device', e.target.value)}
             disabled={!config.host || selectedHostDevices.length === 0}
-            error={errors.some(e => e.includes('Device'))}
+            error={!config.device}
           >
             {selectedHostDevices.map((device) => (
               <MenuItem key={device.device_id} value={device.device_id}>
@@ -121,7 +120,7 @@ export const CampaignConfigForm: React.FC<CampaignConfigFormProps> = ({
             value={config.userinterface_name || ''}
             label="User Interface *"
             onChange={(e) => handleBasicInfoChange('userinterface_name', e.target.value)}
-            error={errors.some(e => e.includes('interface'))}
+            error={!config.userinterface_name}
           >
             <MenuItem value="horizon_android_mobile">Horizon Android Mobile</MenuItem>
             <MenuItem value="horizon_android_tv">Horizon Android TV</MenuItem>

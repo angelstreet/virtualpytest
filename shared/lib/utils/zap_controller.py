@@ -963,10 +963,10 @@ class ZapController:
         if not action_result.get('success'):
             step_result['error'] = action_result.get('error', 'Unknown error')
         
-        # Record immediately and get step number
-        step_number = context.record_step_immediately(step_result)
-        # Update message with actual step number
-        step_result['message'] = f"Step {step_number} - Zap iteration {iteration}: {action_command} ({iteration}/{max_iterations})"
+        # Record step immediately - step number shown in table
+        context.record_step_immediately(step_result)
+        # Simple message without redundant step number
+        step_result['message'] = f"Zap iteration {iteration}: {action_command} ({iteration}/{max_iterations})"
     
     # Legacy step recording removed - using immediate recording only
     
