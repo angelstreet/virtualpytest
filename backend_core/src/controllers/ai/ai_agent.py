@@ -618,8 +618,8 @@ JSON ONLY - NO OTHER TEXT"""
                 headers={
                     'Authorization': f'Bearer {api_key}',
                     'Content-Type': 'application/json',
-                    'HTTP-Referer': 'https://automai.dev',
-                    'X-Title': 'AutomAI-VirtualPyTest'
+                    'HTTP-Referer': 'https://virtualpytest.com',
+                    'X-Title': 'VirtualPyTest'
                 },
                 json={
                     'model': 'moonshotai/kimi-k2:free',

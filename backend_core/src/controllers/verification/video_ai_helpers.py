@@ -85,9 +85,13 @@ class VideoAIHelpers:
                 # Enhanced prompt for subtitle analysis with stronger JSON enforcement
                 prompt = """You are a subtitle detection system. Analyze this image for subtitles in the bottom portion.
 
-CRITICAL: You MUST respond with ONLY valid JSON. No other text before or after.
+CRITICAL INSTRUCTIONS:
+1. You MUST ALWAYS respond with valid JSON - never return empty content
+2. If you find subtitles, extract the text and detect the language
+3. If you find NO subtitles, you MUST still respond with the "no subtitles" JSON format below
+4. ALWAYS provide a response - never return empty or null content
 
-Required JSON format:
+Required JSON format when subtitles ARE found:
 {
   "subtitles_detected": true,
   "extracted_text": "exact subtitle text here",
@@ -95,7 +99,7 @@ Required JSON format:
   "confidence": 0.95
 }
 
-If no subtitles found:
+Required JSON format when NO subtitles are found:
 {
   "subtitles_detected": false,
   "extracted_text": "",
@@ -103,8 +107,10 @@ If no subtitles found:
   "confidence": 0.1
 }
 
+IMPORTANT: Even if the image has no subtitles, you MUST respond with the "subtitles_detected": false JSON format above. Never return empty content.
+
 Languages: English, French, German, Spanish, Italian, Portuguese, Dutch, or unknown
-JSON ONLY - NO OTHER TEXT"""
+JSON ONLY - NO OTHER TEXT - ALWAYS RESPOND"""
                 
                 # Call OpenRouter API
                 response = requests.post(
@@ -112,8 +118,8 @@ JSON ONLY - NO OTHER TEXT"""
                     headers={
                         'Authorization': f'Bearer {api_key}',
                         'Content-Type': 'application/json',
-                        'HTTP-Referer': 'https://automai.dev',
-                        'X-Title': 'AutomAI-VirtualPyTest'
+                        'HTTP-Referer': 'https://virtualpytest.com',
+                        'X-Title': 'VirtualPyTest'
                     },
                     json={
                         'model': 'qwen/qwen-2-vl-7b-instruct',
@@ -140,12 +146,19 @@ JSON ONLY - NO OTHER TEXT"""
                     # Clean response text to handle leading/trailing whitespace from OpenRouter
                     clean_response_text = response.text.strip()
                     if not clean_response_text:
-                        print(f"VideoAI[{self.device_name}]: Empty response after cleaning")
+                        print(f"VideoAI[{self.device_name}]: Empty API response - No subtitles detected")
                         return '', 'unknown', 0.0
                     
                     result = json.loads(clean_response_text)
-                    content = result['choices'][0]['message']['content'].strip()
+                    content = result['choices'][0]['message']['content']
                     
+                    # Handle empty or None content from AI
+                    if content is None or content.strip() == '':
+                        print(f"VideoAI[{self.device_name}]: AI returned empty content - This should not happen with improved prompt")
+                        print(f"VideoAI[{self.device_name}]: Defaulting to 'No subtitles detected' response")
+                        return '', 'unknown', 0.0
+                    
+                    content = content.strip()
                     print(f"VideoAI[{self.device_name}]: Extracted content (len {len(content)}): {repr(content)}")
                     
                     # Parse JSON response with fallback logic
@@ -159,7 +172,7 @@ JSON ONLY - NO OTHER TEXT"""
                         confidence = float(ai_result.get('confidence', 0.0))
                         
                         if not subtitles_detected or not extracted_text:
-                            print(f"VideoAI[{self.device_name}]: AI found no subtitles")
+                            print(f"VideoAI[{self.device_name}]: AI analysis complete - No subtitles detected in image")
                             return '', 'unknown', 0.0
                         
                         print(f"VideoAI[{self.device_name}]: AI extracted subtitle text: '{extracted_text}' -> Language: {detected_language}, Confidence: {confidence}")
@@ -178,7 +191,7 @@ JSON ONLY - NO OTHER TEXT"""
                             print(f"VideoAI[{self.device_name}]: Fallback extraction successful: '{extracted_text}' -> Language: {detected_language}")
                             return extracted_text, detected_language, confidence
                         else:
-                            print(f"VideoAI[{self.device_name}]: Fallback extraction failed")
+                            print(f"VideoAI[{self.device_name}]: Fallback extraction failed - No subtitles detected in image")
                             return '', 'unknown', 0.0
                 else:
                     print(f"VideoAI[{self.device_name}]: API error {response.status_code} - full response text: {repr(response.text)}")
@@ -288,8 +301,11 @@ JSON ONLY - NO OTHER TEXT"""
                     
                     results.append(result)
                     
-                    text_preview = extracted_text[:50] + "..." if len(extracted_text) > 50 else extracted_text
-                    print(f"VideoAI[{self.device_name}]: AI Subtitle analysis - subtitles={has_subtitles}, errors={has_errors}, text='{text_preview}', confidence={confidence}")
+                    if has_subtitles and extracted_text:
+                        text_preview = extracted_text[:50] + "..." if len(extracted_text) > 50 else extracted_text
+                        print(f"VideoAI[{self.device_name}]: AI Subtitle analysis - subtitles=True, errors={has_errors}, text='{text_preview}', confidence={confidence}")
+                    else:
+                        print(f"VideoAI[{self.device_name}]: AI Subtitle analysis - No subtitles detected, errors={has_errors}, confidence={confidence}")
                     
                 except Exception as e:
                     results.append({
@@ -313,6 +329,13 @@ JSON ONLY - NO OTHER TEXT"""
                     detected_language = result.get('detected_language')
                     break
             
+            # Add clear detection status message
+            detection_message = "No subtitles detected in any analyzed images"
+            if subtitles_detected and all_extracted_text.strip():
+                detection_message = f"Subtitles detected with text: '{all_extracted_text.strip()[:100]}{'...' if len(all_extracted_text.strip()) > 100 else ''}'"
+            elif subtitles_detected:
+                detection_message = "Subtitles detected but no text extracted"
+            
             overall_result = {
                 'success': len(successful_analyses) > 0,
                 'subtitles_detected': subtitles_detected,
@@ -321,6 +344,7 @@ JSON ONLY - NO OTHER TEXT"""
                 'successful_analyses': len(successful_analyses),
                 'combined_extracted_text': all_extracted_text.strip(),
                 'detected_language': detected_language,
+                'detection_message': detection_message,
                 'results': results,
                 'analysis_type': 'ai_subtitle_detection',
                 'timestamp': datetime.now().isoformat()
@@ -405,8 +429,8 @@ Be specific about what you see on the device interface."""
                     headers={
                         'Authorization': f'Bearer {api_key}',
                         'Content-Type': 'application/json',
-                        'HTTP-Referer': 'https://automai.dev',
-                        'X-Title': 'AutomAI-VirtualPyTest'
+                        'HTTP-Referer': 'https://virtualpytest.com',
+                        'X-Title': 'VirtualPyTest'
                     },
                     json={
                         'model': 'qwen/qwen-2-vl-7b-instruct',
@@ -511,7 +535,11 @@ Be specific about what you see on the device interface."""
                 # Enhanced prompt for language/subtitle menu detection with better categorization
                 prompt = """Analyze this image for language/subtitle/audio menu options. Look for sections labeled AUDIO, SUBTITLES, AUDIO DESCRIPTION, etc.
 
-CRITICAL: You MUST respond with ONLY valid JSON. No other text before or after.
+CRITICAL INSTRUCTIONS:
+1. You MUST ALWAYS respond with valid JSON - never return empty content
+2. If you find a language/subtitle menu, extract the options and selections
+3. If you find NO menu, you MUST still respond with the "menu_detected": false JSON format below
+4. ALWAYS provide a response - never return empty or null content
 
 Required JSON format:
 {
@@ -542,7 +570,9 @@ IMPORTANT CATEGORIZATION RULES:
 - Set selected_audio/selected_subtitle to the index of the currently selected option (-1 if none)
 - Check for visual indicators like checkmarks (✓) or highlighting to identify selected options
 
-JSON ONLY - NO OTHER TEXT"""
+IMPORTANT: Even if the image has no language/subtitle menu, you MUST respond with the "menu_detected": false JSON format above. Never return empty content.
+
+JSON ONLY - NO OTHER TEXT - ALWAYS RESPOND"""
                 
                 # Call OpenRouter API
                 response = requests.post(
@@ -550,8 +580,8 @@ JSON ONLY - NO OTHER TEXT"""
                     headers={
                         'Authorization': f'Bearer {api_key}',
                         'Content-Type': 'application/json',
-                        'HTTP-Referer': 'https://automai.dev',
-                        'X-Title': 'AutomAI-VirtualPyTest'
+                        'HTTP-Referer': 'https://virtualpytest.com',
+                        'X-Title': 'VirtualPyTest'
                     },
                     json={
                         'model': 'qwen/qwen-2-vl-7b-instruct',
@@ -888,8 +918,8 @@ JSON ONLY - NO OTHER TEXT"""
                         headers={
                             'Authorization': f'Bearer {api_key}',
                             'Content-Type': 'application/json',
-                            'HTTP-Referer': 'https://automai.dev',
-                            'X-Title': 'AutomAI-VirtualPyTest'
+                            'HTTP-Referer': 'https://virtualpytest.com',
+                            'X-Title': 'VirtualPyTest'
                         },
                         json={
                             'model': 'qwen/qwen-2-vl-7b-instruct',
@@ -983,7 +1013,11 @@ JSON ONLY - NO OTHER TEXT"""
         """
         return """Analyze this image for TV channel information banner/overlay. Look for channel names, program information, and time details.
 
-CRITICAL: You MUST respond with ONLY valid JSON. No other text before or after.
+CRITICAL INSTRUCTIONS:
+1. You MUST ALWAYS respond with valid JSON - never return empty content
+2. If you find a channel banner, extract the information
+3. If you find NO banner, you MUST still respond with the "banner_detected": false JSON format below
+4. ALWAYS provide a response - never return empty or null content
 
 Required JSON format:
 {
@@ -1018,7 +1052,9 @@ IMPORTANT EXTRACTION RULES:
 - Look for "Now" or "Next" program information
 - Check for EPG (Electronic Program Guide) style overlays
 
-JSON ONLY - NO OTHER TEXT"""
+IMPORTANT: Even if the image has no channel banner, you MUST respond with the "banner_detected": false JSON format above. Never return empty content.
+
+JSON ONLY - NO OTHER TEXT - ALWAYS RESPOND"""
 
     def detect_banner_presence(self, image_path: str, banner_region: Dict[str, int] = None) -> bool:
         """

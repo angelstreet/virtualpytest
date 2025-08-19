@@ -236,8 +236,8 @@ Respond ONLY in this JSON format:
                 headers={
                     'Authorization': f'Bearer {self.api_key}',
                     'Content-Type': 'application/json',
-                    'HTTP-Referer': 'https://automai.dev',
-                    'X-Title': 'AutomAI-VirtualPyTest-Discard'
+                    'HTTP-Referer': 'https://virtualpytest.com',
+                    'X-Title': 'VirtualPyTest-Discard'
                 },
                 json={
                     'model': self.text_model,
@@ -281,8 +281,8 @@ Respond ONLY in this JSON format:
                 headers={
                     'Authorization': f'Bearer {self.api_key}',
                     'Content-Type': 'application/json',
-                    'HTTP-Referer': 'https://automai.dev',
-                    'X-Title': 'AutomAI-VirtualPyTest-Discard'
+                    'HTTP-Referer': 'https://virtualpytest.com',
+                    'X-Title': 'VirtualPyTest-Discard'
                 },
                 json={
                     'model': self.vision_model,

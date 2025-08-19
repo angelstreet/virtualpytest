@@ -28,6 +28,7 @@ export interface SubtitleAnalysis {
   combined_extracted_text: string; // result.combined_extracted_text
   detected_language?: string; // result.detected_language
   confidence: number; // result.results[0].confidence
+  detection_message?: string; // Clear message about detection status
 }
 
 // Frontend-computed subtitle trend analysis

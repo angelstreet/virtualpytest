@@ -249,6 +249,14 @@ export const useMonitoringSubtitles = ({
           const extractedText = result.combined_extracted_text || responseData.extracted_text || '';
           const detectedLanguage =
             result.detected_language || responseData.detected_language || undefined;
+          const detectionMessage = result.detection_message || '';
+
+          // Log clear detection status
+          if (hasSubtitles && extractedText) {
+            console.log('[useMonitoringSubtitles] AI detected subtitles:', extractedText);
+          } else {
+            console.log('[useMonitoringSubtitles] AI analysis complete: No subtitles detected');
+          }
 
           // Create subtitle analysis using EXACT backend field names
           const newSubtitleData: SubtitleAnalysis = {
@@ -256,6 +264,7 @@ export const useMonitoringSubtitles = ({
             combined_extracted_text: extractedText,
             detected_language: detectedLanguage !== 'unknown' ? detectedLanguage : undefined,
             confidence: responseData.confidence || (hasSubtitles ? 0.9 : 0.1),
+            detection_message: detectionMessage,
           };
 
           // Update the frame's subtitle data and mark subtitle detection as performed

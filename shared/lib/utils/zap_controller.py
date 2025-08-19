@@ -282,6 +282,17 @@ class ZapController:
         """Execute a single zap iteration with timing and analysis"""
         print(f"🎬 [ZapController] Iteration {iteration}/{max_iterations}: {action_command}")
         
+        # Step start screenshot - capture BEFORE action execution (like regular navigation)
+        step_name = f"zap_iteration_{iteration}_{action_command}"
+        step_start_screenshot_result = capture_and_upload_screenshot(context.host, context.selected_device, f"{step_name}_start", "zap")
+        step_start_screenshot_path = step_start_screenshot_result.get('screenshot_path', '')
+        
+        if step_start_screenshot_path:
+            print(f"📸 [ZapController] Step-start screenshot captured: {step_start_screenshot_path}")
+            context.add_screenshot(step_start_screenshot_path)
+        else:
+            print(f"⚠️ [ZapController] Step-start screenshot capture failed")
+        
         # Execute action with timing
         start_time = time.time()
         action_result = execute_edge_actions(context.host, context.selected_device, action_edge, team_id=context.team_id)
@@ -294,13 +305,13 @@ class ZapController:
         
         self.statistics.total_execution_time += execution_time
         
-        # Use unified screenshot function from report_utils
-        step_name = f"zap_iteration_{iteration}_{action_command}"
+        # Use unified screenshot function from report_utils (main action screenshot)
         screenshot_result = capture_and_upload_screenshot(context.host, context.selected_device, step_name, "zap")
         
         # Add screenshot info to action result for step recording
         action_result['screenshot_path'] = screenshot_result['screenshot_path']
         action_result['screenshot_url'] = screenshot_result['screenshot_url']
+        action_result['step_start_screenshot_path'] = step_start_screenshot_path
         
         # Wait 4 seconds after zap action to allow banner to disappear before analysis
         print(f"⏰ [ZapController] Waiting 8 seconds for banner to disappear...")
@@ -332,6 +343,19 @@ class ZapController:
         # Get screenshot path for context (maintain compatibility)
         screenshot_path = screenshot_result['screenshot_path']
         context.add_screenshot(screenshot_path)
+        
+        # Step end screenshot - capture AFTER analysis is complete (like regular navigation)
+        step_end_screenshot_result = capture_and_upload_screenshot(context.host, context.selected_device, f"{step_name}_end", "zap")
+        step_end_screenshot_path = step_end_screenshot_result.get('screenshot_path', '')
+        
+        if step_end_screenshot_path:
+            print(f"📸 [ZapController] Step-end screenshot captured: {step_end_screenshot_path}")
+            context.add_screenshot(step_end_screenshot_path)
+        else:
+            print(f"⚠️ [ZapController] Step-end screenshot capture failed")
+        
+        # Add step end screenshot to action result for step recording
+        action_result['step_end_screenshot_path'] = step_end_screenshot_path
         
         # Record step result
         self._record_step_result(context, iteration, max_iterations, action_command, action_result, 
@@ -933,6 +957,8 @@ class ZapController:
             'success': action_result.get('success', False),
             'screenshot_path': action_result.get('screenshot_path', ''),
             'screenshot_url': action_result.get('screenshot_url'),
+            'step_start_screenshot_path': action_result.get('step_start_screenshot_path', ''),  # Add step start screenshot
+            'step_end_screenshot_path': action_result.get('step_end_screenshot_path', ''),      # Add step end screenshot
             'action_screenshots': action_screenshots,  # Add this field to match navigation behavior
             'message': f"Zap iteration {iteration}: {action_command} ({iteration}/{max_iterations})",
             'execution_time_ms': execution_time,
