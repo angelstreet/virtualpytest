@@ -255,12 +255,8 @@ class ZapController:
                     result.audio_language = audio_speech_result.get('detected_language', 'unknown')
                     result.audio_details = audio_speech_result
                 
-                # 4. Audio menu analysis if motion detected and goto_live enabled
-                if context and self.goto_live:
-                    # Add audio menu analysis to current step - this will trigger navigation steps  
-                    from .audio_menu_analyzer import add_audio_menu_analysis_to_step
-                    audio_menu_success = add_audio_menu_analysis_to_step(context)
-                    print(f"🎧 [ZapController] Audio menu analysis {'added successfully' if audio_menu_success else 'failed or skipped'}")
+                # 4. Audio menu analysis removed - now handled by dedicated navigation steps
+                # Audio menu analysis is independent and should be called when navigating TO audio menu nodes
                 
                 # 5. Only analyze zapping if motion detected and it's a channel up action
                 if context and 'chup' in action_command.lower():
