@@ -135,6 +135,16 @@ export interface CompatibilityResult {
   available_nodes?: string[];
 }
 
+// TestStep interface for AI analysis preview
+export interface TestStep {
+  step: number;
+  type: 'action' | 'verification';
+  description: string;
+  command: string;
+  params?: Record<string, any>;
+  verification_type?: string;
+}
+
 export interface AITestCaseResponse {
   success: boolean;
   test_case?: TestCase;

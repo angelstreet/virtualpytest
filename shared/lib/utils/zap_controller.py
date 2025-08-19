@@ -282,6 +282,9 @@ class ZapController:
         # Store in context for reporting
         self._store_statistics_in_context(context, action_command)
         
+        # Post-process step_results to reorganize
+        self._reorganize_step_results(context)
+        
         return self.statistics.successful_iterations == max_iterations
     
     def _execute_single_zap(self, context, action_edge, action_command: str, iteration: int, max_iterations: int) -> bool:
@@ -1041,3 +1044,54 @@ class ZapController:
             'detected_channels': self.statistics.detected_channels,
             'channel_info_results': self.statistics.channel_info_results
         })
+
+    def _reorganize_step_results(self, context):
+        """Post-process step_results to group by iteration and sort sub-steps"""
+        if not context.step_results:
+            return
+
+        # Collect all steps
+        all_steps = context.step_results[:]
+        context.step_results.clear()
+
+        # Group by iteration
+        groups = {}
+        for step in all_steps:
+            iteration = step.get('iteration')
+            if iteration not in groups:
+                groups[iteration] = []
+            groups[iteration].append(step)
+
+        # For each iteration group
+        for iter_num in sorted(groups.keys()):
+            group_steps = groups[iter_num]
+
+            # Find the main zap step (has 'step_category': 'action')
+            main_step = next((s for s in group_steps if s.get('step_category') == 'action'), None)
+            if not main_step:
+                # If no main step, just add the group as is
+                context.step_results.extend(group_steps)
+                continue
+
+            # The rest are sub-steps (navigations from analysis)
+            sub_steps = [s for s in group_steps if s != main_step]
+
+            # Sort sub-steps by start_time (convert to seconds for sorting)
+            def time_to_seconds(t):
+                try:
+                    h, m, s = map(int, t.split(':'))
+                    return h*3600 + m*60 + s
+                except:
+                    return 0
+
+            sub_steps.sort(key=lambda s: time_to_seconds(s.get('start_time', '00:00:00')))
+
+            # Add main step first, with original step_number reset
+            main_step['step_number'] = f"{iter_num}"
+            main_step['sub_steps'] = []  # Add field for sub-steps
+            context.step_results.append(main_step)
+
+            # Add sub-steps with numbering like 1.1, 1.2
+            for sub_idx, sub_step in enumerate(sub_steps, 1):
+                sub_step['step_number'] = f"{iter_num}.{sub_idx}"
+                main_step['sub_steps'].append(sub_step)

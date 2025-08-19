@@ -35,10 +35,6 @@ from shared.lib.utils.navigation_utils import (
     goto_node
 )
 
-
-
-
-
 def create_zap_controller(context: ScriptExecutionContext) -> ZapController:
     """Create a ZapController with direct Python video analysis capabilities"""
     print("🔧 [fullzap] Creating ZapController with direct Python video analysis...")
@@ -50,16 +46,12 @@ def create_zap_controller(context: ScriptExecutionContext) -> ZapController:
     
     return zap_controller
 
-
-
-
-
 def execute_zap_actions(context: ScriptExecutionContext, action_edge, action_command: str, max_iteration: int, zap_controller: ZapController, blackscreen_area: str = None, goto_live: bool = True):
     """Execute zap actions using ZapController - simple wrapper"""
     print(f"⚡ [fullzap] Delegating zap execution to ZapController...")
     if blackscreen_area:
         print(f"🎯 [fullzap] Using custom blackscreen area: {blackscreen_area}")
-    print(f"🎯 [fullzap] Audio menu analysis will be {'done once outside loop' if goto_live else 'done in each zap iteration'}")
+    print(f"🎯 [fullzap] Audio menu analysis will be {'done once outside loop' if goto_live else 'skipped'}")
     return zap_controller.execute_zap_iterations(context, action_edge, action_command, max_iteration, blackscreen_area, goto_live)
 
 
@@ -175,7 +167,6 @@ def print_fullzap_summary(context: ScriptExecutionContext, userinterface_name: s
         print(f"❌ Error: {context.error_message}")
     
     print("="*60)
-
 
 def main():
     """Main function to optionally navigate to live and execute zap action multiple times"""

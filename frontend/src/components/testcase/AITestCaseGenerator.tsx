@@ -12,7 +12,6 @@ import {
   Typography,
   Alert,
   CircularProgress,
-  Card,
   Checkbox,
   FormControlLabel,
   Chip,
@@ -109,16 +108,7 @@ export const AITestCaseGenerator: React.FC<AITestCaseGeneratorProps> = ({
     );
   }, []);
 
-  // Helper to get devices for an interface (mock data for now)
-  const getDevicesForInterface = useCallback((interfaceName: string): string[] => {
-    // This would come from actual device data in production
-    const deviceMap: Record<string, string[]> = {
-      'horizon_android_mobile': ['Samsung Galaxy', 'Pixel 6'],
-      'horizon_android_tv': ['NVIDIA Shield', 'Sony Bravia'],
-      'web_interface': ['Chrome Browser', 'Firefox Browser']
-    };
-    return deviceMap[interfaceName] || ['Compatible Device'];
-  }, []);
+
 
   // Render Step 1: Input
   const renderInputStep = () => (
@@ -184,7 +174,6 @@ export const AITestCaseGenerator: React.FC<AITestCaseGeneratorProps> = ({
 
     const { compatibility_matrix } = analysis;
     const hasCompatible = compatibility_matrix.compatible_userinterfaces.length > 0;
-    const hasIncompatible = compatibility_matrix.incompatible.length > 0;
 
     return (
       <Box>
