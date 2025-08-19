@@ -55,12 +55,12 @@ class VideoAIHelpers:
     # AI-Powered Subtitle Analysis
     # =============================================================================
     
-    def analyze_subtitle_with_ai(self, region_image) -> Tuple[str, str, float]:
+    def analyze_subtitle_with_ai(self, image) -> Tuple[str, str, float]:
         """
-        AI-powered subtitle analysis using OpenRouter - equivalent to OCR method
+        AI-powered subtitle analysis using OpenRouter - handles both cropped regions and full images
         
         Args:
-            region_image: Cropped subtitle region image (same as OCR method)
+            image: Either cropped subtitle region or full image for AI analysis
             
         Returns:
             Tuple of (extracted_text, detected_language, confidence)
@@ -72,9 +72,9 @@ class VideoAIHelpers:
                 print(f"VideoAI[{self.device_name}]: OpenRouter API key not found in environment")
                 return '', 'unknown', 0.0
             
-            # Save cropped region to temporary file for encoding
+            # Save image to temporary file for encoding
             with tempfile.NamedTemporaryFile(suffix='.jpg', delete=False) as tmp_file:
-                cv2.imwrite(tmp_file.name, region_image)
+                cv2.imwrite(tmp_file.name, image)
                 temp_path = tmp_file.name
             
             try:
@@ -105,10 +105,10 @@ class VideoAIHelpers:
                                 ]
                             }
                         ],
-                        'max_tokens': 200,
+                        'max_tokens': 300,
                         'temperature': 0.0
                     },
-                    timeout=60
+                    timeout=20
                 )
                 
                 print(f"VideoAI[{self.device_name}]: API call complete - status: {response.status_code}")
@@ -214,16 +214,28 @@ class VideoAIHelpers:
                     
                     height, width = img.shape[:2]
                     
-                    # Enhanced subtitle detection with adaptive region processing (same as OCR method)
-                    # Expanded to capture 3-line subtitles - start from 60% to bottom (40% of screen height)
+                    # Enhanced subtitle detection with fallback approach
+                    # 1. Try cropped region first (optimized for subtitles)
+                    # 2. If no subtitles detected, retry with full image (more context)
+                    
+                    # Step 1: Try cropped subtitle region first
                     subtitle_height_start = int(height * 0.62)
                     subtitle_width_start = int(width * 0.2)  # Skip left 20%
                     subtitle_width_end = int(width * 0.8)    # Skip right 20%
                     
                     subtitle_region = img[subtitle_height_start:, subtitle_width_start:subtitle_width_end]
                     
-                    # AI-powered subtitle analysis
+                    # AI-powered subtitle analysis - try cropped region first
                     extracted_text, detected_language, ai_confidence = self.analyze_subtitle_with_ai(subtitle_region)
+                    
+                    # Step 2: Fallback to full image if cropped region failed
+                    if not extracted_text or len(extracted_text.strip()) == 0:
+                        print(f"VideoAI[{self.device_name}]: Cropped region analysis failed, retrying with full image")
+                        extracted_text, detected_language, ai_confidence = self.analyze_subtitle_with_ai(img)
+                        if extracted_text and len(extracted_text.strip()) > 0:
+                            print(f"VideoAI[{self.device_name}]: Full image fallback successful: '{extracted_text[:50]}{'...' if len(extracted_text) > 50 else ''}'")
+                        else:
+                            print(f"VideoAI[{self.device_name}]: Both cropped and full image analysis failed")
                     
                     # Determine if subtitles were detected
                     has_subtitles = bool(extracted_text and len(extracted_text.strip()) > 0)
