@@ -15,6 +15,7 @@ from .action_utils import execute_edge_actions, capture_validation_screenshot
 from .navigation_utils import goto_node
 from .host_utils import get_controller
 from .report_utils import capture_and_upload_screenshot
+from .audio_menu_analyzer import analyze_audio_menu
 
 
 class ZapAnalysisResult:
@@ -23,12 +24,18 @@ class ZapAnalysisResult:
     def __init__(self):
         self.motion_detected = False
         self.subtitles_detected = False
+        self.audio_menu_detected = False
         self.zapping_detected = False
+        self.audio_speech_detected = False  # NEW: Audio speech detection
         self.detected_language = None
         self.extracted_text = ""
+        self.audio_transcript = ""  # NEW: Audio transcript
+        self.audio_language = None  # NEW: Audio language detection
         self.motion_details = {}
         self.subtitle_details = {}
+        self.audio_menu_details = {}
         self.zapping_details = {}
+        self.audio_details = {}  # NEW: Audio analysis details
         self.success = False
         self.message = ""
     
@@ -39,11 +46,17 @@ class ZapAnalysisResult:
             "message": self.message,
             "motion_detected": self.motion_detected,
             "subtitles_detected": self.subtitles_detected,
+            "audio_menu_detected": self.audio_menu_detected,
+            "audio_speech_detected": self.audio_speech_detected,
             "zapping_detected": self.zapping_detected,
             "detected_language": self.detected_language,
             "extracted_text": self.extracted_text,
+            "audio_transcript": self.audio_transcript,
+            "audio_language": self.audio_language,
             "motion_details": self.motion_details,
             "subtitle_analysis": self.subtitle_details,
+            "audio_menu_analysis": self.audio_menu_details,
+            "audio_analysis": self.audio_details,
             "zapping_analysis": self.zapping_details
         }
 
@@ -56,8 +69,11 @@ class ZapStatistics:
         self.successful_iterations = 0
         self.motion_detected_count = 0
         self.subtitles_detected_count = 0
+        self.audio_menu_detected_count = 0
+        self.audio_speech_detected_count = 0  # NEW: Audio speech detection count
         self.zapping_detected_count = 0
         self.detected_languages = []
+        self.audio_languages = []  # NEW: Audio languages detected
         self.total_execution_time = 0
         self.analysis_results = []
         
@@ -84,6 +100,10 @@ class ZapStatistics:
         return (self.zapping_detected_count / self.total_iterations * 100) if self.total_iterations > 0 else 0
     
     @property
+    def audio_speech_success_rate(self) -> float:
+        return (self.audio_speech_detected_count / self.total_iterations * 100) if self.total_iterations > 0 else 0
+    
+    @property
     def average_execution_time(self) -> float:
         return self.total_execution_time / self.total_iterations if self.total_iterations > 0 else 0
     
@@ -91,6 +111,11 @@ class ZapStatistics:
         """Add a detected language if not already present"""
         if language and language not in self.detected_languages:
             self.detected_languages.append(language)
+    
+    def add_audio_language(self, language: str):
+        """Add a detected audio language if not already present"""
+        if language and language not in self.audio_languages:
+            self.audio_languages.append(language)
     
     def add_zapping_result(self, zapping_details: Dict[str, Any]):
         """Add enhanced zapping analysis results"""
@@ -189,6 +214,12 @@ class ZapController:
         """Perform comprehensive analysis after a zap action"""
         result = ZapAnalysisResult()
         
+        # Defensive programming: ensure all required attributes exist
+        if not hasattr(result, 'audio_menu_details'):
+            result.audio_menu_details = {}
+        if not hasattr(result, 'audio_menu_detected'):
+            result.audio_menu_detected = False
+        
         try:
             print(f"🔍 [ZapController] Analyzing zap results for {action_command} (iteration {iteration})...")
             
@@ -210,9 +241,21 @@ class ZapController:
                     result.extracted_text = subtitle_result.get('extracted_text', '')
                     result.subtitle_details = subtitle_result
                 
-                # 3. Audio menu analysis removed - now handled by dedicated audio_menu_analyzer
+                # 3. NEW: Audio speech analysis if motion detected (after subtitles)
+                if context:
+                    audio_speech_result = self._analyze_audio_speech(context, iteration, action_command)
+                    result.audio_speech_detected = audio_speech_result.get('speech_detected', False)
+                    result.audio_transcript = audio_speech_result.get('combined_transcript', '')
+                    result.audio_language = audio_speech_result.get('detected_language', 'unknown')
+                    result.audio_details = audio_speech_result
                 
-                # 4. Only analyze zapping if motion detected and it's a channel up action
+                # 4. Audio menu analysis using dedicated analyzer
+                if context:
+                    audio_menu_result = analyze_audio_menu(context)
+                    result.audio_menu_detected = audio_menu_result.get('menu_detected', False)
+                    result.audio_menu_details = audio_menu_result
+                
+                # 5. Only analyze zapping if motion detected and it's a channel up action
                 if context and 'chup' in action_command.lower():
                     # Get the action end time from context if available
                     action_end_time = getattr(context, 'last_action_end_time', None)
@@ -325,11 +368,17 @@ class ZapController:
             self.statistics.motion_detected_count += 1
         if analysis_result.subtitles_detected:
             self.statistics.subtitles_detected_count += 1
+        if analysis_result.audio_menu_detected:
+            self.statistics.audio_menu_detected_count += 1
+        if analysis_result.audio_speech_detected:
+            self.statistics.audio_speech_detected_count += 1
         if analysis_result.zapping_detected:
             self.statistics.zapping_detected_count += 1
             self.statistics.add_zapping_result(analysis_result.zapping_details)
         if analysis_result.detected_language:
             self.statistics.add_language(analysis_result.detected_language)
+        if analysis_result.audio_language:
+            self.statistics.add_audio_language(analysis_result.audio_language)
         
         # Update the ZAP step (not the last step) with analysis results
         if context.step_results and zap_step_index < len(context.step_results):
@@ -337,6 +386,8 @@ class ZapController:
             zap_step['motion_detection'] = analysis_result.to_dict()
             zap_step['motion_analysis'] = analysis_result.motion_details
             zap_step['subtitle_analysis'] = analysis_result.subtitle_details
+            zap_step['audio_analysis'] = analysis_result.audio_details
+            zap_step['audio_menu_analysis'] = analysis_result.audio_menu_details
             zap_step['zapping_analysis'] = analysis_result.zapping_details
             
             # Collect all screenshots for this zap iteration (like original)
@@ -505,6 +556,91 @@ class ZapController:
                 "success": False,
                 "analyzed_screenshot": latest_screenshot if 'latest_screenshot' in locals() else None,
                 "message": error_msg
+            }
+    
+    def _analyze_audio_speech(self, context, iteration: int, action_command: str) -> Dict[str, Any]:
+        """Analyze audio speech using AI-powered transcription"""
+        try:
+            print(f"🎤 [ZapController] Analyzing audio speech for {action_command} (iteration {iteration})...")
+            
+            device_id = context.selected_device.device_id
+            
+            # Get AV controller for audio processing
+            av_controller = get_controller(device_id, 'av')
+            if not av_controller:
+                return {"success": False, "message": f"No AV controller found for device {device_id}"}
+            
+            # Import and initialize AudioAIHelpers
+            try:
+                from backend_core.src.controllers.verification.audio_ai_helpers import AudioAIHelpers
+            except ImportError as e:
+                print(f"🎤 [ZapController] AudioAIHelpers import failed: {e}")
+                return {"success": False, "message": "AudioAIHelpers not available"}
+            
+            audio_ai = AudioAIHelpers(av_controller, f"ZapController-{device_id}")
+            
+            # Get recent audio segments (using global HLS_SEGMENT_DURATION)
+            print(f"🎤 [ZapController] Retrieving recent audio segments...")
+            audio_files = audio_ai.get_recent_audio_segments(segment_count=3)
+            
+            if not audio_files:
+                return {
+                    "success": True,
+                    "speech_detected": False,
+                    "message": "No audio segments available for analysis",
+                    "segments_analyzed": 0,
+                    "combined_transcript": "",
+                    "detected_language": "unknown"
+                }
+            
+            # Analyze audio segments with AI (with R2 upload enabled)
+            print(f"🎤 [ZapController] Analyzing {len(audio_files)} audio segments with AI...")
+            audio_analysis = audio_ai.analyze_audio_segments_ai(audio_files, upload_to_r2=True)
+            
+            if not audio_analysis.get('success'):
+                return {
+                    "success": False,
+                    "message": f"Audio analysis failed: {audio_analysis.get('error', 'Unknown error')}",
+                    "speech_detected": False
+                }
+            
+            # Extract results
+            speech_detected = audio_analysis.get('successful_segments', 0) > 0
+            combined_transcript = audio_analysis.get('combined_transcript', '')
+            detected_language = audio_analysis.get('detected_language', 'unknown')
+            confidence = audio_analysis.get('confidence', 0.0)
+            segments_analyzed = audio_analysis.get('segments_analyzed', 0)
+            
+            # Log results in the same format as subtitle detection
+            if speech_detected and combined_transcript:
+                transcript_preview = combined_transcript[:100] + "..." if len(combined_transcript) > 100 else combined_transcript
+                print(f"🎤 [ZapController] Audio speech detected: '{transcript_preview}' (Language: {detected_language}, Confidence: {confidence:.2f})")
+            else:
+                print(f"🎤 [ZapController] No speech detected in {segments_analyzed} audio segments")
+            
+            return {
+                "success": True,
+                "speech_detected": speech_detected,
+                "combined_transcript": combined_transcript,
+                "detected_language": detected_language,
+                "confidence": confidence,
+                "segments_analyzed": segments_analyzed,
+                "successful_segments": audio_analysis.get('successful_segments', 0),
+                "detection_message": audio_analysis.get('detection_message', ''),
+                "segments": audio_analysis.get('segments', []),
+                "audio_urls": audio_analysis.get('audio_urls', []),  # R2 URLs for traceability
+                "uploaded_segments": audio_analysis.get('uploaded_segments', 0),
+                "analysis_type": "audio_speech_analysis",
+                "message": f"Audio analysis completed: {audio_analysis.get('successful_segments', 0)}/{segments_analyzed} segments with speech"
+            }
+            
+        except Exception as e:
+            error_msg = f"Audio speech analysis error: {str(e)}"
+            print(f"🎤 [ZapController] {error_msg}")
+            return {
+                "success": False,
+                "message": error_msg,
+                "speech_detected": False
             }
     
     # Audio menu analysis moved to dedicated audio_menu_analyzer.py

@@ -65,6 +65,7 @@ def capture_fullzap_summary(context: ScriptExecutionContext, userinterface_name:
     successful_iterations = context.custom_data.get('successful_iterations', 0)
     motion_detected_count = context.custom_data.get('motion_detected_count', 0)
     subtitles_detected_count = context.custom_data.get('subtitles_detected_count', 0)
+    audio_speech_detected_count = context.custom_data.get('audio_speech_detected_count', 0)
     zapping_detected_count = context.custom_data.get('zapping_detected_count', 0)
     total_action_time = context.custom_data.get('total_action_time', 0)
     
@@ -73,6 +74,10 @@ def capture_fullzap_summary(context: ScriptExecutionContext, userinterface_name:
     blackscreen_durations = context.custom_data.get('blackscreen_durations', [])
     detected_channels = context.custom_data.get('detected_channels', [])
     channel_info_results = context.custom_data.get('channel_info_results', [])
+    
+    # Language detection statistics
+    detected_languages = context.custom_data.get('detected_languages', [])
+    audio_languages = context.custom_data.get('audio_languages', [])
     
     # ZapController Action execution summary
     if max_iteration > 0:
@@ -88,6 +93,8 @@ def capture_fullzap_summary(context: ScriptExecutionContext, userinterface_name:
         lines.append(f"   • Motion detected: {motion_detected_count}/{max_iteration} ({motion_rate:.1f}%)")
         subtitle_rate = (subtitles_detected_count / max_iteration * 100) if max_iteration > 0 else 0
         lines.append(f"   • Subtitles detected: {subtitles_detected_count}/{max_iteration} ({subtitle_rate:.1f}%)")
+        audio_speech_rate = (audio_speech_detected_count / max_iteration * 100) if max_iteration > 0 else 0
+        lines.append(f"   • Audio speech detected: {audio_speech_detected_count}/{max_iteration} ({audio_speech_rate:.1f}%)")
         zapping_rate = (zapping_detected_count / max_iteration * 100) if max_iteration > 0 else 0
         lines.append(f"   • Zapping detected: {zapping_detected_count}/{max_iteration} ({zapping_rate:.1f}%)")
         
@@ -120,6 +127,13 @@ def capture_fullzap_summary(context: ScriptExecutionContext, userinterface_name:
                         channel_display += f" [{info['program_start_time']}-{info['program_end_time']}]"
                     
                     lines.append(f"      {i}. {channel_display} (zap: {info['zapping_duration']:.2f}s, confidence: {info['channel_confidence']:.1f})")
+        
+        # Language information
+        if detected_languages:
+            lines.append(f"   🌐 Subtitle languages detected: {', '.join(detected_languages)}")
+        
+        if audio_languages:
+            lines.append(f"   🎤 Audio languages detected: {', '.join(audio_languages)}")
         
         # Check for content change issues
         no_motion_count = max_iteration - motion_detected_count
