@@ -280,6 +280,48 @@ def create_unified_networkx_graph(all_trees_data: List[Dict]) -> nx.DiGraph:
     # Phase 2: Add cross-tree edges for nested tree navigation
     cross_tree_edges_added = 0
     
+    # FIRST: Fix orphaned edges that reference parent nodes from other trees
+    edges_to_add = []
+    for tree_data in all_trees_data:
+        tree_id = tree_data['tree_id']
+        tree_info = tree_data.get('tree_info', {})
+        parent_node_id = tree_info.get('parent_node_id')
+        
+        if parent_node_id:  # This is a subtree
+            # Find edges in this tree that reference the parent node
+            for edge in tree_data.get('edges', []):
+                source_id = edge.get('source_node_id')
+                target_id = edge.get('target_node_id')
+                
+                # If edge references parent node but parent node doesn't exist in this tree
+                if source_id == parent_node_id and source_id not in [n.get('node_id') for n in tree_data.get('nodes', [])]:
+                    # Add edge from parent node (in root tree) to target node (in subtree)
+                    if parent_node_id in unified_graph.nodes and target_id in unified_graph.nodes:
+                        print(f"[@navigation:graph:create_unified_networkx_graph] Adding cross-tree edge: {parent_node_id} (root) -> {target_id} (subtree)")
+                        edges_to_add.append((parent_node_id, target_id, edge))
+                        
+                elif target_id == parent_node_id and target_id not in [n.get('node_id') for n in tree_data.get('nodes', [])]:
+                    # Add edge from source node (in subtree) to parent node (in root tree)  
+                    if source_id in unified_graph.nodes and parent_node_id in unified_graph.nodes:
+                        print(f"[@navigation:graph:create_unified_networkx_graph] Adding cross-tree edge: {source_id} (subtree) -> {parent_node_id} (root)")
+                        edges_to_add.append((source_id, parent_node_id, edge))
+    
+    # Add the cross-tree edges
+    for source_id, target_id, edge_data in edges_to_add:
+        action_sets = edge_data.get('action_sets', [])
+        default_action_set_id = edge_data.get('default_action_set_id', 'default')
+        
+        unified_graph.add_edge(source_id, target_id, **{
+            'edge_type': 'CROSS_TREE',
+            'action_sets': action_sets,
+            'default_action_set_id': default_action_set_id,
+            'final_wait_time': edge_data.get('final_wait_time', 2000),
+            'label': edge_data.get('label', ''),
+            'weight': 1,
+            'is_cross_tree': True
+        })
+        cross_tree_edges_added += 1
+    
     for parent_node_id, child_tree_id in parent_child_map.items():
         # Find entry point of child tree
         child_entry_points = []

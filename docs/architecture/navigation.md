@@ -569,175 +569,54 @@ interface UINavigationTreeData {
 
 ### Unified Graph Pathfinding Architecture
 
-**NEW**: The navigation system now supports seamless pathfinding across nested trees using a unified graph approach. Users can navigate to any node in any nested tree without manual tree switching.
+**NEW**: The navigation system supports seamless pathfinding across nested trees using a unified graph approach with reference-based parent nodes.
+
+#### Key Concept: Reference-Based Cross-Tree Pathfinding
+
+The system solves the cross-tree navigation challenge using a **unified graph** that connects parent nodes (in root trees) to child nodes (in subtrees) without duplicating data:
+
+```
+Root Tree:                    Subtree:
+├─ live (node-123) ──────────→ live_chup (node-456)
+├─ live_fullscreen (node-789) → live_fullscreen_chup (node-101)
+└─ home (node-001)
+```
 
 #### Core Components
 
-##### 1. Unified Graph Caching (`navigation_cache.py`)
-```python
-# New cache structures for cross-tree navigation
-_unified_graphs_cache: Dict[str, nx.DiGraph] = {}      # Unified graphs with nested trees
-_tree_hierarchy_cache: Dict[str, Dict] = {}            # Tree hierarchy metadata
-_node_location_cache: Dict[str, str] = {}              # node_id -> tree_id mapping
-```
-
-**Key Functions:**
-- `get_cached_unified_graph()`: Retrieves unified graph including all nested trees
-- `populate_unified_cache()`: Builds and caches unified graphs with cross-tree edges
-- `get_node_tree_location()`: Fast lookup to find which tree contains a specific node
-- `get_tree_hierarchy_metadata()`: Access to complete tree hierarchy information
-
-##### 2. Cross-Tree Graph Building (`navigation_graph.py`)
+##### 1. Unified Graph Building (`navigation_graph.py`)
 ```python
 def create_unified_networkx_graph(all_trees_data: List[Dict]) -> nx.DiGraph:
-    """Create unified NetworkX graph from multiple navigation trees with cross-tree edges"""
+    """Create unified NetworkX graph with cross-tree edge restoration"""
 ```
 
-**Features:**
-- **Tree Merging**: Combines multiple tree graphs into single unified graph
-- **Virtual Edges**: Adds ENTER_SUBTREE and EXIT_SUBTREE edges between parent nodes and child tree entry points
-- **Tree Context**: Tags all nodes and edges with tree_id, tree_name, tree_depth metadata
-- **Cross-Tree Connections**: Enables seamless pathfinding across tree boundaries
+**Key Process:**
+1. **Load All Trees**: Combines nodes/edges from root tree + all subtrees
+2. **Detect Orphaned Edges**: Finds subtree edges that reference missing parent nodes
+3. **Restore Cross-Tree Connections**: Creates edges from parent nodes (root tree) to child nodes (subtrees)
+4. **Preserve Actions**: Maintains all action sets and navigation logic from original edges
 
-##### 3. Enhanced Pathfinding (`navigation_pathfinding.py`)
-```python
-def find_shortest_path_unified(root_tree_id: str, target_node_id: str, team_id: str, start_node_id: str = None):
-    """Find shortest path across nested trees using unified graph"""
-```
+##### 2. Cross-Tree Edge Types
+- **CROSS_TREE**: Direct navigation from parent node to child node with preserved actions
+- **ENTER_SUBTREE**: Virtual navigation entry points (optional)  
+- **EXIT_SUBTREE**: Virtual navigation exit points (optional)
 
-**Capabilities:**
-- **Cross-Tree Pathfinding**: Finds optimal paths across any number of nested tree levels
-- **Node Resolution**: Resolves node labels to IDs across the entire tree hierarchy
-- **Path Context**: Returns transitions with tree context and cross-tree metadata
-- **Backward Compatibility**: Falls back to single-tree pathfinding when unified graph unavailable
+##### 3. Reference-Based Architecture Benefits
+- **No Data Duplication**: Parent nodes exist only in root trees
+- **Action Preservation**: All `live_fullscreen_chup` actions accessible from `live_fullscreen` node
+- **Seamless Navigation**: Scripts can execute actions across tree boundaries transparently
+- **Database Integrity**: Clean separation between root and subtree data
 
-##### 4. Cross-Tree Execution (`navigation_execution.py`)
-```python
-def _execute_virtual_transition(self, transition: Dict[str, Any]) -> Dict[str, Any]:
-    """Execute virtual cross-tree transitions (ENTER_SUBTREE, EXIT_SUBTREE)"""
-```
+#### Usage Example
 
-**Features:**
-- **Tree Context Switching**: Automatically adjusts execution context for cross-tree transitions
-- **Virtual Transitions**: Handles logical tree boundary crossings (ENTER_SUBTREE, EXIT_SUBTREE)
-- **Seamless Integration**: Works with existing ActionExecutor and VerificationExecutor
-- **Error Handling**: Sophisticated recovery for cross-tree navigation failures
+When a script executes `live_fullscreen_chup` from the `live_fullscreen` node:
 
-#### Cross-Tree Edge Types
+1. **Unified Graph Loads**: All trees combined with cross-tree edges restored
+2. **Action Lookup**: Finds `live_fullscreen_chup` action on edge from `live_fullscreen` → child nodes
+3. **Cross-Tree Execution**: Executes action seamlessly across tree boundary
+4. **No Manual Navigation**: Script doesn't need to know about tree boundaries
 
-##### ENTER_SUBTREE Edges
-```python
-{
-    'edge_type': 'ENTER_SUBTREE',
-    'source_tree_id': 'parent_tree_id',
-    'target_tree_id': 'child_tree_id',
-    'actions': [{'command': 'enter_subtree', 'params': {'tree_id': 'child_tree_id'}}],
-    'is_virtual': True,
-    'tree_context_change': True
-}
-```
-
-##### EXIT_SUBTREE Edges
-```python
-{
-    'edge_type': 'EXIT_SUBTREE',
-    'source_tree_id': 'child_tree_id', 
-    'target_tree_id': 'parent_tree_id',
-    'actions': [{'command': 'exit_subtree', 'params': {'tree_id': 'parent_tree_id'}}],
-    'is_virtual': True,
-    'tree_context_change': True
-}
-```
-
-#### Enhanced Path Structure
-
-Cross-tree navigation paths include rich metadata:
-
-```python
-{
-    'transition_number': 1,
-    'from_node_id': 'node1',
-    'to_node_id': 'node2', 
-    'from_tree_id': 'root_tree',
-    'to_tree_id': 'nested_tree',
-    'transition_type': 'ENTER_SUBTREE',  # or 'NORMAL', 'EXIT_SUBTREE'
-    'tree_context_change': True,
-    'cross_tree_metadata': {
-        'source_tree_name': 'Main UI',
-        'target_tree_name': 'Settings Menu',
-        'tree_depth_change': 1
-    },
-    'actions': [...],
-    'is_virtual': True
-}
-```
-
-#### Performance Characteristics
-
-##### Memory Usage
-- **Unified Graphs**: Larger than single trees but enable cross-tree navigation
-- **Smart Caching**: Only root trees maintain unified graphs, nested trees reference parent cache
-- **Efficient Indexing**: Node location cache provides O(1) node-to-tree lookups
-
-##### Pathfinding Performance
-- **NetworkX Optimization**: Leverages optimized shortest path algorithms across unified graph
-- **Cross-Tree Efficiency**: No manual tree switching or multi-step pathfinding required
-- **Cache Utilization**: Unified graphs cached for fast repeated pathfinding operations
-
-##### Cache Management
-- **Intelligent Invalidation**: Changes to any tree invalidate related unified caches
-- **Hierarchy Awareness**: Cache invalidation cascades through tree relationships
-- **Memory Efficiency**: Automatic cleanup of old unified graphs
-
-#### Integration Benefits
-
-##### For Users
-- **Seamless Navigation**: Navigate to any node in any nested tree with single command
-- **Optimal Paths**: System finds shortest path across entire tree hierarchy
-- **No Manual Switching**: Eliminates need to manually navigate between tree levels
-
-##### For Developers
-- **Clean API**: Same navigation interface works for single-tree and cross-tree navigation
-- **Rich Context**: Path results include complete tree context and metadata
-- **Backward Compatible**: Existing single-tree navigation continues to work unchanged
-
-##### For System Performance
-- **Unified Pathfinding**: Single algorithm handles all navigation scenarios
-- **Reduced Complexity**: Eliminates complex multi-step navigation logic
-- **Scalable Architecture**: Supports up to 5 levels of nesting as designed
-
-#### Usage Examples
-
-##### Cross-Tree Navigation Request
-```python
-# Navigate from root tree to node in nested tree
-result = navigation_executor.execute_navigation(
-    tree_id='root_tree_id',           # Root tree ID
-    target_node_id='nested_node_123', # Node in any nested tree
-    current_node_id='home_node'       # Starting position
-)
-
-# System automatically:
-# 1. Loads unified graph for root tree hierarchy
-# 2. Finds optimal path across tree boundaries  
-# 3. Executes transitions with appropriate tree context
-# 4. Handles virtual ENTER_SUBTREE/EXIT_SUBTREE transitions
-```
-
-##### Path Result with Cross-Tree Context
-```python
-{
-    'success': True,
-    'transitions_executed': 3,
-    'navigation_path': [
-        'Navigate from Home to Settings',      # Normal transition
-        'Enter Settings Submenu',              # ENTER_SUBTREE transition  
-        'Navigate to Advanced Options'         # Transition within nested tree
-    ],
-    'cross_tree_transitions': 1,
-    'trees_traversed': ['main_ui', 'settings_submenu']
-}
-```
+This enables the reference-based architecture to work transparently for both frontend display and backend script execution.
 
 ## Implementation Summary
 
