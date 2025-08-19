@@ -349,6 +349,11 @@ class ZapController:
         
         if step_end_screenshot_path:
             context.add_screenshot(step_end_screenshot_path)
+            
+        # Update the last recorded step with the step_end_screenshot_path
+        if context.step_results:
+            last_step = context.step_results[-1]
+            last_step['step_end_screenshot_path'] = step_end_screenshot_path
         
         success = action_result.get('success', False)
         if success:
