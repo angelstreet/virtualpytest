@@ -136,8 +136,17 @@ class VideoAIHelpers:
                     
                     # Parse JSON response with fallback logic
                     try:
+                        # Strip markdown code blocks if present
+                        json_content = content
+                        if content.startswith('```json') and content.endswith('```'):
+                            # Extract JSON from markdown code block
+                            json_content = content[7:-3].strip()  # Remove ```json and ```
+                        elif content.startswith('```') and content.endswith('```'):
+                            # Extract from generic code block
+                            json_content = content[3:-3].strip()  # Remove ``` and ```
+                        
                         # Try to parse as JSON first
-                        ai_result = json.loads(content)
+                        ai_result = json.loads(json_content)
                         
                         subtitles_detected = ai_result.get('subtitles_detected', False)
                         extracted_text = ai_result.get('extracted_text', '').strip()
