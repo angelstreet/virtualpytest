@@ -215,16 +215,11 @@ class ZapController:
                     result.extracted_text = subtitle_result.get('extracted_text', '')
                     result.subtitle_details = subtitle_result
                 
-                # 3. Only analyze audio menu if motion detected AND goto_live=false (in-loop analysis)
-                if context and not getattr(self, 'goto_live', True):
-                    print(f"🎧 [ZapController] Performing in-loop audio menu analysis (goto_live=false)")
+                # 3. Only analyze audio menu if motion detected
+                if context:
                     audio_result = self._analyze_audio_menu(context, iteration)
                     result.audio_menu_detected = audio_result.get('menu_detected', False)
                     result.audio_menu_details = audio_result
-                else:
-                    if getattr(self, 'goto_live', True):
-                        print(f"🎧 [ZapController] Skipping audio menu analysis (goto_live=true, done once outside loop)")
-                    result.audio_menu_details = {"success": True, "message": "Skipped - audio menu analyzed outside loop"}
                 
                 # 4. Only analyze zapping if motion detected and it's a channel up action
                 if context and 'chup' in action_command.lower():
@@ -317,6 +312,7 @@ class ZapController:
         action_result['step_start_screenshot_path'] = step_start_screenshot_path
         
         # RECORD STEP IMMEDIATELY - not during analysis
+        zap_step_index = len(context.step_results)  # Store index before recording
         self._record_zap_step_immediately(context, iteration, max_iterations, action_command, action_result, 
                                          execution_time, start_time, end_time, screenshot_result['screenshot_path'], action_edge)
         
@@ -346,14 +342,14 @@ class ZapController:
         if analysis_result.detected_language:
             self.statistics.add_language(analysis_result.detected_language)
         
-        # Update the recorded step with analysis results
-        if context.step_results:
-            last_step = context.step_results[-1]
-            last_step['motion_detection'] = analysis_result.to_dict()
-            last_step['motion_analysis'] = analysis_result.motion_details
-            last_step['subtitle_analysis'] = analysis_result.subtitle_details
-            last_step['audio_menu_analysis'] = analysis_result.audio_menu_details
-            last_step['zapping_analysis'] = analysis_result.zapping_details
+        # Update the ZAP step (not the last step) with analysis results
+        if context.step_results and zap_step_index < len(context.step_results):
+            zap_step = context.step_results[zap_step_index]
+            zap_step['motion_detection'] = analysis_result.to_dict()
+            zap_step['motion_analysis'] = analysis_result.motion_details
+            zap_step['subtitle_analysis'] = analysis_result.subtitle_details
+            zap_step['audio_menu_analysis'] = analysis_result.audio_menu_details
+            zap_step['zapping_analysis'] = analysis_result.zapping_details
             
             # Collect all screenshots for this zap iteration (like original)
             action_screenshots = []
@@ -367,7 +363,7 @@ class ZapController:
             if analysis_result.audio_menu_details.get('analyzed_screenshot') and analysis_result.audio_menu_details['analyzed_screenshot'] != screenshot_result['screenshot_path']:
                 action_screenshots.append(analysis_result.audio_menu_details['analyzed_screenshot'])
             
-            last_step['action_screenshots'] = action_screenshots
+            zap_step['action_screenshots'] = action_screenshots
         
         context.add_screenshot(screenshot_result['screenshot_path'])
         
@@ -378,10 +374,10 @@ class ZapController:
         if step_end_screenshot_path:
             context.add_screenshot(step_end_screenshot_path)
             
-        # Update the last recorded step with the step_end_screenshot_path
-        if context.step_results:
-            last_step = context.step_results[-1]
-            last_step['step_end_screenshot_path'] = step_end_screenshot_path
+        # Update the ZAP step with the step_end_screenshot_path
+        if context.step_results and zap_step_index < len(context.step_results):
+            zap_step = context.step_results[zap_step_index]
+            zap_step['step_end_screenshot_path'] = step_end_screenshot_path
         
         success = action_result.get('success', False)
         if success:
