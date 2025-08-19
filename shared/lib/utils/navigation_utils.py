@@ -579,12 +579,8 @@ def goto_node(host, device, target_node_label: str, tree_id: str, team_id: str, 
                     'step_category': 'navigation'
                 }
                 
-                # Use hierarchical context if available, otherwise fall back to legacy
-                if hasattr(context, 'record_step_in_context'):
-                    context.record_step_in_context(step_result)
-                else:
-                    step_result['step_number'] = len(context.step_results) + 1
-                    context.step_results.append(step_result)
+                # Record step immediately - no legacy fallback needed
+                context.record_step_immediately(step_result)
             
             if not result.get('success', False):
                 error_msg = result.get('error', 'Unknown error')

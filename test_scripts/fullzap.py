@@ -47,18 +47,12 @@ def create_zap_controller(context: ScriptExecutionContext) -> ZapController:
     return zap_controller
 
 def execute_zap_actions(context: ScriptExecutionContext, action_edge, action_command: str, max_iteration: int, zap_controller: ZapController, blackscreen_area: str = None, goto_live: bool = True):
-    """Execute zap actions using ZapController with hierarchical context"""
-    # Create context for zap actions
-    zap_actions_context = context.push_context("Zap Actions")
-    
-    try:
-        print(f"⚡ [fullzap] Delegating zap execution to ZapController...")
-        if blackscreen_area:
-            print(f"🎯 [fullzap] Using custom blackscreen area: {blackscreen_area}")
-        print(f"🎯 [fullzap] Audio menu analysis will be {'done once outside loop' if goto_live else 'skipped'}")
-        return zap_controller.execute_zap_iterations(context, action_edge, action_command, max_iteration, blackscreen_area, goto_live)
-    finally:
-        context.pop_context()
+    """Execute zap actions using ZapController with simple sequential recording"""
+    print(f"⚡ [fullzap] Delegating zap execution to ZapController...")
+    if blackscreen_area:
+        print(f"🎯 [fullzap] Using custom blackscreen area: {blackscreen_area}")
+    print(f"🎯 [fullzap] Audio menu analysis will be {'done once outside loop' if goto_live else 'skipped'}")
+    return zap_controller.execute_zap_iterations(context, action_edge, action_command, max_iteration, blackscreen_area, goto_live)
 
 
 def capture_fullzap_summary(context: ScriptExecutionContext, userinterface_name: str) -> str:
@@ -259,22 +253,16 @@ def main():
         # Conditionally navigate to target node based on parameter
         nav_success = True
         if args.goto_live:
-            # Create context for navigation
-            nav_context = context.push_context("Navigation to Live")
+            print(f"🗺️ [fullzap] Navigating to {target_node} node...")
+            live_result = goto_node(context.host, context.selected_device, target_node, context.tree_id, context.team_id, context)
             
-            try:
-                print(f"🗺️ [fullzap] Navigating to {target_node} node...")
-                live_result = goto_node(context.host, context.selected_device, target_node, context.tree_id, context.team_id, context)
-                
-                if not live_result.get('success'):
-                    context.error_message = f"Failed to navigate to {target_node}: {live_result.get('error', 'Unknown error')}"
-                    print(f"❌ [fullzap] {context.error_message}")
-                    executor.cleanup_and_exit(context, args.userinterface_name)
-                    return
-                
-                print(f"🎉 [fullzap] Successfully navigated to {target_node}!")
-            finally:
-                context.pop_context()
+            if not live_result.get('success'):
+                context.error_message = f"Failed to navigate to {target_node}: {live_result.get('error', 'Unknown error')}"
+                print(f"❌ [fullzap] {context.error_message}")
+                executor.cleanup_and_exit(context, args.userinterface_name)
+                return
+            
+            print(f"🎉 [fullzap] Successfully navigated to {target_node}!")
         else:
             print(f"⏭️ [fullzap] Skipping navigation to {target_node} node (--goto_live false specified)")
             

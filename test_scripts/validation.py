@@ -162,12 +162,9 @@ def _record_skipped_steps(context: ScriptExecutionContext, navigation_path: list
 def execute_validation_sequence_with_force_recovery(executor: ScriptExecutor, context: ScriptExecutionContext, 
                                                    navigation_path: list, custom_step_handler) -> bool:
     """
-    Execute validation sequence with force navigation recovery using hierarchical contexts.
+    Execute validation sequence with force navigation recovery - each step as top-level.
     Stops immediately if both normal navigation and force navigation fail for any step.
     """
-    # Create validation sequence context
-    validation_context = context.push_context("Validation Sequence")
-    
     try:
         # Initialize skipped steps tracking
         if not hasattr(context, 'skipped_steps'):
@@ -180,8 +177,8 @@ def execute_validation_sequence_with_force_recovery(executor: ScriptExecutor, co
             from_node = step.get('from_node_label', 'unknown')
             to_node = step.get('to_node_label', 'unknown')
             
-            # Create context for each validation step
-            step_context = context.push_context(f"Step {step_num}")
+            # Each validation step is a top-level step
+            # Simple sequential recording - no context needed
             
             try:
                 print(f"⚡ [validation] Executing step {step_num}/{len(navigation_path)}: {from_node} → {to_node}")
@@ -246,12 +243,8 @@ def execute_validation_sequence_with_force_recovery(executor: ScriptExecutor, co
                 'step_category': 'validation'
             }
             
-            # Use hierarchical context if available, otherwise fall back to legacy
-            if hasattr(context, 'record_step_in_context'):
-                context.record_step_in_context(step_result)
-            else:
-                step_result['step_number'] = step_num
-                context.step_results.append(step_result)
+            # Record step immediately using simple sequential recording
+            context.record_step_immediately(step_result)
             
             # Check for critical failure (both normal and force navigation failed)
             if result.get('critical_failure', False):
@@ -319,9 +312,6 @@ def execute_validation_sequence_with_force_recovery(executor: ScriptExecutor, co
         context.error_message = f"Validation sequence execution failed: {str(e)}"
         context.overall_success = False
         return False
-    
-    finally:
-        context.pop_context()
 
 
 def capture_validation_summary(context: ScriptExecutionContext, userinterface_name: str) -> str:

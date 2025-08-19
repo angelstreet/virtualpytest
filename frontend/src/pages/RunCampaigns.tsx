@@ -52,7 +52,7 @@ const RunCampaigns: React.FC = () => {
     updateCampaignConfig,
     resetCampaignConfig,
     availableScripts,
-    loadAvailableScripts,
+    aiTestCasesInfo,
     addScript,
     removeScript,
 
@@ -64,7 +64,7 @@ const RunCampaigns: React.FC = () => {
     isExecuting,
     currentExecution,
     campaignHistory,
-    loadCampaignHistory,
+    refreshCampaignHistory,
     isLoading,
     error,
   } = useCampaign();
@@ -75,7 +75,6 @@ const RunCampaigns: React.FC = () => {
   // Local state
   const [activeStep, setActiveStep] = useState(0);
   const [showBuilder, setShowBuilder] = useState(false);
-  const [aiTestCasesInfo, setAiTestCasesInfo] = useState<any[]>([]);
 
   // Get hosts for device selection
   const allHosts = getAllHosts();
@@ -89,28 +88,11 @@ const RunCampaigns: React.FC = () => {
 
   // Load data on mount
   useEffect(() => {
-    loadAvailableScripts();
-    loadCampaignHistory();
+    // Scripts are loaded automatically by useCampaign hook - no need to call again
+    // Note: Campaign history is managed locally, no API call needed
   }, []);
 
-  // Load AI test cases info when scripts are loaded
-  useEffect(() => {
-    const loadAiTestCasesInfo = async () => {
-      try {
-        const response = await fetch('/server/script/list');
-        const data = await response.json();
-        if (data.success && data.ai_test_cases_info) {
-          setAiTestCasesInfo(data.ai_test_cases_info);
-        }
-      } catch (error) {
-        console.error('Error loading AI test cases info:', error);
-      }
-    };
-
-    if (availableScripts.length > 0) {
-      loadAiTestCasesInfo();
-    }
-  }, [availableScripts]);
+  // AI test cases info is now loaded directly from useCampaign hook - no separate API call needed
 
   // Validation
   const validation = validateCampaignConfig();
@@ -417,7 +399,7 @@ const RunCampaigns: React.FC = () => {
                 </Typography>
                 <Button
                   size="small"
-                  onClick={loadCampaignHistory}
+                  onClick={refreshCampaignHistory}
                   disabled={isLoading}
                   startIcon={<HistoryIcon />}
                 >

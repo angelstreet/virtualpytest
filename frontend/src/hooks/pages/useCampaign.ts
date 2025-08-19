@@ -42,6 +42,7 @@ interface UseCampaignReturn {
 
   // Script Management
   availableScripts: string[];
+  aiTestCasesInfo: any[];
   loadAvailableScripts: () => Promise<void>;
   addScript: (scriptName: string) => void;
   removeScript: (index: number) => void;
@@ -58,7 +59,7 @@ interface UseCampaignReturn {
 
   // Campaign History
   campaignHistory: CampaignHistoryItem[];
-  loadCampaignHistory: () => Promise<void>;
+  refreshCampaignHistory: () => void;
 
   // State Management
   builderState: CampaignBuilderState;
@@ -93,9 +94,10 @@ export const useCampaign = (): UseCampaignReturn => {
 
   // Script Management State
   const [availableScripts, setAvailableScripts] = useState<string[]>([]);
+  const [aiTestCasesInfo, setAiTestCasesInfo] = useState<any[]>([]);
   const [scriptAnalysisCache, setScriptAnalysisCache] = useState<{ [scriptName: string]: ScriptAnalysis }>({});
 
-  // History State
+  // History State (managed locally like RunTests.tsx)
   const [campaignHistory, setCampaignHistory] = useState<CampaignHistoryItem[]>([]);
 
   // General State
@@ -231,12 +233,36 @@ export const useCampaign = (): UseCampaignReturn => {
       }
 
       // Update execution record
-      setCurrentExecution(prev => prev ? {
-        ...prev,
+      const updatedExecution: CampaignExecution = {
+        ...currentExecution!,
         endTime: new Date().toLocaleTimeString(),
         status: result.success ? 'completed' : 'failed',
         overall_success: result.result?.overall_success,
-      } : null);
+      };
+      
+      setCurrentExecution(updatedExecution);
+      
+      // Convert to history item format (like RunTests.tsx does)
+      const historyItem: CampaignHistoryItem = {
+        id: updatedExecution.id,
+        campaign_name: updatedExecution.campaign_name,
+        campaign_id: updatedExecution.campaign_id,
+        execution_id: result.execution_id || updatedExecution.id,
+        hostName: updatedExecution.hostName,
+        deviceId: updatedExecution.deviceId,
+        deviceModel: updatedExecution.deviceModel,
+        startTime: updatedExecution.startTime,
+        endTime: updatedExecution.endTime,
+        status: updatedExecution.status,
+        overall_success: updatedExecution.overall_success,
+        total_scripts: result.result?.total_scripts || updatedExecution.total_scripts,
+        successful_scripts: result.result?.successful_scripts || updatedExecution.successful_scripts,
+        failed_scripts: result.result?.failed_scripts || updatedExecution.failed_scripts,
+        reportUrl: result.result?.script_executions?.[0]?.report_url, // Use first script's report for now
+        logsUrl: result.result?.script_executions?.[0]?.logs_url, // Use first script's logs for now
+      };
+      
+      setCampaignHistory(prev => [historyItem, ...prev]);
 
       return result;
 
@@ -246,12 +272,34 @@ export const useCampaign = (): UseCampaignReturn => {
       setError(errorMessage);
       
       // Update execution record with error
-      setCurrentExecution(prev => prev ? {
-        ...prev,
+      const failedExecution: CampaignExecution = {
+        ...currentExecution!,
         endTime: new Date().toLocaleTimeString(),
         status: 'failed',
         overall_success: false,
-      } : null);
+      };
+      
+      setCurrentExecution(failedExecution);
+      
+      // Convert to history item format (like RunTests.tsx does)
+      const failedHistoryItem: CampaignHistoryItem = {
+        id: failedExecution.id,
+        campaign_name: failedExecution.campaign_name,
+        campaign_id: failedExecution.campaign_id,
+        execution_id: failedExecution.id, // Use ID as execution_id for failed campaigns
+        hostName: failedExecution.hostName,
+        deviceId: failedExecution.deviceId,
+        deviceModel: failedExecution.deviceModel,
+        startTime: failedExecution.startTime,
+        endTime: failedExecution.endTime,
+        status: failedExecution.status,
+        overall_success: failedExecution.overall_success,
+        total_scripts: failedExecution.total_scripts,
+        successful_scripts: failedExecution.successful_scripts,
+        failed_scripts: failedExecution.failed_scripts,
+      };
+      
+      setCampaignHistory(prev => [failedHistoryItem, ...prev]);
       
       throw error;
     } finally {
@@ -328,7 +376,7 @@ export const useCampaign = (): UseCampaignReturn => {
     });
   }, []);
 
-  // Script Management
+  // Script Management (single API call like RunTests.tsx)
   const loadAvailableScripts = useCallback(async () => {
     try {
       setIsLoading(true);
@@ -337,6 +385,11 @@ export const useCampaign = (): UseCampaignReturn => {
 
       if (data.success && data.scripts) {
         setAvailableScripts(data.scripts);
+        
+        // Also load AI test cases info in the same call (avoid duplicate API calls)
+        if (data.ai_test_cases_info) {
+          setAiTestCasesInfo(data.ai_test_cases_info);
+        }
       } else {
         throw new Error('Failed to load available scripts');
       }
@@ -462,26 +515,11 @@ export const useCampaign = (): UseCampaignReturn => {
     };
   }, [scriptAnalysisCache]);
 
-  // Campaign History
-  const loadCampaignHistory = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      const response = await fetch(`${CAMPAIGN_API_BASE_URL}/history`, {
-        headers: {
-          'X-User-ID': 'default-user', // TODO: Get from auth context
-        },
-      });
-      const data = await response.json();
-
-      if (data.success && data.campaigns) {
-        setCampaignHistory(data.campaigns);
-      }
-    } catch (error) {
-      console.error('[@hook:useCampaign] Error loading campaign history:', error);
-      setError(error instanceof Error ? error.message : 'Failed to load campaign history');
-    } finally {
-      setIsLoading(false);
-    }
+  // Campaign History (local state management like RunTests.tsx)
+  const refreshCampaignHistory = useCallback(() => {
+    // History is managed locally - no API call needed
+    // This function exists for UI consistency but doesn't need to do anything
+    console.log('[@hook:useCampaign] Campaign history refreshed (local state)');
   }, []);
 
   return {
@@ -498,6 +536,7 @@ export const useCampaign = (): UseCampaignReturn => {
 
     // Script Management
     availableScripts,
+    aiTestCasesInfo,
     loadAvailableScripts,
     addScript,
     removeScript,
@@ -514,7 +553,7 @@ export const useCampaign = (): UseCampaignReturn => {
 
     // History
     campaignHistory,
-    loadCampaignHistory,
+    refreshCampaignHistory,
 
     // State
     builderState,
