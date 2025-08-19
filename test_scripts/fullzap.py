@@ -288,11 +288,32 @@ def main():
         # Store mapped action in context for summary display
         context.custom_data['action_command'] = mapped_action
         
+        # Find the actual action edge from current node to target node
+        print(f"🔍 [fullzap] Finding edge for action '{mapped_action}' from current node...")
+        from shared.lib.utils.navigation_utils import find_edge_by_target_label
+        
+        action_edge = find_edge_by_target_label(
+            context.current_node_id, 
+            context.edges, 
+            context.nodes, 
+            mapped_action  # e.g., 'live_fullscreen_chup'
+        )
+        
+        if not action_edge:
+            context.error_message = f"No edge found from current node to '{mapped_action}'"
+            print(f"❌ [fullzap] {context.error_message}")
+            print(f"📋 [fullzap] Current node: {context.current_node_id}")
+            print(f"📋 [fullzap] Available edges: {len(context.edges)}")
+            executor.cleanup_and_exit(context, args.userinterface_name)
+            return
+        
+        print(f"✅ [fullzap] Found edge for action '{mapped_action}'")
+        
         # Execute zap actions multiple times with comprehensive analysis
         location_msg = f"from {target_node} node" if args.goto_live else "from current location"
         print(f"⚡ [fullzap] Executing action '{mapped_action}' {location_msg}...")
         try:
-            zap_success = execute_zap_actions(context, None, mapped_action, args.max_iteration, zap_controller, args.blackscreen_area)
+            zap_success = execute_zap_actions(context, action_edge, mapped_action, args.max_iteration, zap_controller, args.blackscreen_area)
         except Exception as e:
             print(f"⚠️ [fullzap] ZapController error (continuing anyway): {e}")
             zap_success = True  # Navigation worked, so consider it success
