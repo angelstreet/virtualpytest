@@ -9,6 +9,8 @@ from typing import Dict, Any, Optional, List
 import time
 
 
+
+
 class BaseController:
     """
     Minimal base controller with just connection state.
@@ -204,6 +206,9 @@ class FFmpegCaptureController(AVControllerInterface):
     Handles screenshot and video capture using the same host-side FFmpeg capture system.
     """
     
+    # Global configuration for video segments
+    HLS_SEGMENT_DURATION = 6  # seconds per segment
+    
     def __init__(self, device_name: str, capture_source: str, video_stream_path: str, video_capture_path: str, **kwargs):
         """
         Initialize the FFmpeg capture controller.
@@ -375,10 +380,10 @@ class FFmpegCaptureController(AVControllerInterface):
             # DURATION-BASED FILTERING: Take last N segments based on test duration + buffer
             segment_files = []
             if test_start_time and duration_seconds:
-                # Calculate segments needed: test duration + 18s buffer, 6s per segment
-                buffer_seconds = 18  # 18s buffer (3 segments before + 3 segments after)
+                # Calculate segments needed: test duration + buffer, using configurable segment duration
+                buffer_seconds = self.HLS_SEGMENT_DURATION * 3  # 3 segments buffer (before + after)
                 total_duration = duration_seconds + buffer_seconds
-                segments_needed = int(total_duration / 6) + 1  # +1 for safety
+                segments_needed = int(total_duration / self.HLS_SEGMENT_DURATION) + 1  # +1 for safety
                 
                 print(f"{self.capture_source}[{self.capture_source}]: Test duration: {duration_seconds}s, taking last {segments_needed} segments")
                 
@@ -403,9 +408,9 @@ class FFmpegCaptureController(AVControllerInterface):
             uploader = get_cloudflare_utils()
             
             # Create new M3U8 playlist with only our selected segments
-            new_playlist_content = "#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:6\n"
+            new_playlist_content = f"#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:{self.HLS_SEGMENT_DURATION}\n"
             for segment_name, segment_path in segment_files:
-                new_playlist_content += "#EXTINF:6.0,\n"
+                new_playlist_content += f"#EXTINF:{self.HLS_SEGMENT_DURATION}.0,\n"
                 new_playlist_content += f"{segment_name}\n"
             new_playlist_content += "#EXT-X-ENDLIST\n"
             
