@@ -369,7 +369,17 @@ class ActionExecutor:
                     }
                 
                 # Proxy to appropriate host endpoint using direct host info (no Flask context needed)
-                response_data, status_code = proxy_to_host_direct(self.host, endpoint, 'POST', request_data)
+                print(f"[@lib:action_executor:_execute_single_action] Making HTTP request to {endpoint} with timeout 30s...")
+                request_start = time.time()
+                
+                try:
+                    response_data, status_code = proxy_to_host_direct(self.host, endpoint, 'POST', request_data, timeout=30)
+                    request_time = int((time.time() - request_start) * 1000)
+                    print(f"[@lib:action_executor:_execute_single_action] HTTP request completed in {request_time}ms, status: {status_code}")
+                except Exception as http_error:
+                    request_time = int((time.time() - request_start) * 1000)
+                    print(f"[@lib:action_executor:_execute_single_action] HTTP request FAILED after {request_time}ms: {type(http_error).__name__}: {str(http_error)}")
+                    raise http_error
                 
                 iteration_execution_time = int((time.time() - iteration_start_time) * 1000)
                 iteration_success = status_code == 200 and response_data.get('success', False)

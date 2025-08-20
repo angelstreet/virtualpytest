@@ -1058,7 +1058,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
                   deviceModel={selectedDevice?.device_model || 'host_vnc'}
                   isConnected={isControlActive}
                   onReleaseControl={handleDisconnectComplete}
-                  initialCollapsed={false}
+                  initialCollapsed={true}
                 />
                 <WebPanel
                   host={selectedHost}
