@@ -1107,16 +1107,7 @@ class PlaywrightWebController(WebControllerInterface):
                 'execution_time': 0
             }
         
-        elif command == 'close_app':
-            # Map mobile app command to browser equivalent
-            print(f"[PLAYWRIGHT]: Mapping close_app to close_browser")
-            return self.close_browser()
-        
-        elif command == 'launch_app':
-            # Map mobile app command to browser equivalent
-            print(f"[PLAYWRIGHT]: Mapping launch_app to open_browser")
-            return self.open_browser()
-        
+
         else:
             print(f"[PLAYWRIGHT]: Unknown command: {command}")
             return {
