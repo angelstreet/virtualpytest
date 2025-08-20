@@ -121,7 +121,12 @@ class PlaywrightWebController(WebControllerInterface):
         print(f"[PLAYWRIGHT]: disconnect() called - _chrome_running={self._chrome_running}, _chrome_process={self._chrome_process}")
         
         # Clean up persistent browser connection first
-        self.utils.run_async(self._cleanup_persistent_browser())
+        print(f"[PLAYWRIGHT]: Starting browser connection cleanup...")
+        try:
+            self.utils.run_async(self._cleanup_persistent_browser())
+            print(f"[PLAYWRIGHT]: Browser connection cleanup completed")
+        except Exception as cleanup_error:
+            print(f"[PLAYWRIGHT]: Browser connection cleanup failed: {type(cleanup_error).__name__}: {str(cleanup_error)}")
         
         if self._chrome_running and self._chrome_process:
             try:
@@ -132,11 +137,13 @@ class PlaywrightWebController(WebControllerInterface):
                 print(f"[PLAYWRIGHT]: Chrome process terminated")
                 
             except Exception as e:
-                print(f"[PLAYWRIGHT]: Error during Chrome shutdown: {e}")
+                print(f"[PLAYWRIGHT]: Error during Chrome shutdown: {type(e).__name__}: {str(e)}")
             finally:
                 # Clean up state regardless
+                print(f"[PLAYWRIGHT]: Cleaning up Chrome process state...")
                 self.__class__._chrome_process = None
                 self.__class__._chrome_running = False
+                print(f"[PLAYWRIGHT]: Chrome process state cleaned up")
         else:
             print(f"[PLAYWRIGHT]: No Chrome process to terminate (running={self._chrome_running}, process={self._chrome_process})")
         
@@ -272,7 +279,39 @@ class PlaywrightWebController(WebControllerInterface):
             print(f"[PLAYWRIGHT]: Closing browser")
             start_time = time.time()
             
-            self.disconnect()
+            # Add timeout protection for disconnect operation
+            import signal
+            
+            def timeout_handler(signum, frame):
+                raise TimeoutError("Browser close operation timed out after 5 seconds")
+            
+            # Set 5-second timeout for graceful disconnect
+            old_handler = signal.signal(signal.SIGALRM, timeout_handler)
+            signal.alarm(5)
+            
+            try:
+                self.disconnect()
+                signal.alarm(0)  # Cancel the alarm
+                print(f"[PLAYWRIGHT]: Graceful disconnect completed")
+            except TimeoutError as timeout_error:
+                print(f"[PLAYWRIGHT]: Graceful disconnect timed out after 5s, force killing Chrome...")
+                # Force kill Chrome process if it exists
+                if self._chrome_process:
+                    try:
+                        import os
+                        os.kill(self._chrome_process.pid, 9)  # SIGKILL
+                        print(f"[PLAYWRIGHT]: Force killed Chrome process (PID: {self._chrome_process.pid})")
+                    except Exception as kill_error:
+                        print(f"[PLAYWRIGHT]: Failed to force kill Chrome: {str(kill_error)}")
+                
+                # Force cleanup state
+                self.__class__._chrome_process = None
+                self.__class__._chrome_running = False
+                self.is_connected = False
+                print(f"[PLAYWRIGHT]: Force cleanup completed")
+            finally:
+                signal.signal(signal.SIGALRM, old_handler)  # Restore original handler
+                signal.alarm(0)  # Make sure alarm is cancelled
             
             # Clear page state
             self.current_url = ""
@@ -280,7 +319,7 @@ class PlaywrightWebController(WebControllerInterface):
             
             execution_time = int((time.time() - start_time) * 1000)
             
-            print(f"[PLAYWRIGHT]: Browser closed")
+            print(f"[PLAYWRIGHT]: Browser closed successfully in {execution_time}ms")
             return {
                 'success': True,
                 'error': '',
@@ -289,12 +328,13 @@ class PlaywrightWebController(WebControllerInterface):
             }
             
         except Exception as e:
-            error_msg = f"Browser close error: {e}"
+            execution_time = int((time.time() - start_time) * 1000)
+            error_msg = f"Browser close error: {type(e).__name__}: {str(e)}"
             print(f"[PLAYWRIGHT]: {error_msg}")
             return {
                 'success': False,
                 'error': error_msg,
-                'execution_time': 0,
+                'execution_time': execution_time,
                 'connected': False
             }
     
