@@ -69,10 +69,7 @@ class IRRemoteController(RemoteControllerInterface):
         self.ir_config_data = {}
         
         # Timing attributes
-        self.repeat_delay = 100  # milliseconds between repeated commands
-        self.command_delay = 50  # milliseconds general command delay
-        self.last_command_time = 0  # timestamp of last command
-        self.connection_timeout = 5000  # milliseconds
+        self.last_command_time = 0
         
         print(f"[@controller:InfraredRemote] Initialized for device: {self.ir_path}")
         print(f"[@controller:InfraredRemote] Using config type: {self.ir_type}")
@@ -117,196 +114,34 @@ class IRRemoteController(RemoteControllerInterface):
             return False
             
     def press_key(self, key: str) -> bool:
-        """
-        Send IR key press command using external script.
-        
-        Args:
-            key: Key name (e.g., "POWER", "VOLUME_UP", "1", "OK")
-        """
+        """Send IR key press command."""
         if not self.is_connected:
-            print(f"Remote[{self.device_type.upper()}]: ERROR - Not connected to IR device")
+            print(f"Remote[{self.device_type.upper()}]: ERROR - Not connected")
             return False
             
-        try:
-            key_upper = key.upper()
-            
-            # Check if key is available in config
-            if key_upper not in self.ir_available_keys:
-                print(f"Remote[{self.device_type.upper()}]: Key '{key_upper}' not found in config {self.ir_config_file}")
-                print(f"Remote[{self.device_type.upper()}]: Available keys: {self.ir_available_keys}")
-                return False
-                
-            print(f"Remote[{self.device_type.upper()}]: Sending IR command {key_upper}")
-            
-            # Apply command delay
-            current_time = time.time() * 1000  # Convert to milliseconds
-            if current_time - self.last_command_time < self.repeat_delay:
-                time.sleep((self.repeat_delay - (current_time - self.last_command_time)) / 1000)
-            
-            # Send IR command using integrated functionality
-            success = self._send_ir_command_integrated(key_upper)
-            
-            if success:
-                self.last_command_time = time.time() * 1000
-                print(f"Remote[{self.device_type.upper()}]: Successfully sent {key_upper}")
-                return True
-            else:
-                print(f"Remote[{self.device_type.upper()}]: Failed to send {key_upper}")
-                return False
-            
-        except Exception as e:
-            print(f"Remote[{self.device_type.upper()}]: Key press error: {e}")
+        key_upper = key.upper()
+        
+        # Check if key is available in config
+        if key_upper not in self.ir_available_keys:
+            print(f"Remote[{self.device_type.upper()}]: Key '{key_upper}' not found")
             return False
+            
+        print(f"Remote[{self.device_type.upper()}]: Sending {key_upper}")
+        return self._send_ir_command_integrated(key_upper)
             
     def execute_command(self, command: str, params: Dict[str, Any] = None) -> bool:
-        """
-        Execute IR remote specific command with proper abstraction.
-        
-        Args:
-            command: Command to execute ('press_key', 'input_text', etc.)
-            params: Command parameters (including wait_time)
-            
-        Returns:
-            bool: True if command executed successfully
-        """
+        """Execute IR remote command - only press_key supported."""
         if params is None:
             params = {}
         
-        # Extract wait_time from params
-        wait_time = int(params.get('wait_time', 0))
-        
-        print(f"Remote[{self.device_type.upper()}]: Executing command '{command}' with params: {params}")
-        
-        result = False
-        
         if command == 'press_key':
             key = params.get('key')
-            result = self.press_key(key) if key else False
+            return self.press_key(key) if key else False
         
-        elif command == 'input_text':
-            text = params.get('text')
-            result = self.input_text(text) if text else False
-        
-        else:
-            print(f"Remote[{self.device_type.upper()}]: Unknown command: {command}")
-            result = False
-        
-        # Apply wait_time after successful command execution
-        if result and wait_time > 0:
-            delay_seconds = wait_time / 1000.0
-            print(f"Remote[{self.device_type.upper()}]: Waiting {delay_seconds}s after command execution")
-            time.sleep(delay_seconds)
-        
-        return result
+        print(f"Remote[{self.device_type.upper()}]: Unknown command: {command}")
+        return False
     
-    def input_text(self, text: str) -> bool:
-        """
-        Send text input by pressing number keys.
-        
-        Args:
-            text: Text to input (numbers only for IR remote)
-        """
-        if not self.is_connected:
-            print(f"Remote[{self.device_type.upper()}]: ERROR - Not connected to IR device")
-            return False
-            
-        try:
-            print(f"Remote[{self.device_type.upper()}]: Sending text: '{text}'")
-            
-            # IR remotes typically only support numeric input
-            for char in text:
-                if char.isdigit():
-                    if not self.press_key(char):
-                        print(f"Remote[{self.device_type.upper()}]: Failed to send digit: {char}")
-                        return False
-                    time.sleep(0.2)  # Small delay between digits
-                elif char == ' ':
-                    time.sleep(0.5)  # Longer pause for spaces
-                else:
-                    print(f"Remote[{self.device_type.upper()}]: Skipping non-numeric character: {char}")
-            
-            print(f"Remote[{self.device_type.upper()}]: Text input completed")
-            return True
-            
-        except Exception as e:
-            print(f"Remote[{self.device_type.upper()}]: Text input error: {e}")
-            return False
-            
-    def power_on(self) -> bool:
-        """Turn device on using IR power command."""
-        return self.press_key("POWER")
-        
-    def power_off(self) -> bool:
-        """Turn device off using IR power command."""
-        return self.press_key("POWER")
-        
-    def change_channel(self, channel: int) -> bool:
-        """
-        Change to specific channel number.
-        
-        Args:
-            channel: Channel number to tune to
-        """
-        if not self.is_connected:
-            return False
-            
-        try:
-            print(f"Remote[{self.device_type.upper()}]: Changing to channel {channel}")
-            
-            # Send each digit of the channel number
-            channel_str = str(channel)
-            for digit in channel_str:
-                if not self.press_key(digit):
-                    return False
-                time.sleep(0.3)
-            
-            # Press OK to confirm channel change
-            time.sleep(0.5)
-            return self.press_key("OK")
-            
-        except Exception as e:
-            print(f"Remote[{self.device_type.upper()}]: Channel change error: {e}")
-            return False
-            
-    def set_volume(self, level: int) -> bool:
-        """
-        Set volume to specific level (0-100).
-        
-        Args:
-            level: Volume level (0-100)
-        """
-        if not self.is_connected:
-            return False
-            
-        try:
-            print(f"Remote[{self.device_type.upper()}]: Setting volume to {level}")
-            
-            # First mute, then unmute to reset volume
-            self.press_key("MUTE")
-            time.sleep(0.5)
-            self.press_key("MUTE")
-            time.sleep(0.5)
-            
-            # Adjust volume (simplified approach)
-            if level > 50:
-                # Volume up
-                presses = (level - 50) // 5
-                for _ in range(presses):
-                    self.press_key("VOLUME_UP")
-                    time.sleep(0.2)
-            elif level < 50:
-                # Volume down
-                presses = (50 - level) // 5
-                for _ in range(presses):
-                    self.press_key("VOLUME_DOWN")
-                    time.sleep(0.2)
-            
-            print(f"Remote[{self.device_type.upper()}]: Volume set to approximately {level}")
-            return True
-            
-        except Exception as e:
-            print(f"Remote[{self.device_type.upper()}]: Volume set error: {e}")
-            return False
+
             
     def _load_ir_config(self) -> tuple[bool, dict]:
         """
@@ -419,330 +254,25 @@ class IRRemoteController(RemoteControllerInterface):
         }
     
     def get_available_actions(self) -> Dict[str, Any]:
-        """Get available actions for this IR controller."""
-        return {
-            'remote': [
-                {
-                    'id': 'press_key_up',
-                    'label': 'Navigate Up',
-                    'command': 'press_key',
-                    'params': {'key': 'UP'},
-                    'description': 'Navigate up in the interface',
-                    'requiresInput': False
-                },
-                {
-                    'id': 'press_key_down',
-                    'label': 'Navigate Down',
-                    'command': 'press_key',
-                    'params': {'key': 'DOWN'},
-                    'description': 'Navigate down in the interface',
-                    'requiresInput': False
-                },
-                {
-                    'id': 'press_key_left',
-                    'label': 'Navigate Left',
-                    'command': 'press_key',
-                    'params': {'key': 'LEFT'},
-                    'description': 'Navigate left in the interface',
-                    'requiresInput': False
-                },
-                {
-                    'id': 'press_key_right',
-                    'label': 'Navigate Right',
-                    'command': 'press_key',
-                    'params': {'key': 'RIGHT'},
-                    'description': 'Navigate right in the interface',
-                    'requiresInput': False
-                }
-            ],
-            'control': [
-                {
-                    'id': 'press_key_ok',
-                    'label': 'Select/OK',
-                    'command': 'press_key',
-                    'params': {'key': 'OK'},
-                    'description': 'Select current item',
-                    'requiresInput': False
-                },
-                {
-                    'id': 'press_key_back',
-                    'label': 'Back',
-                    'command': 'press_key',
-                    'params': {'key': 'BACK'},
-                    'description': 'Go back to previous screen',
-                    'requiresInput': False
-                },
-                {
-                    'id': 'press_key_home',
-                    'label': 'Home',
-                    'command': 'press_key',
-                    'params': {'key': 'HOME'},
-                    'description': 'Go to home screen',
-                    'requiresInput': False
-                },
-                {
-                    'id': 'press_key_menu',
-                    'label': 'Menu',
-                    'command': 'press_key',
-                    'params': {'key': 'MENU'},
-                    'description': 'Open menu',
-                    'requiresInput': False
-                }
-            ],
-            'power': [
-                {
-                    'id': 'press_key_power',
-                    'label': 'Power',
-                    'command': 'press_key',
-                    'params': {'key': 'POWER'},
-                    'description': 'Power on/off device',
-                    'requiresInput': False
-                },
-                {
-                    'id': 'power_on',
-                    'label': 'Power On',
-                    'command': 'power_on',
-                    'params': {},
-                    'description': 'Turn device on',
-                    'requiresInput': False
-                },
-                {
-                    'id': 'power_off',
-                    'label': 'Power Off',
-                    'command': 'power_off',
-                    'params': {},
-                    'description': 'Turn device off',
-                    'requiresInput': False
-                }
-            ],
-            'volume_control': [
-                {
-                    'id': 'press_key_volume_up',
-                    'label': 'Volume Up',
-                    'command': 'press_key',
-                    'params': {'key': 'VOLUME_UP'},
-                    'description': 'Increase volume',
-                    'requiresInput': False
-                },
-                {
-                    'id': 'press_key_volume_down',
-                    'label': 'Volume Down',
-                    'command': 'press_key',
-                    'params': {'key': 'VOLUME_DOWN'},
-                    'description': 'Decrease volume',
-                    'requiresInput': False
-                },
-                {
-                    'id': 'press_key_mute',
-                    'label': 'Mute',
-                    'command': 'press_key',
-                    'params': {'key': 'MUTE'},
-                    'description': 'Toggle mute',
-                    'requiresInput': False
-                },
-                {
-                    'id': 'set_volume',
-                    'label': 'Set Volume Level',
-                    'command': 'set_volume',
-                    'params': {},
-                    'description': 'Set volume to specific level (0-100)',
-                    'requiresInput': True,
-                    'inputLabel': 'Volume level (0-100)',
-                    'inputPlaceholder': '50'
-                }
-            ],
-            'media_control': [
-                {
-                    'id': 'press_key_play_pause',
-                    'label': 'Play/Pause',
-                    'command': 'press_key',
-                    'params': {'key': 'PLAY_PAUSE'},
-                    'description': 'Toggle play/pause for media',
-                    'requiresInput': False
-                },
-                {
-                    'id': 'press_key_fast_forward',
-                    'label': 'Fast Forward',
-                    'command': 'press_key',
-                    'params': {'key': 'FAST_FORWARD'},
-                    'description': 'Fast forward media',
-                    'requiresInput': False
-                },
-                {
-                    'id': 'press_key_rewind',
-                    'label': 'Rewind',
-                    'command': 'press_key',
-                    'params': {'key': 'REWIND'},
-                    'description': 'Rewind media',
-                    'requiresInput': False
-                }
-            ],
-            'channel_control': [
-                {
-                    'id': 'press_key_channel_up',
-                    'label': 'Channel Up',
-                    'command': 'press_key',
-                    'params': {'key': 'CHANNEL_UP'},
-                    'description': 'Go to next channel',
-                    'requiresInput': False
-                },
-                {
-                    'id': 'press_key_channel_down',
-                    'label': 'Channel Down',
-                    'command': 'press_key',
-                    'params': {'key': 'CHANNEL_DOWN'},
-                    'description': 'Go to previous channel',
-                    'requiresInput': False
-                },
-                {
-                    'id': 'change_channel',
-                    'label': 'Change Channel',
-                    'command': 'change_channel',
-                    'params': {},
-                    'description': 'Change to specific channel number',
-                    'requiresInput': True,
-                    'inputLabel': 'Channel number',
-                    'inputPlaceholder': '1'
-                }
-            ],
-            'numeric_input': [
-                {
-                    'id': 'press_key_0',
-                    'label': 'Number 0',
-                    'command': 'press_key',
-                    'params': {'key': '0'},
-                    'description': 'Press number 0',
-                    'requiresInput': False
-                },
-                {
-                    'id': 'press_key_1',
-                    'label': 'Number 1',
-                    'command': 'press_key',
-                    'params': {'key': '1'},
-                    'description': 'Press number 1',
-                    'requiresInput': False
-                },
-                {
-                    'id': 'press_key_2',
-                    'label': 'Number 2',
-                    'command': 'press_key',
-                    'params': {'key': '2'},
-                    'description': 'Press number 2',
-                    'requiresInput': False
-                },
-                {
-                    'id': 'press_key_3',
-                    'label': 'Number 3',
-                    'command': 'press_key',
-                    'params': {'key': '3'},
-                    'description': 'Press number 3',
-                    'requiresInput': False
-                },
-                {
-                    'id': 'press_key_4',
-                    'label': 'Number 4',
-                    'command': 'press_key',
-                    'params': {'key': '4'},
-                    'description': 'Press number 4',
-                    'requiresInput': False
-                },
-                {
-                    'id': 'press_key_5',
-                    'label': 'Number 5',
-                    'command': 'press_key',
-                    'params': {'key': '5'},
-                    'description': 'Press number 5',
-                    'requiresInput': False
-                },
-                {
-                    'id': 'press_key_6',
-                    'label': 'Number 6',
-                    'command': 'press_key',
-                    'params': {'key': '6'},
-                    'description': 'Press number 6',
-                    'requiresInput': False
-                },
-                {
-                    'id': 'press_key_7',
-                    'label': 'Number 7',
-                    'command': 'press_key',
-                    'params': {'key': '7'},
-                    'description': 'Press number 7',
-                    'requiresInput': False
-                },
-                {
-                    'id': 'press_key_8',
-                    'label': 'Number 8',
-                    'command': 'press_key',
-                    'params': {'key': '8'},
-                    'description': 'Press number 8',
-                    'requiresInput': False
-                },
-                {
-                    'id': 'press_key_9',
-                    'label': 'Number 9',
-                    'command': 'press_key',
-                    'params': {'key': '9'},
-                    'description': 'Press number 9',
-                    'requiresInput': False
-                }
-            ],
-            'color_buttons': [
-                {
-                    'id': 'press_key_red',
-                    'label': 'Red Button',
-                    'command': 'press_key',
-                    'params': {'key': 'RED'},
-                    'description': 'Press red color button',
-                    'requiresInput': False
-                },
-                {
-                    'id': 'press_key_green',
-                    'label': 'Green Button',
-                    'command': 'press_key',
-                    'params': {'key': 'GREEN'},
-                    'description': 'Press green color button',
-                    'requiresInput': False
-                },
-                {
-                    'id': 'press_key_yellow',
-                    'label': 'Yellow Button',
-                    'command': 'press_key',
-                    'params': {'key': 'YELLOW'},
-                    'description': 'Press yellow color button',
-                    'requiresInput': False
-                },
-                {
-                    'id': 'press_key_blue',
-                    'label': 'Blue Button',
-                    'command': 'press_key',
-                    'params': {'key': 'BLUE'},
-                    'description': 'Press blue color button',
-                    'requiresInput': False
-                }
-            ],
-            'input': [
-                {
-                    'id': 'input_text',
-                    'label': 'Input Text',
-                    'command': 'input_text',
-                    'params': {},
-                    'description': 'Type text using IR remote',
-                    'requiresInput': True,
-                    'inputLabel': 'Text to input',
-                    'inputPlaceholder': 'Enter text...'
-                }
-            ],
-            'sequences': [
-                {
-                    'id': 'execute_sequence',
-                    'label': 'Execute Sequence',
-                    'command': 'execute_sequence',
-                    'params': {},
-                    'description': 'Execute a sequence of IR commands',
-                    'requiresInput': True,
-                    'inputLabel': 'Command sequence (JSON)',
-                    'inputPlaceholder': '[{"action": "press_key", "params": {"key": "OK"}}]'
-                }
-            ]
-        }
+        """Get available actions from loaded IR config JSON."""
+        if not self.ir_config_data:
+            raise ValueError(f"No IR config loaded for {self.ir_type}")
+        
+        # Create actions for all keys in the config
+        actions = []
+        for key_name in self.ir_config_data.keys():
+            # Skip empty keys
+            if not self.ir_config_data[key_name]:
+                continue
+                
+            actions.append({
+                'id': f'ir_press_key_{key_name.lower()}',
+                'label': f'IR {key_name}',
+                'command': 'press_key',
+                'action_type': 'remote',
+                'params': {'key': key_name},
+                'description': f'Press {key_name} key via infrared',
+                'requiresInput': False
+            })
+        
+        return {'remote': actions}
