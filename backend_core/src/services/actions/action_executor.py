@@ -368,12 +368,23 @@ class ActionExecutor:
                         'device_id': self.device_id or 'device1'
                     }
                 
+                # Set appropriate timeout based on action type and command
+                # Web browser operations need more time (especially open_browser)
+                if action_type == 'web':
+                    command = action.get('command', '')
+                    if command in ['open_browser', 'close_browser', 'connect_browser', 'browser_use_task']:
+                        timeout = 90  # Extra time for browser operations
+                    else:
+                        timeout = 60  # Standard web timeout (same as direct executeCommand)
+                else:
+                    timeout = 30  # Standard timeout for other operations
+                
                 # Proxy to appropriate host endpoint using direct host info (no Flask context needed)
-                print(f"[@lib:action_executor:_execute_single_action] Making HTTP request to {endpoint} with timeout 30s...")
+                print(f"[@lib:action_executor:_execute_single_action] Making HTTP request to {endpoint} with timeout {timeout}s...")
                 request_start = time.time()
                 
                 try:
-                    response_data, status_code = proxy_to_host_direct(self.host, endpoint, 'POST', request_data, timeout=30)
+                    response_data, status_code = proxy_to_host_direct(self.host, endpoint, 'POST', request_data, timeout=timeout)
                     request_time = int((time.time() - request_start) * 1000)
                     print(f"[@lib:action_executor:_execute_single_action] HTTP request completed in {request_time}ms, status: {status_code}")
                 except Exception as http_error:

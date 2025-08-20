@@ -47,6 +47,38 @@ from shared.lib.utils.report_utils import generate_and_upload_script_report
 from shared.lib.supabase.script_results_db import record_script_execution_start, update_script_execution_result
 
 
+def validate_userinterface_device_compatibility(userinterface_name: str, device_model: str, script_name: str) -> Dict[str, Any]:
+    """
+    Validate that a userinterface is compatible with the target device model.
+    Uses the existing controller factory mapping to determine compatibility.
+    """
+    try:
+        # Extract expected device model from userinterface name (horizon_{device_model})
+        if userinterface_name.startswith('horizon_'):
+            expected_device_model = userinterface_name.replace('horizon_', '')
+        else:
+            return {
+                'success': False,
+                'error': f"Unknown userinterface naming convention for '{userinterface_name}'. Expected format: 'horizon_{{device_model}}'"
+            }
+        
+        # Check if the actual device model matches the expected one
+        if device_model != expected_device_model:
+            return {
+                'success': False,
+                'error': f"Userinterface '{userinterface_name}' expects device model '{expected_device_model}' but got '{device_model}'. This indicates a navigation tree designed for {expected_device_model} devices is being executed on a {device_model} device."
+            }
+        
+        print(f"[@script_framework:validate_compatibility] ✅ Userinterface '{userinterface_name}' is compatible with device model '{device_model}'")
+        return {'success': True}
+        
+    except Exception as e:
+        return {
+            'success': False,
+            'error': f"Compatibility validation error: {str(e)}"
+        }
+
+
 # Hierarchical ExecutionContext class removed - using simple sequential recording
 
 
@@ -209,7 +241,18 @@ class ScriptExecutor:
             
             context.selected_device = device_result['device']
             
-            # 3. Record script execution start in database (if enabled)
+            # 3. Validate userinterface/device model compatibility
+            compatibility_result = validate_userinterface_device_compatibility(
+                args.userinterface_name, 
+                context.selected_device.device_model,
+                self.script_name
+            )
+            if not compatibility_result['success']:
+                context.error_message = f"Compatibility validation failed: {compatibility_result['error']}"
+                print(f"❌ [{self.script_name}] {context.error_message}")
+                return context
+            
+            # 4. Record script execution start in database (if enabled)
             if enable_db_tracking:
                 context.script_result_id = record_script_execution_start(
                     team_id=context.team_id,
