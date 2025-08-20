@@ -189,40 +189,15 @@ def main():
     executor = ScriptExecutor(script_name, "Optionally navigate to live and execute zap action multiple times")
     
     # Create argument parser with custom fullzap arguments
-    additional_args = [
-        {
-            'name': '--action',
-            'kwargs': {
-                'default': 'live_chup',
-                'help': 'Action command to execute (default: live_chup)'
-            }
-        },
-        {
-            'name': '--max_iteration',
-            'kwargs': {
-                'type': int,
-                'default': 1,
-                'help': 'Number of times to execute the action (default: 2)'
-            }
-        },
-        {
-            'name': '--blackscreen_area',
-            'kwargs': {
-                'default': '0,0,1920,720',
-                'help': 'Blackscreen analysis area as x,y,width,height (default: 0,0,1920,720 for TV, auto-adjusts for mobile devices)'
-            }
-        },
-        {
-            'name': '--goto_live',
-            'kwargs': {
-                'type': lambda x: x.lower() == 'true',
-                'default': True,
-                'help': 'Navigate to live node before executing actions: true or false (default: true)'
-            }
-        }
-    ]
-    
-    parser = executor.create_argument_parser(additional_args)
+    parser = executor.create_argument_parser()
+    parser.add_argument('--action', type=str, default='live_chup',
+                       help='Action command to execute (default: live_chup)')
+    parser.add_argument('--max_iteration', type=int, default=1,
+                       help='Number of times to execute the action (default: 1)')
+    parser.add_argument('--blackscreen_area', type=str, default='0,0,1920,720',
+                       help='Blackscreen analysis area as x,y,width,height (default: 0,0,1920,720 for TV, auto-adjusts for mobile devices)')
+    parser.add_argument('--goto_live', type=lambda x: x.lower() == 'true', default=True,
+                       help='Navigate to live node before executing actions: true or false (default: true)')
     args = parser.parse_args()
     
     nav_msg = "with navigation to live" if args.goto_live else "without navigation to live"

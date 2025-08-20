@@ -520,41 +520,7 @@ const RunTests: React.FC = () => {
       );
     }
 
-    // Special handling for blackscreen_area with preset options
-    if (param.name === 'blackscreen_area') {
-      const options = [
-        '0,0,1920,720',      // Top 2/3 (default)
-        '0,0,1920,540',      // Top 1/2
-        '0,0,1920,810',      // Top 3/4
-        '0,100,1920,620',    // Top 2/3 excluding top banner
-        '0,0,1920,1080',     // Full screen
-      ];
 
-      return (
-        <Autocomplete
-          key={param.name}
-          options={options}
-          value={value}
-          onChange={(_event, newValue) => handleParameterChange(param.name, newValue || '')}
-          onInputChange={(_event, newInputValue) =>
-            handleParameterChange(param.name, newInputValue)
-          }
-          freeSolo
-          size="small"
-          renderInput={(params) => (
-            <TextField
-              {...params}
-              label={`${param.name}${param.required ? ' *' : ''}`}
-              size="small"
-              fullWidth
-              error={param.required && !value.trim()}
-              placeholder="x,y,width,height (e.g., 0,0,1920,720)"
-              helperText="Blackscreen analysis area: x,y,width,height"
-            />
-          )}
-        />
-      );
-    }
 
     // Default text field for other parameters
     return (
@@ -578,7 +544,6 @@ const RunTests: React.FC = () => {
     (selectedScript.includes('fullzap') && (param.name === 'max_iteration' || param.name === 'goto_live'))  // Show fullzap specific parameters
   ) || [];
 
-  // These variables are no longer needed since we moved to grid layout
 
   return (
     <Box sx={{ p: 1 }}>
