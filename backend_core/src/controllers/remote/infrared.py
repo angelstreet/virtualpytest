@@ -352,29 +352,12 @@ class IRRemoteController(RemoteControllerInterface):
             print(f"Remote[{self.device_type.upper()}]: Sending IR code for {key}")
             print(f"Remote[{self.device_type.upper()}]: Raw IR code: {raw_code[:100]}...")  # Debug: show first 100 chars
             
-            # Send IR code using ir-ctl with sudo
-            # The raw_code needs to end with a newline for ir-ctl to process it correctly
-            ir_data = raw_code.strip() + '\n'
-            
-            # Check if IR device exists
-            if not os.path.exists(self.ir_path):
-                print(f"Remote[{self.device_type.upper()}]: WARNING - IR device not found: {self.ir_path}")
-                print(f"Remote[{self.device_type.upper()}]: Attempting to send anyway...")
-            
-            # Try different approaches for ir-ctl command
-            cmd = ["sudo", "ir-ctl"]
-            
-            # If device path is specified, use it
-            if self.ir_path and os.path.exists(self.ir_path):
-                cmd.extend(["--device", self.ir_path])
-            
-            cmd.extend(["--send", "-"])
-            
-            print(f"Remote[{self.device_type.upper()}]: Running command: {' '.join(cmd)}")
+            # Send IR code using ir-ctl
+            print(f"Remote[{self.device_type.upper()}]: Running command: sudo ir-ctl --send -")
             
             result = subprocess.run(
-                cmd, 
-                input=ir_data, 
+                ["sudo", "ir-ctl", "--send", "-"], 
+                input=raw_code, 
                 check=True,
                 capture_output=True,
                 text=True,
