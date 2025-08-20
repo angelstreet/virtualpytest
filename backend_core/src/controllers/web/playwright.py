@@ -44,6 +44,11 @@ class PlaywrightWebController(WebControllerInterface):
         """
         super().__init__("Playwright Web", "playwright")
         
+        # Enable Playwright debug logging
+        import os
+        os.environ['DEBUG'] = 'pw:api'  # Enable Playwright API debug logs
+        os.environ['PLAYWRIGHT_DEBUG'] = '1'  # Enable additional debug info
+        
         # Simple initialization with persistent user data
         self.utils = PlaywrightUtils(auto_accept_cookies=True)
         
@@ -371,9 +376,23 @@ class PlaywrightWebController(WebControllerInterface):
                 
                 # First try to load with domcontentloaded (main content ready)
                 try:
-                    await page.goto(normalized_url, timeout=timeout, wait_until='domcontentloaded')
-                    navigation_time = int((time.time() - navigation_start) * 1000)
-                    print(f"[PLAYWRIGHT]: Main page content loaded in {navigation_time}ms")
+                    print(f"[PLAYWRIGHT]: About to call page.goto() with timeout={timeout}ms, wait_until='domcontentloaded'")
+                    print(f"[PLAYWRIGHT]: Current page URL before navigation: {page.url}")
+                    
+                    # Add asyncio timeout as additional protection against hanging
+                    import asyncio
+                    try:
+                        await asyncio.wait_for(
+                            page.goto(normalized_url, timeout=timeout, wait_until='domcontentloaded'),
+                            timeout=timeout/1000 + 5  # Add 5 seconds buffer to Playwright timeout
+                        )
+                        navigation_time = int((time.time() - navigation_start) * 1000)
+                        print(f"[PLAYWRIGHT]: page.goto() completed successfully!")
+                        print(f"[PLAYWRIGHT]: Main page content loaded in {navigation_time}ms")
+                    except asyncio.TimeoutError:
+                        navigation_time = int((time.time() - navigation_start) * 1000)
+                        print(f"[PLAYWRIGHT]: asyncio timeout after {navigation_time}ms - page.goto() hung indefinitely")
+                        raise Exception(f"Navigation hung for {navigation_time}ms, exceeded asyncio timeout")
                     
                     # Then try to wait for full load, but don't fail if it times out
                     full_load_start = time.time()
