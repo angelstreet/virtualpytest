@@ -369,9 +369,28 @@ class PlaywrightWebController(WebControllerInterface):
                 self.current_url = page.url
                 print(f"[PLAYWRIGHT]: Got URL: {self.current_url}")
                 
-                print(f"[PLAYWRIGHT]: Getting page title...")
-                self.page_title = await page.title()
-                print(f"[PLAYWRIGHT]: Got title: {self.page_title}")
+                print(f"[PLAYWRIGHT]: Testing CDP connection responsiveness...")
+                import asyncio
+                try:
+                    # Quick CDP test - should complete instantly if connection is healthy
+                    await asyncio.wait_for(page.evaluate("1+1"), timeout=2.0)
+                    print(f"[PLAYWRIGHT]: CDP connection is responsive")
+                except asyncio.TimeoutError:
+                    print(f"[PLAYWRIGHT]: ❌ CDP connection test TIMED OUT - connection is stale!")
+                except Exception as cdp_error:
+                    print(f"[PLAYWRIGHT]: ❌ CDP connection test FAILED: {type(cdp_error).__name__}: {str(cdp_error)}")
+                
+                print(f"[PLAYWRIGHT]: Getting page title with timeout...")
+                try:
+                    self.page_title = await asyncio.wait_for(page.title(), timeout=5.0)
+                    print(f"[PLAYWRIGHT]: Got title: {self.page_title}")
+                except asyncio.TimeoutError:
+                    print(f"[PLAYWRIGHT]: ❌ page.title() TIMED OUT after 5s - CDP connection is stale!")
+                    self.page_title = "Title unavailable (CDP timeout)"
+                except Exception as title_error:
+                    print(f"[PLAYWRIGHT]: ❌ page.title() FAILED: {type(title_error).__name__}: {str(title_error)}")
+                    self.page_title = "Title unavailable (error)"
+                
                 print(f"[PLAYWRIGHT]: All page info retrieved successfully!")
                 
                 # Page remains persistent for next actions
