@@ -1073,9 +1073,20 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
               </>
             );
           } else if (hasMultipleRemotes && selectedDevice?.device_model === 'fire_tv') {
-            // For Fire TV devices, render both AndroidTvRemote and InfraredRemote directly (like host VNC)
+            // For Fire TV devices, render both AndroidTvRemote and InfraredRemote side by side
             return (
-              <>
+              <Box
+                sx={{
+                  display: 'flex',
+                  flexDirection: 'row',
+                  gap: 2,
+                  position: 'absolute',
+                  right: 20,
+                  top: 100,
+                  zIndex: 1000,
+                  height: 'auto',
+                }}
+              >
                 <RemotePanel
                   host={selectedHost}
                   deviceId={selectedDeviceId}
@@ -1102,13 +1113,24 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
                   captureMode="stream"
                   initialCollapsed={true}
                 />
-              </>
+              </Box>
             );
           } else if (hasMultipleRemotes) {
-            // For other devices with multiple remote controllers
+            // For other devices with multiple remote controllers - render side by side
             const remoteTypes = Array.isArray(remoteCapability) ? remoteCapability : [remoteCapability];
             return (
-              <>
+              <Box
+                sx={{
+                  display: 'flex',
+                  flexDirection: 'row',
+                  gap: 2,
+                  position: 'absolute',
+                  right: 20,
+                  top: 100,
+                  zIndex: 1000,
+                  height: 'auto',
+                }}
+              >
                 {remoteTypes.filter(Boolean).map((remoteType: string, index: number) => (
                   <RemotePanel
                     key={`${selectedDeviceId}-${remoteType}`}
@@ -1125,7 +1147,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
                     initialCollapsed={index > 0}
                   />
                 ))}
-              </>
+              </Box>
             );
           } else {
             // For single remote devices, render only one RemotePanel

@@ -1,8 +1,9 @@
 import { Box, Button, Typography, CircularProgress } from '@mui/material';
 import React, { useEffect, useState } from 'react';
 
-import { useInfraredRemote } from '../../../hooks/controller/useInfraredRemote';
+import { useInfraredRemote } from '../../../hooks/controller';
 import { Host } from '../../../types/common/Host_Types';
+import { InfraredRemoteButton } from '../../../config/remote/infraredRemoteBase';
 
 interface InfraredRemoteProps {
   host: Host;
@@ -207,16 +208,18 @@ export const InfraredRemote = React.memo(
               streamContainerDimensions
                 ? layoutConfig.button_layout_recmodal
                 : layoutConfig.button_layout,
-            ).map(([buttonId, button]) => (
+            ).map(([buttonId, button]) => {
+              const typedButton = button as InfraredRemoteButton;
+              return (
               <Box
                 key={buttonId}
                 sx={{
                   position: 'absolute',
-                  left: `${button.position.x * remoteScale}px`,
-                  top: `${button.position.y * remoteScale}px`,
-                  width: `${button.size.width * layoutConfig.remote_info.button_scale_factor * remoteScale}px`,
-                  height: `${button.size.height * layoutConfig.remote_info.button_scale_factor * remoteScale}px`,
-                  borderRadius: button.shape === 'circle' ? '50%' : '4px',
+                  left: `${typedButton.position.x * remoteScale}px`,
+                  top: `${typedButton.position.y * remoteScale}px`,
+                  width: `${typedButton.size.width * layoutConfig.remote_info.button_scale_factor * remoteScale}px`,
+                  height: `${typedButton.size.height * layoutConfig.remote_info.button_scale_factor * remoteScale}px`,
+                  borderRadius: typedButton.shape === 'circle' ? '50%' : '4px',
                   backgroundColor:
                     !isCollapsed && showOverlays ? 'rgba(255, 255, 255, 0.1)' : 'transparent',
                   border:
@@ -235,8 +238,8 @@ export const InfraredRemote = React.memo(
                     transform: 'scale(0.95)',
                   },
                 }}
-                onClick={() => handleButtonPress(button.key)}
-                title={`${button.label} - ${button.comment}`}
+                onClick={() => handleButtonPress(typedButton.key)}
+                title={`${typedButton.label} - ${typedButton.comment}`}
               >
                 {!isCollapsed && showOverlays && (
                   <Typography
@@ -249,11 +252,12 @@ export const InfraredRemote = React.memo(
                       userSelect: 'none',
                     }}
                   >
-                    {button.label}
+                    {typedButton.label}
                   </Typography>
                 )}
               </Box>
-            ))}
+              );
+            })}
           </Box>
         </Box>
       );

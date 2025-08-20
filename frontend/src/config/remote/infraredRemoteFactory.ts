@@ -34,7 +34,7 @@ export function getInfraredRemoteConfig(irType: string): InfraredRemoteConfig {
  * Get all available infrared remote types
  */
 export function getAvailableInfraredRemoteTypes(): InfraredRemoteType[] {
-  return ['samsung', 'eos'];
+  return ['samsung', 'eos', 'firetv'];
 }
 
 /**

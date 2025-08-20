@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 
 import { infraredRemoteConfig } from '../../config/remote/infraredRemote';
 import { getInfraredRemoteConfig } from '../../config/remote/infraredRemoteFactory';
+import { InfraredRemoteConfig } from '../../config/remote/infraredRemoteBase';
 import { Host } from '../../types/common/Host_Types';
 
 interface InfraredRemoteSession {
@@ -14,7 +15,7 @@ interface UseInfraredRemoteReturn {
   session: InfraredRemoteSession;
   isLoading: boolean;
   lastAction: string;
-  layoutConfig: typeof infraredRemoteConfig;
+  layoutConfig: InfraredRemoteConfig;
   handleConnect: () => Promise<void>;
   handleDisconnect: () => Promise<void>;
   handleRemoteCommand: (command: string, params?: any) => Promise<void>;
