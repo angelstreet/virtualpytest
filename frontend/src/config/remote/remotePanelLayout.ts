@@ -11,6 +11,7 @@ import { androidTvRemoteConfig } from './androidTvRemote';
 import { appiumRemoteConfig } from './appiumRemote';
 import { bluetoothRemoteConfig } from './bluetoothRemote';
 import { infraredRemoteConfig } from './infraredRemote';
+import { getInfraredRemoteConfig } from './infraredRemoteFactory';
 
 // Remote panel layout configuration from device config
 export interface ConfigurableRemotePanelLayout {
@@ -313,9 +314,10 @@ export const getConfigurableRemoteLayout = (remoteConfig?: any): ConfigurableRem
 /**
  * Load remote configuration from TypeScript config
  * @param deviceModel The device model (e.g., 'android_mobile', 'android_tv')
+ * @param irType Optional IR type for infrared remotes (e.g., 'samsung', 'eos')
  * @returns The loaded configuration or null if failed
  */
-export const loadRemoteConfig = (deviceModel: string): any => {
+export const loadRemoteConfig = (deviceModel: string, irType?: string): any => {
   try {
     let config = null;
     switch (deviceModel) {
@@ -326,7 +328,15 @@ export const loadRemoteConfig = (deviceModel: string): any => {
         config = androidTvRemoteConfig;
         break;
       case 'ir_remote':
-        config = infraredRemoteConfig;
+        if (irType) {
+          // Use specific IR type config
+          config = getInfraredRemoteConfig(irType);
+          console.log(`[@config:remotePanelLayout] Loaded IR config for type: ${irType}`);
+        } else {
+          // Fallback to generic IR config
+          config = infraredRemoteConfig;
+          console.log(`[@config:remotePanelLayout] Loaded generic IR config (no type specified)`);
+        }
         break;
       case 'bluetooth_remote':
         config = bluetoothRemoteConfig;
@@ -345,7 +355,7 @@ export const loadRemoteConfig = (deviceModel: string): any => {
         return null;
     }
 
-    console.log(`[@config:remotePanelLayout] Loaded config for ${deviceModel}:`, config);
+    console.log(`[@config:remotePanelLayout] Loaded config for ${deviceModel}${irType ? ` (${irType})` : ''}:`, config);
     return config;
   } catch (error) {
     console.error(`[@config:remotePanelLayout] Failed to load config for ${deviceModel}:`, error);

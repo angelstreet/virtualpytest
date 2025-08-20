@@ -1,71 +1,20 @@
-export const infraredRemoteConfig = {
+import { InfraredRemoteConfig, INFRARED_REMOTE_DEFAULTS } from './infraredRemoteBase';
+
+export const samsungRemoteConfig: InfraredRemoteConfig = {
   remote_info: {
+    ...INFRARED_REMOTE_DEFAULTS.remote_info,
     name: 'Samsung Remote',
-    type: 'ir_remote' as const,
     image_url: '/samsung_remote.png',
-    default_scale: 1,
-    min_scale: 0.3,
-    max_scale: 1.0,
-    button_scale_factor: 4,
-    global_offset: { x: 0, y: 0 },
-    text_style: {
-      fontSize: '32px',
-      fontWeight: 'bold',
-      color: 'white',
-      textShadow: '2px 2px 4px rgba(0,0,0,0.9)',
-    },
   },
   panel_layout: {
-    collapsed: {
-      width: '160px',
-      height: '300px',
-      position: {
-        bottom: '20px',
-        right: '20px',
-      },
-    },
-    expanded: {
-      width: '240px',
-      height: '600px',
-      position: {
-        top: '100px',
-        right: '20px',
-      },
-    },
-    showScreenshotInCollapsed: false,
-    showScreenshotInExpanded: true,
-    header: {
-      height: '48px',
-      fontSize: '0.875rem',
-      fontWeight: 'bold',
-      iconSize: 'small',
-      padding: '8px',
-      backgroundColor: '#1E1E1E',
-      borderColor: '#333',
-      textColor: '#ffffff',
-    },
+    ...INFRARED_REMOTE_DEFAULTS.panel_layout,
   },
   remote_layout: {
-    collapsed: {
-      width: '120px',
-      height: '250px',
-      scale: 0.6,
-      padding: '20px',
-    },
-    expanded: {
-      width: '200px',
-      height: '500px',
-      scale: 1.0,
-      padding: '25px',
-    },
+    ...INFRARED_REMOTE_DEFAULTS.remote_layout,
     background_image: {
       url: '/samsung_remote.png',
       width: 200,
       height: 500,
-    },
-    global_offset: {
-      x: 0,
-      y: 0,
     },
   },
   button_layout: {
@@ -330,4 +279,4 @@ export const infraredRemoteConfig = {
   },
 } as const;
 
-export type InfraredRemoteConfig = typeof infraredRemoteConfig;
+export type SamsungRemoteConfig = typeof samsungRemoteConfig;
