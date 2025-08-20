@@ -102,14 +102,25 @@ def create_controller_configs_from_device_info(device_config: dict) -> dict:
         }
         print(f"[@controller_factory:create_controller_configs_from_device_info] Created AV controller: {av_impl}")
     
-    # Create Remote controllers
+    # Create Remote controllers - support multiple remotes like desktop controllers
     for remote_impl in device_mapping['remote']:
-        configs['remote'] = {
-            'type': 'remote',
-            'implementation': remote_impl,
-            'params': _get_remote_params(remote_impl, device_config)
-        }
-        print(f"[@controller_factory:create_controller_configs_from_device_info] Created Remote controller: {remote_impl}")
+        # Use unique keys for multiple remote controllers (like desktop controllers)
+        if len(device_mapping['remote']) > 1:
+            # Multiple remotes - use specific keys like remote_android_tv, remote_ir_remote
+            configs[f'remote_{remote_impl}'] = {
+                'type': 'remote',
+                'implementation': remote_impl,
+                'params': _get_remote_params(remote_impl, device_config)
+            }
+            print(f"[@controller_factory:create_controller_configs_from_device_info] Created Remote controller: remote_{remote_impl}")
+        else:
+            # Single remote - use standard 'remote' key for backward compatibility
+            configs['remote'] = {
+                'type': 'remote',
+                'implementation': remote_impl,
+                'params': _get_remote_params(remote_impl, device_config)
+            }
+            print(f"[@controller_factory:create_controller_configs_from_device_info] Created Remote controller: {remote_impl}")
     
     # Create Desktop controllers
     for desktop_impl in device_mapping['desktop']:

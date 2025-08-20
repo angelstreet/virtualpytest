@@ -51,6 +51,7 @@ export const RemotePanel = React.memo(
     host,
     deviceId,
     deviceModel,
+    remoteType, // Specific remote type to use
     isConnected,
     onReleaseControl,
     initialCollapsed = true,
@@ -82,8 +83,19 @@ export const RemotePanel = React.memo(
           const device = host.devices?.find(d => d.device_id === deviceId);
           const remoteCapability = device?.device_capabilities?.remote;
           
-          // Use remote capability if available, otherwise fall back to device model
-          const configType = remoteCapability || deviceModel;
+          // Handle both single remote type (string) and multiple remote types (array)
+          let configType = remoteType || remoteCapability || deviceModel;
+          
+          // If remoteType is explicitly provided, use it (for multi-remote devices)
+          if (remoteType) {
+            configType = remoteType;
+            console.log(`[@component:RemotePanel] Using explicit remoteType: ${remoteType}`);
+          } else if (Array.isArray(remoteCapability)) {
+            // If remoteCapability is an array, use the first one for this panel
+            // (Multiple RemotePanel components will be rendered for each type)
+            configType = remoteCapability[0];
+            console.log(`[@component:RemotePanel] Multiple remote types detected: ${remoteCapability.join(', ')}, using: ${configType}`);
+          }
           
           if (configType) {
             // For IR remotes, we need to get the IR type from device

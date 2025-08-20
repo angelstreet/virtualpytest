@@ -696,20 +696,51 @@ const RecHostStreamModalContent: React.FC<{
                   initialCollapsed={false}
                   streamContainerDimensions={streamContainerDimensions}
                 />
-              ) : (
-                <RemotePanel
-                  host={host}
-                  deviceId={device?.device_id || 'device1'}
-                  deviceModel={device?.device_model || 'unknown'}
-                  isConnected={isControlActive}
-                  onReleaseControl={handleReleaseControl}
-                  initialCollapsed={false}
-                  deviceResolution={stableDeviceResolution}
-                  streamCollapsed={false}
-                  streamMinimized={false}
-                  streamContainerDimensions={streamContainerDimensions}
-                />
-              )}
+              ) : (() => {
+                // Handle multiple remote controllers
+                const remoteCapability = device?.device_capabilities?.remote;
+                const hasMultipleRemotes = Array.isArray(remoteCapability);
+                
+                if (hasMultipleRemotes) {
+                  // For devices with multiple remote controllers, render a RemotePanel for each
+                  return (
+                    <>
+                      {remoteCapability.map((remoteType: string, index: number) => (
+                        <RemotePanel
+                          key={`${device?.device_id}-${remoteType}`}
+                          host={host}
+                          deviceId={device?.device_id || 'device1'}
+                          deviceModel={device?.device_model || 'unknown'}
+                          remoteType={remoteType}
+                          isConnected={isControlActive}
+                          onReleaseControl={handleReleaseControl}
+                          initialCollapsed={index > 0} // First panel expanded, others collapsed
+                          deviceResolution={stableDeviceResolution}
+                          streamCollapsed={false}
+                          streamMinimized={false}
+                          streamContainerDimensions={streamContainerDimensions}
+                        />
+                      ))}
+                    </>
+                  );
+                } else {
+                  // Single remote controller
+                  return (
+                    <RemotePanel
+                      host={host}
+                      deviceId={device?.device_id || 'device1'}
+                      deviceModel={device?.device_model || 'unknown'}
+                      isConnected={isControlActive}
+                      onReleaseControl={handleReleaseControl}
+                      initialCollapsed={false}
+                      deviceResolution={stableDeviceResolution}
+                      streamCollapsed={false}
+                      streamMinimized={false}
+                      streamContainerDimensions={streamContainerDimensions}
+                    />
+                  );
+                }
+              })()}
             </Box>
           )}
 

@@ -1047,6 +1047,8 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
         {showRemotePanel && selectedHost && selectedDeviceId && isControlActive && (() => {
           const selectedDevice = selectedHost.devices?.find((d) => d.device_id === selectedDeviceId);
           const isDesktopDevice = selectedDevice?.device_model === 'host_vnc';
+          const remoteCapability = selectedDevice?.device_capabilities?.remote;
+          const hasMultipleRemotes = Array.isArray(remoteCapability);
           
           if (isDesktopDevice) {
             // For desktop devices, render both DesktopPanel and WebPanel together
@@ -1070,8 +1072,30 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
                 />
               </>
             );
+          } else if (hasMultipleRemotes) {
+            // For devices with multiple remote controllers, render a RemotePanel for each
+            return (
+              <>
+                {remoteCapability.map((remoteType: string, index: number) => (
+                  <RemotePanel
+                    key={`${selectedDeviceId}-${remoteType}`}
+                    host={selectedHost}
+                    deviceId={selectedDeviceId}
+                    deviceModel={selectedDevice?.device_model || 'unknown'}
+                    remoteType={remoteType}
+                    isConnected={isControlActive}
+                    onReleaseControl={handleDisconnectComplete}
+                    deviceResolution={{ width: 1920, height: 1080 }}
+                    streamCollapsed={isAVPanelCollapsed}
+                    streamMinimized={false}
+                    captureMode="stream"
+                    initialCollapsed={index > 0} // First panel expanded, others collapsed
+                  />
+                ))}
+              </>
+            );
           } else {
-            // For non-desktop devices, render only RemotePanel
+            // For single remote devices, render only one RemotePanel
             return (
               <RemotePanel
                 host={selectedHost}

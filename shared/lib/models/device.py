@@ -219,17 +219,30 @@ class Device:
                 actual_capabilities['av'] = theoretical_capabilities['av']  # Fallback
         
         if self._controllers.get('remote'):
-            # Get the implementation name from the first remote controller
-            remote_controller = self._controllers['remote'][0]
-            controller_name = remote_controller.__class__.__name__.lower()
-            if 'androidmobile' in controller_name:
-                actual_capabilities['remote'] = 'android_mobile'
-            elif 'androidtv' in controller_name:
-                actual_capabilities['remote'] = 'android_tv'
-            elif 'appium' in controller_name:
-                actual_capabilities['remote'] = 'appium'
-            elif 'irremote' in controller_name or 'infrared' in controller_name:
-                actual_capabilities['remote'] = 'ir_remote'
+            # Handle multiple remote controllers
+            remote_controllers = self._controllers['remote']
+            remote_implementations = []
+            
+            for remote_controller in remote_controllers:
+                controller_name = remote_controller.__class__.__name__.lower()
+                if 'androidmobile' in controller_name:
+                    remote_implementations.append('android_mobile')
+                elif 'androidtv' in controller_name:
+                    remote_implementations.append('android_tv')
+                elif 'appium' in controller_name:
+                    remote_implementations.append('appium')
+                elif 'irremote' in controller_name or 'infrared' in controller_name:
+                    remote_implementations.append('ir_remote')
+                else:
+                    # Fallback - try to get from theoretical capabilities
+                    if theoretical_capabilities['remote']:
+                        remote_implementations.append(theoretical_capabilities['remote'])
+            
+            # Set remote capability based on number of implementations
+            if len(remote_implementations) == 1:
+                actual_capabilities['remote'] = remote_implementations[0]
+            elif len(remote_implementations) > 1:
+                actual_capabilities['remote'] = remote_implementations  # Array for multiple
             else:
                 actual_capabilities['remote'] = theoretical_capabilities['remote']  # Fallback
         
