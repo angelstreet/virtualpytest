@@ -13,6 +13,7 @@ import { Host } from '../../../types/common/Host_Types';
 import { AndroidMobileRemote } from './AndroidMobileRemote';
 import { AndroidTvRemote } from './AndroidTvRemote';
 import { AppiumRemote } from './AppiumRemote';
+import { InfraredRemote } from './InfraredRemote';
 
 interface RemotePanelProps {
   host?: Host;
@@ -230,19 +231,20 @@ export const RemotePanel = React.memo(
           );
         case 'ir_remote':
           return (
-            <Box
+            <InfraredRemote
+              host={host}
+              deviceId={deviceId}
+              isConnected={isConnected}
+              onDisconnectComplete={onReleaseControl}
+              isCollapsed={isCollapsed}
+              streamContainerDimensions={stableStreamContainerDimensions}
               sx={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
                 height: '100%',
-                p: 2,
+                '& .MuiButton-root': {
+                  fontSize: isCollapsed ? '0.6rem' : '0.7rem',
+                },
               }}
-            >
-              <Typography variant="body2" color="textSecondary" textAlign="center">
-                IR Remote (TODO)
-              </Typography>
-            </Box>
+            />
           );
         case 'bluetooth_remote':
           return (
