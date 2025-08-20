@@ -1132,19 +1132,33 @@ class VideoContentHelpers:
                     full_image_result = self.ai_helpers.analyze_channel_banner_ai(image_path, None)
                     print(f"VideoContent[{self.device_name}]: Full image AI analysis result: {full_image_result}")
                     
-                    # Use full image result if it's better
-                    if (full_image_result.get('success', False) and 
-                        full_image_result.get('banner_detected', False) and
-                        full_image_result.get('channel_info', {}).get('channel_name')):
-                        channel_result = full_image_result
-                        print(f"VideoContent[{self.device_name}]: Using full image analysis result for {filename}")
+                    # Use full image result if it has useful information (regardless of banner_detected flag)
+                    if full_image_result.get('success', False):
+                        full_info = full_image_result.get('channel_info', {})
+                        full_has_useful_info = any([
+                            full_info.get('channel_name'),
+                            full_info.get('program_name'),
+                            full_info.get('start_time'),
+                            full_info.get('end_time')
+                        ])
+                        
+                        if full_has_useful_info:
+                            channel_result = full_image_result
+                            print(f"VideoContent[{self.device_name}]: Using full image analysis result for {filename}")
                 
-                if (channel_result.get('success', False) and 
-                    channel_result.get('banner_detected', False) and
-                    channel_result.get('channel_info', {}).get('channel_name')):
-                    
+                # Check if we have any useful channel information (regardless of banner_detected flag)
+                if channel_result.get('success', False):
                     channel_info = channel_result.get('channel_info', {})
-                    print(f"VideoContent[{self.device_name}]: Channel info extracted from {filename}: {channel_info.get('channel_name', 'Unknown')}")
+                    has_useful_info = any([
+                        channel_info.get('channel_name'),
+                        channel_info.get('program_name'),
+                        channel_info.get('start_time'),
+                        channel_info.get('end_time')
+                    ])
+                    
+                    if has_useful_info:
+                        banner_status = "detected" if channel_result.get('banner_detected', False) else "partial info found"
+                        print(f"VideoContent[{self.device_name}]: Channel info {banner_status} from {filename}: {channel_info}")
                     
                     return {
                         'channel_name': channel_info.get('channel_name', ''),

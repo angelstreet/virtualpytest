@@ -317,11 +317,26 @@ class VideoVerificationHelpers:
                         print(f"VideoVerification[{self.device_name}]: Banner detected, analyzing with AI")
                         banner_result = self.controller.ai_helpers.analyze_channel_banner_ai(end_image_path, banner_region)
                         
-                        if banner_result.get('success', False) and banner_result.get('banner_detected', False):
-                            channel_info = banner_result.get('channel_info', {})
-                            print(f"VideoVerification[{self.device_name}]: Channel info extracted: {channel_info}")
+                        if banner_result.get('success', False):
+                            # Extract channel info regardless of banner_detected flag (preserve partial info)
+                            extracted_info = banner_result.get('channel_info', {})
+                            
+                            # Check if we have any useful information
+                            has_useful_info = any([
+                                extracted_info.get('channel_name'),
+                                extracted_info.get('program_name'),
+                                extracted_info.get('start_time'),
+                                extracted_info.get('end_time')
+                            ])
+                            
+                            if has_useful_info:
+                                channel_info = extracted_info
+                                banner_status = "detected" if banner_result.get('banner_detected', False) else "partial info found"
+                                print(f"VideoVerification[{self.device_name}]: Channel info {banner_status}: {channel_info}")
+                            else:
+                                print(f"VideoVerification[{self.device_name}]: No useful channel information found")
                         else:
-                            print(f"VideoVerification[{self.device_name}]: Banner analysis failed or no banner found")
+                            print(f"VideoVerification[{self.device_name}]: Banner analysis failed")
                     else:
                         print(f"VideoVerification[{self.device_name}]: No banner presence detected, skipping AI analysis")
             

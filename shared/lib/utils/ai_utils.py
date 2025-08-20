@@ -148,3 +148,131 @@ def _process_image_input(image_input: Union[str, bytes]) -> Optional[str]:
     except Exception as e:
         print(f"AI: Error processing image: {e}")
         return None
+
+# =============================================================================
+# Specialized AI Functions
+# =============================================================================
+
+def analyze_language_menu_ai(image_path: str, context_name: str = "AI") -> Dict[str, Any]:
+    """
+    AI-powered language/subtitle menu analysis using centralized AI utilities.
+    
+    Args:
+        image_path: Path to image file showing a language/subtitle menu
+        context_name: Context name for logging
+        
+    Returns:
+        Dictionary with language and subtitle options analysis
+    """
+    try:
+        print(f"{context_name}: AI language menu analysis")
+        
+        # Check if image exists
+        if not os.path.exists(image_path):
+            print(f"{context_name}: Image file not found: {image_path}")
+            return {'success': False, 'error': 'Image file not found'}
+        
+        # Enhanced prompt for language/subtitle menu detection with better categorization
+        prompt = """Analyze this image for language/subtitle/audio menu options. This could be a TV settings menu, streaming app menu, or media player interface.
+
+LOOK FOR THESE UI PATTERNS:
+- Settings menus with AUDIO, SUBTITLES, or LANGUAGE sections
+- Dropdown menus or lists showing language options
+- Media player controls with language/subtitle buttons
+- TV/STB interface menus for audio/subtitle settings
+- Streaming app (Netflix, Prime, etc.) audio/subtitle menus
+- Any interface showing language choices like "English", "French", "Spanish", etc.
+- Audio tracks, subtitle tracks, or closed caption options
+
+CRITICAL INSTRUCTIONS:
+1. You MUST ALWAYS respond with valid JSON - never return empty content
+2. If you find ANY language/audio/subtitle menu or options, extract them
+3. If you find NO menu, you MUST still respond with the "menu_detected": false JSON format below
+4. ALWAYS provide a response - never return empty or null content
+5. Be liberal in detecting menus - if there are any language-related options, consider it a menu
+
+Required JSON format when menu found:
+{
+  "menu_detected": true,
+  "audio_languages": ["English", "French", "Spanish"],
+  "subtitle_languages": ["English", "French", "Spanish", "Off"],
+  "selected_audio": 0,
+  "selected_subtitle": 3
+}
+
+If no language/subtitle menu found:
+{
+  "menu_detected": false,
+  "audio_languages": [],
+  "subtitle_languages": [],
+  "selected_audio": -1,
+  "selected_subtitle": -1
+}
+
+CATEGORIZATION RULES:
+- AUDIO section: Main audio languages (English, French, Spanish, etc.)
+- SUBTITLE section: Subtitle options (Off, English, French, etc.)
+- AUDIO DESCRIPTION: These belong in audio_languages, not subtitle_languages
+- Look for section headers like "AUDIO", "SUBTITLES", "AUDIO DESCRIPTION", "LANGUAGE", "CC"
+- List languages in the order they appear within each section (index 0, 1, 2, etc.)
+- Use "Off" for disabled subtitles
+- Set selected_audio/selected_subtitle to the index of the currently selected option (-1 if none)
+- Check for visual indicators like checkmarks (✓), highlighting, arrows, or bold text
+
+IMPORTANT: Even if the image has no language/subtitle menu, you MUST respond with the "menu_detected": false JSON format above. Never return empty content.
+
+RESPOND WITH JSON ONLY - NO MARKDOWN - NO OTHER TEXT"""
+        
+        # Call AI with image
+        result = call_vision_ai(prompt, image_path, max_tokens=400, temperature=0.0)
+        
+        if not result['success']:
+            return {
+                'success': False,
+                'error': f"AI call failed: {result.get('error', 'Unknown error')}",
+                'analysis_type': 'ai_language_menu_analysis'
+            }
+        
+        content = result['content']
+        
+        # Parse JSON response
+        try:
+            # Remove markdown code block markers
+            json_content = content.replace('```json', '').replace('```', '').strip()
+            
+            ai_result = json.loads(json_content)
+            
+            # Validate and normalize the result
+            menu_detected = ai_result.get('menu_detected', False)
+            audio_languages = ai_result.get('audio_languages', [])
+            subtitle_languages = ai_result.get('subtitle_languages', [])
+            selected_audio = ai_result.get('selected_audio', -1)
+            selected_subtitle = ai_result.get('selected_subtitle', -1)
+            
+            # Return standardized result
+            return {
+                'success': True,
+                'menu_detected': menu_detected,
+                'audio_languages': audio_languages,
+                'subtitle_languages': subtitle_languages,
+                'selected_audio': selected_audio,
+                'selected_subtitle': selected_subtitle,
+                'analysis_type': 'ai_language_menu_analysis'
+            }
+            
+        except json.JSONDecodeError as e:
+            print(f"{context_name}: JSON parsing error: {e}")
+            print(f"{context_name}: Raw AI response: {repr(content)}")
+            return {
+                'success': False,
+                'error': 'Invalid AI response format',
+                'raw_response': content,
+                'json_error': str(e)
+            }
+            
+    except Exception as e:
+        print(f"{context_name}: AI language menu analysis error: {e}")
+        return {
+            'success': False,
+            'error': f'Analysis error: {str(e)}'
+        }
