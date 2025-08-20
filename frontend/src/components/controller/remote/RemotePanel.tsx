@@ -93,8 +93,8 @@ export const RemotePanel = React.memo(
               const remoteConfig = Object.values(device.controller_configs).find(
                 config => config.implementation === 'ir_remote'
               );
-              if (remoteConfig?.parameters) {
-                irType = remoteConfig.parameters.ir_type || remoteConfig.parameters.ir_config_type;
+              if (remoteConfig?.params) {
+                irType = remoteConfig.params.ir_type;
               }
             }
             

@@ -352,10 +352,10 @@ class IRRemoteController(RemoteControllerInterface):
             print(f"Remote[{self.device_type.upper()}]: Sending IR code for {key}")
             print(f"Remote[{self.device_type.upper()}]: Raw IR code: {raw_code[:100]}...")  # Debug: show first 100 chars
             
-            print(f"Remote[{self.device_type.upper()}]: Running command: sudo ir-ctl --send")
+            print(f"Remote[{self.device_type.upper()}]: Running command: sudo ir-ctl --send -")
             
             result = subprocess.run(
-                ["sudo", "ir-ctl", "--send"], 
+                ["sudo", "ir-ctl", "--send", "-"], 
                 input=raw_code.encode(),
                 check=True,
                 capture_output=True,

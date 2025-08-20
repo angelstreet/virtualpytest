@@ -6,10 +6,10 @@ export const infraredRemoteConfig = {
     default_scale: 1,
     min_scale: 0.3,
     max_scale: 1.0,
-    button_scale_factor: 4,
+    button_scale_factor: 1.5,
     global_offset: { x: 0, y: 0 },
     text_style: {
-      fontSize: '32px',
+      fontSize: '12px',
       fontWeight: 'bold',
       color: 'white',
       textShadow: '2px 2px 4px rgba(0,0,0,0.9)',

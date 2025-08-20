@@ -30,10 +30,7 @@ export const useInfraredRemote = (
   const irType = device?.controller_configs && 
     Object.values(device.controller_configs).find(
       config => config.implementation === 'ir_remote'
-    )?.parameters?.ir_type || 
-    Object.values(device.controller_configs || {}).find(
-      config => config.implementation === 'ir_remote'
-    )?.parameters?.ir_config_type;
+    )?.params?.ir_type;
 
   // Get the appropriate config based on IR type
   const layoutConfig = irType ? getInfraredRemoteConfig(irType) : infraredRemoteConfig;

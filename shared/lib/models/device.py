@@ -51,6 +51,9 @@ class Device:
             'network': []
         }
         
+        # Store controller configurations for frontend serialization
+        self._controller_configs: Dict[str, Any] = {}
+        
         # Capabilities derived from controllers
         self._capabilities: List[str] = []
     
@@ -103,6 +106,15 @@ class Device:
             True if device has controllers of this type
         """
         return len(self._controllers.get(controller_type, [])) > 0
+    
+    def set_controller_configs(self, controller_configs: Dict[str, Any]):
+        """
+        Set the controller configurations for this device.
+        
+        Args:
+            controller_configs: Dictionary of controller configurations
+        """
+        self._controller_configs = controller_configs
     
     def get_capabilities(self) -> List[str]:
         """
@@ -260,7 +272,8 @@ class Device:
             'device_port': self.device_port,
             'device_capabilities': actual_capabilities,  # Use actual capabilities instead of theoretical
             'device_verification_types': device_verification_types,  # Simplified naming (removed 'available_' prefix)
-            'device_action_types': device_action_types  # Simplified naming (removed 'available_' prefix)
+            'device_action_types': device_action_types,  # Simplified naming (removed 'available_' prefix)
+            'controller_configs': self._controller_configs  # Include controller configurations for frontend
         }
         
         # Include video paths needed for URL building (if available)
