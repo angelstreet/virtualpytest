@@ -313,15 +313,28 @@ class PlaywrightWebController(WebControllerInterface):
                 page = await self._get_persistent_page(target_url=normalized_url)
                 print(f"[PLAYWRIGHT]: Got persistent page, starting navigation to {normalized_url}")
                 
-                # Navigate to URL with detailed logging
+                # Navigate to URL with pragmatic loading strategy
                 navigation_start = time.time()
+                
+                # First try to load with domcontentloaded (main content ready)
                 try:
-                    await page.goto(normalized_url, timeout=timeout, wait_until='load')
+                    await page.goto(normalized_url, timeout=timeout, wait_until='domcontentloaded')
                     navigation_time = int((time.time() - navigation_start) * 1000)
-                    print(f"[PLAYWRIGHT]: page.goto() completed successfully in {navigation_time}ms")
+                    print(f"[PLAYWRIGHT]: Main page content loaded in {navigation_time}ms")
+                    
+                    # Then try to wait for full load, but don't fail if it times out
+                    full_load_start = time.time()
+                    try:
+                        await page.wait_for_load_state('load', timeout=20000)  # 20 second limit
+                        full_load_time = int((time.time() - full_load_start) * 1000)
+                        print(f"[PLAYWRIGHT]: Full page load completed in additional {full_load_time}ms")
+                    except Exception as load_timeout:
+                        full_load_time = int((time.time() - full_load_start) * 1000)
+                        print(f"[PLAYWRIGHT]: Full load timeout after {full_load_time}ms ({type(load_timeout).__name__}), but continuing since main content is ready")
+                        
                 except Exception as goto_error:
                     navigation_time = int((time.time() - navigation_start) * 1000)
-                    print(f"[PLAYWRIGHT]: page.goto() FAILED after {navigation_time}ms: {type(goto_error).__name__}: {str(goto_error)}")
+                    print(f"[PLAYWRIGHT]: Main page navigation FAILED after {navigation_time}ms: {type(goto_error).__name__}: {str(goto_error)}")
                     raise goto_error
                 
                 # Get page info after navigation
