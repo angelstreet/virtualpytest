@@ -227,12 +227,12 @@ export const RemotePanel = React.memo(
       const remoteCapability = device?.device_capabilities?.remote;
       
       // Use remote capability if available, otherwise fall back to device model
-      const remoteType = remoteCapability || deviceModel;
+      const finalRemoteType = remoteType || remoteCapability || deviceModel;
       console.log(`[@component:RemotePanel] Device: ${device?.device_name} (${device?.device_model})`);
       console.log(`[@component:RemotePanel] Remote capability: ${remoteCapability}`);
-      console.log(`[@component:RemotePanel] Using remote type: ${remoteType}`);
+      console.log(`[@component:RemotePanel] Using remote type: ${finalRemoteType}`);
 
-      switch (remoteType) {
+      switch (finalRemoteType) {
         case 'android_mobile':
           return (
             <AndroidMobileRemote

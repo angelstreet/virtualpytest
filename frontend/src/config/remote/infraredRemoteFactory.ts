@@ -1,6 +1,7 @@
 import { InfraredRemoteConfig, InfraredRemoteType } from './infraredRemoteBase';
 import { samsungRemoteConfig } from './samsungRemote';
 import { eosRemoteConfig } from './eosRemote';
+import { firetvRemoteConfig } from './firetvRemote';
 
 /**
  * Factory function to get the appropriate infrared remote configuration
@@ -18,6 +19,10 @@ export function getInfraredRemoteConfig(irType: string): InfraredRemoteConfig {
     case 'eos':
       console.log(`[@config:infraredRemoteFactory] Loading EOS remote config`);
       return eosRemoteConfig;
+    
+    case 'firetv':
+      console.log(`[@config:infraredRemoteFactory] Loading FireTV remote config`);
+      return firetvRemoteConfig;
     
     default:
       console.warn(`[@config:infraredRemoteFactory] Unknown IR type: ${irType}, falling back to Samsung`);

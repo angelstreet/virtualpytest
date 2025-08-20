@@ -97,7 +97,7 @@ export interface InfraredRemoteConfig {
 }
 
 // Infrared remote type definitions
-export type InfraredRemoteType = 'samsung' | 'eos';
+export type InfraredRemoteType = 'samsung' | 'eos' | 'firetv';
 
 // Common default values for all infrared remotes
 export const INFRARED_REMOTE_DEFAULTS = {
