@@ -85,8 +85,7 @@ def execute_command():
         
         else:
             # Handle other commands synchronously as before
-            # Use longer timeout for web navigation commands (sites can be slow to load)
-            timeout = 30  # Increased from 30 to 90 seconds for navigation operations
+            timeout = 30
             response_data, status_code = proxy_to_host('/host/web/executeCommand', 'POST', host_request_data, timeout=timeout)
             return jsonify(response_data), status_code
         

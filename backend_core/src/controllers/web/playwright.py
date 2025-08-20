@@ -342,35 +342,24 @@ class PlaywrightWebController(WebControllerInterface):
         """Navigate to a URL using async CDP connection."""
         async def _async_navigate_to_url():
             try:
-                # Normalize URL to add protocol if missing
                 normalized_url = self.utils.normalize_url(url)
                 print(f"[PLAYWRIGHT]: Navigating to {url} (normalized: {normalized_url})")
                 start_time = time.time()
-                
 
-                
-                # Get persistent page from browser+context
                 page = await self._get_persistent_page(target_url=normalized_url)
-                
-                # Navigate to URL (original working approach)
+
                 await page.goto(normalized_url, timeout=timeout, wait_until='load')
-                
-                # Get page info after navigation
+
                 try:
-                    # Try to wait for networkidle but don't fail if it times out
                     await page.wait_for_load_state('networkidle', timeout=20000)
                 except Exception as e:
                     print(f"[PLAYWRIGHT]: Networkidle timeout ignored: {str(e)}")
-                
+
                 self.current_url = page.url
                 self.page_title = await page.title()
-                
-                print(f"[PLAYWRIGHT]: All page info retrieved successfully!")
-                
-                # Page remains persistent for next actions
-                
+
                 execution_time = int((time.time() - start_time) * 1000)
-                
+
                 result = {
                     'success': True,
                     'url': self.current_url,
@@ -381,41 +370,22 @@ class PlaywrightWebController(WebControllerInterface):
                     'redirected': self.current_url != normalized_url,
                     'follow_redirects': follow_redirects
                 }
-                
+
                 if result['redirected']:
                     print(f"[PLAYWRIGHT]: Navigation completed with redirect: {normalized_url} -> {self.current_url}")
                 else:
                     print(f"[PLAYWRIGHT]: Navigation successful - {self.page_title}")
                 return result
-                
+
             except Exception as e:
-                execution_time = int((time.time() - start_time) * 1000)
-                error_type = type(e).__name__
-                error_msg = str(e)
-                
-                print(f"[PLAYWRIGHT]: ❌ NAVIGATION FAILED after {execution_time}ms")
-                print(f"[PLAYWRIGHT]: Error Type: {error_type}")
-                print(f"[PLAYWRIGHT]: Error Message: {error_msg}")
-                print(f"[PLAYWRIGHT]: Target URL: {normalized_url if 'normalized_url' in locals() else url}")
-                
-                # Try to get current page state for debugging
-                try:
-                    if 'page' in locals():
-                        current_url = page.url
-                        current_title = await page.title()
-                        print(f"[PLAYWRIGHT]: Current page state - URL: {current_url}, Title: {current_title[:50]}...")
-                    else:
-                        print(f"[PLAYWRIGHT]: Page object not available for state check")
-                except Exception as state_error:
-                    print(f"[PLAYWRIGHT]: Could not get page state: {type(state_error).__name__}: {str(state_error)}")
-                
+                error_msg = f"Navigation error: {e}"
+                print(f"[PLAYWRIGHT]: {error_msg}")
                 return {
                     'success': False,
-                    'error': f"{error_type}: {error_msg}",
-                    'error_type': error_type,
+                    'error': error_msg,
                     'url': self.current_url,
                     'title': self.page_title,
-                    'execution_time': execution_time,
+                    'execution_time': 0,
                     'original_url': url,
                     'normalized_url': normalized_url if 'normalized_url' in locals() else url,
                     'follow_redirects': follow_redirects
@@ -431,153 +401,166 @@ class PlaywrightWebController(WebControllerInterface):
         
         return self.utils.run_async(_async_navigate_to_url())
     
-    def click_element(self, search_term: str) -> Dict[str, Any]:
-        """Click an element by finding it through dump search first.
+    def click_element(self, selector: str) -> Dict[str, Any]:
+        """Click an element by selector using async CDP connection.
         
         Args:
-            search_term: Text to search for in element content, aria-label, or exact selector
+            selector: CSS selector, or text content to search for
         """
-        try:
-            print(f"[PLAYWRIGHT]: Clicking element using smart search: {search_term}")
-            start_time = time.time()
-            
-            # First, find the element using our dump-based search
-            find_result = self.find_element(search_term)
-            
-            if not find_result.get('success'):
+        async def _async_click_element():
+            try:
+                print(f"[PLAYWRIGHT]: Clicking element: {selector}")
+                start_time = time.time()
+                
+                # Get persistent page from browser+context
+                connect_start = time.time()
+                page = await self._get_persistent_page()
+                connect_time = int((time.time() - connect_start) * 1000)
+                print(f"[PLAYWRIGHT]: Persistent page access took {connect_time}ms")
+                
+                # Try obvious selectors with short timeout
+                timeout = 500  # 500ms per attempt
+                
+                # Most obvious selectors for text-based elements (including Flutter)
+                selectors_to_try = [
+                    selector,  # Try exact selector first (could be CSS or text)
+                    f"[aria-label='{selector}']",  # Most common for buttons/links
+                    f"[aria-label='{selector}' i]",  # Case-insensitive aria-label
+                    f"flt-semantics[aria-label='{selector}']",  # Flutter semantics exact
+                    f"flt-semantics[aria-label='{selector}' i]",  # Flutter semantics case-insensitive
+                    f"button:has-text('{selector}')",  # Actual buttons with text
+                    f"a:has-text('{selector}')"  # Links with text
+                ]
+                
+                for i, sel in enumerate(selectors_to_try):
+                    try:
+                        await page.click(sel, timeout=timeout)
+                        execution_time = int((time.time() - start_time) * 1000)
+                        print(f"[PLAYWRIGHT]: Click successful using selector {i+1}: {sel}")
+                        return {
+                            'success': True,
+                            'error': '',
+                            'execution_time': execution_time
+                        }
+                    except Exception as e:
+                        print(f"[PLAYWRIGHT]: Selector {i+1} failed ({timeout}ms): {sel} - Exception: {str(e)}")
+                        continue
+                
+                # All selectors failed
+                execution_time = int((time.time() - start_time) * 1000)
+                error_msg = f"Click failed - element not found with any selector"
+                print(f"[PLAYWRIGHT]: {error_msg}")
                 return {
                     'success': False,
-                    'error': f"Could not find element: {find_result.get('error', 'Unknown error')}",
-                    'execution_time': int((time.time() - start_time) * 1000)
-                }
-            
-            element_info = find_result.get('element_info', {})
-            exact_selector = element_info.get('selector')
-            
-            if not exact_selector:
-                return {
-                    'success': False,
-                    'error': "No exact selector found for element",
-                    'execution_time': int((time.time() - start_time) * 1000)
-                }
-            
-            print(f"[PLAYWRIGHT]: Found exact selector '{exact_selector}' for '{search_term}', now clicking...")
-            
-            # Now click using the exact selector found from dump
-            async def _async_click_exact():
-                try:
-                    page = await self._get_persistent_page()
-                    await page.click(exact_selector, timeout=5000)
-                    return True
-                except Exception as e:
-                    print(f"[PLAYWRIGHT]: Click failed with exact selector '{exact_selector}': {e}")
-                    return False
-            
-            click_success = self.utils.run_async(_async_click_exact())
-            execution_time = int((time.time() - start_time) * 1000)
-            
-            if click_success:
-                print(f"[PLAYWRIGHT]: Click successful using exact selector '{exact_selector}'")
-                return {
-                    'success': True,
-                    'error': '',
-                    'execution_time': execution_time,
-                    'used_selector': exact_selector,
-                    'element_info': element_info,
-                    'search_term': search_term
-                }
-            else:
-                return {
-                    'success': False,
-                    'error': f"Click failed with exact selector '{exact_selector}'",
-                    'execution_time': execution_time,
-                    'found_selector': exact_selector
+                    'error': error_msg,
+                    'execution_time': execution_time
                 }
                 
-        except Exception as e:
-            error_msg = f"Click element error: {e}"
-            print(f"[PLAYWRIGHT]: {error_msg}")
+            except Exception as e:
+                error_msg = f"Click error: {e}"
+                print(f"[PLAYWRIGHT]: {error_msg}")
+                return {
+                    'success': False,
+                    'error': error_msg,
+                    'execution_time': 0,
+                    'selector_attempted': selector
+                }
+        
+        if not self.is_connected:
             return {
                 'success': False,
-                'error': error_msg,
+                'error': 'Not connected to browser',
                 'execution_time': 0
             }
-    
-    def find_element(self, search_term: str) -> Dict[str, Any]:
-        """Find an element by searching through dump results.
+        
+        return self.utils.run_async(_async_click_element())
+
+    def find_element(self, selector: str) -> Dict[str, Any]:
+        """Find an element by selector without clicking it.
         
         Args:
-            search_term: Text to search for in element content, aria-label, or exact selector
+            selector: CSS selector, or text content to search for
         """
-        try:
-            print(f"[PLAYWRIGHT]: Finding element using dump search: {search_term}")
-            start_time = time.time()
-            
-            # First, dump all elements to get the real selectors
-            dump_result = self.dump_elements()
-            
-            if not dump_result.get('success'):
+        async def _async_find_element():
+            try:
+                print(f"[PLAYWRIGHT]: Finding element: {selector}")
+                start_time = time.time()
+                
+                # Get persistent page from browser+context
+                connect_start = time.time()
+                page = await self._get_persistent_page()
+                connect_time = int((time.time() - connect_start) * 1000)
+                print(f"[PLAYWRIGHT]: Persistent page access took {connect_time}ms")
+                
+                # Try obvious selectors with short timeout
+                timeout = 500  # 500ms per attempt
+                
+                # Most obvious selectors for text-based elements (including Flutter)
+                selectors_to_try = [
+                    selector,  # Try exact selector first (could be CSS or text)
+                    f"[aria-label='{selector}']",  # Most common for buttons/links
+                    f"[aria-label='{selector}' i]",  # Case-insensitive aria-label
+                    f"flt-semantics[aria-label='{selector}']",  # Flutter semantics exact
+                    f"flt-semantics[aria-label='{selector}' i]",  # Flutter semantics case-insensitive
+                    f"button:has-text('{selector}')",  # Actual buttons with text
+                    f"a:has-text('{selector}')"  # Links with text
+                ]
+                
+                for i, sel in enumerate(selectors_to_try):
+                    try:
+                        element = await page.locator(sel).first
+                        await element.wait_for(timeout=timeout)
+                        if await element.is_visible():
+                            bounding_box = await element.bounding_box()
+                            element_info = {}
+                            if bounding_box:
+                                element_info = {
+                                    'x': bounding_box['x'],
+                                    'y': bounding_box['y'],
+                                    'width': bounding_box['width'],
+                                    'height': bounding_box['height']
+                                }
+                            
+                            execution_time = int((time.time() - start_time) * 1000)
+                            print(f"[PLAYWRIGHT]: Element found using selector {i+1}: {sel}")
+                            return {
+                                'success': True,
+                                'error': '',
+                                'execution_time': execution_time,
+                                'element_info': element_info
+                            }
+                    except Exception:
+                        print(f"[PLAYWRIGHT]: Selector {i+1} failed ({timeout}ms): {sel}")
+                        continue
+                
+                # All selectors failed
+                execution_time = int((time.time() - start_time) * 1000)
+                error_msg = f"Element not found with any selector"
+                print(f"[PLAYWRIGHT]: {error_msg}")
                 return {
                     'success': False,
-                    'error': f"Failed to dump elements: {dump_result.get('error', 'Unknown error')}",
-                    'execution_time': int((time.time() - start_time) * 1000)
+                    'error': error_msg,
+                    'execution_time': execution_time
                 }
-            
-            elements = dump_result.get('elements', [])
-            print(f"[PLAYWRIGHT]: Searching through {len(elements)} dumped elements")
-            
-            # Search for matching element
-            found_element = None
-            match_type = None
-            
-            for element in elements:
-                if element.get('selector') == search_term:
-                    found_element = element
-                    match_type = 'exact_selector'
-                    break
-                elif element.get('id') == search_term:
-                    found_element = element
-                    match_type = 'exact_id'
-                    break
-                elif element.get('attributes', {}).get('aria-label', '').lower() == search_term.lower():
-                    found_element = element
-                    match_type = 'aria_label'
-                    break
-            
-            execution_time = int((time.time() - start_time) * 1000)
-            
-            if found_element:
-                print(f"[PLAYWRIGHT]: Found {match_type} match: {found_element['selector']}")
-                return {
-                    'success': True,
-                    'error': '',
-                    'execution_time': execution_time,
-                    'element_info': {
-                        'selector': found_element['selector'],
-                        'x': found_element['position']['x'],
-                        'y': found_element['position']['y'],
-                        'width': found_element['position']['width'],
-                        'height': found_element['position']['height'],
-                        'aria_label': found_element.get('attributes', {}).get('aria-label'),
-                        'text_content': found_element.get('textContent')
-                    }
-                }
-            else:
+                
+            except Exception as e:
+                error_msg = f"Find error: {e}"
+                print(f"[PLAYWRIGHT]: {error_msg}")
                 return {
                     'success': False,
-                    'error': f"No elements found matching '{search_term}'",
-                    'execution_time': execution_time,
-                    'total_elements_searched': len(elements)
+                    'error': error_msg,
+                    'execution_time': 0,
+                    'selector_attempted': selector
                 }
-            
-        except Exception as e:
-            error_msg = f"Find element error: {e}"
-            print(f"[PLAYWRIGHT]: {error_msg}")
+        
+        if not self.is_connected:
             return {
                 'success': False,
-                'error': error_msg,
+                'error': 'Not connected to browser',
                 'execution_time': 0
             }
+        
+        return self.utils.run_async(_async_find_element())
     
     def input_text(self, selector: str, text: str, timeout: int = 30000) -> Dict[str, Any]:
         """Input text into an element using async CDP connection."""
@@ -1035,11 +1018,6 @@ class PlaywrightWebController(WebControllerInterface):
         
         elif command == 'connect_browser':
             return self.connect_browser()
-        
-        elif command == 'dump_elements':
-            element_types = params.get('element_types', 'all')
-            include_hidden = params.get('include_hidden', False)
-            return self.dump_elements(element_types=element_types, include_hidden=include_hidden)
         
         elif command == 'browser_use_task':
             task = params.get('task', '')
