@@ -124,7 +124,7 @@ def navigate_to_url():
         # Get request data
         data = request.get_json() or {}
         url = data.get('url')
-        timeout = data.get('timeout', 30000)
+        timeout = data.get('timeout', 60000)
         
         print(f"[@route:host_web:navigate_to_url] Navigating to: {url}")
         
