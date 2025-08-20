@@ -1048,7 +1048,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
           const selectedDevice = selectedHost.devices?.find((d) => d.device_id === selectedDeviceId);
           const isDesktopDevice = selectedDevice?.device_model === 'host_vnc';
           const remoteCapability = selectedDevice?.device_capabilities?.remote;
-          const hasMultipleRemotes = Array.isArray(remoteCapability);
+          const hasMultipleRemotes = Array.isArray(remoteCapability) || selectedDevice?.device_model === 'fire_tv';
           
           if (isDesktopDevice) {
             // For desktop devices, render both DesktopPanel and WebPanel together
@@ -1074,9 +1074,15 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
             );
           } else if (hasMultipleRemotes) {
             // For devices with multiple remote controllers, render a RemotePanel for each
+            const remoteTypes = Array.isArray(remoteCapability) 
+              ? remoteCapability 
+              : selectedDevice?.device_model === 'fire_tv' 
+                ? ['android_tv', 'ir_remote'] 
+                : [remoteCapability];
+                
             return (
               <>
-                {remoteCapability.map((remoteType: string, index: number) => (
+                {remoteTypes.filter(Boolean).map((remoteType: string, index: number) => (
                   <RemotePanel
                     key={`${selectedDeviceId}-${remoteType}`}
                     host={selectedHost}

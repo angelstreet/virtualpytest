@@ -699,13 +699,19 @@ const RecHostStreamModalContent: React.FC<{
               ) : (() => {
                 // Handle multiple remote controllers
                 const remoteCapability = device?.device_capabilities?.remote;
-                const hasMultipleRemotes = Array.isArray(remoteCapability);
+                const hasMultipleRemotes = Array.isArray(remoteCapability) || device?.device_model === 'fire_tv';
                 
                 if (hasMultipleRemotes) {
                   // For devices with multiple remote controllers, render a RemotePanel for each
+                  const remoteTypes = Array.isArray(remoteCapability) 
+                    ? remoteCapability 
+                    : device?.device_model === 'fire_tv' 
+                      ? ['android_tv', 'ir_remote'] 
+                      : [remoteCapability];
+                      
                   return (
                     <>
-                      {remoteCapability.map((remoteType: string, index: number) => (
+                      {remoteTypes.filter(Boolean).map((remoteType: string, index: number) => (
                         <RemotePanel
                           key={`${device?.device_id}-${remoteType}`}
                           host={host}
