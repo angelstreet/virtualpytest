@@ -369,66 +369,11 @@ class PlaywrightWebController(WebControllerInterface):
                 
                 # Get persistent page from browser+context
                 page = await self._get_persistent_page(target_url=normalized_url)
-                print(f"[PLAYWRIGHT]: Got persistent page, starting navigation to {normalized_url}")
                 
-                # Navigate to URL with pragmatic loading strategy
-                navigation_start = time.time()
-                
-                # First try to load with domcontentloaded (main content ready)
-                try:
-                    print(f"[PLAYWRIGHT]: About to call page.goto() with timeout={timeout}ms, wait_until='domcontentloaded'")
-                    print(f"[PLAYWRIGHT]: Current page URL before navigation: {page.url}")
-                    
-                    # Add asyncio timeout as additional protection against hanging
-                    import asyncio
-                    try:
-                        await asyncio.wait_for(
-                            page.goto(normalized_url, timeout=timeout, wait_until='domcontentloaded'),
-                            timeout=timeout/1000 + 5  # Add 5 seconds buffer to Playwright timeout
-                        )
-                        navigation_time = int((time.time() - navigation_start) * 1000)
-                        print(f"[PLAYWRIGHT]: page.goto() completed successfully!")
-                        print(f"[PLAYWRIGHT]: Main page content loaded in {navigation_time}ms")
-                    except asyncio.TimeoutError:
-                        navigation_time = int((time.time() - navigation_start) * 1000)
-                        print(f"[PLAYWRIGHT]: asyncio timeout after {navigation_time}ms - page.goto() hung indefinitely")
-                        raise Exception(f"Navigation hung for {navigation_time}ms, exceeded asyncio timeout")
-                    
-                    # Then try to wait for full load, but don't fail if it times out
-                    full_load_start = time.time()
-                    try:
-                        await page.wait_for_load_state('load', timeout=20000)  # 20 second limit
-                        full_load_time = int((time.time() - full_load_start) * 1000)
-                        print(f"[PLAYWRIGHT]: Full page load completed in additional {full_load_time}ms")
-                    except Exception as load_timeout:
-                        full_load_time = int((time.time() - full_load_start) * 1000)
-                        print(f"[PLAYWRIGHT]: Full load timeout after {full_load_time}ms ({type(load_timeout).__name__}), but continuing since main content is ready")
-                        
-                except Exception as goto_error:
-                    navigation_time = int((time.time() - navigation_start) * 1000)
-                    print(f"[PLAYWRIGHT]: Main page navigation FAILED after {navigation_time}ms: {type(goto_error).__name__}: {str(goto_error)}")
-                    raise goto_error
+                # Navigate to URL using exact same approach as working script
+                await page.goto(normalized_url, timeout=timeout, wait_until='networkidle')
                 
                 # Get page info after navigation
-                try:
-                    current_url = page.url
-                    current_title = await page.title()
-                    print(f"[PLAYWRIGHT]: Page loaded - URL: {current_url}, Title: {current_title[:100]}...")
-                except Exception as page_info_error:
-                    print(f"[PLAYWRIGHT]: Failed to get page info: {type(page_info_error).__name__}: {str(page_info_error)}")
-                    raise page_info_error
-                
-                # Try to wait for networkidle but don't fail if it times out
-                networkidle_start = time.time()
-                try:
-                    print(f"[PLAYWRIGHT]: Waiting for networkidle state (timeout: 20s)...")
-                    await page.wait_for_load_state('networkidle', timeout=20000)
-                    networkidle_time = int((time.time() - networkidle_start) * 1000)
-                    print(f"[PLAYWRIGHT]: Networkidle achieved in {networkidle_time}ms")
-                except Exception as e:
-                    networkidle_time = int((time.time() - networkidle_start) * 1000)
-                    print(f"[PLAYWRIGHT]: Networkidle timeout after {networkidle_time}ms - {type(e).__name__}: {str(e)} (this is expected and ignored)")
-                
                 self.current_url = page.url
                 self.page_title = await page.title()
                 
