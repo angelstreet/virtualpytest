@@ -567,7 +567,7 @@ const RunTests: React.FC = () => {
   const displayParameters = scriptAnalysis?.parameters.filter((param) => 
     (param.required && param.name !== 'host' && param.name !== 'device') ||
     param.name === 'node' ||  // Always show node parameter for goto scripts
-    (selectedScript.includes('fullzap') && (param.name === 'action' || param.name === 'max_iteration' || param.name === 'goto_live'))  // Show fullzap specific parameters
+    (selectedScript.includes('fullzap') && (param.name === 'max_iteration' || param.name === 'goto_live'))  // Show fullzap specific parameters
   ) || [];
 
 
