@@ -310,14 +310,14 @@ export const AndroidMobileOverlay = React.memo(
 
     return (
       <>
-        {/* Base transparent tap layer - Covers full screen for landscape tapping */}
+        {/* Base transparent tap layer - Covers full stream panel size */}
         <div
           style={{
             position: 'fixed',
-            left: 0,
-            top: 0,
-            width: '100vw',
-            height: '100vh',
+            left: `${panelInfo.position.x}px`,
+            top: `${panelInfo.position.y}px`,
+            width: `${panelInfo.size.width}px`,
+            height: `${panelInfo.size.height}px`,
             zIndex: getZIndex('ANDROID_MOBILE_OVERLAY'), // Base layer for tap detection
             contain: 'layout style size',
             willChange: 'transform',
