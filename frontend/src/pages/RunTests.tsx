@@ -522,32 +522,7 @@ const RunTests: React.FC = () => {
 
 
 
-    // Special handling for boolean parameters like goto_live
-    if (param.name === 'goto_live') {
-      const options = ['true', 'false'];
-      
-      return (
-        <Autocomplete
-          key={param.name}
-          options={options}
-          value={value || 'true'}
-          onChange={(_event, newValue) => handleParameterChange(param.name, newValue || 'true')}
-          size="small"
-          renderInput={(params) => (
-            <TextField
-              {...params}
-              label={`${param.name}${param.required ? ' *' : ''}`}
-              size="small"
-              fullWidth
-              error={param.required && !value.trim()}
-              helperText="Go to live"
-            />
-          )}
-        />
-      );
-    }
-
-    // Default text field for other parameters
+    // Default text field for all parameters
     return (
       <TextField
         key={param.name}
@@ -558,7 +533,6 @@ const RunTests: React.FC = () => {
         fullWidth
         error={param.required && !value.trim()}
         placeholder={param.name === 'node' ? 'home' : (param.default || '')}
-        helperText={param.help ? param.help.substring(0, 50) + (param.help.length > 50 ? '...' : '') : ''}
       />
     );
   };
