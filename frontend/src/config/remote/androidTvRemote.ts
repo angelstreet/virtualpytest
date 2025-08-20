@@ -2,7 +2,7 @@ export const androidTvRemoteConfig = {
   remote_info: {
     name: 'Android TV',
     type: 'android_tv' as const,
-    image_url: '/android-tv-remote.png',
+    image_url: '/androidtv_remote.png',
     default_scale: 1,
     min_scale: 0.3,
     max_scale: 1.0,
@@ -59,7 +59,7 @@ export const androidTvRemoteConfig = {
       padding: '50px',
     },
     background_image: {
-      url: '/android-tv-remote.png',
+      url: '/androidtv_remote.png',
       width: 400,
       height: 300,
     },
