@@ -1,2 +1,3 @@
+
 ir-ctl -r to learn raw code using irdroid usb
-sudo ir-ctl --send rawkey
+ir-ctl --send my_button.txt --device /dev/lirc1

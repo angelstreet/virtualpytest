@@ -342,6 +342,8 @@ class IRRemoteController(RemoteControllerInterface):
         Returns:
             bool: True if command sent successfully
         """
+        import tempfile
+        
         try:
             # Get raw IR code from config
             raw_code = self.ir_config_data.get(key)
@@ -352,14 +354,18 @@ class IRRemoteController(RemoteControllerInterface):
             print(f"Remote[{self.device_type.upper()}]: Sending IR code for {key}")
             print(f"Remote[{self.device_type.upper()}]: Raw IR code: {raw_code[:100]}...")  # Debug: show first 100 chars
             
-            print(f"Remote[{self.device_type.upper()}]: Running command: sudo ir-ctl --send -")
+            # Create temporary file
+            with tempfile.NamedTemporaryFile(mode='w', delete=False) as temp_file:
+                temp_file.write(raw_code)
+                temp_path = temp_file.name
+            
+            print(f"Remote[{self.device_type.upper()}]: Running command: sudo ir-ctl --device {self.ir_path} --send {temp_path}")
             
             result = subprocess.run(
-                ["sudo", "ir-ctl", "--send", "-"], 
-                input=raw_code.encode(),
+                ["sudo", "ir-ctl", "--device", self.ir_path, "--send", temp_path], 
                 check=True,
                 capture_output=True,
-                text=False,
+                text=True,
                 timeout=5
             )
             
@@ -369,9 +375,9 @@ class IRRemoteController(RemoteControllerInterface):
         except subprocess.CalledProcessError as e:
             print(f"Remote[{self.device_type.upper()}]: Failed to send IR code: {e}")
             if e.stderr:
-                print(f"Remote[{self.device_type.upper()}]: stderr: {e.stderr.decode()}")
+                print(f"Remote[{self.device_type.upper()}]: stderr: {e.stderr}")
             if e.stdout:
-                print(f"Remote[{self.device_type.upper()}]: stdout: {e.stdout.decode()}")
+                print(f"Remote[{self.device_type.upper()}]: stdout: {e.stdout}")
             print(f"Remote[{self.device_type.upper()}]: Return code: {e.returncode}")
             return False
         except FileNotFoundError:
@@ -383,6 +389,12 @@ class IRRemoteController(RemoteControllerInterface):
         except Exception as e:
             print(f"Remote[{self.device_type.upper()}]: Unexpected error sending IR code: {e}")
             return False
+        finally:
+            if 'temp_path' in locals():
+                try:
+                    os.unlink(temp_path)
+                except Exception as e:
+                    print(f"Remote[{self.device_type.upper()}]: Failed to delete temp file: {e}")
     
     def get_status(self) -> Dict[str, Any]:
         """Get controller status information."""
