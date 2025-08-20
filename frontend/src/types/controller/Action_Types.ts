@@ -186,6 +186,7 @@ export interface Actions {
 export const DEVICE_MODEL_ACTION_MAPPING = {
   android_mobile: ['remote', 'av', 'power'],
   android_tv: ['remote', 'av', 'power'],
+  fire_tv: ['remote', 'av', 'power'],
   ios_phone: ['remote', 'av'],
   ios_mobile: ['remote', 'av'],
   stb: ['remote', 'av', 'power', 'network'],
