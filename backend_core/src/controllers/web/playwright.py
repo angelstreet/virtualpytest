@@ -44,11 +44,6 @@ class PlaywrightWebController(WebControllerInterface):
         """
         super().__init__("Playwright Web", "playwright")
         
-        # Enable Playwright debug logging
-        import os
-        os.environ['DEBUG'] = 'pw:api'  # Enable Playwright API debug logs
-        os.environ['PLAYWRIGHT_DEBUG'] = '1'  # Enable additional debug info
-        
         # Simple initialization with persistent user data
         self.utils = PlaywrightUtils(auto_accept_cookies=True)
         
@@ -77,20 +72,7 @@ class PlaywrightWebController(WebControllerInterface):
         
         # Get existing page 0 from context (persistent page)
         if len(self.__class__._context.pages) > 0:
-            print(f"[PLAYWRIGHT]: Found {len(self.__class__._context.pages)} existing pages")
             page = self.__class__._context.pages[0]
-            print(f"[PLAYWRIGHT]: Retrieved page object from context")
-            
-            # Test if page is responsive
-            try:
-                current_url = page.url
-                print(f"[PLAYWRIGHT]: Page is responsive, current URL: {current_url}")
-            except Exception as page_error:
-                print(f"[PLAYWRIGHT]: Page is unresponsive: {type(page_error).__name__}: {str(page_error)}")
-                # Create a new page if the existing one is dead
-                page = await self.__class__._context.new_page()
-                print(f"[PLAYWRIGHT]: Created new page to replace unresponsive one")
-            
             print(f"[PLAYWRIGHT]: Using existing persistent page (page 0)")
             return page
         else:
@@ -139,12 +121,7 @@ class PlaywrightWebController(WebControllerInterface):
         print(f"[PLAYWRIGHT]: disconnect() called - _chrome_running={self._chrome_running}, _chrome_process={self._chrome_process}")
         
         # Clean up persistent browser connection first
-        print(f"[PLAYWRIGHT]: Starting browser connection cleanup...")
-        try:
-            self.utils.run_async(self._cleanup_persistent_browser())
-            print(f"[PLAYWRIGHT]: Browser connection cleanup completed")
-        except Exception as cleanup_error:
-            print(f"[PLAYWRIGHT]: Browser connection cleanup failed: {type(cleanup_error).__name__}: {str(cleanup_error)}")
+        self.utils.run_async(self._cleanup_persistent_browser())
         
         if self._chrome_running and self._chrome_process:
             try:
@@ -155,13 +132,11 @@ class PlaywrightWebController(WebControllerInterface):
                 print(f"[PLAYWRIGHT]: Chrome process terminated")
                 
             except Exception as e:
-                print(f"[PLAYWRIGHT]: Error during Chrome shutdown: {type(e).__name__}: {str(e)}")
+                print(f"[PLAYWRIGHT]: Error during Chrome shutdown: {e}")
             finally:
                 # Clean up state regardless
-                print(f"[PLAYWRIGHT]: Cleaning up Chrome process state...")
                 self.__class__._chrome_process = None
                 self.__class__._chrome_running = False
-                print(f"[PLAYWRIGHT]: Chrome process state cleaned up")
         else:
             print(f"[PLAYWRIGHT]: No Chrome process to terminate (running={self._chrome_running}, process={self._chrome_process})")
         
@@ -297,21 +272,7 @@ class PlaywrightWebController(WebControllerInterface):
             print(f"[PLAYWRIGHT]: Closing browser")
             start_time = time.time()
             
-            # Clean up persistent browser connection first
-            self.utils.run_async(self._cleanup_persistent_browser())
-            
-            # Simple force kill using pkill (like before)
-            import subprocess
-            try:
-                subprocess.run(['pkill', '-f', 'chrome --remote-debugging-port'], check=True)
-                print(f"[PLAYWRIGHT]: Killed Chrome processes using pkill")
-            except subprocess.CalledProcessError:
-                print(f"[PLAYWRIGHT]: No Chrome processes found to kill")
-            
-            # Clean up state
-            self.__class__._chrome_process = None
-            self.__class__._chrome_running = False
-            self.is_connected = False
+            self.disconnect()
             
             # Clear page state
             self.current_url = ""
@@ -319,7 +280,7 @@ class PlaywrightWebController(WebControllerInterface):
             
             execution_time = int((time.time() - start_time) * 1000)
             
-            print(f"[PLAYWRIGHT]: Browser closed successfully in {execution_time}ms")
+            print(f"[PLAYWRIGHT]: Browser closed")
             return {
                 'success': True,
                 'error': '',
@@ -328,38 +289,46 @@ class PlaywrightWebController(WebControllerInterface):
             }
             
         except Exception as e:
-            execution_time = int((time.time() - start_time) * 1000)
-            error_msg = f"Browser close error: {type(e).__name__}: {str(e)}"
+            error_msg = f"Browser close error: {e}"
             print(f"[PLAYWRIGHT]: {error_msg}")
             return {
                 'success': False,
                 'error': error_msg,
-                'execution_time': execution_time,
+                'execution_time': 0,
                 'connected': False
             }
     
-    def navigate_to_url(self, url: str, timeout: int = 60000, follow_redirects: bool = True) -> Dict[str, Any]:
+    def navigate_to_url(self, url: str, timeout: int = 30000, follow_redirects: bool = True) -> Dict[str, Any]:
         """Navigate to a URL using async CDP connection."""
         async def _async_navigate_to_url():
             try:
+                # Normalize URL to add protocol if missing
                 normalized_url = self.utils.normalize_url(url)
                 print(f"[PLAYWRIGHT]: Navigating to {url} (normalized: {normalized_url})")
                 start_time = time.time()
+                
 
+                
+                # Get persistent page from browser+context
                 page = await self._get_persistent_page(target_url=normalized_url)
-
+                
+                # Navigate to URL
                 await page.goto(normalized_url, timeout=timeout, wait_until='load')
-
+                
+                # Get page info after navigation
                 try:
+                    # Try to wait for networkidle but don't fail if it times out
                     await page.wait_for_load_state('networkidle', timeout=20000)
                 except Exception as e:
                     print(f"[PLAYWRIGHT]: Networkidle timeout ignored: {str(e)}")
-
+                
                 self.current_url = page.url
                 self.page_title = await page.title()
-
+                
+                # Page remains persistent for next actions
+                
                 execution_time = int((time.time() - start_time) * 1000)
-
+                
                 result = {
                     'success': True,
                     'url': self.current_url,
@@ -370,13 +339,13 @@ class PlaywrightWebController(WebControllerInterface):
                     'redirected': self.current_url != normalized_url,
                     'follow_redirects': follow_redirects
                 }
-
+                
                 if result['redirected']:
                     print(f"[PLAYWRIGHT]: Navigation completed with redirect: {normalized_url} -> {self.current_url}")
                 else:
                     print(f"[PLAYWRIGHT]: Navigation successful - {self.page_title}")
                 return result
-
+                
             except Exception as e:
                 error_msg = f"Navigation error: {e}"
                 print(f"[PLAYWRIGHT]: {error_msg}")
@@ -474,7 +443,7 @@ class PlaywrightWebController(WebControllerInterface):
             }
         
         return self.utils.run_async(_async_click_element())
-
+    
     def find_element(self, selector: str) -> Dict[str, Any]:
         """Find an element by selector without clicking it.
         
@@ -1019,6 +988,11 @@ class PlaywrightWebController(WebControllerInterface):
         elif command == 'connect_browser':
             return self.connect_browser()
         
+        elif command == 'dump_elements':
+            element_types = params.get('element_types', 'all')
+            include_hidden = params.get('include_hidden', False)
+            return self.dump_elements(element_types=element_types, include_hidden=include_hidden)
+        
         elif command == 'browser_use_task':
             task = params.get('task', '')
             
@@ -1061,7 +1035,6 @@ class PlaywrightWebController(WebControllerInterface):
                 'execution_time': 0
             }
         
-
         else:
             print(f"[PLAYWRIGHT]: Unknown command: {command}")
             return {

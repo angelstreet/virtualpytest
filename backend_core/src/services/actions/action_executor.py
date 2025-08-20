@@ -218,9 +218,6 @@ class ActionExecutor:
         total_execution_time = 0
         iteration_results = []
         
-        # Get wait_time once to avoid repeated retrieval and ensure type safety
-        wait_time = int(action.get('params', {}).get('wait_time', 0))
-        
         for iteration in range(iterator_count):
             iteration_start_time = time.time()
             
@@ -232,79 +229,49 @@ class ActionExecutor:
                 params = action.get('params', {})
                 action_type = action.get('action_type')
                 
-                # Device-aware action_type detection using controller factory
+                # Intelligent action_type detection if not specified
                 if not action_type:
                     command = action.get('command', '')
                     
-                    # Get device model for intelligent routing
-                    device_model = self._get_device_model()
-                    if iteration == 0:  # Only log once
-                        print(f"[@lib:action_executor:_execute_single_action] Device model: {device_model}")
-                    
-                    # Specific command-based detection for commands that are controller-specific
-                    web_only_commands = {
+                    # Web-specific commands (from Playwright web controller)
+                    web_commands = {
                         'open_browser', 'close_browser', 'connect_browser',
-                        'navigate_to_url', 'find_element', 'execute_javascript', 
-                        'get_page_info', 'activate_semantic', 'dump_elements', 
-                        'browser_use_task'
+                        'navigate_to_url', 'click_element', 'find_element', 'input_text', 
+                        'tap_x_y', 'execute_javascript', 'get_page_info', 'activate_semantic',
+                        'dump_elements', 'browser_use_task', 'press_key'
                     }
                     
-                    desktop_only_commands = {
+                    # Desktop-specific commands (from PyAutoGUI/Bash controllers)
+                    desktop_commands = {
                         'execute_pyautogui_click', 'execute_pyautogui_rightclick', 'execute_pyautogui_doubleclick',
                         'execute_pyautogui_move', 'execute_pyautogui_keypress', 'execute_pyautogui_type',
                         'execute_pyautogui_scroll', 'execute_pyautogui_locate', 'execute_pyautogui_locate_and_click',
                         'execute_pyautogui_launch', 'execute_bash_command'
                     }
                     
+                    # Verification commands
                     verification_commands = {
                         'waitForTextToAppear', 'waitForTextToDisappear',
                         'waitForImageToAppear', 'waitForImageToDisappear'
                     }
                     
-                    # First check for controller-specific commands
-                    if command in web_only_commands:
+                    if command in web_commands:
                         action_type = 'web'
-                        if iteration == 0:
-                            print(f"[@lib:action_executor:_execute_single_action] Web-only command detected: {command}")
-                    elif command in desktop_only_commands:
+                        if iteration == 0:  # Only log once
+                            print(f"[@lib:action_executor:_execute_single_action] Auto-detected web action: {command}")
+                    elif command in desktop_commands:
                         action_type = 'desktop'
-                        if iteration == 0:
-                            print(f"[@lib:action_executor:_execute_single_action] Desktop-only command detected: {command}")
+                        if iteration == 0:  # Only log once
+                            print(f"[@lib:action_executor:_execute_single_action] Auto-detected desktop action: {command}")
                     elif command in verification_commands:
                         action_type = 'verification'
-                        if iteration == 0:
-                            print(f"[@lib:action_executor:_execute_single_action] Verification command detected: {command}")
+                        if iteration == 0:  # Only log once
+                            print(f"[@lib:action_executor:_execute_single_action] Auto-detected verification action: {command}")
                     else:
-                        # For generic commands (click_element, input_text, press_key), use device capabilities
-                        from backend_core.src.controllers.controller_config_factory import get_controller_type_for_device, DEVICE_CONTROLLER_MAP
-                        
-                        # Check what controllers this device has and route accordingly
-                        if device_model in DEVICE_CONTROLLER_MAP:
-                            device_mapping = DEVICE_CONTROLLER_MAP[device_model]
-                            
-                            # Priority order: web > desktop > remote (most specific to least specific)
-                            if device_mapping.get('web', []):
-                                action_type = 'web'
-                                if iteration == 0:
-                                    print(f"[@lib:action_executor:_execute_single_action] Generic command '{command}' routed to web (device has web controller)")
-                            elif device_mapping.get('desktop', []):
-                                action_type = 'desktop'
-                                if iteration == 0:
-                                    print(f"[@lib:action_executor:_execute_single_action] Generic command '{command}' routed to desktop (device has desktop controller)")
-                            elif device_mapping.get('remote', []):
-                                action_type = 'remote'
-                                if iteration == 0:
-                                    print(f"[@lib:action_executor:_execute_single_action] Generic command '{command}' routed to remote (device has remote controller)")
-                            else:
-                                # Fallback to remote
-                                action_type = 'remote'
-                                if iteration == 0:
-                                    print(f"[@lib:action_executor:_execute_single_action] Generic command '{command}' defaulted to remote (no specific controllers found)")
-                        else:
-                            # Unknown device model - default to remote
-                            action_type = 'remote'
-                            if iteration == 0:
-                                print(f"[@lib:action_executor:_execute_single_action] Unknown device model '{device_model}', defaulting to remote for command '{command}'")
+                        # Default to remote for unknown commands (backward compatibility)
+                        action_type = 'remote'
+                        if iteration == 0:  # Only log once
+                            print(f"[@lib:action_executor:_execute_single_action] Defaulting to remote action: {command}")
                 
                 if iteration == 0:  # Only log action type once
                     print(f"[@lib:action_executor:_execute_single_action] Action type: {action_type}")
@@ -368,29 +335,8 @@ class ActionExecutor:
                         'device_id': self.device_id or 'device1'
                     }
                 
-                # Set appropriate timeout based on action type and command
-                # Web browser operations need more time (especially open_browser)
-                if action_type == 'web':
-                    command = action.get('command', '')
-                    if command in ['open_browser', 'close_browser', 'connect_browser', 'browser_use_task']:
-                        timeout = 90  # Extra time for browser operations
-                    else:
-                        timeout = 60  # Standard web timeout (same as direct executeCommand)
-                else:
-                    timeout = 30  # Standard timeout for other operations
-                
                 # Proxy to appropriate host endpoint using direct host info (no Flask context needed)
-                print(f"[@lib:action_executor:_execute_single_action] Making HTTP request to {endpoint} with timeout {timeout}s...")
-                request_start = time.time()
-                
-                try:
-                    response_data, status_code = proxy_to_host_direct(self.host, endpoint, 'POST', request_data, timeout=timeout)
-                    request_time = int((time.time() - request_start) * 1000)
-                    print(f"[@lib:action_executor:_execute_single_action] HTTP request completed in {request_time}ms, status: {status_code}")
-                except Exception as http_error:
-                    request_time = int((time.time() - request_start) * 1000)
-                    print(f"[@lib:action_executor:_execute_single_action] HTTP request FAILED after {request_time}ms: {type(http_error).__name__}: {str(http_error)}")
-                    raise http_error
+                response_data, status_code = proxy_to_host_direct(self.host, endpoint, 'POST', request_data)
                 
                 iteration_execution_time = int((time.time() - iteration_start_time) * 1000)
                 iteration_success = status_code == 200 and response_data.get('success', False)
@@ -416,8 +362,9 @@ class ActionExecutor:
                     # Stop on first failure - don't continue iterations
                     break
                 
-                # Wait between iterations if there are more iterations AND current iteration succeeded
-                if iteration_success and iteration < iterator_count - 1:
+                # Wait between iterations if there are more iterations (same wait_time)
+                if iteration < iterator_count - 1:
+                    wait_time = params.get('wait_time', 0)
                     if wait_time > 0:
                         iter_time = time.strftime("%H:%M:%S", time.localtime())
                         print(f"[@lib:action_executor:_execute_single_action] [{iter_time}] Waiting {wait_time}ms between iterations")
@@ -442,6 +389,7 @@ class ActionExecutor:
                 break
         
         # Wait after successful action execution (once per action, after all iterations)
+        wait_time = params.get('wait_time', 0)
         if all_iterations_successful and wait_time > 0:
             wait_seconds = wait_time / 1000.0
             current_time = time.strftime("%H:%M:%S", time.localtime())
@@ -473,22 +421,6 @@ class ActionExecutor:
             'action_category': action_category,
             'iterations': iteration_results if iterator_count > 1 else None
         }
-    
-    def _get_device_model(self) -> str:
-        """Get device model for the current device_id."""
-        try:
-            # Import here to avoid circular imports
-            from shared.lib.utils.host_utils import get_device_by_id
-            
-            device = get_device_by_id(self.device_id or 'device1')
-            if device:
-                return device.device_model
-            else:
-                print(f"[@lib:action_executor:_get_device_model] Device {self.device_id} not found, using 'unknown'")
-                return 'unknown'
-        except Exception as e:
-            print(f"[@lib:action_executor:_get_device_model] Error getting device model: {e}")
-            return 'unknown'
     
     def _record_execution_to_database(self, success: bool, execution_time_ms: int, message: str, error_details: Optional[Dict] = None):
         """Record single execution directly to database"""

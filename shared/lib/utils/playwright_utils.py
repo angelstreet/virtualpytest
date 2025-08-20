@@ -112,7 +112,6 @@ class ChromeManager:
             '--disable-background-tabs',  # Disable background tab restoration
             '--aggressive-cache-discard',  # Aggressively discard cached data
             '--hide-crash-restore-bubble',  # Hide crash restore bubble
-            '--enable-unsafe-swiftshader',  # Enable unsafe SwiftShader for GPU acceleration
             #'--no-sandbox'  # Important for containers
         ]
     
