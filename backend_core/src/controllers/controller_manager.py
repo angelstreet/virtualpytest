@@ -17,6 +17,7 @@ from backend_core.src.controllers.audiovideo.camera_stream import CameraStreamCo
 from backend_core.src.controllers.remote.android_mobile import AndroidMobileRemoteController
 from backend_core.src.controllers.remote.android_tv import AndroidTVRemoteController
 from backend_core.src.controllers.remote.appium_remote import AppiumRemoteController
+from backend_core.src.controllers.remote.infrared import IRRemoteController
 from backend_core.src.controllers.desktop.bash import BashDesktopController
 from backend_core.src.controllers.desktop.pyautogui import PyAutoGUIDesktopController
 from backend_core.src.controllers.verification.image import ImageVerificationController
@@ -136,7 +137,8 @@ def _get_devices_config_from_environment() -> List[Dict[str, Any]]:
             video_capture_path = os.getenv(f'DEVICE{i}_VIDEO_CAPTURE_PATH')
             device_ip = os.getenv(f'DEVICE{i}_IP')
             device_port = os.getenv(f'DEVICE{i}_PORT')
-            ir_device = os.getenv(f'DEVICE{i}_ir_device')
+            ir_path = os.getenv(f'DEVICE{i}_IR_PATH')
+            ir_type = os.getenv(f'DEVICE{i}_IR_TYPE')
             bluetooth_device = os.getenv(f'DEVICE{i}_bluetooth_device')
             power_device = os.getenv(f'DEVICE{i}_power_device')
             power_name = os.getenv(f'DEVICE{i}_POWER_NAME')
@@ -154,7 +156,8 @@ def _get_devices_config_from_environment() -> List[Dict[str, Any]]:
             print(f"[@controller_manager:_get_devices_config_from_environment] DEBUG: DEVICE{i}_VIDEO_CAPTURE_PATH = {video_capture_path}")
             print(f"[@controller_manager:_get_devices_config_from_environment] DEBUG: DEVICE{i}_IP = {device_ip}")
             print(f"[@controller_manager:_get_devices_config_from_environment] DEBUG: DEVICE{i}_PORT = {device_port}")
-            print(f"[@controller_manager:_get_devices_config_from_environment] DEBUG: DEVICE{i}_ir_device = {ir_device}")
+            print(f"[@controller_manager:_get_devices_config_from_environment] DEBUG: DEVICE{i}_IR_PATH = {ir_path}")
+            print(f"[@controller_manager:_get_devices_config_from_environment] DEBUG: DEVICE{i}_IR_TYPE = {ir_type}")
             print(f"[@controller_manager:_get_devices_config_from_environment] DEBUG: DEVICE{i}_bluetooth_device = {bluetooth_device}")
             print(f"[@controller_manager:_get_devices_config_from_environment] DEBUG: DEVICE{i}_power_device = {power_device}")
             print(f"[@controller_manager:_get_devices_config_from_environment] DEBUG: DEVICE{i}_POWER_NAME = {power_name}")
@@ -176,7 +179,8 @@ def _get_devices_config_from_environment() -> List[Dict[str, Any]]:
                 # Device IP/Port (used by both Android ADB and Appium - mutually exclusive)
                 'device_ip': device_ip,
                 'device_port': device_port,
-                'ir_device': ir_device,
+                'ir_path': ir_path,
+                'ir_type': ir_type,
                 'bluetooth_device': bluetooth_device,
                 'power_device': power_device,
                 # Power configuration
@@ -237,6 +241,8 @@ def _create_controller_instance(controller_type: str, implementation: str, param
             return AndroidTVRemoteController(**params)
         elif implementation == 'appium':
             return AppiumRemoteController(**params)
+        elif implementation == 'ir_remote':
+            return IRRemoteController(**params)
     
     # AI Controllers
     elif controller_type == 'ai':

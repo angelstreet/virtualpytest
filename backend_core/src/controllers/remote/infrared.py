@@ -15,151 +15,87 @@ from ..base_controller import RemoteControllerInterface
 
 
 class IRRemoteController(RemoteControllerInterface):
-    """IR remote controller with classic TV/STB buttons and keycodes."""
-    
-    # Classic IR remote keycodes
-    IR_KEYCODES = {
-        # Navigation
-        'UP': 0x40BF,
-        'DOWN': 0xC03F,
-        'LEFT': 0x20DF,
-        'RIGHT': 0xA05F,
-        'OK': 0x609F,
-        'SELECT': 0x609F,  # Same as OK
-        
-        # System controls
-        'POWER': 0x10EF,
-        'HOME': 0x02FD,
-        'MENU': 0x22DD,
-        'BACK': 0x807F,
-        'EXIT': 0x807F,  # Same as BACK
-        'INFO': 0x50AF,
-        'GUIDE': 0x708F,
-        'SETTINGS': 0x8877,
-        
-        # Numbers
-        '0': 0x08F7,
-        '1': 0x8877,
-        '2': 0x48B7,
-        '3': 0xC837,
-        '4': 0x28D7,
-        '5': 0xA857,
-        '6': 0x6897,
-        '7': 0xE817,
-        '8': 0x18E7,
-        '9': 0x9867,
-        
-        # Media controls
-        'PLAY': 0x906F,
-        'PAUSE': 0x50AF,
-        'STOP': 0x30CF,
-        'PLAY_PAUSE': 0x906F,
-        'RECORD': 0xB04F,
-        'REWIND': 0x708F,
-        'FAST_FORWARD': 0xF00F,
-        'PREVIOUS': 0x10EF,
-        'NEXT': 0x906F,
-        'SKIP_BACK': 0x10EF,
-        'SKIP_FORWARD': 0x906F,
-        
-        # Volume and audio
-        'VOLUME_UP': 0x40BF,
-        'VOLUME_DOWN': 0xC03F,
-        'MUTE': 0x609F,
-        'AUDIO': 0xE01F,
-        
-        # Channel controls
-        'CHANNEL_UP': 0x00FF,
-        'CHANNEL_DOWN': 0x807F,
-        'LAST_CHANNEL': 0x20DF,
-        
-        # Color buttons
-        'RED': 0x20DF,
-        'GREEN': 0xA05F,
-        'YELLOW': 0x609F,
-        'BLUE': 0xE01F,
-        
-        # Function buttons
-        'F1': 0x807F,
-        'F2': 0x40BF,
-        'F3': 0xC03F,
-        'F4': 0x20DF,
-        
-        # TV specific
-        'INPUT': 0x807F,
-        'SOURCE': 0x807F,  # Same as INPUT
-        'TV': 0x48B7,
-        'SUBTITLE': 0x8877,
-        'TELETEXT': 0x04FB,
-        
-        # STB specific
-        'DVR': 0x12ED,
-        'VOD': 0x52AD,
-        'INTERACTIVE': 0x32CD,
-        'FAVORITES': 0x728D,
-        'LIST': 0xB24D,
-        'SEARCH': 0x926D,
-    }
+    """IR remote controller using external script with JSON config files."""
 
     @staticmethod
     def get_remote_config() -> Dict[str, Any]:
         """Get the IR remote configuration including layout, buttons, and image."""
-        # Load configuration from JSON file
-        config_path = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 
-            'config', 'remote', 'infrared_remote.json'
-        )
-        
-        if not os.path.exists(config_path):
-            raise FileNotFoundError(f"IR remote config file not found at: {config_path}")
-            
-        try:
-            print(f"Loading IR remote config from: {config_path}")
-            with open(config_path, 'r') as config_file:
-                return json.load(config_file)
-        except Exception as e:
-            raise RuntimeError(f"Error loading IR remote config from file: {e}")
+        # Return a generic IR remote configuration since actual keys depend on the config file
+        return {
+            "id": "ir_remote",
+            "name": "IR Remote",
+            "type": "ir_remote",
+            "image": "infrared_remote.png",
+            "buttons": [
+                {"id": "POWER", "label": "Power", "x": 50, "y": 30},
+                {"id": "VOLUME_UP", "label": "Vol+", "x": 20, "y": 60},
+                {"id": "VOLUME_DOWN", "label": "Vol-", "x": 20, "y": 90},
+                {"id": "UP", "label": "↑", "x": 50, "y": 120},
+                {"id": "DOWN", "label": "↓", "x": 50, "y": 180},
+                {"id": "LEFT", "label": "←", "x": 20, "y": 150},
+                {"id": "RIGHT", "label": "→", "x": 80, "y": 150},
+                {"id": "OK", "label": "OK", "x": 50, "y": 150}
+            ]
+        }
     
-    def __init__(self, device_ip: str, device_port: int = 8080, **kwargs):
+    def __init__(self, ir_path: str = None, ir_type: str = None, **kwargs):
         """
         Initialize the Infrared remote controller.
         
         Args:
-            device_ip: IP address of the IR blaster/device (required)
-            device_port: Port for IR device communication (default: 8080)
+            ir_path: Path to IR device (e.g., '/dev/lirc0')
+            ir_type: Type of IR config file (e.g., 'samsung')
         """
         super().__init__("IR Remote", "infrared")
         
         # IR device parameters
-        self.device_ip = device_ip
-        self.device_port = device_port
+        self.ir_path = ir_path
+        self.ir_type = ir_type
         
         # Validate required parameters
-        if not self.device_ip:
-            raise ValueError("device_ip is required for InfraredRemoteController")
+        if not self.ir_path:
+            raise ValueError("ir_path is required for IRRemoteController")
+        if not self.ir_type:
+            raise ValueError("ir_type is required for IRRemoteController")
             
-        # IR connection state
-        self.ir_blaster = None
-        self.ir_codeset = None
+        # IR config paths
+        self.ir_config_path = os.path.join(
+            os.path.dirname(__file__), 'ir_conf'
+        )
+        self.ir_config_file = f"{self.ir_type}.json"
         
-        print(f"[@controller:InfraredRemote] Initialized for {self.device_ip}:{self.device_port}")
+        # IR connection state
+        self.ir_available_keys = []
+        self.ir_config_data = {}
+        
+        # Timing attributes
+        self.repeat_delay = 100  # milliseconds between repeated commands
+        self.command_delay = 50  # milliseconds general command delay
+        self.last_command_time = 0  # timestamp of last command
+        self.connection_timeout = 5000  # milliseconds
+        
+        print(f"[@controller:InfraredRemote] Initialized for device: {self.ir_path}")
+        print(f"[@controller:InfraredRemote] Using config type: {self.ir_type}")
         
     def connect(self) -> bool:
         """Connect to IR transmitter device."""
         try:
-            print(f"Remote[{self.device_type.upper()}]: Connecting to IR device {self.device_ip}:{self.device_port}")
+            print(f"Remote[{self.device_type.upper()}]: Initializing IR device {self.ir_path}")
             
-            # In a real implementation, this would initialize the IR hardware
-            # For now, we'll simulate the connection
-            print(f"Remote[{self.device_type.upper()}]: Initializing IR protocol")
+            # Load IR configuration first
+            success, config_data = self._load_ir_config()
+            if not success:
+                return False
+                
+            self.ir_available_keys = list(config_data.keys())
+            self.ir_config_data = config_data
+            print(f"Remote[{self.device_type.upper()}]: Loaded {len(self.ir_available_keys)} keys from {self.ir_config_file}")
             
-            # Simulate IR device initialization
-            self.ir_blaster = {
-                'device_ip': self.device_ip,
-                'device_port': self.device_port,
-                'ready': True
-            }
-            
+            # Check if IR device exists (warn but don't fail for testing)
+            if not os.path.exists(self.ir_path):
+                print(f"Remote[{self.device_type.upper()}]: WARNING - IR device not found: {self.ir_path}")
+                print(f"Remote[{self.device_type.upper()}]: Continuing with config-only mode for testing")
+                
             self.is_connected = True
             print(f"Remote[{self.device_type.upper()}]: Connected to {self.device_name}")
             return True
@@ -171,10 +107,7 @@ class IRRemoteController(RemoteControllerInterface):
     def disconnect(self) -> bool:
         """Disconnect from IR transmitter."""
         try:
-            if self.ir_blaster:
-                print(f"Remote[{self.device_type.upper()}]: Closing IR transmitter")
-                self.ir_blaster = None
-                
+            self.ir_available_keys = []
             self.is_connected = False
             print(f"Remote[{self.device_type.upper()}]: Disconnected from {self.device_name}")
             return True
@@ -185,7 +118,7 @@ class IRRemoteController(RemoteControllerInterface):
             
     def press_key(self, key: str) -> bool:
         """
-        Send IR key press command.
+        Send IR key press command using external script.
         
         Args:
             key: Key name (e.g., "POWER", "VOLUME_UP", "1", "OK")
@@ -195,25 +128,31 @@ class IRRemoteController(RemoteControllerInterface):
             return False
             
         try:
-            keycode = self.IR_KEYCODES.get(key.upper())
-            if not keycode:
-                print(f"Remote[{self.device_type.upper()}]: Unknown key: {key}")
+            key_upper = key.upper()
+            
+            # Check if key is available in config
+            if key_upper not in self.ir_available_keys:
+                print(f"Remote[{self.device_type.upper()}]: Key '{key_upper}' not found in config {self.ir_config_file}")
+                print(f"Remote[{self.device_type.upper()}]: Available keys: {self.ir_available_keys}")
                 return False
                 
-            print(f"Remote[{self.device_type.upper()}]: Sending IR command {key} (0x{keycode:04X})")
+            print(f"Remote[{self.device_type.upper()}]: Sending IR command {key_upper}")
             
-            # Simulate IR transmission delay
+            # Apply command delay
             current_time = time.time() * 1000  # Convert to milliseconds
             if current_time - self.last_command_time < self.repeat_delay:
                 time.sleep((self.repeat_delay - (current_time - self.last_command_time)) / 1000)
             
-            # In a real implementation, this would send the IR signal
-            # For now, we'll simulate the transmission
-            self._transmit_ir_signal(keycode)
+            # Send IR command using integrated functionality
+            success = self._send_ir_command_integrated(key_upper)
             
-            self.last_command_time = time.time() * 1000
-            print(f"Remote[{self.device_type.upper()}]: Successfully sent {key}")
-            return True
+            if success:
+                self.last_command_time = time.time() * 1000
+                print(f"Remote[{self.device_type.upper()}]: Successfully sent {key_upper}")
+                return True
+            else:
+                print(f"Remote[{self.device_type.upper()}]: Failed to send {key_upper}")
+                return False
             
         except Exception as e:
             print(f"Remote[{self.device_type.upper()}]: Key press error: {e}")
@@ -328,31 +267,75 @@ class IRRemoteController(RemoteControllerInterface):
             print(f"Remote[{self.device_type.upper()}]: Volume set error: {e}")
             return False
             
-    def _transmit_ir_signal(self, keycode: int) -> bool:
+    def _load_ir_config(self) -> tuple[bool, dict]:
         """
-        Transmit IR signal with given keycode.
+        Load IR configuration from JSON file.
+        
+        Returns:
+            tuple: (success, config_data)
+        """
+        ir_config_full_path = os.path.join(self.ir_config_path, self.ir_config_file)
+        
+        if not os.path.exists(ir_config_full_path):
+            print(f"Remote[{self.device_type.upper()}]: IR config file not found: {ir_config_full_path}")
+            return False, {}
+            
+        try:
+            with open(ir_config_full_path, 'r') as f:
+                config_data = json.load(f)
+                return True, config_data
+        except json.JSONDecodeError as e:
+            print(f"Remote[{self.device_type.upper()}]: Invalid JSON in config file {ir_config_full_path}: {e}")
+            return False, {}
+        except Exception as e:
+            print(f"Remote[{self.device_type.upper()}]: Error reading config file {ir_config_full_path}: {e}")
+            return False, {}
+    
+    def _send_ir_command_integrated(self, key: str) -> bool:
+        """
+        Send IR command using integrated ir-ctl functionality.
         
         Args:
-            keycode: IR keycode to transmit
+            key: Key name to send
             
         Returns:
-            bool: True if transmission successful
+            bool: True if command sent successfully
         """
         try:
-            # In a real implementation, this would:
-            # 1. Generate the IR pulse pattern for the keycode
-            # 2. Modulate it at the carrier frequency
-            # 3. Send it through the IR transmitter hardware
+            # Get raw IR code from config
+            raw_code = self.ir_config_data.get(key)
+            if not raw_code:
+                print(f"Remote[{self.device_type.upper()}]: Key {key} not found in {self.ir_config_file}")
+                return False
             
-            print(f"Remote[{self.device_type.upper()}]: Transmitting IR signal 0x{keycode:04X} at {self.frequency}Hz")
+            print(f"Remote[{self.device_type.upper()}]: Sending IR code for {key}")
             
-            # Simulate transmission time
-            time.sleep(0.05)  # 50ms transmission time
+            # Send IR code using ir-ctl with sudo
+            result = subprocess.run(
+                ["sudo", "ir-ctl", "--send", "-"], 
+                input=raw_code, 
+                check=True,
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
             
+            print(f"Remote[{self.device_type.upper()}]: Successfully sent IR code for {key}")
             return True
             
+        except subprocess.CalledProcessError as e:
+            print(f"Remote[{self.device_type.upper()}]: Failed to send IR code: {e}")
+            if e.stderr:
+                print(f"Remote[{self.device_type.upper()}]: stderr: {e.stderr}")
+            return False
+        except FileNotFoundError:
+            print(f"Remote[{self.device_type.upper()}]: ir-ctl command not found. Please install lirc-tools.")
+            return False
+        except subprocess.TimeoutExpired:
+            print(f"Remote[{self.device_type.upper()}]: IR command timed out")
+            return False
         except Exception as e:
-            print(f"Remote[{self.device_type.upper()}]: IR transmission error: {e}")
+            print(f"Remote[{self.device_type.upper()}]: Unexpected error sending IR code: {e}")
             return False
             
     def get_status(self) -> Dict[str, Any]:
@@ -361,16 +344,14 @@ class IRRemoteController(RemoteControllerInterface):
             'controller_type': self.controller_type,
             'device_type': self.device_type,
             'device_name': self.device_name,
-            'device_ip': self.device_ip,
-            'device_port': self.device_port,
-            'ir_protocol': self.ir_protocol,
-            'device_brand': self.device_brand,
-            'device_model': self.device_model,
+            'ir_path': self.ir_path,
+            'ir_type': self.ir_type,
+            'ir_config_file': self.ir_config_file,
             'connection_timeout': self.connection_timeout,
             'command_delay': self.command_delay,
             'connected': self.is_connected,
             'last_command_time': self.last_command_time,
-            'supported_keys': list(self.IR_KEYCODES.keys()),
+            'supported_keys': self.ir_available_keys,
             'capabilities': [
                 'navigation', 'numeric_input', 'media_control', 
                 'volume_control', 'channel_control', 'power_control',

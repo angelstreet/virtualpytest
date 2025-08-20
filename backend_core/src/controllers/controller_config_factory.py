@@ -364,13 +364,13 @@ def _get_remote_params(implementation: str, device_config: dict) -> dict:
         return params
     elif implementation == 'ir_remote':
         params = {
-            'ir_device_path': device_config.get('ir_path'),
-            'ir_config_type': device_config.get('ir_type')
+            'ir_path': device_config.get('ir_path'),
+            'ir_type': device_config.get('ir_type')
         }
         print(f"[@controller_factory:_get_remote_params] DEBUG: IR remote params: {params}")
         print(f"[@controller_factory:_get_remote_params] DEBUG: Key IR values:")
-        print(f"[@controller_factory:_get_remote_params] DEBUG:   ir_path = {params['ir_device_path']}")
-        print(f"[@controller_factory:_get_remote_params] DEBUG:   ir_type = {params['ir_config_type']}")
+        print(f"[@controller_factory:_get_remote_params] DEBUG:   ir_path = {params['ir_path']}")
+        print(f"[@controller_factory:_get_remote_params] DEBUG:   ir_type = {params['ir_type']}")
         return params
     
     print(f"[@controller_factory:_get_remote_params] DEBUG: Unknown implementation, returning empty params")
