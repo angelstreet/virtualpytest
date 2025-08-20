@@ -449,22 +449,28 @@ export const useEdge = (props?: UseEdgeProps) => {
   }, []);
 
   /**
-   * Check if an edge involves an action node (source or target is action type)
+   * Check if an edge involves an action node or entry node (source or target is action/entry type)
+   * Both action and entry nodes should only show forward edges (unidirectional)
    */
   const isActionEdge = useCallback((edge: UINavigationEdge): boolean => {
     const sourceNode = nodes.find((n) => n.id === edge.source);
     const targetNode = nodes.find((n) => n.id === edge.target);
-    return sourceNode?.data.type === 'action' || targetNode?.data.type === 'action';
+    return (
+      sourceNode?.data.type === 'action' || 
+      targetNode?.data.type === 'action' ||
+      sourceNode?.data.type === 'entry' || 
+      targetNode?.data.type === 'entry'
+    );
   }, [nodes]);
 
   /**
-   * Get action sets for display - filter to only forward direction for action edges
+   * Get action sets for display - filter to only forward direction for action/entry edges
    */
   const getDisplayActionSets = useCallback((edge: UINavigationEdge): ActionSet[] => {
     const actionSets = getActionSetsFromEdge(edge);
     
-    // For action edges, only show the first action set (forward direction)
-    // since actions are unidirectional operations
+    // For action/entry edges, only show the first action set (forward direction)
+    // since actions and entry nodes are unidirectional operations
     if (isActionEdge(edge)) {
       return actionSets.length > 0 ? [actionSets[0]] : [];
     }

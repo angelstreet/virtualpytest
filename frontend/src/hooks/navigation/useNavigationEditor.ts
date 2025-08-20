@@ -424,13 +424,18 @@ export const useNavigationEditor = () => {
       console.log('[@useNavigationEditor:onEdgeClick] Found opposite edge:', oppositeEdge);
 
       if (oppositeEdge) {
-        // Simple check: if any edge involves an action node, don't treat as bidirectional
+        // Simple check: if any edge involves an action or entry node, don't treat as bidirectional
         const sourceNode = navigation.nodes.find((n) => n.id === edge.source);
         const targetNode = navigation.nodes.find((n) => n.id === edge.target);
-        const isActionInvolved = sourceNode?.data.type === 'action' || targetNode?.data.type === 'action';
+        const isUnidirectionalInvolved = (
+          sourceNode?.data.type === 'action' || 
+          targetNode?.data.type === 'action' ||
+          sourceNode?.data.type === 'entry' || 
+          targetNode?.data.type === 'entry'
+        );
         
-        if (isActionInvolved) {
-          // Action edges are unidirectional - just select the clicked edge
+        if (isUnidirectionalInvolved) {
+          // Action/entry edges are unidirectional - just select the clicked edge
           navigation.setSelectedEdge(edge);
         } else {
           // Regular edges can be bidirectional
