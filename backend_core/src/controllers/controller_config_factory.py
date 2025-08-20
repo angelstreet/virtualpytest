@@ -18,7 +18,7 @@ DEVICE_CONTROLLER_MAP = {
     },
     'android_tv': {
         'av': ['hdmi_stream'], 
-        'remote': ['android_tv'],
+        'remote': ['android_tv', 'ir_remote'],
         'desktop': [],
         'web': [],
         'power': ['tapo'],
