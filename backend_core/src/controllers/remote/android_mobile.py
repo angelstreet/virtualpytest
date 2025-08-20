@@ -593,7 +593,7 @@ class AndroidMobileRemoteController(RemoteControllerInterface):
             print(f"Remote[{self.device_type.upper()}]: Swipe error: {e}")
             return False
 
-    def swipe_up(self, from_x: int = 500, from_y: int = 1500, to_x: int = 500, to_y: int = 500, duration: int = 300) -> bool:
+    def swipe_up(self, from_x: int = 500, from_y: int = 800, to_x: int = 500, to_y: int = 500, duration: int = 300) -> bool:
         """
         Swipe up on the screen.
         
