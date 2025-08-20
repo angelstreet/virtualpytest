@@ -229,31 +229,15 @@ Respond ONLY in this JSON format:
             return AnalysisResult(success=False, error=str(e))
     
     def _call_text_ai(self, prompt: str) -> AnalysisResult:
-        """Call text AI model"""
+        """Call text AI model using centralized AI utilities"""
         try:
-            response = requests.post(
-                self.base_url,
-                headers={
-                    'Authorization': f'Bearer {self.api_key}',
-                    'Content-Type': 'application/json',
-                    'HTTP-Referer': 'https://virtualpytest.com',
-                    'X-Title': 'VirtualPyTest-Discard'
-                },
-                json={
-                    'model': self.text_model,
-                    'messages': [{'role': 'user', 'content': prompt}],
-                    'max_tokens': 200,
-                    'temperature': 0.1
-                },
-                timeout=30
-            )
+            from shared.lib.utils.ai_utils import call_text_ai
             
-            if response.status_code == 200:
-                result = response.json()
-                content = result['choices'][0]['message']['content']
-                
+            result = call_text_ai(prompt, max_tokens=200, temperature=0.1)
+            
+            if result['success']:
                 # Parse JSON response
-                ai_result = json.loads(content)
+                ai_result = json.loads(result['content'])
                 
                 return AnalysisResult(
                     success=True,
@@ -263,8 +247,8 @@ Respond ONLY in this JSON format:
                     explanation=ai_result.get('explanation', 'No explanation provided')
                 )
             else:
-                print(f"[@ai_analyzer] Text AI API error: {response.status_code}")
-                return AnalysisResult(success=False, error=f'AI API error: {response.status_code}')
+                print(f"[@ai_analyzer] Text AI analysis failed: {result.get('error', 'Unknown error')}")
+                return AnalysisResult(success=False, error=result.get('error', 'AI analysis failed'))
                 
         except json.JSONDecodeError as e:
             print(f"[@ai_analyzer] Failed to parse AI JSON response: {e}")
@@ -274,54 +258,34 @@ Respond ONLY in this JSON format:
             return AnalysisResult(success=False, error=str(e))
     
     def _call_vision_ai(self, prompt: str, image_b64: str) -> AnalysisResult:
-        """Call vision AI model"""
+        """Call vision AI model using centralized AI utilities"""
         try:
-            response = requests.post(
-                self.base_url,
-                headers={
-                    'Authorization': f'Bearer {self.api_key}',
-                    'Content-Type': 'application/json',
-                    'HTTP-Referer': 'https://virtualpytest.com',
-                    'X-Title': 'VirtualPyTest-Discard'
-                },
-                json={
-                    'model': self.vision_model,
-                    'messages': [{
-                        'role': 'user',
-                        'content': [
-                            {'type': 'text', 'text': prompt},
-                            {'type': 'image_url', 'image_url': {'url': f'data:image/jpeg;base64,{image_b64}'}}
-                        ]
-                    }],
-                    'max_tokens': 200,
-                    'temperature': 0.1
-                },
-                timeout=30
-            )
+            from shared.lib.utils.ai_utils import call_vision_ai
             
-            if response.status_code == 200:
-                result = response.json()
-                content = result['choices'][0]['message']['content']
-                
+            result = call_vision_ai(prompt, image_b64, max_tokens=200, temperature=0.1)
+            
+            if result['success']:
+                content = result['content']
                 print(f"[@ai_analyzer] Vision AI raw response: {content[:200]}...")
                 
                 # Parse JSON response
-                ai_result = json.loads(content)
-                
-                return AnalysisResult(
-                    success=True,
-                    discard=ai_result.get('discard', False),
-                    category=ai_result.get('category', 'unknown'),
-                    confidence=ai_result.get('confidence', 0) / 100.0,
-                    explanation=ai_result.get('explanation', 'No explanation provided')
-                )
+                try:
+                    ai_result = json.loads(content)
+                    
+                    return AnalysisResult(
+                        success=True,
+                        discard=ai_result.get('discard', False),
+                        category=ai_result.get('category', 'unknown'),
+                        confidence=ai_result.get('confidence', 0) / 100.0,
+                        explanation=ai_result.get('explanation', 'No explanation provided')
+                    )
+                except json.JSONDecodeError as e:
+                    print(f"[@ai_analyzer] Failed to parse vision AI JSON response: {e}")
+                    return AnalysisResult(success=False, error='Vision AI returned invalid JSON')
             else:
-                print(f"[@ai_analyzer] Vision AI API error: {response.status_code}")
-                return AnalysisResult(success=False, error=f'Vision AI API error: {response.status_code}')
+                print(f"[@ai_analyzer] Vision AI analysis failed: {result.get('error', 'Unknown error')}")
+                return AnalysisResult(success=False, error=result.get('error', 'Vision AI analysis failed'))
                 
-        except json.JSONDecodeError as e:
-            print(f"[@ai_analyzer] Failed to parse vision AI JSON response: {e}")
-            return AnalysisResult(success=False, error='Vision AI returned invalid JSON')
         except Exception as e:
             print(f"[@ai_analyzer] Vision AI analysis failed: {e}")
             return AnalysisResult(success=False, error=str(e))

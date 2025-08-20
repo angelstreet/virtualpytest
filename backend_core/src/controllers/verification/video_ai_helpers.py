@@ -57,7 +57,7 @@ class VideoAIHelpers:
     
     def analyze_subtitle_with_ai(self, image) -> Tuple[str, str, float]:
         """
-        AI-powered subtitle analysis using OpenRouter - handles both cropped regions and full images
+        AI-powered subtitle analysis using centralized AI utilities
         
         Args:
             image: Either cropped subtitle region or full image for AI analysis
@@ -66,124 +66,52 @@ class VideoAIHelpers:
             Tuple of (extracted_text, detected_language, confidence)
         """
         try:
-            # Get API key from environment
-            api_key = os.getenv('OPENROUTER_API_KEY')
-            if not api_key:
-                print(f"VideoAI[{self.device_name}]: OpenRouter API key not found in environment")
-                return '', 'unknown', 0.0
+            # Use centralized AI utilities
+            from shared.lib.utils.ai_utils import call_vision_ai
             
-            # Save image to temporary file for encoding
-            with tempfile.NamedTemporaryFile(suffix='.jpg', delete=False) as tmp_file:
-                cv2.imwrite(tmp_file.name, image)
-                temp_path = tmp_file.name
+            prompt = "Analyze this image for subtitles. Respond with JSON: {\"subtitles_detected\": true/false, \"extracted_text\": \"text or empty\", \"detected_language\": \"language or unknown\", \"confidence\": 0.0-1.0}"
             
-            try:
-                # Encode image to base64
-                with open(temp_path, 'rb') as f:
-                    image_data = base64.b64encode(f.read()).decode()
+            result = call_vision_ai(prompt, image, max_tokens=300, temperature=0.0)
+            
+            if result['success']:
+                content = result['content']
                 
-                # Working prompt that routes to InferenceNet provider
-                prompt = "Analyze this image for subtitles. Respond with JSON: {\"subtitles_detected\": true/false, \"extracted_text\": \"text or empty\", \"detected_language\": \"language or unknown\", \"confidence\": 0.0-1.0}"
-                
-                # Call OpenRouter API
-                response = requests.post(
-                    'https://openrouter.ai/api/v1/chat/completions',
-                    headers={
-                        'Authorization': f'Bearer {api_key}',
-                        'Content-Type': 'application/json',
-                        'HTTP-Referer': 'https://virtualpytest.com',
-                        'X-Title': 'VirtualPyTest'
-                    },
-                    json={
-                        'model': 'qwen/qwen-2.5-vl-7b-instruct',
-                        'messages': [
-                            {
-                                'role': 'user',
-                                'content': [
-                                    {'type': 'text', 'text': prompt},
-                                    {'type': 'image_url', 'image_url': {'url': f'data:image/jpeg;base64,{image_data}'}}
-                                ]
-                            }
-                        ],
-                        'max_tokens': 300,
-                        'temperature': 0.0
-                    },
-                    timeout=20
-                )
-                
-                print(f"VideoAI[{self.device_name}]: API call complete - status: {response.status_code}")
-                
-                if response.status_code == 200:
-                    print(f"VideoAI[{self.device_name}]: Full API response text (len {len(response.text)}): {repr(response.text)}")
+                # Parse JSON response
+                try:
+                    # Remove markdown code blocks if present
+                    if content.startswith('```json') and content.endswith('```'):
+                        content = content[7:-3].strip()
+                    elif content.startswith('```') and content.endswith('```'):
+                        content = content[3:-3].strip()
                     
-                    # Clean response text to handle leading/trailing whitespace from OpenRouter
-                    clean_response_text = response.text.strip()
-                    if not clean_response_text:
-                        print(f"VideoAI[{self.device_name}]: Empty API response - No subtitles detected")
-                        return '', 'unknown', 0.0
+                    ai_result = json.loads(content)
                     
-                    result = json.loads(clean_response_text)
-                    content = result['choices'][0]['message']['content']
+                    extracted_text = ai_result.get('extracted_text', '').strip()
+                    detected_language = ai_result.get('detected_language', 'unknown')
+                    confidence = float(ai_result.get('confidence', 0.0))
                     
-                    # Handle empty or None content from AI
-                    if content is None or content.strip() == '':
-                        print(f"VideoAI[{self.device_name}]: AI returned empty content - This should not happen with improved prompt")
-                        print(f"VideoAI[{self.device_name}]: Defaulting to 'No subtitles detected' response")
-                        return '', 'unknown', 0.0
-                    
-                    content = content.strip()
-                    print(f"VideoAI[{self.device_name}]: Extracted content (len {len(content)}): {repr(content)}")
-                    
-                    # Parse JSON response with fallback logic
-                    try:
-                        # Strip markdown code blocks if present
-                        json_content = content
-                        if content.startswith('```json') and content.endswith('```'):
-                            # Extract JSON from markdown code block
-                            json_content = content[7:-3].strip()  # Remove ```json and ```
-                        elif content.startswith('```') and content.endswith('```'):
-                            # Extract from generic code block
-                            json_content = content[3:-3].strip()  # Remove ``` and ```
-                        
-                        # Try to parse as JSON first
-                        ai_result = json.loads(json_content)
-                        
-                        subtitles_detected = ai_result.get('subtitles_detected', False)
-                        extracted_text = ai_result.get('extracted_text', '').strip()
-                        detected_language = ai_result.get('detected_language', 'unknown')
-                        confidence = float(ai_result.get('confidence', 0.0))
-                        
-                        if not subtitles_detected or not extracted_text:
-                            print(f"VideoAI[{self.device_name}]: AI analysis complete - No subtitles detected in image")
-                            return '', 'unknown', 0.0
-                        
+                    if extracted_text:
                         print(f"VideoAI[{self.device_name}]: AI extracted subtitle text: '{extracted_text}' -> Language: {detected_language}, Confidence: {confidence}")
-                        
                         return extracted_text, detected_language, confidence
+                    else:
+                        print(f"VideoAI[{self.device_name}]: AI analysis complete - No subtitles detected in image")
+                        return '', 'unknown', 0.0
                         
-                    except json.JSONDecodeError as e:
-                        print(f"VideoAI[{self.device_name}]: Parse error: {e}")
-                        print(f"VideoAI[{self.device_name}]: Raw content for parsing (len {len(content)}): {repr(content)}")
-                        print(f"VideoAI[{self.device_name}]: Raw AI response: {content[:200]}...")
-                        
-                        # Fallback: try to extract information from natural language response
-                        extracted_text, detected_language, confidence = self.parse_natural_language_response(content)
-                        
-                        if extracted_text:
-                            print(f"VideoAI[{self.device_name}]: Fallback extraction successful: '{extracted_text}' -> Language: {detected_language}")
-                            return extracted_text, detected_language, confidence
-                        else:
-                            print(f"VideoAI[{self.device_name}]: Fallback extraction failed - No subtitles detected in image")
-                            return '', 'unknown', 0.0
-                else:
-                    print(f"VideoAI[{self.device_name}]: API error {response.status_code} - full response text: {repr(response.text)}")
-                    return '', 'unknown', 0.0
+                except json.JSONDecodeError as e:
+                    print(f"VideoAI[{self.device_name}]: JSON parsing failed, trying fallback: {e}")
                     
-            finally:
-                # Clean up temporary file
-                if os.path.exists(temp_path):
-                    os.unlink(temp_path)
-                    
+                    # Fallback to natural language parsing
+                    extracted_text, detected_language, confidence = self.parse_natural_language_response(content)
+                    if extracted_text:
+                        print(f"VideoAI[{self.device_name}]: Fallback extraction successful: '{extracted_text}' -> Language: {detected_language}")
+                        return extracted_text, detected_language, confidence
+                    else:
+                        print(f"VideoAI[{self.device_name}]: Fallback extraction failed - No subtitles detected")
+                        return '', 'unknown', 0.0
+            else:
+                print(f"VideoAI[{self.device_name}]: AI subtitle analysis failed: {result.get('error', 'Unknown error')}")
+                return '', 'unknown', 0.0
+                
         except Exception as e:
             print(f"VideoAI[{self.device_name}]: AI subtitle analysis error: {e}")
             return '', 'unknown', 0.0
@@ -485,7 +413,7 @@ Be specific about what you see on the device interface."""
     
     def analyze_language_menu_ai(self, image_path: str) -> Dict[str, Any]:
         """
-        AI-powered language/subtitle menu analysis using OpenRouter.
+        AI-powered language/subtitle menu analysis using centralized AI utilities.
         
         Args:
             image_path: Path to image file showing a language/subtitle menu
@@ -501,231 +429,42 @@ Be specific about what you see on the device interface."""
                 print(f"VideoAI[{self.device_name}]: Image file not found: {image_path}")
                 return {'success': False, 'error': 'Image file not found'}
             
-            # Get API key from environment
-            api_key = os.getenv('OPENROUTER_API_KEY')
-            if not api_key:
-                print(f"VideoAI[{self.device_name}]: OpenRouter API key not found in environment")
-                return {'success': False, 'error': 'AI service not available'}
+            # Use centralized AI utilities
+            from shared.lib.utils.ai_utils import analyze_language_menu_ai
             
-            # Load and encode the image
-            try:
-                with open(image_path, 'rb') as f:
-                    image_data = base64.b64encode(f.read()).decode()
-                
-                # Enhanced prompt for language/subtitle menu detection with better categorization
-                prompt = """Analyze this image for language/subtitle/audio menu options. This could be a TV settings menu, streaming app menu, or media player interface.
-
-LOOK FOR THESE UI PATTERNS:
-- Settings menus with AUDIO, SUBTITLES, or LANGUAGE sections
-- Dropdown menus or lists showing language options
-- Media player controls with language/subtitle buttons
-- TV/STB interface menus for audio/subtitle settings
-- Streaming app (Netflix, Prime, etc.) audio/subtitle menus
-- Any interface showing language choices like "English", "French", "Spanish", etc.
-- Audio tracks, subtitle tracks, or closed caption options
-
-CRITICAL INSTRUCTIONS:
-1. You MUST ALWAYS respond with valid JSON - never return empty content
-2. If you find ANY language/audio/subtitle menu or options, extract them
-3. If you find NO menu, you MUST still respond with the "menu_detected": false JSON format below
-4. ALWAYS provide a response - never return empty or null content
-5. Be liberal in detecting menus - if there are any language-related options, consider it a menu
-
-Required JSON format when menu found:
-{
-  "menu_detected": true,
-  "audio_languages": ["English", "French", "Spanish"],
-  "subtitle_languages": ["English", "French", "Spanish", "Off"],
-  "selected_audio": 0,
-  "selected_subtitle": 3
-}
-
-If no language/subtitle menu found:
-{
-  "menu_detected": false,
-  "audio_languages": [],
-  "subtitle_languages": [],
-  "selected_audio": -1,
-  "selected_subtitle": -1
-}
-
-CATEGORIZATION RULES:
-- AUDIO section: Main audio languages (English, French, Spanish, etc.)
-- SUBTITLE section: Subtitle options (Off, English, French, etc.)
-- AUDIO DESCRIPTION: These belong in audio_languages, not subtitle_languages
-- Look for section headers like "AUDIO", "SUBTITLES", "AUDIO DESCRIPTION", "LANGUAGE", "CC"
-- List languages in the order they appear within each section (index 0, 1, 2, etc.)
-- Use "Off" for disabled subtitles
-- Set selected_audio/selected_subtitle to the index of the currently selected option (-1 if none)
-- Check for visual indicators like checkmarks (✓), highlighting, arrows, or bold text
-
-IMPORTANT: Even if the image has no language/subtitle menu, you MUST respond with the "menu_detected": false JSON format above. Never return empty content.
-
-RESPOND WITH JSON ONLY - NO MARKDOWN - NO OTHER TEXT"""
-                
-                # Call OpenRouter API
-                response = requests.post(
-                    'https://openrouter.ai/api/v1/chat/completions',
-                    headers={
-                        'Authorization': f'Bearer {api_key}',
-                        'Content-Type': 'application/json',
-                        'HTTP-Referer': 'https://virtualpytest.com',
-                        'X-Title': 'VirtualPyTest'
-                    },
-                    json={
-                        'model': 'qwen/qwen-2.5-vl-7b-instruct',
-                        'messages': [
-                            {
-                                'role': 'user',
-                                'content': [
-                                    {'type': 'text', 'text': prompt},
-                                    {'type': 'image_url', 'image_url': {'url': f'data:image/jpeg;base64,{image_data}'}}
-                                ]
-                            }
-                        ],
-                        'max_tokens': 400,
-                        'temperature': 0.0
-                    },
-                    timeout=60
-                )
-                
+            result = analyze_language_menu_ai(image_path, context_name=f"VideoAI[{self.device_name}]")
+            
+            if result['success']:
                 # Enhanced logging for debugging
-                print(f"VideoAI[{self.device_name}]: API Response Status: {response.status_code}")
-                print(f"VideoAI[{self.device_name}]: API Response Headers: {dict(response.headers)}")
+                menu_detected = result.get('menu_detected', False)
+                audio_languages = result.get('audio_languages', [])
+                subtitle_languages = result.get('subtitle_languages', [])
+                selected_audio = result.get('selected_audio', -1)
+                selected_subtitle = result.get('selected_subtitle', -1)
                 
-                if response.status_code == 200:
-                    try:
-                        result = response.json()
-                        print(f"VideoAI[{self.device_name}]: API Response JSON keys: {list(result.keys())}")
-                        
-                        if 'choices' not in result:
-                            print(f"VideoAI[{self.device_name}]: ERROR - No 'choices' in response: {result}")
-                            return {
-                                'success': False,
-                                'error': 'Invalid API response structure - no choices',
-                                'api_response': result
-                            }
-                        
-                        if not result['choices'] or len(result['choices']) == 0:
-                            print(f"VideoAI[{self.device_name}]: ERROR - Empty choices array: {result}")
-                            return {
-                                'success': False,
-                                'error': 'Empty choices in API response',
-                                'api_response': result
-                            }
-                        
-                        if 'message' not in result['choices'][0]:
-                            print(f"VideoAI[{self.device_name}]: ERROR - No 'message' in choice: {result['choices'][0]}")
-                            return {
-                                'success': False,
-                                'error': 'Invalid choice structure - no message',
-                                'api_response': result
-                            }
-                        
-                        content = result['choices'][0]['message']['content']
-                        if content is None:
-                            content = ""
-                        else:
-                            content = content.strip()
-                        
-                        print(f"VideoAI[{self.device_name}]: Raw content length: {len(content)}")
-                        print(f"VideoAI[{self.device_name}]: Raw content preview: {repr(content[:200])}")
-                        print(f"VideoAI[{self.device_name}]: Full raw content: {repr(content)}")
-                        
-                        # Parse JSON response
-                        try:
-                            if not content:
-                                print(f"VideoAI[{self.device_name}]: ERROR - Empty content from API")
-                                return {
-                                    'success': False,
-                                    'error': 'Empty content from AI API',
-                                    'api_response': result,
-                                    'raw_content': content
-                                }
-                            
-                            # Remove markdown code block markers
-                            json_content = content.replace('```json', '').replace('```', '').strip()
-                            
-                            ai_result = json.loads(json_content)
-                            print(f"VideoAI[{self.device_name}]: Successfully parsed AI JSON: {list(ai_result.keys())}")
-                            
-                            # Validate and normalize the result
-                            menu_detected = ai_result.get('menu_detected', False)
-                            audio_languages = ai_result.get('audio_languages', [])
-                            subtitle_languages = ai_result.get('subtitle_languages', [])
-                            selected_audio = ai_result.get('selected_audio', -1)
-                            selected_subtitle = ai_result.get('selected_subtitle', -1)
-                            
-                            # Enhanced logging for debugging
-                            print(f"VideoAI[{self.device_name}]: Menu detected: {menu_detected}")
-                            print(f"VideoAI[{self.device_name}]: Audio languages: {audio_languages}")
-                            print(f"VideoAI[{self.device_name}]: Subtitle languages: {subtitle_languages}")
-                            print(f"VideoAI[{self.device_name}]: Selected audio: {selected_audio}")
-                            print(f"VideoAI[{self.device_name}]: Selected subtitle: {selected_subtitle}")
-                            
-                            # Return standardized result
-                            return {
-                                'success': True,
-                                'menu_detected': menu_detected,
-                                'audio_languages': audio_languages,
-                                'subtitle_languages': subtitle_languages,
-                                'selected_audio': selected_audio,
-                                'selected_subtitle': selected_subtitle,
-                                'image_path': os.path.basename(image_path),
-                                'analysis_type': 'ai_language_menu_analysis'
-                            }
-                            
-                        except json.JSONDecodeError as e:
-                            print(f"VideoAI[{self.device_name}]: JSON parsing error: {e}")
-                            print(f"VideoAI[{self.device_name}]: Raw AI response: {repr(content)}")
-                            return {
-                                'success': False,
-                                'error': 'Invalid AI response format',
-                                'raw_response': content,
-                                'api_response': result,
-                                'json_error': str(e)
-                            }
-                            
-                    except Exception as e:
-                        print(f"VideoAI[{self.device_name}]: Error parsing API response: {e}")
-                        print(f"VideoAI[{self.device_name}]: Raw response text: {response.text[:500]}")
-                        return {
-                            'success': False,
-                            'error': f'Error parsing API response: {str(e)}',
-                            'raw_response_text': response.text
-                        }
-                else:
-                    # Enhanced error logging for non-200 responses
-                    response_text = response.text[:1000] if response.text else "No response text"
-                    print(f"VideoAI[{self.device_name}]: OpenRouter API error: {response.status_code}")
-                    print(f"VideoAI[{self.device_name}]: Error response body: {response_text}")
-                    print(f"VideoAI[{self.device_name}]: Error response headers: {dict(response.headers)}")
-                    
-                    # Check for specific error types
-                    error_type = "unknown"
-                    if response.status_code == 429:
-                        error_type = "rate_limit"
-                    elif response.status_code == 401:
-                        error_type = "authentication"
-                    elif response.status_code == 402:
-                        error_type = "payment_required"
-                    elif response.status_code == 503:
-                        error_type = "service_unavailable"
-                    
-                    return {
-                        'success': False,
-                        'error': f'AI API error: {response.status_code}',
-                        'error_type': error_type,
-                        'status_code': response.status_code,
-                        'response_text': response_text,
-                        'response_headers': dict(response.headers)
-                    }
-                    
-            except Exception as e:
-                print(f"VideoAI[{self.device_name}]: Image processing error: {e}")
+                print(f"VideoAI[{self.device_name}]: Menu detected: {menu_detected}")
+                print(f"VideoAI[{self.device_name}]: Audio languages: {audio_languages}")
+                print(f"VideoAI[{self.device_name}]: Subtitle languages: {subtitle_languages}")
+                print(f"VideoAI[{self.device_name}]: Selected audio: {selected_audio}")
+                print(f"VideoAI[{self.device_name}]: Selected subtitle: {selected_subtitle}")
+                
+                return {
+                    'success': True,
+                    'menu_detected': menu_detected,
+                    'audio_languages': audio_languages,
+                    'subtitle_languages': subtitle_languages,
+                    'selected_audio': selected_audio,
+                    'selected_subtitle': selected_subtitle,
+                    'image_path': os.path.basename(image_path),
+                    'analysis_type': 'ai_language_menu_analysis'
+                }
+            else:
+                print(f"VideoAI[{self.device_name}]: Language menu analysis failed: {result.get('error', 'Unknown error')}")
                 return {
                     'success': False,
-                    'error': 'Failed to process image'
+                    'error': result.get('error', 'Language menu analysis failed'),
+                    'raw_response': result.get('raw_response', ''),
+                    'error_type': result.get('error_type', 'unknown')
                 }
                 
         except Exception as e:
