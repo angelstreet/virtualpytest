@@ -247,6 +247,14 @@ export function useAndroidMobile(selectedHost: Host | null, deviceId: string | n
             command: 'launch_app',
             params: { package: params.package },
           };
+        } else if (command.startsWith('SWIPE_')) {
+          // Handle swipe commands properly - send as command, not key
+          requestBody = {
+            host: selectedHost,
+            device_id: deviceId,
+            command: command, // Send swipe commands directly as commands
+            params: params || {},
+          };
         } else {
           requestBody = {
             host: selectedHost,
