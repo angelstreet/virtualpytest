@@ -297,39 +297,21 @@ class PlaywrightWebController(WebControllerInterface):
             print(f"[PLAYWRIGHT]: Closing browser")
             start_time = time.time()
             
-            # Add timeout protection for disconnect operation
-            import signal
+            # Clean up persistent browser connection first
+            self.utils.run_async(self._cleanup_persistent_browser())
             
-            def timeout_handler(signum, frame):
-                raise TimeoutError("Browser close operation timed out after 5 seconds")
-            
-            # Set 5-second timeout for graceful disconnect
-            old_handler = signal.signal(signal.SIGALRM, timeout_handler)
-            signal.alarm(5)
-            
+            # Simple force kill using pkill (like before)
+            import subprocess
             try:
-                self.disconnect()
-                signal.alarm(0)  # Cancel the alarm
-                print(f"[PLAYWRIGHT]: Graceful disconnect completed")
-            except TimeoutError as timeout_error:
-                print(f"[PLAYWRIGHT]: Graceful disconnect timed out after 5s, force killing Chrome...")
-                # Force kill Chrome process if it exists
-                if self._chrome_process:
-                    try:
-                        import os
-                        os.kill(self._chrome_process.pid, 9)  # SIGKILL
-                        print(f"[PLAYWRIGHT]: Force killed Chrome process (PID: {self._chrome_process.pid})")
-                    except Exception as kill_error:
-                        print(f"[PLAYWRIGHT]: Failed to force kill Chrome: {str(kill_error)}")
-                
-                # Force cleanup state
-                self.__class__._chrome_process = None
-                self.__class__._chrome_running = False
-                self.is_connected = False
-                print(f"[PLAYWRIGHT]: Force cleanup completed")
-            finally:
-                signal.signal(signal.SIGALRM, old_handler)  # Restore original handler
-                signal.alarm(0)  # Make sure alarm is cancelled
+                subprocess.run(['pkill', '-f', 'chrome --remote-debugging-port'], check=True)
+                print(f"[PLAYWRIGHT]: Killed Chrome processes using pkill")
+            except subprocess.CalledProcessError:
+                print(f"[PLAYWRIGHT]: No Chrome processes found to kill")
+            
+            # Clean up state
+            self.__class__._chrome_process = None
+            self.__class__._chrome_running = False
+            self.is_connected = False
             
             # Clear page state
             self.current_url = ""
@@ -1098,6 +1080,16 @@ class PlaywrightWebController(WebControllerInterface):
                 'message': f'Viewport size set to {width}x{height}',
                 'execution_time': 0
             }
+        
+        elif command == 'close_app':
+            # Map mobile app command to browser equivalent
+            print(f"[PLAYWRIGHT]: Mapping close_app to close_browser")
+            return self.close_browser()
+        
+        elif command == 'launch_app':
+            # Map mobile app command to browser equivalent
+            print(f"[PLAYWRIGHT]: Mapping launch_app to open_browser")
+            return self.open_browser()
         
         else:
             print(f"[PLAYWRIGHT]: Unknown command: {command}")
