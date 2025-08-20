@@ -701,14 +701,41 @@ const RecHostStreamModalContent: React.FC<{
                 const remoteCapability = device?.device_capabilities?.remote;
                 const hasMultipleRemotes = Array.isArray(remoteCapability) || device?.device_model === 'fire_tv';
                 
-                if (hasMultipleRemotes) {
-                  // For devices with multiple remote controllers, render a RemotePanel for each
-                  const remoteTypes = Array.isArray(remoteCapability) 
-                    ? remoteCapability 
-                    : device?.device_model === 'fire_tv' 
-                      ? ['android_tv', 'ir_remote'] 
-                      : [remoteCapability];
-                      
+                if (hasMultipleRemotes && device?.device_model === 'fire_tv') {
+                  // For Fire TV devices, render both remotes directly (like host VNC)
+                  return (
+                    <>
+                      <RemotePanel
+                        host={host}
+                        deviceId={device?.device_id || 'device1'}
+                        deviceModel={device?.device_model || 'fire_tv'}
+                        remoteType="android_tv"
+                        isConnected={isControlActive}
+                        onReleaseControl={handleReleaseControl}
+                        initialCollapsed={false}
+                        deviceResolution={stableDeviceResolution}
+                        streamCollapsed={false}
+                        streamMinimized={false}
+                        streamContainerDimensions={streamContainerDimensions}
+                      />
+                      <RemotePanel
+                        host={host}
+                        deviceId={device?.device_id || 'device1'}
+                        deviceModel={device?.device_model || 'fire_tv'}
+                        remoteType="ir_remote"
+                        isConnected={isControlActive}
+                        onReleaseControl={handleReleaseControl}
+                        initialCollapsed={false}
+                        deviceResolution={stableDeviceResolution}
+                        streamCollapsed={false}
+                        streamMinimized={false}
+                        streamContainerDimensions={streamContainerDimensions}
+                      />
+                    </>
+                  );
+                } else if (hasMultipleRemotes) {
+                  // For other devices with multiple remote controllers
+                  const remoteTypes = Array.isArray(remoteCapability) ? remoteCapability : [remoteCapability];
                   return (
                     <>
                       {remoteTypes.filter(Boolean).map((remoteType: string, index: number) => (
@@ -720,7 +747,7 @@ const RecHostStreamModalContent: React.FC<{
                           remoteType={remoteType}
                           isConnected={isControlActive}
                           onReleaseControl={handleReleaseControl}
-                          initialCollapsed={index > 0} // First panel expanded, others collapsed
+                          initialCollapsed={index > 0}
                           deviceResolution={stableDeviceResolution}
                           streamCollapsed={false}
                           streamMinimized={false}

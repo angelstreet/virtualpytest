@@ -1072,14 +1072,41 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
                 />
               </>
             );
+          } else if (hasMultipleRemotes && selectedDevice?.device_model === 'fire_tv') {
+            // For Fire TV devices, render both AndroidTvRemote and InfraredRemote directly (like host VNC)
+            return (
+              <>
+                <RemotePanel
+                  host={selectedHost}
+                  deviceId={selectedDeviceId}
+                  deviceModel={selectedDevice?.device_model || 'fire_tv'}
+                  remoteType="android_tv"
+                  isConnected={isControlActive}
+                  onReleaseControl={handleDisconnectComplete}
+                  deviceResolution={{ width: 1920, height: 1080 }}
+                  streamCollapsed={isAVPanelCollapsed}
+                  streamMinimized={false}
+                  captureMode="stream"
+                  initialCollapsed={true}
+                />
+                <RemotePanel
+                  host={selectedHost}
+                  deviceId={selectedDeviceId}
+                  deviceModel={selectedDevice?.device_model || 'fire_tv'}
+                  remoteType="ir_remote"
+                  isConnected={isControlActive}
+                  onReleaseControl={handleDisconnectComplete}
+                  deviceResolution={{ width: 1920, height: 1080 }}
+                  streamCollapsed={isAVPanelCollapsed}
+                  streamMinimized={false}
+                  captureMode="stream"
+                  initialCollapsed={true}
+                />
+              </>
+            );
           } else if (hasMultipleRemotes) {
-            // For devices with multiple remote controllers, render a RemotePanel for each
-            const remoteTypes = Array.isArray(remoteCapability) 
-              ? remoteCapability 
-              : selectedDevice?.device_model === 'fire_tv' 
-                ? ['android_tv', 'ir_remote'] 
-                : [remoteCapability];
-                
+            // For other devices with multiple remote controllers
+            const remoteTypes = Array.isArray(remoteCapability) ? remoteCapability : [remoteCapability];
             return (
               <>
                 {remoteTypes.filter(Boolean).map((remoteType: string, index: number) => (
@@ -1095,7 +1122,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
                     streamCollapsed={isAVPanelCollapsed}
                     streamMinimized={false}
                     captureMode="stream"
-                    initialCollapsed={index > 0} // First panel expanded, others collapsed
+                    initialCollapsed={index > 0}
                   />
                 ))}
               </>
