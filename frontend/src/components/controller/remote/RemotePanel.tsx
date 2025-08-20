@@ -77,19 +77,38 @@ export const RemotePanel = React.memo(
     // Load remote config for the device type
     useEffect(() => {
       const loadConfig = async () => {
-        if (deviceModel) {
-          const config = await loadRemoteConfig(deviceModel);
-          setRemoteConfig(config);
+        if (host && deviceId) {
+          // Find the device and get its remote capability
+          const device = host.devices?.find(d => d.device_id === deviceId);
+          const remoteCapability = device?.device_capabilities?.remote;
+          
+          // Use remote capability if available, otherwise fall back to device model
+          const configType = remoteCapability || deviceModel;
+          
+          if (configType) {
+            const config = await loadRemoteConfig(configType);
+            setRemoteConfig(config);
+          }
         }
       };
 
       loadConfig();
-    }, [deviceModel]);
+    }, [host, deviceId, deviceModel]);
 
     // Get configurable layout from device config - memoized to prevent infinite loops
     const panelLayout = useMemo(() => {
+      if (host && deviceId) {
+        // Find the device and get its remote capability
+        const device = host.devices?.find(d => d.device_id === deviceId);
+        const remoteCapability = device?.device_capabilities?.remote;
+        
+        // Use remote capability if available, otherwise fall back to device model
+        const configType = remoteCapability || deviceModel;
+        
+        return getConfigurableRemotePanelLayout(configType, remoteConfig);
+      }
       return getConfigurableRemotePanelLayout(deviceModel, remoteConfig);
-    }, [deviceModel, remoteConfig]);
+    }, [host, deviceId, deviceModel, remoteConfig]);
 
     // Calculate dimensions inline - no state, no useEffects
     const collapsedWidth = panelLayout.collapsed.width;
@@ -185,8 +204,15 @@ export const RemotePanel = React.memo(
         );
       }
 
-      const remoteType = deviceModel;
-      console.log(`[@component:RemotePanel] Rendering remote type: ${remoteType}`);
+      // Find the device and get its remote capability
+      const device = host.devices?.find(d => d.device_id === deviceId);
+      const remoteCapability = device?.device_capabilities?.remote;
+      
+      // Use remote capability if available, otherwise fall back to device model
+      const remoteType = remoteCapability || deviceModel;
+      console.log(`[@component:RemotePanel] Device: ${device?.device_name} (${device?.device_model})`);
+      console.log(`[@component:RemotePanel] Remote capability: ${remoteCapability}`);
+      console.log(`[@component:RemotePanel] Using remote type: ${remoteType}`);
 
       switch (remoteType) {
         case 'android_mobile':
