@@ -71,10 +71,13 @@ class VideoAIHelpers:
             
             prompt = "Analyze this image for subtitles. Respond with JSON: {\"subtitles_detected\": true/false, \"extracted_text\": \"text or empty\", \"detected_language\": \"language or unknown\", \"confidence\": 0.0-1.0}"
             
+            print(f"VideoAI[{self.device_name}]: Calling AI with prompt: {prompt[:100]}...")
             result = call_vision_ai(prompt, image, max_tokens=300, temperature=0.0)
+            print(f"VideoAI[{self.device_name}]: AI call result: success={result.get('success')}, error={result.get('error', 'None')}")
             
             if result['success']:
                 content = result['content']
+                print(f"VideoAI[{self.device_name}]: AI returned content (length: {len(content)}): {repr(content[:200])}")
                 
                 # Parse JSON response
                 try:

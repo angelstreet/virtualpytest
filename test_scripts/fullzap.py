@@ -260,10 +260,11 @@ def main():
         else:
             mapped_action = args.action
         
+        print(f"🔢 [fullzap] Max iterations: {args.max_iteration}")
+        print(f"🗺️ [fullzap] Goto live: {args.goto_live}")
         print(f"🎯 [fullzap] Device model: {context.selected_device.device_model}")
         print(f"🎯 [fullzap] Target node: {target_node}")
         
-
         
         # Conditionally navigate to target node based on parameter
         nav_success = True

@@ -400,6 +400,24 @@ def video_detect_subtitles_ai():
         print(f"[@route:server_verification_common:video_detect_subtitles_ai] Error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
+@server_verification_common_bp.route('/video/analyzeSubtitles', methods=['POST'])
+def video_analyze_subtitles():
+    """Proxy subtitle analysis request to host AI endpoint"""
+    try:
+        print("[@route:server_verification_common:video_analyze_subtitles] Proxying subtitle analysis request")
+        
+        # Get request data
+        request_data = request.get_json() or {}
+        
+        # Proxy to host video AI subtitle detection endpoint
+        response_data, status_code = proxy_to_host('/host/verification/video/detectSubtitlesAI', 'POST', request_data, timeout=60)
+        
+        return jsonify(response_data), status_code
+        
+    except Exception as e:
+        print(f"[@route:server_verification_common:video_analyze_subtitles] Error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @server_verification_common_bp.route('/video/analyzeImageAI', methods=['POST'])
 def video_analyze_image_ai():
     """Proxy AI image analysis request to host"""
