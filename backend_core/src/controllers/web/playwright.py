@@ -352,18 +352,16 @@ class PlaywrightWebController(WebControllerInterface):
                 # Get persistent page from browser+context
                 page = await self._get_persistent_page(target_url=normalized_url)
                 
-                # Navigate to URL (original working approach)
-                print(f"[PLAYWRIGHT]: Starting page.goto() with wait_until='load'")
-                await page.goto(normalized_url, timeout=timeout, wait_until='load')
+                # Navigate to URL with domcontentloaded (avoid infinite JS redirects)
+                print(f"[PLAYWRIGHT]: Starting page.goto() with wait_until='domcontentloaded'")
+                await page.goto(normalized_url, timeout=timeout, wait_until='domcontentloaded')
                 print(f"[PLAYWRIGHT]: page.goto() completed successfully!")
                 
-                # Get page info after navigation
-                try:
-                    print(f"[PLAYWRIGHT]: Waiting for networkidle...")
-                    await page.wait_for_load_state('networkidle', timeout=20000)
-                    print(f"[PLAYWRIGHT]: Networkidle completed")
-                except Exception as e:
-                    print(f"[PLAYWRIGHT]: Networkidle timeout ignored: {str(e)}")
+                # Wait a bit for initial JS to settle, then proceed regardless
+                print(f"[PLAYWRIGHT]: Waiting 3 seconds for JS to settle...")
+                import asyncio
+                await asyncio.sleep(3)
+                print(f"[PLAYWRIGHT]: JS settle time completed")
                 
                 print(f"[PLAYWRIGHT]: Getting current URL...")
                 self.current_url = page.url
