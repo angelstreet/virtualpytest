@@ -228,6 +228,8 @@ class Device:
                 actual_capabilities['remote'] = 'android_tv'
             elif 'appium' in controller_name:
                 actual_capabilities['remote'] = 'appium'
+            elif 'irremote' in controller_name or 'infrared' in controller_name:
+                actual_capabilities['remote'] = 'ir_remote'
             else:
                 actual_capabilities['remote'] = theoretical_capabilities['remote']  # Fallback
         

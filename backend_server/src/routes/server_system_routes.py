@@ -93,6 +93,7 @@ def register_host():
                 'device_model': device_model,
                 'device_ip': device.get('device_ip'),
                 'device_port': device.get('device_port'),
+                'ir_type': device.get('ir_type'),  # Include IR type for remote configuration
                 'device_capabilities': device_capabilities,
                 'device_verification_types': device_verification_types,
                 'device_action_types': device_action_types
