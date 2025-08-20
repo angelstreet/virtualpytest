@@ -107,13 +107,8 @@ def execute_command():
         
         else:
             # Execute other commands synchronously as before
-            print(f"[@route:host_web:execute_command] About to call web_controller.execute_command")
             result = web_controller.execute_command(command, params)
-            print(f"[@route:host_web:execute_command] Got result from web_controller: {result}")
-            print(f"[@route:host_web:execute_command] About to jsonify and return result")
-            response = jsonify(result)
-            print(f"[@route:host_web:execute_command] Created JSON response, returning...")
-            return response
+            return jsonify(result)
             
     except Exception as e:
         print(f"[@route:host_web:execute_command] Error: {str(e)}")
