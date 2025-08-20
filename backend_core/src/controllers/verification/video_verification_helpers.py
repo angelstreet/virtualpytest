@@ -303,10 +303,10 @@ class VideoVerificationHelpers:
             channel_info = {}
             if (zapping_result.get('zapping_detected', False) and 
                 banner_region and 
-                zapping_result.get('blackscreen_end_image')):
+                zapping_result.get('first_content_after_blackscreen')):
                 
                 # Find the image where blackscreen ended (first content after zapping)
-                end_image_name = zapping_result.get('blackscreen_end_image', '')
+                end_image_name = zapping_result.get('first_content_after_blackscreen', '')
                 if end_image_name:
                     # Reconstruct full path to the end image
                     import os
