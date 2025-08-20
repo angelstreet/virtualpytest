@@ -19,24 +19,22 @@ class IRRemoteController(RemoteControllerInterface):
 
     @staticmethod
     def get_remote_config() -> Dict[str, Any]:
-        """Get the IR remote configuration including layout, buttons, and image."""
-        # Return a generic IR remote configuration since actual keys depend on the config file
-        return {
-            "id": "ir_remote",
-            "name": "IR Remote",
-            "type": "ir_remote",
-            "image": "infrared_remote.png",
-            "buttons": [
-                {"id": "POWER", "label": "Power", "x": 50, "y": 30},
-                {"id": "VOLUME_UP", "label": "Vol+", "x": 20, "y": 60},
-                {"id": "VOLUME_DOWN", "label": "Vol-", "x": 20, "y": 90},
-                {"id": "UP", "label": "↑", "x": 50, "y": 120},
-                {"id": "DOWN", "label": "↓", "x": 50, "y": 180},
-                {"id": "LEFT", "label": "←", "x": 20, "y": 150},
-                {"id": "RIGHT", "label": "→", "x": 80, "y": 150},
-                {"id": "OK", "label": "OK", "x": 50, "y": 150}
-            ]
-        }
+        """Get the IR remote configuration from JSON file."""
+        # Load configuration from JSON file
+        config_path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 
+            'config', 'remote', 'infrared_remote.json'
+        )
+        
+        if not os.path.exists(config_path):
+            raise FileNotFoundError(f"IR remote config file not found at: {config_path}")
+            
+        try:
+            print(f"Loading IR remote config from: {config_path}")
+            with open(config_path, 'r') as config_file:
+                return json.load(config_file)
+        except Exception as e:
+            raise RuntimeError(f"Error loading IR remote config from file: {e}")
     
     def __init__(self, ir_path: str = None, ir_type: str = None, **kwargs):
         """
@@ -130,9 +128,20 @@ class IRRemoteController(RemoteControllerInterface):
         return self._send_ir_command_integrated(key_upper)
             
     def execute_command(self, command: str, params: Dict[str, Any] = None) -> bool:
-        """Execute IR remote command - only press_key supported."""
+        """
+        Execute IR remote specific command.
+        
+        Args:
+            command: Command to execute ('press_key')
+            params: Command parameters
+            
+        Returns:
+            bool: True if command executed successfully
+        """
         if params is None:
             params = {}
+        
+        print(f"Remote[{self.device_type.upper()}]: Executing command '{command}' with params: {params}")
         
         if command == 'press_key':
             key = params.get('key')
@@ -234,22 +243,18 @@ class IRRemoteController(RemoteControllerInterface):
     def get_status(self) -> Dict[str, Any]:
         """Get controller status information."""
         return {
+            'success': True,
             'controller_type': self.controller_type,
             'device_type': self.device_type,
             'device_name': self.device_name,
             'ir_path': self.ir_path,
             'ir_type': self.ir_type,
             'ir_config_file': self.ir_config_file,
-            'connection_timeout': self.connection_timeout,
-            'command_delay': self.command_delay,
             'connected': self.is_connected,
-            'last_command_time': self.last_command_time,
             'supported_keys': self.ir_available_keys,
             'capabilities': [
-                'navigation', 'numeric_input', 'media_control', 
-                'volume_control', 'channel_control', 'power_control',
-                'color_buttons', 'function_buttons', 'tv_controls',
-                'stb_controls'
+                'ir_control', 'navigation', 'numeric_input', 'media_control', 
+                'volume_control', 'channel_control', 'power_control'
             ]
         }
     
