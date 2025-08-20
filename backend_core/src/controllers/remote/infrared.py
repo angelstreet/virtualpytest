@@ -158,6 +158,47 @@ class IRRemoteController(RemoteControllerInterface):
             print(f"Remote[{self.device_type.upper()}]: Key press error: {e}")
             return False
             
+    def execute_command(self, command: str, params: Dict[str, Any] = None) -> bool:
+        """
+        Execute IR remote specific command with proper abstraction.
+        
+        Args:
+            command: Command to execute ('press_key', 'input_text', etc.)
+            params: Command parameters (including wait_time)
+            
+        Returns:
+            bool: True if command executed successfully
+        """
+        if params is None:
+            params = {}
+        
+        # Extract wait_time from params
+        wait_time = int(params.get('wait_time', 0))
+        
+        print(f"Remote[{self.device_type.upper()}]: Executing command '{command}' with params: {params}")
+        
+        result = False
+        
+        if command == 'press_key':
+            key = params.get('key')
+            result = self.press_key(key) if key else False
+        
+        elif command == 'input_text':
+            text = params.get('text')
+            result = self.input_text(text) if text else False
+        
+        else:
+            print(f"Remote[{self.device_type.upper()}]: Unknown command: {command}")
+            result = False
+        
+        # Apply wait_time after successful command execution
+        if result and wait_time > 0:
+            delay_seconds = wait_time / 1000.0
+            print(f"Remote[{self.device_type.upper()}]: Waiting {delay_seconds}s after command execution")
+            time.sleep(delay_seconds)
+        
+        return result
+    
     def input_text(self, text: str) -> bool:
         """
         Send text input by pressing number keys.

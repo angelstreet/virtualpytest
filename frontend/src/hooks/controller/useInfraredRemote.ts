@@ -140,18 +140,24 @@ export const useInfraredRemote = (
       try {
         console.log(`[@hook:useInfraredRemote] Sending IR command: ${command}`, params);
 
-        // Build the API endpoint for IR remote commands
-        const endpoint = `/api/hosts/${host.host_name}/devices/${deviceId || 'device1'}/remote/press_key`;
-        
-        const response = await fetch(endpoint, {
+        // Use the same server proxy pattern as Android TV remote
+        const requestBody: any = {
+          host: host,
+          command: 'press_key',
+          params: { key: command, ...params },
+        };
+
+        // Add deviceId if provided
+        if (deviceId) {
+          requestBody.device_id = deviceId;
+        }
+
+        const response = await fetch('/server/remote/executeCommand', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({
-            key: command,
-            ...params,
-          }),
+          body: JSON.stringify(requestBody),
         });
 
         if (!response.ok) {
