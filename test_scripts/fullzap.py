@@ -243,6 +243,10 @@ def main():
             executor.cleanup_and_exit(context, args.userinterface_name)
             return
         
+        print(f"🔢 [fullzap] Max iterations: {args.max_iteration}")
+        print(f"🗺️ [fullzap] Goto live: {args.goto_live}")
+        print(f"📱 [fullzap] Device: {context.selected_device.device_name} ({context.selected_device.device_model})")
+        
         # Determine target node based on device model - same logic as goto_live.py
         if "mobile" in context.selected_device.device_model.lower():
             target_node = "live_fullscreen"
@@ -260,8 +264,6 @@ def main():
         else:
             mapped_action = args.action
         
-        print(f"🔢 [fullzap] Max iterations: {args.max_iteration}")
-        print(f"🗺️ [fullzap] Goto live: {args.goto_live}")
         print(f"🎯 [fullzap] Device model: {context.selected_device.device_model}")
         print(f"🎯 [fullzap] Target node: {target_node}")
         
