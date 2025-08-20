@@ -69,7 +69,7 @@ class VideoAIHelpers:
             # Use centralized AI utilities
             from shared.lib.utils.ai_utils import call_vision_ai
             
-            prompt = "Analyze this image for subtitles. Respond with JSON: {\"subtitles_detected\": true/false, \"extracted_text\": \"text or empty\", \"detected_language\": \"language or unknown\", \"confidence\": 0.0-1.0}"
+            prompt = "Look at this image and tell me if you can see any subtitles, captions, or text overlays. If you find subtitles, tell me exactly what text you can read. If there are no subtitles, just say 'No subtitles found'."
             
             print(f"VideoAI[{self.device_name}]: Calling AI with prompt: {prompt[:100]}...")
             result = call_vision_ai(prompt, image, max_tokens=300, temperature=0.0)
@@ -79,38 +79,23 @@ class VideoAIHelpers:
                 content = result['content']
                 print(f"VideoAI[{self.device_name}]: AI returned content (length: {len(content)}): {repr(content[:200])}")
                 
-                # Parse JSON response
-                try:
-                    # Remove markdown code blocks if present
-                    if content.startswith('```json') and content.endswith('```'):
-                        content = content[7:-3].strip()
-                    elif content.startswith('```') and content.endswith('```'):
-                        content = content[3:-3].strip()
-                    
-                    ai_result = json.loads(content)
-                    
-                    extracted_text = ai_result.get('extracted_text', '').strip()
-                    detected_language = ai_result.get('detected_language', 'unknown')
-                    confidence = float(ai_result.get('confidence', 0.0))
-                    
-                    if extracted_text:
-                        print(f"VideoAI[{self.device_name}]: AI extracted subtitle text: '{extracted_text}' -> Language: {detected_language}, Confidence: {confidence}")
-                        return extracted_text, detected_language, confidence
-                    else:
-                        print(f"VideoAI[{self.device_name}]: AI analysis complete - No subtitles detected in image")
-                        return '', 'unknown', 0.0
-                        
-                except json.JSONDecodeError as e:
-                    print(f"VideoAI[{self.device_name}]: JSON parsing failed, trying fallback: {e}")
-                    
-                    # Fallback to natural language parsing
-                    extracted_text, detected_language, confidence = self.parse_natural_language_response(content)
-                    if extracted_text:
-                        print(f"VideoAI[{self.device_name}]: Fallback extraction successful: '{extracted_text}' -> Language: {detected_language}")
-                        return extracted_text, detected_language, confidence
-                    else:
-                        print(f"VideoAI[{self.device_name}]: Fallback extraction failed - No subtitles detected")
-                        return '', 'unknown', 0.0
+                # Parse natural language response directly
+                print(f"VideoAI[{self.device_name}]: AI response: {content}")
+                
+                # Check if no subtitles found
+                if 'no subtitles found' in content.lower() or 'no subtitles' in content.lower() or not content.strip():
+                    print(f"VideoAI[{self.device_name}]: AI analysis complete - No subtitles detected in image")
+                    return '', 'unknown', 0.0
+                
+                # Use natural language parsing to extract subtitle information
+                extracted_text, detected_language, confidence = self.parse_natural_language_response(content)
+                
+                if extracted_text:
+                    print(f"VideoAI[{self.device_name}]: AI extracted subtitle text: '{extracted_text}' -> Language: {detected_language}, Confidence: {confidence}")
+                    return extracted_text, detected_language, confidence
+                else:
+                    print(f"VideoAI[{self.device_name}]: Could not extract subtitle text from response")
+                    return '', 'unknown', 0.0
             else:
                 print(f"VideoAI[{self.device_name}]: AI subtitle analysis failed: {result.get('error', 'Unknown error')}")
                 return '', 'unknown', 0.0
