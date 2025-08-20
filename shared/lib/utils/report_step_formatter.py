@@ -510,19 +510,21 @@ def format_analysis_results(step: Dict) -> str:
                 analysis_html += f'<div class="analysis-detail">Transcript: {transcript_preview}</div>'
             if audio_analysis.get('confidence'):
                 analysis_html += f'<div class="analysis-detail">Confidence: {audio_analysis.get("confidence"):.2f}</div>'
-            if audio_analysis.get('segments_analyzed'):
-                successful_segments = audio_analysis.get('successful_segments', 0)
-                total_segments = audio_analysis.get('segments_analyzed', 0)
-                analysis_html += f'<div class="analysis-detail">Segments: {successful_segments}/{total_segments} with speech</div>'
-            
-            # Show R2 audio URLs if available for traceability
-            audio_urls = audio_analysis.get('audio_urls', [])
-            if audio_urls:
-                analysis_html += '<div class="analysis-detail">Audio files:'
-                for i, url in enumerate(audio_urls, 1):
-                    if url:
-                        analysis_html += f' <a href="{url}" target="_blank" style="font-size: 10px; margin-left: 4px;">Segment {i}</a>'
-                analysis_html += '</div>'
+        
+        # Always show segment analysis and audio URLs (regardless of speech detection)
+        if audio_analysis.get('segments_analyzed'):
+            successful_segments = audio_analysis.get('successful_segments', 0)
+            total_segments = audio_analysis.get('segments_analyzed', 0)
+            analysis_html += f'<div class="analysis-detail">Segments: {successful_segments}/{total_segments} with speech</div>'
+        
+        # Show R2 audio URLs if available for traceability (always, for verification)
+        audio_urls = audio_analysis.get('audio_urls', [])
+        if audio_urls:
+            analysis_html += '<div class="analysis-detail">Audio files:'
+            for i, url in enumerate(audio_urls, 1):
+                if url:
+                    analysis_html += f' <a href="{url}" target="_blank" style="font-size: 10px; margin-left: 4px;">Segment {i}</a>'
+            analysis_html += '</div>'
                 
         elif audio_analysis.get('message'):
             analysis_html += f'<div class="analysis-detail">Details: {audio_analysis.get("message")}</div>'
