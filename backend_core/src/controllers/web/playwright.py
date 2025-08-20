@@ -311,16 +311,38 @@ class PlaywrightWebController(WebControllerInterface):
                 
                 # Get persistent page from browser+context
                 page = await self._get_persistent_page(target_url=normalized_url)
+                print(f"[PLAYWRIGHT]: Got persistent page, starting navigation to {normalized_url}")
                 
-                # Navigate to URL
-                await page.goto(normalized_url, timeout=timeout, wait_until='load')
+                # Navigate to URL with detailed logging
+                navigation_start = time.time()
+                try:
+                    await page.goto(normalized_url, timeout=timeout, wait_until='load')
+                    navigation_time = int((time.time() - navigation_start) * 1000)
+                    print(f"[PLAYWRIGHT]: page.goto() completed successfully in {navigation_time}ms")
+                except Exception as goto_error:
+                    navigation_time = int((time.time() - navigation_start) * 1000)
+                    print(f"[PLAYWRIGHT]: page.goto() FAILED after {navigation_time}ms: {type(goto_error).__name__}: {str(goto_error)}")
+                    raise goto_error
                 
                 # Get page info after navigation
                 try:
-                    # Try to wait for networkidle but don't fail if it times out
+                    current_url = page.url
+                    current_title = await page.title()
+                    print(f"[PLAYWRIGHT]: Page loaded - URL: {current_url}, Title: {current_title[:100]}...")
+                except Exception as page_info_error:
+                    print(f"[PLAYWRIGHT]: Failed to get page info: {type(page_info_error).__name__}: {str(page_info_error)}")
+                    raise page_info_error
+                
+                # Try to wait for networkidle but don't fail if it times out
+                networkidle_start = time.time()
+                try:
+                    print(f"[PLAYWRIGHT]: Waiting for networkidle state (timeout: 20s)...")
                     await page.wait_for_load_state('networkidle', timeout=20000)
+                    networkidle_time = int((time.time() - networkidle_start) * 1000)
+                    print(f"[PLAYWRIGHT]: Networkidle achieved in {networkidle_time}ms")
                 except Exception as e:
-                    print(f"[PLAYWRIGHT]: Networkidle timeout ignored: {str(e)}")
+                    networkidle_time = int((time.time() - networkidle_start) * 1000)
+                    print(f"[PLAYWRIGHT]: Networkidle timeout after {networkidle_time}ms - {type(e).__name__}: {str(e)} (this is expected and ignored)")
                 
                 self.current_url = page.url
                 self.page_title = await page.title()
@@ -347,14 +369,33 @@ class PlaywrightWebController(WebControllerInterface):
                 return result
                 
             except Exception as e:
-                error_msg = f"Navigation error: {e}"
-                print(f"[PLAYWRIGHT]: {error_msg}")
+                execution_time = int((time.time() - start_time) * 1000)
+                error_type = type(e).__name__
+                error_msg = str(e)
+                
+                print(f"[PLAYWRIGHT]: ❌ NAVIGATION FAILED after {execution_time}ms")
+                print(f"[PLAYWRIGHT]: Error Type: {error_type}")
+                print(f"[PLAYWRIGHT]: Error Message: {error_msg}")
+                print(f"[PLAYWRIGHT]: Target URL: {normalized_url if 'normalized_url' in locals() else url}")
+                
+                # Try to get current page state for debugging
+                try:
+                    if 'page' in locals():
+                        current_url = page.url
+                        current_title = await page.title()
+                        print(f"[PLAYWRIGHT]: Current page state - URL: {current_url}, Title: {current_title[:50]}...")
+                    else:
+                        print(f"[PLAYWRIGHT]: Page object not available for state check")
+                except Exception as state_error:
+                    print(f"[PLAYWRIGHT]: Could not get page state: {type(state_error).__name__}: {str(state_error)}")
+                
                 return {
                     'success': False,
-                    'error': error_msg,
+                    'error': f"{error_type}: {error_msg}",
+                    'error_type': error_type,
                     'url': self.current_url,
                     'title': self.page_title,
-                    'execution_time': 0,
+                    'execution_time': execution_time,
                     'original_url': url,
                     'normalized_url': normalized_url if 'normalized_url' in locals() else url,
                     'follow_redirects': follow_redirects
