@@ -371,11 +371,18 @@ class PlaywrightWebController(WebControllerInterface):
                 page = await self._get_persistent_page(target_url=normalized_url)
                 
                 # Navigate to URL using exact same approach as working script
+                print(f"[PLAYWRIGHT]: Starting navigation with networkidle...")
                 await page.goto(normalized_url, timeout=timeout, wait_until='networkidle')
+                print(f"[PLAYWRIGHT]: Navigation completed successfully!")
                 
                 # Get page info after navigation
+                print(f"[PLAYWRIGHT]: Getting current URL...")
                 self.current_url = page.url
+                print(f"[PLAYWRIGHT]: Got URL: {self.current_url}")
+                
+                print(f"[PLAYWRIGHT]: Getting page title...")
                 self.page_title = await page.title()
+                print(f"[PLAYWRIGHT]: Got title: {self.page_title}")
                 
                 # Page remains persistent for next actions
                 
