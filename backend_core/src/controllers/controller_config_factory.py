@@ -36,7 +36,7 @@ DEVICE_CONTROLLER_MAP = {
     },
     'stb': {
         'av': ['hdmi_stream'], 
-        'remote': [],
+        'remote': ['ir_remote'],
         'desktop': [],
         'web': [],
         'power': ['tapo'],  # Add tapo power controller for STB
@@ -45,7 +45,7 @@ DEVICE_CONTROLLER_MAP = {
     },
     'tizen': {
         'av': ['camera_stream'], 
-        'remote': [],
+        'remote': ['ir_remote'],
         'desktop': [],
         'web': [],
         'power': [],
@@ -58,15 +58,6 @@ DEVICE_CONTROLLER_MAP = {
         'desktop': ['bash', 'pyautogui'],  # Add bash and PyAutoGUI desktop controllers
         'web': ['playwright'],  # Add playwright web controller
         'power': [],  # Add tapo power controller
-        'network': [],
-        'ai': ['ai_agent']
-    },
-    'host_pyautogui': {
-        'av': ['vnc_stream'], 
-        'remote': [],
-        'desktop': ['pyautogui'],  # Add PyAutoGUI desktop controller
-        'web': ['playwright'],  # Add playwright web controller
-        'power': [],
         'network': [],
         'ai': ['ai_agent']
     }
@@ -370,6 +361,16 @@ def _get_remote_params(implementation: str, device_config: dict) -> dict:
         print(f"[@controller_factory:_get_remote_params] DEBUG:   platform_name = {params['appium_platform_name']}")
         print(f"[@controller_factory:_get_remote_params] DEBUG:   device_id = {params['appium_device_id']}")
         print(f"[@controller_factory:_get_remote_params] DEBUG:   server_url = {params['appium_server_url']}")
+        return params
+    elif implementation == 'ir_remote':
+        params = {
+            'ir_device_path': device_config.get('ir_path'),
+            'ir_config_type': device_config.get('ir_type')
+        }
+        print(f"[@controller_factory:_get_remote_params] DEBUG: IR remote params: {params}")
+        print(f"[@controller_factory:_get_remote_params] DEBUG: Key IR values:")
+        print(f"[@controller_factory:_get_remote_params] DEBUG:   ir_path = {params['ir_device_path']}")
+        print(f"[@controller_factory:_get_remote_params] DEBUG:   ir_type = {params['ir_config_type']}")
         return params
     
     print(f"[@controller_factory:_get_remote_params] DEBUG: Unknown implementation, returning empty params")
