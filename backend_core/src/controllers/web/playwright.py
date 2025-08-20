@@ -72,7 +72,20 @@ class PlaywrightWebController(WebControllerInterface):
         
         # Get existing page 0 from context (persistent page)
         if len(self.__class__._context.pages) > 0:
+            print(f"[PLAYWRIGHT]: Found {len(self.__class__._context.pages)} existing pages")
             page = self.__class__._context.pages[0]
+            print(f"[PLAYWRIGHT]: Retrieved page object from context")
+            
+            # Test if page is responsive
+            try:
+                current_url = page.url
+                print(f"[PLAYWRIGHT]: Page is responsive, current URL: {current_url}")
+            except Exception as page_error:
+                print(f"[PLAYWRIGHT]: Page is unresponsive: {type(page_error).__name__}: {str(page_error)}")
+                # Create a new page if the existing one is dead
+                page = await self.__class__._context.new_page()
+                print(f"[PLAYWRIGHT]: Created new page to replace unresponsive one")
+            
             print(f"[PLAYWRIGHT]: Using existing persistent page (page 0)")
             return page
         else:
