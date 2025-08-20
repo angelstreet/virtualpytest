@@ -220,8 +220,8 @@ def main():
 
         options = {
             'bind': f'0.0.0.0:{host_port}',
-            'workers': 1,
-            'threads': 4,  # Enable 4 threads for parallel script execution
+            'workers': 3,
+            'threads': 1,  # Enable 4 threads for parallel script execution
             'timeout': 3600,  # 1 hour timeout to match server timeout
         }
         
