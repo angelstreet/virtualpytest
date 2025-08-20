@@ -313,14 +313,12 @@ def _create_device_with_controllers(device_config: Dict[str, Any]) -> Device:
         device_config.get('device_ip'),
         device_config.get('device_port'),
         device_config.get('video_stream_path'),
-        device_config.get('video_capture_path')
+        device_config.get('video_capture_path'),
+        device_config.get('ir_type')
     )
     
     # Create controllers using the factory (returns dict now)
     controller_configs = create_controller_configs_from_device_info(device_config)
-    
-    # Store controller configurations on the device for frontend serialization
-    device.set_controller_configs(controller_configs)
     
     # Convert dict to list for processing
     controller_list = list(controller_configs.values())

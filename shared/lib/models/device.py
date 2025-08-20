@@ -19,7 +19,7 @@ class Device:
         verification_controllers = device.get_controllers('verification')
     """
     
-    def __init__(self, device_id: str, device_name: str, device_model: str, device_ip: str = None, device_port: str = None, video_stream_path: str = None, video_capture_path: str = None):
+    def __init__(self, device_id: str, device_name: str, device_model: str, device_ip: str = None, device_port: str = None, video_stream_path: str = None, video_capture_path: str = None, ir_type: str = None):
         """
         Initialize a device.
         
@@ -31,12 +31,14 @@ class Device:
             device_port: Device port
             video_stream_path: Video stream path for URL building (e.g., '/host/stream/capture1')
             video_capture_path: Video capture path for URL building (e.g., '/var/www/html/stream/capture1')
+            ir_type: IR remote type (e.g., 'samsung', 'eos')
         """
         self.device_id = device_id
         self.device_name = device_name
         self.device_model = device_model
         self.device_ip = device_ip
         self.device_port = device_port
+        self.ir_type = ir_type
         
         # Store video paths for URL building purposes
         self.video_stream_path = video_stream_path
@@ -50,9 +52,6 @@ class Device:
             'power': [],
             'network': []
         }
-        
-        # Store controller configurations for frontend serialization
-        self._controller_configs: Dict[str, Any] = {}
         
         # Capabilities derived from controllers
         self._capabilities: List[str] = []
@@ -107,14 +106,7 @@ class Device:
         """
         return len(self._controllers.get(controller_type, [])) > 0
     
-    def set_controller_configs(self, controller_configs: Dict[str, Any]):
-        """
-        Set the controller configurations for this device.
-        
-        Args:
-            controller_configs: Dictionary of controller configurations
-        """
-        self._controller_configs = controller_configs
+
     
     def get_capabilities(self) -> List[str]:
         """
@@ -270,10 +262,10 @@ class Device:
             'device_model': self.device_model,  # Updated field name to match frontend expectations
             'device_ip': self.device_ip,
             'device_port': self.device_port,
+            'ir_type': self.ir_type,  # IR remote type for frontend
             'device_capabilities': actual_capabilities,  # Use actual capabilities instead of theoretical
             'device_verification_types': device_verification_types,  # Simplified naming (removed 'available_' prefix)
-            'device_action_types': device_action_types,  # Simplified naming (removed 'available_' prefix)
-            'controller_configs': self._controller_configs  # Include controller configurations for frontend
+            'device_action_types': device_action_types  # Simplified naming (removed 'available_' prefix)
         }
         
         # Include video paths needed for URL building (if available)

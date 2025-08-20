@@ -47,6 +47,7 @@ export interface Device {
   device_description?: string; // Device description
   device_ip?: string; // Device IP address (for ADB/device control)
   device_port?: string; // Device port (for ADB/device control)
+  ir_type?: string; // IR remote type (samsung, eos, etc.)
   device_capabilities: DeviceCapabilities; // New detailed capability format (matches server format)
   device_controller_types?: string[]; // Device-specific controller types (prefixed for consistency)
   controller_configs?: {

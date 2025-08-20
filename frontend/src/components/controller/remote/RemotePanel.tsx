@@ -86,16 +86,10 @@ export const RemotePanel = React.memo(
           const configType = remoteCapability || deviceModel;
           
           if (configType) {
-            // For IR remotes, we need to get the IR type from device controller configs
+            // For IR remotes, we need to get the IR type from device
             let irType = undefined;
-            if (configType === 'ir_remote' && device?.controller_configs) {
-              // Look for remote controller config to get IR type
-              const remoteConfig = Object.values(device.controller_configs).find(
-                config => config.implementation === 'ir_remote'
-              );
-              if (remoteConfig?.params) {
-                irType = remoteConfig.params.ir_type;
-              }
+            if (configType === 'ir_remote' && device?.ir_type) {
+              irType = device.ir_type;
             }
             
             const config = await loadRemoteConfig(configType, irType);

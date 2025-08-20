@@ -27,10 +27,7 @@ export const useInfraredRemote = (
 ): UseInfraredRemoteReturn => {
   // Get IR type from device configuration
   const device = host?.devices?.find(d => d.device_id === deviceId);
-  const irType = device?.controller_configs && 
-    Object.values(device.controller_configs).find(
-      config => config.implementation === 'ir_remote'
-    )?.params?.ir_type;
+  const irType = device?.ir_type;
 
   // Get the appropriate config based on IR type
   const layoutConfig = irType ? getInfraredRemoteConfig(irType) : infraredRemoteConfig;
