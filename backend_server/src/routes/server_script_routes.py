@@ -54,14 +54,28 @@ def analyze_script_parameters(script_path):
                 'default': None
             })
         
-        # Extract optional arguments
-        optional_pattern = r"parser\.add_argument\(['\"]--([^'\"]+)['\"](?:[^)]*help=['\"]([^'\"]*)['\"])?(?:[^)]*default=([^,)]+))?[^)]*\)"
-        optional_matches = re.findall(optional_pattern, script_content, re.MULTILINE)
+        # Extract optional arguments with more comprehensive pattern
+        # This pattern handles various argument formats including type, default, help
+        optional_pattern = r"parser\.add_argument\(['\"]--([^'\"]+)['\"](?:[^)]*?)(?:help=['\"]([^'\"]*)['\"])?[^)]*?\)"
         
-        for match in optional_matches:
-            param_name = match[0]
-            help_text = match[1] if len(match) > 1 else ''
-            default_value = match[2].strip() if len(match) > 2 and match[2].strip() else None
+        # Find all add_argument calls for optional parameters
+        for match in re.finditer(optional_pattern, script_content, re.MULTILINE | re.DOTALL):
+            param_name = match.group(1)
+            help_text = match.group(2) if match.group(2) else ''
+            
+            # Extract the full argument definition to parse default value
+            full_match = match.group(0)
+            
+            # Look for default value
+            default_match = re.search(r"default=([^,)]+)", full_match)
+            default_value = default_match.group(1).strip() if default_match else None
+            
+            # Clean up default value (remove quotes if string literal)
+            if default_value:
+                if default_value.startswith("'") and default_value.endswith("'"):
+                    default_value = default_value[1:-1]
+                elif default_value.startswith('"') and default_value.endswith('"'):
+                    default_value = default_value[1:-1]
             
             parameters.append({
                 'name': param_name,

@@ -522,6 +522,31 @@ const RunTests: React.FC = () => {
 
 
 
+    // Special handling for boolean parameters like goto_live
+    if (param.name === 'goto_live') {
+      const options = ['true', 'false'];
+      
+      return (
+        <Autocomplete
+          key={param.name}
+          options={options}
+          value={value || 'true'}
+          onChange={(_event, newValue) => handleParameterChange(param.name, newValue || 'true')}
+          size="small"
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              label={`${param.name}${param.required ? ' *' : ''}`}
+              size="small"
+              fullWidth
+              error={param.required && !value.trim()}
+              helperText="Go to live"
+            />
+          )}
+        />
+      );
+    }
+
     // Default text field for other parameters
     return (
       <TextField
@@ -533,6 +558,7 @@ const RunTests: React.FC = () => {
         fullWidth
         error={param.required && !value.trim()}
         placeholder={param.name === 'node' ? 'home' : (param.default || '')}
+        helperText={param.help ? param.help.substring(0, 50) + (param.help.length > 50 ? '...' : '') : ''}
       />
     );
   };
@@ -541,7 +567,7 @@ const RunTests: React.FC = () => {
   const displayParameters = scriptAnalysis?.parameters.filter((param) => 
     (param.required && param.name !== 'host' && param.name !== 'device') ||
     param.name === 'node' ||  // Always show node parameter for goto scripts
-    (selectedScript.includes('fullzap') && (param.name === 'max_iteration' || param.name === 'goto_live'))  // Show fullzap specific parameters
+    (selectedScript.includes('fullzap') && (param.name === 'action' || param.name === 'max_iteration' || param.name === 'goto_live'))  // Show fullzap specific parameters
   ) || [];
 
 
