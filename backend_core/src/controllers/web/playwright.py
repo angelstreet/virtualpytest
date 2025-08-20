@@ -353,17 +353,26 @@ class PlaywrightWebController(WebControllerInterface):
                 page = await self._get_persistent_page(target_url=normalized_url)
                 
                 # Navigate to URL (original working approach)
+                print(f"[PLAYWRIGHT]: Starting page.goto() with wait_until='load'")
                 await page.goto(normalized_url, timeout=timeout, wait_until='load')
+                print(f"[PLAYWRIGHT]: page.goto() completed successfully!")
                 
                 # Get page info after navigation
                 try:
-                    # Try to wait for networkidle but don't fail if it times out
+                    print(f"[PLAYWRIGHT]: Waiting for networkidle...")
                     await page.wait_for_load_state('networkidle', timeout=20000)
+                    print(f"[PLAYWRIGHT]: Networkidle completed")
                 except Exception as e:
                     print(f"[PLAYWRIGHT]: Networkidle timeout ignored: {str(e)}")
                 
+                print(f"[PLAYWRIGHT]: Getting current URL...")
                 self.current_url = page.url
+                print(f"[PLAYWRIGHT]: Got URL: {self.current_url}")
+                
+                print(f"[PLAYWRIGHT]: Getting page title...")
                 self.page_title = await page.title()
+                print(f"[PLAYWRIGHT]: Got title: {self.page_title}")
+                print(f"[PLAYWRIGHT]: All page info retrieved successfully!")
                 
                 # Page remains persistent for next actions
                 
