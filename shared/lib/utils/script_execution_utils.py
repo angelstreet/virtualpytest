@@ -323,7 +323,7 @@ def execute_script(script_name: str, device_id: str, parameters: str = "") -> Di
             hostname = os.getenv('HOST_NAME', 'localhost')
             
             # Build command with parameters for direct execution
-            base_command = f"bash -c 'source /home/{hostname}/myvenv/bin/activate && python {actual_script_path}"
+            base_command = f"bash -c 'source /home/{hostname}/virtualpytest/venv/bin/activate && python {actual_script_path}"
             
             if parameters and parameters.strip():
                 command = f"{base_command} {parameters.strip()}'"
@@ -439,7 +439,7 @@ def execute_script(script_name: str, device_id: str, parameters: str = "") -> Di
         hostname = os.getenv('HOST_NAME', 'localhost')
         
         # Build command with parameters
-        base_command = f"bash -c 'source /home/{hostname}/myvenv/bin/activate && python {script_path}"
+        base_command = f"bash -c 'source /home/{hostname}/virtualpytest/venv/bin/activate && python {script_path}"
         
         if parameters and parameters.strip():
             # Add parameters to the command

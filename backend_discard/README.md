@@ -19,7 +19,7 @@ The backend_discard service automatically analyzes test results and alerts using
 - **P3 Queue**: Reserved for future use cases
 
 ### **AI Models Used**
-- **Vision**: `qwen/qwen-2-vl-7b-instruct` for analyzing report images/screenshots
+- **Vision**: `qwen/qwen-2.5-vl-7b-instruct` for analyzing report images/screenshots
 - **Text**: `moonshotai/kimi-k2:free` for analyzing metadata and descriptions
 
 ## 🚀 **Quick Start**
@@ -53,7 +53,7 @@ OPENROUTER_API_KEY=your_openrouter_api_key
 ## 🤖 **AI Models**
 
 - **Text Analysis**: `moonshotai/kimi-k2:free`
-- **Image Analysis**: `qwen/qwen-2-vl-7b-instruct`
+- **Image Analysis**: `qwen/qwen-2.5-vl-7b-instruct`
 
 ## 📊 **Database Integration**
 

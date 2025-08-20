@@ -5,7 +5,7 @@
 Minimalist AI-powered service to analyze test execution results and alerts for false positives using Redis queues and OpenRouter AI.
 
 **Priority Processing**: p1 (alerts) → p2 (test executions) → p3 (future use)
-**AI Model**: `qwen/qwen-2-vl-7b-instruct` for image analysis, `moonshotai/kimi-k2:free` for text
+**AI Model**: `qwen/qwen-2.5-vl-7b-instruct` for image analysis, `moonshotai/kimi-k2:free` for text
 **Tables**: `alerts` and `script_results` only
 
 ## 🏗️ **Simple Architecture**
@@ -125,7 +125,7 @@ class SimpleAIAnalyzer:
     def __init__(self):
         self.api_key = os.getenv('OPENROUTER_API_KEY')
         self.text_model = 'moonshotai/kimi-k2:free'
-        self.vision_model = 'qwen/qwen-2-vl-7b-instruct'
+        self.vision_model = 'qwen/qwen-2.5-vl-7b-instruct'
     
     def analyze_alert(self, alert_data: Dict) -> Dict:
         """Analyze alert for false positive"""

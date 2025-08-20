@@ -6,7 +6,7 @@ AI-powered false positive detection for alerts and test execution results.
 Monitors Redis queues and updates database with AI analysis results.
 
 Priority Processing: P1 (alerts) → P2 (scripts) → P3 (reserved)
-AI Models: moonshotai/kimi-k2:free (text), qwen/qwen-2-vl-7b-instruct (vision)
+AI Models: moonshotai/kimi-k2:free (text), qwen/qwen-2.5-vl-7b-instruct (vision)
 """
 
 import sys

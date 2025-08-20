@@ -228,5 +228,5 @@ const LanguageMenuAnalyzer = () => {
 ## Requirements
 
 - OpenRouter API key must be set in environment variables
-- Same AI model (`qwen/qwen-2-vl-7b-instruct`) as existing features
+- Same AI model (`qwen/qwen-2.5-vl-7b-instruct`) as existing features
 - No additional dependencies required

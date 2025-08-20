@@ -202,7 +202,7 @@ def main():
             'kwargs': {
                 'type': int,
                 'default': 1,
-                'help': 'Number of times to execute the action (default: 3)'
+                'help': 'Number of times to execute the action (default: 2)'
             }
         },
         {

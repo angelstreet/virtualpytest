@@ -3,7 +3,7 @@ AI Analyzer for Backend Discard Service
 
 Uses OpenRouter AI models to analyze alerts and script results for false positives.
 - Text Analysis: moonshotai/kimi-k2:free
-- Image Analysis: qwen/qwen-2-vl-7b-instruct (for report screenshots)
+- Image Analysis: qwen/qwen-2.5-vl-7b-instruct (for report screenshots)
 """
 
 import requests
@@ -50,7 +50,7 @@ class SimpleAIAnalyzer:
             raise ValueError("Missing OPENROUTER_API_KEY in environment")
         
         self.text_model = 'moonshotai/kimi-k2:free'
-        self.vision_model = 'qwen/qwen-2-vl-7b-instruct'
+        self.vision_model = 'qwen/qwen-2.5-vl-7b-instruct'
         self.base_url = 'https://openrouter.ai/api/v1/chat/completions'
         
         # Initialize Supabase client for database access

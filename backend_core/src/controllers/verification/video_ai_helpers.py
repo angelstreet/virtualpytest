@@ -95,7 +95,7 @@ class VideoAIHelpers:
                         'X-Title': 'VirtualPyTest'
                     },
                     json={
-                        'model': 'qwen/qwen-2-vl-7b-instruct',
+                        'model': 'qwen/qwen-2.5-vl-7b-instruct',
                         'messages': [
                             {
                                 'role': 'user',
@@ -223,28 +223,14 @@ class VideoAIHelpers:
                     
                     height, width = img.shape[:2]
                     
-                    # Enhanced subtitle detection with fallback approach
-                    # 1. Try cropped region first (optimized for subtitles)
-                    # 2. If no subtitles detected, retry with full image (more context)
+                    # AI-powered subtitle analysis - use full image only for better reliability
+                    print(f"VideoAI[{self.device_name}]: Analyzing subtitles with full image")
+                    extracted_text, detected_language, ai_confidence = self.analyze_subtitle_with_ai(img)
                     
-                    # Step 1: Try cropped subtitle region first
-                    subtitle_height_start = int(height * 0.62)
-                    subtitle_width_start = int(width * 0.2)  # Skip left 20%
-                    subtitle_width_end = int(width * 0.8)    # Skip right 20%
-                    
-                    subtitle_region = img[subtitle_height_start:, subtitle_width_start:subtitle_width_end]
-                    
-                    # AI-powered subtitle analysis - try cropped region first
-                    extracted_text, detected_language, ai_confidence = self.analyze_subtitle_with_ai(subtitle_region)
-                    
-                    # Step 2: Fallback to full image if cropped region failed
-                    if not extracted_text or len(extracted_text.strip()) == 0:
-                        print(f"VideoAI[{self.device_name}]: Cropped region analysis failed, retrying with full image")
-                        extracted_text, detected_language, ai_confidence = self.analyze_subtitle_with_ai(img)
-                        if extracted_text and len(extracted_text.strip()) > 0:
-                            print(f"VideoAI[{self.device_name}]: Full image fallback successful: '{extracted_text[:50]}{'...' if len(extracted_text) > 50 else ''}'")
-                        else:
-                            print(f"VideoAI[{self.device_name}]: Both cropped and full image analysis failed")
+                    if extracted_text and len(extracted_text.strip()) > 0:
+                        print(f"VideoAI[{self.device_name}]: Subtitle analysis successful: '{extracted_text[:50]}{'...' if len(extracted_text) > 50 else ''}'")
+                    else:
+                        print(f"VideoAI[{self.device_name}]: No subtitles detected in full image analysis")
                     
                     # Determine if subtitles were detected
                     has_subtitles = bool(extracted_text and len(extracted_text.strip()) > 0)
@@ -427,7 +413,7 @@ Be specific about what you see on the device interface."""
                         'X-Title': 'VirtualPyTest'
                     },
                     json={
-                        'model': 'qwen/qwen-2-vl-7b-instruct',
+                        'model': 'qwen/qwen-2.5-vl-7b-instruct',
                         'messages': [
                             {
                                 'role': 'user',
@@ -587,7 +573,7 @@ RESPOND WITH JSON ONLY - NO MARKDOWN - NO OTHER TEXT"""
                         'X-Title': 'VirtualPyTest'
                     },
                     json={
-                        'model': 'qwen/qwen-2-vl-7b-instruct',
+                        'model': 'qwen/qwen-2.5-vl-7b-instruct',
                         'messages': [
                             {
                                 'role': 'user',
@@ -912,7 +898,7 @@ RESPOND WITH JSON ONLY - NO MARKDOWN - NO OTHER TEXT"""
                         'X-Title': 'VirtualPyTest'
                     },
                     json={
-                        'model': 'qwen/qwen-2-vl-7b-instruct',
+                        'model': 'qwen/qwen-2.5-vl-7b-instruct',
                         'messages': [
                             {
                                 'role': 'user',
