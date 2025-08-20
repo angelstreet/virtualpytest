@@ -301,4 +301,72 @@ USING ((auth.uid() IS NULL) OR (auth.role() = 'service_role'::text) OR true);
 CREATE POLICY "navigation_trees_history_access_policy" ON navigation_trees_history
 FOR ALL 
 TO public
-USING ((auth.uid() IS NULL) OR (auth.role() = 'service_role'::text) OR true); 
+USING ((auth.uid() IS NULL) OR (auth.role() = 'service_role'::text) OR true);
+
+-- ==============================================================================
+-- NESTED NAVIGATION SYNC TRIGGERS
+-- ==============================================================================
+-- Automatic synchronization for parent nodes in nested trees
+
+-- Function to sync parent node label and screenshot to subtrees
+CREATE OR REPLACE FUNCTION sync_parent_label_screenshot()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- Only sync if this node is referenced as a parent by subtrees
+    IF EXISTS(
+        SELECT 1 FROM navigation_trees 
+        WHERE parent_node_id = NEW.node_id 
+        AND team_id = NEW.team_id
+    ) THEN
+        -- Update label and screenshot in all subtree duplicates
+        UPDATE navigation_nodes 
+        SET 
+            label = NEW.label,
+            data = jsonb_set(
+                COALESCE(data, '{}'), 
+                '{screenshot}', 
+                to_jsonb(NEW.data->>'screenshot')
+            ),
+            updated_at = NOW()
+        WHERE 
+            node_id = NEW.node_id
+            AND team_id = NEW.team_id
+            AND tree_id IN (
+                SELECT id FROM navigation_trees 
+                WHERE parent_node_id = NEW.node_id 
+                AND team_id = NEW.team_id
+            );
+    END IF;
+    
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Function to cascade delete subtrees when parent node is deleted
+CREATE OR REPLACE FUNCTION cascade_delete_subtrees()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- When a parent node is deleted, delete all its subtrees
+    DELETE FROM navigation_trees 
+    WHERE parent_node_id = OLD.node_id 
+    AND team_id = OLD.team_id;
+    
+    RETURN OLD;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Sync trigger (only fires on label or screenshot changes)
+CREATE TRIGGER sync_parent_label_screenshot_trigger
+    AFTER UPDATE ON navigation_nodes
+    FOR EACH ROW
+    WHEN (
+        OLD.label IS DISTINCT FROM NEW.label OR
+        OLD.data->>'screenshot' IS DISTINCT FROM NEW.data->>'screenshot'
+    )
+    EXECUTE FUNCTION sync_parent_label_screenshot();
+
+-- Cascade delete trigger
+CREATE TRIGGER cascade_delete_subtrees_trigger
+    AFTER DELETE ON navigation_nodes
+    FOR EACH ROW
+    EXECUTE FUNCTION cascade_delete_subtrees(); 
