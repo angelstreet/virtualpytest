@@ -20,10 +20,10 @@ def analyze_script_parameters(script_path):
             return {'success': False, 'error': f'Script not found: {script_path}'}
         
         with open(script_path, 'r', encoding='utf-8') as f:
-            # Read first 100 lines to analyze parameters
+            # Read first 300 lines to analyze parameters (some scripts have args later in file)
             lines = []
             for i, line in enumerate(f):
-                if i >= 100:
+                if i >= 300:
                     break
                 lines.append(line.strip())
         
@@ -54,28 +54,38 @@ def analyze_script_parameters(script_path):
                 'default': None
             })
         
-        # Extract optional arguments with more comprehensive pattern
-        # This pattern handles various argument formats including type, default, help
-        optional_pattern = r"parser\.add_argument\(['\"]--([^'\"]+)['\"](?:[^)]*?)(?:help=['\"]([^'\"]*)['\"])?[^)]*?\)"
+        # Extract optional arguments with better multi-line handling
+        # Look for parser.add_argument('--param_name', ... ) patterns that can span multiple lines
+        optional_pattern = r"parser\.add_argument\(['\"]--([^'\"]+)['\"]([^)]*?)\)"
         
         # Find all add_argument calls for optional parameters
         for match in re.finditer(optional_pattern, script_content, re.MULTILINE | re.DOTALL):
             param_name = match.group(1)
-            help_text = match.group(2) if match.group(2) else ''
+            args_content = match.group(2)  # Everything between the parameter name and closing )
             
-            # Extract the full argument definition to parse default value
-            full_match = match.group(0)
+            # Extract help text
+            help_match = re.search(r"help=['\"]([^'\"]*)['\"]", args_content)
+            help_text = help_match.group(1) if help_match else ''
             
-            # Look for default value
-            default_match = re.search(r"default=([^,)]+)", full_match)
-            default_value = default_match.group(1).strip() if default_match else None
-            
-            # Clean up default value (remove quotes if string literal)
-            if default_value:
-                if default_value.startswith("'") and default_value.endswith("'"):
-                    default_value = default_value[1:-1]
-                elif default_value.startswith('"') and default_value.endswith('"'):
-                    default_value = default_value[1:-1]
+            # Extract default value
+            default_match = re.search(r"default=([^,)]+)", args_content)
+            default_value = None
+            if default_match:
+                default_raw = default_match.group(1).strip()
+                # Handle different types of defaults
+                if default_raw == 'True':
+                    default_value = 'true'
+                elif default_raw == 'False':
+                    default_value = 'false'
+                elif default_raw.startswith("'") and default_raw.endswith("'"):
+                    default_value = default_raw[1:-1]
+                elif default_raw.startswith('"') and default_raw.endswith('"'):
+                    default_value = default_raw[1:-1]
+                elif default_raw.isdigit():
+                    default_value = default_raw
+                else:
+                    # For complex expressions like lambda, just take the value before comma/parenthesis
+                    default_value = default_raw.split(',')[0].split(')')[0].strip()
             
             parameters.append({
                 'name': param_name,
