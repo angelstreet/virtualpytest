@@ -124,10 +124,10 @@ class SimpleQueueProcessor:
             return False
     
     def get_next_task(self) -> Optional[Dict[str, Any]]:
-        """Get next task in priority order: p1 → p2 → p3"""
+        """Get next task in priority order: p1 → p2 → p3 (most recent first)"""
         for queue in self.queues:
             try:
-                result = self._redis_command(['RPOP', queue])
+                result = self._redis_command(['LPOP', queue])
                 
                 if result and result.get('result'):
                     task_data = json.loads(result['result'])
