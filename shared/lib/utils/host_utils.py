@@ -514,6 +514,56 @@ def get_controller(device_id: str, controller_type: str):
     return host.get_controller(device_id, controller_type)
 
 
+def get_remote_controller_by_type(device_id: str, remote_type: str):
+    """
+    Get a specific remote controller by implementation type.
+    
+    Args:
+        device_id: Device identifier
+        remote_type: Remote implementation type ('android_tv', 'ir_remote', 'android_mobile', 'appium')
+    
+    Returns:
+        Specific remote controller instance or None if not found
+    """
+    host = get_host()
+    
+    # If device_id is None, use the host device
+    if device_id is None:
+        device_id = 'host'
+        print(f"[@host_utils:get_remote_controller_by_type] Using host device for remote controller: {remote_type}")
+    
+    device = host.get_device(device_id)
+    if not device:
+        print(f"[@host_utils:get_remote_controller_by_type] Device {device_id} not found")
+        return None
+    
+    # Get all remote controllers for this device
+    remote_controllers = device.get_controllers('remote')
+    
+    # Map remote types to controller class name patterns
+    controller_class_patterns = {
+        'android_tv': 'AndroidTVRemoteController',
+        'ir_remote': 'IRRemoteController', 
+        'android_mobile': 'AndroidMobileRemoteController',
+        'appium': 'AppiumRemoteController'
+    }
+    
+    target_pattern = controller_class_patterns.get(remote_type)
+    if not target_pattern:
+        print(f"[@host_utils:get_remote_controller_by_type] Unknown remote type: {remote_type}")
+        return None
+    
+    # Find controller matching the pattern
+    for controller in remote_controllers:
+        controller_class_name = controller.__class__.__name__
+        if controller_class_name == target_pattern:
+            print(f"[@host_utils:get_remote_controller_by_type] Found {remote_type} controller ({controller_class_name}) for device {device_id}")
+            return controller
+    
+    print(f"[@host_utils:get_remote_controller_by_type] No {remote_type} controller found for device {device_id}")
+    return None
+
+
 def list_available_devices():
     """List all available devices."""
     host = get_host()

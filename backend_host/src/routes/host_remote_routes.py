@@ -5,7 +5,7 @@ Host-side remote control endpoints that execute remote commands using instantiat
 """
 
 from flask import Blueprint, request, jsonify, current_app
-from utils.host_utils import get_controller, get_device_by_id
+from utils.host_utils import get_controller, get_device_by_id, get_remote_controller_by_type
 import time
 
 # Create blueprint
@@ -283,8 +283,11 @@ def execute_command():
         command = data.get('command')
         params = data.get('params', {})
         device_id = data.get('device_id', 'device1')
+        remote_type = data.get('remote_type')  # NEW: Get specific remote type
         
         print(f"[@route:host_remote:execute_command] Executing command: {command} with params: {params} for device: {device_id}")
+        if remote_type:
+            print(f"[@route:host_remote:execute_command] Requested remote type: {remote_type}")
         
         if not command:
             return jsonify({
@@ -293,7 +296,12 @@ def execute_command():
             }), 400
         
         # Get remote controller for the specified device
-        remote_controller = get_controller(device_id, 'remote')
+        if remote_type:
+            # Use specific remote type if provided
+            remote_controller = get_remote_controller_by_type(device_id, remote_type)
+        else:
+            # Fallback to default behavior (first remote controller)
+            remote_controller = get_controller(device_id, 'remote')
         
         if not remote_controller:
             device = get_device_by_id(device_id)

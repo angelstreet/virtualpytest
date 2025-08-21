@@ -140,6 +140,7 @@ export const useInfraredRemote = (
           host: host,
           command: 'press_key',
           params: { key: command, ...params },
+          remote_type: 'ir_remote', // Specify IR remote controller
         };
 
         // Add deviceId if provided

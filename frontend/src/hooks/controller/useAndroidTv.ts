@@ -105,6 +105,7 @@ export const useAndroidTv = (
           host: host,
           command: 'press_key',
           params: { key: adbKey },
+          remote_type: 'android_tv', // Specify Android TV remote controller
         };
 
         // Add deviceId if provided
