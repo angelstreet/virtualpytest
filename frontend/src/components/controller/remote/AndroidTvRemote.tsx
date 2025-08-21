@@ -38,12 +38,10 @@ export const AndroidTvRemote = React.memo(
       handleRemoteCommand,
     } = useAndroidTv(host, deviceId, isConnected);
 
-    const [showOverlays, setShowOverlays] = useState(false);
+    const [showOverlays, setShowOverlays] = useState(true);
 
-    // Update showOverlays when isCollapsed changes
-    useEffect(() => {
-      setShowOverlays(false);
-    }, [isCollapsed]);
+    // Keep showOverlays state persistent when isCollapsed changes
+    // This helps with button alignment as overlays remain visible by default
 
     // handleDisconnectWithCallback removed - disconnect button was removed
 
@@ -207,8 +205,8 @@ export const AndroidTvRemote = React.memo(
                 key={buttonId}
                 sx={{
                   position: 'absolute',
-                  left: `${button.position.x * remoteScale}px`,
-                  top: `${button.position.y * remoteScale}px`,
+                  left: `${(button.position.x + layoutConfig.remote_info.global_offset.x) * remoteScale}px`,
+                  top: `${(button.position.y + layoutConfig.remote_info.global_offset.y) * remoteScale}px`,
                   width: `${button.size.width * layoutConfig.remote_info.button_scale_factor * remoteScale}px`,
                   height: `${button.size.height * layoutConfig.remote_info.button_scale_factor * remoteScale}px`,
                   borderRadius: button.shape === 'circle' ? '50%' : '4px',
