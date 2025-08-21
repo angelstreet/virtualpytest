@@ -746,11 +746,15 @@ class PlaywrightWebController(WebControllerInterface):
         })()
         """
         
-        # Try once, if fails wait 1s and retry
+        # Try once, if fails wait 1s and retry with connection check
         result = self.execute_javascript(script)
         if not result.get('success'):
-            print(f"[PLAYWRIGHT]: First activate_semantic failed, retrying in 1s...")
+            print(f"[PLAYWRIGHT]: First activate_semantic failed ({result.get('error', 'unknown')}), retrying in 1s...")
             import time; time.sleep(1)
+            # Check if connection issue and try to recover
+            if 'Connection closed' in str(result.get('error', '')):
+                print(f"[PLAYWRIGHT]: Connection issue detected, attempting recovery...")
+                self._browser_connected = False  # Force reconnection
             result = self.execute_javascript(script)
         result['success'] = True  # Always succeed since this is optional
         return result
