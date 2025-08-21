@@ -619,7 +619,7 @@ export default function RemoteTestPage() {
               >
                 <RemotePanel
                   host={selectedHost as any}
-                  deviceId="test-device-1"
+                  deviceId={selectedHost.devices[0].device_id}
                   deviceModel={selectedHost.devices[0].device_model}
                   isConnected={true}
                   onReleaseControl={() => console.log('Release control')}
