@@ -255,6 +255,11 @@ class PlaywrightWebController(WebControllerInterface):
                         # Launch Chrome and connect
                         if not self.connect():
                             raise Exception("Failed to launch Chrome")
+                        
+                        # Wait 5 seconds for Chrome to fully initialize after launch
+                        print(f"[PLAYWRIGHT]: Waiting 5s for Chrome to fully initialize...")
+                        import time; time.sleep(5)
+                        
                         page = await self._get_persistent_page(target_url='https://google.fr')
                         
                         # Update page state
