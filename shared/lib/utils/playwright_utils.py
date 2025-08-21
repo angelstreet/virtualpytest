@@ -111,35 +111,6 @@ class ChromeManager:
             '--disable-session-restore',  # Disable all session restore functionality
             '--disable-background-tabs',  # Disable background tab restoration
             '--hide-crash-restore-bubble',  # Hide crash restore bubble
-            # GPU stability improvements - prevent GPU stalls and crashes
-            '--disable-gpu',  # Disable GPU acceleration to prevent GPU stalls
-            '--disable-gpu-compositing',  # Disable GPU compositing
-            '--disable-gpu-rasterization',  # Disable GPU rasterization
-            '--disable-gpu-sandbox',  # Disable GPU sandbox (can cause crashes)
-            '--disable-software-rasterizer',  # Use software rendering for stability
-            '--disable-dev-shm-usage',  # Prevent /dev/shm issues in containers
-            '--disable-accelerated-2d-canvas',  # Disable hardware acceleration for 2D canvas
-            '--disable-accelerated-jpeg-decoding',  # Disable hardware JPEG decoding
-            '--disable-accelerated-mjpeg-decode',  # Disable hardware MJPEG decoding
-            '--disable-accelerated-video-decode',  # Disable hardware video decoding
-            '--disable-accelerated-video-encode',  # Disable hardware video encoding
-            '--disable-partial-raster',  # Disable partial raster to prevent display issues
-            '--disable-features=VizDisplayCompositor,VizService,VizDisplayCompositorGL',  # Disable all Viz components
-            '--disable-viz-display-compositor',  # Explicitly disable Viz display compositor
-            '--disable-viz-service',  # Disable Viz service entirely
-            '--use-gl=swiftshader',  # Force software-only rendering via SwiftShader
-            '--disable-blink-features=Canvas2dImageChromium',  # Prevent canvas GPU issues
-            '--disable-canvas-aa',  # Disable canvas anti-aliasing
-            '--disable-2d-canvas-clip-aa',  # Disable 2D canvas clip anti-aliasing
-            '--disable-gl-drawing-for-tests',  # Disable GL drawing
-            '--disable-webgl',  # Disable WebGL entirely
-            '--disable-webgl2',  # Disable WebGL2 entirely
-            '--force-color-profile=srgb',  # Force consistent color profile
-            '--disable-smooth-scrolling',  # Disable smooth scrolling for stability
-            '--disable-threaded-compositing',  # Disable threaded compositing
-            '--disable-threaded-scrolling',  # Disable threaded scrolling
-            '--disable-compositor-touch-hit-testing',  # Disable compositor touch testing
-            '--disable-shared-workers',  # Disable shared workers to prevent threading issues
             #'--no-sandbox'  # Important for containers
         ]
     
