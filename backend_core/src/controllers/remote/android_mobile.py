@@ -108,9 +108,7 @@ class AndroidMobileRemoteController(RemoteControllerInterface):
             
     def disconnect(self) -> bool:
         """Disconnect from Android device."""
-        try:
-            print(f"Remote[{self.device_type.upper()}]: Disconnecting from {self.device_name}")
-            
+        try: 
             # Clean up ADB connection
             self.adb_utils = None
             self.is_connected = False

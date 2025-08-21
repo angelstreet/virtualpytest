@@ -113,8 +113,6 @@ class AndroidTVRemoteController(RemoteControllerInterface):
     def disconnect(self) -> bool:
         """Disconnect from Android device."""
         try:
-            print(f"Remote[{self.device_type.upper()}]: Disconnecting from {self.device_name}")
-            
             self.adb_utils = None
             self.is_connected = False
             

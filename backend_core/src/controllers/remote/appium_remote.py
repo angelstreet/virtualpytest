@@ -191,8 +191,6 @@ class AppiumRemoteController(RemoteControllerInterface):
     def disconnect(self) -> bool:
         """Disconnect from device."""
         try:
-            print(f"Remote[{self.device_type.upper()}]: Disconnecting from {self.device_name}")
-            
             # Clean up Appium connection
             if self.appium_utils:
                 self.appium_utils.disconnect_device(self.appium_device_id)
