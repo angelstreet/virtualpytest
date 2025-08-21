@@ -65,61 +65,67 @@ export const InfraredRemote = React.memo(
     const calculateRemoteScale = () => {
       // Base remote dimensions from config
       const baseHeight = 500;
+      const baseWidth = 200; // Remote aspect ratio is 200/500
 
-      // Determine available height based on context
+      // Determine actual available dimensions based on context and state
       let availableHeight: number;
+      let availableWidth: number;
 
       if (streamContainerDimensions) {
-        // Modal context: use the modal's stream container height
+        // Modal context: use the modal's stream container dimensions
         // Reserve space for disconnect button (60px) and some padding
         availableHeight = streamContainerDimensions.height - 120;
+        availableWidth = streamContainerDimensions.width - 40; // Some padding
         console.log(
-          `[@component:InfraredRemote] Using modal container height: ${streamContainerDimensions.height}, available: ${availableHeight}`,
+          `[@component:InfraredRemote] Using modal container dimensions: ${streamContainerDimensions.width}x${streamContainerDimensions.height}, available: ${availableWidth}x${availableHeight}`,
         );
       } else {
-        // Floating panel context: use window height
-        availableHeight = window.innerHeight - 120; // Reserve space for disconnect button
-        console.log(
-          `[@component:InfraredRemote] Using window height: ${window.innerHeight}, available: ${availableHeight}`,
-        );
+        // Floating panel context: use the actual panel dimensions
+        if (isCollapsed) {
+          const collapsedHeight = parseInt(
+            layoutConfig.panel_layout.collapsed.height.replace('px', ''),
+            10,
+          );
+          const collapsedWidth = parseInt(
+            layoutConfig.panel_layout.collapsed.width.replace('px', ''),
+            10,
+          );
+          // Reserve space for header and disconnect button
+          availableHeight = collapsedHeight - 80; // Header (~40px) + disconnect button space
+          availableWidth = collapsedWidth - 20; // Some padding
+          console.log(
+            `[@component:InfraredRemote] Using collapsed panel dimensions: ${collapsedWidth}x${collapsedHeight}, available: ${availableWidth}x${availableHeight}`,
+          );
+        } else {
+          const expandedHeight = parseInt(
+            layoutConfig.panel_layout.expanded.height.replace('px', ''),
+            10,
+          );
+          const expandedWidth = parseInt(
+            layoutConfig.panel_layout.expanded.width.replace('px', ''),
+            10,
+          );
+          // Reserve space for header and disconnect button
+          availableHeight = expandedHeight - 120; // Header (~40px) + disconnect button (~60px) + padding
+          availableWidth = expandedWidth - 20; // Some padding
+          console.log(
+            `[@component:InfraredRemote] Using expanded panel dimensions: ${expandedWidth}x${expandedHeight}, available: ${availableWidth}x${availableHeight}`,
+          );
+        }
       }
 
-      // Calculate the base scale from available height
-      const baseScale = availableHeight / baseHeight;
+      // Calculate scale based on both width and height constraints
+      const heightScale = availableHeight / baseHeight;
+      const widthScale = availableWidth / baseWidth;
 
-      if (isCollapsed) {
-        // For collapsed state, apply panel ratio reduction to the base scale
-        const collapsedHeight = parseInt(
-          layoutConfig.panel_layout.collapsed.height.replace('px', ''),
-          10,
-        );
-        const expandedHeight = parseInt(
-          layoutConfig.panel_layout.expanded.height.replace('px', ''),
-          10,
-        );
-        const collapsedWidth = parseInt(
-          layoutConfig.panel_layout.collapsed.width.replace('px', ''),
-          10,
-        );
-        const expandedWidth = parseInt(
-          layoutConfig.panel_layout.expanded.width.replace('px', ''),
-          10,
-        );
+      // Use the smaller scale to ensure the remote fits within the available space
+      const scale = Math.min(heightScale, widthScale);
 
-        // Calculate scale ratio based on panel size difference
-        const heightRatio = collapsedHeight / expandedHeight; // 300/600 = 0.5
-        const widthRatio = collapsedWidth / expandedWidth; // 160/240 = 0.667
+      console.log(
+        `[@component:InfraredRemote] Scale calculation: heightScale=${heightScale.toFixed(3)}, widthScale=${widthScale.toFixed(3)}, finalScale=${scale.toFixed(3)}, isCollapsed=${isCollapsed}`,
+      );
 
-        // Use the smaller ratio to ensure remote fits in collapsed panel
-        const panelReductionRatio = Math.min(heightRatio, widthRatio);
-
-        // Apply the reduction ratio to the base scale
-        const collapsedScale = baseScale * panelReductionRatio;
-
-        return collapsedScale;
-      }
-
-      return baseScale;
+      return Math.max(scale, 0.1); // Ensure minimum scale to prevent invisible remotes
     };
 
     const remoteScale = calculateRemoteScale();

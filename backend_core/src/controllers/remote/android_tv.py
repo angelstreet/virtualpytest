@@ -726,7 +726,7 @@ class AndroidTVRemoteController(RemoteControllerInterface):
 
     def execute_command(self, command: str, params: Dict[str, Any] = None) -> bool:
         """
-        Execute Android TV specific command with proper abstraction.
+        Execute Android TV specific command with proper abstraction and auto-reconnection.
         
         Args:
             command: Command to execute ('press_key', 'input_text', etc.)
@@ -743,40 +743,84 @@ class AndroidTVRemoteController(RemoteControllerInterface):
         
         print(f"Remote[{self.device_type.upper()}]: Executing command '{command}' with params: {params}")
         
-        result = False
+        # Try to reconnect if not connected before executing any command
+        if not self.is_connected or not self.adb_utils:
+            print(f"Remote[{self.device_type.upper()}]: Not connected - attempting to reconnect before {command}")
+            if not self.connect():
+                print(f"Remote[{self.device_type.upper()}]: ERROR - Failed to reconnect before {command}")
+                return False
         
-        if command == 'press_key':
-            key = params.get('key')
-            result = self.press_key(key) if key else False
+        def _execute_specific_command():
+            """Execute the specific command - centralized logic"""
+            if command == 'press_key':
+                key = params.get('key')
+                return self.press_key(key) if key else False
+            
+            elif command == 'input_text':
+                text = params.get('text')
+                return self.input_text(text) if text else False
+            
+            elif command == 'launch_app':
+                package = params.get('package')
+                return self.launch_app(package) if package else False
+            
+            elif command == 'close_app':
+                package = params.get('package')
+                return self.close_app(package) if package else False
+            
+            elif command == 'tap_coordinates':
+                x, y = params.get('x'), params.get('y')
+                return self.tap_coordinates(int(x), int(y)) if x is not None and y is not None else False
+            
+            elif command == 'click_element':
+                element_id = params.get('element_id')
+                return self.click_element(element_id) if element_id else False
+            
+            elif command == 'get_installed_apps':
+                # Android TV specific
+                apps = self.get_installed_apps()
+                return len(apps) > 0
+            
+            else:
+                print(f"Remote[{self.device_type.upper()}]: Unknown command: {command}")
+                return False
         
-        elif command == 'input_text':
-            text = params.get('text')
-            result = self.input_text(text) if text else False
-        
-        elif command == 'launch_app':
-            package = params.get('package')
-            result = self.launch_app(package) if package else False
-        
-        elif command == 'close_app':
-            package = params.get('package')
-            result = self.close_app(package) if package else False
-        
-        elif command == 'tap_coordinates':
-            x, y = params.get('x'), params.get('y')
-            result = self.tap_coordinates(int(x), int(y)) if x is not None and y is not None else False
-        
-        elif command == 'click_element':
-            element_id = params.get('element_id')
-            result = self.click_element(element_id) if element_id else False
-        
-        elif command == 'get_installed_apps':
-            # Android TV specific
-            apps = self.get_installed_apps()
-            result = len(apps) > 0
-        
-        else:
-            print(f"Remote[{self.device_type.upper()}]: Unknown command: {command}")
-            result = False
+        # First attempt
+        try:
+            result = _execute_specific_command()
+            
+            # If command failed, try reconnecting and retry once
+            if not result:
+                print(f"Remote[{self.device_type.upper()}]: Command '{command}' failed - attempting reconnection...")
+                if self.connect():
+                    print(f"Remote[{self.device_type.upper()}]: Reconnected - retrying command '{command}'")
+                    result = _execute_specific_command()
+                    if result:
+                        print(f"Remote[{self.device_type.upper()}]: Command '{command}' succeeded after reconnection")
+                    else:
+                        print(f"Remote[{self.device_type.upper()}]: Command '{command}' failed even after reconnection")
+                else:
+                    print(f"Remote[{self.device_type.upper()}]: Failed to reconnect for command '{command}' retry")
+                    return False
+                    
+        except Exception as e:
+            print(f"Remote[{self.device_type.upper()}]: Command '{command}' exception: {e}")
+            # Try to reconnect on exception and retry once
+            print(f"Remote[{self.device_type.upper()}]: Exception in '{command}' - attempting reconnection...")
+            if self.connect():
+                try:
+                    print(f"Remote[{self.device_type.upper()}]: Reconnected - retrying command '{command}' after exception")
+                    result = _execute_specific_command()
+                    if result:
+                        print(f"Remote[{self.device_type.upper()}]: Command '{command}' succeeded after exception recovery")
+                    else:
+                        print(f"Remote[{self.device_type.upper()}]: Command '{command}' failed even after exception recovery")
+                except Exception as retry_e:
+                    print(f"Remote[{self.device_type.upper()}]: Command '{command}' retry after exception also failed: {retry_e}")
+                    return False
+            else:
+                print(f"Remote[{self.device_type.upper()}]: Failed to reconnect after command '{command}' exception")
+                return False
         
         # Apply wait_time after successful command execution
         if result and wait_time > 0:
