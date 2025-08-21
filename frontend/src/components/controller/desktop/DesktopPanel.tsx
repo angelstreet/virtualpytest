@@ -176,6 +176,7 @@ export const DesktopPanel = React.memo(function DesktopPanel({
                     host={host}
                     deviceId={deviceId}
                     onDisconnectComplete={onReleaseControl}
+                    streamContainerDimensions={streamContainerDimensions}
                   />
                 </Box>
               )}

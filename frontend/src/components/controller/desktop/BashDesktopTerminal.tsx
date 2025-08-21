@@ -23,6 +23,7 @@ export const BashDesktopTerminal = React.memo(function BashDesktopTerminal({
   host,
   deviceId,
   onDisconnectComplete,
+  streamContainerDimensions,
 }: BashDesktopTerminalProps) {
   const {
     currentCommand,
@@ -149,18 +150,7 @@ export const BashDesktopTerminal = React.memo(function BashDesktopTerminal({
         </Button>
       </Box>
 
-      {/* Disconnect Button */}
-      <Button
-        variant="contained"
-        color="error"
-        onClick={handleDisconnectWithCallback}
-        disabled={isExecuting}
-        fullWidth
-        size="small"
-        sx={{ mt: 1 }}
-      >
-        {isExecuting ? 'Disconnecting...' : 'Disconnect'}
-      </Button>
+      {/* Disconnect Button - REMOVED: Users can close panel or release control */}
     </Box>
   );
 });

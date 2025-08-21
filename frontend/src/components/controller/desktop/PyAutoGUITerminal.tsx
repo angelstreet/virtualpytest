@@ -8,12 +8,19 @@ interface PyAutoGUITerminalProps {
   host: Host;
   deviceId: string;
   onDisconnectComplete?: () => void;
+  streamContainerDimensions?: {
+    width: number;
+    height: number;
+    x: number;
+    y: number;
+  };
 }
 
 export const PyAutoGUITerminal = React.memo(function PyAutoGUITerminal({
   host,
   deviceId,
   onDisconnectComplete,
+  streamContainerDimensions,
 }: PyAutoGUITerminalProps) {
   const {
     terminalOutput,
@@ -307,7 +314,7 @@ export const PyAutoGUITerminal = React.memo(function PyAutoGUITerminal({
           </Box>
         </Box>
 
-        {/* Clear and Disconnect */}
+        {/* Clear Button */}
         <Box sx={{ display: 'flex', gap: 0.5 }}>
           <Button
             variant="outlined"
@@ -318,16 +325,7 @@ export const PyAutoGUITerminal = React.memo(function PyAutoGUITerminal({
           >
             Clear
           </Button>
-          <Button
-            variant="contained"
-            color="error"
-            onClick={handleDisconnectWithCallback}
-            disabled={isExecuting}
-            size="small"
-            sx={{ flex: 1, height: '28px', fontSize: '0.7rem' }}
-          >
-            Disconnect
-          </Button>
+          {/* Disconnect Button - REMOVED: Users can close panel or release control */}
         </Box>
       </Box>
     </Box>

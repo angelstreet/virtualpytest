@@ -9,7 +9,7 @@ interface InfraredRemoteProps {
   host: Host;
   deviceId?: string;
   isConnected?: boolean;
-  onDisconnectComplete?: () => void;
+  // onDisconnectComplete removed - disconnect button was removed
   sx?: any;
   isCollapsed: boolean;
   streamContainerDimensions?: {
@@ -25,7 +25,7 @@ export const InfraredRemote = React.memo(
     host,
     deviceId,
     isConnected,
-    onDisconnectComplete,
+    // onDisconnectComplete removed
     sx = {},
     isCollapsed,
     streamContainerDimensions,
@@ -35,7 +35,7 @@ export const InfraredRemote = React.memo(
       isLoading,
       layoutConfig,
       handleConnect,
-      handleDisconnect,
+      // handleDisconnect removed
       handleRemoteCommand,
     } = useInfraredRemote(host, deviceId, isConnected);
 
@@ -46,12 +46,7 @@ export const InfraredRemote = React.memo(
       setShowOverlays(false);
     }, [isCollapsed]);
 
-    const handleDisconnectWithCallback = async () => {
-      await handleDisconnect();
-      if (onDisconnectComplete) {
-        onDisconnectComplete();
-      }
-    };
+    // handleDisconnectWithCallback removed - disconnect button was removed
 
     // Handle button press with visual feedback
     const handleButtonPress = async (buttonKey: string) => {
@@ -277,31 +272,7 @@ export const InfraredRemote = React.memo(
         {/* Remote Interface - takes most of the space */}
         <Box sx={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>{renderRemoteInterface()}</Box>
 
-        {/* Disconnect Button - fixed at bottom - hidden in modal context */}
-        {!isCollapsed && session.connected && !streamContainerDimensions && (
-          <Box
-            sx={{
-              p: 1,
-              borderTop: '1px solid #e0e0e0',
-              backgroundColor: 'background.paper',
-              position: 'sticky',
-              bottom: 0,
-              zIndex: 5,
-            }}
-          >
-            <Button
-              variant="contained"
-              color="error"
-              onClick={handleDisconnectWithCallback}
-              disabled={isLoading}
-              fullWidth
-              size="small"
-              sx={{ fontSize: '0.7rem' }}
-            >
-              Disconnect
-            </Button>
-          </Box>
-        )}
+        {/* Disconnect Button - REMOVED: Users can close panel or release control */}
       </Box>
     );
   },
@@ -311,7 +282,7 @@ export const InfraredRemote = React.memo(
       prevProps.host?.host_name === nextProps.host?.host_name &&
       prevProps.deviceId === nextProps.deviceId &&
       prevProps.isConnected === nextProps.isConnected &&
-      prevProps.onDisconnectComplete === nextProps.onDisconnectComplete &&
+      // onDisconnectComplete comparison removed &&
       JSON.stringify(prevProps.sx) === JSON.stringify(nextProps.sx) &&
       prevProps.isCollapsed === nextProps.isCollapsed &&
       JSON.stringify(prevProps.streamContainerDimensions) ===

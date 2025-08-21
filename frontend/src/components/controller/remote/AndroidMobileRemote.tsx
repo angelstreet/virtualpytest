@@ -554,18 +554,7 @@ export const AndroidMobileRemote = React.memo(
               </Box>
             </Box>
 
-            {/* Disconnect Button */}
-            <Box sx={{ pt: 1, borderTop: '1px solid #e0e0e0' }}>
-              <Button
-                variant="contained"
-                color="error"
-                onClick={handleDisconnectWithCallback}
-                disabled={isDisconnecting}
-                fullWidth
-              >
-                Disconnect
-              </Button>
-            </Box>
+            {/* Disconnect Button - REMOVED: Users can close panel or release control */}
           </Box>
         </Box>
 
