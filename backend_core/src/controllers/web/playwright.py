@@ -168,7 +168,7 @@ class PlaywrightWebController(WebControllerInterface):
                 
                 # Test connection to Chrome and ensure page is ready
                 try:
-                    page = await self._get_persistent_page(target_url='https://google.fr')
+                    page = await self._get_persistent_page()  # Don't force navigation to google.fr
                 except Exception as e:
                     # Chrome is not responding, kill and relaunch
                     if "ECONNREFUSED" in str(e) or "connect" in str(e).lower():
@@ -182,12 +182,13 @@ class PlaywrightWebController(WebControllerInterface):
                         # Try to connect again
                         if not self.connect():
                             raise Exception("Failed to relaunch Chrome after connection failure")
-                        page = await self._get_persistent_page(target_url='https://google.fr')
+                        page = await self._get_persistent_page()
                     else:
                         raise
                 
-                # Navigate to Google France for a nicer default page
-                await page.goto('https://google.fr')
+                # Only navigate to Google if page is blank or about:blank
+                if page.url in ['about:blank', '', 'chrome://newtab/']:
+                    await page.goto('https://google.fr')
                 
                 # Update page state
                 self.current_url = page.url
