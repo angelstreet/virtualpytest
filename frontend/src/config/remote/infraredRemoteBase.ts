@@ -135,7 +135,7 @@ export const INFRARED_REMOTE_DEFAULTS = {
     showScreenshotInCollapsed: false,
     showScreenshotInExpanded: true,
     header: {
-      height: '48px',
+
       fontSize: '0.875rem',
       fontWeight: 'bold',
       iconSize: 'small',

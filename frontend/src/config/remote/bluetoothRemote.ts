@@ -23,7 +23,7 @@ export const bluetoothRemoteConfig = {
     showScreenshotInCollapsed: false,
     showScreenshotInExpanded: false,
     header: {
-      height: '48px',
+
       fontSize: '0.875rem',
       fontWeight: 'bold',
       iconSize: 'small',
