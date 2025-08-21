@@ -225,7 +225,9 @@ class PlaywrightWebController(WebControllerInterface):
                 
                 # Try to connect to existing Chrome debug session (no killing Chrome first)
                 try:
-                    page = await self._get_persistent_page()
+                    # For existing Chrome, just connect without creating new context
+                    self.__class__._playwright, self.__class__._browser, self.__class__._context, page = await self.utils.connect_to_chrome()
+                    self.__class__._browser_connected = True
                     
                     # Get current page info from persistent page
                     self.current_url = page.url
