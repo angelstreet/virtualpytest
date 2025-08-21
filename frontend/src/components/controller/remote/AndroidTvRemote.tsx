@@ -98,8 +98,13 @@ export const AndroidTvRemote = React.memo(
           10,
         );
 
-        // Calculate scale ratio based on panel size difference
-        const heightRatio = collapsedHeight / expandedHeight; // 300/600 = 0.5
+        // Account for header height in both states
+        const headerHeight = parseInt(layoutConfig.panel_layout.header.padding.replace('px', ''), 10) * 2 + 20; // padding top/bottom + icon space
+        const actualCollapsedHeight = collapsedHeight - headerHeight; // 300 - 32 = 268
+        const actualExpandedHeight = expandedHeight - headerHeight; // 600 - 32 = 568
+
+        // Calculate scale ratio based on actual container size (excluding header)
+        const heightRatio = actualCollapsedHeight / actualExpandedHeight; // 268/568 ≈ 0.47
         const widthRatio = collapsedWidth / expandedWidth; // 160/240 = 0.667
 
         // Use the smaller ratio to ensure remote fits in collapsed panel
@@ -184,6 +189,7 @@ export const AndroidTvRemote = React.memo(
 
           {/* Remote container with image background */}
           <Box
+            data-testid="android-tv-remote-container"
             sx={{
               position: 'relative',
               width: 'auto',
@@ -205,15 +211,29 @@ export const AndroidTvRemote = React.memo(
                 key={buttonId}
                 sx={{
                   position: 'absolute',
-                  left: `${(button.position.x + layoutConfig.remote_info.global_offset.x) * remoteScale}px`,
-                  top: `${(button.position.y + layoutConfig.remote_info.global_offset.y) * remoteScale}px`,
+                  left: `${(button.position.x + layoutConfig.remote_info.global_offset.x) * remoteScale + (isCollapsed ? 1 : 0)}px`,
+                  top: `${(button.position.y + layoutConfig.remote_info.global_offset.y) * remoteScale + (isCollapsed ? 1 : 0)}px`,
                   width: `${button.size.width * layoutConfig.remote_info.button_scale_factor * remoteScale}px`,
                   height: `${button.size.height * layoutConfig.remote_info.button_scale_factor * remoteScale}px`,
                   borderRadius: button.shape === 'circle' ? '50%' : '4px',
-                  backgroundColor:
-                    !isCollapsed && showOverlays ? 'rgba(255, 255, 255, 0.1)' : 'transparent',
-                  border:
-                    !isCollapsed && showOverlays ? '1px solid rgba(255, 255, 255, 0.3)' : 'none',
+                  backgroundColor: (() => {
+                    if (isCollapsed) {
+                      return 'rgba(255, 255, 255, 0.1)'; // Always visible when collapsed for debugging
+                    } else if (showOverlays) {
+                      return 'rgba(255, 255, 255, 0.1)'; // Normal visibility when expanded
+                    } else {
+                      return 'rgba(255, 255, 255, 0.02)'; // 20% transparency for debugging when hidden
+                    }
+                  })(),
+                  border: (() => {
+                    if (isCollapsed) {
+                      return '1px solid rgba(255, 255, 255, 0.5)'; // Always visible when collapsed for debugging
+                    } else if (showOverlays) {
+                      return '1px solid rgba(255, 255, 255, 0.3)'; // Normal visibility when expanded
+                    } else {
+                      return '1px solid rgba(255, 255, 255, 0.06)'; // 20% transparency for debugging when hidden
+                    }
+                  })(),
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
@@ -231,8 +251,7 @@ export const AndroidTvRemote = React.memo(
                 onClick={() => handleButtonPress(button.key)}
                 title={`${button.label} - ${button.comment}`}
               >
-                {!isCollapsed && showOverlays && (
-                  <Typography
+                <Typography
                     variant="caption"
                     sx={{
                       fontSize: `${parseInt(layoutConfig.remote_info.text_style.fontSize) * remoteScale}px`,
@@ -244,7 +263,6 @@ export const AndroidTvRemote = React.memo(
                   >
                     {button.label}
                   </Typography>
-                )}
               </Box>
             ))}
           </Box>
