@@ -452,7 +452,12 @@ const RunTests: React.FC = () => {
       const results = await executeMultipleScripts(executions, onExecutionComplete);
 
       // Final summary (all executions are now complete)
-      const successCount = Object.values(results).filter((r: any) => r.success).length;
+      // Use same logic as individual completion callbacks - count script completions (not system errors)
+      const successCount = Object.values(results).filter((r: any) => {
+        // Script completed if it has output or a defined exit code
+        const scriptCompleted = r.stdout || r.stderr || r.exit_code !== undefined;
+        return scriptCompleted;
+      }).length;
       
       if (allDevices.length === 1) {
         // Single device summary already shown in callback
@@ -520,19 +525,34 @@ const RunTests: React.FC = () => {
       );
     }
 
-
+    // Special handling for goto_live boolean parameter
+    if (param.name === 'goto_live') {
+      return (
+        <FormControl key={param.name} fullWidth size="small">
+          <InputLabel>{`${param.name}${param.required ? ' *' : ''}`}</InputLabel>
+          <Select
+            value={value || 'true'}
+            label={`${param.name}${param.required ? ' *' : ''}`}
+            onChange={(e) => handleParameterChange(param.name, e.target.value)}
+          >
+            <MenuItem value="true">true</MenuItem>
+            <MenuItem value="false">false</MenuItem>
+          </Select>
+        </FormControl>
+      );
+    }
 
     // Default text field for all parameters
     return (
       <TextField
         key={param.name}
         label={`${param.name}${param.required ? ' *' : ''}`}
-        value={value || (param.name === 'node' ? 'home' : (param.default || ''))}
+        value={value || (param.name === 'node' ? 'home' : (param.name === 'goto_live' ? 'true' : (param.default || '')))}
         onChange={(e) => handleParameterChange(param.name, e.target.value)}
         size="small"
         fullWidth
         error={param.required && !value.trim()}
-        placeholder={param.name === 'node' ? 'home' : (param.default || '')}
+        placeholder={param.name === 'node' ? 'home' : (param.name === 'goto_live' ? 'true' : (param.default || ''))}
       />
     );
   };

@@ -55,6 +55,8 @@ export const useRun = ({ selectedScript, selectedDevice, selectedHost, deviceMod
       return selectedDevice || '';
     } else if (param.name === 'host') {
       return selectedHost || '';
+    } else if (param.name === 'goto_live') {
+      return 'true';  // Default value for goto_live parameter
     } else if (param.default) {
       return param.default;
     }
