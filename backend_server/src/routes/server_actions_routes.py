@@ -189,7 +189,7 @@ def action_execute_single():
             endpoint='/host/action/executeBatch',
             method='POST',
             data=execution_payload,
-            timeout=60  # 1 minute timeout for single action
+            timeout=90  # 1 minute timeout for single action
         )
         
         if response.get('success'):

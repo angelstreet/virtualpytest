@@ -274,7 +274,7 @@ def execute_navigation():
         response = requests.post(
             host_url,
             json={'navigation_data': navigation_data},
-            timeout=60,
+            timeout=90,
             verify=False
         )
         
