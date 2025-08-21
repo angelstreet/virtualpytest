@@ -248,6 +248,9 @@ def main():
             if not live_result.get('success'):
                 context.error_message = f"Failed to navigate to {target_node}: {live_result.get('error', 'Unknown error')}"
                 print(f"❌ [fullzap] {context.error_message}")
+                # Capture execution summary even on navigation failure
+                summary_text = capture_fullzap_summary(context, args.userinterface_name)
+                context.execution_summary = summary_text
                 executor.cleanup_and_exit(context, args.userinterface_name)
                 return
             
@@ -292,6 +295,9 @@ def main():
             print(f"❌ [fullzap] {context.error_message}")
             print(f"📋 [fullzap] Current node: {context.current_node_id}")
             print(f"📋 [fullzap] Available edges: {len(context.edges)}")
+            # Capture execution summary even on edge finding failure
+            summary_text = capture_fullzap_summary(context, args.userinterface_name)
+            context.execution_summary = summary_text
             executor.cleanup_and_exit(context, args.userinterface_name)
             return
         

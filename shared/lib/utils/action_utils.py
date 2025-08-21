@@ -945,11 +945,20 @@ def capture_validation_screenshot(host, device: Any, step_name: str, script_name
         Local path to captured screenshot or empty string if failed
     """
     try:
+        print(f"[@action_utils:capture_validation_screenshot] Capturing screenshot for step: {step_name}")
         av_controller = get_controller(device.device_id, 'av')
         
         screenshot_path = av_controller.take_screenshot()
         
-        return screenshot_path
+        if screenshot_path:
+            print(f"[@action_utils:capture_validation_screenshot] Screenshot captured successfully: {screenshot_path}")
+            return screenshot_path
+        else:
+            print(f"[@action_utils:capture_validation_screenshot] Screenshot capture returned empty path")
+            return ""
             
-    except Exception:
+    except Exception as e:
+        print(f"[@action_utils:capture_validation_screenshot] Screenshot capture failed: {str(e)}")
+        import traceback
+        print(f"[@action_utils:capture_validation_screenshot] Traceback: {traceback.format_exc()}")
         return ""

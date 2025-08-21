@@ -530,12 +530,18 @@ def main():
     # Setup execution context with database tracking enabled
     context = executor.setup_execution_context(args, enable_db_tracking=True)
     if context.error_message:
+        # Capture execution summary even on setup failure
+        summary_text = capture_validation_summary(context, args.userinterface_name)
+        context.execution_summary = summary_text
         executor.cleanup_and_exit(context, args.userinterface_name)
         return
     
     try:
         # Load navigation tree
         if not executor.load_navigation_tree(context, args.userinterface_name):
+            # Capture execution summary even on tree loading failure
+            summary_text = capture_validation_summary(context, args.userinterface_name)
+            context.execution_summary = summary_text
             executor.cleanup_and_exit(context, args.userinterface_name)
             return
         
@@ -559,6 +565,9 @@ def main():
         if not validation_sequence:
             context.error_message = "No validation sequence found"
             print(f"❌ [validation] {context.error_message}")
+            # Capture execution summary even on validation sequence failure
+            summary_text = capture_validation_summary(context, args.userinterface_name)
+            context.execution_summary = summary_text
             executor.cleanup_and_exit(context, args.userinterface_name)
             return
         

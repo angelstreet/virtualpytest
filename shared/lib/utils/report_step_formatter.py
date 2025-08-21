@@ -335,6 +335,13 @@ def format_image_verification_extras(result: Dict, step: Dict) -> str:
     # Get reference image from details
     reference_image = details.get('reference_image_url')
     
+    # Debug logging to help diagnose missing images
+    print(f"[@report_step_formatter:format_image_verification_extras] Debug verification images:")
+    print(f"  verification_images array: {verification_images}")
+    print(f"  source_image found: {source_image}")
+    print(f"  overlay_image found: {overlay_image}")
+    print(f"  reference_image from details: {reference_image}")
+    
     # Create small thumbnails if we have images
     if source_image or reference_image or overlay_image:
         from .report_formatting import create_verification_image_modal_data
@@ -645,6 +652,15 @@ def format_analysis_results(step: Dict) -> str:
 def format_step_screenshots(step: Dict, step_index: int) -> str:
     """Format screenshots section for a step."""
     screenshots_for_step = []
+    
+    # Debug logging to see what screenshot fields are available
+    print(f"[@report_step_formatter:format_step_screenshots] Step {step_index + 1} screenshot fields:")
+    print(f"  step_start_screenshot_path: {step.get('step_start_screenshot_path')}")
+    print(f"  step_end_screenshot_path: {step.get('step_end_screenshot_path')}")
+    print(f"  screenshot_url: {step.get('screenshot_url')}")
+    print(f"  screenshot_path: {step.get('screenshot_path')}")
+    print(f"  action_screenshots: {step.get('action_screenshots', [])}")
+    print(f"  success: {step.get('success')}")
     
     # Collect all screenshots in chronological order
     if step.get('step_start_screenshot_path'):

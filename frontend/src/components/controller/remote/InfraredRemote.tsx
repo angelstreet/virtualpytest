@@ -39,12 +39,10 @@ export const InfraredRemote = React.memo(
       handleRemoteCommand,
     } = useInfraredRemote(host, deviceId, isConnected);
 
-    const [showOverlays, setShowOverlays] = useState(false);
+    const [showOverlays, setShowOverlays] = useState(true);
 
-    // Update showOverlays when isCollapsed changes
-    useEffect(() => {
-      setShowOverlays(false);
-    }, [isCollapsed]);
+    // Keep showOverlays state persistent when isCollapsed changes
+    // This helps with button alignment as overlays remain visible by default
 
     // handleDisconnectWithCallback removed - disconnect button was removed
 
@@ -215,10 +213,24 @@ export const InfraredRemote = React.memo(
                   width: `${typedButton.size.width * layoutConfig.remote_info.button_scale_factor * remoteScale}px`,
                   height: `${typedButton.size.height * layoutConfig.remote_info.button_scale_factor * remoteScale}px`,
                   borderRadius: typedButton.shape === 'circle' ? '50%' : '4px',
-                  backgroundColor:
-                    !isCollapsed && showOverlays ? 'rgba(255, 255, 255, 0.1)' : 'transparent',
-                  border:
-                    !isCollapsed && showOverlays ? '1px solid rgba(255, 255, 255, 0.3)' : 'none',
+                  backgroundColor: (() => {
+                    if (isCollapsed) {
+                      return 'rgba(255, 255, 255, 0.1)'; // Always visible when collapsed for debugging
+                    } else if (showOverlays) {
+                      return 'rgba(255, 255, 255, 0.1)'; // Normal visibility when expanded
+                    } else {
+                      return 'rgba(255, 255, 255, 0.02)'; // 20% transparency for debugging when hidden
+                    }
+                  })(),
+                  border: (() => {
+                    if (isCollapsed) {
+                      return '1px solid rgba(255, 255, 255, 0.5)'; // Always visible when collapsed for debugging
+                    } else if (showOverlays) {
+                      return '1px solid rgba(255, 255, 255, 0.3)'; // Normal visibility when expanded
+                    } else {
+                      return '1px solid rgba(255, 255, 255, 0.06)'; // 20% transparency for debugging when hidden
+                    }
+                  })(),
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
@@ -236,8 +248,7 @@ export const InfraredRemote = React.memo(
                 onClick={() => handleButtonPress(typedButton.key)}
                 title={`${typedButton.label} - ${typedButton.comment}`}
               >
-                {!isCollapsed && showOverlays && (
-                  <Typography
+                <Typography
                     variant="caption"
                     sx={{
                       fontSize: `${parseInt(layoutConfig.remote_info.text_style.fontSize) * remoteScale}px`,
@@ -249,7 +260,6 @@ export const InfraredRemote = React.memo(
                   >
                     {typedButton.label}
                   </Typography>
-                )}
               </Box>
               );
             })}

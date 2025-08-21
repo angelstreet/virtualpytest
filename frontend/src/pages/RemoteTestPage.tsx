@@ -198,20 +198,22 @@ const mockHosts: TestHost[] = [
       },
     },
   },
+
   {
-    host_name: 'Test Infrared Remote',
-    description: 'IR Remote Test Device',
+    host_name: 'Test EOS Remote',
+    description: 'EOS IR Remote Test Device',
     host_url: 'http://localhost:6109',
     host_port: 6109,
     devices: [
       {
         device_id: 'device1',
-        device_name: 'IR Remote',
+        device_name: 'EOS Remote',
         device_model: 'ir_remote',
         device_capabilities: {
           av: 'hdmi_stream',
           remote: 'ir_remote',
         },
+        ir_type: 'eos',
       },
     ],
     device_count: 1,
@@ -231,7 +233,99 @@ const mockHosts: TestHost[] = [
       remote: {
         implementation: 'ir_remote',
         type: 'ir_remote',
+        parameters: {
+          ir_type: 'eos',
+        },
+      },
+      av: {
+        implementation: 'hdmi_stream',
+        type: 'hdmi_stream',
         parameters: {},
+      },
+    },
+  },
+  {
+    host_name: 'Test Samsung Remote',
+    description: 'Samsung IR Remote Test Device',
+    host_url: 'http://localhost:6109',
+    host_port: 6109,
+    devices: [
+      {
+        device_id: 'device1',
+        device_name: 'Samsung Remote',
+        device_model: 'ir_remote',
+        device_capabilities: {
+          av: 'hdmi_stream',
+          remote: 'ir_remote',
+        },
+        ir_type: 'samsung',
+      },
+    ],
+    device_count: 1,
+    status: 'online',
+    last_seen: Date.now(),
+    registered_at: new Date().toISOString(),
+    system_stats: {
+      cpu_percent: 10,
+      memory_percent: 30,
+      disk_percent: 50,
+      platform: 'linux',
+      architecture: 'x64',
+      python_version: '3.9.0',
+    },
+    isLocked: false,
+    controller_configs: {
+      remote: {
+        implementation: 'ir_remote',
+        type: 'ir_remote',
+        parameters: {
+          ir_type: 'samsung',
+        },
+      },
+      av: {
+        implementation: 'hdmi_stream',
+        type: 'hdmi_stream',
+        parameters: {},
+      },
+    },
+  },
+  {
+    host_name: 'Test FireTV Remote',
+    description: 'FireTV IR Remote Test Device',
+    host_url: 'http://localhost:6109',
+    host_port: 6109,
+    devices: [
+      {
+        device_id: 'device1',
+        device_name: 'FireTV Remote',
+        device_model: 'ir_remote',
+        device_capabilities: {
+          av: 'hdmi_stream',
+          remote: 'ir_remote',
+        },
+        ir_type: 'firetv',
+      },
+    ],
+    device_count: 1,
+    status: 'online',
+    last_seen: Date.now(),
+    registered_at: new Date().toISOString(),
+    system_stats: {
+      cpu_percent: 10,
+      memory_percent: 30,
+      disk_percent: 50,
+      platform: 'linux',
+      architecture: 'x64',
+      python_version: '3.9.0',
+    },
+    isLocked: false,
+    controller_configs: {
+      remote: {
+        implementation: 'ir_remote',
+        type: 'ir_remote',
+        parameters: {
+          ir_type: 'firetv',
+        },
       },
       av: {
         implementation: 'hdmi_stream',
@@ -428,13 +522,13 @@ export default function RemoteTestPage() {
         </Typography>
         <Typography variant="body2" component="ul" sx={{ pl: 2 }}>
           <li>Remote panels should appear at bottom-right with device-specific sizing</li>
-          <li>AV stream should appear at bottom-left</li>
+          <li>AV stream is mocked (bottom-left) - no real streaming for faster testing</li>
           <li>Toggle panels between collapsed/expanded states</li>
-          <li>Verify positioning and sizing from config files</li>
+          <li>Verify button overlay positioning and sizing from config files</li>
           <li>
             Toggle "Use RecHostStreamModal Layout" to test button_layout_recmodal configuration
           </li>
-          <li>No actual device control - just UI testing</li>
+          <li>Focus on button alignment testing - no actual device control</li>
         </Typography>
       </Paper>
 
@@ -554,7 +648,7 @@ export default function RemoteTestPage() {
             })() && (
               <RemotePanel
                 host={selectedHost as any}
-                deviceId="test-device-1"
+                deviceId={selectedHost.devices[0].device_id}
                 deviceModel={selectedHost.devices[0].device_model}
                 isConnected={true}
                 initialCollapsed={true}
@@ -566,16 +660,31 @@ export default function RemoteTestPage() {
               />
             )}
 
-          {/* AV Stream */}
+          {/* AV Stream - Optional for testing */}
           {selectedHost.controller_configs?.av && (
-            <HDMIStream
-              host={selectedHost as any}
-              deviceId="test-device-1"
-              deviceModel={selectedHost.devices[0].device_model}
-              onCollapsedChange={setStreamCollapsed}
-              onMinimizedChange={setStreamMinimized}
-              onCaptureModeChange={setCaptureMode}
-            />
+            <Box
+              sx={{
+                position: 'fixed',
+                bottom: '20px',
+                left: '20px',
+                width: '300px',
+                height: '200px',
+                backgroundColor: 'background.paper',
+                border: '2px dashed',
+                borderColor: 'divider',
+                borderRadius: 2,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex: 1000,
+              }}
+            >
+              <Typography variant="body2" color="text.secondary" textAlign="center">
+                Mock AV Stream<br />
+                (Stream testing disabled)<br />
+                {streamCollapsed ? 'Collapsed' : 'Expanded'} | {captureMode}
+              </Typography>
+            </Box>
           )}
 
           {/* Center message */}

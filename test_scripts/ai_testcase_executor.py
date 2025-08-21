@@ -127,6 +127,9 @@ def main():
         except ValueError as e:
             context.error_message = f"AI agent initialization failed: {str(e)}"
             print(f"[@ai_testcase_executor] ERROR: {context.error_message}")
+            # Capture execution summary even on AI agent initialization failure
+            summary_text = capture_ai_execution_summary(context, args.userinterface_name, test_case, ai_steps)
+            context.execution_summary = summary_text
             executor.cleanup_and_exit(context, args.userinterface_name)
             return
         
