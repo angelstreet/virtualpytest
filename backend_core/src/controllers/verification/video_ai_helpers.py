@@ -189,8 +189,7 @@ class VideoAIHelpers:
                         'error_threshold': 8.0,
                         'extracted_text': extracted_text,
                         'detected_language': detected_language,
-                        'subtitle_region_size': f"{subtitle_region.shape[1]}x{subtitle_region.shape[0]}",
-                        'image_size': f"{width}x{height}",
+                        'image_size': f"{width}x{height}",  # AI analyzes full image
                         'confidence': confidence,
                         'ai_powered': True  # Flag to indicate AI analysis
                     }
