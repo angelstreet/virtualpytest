@@ -63,8 +63,8 @@ export const InfraredRemote = React.memo(
 
     // Calculate responsive remote scale based on available space
     const calculateRemoteScale = () => {
-      // Base remote dimensions from config
-      const baseHeight = 500;
+      // Base remote dimensions from config - match Android TV for consistency
+      const baseHeight = 1800;
 
       // Determine available height based on context
       let availableHeight: number;
@@ -196,7 +196,7 @@ export const InfraredRemote = React.memo(
               position: 'relative',
               width: 'auto',
               height: '100%',
-              aspectRatio: '200/500',
+              aspectRatio: '640/1800',
               backgroundImage: `url(${layoutConfig.remote_info.image_url})`,
               backgroundSize: 'contain',
               backgroundRepeat: 'no-repeat',
