@@ -703,6 +703,11 @@ const RecHostStreamModalContent: React.FC<{
                 
                 if (hasMultipleRemotes && device?.device_model === 'fire_tv') {
                   // For Fire TV devices, render both remotes directly (like host VNC)
+                  // Adjust height for stacked remotes (2 remotes = 50% height each)
+                  const stackedDimensions = {
+                    ...streamContainerDimensions,
+                    height: Math.round(streamContainerDimensions.height / 2)
+                  };
                   return (
                     <>
                       <RemotePanel
@@ -716,7 +721,8 @@ const RecHostStreamModalContent: React.FC<{
                         deviceResolution={stableDeviceResolution}
                         streamCollapsed={false}
                         streamMinimized={false}
-                        streamContainerDimensions={streamContainerDimensions}
+                        streamContainerDimensions={stackedDimensions}
+                        disableResize={true}
                       />
                       <RemotePanel
                         host={host}
@@ -729,16 +735,23 @@ const RecHostStreamModalContent: React.FC<{
                         deviceResolution={stableDeviceResolution}
                         streamCollapsed={false}
                         streamMinimized={false}
-                        streamContainerDimensions={streamContainerDimensions}
+                        disableResize={true}
+                        streamContainerDimensions={stackedDimensions}
                       />
                     </>
                   );
                 } else if (hasMultipleRemotes) {
                   // For other devices with multiple remote controllers
                   const remoteTypes = Array.isArray(remoteCapability) ? remoteCapability : [remoteCapability];
+                  const filteredRemoteTypes = remoteTypes.filter(Boolean);
+                  // Adjust height for stacked remotes (divide by number of remotes)
+                  const stackedDimensions = {
+                    ...streamContainerDimensions,
+                    height: Math.round(streamContainerDimensions.height / filteredRemoteTypes.length)
+                  };
                   return (
                     <>
-                      {remoteTypes.filter(Boolean).map((remoteType: string, index: number) => (
+                      {filteredRemoteTypes.map((remoteType: string, index: number) => (
                         <RemotePanel
                           key={`${device?.device_id}-${remoteType}`}
                           host={host}
@@ -747,11 +760,12 @@ const RecHostStreamModalContent: React.FC<{
                           remoteType={remoteType}
                           isConnected={isControlActive}
                           onReleaseControl={handleReleaseControl}
-                          initialCollapsed={index > 0}
+                          initialCollapsed={false}
                           deviceResolution={stableDeviceResolution}
                           streamCollapsed={false}
+                          disableResize={true}
                           streamMinimized={false}
-                          streamContainerDimensions={streamContainerDimensions}
+                          streamContainerDimensions={stackedDimensions}
                         />
                       ))}
                     </>
@@ -770,6 +784,7 @@ const RecHostStreamModalContent: React.FC<{
                       streamCollapsed={false}
                       streamMinimized={false}
                       streamContainerDimensions={streamContainerDimensions}
+                      disableResize={true}
                     />
                   );
                 }

@@ -44,6 +44,8 @@ interface RemotePanelProps {
     x: number;
     y: number;
   };
+  // NEW: Disable resize controls (for recording modal)
+  disableResize?: boolean;
 }
 
 export const RemotePanel = React.memo(
@@ -61,6 +63,7 @@ export const RemotePanel = React.memo(
     streamHidden = false,
     captureMode = 'stream',
     streamContainerDimensions,
+    disableResize = false,
   }: RemotePanelProps) {
     console.log(`[@component:RemotePanel] Props debug:`, {
       deviceId,
@@ -71,8 +74,9 @@ export const RemotePanel = React.memo(
     });
 
     // Panel state - three states: expanded, collapsed, minimized
-    const [isCollapsed, setIsCollapsed] = useState(initialCollapsed);
-    const [isMinimized, setIsMinimized] = useState(false);
+    // Force expanded state when disableResize is true
+    const [isCollapsed, setIsCollapsed] = useState(disableResize ? false : initialCollapsed);
+    const [isMinimized, setIsMinimized] = useState(disableResize ? false : false);
     const [remoteConfig, setRemoteConfig] = useState<any>(null);
 
     // Load remote config for the device type
@@ -153,6 +157,12 @@ export const RemotePanel = React.memo(
 
     // Smart toggle handlers with minimized state logic
     const handleMinimizeToggle = () => {
+      // Prevent resizing when disableResize is true
+      if (disableResize) {
+        console.log(`[@component:RemotePanel] Resize disabled for ${deviceModel} (recording mode)`);
+        return;
+      }
+      
       if (isMinimized) {
         // Restore from minimized to collapsed state
         setIsMinimized(false);
@@ -168,6 +178,12 @@ export const RemotePanel = React.memo(
     };
 
     const handleExpandCollapseToggle = () => {
+      // Prevent resizing when disableResize is true
+      if (disableResize) {
+        console.log(`[@component:RemotePanel] Resize disabled for ${deviceModel} (recording mode)`);
+        return;
+      }
+      
       if (isMinimized) {
         // First restore from minimized to collapsed, then user can click again to expand
         setIsMinimized(false);
@@ -417,50 +433,52 @@ export const RemotePanel = React.memo(
               {remoteConfig?.remote_info?.name || `${deviceModel} Remote`}
             </Typography>
 
-            {/* Right side: Minimize and Expand/Collapse buttons */}
-            <Box sx={{ display: 'flex', gap: 0.5 }}>
-              {/* Minimize/Restore button */}
-              <Tooltip title={isMinimized ? 'Restore Panel' : 'Minimize Panel'}>
-                <IconButton
-                  size={remoteConfig?.panel_layout?.header?.iconSize || 'small'}
-                  onClick={handleMinimizeToggle}
-                  sx={{ color: 'inherit' }}
-                >
-                  {isMinimized ? (
-                    <KeyboardArrowUp
-                      fontSize={remoteConfig?.panel_layout?.header?.iconSize || 'small'}
-                    />
-                  ) : (
-                    <KeyboardArrowDown
-                      fontSize={remoteConfig?.panel_layout?.header?.iconSize || 'small'}
-                    />
-                  )}
-                </IconButton>
-              </Tooltip>
+            {/* Right side: Minimize and Expand/Collapse buttons - hidden when disableResize is true */}
+            {!disableResize && (
+              <Box sx={{ display: 'flex', gap: 0.5 }}>
+                {/* Minimize/Restore button */}
+                <Tooltip title={isMinimized ? 'Restore Panel' : 'Minimize Panel'}>
+                  <IconButton
+                    size={remoteConfig?.panel_layout?.header?.iconSize || 'small'}
+                    onClick={handleMinimizeToggle}
+                    sx={{ color: 'inherit' }}
+                  >
+                    {isMinimized ? (
+                      <KeyboardArrowUp
+                        fontSize={remoteConfig?.panel_layout?.header?.iconSize || 'small'}
+                      />
+                    ) : (
+                      <KeyboardArrowDown
+                        fontSize={remoteConfig?.panel_layout?.header?.iconSize || 'small'}
+                      />
+                    )}
+                  </IconButton>
+                </Tooltip>
 
-              {/* Expand/Collapse button */}
-              <Tooltip
-                title={
-                  isMinimized ? 'Restore Panel' : isCollapsed ? 'Expand Panel' : 'Collapse Panel'
-                }
-              >
-                <IconButton
-                  size={remoteConfig?.panel_layout?.header?.iconSize || 'small'}
-                  onClick={handleExpandCollapseToggle}
-                  sx={{ color: 'inherit' }}
+                {/* Expand/Collapse button */}
+                <Tooltip
+                  title={
+                    isMinimized ? 'Restore Panel' : isCollapsed ? 'Expand Panel' : 'Collapse Panel'
+                  }
                 >
-                  {isCollapsed ? (
-                    <OpenInFull
-                      fontSize={remoteConfig?.panel_layout?.header?.iconSize || 'small'}
-                    />
-                  ) : (
-                    <CloseFullscreen
-                      fontSize={remoteConfig?.panel_layout?.header?.iconSize || 'small'}
-                    />
-                  )}
-                </IconButton>
-              </Tooltip>
-            </Box>
+                  <IconButton
+                    size={remoteConfig?.panel_layout?.header?.iconSize || 'small'}
+                    onClick={handleExpandCollapseToggle}
+                    sx={{ color: 'inherit' }}
+                  >
+                    {isCollapsed ? (
+                      <OpenInFull
+                        fontSize={remoteConfig?.panel_layout?.header?.iconSize || 'small'}
+                      />
+                    ) : (
+                      <CloseFullscreen
+                        fontSize={remoteConfig?.panel_layout?.header?.iconSize || 'small'}
+                      />
+                    )}
+                  </IconButton>
+                </Tooltip>
+              </Box>
+            )}
           </Box>
 
           {/* Remote Content - hidden when minimized */}
@@ -494,6 +512,7 @@ export const RemotePanel = React.memo(
     const streamContainerDimensionsChanged =
       JSON.stringify(prevProps.streamContainerDimensions) !==
       JSON.stringify(nextProps.streamContainerDimensions);
+    const disableResizeChanged = prevProps.disableResize !== nextProps.disableResize;
 
     // Return true if props are equal (don't re-render), false if they changed (re-render)
     const shouldSkipRender =
@@ -506,7 +525,8 @@ export const RemotePanel = React.memo(
       !streamMinimizedChanged &&
       !captureModeChanged &&
       !onReleaseControlChanged &&
-      !streamContainerDimensionsChanged;
+      !streamContainerDimensionsChanged &&
+      !disableResizeChanged;
 
     if (!shouldSkipRender) {
       console.log(`[@component:RemotePanel] Re-rendering due to prop changes:`, {
@@ -520,6 +540,7 @@ export const RemotePanel = React.memo(
         captureModeChanged,
         onReleaseControlChanged,
         streamContainerDimensionsChanged,
+        disableResizeChanged,
       });
     }
 
