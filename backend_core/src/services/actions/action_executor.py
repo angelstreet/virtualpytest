@@ -238,7 +238,7 @@ class ActionExecutor:
                         'open_browser', 'close_browser', 'connect_browser',
                         'navigate_to_url', 'click_element', 'find_element', 'input_text', 
                         'tap_x_y', 'execute_javascript', 'get_page_info', 'activate_semantic',
-                        'dump_elements', 'browser_use_task', 'press_key'
+                        'dump_elements', 'browser_use_task'
                     }
                     
                     # Desktop-specific commands (from PyAutoGUI/Bash controllers)
