@@ -262,7 +262,7 @@ class ZapController:
                 if context and 'chup' in action_command.lower():
                     # Get the action end time from context if available
                     action_end_time = getattr(context, 'last_action_end_time', None)
-                    zapping_result = self._analyze_zapping(context, iteration, action_command, self.blackscreen_area, action_end_time)
+                    zapping_result = self._analyze_zapping(context, iteration, action_command, action_end_time)
                     result.zapping_detected = zapping_result.get('zapping_detected', False)
                     result.zapping_details = zapping_result
                 else:
@@ -282,13 +282,12 @@ class ZapController:
         
         return result
     
-    def execute_zap_iterations(self, context, action_edge, action_command: str, max_iterations: int, blackscreen_area: str = None, goto_live: bool = True) -> bool:
+    def execute_zap_iterations(self, context, action_edge, action_command: str, max_iterations: int, goto_live: bool = True) -> bool:
         """Execute multiple zap iterations with analysis - simple sequential recording"""
         print(f"🔄 [ZapController] Starting {max_iterations} iterations of '{action_command}'...")
         
         self.statistics = ZapStatistics()
         self.statistics.total_iterations = max_iterations
-        self.blackscreen_area = blackscreen_area  # Store for later use
         self.goto_live = goto_live  # Store for audio menu analysis logic
         
         # Pre-action screenshot using unified approach
@@ -647,7 +646,7 @@ class ZapController:
     
     # Audio menu analysis moved to dedicated audio_menu_analyzer.py
     
-    def _analyze_zapping(self, context, iteration: int, action_command: str, blackscreen_area: str = None, action_end_time: float = None) -> Dict[str, Any]:
+    def _analyze_zapping(self, context, iteration: int, action_command: str, action_end_time: float = None) -> Dict[str, Any]:
         """Analyze zapping sequence using the new zapping detection functionality"""
         try:
             print(f"🔍 [ZapController] Analyzing zapping sequence for {action_command} (iteration {iteration})...")

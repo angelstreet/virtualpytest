@@ -47,13 +47,11 @@ def create_zap_controller(context: ScriptExecutionContext) -> ZapController:
     
     return zap_controller
 
-def execute_zap_actions(context: ScriptExecutionContext, action_edge, action_command: str, max_iteration: int, zap_controller: ZapController, blackscreen_area: str = None, goto_live: bool = True):
+def execute_zap_actions(context: ScriptExecutionContext, action_edge, action_command: str, max_iteration: int, zap_controller: ZapController, goto_live: bool = True):
     """Execute zap actions using ZapController with simple sequential recording"""
     print(f"⚡ [fullzap] Delegating zap execution to ZapController...")
-    if blackscreen_area:
-        print(f"🎯 [fullzap] Using custom blackscreen area: {blackscreen_area}")
     print(f"🎯 [fullzap] Audio menu analysis will be {'done once outside loop' if goto_live else 'skipped'}")
-    return zap_controller.execute_zap_iterations(context, action_edge, action_command, max_iteration, blackscreen_area, goto_live)
+    return zap_controller.execute_zap_iterations(context, action_edge, action_command, max_iteration, goto_live)
 
 
 def capture_fullzap_summary(context: ScriptExecutionContext, userinterface_name: str) -> str:
@@ -194,8 +192,6 @@ def main():
                        help='Action command to execute (default: live_chup)')
     parser.add_argument('--max_iteration', type=int, default=1,
                        help='Number of times to execute the action (default: 1)')
-    parser.add_argument('--blackscreen_area', type=str, default='0,0,1920,720',
-                       help='Blackscreen analysis area as x,y,width,height (default: 0,0,1920,720 for TV, auto-adjusts for mobile devices)')
     parser.add_argument('--goto_live', type=lambda x: x.lower() == 'true', default=True,
                        help='Navigate to live node before executing actions: true or false (default: true)')
     args = parser.parse_args()
@@ -305,7 +301,7 @@ def main():
         location_msg = f"from {target_node} node" if args.goto_live else "from current location"
         print(f"⚡ [fullzap] Executing action '{mapped_action}' {location_msg}...")
         try:
-            zap_success = execute_zap_actions(context, action_edge, mapped_action, args.max_iteration, zap_controller, args.blackscreen_area, args.goto_live)
+            zap_success = execute_zap_actions(context, action_edge, mapped_action, args.max_iteration, zap_controller, args.goto_live)
         except Exception as e:
             print(f"⚠️ [fullzap] ZapController error (continuing anyway): {e}")
             zap_success = True  # Navigation worked, so consider it success

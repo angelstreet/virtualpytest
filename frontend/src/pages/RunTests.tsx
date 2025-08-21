@@ -527,7 +527,7 @@ const RunTests: React.FC = () => {
       <TextField
         key={param.name}
         label={`${param.name}${param.required ? ' *' : ''}`}
-        value={value}
+        value={value || (param.name === 'node' ? 'home' : (param.default || ''))}
         onChange={(e) => handleParameterChange(param.name, e.target.value)}
         size="small"
         fullWidth
