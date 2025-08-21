@@ -1,7 +1,7 @@
 import { Box, Typography, Paper, Grid, Switch, FormControlLabel } from '@mui/material';
 import { useState, useMemo } from 'react';
 
-import { HDMIStream } from '../components/controller/av/HDMIStream';
+
 import { RemotePanel } from '../components/controller/remote/RemotePanel';
 import { Host } from '../types/common/Host_Types';
 
@@ -342,9 +342,9 @@ export default function RemoteTestPage() {
   const [showRemote, setShowRemote] = useState<boolean>(true);
 
   // State to coordinate between HDMIStream and RemotePanel
-  const [captureMode, setCaptureMode] = useState<'stream' | 'screenshot' | 'video'>('stream');
-  const [streamCollapsed, setStreamCollapsed] = useState<boolean>(true);
-  const [streamMinimized, setStreamMinimized] = useState<boolean>(false);
+  const [captureMode] = useState<'stream' | 'screenshot' | 'video'>('stream');
+  const [streamCollapsed] = useState<boolean>(true);
+  const [streamMinimized] = useState<boolean>(false);
 
   // Stable stream container dimensions to prevent re-renders - copied from RecHostStreamModal
   const streamContainerDimensions = useMemo(() => {

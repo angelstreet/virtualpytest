@@ -50,7 +50,7 @@ export const AndroidMobileRemote = React.memo(
   function AndroidMobileRemote({
     host,
     deviceId,
-    onDisconnectComplete,
+  
     isCollapsed,
     panelWidth,
     panelHeight,
@@ -70,11 +70,11 @@ export const AndroidMobileRemote = React.memo(
       selectedElement,
       selectedApp,
       isDumpingUI,
-      isDisconnecting,
+
       isRefreshingApps,
 
       // Actions
-      handleDisconnect,
+
       handleOverlayElementClick,
       handleRemoteCommand,
       clearElements,
@@ -186,12 +186,7 @@ export const AndroidMobileRemote = React.memo(
       streamContainerDimensions,
     ]);
 
-    const handleDisconnectWithCallback = async () => {
-      await handleDisconnect();
-      if (onDisconnectComplete) {
-        onDisconnectComplete();
-      }
-    };
+
 
     const getElementDisplayName = (el: AndroidElement): string => {
       let displayName = '';

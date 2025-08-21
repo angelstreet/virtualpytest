@@ -22,15 +22,13 @@ interface BashDesktopTerminalProps {
 export const BashDesktopTerminal = React.memo(function BashDesktopTerminal({
   host,
   deviceId,
-  onDisconnectComplete,
-  streamContainerDimensions,
 }: BashDesktopTerminalProps) {
   const {
     currentCommand,
     isExecuting,
     terminalOutput,
     executeCommand,
-    handleDisconnect,
+
     setCurrentCommand,
     session,
   } = useBashDesktop(host, deviceId);
@@ -60,12 +58,7 @@ export const BashDesktopTerminal = React.memo(function BashDesktopTerminal({
     }
   };
 
-  const handleDisconnectWithCallback = async () => {
-    await handleDisconnect();
-    if (onDisconnectComplete) {
-      onDisconnectComplete();
-    }
-  };
+
 
   const formatTerminalOutput = (output: string) => {
     return output.split('\n').map((line, index) => (

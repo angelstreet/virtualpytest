@@ -50,7 +50,7 @@ export const AppiumRemote = React.memo(
   function AppiumRemote({
     host,
     deviceId,
-    onDisconnectComplete,
+  
     sx = {},
     isCollapsed,
     panelWidth,
@@ -72,11 +72,11 @@ export const AppiumRemote = React.memo(
       selectedElement,
       selectedApp,
       isDumpingUI,
-      isDisconnecting,
+
       isRefreshingApps,
 
       // Actions
-      handleDisconnect,
+
       handleOverlayElementClick,
       handleRemoteCommand,
       clearElements,
@@ -220,12 +220,7 @@ export const AppiumRemote = React.memo(
       streamContainerDimensions,
     ]);
 
-    const handleDisconnectWithCallback = async () => {
-      await handleDisconnect();
-      if (onDisconnectComplete) {
-        onDisconnectComplete();
-      }
-    };
+
 
     const getElementDisplayName = (el: AppiumElement) => {
       let displayName = '';

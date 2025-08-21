@@ -19,8 +19,6 @@ interface PyAutoGUITerminalProps {
 export const PyAutoGUITerminal = React.memo(function PyAutoGUITerminal({
   host,
   deviceId,
-  onDisconnectComplete,
-  streamContainerDimensions,
 }: PyAutoGUITerminalProps) {
   const {
     terminalOutput,
@@ -30,7 +28,7 @@ export const PyAutoGUITerminal = React.memo(function PyAutoGUITerminal({
     sendKeys,
     typeText,
     clearTerminal,
-    handleDisconnect,
+
     session,
   } = usePyAutoGUI(host, deviceId);
 
@@ -81,12 +79,7 @@ export const PyAutoGUITerminal = React.memo(function PyAutoGUITerminal({
     }
   };
 
-  const handleDisconnectWithCallback = async () => {
-    await handleDisconnect();
-    if (onDisconnectComplete) {
-      onDisconnectComplete();
-    }
-  };
+
 
   const formatTerminalOutput = (output: string) => {
     return output.split('\n').map((line, index) => (

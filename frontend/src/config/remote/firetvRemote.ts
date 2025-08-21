@@ -35,7 +35,7 @@ export const firetvRemoteConfig = {
     showScreenshotInCollapsed: false,
     showScreenshotInExpanded: true,
     header: {
-
+      height: '40px',
       fontSize: '0.875rem',
       fontWeight: 'bold',
       iconSize: 'small',

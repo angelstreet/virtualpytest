@@ -1,5 +1,5 @@
 import { Box, Button, Typography, CircularProgress } from '@mui/material';
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 
 import { useAndroidTv } from '../../../hooks/controller/useAndroidTv';
 import { Host } from '../../../types/common/Host_Types';
