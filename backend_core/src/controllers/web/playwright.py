@@ -249,15 +249,38 @@ class PlaywrightWebController(WebControllerInterface):
                     }
                     
                 except Exception as e:
-                    # Chrome debug session not available
-                    error_msg = f"Could not connect to existing Chrome debug session: {e}. Make sure Chrome is running with --remote-debugging-port=9222"
-                    print(f"[PLAYWRIGHT]: {error_msg}")
-                    return {
-                        'success': False,
-                        'error': error_msg,
-                        'execution_time': 0,
-                        'connected': False
-                    }
+                    # Chrome debug session not available - try to launch Chrome instead
+                    print(f"[PLAYWRIGHT]: No existing Chrome found ({e}), launching new Chrome...")
+                    try:
+                        # Launch Chrome and connect
+                        if not self.connect():
+                            raise Exception("Failed to launch Chrome")
+                        page = await self._get_persistent_page(target_url='https://google.fr')
+                        
+                        # Update page state
+                        self.current_url = page.url
+                        self.page_title = await page.title()
+                        
+                        execution_time = int((time.time() - start_time) * 1000)
+                        print(f"[PLAYWRIGHT]: Launched new Chrome and connected successfully")
+                        return {
+                            'success': True,
+                            'error': '',
+                            'execution_time': execution_time,
+                            'connected': True,
+                            'current_url': self.current_url,
+                            'page_title': self.page_title,
+                            'launched_new': True
+                        }
+                    except Exception as launch_error:
+                        error_msg = f"Could not connect to existing Chrome and failed to launch new Chrome: {launch_error}"
+                        print(f"[PLAYWRIGHT]: {error_msg}")
+                        return {
+                            'success': False,
+                            'error': error_msg,
+                            'execution_time': 0,
+                            'connected': False
+                        }
                 
             except Exception as e:
                 error_msg = f"Browser connection error: {e}"
