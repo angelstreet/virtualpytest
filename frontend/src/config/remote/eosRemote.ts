@@ -1,20 +1,71 @@
-import { InfraredRemoteConfig, INFRARED_REMOTE_DEFAULTS } from './infraredRemoteBase';
-
-export const eosRemoteConfig: InfraredRemoteConfig = {
+export const eosRemoteConfig = {
   remote_info: {
-    ...INFRARED_REMOTE_DEFAULTS.remote_info,
     name: 'EOS Remote',
+    type: 'ir_remote' as const,
     image_url: '/eos_remote.png',
+    default_scale: 1,
+    min_scale: 0.3,
+    max_scale: 1.0,
+    button_scale_factor: 4,
+    global_offset: { x: 0, y: 0 },
+    text_style: {
+      fontSize: '32px',
+      fontWeight: 'bold',
+      color: 'white',
+      textShadow: '2px 2px 4px rgba(0,0,0,0.9)',
+    },
   },
   panel_layout: {
-    ...INFRARED_REMOTE_DEFAULTS.panel_layout,
+    collapsed: {
+      width: '160px',
+      height: '300px',
+      position: {
+        bottom: '20px',
+        right: '20px',
+      },
+    },
+    expanded: {
+      width: '240px',
+      height: '600px',
+      position: {
+        top: '100px',
+        right: '20px',
+      },
+    },
+    showScreenshotInCollapsed: false,
+    showScreenshotInExpanded: true,
+    header: {
+      height: '40px',
+      fontSize: '0.875rem',
+      fontWeight: 'bold',
+      iconSize: 'small',
+      padding: '8px',
+      backgroundColor: '#1E1E1E',
+      borderColor: '#333',
+      textColor: '#ffffff',
+    },
   },
   remote_layout: {
-    ...INFRARED_REMOTE_DEFAULTS.remote_layout,
+    collapsed: {
+      width: '120px',
+      height: '240px',
+      scale: 0.6,
+      padding: '10px',
+    },
+    expanded: {
+      width: '200px',
+      height: '500px',
+      scale: 1.0,
+      padding: '25px',
+    },
     background_image: {
       url: '/eos_remote.png',
       width: 200,
       height: 500,
+    },
+    global_offset: {
+      x: 0,
+      y: 0,
     },
   },
   button_layout: {
@@ -325,6 +376,4 @@ export const eosRemoteConfig: InfraredRemoteConfig = {
       comment: 'Fast forward button',
     },
   },
-} as const;
-
-export type EosRemoteConfig = typeof eosRemoteConfig;
+};
