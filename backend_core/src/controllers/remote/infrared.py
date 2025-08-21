@@ -72,6 +72,10 @@ class IRRemoteController(RemoteControllerInterface):
         print(f"[@controller:InfraredRemote] Initialized for device: {self.ir_path}")
         print(f"[@controller:InfraredRemote] Using config type: {self.ir_type}")
         
+        # Auto-connect IR controller since it doesn't require network connection
+        # IR controllers should be available immediately once config is loaded
+        self.connect()
+        
     def connect(self) -> bool:
         """Connect to IR transmitter device."""
         try:
