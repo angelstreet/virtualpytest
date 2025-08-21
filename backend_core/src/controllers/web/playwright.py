@@ -43,7 +43,9 @@ class PlaywrightWebController(WebControllerInterface):
         Initialize the Playwright web controller.
         """
         super().__init__("Playwright Web", "playwright")
-        
+        import os
+        os.environ['DEBUG'] = 'pw:api'  # Enable Playwright API debug logs
+        os.environ['PLAYWRIGHT_DEBUG'] = '1'  # Enable additional debug info
         # Simple initialization with persistent user data
         self.utils = PlaywrightUtils(auto_accept_cookies=True)
         
@@ -298,7 +300,7 @@ class PlaywrightWebController(WebControllerInterface):
                 'connected': False
             }
     
-    def navigate_to_url(self, url: str, timeout: int = 30000, follow_redirects: bool = True) -> Dict[str, Any]:
+    def navigate_to_url(self, url: str, timeout: int = 60000, follow_redirects: bool = True) -> Dict[str, Any]:
         """Navigate to a URL using async CDP connection."""
         async def _async_navigate_to_url():
             try:
@@ -347,14 +349,33 @@ class PlaywrightWebController(WebControllerInterface):
                 return result
                 
             except Exception as e:
-                error_msg = f"Navigation error: {e}"
-                print(f"[PLAYWRIGHT]: {error_msg}")
+                execution_time = int((time.time() - start_time) * 1000)
+                error_type = type(e).__name__
+                error_msg = str(e)
+                
+                print(f"[PLAYWRIGHT]: ❌ NAVIGATION FAILED after {execution_time}ms")
+                print(f"[PLAYWRIGHT]: Error Type: {error_type}")
+                print(f"[PLAYWRIGHT]: Error Message: {error_msg}")
+                print(f"[PLAYWRIGHT]: Target URL: {normalized_url if 'normalized_url' in locals() else url}")
+                
+                # Try to get current page state for debugging
+                try:
+                    if 'page' in locals():
+                        current_url = page.url
+                        current_title = await page.title()
+                        print(f"[PLAYWRIGHT]: Current page state - URL: {current_url}, Title: {current_title[:50]}...")
+                    else:
+                        print(f"[PLAYWRIGHT]: Page object not available for state check")
+                except Exception as state_error:
+                    print(f"[PLAYWRIGHT]: Could not get page state: {type(state_error).__name__}: {str(state_error)}")
+                
                 return {
                     'success': False,
-                    'error': error_msg,
+                    'error': f"{error_type}: {error_msg}",
+                    'error_type': error_type,
                     'url': self.current_url,
                     'title': self.page_title,
-                    'execution_time': 0,
+                    'execution_time': execution_time,
                     'original_url': url,
                     'normalized_url': normalized_url if 'normalized_url' in locals() else url,
                     'follow_redirects': follow_redirects
