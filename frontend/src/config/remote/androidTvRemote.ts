@@ -207,15 +207,15 @@ export const androidTvRemoteConfig = {
     power: {
       key: 'POWER',
       label: '',
-      position: { x: 144, y: 93 },
-      size: { width: 22, height: 22 },
+      position: { x: 132, y: 81 },
+      size: { width: 21, height: 21 },
       shape: 'circle' as const,
       comment: 'POWER',
     },
     nav_up: {
       key: 'UP',
       label: '▲',
-      position: { x: 276, y: 326 },
+      position: { x: 261, y: 300 },
       size: { width: 26, height: 20 },
       shape: 'rectangle' as const,
       comment: 'UP',
@@ -223,7 +223,7 @@ export const androidTvRemoteConfig = {
     nav_left: {
       key: 'LEFT',
       label: '◄',
-      position: { x: 116, y: 470 },
+      position: { x: 103, y: 446 },
       size: { width: 20, height: 26 },
       shape: 'rectangle' as const,
       comment: 'LEFT',
@@ -231,7 +231,7 @@ export const androidTvRemoteConfig = {
     nav_center: {
       key: 'SELECT',
       label: 'OK',
-      position: { x: 206, y: 405 },
+      position: { x: 195, y: 384 },
       size: { width: 60, height: 60 },
       shape: 'circle' as const,
       comment: 'OK',
@@ -239,23 +239,23 @@ export const androidTvRemoteConfig = {
     nav_right: {
       key: 'RIGHT',
       label: '►',
-      position: { x: 452, y: 470 },
-      size: { width: 20, height: 26 },
+      position: { x: 442, y: 446 },
+      size: { width: 16, height: 28 },
       shape: 'rectangle' as const,
       comment: 'RIGHT',
     },
     nav_down: {
       key: 'DOWN',
       label: '▼',
-      position: { x: 276, y: 646 },
-      size: { width: 26, height: 20 },
+      position: { x: 261, y: 626 },
+      size: { width: 28, height: 16 },
       shape: 'rectangle' as const,
       comment: 'DOWN',
     },
     back: {
       key: 'BACK',
       label: '',
-      position: { x: 130, y: 750 },
+      position: { x: 122, y: 716 },
       size: { width: 26, height: 26 },
       shape: 'circle' as const,
       comment: 'BACK',
@@ -263,7 +263,7 @@ export const androidTvRemoteConfig = {
     home: {
       key: 'HOME',
       label: '',
-      position: { x: 273, y: 750 },
+      position: { x: 261, y: 716 },
       size: { width: 26, height: 26 },
       shape: 'circle' as const,
       comment: 'HOME',
@@ -271,7 +271,7 @@ export const androidTvRemoteConfig = {
     menu: {
       key: 'MENU',
       label: '',
-      position: { x: 420, y: 750 },
+      position: { x: 398, y: 716 },
       size: { width: 26, height: 26 },
       shape: 'circle' as const,
       comment: 'MENU',
@@ -279,7 +279,7 @@ export const androidTvRemoteConfig = {
     rewind: {
       key: 'REWIND',
       label: '',
-      position: { x: 130, y: 890 },
+      position: { x: 122, y: 852 },
       size: { width: 26, height: 26 },
       shape: 'circle' as const,
       comment: 'REWIND',
@@ -287,7 +287,7 @@ export const androidTvRemoteConfig = {
     play_pause: {
       key: 'PLAY_PAUSE',
       label: '',
-      position: { x: 273, y: 890 },
+      position: { x: 261, y: 852 },
       size: { width: 26, height: 26 },
       shape: 'circle' as const,
       comment: 'PLAY_PAUSE',
@@ -295,7 +295,7 @@ export const androidTvRemoteConfig = {
     fast_forward: {
       key: 'FAST_FORWARD',
       label: '',
-      position: { x: 415, y: 890 },
+      position: { x: 398, y: 852 },
       size: { width: 26, height: 26 },
       shape: 'circle' as const,
       comment: 'FAST_FORWARD',
@@ -303,7 +303,7 @@ export const androidTvRemoteConfig = {
     volume_up: {
       key: 'VOLUME_UP',
       label: '',
-      position: { x: 273, y: 1032 },
+      position: { x: 261, y: 989 },
       size: { width: 26, height: 26 },
       shape: 'circle' as const,
       comment: 'VOLUME_UP',
@@ -311,7 +311,7 @@ export const androidTvRemoteConfig = {
     volume_down: {
       key: 'VOLUME_DOWN',
       label: '',
-      position: { x: 273, y: 1170 },
+      position: { x: 261, y: 1120 },
       size: { width: 26, height: 26 },
       shape: 'circle' as const,
       comment: 'VOLUME_DOWN',
@@ -319,7 +319,7 @@ export const androidTvRemoteConfig = {
     mute: {
       key: 'VOLUME_MUTE',
       label: '',
-      position: { x: 273, y: 1310 },
+      position: { x: 263, y: 1260 },
       size: { width: 26, height: 26 },
       shape: 'circle' as const,
       comment: 'MUTE',
@@ -327,7 +327,7 @@ export const androidTvRemoteConfig = {
     channel_up: {
       key: 'CHANNEL_UP',
       label: 'CH+',
-      position: { x: 130, y: 1032 },
+      position: { x: 398, y: 989 },
       size: { width: 26, height: 26 },
       shape: 'circle' as const,
       comment: 'CHANNEL_UP',
@@ -335,7 +335,7 @@ export const androidTvRemoteConfig = {
     channel_down: {
       key: 'CHANNEL_DOWN',
       label: 'CH-',
-      position: { x: 130, y: 1170 },
+      position: { x: 398, y: 1120 },
       size: { width: 26, height: 26 },
       shape: 'circle' as const,
       comment: 'CHANNEL_DOWN',
