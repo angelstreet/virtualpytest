@@ -449,6 +449,27 @@ export const VerificationsList: React.FC<VerificationsListProps> = React.memo(
           >
             Add
           </Button>
+
+          {/* Test Button - only show if we have verifications and onTest is provided */}
+          {verifications.length > 0 && _onTest && (
+            <Button
+              size="small"
+              variant="contained"
+              onClick={_onTest}
+              disabled={loading}
+              sx={{ 
+                minWidth: 'auto', 
+                fontSize: '0.75rem', 
+                py: 0.25,
+                backgroundColor: '#2196f3',
+                '&:hover': {
+                  backgroundColor: '#1976d2',
+                }
+              }}
+            >
+              {loading ? 'Testing...' : 'Test'}
+            </Button>
+          )}
         </Box>
 
         {/* Final Result indicator */}
