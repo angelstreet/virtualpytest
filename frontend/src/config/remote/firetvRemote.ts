@@ -94,7 +94,7 @@ export const firetvRemoteConfig = {
       comment: 'Navigation left',
     },
     nav_center: {
-      key: 'SELECT',
+      key: 'OK',
       label: 'OK',
       position: { x: 160, y: 310 },
       size: { width: 45, height: 45 },
@@ -119,7 +119,7 @@ export const firetvRemoteConfig = {
     },
     back: {
       key: 'BACK',
-      label: '←',
+      label: '↺',
       position: { x: 99, y: 574 },
       size: { width: 20, height: 20 },
       shape: 'circle' as const,
@@ -168,7 +168,7 @@ export const firetvRemoteConfig = {
       comment: 'Navigation left',
     },
     nav_center: {
-      key: 'SELECT',
+      key: 'OK',
       label: 'OK',
       position: { x: 206, y: 405 },
       size: { width: 60, height: 60 },
@@ -193,7 +193,7 @@ export const firetvRemoteConfig = {
     },
     back: {
       key: 'BACK',
-      label: '←',
+      label: '↺',
       position: { x: 130, y: 750 },
       size: { width: 26, height: 26 },
       shape: 'circle' as const,
