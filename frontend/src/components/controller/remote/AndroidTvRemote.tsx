@@ -70,8 +70,8 @@ export const AndroidTvRemote = React.memo(
 
       if (streamContainerDimensions) {
         // Modal context: use the modal's stream container height
-        // Reserve space for disconnect button (60px) and some padding
-        availableHeight = streamContainerDimensions.height - 120;
+        // No disconnect button in modal, just reserve space for header (30px)
+        availableHeight = streamContainerDimensions.height - 30;
         console.log(
           `[@component:AndroidTvRemote] Using modal container height: ${streamContainerDimensions.height}, available: ${availableHeight}`,
         );
@@ -273,8 +273,8 @@ export const AndroidTvRemote = React.memo(
         {/* Remote Interface - takes most of the space */}
         <Box sx={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>{renderRemoteInterface()}</Box>
 
-        {/* Disconnect Button - fixed at bottom */}
-        {!isCollapsed && session.connected && (
+        {/* Disconnect Button - fixed at bottom - hidden in modal context */}
+        {!isCollapsed && session.connected && !streamContainerDimensions && (
           <Box
             sx={{
               p: 1,

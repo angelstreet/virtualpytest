@@ -137,7 +137,7 @@ export const RemotePanel = React.memo(
     const collapsedHeight = panelLayout.collapsed.height;
     const expandedWidth = panelLayout.expanded.width;
     const expandedHeight = panelLayout.expanded.height;
-    const headerHeight = remoteConfig?.panel_layout?.header?.height || '48px';
+    const headerHeight = remoteConfig?.panel_layout?.header?.height || '30px';
 
     // Current panel dimensions based on state
     const currentWidth = isCollapsed ? collapsedWidth : expandedWidth;

@@ -703,10 +703,12 @@ const RecHostStreamModalContent: React.FC<{
                 
                 if (hasMultipleRemotes && device?.device_model === 'fire_tv') {
                   // For Fire TV devices, render both remotes directly (like host VNC)
-                  // Adjust height for stacked remotes (2 remotes = 50% height each)
+                  // Account for panel overhead: header (30px) only, no disconnect button in modal
+                  const panelOverhead = 30; // Header only, disconnect button removed in modal
+                  const availableHeightForRemotes = streamContainerDimensions.height - (panelOverhead * 2); 
                   const stackedDimensions = {
                     ...streamContainerDimensions,
-                    height: Math.round(streamContainerDimensions.height / 2)
+                    height: Math.round(availableHeightForRemotes / 2) + panelOverhead
                   };
                   return (
                     <>
@@ -744,14 +746,16 @@ const RecHostStreamModalContent: React.FC<{
                   // For other devices with multiple remote controllers
                   const remoteTypes = Array.isArray(remoteCapability) ? remoteCapability : [remoteCapability];
                   const filteredRemoteTypes = remoteTypes.filter(Boolean);
-                  // Adjust height for stacked remotes (divide by number of remotes)
+                  // Account for panel overhead: header (30px) only, no disconnect button in modal
+                  const panelOverhead = 30; // Header only, disconnect button removed in modal
+                  const availableHeightForRemotes = streamContainerDimensions.height - (panelOverhead * filteredRemoteTypes.length);
                   const stackedDimensions = {
                     ...streamContainerDimensions,
-                    height: Math.round(streamContainerDimensions.height / filteredRemoteTypes.length)
+                    height: Math.round(availableHeightForRemotes / filteredRemoteTypes.length) + panelOverhead
                   };
                   return (
                     <>
-                      {filteredRemoteTypes.map((remoteType: string, index: number) => (
+                      {filteredRemoteTypes.map((remoteType: string) => (
                         <RemotePanel
                           key={`${device?.device_id}-${remoteType}`}
                           host={host}
