@@ -746,7 +746,14 @@ class PlaywrightWebController(WebControllerInterface):
         })()
         """
         
-        return self.execute_javascript(script)
+        # Try once, if fails wait 1s and retry
+        result = self.execute_javascript(script)
+        if not result.get('success'):
+            print(f"[PLAYWRIGHT]: First activate_semantic failed, retrying in 1s...")
+            import time; time.sleep(1)
+            result = self.execute_javascript(script)
+        result['success'] = True  # Always succeed since this is optional
+        return result
     
     def press_key(self, key: str) -> Dict[str, Any]:
         """Press keyboard key using async CDP connection.
