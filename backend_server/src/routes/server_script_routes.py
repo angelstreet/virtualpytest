@@ -134,9 +134,7 @@ def analyze_script_parameters(script_path):
             ui_param = next(p for p in parameters if p['name'] == 'userinterface_name')
             ui_param['suggestions'] = [
                 'horizon_android_mobile',
-                'horizon_android_tv',
-                'vz_android_mobile',
-                'vz_android_tv'
+                'horizon_android_tv'
             ]
         
         return {

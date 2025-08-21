@@ -499,7 +499,7 @@ const RunTests: React.FC = () => {
 
     // Special handling for userinterface_name with autocomplete
     if (param.name === 'userinterface_name') {
-      const options = ['horizon_android_mobile', 'horizon_android_tv', 'perseus_360_web'];
+      const options = ['horizon_android_mobile', 'horizon_android_tv', 'perseus_360_web', 'horizon_tv'];
 
       return (
         <Autocomplete
