@@ -94,12 +94,12 @@ export const firetvRemoteConfig = {
       comment: 'LEFT',
     },
     nav_center: {
-      key: 'SELECT',
+      key: 'OK',
       label: 'OK',
       position: { x: 178, y: 338 },
       size: { width: 55, height: 55 },
       shape: 'circle' as const,
-      comment: 'SELECT',
+      comment: 'OK',
     },
     nav_right: {
       key: 'RIGHT',
@@ -158,12 +158,12 @@ export const firetvRemoteConfig = {
       comment: 'PLAY_PAUSE',
     },
     fast_forward: {
-      key: 'FAST_FORWARD',
+      key: 'FORWARD',
       label: '',
       position: { x: 366, y: 780 },
       size: { width: 24, height: 24 },
       shape: 'circle' as const,
-      comment: 'FAST_FORWARD',
+      comment: 'FORWARD',
     },
     volume_up: {
       key: 'VOLUME_UP',
@@ -182,7 +182,7 @@ export const firetvRemoteConfig = {
       comment: 'VOLUME_DOWN',
     },
     mute: {
-      key: 'VOLUME_MUTE',
+      key: 'MUTE',
       label: '',
       position: { x: 112, y: 906 },
       size: { width: 24, height: 24 },
@@ -232,7 +232,7 @@ export const firetvRemoteConfig = {
       comment: 'LEFT',
     },
     nav_center: {
-      key: 'SELECT',
+      key: 'OK',
       label: 'OK',
       position: { x: 206, y: 405 },
       size: { width: 60, height: 60 },
@@ -296,12 +296,12 @@ export const firetvRemoteConfig = {
       comment: 'PLAY_PAUSE',
     },
     fast_forward: {
-      key: 'FAST_FORWARD',
+      key: 'FORWARD',
       label: '',
       position: { x: 415, y: 890 },
       size: { width: 26, height: 26 },
       shape: 'circle' as const,
-      comment: 'FAST_FORWARD',
+      comment: 'FORWARD',
     },
     volume_up: {
       key: 'VOLUME_UP',
@@ -320,7 +320,7 @@ export const firetvRemoteConfig = {
       comment: 'VOLUME_DOWN',
     },
     mute: {
-      key: 'VOLUME_MUTE',
+      key: 'MUTE',
       label: '',
       position: { x: 273, y: 1310 },
       size: { width: 26, height: 26 },
