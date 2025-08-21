@@ -811,7 +811,7 @@ class AndroidMobileRemoteController(RemoteControllerInterface):
 
     def execute_command(self, command: str, params: Dict[str, Any] = None) -> bool:
         """
-        Execute Android Mobile specific command with proper abstraction.
+        Execute Android Mobile specific command with proper abstraction and auto-reconnection.
         
         Args:
             command: Command to execute ('press_key', 'input_text', etc.)
@@ -828,124 +828,162 @@ class AndroidMobileRemoteController(RemoteControllerInterface):
         
         print(f"Remote[{self.device_type.upper()}]: Executing command '{command}' with params: {params}")
         
-        result = False
-        
-        if command == 'press_key':
-            key = params.get('key')
-            result = self.press_key(key) if key else False
-        
-        elif command == 'input_text':
-            text = params.get('text')
-            result = self.input_text(text) if text else False
-        
-        elif command == 'launch_app':
-            package = params.get('package')
-            result = self.launch_app(package) if package else False
-        
-        elif command == 'close_app':
-            package = params.get('package')
-            result = self.close_app(package) if package else False
-        
-        elif command == 'click_element':
-            element_id = params.get('element_id')
-            result = self.click_element(element_id) if element_id else False
-        
-        elif command == 'tap_coordinates':
-            x, y = params.get('x'), params.get('y')
-            result = self.tap_coordinates(int(x), int(y)) if x is not None and y is not None else False
-        
-        elif command == 'swipe':
-            from_x = params.get('from_x')
-            from_y = params.get('from_y')
-            to_x = params.get('to_x')
-            to_y = params.get('to_y')
-            duration = params.get('duration', 300)
-            if all(v is not None for v in [from_x, from_y, to_x, to_y]):
-                result = self.swipe(int(from_x), int(from_y), int(to_x), int(to_y), int(duration))
-            else:
-                result = False
-        
-        elif command == 'swipe_up':
-            # For swipe_up, ensure vertical movement by keeping X coordinate the same
-            from_x = params.get('from_x', 500)
-            from_y = params.get('from_y', 1500)
-            to_x = from_x  # Keep X coordinate the same for vertical swipe
-            to_y = params.get('to_y', 500)
-            duration = params.get('duration', 300)
-            result = self.swipe_up(int(from_x), int(from_y), int(to_x), int(to_y), int(duration))
-        
-        elif command == 'swipe_down':
-            # For swipe_down, ensure vertical movement by keeping X coordinate the same
-            from_x = params.get('from_x', 500)
-            from_y = params.get('from_y', 500)
-            to_x = from_x  # Keep X coordinate the same for vertical swipe
-            to_y = params.get('to_y', 1500)
-            duration = params.get('duration', 300)
-            result = self.swipe_down(int(from_x), int(from_y), int(to_x), int(to_y), int(duration))
-        
-        elif command == 'swipe_left':
-            # For swipe_left, ensure horizontal movement by keeping Y coordinate the same
-            from_x = params.get('from_x', 800)
-            from_y = params.get('from_y', 1000)
-            to_x = params.get('to_x', 200)
-            to_y = from_y  # Keep Y coordinate the same for horizontal swipe
-            duration = params.get('duration', 300)
-            result = self.swipe_left(int(from_x), int(from_y), int(to_x), int(to_y), int(duration))
-        
-        elif command == 'swipe_right':
-            # For swipe_right, ensure horizontal movement by keeping Y coordinate the same
-            from_x = params.get('from_x', 200)
-            from_y = params.get('from_y', 1000)
-            to_x = params.get('to_x', 800)
-            to_y = from_y  # Keep Y coordinate the same for horizontal swipe
-            duration = params.get('duration', 300)
-            result = self.swipe_right(int(from_x), int(from_y), int(to_x), int(to_y), int(duration))
-        
-        # Handle uppercase swipe commands from frontend
-        elif command == 'SWIPE_UP':
-            result = self.swipe_up()
-        
-        elif command == 'SWIPE_DOWN':
-            result = self.swipe_down()
-        
-        elif command == 'SWIPE_LEFT':
-            result = self.swipe_left()
-        
-        elif command == 'SWIPE_RIGHT':
-            result = self.swipe_right()
-        
-        elif command == 'click_element_by_id':
-            # Android Mobile specific - always dumps UI for edge actions to ensure current state
-            element_id = params.get('element_id')
-            if element_id:
-                # Always perform fresh UI dump for edge actions since UI state may have changed
-                print(f"Remote[{self.device_type.upper()}]: Performing UI dump for edge action")
-                dump_success, elements, dump_error = self.dump_ui_elements()
-                
-                if dump_success and elements:
-                    element = next((el for el in elements if str(el.id) == str(element_id)), None)
-                    result = self.click_element_by_id(element) if element else False
-                    if not result:
-                        print(f"Remote[{self.device_type.upper()}]: Element with ID {element_id} not found in current UI dump")
+        def _execute_specific_command():
+            """Execute the specific command - centralized logic"""
+            if command == 'press_key':
+                key = params.get('key')
+                return self.press_key(key) if key else False
+            
+            elif command == 'input_text':
+                text = params.get('text')
+                return self.input_text(text) if text else False
+            
+            elif command == 'launch_app':
+                package = params.get('package')
+                return self.launch_app(package) if package else False
+            
+            elif command == 'close_app':
+                package = params.get('package')
+                return self.close_app(package) if package else False
+            
+            elif command == 'click_element':
+                element_id = params.get('element_id')
+                return self.click_element(element_id) if element_id else False
+            
+            elif command == 'tap_coordinates':
+                x, y = params.get('x'), params.get('y')
+                return self.tap_coordinates(int(x), int(y)) if x is not None and y is not None else False
+            
+            elif command == 'swipe':
+                from_x = params.get('from_x')
+                from_y = params.get('from_y')
+                to_x = params.get('to_x')
+                to_y = params.get('to_y')
+                duration = params.get('duration', 300)
+                if all(v is not None for v in [from_x, from_y, to_x, to_y]):
+                    return self.swipe(int(from_x), int(from_y), int(to_x), int(to_y), int(duration))
                 else:
-                    print(f"Remote[{self.device_type.upper()}]: Failed to dump UI elements: {dump_error}")
-                    result = False
+                    return False
+            
+            elif command == 'swipe_up':
+                # For swipe_up, ensure vertical movement by keeping X coordinate the same
+                from_x = params.get('from_x', 500)
+                from_y = params.get('from_y', 1500)
+                to_x = from_x  # Keep X coordinate the same for vertical swipe
+                to_y = params.get('to_y', 500)
+                duration = params.get('duration', 300)
+                return self.swipe_up(int(from_x), int(from_y), int(to_x), int(to_y), int(duration))
+            
+            elif command == 'swipe_down':
+                # For swipe_down, ensure vertical movement by keeping X coordinate the same
+                from_x = params.get('from_x', 500)
+                from_y = params.get('from_y', 500)
+                to_x = from_x  # Keep X coordinate the same for vertical swipe
+                to_y = params.get('to_y', 1500)
+                duration = params.get('duration', 300)
+                return self.swipe_down(int(from_x), int(from_y), int(to_x), int(to_y), int(duration))
+            
+            elif command == 'swipe_left':
+                # For swipe_left, ensure horizontal movement by keeping Y coordinate the same
+                from_x = params.get('from_x', 800)
+                from_y = params.get('from_y', 1000)
+                to_x = params.get('to_x', 200)
+                to_y = from_y  # Keep Y coordinate the same for horizontal swipe
+                duration = params.get('duration', 300)
+                return self.swipe_left(int(from_x), int(from_y), int(to_x), int(to_y), int(duration))
+            
+            elif command == 'swipe_right':
+                # For swipe_right, ensure horizontal movement by keeping Y coordinate the same
+                from_x = params.get('from_x', 200)
+                from_y = params.get('from_y', 1000)
+                to_x = params.get('to_x', 800)
+                to_y = from_y  # Keep Y coordinate the same for horizontal swipe
+                duration = params.get('duration', 300)
+                return self.swipe_right(int(from_x), int(from_y), int(to_x), int(to_y), int(duration))
+            
+            # Handle uppercase swipe commands from frontend
+            elif command == 'SWIPE_UP':
+                return self.swipe_up()
+            
+            elif command == 'SWIPE_DOWN':
+                return self.swipe_down()
+            
+            elif command == 'SWIPE_LEFT':
+                return self.swipe_left()
+            
+            elif command == 'SWIPE_RIGHT':
+                return self.swipe_right()
+            
+            elif command == 'click_element_by_id':
+                # Android Mobile specific - always dumps UI for edge actions to ensure current state
+                element_id = params.get('element_id')
+                if element_id:
+                    # Always perform fresh UI dump for edge actions since UI state may have changed
+                    print(f"Remote[{self.device_type.upper()}]: Performing UI dump for edge action")
+                    dump_success, elements, dump_error = self.dump_ui_elements()
+                    
+                    if dump_success and elements:
+                        element = next((el for el in elements if str(el.id) == str(element_id)), None)
+                        result = self.click_element_by_id(element) if element else False
+                        if not result:
+                            print(f"Remote[{self.device_type.upper()}]: Element with ID {element_id} not found in current UI dump")
+                        return result
+                    else:
+                        print(f"Remote[{self.device_type.upper()}]: Failed to dump UI elements: {dump_error}")
+                        return False
+                else:
+                    return False
+            
+            elif command == 'dump_ui_elements':
+                # Android Mobile specific
+                success, _, _ = self.dump_ui_elements()
+                return success
+            
+            elif command == 'get_installed_apps':
+                # Android Mobile specific
+                apps = self.get_installed_apps()
+                return len(apps) > 0
+            
             else:
-                result = False
+                print(f"Remote[{self.device_type.upper()}]: Unknown command: {command}")
+                return False
         
-        elif command == 'dump_ui_elements':
-            # Android Mobile specific
-            success, _, _ = self.dump_ui_elements()
-            result = success
-        
-        elif command == 'get_installed_apps':
-            # Android Mobile specific
-            apps = self.get_installed_apps()
-            result = len(apps) > 0
-        
-        else:
-            print(f"Remote[{self.device_type.upper()}]: Unknown command: {command}")
-            result = False
+        # First attempt
+        try:
+            result = _execute_specific_command()
+            
+            # If command failed, try reconnecting and retry once
+            if not result:
+                print(f"Remote[{self.device_type.upper()}]: Command '{command}' failed - attempting reconnection...")
+                if self.connect():
+                    print(f"Remote[{self.device_type.upper()}]: Reconnected - retrying command '{command}'")
+                    result = _execute_specific_command()
+                    if result:
+                        print(f"Remote[{self.device_type.upper()}]: Command '{command}' succeeded after reconnection")
+                    else:
+                        print(f"Remote[{self.device_type.upper()}]: Command '{command}' failed even after reconnection")
+                else:
+                    print(f"Remote[{self.device_type.upper()}]: Failed to reconnect for command '{command}' retry")
+                    return False
+                    
+        except Exception as e:
+            print(f"Remote[{self.device_type.upper()}]: Command '{command}' exception: {e}")
+            # Try to reconnect on exception and retry once
+            print(f"Remote[{self.device_type.upper()}]: Exception in '{command}' - attempting reconnection...")
+            if self.connect():
+                try:
+                    print(f"Remote[{self.device_type.upper()}]: Reconnected - retrying command '{command}' after exception")
+                    result = _execute_specific_command()
+                    if result:
+                        print(f"Remote[{self.device_type.upper()}]: Command '{command}' succeeded after exception recovery")
+                    else:
+                        print(f"Remote[{self.device_type.upper()}]: Command '{command}' failed even after exception recovery")
+                except Exception as retry_e:
+                    print(f"Remote[{self.device_type.upper()}]: Command '{command}' retry after exception also failed: {retry_e}")
+                    return False
+            else:
+                print(f"Remote[{self.device_type.upper()}]: Failed to reconnect after command '{command}' exception")
+                return False
         
         # Apply wait_time after successful command execution
         if result and wait_time > 0:

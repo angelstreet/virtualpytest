@@ -743,13 +743,6 @@ class AndroidTVRemoteController(RemoteControllerInterface):
         
         print(f"Remote[{self.device_type.upper()}]: Executing command '{command}' with params: {params}")
         
-        # Try to reconnect if not connected before executing any command
-        if not self.is_connected or not self.adb_utils:
-            print(f"Remote[{self.device_type.upper()}]: Not connected - attempting to reconnect before {command}")
-            if not self.connect():
-                print(f"Remote[{self.device_type.upper()}]: ERROR - Failed to reconnect before {command}")
-                return False
-        
         def _execute_specific_command():
             """Execute the specific command - centralized logic"""
             if command == 'press_key':
