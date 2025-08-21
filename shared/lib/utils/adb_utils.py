@@ -374,7 +374,7 @@ class ADBUtils:
         try:
             print(f"[@lib:adbUtils:close_app] Closing app {package_name} on device {device_id}")
             
-            command = f"adb -s {device_id} shell pkill {package_name}"
+            command = f"adb -s {device_id} shell am force-stop {package_name}"
             success, stdout, stderr, exit_code = self.execute_command(command)
             
             if success and exit_code == 0:
