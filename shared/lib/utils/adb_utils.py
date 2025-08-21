@@ -317,7 +317,7 @@ class ADBUtils:
             
     def launch_app(self, device_id: str, package_name: str) -> bool:
         """
-        Launch an app by package name.
+        Launch an app by package name using am start with auto-detected main activity.
         
         Args:
             device_id: Android device ID
@@ -329,7 +329,24 @@ class ADBUtils:
         try:
             print(f"[@lib:adbUtils:launch_app] Launching app {package_name} on device {device_id}")
             
-            command = f"adb -s {device_id} shell monkey -p {package_name} -c android.intent.category.LAUNCHER 1"
+            # Get main activity
+            dump_cmd = f"adb -s {device_id} shell pm dump {package_name} | grep -A 1 \"MAIN\""
+            success, stdout, stderr, exit_code = self.execute_command(dump_cmd)
+            
+            if success and stdout:
+                # Extract activity name from output
+                for line in stdout.split('\n'):
+                    if package_name in line and '/' in line:
+                        activity = line.split('/')[-1].split()[0]
+                        component = f"{package_name}/{activity}"
+                        break
+                else:
+                    return False
+            else:
+                return False
+            
+            # Launch with am start
+            command = f"adb -s {device_id} shell am start -n {component}"
             success, stdout, stderr, exit_code = self.execute_command(command)
             
             if success and exit_code == 0:
@@ -345,7 +362,7 @@ class ADBUtils:
             
     def close_app(self, device_id: str, package_name: str) -> bool:
         """
-        Close/stop an app by package name.
+        Close/stop an app by package name using pkill.
         
         Args:
             device_id: Android device ID
@@ -357,7 +374,7 @@ class ADBUtils:
         try:
             print(f"[@lib:adbUtils:close_app] Closing app {package_name} on device {device_id}")
             
-            command = f"adb -s {device_id} shell am force-stop {package_name}"
+            command = f"adb -s {device_id} shell pkill {package_name}"
             success, stdout, stderr, exit_code = self.execute_command(command)
             
             if success and exit_code == 0:
