@@ -1,5 +1,6 @@
 import { LayoutConfig, DeviceResolution } from '../../types/pages/UserInterface_Types';
 import { getVerificationEditorLayout } from '../../config/layoutConfig';
+import { DEFAULT_DEVICE_RESOLUTION } from '../../config/deviceResolutions';
 import { getZIndex } from '../zIndexUtils';
 
 /**
@@ -23,8 +24,8 @@ export const getVerificationLayout = (deviceModel: string) => {
  * Creates device resolution object
  */
 export const createDeviceResolution = (): DeviceResolution => ({
-  width: 1080,
-  height: 2340,
+  width: DEFAULT_DEVICE_RESOLUTION.width,
+  height: DEFAULT_DEVICE_RESOLUTION.height,
 });
 
 /**

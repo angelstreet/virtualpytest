@@ -3,6 +3,8 @@
  * This ensures consistent layout behavior across components
  */
 
+import { DEFAULT_DEVICE_RESOLUTION } from './deviceResolutions';
+
 // Layout configuration for StreamViewer component
 export interface StreamViewerLayoutConfig {
   minHeight: string;
@@ -41,14 +43,14 @@ export const getStreamViewerLayout = (model?: string): StreamViewerLayoutConfig 
   return mobile
     ? {
         minHeight: '400px',
-        aspectRatio: '9/16', // Portrait for mobile
-        objectFit: 'cover',
+        aspectRatio: `${DEFAULT_DEVICE_RESOLUTION.height}/${DEFAULT_DEVICE_RESOLUTION.width}`, // Portrait - inverted resolution
+        objectFit: 'contain',
         isMobileModel: true,
       }
     : {
         minHeight: '300px',
-        aspectRatio: '16/9', // Landscape for non-mobile
-        objectFit: 'cover',
+        aspectRatio: `${DEFAULT_DEVICE_RESOLUTION.width}/${DEFAULT_DEVICE_RESOLUTION.height}`, // Dynamic aspect ratio
+        objectFit: 'contain',
         isMobileModel: false,
       };
 };
