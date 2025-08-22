@@ -687,7 +687,8 @@ def format_step_screenshots(step: Dict, step_index: int) -> str:
         screenshots_for_step.append(('Step End', step.get('step_end_screenshot_path'), None, None))
         print(f"[@report_step_formatter:format_step_screenshots] ✅ Step {step_num} end screenshot included")
     else:
-        print(f"[@report_step_formatter:format_step_screenshots] ⚠️ Step {step_num} end screenshot NOT found")
+        expected_filename = f"step_{step_num}_{step.get('from_node', 'unknown')}_{step.get('to_node', 'unknown')}_end"
+        print(f"[@report_step_formatter:format_step_screenshots] ⚠️ Step {step_num} end screenshot NOT found - expected: {expected_filename}")
     
     print(f"[@report_step_formatter:format_step_screenshots] Step {step_num} total screenshots for modal: {len(screenshots_for_step)}")
     for i, (label, path, cmd, params) in enumerate(screenshots_for_step):

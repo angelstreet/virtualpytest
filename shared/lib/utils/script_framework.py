@@ -353,15 +353,31 @@ class ScriptExecutor:
                 step_start_time = time.time()
                 step_start_timestamp = datetime.now().strftime('%H:%M:%S')
                 
+                # Capture step-start screenshot for ALL steps (custom and navigation)
+                step_name = f"step_{step_num}_{from_node}_{to_node}"
+                step_start_screenshot = capture_validation_screenshot(
+                    context.host, context.selected_device, f"{step_name}_start", self.script_name
+                )
+                
                 # Use custom handler if provided, otherwise use default navigation
                 if custom_step_handler:
                     result = custom_step_handler(context, step, step_num)
+                    # Ensure custom handlers return consistent format with screenshot paths
+                    if not result.get('step_start_screenshot_path'):
+                        result['step_start_screenshot_path'] = step_start_screenshot
                 else:
                     result = execute_navigation_with_verifications(
                         context.host, context.selected_device, step, context.team_id, context.tree_id,
                         script_result_id=context.script_result_id, script_context='script', 
                         global_verification_counter=context.global_verification_counter
                     )
+                
+                # Capture step-end screenshot for ALL steps (custom and navigation)
+                step_end_screenshot = capture_validation_screenshot(
+                    context.host, context.selected_device, f"{step_name}_end", self.script_name
+                )
+                if not result.get('step_end_screenshot_path'):
+                    result['step_end_screenshot_path'] = step_end_screenshot
                 
                 step_end_timestamp = datetime.now().strftime('%H:%M:%S')
                 step_execution_time = int((time.time() - step_start_time) * 1000)
