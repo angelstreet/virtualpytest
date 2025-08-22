@@ -719,8 +719,34 @@ class ZapController:
             print(f"✅ [ZapController] Learned method: freeze (will use for all future zaps)")
             return zapping_result
         
-        # Both methods failed - provide detailed error message
+        # Both methods failed - provide detailed error message and verification images
         print(f"❌ [ZapController] Both blackscreen and freeze detection failed")
+        
+        # Add failure verification images from the analyzed images
+        device_id = context.selected_device.device_id
+        av_controller = get_controller(device_id, 'av')
+        if av_controller:
+            capture_folder = getattr(av_controller, 'video_capture_path', None)
+            if capture_folder:
+                import os
+                from datetime import datetime
+                captures_folder = os.path.join(capture_folder, 'captures')
+                analyzed_screenshots = []
+                
+                # Get the same images that both methods would have analyzed
+                key_release_timestamp = context.last_action_start_time
+                for i in range(10):  # Same max_images as both detection methods
+                    target_timestamp = key_release_timestamp + i
+                    target_datetime = datetime.fromtimestamp(target_timestamp)
+                    target_filename = f"capture_{target_datetime.strftime('%Y%m%d%H%M%S')}.jpg"
+                    target_path = os.path.join(captures_folder, target_filename)
+                    
+                    if os.path.exists(target_path):
+                        analyzed_screenshots.append(target_path)
+                
+                # Add failure images for verification
+                self._add_failure_images_to_screenshots(context, analyzed_screenshots, "both methods")
+        
         return {
             "success": False,
             "zapping_detected": False,
@@ -805,15 +831,37 @@ class ZapController:
                 return result
             else:
                 print(f"❌ [ZapController] Blackscreen detection failed")
+                
+                # Add failure verification images (first/middle/last) from analyzed images
+                # Get the same images that were analyzed for blackscreen detection
+                import os
+                from datetime import datetime
+                captures_folder = os.path.join(capture_folder, 'captures')
+                analyzed_screenshots = []
+                
+                # Reconstruct the same images that blackscreen detection analyzed
+                for i in range(10):  # Same max_images as blackscreen detection
+                    target_timestamp = key_release_timestamp + i
+                    target_datetime = datetime.fromtimestamp(target_timestamp)
+                    target_filename = f"capture_{target_datetime.strftime('%Y%m%d%H%M%S')}.jpg"
+                    target_path = os.path.join(captures_folder, target_filename)
+                    
+                    if os.path.exists(target_path):
+                        analyzed_screenshots.append(target_path)
+                
+                # Add failure images for verification (always add for blackscreen since we don't have diff data)
+                self._add_failure_images_to_screenshots(context, analyzed_screenshots, "blackscreen")
+                
                 return {
                     "success": False,
                     "zapping_detected": False,
                     "detection_method": "blackscreen",
                     "transition_type": "none",
                     "blackscreen_duration": 0.0,
+                    "analyzed_images": len(analyzed_screenshots),
                     "message": "Blackscreen detection failed",
                     "error": "No blackscreen detected",
-                    "details": "No blackscreen transition detected"
+                    "details": f"No blackscreen transition detected (analyzed {len(analyzed_screenshots)} images)"
                 }
                 
         except Exception as e:
@@ -927,15 +975,21 @@ class ZapController:
                 }
             else:
                 print(f"❌ [ZapController] Freeze detection failed")
+                
+                # Add failure verification images (first/middle/last) from analyzed images
+                # Only add if differences are low (< 20) indicating potential freeze
+                self._add_failure_images_to_screenshots(context, screenshots, "freeze", freeze_result)
+                
                 return {
                     "success": False,
                     "zapping_detected": False,
                     "detection_method": "freeze",
                     "transition_type": "none",
                     "blackscreen_duration": 0.0,
+                    "analyzed_images": len(screenshots),
                     "message": "Freeze detection failed",
                     "error": "No freeze detected",
-                    "details": "No freeze transition detected"
+                    "details": f"No freeze transition detected (analyzed {len(screenshots)} images)"
                 }
                 
         except Exception as e:
@@ -992,6 +1046,52 @@ class ZapController:
             
         except Exception as e:
             print(f"⚠️ [ZapController] Failed to add zapping images to screenshot collection: {e}")
+
+    def _add_failure_images_to_screenshots(self, context, screenshots: List[str], detection_method: str, freeze_result: Dict[str, Any] = None):
+        """Add first/middle/last images from failed detection for verification - only if images are similar (diff < 20)"""
+        try:
+            if not hasattr(context, 'screenshot_paths'):
+                context.screenshot_paths = []
+            
+            if not screenshots or len(screenshots) == 0:
+                print(f"❌ [ZapController] No images available for {detection_method} failure verification")
+                return
+            
+            # For freeze detection, check if differences are low (< 20) before adding images
+            should_add_images = True
+            if freeze_result and detection_method == "freeze":
+                comparisons = freeze_result.get('comparisons', [])
+                if comparisons:
+                    # Check if any comparison shows low difference (< 20) - indicating potential freeze
+                    low_diff_found = any(comp.get('difference', 100) < 20 for comp in comparisons)
+                    if not low_diff_found:
+                        print(f"🔍 [ZapController] Skipping {detection_method} failure images - differences too high (no potential freeze)")
+                        should_add_images = False
+            
+            if not should_add_images:
+                return
+            
+            # Select first, middle, and last images for verification
+            failure_images = []
+            if len(screenshots) >= 1:
+                failure_images.append(screenshots[0])  # First image
+            if len(screenshots) >= 3:
+                middle_idx = len(screenshots) // 2
+                failure_images.append(screenshots[middle_idx])  # Middle image
+            if len(screenshots) >= 2:
+                failure_images.append(screenshots[-1])  # Last image
+            
+            # Add failure images to screenshot collection
+            for image_path in failure_images:
+                if image_path and image_path not in context.screenshot_paths:
+                    context.screenshot_paths.append(image_path)
+                    image_filename = image_path.split('/')[-1] if '/' in image_path else image_path
+                    print(f"🔍 [ZapController] Added {detection_method} failure verification image: {image_filename}")
+            
+            print(f"🔍 [ZapController] Added {len(failure_images)} verification images for {detection_method} failure (low differences detected)")
+            
+        except Exception as e:
+            print(f"⚠️ [ZapController] Failed to add {detection_method} failure images: {e}")
 
     def _add_motion_analysis_images_to_screenshots(self, context, device_id: str, iteration: int):
         """Add the 3 most recent motion analysis images to context screenshot collection for R2 upload"""

@@ -205,6 +205,24 @@ class WebKitUtils:
         """Compatibility method - connects to lightweight browser (same as connect_to_webkit)."""
         return await self.connect_to_webkit(target_url)
     
+    def normalize_url(self, url: str) -> str:
+        """Normalize URL by adding protocol if missing (compatibility method)."""
+        if not url:
+            return url
+        
+        url = url.strip()
+        
+        # If URL already has a protocol, return as-is
+        if url.startswith(('http://', 'https://', 'ftp://', 'file://')):
+            return url
+        
+        # Special cases for local URLs
+        if url.startswith(('localhost', '127.0.0.1', '0.0.0.0')) or ':' in url.split('.')[0]:
+            return f'http://{url}'
+        
+        # For all other URLs, default to https
+        return f'https://{url}'
+    
     @staticmethod
     def run_async(coro):
         """Run async coroutine in sync context."""

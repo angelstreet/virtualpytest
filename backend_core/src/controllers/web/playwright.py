@@ -334,7 +334,7 @@ class PlaywrightWebController(WebControllerInterface):
             'connected': True
         }
     
-    def navigate_to_url(self, url: str, timeout: int = 60000, follow_redirects: bool = True) -> Dict[str, Any]:
+        def navigate_to_url(self, url: str, timeout: int = 60000, follow_redirects: bool = True) -> Dict[str, Any]:
         """Navigate to a URL using async CDP connection."""
         async def _async_navigate_to_url():
             try:
@@ -342,9 +342,19 @@ class PlaywrightWebController(WebControllerInterface):
                 normalized_url = self.utils.normalize_url(url)
                 print(f"[PLAYWRIGHT]: Navigating to {url} (normalized: {normalized_url})")
                 start_time = time.time()
-                
 
-                
+                # Auto-connect if not connected
+                if not self.is_connected:
+                    print(f"[PLAYWRIGHT]: Auto-connecting browser for navigation...")
+                    if not self.connect():
+                        return {
+                            'success': False,
+                            'error': 'Failed to connect browser for navigation',
+                            'url': '',
+                            'title': '',
+                            'execution_time': int((time.time() - start_time) * 1000)
+                        }
+
                 # Get persistent page from browser+context
                 page = await self._get_persistent_page(target_url=normalized_url)
                 
@@ -415,14 +425,6 @@ class PlaywrightWebController(WebControllerInterface):
                     'follow_redirects': follow_redirects
                 }
         
-        if not self.is_connected:
-            return {
-                'success': False,
-                'error': 'Not connected to browser',
-                'url': '',
-                'title': ''
-            }
-        
         return self.utils.run_async(_async_navigate_to_url())
     
     def click_element(self, selector: str) -> Dict[str, Any]:
@@ -435,6 +437,16 @@ class PlaywrightWebController(WebControllerInterface):
             try:
                 print(f"[PLAYWRIGHT]: Clicking element: {selector}")
                 start_time = time.time()
+                
+                # Auto-connect if not connected
+                if not self.is_connected:
+                    print(f"[PLAYWRIGHT]: Auto-connecting browser for click...")
+                    if not self.connect():
+                        return {
+                            'success': False,
+                            'error': 'Failed to connect browser for click',
+                            'execution_time': int((time.time() - start_time) * 1000)
+                        }
                 
                 # Get persistent page from browser+context
                 connect_start = time.time()
@@ -489,13 +501,6 @@ class PlaywrightWebController(WebControllerInterface):
                     'execution_time': 0,
                     'selector_attempted': selector
                 }
-        
-        if not self.is_connected:
-            return {
-                'success': False,
-                'error': 'Not connected to browser',
-                'execution_time': 0
-            }
         
         return self.utils.run_async(_async_click_element())
     
