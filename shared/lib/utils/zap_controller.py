@@ -685,9 +685,19 @@ class ZapController:
         if self.learned_detection_method:
             print(f"🧠 [ZapController] Using learned method: {self.learned_detection_method}")
             if self.learned_detection_method == 'freeze':
-                return self._try_freeze_detection(context, iteration, action_command, action_end_time)
+                zapping_result = self._try_freeze_detection(context, iteration, action_command, action_end_time)
+                if not zapping_result.get('zapping_detected', False):
+                    # Update error message to show which method failed
+                    zapping_result['message'] = "Zapping Detection: ❌ NOT DETECTED"
+                    zapping_result['details'] = "No freeze detected"
+                return zapping_result
             else:
-                return self._try_blackscreen_detection(context, iteration, action_command, action_end_time)
+                zapping_result = self._try_blackscreen_detection(context, iteration, action_command, action_end_time)
+                if not zapping_result.get('zapping_detected', False):
+                    # Update error message to show which method failed
+                    zapping_result['message'] = "Zapping Detection: ❌ NOT DETECTED"
+                    zapping_result['details'] = "No blackscreen detected"
+                return zapping_result
         
         # First time or no method learned yet - try blackscreen first
         print(f"🔍 [ZapController] Learning phase - trying blackscreen first...")
@@ -707,8 +717,20 @@ class ZapController:
         if zapping_result.get('zapping_detected', False):
             self.learned_detection_method = 'freeze'
             print(f"✅ [ZapController] Learned method: freeze (will use for all future zaps)")
+            return zapping_result
         
-        return zapping_result
+        # Both methods failed - provide detailed error message
+        print(f"❌ [ZapController] Both blackscreen and freeze detection failed")
+        return {
+            "success": False,
+            "zapping_detected": False,
+            "detection_method": "both_failed",
+            "transition_type": "none",
+            "blackscreen_duration": 0.0,
+            "message": "Zapping Detection: ❌ NOT DETECTED",
+            "error": "Both blackscreen and freeze detection failed",
+            "details": "No blackscreen or freeze transition detected"
+        }
     
     def _try_blackscreen_detection(self, context, iteration: int, action_command: str, action_end_time: float) -> Dict[str, Any]:
         """Try blackscreen detection method - extracted existing logic."""
@@ -787,8 +809,11 @@ class ZapController:
                     "success": False,
                     "zapping_detected": False,
                     "detection_method": "blackscreen",
-                    "message": "No blackscreen detected",
-                    "error": "No blackscreen detected"
+                    "transition_type": "none",
+                    "blackscreen_duration": 0.0,
+                    "message": "Blackscreen detection failed",
+                    "error": "No blackscreen detected",
+                    "details": "No blackscreen transition detected"
                 }
                 
         except Exception as e:
@@ -796,8 +821,11 @@ class ZapController:
                 "success": False,
                 "zapping_detected": False,
                 "detection_method": "blackscreen",
-                "message": f"Blackscreen detection error: {str(e)}",
-                "error": str(e)
+                "transition_type": "none",
+                "blackscreen_duration": 0.0,
+                "message": "Blackscreen detection failed",
+                "error": str(e),
+                "details": f"Blackscreen detection error: {str(e)}"
             }
     
     def _try_freeze_detection(self, context, iteration: int, action_command: str, action_end_time: float) -> Dict[str, Any]:
@@ -881,8 +909,11 @@ class ZapController:
                     "success": False,
                     "zapping_detected": False,
                     "detection_method": "freeze",
-                    "message": "No freeze detected",
-                    "error": "No freeze detected"
+                    "transition_type": "none",
+                    "blackscreen_duration": 0.0,
+                    "message": "Freeze detection failed",
+                    "error": "No freeze detected",
+                    "details": "No freeze transition detected"
                 }
                 
         except Exception as e:
@@ -892,8 +923,11 @@ class ZapController:
                 "success": False,
                 "zapping_detected": False,
                 "detection_method": "freeze",
-                "message": error_msg,
-                "error": str(e)
+                "transition_type": "none",
+                "blackscreen_duration": 0.0,
+                "message": "Freeze detection failed",
+                "error": str(e),
+                "details": f"Freeze detection error: {str(e)}"
             }
     
 

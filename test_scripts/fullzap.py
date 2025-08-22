@@ -340,14 +340,49 @@ def main():
             for i in range(len(context.step_results) - 1, -1, -1):  # Search backwards
                 step = context.step_results[i]
                 to_node = step.get('to_node', '')
-                if 'audiomenu' in to_node.lower():
+                if 'audiomenu' in to_node.lower() or 'menu_audio' in to_node.lower() or 'menu_subtitles' in to_node.lower():
                     step['audio_menu_analysis'] = audio_result
                     print(f"🎧 [fullzap] Added audio menu analysis to step {i + 1}: {to_node}")
                     audio_menu_step_found = True
                     break
             
             if not audio_menu_step_found:
-                print("⚠️ [fullzap] No audio menu navigation step found to attach analysis results")
+                # For non-mobile devices, the analyze_audio_menu() function creates its own navigation steps
+                # but they might not be recorded in step_results. Create a dedicated step for the analysis.
+                print("🎧 [fullzap] No existing audio menu navigation step found - creating dedicated analysis step")
+                
+                device_model = context.selected_device.device_model if context.selected_device else 'unknown'
+                if device_model not in ['android_mobile', 'ios_mobile']:
+                    # Non-mobile devices: analyze_audio_menu() navigated to both audio and subtitle menus
+                    analysis_step = {
+                        'step_number': len(context.step_results) + 1,
+                        'from_node': target_node,
+                        'to_node': 'audio_menu_analysis',
+                        'action_type': 'analysis',
+                        'action_command': 'analyze_audio_menus',
+                        'success': audio_result.get('success', False),
+                        'execution_time_ms': 0,  # Analysis time not tracked separately
+                        'timestamp': datetime.now().strftime('%H:%M:%S'),
+                        'audio_menu_analysis': audio_result,
+                        'message': f"Audio menu analysis: {audio_result.get('message', 'Analysis completed')}"
+                    }
+                else:
+                    # Mobile devices: analyze_audio_menu() navigated to combined audio menu
+                    analysis_step = {
+                        'step_number': len(context.step_results) + 1,
+                        'from_node': target_node,
+                        'to_node': context.audio_menu_node,
+                        'action_type': 'analysis', 
+                        'action_command': 'analyze_audio_menu',
+                        'success': audio_result.get('success', False),
+                        'execution_time_ms': 0,  # Analysis time not tracked separately
+                        'timestamp': datetime.now().strftime('%H:%M:%S'),
+                        'audio_menu_analysis': audio_result,
+                        'message': f"Audio menu analysis: {audio_result.get('message', 'Analysis completed')}"
+                    }
+                
+                context.step_results.append(analysis_step)
+                print(f"🎧 [fullzap] Created dedicated audio menu analysis step: {analysis_step['to_node']}")
         
         if context.overall_success:
             print("✅ [fullzap] Fullzap execution completed successfully!")
