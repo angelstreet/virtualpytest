@@ -62,6 +62,13 @@ class PlaywrightWebController(WebControllerInterface):
         """Always connected once Chrome is running."""
         return self.__class__._chrome_running
     
+    @is_connected.setter
+    def is_connected(self, value):
+        """Setter for base controller compatibility - only sets True when Chrome launches."""
+        if value:
+            self.__class__._chrome_running = True
+        # Ignore False values - once connected, always connected
+    
     async def _get_persistent_page(self, target_url: str = None):
         """Get the persistent page from browser+context. Creates browser+context+page if needed."""
         # Auto-connect Chrome if not connected
