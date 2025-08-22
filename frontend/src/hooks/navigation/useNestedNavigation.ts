@@ -179,8 +179,31 @@ export const useNestedNavigation = ({
 
       const newTree = await navigationConfig.createSubTree(actualTreeId!, parentNode.id, newTreeData);
 
-      // No need to create database entry - just show parent node graphically
-      console.log(`[@useNestedNavigation] New subtree created, will show parent node graphically`);
+      // CRITICAL: Save parent node to subtree database (required for pathfinding)
+      const parentNodeData = {
+        node_id: parentNode.id,
+        label: parentNode.data.label,
+        position_x: 200, // Default position in subtree
+        position_y: 200,
+        node_type: parentNode.data.type || 'screen',
+        style: {},
+        data: {
+          type: parentNode.data.type || 'screen',
+          description: parentNode.data.description || `Navigation for ${parentNode.data.label}`,
+          screenshot: parentNode.data.screenshot,
+          isParentReference: true,
+          originalTreeId: actualTreeId,
+          depth: newTree.tree_depth,
+          parent: parentNode.data.parent || [],
+          ...parentNode.data
+        },
+        verifications: parentNode.data.verifications || [],
+        has_subtree: true,
+        subtree_count: 1
+      };
+      
+      await navigationConfig.saveNode(newTree.id, parentNodeData);
+      console.log(`[@useNestedNavigation] Saved parent node to subtree database for pathfinding`);
       
       // Always start new subtree with parent node displayed graphically with context
       const frontendNodes = [{
