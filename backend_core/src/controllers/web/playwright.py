@@ -57,6 +57,11 @@ class PlaywrightWebController(WebControllerInterface):
         
         print(f"[@controller:PlaywrightWeb] Initialized with async Playwright + Chrome remote debugging + auto-cookie acceptance + persistent user data")
     
+    @property
+    def is_connected(self):
+        """Always connected once Chrome is running."""
+        return self.__class__._chrome_running
+    
     async def _get_persistent_page(self, target_url: str = None):
         """Get the persistent page from browser+context. Creates browser+context+page if needed."""
         # Auto-connect Chrome if not connected
@@ -112,7 +117,7 @@ class PlaywrightWebController(WebControllerInterface):
             try:
                 print(f"[PLAYWRIGHT]: Chrome not running, launching new Chrome process...")
                 self.__class__._chrome_process = self.utils.launch_chrome()
-                self.__class__._chrome_running = True
+                self.__class__._chrome_running = True  # Always connected once launched
                 print(f"[PLAYWRIGHT]: Chrome launched with remote debugging successfully (PID: {self._chrome_process.pid})")
                 
                 # Give Chrome a moment to start up
@@ -132,33 +137,7 @@ class PlaywrightWebController(WebControllerInterface):
         print(f"[PLAYWRIGHT]: connect() completed - _chrome_running={self._chrome_running}, is_connected={self.is_connected}")
         return True
     
-    def disconnect(self) -> bool:
-        """Disconnect and cleanup Chrome."""
-        print(f"[PLAYWRIGHT]: disconnect() called - _chrome_running={self._chrome_running}, _chrome_process={self._chrome_process}")
-        
-        # Clean up persistent browser connection first
-        self.utils.run_async(self._cleanup_persistent_browser())
-        
-        if self._chrome_running and self._chrome_process:
-            try:
-                print(f"[PLAYWRIGHT]: Gracefully closing Chrome process (PID: {self._chrome_process.pid})")
-                
-                # Use graceful close (handles all fallbacks and waiting internally)
-                self.utils.kill_chrome(chrome_process=self._chrome_process)
-                print(f"[PLAYWRIGHT]: Chrome process terminated")
-                
-            except Exception as e:
-                print(f"[PLAYWRIGHT]: Error during Chrome shutdown: {e}")
-            finally:
-                # Clean up state regardless
-                self.__class__._chrome_process = None
-                self.__class__._chrome_running = False
-        else:
-            print(f"[PLAYWRIGHT]: No Chrome process to terminate (running={self._chrome_running}, process={self._chrome_process})")
-        
-        self.is_connected = False
-        print(f"[PLAYWRIGHT]: disconnect() completed - _chrome_running={self._chrome_running}, is_connected={self.is_connected}")
-        return True
+
     
     def open_browser(self) -> Dict[str, Any]:
         """Open/launch the browser window."""
@@ -191,7 +170,6 @@ class PlaywrightWebController(WebControllerInterface):
                         self.__class__._chrome_process = None
                         self.__class__._chrome_running = False
                         self.__class__._browser_connected = False
-                        self.is_connected = False
                         
                         # Try to connect again
                         if not self.connect():
@@ -247,8 +225,7 @@ class PlaywrightWebController(WebControllerInterface):
                     self.current_url = page.url
                     self.page_title = await page.title() if page.url != 'about:blank' else ''
                     
-                    # Mark as connected
-                    self.is_connected = True
+                    # Connection state will be automatically detected via property
                     
                     execution_time = int((time.time() - start_time) * 1000)
                     
@@ -314,36 +291,14 @@ class PlaywrightWebController(WebControllerInterface):
         return self.utils.run_async(_async_connect_existing())
     
     def close_browser(self) -> Dict[str, Any]:
-        """Close browser (disconnect Chrome)."""
-        try:
-            print(f"[PLAYWRIGHT]: Closing browser")
-            start_time = time.time()
-            
-            self.disconnect()
-            
-            # Clear page state
-            self.current_url = ""
-            self.page_title = ""
-            
-            execution_time = int((time.time() - start_time) * 1000)
-            
-            print(f"[PLAYWRIGHT]: Browser closed")
-            return {
-                'success': True,
-                'error': '',
-                'execution_time': execution_time,
-                'connected': False
-            }
-            
-        except Exception as e:
-            error_msg = f"Browser close error: {e}"
-            print(f"[PLAYWRIGHT]: {error_msg}")
-            return {
-                'success': False,
-                'error': error_msg,
-                'execution_time': 0,
-                'connected': False
-            }
+        """Browser stays open - no closing."""
+        print(f"[PLAYWRIGHT]: Browser stays open (no closing)")
+        return {
+            'success': True,
+            'error': '',
+            'execution_time': 0,
+            'connected': True
+        }
     
     def navigate_to_url(self, url: str, timeout: int = 60000, follow_redirects: bool = True) -> Dict[str, Any]:
         """Navigate to a URL using async CDP connection."""
@@ -1073,7 +1028,7 @@ class PlaywrightWebController(WebControllerInterface):
             return self.open_browser()
         
         elif command == 'close_browser':
-            return self.close_browser()
+            return self.close_browser()  # Returns success but doesn't actually close
         
         elif command == 'connect_browser':
             return self.connect_browser()
