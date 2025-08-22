@@ -974,42 +974,42 @@ class PlaywrightWebController(WebControllerInterface):
             return self.navigate_to_url(url, timeout=timeout, follow_redirects=follow_redirects)
         
         elif command == 'click_element':
-            element_id = params.get('element_id')
+            selector = params.get('selector') or params.get('element_id')  # Support both parameter names
             
-            if not element_id:
+            if not selector:
                 return {
                     'success': False,
-                    'error': 'element_id parameter is required',
+                    'error': 'selector parameter is required',
                     'execution_time': 0
                 }
                 
-            return self.click_element(element_id)
+            return self.click_element(selector)
         
         elif command == 'find_element':
-            element_id = params.get('element_id')
+            selector = params.get('selector') or params.get('element_id')  # Support both parameter names
             
-            if not element_id:
+            if not selector:
                 return {
                     'success': False,
-                    'error': 'element_id parameter is required',
+                    'error': 'selector parameter is required',
                     'execution_time': 0
                 }
                 
-            return self.find_element(element_id)
+            return self.find_element(selector)
         
         elif command == 'input_text':
-            element_id = params.get('element_id')
+            selector = params.get('selector') or params.get('element_id')  # Support both parameter names
             text = params.get('text', '')
             timeout = params.get('timeout', 30000)
             
-            if not element_id:
+            if not selector:
                 return {
                     'success': False,
-                    'error': 'element_id parameter is required',
+                    'error': 'selector parameter is required',
                     'execution_time': 0
                 }
                 
-            return self.input_text(element_id, text, timeout=timeout)
+            return self.input_text(selector, text, timeout=timeout)
         
         elif command == 'tap_x_y':
             x = params.get('x')
