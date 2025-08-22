@@ -570,6 +570,7 @@ const RecHostStreamModalContent: React.FC<{
                 if (panelCount === 1) return '75%';
                 return '50%'; // Two panels shown
               })(),
+              height: '100%', // Use full available height (already excluding header)
               position: 'relative',
               overflow: 'hidden',
               display: 'flex',
@@ -648,6 +649,7 @@ const RecHostStreamModalContent: React.FC<{
                   sx={{
                     width: '100%',
                     height: '100%',
+                    maxHeight: '100%', // Ensure video doesn't exceed available container height
                   }}
                 />
               )

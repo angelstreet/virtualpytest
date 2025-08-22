@@ -414,8 +414,7 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
                         left: 0,
                         width: isMobile ? 'auto' : '100%',
                         height: isMobile ? '100%' : 'auto',
-                        objectFit: 'cover',
-                        objectPosition: 'top center',
+                        objectFit: 'contain',
                         opacity: activeImage === 1 ? 1 : 0,
                         cursor: 'pointer',
                       }}
@@ -442,8 +441,7 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
                         left: 0,
                         width: isMobile ? 'auto' : '100%',
                         height: isMobile ? '100%' : 'auto',
-                        objectFit: 'cover',
-                        objectPosition: 'top center',
+                        objectFit: 'contain',
                         opacity: activeImage === 2 ? 1 : 0,
                         cursor: 'pointer',
                       }}

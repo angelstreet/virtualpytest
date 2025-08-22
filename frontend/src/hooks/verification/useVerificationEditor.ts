@@ -132,6 +132,24 @@ export const useVerificationEditor = ({
         name: referenceName,
         type: 'image',
       });
+
+      // Auto-populate capture area and reference name for image references
+      if (referenceData.area && _onAreaSelected) {
+        const { x, y, width, height } = referenceData.area;
+        console.log('[@hook:useVerificationEditor] Auto-populating capture area from image reference:', {
+          referenceName,
+          area: { x, y, width, height }
+        });
+        
+        // Set the capture area coordinates
+        _onAreaSelected({ x, y, width, height });
+      }
+
+      // Auto-populate the reference name in the capture field
+      if (referenceData.name) {
+        console.log('[@hook:useVerificationEditor] Auto-populating reference name:', referenceData.name);
+        setReferenceName(referenceData.name);
+      }
     } else if (referenceData && referenceData.type === 'text') {
       // For text references, clear the image preview
       console.log('[@hook:useVerificationEditor] Text reference selected, clearing image preview');
@@ -149,7 +167,7 @@ export const useVerificationEditor = ({
     // Clear captured reference when selecting a new reference
     setCapturedReferenceImage(null);
     setHasCaptured(false);
-  }, []);
+  }, [_onAreaSelected]);
 
   // Handle capture reference
   const handleCaptureReference = useCallback(async () => {
