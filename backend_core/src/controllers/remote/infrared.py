@@ -276,7 +276,7 @@ class IRRemoteController(RemoteControllerInterface):
                 
             actions.append({
                 'id': f'ir_press_key_{key_name.lower()}',
-                'label': f'IR {key_name}',
+                'label': f'{key_name}',
                 'command': 'press_key',
                 'action_type': 'remote',
                 'params': {'key': key_name},
