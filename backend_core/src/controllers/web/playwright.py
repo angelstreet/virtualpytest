@@ -60,7 +60,9 @@ class PlaywrightWebController(WebControllerInterface):
     @property
     def is_connected(self):
         """Always connected once Chrome is running."""
-        return self.__class__._chrome_running
+        result = self.__class__._chrome_running
+        print(f"[PLAYWRIGHT]: is_connected check - _chrome_running={self._chrome_running}, returning {result}")
+        return result
     
     @is_connected.setter
     def is_connected(self, value):

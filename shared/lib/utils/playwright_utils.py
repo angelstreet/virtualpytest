@@ -111,8 +111,6 @@ class ChromeManager:
             '--disable-session-restore',  # Disable all session restore functionality
             '--disable-background-tabs',  # Disable background tab restoration
             '--hide-crash-restore-bubble',  # Hide crash restore bubble
-            '--disable-gpu',  # Disable GPU hardware acceleration (fixes Raspberry Pi GPU errors)
-            '--disable-software-rasterizer',  # Disable software rasterizer fallback
             #'--no-sandbox'  # Important for containers
         ]
     
