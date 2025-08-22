@@ -334,17 +334,42 @@ def main():
             audio_result = analyze_audio_menu(context)
             context.custom_data['audio_menu_analysis'] = audio_result
             
-            # IMPORTANT: Add audio menu analysis to the most recent step that went to audio menu
-            # Find the last step that navigated to an audio menu node
+            # IMPORTANT: Add audio menu analysis to relevant steps (split by menu type)
+            # Find steps that navigated to audio or subtitle menu nodes and attach relevant analysis
             audio_menu_step_found = False
             for i in range(len(context.step_results) - 1, -1, -1):  # Search backwards
                 step = context.step_results[i]
                 to_node = step.get('to_node', '')
-                if 'audiomenu' in to_node.lower() or 'menu_audio' in to_node.lower() or 'menu_subtitles' in to_node.lower():
-                    step['audio_menu_analysis'] = audio_result
-                    print(f"🎧 [fullzap] Added audio menu analysis to step {i + 1}: {to_node}")
+                
+                # Attach audio-specific analysis to audio menu steps
+                if 'menu_audio' in to_node.lower() or (to_node.lower().endswith('audiomenu') and 'subtitle' not in to_node.lower()):
+                    # Create audio-only analysis for this step
+                    audio_only_analysis = {
+                        'success': audio_result.get('success', False),
+                        'menu_detected': audio_result.get('audio_detected', False),
+                        'audio_languages': audio_result.get('audio_languages', []),
+                        'subtitle_languages': [],  # Empty for audio menu step
+                        'message': audio_result.get('audio_analysis', {}).get('message', 'Audio menu analysis'),
+                        'analyzed_screenshot': audio_result.get('audio_analysis', {}).get('analyzed_screenshot')
+                    }
+                    step['audio_menu_analysis'] = audio_only_analysis
+                    print(f"🔊 [fullzap] Added audio-only analysis to step {i + 1}: {to_node}")
                     audio_menu_step_found = True
-                    break
+                
+                # Attach subtitle-specific analysis to subtitle menu steps  
+                elif 'menu_subtitles' in to_node.lower() or 'subtitle' in to_node.lower():
+                    # Create subtitle-only analysis for this step
+                    subtitle_only_analysis = {
+                        'success': audio_result.get('success', False),
+                        'menu_detected': audio_result.get('subtitles_detected', False),
+                        'audio_languages': [],  # Empty for subtitle menu step
+                        'subtitle_languages': audio_result.get('subtitle_languages', []),
+                        'message': audio_result.get('subtitle_analysis', {}).get('message', 'Subtitle menu analysis'),
+                        'analyzed_screenshot': audio_result.get('subtitle_analysis', {}).get('analyzed_screenshot')
+                    }
+                    step['audio_menu_analysis'] = subtitle_only_analysis
+                    print(f"📝 [fullzap] Added subtitle-only analysis to step {i + 1}: {to_node}")
+                    audio_menu_step_found = True
             
             if not audio_menu_step_found:
                 # For non-mobile devices, the analyze_audio_menu() function creates its own navigation steps

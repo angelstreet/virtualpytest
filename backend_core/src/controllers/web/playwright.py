@@ -334,7 +334,7 @@ class PlaywrightWebController(WebControllerInterface):
             'connected': True
         }
     
-        def navigate_to_url(self, url: str, timeout: int = 60000, follow_redirects: bool = True) -> Dict[str, Any]:
+    def navigate_to_url(self, url: str, timeout: int = 60000, follow_redirects: bool = True) -> Dict[str, Any]:
         """Navigate to a URL using async CDP connection."""
         async def _async_navigate_to_url():
             try:
