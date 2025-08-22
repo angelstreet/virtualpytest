@@ -657,7 +657,9 @@ def format_step_screenshots(step: Dict, step_index: int) -> str:
     step_num = step.get('step_number', step_index + 1)
     print(f"[@report_step_formatter:format_step_screenshots] Step {step_num} screenshot fields:")
     print(f"  success: {step.get('success')}")
-    print(f"  error: {step.get('error', 'No error')[:100]}...")  # First 100 chars of error
+    error_msg = step.get('error', 'No error')
+    error_preview = error_msg[:100] + "..." if error_msg and len(str(error_msg)) > 100 else (error_msg or 'No error')
+    print(f"  error: {error_preview}")
     print(f"  step_start_screenshot_path: {step.get('step_start_screenshot_path')}")
     print(f"  step_end_screenshot_path: {step.get('step_end_screenshot_path')}")
     print(f"  screenshot_url: {step.get('screenshot_url')}")

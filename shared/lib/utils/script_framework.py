@@ -428,7 +428,9 @@ class ScriptExecutor:
                     print(f"  - step_start_screenshot_path: {step_result.get('step_start_screenshot_path')}")
                     print(f"  - step_end_screenshot_path: {step_result.get('step_end_screenshot_path')}")
                     print(f"  - action_screenshots: {len(action_screenshots)} screenshots")
-                    print(f"  - error: {result.get('error', 'Unknown error')[:100]}...")
+                    error_msg = result.get('error', 'Unknown error')
+                    error_preview = str(error_msg)[:100] + "..." if error_msg and len(str(error_msg)) > 100 else (str(error_msg) if error_msg else 'Unknown error')
+                    print(f"  - error: {error_preview}")
                 
                 context.step_results.append(step_result)
                 
