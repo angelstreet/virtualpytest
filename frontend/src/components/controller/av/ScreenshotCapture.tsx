@@ -104,7 +104,7 @@ export function ScreenshotCapture({
             maxWidth: layoutConfig.isMobileModel ? 'auto' : '100%',
             maxHeight: '100%',
             width: layoutConfig.isMobileModel ? 'auto' : '100%',
-            height: 'auto',
+            height: layoutConfig.isMobileModel ? '100%' : 'auto', // Match StreamViewer sizing
             objectFit: layoutConfig.objectFit,
             backgroundColor: 'transparent',
           }}
