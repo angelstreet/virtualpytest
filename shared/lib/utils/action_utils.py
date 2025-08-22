@@ -536,12 +536,17 @@ def execute_navigation_with_verifications(host, device, transition: Dict[str, An
         
         if not actions_success:
             # Capture step-end screenshot even when actions fail
-            step_end_screenshot_path = capture_validation_screenshot(host, device, f"{step_name}_end_action_failure", script_context)
-            
-            if step_end_screenshot_path:
-                print(f"[@action_utils:execute_navigation] Step-end screenshot captured after action failure: {step_end_screenshot_path}")
-            else:
-                print(f"[@action_utils:execute_navigation] Step-end screenshot capture failed after action failure")
+            print(f"[@action_utils:execute_navigation] Attempting step-end screenshot capture after action failure...")
+            try:
+                step_end_screenshot_path = capture_validation_screenshot(host, device, f"{step_name}_end_action_failure", script_context)
+                
+                if step_end_screenshot_path:
+                    print(f"[@action_utils:execute_navigation] ✅ Step-end screenshot captured after action failure: {step_end_screenshot_path}")
+                else:
+                    print(f"[@action_utils:execute_navigation] ❌ Step-end screenshot capture returned None after action failure")
+            except Exception as screenshot_error:
+                print(f"[@action_utils:execute_navigation] ❌ Step-end screenshot capture exception after action failure: {str(screenshot_error)}")
+                step_end_screenshot_path = None
                 
             return {
                 'success': False,
@@ -618,12 +623,17 @@ def execute_navigation_with_verifications(host, device, transition: Dict[str, An
                 print(f"[@action_utils:execute_navigation]   Verification config: {verification}")
                 
                 # Step-end screenshot after verification failure
-                step_end_screenshot_path = capture_validation_screenshot(host, device, f"{step_name}_end", script_context)
-                
-                if step_end_screenshot_path:
-                    print(f"[@action_utils:execute_navigation] Step-end screenshot captured after verification failure: {step_end_screenshot_path}")
-                else:
-                    print(f"[@action_utils:execute_navigation] Step-end screenshot capture failed after verification failure")
+                print(f"[@action_utils:execute_navigation] Attempting step-end screenshot capture after verification failure...")
+                try:
+                    step_end_screenshot_path = capture_validation_screenshot(host, device, f"{step_name}_end", script_context)
+                    
+                    if step_end_screenshot_path:
+                        print(f"[@action_utils:execute_navigation] ✅ Step-end screenshot captured after verification failure: {step_end_screenshot_path}")
+                    else:
+                        print(f"[@action_utils:execute_navigation] ❌ Step-end screenshot capture returned None after verification failure")
+                except Exception as screenshot_error:
+                    print(f"[@action_utils:execute_navigation] ❌ Step-end screenshot capture exception after verification failure: {str(screenshot_error)}")
+                    step_end_screenshot_path = None
                 
                 return {
                     'success': False,
@@ -645,12 +655,17 @@ def execute_navigation_with_verifications(host, device, transition: Dict[str, An
                 }
         
         # Step-end screenshot after verifications complete
-        step_end_screenshot_path = capture_validation_screenshot(host, device, f"{step_name}_end", script_context)
-        
-        if step_end_screenshot_path:
-            print(f"[@action_utils:execute_navigation] Step-end screenshot captured: {step_end_screenshot_path}")
-        else:
-            print(f"[@action_utils:execute_navigation] Step-end screenshot capture failed")
+        print(f"[@action_utils:execute_navigation] Attempting step-end screenshot capture after successful completion...")
+        try:
+            step_end_screenshot_path = capture_validation_screenshot(host, device, f"{step_name}_end", script_context)
+            
+            if step_end_screenshot_path:
+                print(f"[@action_utils:execute_navigation] ✅ Step-end screenshot captured: {step_end_screenshot_path}")
+            else:
+                print(f"[@action_utils:execute_navigation] ❌ Step-end screenshot capture returned None")
+        except Exception as screenshot_error:
+            print(f"[@action_utils:execute_navigation] ❌ Step-end screenshot capture exception: {str(screenshot_error)}")
+            step_end_screenshot_path = None
         
         execution_time = time.time() - start_time
         
@@ -675,6 +690,7 @@ def execute_navigation_with_verifications(host, device, transition: Dict[str, An
         
         # Try to capture step-end screenshot on exception
         step_end_screenshot_path = None
+        print(f"[@action_utils:execute_navigation] Attempting step-end screenshot capture after exception...")
         try:
             # Use the same step_name format as before
             from_node = transition.get('from_node_label', 'unknown')
@@ -683,11 +699,11 @@ def execute_navigation_with_verifications(host, device, transition: Dict[str, An
             step_end_screenshot_path = capture_validation_screenshot(host, device, f"{step_name}_end_error", script_context)
             
             if step_end_screenshot_path:
-                print(f"[@action_utils:execute_navigation] Step-end screenshot captured after exception: {step_end_screenshot_path}")
+                print(f"[@action_utils:execute_navigation] ✅ Step-end screenshot captured after exception: {step_end_screenshot_path}")
             else:
-                print(f"[@action_utils:execute_navigation] Step-end screenshot capture failed after exception")
+                print(f"[@action_utils:execute_navigation] ❌ Step-end screenshot capture returned None after exception")
         except Exception as screenshot_error:
-            print(f"[@action_utils:execute_navigation] Failed to capture error screenshot: {str(screenshot_error)}")
+            print(f"[@action_utils:execute_navigation] ❌ Step-end screenshot capture exception during exception handling: {str(screenshot_error)}")
             
         return {
             'success': False, 
