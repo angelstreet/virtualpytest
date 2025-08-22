@@ -343,10 +343,21 @@ class ActionExecutor:
                 
                 total_execution_time += iteration_execution_time
                 
+                # Log detailed results including error information
                 if iterator_count > 1:
-                    print(f"[@lib:action_executor:_execute_single_action] Action {action_number} iteration {iteration + 1}/{iterator_count} result: success={iteration_success}, time={iteration_execution_time}ms")
+                    if iteration_success:
+                        print(f"[@lib:action_executor:_execute_single_action] Action {action_number} iteration {iteration + 1}/{iterator_count} result: success={iteration_success}, time={iteration_execution_time}ms")
+                    else:
+                        error_msg = response_data.get('error', 'Unknown error')
+                        print(f"[@lib:action_executor:_execute_single_action] Action {action_number} iteration {iteration + 1}/{iterator_count} result: success={iteration_success}, time={iteration_execution_time}ms, error: {error_msg}")
+                        print(f"[@lib:action_executor:_execute_single_action] Full response data: {response_data}")
                 else:
-                    print(f"[@lib:action_executor:_execute_single_action] Action {action_number} result: success={iteration_success}, time={iteration_execution_time}ms")
+                    if iteration_success:
+                        print(f"[@lib:action_executor:_execute_single_action] Action {action_number} result: success={iteration_success}, time={iteration_execution_time}ms")
+                    else:
+                        error_msg = response_data.get('error', 'Unknown error')
+                        print(f"[@lib:action_executor:_execute_single_action] Action {action_number} result: success={iteration_success}, time={iteration_execution_time}ms, error: {error_msg}")
+                        print(f"[@lib:action_executor:_execute_single_action] Full response data: {response_data}")
                 
                 # Track iteration results
                 iteration_results.append({

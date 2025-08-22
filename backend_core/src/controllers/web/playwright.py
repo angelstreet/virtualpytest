@@ -67,10 +67,16 @@ class PlaywrightWebController(WebControllerInterface):
         # Establish persistent browser+context if not exists
         if not self.__class__._browser_connected or not self.__class__._browser or not self.__class__._context:
             print(f"[PLAYWRIGHT]: Creating persistent browser+context+page...")
-            self.__class__._playwright, self.__class__._browser, self.__class__._context, initial_page = await self.utils.connect_to_chrome(target_url=target_url)
-            self.__class__._browser_connected = True
-            print(f"[PLAYWRIGHT]: Persistent browser+context+page established")
-            return initial_page
+            try:
+                self.__class__._playwright, self.__class__._browser, self.__class__._context, initial_page = await self.utils.connect_to_chrome(target_url=target_url)
+                self.__class__._browser_connected = True
+                print(f"[PLAYWRIGHT]: Persistent browser+context+page established")
+                return initial_page
+            except Exception as e:
+                error_type = type(e).__name__
+                print(f"[PLAYWRIGHT]: Failed to establish browser connection - {error_type}: {str(e)}")
+                print(f"[PLAYWRIGHT]: Chrome process state - running: {self._chrome_running}, process: {self._chrome_process}")
+                raise Exception(f"Browser connection failed ({error_type}): {str(e)}")
         
         # Get existing page 0 from context (persistent page)
         if len(self.__class__._context.pages) > 0:
@@ -108,8 +114,16 @@ class PlaywrightWebController(WebControllerInterface):
                 self.__class__._chrome_process = self.utils.launch_chrome()
                 self.__class__._chrome_running = True
                 print(f"[PLAYWRIGHT]: Chrome launched with remote debugging successfully (PID: {self._chrome_process.pid})")
+                
+                # Give Chrome a moment to start up
+                import time
+                time.sleep(2)
+                print(f"[PLAYWRIGHT]: Chrome startup delay completed")
+                
             except Exception as e:
-                print(f"[PLAYWRIGHT]: Failed to launch Chrome: {e}")
+                error_type = type(e).__name__
+                print(f"[PLAYWRIGHT]: Failed to launch Chrome - {error_type}: {str(e)}")
+                print(f"[PLAYWRIGHT]: Chrome launch error details: {e.args}")
                 return False
         else:
             print(f"[PLAYWRIGHT]: Chrome process already running (PID: {self._chrome_process.pid if self._chrome_process else 'unknown'})")
@@ -650,11 +664,24 @@ class PlaywrightWebController(WebControllerInterface):
                 return result
                 
             except Exception as e:
-                error_msg = f"Tap error: {e}"
+                error_type = type(e).__name__
+                error_msg = f"Tap error ({error_type}): {str(e)}"
                 print(f"[PLAYWRIGHT]: {error_msg}")
+                print(f"[PLAYWRIGHT]: Exception details - Type: {error_type}, Args: {e.args}")
+                
+                # Log connection state for debugging
+                print(f"[PLAYWRIGHT]: Connection state - is_connected: {self.is_connected}, _chrome_running: {self._chrome_running}, _browser_connected: {self._browser_connected}")
+                
                 return {
                     'success': False,
                     'error': error_msg,
+                    'error_type': error_type,
+                    'error_details': str(e),
+                    'connection_state': {
+                        'is_connected': self.is_connected,
+                        'chrome_running': self._chrome_running,
+                        'browser_connected': self._browser_connected
+                    },
                     'execution_time': 0
                 }
         

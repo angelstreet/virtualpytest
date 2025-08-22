@@ -262,23 +262,45 @@ class PlaywrightConnection:
         """Connect to Chrome via CDP and return playwright, browser, context, page."""
         from playwright.async_api import async_playwright
         
-        playwright = await async_playwright().start()
-        browser = await playwright.chromium.connect_over_cdp(cdp_url)
-        
-        if len(browser.contexts) == 0:
-            # Create new context with browser default viewport
-            context = await browser.new_context()
-            page = await context.new_page()
-            print(f'[PlaywrightConnection] Created new context with browser default viewport')
-        else:
-            context = browser.contexts[0]
-            if len(context.pages) == 0:
+        try:
+            print(f'[PlaywrightConnection] Starting Playwright and connecting to Chrome at {cdp_url}')
+            playwright = await async_playwright().start()
+            print(f'[PlaywrightConnection] Playwright started, attempting CDP connection...')
+            browser = await playwright.chromium.connect_over_cdp(cdp_url)
+            print(f'[PlaywrightConnection] Successfully connected to Chrome via CDP')
+            
+            if len(browser.contexts) == 0:
+                # Create new context with browser default viewport
+                print(f'[PlaywrightConnection] No existing contexts, creating new context...')
+                context = await browser.new_context()
                 page = await context.new_page()
+                print(f'[PlaywrightConnection] Created new context with browser default viewport')
             else:
-                page = context.pages[0]
-            print(f'[PlaywrightConnection] Using existing context with browser default viewport')
-        
-        return playwright, browser, context, page
+                print(f'[PlaywrightConnection] Found {len(browser.contexts)} existing contexts, using first one...')
+                context = browser.contexts[0]
+                if len(context.pages) == 0:
+                    print(f'[PlaywrightConnection] No pages in context, creating new page...')
+                    page = await context.new_page()
+                else:
+                    print(f'[PlaywrightConnection] Found {len(context.pages)} pages in context, using first one...')
+                    page = context.pages[0]
+                print(f'[PlaywrightConnection] Using existing context with browser default viewport')
+            
+            print(f'[PlaywrightConnection] Connection established successfully')
+            return playwright, browser, context, page
+            
+        except Exception as e:
+            error_type = type(e).__name__
+            print(f'[PlaywrightConnection] Connection failed - {error_type}: {str(e)}')
+            print(f'[PlaywrightConnection] CDP URL: {cdp_url}')
+            
+            # Check if it's a connection refused error
+            if 'ECONNREFUSED' in str(e) or 'Connection refused' in str(e):
+                print(f'[PlaywrightConnection] Chrome is not running or not accepting connections on {cdp_url}')
+            elif 'timeout' in str(e).lower():
+                print(f'[PlaywrightConnection] Connection timeout - Chrome may be starting up or overloaded')
+            
+            raise Exception(f"CDP connection failed ({error_type}): {str(e)}")
     
     @staticmethod
     async def cleanup_connection(playwright, browser):
