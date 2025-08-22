@@ -11,6 +11,8 @@ import {
 } from '@mui/material';
 import React, { useEffect, useCallback, useRef, useState, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
+
+import { DEFAULT_DEVICE_RESOLUTION } from '../config/deviceResolutions';
 import ReactFlow, {
   Background,
   Controls,
@@ -1094,7 +1096,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
                   remoteType="android_tv"
                   isConnected={isControlActive}
                   onReleaseControl={handleDisconnectComplete}
-                  deviceResolution={{ width: 1920, height: 1080 }}
+                  deviceResolution={DEFAULT_DEVICE_RESOLUTION}
                   streamCollapsed={isAVPanelCollapsed}
                   streamMinimized={false}
                   captureMode="stream"
@@ -1107,7 +1109,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
                   remoteType="ir_remote"
                   isConnected={isControlActive}
                   onReleaseControl={handleDisconnectComplete}
-                  deviceResolution={{ width: 1920, height: 1080 }}
+                  deviceResolution={DEFAULT_DEVICE_RESOLUTION}
                   streamCollapsed={isAVPanelCollapsed}
                   streamMinimized={false}
                   captureMode="stream"
@@ -1140,7 +1142,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
                     remoteType={remoteType}
                     isConnected={isControlActive}
                     onReleaseControl={handleDisconnectComplete}
-                    deviceResolution={{ width: 1920, height: 1080 }}
+                    deviceResolution={DEFAULT_DEVICE_RESOLUTION}
                     streamCollapsed={isAVPanelCollapsed}
                     streamMinimized={false}
                     captureMode="stream"

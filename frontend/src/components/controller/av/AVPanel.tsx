@@ -1,5 +1,6 @@
 import { Box, Alert } from '@mui/material';
 
+import { DEFAULT_DEVICE_RESOLUTION } from '../../../config/deviceResolutions';
 import { Host } from '../../../types/common/Host_Types';
 
 import { HDMIStream } from './HDMIStream';
@@ -15,9 +16,9 @@ export function AVPanel({ host, onExpandedChange }: AVPanelProps) {
   console.log(`[@component:AVPanel] Rendering AV panel for device: ${host.device_model}`);
   console.log(`[@component:AVPanel] Controller config:`, host.controller_configs);
 
-  // Hardcoded default device resolution
-  const defaultDeviceResolution = { width: 1920, height: 1080 };
-  console.log(`[@component:AVPanel] Using default device resolution:`, defaultDeviceResolution);
+  // Centralized default device resolution
+  const defaultDeviceResolution = DEFAULT_DEVICE_RESOLUTION;
+  console.log(`[@component:AVPanel] Using centralized device resolution:`, defaultDeviceResolution);
 
   // Simple controller config detection - no loading, no fallback, no validation
   const renderAVComponent = () => {

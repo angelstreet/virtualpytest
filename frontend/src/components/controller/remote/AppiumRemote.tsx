@@ -11,6 +11,7 @@ import {
 import React from 'react';
 import { createPortal } from 'react-dom';
 
+import { DEFAULT_DEVICE_RESOLUTION } from '../../../config/deviceResolutions';
 import { hdmiStreamMobileConfig, HDMI_STREAM_HEADER_HEIGHT } from '../../../config/av/hdmiStream';
 import { useAppiumRemote } from '../../../hooks/controller/useAppiumRemote';
 import { Host } from '../../../types/common/Host_Types';
@@ -137,7 +138,7 @@ export const AppiumRemote = React.memo(
             width: streamContainerDimensions.width,
             height: streamContainerDimensions.height,
           },
-          deviceResolution: { width: 1920, height: 1080 }, // Keep HDMI resolution for overlay positioning
+          deviceResolution: DEFAULT_DEVICE_RESOLUTION, // Keep HDMI resolution for overlay positioning
           isCollapsed: false, // In modal context, stream is always expanded
         };
         console.log('[@component:AppiumRemote] Created panelInfo for modal context:', info);
@@ -146,7 +147,7 @@ export const AppiumRemote = React.memo(
 
       // EXISTING: Use HDMI stream config for floating panel context
       // Keep HDMI stream resolution for overlay positioning (visual alignment)
-      const hdmiStreamResolution = { width: 1920, height: 1080 };
+      const hdmiStreamResolution = DEFAULT_DEVICE_RESOLUTION;
 
       // Get HDMI stream dimensions from config based on stream collapsed state (not panel state)
       const streamConfig = hdmiStreamMobileConfig.panel_layout;
@@ -164,9 +165,9 @@ export const AppiumRemote = React.memo(
       const headerHeight = parsePixels(HDMI_STREAM_HEADER_HEIGHT);
       const streamContentHeight = streamPanelHeight - headerHeight; // Stream panel height minus header
 
-      // Calculate stream width based on 1920x1080 aspect ratio (16:9)
+      // Calculate stream width based on centralized device resolution aspect ratio (16:9)
       // For mobile: height is reference, divide by ratio to get width
-      const deviceAspectRatio = 1920 / 1080; // 16:9 = 1.777...
+      const deviceAspectRatio = DEFAULT_DEVICE_RESOLUTION.width / DEFAULT_DEVICE_RESOLUTION.height; // 16:9 = 1.777...
       const streamContentWidth = streamContentHeight / deviceAspectRatio;
 
       // Debug logging for width calculation

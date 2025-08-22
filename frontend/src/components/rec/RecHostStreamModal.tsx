@@ -11,6 +11,7 @@ import {
 import { Box, IconButton, Typography, Button, CircularProgress, TextField } from '@mui/material';
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 
+import { DEFAULT_DEVICE_RESOLUTION } from '../../config/deviceResolutions';
 import { useModal } from '../../contexts/ModalContext';
 import { VNCStateProvider } from '../../contexts/VNCStateContext';
 import { useAIAgent } from '../../hooks/aiagent/useAIAgent';
@@ -260,7 +261,7 @@ const RecHostStreamModalContent: React.FC<{
   }, [isControlActive, showWarning]);
 
   // Stable device resolution to prevent re-renders
-  const stableDeviceResolution = useMemo(() => ({ width: 1920, height: 1080 }), []);
+  const stableDeviceResolution = useMemo(() => DEFAULT_DEVICE_RESOLUTION, []);
 
   // Check if device is mobile model (consistent with RecHostPreview)
   const isMobileModel = useMemo(() => {

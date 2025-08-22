@@ -7,6 +7,7 @@ import {
 import { Box, IconButton, Tooltip, Typography } from '@mui/material';
 import React, { useState, useEffect, useMemo } from 'react';
 
+import { DEFAULT_DEVICE_RESOLUTION } from '../../../config/deviceResolutions';
 import { getConfigurableRemotePanelLayout, loadRemoteConfig } from '../../../config/remote';
 import { Host } from '../../../types/common/Host_Types';
 
@@ -219,7 +220,7 @@ export const RemotePanel = React.memo(
 
     // Simple device model detection - no loading, no fallback, no validation
     const effectiveDeviceResolution = useMemo(() => {
-      return deviceResolution || { width: 1920, height: 1080 };
+      return deviceResolution || DEFAULT_DEVICE_RESOLUTION;
     }, [deviceResolution]);
 
     // Create stable reference for streamContainerDimensions to prevent unnecessary re-renders

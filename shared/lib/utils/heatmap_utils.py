@@ -18,6 +18,9 @@ import time
 from PIL import Image, ImageDraw, ImageFont
 import threading
 
+# Import centralized device resolution
+from shared.lib.config.device_resolutions import DEFAULT_DEVICE_RESOLUTION
+
 # Global state for job management
 active_jobs = {}
 job_lock = threading.Lock()
@@ -245,11 +248,15 @@ def calculate_grid_layout(num_devices: int) -> Tuple[int, int]:
         rows = math.ceil(num_devices / cols)
         return (cols, rows)
 
-def create_mosaic_image(images_data: List[Dict], target_size: Tuple[int, int] = (1920, 1080)) -> Image.Image:
+def create_mosaic_image(images_data: List[Dict], target_size: Tuple[int, int] = None) -> Image.Image:
     """
     Create a mosaic image from multiple device images.
     Optimized for maximum space usage with border-to-border layout and overlay labels.
     """
+    # Use centralized device resolution if no target size specified
+    if target_size is None:
+        target_size = (DEFAULT_DEVICE_RESOLUTION["width"], DEFAULT_DEVICE_RESOLUTION["height"])
+    
     if not images_data:
         # Create empty mosaic
         return Image.new('RGB', target_size, (0, 0, 0))

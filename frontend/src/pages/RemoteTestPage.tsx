@@ -1,8 +1,8 @@
 import { Box, Typography, Paper, Grid, Switch, FormControlLabel } from '@mui/material';
 import { useState, useMemo } from 'react';
 
-
 import { RemotePanel } from '../components/controller/remote/RemotePanel';
+import { DEFAULT_DEVICE_RESOLUTION } from '../config/deviceResolutions';
 import { Host } from '../types/common/Host_Types';
 
 // Extended Host type to include controller_configs used in the components
@@ -381,7 +381,7 @@ export default function RemoteTestPage() {
   }, [useModalLayout]);
 
   // Stable device resolution to prevent re-renders
-  const stableDeviceResolution = useMemo(() => ({ width: 1920, height: 1080 }), []);
+  const stableDeviceResolution = useMemo(() => DEFAULT_DEVICE_RESOLUTION, []);
 
   console.log('[@page:RemoteTestPage] Rendering test page with host:', selectedHost.host_name);
 
@@ -652,7 +652,7 @@ export default function RemoteTestPage() {
                 deviceModel={selectedHost.devices[0].device_model}
                 isConnected={true}
                 initialCollapsed={true}
-                deviceResolution={{ width: 1920, height: 1080 }}
+                deviceResolution={DEFAULT_DEVICE_RESOLUTION}
                 streamCollapsed={streamCollapsed}
                 streamMinimized={streamMinimized}
                 streamHidden={!selectedHost.controller_configs?.av} // Stream is hidden when no AV config
