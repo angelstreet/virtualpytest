@@ -172,7 +172,7 @@ def analyze_language_menu_ai(image_path: str, context_name: str = "AI") -> Dict[
             print(f"{context_name}: Image file not found: {image_path}")
             return {'success': False, 'error': 'Image file not found'}
         
-        # Enhanced prompt for language/subtitle menu detection with better categorization
+        # Enhanced prompt for language/subtitle menu detection with exact format extraction
         prompt = """Analyze this image for language/subtitle/audio menu options. This could be a TV settings menu, streaming app menu, or media player interface.
 
 LOOK FOR THESE UI PATTERNS:
@@ -194,7 +194,7 @@ CRITICAL INSTRUCTIONS:
 Required JSON format when menu found:
 {
   "menu_detected": true,
-  "audio_languages": ["English", "French", "Spanish"],
+  "audio_languages": ["English - AD - Stereo", "English - Stereo", "French - Stereo"],
   "subtitle_languages": ["English", "French", "Spanish", "Off"],
   "selected_audio": 0,
   "selected_subtitle": 3
@@ -209,9 +209,22 @@ If no language/subtitle menu found:
   "selected_subtitle": -1
 }
 
+LANGUAGE FORMAT EXTRACTION RULES:
+- Extract the COMPLETE text as shown for each language option
+- Include ALL descriptors like "AD" (Audio Description), "Stereo", "Dolby", etc.
+- Preserve exact formatting with dashes, spaces, and separators as displayed
+- Examples of complete formats to capture:
+  * "English - AD - Stereo"
+  * "English - Stereo"
+  * "English - Dolby"
+  * "French - Stereo"
+  * "French - AD - Stereo"
+- DO NOT simplify to just "English" - capture the full descriptive text
+- If only "English" is shown without descriptors, then use just "English"
+
 CATEGORIZATION RULES:
-- AUDIO section: Main audio languages (English, French, Spanish, etc.)
-- SUBTITLE section: Subtitle options (Off, English, French, etc.)
+- AUDIO section: Main audio languages with their full descriptors
+- SUBTITLE section: Subtitle options (usually simpler, like "English", "French", "Off")
 - AUDIO DESCRIPTION: These belong in audio_languages, not subtitle_languages
 - Look for section headers like "AUDIO", "SUBTITLES", "AUDIO DESCRIPTION", "LANGUAGE", "CC"
 - List languages in the order they appear within each section (index 0, 1, 2, etc.)

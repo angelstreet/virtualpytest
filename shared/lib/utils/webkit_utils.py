@@ -17,39 +17,58 @@ class WebKitManager:
     """Manages WebKit process lifecycle for remote debugging - lightweight alternative to Chrome."""
     
     @staticmethod
-    def find_webkit_executable() -> str:
-        """Find WebKit/Safari executable on system."""
+    def find_webkit_executable() -> tuple:
+        """Find WebKit/Safari executable on system. Returns (path, browser_type)."""
         # On macOS, use Safari
         if os.path.exists('/Applications/Safari.app/Contents/MacOS/Safari'):
-            return '/Applications/Safari.app/Contents/MacOS/Safari'
+            return ('/Applications/Safari.app/Contents/MacOS/Safari', 'safari')
         
-        # On Linux, try to find webkit-based browsers
-        possible_paths = [
-            '/usr/bin/epiphany-browser',  # GNOME Web (WebKit)
-            '/usr/bin/midori',            # Midori (WebKit)
-            '/usr/bin/surf',              # Surf (WebKit)
+        # On Linux, try to find webkit-based browsers with debug support
+        webkit_browsers = [
+            ('/usr/bin/chromium-browser', 'chromium-webkit'),  # Chromium with WebKit flags
+            ('/usr/bin/google-chrome', 'chrome-webkit'),       # Chrome with WebKit-like flags
+            ('/usr/bin/firefox', 'firefox'),                   # Firefox as lightweight alternative
         ]
         
-        for path in possible_paths:
+        for path, browser_type in webkit_browsers:
             if os.path.exists(path):
-                return path
+                return (path, browser_type)
                 
-        raise ValueError('No WebKit-based browser found. Install epiphany-browser, midori, or surf on Linux')
+        raise ValueError('No suitable lightweight browser found. Install chromium-browser, google-chrome, or firefox')
     
     @staticmethod
-    def get_webkit_flags(debug_port: int = 9223) -> list:
-        """Get WebKit launch flags for remote debugging."""
-        return [
-            f'--remote-debugging-port={debug_port}',
-            '--no-first-run',
-            '--disable-extensions',
-            '--disable-background-networking',
-            '--disable-sync',
-            '--disable-translate',
-            '--disable-features=TranslateUI',
-            '--no-default-browser-check',
-            '--disable-default-apps'
-        ]
+    def get_webkit_flags(debug_port: int = 9223, browser_type: str = 'chromium-webkit') -> list:
+        """Get browser launch flags for remote debugging based on browser type."""
+        if browser_type == 'firefox':
+            # Firefox remote debugging flags
+            return [
+                f'--remote-debugging-port={debug_port}',
+                '--headless=false',  # Keep visible
+                '--new-instance',
+                '--no-remote',
+                '--profile-manager'
+            ]
+        elif browser_type in ['chromium-webkit', 'chrome-webkit']:
+            # Chromium/Chrome with lightweight flags
+            return [
+                f'--remote-debugging-port={debug_port}',
+                '--no-first-run',
+                '--no-default-browser-check',
+                '--disable-extensions',
+                '--disable-background-networking',
+                '--disable-sync',
+                '--disable-translate',
+                '--disable-features=TranslateUI,InfiniteSessionRestore,TabRestore',
+                '--disable-default-apps',
+                '--disable-session-crashed-bubble',
+                '--disable-infobars',
+                '--disable-restore-session-state'
+            ]
+        else:  # safari or other
+            return [
+                '--remote-debugging-port=9999',  # Safari uses different approach
+                '--no-first-run'
+            ]
     
     @staticmethod
     def is_port_in_use(port: int) -> bool:
@@ -64,7 +83,7 @@ class WebKitManager:
     
     @classmethod
     def launch_webkit_with_debugging(cls, debug_port: int = 9223) -> subprocess.Popen:
-        """Launch WebKit browser with remote debugging."""
+        """Launch lightweight browser with remote debugging."""
         # Kill any process using the debug port
         if cls.is_port_in_use(debug_port):
             print(f'[WebKitManager] Port {debug_port} in use, killing processes...')
@@ -80,22 +99,23 @@ class WebKitManager:
                 print(f'[WebKitManager] Error killing processes: {e}')
             time.sleep(1)
         
-        # Find WebKit executable
-        executable_path = cls.find_webkit_executable()
-        print(f'[WebKitManager] Launching WebKit browser: {executable_path}')
+        # Find suitable lightweight browser
+        executable_path, browser_type = cls.find_webkit_executable()
+        print(f'[WebKitManager] Launching {browser_type} browser: {executable_path}')
         
-        # Get WebKit flags
-        webkit_flags = cls.get_webkit_flags(debug_port)
+        # Get browser-specific flags
+        browser_flags = cls.get_webkit_flags(debug_port, browser_type)
         
-        # Launch WebKit
-        cmd_line = [executable_path] + webkit_flags
+        # Launch browser
+        cmd_line = [executable_path] + browser_flags
         env = os.environ.copy()
         env["DISPLAY"] = ":1"
         
+        print(f'[WebKitManager] Command: {" ".join(cmd_line)}')
         process = subprocess.Popen(cmd_line, env=env)
-        print(f'[WebKitManager] WebKit launched with PID: {process.pid}')
+        print(f'[WebKitManager] {browser_type} launched with PID: {process.pid}')
         
-        # Wait for WebKit to be ready
+        # Wait for browser to be ready
         cls._wait_for_webkit_ready(debug_port)
         return process
     
@@ -122,39 +142,40 @@ class WebKitManager:
 
 
 class WebKitConnection:
-    """Manages Playwright connections to WebKit via debug protocol."""
+    """Manages Playwright connections to lightweight browsers via debug protocol."""
     
     @staticmethod
     async def connect_to_webkit(cdp_url: str = 'http://localhost:9223') -> Tuple[Any, Any, Any, Any]:
-        """Connect to WebKit via debug protocol and return playwright, browser, context, page."""
+        """Connect to lightweight browser via debug protocol and return playwright, browser, context, page."""
         from playwright.async_api import async_playwright
         
         try:
-            print(f'[WebKitConnection] Connecting to WebKit at {cdp_url}')
+            print(f'[WebKitConnection] Connecting to lightweight browser at {cdp_url}')
             playwright = await async_playwright().start()
             
-            # Connect to WebKit browser
-            browser = await playwright.webkit.connect_over_cdp(cdp_url)
-            print(f'[WebKitConnection] Connected to WebKit successfully')
+            # Since we're actually using Chromium/Chrome with lightweight flags, use chromium engine
+            # This provides the same lightweight benefits but with proper CDP support
+            browser = await playwright.chromium.connect_over_cdp(cdp_url)
+            print(f'[WebKitConnection] Connected to lightweight browser successfully')
             
             # Get or create context and page
             if len(browser.contexts) == 0:
                 context = await browser.new_context()
                 page = await context.new_page()
-                print(f'[WebKitConnection] Created new WebKit context')
+                print(f'[WebKitConnection] Created new lightweight browser context')
             else:
                 context = browser.contexts[0]
                 if len(context.pages) == 0:
                     page = await context.new_page()
                 else:
                     page = context.pages[0]
-                print(f'[WebKitConnection] Using existing WebKit context')
+                print(f'[WebKitConnection] Using existing lightweight browser context')
             
             return playwright, browser, context, page
             
         except Exception as e:
             print(f'[WebKitConnection] Connection failed: {e}')
-            raise Exception(f"WebKit connection failed: {str(e)}")
+            raise Exception(f"Lightweight browser connection failed: {str(e)}")
 
 
 class WebKitUtils:
@@ -168,13 +189,21 @@ class WebKitUtils:
         print(f'[WebKitUtils] Initialized lightweight WebKit browser on port {debug_port}')
     
     def launch_webkit(self) -> subprocess.Popen:
-        """Launch WebKit with remote debugging."""
+        """Launch lightweight browser with remote debugging."""
         return self.webkit_manager.launch_webkit_with_debugging(self.debug_port)
     
+    def launch_chrome(self) -> subprocess.Popen:
+        """Compatibility method - launches lightweight browser (same as launch_webkit)."""
+        return self.launch_webkit()
+    
     async def connect_to_webkit(self, target_url: str = None):
-        """Connect to WebKit via debug protocol."""
+        """Connect to lightweight browser via debug protocol."""
         cdp_url = f'http://localhost:{self.debug_port}'
         return await self.connection.connect_to_webkit(cdp_url)
+    
+    async def connect_to_chrome(self, target_url: str = None):
+        """Compatibility method - connects to lightweight browser (same as connect_to_webkit)."""
+        return await self.connect_to_webkit(target_url)
     
     @staticmethod
     def run_async(coro):
