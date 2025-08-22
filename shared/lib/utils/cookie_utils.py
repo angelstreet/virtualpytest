@@ -11,6 +11,8 @@ import logging
 from typing import List, Dict, Any, Optional
 from pathlib import Path
 
+from shared.lib.config.device_resolutions import DEFAULT_DEVICE_RESOLUTION
+
 logger = logging.getLogger(__name__)
 
 
@@ -146,7 +148,7 @@ class CookieManager:
                 },
                 {
                     "name": "wd",
-                    "value": "1920x1080",
+                    "value": f"{DEFAULT_DEVICE_RESOLUTION['width']}x{DEFAULT_DEVICE_RESOLUTION['height']}",
                     "domain": ".facebook.com",
                     "path": "/",
                     "secure": True,

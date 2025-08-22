@@ -1,12 +1,13 @@
 import { HDMI_STREAM_HEADER_HEIGHT } from './hdmiStream';
+import { DEFAULT_DEVICE_RESOLUTION } from '../deviceResolutions';
 
 export const vncStreamConfig = {
   stream_info: {
     name: 'VNC',
     type: 'vnc_stream' as const,
     default_quality: 'high' as const,
-    supported_resolutions: ['1920x1080', '1280x720', '1024x768', '800x600'] as const,
-    default_resolution: '1920x1080' as const,
+    supported_resolutions: [`${DEFAULT_DEVICE_RESOLUTION.width}x${DEFAULT_DEVICE_RESOLUTION.height}`, '1280x720', '1024x768', '800x600'] as const,
+    default_resolution: `${DEFAULT_DEVICE_RESOLUTION.width}x${DEFAULT_DEVICE_RESOLUTION.height}` as const,
   },
   panel_layout: {
     collapsed: {

@@ -1,13 +1,15 @@
 // Shared constants for HDMI Stream configuration
 export const HDMI_STREAM_HEADER_HEIGHT = '40px';
 
+import { DEFAULT_DEVICE_RESOLUTION } from '../deviceResolutions';
+
 export const hdmiStreamConfig = {
   stream_info: {
     name: 'HDMI',
     type: 'hdmi_stream' as const,
     default_quality: 'high' as const,
-    supported_resolutions: ['1920x1080', '1280x720', '640x480'] as const,
-    default_resolution: '1920x1080' as const,
+    supported_resolutions: [`${DEFAULT_DEVICE_RESOLUTION.width}x${DEFAULT_DEVICE_RESOLUTION.height}`, '1280x720', '640x480'] as const,
+    default_resolution: `${DEFAULT_DEVICE_RESOLUTION.width}x${DEFAULT_DEVICE_RESOLUTION.height}` as const,
   },
   panel_layout: {
     collapsed: {
@@ -59,8 +61,8 @@ export const hdmiStreamMobileConfig = {
     name: 'HDMI',
     type: 'hdmi_stream' as const,
     default_quality: 'high' as const,
-    supported_resolutions: ['1920x1080', '1280x720', '640x480'] as const,
-    default_resolution: '1920x1080' as const,
+    supported_resolutions: [`${DEFAULT_DEVICE_RESOLUTION.width}x${DEFAULT_DEVICE_RESOLUTION.height}`, '1280x720', '640x480'] as const,
+    default_resolution: `${DEFAULT_DEVICE_RESOLUTION.width}x${DEFAULT_DEVICE_RESOLUTION.height}` as const,
   },
   panel_layout: {
     collapsed: {

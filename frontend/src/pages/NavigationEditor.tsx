@@ -1160,7 +1160,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
                 deviceModel={selectedDevice?.device_model || 'unknown'}
                 isConnected={isControlActive}
                 onReleaseControl={handleDisconnectComplete}
-                deviceResolution={{ width: 1920, height: 1080 }}
+                deviceResolution={DEFAULT_DEVICE_RESOLUTION}
                 streamCollapsed={isAVPanelCollapsed}
                 streamMinimized={false}
                 captureMode="stream"
@@ -1192,7 +1192,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
                 deviceModel={deviceModel}
                 isControlActive={isControlActive}
                 onCollapsedChange={handleAVPanelCollapsedChange}
-                deviceResolution={{ width: 1920, height: 1080 }}
+                deviceResolution={DEFAULT_DEVICE_RESOLUTION}
               />
             );
           }

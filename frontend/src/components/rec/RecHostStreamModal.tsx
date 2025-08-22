@@ -125,8 +125,8 @@ const RecHostStreamModalContent: React.FC<{
 
   // Stable stream container dimensions to prevent re-renders
   const streamContainerDimensions = useMemo(() => {
-    const windowWidth = typeof window !== 'undefined' ? window.innerWidth : 1920;
-    const windowHeight = typeof window !== 'undefined' ? window.innerHeight : 1080;
+    const windowWidth = typeof window !== 'undefined' ? window.innerWidth : DEFAULT_DEVICE_RESOLUTION.width;
+    const windowHeight = typeof window !== 'undefined' ? window.innerHeight : DEFAULT_DEVICE_RESOLUTION.height;
 
     // Modal dimensions (95vw x 90vh)
     const modalWidth = windowWidth * 0.95;

@@ -350,8 +350,8 @@ export default function RemoteTestPage() {
   const streamContainerDimensions = useMemo(() => {
     if (!useModalLayout) return undefined;
 
-    const windowWidth = typeof window !== 'undefined' ? window.innerWidth : 1920;
-    const windowHeight = typeof window !== 'undefined' ? window.innerHeight : 1080;
+    const windowWidth = typeof window !== 'undefined' ? window.innerWidth : DEFAULT_DEVICE_RESOLUTION.width;
+    const windowHeight = typeof window !== 'undefined' ? window.innerHeight : DEFAULT_DEVICE_RESOLUTION.height;
 
     // Modal dimensions (95vw x 90vh)
     const modalWidth = windowWidth * 0.95;
@@ -716,4 +716,3 @@ export default function RemoteTestPage() {
       )}
     </Box>
   );
-}
