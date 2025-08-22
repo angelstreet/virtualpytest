@@ -637,7 +637,9 @@ const RecHostStreamModalContent: React.FC<{
                   model={device?.device_model || 'unknown'}
                   layoutConfig={{
                     minHeight: '300px',
-                    aspectRatio: isMobileModel ? '9/16' : '16/9',
+                    aspectRatio: isMobileModel 
+                      ? `${DEFAULT_DEVICE_RESOLUTION.height}/${DEFAULT_DEVICE_RESOLUTION.width}` 
+                      : `${DEFAULT_DEVICE_RESOLUTION.width}/${DEFAULT_DEVICE_RESOLUTION.height}`,
                     objectFit: 'contain', // Prevent cropping/truncation like in preview grid
                     isMobileModel, // Use our mobile detection result
                   }}
