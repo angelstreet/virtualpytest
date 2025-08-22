@@ -654,13 +654,15 @@ def format_step_screenshots(step: Dict, step_index: int) -> str:
     screenshots_for_step = []
     
     # Debug logging to see what screenshot fields are available
-    print(f"[@report_step_formatter:format_step_screenshots] Step {step_index + 1} screenshot fields:")
+    step_num = step.get('step_number', step_index + 1)
+    print(f"[@report_step_formatter:format_step_screenshots] Step {step_num} screenshot fields:")
+    print(f"  success: {step.get('success')}")
+    print(f"  error: {step.get('error', 'No error')[:100]}...")  # First 100 chars of error
     print(f"  step_start_screenshot_path: {step.get('step_start_screenshot_path')}")
     print(f"  step_end_screenshot_path: {step.get('step_end_screenshot_path')}")
     print(f"  screenshot_url: {step.get('screenshot_url')}")
     print(f"  screenshot_path: {step.get('screenshot_path')}")
     print(f"  action_screenshots: {step.get('action_screenshots', [])}")
-    print(f"  success: {step.get('success')}")
     
     # Collect all screenshots in chronological order
     if step.get('step_start_screenshot_path'):
@@ -681,6 +683,13 @@ def format_step_screenshots(step: Dict, step_index: int) -> str:
     # Step end screenshot
     if step.get('step_end_screenshot_path'):
         screenshots_for_step.append(('Step End', step.get('step_end_screenshot_path'), None, None))
+        print(f"[@report_step_formatter:format_step_screenshots] ✅ Step {step_num} end screenshot included")
+    else:
+        print(f"[@report_step_formatter:format_step_screenshots] ⚠️ Step {step_num} end screenshot NOT found")
+    
+    print(f"[@report_step_formatter:format_step_screenshots] Step {step_num} total screenshots for modal: {len(screenshots_for_step)}")
+    for i, (label, path, cmd, params) in enumerate(screenshots_for_step):
+        print(f"  [{i+1}] {label}: {path}")
     
     if not screenshots_for_step:
         return ""

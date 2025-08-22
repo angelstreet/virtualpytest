@@ -374,8 +374,15 @@ class ScriptExecutor:
                 # Add step screenshots (both start and end)
                 if result.get('step_start_screenshot_path'):
                     context.add_screenshot(result.get('step_start_screenshot_path'))
+                    print(f"[@script_framework] Added step start screenshot: {result.get('step_start_screenshot_path')}")
+                else:
+                    print(f"[@script_framework] No step start screenshot found")
+                    
                 if result.get('step_end_screenshot_path'):
                     context.add_screenshot(result.get('step_end_screenshot_path'))
+                    print(f"[@script_framework] Added step end screenshot: {result.get('step_end_screenshot_path')}")
+                else:
+                    print(f"[@script_framework] ⚠️ No step end screenshot found for step {step_num} (success={result.get('success')})")
                     
                 # Legacy support for single screenshot_path
                 if result.get('screenshot_path'):
@@ -414,6 +421,15 @@ class ScriptExecutor:
                     'error': result.get('error'),  # Store actual error message from action execution
                     'recovered': False  # Will be updated if recovery happens
                 }
+                
+                # Debug log step result screenshots for failed steps
+                if not result.get('success', False):
+                    print(f"[@script_framework] Failed step {step_num} screenshot data:")
+                    print(f"  - step_start_screenshot_path: {step_result.get('step_start_screenshot_path')}")
+                    print(f"  - step_end_screenshot_path: {step_result.get('step_end_screenshot_path')}")
+                    print(f"  - action_screenshots: {len(action_screenshots)} screenshots")
+                    print(f"  - error: {result.get('error', 'Unknown error')[:100]}...")
+                
                 context.step_results.append(step_result)
                 
                 # Handle step failure with single recovery attempt

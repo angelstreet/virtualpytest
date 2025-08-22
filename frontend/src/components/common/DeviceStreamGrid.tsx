@@ -44,9 +44,9 @@ const DeviceStreamItem: React.FC<DeviceStreamItemProps> = ({ device, allHosts, g
   // Check if mobile model for sizing
   const isMobileModel = !!(deviceModel && deviceModel.toLowerCase().includes('mobile'));
   
-  // Calculate sizes for grid layout - use larger height to show full content
-  const streamHeight = 250; // Increased from 200 to show more content
-  const streamWidth = isMobileModel ? Math.round(streamHeight * (9/16)) : Math.round(streamHeight * (16/9));
+  // Calculate sizes for grid layout - let aspect ratio determine height
+  const streamWidth = 320; // Fixed width, let height be determined by aspect ratio
+  const streamHeight = isMobileModel ? Math.round(streamWidth * (16/9)) : Math.round(streamWidth * (9/16));
 
   return (
     <Box
@@ -54,8 +54,7 @@ const DeviceStreamItem: React.FC<DeviceStreamItemProps> = ({ device, allHosts, g
         backgroundColor: 'black',
         borderRadius: 1,
         overflow: 'hidden',
-        height: streamHeight,
-        minWidth: streamWidth,
+        width: streamWidth,
         display: 'flex',
         flexDirection: 'column',
         position: 'relative', // Add positioning context like RecHostStreamModal
@@ -70,13 +69,13 @@ const DeviceStreamItem: React.FC<DeviceStreamItemProps> = ({ device, allHosts, g
       
       {/* Stream content */}
       <Box sx={{ 
-        flex: 1, 
         position: 'relative', 
         backgroundColor: 'black',
         overflow: 'hidden', // Ensure content doesn't overflow
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
+        aspectRatio: isMobileModel ? '9/16' : '16/9', // Let CSS handle aspect ratio
       }}>
         {streamUrl && hostObject ? (
           // VNC devices: Show iframe, Others: Use HLSVideoPlayer
@@ -111,7 +110,7 @@ const DeviceStreamItem: React.FC<DeviceStreamItemProps> = ({ device, allHosts, g
               isCapturing={false}
               model={deviceModel}
               layoutConfig={{
-                minHeight: `${streamHeight - 24}px`,
+                minHeight: '180px',
                 aspectRatio: isMobileModel ? '9/16' : '16/9',
                 objectFit: 'contain', // Prevent cropping like RecHostStreamModal
                 isMobileModel,
@@ -120,7 +119,7 @@ const DeviceStreamItem: React.FC<DeviceStreamItemProps> = ({ device, allHosts, g
               muted={true}
               sx={{
                 width: '100%',
-                height: '100%',
+                height: 'auto', // Let video determine its own height based on aspect ratio
               }}
             />
           )
@@ -133,7 +132,8 @@ const DeviceStreamItem: React.FC<DeviceStreamItemProps> = ({ device, allHosts, g
               justifyContent: 'center',
               color: 'white',
               textAlign: 'center',
-              height: '100%',
+              width: '100%',
+              aspectRatio: isMobileModel ? '9/16' : '16/9',
             }}
           >
             {isLoadingUrl ? (
