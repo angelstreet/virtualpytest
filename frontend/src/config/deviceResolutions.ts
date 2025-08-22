@@ -11,6 +11,6 @@ export const DEFAULT_DEVICE_RESOLUTION = { width: 1280, height: 720 } as const;
 export type DeviceResolution = typeof DEFAULT_DEVICE_RESOLUTION;
 
 // Simple function - always returns the same resolution
-export const getDeviceResolution = (deviceModel?: string): DeviceResolution => {
+export const getDeviceResolution = (): DeviceResolution => {
   return DEFAULT_DEVICE_RESOLUTION;
 };
