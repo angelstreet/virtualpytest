@@ -166,6 +166,19 @@ def analyze_audio_menu(context, current_node: str = None) -> Dict[str, Any]:
             # Set overall menu detection and message
             combined_result["menu_detected"] = combined_result["audio_detected"] or combined_result["subtitles_detected"]
             
+            # Flatten language results for report compatibility
+            audio_languages = []
+            subtitle_languages = []
+            
+            if combined_result["audio_analysis"].get('audio_languages'):
+                audio_languages = combined_result["audio_analysis"]['audio_languages']
+            if combined_result["subtitle_analysis"].get('subtitle_languages'):
+                subtitle_languages = combined_result["subtitle_analysis"]['subtitle_languages']
+            
+            # Add flattened language arrays to top level for report formatter
+            combined_result["audio_languages"] = audio_languages
+            combined_result["subtitle_languages"] = subtitle_languages
+            
             if combined_result["audio_detected"] and combined_result["subtitles_detected"]:
                 combined_result["message"] = "Both audio and subtitle menus detected"
                 # Use audio menu screenshot as primary
