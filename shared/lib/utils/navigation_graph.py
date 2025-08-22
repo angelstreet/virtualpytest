@@ -115,22 +115,19 @@ def create_networkx_graph(nodes: List[Dict], edges: List[Dict]) -> nx.DiGraph:
             retry_actions_list = default_set.get('retry_actions') or []
             failure_actions_list = default_set.get('failure_actions') or []
             
-            # Only add edges that have actions in the forward direction (since pathfinding uses forward actions)
+            # Check if this edge has any valid actions (forward or reverse)
             has_forward_actions = bool(actions_list)
+            has_reverse_actions = False
             
-            # Skip edges that don't have forward actions (pathfinding can't execute them)
-            if not has_forward_actions:
-                # Log if edge has reverse actions but no forward actions
-                has_reverse_actions = False
-                if len(action_sets) >= 2:
-                    reverse_set = action_sets[1]
-                    reverse_actions = reverse_set.get('actions', [])
-                    has_reverse_actions = bool(reverse_actions)
-                
-                if has_reverse_actions:
-                    print(f"[@navigation:graph:create_networkx_graph] SKIPPING edge {source_id} → {target_id}: No forward actions (reverse-only edge, pathfinding can't use it)")
-                else:
-                    print(f"[@navigation:graph:create_networkx_graph] SKIPPING edge {source_id} → {target_id}: No actions in either direction")
+            # Check if reverse action set (index 1) has actions
+            if len(action_sets) >= 2:
+                reverse_set = action_sets[1]
+                reverse_actions = reverse_set.get('actions', [])
+                has_reverse_actions = bool(reverse_actions)
+            
+            # Skip edges only if neither forward nor reverse have actions
+            if not has_forward_actions and not has_reverse_actions:
+                print(f"[@navigation:graph:create_networkx_graph] SKIPPING edge {source_id} → {target_id}: No actions in either direction")
                 edges_skipped += 1
                 continue
         
@@ -164,39 +161,43 @@ def create_networkx_graph(nodes: List[Dict], edges: List[Dict]) -> nx.DiGraph:
         print(f"[@navigation:graph:create_networkx_graph]   Default Retry Actions ({len(retry_actions_list)}): {[a.get('command') for a in retry_actions_list]}")
         print(f"[@navigation:graph:create_networkx_graph]   Default Failure Actions ({len(failure_actions_list)}): {[a.get('command') for a in failure_actions_list]}")
         
-        # Add forward edge with essential data only (even if forward actions are empty)
-        # This ensures reverse edges can be created when forward is empty but reverse has actions
-        G.add_edge(source_id, target_id, **{
-            'edge_id': edge.get('edge_id'),
-            'action_sets': action_sets,
-            'default_action_set_id': default_action_set_id,
-            'edge_type': edge.get('edge_type', 'navigation'),
-            'final_wait_time': edge.get('final_wait_time', 2000),
-            'weight': 1,
-            'has_forward_actions': bool(actions_list)  # Track if forward direction has actions
-        })
+        # Only create forward edge if it has forward actions (pathfinding requirement)
+        if has_forward_actions:
+            print(f"[@navigation:graph:create_networkx_graph] Creating FORWARD edge: {source_label} → {target_label}")
+            G.add_edge(source_id, target_id, **{
+                'edge_id': edge.get('edge_id'),
+                'action_sets': [action_sets[0]],  # Only include forward action set
+                'default_action_set_id': default_action_set_id,
+                'edge_type': edge.get('edge_type', 'navigation'),
+                'final_wait_time': edge.get('final_wait_time', 2000),
+                'weight': 1,
+                'is_forward_edge': True
+            })
+            edges_added += 1
+        else:
+            print(f"[@navigation:graph:create_networkx_graph] SKIPPING forward edge {source_label} → {target_label}: No forward actions")
         
-        # BIDIRECTIONAL FIX: Create reverse edge if action set index 1 has valid actions
-        if len(action_sets) >= 2:
+        # Create reverse edge if action set index 1 has valid actions
+        if has_reverse_actions:
             reverse_set = action_sets[1]
             reverse_actions = reverse_set.get('actions', [])
-            if reverse_actions:  # Only create reverse edge if it has actions
-                reverse_edge_id = f"{edge.get('edge_id')}_reverse"
-                print(f"[@navigation:graph:create_networkx_graph] Creating REVERSE edge: {target_label} → {source_label}")
-                print(f"[@navigation:graph:create_networkx_graph]   Reverse Actions ({len(reverse_actions)}): {[a.get('command') for a in reverse_actions]}")
-                
-                G.add_edge(target_id, source_id, **{
-                    'edge_id': reverse_edge_id,
-                    'action_sets': [reverse_set],  # Only include the reverse action set
-                    'default_action_set_id': reverse_set.get('id'),
-                    'edge_type': edge.get('edge_type', 'navigation'),
-                    'final_wait_time': edge.get('final_wait_time', 2000),
-                    'weight': 1,
-                    'is_reverse_edge': True  # Mark as reverse for debugging
-                })
-                edges_added += 1
+            reverse_edge_id = f"{edge.get('edge_id')}_reverse"
+            print(f"[@navigation:graph:create_networkx_graph] Creating REVERSE edge: {target_label} → {source_label}")
+            print(f"[@navigation:graph:create_networkx_graph]   Reverse Actions ({len(reverse_actions)}): {[a.get('command') for a in reverse_actions]}")
+            
+            G.add_edge(target_id, source_id, **{
+                'edge_id': reverse_edge_id,
+                'action_sets': [reverse_set],  # Only include the reverse action set
+                'default_action_set_id': reverse_set.get('id'),
+                'edge_type': edge.get('edge_type', 'navigation'),
+                'final_wait_time': edge.get('final_wait_time', 2000),
+                'weight': 1,
+                'is_reverse_edge': True  # Mark as reverse for debugging
+            })
+            edges_added += 1
+        else:
+            print(f"[@navigation:graph:create_networkx_graph] No reverse edge created for {target_label} → {source_label}: No reverse actions")
         
-        edges_added += 1
         print(f"[@navigation:graph:create_networkx_graph] -----")
     
     print(f"[@navigation:graph:create_networkx_graph] ===== GRAPH CONSTRUCTION COMPLETE =====")

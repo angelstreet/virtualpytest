@@ -6,6 +6,15 @@ Key features: Chrome remote debugging for thread-safe automation, async Playwrig
 Uses playwright_utils for Chrome management and async execution.
 """
 
+# =============================================================================
+# GLOBAL BROWSER ENGINE CONFIGURATION
+# =============================================================================
+# Change this to switch between browsers easily:
+# - "chromium" = Full Chrome browser (default, ~170MB, high memory)
+# - "webkit"   = Safari/WebKit engine (lightweight, ~50MB, low memory)
+BROWSER_ENGINE = "webkit"  # <-- Change this line to switch browsers
+# =============================================================================
+
 import os
 import json
 import time
@@ -21,6 +30,7 @@ if shared_utils_path not in sys.path:
     sys.path.insert(0, shared_utils_path)
 
 from playwright_utils import PlaywrightUtils
+from webkit_utils import WebKitUtils
 # Import browseruse_utils only when needed to avoid browser_use dependency at module load
 # from browseruse_utils import BrowserUseManager
 
@@ -38,16 +48,27 @@ class PlaywrightWebController(WebControllerInterface):
     _context = None
     _browser_connected = False
     
-    def __init__(self, **kwargs):
+    def __init__(self, browser_engine: str = None, **kwargs):
         """
         Initialize the Playwright web controller.
+        
+        Args:
+            browser_engine: "chromium" or "webkit" (uses BROWSER_ENGINE global if None)
         """
         super().__init__("Playwright Web", "playwright")
         import os
         os.environ['DEBUG'] = 'pw:api'  # Enable Playwright API debug logs
         os.environ['PLAYWRIGHT_DEBUG'] = '1'  # Enable additional debug info
-        # Simple initialization with persistent user data
-        self.utils = PlaywrightUtils(auto_accept_cookies=True)
+        
+        # Choose browser engine (use global default if not specified)
+        self.browser_engine = browser_engine if browser_engine is not None else BROWSER_ENGINE
+        
+        if self.browser_engine == "webkit":
+            self.utils = WebKitUtils()
+            print(f"[@controller:PlaywrightWeb] Initialized with lightweight WebKit browser (global setting)")
+        else:
+            self.utils = PlaywrightUtils(auto_accept_cookies=True)
+            print(f"[@controller:PlaywrightWeb] Initialized with Chromium browser (global setting)")
         
         # Command execution state
         self.last_command_output = ""
@@ -55,7 +76,7 @@ class PlaywrightWebController(WebControllerInterface):
         self.current_url = ""
         self.page_title = ""
         
-        print(f"[@controller:PlaywrightWeb] Initialized with async Playwright + Chrome remote debugging + auto-cookie acceptance + persistent user data")
+
     
     @property
     def is_connected(self):
@@ -82,15 +103,16 @@ class PlaywrightWebController(WebControllerInterface):
         if not self.__class__._browser_connected or not self.__class__._browser or not self.__class__._context:
             print(f"[PLAYWRIGHT]: Creating persistent browser+context+page...")
             try:
-                self.__class__._playwright, self.__class__._browser, self.__class__._context, initial_page = await self.utils.connect_to_chrome(target_url=target_url)
+                if self.browser_engine == "webkit":
+                    self.__class__._playwright, self.__class__._browser, self.__class__._context, initial_page = await self.utils.connect_to_webkit(target_url=target_url)
+                else:
+                    self.__class__._playwright, self.__class__._browser, self.__class__._context, initial_page = await self.utils.connect_to_chrome(target_url=target_url)
                 self.__class__._browser_connected = True
-                print(f"[PLAYWRIGHT]: Persistent browser+context+page established")
-                print(f"[PLAYWRIGHT]: Class state after browser connect - _chrome_running={self.__class__._chrome_running}, _browser_connected={self.__class__._browser_connected}")
+                print(f"[PLAYWRIGHT]: Persistent {self.browser_engine} browser+context+page established")
                 return initial_page
             except Exception as e:
                 error_type = type(e).__name__
-                print(f"[PLAYWRIGHT]: Failed to establish browser connection - {error_type}: {str(e)}")
-                print(f"[PLAYWRIGHT]: Chrome process state - running: {self._chrome_running}, process: {self._chrome_process}")
+                print(f"[PLAYWRIGHT]: Failed to establish {self.browser_engine} connection - {error_type}: {str(e)}")
                 raise Exception(f"Browser connection failed ({error_type}): {str(e)}")
         
         # Get existing page 0 from context (persistent page)
@@ -120,32 +142,33 @@ class PlaywrightWebController(WebControllerInterface):
             print(f"[PLAYWRIGHT]: Persistent browser+context cleaned up")
     
     def connect(self) -> bool:
-        """Connect to Chrome (launch if needed)."""
-        print(f"[PLAYWRIGHT]: connect() called - _chrome_running={self._chrome_running}, _chrome_process={self._chrome_process}")
+        """Connect to browser (launch if needed)."""
+        browser_name = self.browser_engine.upper()
+        print(f"[PLAYWRIGHT]: connect() called - _{self.browser_engine}_running={self._chrome_running}, _process={self._chrome_process}")
         
         if not self._chrome_running:
             try:
-                print(f"[PLAYWRIGHT]: Chrome not running, launching new Chrome process...")
-                self.__class__._chrome_process = self.utils.launch_chrome()
+                print(f"[PLAYWRIGHT]: {browser_name} not running, launching new process...")
+                if self.browser_engine == "webkit":
+                    self.__class__._chrome_process = self.utils.launch_webkit()
+                else:
+                    self.__class__._chrome_process = self.utils.launch_chrome()
                 self.__class__._chrome_running = True  # Always connected once launched
-                print(f"[PLAYWRIGHT]: Chrome launched with remote debugging successfully (PID: {self._chrome_process.pid})")
-                print(f"[PLAYWRIGHT]: Class state after launch - _chrome_running={self.__class__._chrome_running}, _browser_connected={self.__class__._browser_connected}")
+                print(f"[PLAYWRIGHT]: {browser_name} launched with remote debugging successfully (PID: {self._chrome_process.pid})")
                 
-                # Give Chrome a moment to start up
+                # Give browser a moment to start up
                 import time
                 time.sleep(2)
-                print(f"[PLAYWRIGHT]: Chrome startup delay completed")
+                print(f"[PLAYWRIGHT]: {browser_name} startup delay completed")
                 
             except Exception as e:
                 error_type = type(e).__name__
-                print(f"[PLAYWRIGHT]: Failed to launch Chrome - {error_type}: {str(e)}")
-                print(f"[PLAYWRIGHT]: Chrome launch error details: {e.args}")
+                print(f"[PLAYWRIGHT]: Failed to launch {browser_name} - {error_type}: {str(e)}")
                 return False
         else:
-            print(f"[PLAYWRIGHT]: Chrome process already running (PID: {self._chrome_process.pid if self._chrome_process else 'unknown'})")
+            print(f"[PLAYWRIGHT]: {browser_name} process already running (PID: {self._chrome_process.pid if self._chrome_process else 'unknown'})")
         
-        
-        print(f"[PLAYWRIGHT]: connect() completed - _chrome_running={self._chrome_running}, is_connected={self.is_connected}")
+        print(f"[PLAYWRIGHT]: connect() completed - running={self._chrome_running}, is_connected={self.is_connected}")
         return True
     
 
