@@ -294,7 +294,7 @@ vncserver -kill :1
 vncserver :1 -rfbauth ~/.vnc/passwd -rfbport 5901 -localhost no
 
 # Test FFmpeg x11grab after VNC restart
-DISPLAY=:1 ffmpeg -f x11grab -video_size 1024x768 -i :1 -frames:v 1 -update 1 -y test_ffmpeg.jpg
+DISPLAY=:1 ffmpeg -f x11grab -video_size 1280x720 -i :1 -frames:v 1 -update 1 -y test_ffmpeg.jpg
 ```
 
 ### Script Debugging

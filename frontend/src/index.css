@@ -257,7 +257,7 @@ body {
 }
 
 /* Responsive design */
-@media (max-width: 768px) {
+@media (max-width: 720px) {
   .form-container {
     padding: 16px;
   }

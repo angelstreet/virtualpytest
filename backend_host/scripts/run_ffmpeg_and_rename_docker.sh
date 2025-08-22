@@ -49,7 +49,7 @@ get_vnc_resolution() {
   local display="$1"
   local resolution=$(xdpyinfo -display "$display" 2>/dev/null | grep dimensions | awk '{print $2}')
   if [ -z "$resolution" ]; then
-    resolution="1024x768"
+    resolution="1280x720"
   fi
   echo "$resolution"
 }
@@ -95,7 +95,7 @@ start_grabber() {
   # Build FFmpeg command based on source type
   if [ "$source_type" = "v4l2" ]; then
     # Hardware video device
-    FFMPEG_CMD="/usr/bin/ffmpeg -y -f v4l2 -framerate \"$fps\" -video_size 1024x768 -i $source \
+    FFMPEG_CMD="/usr/bin/ffmpeg -y -f v4l2 -framerate \"$fps\" -video_size 1280x720 -i $source \
       -f alsa -thread_queue_size 1024 -i \"$audio_device\" \
       -filter_complex \"[0:v]split=2[stream][capture];[stream]scale=640:360[streamout];[capture]fps=1[captureout]\" \
       -map \"[streamout]\" -map 1:a \
@@ -167,7 +167,7 @@ for index in "${!GRABBERS[@]}"; do
   echo "Grabber $index:"
   echo "  Source: $source ($source_type)"
   if [ "$source_type" = "x11grab" ]; then
-    resolution=$(get_vnc_resolution "$source" 2>/dev/null || echo "1024x768")
+    resolution=$(get_vnc_resolution "$source" 2>/dev/null || echo "1280x720")
     echo "  Resolution: $resolution"
   fi
   echo "  Audio: $audio_device"

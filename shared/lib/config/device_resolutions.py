@@ -6,9 +6,9 @@ One resolution to rule them all.
 """
 
 # ONE centralized resolution for everything
-DEFAULT_DEVICE_RESOLUTION = {"width": 1024, "height": 768}
+DEFAULT_DEVICE_RESOLUTION = {"width": 1280, "height": 720}
 
 # Simple function - always returns the same resolution
 def get_device_resolution(device_model=None):
-    """Get the centralized device resolution (always 1024x768)"""
+    """Get the centralized device resolution (always 1280x720)"""
     return DEFAULT_DEVICE_RESOLUTION

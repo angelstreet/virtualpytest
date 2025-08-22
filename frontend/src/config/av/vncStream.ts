@@ -6,7 +6,7 @@ export const vncStreamConfig = {
     name: 'VNC',
     type: 'vnc_stream' as const,
     default_quality: 'high' as const,
-    supported_resolutions: [`${DEFAULT_DEVICE_RESOLUTION.width}x${DEFAULT_DEVICE_RESOLUTION.height}`, '1280x720', '1024x768', '800x600'] as const,
+    supported_resolutions: [`${DEFAULT_DEVICE_RESOLUTION.width}x${DEFAULT_DEVICE_RESOLUTION.height}`, '1280x720', '1280x720', '800x600'] as const,
     default_resolution: `${DEFAULT_DEVICE_RESOLUTION.width}x${DEFAULT_DEVICE_RESOLUTION.height}` as const,
   },
   panel_layout: {

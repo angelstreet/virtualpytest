@@ -31,7 +31,7 @@ start_vnc_services() {
     
     # Start Xvfb (virtual display)
     log "Starting Xvfb virtual display on :99"
-    Xvfb :99 -screen 0 1024x768x24 -ac +extension GLX +render -noreset &
+    Xvfb :99 -screen 0 1280x720x24 -ac +extension GLX +render -noreset &
     XVFB_PID=$!
     
     # Wait for Xvfb to start

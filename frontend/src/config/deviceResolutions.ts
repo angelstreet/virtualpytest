@@ -6,7 +6,7 @@
  */
 
 // ONE centralized resolution for everything
-export const DEFAULT_DEVICE_RESOLUTION = { width: 1024, height: 768 } as const;
+export const DEFAULT_DEVICE_RESOLUTION = { width: 1280, height: 720 } as const;
 
 export type DeviceResolution = typeof DEFAULT_DEVICE_RESOLUTION;
 

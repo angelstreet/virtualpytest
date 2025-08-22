@@ -719,7 +719,7 @@ body {{
     align-items: center;
 }}
 
-@media (max-width: 768px) {{
+@media (max-width: 720px) {{
     .summary-grid {{
         grid-template-columns: 1fr;
     }}
