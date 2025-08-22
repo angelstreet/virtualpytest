@@ -863,23 +863,45 @@ class ZapController:
                 analysis_rectangle = {'x': 300, 'y': 130, 'width': 1300, 'height': 570}
                 banner_region = {'x': 245, 'y': 830, 'width': 1170, 'height': 120}
             
-            # Use existing freeze detection with multiple screenshots
-            # Get recent screenshots for freeze analysis
-            screenshots = []
-            import os
-            captures_folder = f"{capture_folder}/captures"
+            # Use the SAME images that blackscreen detection would analyze
+            # Reconstruct the same image paths using identical logic
+            print(f"🧊 [ZapController] Getting same images that blackscreen would analyze...")
             
-            if os.path.exists(captures_folder):
-                # Get recent image files
-                image_files = [f for f in os.listdir(captures_folder) if f.endswith(('.jpg', '.png'))]
-                image_files.sort(reverse=True)  # Most recent first
+            # Use the same image collection logic as blackscreen detection
+            import os
+            from datetime import datetime
+            captures_folder = os.path.join(capture_folder, 'captures')
+            
+            if not os.path.exists(captures_folder):
+                return {
+                    "success": False,
+                    "zapping_detected": False,
+                    "detection_method": "freeze",
+                    "transition_type": "none",
+                    "blackscreen_duration": 0.0,
+                    "message": "Freeze detection failed",
+                    "error": "Captures folder not found",
+                    "details": f"Captures folder not found: {captures_folder}"
+                }
+            
+            # Get the same 10 images that blackscreen detection would analyze
+            screenshots = []
+            for i in range(10):  # Same max_images as blackscreen detection
+                target_timestamp = key_release_timestamp + i
+                target_datetime = datetime.fromtimestamp(target_timestamp)
+                target_filename = f"capture_{target_datetime.strftime('%Y%m%d%H%M%S')}.jpg"
+                target_path = os.path.join(captures_folder, target_filename)
                 
-                # Take up to 5 recent images for freeze detection
-                for i in range(min(5, len(image_files))):
-                    screenshots.append(os.path.join(captures_folder, image_files[i]))
+                if os.path.exists(target_path):
+                    screenshots.append(target_path)
+                    print(f"🧊 [ZapController] Found image {target_filename}")
+                else:
+                    print(f"🧊 [ZapController] Missing image {target_filename}")
+            
+            print(f"🧊 [ZapController] Using same {len(screenshots)} images that blackscreen analyzed")
             
             if len(screenshots) >= 2:
-                # Use existing freeze detection method
+                # Use existing freeze detection method on the SAME images
                 freeze_result = video_controller.detect_freeze(screenshots, freeze_threshold=1.0)
             else:
                 freeze_result = {"success": False, "freeze_detected": False, "message": "Not enough images for freeze detection"}
