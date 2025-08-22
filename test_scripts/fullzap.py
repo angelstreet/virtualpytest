@@ -50,7 +50,7 @@ def create_zap_controller(context: ScriptExecutionContext) -> ZapController:
 def execute_zap_actions(context: ScriptExecutionContext, action_edge, action_command: str, max_iteration: int, zap_controller: ZapController, goto_live: bool = True):
     """Execute zap actions using ZapController with simple sequential recording"""
     print(f"⚡ [fullzap] Delegating zap execution to ZapController...")
-    print(f"🎯 [fullzap] Audio menu analysis will be {'done once outside loop' if goto_live else 'skipped'}")
+    print(f"🎯 [fullzap] Audio menu analysis will be performed after zap execution")
     return zap_controller.execute_zap_iterations(context, action_edge, action_command, max_iteration, goto_live)
 
 

@@ -115,19 +115,22 @@ def create_networkx_graph(nodes: List[Dict], edges: List[Dict]) -> nx.DiGraph:
             retry_actions_list = default_set.get('retry_actions') or []
             failure_actions_list = default_set.get('failure_actions') or []
             
-            # Check if this edge has any valid actions (forward or reverse)
-            has_valid_actions = bool(actions_list)
+            # Only add edges that have actions in the forward direction (since pathfinding uses forward actions)
+            has_forward_actions = bool(actions_list)
             
-            # Also check if reverse action set (index 1) has actions
-            if len(action_sets) >= 2:
-                reverse_set = action_sets[1]
-                reverse_actions = reverse_set.get('actions', [])
-                if reverse_actions:
-                    has_valid_actions = True
-            
-            # Skip edges only if neither forward nor reverse have actions
-            if not has_valid_actions:
-                print(f"[@navigation:graph:create_networkx_graph] SKIPPING edge {source_id} → {target_id}: No actions defined in forward or reverse direction (invalid navigation path)")
+            # Skip edges that don't have forward actions (pathfinding can't execute them)
+            if not has_forward_actions:
+                # Log if edge has reverse actions but no forward actions
+                has_reverse_actions = False
+                if len(action_sets) >= 2:
+                    reverse_set = action_sets[1]
+                    reverse_actions = reverse_set.get('actions', [])
+                    has_reverse_actions = bool(reverse_actions)
+                
+                if has_reverse_actions:
+                    print(f"[@navigation:graph:create_networkx_graph] SKIPPING edge {source_id} → {target_id}: No forward actions (reverse-only edge, pathfinding can't use it)")
+                else:
+                    print(f"[@navigation:graph:create_networkx_graph] SKIPPING edge {source_id} → {target_id}: No actions in either direction")
                 edges_skipped += 1
                 continue
         

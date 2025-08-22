@@ -110,7 +110,7 @@ def analyze_audio_menu(context, current_node: str = None) -> Dict[str, Any]:
                 "message": ""
             }
             
-            # 1. Analyze audio menu
+            # 1. Analyze audio menu (via live_menu intermediate node)
             print(f"🔊 [AudioMenuAnalyzer] Checking audio menu...")
             audio_nav = goto_node(context.host, context.selected_device, "live_menu_audio", 
                                 context.tree_id, context.team_id, context)
@@ -133,7 +133,7 @@ def analyze_audio_menu(context, current_node: str = None) -> Dict[str, Any]:
                 elif audio_screenshot_path:
                     combined_result["audio_analysis"]['analyzed_screenshot'] = audio_screenshot_path
             
-            # 2. Analyze subtitle menu
+            # 2. Analyze subtitle menu (via live_menu intermediate node)
             print(f"📝 [AudioMenuAnalyzer] Checking subtitle menu...")
             subtitle_nav = goto_node(context.host, context.selected_device, "live_menu_subtitles", 
                                    context.tree_id, context.team_id, context)
