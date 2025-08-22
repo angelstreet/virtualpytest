@@ -88,7 +88,7 @@ start_grabber() {
   # Build FFmpeg command based on source type
   if [ "$source_type" = "v4l2" ]; then
     # Hardware video device
-    FFMPEG_CMD="/usr/bin/ffmpeg -y -f v4l2 -framerate \"$fps\" -video_size 1920x1080 -i $source \
+    FFMPEG_CMD="/usr/bin/ffmpeg -y -f v4l2 -framerate \"$fps\" -video_size 1024x768 -i $source \
       -f alsa -thread_queue_size 8192 -i \"$audio_device\" \
       -filter_complex \"[0:v]split=2[stream][capture];[stream]scale=640:360[streamout];[capture]fps=1[captureout]\" \
       -map \"[streamout]\" -map 1:a \
