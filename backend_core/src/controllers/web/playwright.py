@@ -85,6 +85,7 @@ class PlaywrightWebController(WebControllerInterface):
                 self.__class__._playwright, self.__class__._browser, self.__class__._context, initial_page = await self.utils.connect_to_chrome(target_url=target_url)
                 self.__class__._browser_connected = True
                 print(f"[PLAYWRIGHT]: Persistent browser+context+page established")
+                print(f"[PLAYWRIGHT]: Class state after browser connect - _chrome_running={self.__class__._chrome_running}, _browser_connected={self.__class__._browser_connected}")
                 return initial_page
             except Exception as e:
                 error_type = type(e).__name__
@@ -128,6 +129,7 @@ class PlaywrightWebController(WebControllerInterface):
                 self.__class__._chrome_process = self.utils.launch_chrome()
                 self.__class__._chrome_running = True  # Always connected once launched
                 print(f"[PLAYWRIGHT]: Chrome launched with remote debugging successfully (PID: {self._chrome_process.pid})")
+                print(f"[PLAYWRIGHT]: Class state after launch - _chrome_running={self.__class__._chrome_running}, _browser_connected={self.__class__._browser_connected}")
                 
                 # Give Chrome a moment to start up
                 import time
