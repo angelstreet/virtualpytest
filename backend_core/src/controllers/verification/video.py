@@ -708,6 +708,70 @@ class VideoVerificationController(VerificationControllerInterface):
                 'blackscreen_duration': 0.0
             }
 
+    def detect_freeze_zapping(self, folder_path: str, key_release_timestamp: float, 
+                             analysis_rectangle: Dict[str, int] = None, banner_region: Dict[str, int] = None, 
+                             max_images: int = 10) -> Dict[str, Any]:
+        """
+        Detect freeze-based zapping sequence by analyzing consecutive frames.
+        
+        Similar to detect_zapping() but looks for freeze patterns instead of blackscreen.
+        """
+        try:
+            print(f"VideoVerify[{self.device_name}]: Starting freeze zapping detection")
+            
+            # Use enhanced content helpers method for freeze detection
+            freeze_result = self.content_helpers.detect_freeze_zapping_sequence(
+                folder_path, key_release_timestamp, analysis_rectangle, max_images, banner_region
+            )
+            
+            if not freeze_result.get('success', False):
+                return {
+                    'success': False,
+                    'error': f"Freeze zapping detection failed: {freeze_result.get('error', 'Unknown error')}",
+                    'freeze_zapping_detected': False,
+                    'freeze_duration': 0.0
+                }
+            
+            # Extract channel info if banner region provided (same logic as blackscreen)
+            channel_info = freeze_result.get('channel_info', {})
+            if banner_region and freeze_result.get('first_content_after_freeze'):
+                # Try to extract channel info from first content after freeze
+                banner_result = self.ai_helpers.analyze_channel_banner_ai(
+                    freeze_result['first_content_after_freeze'], banner_region
+                )
+                if banner_result.get('success'):
+                    channel_info = banner_result.get('channel_info', {})
+            
+            success = freeze_result.get('freeze_zapping_detected', False)
+            freeze_duration = freeze_result.get('freeze_duration', 0.0)
+            
+            final_result = {
+                'success': success,
+                'freeze_zapping_detected': success,
+                'freeze_duration': freeze_duration,
+                'zapping_duration': freeze_result.get('zapping_duration', 0.0),
+                'first_image': freeze_result.get('first_image'),
+                'freeze_start_image': freeze_result.get('freeze_start_image'),
+                'freeze_end_image': freeze_result.get('freeze_end_image'),
+                'first_content_after_freeze': freeze_result.get('first_content_after_freeze'),
+                'channel_info': channel_info,
+                'analyzed_images': freeze_result.get('analyzed_images', 0),
+                'analysis_type': 'freeze_zapping_detection',
+                'details': freeze_result
+            }
+            
+            print(f"VideoVerify[{self.device_name}]: Freeze zapping detection complete - detected={success}, duration={freeze_duration}s")
+            return final_result
+            
+        except Exception as e:
+            print(f"VideoVerify[{self.device_name}]: Freeze zapping detection error: {e}")
+            return {
+                'success': False,
+                'error': f'Freeze zapping detection failed: {str(e)}',
+                'freeze_zapping_detected': False,
+                'freeze_duration': 0.0
+            }
+
     # =============================================================================
     # Utility Methods
     # =============================================================================

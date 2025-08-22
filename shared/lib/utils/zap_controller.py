@@ -84,6 +84,10 @@ class ZapStatistics:
         self.blackscreen_durations = []    # List of blackscreen durations  
         self.detected_channels = []        # List of detected channel names
         self.channel_info_results = []     # List of complete channel info results
+        
+        # Freeze detection statistics
+        self.freeze_detected_count = 0     # Count of freeze detections
+        self.detection_methods_used = []   # Track which method was used
     
     @property
     def success_rate(self) -> float:
@@ -205,6 +209,19 @@ class ZapStatistics:
         if self.audio_languages:
             print(f"   🎤 Audio languages detected: {', '.join(self.audio_languages)}")
         
+        # Show detection method (should be consistent after learning)
+        if self.detection_methods_used:
+            blackscreen_count = self.detection_methods_used.count('blackscreen')
+            freeze_count = self.detection_methods_used.count('freeze')
+            
+            if blackscreen_count > 0 and freeze_count > 0:
+                # Learning phase - show both
+                print(f"   🔍 Learning: ⬛ Blackscreen: {blackscreen_count}, 🧊 Freeze: {freeze_count}")
+            elif blackscreen_count > 0:
+                print(f"   ⬛ Detection method: Blackscreen ({blackscreen_count}/{self.total_iterations})")
+            elif freeze_count > 0:
+                print(f"   🧊 Detection method: Freeze ({freeze_count}/{self.total_iterations})")
+        
         no_motion_count = self.total_iterations - self.motion_detected_count
         if no_motion_count > 0:
             print(f"   ⚠️  {no_motion_count} zap(s) did not show content change")
@@ -215,6 +232,7 @@ class ZapController:
     
     def __init__(self):
         self.statistics = ZapStatistics()
+        self.learned_detection_method = None  # Learn on first success
     
     def analyze_after_zap(self, iteration: int, action_command: str, context) -> ZapAnalysisResult:
         """Perform comprehensive analysis after a zap action"""
@@ -312,6 +330,11 @@ class ZapController:
         # Store in context for reporting
         self._store_statistics_in_context(context, action_command)
         
+        # Show learned method
+        if self.learned_detection_method:
+            method_emoji = "⬛" if self.learned_detection_method == "blackscreen" else "🧊"
+            print(f"🧠 [ZapController] Learned detection method: {method_emoji} {self.learned_detection_method}")
+        
         return self.statistics.successful_iterations == max_iterations
     
     def _execute_single_zap(self, context, action_edge, action_command: str, iteration: int, max_iterations: int) -> bool:
@@ -374,6 +397,13 @@ class ZapController:
         if analysis_result.zapping_detected:
             self.statistics.zapping_detected_count += 1
             self.statistics.add_zapping_result(analysis_result.zapping_details)
+            
+            # Track detection method used
+            detection_method = analysis_result.zapping_details.get('detection_method', 'blackscreen')
+            self.statistics.detection_methods_used.append(detection_method)
+            
+            if detection_method == 'freeze':
+                self.statistics.freeze_detected_count += 1
         if analysis_result.detected_language:
             self.statistics.add_language(analysis_result.detected_language)
         if analysis_result.audio_language and analysis_result.audio_language != 'unknown':
@@ -647,9 +677,43 @@ class ZapController:
     # Audio menu analysis moved to dedicated audio_menu_analyzer.py
     
     def _analyze_zapping(self, context, iteration: int, action_command: str, action_end_time: float = None) -> Dict[str, Any]:
-        """Analyze zapping sequence using the new zapping detection functionality"""
+        """Smart zapping analysis - learn on first success, then stick with that method."""
+        
+        print(f"🔍 [ZapController] Analyzing zapping sequence for {action_command} (iteration {iteration})...")
+        
+        # If we already learned the method, use it directly
+        if self.learned_detection_method:
+            print(f"🧠 [ZapController] Using learned method: {self.learned_detection_method}")
+            if self.learned_detection_method == 'freeze':
+                return self._try_freeze_detection(context, iteration, action_command, action_end_time)
+            else:
+                return self._try_blackscreen_detection(context, iteration, action_command, action_end_time)
+        
+        # First time or no method learned yet - try blackscreen first
+        print(f"🔍 [ZapController] Learning phase - trying blackscreen first...")
+        zapping_result = self._try_blackscreen_detection(context, iteration, action_command, action_end_time)
+        
+        # If blackscreen succeeds, learn it
+        if zapping_result.get('zapping_detected', False):
+            self.learned_detection_method = 'blackscreen'
+            print(f"✅ [ZapController] Learned method: blackscreen (will use for all future zaps)")
+            return zapping_result
+        
+        # If blackscreen fails, try freeze as fallback
+        print(f"🔄 [ZapController] Blackscreen failed, trying freeze...")
+        zapping_result = self._try_freeze_detection(context, iteration, action_command, action_end_time)
+        
+        # If freeze succeeds, learn it
+        if zapping_result.get('zapping_detected', False):
+            self.learned_detection_method = 'freeze'
+            print(f"✅ [ZapController] Learned method: freeze (will use for all future zaps)")
+        
+        return zapping_result
+    
+    def _try_blackscreen_detection(self, context, iteration: int, action_command: str, action_end_time: float) -> Dict[str, Any]:
+        """Try blackscreen detection method - extracted existing logic."""
         try:
-            print(f"🔍 [ZapController] Analyzing zapping sequence for {action_command} (iteration {iteration})...")
+            print(f"⬛ [ZapController] Trying blackscreen detection...")
             
             device_id = context.selected_device.device_id
             
@@ -659,7 +723,96 @@ class ZapController:
                 return {"success": False, "message": f"No video verification controller found for device {device_id}"}
             
             # Get the folder path where images are captured
-            # Use the AV controller's capture path
+            av_controller = get_controller(device_id, 'av')
+            if not av_controller:
+                return {"success": False, "message": f"No AV controller found for device {device_id}"}
+            
+            capture_folder = getattr(av_controller, 'video_capture_path', None)
+            if not capture_folder:
+                return {"success": False, "message": "No capture folder available"}
+            
+            # Use action start time to catch blackscreen that happens during the action
+            key_release_timestamp = context.last_action_start_time
+            
+            # Get analysis areas (same as original)
+            device_model = context.selected_device.device_model if context.selected_device else 'unknown'
+            
+            if device_model in ['android_mobile', 'ios_mobile']:
+                analysis_rectangle = {'x': 475, 'y': 50, 'width': 325, 'height': 165}
+                banner_region = {'x': 470, 'y': 230, 'width': 280, 'height': 70}
+            else:
+                analysis_rectangle = {'x': 300, 'y': 130, 'width': 1300, 'height': 570}
+                banner_region = {'x': 245, 'y': 830, 'width': 1170, 'height': 120}
+            
+            # Call blackscreen zapping detection
+            zapping_result = video_controller.detect_zapping(
+                folder_path=capture_folder,
+                key_release_timestamp=key_release_timestamp,
+                analysis_rectangle=analysis_rectangle,
+                banner_region=banner_region,
+                max_images=10
+            )
+            
+            if zapping_result.get('success', False) and zapping_result.get('zapping_detected', False):
+                blackscreen_duration = zapping_result.get('blackscreen_duration', 0.0)
+                print(f"✅ [ZapController] Blackscreen zapping detected - Duration: {blackscreen_duration}s")
+                
+                # Add zapping images to context
+                self._add_zapping_images_to_screenshots(context, zapping_result, capture_folder)
+                
+                result = {
+                    "success": True,
+                    "zapping_detected": True,
+                    "detection_method": "blackscreen",
+                    "transition_type": "blackscreen",
+                    "blackscreen_duration": blackscreen_duration,
+                    "zapping_duration": zapping_result.get('zapping_duration', 0.0),
+                    "first_image": zapping_result.get('first_image'),
+                    "blackscreen_start_image": zapping_result.get('blackscreen_start_image'),
+                    "blackscreen_end_image": zapping_result.get('blackscreen_end_image'),
+                    "first_content_after_blackscreen": zapping_result.get('first_content_after_blackscreen'),
+                    "channel_detection_image": zapping_result.get('channel_detection_image'),
+                    "last_image": zapping_result.get('last_image'),
+                    "channel_info": zapping_result.get('channel_info', {}),
+                    "analyzed_images": zapping_result.get('analyzed_images', 0),
+                    "total_images_available": zapping_result.get('total_images_available', 0),
+                    "debug_images": zapping_result.get('debug_images', []),
+                    "message": f"Blackscreen zapping detected (analyzed {zapping_result.get('analyzed_images', 0)} images)",
+                    "details": zapping_result
+                }
+                return result
+            else:
+                print(f"❌ [ZapController] Blackscreen detection failed")
+                return {
+                    "success": False,
+                    "zapping_detected": False,
+                    "detection_method": "blackscreen",
+                    "message": "No blackscreen detected",
+                    "error": "No blackscreen detected"
+                }
+                
+        except Exception as e:
+            return {
+                "success": False,
+                "zapping_detected": False,
+                "detection_method": "blackscreen",
+                "message": f"Blackscreen detection error: {str(e)}",
+                "error": str(e)
+            }
+    
+    def _try_freeze_detection(self, context, iteration: int, action_command: str, action_end_time: float) -> Dict[str, Any]:
+        """Try freeze detection method."""
+        try:
+            print(f"🧊 [ZapController] Trying freeze detection...")
+            
+            device_id = context.selected_device.device_id
+            
+            # Get video verification controller
+            video_controller = get_controller(device_id, 'verification_video')
+            if not video_controller:
+                return {"success": False, "message": f"No video verification controller found for device {device_id}"}
+            
+            # Get AV controller for capture path
             av_controller = get_controller(device_id, 'av')
             if not av_controller:
                 return {"success": False, "message": f"No AV controller found for device {device_id}"}
@@ -669,223 +822,82 @@ class ZapController:
             if not capture_folder:
                 return {"success": False, "message": "No capture folder available"}
             
-            # Use action start time to catch blackscreen that happens during the action
+            # Use action start time for freeze detection
             key_release_timestamp = context.last_action_start_time
             
-            # Simple hardcoded areas - no more over-engineering!
+            # Use same areas as blackscreen detection
             device_model = context.selected_device.device_model if context.selected_device else 'unknown'
             
             if device_model in ['android_mobile', 'ios_mobile']:
-                # Mobile: blackscreen area 475,50 to 800,215 and banner area 470,230 to 750,300
-                analysis_rectangle = {'x': 475, 'y': 50, 'width': 325, 'height': 165}  # 800-475=325, 215-50=165
-                banner_region = {'x': 470, 'y': 230, 'width': 280, 'height': 70}  # 750-470=280, 300-230=70
-                print(f"🎯 [ZapController] Using hardcoded mobile areas:")
-                print(f"    Blackscreen: {analysis_rectangle}")
-                print(f"    Banner: {banner_region}")
+                analysis_rectangle = {'x': 475, 'y': 50, 'width': 325, 'height': 165}
+                banner_region = {'x': 470, 'y': 230, 'width': 280, 'height': 70}
             else:
-                # Desktop/TV: blackscreen area 300,130 to 1600,700 and banner area 245,830 to 1415,950
-                analysis_rectangle = {'x': 300, 'y': 130, 'width': 1300, 'height': 570}  # 1600-300=1300, 700-130=570
-                banner_region = {'x': 245, 'y': 830, 'width': 1170, 'height': 120}  # 1415-245=1170, 950-830=120
-                print(f"🎯 [ZapController] Using hardcoded desktop/TV areas:")
-                print(f"    Blackscreen: {analysis_rectangle}")
-                print(f"    Banner: {banner_region}")
+                analysis_rectangle = {'x': 300, 'y': 130, 'width': 1300, 'height': 570}
+                banner_region = {'x': 245, 'y': 830, 'width': 1170, 'height': 120}
             
-            # Call the new zapping detection method
-            # Analyze more images since we start 2 seconds earlier to catch early blackscreen
-            zapping_result = video_controller.detect_zapping(
-                folder_path=capture_folder,
-                key_release_timestamp=key_release_timestamp,
-                analysis_rectangle=analysis_rectangle,
-                banner_region=banner_region,
-                max_images=10  # Analyze up to 10 images (10 seconds of capture) to account for earlier start
-            )
+            # Use existing freeze detection with multiple screenshots
+            # Get recent screenshots for freeze analysis
+            screenshots = []
+            import os
+            captures_folder = f"{capture_folder}/captures"
             
-            if zapping_result.get('success', False):
-                # Analysis completed and zapping was detected
-                zapping_detected = zapping_result.get('zapping_detected', False)
-                blackscreen_duration = zapping_result.get('blackscreen_duration', 0.0)
-                channel_info = zapping_result.get('channel_info', {})
-                analyzed_images = zapping_result.get('analyzed_images', 0)
+            if os.path.exists(captures_folder):
+                # Get recent image files
+                image_files = [f for f in os.listdir(captures_folder) if f.endswith(('.jpg', '.png'))]
+                image_files.sort(reverse=True)  # Most recent first
                 
-                if zapping_detected:
-                    print(f"✅ [ZapController] Zapping detected - Duration: {blackscreen_duration}s")
-                    
-                    # Always show banner analysis results, regardless of detection success
-                    banner_detected = any([
-                        channel_info.get('channel_name'),
-                        channel_info.get('program_name'),
-                        channel_info.get('start_time'),
-                        channel_info.get('end_time')
-                    ])
-                    banner_status = "✅ DETECTED" if banner_detected else "❌ NOT DETECTED"
-                    print(f"🏷️ [ZapController] Banner Detection: {banner_status}")
-                    
-                    if channel_info.get('channel_name'):
-                        print(f"   📺 Channel: {channel_info['channel_name']}")
-                    if channel_info.get('program_name'):
-                        print(f"   📺 Program: {channel_info['program_name']}")
-                    if channel_info.get('start_time') and channel_info.get('end_time'):
-                        print(f"   ⏰ Time: {channel_info['start_time']}-{channel_info['end_time']}")
-                    
-                    # Show banner analysis image used
-                    banner_image = zapping_result.get('channel_detection_image') or zapping_result.get('first_content_after_blackscreen')
-                    if banner_image:
-                        print(f"   🖼️ Banner analysis image: {banner_image}")
-                    
-                    # Show banner confidence if available
-                    banner_confidence = channel_info.get('confidence', 0.0)
-                    if banner_confidence > 0:
-                        print(f"   📊 Banner confidence: {banner_confidence:.2f}")
-                    
-                    # Add zapping images to context screenshot collection for R2 upload
-                    self._add_zapping_images_to_screenshots(context, zapping_result, capture_folder)
-                    
-                    return {
-                        "success": True,
-                        "zapping_detected": True,
-                        "blackscreen_duration": blackscreen_duration,
-                        "zapping_duration": zapping_result.get('zapping_duration', 0.0),  # Total zapping duration
-                        "first_image": zapping_result.get('first_image'),
-                        "blackscreen_start_image": zapping_result.get('blackscreen_start_image'),
-                        "blackscreen_end_image": zapping_result.get('blackscreen_end_image'),
-                        "first_content_after_blackscreen": zapping_result.get('first_content_after_blackscreen'),
-                        "channel_detection_image": zapping_result.get('channel_detection_image'),
-                        "last_image": zapping_result.get('last_image'),
-                        "channel_info": channel_info,
-                        "analyzed_images": analyzed_images,
-                        "total_images_available": zapping_result.get('total_images_available', 0),
-                        "debug_images": zapping_result.get('debug_images', []),  # Include debug images
-                        "message": f"Zapping detected (analyzed {analyzed_images} images)",
-                        "details": zapping_result
-                    }
-                else:
-                    # Analysis completed but no blackscreen detected - this is an error for zapping tests
-                    print(f"❌ [ZapController] No blackscreen detected (analyzed {analyzed_images} images)")
-                    
-                    # Still show banner analysis results even when no zapping detected
-                    channel_info = zapping_result.get('channel_info', {})
-                    if channel_info:
-                        banner_detected = any([
-                            channel_info.get('channel_name'),
-                            channel_info.get('program_name'),
-                            channel_info.get('start_time'),
-                            channel_info.get('end_time')
-                        ])
-                        banner_status = "✅ DETECTED" if banner_detected else "❌ NOT DETECTED"
-                        print(f"🏷️ [ZapController] Banner Detection: {banner_status}")
-                        
-                        if channel_info.get('channel_name'):
-                            print(f"   📺 Channel: {channel_info['channel_name']}")
-                        if channel_info.get('program_name'):
-                            print(f"   📺 Program: {channel_info['program_name']}")
-                        if channel_info.get('start_time') and channel_info.get('end_time'):
-                            print(f"   ⏰ Time: {channel_info['start_time']}-{channel_info['end_time']}")
-                        
-                        # Show banner analysis image used
-                        banner_image = zapping_result.get('channel_detection_image') or zapping_result.get('first_content_after_blackscreen')
-                        if banner_image:
-                            print(f"   🖼️ Banner analysis image: {banner_image}")
-                        
-                        # Show banner confidence if available
-                        banner_confidence = channel_info.get('confidence', 0.0)
-                        if banner_confidence > 0:
-                            print(f"   📊 Banner confidence: {banner_confidence:.2f}")
-                    
-                    # Still add images for debugging
-                    self._add_zapping_images_to_screenshots(context, zapping_result, capture_folder)
-                    
-                    return {
-                        "success": False,
-                        "zapping_detected": False,
-                        # Include image paths even on failure so they show in reports
-                        "first_image": zapping_result.get('first_image'),
-                        "blackscreen_start_image": zapping_result.get('blackscreen_start_image'),
-                        "blackscreen_end_image": zapping_result.get('blackscreen_end_image'),
-                        "first_content_after_blackscreen": zapping_result.get('first_content_after_blackscreen'),
-                        "last_image": zapping_result.get('last_image'),
-                        "analyzed_images": analyzed_images,
-                        "total_images_available": zapping_result.get('total_images_available', 0),
-                        "debug_images": zapping_result.get('debug_images', []),
-                        "message": "No blackscreen detected",
-                        "error": "No blackscreen detected"
-                    }
+                # Take up to 5 recent images for freeze detection
+                for i in range(min(5, len(image_files))):
+                    screenshots.append(os.path.join(captures_folder, image_files[i]))
+            
+            if len(screenshots) >= 2:
+                # Use existing freeze detection method
+                freeze_result = video_controller.detect_freeze(screenshots, freeze_threshold=1.0)
             else:
-                # Analysis actually failed (couldn't load images, configuration error, etc.)
-                error_msg = zapping_result.get('error', f'Analysis could not be performed - no images were analyzed (folder: {capture_folder})')
-                print(f"❌ [ZapController] Zapping analysis failed: {error_msg}")
+                freeze_result = {"success": False, "freeze_detected": False, "message": "Not enough images for freeze detection"}
+            
+            if freeze_result.get('success', False) and freeze_result.get('freeze_detected', False):
+                # Calculate simple duration based on number of frozen frames
+                comparisons = freeze_result.get('comparisons', [])
+                freeze_duration = len([c for c in comparisons if c.get('is_frozen', False)]) * 1.0  # 1 second per frame
                 
-                # Show banner analysis results even when zapping analysis fails
-                channel_info = zapping_result.get('channel_info', {})
-                if channel_info:
-                    banner_detected = any([
-                        channel_info.get('channel_name'),
-                        channel_info.get('program_name'),
-                        channel_info.get('start_time'),
-                        channel_info.get('end_time')
-                    ])
-                    banner_status = "✅ DETECTED" if banner_detected else "❌ NOT DETECTED"
-                    print(f"🏷️ [ZapController] Banner Detection: {banner_status}")
-                    
-                    if channel_info.get('channel_name'):
-                        print(f"   📺 Channel: {channel_info['channel_name']}")
-                    if channel_info.get('program_name'):
-                        print(f"   📺 Program: {channel_info['program_name']}")
-                    if channel_info.get('start_time') and channel_info.get('end_time'):
-                        print(f"   ⏰ Time: {channel_info['start_time']}-{channel_info['end_time']}")
-                    
-                    # Show banner analysis image used
-                    banner_image = zapping_result.get('channel_detection_image') or zapping_result.get('first_content_after_blackscreen')
-                    if banner_image:
-                        print(f"   🖼️ Banner analysis image: {banner_image}")
-                    
-                    # Show banner confidence if available
-                    banner_confidence = channel_info.get('confidence', 0.0)
-                    if banner_confidence > 0:
-                        print(f"   📊 Banner confidence: {banner_confidence:.2f}")
-                else:
-                    print(f"🏷️ [ZapController] Banner Detection: ❌ NOT ATTEMPTED (zapping analysis failed)")
+                print(f"✅ [ZapController] Freeze zapping detected - Duration: {freeze_duration}s")
                 
-                # Still include debug images if available for debugging
-                debug_images = zapping_result.get('debug_images', [])
-                total_available = zapping_result.get('total_images_available', 0)
-                analyzed_count = zapping_result.get('analyzed_images', 0)
-                
-                # Still add images for debugging even on complete failure
-                self._add_zapping_images_to_screenshots(context, zapping_result, capture_folder)
-                
-                detailed_message = f"Zapping analysis failed: {error_msg}"
-                if total_available > 0:
-                    detailed_message += f" (found {total_available} images, analyzed {analyzed_count})"
-                
+                return {
+                    "success": True,
+                    "zapping_detected": True,
+                    "detection_method": "freeze",
+                    "transition_type": "freeze",
+                    "blackscreen_duration": freeze_duration,  # Keep same field name for compatibility
+                    "freeze_duration": freeze_duration,
+                    "zapping_duration": freeze_duration,
+                    "analyzed_images": len(screenshots),
+                    "message": f"Freeze zapping detected (analyzed {len(screenshots)} images)",
+                    "details": freeze_result
+                }
+            else:
+                print(f"❌ [ZapController] Freeze detection failed")
                 return {
                     "success": False,
                     "zapping_detected": False,
-                    # Include image paths even on complete failure so they show in reports
-                    "first_image": zapping_result.get('first_image'),
-                    "blackscreen_start_image": zapping_result.get('blackscreen_start_image'),
-                    "blackscreen_end_image": zapping_result.get('blackscreen_end_image'),
-                    "first_content_after_blackscreen": zapping_result.get('first_content_after_blackscreen'),
-                    "last_image": zapping_result.get('last_image'),
-                    "debug_images": debug_images,
-                    "analyzed_images": analyzed_count,
-                    "total_images_available": total_available,
-                    "message": detailed_message,
-                    "error": error_msg
+                    "detection_method": "freeze",
+                    "message": "No freeze detected",
+                    "error": "No freeze detected"
                 }
                 
         except Exception as e:
-            import traceback
-            error_details = f"{str(e)} | Traceback: {traceback.format_exc()}"
-            print(f"❌ [ZapController] Zapping analysis exception: {error_details}")
+            error_msg = f"Freeze detection error: {str(e)}"
+            print(f"🧊 [ZapController] {error_msg}")
             return {
-                "success": False, 
+                "success": False,
                 "zapping_detected": False,
-                "debug_images": [],
-                "message": f"Zapping analysis exception: {str(e)}",
-                "error": str(e),
-                "error_details": error_details
+                "detection_method": "freeze",
+                "message": error_msg,
+                "error": str(e)
             }
     
+
+
     def _add_zapping_images_to_screenshots(self, context, zapping_result: Dict[str, Any], capture_folder: str):
         """Add key zapping images to context screenshot collection for R2 upload"""
         try:

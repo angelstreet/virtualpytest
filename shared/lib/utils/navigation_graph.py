@@ -115,9 +115,19 @@ def create_networkx_graph(nodes: List[Dict], edges: List[Dict]) -> nx.DiGraph:
             retry_actions_list = default_set.get('retry_actions') or []
             failure_actions_list = default_set.get('failure_actions') or []
             
-            # Skip edges with no actions in populated action sets - they are invalid navigation paths
-            if not actions_list:
-                print(f"[@navigation:graph:create_networkx_graph] SKIPPING edge {source_id} → {target_id}: No actions defined (invalid navigation path)")
+            # Check if this edge has any valid actions (forward or reverse)
+            has_valid_actions = bool(actions_list)
+            
+            # Also check if reverse action set (index 1) has actions
+            if len(action_sets) >= 2:
+                reverse_set = action_sets[1]
+                reverse_actions = reverse_set.get('actions', [])
+                if reverse_actions:
+                    has_valid_actions = True
+            
+            # Skip edges only if neither forward nor reverse have actions
+            if not has_valid_actions:
+                print(f"[@navigation:graph:create_networkx_graph] SKIPPING edge {source_id} → {target_id}: No actions defined in forward or reverse direction (invalid navigation path)")
                 edges_skipped += 1
                 continue
         
@@ -151,14 +161,16 @@ def create_networkx_graph(nodes: List[Dict], edges: List[Dict]) -> nx.DiGraph:
         print(f"[@navigation:graph:create_networkx_graph]   Default Retry Actions ({len(retry_actions_list)}): {[a.get('command') for a in retry_actions_list]}")
         print(f"[@navigation:graph:create_networkx_graph]   Default Failure Actions ({len(failure_actions_list)}): {[a.get('command') for a in failure_actions_list]}")
         
-        # Add forward edge with essential data only
+        # Add forward edge with essential data only (even if forward actions are empty)
+        # This ensures reverse edges can be created when forward is empty but reverse has actions
         G.add_edge(source_id, target_id, **{
             'edge_id': edge.get('edge_id'),
             'action_sets': action_sets,
             'default_action_set_id': default_action_set_id,
             'edge_type': edge.get('edge_type', 'navigation'),
             'final_wait_time': edge.get('final_wait_time', 2000),
-            'weight': 1
+            'weight': 1,
+            'has_forward_actions': bool(actions_list)  # Track if forward direction has actions
         })
         
         # BIDIRECTIONAL FIX: Create reverse edge if action set index 1 has valid actions
