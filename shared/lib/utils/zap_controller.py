@@ -218,9 +218,9 @@ class ZapStatistics:
                 # Learning phase - show both
                 print(f"   🔍 Learning: ⬛ Blackscreen: {blackscreen_count}, 🧊 Freeze: {freeze_count}")
             elif blackscreen_count > 0:
-                print(f"   ⬛ Detection method: Blackscreen ({blackscreen_count}/{self.total_iterations})")
+                print(f"   ⬛ Detection method: Blackscreen/Freeze ({blackscreen_count}/{self.total_iterations})")
             elif freeze_count > 0:
-                print(f"   🧊 Detection method: Freeze ({freeze_count}/{self.total_iterations})")
+                print(f"   🧊 Detection method: Blackscreen/Freeze ({freeze_count}/{self.total_iterations})")
         
         no_motion_count = self.total_iterations - self.motion_detected_count
         if no_motion_count > 0:

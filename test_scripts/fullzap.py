@@ -102,7 +102,7 @@ def capture_fullzap_summary(context: ScriptExecutionContext, userinterface_name:
             avg_zap_duration = sum(zapping_durations) / len(zapping_durations)
             avg_blackscreen_duration = sum(blackscreen_durations) / len(blackscreen_durations) if blackscreen_durations else 0.0
             lines.append(f"   ⚡ Average zapping duration: {avg_zap_duration:.2f}s")
-            lines.append(f"   ⬛ Average blackscreen duration: {avg_blackscreen_duration:.2f}s")
+            lines.append(f"   ⬛ Average blackscreen/freeze duration: {avg_blackscreen_duration:.2f}s")
             
             min_zap = min(zapping_durations)
             max_zap = max(zapping_durations)

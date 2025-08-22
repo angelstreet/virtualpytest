@@ -585,7 +585,7 @@ def format_analysis_results(step: Dict) -> str:
             channel_info = zapping_analysis.get('channel_info', {})
             analyzed_images = zapping_analysis.get('analyzed_images', 0)
             
-            analysis_html += f'<div class="analysis-detail">Blackscreen Duration: {blackscreen_duration:.1f}s</div>'
+            analysis_html += f'<div class="analysis-detail">Blackscreen/Freeze Duration: {blackscreen_duration:.1f}s</div>'
             if zapping_duration > 0:
                 analysis_html += f'<div class="analysis-detail">Total Zapping Duration: {zapping_duration:.1f}s</div>'
             if analyzed_images > 0:
@@ -613,11 +613,11 @@ def format_analysis_results(step: Dict) -> str:
                 # Create modal data for complete zapping sequence (4 images)
                 images = []
                 if before_blackscreen:
-                    images.append({'url': before_blackscreen, 'label': 'Before Blackscreen'})
+                    images.append({'url': before_blackscreen, 'label': 'Before Transition'})
                 if blackscreen_start:
-                    images.append({'url': blackscreen_start, 'label': 'First Blackscreen'})
+                    images.append({'url': blackscreen_start, 'label': 'First Transition'})
                 if blackscreen_end:
-                    images.append({'url': blackscreen_end, 'label': 'Last Blackscreen'})  
+                    images.append({'url': blackscreen_end, 'label': 'Last Transition'})  
                 if first_content:
                     images.append({'url': first_content, 'label': 'First Content After'})
                 
