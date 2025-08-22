@@ -111,6 +111,7 @@ class ChromeManager:
             '--disable-session-restore',  # Disable all session restore functionality
             '--disable-background-tabs',  # Disable background tab restoration
             '--hide-crash-restore-bubble',  # Hide crash restore bubble
+            '--enable-unsafe-swiftshader',  # Enable unsafe SwiftShader for GPU acceleration
             #'--no-sandbox'  # Important for containers
         ]
     
