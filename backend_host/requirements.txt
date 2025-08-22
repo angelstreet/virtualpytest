@@ -61,3 +61,5 @@ browser-use>=0.1.0  # Browser automation
 
 networkx
 tapo
+
+#sudo apt install epiphany-browser
