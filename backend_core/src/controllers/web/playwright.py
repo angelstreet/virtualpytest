@@ -133,7 +133,7 @@ class PlaywrightWebController(WebControllerInterface):
         else:
             print(f"[PLAYWRIGHT]: Chrome process already running (PID: {self._chrome_process.pid if self._chrome_process else 'unknown'})")
         
-        self.is_connected = True
+        
         print(f"[PLAYWRIGHT]: connect() completed - _chrome_running={self._chrome_running}, is_connected={self.is_connected}")
         return True
     
