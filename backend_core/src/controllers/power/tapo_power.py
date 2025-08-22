@@ -253,7 +253,7 @@ class TapoPowerController(PowerControllerInterface):
     def get_available_actions(self) -> Dict[str, Any]:
         """Get available actions for this Tapo power controller."""
         return {
-            'Power': [
+            'power': [
                 {
                     'id': 'power_on',
                     'label': 'Power On',

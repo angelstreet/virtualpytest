@@ -76,6 +76,10 @@ def execute_action_directly(host, device, action: Dict[str, Any]) -> Dict[str, A
                 'waitForImageToAppear', 'waitForImageToDisappear'
             }
             
+            power_commands = {
+                'power_on', 'power_off', 'reboot'
+            }
+            
             # First check for controller-specific commands
             if command in web_only_commands:
                 action_type = 'web'
@@ -86,6 +90,9 @@ def execute_action_directly(host, device, action: Dict[str, Any]) -> Dict[str, A
             elif command in verification_commands:
                 action_type = 'verification'
                 print(f"[@action_utils:execute_action_directly] Verification command detected: {command}")
+            elif command in power_commands:
+                action_type = 'power'
+                print(f"[@action_utils:execute_action_directly] Power command detected: {command}")
             else:
                 # For generic commands (click_element, input_text, press_key), use device capabilities
                 try:
@@ -223,6 +230,23 @@ def execute_action_directly(host, device, action: Dict[str, Any]) -> Dict[str, A
                         }
                     
                     result = desktop_controller.execute_command(command, params)
+                    iteration_success = result.get('success', False)
+                    
+                elif action_type == 'power':
+                    # Route to power controller
+                    if iteration == 0:  # Only log routing once
+                        print(f"[@action_utils:execute_action_directly] Routing power action to power controller")
+                    
+                    power_controller = get_controller(device.device_id, 'power')
+                    if not power_controller:
+                        return {
+                            'success': False,
+                            'error': f'No power controller found for device {device.device_id}',
+                            'total_execution_time_ms': 0,
+                            'iteration_results': []
+                        }
+                    
+                    result = power_controller.execute_command(command, params)
                     iteration_success = result.get('success', False)
                     
                 else:

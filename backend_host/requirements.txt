@@ -60,3 +60,4 @@ selenium>=4.15.0  # Web automation
 browser-use>=0.1.0  # Browser automation 
 
 networkx
+tapo
