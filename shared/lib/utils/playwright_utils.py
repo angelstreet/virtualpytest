@@ -117,7 +117,7 @@ class ChromeManager:
     
     @classmethod
     def launch_chrome_with_remote_debugging(cls, debug_port: int = 9222, user_data_dir: str = "./backend_host/config/user_data", 
-                                          use_cgroup: bool = False, cpu_quota: str = "50%", memory_max: str = "1G", memory_high: str = "768M") -> subprocess.Popen:
+                                          use_cgroup: bool = False, cpu_quota: str = "100%", memory_max: str = "4G", memory_high: str = "3G") -> subprocess.Popen:
         """
         Launch Chrome with remote debugging and persistent data.
         
@@ -174,16 +174,17 @@ class ChromeManager:
         
         # Build final command with optional cgroup v2 support
         if use_cgroup:
-            print(f'[ChromeManager] Using cgroup v2 resource limits: CPU={cpu_quota}, Memory={memory_max}, MemoryHigh={memory_high}')
+            print(f'[ChromeManager] Using cgroup v2 SOFT resource limits: CPUWeight=100, MemoryHigh={memory_high}, MemorySwapMax={memory_max}')
             
-            # Build systemd-run command with cgroup v2 resource limits
+            # Build systemd-run command with cgroup v2 SOFT resource limits (throttle, don't kill)
             cmd_line = [
                 'systemd-run',
                 '--scope',
                 '--user',
-                f'-p=CPUQuota={cpu_quota}',
-                f'-p=MemoryMax={memory_max}',
-                f'-p=MemoryHigh={memory_high}',
+                f'-p=CPUWeight=100',          # Relative CPU priority (default weight)
+                f'-p=MemoryHigh={memory_high}',  # Soft memory limit - throttles but doesn't kill
+                f'-p=MemorySwapMax={memory_max}', # Allow swap usage up to memory_max
+                f'-p=OOMScoreAdjust=500',     # Make less likely to be killed by OOM killer
                 '--property=KillMode=mixed',  # Allow proper cleanup
                 '--property=Type=forking',    # Handle Chrome's forking behavior
                 '--slice=user-chrome.slice'   # Put in dedicated slice for better management
@@ -316,7 +317,7 @@ class PlaywrightUtils:
     """Main utility class combining Chrome management, Playwright operations, and cookie management."""
     
     def __init__(self, auto_accept_cookies: bool = True, user_data_dir: str = "./backend_host/config/user_data",
-                 use_cgroup: bool = False, cpu_quota: str = "50%", memory_max: str = "1G", memory_high: str = "768M"):
+                 use_cgroup: bool = False, cpu_quota: str = "100%", memory_max: str = "4G", memory_high: str = "3G"):
         """
         Initialize PlaywrightUtils with auto-sizing browser.
         
@@ -445,14 +446,14 @@ class PlaywrightUtils:
 
 # Convenience functions for external use
 def create_playwright_utils(auto_accept_cookies: bool = True, user_data_dir: str = "./backend_host/config/user_data",
-                           use_cgroup: bool = False, cpu_quota: str = "50%", memory_max: str = "1G", memory_high: str = "768M") -> PlaywrightUtils:
+                           use_cgroup: bool = False, cpu_quota: str = "100%", memory_max: str = "4G", memory_high: str = "3G") -> PlaywrightUtils:
     """Create a PlaywrightUtils instance."""
     return PlaywrightUtils(auto_accept_cookies=auto_accept_cookies, user_data_dir=user_data_dir,
                           use_cgroup=use_cgroup, cpu_quota=cpu_quota, memory_max=memory_max, memory_high=memory_high)
 
 
 def launch_chrome_for_debugging(debug_port: int = 9222, user_data_dir: str = "./backend_host/config/user_data",
-                               use_cgroup: bool = False, cpu_quota: str = "50%", memory_max: str = "1G", memory_high: str = "768M") -> subprocess.Popen:
+                               use_cgroup: bool = False, cpu_quota: str = "100%", memory_max: str = "4G", memory_high: str = "3G") -> subprocess.Popen:
     """Quick function to launch Chrome with remote debugging and persistent data."""
     resolved_user_data_dir = resolve_user_data_dir(user_data_dir)
     return ChromeManager.launch_chrome_with_remote_debugging(debug_port, user_data_dir=resolved_user_data_dir,

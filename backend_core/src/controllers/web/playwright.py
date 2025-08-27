@@ -67,8 +67,8 @@ class PlaywrightWebController(WebControllerInterface):
             self.utils = WebKitUtils()
             print(f"[@controller:PlaywrightWeb] Initialized with lightweight WebKit browser (global setting)")
         else:
-            self.utils = PlaywrightUtils(auto_accept_cookies=True)
-            print(f"[@controller:PlaywrightWeb] Initialized with Chromium browser (global setting)")
+            self.utils = PlaywrightUtils(auto_accept_cookies=True, use_cgroup=False)
+            print(f"[@controller:PlaywrightWeb] Initialized with Chromium browser (global setting, cgroup disabled)")
         
         # Command execution state
         self.last_command_output = ""
@@ -479,7 +479,30 @@ class PlaywrightWebController(WebControllerInterface):
                             'execution_time': execution_time
                         }
                     except Exception as e:
-                        print(f"[PLAYWRIGHT]: Selector {i+1} failed ({timeout}ms): {sel} - Exception: {str(e)}")
+                        error_str = str(e)
+                        print(f"[PLAYWRIGHT]: Selector {i+1} failed ({timeout}ms): {sel} - Exception: {error_str}")
+                        
+                        # Check for connection issues and attempt recovery
+                        if "Connection closed" in error_str or "Target closed" in error_str:
+                            print(f"[PLAYWRIGHT]: Connection lost during click, attempting recovery...")
+                            # Reset browser connection state to force reconnection
+                            self.__class__._browser_connected = False
+                            self.__class__._chrome_running = False
+                            # Try to get a fresh page connection
+                            try:
+                                page = await self._get_persistent_page()
+                                print(f"[PLAYWRIGHT]: Connection recovered, retrying click...")
+                                await page.click(sel, timeout=timeout)
+                                execution_time = int((time.time() - start_time) * 1000)
+                                print(f"[PLAYWRIGHT]: Click successful after recovery using selector {i+1}: {sel}")
+                                return {
+                                    'success': True,
+                                    'error': '',
+                                    'execution_time': execution_time
+                                }
+                            except Exception as recovery_error:
+                                print(f"[PLAYWRIGHT]: Recovery failed: {str(recovery_error)}")
+                        
                         continue
                 
                 # All selectors failed
