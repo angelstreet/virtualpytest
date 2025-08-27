@@ -56,9 +56,9 @@ class PlaywrightWebController(WebControllerInterface):
             browser_engine: "chromium" or "webkit" (uses BROWSER_ENGINE global if None)
         """
         super().__init__("Playwright Web", "playwright")
-        import os
-        os.environ['DEBUG'] = 'pw:api'  # Enable Playwright API debug logs
-        os.environ['PLAYWRIGHT_DEBUG'] = '1'  # Enable additional debug info
+        #import os
+        #os.environ['DEBUG'] = 'pw:api'  # Enable Playwright API debug logs
+        #os.environ['PLAYWRIGHT_DEBUG'] = '1'  # Enable additional debug info
         
         # Choose browser engine (use global default if not specified)
         self.browser_engine = browser_engine if browser_engine is not None else BROWSER_ENGINE
