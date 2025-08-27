@@ -115,8 +115,6 @@ class ChromeManager:
             '--disable-dev-shm-usage',  # Overcome limited resource problems on Pi
             '--memory-pressure-off',  # Disable memory pressure system
             '--max_old_space_size=512',  # Limit V8 heap size to 512MB
-            '--no-sandbox'  # Disable sandbox for Pi compatibility
-            
         ]
     
     @classmethod
