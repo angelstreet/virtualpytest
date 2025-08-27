@@ -115,6 +115,7 @@ class ChromeManager:
             '--memory-pressure-off',  # Disable memory pressure system
             '--max_old_space_size=512',  # Limit V8 heap size to 512MB
             '--enable-unsafe-swiftshader',  # Enable unsafe SwiftShader for GPU acceleration
+            '--disable-gpu',  # Disable GPU acceleration to prevent GPU-related crashes
         ]
     
     @classmethod
