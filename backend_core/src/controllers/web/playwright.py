@@ -102,27 +102,17 @@ class PlaywrightWebController(WebControllerInterface):
         # Ignore False values - once connected, always connected
     
     async def _get_persistent_page(self, target_url: str = None):
-        """Get the persistent page from browser+context. Creates browser+context+page if needed."""
-        # Auto-connect Chrome if not connected
-        if not self.is_connected or not self._chrome_running:
-            print(f"[PLAYWRIGHT]: Auto-connecting Chrome...")
-            self.connect()  # This launches Chrome if needed
-        
+        """Get the persistent page from browser+context. Assumes Chrome is running."""
         # Establish persistent browser+context if not exists
         if not self.__class__._browser_connected or not self.__class__._browser or not self.__class__._context:
             print(f"[PLAYWRIGHT]: Creating persistent browser+context+page...")
-            try:
-                if self.browser_engine == "webkit":
-                    self.__class__._playwright, self.__class__._browser, self.__class__._context, initial_page = await self.utils.connect_to_webkit(target_url=target_url)
-                else:
-                    self.__class__._playwright, self.__class__._browser, self.__class__._context, initial_page = await self.utils.connect_to_chrome(target_url=target_url)
-                self.__class__._browser_connected = True
-                print(f"[PLAYWRIGHT]: Persistent {self.browser_engine} browser+context+page established")
-                return initial_page
-            except Exception as e:
-                error_type = type(e).__name__
-                print(f"[PLAYWRIGHT]: Failed to establish {self.browser_engine} connection - {error_type}: {str(e)}")
-                raise Exception(f"Browser connection failed ({error_type}): {str(e)}")
+            if self.browser_engine == "webkit":
+                self.__class__._playwright, self.__class__._browser, self.__class__._context, initial_page = await self.utils.connect_to_webkit(target_url=target_url)
+            else:
+                self.__class__._playwright, self.__class__._browser, self.__class__._context, initial_page = await self.utils.connect_to_chrome(target_url=target_url)
+            self.__class__._browser_connected = True
+            print(f"[PLAYWRIGHT]: Persistent {self.browser_engine} browser+context+page established")
+            return initial_page
         
         # Get existing page 0 from context (persistent page)
         if len(self.__class__._context.pages) > 0:
@@ -183,61 +173,66 @@ class PlaywrightWebController(WebControllerInterface):
 
     
     def open_browser(self) -> Dict[str, Any]:
-        """Open/launch the browser window."""
+        """Open/launch the browser window. Simple: connect or kill+restart."""
         async def _async_open_browser():
             try:
-                print(f"[PLAYWRIGHT]: Opening browser with natural sizing")
+                print(f"[PLAYWRIGHT]: Opening browser - connect or kill+restart approach")
                 start_time = time.time()
                 
-                # First, ensure Chrome is launched (this will launch if not running)
-                if not self.is_connected:
-                    print(f"[PLAYWRIGHT]: Chrome not connected, launching...")
-                    if not self.connect():
-                        return {
-                            'success': False,
-                            'error': 'Failed to launch Chrome',
-                            'execution_time': 0,
-                            'connected': False
-                        }
-                else:
-                    print(f"[PLAYWRIGHT]: Chrome already connected")
-                
-                # Test connection to Chrome and ensure page is ready
+                # Simple approach: try to connect, if fails kill and restart
                 try:
-                    page = await self._get_persistent_page()  # Don't force navigation to google.fr
+                    # Try to connect to existing Chrome or launch new one
+                    if not self.is_connected:
+                        print(f"[PLAYWRIGHT]: Chrome not running, launching...")
+                        self.connect()
+                    
+                    # Get page - if this fails, Chrome is not responding
+                    page = await self._get_persistent_page()
+                    
+                    # Only navigate to Google if page is blank
+                    if page.url in ['about:blank', '', 'chrome://newtab/']:
+                        await page.goto('https://google.fr')
+                    
+                    # Update page state
+                    self.current_url = page.url
+                    self.page_title = await page.title()
+                    
+                    execution_time = int((time.time() - start_time) * 1000)
+                    print(f"[PLAYWRIGHT]: Browser opened and ready")
+                    return {
+                        'success': True,
+                        'error': '',
+                        'execution_time': execution_time,
+                        'connected': True
+                    }
+                    
                 except Exception as e:
-                    # Chrome is not responding, kill and relaunch
-                    if "ECONNREFUSED" in str(e) or "connect" in str(e).lower():
-                        print(f"[PLAYWRIGHT]: Chrome not responding, killing and relaunching...")
-                        self.utils.kill_chrome()
-                        self.__class__._chrome_process = None
-                        self.__class__._chrome_running = False
-                        self.__class__._browser_connected = False
-                        
-                        # Try to connect again
-                        if not self.connect():
-                            raise Exception("Failed to relaunch Chrome after connection failure")
-                        page = await self._get_persistent_page()
-                    else:
-                        raise
-                
-                # Only navigate to Google if page is blank or about:blank
-                if page.url in ['about:blank', '', 'chrome://newtab/']:
+                    # Connection failed - kill everything and restart
+                    print(f"[PLAYWRIGHT]: Connection failed ({e}), killing and restarting Chrome...")
+                    self.utils.kill_chrome()
+                    self.__class__._chrome_process = None
+                    self.__class__._chrome_running = False
+                    self.__class__._browser_connected = False
+                    
+                    # Restart Chrome
+                    self.connect()
+                    page = await self._get_persistent_page()
+                    
+                    # Navigate to Google
                     await page.goto('https://google.fr')
-                
-                # Update page state
-                self.current_url = page.url
-                self.page_title = await page.title()
-                
-                execution_time = int((time.time() - start_time) * 1000)
-                
-                print(f"[PLAYWRIGHT]: Browser opened and ready")
-                return {
-                    'success': True,
-                    'error': '',
-                    'execution_time': execution_time,
-                    'connected': True
-                }
+                    
+                    # Update page state
+                    self.current_url = page.url
+                    self.page_title = await page.title()
+                    
+                    execution_time = int((time.time() - start_time) * 1000)
+                    print(f"[PLAYWRIGHT]: Browser restarted and ready")
+                    return {
+                        'success': True,
+                        'error': '',
+                        'execution_time': execution_time,
+                        'connected': True
+                    }
                 
             except Exception as e:
                 error_msg = f"Browser open error: {e}"
@@ -352,17 +347,7 @@ class PlaywrightWebController(WebControllerInterface):
                 print(f"[PLAYWRIGHT]: Navigating to {url} (normalized: {normalized_url})")
                 start_time = time.time()
 
-                # Auto-connect if not connected
-                if not self.is_connected:
-                    print(f"[PLAYWRIGHT]: Auto-connecting browser for navigation...")
-                    if not self.connect():
-                        return {
-                            'success': False,
-                            'error': 'Failed to connect browser for navigation',
-                            'url': '',
-                            'title': '',
-                            'execution_time': int((time.time() - start_time) * 1000)
-                        }
+                # Assume Chrome is running - no auto-connect checks
 
                 # Get persistent page from browser+context
                 page = await self._get_persistent_page(target_url=normalized_url)
@@ -447,15 +432,7 @@ class PlaywrightWebController(WebControllerInterface):
                 print(f"[PLAYWRIGHT]: Clicking element: {selector}")
                 start_time = time.time()
                 
-                # Auto-connect if not connected
-                if not self.is_connected:
-                    print(f"[PLAYWRIGHT]: Auto-connecting browser for click...")
-                    if not self.connect():
-                        return {
-                            'success': False,
-                            'error': 'Failed to connect browser for click',
-                            'execution_time': int((time.time() - start_time) * 1000)
-                        }
+                # Assume Chrome is running - no auto-connect checks
                 
                 # Get persistent page from browser+context
                 connect_start = time.time()
@@ -488,30 +465,7 @@ class PlaywrightWebController(WebControllerInterface):
                             'execution_time': execution_time
                         }
                     except Exception as e:
-                        error_str = str(e)
-                        print(f"[PLAYWRIGHT]: Selector {i+1} failed ({timeout}ms): {sel} - Exception: {error_str}")
-                        
-                        # Check for connection issues and attempt recovery
-                        if "Connection closed" in error_str or "Target closed" in error_str:
-                            print(f"[PLAYWRIGHT]: Connection lost during click, attempting recovery...")
-                            # Reset browser connection state to force reconnection
-                            self.__class__._browser_connected = False
-                            self.__class__._chrome_running = False
-                            # Try to get a fresh page connection
-                            try:
-                                page = await self._get_persistent_page()
-                                print(f"[PLAYWRIGHT]: Connection recovered, retrying click...")
-                                await page.click(sel, timeout=timeout)
-                                execution_time = int((time.time() - start_time) * 1000)
-                                print(f"[PLAYWRIGHT]: Click successful after recovery using selector {i+1}: {sel}")
-                                return {
-                                    'success': True,
-                                    'error': '',
-                                    'execution_time': execution_time
-                                }
-                            except Exception as recovery_error:
-                                print(f"[PLAYWRIGHT]: Recovery failed: {str(recovery_error)}")
-                        
+                        print(f"[PLAYWRIGHT]: Selector {i+1} failed ({timeout}ms): {sel} - Exception: {str(e)}")
                         continue
                 
                 # All selectors failed
@@ -614,13 +568,7 @@ class PlaywrightWebController(WebControllerInterface):
                     'selector_attempted': selector
                 }
         
-        if not self.is_connected:
-            return {
-                'success': False,
-                'error': 'Not connected to browser',
-                'execution_time': 0
-            }
-        
+        # Assume Chrome is running - no connection checks
         return self.utils.run_async(_async_find_element())
     
     def input_text(self, selector: str, text: str, timeout: int = 30000) -> Dict[str, Any]:
@@ -656,13 +604,7 @@ class PlaywrightWebController(WebControllerInterface):
                     'execution_time': 0
                 }
         
-        if not self.is_connected:
-            return {
-                'success': False,
-                'error': 'Not connected to browser',
-                'execution_time': 0
-            }
-        
+        # Assume Chrome is running - no connection checks
         return self.utils.run_async(_async_input_text())
     
     def tap_x_y(self, x: int, y: int) -> Dict[str, Any]:
@@ -711,13 +653,7 @@ class PlaywrightWebController(WebControllerInterface):
                     'execution_time': 0
                 }
         
-        if not self.is_connected:
-            return {
-                'success': False,
-                'error': 'Not connected to browser',
-                'execution_time': 0
-            }
-        
+        # Assume Chrome is running - no connection checks
         return self.utils.run_async(_async_tap_x_y())
     
     def execute_javascript(self, script: str) -> Dict[str, Any]:
@@ -752,14 +688,7 @@ class PlaywrightWebController(WebControllerInterface):
                     'execution_time': 0
                 }
         
-        if not self.is_connected:
-            return {
-                'success': False,
-                'error': 'Not connected to browser',
-                'result': None,
-                'execution_time': 0
-            }
-        
+        # Assume Chrome is running - no connection checks
         return self.utils.run_async(_async_execute_javascript())
     
     def get_page_info(self) -> Dict[str, Any]:
@@ -800,15 +729,7 @@ class PlaywrightWebController(WebControllerInterface):
                     'execution_time': 0
                 }
         
-        if not self.is_connected:
-            return {
-                'success': False,
-                'error': 'Not connected to browser',
-                'url': '',
-                'title': '',
-                'execution_time': 0
-            }
-        
+        # Assume Chrome is running - no connection checks
         return self.utils.run_async(_async_get_page_info())
     
     def activate_semantic(self) -> Dict[str, Any]:
@@ -909,13 +830,7 @@ class PlaywrightWebController(WebControllerInterface):
                     'key_attempted': key
                 }
         
-        if not self.is_connected:
-            return {
-                'success': False,
-                'error': 'Not connected to browser',
-                'execution_time': 0
-            }
-        
+        # Assume Chrome is running - no connection checks
         return self.utils.run_async(_async_press_key())
     
     def get_status(self) -> Dict[str, Any]:
@@ -986,14 +901,7 @@ class PlaywrightWebController(WebControllerInterface):
                     'execution_time': 0
                 }
         
-        if not self.is_connected:
-            return {
-                'success': False,
-                'error': 'Not connected to browser',
-                'task': task,
-                'execution_time': 0
-            }
-        
+        # Assume Chrome is running - no connection checks
         return self.utils.run_async(_async_browser_use_task())
     
     def execute_command(self, command: str, params: Dict[str, Any] = None) -> Dict[str, Any]:
@@ -1349,14 +1257,7 @@ class PlaywrightWebController(WebControllerInterface):
                     'summary': {}
                 }
         
-        if not self.is_connected:
-            return {
-                'success': False,
-                'error': 'Not connected to browser',
-                'elements': [],
-                'summary': {}
-            }
-        
+        # Assume Chrome is running - no connection checks
         return self.utils.run_async(_async_dump_elements())
     
     def get_available_actions(self) -> Dict[str, Any]:
