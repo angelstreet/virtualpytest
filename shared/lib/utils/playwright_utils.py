@@ -111,7 +111,6 @@ class ChromeManager:
             '--disable-session-restore',  # Disable all session restore functionality
             '--disable-background-tabs',  # Disable background tab restoration
             '--hide-crash-restore-bubble',  # Hide crash restore bubble
-            '--disable-gpu',  # Disable GPU acceleration to prevent GPU-related crashes
             '--disable-dev-shm-usage',  # Overcome limited resource problems on Pi
             '--memory-pressure-off',  # Disable memory pressure system
             '--max_old_space_size=512',  # Limit V8 heap size to 512MB
