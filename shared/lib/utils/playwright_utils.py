@@ -120,7 +120,7 @@ class ChromeManager:
     
     @classmethod
     def launch_chrome_with_remote_debugging(cls, debug_port: int = 9222, user_data_dir: str = "./backend_host/config/user_data", 
-                                          use_cgroup: bool = False, cpu_quota: str = "100%", memory_max: str = "4G", memory_high: str = "3G") -> subprocess.Popen:
+                                          use_cgroup: bool = True, cpu_quota: str = "100%", memory_max: str = "4G", memory_high: str = "3G") -> subprocess.Popen:
         """
         Launch Chrome with remote debugging and persistent data.
         
