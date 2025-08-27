@@ -81,6 +81,15 @@ class PlaywrightWebController(WebControllerInterface):
     @property
     def is_connected(self):
         """Always connected once Chrome is running."""
+        # Check if Chrome process is actually still alive
+        if self.__class__._chrome_process and self.__class__._chrome_running:
+            if self.__class__._chrome_process.poll() is not None:
+                # Chrome process has died
+                print(f"[PLAYWRIGHT]: Chrome process {self.__class__._chrome_process.pid} has died (exit code: {self.__class__._chrome_process.returncode})")
+                self.__class__._chrome_running = False
+                self.__class__._browser_connected = False
+                self.__class__._chrome_process = None
+        
         result = self.__class__._chrome_running
         print(f"[PLAYWRIGHT]: is_connected check - _chrome_running={self._chrome_running}, returning {result}")
         return result

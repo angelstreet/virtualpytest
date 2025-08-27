@@ -111,8 +111,13 @@ class ChromeManager:
             '--disable-session-restore',  # Disable all session restore functionality
             '--disable-background-tabs',  # Disable background tab restoration
             '--hide-crash-restore-bubble',  # Hide crash restore bubble
-            '--enable-unsafe-swiftshader',  # Enable unsafe SwiftShader for GPU acceleration
-            #'--no-sandbox'  # Important for containers
+            '--disable-gpu',  # Disable GPU acceleration to prevent GPU-related crashes
+            '--disable-software-rasterizer',  # Disable software rasterizer
+            '--disable-dev-shm-usage',  # Overcome limited resource problems on Pi
+            '--memory-pressure-off',  # Disable memory pressure system
+            '--max_old_space_size=512',  # Limit V8 heap size to 512MB
+            '--no-sandbox',  # Disable sandbox for Pi compatibility
+            '--disable-setuid-sandbox'  # Disable setuid sandbox
         ]
     
     @classmethod
@@ -202,6 +207,10 @@ class ChromeManager:
         # Launch Chrome (with or without cgroup limits)
         process = subprocess.Popen(cmd_line, env=env)
         print(f'[ChromeManager] Chrome launched with PID: {process.pid}')
+        
+        # Add process monitoring for debugging
+        print(f'[ChromeManager] Chrome command line: {" ".join(cmd_line)}')
+        print(f'[ChromeManager] Environment DISPLAY: {env.get("DISPLAY", "not set")}')
         
         # Wait for Chrome to be ready
         cls._wait_for_chrome_ready(debug_port)
