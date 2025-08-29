@@ -194,6 +194,8 @@ def main():
                        help='Number of times to execute the action (default: 1)')
     parser.add_argument('--goto_live', type=lambda x: x.lower() == 'true', default=True,
                        help='Navigate to live node before executing actions: true or false (default: true)')
+    parser.add_argument('--skip_audio_analysis', action='store_true', default=False,
+                       help='Skip audio/subtitle menu language detection (default: false - analysis runs)')
     args = parser.parse_args()
     
     nav_msg = "with navigation to live" if args.goto_live else "without navigation to live"
@@ -329,7 +331,7 @@ def main():
         # Store summary for report
         context.execution_summary = summary_text
         
-        if zap_success:
+        if zap_success and not args.skip_audio_analysis:
             print("🎧 [fullzap] Performing audio menu analysis after zap...")
             audio_result = analyze_audio_menu(context)
             context.custom_data['audio_menu_analysis'] = audio_result
@@ -408,6 +410,8 @@ def main():
                 
                 context.step_results.append(analysis_step)
                 print(f"🎧 [fullzap] Created dedicated audio menu analysis step: {analysis_step['to_node']}")
+        elif zap_success and args.skip_audio_analysis:
+            print("⏭️ [fullzap] Skipping audio menu analysis (--skip_audio_analysis specified)")
         
         if context.overall_success:
             print("✅ [fullzap] Fullzap execution completed successfully!")
