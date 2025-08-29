@@ -40,49 +40,78 @@ CAPTURE_DIRS=(
 # Function to process a file
 process_file() {
   local filepath="$1"
+  
+  # Handle full resolution captures
   if [[ "$filepath" =~ test_capture_[0-9]+\.jpg$ ]]; then
-    if [ -f "$filepath" ]; then
-      sleep 0.1
-      start_time=$(date +%s.%N)
-      # Use current system time for timestamp
-      timestamp=$(TZ="Europe/Zurich" date +%Y%m%d%H%M%S)
-      if [ -z "$timestamp" ]; then
-        echo "Failed to generate timestamp for $filepath" >> "$RENAME_LOG"
-        return
-      fi
-      CAPTURE_DIR=$(dirname "$filepath")
-      newname="${CAPTURE_DIR}/capture_${timestamp}.jpg"
-      thumbnail="${CAPTURE_DIR}/capture_${timestamp}_thumbnail.jpg"
-      if mv -f "$filepath" "$newname" 2>>"$RENAME_LOG"; then
-        echo "Renamed $(basename "$filepath") to $(basename "$newname") at $(date)" >> "$RENAME_LOG"
-        
-        # Create thumbnail synchronously first
-        convert "$newname" -thumbnail 498x280 -strip -quality 85 "$thumbnail" 2>>"$RENAME_LOG"
-        echo "Created thumbnail $(basename "$thumbnail")" >> "$RENAME_LOG"
-        
-        # Thumbnail created - monitoring will be handled by separate capture_monitor.py service
-        echo "Created thumbnail $(basename "$thumbnail") - monitoring handled separately" >> "$RENAME_LOG"
-       
-      else
-        echo "Failed to rename $filepath to $newname" >> "$RENAME_LOG"
-      fi
-      end_time=$(date +%s.%N)
-      echo "Processed $filepath in $(echo "$end_time - $start_time" | bc) seconds" >> "$RENAME_LOG"
-      
-      # Check log sizes after processing
-      reset_log_if_large "$RENAME_LOG"
-      reset_log_if_large "$MONITORING_LOG"
-    else
-      echo "File $filepath does not exist or is not accessible" >> "$RENAME_LOG"
-    fi
+    process_capture_file "$filepath" "full"
+  # Handle thumbnail captures  
+  elif [[ "$filepath" =~ test_thumb_[0-9]+\.jpg$ ]]; then
+    process_capture_file "$filepath" "thumbnail"
   fi
 }
 
-# Check if ImageMagick is installed
-if ! command -v convert >/dev/null 2>&1; then
-  echo "ImageMagick is not installed. Please install it to create thumbnails." >> "$RENAME_LOG"
-  exit 1
-fi
+# Function to process capture files (both full-res and thumbnails)
+process_capture_file() {
+  local filepath="$1"
+  local file_type="$2"  # "full" or "thumbnail"
+  
+  if [ -f "$filepath" ]; then
+    sleep 0.1
+    start_time=$(date +%s.%N)
+    # Use current system time for timestamp
+    timestamp=$(TZ="Europe/Zurich" date +%Y%m%d%H%M%S)
+    if [ -z "$timestamp" ]; then
+      echo "Failed to generate timestamp for $filepath" >> "$RENAME_LOG"
+      return
+    fi
+    CAPTURE_DIR=$(dirname "$filepath")
+    
+    # Handle multiple images per second with sequential numbering
+    base_newname="${CAPTURE_DIR}/capture_${timestamp}"
+    
+    # Determine final filename based on type
+    if [ "$file_type" = "thumbnail" ]; then
+      newname="${base_newname}_thumbnail.jpg"
+      # Check for sequential numbering conflicts
+      counter=1
+      while [ -f "$newname" ]; do
+        newname="${base_newname}_${counter}_thumbnail.jpg"
+        ((counter++))
+      done
+    else
+      newname="${base_newname}.jpg"
+      # Check for sequential numbering conflicts
+      counter=1
+      while [ -f "$newname" ]; do
+        newname="${base_newname}_${counter}.jpg"
+        ((counter++))
+      done
+    fi
+    
+    if mv -f "$filepath" "$newname" 2>>"$RENAME_LOG"; then
+      if [[ "$newname" =~ _[0-9]+(_thumbnail)?\.jpg$ ]]; then
+        echo "Renamed $(basename "$filepath") to $(basename "$newname") (sequential #$((counter-1)), $file_type) at $(date)" >> "$RENAME_LOG"
+      else
+        echo "Renamed $(basename "$filepath") to $(basename "$newname") ($file_type) at $(date)" >> "$RENAME_LOG"
+      fi
+      
+      # No ImageMagick processing needed - thumbnails come directly from FFmpeg
+      echo "Processed $file_type image: $(basename "$newname")" >> "$RENAME_LOG"
+     
+    else
+      echo "Failed to rename $filepath to $newname" >> "$RENAME_LOG"
+    fi
+    end_time=$(date +%s.%N)
+    echo "Processed $filepath in $(echo "$end_time - $start_time" | bc) seconds" >> "$RENAME_LOG"
+    
+    # Check log sizes after processing
+    reset_log_if_large "$RENAME_LOG"
+  else
+    echo "File $filepath does not exist or is not accessible" >> "$RENAME_LOG"
+  fi
+}
+
+# Note: ImageMagick no longer needed - thumbnails generated directly by FFmpeg
 
 # Filter existing directories
 EXISTING_DIRS=()

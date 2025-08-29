@@ -87,10 +87,10 @@ start_grabber() {
 
   # Build FFmpeg command based on source type
   if [ "$source_type" = "v4l2" ]; then
-    # Hardware video device
+    # Hardware video device - Triple output: stream, full-res captures, thumbnails
     FFMPEG_CMD="/usr/bin/ffmpeg -y -f v4l2 -framerate \"$fps\" -video_size 1280x720 -i $source \
       -f alsa -thread_queue_size 8192 -i \"$audio_device\" \
-      -filter_complex \"[0:v]split=2[stream][capture];[stream]scale=640:360[streamout];[capture]fps=1[captureout]\" \
+      -filter_complex \"[0:v]split=3[stream][capture][thumb];[stream]scale=640:360[streamout];[capture]fps=$fps[captureout];[thumb]scale=498:280,fps=$fps[thumbout]\" \
       -map \"[streamout]\" -map 1:a \
       -c:v libx264 -preset veryfast -tune zerolatency -crf 28 -maxrate 1200k -bufsize 2400k -g 30 \
       -pix_fmt yuv420p -profile:v baseline -level 3.0 \
@@ -99,9 +99,11 @@ start_grabber() {
       -hls_segment_filename $capture_dir/segment_%03d.ts \
       $capture_dir/output.m3u8 \
       -map \"[captureout]\" -c:v mjpeg -q:v 5 -r 1 -f image2 \
-      $capture_dir/captures/test_capture_%06d.jpg"
+      $capture_dir/captures/test_capture_%06d.jpg \
+      -map \"[thumbout]\" -c:v mjpeg -q:v 5 -r 1 -f image2 \
+      $capture_dir/captures/test_thumb_%06d.jpg"
   elif [ "$source_type" = "x11grab" ]; then
-    # VNC display - use direct access (xhost +local:www-data already configured)
+    # VNC display - Triple output: stream, full-res captures, thumbnails
     local resolution=$(get_vnc_resolution "$source")
     
     # Simple DISPLAY export - no XAUTHORITY needed with xhost +local:
@@ -109,7 +111,7 @@ start_grabber() {
     
     FFMPEG_CMD="DISPLAY=\"$source\" /usr/bin/ffmpeg -y -f x11grab -framerate \"$fps\" -video_size $resolution -i $source \
       -an \
-      -filter_complex \"[0:v]split=2[stream][capture];[stream]scale=512:384[streamout];[capture]fps=1[captureout]\" \
+      -filter_complex \"[0:v]split=3[stream][capture][thumb];[stream]scale=512:384[streamout];[capture]fps=$fps[captureout];[thumb]scale=498:280,fps=$fps[thumbout]\" \
       -map \"[streamout]\" \
       -c:v libx264 -preset veryfast -tune zerolatency -crf 28 -maxrate 1200k -bufsize 2400k -g 30 \
       -pix_fmt yuv420p -profile:v baseline -level 3.0 \
@@ -117,7 +119,9 @@ start_grabber() {
       -hls_segment_filename $capture_dir/segment_%03d.ts \
       $capture_dir/output.m3u8 \
       -map \"[captureout]\" -c:v mjpeg -q:v 5 -r 1 -f image2 \
-      $capture_dir/captures/test_capture_%06d.jpg"
+      $capture_dir/captures/test_capture_%06d.jpg \
+      -map \"[thumbout]\" -c:v mjpeg -q:v 5 -r 1 -f image2 \
+      $capture_dir/captures/test_thumb_%06d.jpg"
   else
     echo "ERROR: Unsupported source type: $source_type"
     return 1
