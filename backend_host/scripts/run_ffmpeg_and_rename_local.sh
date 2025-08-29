@@ -4,7 +4,7 @@
 # Hardware video devices: /dev/video0, /dev/video2, etc.
 # VNC displays: :1, :99, etc. no audio for now then pulseaudio
 declare -A GRABBERS=(
-  ["1"]="/dev/video2|plughw:3,0|/var/www/html/stream/capture2|10"
+  ["0"]="/dev/video0|plughw:2,0|/var/www/html/stream/capture1|5"
   ["2"]=":1|null|/var/www/html/stream/capture3|1"
 )
 
@@ -95,7 +95,7 @@ start_grabber() {
       -c:v libx264 -preset veryfast -tune zerolatency -crf 28 -maxrate 1200k -bufsize 2400k -g 30 \
       -pix_fmt yuv420p -profile:v baseline -level 3.0 \
       -c:a aac -b:a 64k -ar 44100 -ac 2 \
-      -f hls -hls_time 2 -hls_list_size 300 -hls_flags delete_segments \
+      -f hls -hls_time 1 -hls_list_size 600 -hls_flags delete_segments+independent_segments \
       -hls_segment_filename $capture_dir/segment_%03d.ts \
       $capture_dir/output.m3u8 \
       -map \"[captureout]\" -c:v mjpeg -q:v 5 -r 1 -f image2 \
@@ -115,7 +115,7 @@ start_grabber() {
       -map \"[streamout]\" \
       -c:v libx264 -preset veryfast -tune zerolatency -crf 28 -maxrate 1200k -bufsize 2400k -g 30 \
       -pix_fmt yuv420p -profile:v baseline -level 3.0 \
-      -f hls -hls_time 2 -hls_list_size 300 -hls_flags delete_segments \
+      -f hls -hls_time 1 -hls_list_size 600 -hls_flags delete_segments+independent_segments \
       -hls_segment_filename $capture_dir/segment_%03d.ts \
       $capture_dir/output.m3u8 \
       -map \"[captureout]\" -c:v mjpeg -q:v 5 -r 1 -f image2 \
