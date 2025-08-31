@@ -71,11 +71,13 @@ export const AndroidMobileRemote = React.memo(
       selectedElement,
       selectedApp,
       isDumpingUI,
-
       isRefreshingApps,
 
-      // Actions
+      // Manual orientation
+      isLandscape,
+      toggleOrientation,
 
+      // Actions
       handleOverlayElementClick,
       handleRemoteCommand,
       clearElements,
@@ -509,6 +511,19 @@ export const AndroidMobileRemote = React.memo(
                 </Button>
               </Box>
 
+              {/* Orientation toggle */}
+              <Box sx={{ display: 'flex', gap: 0.5, mb: 1 }}>
+                <Button
+                  variant={isLandscape ? "contained" : "outlined"}
+                  size="small"
+                  onClick={toggleOrientation}
+                  disabled={!session.connected}
+                  sx={{ flex: 1 }}
+                >
+                  {isLandscape ? '🔄 Landscape' : '🔄 Portrait'}
+                </Button>
+              </Box>
+
               {/* Scroll buttons */}
               <Box sx={{ display: 'flex', gap: 0.5 }}>
                 <Button
@@ -562,14 +577,15 @@ export const AndroidMobileRemote = React.memo(
         !streamHidden
           ? createPortal(
               <AndroidMobileOverlay
-                elements={androidElements} // Can be empty array when no UI dumped yet
-                deviceWidth={hookResult.currentDeviceResolution?.width || 1080} // Use dynamic device resolution from Dump UI
-                deviceHeight={hookResult.currentDeviceResolution?.height || 2340} // Use dynamic device resolution from Dump UI
-                isVisible={captureMode === 'stream' && !streamMinimized && !streamHidden} // Only visible in stream mode, not during screenshot/video capture, and not hidden
+                elements={androidElements}
+                deviceWidth={1080} // Fixed portrait width
+                deviceHeight={2340} // Fixed portrait height
+                isVisible={captureMode === 'stream' && !streamMinimized && !streamHidden}
                 onElementClick={handleOverlayElementClick}
                 panelInfo={panelInfo}
                 host={host}
                 deviceId={deviceId}
+                isLandscape={isLandscape}
               />,
               document.body,
             )

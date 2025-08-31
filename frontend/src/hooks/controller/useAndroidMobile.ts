@@ -65,8 +65,8 @@ export function useAndroidMobile(selectedHost: Host | null, deviceId: string | n
   const [isDisconnecting, setIsDisconnecting] = useState(false);
   const [isRefreshingApps, setIsRefreshingApps] = useState(false);
   
-  // Dynamic device resolution - updated on Dump UI
-  const [currentDeviceResolution, setCurrentDeviceResolution] = useState<{width: number, height: number} | null>(null);
+  // Manual orientation state - default to portrait
+  const [isLandscape, setIsLandscape] = useState(false);
 
   // Auto-connect when host and deviceId are available
   useEffect(() => {
@@ -77,42 +77,14 @@ export function useAndroidMobile(selectedHost: Host | null, deviceId: string | n
     }
   }, [selectedHost, deviceId]);
 
-  // Fetch initial device resolution when remote is first shown
-  const fetchInitialResolution = useCallback(async () => {
-    if (!selectedHost || !deviceId) {
-      return;
-    }
-
-    try {
-      console.log('[@hook:useAndroidMobile] Fetching initial device resolution...');
-      const response = await fetch('/server/remote/getDeviceResolution', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          host: selectedHost,
-          device_id: deviceId,
-        }),
-      });
-
-      const result = await response.json();
-      if (result.success && result.device_resolution) {
-        const resolution = result.device_resolution;
-        const orientation = resolution.height > resolution.width ? 'portrait' : 'landscape';
-        
-        console.log(`[@hook:useAndroidMobile] Initial device resolution: ${resolution.width}x${resolution.height} (${orientation})`);
-        setCurrentDeviceResolution(resolution);
-      }
-    } catch (error) {
-      console.error('[@hook:useAndroidMobile] Initial resolution fetch error:', error);
-    }
-  }, [selectedHost, deviceId]);
-
-  // Fetch initial resolution when connected
-  useEffect(() => {
-    if (isConnected_internal && !currentDeviceResolution) {
-      fetchInitialResolution();
-    }
-  }, [isConnected_internal, currentDeviceResolution, fetchInitialResolution]);
+  // Toggle orientation manually
+  const toggleOrientation = useCallback(() => {
+    setIsLandscape(prev => {
+      const newOrientation = !prev;
+      console.log(`[@hook:useAndroidMobile] Manual orientation toggle: ${newOrientation ? 'landscape' : 'portrait'}`);
+      return newOrientation;
+    });
+  }, []);
 
   // Note: Debug logging removed to reduce console spam
 
@@ -200,25 +172,7 @@ export function useAndroidMobile(selectedHost: Host | null, deviceId: string | n
           console.log(`[@hook:useAndroidMobile] Updated ${result.elements.length} UI elements`);
         }
         
-        // Update device resolution if available (for orientation detection)
-        if (result.device_resolution) {
-          const newResolution = result.device_resolution;
-          const oldResolution = currentDeviceResolution;
-          
-          // Check if orientation changed
-          if (!oldResolution || 
-              newResolution.width !== oldResolution.width || 
-              newResolution.height !== oldResolution.height) {
-            
-            const oldOrientation = oldResolution ? 
-              (oldResolution.height > oldResolution.width ? 'portrait' : 'landscape') : 'unknown';
-            const newOrientation = newResolution.height > newResolution.width ? 'portrait' : 'landscape';
-            
-            console.log(`[@hook:useAndroidMobile] Device resolution updated: ${oldResolution?.width || '?'}x${oldResolution?.height || '?'} (${oldOrientation}) → ${newResolution.width}x${newResolution.height} (${newOrientation})`);
-            
-            setCurrentDeviceResolution(newResolution);
-          }
-        }
+
         
         // Update screenshot if available
         if (result.screenshot) {
@@ -230,7 +184,7 @@ export function useAndroidMobile(selectedHost: Host | null, deviceId: string | n
     } finally {
       setIsDumpingUI(false);
     }
-  }, [selectedHost, deviceId, currentDeviceResolution]);
+  }, [selectedHost, deviceId]);
 
   const refreshApps = useCallback(async () => {
     if (!selectedHost) {
@@ -388,8 +342,9 @@ export function useAndroidMobile(selectedHost: Host | null, deviceId: string | n
     isDisconnecting,
     isRefreshingApps,
     
-    // Dynamic device resolution
-    currentDeviceResolution,
+    // Manual orientation
+    isLandscape,
+    toggleOrientation,
 
     // Refs
     screenshotRef,

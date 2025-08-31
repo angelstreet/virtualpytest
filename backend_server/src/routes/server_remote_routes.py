@@ -35,25 +35,7 @@ def take_screenshot():
             'error': str(e)
         }), 500
 
-@server_remote_bp.route('/getDeviceResolution', methods=['POST'])
-def get_device_resolution():
-    """Proxy get device resolution request to selected host"""
-    try:
-        print("[@route:server_remote:get_device_resolution] Proxying get device resolution request")
-        
-        # Get request data
-        request_data = request.get_json() or {}
-        
-        # Proxy to host
-        response_data, status_code = proxy_to_host('/host/remote/getDeviceResolution', 'POST', request_data)
-        
-        return jsonify(response_data), status_code
-        
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
+
 
 @server_remote_bp.route('/screenshotAndDump', methods=['POST'])
 def screenshot_and_dump():

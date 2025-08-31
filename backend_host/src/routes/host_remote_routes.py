@@ -69,59 +69,6 @@ def take_screenshot():
             'error': f'Screenshot error: {str(e)}'
         }), 500
 
-@host_remote_bp.route('/getDeviceResolution', methods=['POST'])
-def get_device_resolution():
-    """Get current device resolution for orientation detection."""
-    try:
-        # Get device_id from request (defaults to device1)
-        data = request.get_json() or {}
-        device_id = data.get('device_id', 'device1')
-        
-        print(f"[@route:host_remote:get_device_resolution] Getting device resolution for device: {device_id}")
-        
-        # Get remote controller for the specified device
-        remote_controller = get_controller(device_id, 'remote')
-        
-        if not remote_controller:
-            device = get_device_by_id(device_id)
-            if not device:
-                return jsonify({
-                    'success': False,
-                    'error': f'Device {device_id} not found'
-                }), 404
-            
-            return jsonify({
-                'success': False,
-                'error': f'No remote controller found for device {device_id}',
-                'available_capabilities': device.get_capabilities()
-            }), 404
-        
-        print(f"[@route:host_remote:get_device_resolution] Using remote controller: {type(remote_controller).__name__}")
-        
-        # Get current device resolution
-        device_resolution = None
-        if hasattr(remote_controller, 'get_device_resolution'):
-            device_resolution = remote_controller.get_device_resolution()
-            print(f"[@route:host_remote:get_device_resolution] Current device resolution: {device_resolution}")
-        
-        if device_resolution:
-            return jsonify({
-                'success': True,
-                'device_id': device_id,
-                'device_resolution': device_resolution
-            })
-        else:
-            return jsonify({
-                'success': False,
-                'error': 'Could not get device resolution'
-            }), 500
-            
-    except Exception as e:
-        print(f"[@route:host_remote:get_device_resolution] Error: {str(e)}")
-        return jsonify({
-            'success': False,
-            'error': f'Server error: {str(e)}'
-        }), 500
 
 @host_remote_bp.route('/screenshotAndDump', methods=['POST'])
 def screenshot_and_dump():
@@ -163,19 +110,10 @@ def screenshot_and_dump():
                 remote_controller.last_ui_elements = elements
                 print(f"[@route:host_remote:screenshot_and_dump] Stored {len(elements)} elements in controller for clicking")
         
-        # Get current device resolution for orientation detection
-        device_resolution = None
-        if hasattr(remote_controller, 'get_device_resolution'):
-            device_resolution = remote_controller.get_device_resolution()
-            print(f"[@route:host_remote:screenshot_and_dump] Current device resolution: {device_resolution}")
-        
         response = {
             'success': screenshot_success and (ui_success or not hasattr(remote_controller, 'dump_ui_elements')),
             'device_id': device_id
         }
-        
-        if device_resolution:
-            response['device_resolution'] = device_resolution
         
         if screenshot_success:
             response['screenshot'] = screenshot_data

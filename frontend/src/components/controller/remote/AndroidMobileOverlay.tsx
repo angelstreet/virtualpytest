@@ -1,9 +1,9 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState } from 'react';
 
 import { PanelInfo } from '../../../types/controller/Panel_Types';
 import { AndroidElement } from '../../../types/controller/Remote_Types';
 import { getZIndex } from '../../../utils/zIndexUtils';
-import { getDeviceOrientation } from '../../../utils/userinterface/resolutionUtils';
+
 
 interface ScaledElement {
   id: string;
@@ -21,9 +21,10 @@ interface AndroidMobileOverlayProps {
   deviceHeight: number;
   isVisible: boolean;
   onElementClick?: (element: AndroidElement) => void;
-  panelInfo: PanelInfo; // Made required - no fallback to screenshot
-  host: any; // Add host for direct server calls
-  deviceId: string; // Add deviceId for API calls
+  panelInfo: PanelInfo;
+  host: any;
+  deviceId: string;
+  isLandscape: boolean; // Manual orientation toggle
 }
 
 // Same colors as the original UIElementsOverlay
@@ -39,6 +40,7 @@ export const AndroidMobileOverlay = React.memo(
     panelInfo,
     host,
     deviceId,
+    isLandscape,
   }: AndroidMobileOverlayProps) {
     const [scaledElements, setScaledElements] = useState<ScaledElement[]>([]);
     const [clickAnimation, setClickAnimation] = useState<{
@@ -56,10 +58,8 @@ export const AndroidMobileOverlay = React.memo(
       id: string;
     } | null>(null);
 
-    // Detect device orientation
-    const currentOrientation = useMemo(() => {
-      return getDeviceOrientation(deviceWidth, deviceHeight);
-    }, [deviceWidth, deviceHeight]);
+    // Simple manual orientation
+    const currentOrientation = isLandscape ? 'landscape' : 'portrait';
 
     // Add CSS animation keyframes to document head if not already present
     React.useEffect(() => {
@@ -173,7 +173,7 @@ export const AndroidMobileOverlay = React.memo(
         horizontalOffset: hOffset,
         verticalOffset: vOffset,
       };
-    }, [panelInfo, deviceWidth, deviceHeight, currentOrientation]);
+    }, [panelInfo, deviceWidth, deviceHeight, isLandscape]);
 
     // Direct server tap function - bypasses useRemoteConfigs double conversion
     const handleDirectTap = async (deviceX: number, deviceY: number) => {
