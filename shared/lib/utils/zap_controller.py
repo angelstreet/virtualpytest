@@ -1129,8 +1129,11 @@ class ZapController:
             if data_result['success'] and data_result['analysis_data']:
                 print(f"🖼️ [ZapController] Found {len(data_result['analysis_data'])} motion analysis images")
                 
+                # Reverse for chronological order (oldest first) in reports
+                analysis_data_chronological = list(reversed(data_result['analysis_data']))
+                
                 # Add the corresponding image files to screenshot collection
-                for i, file_item in enumerate(data_result['analysis_data'], 1):
+                for i, file_item in enumerate(analysis_data_chronological, 1):
                     image_filename = file_item['filename']  # e.g., "capture_20240101120000.jpg"
                     image_path = f"{capture_folder}/{image_filename}"
                     
