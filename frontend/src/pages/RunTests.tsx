@@ -693,7 +693,7 @@ const RunTests: React.FC = () => {
                     {/* Parameters on the same row */}
                     {displayParameters.length > 0 &&
                       displayParameters.map((param) => (
-                        <Box key={param.name} sx={{ minWidth: 200, flex: '1 1 200px' }}>
+                        <Box key={param.name} sx={{ minWidth: 120, flex: '1 1 120px' }}>
                           {renderParameterInput(param)}
                         </Box>
                       ))}
