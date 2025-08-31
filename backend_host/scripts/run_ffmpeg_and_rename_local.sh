@@ -4,7 +4,7 @@
 # Hardware video devices: /dev/video0, /dev/video2, etc.
 # VNC displays: :1, :99, etc. no audio for now then pulseaudio
 declare -A GRABBERS=(
-  ["0"]="/dev/video0|plughw:2,0|/var/www/html/stream/capture1|25"
+  ["0"]="/dev/video0|plughw:2,0|/var/www/html/stream/capture1|5"
   ["2"]=":1|null|/var/www/html/stream/capture3|1"
 )
 

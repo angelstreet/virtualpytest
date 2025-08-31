@@ -313,29 +313,10 @@ export const AndroidMobileOverlay = React.memo(
 
     // Handle base layer tap (lower priority, only when not clicking on elements)
     const handleBaseTap = async (event: React.MouseEvent) => {
-      // Get click coordinates relative to the viewport (fullscreen overlay)
-      const viewportX = event.clientX;
-      const viewportY = event.clientY;
-
-      // Convert viewport coordinates to panel coordinates
-      const panelX = viewportX - panelInfo.position.x;
-      const panelY = viewportY - panelInfo.position.y;
-
-      // Check if click is within panel bounds
-      if (panelX < 0 || panelX > panelInfo.size.width || panelY < 0 || panelY > panelInfo.size.height) {
-        console.log(`[@AndroidMobileOverlay] Click outside panel bounds, ignoring`);
-        return;
-      }
-
-      // Convert panel coordinates to content coordinates (accounting for offsets)
-      const contentX = panelX - horizontalOffset;
-      const contentY = panelY - verticalOffset;
-
-      // Check if click is within content area
-      if (contentX < 0 || contentX > actualContentWidth || contentY < 0 || contentY > actualContentHeight) {
-        console.log(`[@AndroidMobileOverlay] Click outside content area, ignoring`);
-        return;
-      }
+      // Get click coordinates relative to the content area overlay
+      const rect = event.currentTarget.getBoundingClientRect();
+      const contentX = event.clientX - rect.left;
+      const contentY = event.clientY - rect.top;
 
       // Use orientation-aware scaling factors
       const scaleX = actualContentWidth / deviceWidth;
@@ -345,13 +326,13 @@ export const AndroidMobileOverlay = React.memo(
       const deviceY = Math.round(contentY / scaleY);
 
       // Log coordinates
-      console.log(`[@AndroidMobileOverlay] Fullscreen tap - Viewport: (${Math.round(viewportX)}, ${Math.round(viewportY)}), Panel: (${Math.round(panelX)}, ${Math.round(panelY)}), Content: (${Math.round(contentX)}, ${Math.round(contentY)}), Device: (${deviceX}, ${deviceY})`);
+      console.log(`[@AndroidMobileOverlay] Content tap - Content: (${Math.round(contentX)}, ${Math.round(contentY)}), Device: (${deviceX}, ${deviceY})`);
 
-      // Show click animation at tap location (use panel coordinates for positioning)
+      // Show click animation at tap location (use content coordinates for positioning)
       const animationId = `base-tap-${Date.now()}`;
       setClickAnimation({ 
-        x: panelX, 
-        y: panelY, 
+        x: contentX, 
+        y: contentY, 
         id: animationId,
         deviceX,
         deviceY
@@ -360,8 +341,8 @@ export const AndroidMobileOverlay = React.memo(
       // Set coordinate display for 2 seconds
       const coordDisplayId = `coord-${Date.now()}`;
       setCoordinateDisplay({
-        x: panelX,
-        y: panelY,
+        x: contentX,
+        y: contentY,
         deviceX,
         deviceY,
         id: coordDisplayId
@@ -382,50 +363,23 @@ export const AndroidMobileOverlay = React.memo(
 
     return (
       <>
-        {/* Base transparent tap layer - Covers full screen for landscape tapping */}
+        {/* Base transparent tap layer - Only covers actual content area */}
         <div
           style={{
             position: 'fixed',
-            left: 0,
-            top: 0,
-            width: '100vw',
-            height: '100vh',
+            left: `${panelInfo.position.x + horizontalOffset}px`,
+            top: `${panelInfo.position.y + verticalOffset}px`,
+            width: `${actualContentWidth}px`,
+            height: `${actualContentHeight}px`,
             zIndex: getZIndex('ANDROID_MOBILE_OVERLAY'), // Base layer for tap detection
             contain: 'layout style size',
             willChange: 'transform',
             pointerEvents: 'auto', // Allow tapping on base layer
-            cursor: 'default', // Default cursor for fullscreen area
+            border: '1px solid rgba(0, 255, 0, 0.3)', // Subtle border for tap area
+            cursor: 'crosshair', // Crosshair cursor within actual content area
           }}
           onClick={handleBaseTap}
-        >
-          {/* Visual content area indicator - shows actual device content area */}
-          <div
-            style={{
-              position: 'absolute',
-              left: `${panelInfo.position.x + horizontalOffset}px`,
-              top: `${panelInfo.position.y + verticalOffset}px`,
-              width: `${actualContentWidth}px`,
-              height: `${actualContentHeight}px`,
-              border: '1px solid rgba(0, 255, 0, 0.3)',
-              pointerEvents: 'none',
-              boxSizing: 'border-box',
-            }}
-          />
-          
-          {/* Cursor area - crosshair only within content bounds */}
-          <div
-            style={{
-              position: 'absolute',
-              left: `${panelInfo.position.x + horizontalOffset}px`,
-              top: `${panelInfo.position.y + verticalOffset}px`,
-              width: `${actualContentWidth}px`,
-              height: `${actualContentHeight}px`,
-              cursor: 'crosshair',
-              pointerEvents: 'none', // Don't interfere with clicks, just show cursor
-              zIndex: 1,
-            }}
-          />
-        </div>
+        ></div>
 
         {/* Elements layer - Higher z-index, only visible when elements exist */}
         {scaledElements.length > 0 && (
@@ -489,8 +443,8 @@ export const AndroidMobileOverlay = React.memo(
               key={clickAnimation.id}
               style={{
                 position: 'fixed',
-                left: `${panelInfo.position.x + clickAnimation.x - 15}px`, // Use panel coordinates directly
-                top: `${panelInfo.position.y + clickAnimation.y - 15}px`,
+                left: `${panelInfo.position.x + horizontalOffset + clickAnimation.x - 15}px`, // Use content coordinates with offset
+                top: `${panelInfo.position.y + verticalOffset + clickAnimation.y - 15}px`,
                 width: '30px',
                 height: '30px',
                 borderRadius: '50%',
@@ -511,8 +465,8 @@ export const AndroidMobileOverlay = React.memo(
             key={coordinateDisplay.id}
             style={{
               position: 'fixed',
-              left: `${panelInfo.position.x + coordinateDisplay.x + 20}px`, // Use panel coordinates directly
-              top: `${panelInfo.position.y + coordinateDisplay.y - 15}px`, // Use panel coordinates directly
+              left: `${panelInfo.position.x + horizontalOffset + coordinateDisplay.x + 20}px`, // Use content coordinates with offset
+              top: `${panelInfo.position.y + verticalOffset + coordinateDisplay.y - 15}px`, // Use content coordinates with offset
               backgroundColor: 'rgba(0, 0, 0, 0.8)',
               color: 'white',
               padding: '4px 8px',
