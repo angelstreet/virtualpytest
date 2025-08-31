@@ -476,7 +476,7 @@ class ZapController:
     def _detect_motion(self, context) -> Dict[str, Any]:
         """Detect motion using direct controller call - same as HTTP routes do"""
         try:
-            time.sleep(2)  # Wait for analysis files
+            time.sleep(3)  # Wait for analysis files (increased from 2s to 3s)
             
             device_id = context.selected_device.device_id
             

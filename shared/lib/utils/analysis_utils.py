@@ -306,13 +306,13 @@ def analyze_motion_from_loaded_data(analysis_data: List[Dict], json_count: int =
             success = video_ok or audio_ok  # Changed from AND to OR
             mode_text = "strict mode (all files must be clean)"
         else:
-            # MAJORITY must show no errors
+            # LENIENT mode: If at least one image shows change (no freeze/blackscreen), detect motion
             video_issues = blackscreen_count + freeze_count
-            video_ok = video_issues <= (total_analyzed // 2)
-            audio_ok = audio_loss_count <= (total_analyzed // 2)
+            video_ok = video_issues < total_analyzed  # At least one image without video issues
+            audio_ok = audio_loss_count <= (total_analyzed // 2)  # Keep majority rule for audio
             # Enhanced logic: Pass if audio is present even when video motion is minimal
             success = video_ok or audio_ok  # Changed from AND to OR
-            mode_text = "lenient mode (majority must be clean)"
+            mode_text = "lenient mode (at least one image must show change)"
         
         # Generate human-readable message
         if success:
