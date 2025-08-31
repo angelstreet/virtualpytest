@@ -85,7 +85,7 @@ export function useAndroidMobile(selectedHost: Host | null, deviceId: string | n
 
     try {
       console.log('[@hook:useAndroidMobile] Fetching initial device resolution...');
-      const response = await fetch('/server/remote/screenshotAndDump', {
+      const response = await fetch('/server/remote/getDeviceResolution', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -101,11 +101,6 @@ export function useAndroidMobile(selectedHost: Host | null, deviceId: string | n
         
         console.log(`[@hook:useAndroidMobile] Initial device resolution: ${resolution.width}x${resolution.height} (${orientation})`);
         setCurrentDeviceResolution(resolution);
-        
-        // Also update screenshot if available
-        if (result.screenshot) {
-          setAndroidScreenshot(result.screenshot);
-        }
       }
     } catch (error) {
       console.error('[@hook:useAndroidMobile] Initial resolution fetch error:', error);

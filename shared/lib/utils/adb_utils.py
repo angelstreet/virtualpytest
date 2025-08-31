@@ -600,34 +600,38 @@ class ADBUtils:
             
     def get_device_resolution(self, device_id: str) -> Optional[Dict[str, int]]:
         """
-        Get device screen resolution.
+        Get current device screen resolution (orientation-aware).
         
         Args:
             device_id: Android device ID
             
         Returns:
-            Dictionary with width and height, or None if failed
+            Dictionary with width and height accounting for current rotation, or None if failed
         """
         try:
-            print(f"[@lib:adbUtils:get_device_resolution] Getting resolution for device {device_id}")
+            print(f"[@lib:adbUtils:get_device_resolution] Getting current resolution for device {device_id}")
             
-            command = f"adb -s {device_id} shell wm size"
+            command = f"adb -s {device_id} shell dumpsys display"
             success, stdout, stderr, exit_code = self.execute_command(command)
             
             if not success or exit_code != 0:
                 print(f"[@lib:adbUtils:get_device_resolution] Command failed: {stderr}")
                 return None
-                
-            # Parse output like "Physical size: 1080x2340"
-            match = re.search(r'(\d+)x(\d+)', stdout)
-            if not match:
-                print(f"[@lib:adbUtils:get_device_resolution] Could not parse screen resolution")
+            
+            # Look for current display dimensions in dumpsys output
+            # Pattern matches: mDisplayWidth=2340, mDisplayHeight=1080 (landscape)
+            # or mDisplayWidth=1080, mDisplayHeight=2340 (portrait)
+            width_match = re.search(r'mDisplayWidth=(\d+)', stdout)
+            height_match = re.search(r'mDisplayHeight=(\d+)', stdout)
+            
+            if not width_match or not height_match:
+                print(f"[@lib:adbUtils:get_device_resolution] Could not parse display resolution")
                 return None
                 
-            width = int(match.group(1))
-            height = int(match.group(2))
+            width = int(width_match.group(1))
+            height = int(height_match.group(1))
             
-            print(f"[@lib:adbUtils:get_device_resolution] Device resolution: {width}x{height}")
+            print(f"[@lib:adbUtils:get_device_resolution] Current resolution: {width}x{height}")
             return {'width': width, 'height': height}
             
         except Exception as e:
