@@ -327,20 +327,19 @@ export const AndroidMobileOverlay = React.memo(
         return;
       }
 
-      // Account for header height (40px) and convert to content coordinates
-      const headerHeight = 40;
+      // Convert panel coordinates to content coordinates (accounting for offsets)
       const contentX = panelX - horizontalOffset;
-      const contentY = panelY - verticalOffset - headerHeight;
+      const contentY = panelY - verticalOffset;
 
-      // Check if click is within content area (below header)
-      if (contentX < 0 || contentX > actualContentWidth || contentY < 0 || contentY > (actualContentHeight - headerHeight)) {
+      // Check if click is within content area
+      if (contentX < 0 || contentX > actualContentWidth || contentY < 0 || contentY > actualContentHeight) {
         console.log(`[@AndroidMobileOverlay] Click outside content area, ignoring`);
         return;
       }
 
-      // Use orientation-aware scaling factors (account for header)
+      // Use orientation-aware scaling factors
       const scaleX = actualContentWidth / deviceWidth;
-      const scaleY = (actualContentHeight - headerHeight) / deviceHeight;
+      const scaleY = actualContentHeight / deviceHeight;
 
       const deviceX = Math.round(contentX / scaleX);
       const deviceY = Math.round(contentY / scaleY);
@@ -395,21 +394,35 @@ export const AndroidMobileOverlay = React.memo(
             contain: 'layout style size',
             willChange: 'transform',
             pointerEvents: 'auto', // Allow tapping on base layer
-            cursor: 'crosshair', // Crosshair cursor for fullscreen tapping
+            cursor: 'default', // Default cursor for fullscreen area
           }}
           onClick={handleBaseTap}
         >
-          {/* Visual content area indicator - positioned below header */}
+          {/* Visual content area indicator - shows actual device content area */}
           <div
             style={{
               position: 'absolute',
               left: `${panelInfo.position.x + horizontalOffset}px`,
-              top: `${panelInfo.position.y + verticalOffset + 40}px`, // Add header offset
+              top: `${panelInfo.position.y + verticalOffset}px`,
               width: `${actualContentWidth}px`,
-              height: `${Math.max(0, actualContentHeight - 40)}px`, // Subtract header height
+              height: `${actualContentHeight}px`,
               border: '1px solid rgba(0, 255, 0, 0.3)',
               pointerEvents: 'none',
               boxSizing: 'border-box',
+            }}
+          />
+          
+          {/* Cursor area - crosshair only within content bounds */}
+          <div
+            style={{
+              position: 'absolute',
+              left: `${panelInfo.position.x + horizontalOffset}px`,
+              top: `${panelInfo.position.y + verticalOffset}px`,
+              width: `${actualContentWidth}px`,
+              height: `${actualContentHeight}px`,
+              cursor: 'crosshair',
+              pointerEvents: 'none', // Don't interfere with clicks, just show cursor
+              zIndex: 1,
             }}
           />
         </div>
