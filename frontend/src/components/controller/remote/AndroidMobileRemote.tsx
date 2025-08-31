@@ -95,6 +95,11 @@ export const AndroidMobileRemote = React.memo(
       session,
     } = hookResult;
 
+    // Debug: Log orientation changes in remote component
+    React.useEffect(() => {
+      console.log(`[@component:AndroidMobileRemote] Orientation: ${isLandscape ? 'landscape' : 'portrait'}`);
+    }, [isLandscape]);
+
     // Debug logging for elements state
     React.useEffect(() => {
       // Only log when elements count changes significantly or when there are errors
@@ -350,7 +355,7 @@ export const AndroidMobileRemote = React.memo(
                   }}
                   title={isLandscape ? 'Switch to Portrait' : 'Switch to Landscape'}
                 >
-                  {isLandscape ? '🔄' : '📱'}
+                  🔄
                 </Button>
               </Box>
 
@@ -583,6 +588,7 @@ export const AndroidMobileRemote = React.memo(
         !streamHidden
           ? createPortal(
               <AndroidMobileOverlay
+                key={`overlay-${isLandscape}`} // Force re-render on orientation change
                 elements={androidElements}
                 deviceWidth={1080} // Fixed portrait width
                 deviceHeight={2340} // Fixed portrait height
