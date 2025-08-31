@@ -4,14 +4,14 @@
 # Hardware video devices: /dev/video0, /dev/video2, etc.
 # VNC displays: :1, :99, etc. no audio for now then pulseaudio
 declare -A GRABBERS=(
-  ["1"]="/dev/video2|plughw:3,0|/var/www/html/stream/capture2|25"
-  ["2"]=":1|null|/var/www/html/stream/capture3|2"
+  ["0"]="/dev/video0|plughw:2,0|/var/www/html/stream/capture1|25"
+  ["2"]=":1|null|/var/www/html/stream/capture3|1"
 )
 
 # Simple log reset function - truncates log if over 30MB
 reset_log_if_large() {
   local logfile="$1" max_size_mb=30
-  
+
   # Check if log file exists and its size
   if [ -f "$logfile" ]; then
     local size_mb=$(du -m "$logfile" | cut -f1)
@@ -34,8 +34,6 @@ detect_source_type() {
     echo "unknown"
   fi
 }
-
-
 
 # Function to get VNC display resolution
 get_vnc_resolution() {
@@ -77,8 +75,6 @@ start_grabber() {
     return 1
   fi
 
-
-
   # Create capture directory
   mkdir -p "$capture_dir/captures"
 
@@ -87,15 +83,15 @@ start_grabber() {
 
   # Build FFmpeg command based on source type
   if [ "$source_type" = "v4l2" ]; then
-    # Hardware video device
+    # Hardware video device - Triple output: stream, full-res captures, thumbnails
     FFMPEG_CMD="/usr/bin/ffmpeg -y -f v4l2 -input_format mjpeg -vsync 1 -framerate  \"$fps\" -video_size 1280x720 -i $source \
       -f alsa -thread_queue_size 256 -i \"$audio_device\" \
-      -filter_complex \"[0:v]split=3[stream][capture][thumb];[stream]fps=2,scale=640:360[streamout];[capture]fps=2[captureout];[thumb]fps=2,scale=498:280[thumbout]\" \
+      -filter_complex \"[0:v]split=3[stream][capture][thumb];[stream]fps=5,scale=640:360[streamout];[capture]fps=5[captureout];[thumb]fps=5,scale=498:280[thumbout]\" \
       -map \"[streamout]\" -map 1:a \
       -c:v libx264 -preset ultrafast -tune zerolatency -crf 30 -maxrate 600k -bufsize 1200k -g 5 -keyint_min 5 \
       -pix_fmt yuv420p -profile:v baseline -level 3.0 \
       -c:a aac -b:a 32k -ar 22050 -ac 2 \
-      -f hls -hls_time 1 -hls_list_size 300 -hls_flags delete_segments+independent_segments \
+      -f hls -hls_time 1 -hls_list_size 600 -hls_flags delete_segments+independent_segments \
       -hls_segment_type mpegts -hls_segment_filename $capture_dir/segment_%03d.ts \
       $capture_dir/output.m3u8 \
       -map \"[captureout]\" -c:v mjpeg -q:v 5 -r 1 -f image2 \
@@ -103,23 +99,25 @@ start_grabber() {
       -map \"[thumbout]\" -c:v mjpeg -q:v 5 -r 1 -f image2 \
       $capture_dir/captures/test_thumb_%06d.jpg"
   elif [ "$source_type" = "x11grab" ]; then
-    # VNC display - use direct access (xhost +local:www-data already configured)
+    # VNC display - Triple output: stream, full-res captures, thumbnails
     local resolution=$(get_vnc_resolution "$source")
-    
+
     # Simple DISPLAY export - no XAUTHORITY needed with xhost +local:
     export DISPLAY="$source"
-    
+
     FFMPEG_CMD="DISPLAY=\"$source\" /usr/bin/ffmpeg -y -f x11grab -framerate \"$fps\" -video_size $resolution -i $source \
       -an \
-      -filter_complex \"[0:v]split=2[stream][capture];[stream]scale=512:384[streamout];[capture]fps=2[captureout]\" \
+      -filter_complex \"[0:v]split=3[stream][capture][thumb];[stream]scale=512:384[streamout];[capture]fps=1[captureout];[thumb]scale=498:280,fps=1[thumbout]\" \
       -map \"[streamout]\" \
       -c:v libx264 -preset veryfast -tune zerolatency -crf 28 -maxrate 1200k -bufsize 2400k -g 30 \
       -pix_fmt yuv420p -profile:v baseline -level 3.0 \
-      -f hls -hls_time 2 -hls_list_size 300 -hls_flags delete_segments \
+      -f hls -hls_time 1 -hls_list_size 600 -hls_flags delete_segments \
       -hls_segment_filename $capture_dir/segment_%03d.ts \
       $capture_dir/output.m3u8 \
       -map \"[captureout]\" -c:v mjpeg -q:v 5 -r 1 -f image2 \
-      $capture_dir/captures/test_capture_%06d.jpg"
+      $capture_dir/captures/test_capture_%06d.jpg \
+      -map \"[thumbout]\" -c:v mjpeg -q:v 5 -r 1 -f image2 \
+      $capture_dir/captures/test_thumb_%06d.jpg"
   else
     echo "ERROR: Unsupported source type: $source_type"
     return 1
@@ -156,9 +154,9 @@ start_grabber() {
 echo "=== Unified Capture Configuration ==="
 for index in "${!GRABBERS[@]}"; do
   IFS='|' read -r source audio_device capture_dir fps <<< "${GRABBERS[$index]}"
-  
+
   source_type=$(detect_source_type "$source")
-  
+
   echo "Grabber $index:"
   echo "  Source: $source ($source_type)"
   if [ "$source_type" = "x11grab" ]; then
