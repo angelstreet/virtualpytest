@@ -45,7 +45,7 @@ const DeviceStreamItem: React.FC<DeviceStreamItemProps> = ({ device, allHosts, g
   const isMobileModel = !!(deviceModel && deviceModel.toLowerCase().includes('mobile'));
   
   // Calculate sizes for grid layout - use larger height to show full content
-  const streamHeight = 250; // Increased from 200 to show more content
+  const streamHeight = 180; // Compact height for better layout
   const streamWidth = isMobileModel ? Math.round(streamHeight * (9/16)) : Math.round(streamHeight * (16/9));
 
   return (
