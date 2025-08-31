@@ -109,10 +109,19 @@ def screenshot_and_dump():
                 remote_controller.last_ui_elements = elements
                 print(f"[@route:host_remote:screenshot_and_dump] Stored {len(elements)} elements in controller for clicking")
         
+        # Get current device resolution for orientation detection
+        device_resolution = None
+        if hasattr(remote_controller, 'get_device_resolution'):
+            device_resolution = remote_controller.get_device_resolution(device_id)
+            print(f"[@route:host_remote:screenshot_and_dump] Current device resolution: {device_resolution}")
+        
         response = {
             'success': screenshot_success and (ui_success or not hasattr(remote_controller, 'dump_ui_elements')),
             'device_id': device_id
         }
+        
+        if device_resolution:
+            response['device_resolution'] = device_resolution
         
         if screenshot_success:
             response['screenshot'] = screenshot_data

@@ -64,6 +64,9 @@ export function useAndroidMobile(selectedHost: Host | null, deviceId: string | n
   const [isDumpingUI, setIsDumpingUI] = useState(false);
   const [isDisconnecting, setIsDisconnecting] = useState(false);
   const [isRefreshingApps, setIsRefreshingApps] = useState(false);
+  
+  // Dynamic device resolution - updated on Dump UI
+  const [currentDeviceResolution, setCurrentDeviceResolution] = useState<{width: number, height: number} | null>(null);
 
   // Auto-connect when host and deviceId are available
   useEffect(() => {
@@ -143,7 +146,7 @@ export function useAndroidMobile(selectedHost: Host | null, deviceId: string | n
 
     setIsDumpingUI(true);
     try {
-      const response = await fetch('/server/remote/dumpUi', {
+      const response = await fetch('/server/remote/screenshotAndDump', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -153,15 +156,44 @@ export function useAndroidMobile(selectedHost: Host | null, deviceId: string | n
       });
 
       const result = await response.json();
-      if (result.success && result.elements) {
-        setAndroidElements(result.elements);
+      if (result.success) {
+        // Update elements if available
+        if (result.elements) {
+          setAndroidElements(result.elements);
+          console.log(`[@hook:useAndroidMobile] Updated ${result.elements.length} UI elements`);
+        }
+        
+        // Update device resolution if available (for orientation detection)
+        if (result.device_resolution) {
+          const newResolution = result.device_resolution;
+          const oldResolution = currentDeviceResolution;
+          
+          // Check if orientation changed
+          if (!oldResolution || 
+              newResolution.width !== oldResolution.width || 
+              newResolution.height !== oldResolution.height) {
+            
+            const oldOrientation = oldResolution ? 
+              (oldResolution.height > oldResolution.width ? 'portrait' : 'landscape') : 'unknown';
+            const newOrientation = newResolution.height > newResolution.width ? 'portrait' : 'landscape';
+            
+            console.log(`[@hook:useAndroidMobile] Device resolution updated: ${oldResolution?.width || '?'}x${oldResolution?.height || '?'} (${oldOrientation}) → ${newResolution.width}x${newResolution.height} (${newOrientation})`);
+            
+            setCurrentDeviceResolution(newResolution);
+          }
+        }
+        
+        // Update screenshot if available
+        if (result.screenshot) {
+          setAndroidScreenshot(result.screenshot);
+        }
       }
     } catch (error) {
       console.error('[@hook:useAndroidMobile] Elements error:', error);
     } finally {
       setIsDumpingUI(false);
     }
-  }, [selectedHost, deviceId]);
+  }, [selectedHost, deviceId, currentDeviceResolution]);
 
   const refreshApps = useCallback(async () => {
     if (!selectedHost) {
@@ -318,6 +350,9 @@ export function useAndroidMobile(selectedHost: Host | null, deviceId: string | n
     isDumpingUI,
     isDisconnecting,
     isRefreshingApps,
+    
+    // Dynamic device resolution
+    currentDeviceResolution,
 
     // Refs
     screenshotRef,
