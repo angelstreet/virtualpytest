@@ -769,7 +769,11 @@ class ZapController:
             "blackscreen_duration": 0.0,
             "message": "Zapping Detection: ❌ NOT DETECTED",
             "error": "Both blackscreen and freeze detection failed",
-            "details": "No blackscreen or freeze transition detected"
+            "details": "No blackscreen or freeze transition detected",
+            # Add failure images for thumbnail display (same fields as success case)
+            "first_image": analyzed_screenshots[0] if analyzed_screenshots else None,
+            "blackscreen_start_image": analyzed_screenshots[len(analyzed_screenshots)//2] if len(analyzed_screenshots) > 2 else None,
+            "blackscreen_end_image": analyzed_screenshots[-1] if len(analyzed_screenshots) > 1 else None
         }
     
     def _try_blackscreen_detection(self, context, iteration: int, action_command: str, action_end_time: float) -> Dict[str, Any]:
