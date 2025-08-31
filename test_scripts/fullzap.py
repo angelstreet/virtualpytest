@@ -359,13 +359,28 @@ def main():
                 # Attach audio-specific analysis to audio menu steps
                 if 'menu_audio' in to_node.lower() or (to_node.lower().endswith('audiomenu') and 'subtitle' not in to_node.lower()):
                     # Create audio-only analysis for this step
+                    # For mobile devices, use menu_detected; for desktop/TV, use audio_detected
+                    device_model = context.selected_device.device_model if context.selected_device else 'unknown'
+                    if device_model in ['android_mobile', 'ios_mobile']:
+                        # Mobile: analyze_audio_menu returns direct AI result with menu_detected
+                        menu_detected = audio_result.get('menu_detected', False)
+                        audio_languages = audio_result.get('audio_languages', [])
+                        message = audio_result.get('message', 'Audio menu analysis')
+                        analyzed_screenshot = audio_result.get('analyzed_screenshot')
+                    else:
+                        # Desktop/TV: analyze_audio_menu returns combined result with audio_detected
+                        menu_detected = audio_result.get('audio_detected', False)
+                        audio_languages = audio_result.get('audio_languages', [])
+                        message = audio_result.get('audio_analysis', {}).get('message', 'Audio menu analysis')
+                        analyzed_screenshot = audio_result.get('audio_analysis', {}).get('analyzed_screenshot')
+                    
                     audio_only_analysis = {
                         'success': audio_result.get('success', False),
-                        'menu_detected': audio_result.get('audio_detected', False),
-                        'audio_languages': audio_result.get('audio_languages', []),
+                        'menu_detected': menu_detected,
+                        'audio_languages': audio_languages,
                         'subtitle_languages': [],  # Empty for audio menu step
-                        'message': audio_result.get('audio_analysis', {}).get('message', 'Audio menu analysis'),
-                        'analyzed_screenshot': audio_result.get('audio_analysis', {}).get('analyzed_screenshot')
+                        'message': message,
+                        'analyzed_screenshot': analyzed_screenshot
                     }
                     step['audio_menu_analysis'] = audio_only_analysis
                     print(f"🔊 [fullzap] Added audio-only analysis to step {i + 1}: {to_node}")
@@ -374,13 +389,28 @@ def main():
                 # Attach subtitle-specific analysis to subtitle menu steps  
                 elif 'menu_subtitles' in to_node.lower() or 'subtitle' in to_node.lower():
                     # Create subtitle-only analysis for this step
+                    # For mobile devices, use menu_detected; for desktop/TV, use subtitles_detected
+                    device_model = context.selected_device.device_model if context.selected_device else 'unknown'
+                    if device_model in ['android_mobile', 'ios_mobile']:
+                        # Mobile: analyze_audio_menu returns direct AI result with menu_detected
+                        menu_detected = audio_result.get('menu_detected', False)
+                        subtitle_languages = audio_result.get('subtitle_languages', [])
+                        message = audio_result.get('message', 'Subtitle menu analysis')
+                        analyzed_screenshot = audio_result.get('analyzed_screenshot')
+                    else:
+                        # Desktop/TV: analyze_audio_menu returns combined result with subtitles_detected
+                        menu_detected = audio_result.get('subtitles_detected', False)
+                        subtitle_languages = audio_result.get('subtitle_languages', [])
+                        message = audio_result.get('subtitle_analysis', {}).get('message', 'Subtitle menu analysis')
+                        analyzed_screenshot = audio_result.get('subtitle_analysis', {}).get('analyzed_screenshot')
+                    
                     subtitle_only_analysis = {
                         'success': audio_result.get('success', False),
-                        'menu_detected': audio_result.get('subtitles_detected', False),
+                        'menu_detected': menu_detected,
                         'audio_languages': [],  # Empty for subtitle menu step
-                        'subtitle_languages': audio_result.get('subtitle_languages', []),
-                        'message': audio_result.get('subtitle_analysis', {}).get('message', 'Subtitle menu analysis'),
-                        'analyzed_screenshot': audio_result.get('subtitle_analysis', {}).get('analyzed_screenshot')
+                        'subtitle_languages': subtitle_languages,
+                        'message': message,
+                        'analyzed_screenshot': analyzed_screenshot
                     }
                     step['audio_menu_analysis'] = subtitle_only_analysis
                     print(f"📝 [fullzap] Added subtitle-only analysis to step {i + 1}: {to_node}")
