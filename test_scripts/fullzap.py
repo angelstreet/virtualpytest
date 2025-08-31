@@ -194,8 +194,8 @@ def main():
                        help='Number of times to execute the action (default: 1)')
     parser.add_argument('--goto_live', type=lambda x: x.lower() == 'true', default=True,
                        help='Navigate to live node before executing actions: true or false (default: true)')
-    parser.add_argument('--skip_audio_analysis', action='store_true', default=False,
-                       help='Skip audio/subtitle menu language detection (default: false - analysis runs)')
+    parser.add_argument('--skip_audio_analysis', type=lambda x: x.lower() == 'true', default=False,
+                       help='Skip audio/subtitle menu language detection: true or false (default: false - analysis runs)')
     args = parser.parse_args()
     
     nav_msg = "with navigation to live" if args.goto_live else "without navigation to live"
