@@ -115,70 +115,48 @@ export const AndroidMobileOverlay = React.memo(
       };
     };
 
-    // Calculate actual content dimensions and offsets (orientation-aware)
+    // Calculate actual content dimensions and offsets - MATCH HLS Video Player logic exactly
     const { actualContentWidth, actualContentHeight, horizontalOffset, verticalOffset } = useMemo(() => {
-      if (!panelInfo || !panelInfo.deviceResolution || !panelInfo.size) {
+      if (!panelInfo || !panelInfo.size) {
         return { actualContentWidth: 0, actualContentHeight: 0, horizontalOffset: 0, verticalOffset: 0 };
       }
 
-      const deviceAspectRatio = deviceWidth / deviceHeight;
-      const panelAspectRatio = panelInfo.size.width / panelInfo.size.height;
+      // Use EXACT same logic as HLS Video Player (AndroidMobileRemote.tsx lines 152-180)
+      const headerHeight = 0; // Header already accounted for in panelInfo.position.y
+      const streamPanelWidth = panelInfo.size.width;
+      const streamPanelHeight = panelInfo.size.height;
+      
+      // Remove header from available height (same as HLS video)
+      const streamContentHeight = streamPanelHeight - headerHeight;
+      
+      // Use same device aspect ratio calculation as HLS video
+      const deviceAspectRatio = currentOrientation === 'landscape' 
+        ? deviceHeight / deviceWidth  // Landscape: height/width (e.g., 1080/2340)
+        : deviceWidth / deviceHeight; // Portrait: width/height (e.g., 1080/2340)
+      
+      // Calculate width based on height (same as HLS video)
+      const streamContentWidth = streamContentHeight / deviceAspectRatio;
+      
+      // Center horizontally (same as HLS video)
+      const hOffset = (streamPanelWidth - streamContentWidth) / 2;
+      const vOffset = headerHeight; // Position below header (same as HLS video)
 
-      let actualWidth, actualHeight, hOffset, vOffset;
-
-      if (currentOrientation === 'portrait') {
-        // Portrait: Height is reference, calculate width
-        if (deviceAspectRatio <= panelAspectRatio) {
-          // Device is narrower than panel - fit by height
-          actualHeight = panelInfo.size.height;
-          actualWidth = actualHeight * deviceAspectRatio;
-          hOffset = (panelInfo.size.width - actualWidth) / 2;
-          vOffset = 0;
-        } else {
-          // Device is wider than panel - fit by width
-          actualWidth = panelInfo.size.width;
-          actualHeight = actualWidth / deviceAspectRatio;
-          hOffset = 0;
-          vOffset = (panelInfo.size.height - actualHeight) / 2;
-        }
-      } else {
-        // Landscape: Width is reference, calculate height
-        if (deviceAspectRatio >= panelAspectRatio) {
-          // Device is wider than panel - fit by width
-          actualWidth = panelInfo.size.width;
-          actualHeight = actualWidth / deviceAspectRatio;
-          hOffset = 0;
-          vOffset = (panelInfo.size.height - actualHeight) / 2;
-        } else {
-          // Device is narrower than panel - fit by height
-          actualHeight = panelInfo.size.height;
-          actualWidth = actualHeight * deviceAspectRatio;
-          hOffset = (panelInfo.size.width - actualWidth) / 2;
-          vOffset = 0;
-        }
-      }
-
-      console.log('[@AndroidMobileOverlay] Orientation-aware content calculated:', {
+      console.log('[@AndroidMobileOverlay] HLS-matched content calculated:', {
         orientation: currentOrientation,
         deviceAspectRatio,
-        panelAspectRatio,
-        deviceWidth,
-        deviceHeight,
-        panelWidth: panelInfo.size.width,
-        panelHeight: panelInfo.size.height,
-        actualWidth,
-        actualHeight,
-        hOffset,
-        vOffset,
+        streamContentWidth: Math.round(streamContentWidth),
+        streamContentHeight: Math.round(streamContentHeight),
+        horizontalOffset: Math.round(hOffset),
+        verticalOffset: Math.round(vOffset),
       });
 
       return {
-        actualContentWidth: actualWidth,
-        actualContentHeight: actualHeight,
+        actualContentWidth: streamContentWidth,
+        actualContentHeight: streamContentHeight,
         horizontalOffset: hOffset,
         verticalOffset: vOffset,
       };
-    }, [panelInfo, deviceWidth, deviceHeight, isLandscape]);
+    }, [panelInfo, deviceWidth, deviceHeight, isLandscape, currentOrientation]);
 
     // Direct server tap function - bypasses useRemoteConfigs double conversion
     const handleDirectTap = async (deviceX: number, deviceY: number) => {
