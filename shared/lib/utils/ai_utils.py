@@ -232,6 +232,12 @@ CATEGORIZATION RULES:
 - Set selected_audio/selected_subtitle to the index of the currently selected option (-1 if none)
 - Check for visual indicators like checkmarks (✓), highlighting, arrows, or bold text
 
+SPECIAL AUDIO HANDLING:
+- "Audio description" or "Audio Description" should be treated as an audio language option
+- If you see "Audio description" in an AUDIO section, include it as "Audio Description" in audio_languages
+- Even standalone audio accessibility options count as audio language choices
+- Look for any audio-related options like "Descriptive Audio", "AD", "Audio Description", etc.
+
 IMPORTANT: Even if the image has no language/subtitle menu, you MUST respond with the "menu_detected": false JSON format above. Never return empty content.
 
 RESPOND WITH JSON ONLY - NO MARKDOWN - NO OTHER TEXT"""
