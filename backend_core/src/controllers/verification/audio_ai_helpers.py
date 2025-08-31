@@ -50,16 +50,16 @@ class AudioAIHelpers:
     # Audio Segment Retrieval
     # =============================================================================
     
-    def get_recent_audio_segments(self, segment_count: int = 5, segment_duration: int = None) -> List[str]:
+    def get_recent_audio_segments(self, segment_count: int = 3, segment_duration: int = None) -> List[str]:
         """
-        Retrieve and merge the last N audio segments from video capture into a single file.
+        Retrieve the last N audio segments from video capture.
         
         Args:
-            segment_count: Number of recent segments to retrieve and merge (default: 5)
+            segment_count: Number of recent segments to retrieve (default: 3)
             segment_duration: Duration of each segment in seconds (default: uses HLS_SEGMENT_DURATION from AVControllerInterface)
             
         Returns:
-            List with single merged audio file path (WAV format) ready for AI analysis
+            List of audio file paths (WAV format) ready for AI analysis
         """
         try:
             # Use global HLS segment duration if not specified
@@ -115,75 +115,55 @@ class AudioAIHelpers:
                     print(f"AudioAI[{self.device_name}]: Checked folder: {capture_folder}")
                     return []
             
-            # Extract and merge audio from HLS segment files into single file
+            # Extract audio from HLS segment files
+            audio_files = []
             temp_dir = tempfile.gettempdir()
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S_%f')[:-3]
             
             print(f"AudioAI[{self.device_name}]: Found {len(recent_files)} recent HLS segments for audio extraction")
             
-            # Create input file list for FFmpeg concat
-            concat_list_path = os.path.join(temp_dir, f"concat_list_{timestamp}.txt")
-            merged_audio_path = os.path.join(temp_dir, f"merged_audio_{timestamp}.wav")
-            
-            try:
-                # Create concat list file for FFmpeg
-                with open(concat_list_path, 'w') as f:
-                    for ts_file in recent_files:
-                        # Escape file paths for FFmpeg concat
-                        escaped_path = ts_file['path'].replace("'", "'\"'\"'")
-                        f.write(f"file '{escaped_path}'\n")
-                
-                # First check if any segment has audio streams
-                has_audio = False
-                for ts_file in recent_files[:1]:  # Check first file only for efficiency
-                    check_cmd = ['ffprobe', '-v', 'quiet', '-show_streams', '-select_streams', 'a', ts_file['path']]
-                    check_result = subprocess.run(check_cmd, capture_output=True, text=True)
-                    if check_result.returncode == 0 and check_result.stdout.strip():
-                        has_audio = True
-                        break
-                
-                if not has_audio:
-                    print(f"AudioAI[{self.device_name}]: HLS segments contain no audio streams (host uses -an flag)")
-                    print(f"AudioAI[{self.device_name}]: Audio analysis not available for this capture setup")
-                    return []
-                
-                # Merge all segments into single audio file using FFmpeg concat
-                cmd = [
-                    'ffmpeg', '-y',  # -y to overwrite existing files
-                    '-f', 'concat',
-                    '-safe', '0',
-                    '-i', concat_list_path,
-                    '-vn',  # No video
-                    '-acodec', 'pcm_s16le',  # WAV format
-                    '-ar', '16000',  # 16kHz sample rate (good for speech)
-                    '-ac', '1',  # Mono
-                    merged_audio_path
-                ]
-                
-                result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
-                
-                if result.returncode == 0 and os.path.exists(merged_audio_path):
-                    # Verify the merged audio file has content
-                    if os.path.getsize(merged_audio_path) > 1024:  # At least 1KB
-                        total_duration = len(recent_files) * segment_duration  # Use global segment duration
-                        print(f"AudioAI[{self.device_name}]: Successfully merged {len(recent_files)} segments into {total_duration}s audio file")
-                        return [merged_audio_path]  # Return single merged file
-                    else:
-                        print(f"AudioAI[{self.device_name}]: Merged audio file is too small, skipping")
-                        if os.path.exists(merged_audio_path):
-                            os.unlink(merged_audio_path)
-                        return []
-                else:
-                    print(f"AudioAI[{self.device_name}]: Failed to merge HLS segments: {result.stderr}")
-                    return []
+            for i, ts_file in enumerate(recent_files):
+                try:
+                    # Create temporary audio file
+                    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S_%f')[:-3]
+                    audio_filename = f"audio_segment_{i}_{timestamp}.wav"
+                    audio_path = os.path.join(temp_dir, audio_filename)
                     
-            except Exception as e:
-                print(f"AudioAI[{self.device_name}]: Error merging HLS segments: {e}")
+                    # Extract audio using ffmpeg from HLS segment
+                    # TS files are already 2-second segments, so no duration needed
+                    cmd = [
+                        'ffmpeg', '-y',  # -y to overwrite existing files
+                        '-i', ts_file['path'],
+                        '-vn',  # No video
+                        '-acodec', 'pcm_s16le',  # WAV format
+                        '-ar', '16000',  # 16kHz sample rate (good for speech)
+                        '-ac', '1',  # Mono
+                        audio_path
+                    ]
+                    
+                    result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+                    
+                    if result.returncode == 0 and os.path.exists(audio_path):
+                        # Verify the audio file has content
+                        if os.path.getsize(audio_path) > 1024:  # At least 1KB
+                            audio_files.append(audio_path)
+                            print(f"AudioAI[{self.device_name}]: Extracted audio segment {i+1}: {os.path.basename(audio_path)}")
+                        else:
+                            print(f"AudioAI[{self.device_name}]: Audio segment {i+1} is too small, skipping")
+                            if os.path.exists(audio_path):
+                                os.unlink(audio_path)
+                    else:
+                        print(f"AudioAI[{self.device_name}]: Failed to extract audio from segment {i+1}: {result.stderr}")
+                        
+                except Exception as e:
+                    print(f"AudioAI[{self.device_name}]: Error processing segment {i+1}: {e}")
+                    continue
+            
+            if not audio_files:
+                print(f"AudioAI[{self.device_name}]: No audio files extracted from HLS segments")
                 return []
-            finally:
-                # Clean up concat list file
-                if os.path.exists(concat_list_path):
-                    os.unlink(concat_list_path)
+            
+            print(f"AudioAI[{self.device_name}]: Successfully extracted {len(audio_files)} audio segments")
+            return audio_files
             
         except Exception as e:
             print(f"AudioAI[{self.device_name}]: Error retrieving audio segments: {e}")
