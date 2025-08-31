@@ -194,8 +194,8 @@ def main():
                        help='Number of times to execute the action (default: 1)')
     parser.add_argument('--goto_live', type=lambda x: x.lower() == 'true', default=True,
                        help='Navigate to live node before executing actions: true or false (default: true)')
-    parser.add_argument('--skip_audio_analysis', type=lambda x: x.lower() == 'true', default=False,
-                       help='Skip audio/subtitle menu language detection: true or false (default: false - analysis runs)')
+    parser.add_argument('--audio_analysis', type=lambda x: x.lower() == 'true', default=False,
+                       help='Enable audio/subtitle menu language detection: true or false (default: false)')
     args = parser.parse_args()
     
     nav_msg = "with navigation to live" if args.goto_live else "without navigation to live"
@@ -331,7 +331,7 @@ def main():
         # Store summary for report
         context.execution_summary = summary_text
         
-        if zap_success and not args.skip_audio_analysis:
+        if zap_success and args.audio_analysis:
             # Skip audio menu analysis for VNC devices (no audio available)
             device_model = context.selected_device.device_model if context.selected_device else 'unknown'
             if device_model == 'host_vnc':
@@ -453,8 +453,8 @@ def main():
                 
                 context.step_results.append(analysis_step)
                 print(f"🎧 [fullzap] Created dedicated audio menu analysis step: {analysis_step['to_node']}")
-        elif zap_success and args.skip_audio_analysis:
-            print("⏭️ [fullzap] Skipping audio menu analysis (--skip_audio_analysis specified)")
+        elif zap_success and not args.audio_analysis:
+            print("⏭️ [fullzap] Skipping audio menu analysis (--audio_analysis false)")
         
         if context.overall_success:
             print("✅ [fullzap] Fullzap execution completed successfully!")

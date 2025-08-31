@@ -542,6 +542,23 @@ const RunTests: React.FC = () => {
       );
     }
 
+    // Special handling for audio_analysis boolean parameter
+    if (param.name === 'audio_analysis') {
+      return (
+        <FormControl key={param.name} fullWidth size="small">
+          <InputLabel>{`${param.name}${param.required ? ' *' : ''}`}</InputLabel>
+          <Select
+            value={value || 'false'}
+            label={`${param.name}${param.required ? ' *' : ''}`}
+            onChange={(e) => handleParameterChange(param.name, e.target.value)}
+          >
+            <MenuItem value="true">true</MenuItem>
+            <MenuItem value="false">false</MenuItem>
+          </Select>
+        </FormControl>
+      );
+    }
+
     // Default text field for all parameters
     return (
       <TextField
@@ -561,7 +578,7 @@ const RunTests: React.FC = () => {
   const displayParameters = scriptAnalysis?.parameters.filter((param) => 
     (param.required && param.name !== 'host' && param.name !== 'device') ||
     param.name === 'node' ||  // Always show node parameter for goto scripts
-    (selectedScript.includes('fullzap') && (param.name === 'max_iteration' || param.name === 'goto_live'))  // Show fullzap specific parameters
+    (selectedScript.includes('fullzap') && (param.name === 'max_iteration' || param.name === 'goto_live' || param.name === 'audio_analysis'))  // Show fullzap specific parameters
   ) || [];
 
 
