@@ -39,32 +39,21 @@ export const MonitoringOverlay: React.FC<MonitoringOverlayProps> = ({
 
   return (
     <>
-      {/* Full-screen clickable overlay */}
+      {/* Main analysis overlay - left aligned */}
       <Box
         sx={{
           position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
+          top: 16,
+          left: 16,
           zIndex: 20,
-          pointerEvents: 'auto', // Allow clicks everywhere
+          p: 2,
+          backgroundColor: 'rgba(0, 0, 0, 0.7)',
+          borderRadius: 1,
+          pointerEvents: 'none', // Don't interfere with clicks
+          minWidth: 200,
           ...sx,
         }}
       >
-        {/* Main analysis overlay - left aligned */}
-        <Box
-          sx={{
-            position: 'absolute',
-            top: 16,
-            left: 16,
-            p: 2,
-            backgroundColor: 'rgba(0, 0, 0, 0.7)',
-            borderRadius: 1,
-            pointerEvents: 'none', // Content doesn't block clicks
-            minWidth: 200,
-          }}
-        >
         {/* Blackscreen */}
         <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
           <Typography variant="body2" sx={{ color: '#ffffff', mr: 1 }}>
@@ -213,7 +202,6 @@ export const MonitoringOverlay: React.FC<MonitoringOverlayProps> = ({
             )}
           </Box>
         )}
-        </Box>
       </Box>
 
       {/* Warning indicator - top right for 1-2 consecutive errors */}

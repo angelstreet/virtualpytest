@@ -327,19 +327,20 @@ export const AndroidMobileOverlay = React.memo(
         return;
       }
 
-      // Convert panel coordinates to content coordinates (accounting for offsets)
+      // Account for header height (40px) and convert to content coordinates
+      const headerHeight = 40;
       const contentX = panelX - horizontalOffset;
-      const contentY = panelY - verticalOffset;
+      const contentY = panelY - verticalOffset - headerHeight;
 
-      // Check if click is within content area
-      if (contentX < 0 || contentX > actualContentWidth || contentY < 0 || contentY > actualContentHeight) {
+      // Check if click is within content area (below header)
+      if (contentX < 0 || contentX > actualContentWidth || contentY < 0 || contentY > (actualContentHeight - headerHeight)) {
         console.log(`[@AndroidMobileOverlay] Click outside content area, ignoring`);
         return;
       }
 
-      // Use orientation-aware scaling factors
+      // Use orientation-aware scaling factors (account for header)
       const scaleX = actualContentWidth / deviceWidth;
-      const scaleY = actualContentHeight / deviceHeight;
+      const scaleY = (actualContentHeight - headerHeight) / deviceHeight;
 
       const deviceX = Math.round(contentX / scaleX);
       const deviceY = Math.round(contentY / scaleY);
@@ -398,37 +399,19 @@ export const AndroidMobileOverlay = React.memo(
           }}
           onClick={handleBaseTap}
         >
-          {/* Visual content area indicator */}
+          {/* Visual content area indicator - positioned below header */}
           <div
             style={{
               position: 'absolute',
               left: `${panelInfo.position.x + horizontalOffset}px`,
-              top: `${panelInfo.position.y + verticalOffset}px`,
+              top: `${panelInfo.position.y + verticalOffset + 40}px`, // Add header offset
               width: `${actualContentWidth}px`,
-              height: `${actualContentHeight}px`,
-              border: `2px solid ${currentOrientation === 'portrait' ? '#00ff00' : '#ff6600'}`,
+              height: `${Math.max(0, actualContentHeight - 40)}px`, // Subtract header height
+              border: '1px solid rgba(0, 255, 0, 0.3)',
               pointerEvents: 'none',
               boxSizing: 'border-box',
             }}
-          >
-            {/* Orientation indicator */}
-            <div
-              style={{
-                position: 'absolute',
-                top: 5,
-                right: 5,
-                background: 'rgba(0,0,0,0.8)',
-                color: currentOrientation === 'portrait' ? '#00ff00' : '#ff6600',
-                padding: '2px 8px',
-                fontSize: '12px',
-                fontWeight: 'bold',
-                borderRadius: '3px',
-                pointerEvents: 'none',
-              }}
-            >
-              {currentOrientation.toUpperCase()}
-            </div>
-          </div>
+          />
         </div>
 
         {/* Elements layer - Higher z-index, only visible when elements exist */}
@@ -493,7 +476,7 @@ export const AndroidMobileOverlay = React.memo(
               key={clickAnimation.id}
               style={{
                 position: 'fixed',
-                left: `${panelInfo.position.x + horizontalOffset + clickAnimation.x - 15}px`, // Center the 30px circle, account for content offset
+                left: `${panelInfo.position.x + clickAnimation.x - 15}px`, // Use panel coordinates directly
                 top: `${panelInfo.position.y + clickAnimation.y - 15}px`,
                 width: '30px',
                 height: '30px',
@@ -515,8 +498,8 @@ export const AndroidMobileOverlay = React.memo(
             key={coordinateDisplay.id}
             style={{
               position: 'fixed',
-              left: `${panelInfo.position.x + horizontalOffset + coordinateDisplay.x + 20}px`, // Offset to the right of the click
-              top: `${panelInfo.position.y + coordinateDisplay.y - 15}px`, // Offset above the click
+              left: `${panelInfo.position.x + coordinateDisplay.x + 20}px`, // Use panel coordinates directly
+              top: `${panelInfo.position.y + coordinateDisplay.y - 15}px`, // Use panel coordinates directly
               backgroundColor: 'rgba(0, 0, 0, 0.8)',
               color: 'white',
               padding: '4px 8px',
