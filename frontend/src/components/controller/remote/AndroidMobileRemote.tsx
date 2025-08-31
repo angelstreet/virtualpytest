@@ -333,9 +333,26 @@ export const AndroidMobileRemote = React.memo(
 
             {/* UI Elements Section */}
             <Box sx={{ mb: 1 }}>
-              <Typography variant="subtitle2" gutterBottom>
-                UI Elements ({androidElements.length})
-              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 1 }}>
+                <Typography variant="subtitle2">
+                  UI Elements ({androidElements.length})
+                </Typography>
+                <Button
+                  variant="text"
+                  size="small"
+                  onClick={toggleOrientation}
+                  disabled={!session.connected}
+                  sx={{ 
+                    minWidth: 'auto', 
+                    p: 0.25,
+                    fontSize: '0.75rem',
+                    opacity: session.connected ? 1 : 0.5
+                  }}
+                  title={isLandscape ? 'Switch to Portrait' : 'Switch to Landscape'}
+                >
+                  {isLandscape ? '🔄' : '📱'}
+                </Button>
+              </Box>
 
               <Box sx={{ display: 'flex', gap: 0.5, mb: 1 }}>
                 <Button
@@ -511,18 +528,7 @@ export const AndroidMobileRemote = React.memo(
                 </Button>
               </Box>
 
-              {/* Orientation toggle */}
-              <Box sx={{ display: 'flex', gap: 0.5, mb: 1 }}>
-                <Button
-                  variant={isLandscape ? "contained" : "outlined"}
-                  size="small"
-                  onClick={toggleOrientation}
-                  disabled={!session.connected}
-                  sx={{ flex: 1 }}
-                >
-                  {isLandscape ? '🔄 Landscape' : '🔄 Portrait'}
-                </Button>
-              </Box>
+
 
               {/* Scroll buttons */}
               <Box sx={{ display: 'flex', gap: 0.5 }}>

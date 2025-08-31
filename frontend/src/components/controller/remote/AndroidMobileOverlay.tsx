@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 
 import { PanelInfo } from '../../../types/controller/Panel_Types';
 import { AndroidElement } from '../../../types/controller/Remote_Types';
@@ -60,6 +60,11 @@ export const AndroidMobileOverlay = React.memo(
 
     // Simple manual orientation
     const currentOrientation = isLandscape ? 'landscape' : 'portrait';
+    
+    // Debug: Log orientation changes
+    useEffect(() => {
+      console.log(`[@AndroidMobileOverlay] Orientation changed to: ${currentOrientation}`);
+    }, [currentOrientation]);
 
     // Add CSS animation keyframes to document head if not already present
     React.useEffect(() => {
@@ -111,7 +116,7 @@ export const AndroidMobileOverlay = React.memo(
     };
 
     // Calculate actual content dimensions and offsets (orientation-aware)
-    const { actualContentWidth, actualContentHeight, horizontalOffset, verticalOffset } = React.useMemo(() => {
+    const { actualContentWidth, actualContentHeight, horizontalOffset, verticalOffset } = useMemo(() => {
       if (!panelInfo || !panelInfo.deviceResolution || !panelInfo.size) {
         return { actualContentWidth: 0, actualContentHeight: 0, horizontalOffset: 0, verticalOffset: 0 };
       }
