@@ -93,6 +93,9 @@ def execute_action_directly(host, device, action: Dict[str, Any]) -> Dict[str, A
             elif command in power_commands:
                 action_type = 'power'
                 print(f"[@action_utils:execute_action_directly] Power command detected: {command}")
+            elif command in ['enter_subtree', 'exit_subtree']:
+                # Handle virtual cross-tree navigation commands silently
+                action_type = 'virtual'
             else:
                 # For generic commands (click_element, input_text, press_key), use device capabilities
                 try:
@@ -248,6 +251,17 @@ def execute_action_directly(host, device, action: Dict[str, Any]) -> Dict[str, A
                     
                     result = power_controller.execute_command(command, params)
                     iteration_success = result.get('success', False)
+                    
+                elif action_type == 'virtual':
+                    # Handle virtual cross-tree navigation commands silently
+                    # Virtual transitions complete instantly - they represent logical context changes
+                    # The actual navigation is handled by the unified pathfinding system
+                    iteration_success = True
+                    result = {
+                        'success': True,
+                        'message': f'Virtual {command} transition completed',
+                        'execution_time': 0
+                    }
                     
                 else:
                     # Route to remote controller (default behavior for remote actions)

@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 
 import { PanelInfo } from '../../../types/controller/Panel_Types';
 import { AndroidElement } from '../../../types/controller/Remote_Types';
 import { getZIndex } from '../../../utils/zIndexUtils';
+import { getDeviceOrientation } from '../../../utils/userinterface/resolutionUtils';
 
 interface ScaledElement {
   id: string;
@@ -55,6 +56,11 @@ export const AndroidMobileOverlay = React.memo(
       id: string;
     } | null>(null);
 
+    // Detect device orientation
+    const currentOrientation = useMemo(() => {
+      return getDeviceOrientation(deviceWidth, deviceHeight);
+    }, [deviceWidth, deviceHeight]);
+
     // Add CSS animation keyframes to document head if not already present
     React.useEffect(() => {
       const styleId = 'click-animation-styles';
@@ -104,22 +110,70 @@ export const AndroidMobileOverlay = React.memo(
       };
     };
 
-    // Calculate actual content width and horizontal offset (mobile case - height is reference)
-    const { actualContentWidth, horizontalOffset } = React.useMemo(() => {
+    // Calculate actual content dimensions and offsets (orientation-aware)
+    const { actualContentWidth, actualContentHeight, horizontalOffset, verticalOffset } = React.useMemo(() => {
       if (!panelInfo || !panelInfo.deviceResolution || !panelInfo.size) {
-        return { actualContentWidth: 0, horizontalOffset: 0 };
+        return { actualContentWidth: 0, actualContentHeight: 0, horizontalOffset: 0, verticalOffset: 0 };
       }
 
-      // For mobile: height is reference, calculate width based on device aspect ratio
       const deviceAspectRatio = deviceWidth / deviceHeight;
-      const actualWidth = panelInfo.size.height * deviceAspectRatio;
-      const hOffset = (panelInfo.size.width - actualWidth) / 2;
+      const panelAspectRatio = panelInfo.size.width / panelInfo.size.height;
+
+      let actualWidth, actualHeight, hOffset, vOffset;
+
+      if (currentOrientation === 'portrait') {
+        // Portrait: Height is reference, calculate width
+        if (deviceAspectRatio <= panelAspectRatio) {
+          // Device is narrower than panel - fit by height
+          actualHeight = panelInfo.size.height;
+          actualWidth = actualHeight * deviceAspectRatio;
+          hOffset = (panelInfo.size.width - actualWidth) / 2;
+          vOffset = 0;
+        } else {
+          // Device is wider than panel - fit by width
+          actualWidth = panelInfo.size.width;
+          actualHeight = actualWidth / deviceAspectRatio;
+          hOffset = 0;
+          vOffset = (panelInfo.size.height - actualHeight) / 2;
+        }
+      } else {
+        // Landscape: Width is reference, calculate height
+        if (deviceAspectRatio >= panelAspectRatio) {
+          // Device is wider than panel - fit by width
+          actualWidth = panelInfo.size.width;
+          actualHeight = actualWidth / deviceAspectRatio;
+          hOffset = 0;
+          vOffset = (panelInfo.size.height - actualHeight) / 2;
+        } else {
+          // Device is narrower than panel - fit by height
+          actualHeight = panelInfo.size.height;
+          actualWidth = actualHeight * deviceAspectRatio;
+          hOffset = (panelInfo.size.width - actualWidth) / 2;
+          vOffset = 0;
+        }
+      }
+
+      console.log('[@AndroidMobileOverlay] Orientation-aware content calculated:', {
+        orientation: currentOrientation,
+        deviceAspectRatio,
+        panelAspectRatio,
+        deviceWidth,
+        deviceHeight,
+        panelWidth: panelInfo.size.width,
+        panelHeight: panelInfo.size.height,
+        actualWidth,
+        actualHeight,
+        hOffset,
+        vOffset,
+      });
 
       return {
         actualContentWidth: actualWidth,
+        actualContentHeight: actualHeight,
         horizontalOffset: hOffset,
+        verticalOffset: vOffset,
       };
-    }, [panelInfo, deviceWidth, deviceHeight]);
+    }, [panelInfo, deviceWidth, deviceHeight, currentOrientation]);
 
     // Direct server tap function - bypasses useRemoteConfigs double conversion
     const handleDirectTap = async (deviceX: number, deviceY: number) => {
@@ -259,27 +313,45 @@ export const AndroidMobileOverlay = React.memo(
 
     // Handle base layer tap (lower priority, only when not clicking on elements)
     const handleBaseTap = async (event: React.MouseEvent) => {
-      // Get click coordinates relative to the actual content area (not full panel)
-      const rect = event.currentTarget.getBoundingClientRect();
-      const contentX = event.clientX - rect.left; // Already relative to content area
-      const contentY = event.clientY - rect.top; // Already relative to content area
+      // Get click coordinates relative to the viewport (fullscreen overlay)
+      const viewportX = event.clientX;
+      const viewportY = event.clientY;
 
-      // Use the same scaling factors as overlay, but inverted (Screen → Device)
-      // This matches exactly how overlay scaling works: scaleX = actualContentWidth / deviceWidth
+      // Convert viewport coordinates to panel coordinates
+      const panelX = viewportX - panelInfo.position.x;
+      const panelY = viewportY - panelInfo.position.y;
+
+      // Check if click is within panel bounds
+      if (panelX < 0 || panelX > panelInfo.size.width || panelY < 0 || panelY > panelInfo.size.height) {
+        console.log(`[@AndroidMobileOverlay] Click outside panel bounds, ignoring`);
+        return;
+      }
+
+      // Convert panel coordinates to content coordinates (accounting for offsets)
+      const contentX = panelX - horizontalOffset;
+      const contentY = panelY - verticalOffset;
+
+      // Check if click is within content area
+      if (contentX < 0 || contentX > actualContentWidth || contentY < 0 || contentY > actualContentHeight) {
+        console.log(`[@AndroidMobileOverlay] Click outside content area, ignoring`);
+        return;
+      }
+
+      // Use orientation-aware scaling factors
       const scaleX = actualContentWidth / deviceWidth;
-      const scaleY = panelInfo.size.height / deviceHeight;
+      const scaleY = actualContentHeight / deviceHeight;
 
       const deviceX = Math.round(contentX / scaleX);
       const deviceY = Math.round(contentY / scaleY);
 
       // Log coordinates
-      console.log(`[@AndroidMobileOverlay] Base tap - Screen: (${Math.round(contentX)}, ${Math.round(contentY)}), Device: (${deviceX}, ${deviceY})`);
+      console.log(`[@AndroidMobileOverlay] Fullscreen tap - Viewport: (${Math.round(viewportX)}, ${Math.round(viewportY)}), Panel: (${Math.round(panelX)}, ${Math.round(panelY)}), Content: (${Math.round(contentX)}, ${Math.round(contentY)}), Device: (${deviceX}, ${deviceY})`);
 
-      // Show click animation at tap location (relative to full panel for positioning)
+      // Show click animation at tap location (use panel coordinates for positioning)
       const animationId = `base-tap-${Date.now()}`;
       setClickAnimation({ 
-        x: contentX, 
-        y: contentY, 
+        x: panelX, 
+        y: panelY, 
         id: animationId,
         deviceX,
         deviceY
@@ -288,8 +360,8 @@ export const AndroidMobileOverlay = React.memo(
       // Set coordinate display for 2 seconds
       const coordDisplayId = `coord-${Date.now()}`;
       setCoordinateDisplay({
-        x: contentX,
-        y: contentY,
+        x: panelX,
+        y: panelY,
         deviceX,
         deviceY,
         id: coordDisplayId
@@ -310,23 +382,54 @@ export const AndroidMobileOverlay = React.memo(
 
     return (
       <>
-        {/* Base transparent tap layer - Covers full stream panel size */}
+        {/* Base transparent tap layer - Covers full screen for landscape tapping */}
         <div
           style={{
             position: 'fixed',
-            left: `${panelInfo.position.x}px`,
-            top: `${panelInfo.position.y}px`,
-            width: `${panelInfo.size.width}px`,
-            height: `${panelInfo.size.height}px`,
+            left: 0,
+            top: 0,
+            width: '100vw',
+            height: '100vh',
             zIndex: getZIndex('ANDROID_MOBILE_OVERLAY'), // Base layer for tap detection
             contain: 'layout style size',
             willChange: 'transform',
             pointerEvents: 'auto', // Allow tapping on base layer
-            border: '1px solid rgba(0, 123, 255, 0.3)', // Subtle blue border for tap area
-            cursor: 'crosshair', // Only shows crosshair cursor within actual content area
+            cursor: 'crosshair', // Crosshair cursor for fullscreen tapping
           }}
           onClick={handleBaseTap}
-        ></div>
+        >
+          {/* Visual content area indicator */}
+          <div
+            style={{
+              position: 'absolute',
+              left: `${panelInfo.position.x + horizontalOffset}px`,
+              top: `${panelInfo.position.y + verticalOffset}px`,
+              width: `${actualContentWidth}px`,
+              height: `${actualContentHeight}px`,
+              border: `2px solid ${currentOrientation === 'portrait' ? '#00ff00' : '#ff6600'}`,
+              pointerEvents: 'none',
+              boxSizing: 'border-box',
+            }}
+          >
+            {/* Orientation indicator */}
+            <div
+              style={{
+                position: 'absolute',
+                top: 5,
+                right: 5,
+                background: 'rgba(0,0,0,0.8)',
+                color: currentOrientation === 'portrait' ? '#00ff00' : '#ff6600',
+                padding: '2px 8px',
+                fontSize: '12px',
+                fontWeight: 'bold',
+                borderRadius: '3px',
+                pointerEvents: 'none',
+              }}
+            >
+              {currentOrientation.toUpperCase()}
+            </div>
+          </div>
+        </div>
 
         {/* Elements layer - Higher z-index, only visible when elements exist */}
         {scaledElements.length > 0 && (
