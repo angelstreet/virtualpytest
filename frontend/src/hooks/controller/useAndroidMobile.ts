@@ -77,6 +77,48 @@ export function useAndroidMobile(selectedHost: Host | null, deviceId: string | n
     }
   }, [selectedHost, deviceId]);
 
+  // Fetch initial device resolution when remote is first shown
+  const fetchInitialResolution = useCallback(async () => {
+    if (!selectedHost || !deviceId) {
+      return;
+    }
+
+    try {
+      console.log('[@hook:useAndroidMobile] Fetching initial device resolution...');
+      const response = await fetch('/server/remote/screenshotAndDump', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          host: selectedHost,
+          device_id: deviceId,
+        }),
+      });
+
+      const result = await response.json();
+      if (result.success && result.device_resolution) {
+        const resolution = result.device_resolution;
+        const orientation = resolution.height > resolution.width ? 'portrait' : 'landscape';
+        
+        console.log(`[@hook:useAndroidMobile] Initial device resolution: ${resolution.width}x${resolution.height} (${orientation})`);
+        setCurrentDeviceResolution(resolution);
+        
+        // Also update screenshot if available
+        if (result.screenshot) {
+          setAndroidScreenshot(result.screenshot);
+        }
+      }
+    } catch (error) {
+      console.error('[@hook:useAndroidMobile] Initial resolution fetch error:', error);
+    }
+  }, [selectedHost, deviceId]);
+
+  // Fetch initial resolution when connected
+  useEffect(() => {
+    if (isConnected_internal && !currentDeviceResolution) {
+      fetchInitialResolution();
+    }
+  }, [isConnected_internal, currentDeviceResolution, fetchInitialResolution]);
+
   // Note: Debug logging removed to reduce console spam
 
   const screenshotRef = useRef<HTMLImageElement>(null);

@@ -112,7 +112,7 @@ def screenshot_and_dump():
         # Get current device resolution for orientation detection
         device_resolution = None
         if hasattr(remote_controller, 'get_device_resolution'):
-            device_resolution = remote_controller.get_device_resolution(device_id)
+            device_resolution = remote_controller.get_device_resolution()
             print(f"[@route:host_remote:screenshot_and_dump] Current device resolution: {device_resolution}")
         
         response = {
