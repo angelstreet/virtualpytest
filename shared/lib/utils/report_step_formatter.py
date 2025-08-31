@@ -645,6 +645,11 @@ def format_analysis_results(step: Dict) -> str:
         else:
             if zapping_analysis.get('message'):
                 analysis_html += f'<div class="analysis-detail">Details: {zapping_analysis.get("message")}</div>'
+            
+            # Show analyzed images count for failed detection (same as success case)
+            analyzed_images = zapping_analysis.get('analyzed_images', 0)
+            if analyzed_images > 0:
+                analysis_html += f'<div class="analysis-detail">Images Analyzed: {analyzed_images}</div>'
     
     return analysis_html
 
