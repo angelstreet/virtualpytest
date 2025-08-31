@@ -351,7 +351,7 @@ const TestReports: React.FC = () => {
           </Box>
 
           <TableContainer component={Paper} variant="outlined">
-            <Table size="small" sx={{ '& .MuiTableRow-root': { height: '40px' } }}>
+            <Table size="small" sx={{ '& .MuiTableRow-root': { height: '40px' }, minWidth: '1400px' }}>
               <TableHead>
                 <TableRow>
                   <TableCell sx={{ py: 1 }}>
