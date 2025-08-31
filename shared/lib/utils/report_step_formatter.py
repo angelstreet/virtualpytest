@@ -545,10 +545,28 @@ def format_analysis_results(step: Dict) -> str:
         if menu_detected:
             audio_languages = audio_menu_analysis.get('audio_languages', [])
             subtitle_languages = audio_menu_analysis.get('subtitle_languages', [])
+            selected_audio = audio_menu_analysis.get('selected_audio', -1)
+            selected_subtitle = audio_menu_analysis.get('selected_subtitle', -1)
+            
             if audio_languages:
-                analysis_html += f'<div class="analysis-detail">Audio Languages: {", ".join(audio_languages)}</div>'
+                # Show available audio languages with selected indicator
+                audio_display = []
+                for i, lang in enumerate(audio_languages):
+                    if i == selected_audio:
+                        audio_display.append(f"<strong>{lang}</strong> (selected)")
+                    else:
+                        audio_display.append(lang)
+                analysis_html += f'<div class="analysis-detail">Audio Languages: {", ".join(audio_display)}</div>'
+            
             if subtitle_languages:
-                analysis_html += f'<div class="analysis-detail">Subtitle Languages: {", ".join(subtitle_languages)}</div>'
+                # Show available subtitle languages with selected indicator
+                subtitle_display = []
+                for i, lang in enumerate(subtitle_languages):
+                    if i == selected_subtitle:
+                        subtitle_display.append(f"<strong>{lang}</strong> (selected)")
+                    else:
+                        subtitle_display.append(lang)
+                analysis_html += f'<div class="analysis-detail">Subtitle Languages: {", ".join(subtitle_display)}</div>'
         elif audio_menu_analysis.get('message'):
             analysis_html += f'<div class="analysis-detail">Details: {audio_menu_analysis.get("message")}</div>'
 
