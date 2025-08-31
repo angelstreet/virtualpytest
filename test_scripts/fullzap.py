@@ -332,9 +332,20 @@ def main():
         context.execution_summary = summary_text
         
         if zap_success and not args.skip_audio_analysis:
-            print("🎧 [fullzap] Performing audio menu analysis after zap...")
-            audio_result = analyze_audio_menu(context)
-            context.custom_data['audio_menu_analysis'] = audio_result
+            # Skip audio menu analysis for VNC devices (no audio available)
+            device_model = context.selected_device.device_model if context.selected_device else 'unknown'
+            if device_model == 'host_vnc':
+                print("⏭️ [fullzap] Skipping audio menu analysis for VNC device (no audio available)")
+                context.custom_data['audio_menu_analysis'] = {
+                    'success': True,
+                    'audio_detected': False,
+                    'subtitles_detected': False,
+                    'message': 'Skipped - VNC device has no audio'
+                }
+            else:
+                print("🎧 [fullzap] Performing audio menu analysis after zap...")
+                audio_result = analyze_audio_menu(context)
+                context.custom_data['audio_menu_analysis'] = audio_result
             
             # IMPORTANT: Add audio menu analysis to relevant steps (split by menu type)
             # Find steps that navigated to audio or subtitle menu nodes and attach relevant analysis

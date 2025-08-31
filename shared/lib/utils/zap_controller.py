@@ -265,13 +265,21 @@ class ZapController:
                     result.extracted_text = subtitle_result.get('extracted_text', '')
                     result.subtitle_details = subtitle_result
                 
-                # 3. Audio speech analysis if motion detected (after subtitles)
+                # 3. Audio speech analysis if motion detected (after subtitles) - skip for VNC devices
                 if context:
-                    audio_speech_result = self._analyze_audio_speech(context, iteration, action_command)
-                    result.audio_speech_detected = audio_speech_result.get('speech_detected', False)
-                    result.audio_transcript = audio_speech_result.get('combined_transcript', '')
-                    result.audio_language = audio_speech_result.get('detected_language', 'unknown')
-                    result.audio_details = audio_speech_result
+                    device_model = context.selected_device.device_model if context.selected_device else 'unknown'
+                    if device_model == 'host_vnc':
+                        print(f"⏭️ [ZapController] Skipping audio analysis for VNC device (no audio available)")
+                        result.audio_speech_detected = False
+                        result.audio_transcript = ""
+                        result.audio_language = "unknown"
+                        result.audio_details = {"success": True, "message": "Skipped - VNC device has no audio"}
+                    else:
+                        audio_speech_result = self._analyze_audio_speech(context, iteration, action_command)
+                        result.audio_speech_detected = audio_speech_result.get('speech_detected', False)
+                        result.audio_transcript = audio_speech_result.get('combined_transcript', '')
+                        result.audio_language = audio_speech_result.get('detected_language', 'unknown')
+                        result.audio_details = audio_speech_result
                 
                 # 4. Audio menu analysis removed - now handled by dedicated navigation steps
                 # Audio menu analysis is independent and should be called when navigating TO audio menu nodes
