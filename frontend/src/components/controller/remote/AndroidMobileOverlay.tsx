@@ -500,7 +500,8 @@ export const AndroidMobileOverlay = React.memo(
       prevProps.onElementClick === nextProps.onElementClick &&
       JSON.stringify(prevProps.panelInfo) === JSON.stringify(nextProps.panelInfo) &&
       prevProps.host === nextProps.host &&
-      prevProps.deviceId === nextProps.deviceId
+      prevProps.deviceId === nextProps.deviceId &&
+      prevProps.isLandscape === nextProps.isLandscape
     );
   },
 );

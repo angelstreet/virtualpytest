@@ -590,8 +590,8 @@ export const AndroidMobileRemote = React.memo(
               <AndroidMobileOverlay
                 key={`overlay-${isLandscape}`} // Force re-render on orientation change
                 elements={androidElements}
-                deviceWidth={1080} // Fixed portrait width
-                deviceHeight={2340} // Fixed portrait height
+                deviceWidth={isLandscape ? 2340 : 1080} // Swap dimensions for landscape
+                deviceHeight={isLandscape ? 1080 : 2340} // Swap dimensions for landscape
                 isVisible={captureMode === 'stream' && !streamMinimized && !streamHidden}
                 onElementClick={handleOverlayElementClick}
                 panelInfo={panelInfo}
