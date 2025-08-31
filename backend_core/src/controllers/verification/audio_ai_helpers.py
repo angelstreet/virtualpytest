@@ -133,6 +133,20 @@ class AudioAIHelpers:
                         escaped_path = ts_file['path'].replace("'", "'\"'\"'")
                         f.write(f"file '{escaped_path}'\n")
                 
+                # First check if any segment has audio streams
+                has_audio = False
+                for ts_file in recent_files[:1]:  # Check first file only for efficiency
+                    check_cmd = ['ffprobe', '-v', 'quiet', '-show_streams', '-select_streams', 'a', ts_file['path']]
+                    check_result = subprocess.run(check_cmd, capture_output=True, text=True)
+                    if check_result.returncode == 0 and check_result.stdout.strip():
+                        has_audio = True
+                        break
+                
+                if not has_audio:
+                    print(f"AudioAI[{self.device_name}]: HLS segments contain no audio streams (host uses -an flag)")
+                    print(f"AudioAI[{self.device_name}]: Audio analysis not available for this capture setup")
+                    return []
+                
                 # Merge all segments into single audio file using FFmpeg concat
                 cmd = [
                     'ffmpeg', '-y',  # -y to overwrite existing files
@@ -151,7 +165,7 @@ class AudioAIHelpers:
                 if result.returncode == 0 and os.path.exists(merged_audio_path):
                     # Verify the merged audio file has content
                     if os.path.getsize(merged_audio_path) > 1024:  # At least 1KB
-                        total_duration = len(recent_files) * 1  # 1s per segment now
+                        total_duration = len(recent_files) * segment_duration  # Use global segment duration
                         print(f"AudioAI[{self.device_name}]: Successfully merged {len(recent_files)} segments into {total_duration}s audio file")
                         return [merged_audio_path]  # Return single merged file
                     else:

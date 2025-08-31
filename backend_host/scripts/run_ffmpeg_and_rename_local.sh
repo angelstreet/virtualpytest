@@ -4,8 +4,8 @@
 # Hardware video devices: /dev/video0, /dev/video2, etc.
 # VNC displays: :1, :99, etc. no audio for now then pulseaudio
 declare -A GRABBERS=(
-  ["0"]="/dev/video0|plughw:2,0|/var/www/html/stream/capture1|5"
-  ["2"]=":1|null|/var/www/html/stream/capture3|1"
+  ["1"]="/dev/video2|plughw:3,0|/var/www/html/stream/capture2|25"
+  ["2"]=":1|null|/var/www/html/stream/capture3|2"
 )
 
 # Simple log reset function - truncates log if over 30MB
@@ -87,23 +87,23 @@ start_grabber() {
 
   # Build FFmpeg command based on source type
   if [ "$source_type" = "v4l2" ]; then
-    # Hardware video device - Triple output: stream, full-res captures, thumbnails
-    FFMPEG_CMD="/usr/bin/ffmpeg -y -f v4l2 -framerate \"$fps\" -video_size 1280x720 -i $source \
-      -f alsa -thread_queue_size 8192 -i \"$audio_device\" \
-      -filter_complex \"[0:v]split=3[stream][capture][thumb];[stream]scale=640:360[streamout];[capture]fps=$fps[captureout];[thumb]scale=498:280,fps=$fps[thumbout]\" \
+    # Hardware video device
+    FFMPEG_CMD="/usr/bin/ffmpeg -y -f v4l2 -input_format mjpeg -vsync 1 -framerate  \"$fps\" -video_size 1280x720 -i $source \
+      -f alsa -thread_queue_size 256 -i \"$audio_device\" \
+      -filter_complex \"[0:v]split=3[stream][capture][thumb];[stream]fps=2,scale=640:360[streamout];[capture]fps=2[captureout];[thumb]fps=2,scale=498:280[thumbout]\" \
       -map \"[streamout]\" -map 1:a \
-      -c:v libx264 -preset veryfast -tune zerolatency -crf 28 -maxrate 1200k -bufsize 2400k -g 30 \
+      -c:v libx264 -preset ultrafast -tune zerolatency -crf 30 -maxrate 600k -bufsize 1200k -g 5 -keyint_min 5 \
       -pix_fmt yuv420p -profile:v baseline -level 3.0 \
-      -c:a aac -b:a 64k -ar 44100 -ac 2 \
-      -f hls -hls_time 1 -hls_list_size 600 -hls_flags delete_segments+independent_segments \
-      -hls_segment_filename $capture_dir/segment_%03d.ts \
+      -c:a aac -b:a 32k -ar 22050 -ac 2 \
+      -f hls -hls_time 1 -hls_list_size 300 -hls_flags delete_segments+independent_segments \
+      -hls_segment_type mpegts -hls_segment_filename $capture_dir/segment_%03d.ts \
       $capture_dir/output.m3u8 \
       -map \"[captureout]\" -c:v mjpeg -q:v 5 -r 1 -f image2 \
       $capture_dir/captures/test_capture_%06d.jpg \
       -map \"[thumbout]\" -c:v mjpeg -q:v 5 -r 1 -f image2 \
       $capture_dir/captures/test_thumb_%06d.jpg"
   elif [ "$source_type" = "x11grab" ]; then
-    # VNC display - Triple output: stream, full-res captures, thumbnails
+    # VNC display - use direct access (xhost +local:www-data already configured)
     local resolution=$(get_vnc_resolution "$source")
     
     # Simple DISPLAY export - no XAUTHORITY needed with xhost +local:
@@ -111,17 +111,15 @@ start_grabber() {
     
     FFMPEG_CMD="DISPLAY=\"$source\" /usr/bin/ffmpeg -y -f x11grab -framerate \"$fps\" -video_size $resolution -i $source \
       -an \
-      -filter_complex \"[0:v]split=3[stream][capture][thumb];[stream]scale=512:384[streamout];[capture]fps=$fps[captureout];[thumb]scale=498:280,fps=$fps[thumbout]\" \
+      -filter_complex \"[0:v]split=2[stream][capture];[stream]scale=512:384[streamout];[capture]fps=2[captureout]\" \
       -map \"[streamout]\" \
       -c:v libx264 -preset veryfast -tune zerolatency -crf 28 -maxrate 1200k -bufsize 2400k -g 30 \
       -pix_fmt yuv420p -profile:v baseline -level 3.0 \
-      -f hls -hls_time 1 -hls_list_size 600 -hls_flags delete_segments+independent_segments \
+      -f hls -hls_time 2 -hls_list_size 300 -hls_flags delete_segments \
       -hls_segment_filename $capture_dir/segment_%03d.ts \
       $capture_dir/output.m3u8 \
       -map \"[captureout]\" -c:v mjpeg -q:v 5 -r 1 -f image2 \
-      $capture_dir/captures/test_capture_%06d.jpg \
-      -map \"[thumbout]\" -c:v mjpeg -q:v 5 -r 1 -f image2 \
-      $capture_dir/captures/test_thumb_%06d.jpg"
+      $capture_dir/captures/test_capture_%06d.jpg"
   else
     echo "ERROR: Unsupported source type: $source_type"
     return 1
