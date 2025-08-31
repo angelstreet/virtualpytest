@@ -273,7 +273,13 @@ class ZapController:
                         result.audio_speech_detected = False
                         result.audio_transcript = ""
                         result.audio_language = "unknown"
-                        result.audio_details = {"success": True, "message": "Skipped - VNC device has no audio"}
+                        result.audio_details = {
+                            "success": True, 
+                            "speech_detected": False,
+                            "skipped": True,
+                            "message": "Audio Speech Detection: ⏭️ SKIPPED",
+                            "details": "VNC device has no audio available"
+                        }
                     else:
                         audio_speech_result = self._analyze_audio_speech(context, iteration, action_command)
                         result.audio_speech_detected = audio_speech_result.get('speech_detected', False)

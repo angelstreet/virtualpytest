@@ -340,7 +340,9 @@ def main():
                     'success': True,
                     'audio_detected': False,
                     'subtitles_detected': False,
-                    'message': 'Skipped - VNC device has no audio'
+                    'skipped': True,
+                    'message': 'Audio Menu Analysis: ⏭️ SKIPPED',
+                    'details': 'VNC device has no audio available'
                 }
             else:
                 print("🎧 [fullzap] Performing audio menu analysis after zap...")
