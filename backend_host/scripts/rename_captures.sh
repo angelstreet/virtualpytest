@@ -56,10 +56,10 @@ process_capture_file() {
   local file_type="$2"  # "full" or "thumbnail"
   
   if [ -f "$filepath" ]; then
-    sleep 0.1
+    sleep 0.01
     start_time=$(date +%s.%N)
     # Use current system time for timestamp
-    timestamp=$(TZ="Europe/Zurich" date +%Y%m%d%H%M%S)
+    timestamp=$(TZ="Europe/Zurich" date -r "$filepath" +%Y%m%d%H%M%S)
     if [ -z "$timestamp" ]; then
       echo "Failed to generate timestamp for $filepath" >> "$RENAME_LOG"
       return
