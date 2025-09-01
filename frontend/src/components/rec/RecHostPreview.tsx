@@ -180,18 +180,21 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
       const nextUrl = queueRef.current[0];
       queueRef.current = queueRef.current.slice(1);
       
-      // Use state updater function to get current activeImage value
-      setActiveImage(currentActiveImage => {
-        if (currentActiveImage === 1) {
-          console.log(`[${stableHost.host_name}-${stableDevice?.device_id}] SETTING image2Url: ${nextUrl}`);
-          setImage2Url(nextUrl);
-          return currentActiveImage; // Don't change activeImage here, let handleImageLoad do it
-        } else {
-          console.log(`[${stableHost.host_name}-${stableDevice?.device_id}] SETTING image1Url: ${nextUrl}`);
-          setImage1Url(nextUrl);
-          return currentActiveImage; // Don't change activeImage here, let handleImageLoad do it
-        }
+      // Get current activeImage value and set the appropriate image URL
+      let currentActiveImage: 1 | 2;
+      setActiveImage(current => {
+        currentActiveImage = current;
+        return current; // Don't change activeImage here, let handleImageLoad do it
       });
+      
+      // Set the image URL outside the state updater to prevent multiple calls
+      if (currentActiveImage! === 1) {
+        console.log(`[${stableHost.host_name}-${stableDevice?.device_id}] SETTING image2Url: ${nextUrl}`);
+        setImage2Url(nextUrl);
+      } else {
+        console.log(`[${stableHost.host_name}-${stableDevice?.device_id}] SETTING image1Url: ${nextUrl}`);
+        setImage1Url(nextUrl);
+      }
     }
   }, [isVncDevice, isAnyModalOpen, generateNextFrameUrl]);
 
