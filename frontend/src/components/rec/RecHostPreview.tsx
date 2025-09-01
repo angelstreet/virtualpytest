@@ -88,20 +88,39 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
   const generateNextFrameUrl = useCallback(() => {
     if (!generateThumbnailUrl || !stableDevice) return null;
 
-    // Use start timestamp for first batch, then current time for subsequent ones
-    const now = new Date();
-    const currentTimestamp = startTimestampRef.current || 
-      (now.getFullYear().toString() +
-      (now.getMonth() + 1).toString().padStart(2, '0') +
-      now.getDate().toString().padStart(2, '0') +
-      now.getHours().toString().padStart(2, '0') +
-      now.getMinutes().toString().padStart(2, '0') +
-      now.getSeconds().toString().padStart(2, '0'));
-
-    // Reset frame counter if timestamp changed
-    if (currentTimestamp !== lastTimestampRef.current) {
-      frameCounterRef.current = 0;
+    // Use sequential timestamps starting from the captured start time
+    let currentTimestamp = lastTimestampRef.current;
+    
+    // Initialize with start timestamp if not set
+    if (!currentTimestamp && startTimestampRef.current) {
+      currentTimestamp = startTimestampRef.current;
       lastTimestampRef.current = currentTimestamp;
+      frameCounterRef.current = 0;
+    }
+    
+    // Move to next timestamp when we've cycled through all 5 frames (0-4)
+    if (frameCounterRef.current >= 5) {
+      const lastTime = new Date();
+      lastTime.setTime(Date.parse(
+        currentTimestamp.slice(0,4) + '-' + 
+        currentTimestamp.slice(4,6) + '-' + 
+        currentTimestamp.slice(6,8) + 'T' + 
+        currentTimestamp.slice(8,10) + ':' + 
+        currentTimestamp.slice(10,12) + ':' + 
+        currentTimestamp.slice(12,14)
+      ));
+      lastTime.setSeconds(lastTime.getSeconds() + 1); // Next second
+      
+      currentTimestamp = 
+        lastTime.getFullYear().toString() +
+        (lastTime.getMonth() + 1).toString().padStart(2, '0') +
+        lastTime.getDate().toString().padStart(2, '0') +
+        lastTime.getHours().toString().padStart(2, '0') +
+        lastTime.getMinutes().toString().padStart(2, '0') +
+        lastTime.getSeconds().toString().padStart(2, '0');
+      
+      lastTimestampRef.current = currentTimestamp;
+      frameCounterRef.current = 0;
     }
 
     // Generate URL for current frame (0-4, then cycle)
