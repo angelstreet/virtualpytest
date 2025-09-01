@@ -104,34 +104,43 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
       const allFrameUrls = generateThumbnailUrl ? generateThumbnailUrl(stableHost, stableDevice) : [];
       
       if (allFrameUrls.length > 0) {
-        // Smart detection: Test which URLs actually exist (no 404 errors)
-        const availableUrls: string[] = [];
-        
-        for (const url of allFrameUrls) {
-          try {
-            const response = await fetch(url, { method: 'HEAD' });
-            if (response.ok) {
-              availableUrls.push(url);
-            } else {
-              break; // Stop at first missing file (they're sequential)
+        // Add 1.5 second delay to ensure thumbnails are properly generated and available
+        setTimeout(async () => {
+          // Smart detection: Test which URLs actually exist, skip missing ones gracefully
+          const availableUrls: string[] = [];
+          
+          // Test all URLs in parallel and collect only the successful ones
+          const urlTests = allFrameUrls.map(async (url) => {
+            try {
+              const response = await fetch(url, { method: 'HEAD' });
+              return response.ok ? url : null;
+            } catch {
+              return null; // Gracefully ignore 404s and network errors
             }
-          } catch {
-            break; // Stop on any error
-          }
-        }
-        
-        // Only cycle through URLs that actually exist - smooth video-like display
-        if (availableUrls.length > 0) {
-          availableUrls.forEach((url: string, index: number) => {
-            setTimeout(() => {
-              if (activeImage === 1) {
-                setImage2Url(url);
-              } else {
-                setImage1Url(url);
-              }
-            }, index * 200 + 100); // 200ms intervals for smooth video feel
           });
-        }
+          
+          const testResults = await Promise.all(urlTests);
+          
+          // Keep only successful URLs in original order
+          testResults.forEach((url) => {
+            if (url) {
+              availableUrls.push(url);
+            }
+          });
+          
+          // Only cycle through URLs that actually exist - smooth video-like display
+          if (availableUrls.length > 0) {
+            availableUrls.forEach((url: string, index: number) => {
+              setTimeout(() => {
+                if (activeImage === 1) {
+                  setImage2Url(url);
+                } else {
+                  setImage1Url(url);
+                }
+              }, index * 200); // 200ms intervals for smooth video feel
+            });
+          }
+        }, 1500);
       } else {
         setError('Base URL not initialized');
 
