@@ -1,6 +1,6 @@
 import { Error as ErrorIcon } from '@mui/icons-material';
 import { Card, Typography, Box, Chip, CircularProgress } from '@mui/material';
-import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useModal } from '../../contexts/ModalContext';
 import { useStream } from '../../hooks/controller';
@@ -43,6 +43,9 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [isStreamModalOpen, setIsStreamModalOpen] = useState(false);
 
+  // Image queue for smooth video-like playback
+  const queueRef = useRef<string[]>([]);
+
   // Detect if this is a mobile device model for proper sizing
   const isMobile = useMemo(() => {
     return isMobileModel(device?.device_model);
@@ -59,8 +62,8 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
     device_id: device?.device_id || 'device1',
   });
 
-  // Get VNC scaling function from useRec
-  const { calculateVncScaling } = useRec();
+  // Get VNC scaling function and adaptive interval from useRec
+  const { calculateVncScaling, adaptiveInterval } = useRec();
 
   // Hook for notifications only
   const { showError } = useToast();
@@ -77,184 +80,90 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
   // Process screenshot URL with conditional HTTP to HTTPS proxy
   const getImageUrl = useCallback((screenshotPath: string) => screenshotPath || '', []);
 
-  // Simple screenshot taking logic
-  const handleTakeScreenshot = useCallback(async () => {
-    // Skip screenshots for VNC devices - they use iframe
-    if (isVncDevice) {
-      return;
+  // Queue refill logic
+  const refillQueue = useCallback(async () => {
+    if (isVncDevice || isAnyModalOpen || !generateThumbnailUrl || !stableDevice) return;
+
+    const frameUrls = generateThumbnailUrl(stableHost, stableDevice);
+    if (frameUrls.length === 0) return;
+
+    // Test URLs and add to queue
+    const urlTests = frameUrls.map(async (url) => {
+      try {
+        const response = await fetch(url, { method: 'HEAD' });
+        return response.ok ? url : null;
+      } catch {
+        return null;
+      }
+    });
+
+    const results = await Promise.all(urlTests);
+    const validUrls = results.filter(Boolean) as string[];
+    
+    if (validUrls.length > 0) {
+      queueRef.current = [...queueRef.current, ...validUrls].slice(-10); // Keep max 10 images
     }
+  }, [stableHost, stableDevice, generateThumbnailUrl, isAnyModalOpen, isVncDevice]);
 
-    // Don't take screenshots when modal is open
-    if (isAnyModalOpen) {
-      console.log(
-        `[RecHostPreview] ${stableHost.host_name}-${stableDevice?.device_id}: Screenshot skipped (modal open)`,
-      );
-      return;
-    }
+  // Display loop - consume queue every 200ms
+  useEffect(() => {
+    if (isVncDevice) return;
 
-    if (!generateThumbnailUrl || !stableDevice) {
-      return;
-    }
-
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      // Generate multiple frame URLs for video-like display
-      const allFrameUrls = generateThumbnailUrl ? generateThumbnailUrl(stableHost, stableDevice) : [];
-      
-      if (allFrameUrls.length > 0) {
-        // Add 1.5 second delay to ensure thumbnails are properly generated and available
-        setTimeout(async () => {
-          // Smart detection: Test which URLs actually exist, skip missing ones gracefully
-          const availableUrls: string[] = [];
-          
-          // Test all URLs in parallel and collect only the successful ones
-          const urlTests = allFrameUrls.map(async (url) => {
-            try {
-              const response = await fetch(url, { method: 'HEAD' });
-              return response.ok ? url : null;
-            } catch {
-              return null; // Gracefully ignore 404s and network errors
-            }
-          });
-          
-          const testResults = await Promise.all(urlTests);
-          
-          // Keep only successful URLs in original order
-          testResults.forEach((url) => {
-            if (url) {
-              availableUrls.push(url);
-            }
-          });
-          
-          // Only cycle through URLs that actually exist - smooth video-like display
-          if (availableUrls.length > 0) {
-            availableUrls.forEach((url: string, index: number) => {
-              setTimeout(() => {
-                if (activeImage === 1) {
-                  setImage2Url(url);
-                } else {
-                  setImage1Url(url);
-                }
-              }, index * 200); // 200ms intervals for smooth video feel
-            });
-          }
-        }, 1500);
-      } else {
-        setError('Base URL not initialized');
-
-        // If base URL is not available, try to initialize it again
-        if (initializeBaseUrl) {
-          setTimeout(async () => {
-            const reInitialized = await initializeBaseUrl(stableHost, stableDevice);
-            if (reInitialized) {
-              // Try taking screenshot again after re-initialization
-              setTimeout(() => handleTakeScreenshot(), 500);
-            }
-          }, 1000);
+    const displayInterval = setInterval(() => {
+      if (queueRef.current.length > 0) {
+        const nextUrl = queueRef.current.shift()!;
+        if (activeImage === 1) {
+          setImage2Url(nextUrl);
+        } else {
+          setImage1Url(nextUrl);
         }
       }
-    } catch (err: any) {
-      console.error(
-        `[@component:RecHostPreview] Thumbnail generation error for ${stableHost.host_name}-${stableDevice.device_id}:`,
-        err,
-      );
-      setError(err.message || 'Thumbnail generation failed');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [
-    stableHost,
-    stableDevice,
-    activeImage,
-    generateThumbnailUrl,
-    initializeBaseUrl,
-    isAnyModalOpen,
-    isVncDevice,
-  ]);
+    }, 200);
 
-  // Initialize base URL once, then auto-generate URLs (skip for VNC devices)
+    return () => clearInterval(displayInterval);
+  }, [activeImage, isVncDevice]);
+
+  // Queue refill loop - adaptive timing
   useEffect(() => {
-    // Skip screenshot polling for VNC devices
-    if (isVncDevice) {
-      return;
-    }
+    if (isVncDevice || isStreamModalOpen || isAnyModalOpen) return;
+    if (!stableHost || !stableDevice || !initializeBaseUrl) return;
 
-    // Immediately return if any modal is open - no polling activity should occur
-    if (isStreamModalOpen || isAnyModalOpen) {
-      return;
-    }
-
-    if (!stableHost || !stableDevice || !initializeBaseUrl || !generateThumbnailUrl) return;
-
-    let screenshotInterval: NodeJS.Timeout | null = null;
     let isMounted = true;
 
-    const initializeAndStartUpdates = async () => {
-      if (!isMounted) {
+    const startSystem = async () => {
+      // Initialize base URL once
+      const initialized = await initializeBaseUrl(stableHost, stableDevice);
+      if (!initialized || !isMounted) {
+        if (isMounted) setError('Failed to initialize base URL');
         return;
       }
 
-      try {
-        // Initialize base URL pattern (only called once)
-        const initialized = await initializeBaseUrl(stableHost, stableDevice);
+      // Initial queue fill
+      setIsLoading(true);
+      await refillQueue();
+      if (isMounted) setIsLoading(false);
 
-        if (!isMounted) {
-          return;
+      // Set up adaptive refill interval
+      const refillInterval = setInterval(() => {
+        if (isMounted && !isStreamModalOpen && !isAnyModalOpen) {
+          refillQueue();
         }
+      }, adaptiveInterval);
 
-        if (initialized) {
-          // Wait a moment for state to settle, then take initial screenshot
-          setTimeout(() => {
-            if (!isMounted) return;
-
-            handleTakeScreenshot();
-
-            // Set up interval for periodic screenshot URL updates (every 30 seconds)
-            screenshotInterval = setInterval(() => {
-              // Double-check modal state before taking screenshot
-              if (isMounted && !isStreamModalOpen && !isAnyModalOpen) {
-                handleTakeScreenshot();
-              }
-            }, 30000);
-          }, 500);
-        } else {
-          if (isMounted) {
-            setError('Failed to initialize base URL');
-          }
-        }
-      } catch (error) {
-        console.error(
-          `[@component:RecHostPreview] Error during initialization for: ${stableHost.host_name}-${stableDevice.device_id}`,
-          error,
-        );
-        if (isMounted) {
-          setError('Initialization error');
-        }
-      }
+      return () => clearInterval(refillInterval);
     };
 
-    initializeAndStartUpdates();
+    const cleanup = startSystem();
 
-    // Cleanup function
     return () => {
       isMounted = false;
-      if (screenshotInterval) {
-        clearInterval(screenshotInterval);
-        screenshotInterval = null;
-      }
+      cleanup.then(fn => fn?.());
     };
-  }, [
-    stableHost,
-    stableDevice,
-    initializeBaseUrl,
-    generateThumbnailUrl,
-    handleTakeScreenshot,
-    isStreamModalOpen,
-    isAnyModalOpen,
-    isVncDevice,
-  ]);
+  }, [stableHost, stableDevice, initializeBaseUrl, refillQueue, adaptiveInterval, isStreamModalOpen, isAnyModalOpen, isVncDevice, setError, setIsLoading]);
+
+
+
+
 
   // Handle opening stream modal
   const handleOpenStreamModal = useCallback(() => {

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 
 import { useModal } from '../../contexts/ModalContext';
 import { Host, Device } from '../../types/common/Host_Types';
@@ -18,6 +18,7 @@ interface UseRecReturn {
   generateThumbnailUrl: (host: Host, device: Device) => string[]; // Generate multiple frame URLs with current timestamp (blocked when modal open)
   restartStreams: () => Promise<void>; // Restart streams for all AV devices
   isRestarting: boolean; // Loading state for restart operation
+  adaptiveInterval: number; // Adaptive interval based on device count
   calculateVncScaling: (targetSize: { width: number; height: number }) => { // VNC scaling calculation for any target size
     transform: string;
     transformOrigin: string;
@@ -38,6 +39,15 @@ export const useRec = (): UseRecReturn => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isRestarting, setIsRestarting] = useState(false);
+
+  // Adaptive interval based on device count
+  const adaptiveInterval = useMemo(() => {
+    const count = avDevices.length;
+    if (count <= 5) return 200;   // 5 FPS
+    if (count <= 10) return 1000; // 1 FPS
+    if (count <= 20) return 2000; // 0.5 FPS
+    return 3333; // 0.3 FPS for 21+ devices
+  }, [avDevices.length]);
 
   // Add modal context hook
   const { isAnyModalOpen } = useModal();
@@ -310,6 +320,7 @@ export const useRec = (): UseRecReturn => {
     generateThumbnailUrl,
     restartStreams,
     isRestarting,
+    adaptiveInterval,
     calculateVncScaling, // Now using the imported version
   };
 };

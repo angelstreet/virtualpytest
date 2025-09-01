@@ -41,12 +41,11 @@ const DeviceStreamItem: React.FC<DeviceStreamItemProps> = ({ device, allHosts, g
   );
   const deviceModel = deviceObject?.device_model || 'unknown';
   
-  // Check if mobile model for sizing
+  // Check if mobile model for content adaptation
   const isMobileModel = !!(deviceModel && deviceModel.toLowerCase().includes('mobile'));
   
-  // Calculate sizes for grid layout - use larger height to show full content
-  const streamHeight = 180; // Compact height for better layout
-  const streamWidth = isMobileModel ? Math.round(streamHeight * (9/16)) : Math.round(streamHeight * (16/9));
+  // Use consistent preview box size like RecHostPreview - fixed height container
+  const previewHeight = 120; // Consistent preview box height
 
   return (
     <Box
@@ -54,11 +53,11 @@ const DeviceStreamItem: React.FC<DeviceStreamItemProps> = ({ device, allHosts, g
         backgroundColor: 'black',
         borderRadius: 1,
         overflow: 'hidden',
-        height: streamHeight,
-        minWidth: streamWidth,
+        height: previewHeight,
+        width: '100%', // Let grid control width, content adapts inside
         display: 'flex',
         flexDirection: 'column',
-        position: 'relative', // Add positioning context like RecHostStreamModal
+        position: 'relative',
       }}
     >
       {/* Device label */}
@@ -98,7 +97,7 @@ const DeviceStreamItem: React.FC<DeviceStreamItemProps> = ({ device, allHosts, g
                   pointerEvents: 'none',
                   display: 'block',
                   margin: '0 auto',
-                  ...calculateVncScaling({ width: streamWidth, height: streamHeight - 24 }), // Subtract label height
+                  ...calculateVncScaling({ width: 300, height: previewHeight - 24 }), // Subtract label height, use standard preview size
                 }}
                 title={`VNC Desktop - ${device.hostName}:${device.deviceId}`}
                 allow="fullscreen"
@@ -111,9 +110,9 @@ const DeviceStreamItem: React.FC<DeviceStreamItemProps> = ({ device, allHosts, g
               isCapturing={false}
               model={deviceModel}
               layoutConfig={{
-                minHeight: `${streamHeight - 24}px`,
+                minHeight: `${previewHeight - 24}px`,
                 aspectRatio: isMobileModel ? '9/16' : '16/9',
-                objectFit: 'contain', // Prevent cropping like RecHostStreamModal
+                objectFit: 'contain', // Content adapts inside fixed preview box
                 isMobileModel,
               }}
               isExpanded={false}
