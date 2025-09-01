@@ -154,7 +154,7 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
                 }}
               >
                 <iframe
-                  src={streamUrl}
+                  src={isStreamModalOpen ? '' : streamUrl}
                   style={{
                     border: 'none',
                     backgroundColor: '#000',
@@ -191,8 +191,8 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
                 }}
               >
                 <HLSVideoPlayer
-                  streamUrl={streamUrl}
-                  isStreamActive={true}
+                  streamUrl={isStreamModalOpen ? '' : streamUrl}
+                  isStreamActive={!isStreamModalOpen}
                   isCapturing={false}
                   model={device?.device_model || 'unknown'}
                   layoutConfig={{
