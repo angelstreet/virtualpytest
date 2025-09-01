@@ -142,8 +142,22 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
           }}
         >
           {streamUrl ? (
-            // Use same logic as RecHostStreamModal for consistent display
-            isVncDevice ? (
+            isStreamModalOpen ? (
+              <Box
+                sx={{
+                  height: '100%',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'text.secondary',
+                }}
+              >
+                <Typography variant="caption" align="center">
+                  Stream paused
+                </Typography>
+              </Box>
+            ) : isVncDevice ? (
               <Box
                 sx={{
                   position: 'relative',
