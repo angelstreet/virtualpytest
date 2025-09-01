@@ -14,6 +14,7 @@ interface HLSVideoPlayerProps {
   layoutConfig?: StreamViewerLayoutConfig;
   isExpanded?: boolean;
   muted?: boolean; // Add muted prop
+  hlsConfig?: Partial<HlsConfig>; // Optional custom HLS configuration
 }
 
 /**
@@ -39,6 +40,7 @@ export function HLSVideoPlayer({
   layoutConfig,
   isExpanded = false,
   muted = true, // Default to muted for autoplay compliance
+  hlsConfig, // Add hlsConfig prop
 }: HLSVideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<any>(null);
@@ -227,6 +229,7 @@ export function HLSVideoPlayer({
         fragLoadingTimeOut: 20000,
         manifestLoadingTimeOut: 10000,
         levelLoadingTimeOut: 10000,
+        ...hlsConfig, // Merge custom config
       });
 
       hlsRef.current = hls;
@@ -280,7 +283,7 @@ export function HLSVideoPlayer({
         setRetryCount((prev) => prev + 1);
       }, retryDelay);
     }
-  }, [streamUrl, retryCount, useNativePlayer, currentStreamUrl, cleanupStream, tryNativePlayback]);
+  }, [streamUrl, retryCount, useNativePlayer, currentStreamUrl, cleanupStream, tryNativePlayback, hlsConfig]);
 
   const handleStreamError = useCallback(() => {
     if (retryCount >= maxRetries) {

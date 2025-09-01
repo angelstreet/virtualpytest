@@ -204,7 +204,13 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
                     isMobileModel: isMobile,
                   }}
                   isExpanded={false}
-                  muted={true} // Always muted in preview
+                  muted={true}
+                  hlsConfig={{
+                    lowLatencyMode: true,
+                    liveSyncDurationCount: 2,
+                    liveMaxLatencyDurationCount: 4,
+                    maxLiveSyncPlaybackRate: 1.5,
+                  }}
                   sx={{
                     width: '100%',
                     height: '100%',
