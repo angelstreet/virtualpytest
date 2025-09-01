@@ -87,6 +87,7 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
   const handleImageLoad = useCallback((imageNumber: 1 | 2) => {
     const currentUrl = imageNumber === 1 ? image1Url : image2Url;
     console.log(`[${stableHost.host_name}-${stableDevice?.device_id}] DISPLAYING image ${imageNumber}: ${currentUrl}`);
+    console.log(`[${stableHost.host_name}-${stableDevice?.device_id}] CHANGING activeImage FROM ? TO ${imageNumber}`);
     setActiveImage(imageNumber); // Switch to the newly loaded image
   }, [image1Url, image2Url, stableHost.host_name, stableDevice?.device_id]);
 
@@ -184,15 +185,16 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
       let currentActiveImage: 1 | 2;
       setActiveImage(current => {
         currentActiveImage = current;
+        console.log(`[${stableHost.host_name}-${stableDevice?.device_id}] READING activeImage: ${current}`);
         return current; // Don't change activeImage here, let handleImageLoad do it
       });
       
       // Set the image URL outside the state updater to prevent multiple calls
       if (currentActiveImage! === 1) {
-        console.log(`[${stableHost.host_name}-${stableDevice?.device_id}] SETTING image2Url: ${nextUrl}`);
+        console.log(`[${stableHost.host_name}-${stableDevice?.device_id}] activeImage=1 → SETTING image2Url: ${nextUrl}`);
         setImage2Url(nextUrl);
       } else {
-        console.log(`[${stableHost.host_name}-${stableDevice?.device_id}] SETTING image1Url: ${nextUrl}`);
+        console.log(`[${stableHost.host_name}-${stableDevice?.device_id}] activeImage=2 → SETTING image1Url: ${nextUrl}`);
         setImage1Url(nextUrl);
       }
     }
