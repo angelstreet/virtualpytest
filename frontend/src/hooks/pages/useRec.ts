@@ -21,12 +21,6 @@ interface UseRecReturn {
     width: string;
     height: string;
   };
-  defaultHlsConfig: {
-    lowLatencyMode: boolean;
-    liveSyncDurationCount: number;
-    liveMaxLatencyDurationCount: number;
-    maxLiveSyncPlaybackRate: number;
-  };
 }
 
 /**
@@ -167,23 +161,15 @@ export const useRec = (): UseRecReturn => {
     }
   }, [avDevices, isRestarting]);
 
-  const defaultHlsConfig = useMemo(() => ({
-    lowLatencyMode: true,
-    liveSyncDurationCount: 2,
-    liveMaxLatencyDurationCount: 4,
-    maxLiveSyncPlaybackRate: 1.5,
-  }), []);
-
   return {
     avDevices,
     isLoading,
     error,
     refreshHosts,
-    baseUrlPatterns,
+    baseUrlPatterns, // Only used for monitoring now
     restartStreams,
     isRestarting,
     adaptiveInterval,
-    calculateVncScaling,
-    defaultHlsConfig,
+    calculateVncScaling, // Now using the imported version
   };
 };
