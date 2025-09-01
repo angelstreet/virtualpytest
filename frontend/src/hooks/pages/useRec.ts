@@ -15,7 +15,7 @@ interface UseRecReturn {
   refreshHosts: () => Promise<void>;
   baseUrlPatterns: Map<string, string>; // host_name-device_id -> base URL pattern
   initializeBaseUrl: (host: Host, device: Device) => Promise<boolean>; // One-time base URL setup
-  generateThumbnailUrl: (host: Host, device: Device, timestampOffset?: number) => string[]; // Updated signature with optional offset
+  generateThumbnailUrl: (host: Host, device: Device) => string[]; // Generate multiple frame URLs with current timestamp (blocked when modal open)
   restartStreams: () => Promise<void>; // Restart streams for all AV devices
   isRestarting: boolean; // Loading state for restart operation
   calculateVncScaling: (targetSize: { width: number; height: number }) => { // VNC scaling calculation for any target size
@@ -122,7 +122,7 @@ export const useRec = (): UseRecReturn => {
 
   // Generate multiple frame URLs with current timestamp (no server calls) - blocked when modal open
   const generateThumbnailUrl = useCallback(
-    (host: Host, device: Device, timestampOffset: number = 0): string[] => {  // Add offset in seconds
+    (host: Host, device: Device): string[] => {
       const deviceKey = `${host.host_name}-${device.device_id}`;
 
       // Log which component initiated this call (using stack trace)
@@ -149,7 +149,6 @@ export const useRec = (): UseRecReturn => {
 
       // Generate current timestamp in YYYYMMDDHHMMSS format
       const now = new Date();
-      now.setSeconds(now.getSeconds() + timestampOffset);  // Apply offset
       const timestamp =
         now.getFullYear().toString() +
         (now.getMonth() + 1).toString().padStart(2, '0') +
