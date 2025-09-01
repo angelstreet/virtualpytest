@@ -15,7 +15,7 @@ interface UseRecReturn {
   refreshHosts: () => Promise<void>;
   baseUrlPatterns: Map<string, string>; // host_name-device_id -> base URL pattern
   initializeBaseUrl: (host: Host, device: Device) => Promise<boolean>; // One-time base URL setup
-  generateThumbnailUrl: (host: Host, device: Device) => string[]; // Generate multiple frame URLs with current timestamp (blocked when modal open)
+  generateThumbnailUrl: (host: Host, device: Device, timestampOffset?: number) => string[]; // Updated signature with optional offset
   restartStreams: () => Promise<void>; // Restart streams for all AV devices
   isRestarting: boolean; // Loading state for restart operation
   calculateVncScaling: (targetSize: { width: number; height: number }) => { // VNC scaling calculation for any target size

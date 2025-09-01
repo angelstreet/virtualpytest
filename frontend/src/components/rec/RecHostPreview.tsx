@@ -44,6 +44,7 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
   const [isStreamModalOpen, setIsStreamModalOpen] = useState(false);
   const [isFirstBatch, setIsFirstBatch] = useState(true);
   const handleTakeScreenshotRef = useRef<(() => Promise<void>) | null>(null);  // Adjust type to include null and async function
+  const [currentOffset, setCurrentOffset] = useState(0);  // NEW: Track timestamp offset for fresh batches
 
   // Detect if this is a mobile device model for proper sizing
   const isMobile = useMemo(() => {
@@ -95,7 +96,7 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
 
     try {
       // Generate multiple frame URLs for video-like display
-      const allFrameUrls = generateThumbnailUrl ? generateThumbnailUrl(stableHost, stableDevice) : [];
+      const allFrameUrls = generateThumbnailUrl ? generateThumbnailUrl(stableHost, stableDevice, currentOffset) : [];
       
       if (allFrameUrls.length > 0) {
         // Conditional delay: 1.5s for first batch, 0.5s for subsequent
@@ -137,6 +138,8 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
             if (isFirstBatch) {
               setIsFirstBatch(false);  // Switch to reduced delay mode
             }
+            // NEW: After scheduling display, increment offset
+            setCurrentOffset((prev) => prev + 1);
           }
         }, delay);
       } else {
@@ -171,6 +174,7 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
     isAnyModalOpen,
     isVncDevice,
     isFirstBatch,
+    currentOffset,  // Add dep
   ]);
 
   // NEW: Assign to ref in useEffect to avoid declaration order issues
@@ -182,7 +186,7 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
   const handleImageLoad = useCallback((imageNumber: 1 | 2) => {
     setActiveImage(imageNumber);
     if (!isFirstBatch && imageNumber === 2) {
-      handleTakeScreenshotRef.current?.();  // Call via ref
+      handleTakeScreenshotRef.current?.();  // Trigger next with incremented offset
     }
   }, [isFirstBatch]);  // No longer depends on handleTakeScreenshot
 
