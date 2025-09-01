@@ -3,6 +3,7 @@ import { Box, Typography, IconButton } from '@mui/material';
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 
 import { StreamViewerLayoutConfig, getStreamViewerLayout } from '../../config/layoutConfig';
+import type { HlsConfig } from 'hls.js';
 
 interface HLSVideoPlayerProps {
   streamUrl?: string;
@@ -216,11 +217,8 @@ export function HLSVideoPlayer({
       }
 
       // Production-ready HLS configuration (proven from StreamViewer)
-      const hls = new HLS({
+      const config = {
         enableWorker: false,
-        lowLatencyMode: false,
-        liveSyncDuration: 3,
-        liveMaxLatencyDuration: 10,
         maxBufferLength: 30,
         maxMaxBufferLength: 60,
         backBufferLength: 10,
@@ -229,8 +227,23 @@ export function HLSVideoPlayer({
         fragLoadingTimeOut: 20000,
         manifestLoadingTimeOut: 10000,
         levelLoadingTimeOut: 10000,
-        ...hlsConfig, // Merge custom config
-      });
+        ...hlsConfig,
+      };
+
+      // Avoid mixing duration and count-based configs
+      if (config.liveSyncDurationCount !== undefined || config.liveMaxLatencyDurationCount !== undefined) {
+        delete config.liveSyncDuration;
+        delete config.liveMaxLatencyDuration;
+      } else {
+        // Default to duration-based if no count-based provided
+        config.liveSyncDuration = 3;
+        config.liveMaxLatencyDuration = 10;
+      }
+
+      // Ensure lowLatencyMode is set (default false unless provided)
+      config.lowLatencyMode = hlsConfig?.lowLatencyMode ?? false;
+
+      const hls = new HLS(config);
 
       hlsRef.current = hls;
 
