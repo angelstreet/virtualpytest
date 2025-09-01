@@ -87,16 +87,19 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
     const frameUrls = generateThumbnailUrl(stableHost, stableDevice);
     if (frameUrls.length === 0) return;
 
-    // Test URLs sequentially to maintain order
+    // Preload images sequentially to maintain order
     const validUrls: string[] = [];
     for (const url of frameUrls) {
       try {
-        const response = await fetch(url, { method: 'HEAD' });
-        if (response.ok) {
-          validUrls.push(url);
-        }
+        await new Promise((resolve, reject) => {
+          const img = new Image();
+          img.onload = () => resolve(url);
+          img.onerror = reject;
+          img.src = url;
+        });
+        validUrls.push(url);
       } catch {
-        // Skip failed URLs but maintain order
+        // Silently skip failed loads but maintain order
       }
     }
     
