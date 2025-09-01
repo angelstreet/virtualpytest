@@ -156,10 +156,13 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
         return;
       }
 
-      // Initial queue fill
+      // Initial queue fill with 1.5s delay to ensure thumbnails are generated
       setIsLoading(true);
-      await refillQueue();
-      if (isMounted) setIsLoading(false);
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      if (isMounted) {
+        await refillQueue();
+        setIsLoading(false);
+      }
 
       // Set up adaptive refill interval
       const refillInterval = setInterval(() => {
