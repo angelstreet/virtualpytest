@@ -25,6 +25,9 @@ interface DeviceStreamItemProps {
   getDevicesFromHost: (hostName: string) => any[];
 }
 
+// Move previewHeight to top level
+const PREVIEW_HEIGHT = 120; // Consistent preview box height
+
 // Individual device stream component
 const DeviceStreamItem: React.FC<DeviceStreamItemProps> = ({ device, allHosts, getDevicesFromHost }) => {
   const hostObject = allHosts.find((host) => host.host_name === device.hostName);
@@ -45,7 +48,7 @@ const DeviceStreamItem: React.FC<DeviceStreamItemProps> = ({ device, allHosts, g
   const isMobileModel = !!(deviceModel && deviceModel.toLowerCase().includes('mobile'));
   
   // Use consistent preview box size like RecHostPreview - fixed height container
-  const previewHeight = 120; // Consistent preview box height
+  // const previewHeight = 120; // Consistent preview box height
 
   return (
     <Box
@@ -53,7 +56,7 @@ const DeviceStreamItem: React.FC<DeviceStreamItemProps> = ({ device, allHosts, g
         backgroundColor: 'black',
         borderRadius: 1,
         overflow: 'hidden',
-        height: previewHeight,
+        height: PREVIEW_HEIGHT,
         width: '100%', // Let grid control width, content adapts inside
         display: 'flex',
         flexDirection: 'column',
@@ -98,7 +101,7 @@ const DeviceStreamItem: React.FC<DeviceStreamItemProps> = ({ device, allHosts, g
                   pointerEvents: 'none',
                   display: 'block',
                   margin: '0 auto',
-                  ...calculateVncScaling({ width: 300, height: previewHeight - 24 }), // Subtract label height, use standard preview size
+                  ...calculateVncScaling({ width: 300, height: PREVIEW_HEIGHT - 24 }), // Subtract label height, use standard preview size
                 }}
                 title={`VNC Desktop - ${device.hostName}:${device.deviceId}`}
                 allow="fullscreen"
@@ -111,7 +114,7 @@ const DeviceStreamItem: React.FC<DeviceStreamItemProps> = ({ device, allHosts, g
               isCapturing={false}
               model={deviceModel}
               layoutConfig={{
-                minHeight: isMobileModel ? 'auto' : `${previewHeight - 24}px`, // Let mobile devices use natural height
+                minHeight: isMobileModel ? 'auto' : `${PREVIEW_HEIGHT - 24}px`, // Let mobile devices use natural height
                 aspectRatio: isMobileModel ? '9/16' : '16/9',
                 objectFit: 'contain', // Content adapts inside fixed preview box
                 isMobileModel,
@@ -176,6 +179,7 @@ export const DeviceStreamGrid: React.FC<DeviceStreamGridProps> = ({
         gridTemplateColumns: `repeat(${Math.min(devices.length, maxColumns)}, 1fr)`,
         gap: 2,
         maxWidth: '100%',
+        gridAutoRows: `${PREVIEW_HEIGHT}px`,
       }}
     >
       {devices.map((device, index) => (

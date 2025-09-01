@@ -87,18 +87,18 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
     const frameUrls = generateThumbnailUrl(stableHost, stableDevice);
     if (frameUrls.length === 0) return;
 
-    // Test URLs and add to queue
-    const urlTests = frameUrls.map(async (url) => {
+    // Test URLs sequentially to maintain order
+    const validUrls: string[] = [];
+    for (const url of frameUrls) {
       try {
         const response = await fetch(url, { method: 'HEAD' });
-        return response.ok ? url : null;
+        if (response.ok) {
+          validUrls.push(url);
+        }
       } catch {
-        return null;
+        // Skip failed URLs but maintain order
       }
-    });
-
-    const results = await Promise.all(urlTests);
-    const validUrls = results.filter(Boolean) as string[];
+    }
     
     if (validUrls.length > 0) {
       queueRef.current = [...queueRef.current, ...validUrls].slice(-10); // Keep max 10 images
