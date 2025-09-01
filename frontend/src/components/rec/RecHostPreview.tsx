@@ -49,7 +49,6 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
   const lastTimestampRef = useRef<string>('');
   const hasInitializedRef = useRef<boolean>(false);
   const startTimestampRef = useRef<string>('');
-  const nextImageSlotRef = useRef<1 | 2>(2); // Start with 2, so first frame goes to image1
 
   // Detect if this is a mobile device model for proper sizing
   const isMobile = useMemo(() => {
@@ -182,22 +181,20 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
       const nextUrl = queueRef.current[0];
       queueRef.current = queueRef.current.slice(1);
       
-      // Use ref-based alternation to avoid race condition with React state
-      const targetImageSlot = nextImageSlotRef.current;
-      nextImageSlotRef.current = targetImageSlot === 1 ? 2 : 1; // Toggle for next time
-      
-      console.log(`[${stableHost.host_name}-${stableDevice?.device_id}] Using slot ${targetImageSlot}, next will be ${nextImageSlotRef.current}`);
-      
-      // Set the image URL based on ref (no race condition)
-      if (targetImageSlot === 1) {
-        console.log(`[${stableHost.host_name}-${stableDevice?.device_id}] SETTING image1Url: ${nextUrl}`);
-        setImage1Url(nextUrl);
-      } else {
-        console.log(`[${stableHost.host_name}-${stableDevice?.device_id}] SETTING image2Url: ${nextUrl}`);
+      // Buffer system: load into inactive image slot while other is displayed
+      // activeImage shows which image is currently visible
+      // We load the next frame into the OTHER image slot
+      if (activeImage === 1) {
+        // Currently showing image1, so load next frame into image2
+        console.log(`[${stableHost.host_name}-${stableDevice?.device_id}] Currently showing image1, LOADING into image2: ${nextUrl}`);
         setImage2Url(nextUrl);
+      } else {
+        // Currently showing image2, so load next frame into image1  
+        console.log(`[${stableHost.host_name}-${stableDevice?.device_id}] Currently showing image2, LOADING into image1: ${nextUrl}`);
+        setImage1Url(nextUrl);
       }
     }
-  }, [isVncDevice, isAnyModalOpen, generateNextFrameUrl]);
+  }, [isVncDevice, isAnyModalOpen, generateNextFrameUrl, activeImage]);
 
   // Single loop - matches ffmpeg generation timing (200ms)
   useEffect(() => {
