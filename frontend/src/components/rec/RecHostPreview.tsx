@@ -35,13 +35,11 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
   // Global modal state
   const { isAnyModalOpen } = useModal();
 
-  // Simple 2-image state
-  const [image1Url, setImage1Url] = useState<string | null>(null);
-  const [image2Url, setImage2Url] = useState<string | null>(null);
-  const [activeImage, setActiveImage] = useState<1 | 2>(1);
+  // Ensure states are declared early
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isStreamModalOpen, setIsStreamModalOpen] = useState(false);
+  const [currentImageUrl, setCurrentImageUrl] = useState<string | null>(null);
 
   // Image queue for smooth video-like playback
   const queueRef = useRef<string[]>([]);
@@ -82,14 +80,6 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
     stableHostRef.current = stableHost;
     stableDeviceRef.current = stableDevice;
   }, [stableHost, stableDevice]);
-
-  // Handle when an image loads successfully
-  const handleImageLoad = useCallback((imageNumber: 1 | 2) => {
-    const currentUrl = imageNumber === 1 ? image1Url : image2Url;
-    console.log(`[${stableHost.host_name}-${stableDevice?.device_id}] DISPLAYING image ${imageNumber}: ${currentUrl}`);
-    console.log(`[${stableHost.host_name}-${stableDevice?.device_id}] CHANGING activeImage FROM ? TO ${imageNumber}`);
-    setActiveImage(imageNumber); // Switch to the newly loaded image
-  }, [image1Url, image2Url, stableHost.host_name, stableDevice?.device_id]);
 
   // Process screenshot URL with conditional HTTP to HTTPS proxy
   const getImageUrl = useCallback((screenshotPath: string) => screenshotPath || '', []);
@@ -158,43 +148,34 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
   const processNextFrame = useCallback(async () => {
     if (isVncDevice || isAnyModalOpen) return;
 
-    // Try to preload next expected frame
     const nextFrameUrl = generateNextFrameUrl();
     if (nextFrameUrl) {
       try {
         await new Promise((resolve, reject) => {
           const img = new Image();
-          img.onload = () => resolve(nextFrameUrl);
+          img.onload = () => {
+            // Directly set the single image URL on success
+            setCurrentImageUrl(nextFrameUrl);
+            resolve(nextFrameUrl);
+          };
           img.onerror = reject;
           img.src = nextFrameUrl;
         });
         
-        // Add to queue (keep max 5 frames)
+        // Optional: Keep queue if needed for buffering, but simplify by direct set
         queueRef.current = [...queueRef.current, nextFrameUrl].slice(-5);
       } catch {
-        // Frame not ready yet, skip silently
+        // Skip if not ready
       }
     }
 
-    // Display next frame from queue if available
+    // Display from queue if available (direct to single state)
     if (queueRef.current.length > 0) {
       const nextUrl = queueRef.current[0];
       queueRef.current = queueRef.current.slice(1);
-      
-      // Buffer system: load into inactive image slot while other is displayed
-      // activeImage shows which image is currently visible
-      // We load the next frame into the OTHER image slot
-      if (activeImage === 1) {
-        // Currently showing image1, so load next frame into image2
-        console.log(`[${stableHost.host_name}-${stableDevice?.device_id}] Currently showing image1, LOADING into image2: ${nextUrl}`);
-        setImage2Url(nextUrl);
-      } else {
-        // Currently showing image2, so load next frame into image1  
-        console.log(`[${stableHost.host_name}-${stableDevice?.device_id}] Currently showing image2, LOADING into image1: ${nextUrl}`);
-        setImage1Url(nextUrl);
-      }
+      setCurrentImageUrl(nextUrl);
     }
-  }, [isVncDevice, isAnyModalOpen, generateNextFrameUrl, activeImage]);
+  }, [isVncDevice, isAnyModalOpen, generateNextFrameUrl]);
 
   // Single loop - matches ffmpeg generation timing (200ms)
   useEffect(() => {
@@ -213,16 +194,13 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
       if (isVncDevice || isStreamModalOpen || isAnyModalOpen) return;
       if (!currentHost || !currentDevice || !initializeBaseUrl) return;
 
-      // Initialize base URL once
       const initialized = await initializeBaseUrl(currentHost, currentDevice);
       if (!initialized || !isMounted) {
         if (isMounted) setError('Failed to initialize base URL');
         return;
       }
 
-      // Initial delay only on first initialization
       if (!hasInitializedRef.current) {
-        // Capture timestamp BEFORE waiting to maintain constant delay
         const now = new Date();
         startTimestampRef.current = 
           now.getFullYear().toString() +
@@ -232,7 +210,6 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
           now.getMinutes().toString().padStart(2, '0') +
           now.getSeconds().toString().padStart(2, '0');
         
-        // Initialize lastTimestampRef with the start timestamp immediately
         lastTimestampRef.current = startTimestampRef.current;
         frameCounterRef.current = 0;
         
@@ -244,7 +221,6 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
         if (isMounted) setIsLoading(false);
       }
 
-      // Single 200ms loop matching ffmpeg generation
       const frameInterval = setInterval(() => {
         if (isMounted && !isStreamModalOpen && !isAnyModalOpen) {
           processNextFrame();
@@ -266,19 +242,15 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
 
 
 
-  // Handle opening stream modal
+  // Handle opening/closing with restored state
   const handleOpenStreamModal = useCallback(() => {
-    // Basic check if host is online
     if (stableHost.status !== 'online') {
       showError('Host is not online');
       return;
     }
-
-    // Just open the modal - let it handle control logic
     setIsStreamModalOpen(true);
   }, [stableHost, showError]);
 
-  // Handle closing stream modal
   const handleCloseStreamModal = useCallback(() => {
     setIsStreamModalOpen(false);
   }, []);
@@ -412,7 +384,7 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
               </Box>
             )
           ) : (
-            // Non-VNC devices: Show screenshot thumbnails with simple 2-image algorithm
+            // Non-VNC devices: Show screenshot thumbnails with simple single-image
             <>
               {error ? (
                 <Box
@@ -430,7 +402,7 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
                     {error}
                   </Typography>
                 </Box>
-              ) : image1Url || image2Url ? (
+              ) : currentImageUrl ? (
                 <Box
                   sx={{
                     position: 'relative',
@@ -440,61 +412,23 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
                     overflow: 'hidden',
                   }}
                 >
-                  {/* Image 1 */}
-                  {image1Url && (
-                    <Box
-                      component="img"
-                      src={getImageUrl(image1Url)}
-                      alt="Screenshot 1"
-                      sx={{
-                        position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        width: isMobile ? 'auto' : '100%',
-                        height: isMobile ? '100%' : 'auto',
-                        objectFit: 'contain',
-                        opacity: activeImage === 1 ? 1 : 0,
-                        cursor: 'pointer',
-                      }}
-                      draggable={false}
-                      onLoad={() => handleImageLoad(1)}
-                      onError={() => {
-                        // console.log(
-                        //   `[RecHostPreview] Image 1 failed to load: ${image1Url} - keeping current image`,
-                        // );
-                        // Do nothing - keep current active image
-                      }}
-                    />
-                  )}
-
-                  {/* Image 2 */}
-                  {image2Url && (
-                    <Box
-                      component="img"
-                      src={getImageUrl(image2Url)}
-                      alt="Screenshot 2"
-                      sx={{
-                        position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        width: isMobile ? 'auto' : '100%',
-                        height: isMobile ? '100%' : 'auto',
-                        objectFit: 'contain',
-                        opacity: activeImage === 2 ? 1 : 0,
-                        cursor: 'pointer',
-                      }}
-                      draggable={false}
-                      onLoad={() => handleImageLoad(2)}
-                      onError={() => {
-                        // console.log(
-                        //   `[RecHostPreview] Image 2 failed to load: ${image2Url} - keeping current image`,
-                        // );
-                        // Do nothing - keep current active image
-                      }}
-                    />
-                  )}
-
-                  {/* Click overlay to open stream modal */}
+                  <Box
+                    component="img"
+                    src={getImageUrl(currentImageUrl)}
+                    alt="Screenshot"
+                    sx={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      width: isMobile ? 'auto' : '100%',
+                      height: isMobile ? '100%' : 'auto',
+                      objectFit: 'contain',
+                      cursor: 'pointer',
+                    }}
+                    draggable={false}
+                    onLoad={() => console.log(`Displayed: ${currentImageUrl}`)}
+                    onError={() => console.log(`Failed to display: ${currentImageUrl}`)}
+                  />
                   <Box
                     onClick={handleOpenStreamModal}
                     sx={{
