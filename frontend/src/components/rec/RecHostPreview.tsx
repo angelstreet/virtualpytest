@@ -88,21 +88,12 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
     if (frameUrls.length === 0) return;
 
     // Preload images in parallel, then sort successful ones by frame order
-    const preloadPromises = frameUrls.map((url, index) => 
+    const preloadPromises = frameUrls.map(url => 
       new Promise((resolve, reject) => {
-        const tryLoad = (attempt = 0) => {
-          const img = new Image();
-          img.onload = () => resolve(url);
-          img.onerror = () => {
-            if (attempt < 1 && index <= 2) { // Retry once for early frames (0,1,2)
-              setTimeout(() => tryLoad(attempt + 1), 50);
-            } else {
-              reject();
-            }
-          };
-          img.src = url;
-        };
-        tryLoad();
+        const img = new Image();
+        img.onload = () => resolve(url);
+        img.onerror = reject;
+        img.src = url;
       })
     );
 
