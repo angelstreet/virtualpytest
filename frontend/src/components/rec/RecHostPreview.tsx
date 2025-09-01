@@ -61,11 +61,15 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
     return device?.device_model === 'host_vnc';
   }, [device?.device_model]);
 
-  // For VNC devices, get the stream URL directly
-  const { streamUrl: vncStreamUrl } = useStream({
-    host,
-    device_id: device?.device_id || 'device1',
-  });
+  // Conditional stream hook for VNC only
+  let vncStreamUrl = null;
+  if (isVncDevice) {
+    const { streamUrl } = useStream({
+      host,
+      device_id: device?.device_id || 'device1',
+    });
+    vncStreamUrl = streamUrl;
+  }
 
   // Get VNC scaling function from useRec
   const { calculateVncScaling } = useRec();
