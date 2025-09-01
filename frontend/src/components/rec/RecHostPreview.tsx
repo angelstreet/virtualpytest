@@ -1,6 +1,6 @@
 import { Error as ErrorIcon } from '@mui/icons-material';
 import { Card, Typography, Box, Chip, CircularProgress } from '@mui/material';
-import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useModal } from '../../contexts/ModalContext';
 import { useStream } from '../../hooks/controller';
@@ -42,6 +42,11 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isStreamModalOpen, setIsStreamModalOpen] = useState(false);
+  
+  // Frame cycling state for continuous video playback
+  const frameIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const availableFramesRef = useRef<string[]>([]);
+  const frameIndexRef = useRef(0);
 
   // Detect if this is a mobile device model for proper sizing
   const isMobile = useMemo(() => {
@@ -128,17 +133,30 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
             }
           });
           
-          // Only cycle through URLs that actually exist - smooth video-like display
+          // Set up continuous circular playback - keep cycling through available frames
           if (availableUrls.length > 0) {
-            availableUrls.forEach((url: string, index: number) => {
-              setTimeout(() => {
-                if (activeImage === 1) {
-                  setImage2Url(url);
-                } else {
-                  setImage1Url(url);
-                }
-              }, index * 200); // 200ms intervals for smooth video feel
-            });
+            // Clear any existing interval
+            if (frameIntervalRef.current) {
+              clearInterval(frameIntervalRef.current);
+            }
+            
+            // Store available frames and reset index
+            availableFramesRef.current = availableUrls;
+            frameIndexRef.current = 0;
+            
+            // Start continuous frame cycling
+            frameIntervalRef.current = setInterval(() => {
+              const url = availableFramesRef.current[frameIndexRef.current];
+              
+              if (activeImage === 1) {
+                setImage2Url(url);
+              } else {
+                setImage1Url(url);
+              }
+              
+              // Move to next frame, loop back to start when done
+              frameIndexRef.current = (frameIndexRef.current + 1) % availableFramesRef.current.length;
+            }, 200); // 200ms intervals for smooth 5 FPS video
           }
         }, 1500);
       } else {
@@ -243,6 +261,11 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
       if (screenshotInterval) {
         clearInterval(screenshotInterval);
         screenshotInterval = null;
+      }
+      // Clean up frame cycling interval
+      if (frameIntervalRef.current) {
+        clearInterval(frameIntervalRef.current);
+        frameIntervalRef.current = null;
       }
     };
   }, [
