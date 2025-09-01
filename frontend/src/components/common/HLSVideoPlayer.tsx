@@ -213,20 +213,22 @@ export function HLSVideoPlayer({
         return;
       }
 
-      // Production-ready HLS configuration (proven from StreamViewer)
+      // Ultra low-latency HLS configuration - aggressive live edge seeking
       const hls = new HLS({
         enableWorker: false,
         lowLatencyMode: true,
-        liveSyncDuration: 3,
-        liveMaxLatencyDuration: 10,
-        maxBufferLength: 3,
-        maxMaxBufferLength: 60,
-        backBufferLength: 10,
-        maxBufferSize: 60 * 1000 * 1000,
-        maxBufferHole: 0.5,
-        fragLoadingTimeOut: 20000,
-        manifestLoadingTimeOut: 10000,
-        levelLoadingTimeOut: 10000,
+        liveSyncDuration: 1,           // Reduced from 3 to 1 - stay closer to live edge
+        liveMaxLatencyDuration: 3,     // Reduced from 10 to 3 - max allowed latency
+        maxBufferLength: 2,            // Reduced from 3 to 2 - minimal buffering
+        maxMaxBufferLength: 4,         // Reduced from 60 to 4 - prevent over-buffering
+        backBufferLength: 0,           // Reduced from 10 to 0 - no back buffer
+        maxBufferSize: 2 * 1000 * 1000, // Reduced buffer size
+        maxBufferHole: 0.1,            // Reduced from 0.5 to 0.1 - fill gaps faster
+        fragLoadingTimeOut: 5000,      // Reduced from 20000 to 5000 - fail faster
+        manifestLoadingTimeOut: 3000,  // Reduced from 10000 to 3000 - fail faster
+        levelLoadingTimeOut: 3000,     // Reduced from 10000 to 3000 - fail faster
+        liveBackBufferLength: 0,       // No live back buffer
+        liveDurationInfinity: true,    // Allow infinite live duration
       });
 
       hlsRef.current = hls;
@@ -237,6 +239,43 @@ export function HLSVideoPlayer({
         setRetryCount(0);
         attemptPlay();
       });
+
+      // Aggressive live edge seeking - force player to stay at live edge
+      hls.on(HLS.Events.FRAG_LOADED, () => {
+        if (videoRef.current && hls.liveSyncPosition !== undefined) {
+          const currentTime = videoRef.current.currentTime;
+          const liveEdge = hls.liveSyncPosition;
+          const latency = liveEdge - currentTime;
+          
+          // If we're more than 2 seconds behind live edge, jump forward
+          if (latency > 2) {
+            console.log(`[@component:HLSVideoPlayer] High latency detected (${latency.toFixed(2)}s), seeking to live edge`);
+            videoRef.current.currentTime = liveEdge - 0.5; // Stay 0.5s behind live edge
+          }
+        }
+      });
+
+      // Monitor and correct drift every few seconds
+      const latencyCheckInterval = setInterval(() => {
+        if (videoRef.current && hls.liveSyncPosition !== undefined && !videoRef.current.paused) {
+          const currentTime = videoRef.current.currentTime;
+          const liveEdge = hls.liveSyncPosition;
+          const latency = liveEdge - currentTime;
+          
+          // If latency exceeds 3 seconds, aggressively seek to live edge
+          if (latency > 3) {
+            console.log(`[@component:HLSVideoPlayer] Correcting high latency (${latency.toFixed(2)}s)`);
+            videoRef.current.currentTime = liveEdge - 0.3; // Stay very close to live edge
+          }
+        }
+      }, 2000); // Check every 2 seconds
+
+      // Cleanup interval when HLS is destroyed
+      const originalDestroy = hls.destroy.bind(hls);
+      hls.destroy = () => {
+        clearInterval(latencyCheckInterval);
+        originalDestroy();
+      };
 
       hls.on(HLS.Events.ERROR, (_event, data) => {
         //console.warn('[@component:HLSVideoPlayer] HLS error:', data.type, data.details, data.fatal);
