@@ -75,6 +75,13 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
   // Stabilize host and device objects to prevent infinite re-renders
   const stableHost = useMemo(() => host, [host]);
   const stableDevice = useMemo(() => device, [device]);
+  const stableHostRef = useRef(stableHost);
+  const stableDeviceRef = useRef(stableDevice);
+
+  useEffect(() => {
+    stableHostRef.current = stableHost;
+    stableDeviceRef.current = stableDevice;
+  }, [stableHost, stableDevice]);
 
   // Handle when an image loads successfully
   const handleImageLoad = useCallback((imageNumber: 1 | 2) => {
@@ -178,14 +185,17 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
 
   // Single loop - matches ffmpeg generation timing (200ms)
   useEffect(() => {
-    if (isVncDevice || isStreamModalOpen || isAnyModalOpen) return;
-    if (!stableHost || !stableDevice || !initializeBaseUrl) return;
-
     let isMounted = true;
 
     const startSystem = async () => {
+      const currentHost = stableHostRef.current;
+      const currentDevice = stableDeviceRef.current;
+
+      if (isVncDevice || isStreamModalOpen || isAnyModalOpen) return;
+      if (!currentHost || !currentDevice || !initializeBaseUrl) return;
+
       // Initialize base URL once
-      const initialized = await initializeBaseUrl(stableHost, stableDevice);
+      const initialized = await initializeBaseUrl(currentHost, currentDevice);
       if (!initialized || !isMounted) {
         if (isMounted) setError('Failed to initialize base URL');
         return;
@@ -204,7 +214,7 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
           now.getSeconds().toString().padStart(2, '0');
         
         setIsLoading(true);
-        console.log(`[${stableHost.host_name}-${stableDevice?.device_id}] Starting 1.5s wait for timestamp ${startTimestampRef.current}...`);
+        console.log(`[${currentHost.host_name}-${currentDevice?.device_id}] Starting 1.5s wait for timestamp ${startTimestampRef.current}...`);
         await new Promise(resolve => setTimeout(resolve, 1500));
         hasInitializedRef.current = true;
         if (isMounted) setIsLoading(false);
@@ -226,7 +236,7 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
       isMounted = false;
       cleanup.then(fn => fn?.());
     };
-  }, [stableHost, stableDevice, initializeBaseUrl, processNextFrame, isStreamModalOpen, isAnyModalOpen, isVncDevice, setError, setIsLoading]);
+  }, []);  // Empty dependencies to run only once on mount
 
 
 
