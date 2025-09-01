@@ -85,15 +85,15 @@ start_grabber() {
   # Build FFmpeg command based on source type
   if [ "$source_type" = "v4l2" ]; then
     # Hardware video device - Triple output: stream, full-res captures, thumbnails (5 FPS controlled)
-    FFMPEG_CMD="/usr/bin/ffmpeg -y -re -fflags nobuffer -thread_queue_size 512 -fix_sub_duration -f v4l2 -video_size 1280x720 -framerate $input_fps -i $source \
-      -f alsa -thread_queue_size 256 -i \"$audio_device\" \
+    FFMPEG_CMD="/usr/bin/ffmpeg -y -re -fflags nobuffer+genpts -probesize 32 -analyzeduration 0 -avioflags direct -flags low_delay -strict -2 -thread_queue_size 32 -fix_sub_duration -f v4l2 -video_size 1280x720 -framerate $input_fps -i $source \
+      -f alsa -thread_queue_size 64 -async 1 -i \"$audio_device\" \
       -filter_complex \"[0:v]split=3[stream][capture][thumb];[stream]scale=640:360[streamout];[capture]fps=5[captureout];[thumb]fps=5,scale=320:180[thumbout]\" \
       -map \"[streamout]\" -map 1:a \
-      -c:v libx264 -preset ultrafast -tune zerolatency -crf 30 -maxrate 600k -bufsize 1200k \
-      -pix_fmt yuv420p -profile:v baseline -level 3.0 \
+      -c:v libx264 -preset ultrafast -tune zerolatency -crf 30 -maxrate 400k -bufsize 400k -force_key_frames \"expr:gte(t,n_forced*0.25)\" \
+      -pix_fmt yuv420p -profile:v baseline -level 3.0 -fps_mode passthrough \
       -c:a aac -b:a 32k -ar 22050 -ac 2 \
-      -f hls -hls_time 1 -hls_list_size 600 -hls_flags delete_segments+independent_segments \
-      -hls_segment_type mpegts -hls_segment_filename $capture_dir/segment_%03d.ts \
+      -f hls -hls_time 0.5 -hls_list_size 600 -hls_flags delete_segments+omit_endlist+split_by_time \
+      -hls_segment_type fmp4 -hls_segment_filename $capture_dir/segment_%03d.m4s \
       $capture_dir/output.m3u8 \
       -map \"[captureout]\" -c:v mjpeg -q:v 5 -f image2 \
       $capture_dir/captures/capture_%04d.jpg \
