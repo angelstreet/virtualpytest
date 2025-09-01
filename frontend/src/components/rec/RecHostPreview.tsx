@@ -105,6 +105,11 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
       frameCounterRef.current = 0;
     }
     
+    // If still no timestamp, return null (not ready yet)
+    if (!currentTimestamp) {
+      return null;
+    }
+    
     // Move to next timestamp when we've cycled through all 5 frames (0-4)
     if (frameCounterRef.current >= 5) {
       const lastTime = new Date();
@@ -138,7 +143,12 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
     frameCounterRef.current++;
 
     const baseUrl = generateThumbnailUrl(stableHost, stableDevice)[0]?.replace('_thumbnail.jpg', '') || '';
-    return `${baseUrl}${frameSuffix}_thumbnail.jpg`;
+    const finalUrl = `${baseUrl}${frameSuffix}_thumbnail.jpg`;
+    
+    // Log the timestamp being used for verification
+    console.log(`[${stableHost.host_name}-${stableDevice?.device_id}] Using timestamp ${currentTimestamp} for frame ${frameNum}: ${finalUrl}`);
+    
+    return finalUrl;
   }, [stableHost, stableDevice, generateThumbnailUrl]);
 
   // Single loop: preload next frame + display queued frame
@@ -213,8 +223,13 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
           now.getMinutes().toString().padStart(2, '0') +
           now.getSeconds().toString().padStart(2, '0');
         
+        // Initialize lastTimestampRef with the start timestamp immediately
+        lastTimestampRef.current = startTimestampRef.current;
+        frameCounterRef.current = 0;
+        
         setIsLoading(true);
         console.log(`[${currentHost.host_name}-${currentDevice?.device_id}] Starting 1.5s wait for timestamp ${startTimestampRef.current}...`);
+        console.log(`[${currentHost.host_name}-${currentDevice?.device_id}] Initialized lastTimestampRef to: ${lastTimestampRef.current}`);
         await new Promise(resolve => setTimeout(resolve, 1500));
         hasInitializedRef.current = true;
         if (isMounted) setIsLoading(false);
