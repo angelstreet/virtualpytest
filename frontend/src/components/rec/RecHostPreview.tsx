@@ -49,6 +49,7 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
   const lastTimestampRef = useRef<string>('');
   const hasInitializedRef = useRef<boolean>(false);
   const startTimestampRef = useRef<string>('');
+  const nextImageSlotRef = useRef<1 | 2>(2); // Start with 2, so first frame goes to image1
 
   // Detect if this is a mobile device model for proper sizing
   const isMobile = useMemo(() => {
@@ -181,21 +182,19 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
       const nextUrl = queueRef.current[0];
       queueRef.current = queueRef.current.slice(1);
       
-      // Get current activeImage value and set the appropriate image URL
-      let currentActiveImage: 1 | 2;
-      setActiveImage(current => {
-        currentActiveImage = current;
-        console.log(`[${stableHost.host_name}-${stableDevice?.device_id}] READING activeImage: ${current}`);
-        return current; // Don't change activeImage here, let handleImageLoad do it
-      });
+      // Use ref-based alternation to avoid race condition with React state
+      const targetImageSlot = nextImageSlotRef.current;
+      nextImageSlotRef.current = targetImageSlot === 1 ? 2 : 1; // Toggle for next time
       
-      // Set the image URL outside the state updater to prevent multiple calls
-      if (currentActiveImage! === 1) {
-        console.log(`[${stableHost.host_name}-${stableDevice?.device_id}] activeImage=1 → SETTING image2Url: ${nextUrl}`);
-        setImage2Url(nextUrl);
-      } else {
-        console.log(`[${stableHost.host_name}-${stableDevice?.device_id}] activeImage=2 → SETTING image1Url: ${nextUrl}`);
+      console.log(`[${stableHost.host_name}-${stableDevice?.device_id}] Using slot ${targetImageSlot}, next will be ${nextImageSlotRef.current}`);
+      
+      // Set the image URL based on ref (no race condition)
+      if (targetImageSlot === 1) {
+        console.log(`[${stableHost.host_name}-${stableDevice?.device_id}] SETTING image1Url: ${nextUrl}`);
         setImage1Url(nextUrl);
+      } else {
+        console.log(`[${stableHost.host_name}-${stableDevice?.device_id}] SETTING image2Url: ${nextUrl}`);
+        setImage2Url(nextUrl);
       }
     }
   }, [isVncDevice, isAnyModalOpen, generateNextFrameUrl]);
