@@ -1,21 +1,17 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 
-import { useModal } from '../../contexts/ModalContext';
 import { Host, Device } from '../../types/common/Host_Types';
 import { useHostManager } from '../useHostManager';
 import { calculateVncScaling } from '../../utils/vncUtils';
 
-// Global state to persist across React remounts in development mode
-const globalBaseUrlPatterns = new Map<string, string>();
+// Removed global state - no longer needed for simple monitoring patterns
 
 interface UseRecReturn {
   avDevices: Array<{ host: Host; device: Device }>;
   isLoading: boolean;
   error: string | null;
   refreshHosts: () => Promise<void>;
-  baseUrlPatterns: Map<string, string>; // host_name-device_id -> base URL pattern
-  initializeBaseUrl: (host: Host, device: Device) => Promise<boolean>; // One-time base URL setup
-  generateThumbnailUrl: (host: Host, device: Device, timestamp?: string) => string[]; // Generate multiple frame URLs with current timestamp or provided timestamp (blocked when modal open)
+  baseUrlPatterns: Map<string, string>; // host_name-device_id -> base URL pattern (for monitoring)
   restartStreams: () => Promise<void>; // Restart streams for all AV devices
   isRestarting: boolean; // Loading state for restart operation
   adaptiveInterval: number; // Adaptive interval based on device count
@@ -49,170 +45,17 @@ export const useRec = (): UseRecReturn => {
     return Math.round(5000 / 0.3);  // ~16667ms for 0.3 FPS
   }, [avDevices.length]);
 
-  // Add modal context hook
-  const { isAnyModalOpen } = useModal();
+  // Remove modal context hook - no longer needed for thumbnail generation
 
-  // Use ref to persist baseUrlPatterns across React remounts in dev mode
-  const baseUrlPatternsRef = useRef<Map<string, string>>(new Map());
-  const [baseUrlPatterns, setBaseUrlPatterns] = useState<Map<string, string>>(
-    baseUrlPatternsRef.current,
-  );
+  // Simple state for monitoring base URL patterns (read-only for now)
+  const [baseUrlPatterns] = useState<Map<string, string>>(new Map());
 
   // Use the simplified HostManager function and loading state
   const { getDevicesByCapability, isLoading: isHostManagerLoading } = useHostManager();
 
-  // One-time initialization to get base URL pattern (only called once per device)
-  const initializeBaseUrl = useCallback(
-    async (host: Host, device: Device): Promise<boolean> => {
-      const deviceKey = `${host.host_name}-${device.device_id}`;
+  // Remove unused initialization function - monitoring will handle its own URL patterns
 
-      // Check global state, ref, and local state for existing URL
-      if (
-        globalBaseUrlPatterns.has(deviceKey) ||
-        baseUrlPatternsRef.current.has(deviceKey) ||
-        baseUrlPatterns.has(deviceKey)
-      ) {
-        // Sync global to local if needed
-        if (globalBaseUrlPatterns.has(deviceKey) && !baseUrlPatterns.has(deviceKey)) {
-          const pattern = globalBaseUrlPatterns.get(deviceKey)!;
-          baseUrlPatternsRef.current.set(deviceKey, pattern);
-          setBaseUrlPatterns((prev) => {
-            const newMap = new Map(prev);
-            newMap.set(deviceKey, pattern);
-            return newMap;
-          });
-        }
-
-        return true;
-      }
-
-      try {
-        const response = await fetch('/server/av/takeScreenshot', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            host: host,
-            device_id: device?.device_id || 'device1',
-          }),
-        });
-
-        if (response.ok) {
-          const result = await response.json();
-          if (result.success && result.screenshot_url) {
-            // Extract base pattern: remove timestamp from capture_YYYYMMDDHHMMSS.jpg format
-            const basePattern = result.screenshot_url.replace(
-              /capture_\d{14}\.jpg$/,
-              'capture_{timestamp}.jpg',
-            );
-
-            // Update global state, ref (persistent), and local state (reactive)
-            globalBaseUrlPatterns.set(deviceKey, basePattern);
-            baseUrlPatternsRef.current.set(deviceKey, basePattern);
-            setBaseUrlPatterns((prev) => {
-              const newMap = new Map(prev);
-              newMap.set(deviceKey, basePattern);
-              return newMap;
-            });
-
-            return true;
-          }
-        }
-
-        console.warn(`[@hook:useRec] Base URL initialization failed for: ${deviceKey}`);
-        return false;
-      } catch (err: any) {
-        console.error(`[@hook:useRec] Base URL initialization error for ${deviceKey}:`, err);
-        return false;
-      }
-    },
-    [baseUrlPatterns],
-  );
-
-  // Generate multiple frame URLs with current timestamp (no server calls) - blocked when modal open
-  const generateThumbnailUrl = useCallback(
-    (host: Host, device: Device, providedTimestamp?: string): string[] => {
-      const deviceKey = `${host.host_name}-${device.device_id}`;
-
-      // Log which component initiated this call (using stack trace)
-      // const stack = new Error().stack;
-      // const callerLine = stack?.split('\n')[2]?.trim() || 'unknown caller';
-      // console.log(`[@hook:useRec] generateThumbnailUrl called for ${deviceKey} by: ${callerLine}`);
-
-      // Check if any modal is open using ModalContext
-      if (isAnyModalOpen) {
-        console.log(`[@hook:useRec] Thumbnail generation paused for ${deviceKey} (modal open)`);
-        return [];
-      }
-
-      // Check global first, then ref, then state
-      let basePattern =
-        globalBaseUrlPatterns.get(deviceKey) ||
-        baseUrlPatternsRef.current.get(deviceKey) ||
-        baseUrlPatterns.get(deviceKey);
-
-      if (!basePattern) {
-        console.warn(`[@hook:useRec] No base URL pattern found for device: ${deviceKey}`);
-        return [];
-      }
-
-      // Use provided timestamp or generate current timestamp in YYYYMMDDHHMMSS format
-      const timestamp = providedTimestamp || (() => {
-        const now = new Date();
-        return now.getFullYear().toString() +
-          (now.getMonth() + 1).toString().padStart(2, '0') +
-          now.getDate().toString().padStart(2, '0') +
-          now.getHours().toString().padStart(2, '0') +
-          now.getMinutes().toString().padStart(2, '0') +
-          now.getSeconds().toString().padStart(2, '0');
-      })();
-
-      // Log timestamp usage for debugging
-      if (providedTimestamp) {
-        // console.log(`[@hook:useRec] Using provided timestamp ${providedTimestamp} for ${deviceKey}`);
-      } else {
-        // console.log(`[@hook:useRec] Generated new timestamp ${timestamp} for ${deviceKey}`);
-      }
-
-      // Convert basePattern from original image to thumbnail
-      // basePattern is like: "http://host/path/capture_{timestamp}.jpg"
-      // We need: "http://host/path/capture_{timestamp}_thumbnail.jpg"
-      const thumbnailPattern = basePattern.replace(
-        'capture_{timestamp}.jpg',
-        'capture_{timestamp}_thumbnail.jpg',
-      );
-      const thumbnailUrl = thumbnailPattern.replace('{timestamp}', timestamp);
-      const baseUrl = thumbnailUrl.replace('_thumbnail.jpg', '');
-      
-      const frameUrls = [
-        `${baseUrl}_thumbnail.jpg`,     // Frame 0
-        `${baseUrl}_1_thumbnail.jpg`,   // Frame 1  
-        `${baseUrl}_2_thumbnail.jpg`,   // Frame 2
-        `${baseUrl}_3_thumbnail.jpg`,   // Frame 3
-        `${baseUrl}_4_thumbnail.jpg`,   // Frame 4
-      ];
-
-      // console.log(`[@hook:useRec] generateThumbnailUrl for ${deviceKey}: ${frameUrls.length} frames`);
-      return frameUrls;
-    },
-    [baseUrlPatterns, isAnyModalOpen],
-  );
-
-  // Sync global and ref to state on mount (handles remount scenario)
-  useEffect(() => {
-    if (
-      (globalBaseUrlPatterns.size > 0 || baseUrlPatternsRef.current.size > 0) &&
-      baseUrlPatterns.size === 0
-    ) {
-      const mergedPatterns = new Map([...globalBaseUrlPatterns, ...baseUrlPatternsRef.current]);
-      setBaseUrlPatterns(mergedPatterns);
-      // Also sync to ref if global has more recent data
-      if (globalBaseUrlPatterns.size > baseUrlPatternsRef.current.size) {
-        baseUrlPatternsRef.current = new Map(globalBaseUrlPatterns);
-      }
-    }
-  }, [baseUrlPatterns.size]);
+  // Remove sync logic - no longer needed for simple monitoring patterns
 
   // Get AV-capable devices - only when HostManager is ready
   const refreshHosts = useCallback(async (): Promise<void> => {
@@ -323,9 +166,7 @@ export const useRec = (): UseRecReturn => {
     isLoading,
     error,
     refreshHosts,
-    baseUrlPatterns,
-    initializeBaseUrl,
-    generateThumbnailUrl,
+    baseUrlPatterns, // Only used for monitoring now
     restartStreams,
     isRestarting,
     adaptiveInterval,

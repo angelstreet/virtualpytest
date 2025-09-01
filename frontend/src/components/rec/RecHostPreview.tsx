@@ -1,20 +1,19 @@
 import { Error as ErrorIcon } from '@mui/icons-material';
 import { Card, Typography, Box, Chip, CircularProgress } from '@mui/material';
-import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 
-import { useModal } from '../../contexts/ModalContext';
+import { DEFAULT_DEVICE_RESOLUTION } from '../../config/deviceResolutions';
 import { useStream } from '../../hooks/controller';
-import { useRec } from '../../hooks/pages/useRec';
 import { useToast } from '../../hooks/useToast';
 import { Host, Device } from '../../types/common/Host_Types';
+import { calculateVncScaling } from '../../utils/vncUtils';
+import { HLSVideoPlayer } from '../common/HLSVideoPlayer';
 
 import { RecHostStreamModal } from './RecHostStreamModal';
 
 interface RecHostPreviewProps {
   host: Host;
   device?: Device;
-  initializeBaseUrl?: (host: Host, device: Device) => Promise<boolean>;
-  generateThumbnailUrl?: (host: Host, device: Device, timestamp?: string) => string[];
   hideHeader?: boolean;
 }
 
@@ -28,28 +27,11 @@ const isMobileModel = (model?: string): boolean => {
 export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
   host,
   device,
-  initializeBaseUrl,
-  generateThumbnailUrl,
   hideHeader = false,
 }) => {
-  // Global modal state
-  const { isAnyModalOpen } = useModal();
-
-  // Ensure states are declared early
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // States
+  const [error] = useState<string | null>(null);
   const [isStreamModalOpen, setIsStreamModalOpen] = useState(false);
-  const [currentImageUrl, setCurrentImageUrl] = useState<string | null>(null);
-
-  // Image queue for smooth video-like playback
-  // const queueRef = useRef<string[]>([]);
-  const frameCounterRef = useRef<number>(0);
-  const lastTimestampRef = useRef<string>('');
-  const hasInitializedRef = useRef<boolean>(false);
-  const startTimestampRef = useRef<string>('');
-
-  // Add ref to track latest displayed timestamp and frame
-  const latestFrameRef = useRef<{ timestamp: string; frame: number }>({ timestamp: '', frame: -1 });
 
   // Detect if this is a mobile device model for proper sizing
   const isMobile = useMemo(() => {
@@ -61,192 +43,14 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
     return device?.device_model === 'host_vnc';
   }, [device?.device_model]);
 
-  // Conditional stream hook for VNC only
-  let vncStreamUrl = null;
-  if (isVncDevice) {
-    const { streamUrl } = useStream({
-      host,
-      device_id: device?.device_id || 'device1',
-    });
-    vncStreamUrl = streamUrl;
-  }
-
-  // Get VNC scaling function from useRec
-  const { calculateVncScaling } = useRec();
+  // Use stream hook for all devices (VNC gets VNC URL, others get HLS URL)
+  const { streamUrl } = useStream({
+    host,
+    device_id: device?.device_id || 'device1',
+  });
 
   // Hook for notifications only
   const { showError } = useToast();
-
-  // Stabilize host and device objects to prevent infinite re-renders
-  const stableHost = useMemo(() => host, [host]);
-  const stableDevice = useMemo(() => device, [device]);
-  const stableHostRef = useRef(stableHost);
-  const stableDeviceRef = useRef(stableDevice);
-
-  useEffect(() => {
-    stableHostRef.current = stableHost;
-    stableDeviceRef.current = stableDevice;
-  }, [stableHost, stableDevice]);
-
-  // Process screenshot URL with conditional HTTP to HTTPS proxy
-  const getImageUrl = useCallback((screenshotPath: string) => screenshotPath || '', []);
-
-  // Generate next expected frame URL
-  const generateNextFrameUrl = useCallback(() => {
-    if (!generateThumbnailUrl || !stableDevice) return null;
-
-    // Use sequential timestamps starting from the captured start time
-    let currentTimestamp = lastTimestampRef.current;
-    
-    // Initialize with start timestamp if not set
-    if (!currentTimestamp && startTimestampRef.current) {
-      currentTimestamp = startTimestampRef.current;
-      lastTimestampRef.current = currentTimestamp;
-      frameCounterRef.current = 0;
-    }
-    
-    // If still no timestamp, return null (not ready yet)
-    if (!currentTimestamp) {
-      return null;
-    }
-    
-    // Move to next timestamp when we've cycled through all 5 frames (0-4)
-    if (frameCounterRef.current >= 5) {
-      const lastTime = new Date();
-      lastTime.setTime(Date.parse(
-        currentTimestamp.slice(0,4) + '-' + 
-        currentTimestamp.slice(4,6) + '-' + 
-        currentTimestamp.slice(6,8) + 'T' + 
-        currentTimestamp.slice(8,10) + ':' + 
-        currentTimestamp.slice(10,12) + ':' + 
-        currentTimestamp.slice(12,14)
-      ));
-      lastTime.setSeconds(lastTime.getSeconds() + 1); // Next second
-      
-      currentTimestamp = 
-        lastTime.getFullYear().toString() +
-        (lastTime.getMonth() + 1).toString().padStart(2, '0') +
-        lastTime.getDate().toString().padStart(2, '0') +
-        lastTime.getHours().toString().padStart(2, '0') +
-        lastTime.getMinutes().toString().padStart(2, '0') +
-        lastTime.getSeconds().toString().padStart(2, '0');
-      
-      lastTimestampRef.current = currentTimestamp;
-      frameCounterRef.current = 0;
-    }
-
-    // Generate URL for current frame (0-4, then cycle)
-    const frameNum = frameCounterRef.current % 5;
-    const frameSuffix = frameNum === 0 ? '' : `_${frameNum}`;
-    
-    // Increment for next call
-    frameCounterRef.current++;
-
-    const baseUrl = generateThumbnailUrl(stableHost, stableDevice, currentTimestamp)[0]?.replace('_thumbnail.jpg', '') || '';
-    const finalUrl = `${baseUrl}${frameSuffix}_thumbnail.jpg`;
-    
-    return { url: finalUrl, timestamp: currentTimestamp, frame: frameNum };
-  }, [stableHost, stableDevice, generateThumbnailUrl]);
-
-  // Simplify processNextFrame without queue
-  const processNextFrame = useCallback(async () => {
-    if (isVncDevice || isAnyModalOpen) return;
-
-    const nextFrame = generateNextFrameUrl();
-    if (nextFrame) {
-      try {
-        // Add timeout: Race preload with 100ms delay
-        const preloadPromise = new Promise((resolve, reject) => {
-          const img = new Image();
-          img.onload = () => resolve(nextFrame);
-          img.onerror = reject;
-          img.src = nextFrame.url;
-        });
-
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Preload timeout')), 100)  // Increased to 150ms for better tolerance
-        );
-
-        const result = await Promise.race([preloadPromise, timeoutPromise]) as { url: string; timestamp: string; frame: number };
-
-        // Check if this frame is newer than the latest displayed
-        const latest = latestFrameRef.current;
-        const isNewer = 
-          result.timestamp > latest.timestamp || 
-          (result.timestamp === latest.timestamp && result.frame > latest.frame);
-
-        if (isNewer) {
-          setCurrentImageUrl(result.url);
-          latestFrameRef.current = { timestamp: result.timestamp, frame: result.frame };
-        } else {
-        }
-      } catch (err: any) {
-        if (err.message === 'Preload timeout') {
-        } else {
-        }
-        // Skip if timed out or error
-      }
-    }
-  }, [isVncDevice, isAnyModalOpen, generateNextFrameUrl]);
-
-  // Remove mount/unmount logs
-  useEffect(() => {
-    return () => {
-    };
-  }, []);
-
-  // Single loop - matches ffmpeg generation timing (200ms)
-  useEffect(() => {
-    let isMounted = true;
-
-    const startSystem = async () => {
-      const currentHost = stableHostRef.current;
-      const currentDevice = stableDeviceRef.current;
-
-      if (isVncDevice || isStreamModalOpen || isAnyModalOpen) return;
-      if (!currentHost || !currentDevice || !initializeBaseUrl) return;
-
-      const initialized = await initializeBaseUrl(currentHost, currentDevice);
-      if (!initialized || !isMounted) {
-        if (isMounted) setError('Failed to initialize base URL');
-        return;
-      }
-
-      if (!hasInitializedRef.current) {
-        const now = new Date();
-        startTimestampRef.current = 
-          now.getFullYear().toString() +
-          (now.getMonth() + 1).toString().padStart(2, '0') +
-          now.getDate().toString().padStart(2, '0') +
-          now.getHours().toString().padStart(2, '0') +
-          now.getMinutes().toString().padStart(2, '0') +
-          now.getSeconds().toString().padStart(2, '0');
-        
-        lastTimestampRef.current = startTimestampRef.current;
-        frameCounterRef.current = 0;
-        
-        setIsLoading(true);
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        hasInitializedRef.current = true;
-        if (isMounted) setIsLoading(false);
-      }
-
-      const frameInterval = setInterval(() => {
-        if (isMounted && !isStreamModalOpen && !isAnyModalOpen) {
-          processNextFrame();
-        }
-      }, 333);  // Changed from 200 to 333ms for ~3 FPS display
-
-      return () => clearInterval(frameInterval);
-    };
-
-    const cleanup = startSystem();
-
-    return () => {
-      isMounted = false;
-      cleanup.then(fn => fn?.());
-    };
-  }, []);  // Empty dependencies to run only once on mount
 
 
 
@@ -254,12 +58,12 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
 
   // Handle opening/closing with restored state
   const handleOpenStreamModal = useCallback(() => {
-    if (stableHost.status !== 'online') {
+    if (host.status !== 'online') {
       showError('Host is not online');
       return;
     }
     setIsStreamModalOpen(true);
-  }, [stableHost, showError]);
+  }, [host, showError]);
 
   const handleCloseStreamModal = useCallback(() => {
     setIsStreamModalOpen(false);
@@ -277,11 +81,11 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
   };
 
   // Clean display values - special handling for VNC devices
-  const displayName = stableDevice
-    ? stableDevice.device_model === 'host_vnc'
-      ? stableHost.host_name // For VNC devices, show just the host name
-      : `${stableDevice.device_name} - ${stableHost.host_name}`
-    : stableHost.host_name;
+  const displayName = device
+    ? device.device_model === 'host_vnc'
+      ? host.host_name // For VNC devices, show just the host name
+      : `${device.device_name} - ${host.host_name}`
+    : host.host_name;
 
   return (
     <Card
@@ -319,27 +123,27 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
             {displayName}
           </Typography>
           <Chip
-            label={stableHost.status}
+            label={host.status}
             size="small"
-            color={getStatusColor(stableHost.status) as any}
+            color={getStatusColor(host.status) as any}
             sx={{ fontSize: '0.7rem', height: 20 }}
           />
         </Box>
       )}
 
-      {/* Content area - VNC iframe or screenshot */}
+      {/* Content area - Stream preview */}
       <Box sx={{ flex: 1, position: 'relative', minHeight: 0, overflow: 'hidden' }}>
         <Box
           sx={{
             height: '100%',
             position: 'relative',
             overflow: 'hidden',
-            backgroundColor: 'transparent',
+            backgroundColor: 'black',
           }}
         >
-          {/* VNC devices: Show iframe preview */}
-          {isVncDevice ? (
-            vncStreamUrl ? (
+          {streamUrl ? (
+            // Use same logic as RecHostStreamModal for consistent display
+            isVncDevice ? (
               <Box
                 sx={{
                   position: 'relative',
@@ -350,7 +154,7 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
                 }}
               >
                 <iframe
-                  src={vncStreamUrl}
+                  src={streamUrl}
                   style={{
                     border: 'none',
                     backgroundColor: '#000',
@@ -379,116 +183,92 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
             ) : (
               <Box
                 sx={{
+                  position: 'relative',
+                  width: '100%',
                   height: '100%',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 2,
+                  backgroundColor: 'black',
+                  overflow: 'hidden',
                 }}
               >
-                <CircularProgress size={24} />
-                <Typography variant="caption" color="text.secondary">
-                  Loading VNC stream...
-                </Typography>
-              </Box>
-            )
-          ) : (
-            // Non-VNC devices: Show screenshot thumbnails with simple single-image
-            <>
-              {error ? (
-                <Box
-                  sx={{
-                    height: '100%',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: 'error.main',
+                <HLSVideoPlayer
+                  streamUrl={streamUrl}
+                  isStreamActive={true}
+                  isCapturing={false}
+                  model={device?.device_model || 'unknown'}
+                  layoutConfig={{
+                    minHeight: '150px',
+                    aspectRatio: isMobile 
+                      ? `${DEFAULT_DEVICE_RESOLUTION.height}/${DEFAULT_DEVICE_RESOLUTION.width}` 
+                      : `${DEFAULT_DEVICE_RESOLUTION.width}/${DEFAULT_DEVICE_RESOLUTION.height}`,
+                    objectFit: 'contain',
+                    isMobileModel: isMobile,
                   }}
-                >
-                  <ErrorIcon sx={{ mb: 1 }} />
-                  <Typography variant="caption" align="center">
-                    {error}
-                  </Typography>
-                </Box>
-              ) : currentImageUrl ? (
-                <Box
+                  isExpanded={false}
+                  muted={true} // Always muted in preview
                   sx={{
-                    position: 'relative',
                     width: '100%',
                     height: '100%',
-                    backgroundColor: 'transparent',
-                    overflow: 'hidden',
+                    maxHeight: '100%',
                   }}
-                >
-                  <Box
-                    component="img"
-                    src={getImageUrl(currentImageUrl)}
-                    alt="Screenshot"
-                    sx={{
-                      position: 'absolute',
-                      top: 0,
-                      left: 0,
-                      width: isMobile ? 'auto' : '100%',
-                      height: isMobile ? '100%' : 'auto',
-                      objectFit: 'contain',
-                      cursor: 'pointer',
-                    }}
-                    draggable={false}
-                    onLoad={() => { }}
-                    onError={() => { }}
-                  />
-                  <Box
-                    onClick={handleOpenStreamModal}
-                    sx={{
-                      position: 'absolute',
-                      top: 0,
-                      left: 0,
-                      right: 0,
-                      bottom: 0,
-                      cursor: 'pointer',
-                      backgroundColor: 'transparent',
-                      '&:hover': {
-                        backgroundColor: 'rgba(0, 0, 0, 0.05)',
-                      },
-                    }}
-                  />
-                </Box>
-              ) : (
+                />
+                {/* Click overlay to open full modal */}
                 <Box
+                  onClick={handleOpenStreamModal}
                   sx={{
-                    height: '100%',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: 2,
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    cursor: 'pointer',
+                    backgroundColor: 'transparent',
+                    '&:hover': {
+                      backgroundColor: 'rgba(0, 0, 0, 0.05)',
+                    },
                   }}
-                >
-                  {isLoading ? (
-                    <>
-                      <CircularProgress size={24} />
-                      <Typography variant="caption" color="text.secondary">
-                        Capturing screenshot...
-                      </Typography>
-                    </>
-                  ) : (
-                    <Typography variant="caption" color="text.secondary">
-                      No screenshot available
-                    </Typography>
-                  )}
-                </Box>
-              )}
-            </>
+                />
+              </Box>
+            )
+          ) : error ? (
+            <Box
+              sx={{
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'error.main',
+              }}
+            >
+              <ErrorIcon sx={{ mb: 1 }} />
+              <Typography variant="caption" align="center">
+                {error}
+              </Typography>
+            </Box>
+          ) : (
+            <Box
+              sx={{
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 2,
+              }}
+            >
+              <CircularProgress size={24} />
+              <Typography variant="caption" color="text.secondary">
+                Loading stream...
+              </Typography>
+            </Box>
           )}
         </Box>
       </Box>
 
       {/* Stream Modal */}
       <RecHostStreamModal
-        host={stableHost}
-        device={stableDevice}
+        host={host}
+        device={device}
         isOpen={isStreamModalOpen}
         onClose={handleCloseStreamModal}
       />
