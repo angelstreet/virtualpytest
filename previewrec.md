@@ -1,35 +1,35 @@
 # RecHostPreview - Adaptive Video Streaming
 
 ## Overview
-Smart video preview system that adapts frame rates based on device count for optimal performance.
+Smart video preview system that matches ffmpeg generation timing for optimal performance and eliminates 404 errors.
 
-## Adaptive Frame Rates
-- **1-5 devices**: 5 FPS (refill every 1000ms for 5 frames)
-- **6-10 devices**: 1 FPS (refill every 5000ms for 5 frames)  
-- **11-20 devices**: 0.5 FPS (refill every 10000ms for 5 frames)
-- **21+ devices**: 0.3 FPS (refill every ~16667ms for 5 frames)
+## Frame Generation Reality
+- **ffmpeg**: Creates 1 frame every 200ms sequentially (0→1→2→3→4, then new timestamp)
+- **Frontend**: Single 200ms loop matching ffmpeg timing
+- **Result**: No more batch 404s, smooth continuous playback
 
 ## Architecture
-### Two-Loop System
-- **Display Loop**: Fixed 200ms for smooth UI transitions (consumes 1 frame per cycle)
-- **Queue Refill Loop**: Adaptive timing matched to batch size and FPS (fetches 5 frames per refill)
+### Single Loop System
+- **One 200ms Loop**: Matches ffmpeg's natural generation rhythm
+- **Frame Tracking**: Intelligent counter tracks next expected frame (0-4, cycles per timestamp)
+- **Queue Management**: Rolling window of 3-5 frames ahead
 
-### Queue Management
-- Max 10 images per device
-- Automatic cleanup of old frames
-- Graceful handling of missing images
-- Timestamp-aware batch replacement to prevent mixing old/new frames
-- Parallel preloading of frames with post-sorting to maintain order
+### Frame Processing
+- Try to preload next expected frame (just 1 image per cycle)
+- If successful, add to queue (max 5 frames)
+- If queue has images, display next one with smooth fading
+- If frame not ready, skip silently (no 404 errors)
 
 ## Key Features
+- ✅ Matches ffmpeg generation timing (200ms)
+- ✅ Eliminates batch 404 errors
 - ✅ Video-like continuous playback
 - ✅ No loading states (keeps current image)
 - ✅ Existing 2-image fading system preserved
-- ✅ Scales from 1 to 32+ devices efficiently
-- ✅ Backend-friendly staggered requests
+- ✅ Intelligent frame counter with timestamp detection
 
 ## Implementation
-- `useRec.ts`: Adaptive interval calculation
-- `RecHostPreview.tsx`: Queue-based display system
-- Removed: 30s polling, 1.5s delays
-- Added: Continuous loops with smart queuing
+- `RecHostPreview.tsx`: Single-loop system with frame tracking
+- **Removed**: Batch thinking, dual loops, parallel fetching
+- **Added**: Sequential frame generation matching ffmpeg timing
+- **1.5s Initial Delay**: Only for first frame to ensure generation starts

@@ -45,6 +45,8 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
 
   // Image queue for smooth video-like playback
   const queueRef = useRef<string[]>([]);
+  const frameCounterRef = useRef<number>(0);
+  const lastTimestampRef = useRef<string>('');
 
   // Detect if this is a mobile device model for proper sizing
   const isMobile = useMemo(() => {
@@ -62,8 +64,8 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
     device_id: device?.device_id || 'device1',
   });
 
-  // Get VNC scaling function and adaptive interval from useRec
-  const { calculateVncScaling, adaptiveInterval } = useRec();
+  // Get VNC scaling function from useRec
+  const { calculateVncScaling } = useRec();
 
   // Hook for notifications only
   const { showError } = useToast();
@@ -80,68 +82,74 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
   // Process screenshot URL with conditional HTTP to HTTPS proxy
   const getImageUrl = useCallback((screenshotPath: string) => screenshotPath || '', []);
 
-  // Queue refill logic
-  const refillQueue = useCallback(async () => {
-    if (isVncDevice || isAnyModalOpen || !generateThumbnailUrl || !stableDevice) return;
+  // Generate next expected frame URL
+  const generateNextFrameUrl = useCallback(() => {
+    if (!generateThumbnailUrl || !stableDevice) return null;
 
-    const frameUrls = generateThumbnailUrl(stableHost, stableDevice);
-    if (frameUrls.length === 0) return;
+    // Get current timestamp in YYYYMMDDHHMMSS format
+    const now = new Date();
+    const currentTimestamp = 
+      now.getFullYear().toString() +
+      (now.getMonth() + 1).toString().padStart(2, '0') +
+      now.getDate().toString().padStart(2, '0') +
+      now.getHours().toString().padStart(2, '0') +
+      now.getMinutes().toString().padStart(2, '0') +
+      now.getSeconds().toString().padStart(2, '0');
 
-    // Preload images in parallel, then sort successful ones by frame order
-    const preloadPromises = frameUrls.map(url => 
-      new Promise((resolve, reject) => {
-        const img = new Image();
-        img.onload = () => resolve(url);
-        img.onerror = reject;
-        img.src = url;
-      })
-    );
+    // Reset frame counter if timestamp changed
+    if (currentTimestamp !== lastTimestampRef.current) {
+      frameCounterRef.current = 0;
+      lastTimestampRef.current = currentTimestamp;
+    }
 
-    const results = await Promise.allSettled(preloadPromises);
-    const validUrls = results
-      .filter(result => result.status === 'fulfilled')
-      .map(result => result.value as string)
-      .sort((a, b) => {
-        const frameA = parseInt(a.match(/_(\d+)_thumbnail/)?.[1] || '0');
-        const frameB = parseInt(b.match(/_(\d+)_thumbnail/)?.[1] || '0');
-        return frameA - frameB;
-      });
+    // Generate URL for current frame (0-4, then cycle)
+    const frameNum = frameCounterRef.current % 5;
+    const frameSuffix = frameNum === 0 ? '' : `_${frameNum}`;
     
-    if (validUrls.length > 0) {
-      // Extract timestamp from first valid URL (e.g., '20250901182649' from 'capture_20250901182649_thumbnail.jpg')
-      const getTimestamp = (url: string) => url.match(/capture_(\d{14})/)?.[1] || '0';
+    // Increment for next call
+    frameCounterRef.current++;
 
-      const newTimestamp = getTimestamp(validUrls[0]);
-      const currentTimestamp = queueRef.current.length > 0 ? getTimestamp(queueRef.current[0]) : '0';
+    const baseUrl = generateThumbnailUrl(stableHost, stableDevice)[0]?.replace('_thumbnail.jpg', '') || '';
+    return `${baseUrl}${frameSuffix}_thumbnail.jpg`;
+  }, [stableHost, stableDevice, generateThumbnailUrl]);
 
-      // Replace if new batch is newer or queue is low
-      if (newTimestamp > currentTimestamp || queueRef.current.length <= 1) {
-        queueRef.current = validUrls;
+  // Single loop: preload next frame + display queued frame
+  const processNextFrame = useCallback(async () => {
+    if (isVncDevice || isAnyModalOpen) return;
+
+    // Try to preload next expected frame
+    const nextFrameUrl = generateNextFrameUrl();
+    if (nextFrameUrl) {
+      try {
+        await new Promise((resolve, reject) => {
+          const img = new Image();
+          img.onload = () => resolve(nextFrameUrl);
+          img.onerror = reject;
+          img.src = nextFrameUrl;
+        });
+        
+        // Add to queue (keep max 5 frames)
+        queueRef.current = [...queueRef.current, nextFrameUrl].slice(-5);
+        console.log(`[${stableHost.host_name}-${stableDevice?.device_id}] Preloaded frame: ${nextFrameUrl}`);
+      } catch {
+        // Frame not ready yet, skip silently
       }
     }
-  }, [stableHost, stableDevice, generateThumbnailUrl, isAnyModalOpen, isVncDevice]);
 
-  // Display loop - consume queue every 200ms
-  useEffect(() => {
-    if (isVncDevice) return;
-
-    const displayInterval = setInterval(() => {
-      if (queueRef.current.length > 0) {
-        const nextUrl = queueRef.current[0]; // Peek at first frame
-        queueRef.current = queueRef.current.slice(1); // Remove after using
-        
-        if (activeImage === 1) {
-          setImage2Url(nextUrl);
-        } else {
-          setImage1Url(nextUrl);
-        }
+    // Display next frame from queue if available
+    if (queueRef.current.length > 0) {
+      const nextUrl = queueRef.current[0];
+      queueRef.current = queueRef.current.slice(1);
+      
+      if (activeImage === 1) {
+        setImage2Url(nextUrl);
+      } else {
+        setImage1Url(nextUrl);
       }
-    }, 200);
+    }
+  }, [isVncDevice, isAnyModalOpen, generateNextFrameUrl, activeImage]);
 
-    return () => clearInterval(displayInterval);
-  }, [activeImage, isVncDevice]);
-
-  // Queue refill loop - adaptive timing
+  // Single loop - matches ffmpeg generation timing (200ms)
   useEffect(() => {
     if (isVncDevice || isStreamModalOpen || isAnyModalOpen) return;
     if (!stableHost || !stableDevice || !initializeBaseUrl) return;
@@ -156,22 +164,20 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
         return;
       }
 
-      // Initial queue fill with 1.5s delay to ensure thumbnails are generated
+      // Initial delay to let first frame generate
       setIsLoading(true);
+      console.log(`[${stableHost.host_name}-${stableDevice.device_id}] Starting 1.5s wait for first frame...`);
       await new Promise(resolve => setTimeout(resolve, 1500));
-      if (isMounted) {
-        await refillQueue();
-        setIsLoading(false);
-      }
+      if (isMounted) setIsLoading(false);
 
-      // Set up adaptive refill interval
-      const refillInterval = setInterval(() => {
+      // Single 200ms loop matching ffmpeg generation
+      const frameInterval = setInterval(() => {
         if (isMounted && !isStreamModalOpen && !isAnyModalOpen) {
-          refillQueue();
+          processNextFrame();
         }
-      }, adaptiveInterval);
+      }, 200);
 
-      return () => clearInterval(refillInterval);
+      return () => clearInterval(frameInterval);
     };
 
     const cleanup = startSystem();
@@ -180,7 +186,7 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
       isMounted = false;
       cleanup.then(fn => fn?.());
     };
-  }, [stableHost, stableDevice, initializeBaseUrl, refillQueue, adaptiveInterval, isStreamModalOpen, isAnyModalOpen, isVncDevice, setError, setIsLoading]);
+  }, [stableHost, stableDevice, initializeBaseUrl, processNextFrame, isStreamModalOpen, isAnyModalOpen, isVncDevice, setError, setIsLoading]);
 
 
 
