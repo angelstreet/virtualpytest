@@ -170,7 +170,6 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
         
         // Add to queue (keep max 5 frames)
         queueRef.current = [...queueRef.current, nextFrameUrl].slice(-5);
-        console.log(`[${stableHost.host_name}-${stableDevice?.device_id}] Preloaded frame: ${nextFrameUrl}`);
       } catch {
         // Frame not ready yet, skip silently
       }
@@ -181,15 +180,20 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
       const nextUrl = queueRef.current[0];
       queueRef.current = queueRef.current.slice(1);
       
-      if (activeImage === 1) {
-        console.log(`[${stableHost.host_name}-${stableDevice?.device_id}] SETTING image2Url: ${nextUrl}`);
-        setImage2Url(nextUrl);
-      } else {
-        console.log(`[${stableHost.host_name}-${stableDevice?.device_id}] SETTING image1Url: ${nextUrl}`);
-        setImage1Url(nextUrl);
-      }
+      // Use state updater function to get current activeImage value
+      setActiveImage(currentActiveImage => {
+        if (currentActiveImage === 1) {
+          console.log(`[${stableHost.host_name}-${stableDevice?.device_id}] SETTING image2Url: ${nextUrl}`);
+          setImage2Url(nextUrl);
+          return currentActiveImage; // Don't change activeImage here, let handleImageLoad do it
+        } else {
+          console.log(`[${stableHost.host_name}-${stableDevice?.device_id}] SETTING image1Url: ${nextUrl}`);
+          setImage1Url(nextUrl);
+          return currentActiveImage; // Don't change activeImage here, let handleImageLoad do it
+        }
+      });
     }
-  }, [isVncDevice, isAnyModalOpen, generateNextFrameUrl, activeImage]);
+  }, [isVncDevice, isAnyModalOpen, generateNextFrameUrl]);
 
   // Single loop - matches ffmpeg generation timing (200ms)
   useEffect(() => {
