@@ -87,21 +87,25 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
     const frameUrls = generateThumbnailUrl(stableHost, stableDevice);
     if (frameUrls.length === 0) return;
 
-    // Preload images sequentially to maintain order
-    const validUrls: string[] = [];
-    for (const url of frameUrls) {
-      try {
-        await new Promise((resolve, reject) => {
-          const img = new Image();
-          img.onload = () => resolve(url);
-          img.onerror = reject;
-          img.src = url;
-        });
-        validUrls.push(url);
-      } catch {
-        // Silently skip failed loads but maintain order
-      }
-    }
+    // Preload images in parallel, then sort successful ones by frame order
+    const preloadPromises = frameUrls.map(url => 
+      new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(url);
+        img.onerror = reject;
+        img.src = url;
+      })
+    );
+
+    const results = await Promise.allSettled(preloadPromises);
+    const validUrls = results
+      .filter(result => result.status === 'fulfilled')
+      .map(result => result.value as string)
+      .sort((a, b) => {
+        const frameA = parseInt(a.match(/_(\d+)_thumbnail/)?.[1] || '0');
+        const frameB = parseInt(b.match(/_(\d+)_thumbnail/)?.[1] || '0');
+        return frameA - frameB;
+      });
     
     if (validUrls.length > 0) {
       // Extract timestamp from first valid URL (e.g., '20250901182649' from 'capture_20250901182649_thumbnail.jpg')
