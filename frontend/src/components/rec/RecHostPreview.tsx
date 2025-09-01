@@ -42,7 +42,7 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
   const [currentImageUrl, setCurrentImageUrl] = useState<string | null>(null);
 
   // Image queue for smooth video-like playback
-  const queueRef = useRef<string[]>([]);
+  // const queueRef = useRef<string[]>([]);
   const frameCounterRef = useRef<number>(0);
   const lastTimestampRef = useRef<string>('');
   const hasInitializedRef = useRef<boolean>(false);
@@ -144,7 +144,7 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
     return finalUrl;
   }, [stableHost, stableDevice, generateThumbnailUrl]);
 
-  // Single loop: preload next frame + display queued frame
+  // Simplify processNextFrame without queue
   const processNextFrame = useCallback(async () => {
     if (isVncDevice || isAnyModalOpen) return;
 
@@ -162,18 +162,10 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
           img.src = nextFrameUrl;
         });
         
-        // Optional: Keep queue if needed for buffering, but simplify by direct set
-        queueRef.current = [...queueRef.current, nextFrameUrl].slice(-5);
+        // Remove queue addition and dequeue logic
       } catch {
         // Skip if not ready
       }
-    }
-
-    // Display from queue if available (direct to single state)
-    if (queueRef.current.length > 0) {
-      const nextUrl = queueRef.current[0];
-      queueRef.current = queueRef.current.slice(1);
-      setCurrentImageUrl(nextUrl);
     }
   }, [isVncDevice, isAnyModalOpen, generateNextFrameUrl]);
 
