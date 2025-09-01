@@ -87,16 +87,22 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
     const frameUrls = generateThumbnailUrl(stableHost, stableDevice);
     if (frameUrls.length === 0) return;
 
-    // Filter to only base, _2, _4
-    const selectedUrls = frameUrls.filter((url, index) => index === 0 || index === 2 || index === 4);
-
     // Preload images in parallel, then sort successful ones by frame order
-    const preloadPromises = selectedUrls.map(url => 
+    const preloadPromises = frameUrls.map((url, index) => 
       new Promise((resolve, reject) => {
-        const img = new Image();
-        img.onload = () => resolve(url);
-        img.onerror = reject;
-        img.src = url;
+        const tryLoad = (attempt = 0) => {
+          const img = new Image();
+          img.onload = () => resolve(url);
+          img.onerror = () => {
+            if (attempt < 1 && index <= 2) { // Retry once for early frames
+              setTimeout(() => tryLoad(attempt + 1), 100);
+            } else {
+              reject();
+            }
+          };
+          img.src = url;
+        };
+        tryLoad();
       })
     );
 

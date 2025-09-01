@@ -4,10 +4,10 @@
 Smart video preview system that adapts frame rates based on device count for optimal performance.
 
 ## Adaptive Frame Rates
-- **1-5 devices**: 3 FPS (~1667ms refill for 5 frames, preloading base, _2, _4)
-- **6-10 devices**: 1 FPS (5000ms refill)  
-- **11-20 devices**: 0.5 FPS (10000ms refill)
-- **21+ devices**: 0.3 FPS (~16667ms refill)
+- **1-5 devices**: 5 FPS (refill every 1000ms for 5 frames)
+- **6-10 devices**: 1 FPS (refill every 5000ms for 5 frames)  
+- **11-20 devices**: 0.5 FPS (refill every 10000ms for 5 frames)
+- **21+ devices**: 0.3 FPS (refill every ~16667ms for 5 frames)
 
 ## Architecture
 ### Two-Loop System
