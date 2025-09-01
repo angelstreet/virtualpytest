@@ -56,7 +56,6 @@ const DeviceStreamItem: React.FC<DeviceStreamItemProps> = ({ device, allHosts, g
         backgroundColor: 'black',
         borderRadius: 1,
         overflow: 'hidden',
-        height: PREVIEW_HEIGHT,
         width: '100%', // Let grid control width, content adapts inside
         display: 'flex',
         flexDirection: 'column',
@@ -72,14 +71,14 @@ const DeviceStreamItem: React.FC<DeviceStreamItemProps> = ({ device, allHosts, g
       
       {/* Stream content */}
       <Box sx={{ 
-        flex: 1, 
+        height: PREVIEW_HEIGHT, // Hard clamp preview area height
         position: 'relative', 
         backgroundColor: 'black',
         overflow: 'hidden', // Ensure content doesn't overflow
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        minHeight: 0, // Allow flex child to shrink below content size
+        minHeight: 0,
       }}>
         {streamUrl && hostObject ? (
           // VNC devices: Show iframe, Others: Use HLSVideoPlayer
@@ -108,32 +107,32 @@ const DeviceStreamItem: React.FC<DeviceStreamItemProps> = ({ device, allHosts, g
               />
             </Box>
           ) : (
-            <HLSVideoPlayer
-              streamUrl={streamUrl}
-              isStreamActive={true}
-              isCapturing={false}
-              model={deviceModel}
-              layoutConfig={{
-                minHeight: isMobileModel ? 'auto' : `${PREVIEW_HEIGHT - 24}px`, // Let mobile devices use natural height
-                aspectRatio: isMobileModel ? '9/16' : '16/9',
-                objectFit: 'contain', // Content adapts inside fixed preview box
-                isMobileModel,
-              }}
-              isExpanded={false}
-              muted={true}
-              sx={{
-                width: '100%', // Always fill container width
-                height: '100%', // Always fill container height
-                maxHeight: '100%', // Ensure it doesn't exceed container
-                maxWidth: '100%', // Ensure it doesn't exceed container width
-                // Force video element to respect container constraints
-                '& video': {
-                  width: '100% !important',
-                  height: '100% !important',
-                  objectFit: 'contain !important', // Ensure content fits within bounds
-                },
-              }}
-            />
+            // Absolute fill inside fixed-height container to strictly clamp size
+            <Box sx={{ position: 'absolute', inset: 0 }}>
+              <HLSVideoPlayer
+                streamUrl={streamUrl}
+                isStreamActive={true}
+                isCapturing={false}
+                model={deviceModel}
+                layoutConfig={{
+                  minHeight: '0px',
+                  aspectRatio: isMobileModel ? '9/16' : '16/9',
+                  objectFit: 'contain',
+                  isMobileModel,
+                }}
+                isExpanded={false}
+                muted={true}
+                sx={{
+                  width: '100%',
+                  height: '100%',
+                  '& video': {
+                    width: '100% !important',
+                    height: '100% !important',
+                    objectFit: 'contain !important',
+                  },
+                }}
+              />
+            </Box>
           )
         ) : (
           <Box
