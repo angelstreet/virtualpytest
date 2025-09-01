@@ -47,6 +47,7 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
   const queueRef = useRef<string[]>([]);
   const frameCounterRef = useRef<number>(0);
   const lastTimestampRef = useRef<string>('');
+  const hasInitializedRef = useRef<boolean>(false);
 
   // Detect if this is a mobile device model for proper sizing
   const isMobile = useMemo(() => {
@@ -164,11 +165,14 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
         return;
       }
 
-      // Initial delay to let first frame generate
-      setIsLoading(true);
-      console.log(`[${stableHost.host_name}-${stableDevice.device_id}] Starting 1.5s wait for first frame...`);
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      if (isMounted) setIsLoading(false);
+      // Initial delay only on first initialization
+      if (!hasInitializedRef.current) {
+        setIsLoading(true);
+        console.log(`[${stableHost.host_name}-${stableDevice?.device_id}] Starting 1.5s wait for first frame...`);
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        hasInitializedRef.current = true;
+        if (isMounted) setIsLoading(false);
+      }
 
       // Single 200ms loop matching ffmpeg generation
       const frameInterval = setInterval(() => {
