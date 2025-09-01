@@ -43,7 +43,7 @@ export const useRec = (): UseRecReturn => {
   // Adaptive interval based on device count
   const adaptiveInterval = useMemo(() => {
     const count = avDevices.length;
-    if (count <= 5) return 1000;   // 5 FPS with batch of 5
+    if (count <= 5) return Math.round(5000 / 3);  // ~1667ms for 3 FPS with batch of 5
     if (count <= 10) return 5000;  // 1 FPS
     if (count <= 20) return 10000; // 0.5 FPS
     return Math.round(5000 / 0.3);  // ~16667ms for 0.3 FPS
