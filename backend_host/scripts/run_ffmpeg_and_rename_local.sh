@@ -92,7 +92,7 @@ start_grabber() {
       -c:v libx264 -preset ultrafast -tune zerolatency -crf 30 -maxrate 400k -bufsize 400k -force_key_frames \"expr:gte(t,n_forced*0.25)\" \
       -pix_fmt yuv420p -profile:v baseline -level 3.0 -fps_mode passthrough \
       -c:a aac -b:a 32k -ar 22050 -ac 2 \
-      -f hls -hls_time 0.5 -hls_list_size 600 -hls_flags delete_segments+omit_endlist+split_by_time \
+      -f hls -hls_time 1 -hls_list_size 600 -hls_flags delete_segments+omit_endlist+split_by_time \
       -hls_segment_type fmp4 -hls_segment_filename $capture_dir/segment_%03d.m4s \
       $capture_dir/output.m3u8 \
       -map \"[captureout]\" -c:v mjpeg -q:v 5 -f image2 \
