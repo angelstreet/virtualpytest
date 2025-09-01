@@ -122,7 +122,7 @@ export const useRec = (): UseRecReturn => {
 
   // Generate multiple frame URLs with current timestamp (no server calls) - blocked when modal open
   const generateThumbnailUrl = useCallback(
-    (host: Host, device: Device): string[] => {
+    (host: Host, device: Device, timestampOffset: number = 0): string[] => {  // Add offset in seconds
       const deviceKey = `${host.host_name}-${device.device_id}`;
 
       // Log which component initiated this call (using stack trace)
@@ -149,6 +149,7 @@ export const useRec = (): UseRecReturn => {
 
       // Generate current timestamp in YYYYMMDDHHMMSS format
       const now = new Date();
+      now.setSeconds(now.getSeconds() + timestampOffset);  // Apply offset
       const timestamp =
         now.getFullYear().toString() +
         (now.getMonth() + 1).toString().padStart(2, '0') +

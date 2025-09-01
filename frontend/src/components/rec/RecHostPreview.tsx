@@ -1,6 +1,6 @@
 import { Error as ErrorIcon } from '@mui/icons-material';
 import { Card, Typography, Box, Chip, CircularProgress } from '@mui/material';
-import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useModal } from '../../contexts/ModalContext';
 import { useStream } from '../../hooks/controller';
@@ -42,6 +42,8 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isStreamModalOpen, setIsStreamModalOpen] = useState(false);
+  const [isFirstBatch, setIsFirstBatch] = useState(true);
+  const handleTakeScreenshotRef = useRef<(() => Promise<void>) | null>(null);  // Adjust type to include null and async function
 
   // Detect if this is a mobile device model for proper sizing
   const isMobile = useMemo(() => {
@@ -68,14 +70,6 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
   // Stabilize host and device objects to prevent infinite re-renders
   const stableHost = useMemo(() => host, [host]);
   const stableDevice = useMemo(() => device, [device]);
-
-  // Handle when an image loads successfully
-  const handleImageLoad = useCallback((imageNumber: 1 | 2) => {
-    setActiveImage(imageNumber); // Switch to the newly loaded image
-  }, []);
-
-  // Process screenshot URL with conditional HTTP to HTTPS proxy
-  const getImageUrl = useCallback((screenshotPath: string) => screenshotPath || '', []);
 
   // Simple screenshot taking logic
   const handleTakeScreenshot = useCallback(async () => {
@@ -104,7 +98,8 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
       const allFrameUrls = generateThumbnailUrl ? generateThumbnailUrl(stableHost, stableDevice) : [];
       
       if (allFrameUrls.length > 0) {
-        // Add 1.5 second delay to ensure thumbnails are properly generated and available
+        // Conditional delay: 1.5s for first batch, 0.5s for subsequent
+        const delay = isFirstBatch ? 1500 : 500;
         setTimeout(async () => {
           // Smart detection: Test which URLs actually exist, skip missing ones gracefully
           const availableUrls: string[] = [];
@@ -139,8 +134,11 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
                 }
               }, index * 200); // 200ms intervals for smooth video feel
             });
+            if (isFirstBatch) {
+              setIsFirstBatch(false);  // Switch to reduced delay mode
+            }
           }
-        }, 1500);
+        }, delay);
       } else {
         setError('Base URL not initialized');
 
@@ -172,7 +170,24 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
     initializeBaseUrl,
     isAnyModalOpen,
     isVncDevice,
+    isFirstBatch,
   ]);
+
+  // NEW: Assign to ref in useEffect to avoid declaration order issues
+  useEffect(() => {
+    handleTakeScreenshotRef.current = handleTakeScreenshot;
+  }, [handleTakeScreenshot]);
+
+  // Handle when an image loads successfully
+  const handleImageLoad = useCallback((imageNumber: 1 | 2) => {
+    setActiveImage(imageNumber);
+    if (!isFirstBatch && imageNumber === 2) {
+      handleTakeScreenshotRef.current?.();  // Call via ref
+    }
+  }, [isFirstBatch]);  // No longer depends on handleTakeScreenshot
+
+  // Process screenshot URL with conditional HTTP to HTTPS proxy
+  const getImageUrl = useCallback((screenshotPath: string) => screenshotPath || '', []);
 
   // Initialize base URL once, then auto-generate URLs (skip for VNC devices)
   useEffect(() => {
