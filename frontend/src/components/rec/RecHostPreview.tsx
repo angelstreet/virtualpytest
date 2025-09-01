@@ -48,6 +48,7 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
   const frameCounterRef = useRef<number>(0);
   const lastTimestampRef = useRef<string>('');
   const hasInitializedRef = useRef<boolean>(false);
+  const startTimestampRef = useRef<string>('');
 
   // Detect if this is a mobile device model for proper sizing
   const isMobile = useMemo(() => {
@@ -87,15 +88,15 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
   const generateNextFrameUrl = useCallback(() => {
     if (!generateThumbnailUrl || !stableDevice) return null;
 
-    // Get current timestamp in YYYYMMDDHHMMSS format
+    // Use start timestamp for first batch, then current time for subsequent ones
     const now = new Date();
-    const currentTimestamp = 
-      now.getFullYear().toString() +
+    const currentTimestamp = startTimestampRef.current || 
+      (now.getFullYear().toString() +
       (now.getMonth() + 1).toString().padStart(2, '0') +
       now.getDate().toString().padStart(2, '0') +
       now.getHours().toString().padStart(2, '0') +
       now.getMinutes().toString().padStart(2, '0') +
-      now.getSeconds().toString().padStart(2, '0');
+      now.getSeconds().toString().padStart(2, '0'));
 
     // Reset frame counter if timestamp changed
     if (currentTimestamp !== lastTimestampRef.current) {
@@ -167,8 +168,18 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
 
       // Initial delay only on first initialization
       if (!hasInitializedRef.current) {
+        // Capture timestamp BEFORE waiting to maintain constant delay
+        const now = new Date();
+        startTimestampRef.current = 
+          now.getFullYear().toString() +
+          (now.getMonth() + 1).toString().padStart(2, '0') +
+          now.getDate().toString().padStart(2, '0') +
+          now.getHours().toString().padStart(2, '0') +
+          now.getMinutes().toString().padStart(2, '0') +
+          now.getSeconds().toString().padStart(2, '0');
+        
         setIsLoading(true);
-        console.log(`[${stableHost.host_name}-${stableDevice?.device_id}] Starting 1.5s wait for first frame...`);
+        console.log(`[${stableHost.host_name}-${stableDevice?.device_id}] Starting 1.5s wait for timestamp ${startTimestampRef.current}...`);
         await new Promise(resolve => setTimeout(resolve, 1500));
         hasInitializedRef.current = true;
         if (isMounted) setIsLoading(false);
