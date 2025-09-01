@@ -101,7 +101,16 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
     }
     
     if (validUrls.length > 0) {
-      queueRef.current = [...queueRef.current, ...validUrls].slice(-10); // Keep max 10 images
+      // Extract timestamp from first valid URL (e.g., '20250901182649' from 'capture_20250901182649_thumbnail.jpg')
+      const getTimestamp = (url: string) => url.match(/capture_(\d{14})/)?.[1] || '0';
+
+      const newTimestamp = getTimestamp(validUrls[0]);
+      const currentTimestamp = queueRef.current.length > 0 ? getTimestamp(queueRef.current[0]) : '0';
+
+      // Replace if new batch is newer or queue is low
+      if (newTimestamp > currentTimestamp || queueRef.current.length <= 1) {
+        queueRef.current = validUrls;
+      }
     }
   }, [stableHost, stableDevice, generateThumbnailUrl, isAnyModalOpen, isVncDevice]);
 
@@ -111,7 +120,9 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
 
     const displayInterval = setInterval(() => {
       if (queueRef.current.length > 0) {
-        const nextUrl = queueRef.current.shift()!;
+        const nextUrl = queueRef.current[0]; // Peek at first frame
+        queueRef.current = queueRef.current.slice(1); // Remove after using
+        
         if (activeImage === 1) {
           setImage2Url(nextUrl);
         } else {
@@ -358,9 +369,9 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
                       draggable={false}
                       onLoad={() => handleImageLoad(1)}
                       onError={() => {
-                        console.log(
-                          `[RecHostPreview] Image 1 failed to load: ${image1Url} - keeping current image`,
-                        );
+                        // console.log(
+                        //   `[RecHostPreview] Image 1 failed to load: ${image1Url} - keeping current image`,
+                        // );
                         // Do nothing - keep current active image
                       }}
                     />
@@ -385,9 +396,9 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
                       draggable={false}
                       onLoad={() => handleImageLoad(2)}
                       onError={() => {
-                        console.log(
-                          `[RecHostPreview] Image 2 failed to load: ${image2Url} - keeping current image`,
-                        );
+                        // console.log(
+                        //   `[RecHostPreview] Image 2 failed to load: ${image2Url} - keeping current image`,
+                        // );
                         // Do nothing - keep current active image
                       }}
                     />

@@ -43,10 +43,10 @@ export const useRec = (): UseRecReturn => {
   // Adaptive interval based on device count
   const adaptiveInterval = useMemo(() => {
     const count = avDevices.length;
-    if (count <= 5) return 200;   // 5 FPS
-    if (count <= 10) return 1000; // 1 FPS
-    if (count <= 20) return 2000; // 0.5 FPS
-    return 3333; // 0.3 FPS for 21+ devices
+    if (count <= 5) return 1000;   // 5 FPS with batch of 5
+    if (count <= 10) return 5000;  // 1 FPS
+    if (count <= 20) return 10000; // 0.5 FPS
+    return Math.round(5000 / 0.3);  // ~16667ms for 0.3 FPS
   }, [avDevices.length]);
 
   // Add modal context hook
@@ -136,9 +136,9 @@ export const useRec = (): UseRecReturn => {
       const deviceKey = `${host.host_name}-${device.device_id}`;
 
       // Log which component initiated this call (using stack trace)
-      const stack = new Error().stack;
-      const callerLine = stack?.split('\n')[2]?.trim() || 'unknown caller';
-      console.log(`[@hook:useRec] generateThumbnailUrl called for ${deviceKey} by: ${callerLine}`);
+      // const stack = new Error().stack;
+      // const callerLine = stack?.split('\n')[2]?.trim() || 'unknown caller';
+      // console.log(`[@hook:useRec] generateThumbnailUrl called for ${deviceKey} by: ${callerLine}`);
 
       // Check if any modal is open using ModalContext
       if (isAnyModalOpen) {
@@ -185,7 +185,7 @@ export const useRec = (): UseRecReturn => {
         `${baseUrl}_4_thumbnail.jpg`,   // Frame 4
       ];
 
-      console.log(`[@hook:useRec] generateThumbnailUrl for ${deviceKey}: ${frameUrls.length} frames`);
+      // console.log(`[@hook:useRec] generateThumbnailUrl for ${deviceKey}: ${frameUrls.length} frames`);
       return frameUrls;
     },
     [baseUrlPatterns, isAnyModalOpen],
@@ -257,12 +257,12 @@ export const useRec = (): UseRecReturn => {
     setError(null);
 
     try {
-      console.log(`[@hook:useRec] Starting stream restart for ${avDevices.length} devices`);
+      // console.log(`[@hook:useRec] Starting stream restart for ${avDevices.length} devices`);
 
       // Restart streams sequentially for each AV device
       for (const { host, device } of avDevices) {
         try {
-          console.log(`[@hook:useRec] Restarting stream for ${host.host_name}-${device.device_id}`);
+          // console.log(`[@hook:useRec] Restarting stream for ${host.host_name}-${device.device_id}`);
 
           const response = await fetch('/server/av/restartStream', {
             method: 'POST',
@@ -301,7 +301,7 @@ export const useRec = (): UseRecReturn => {
         }
       }
 
-      console.log(`[@hook:useRec] Completed stream restart for all devices`);
+      // console.log(`[@hook:useRec] Completed stream restart for all devices`);
     } catch (error) {
       console.error('[@hook:useRec] Error restarting streams:', error);
       setError(error instanceof Error ? error.message : 'Failed to restart streams');

@@ -122,10 +122,16 @@ const DeviceStreamItem: React.FC<DeviceStreamItemProps> = ({ device, allHosts, g
               isExpanded={false}
               muted={true}
               sx={{
-                width: isMobileModel ? 'auto' : '100%', // Mobile: auto width, constrained by height
-                height: isMobileModel ? '100%' : 'auto', // Mobile: fill height, others: auto height
+                width: '100%', // Always fill container width
+                height: '100%', // Always fill container height
                 maxHeight: '100%', // Ensure it doesn't exceed container
                 maxWidth: '100%', // Ensure it doesn't exceed container width
+                // Force video element to respect container constraints
+                '& video': {
+                  width: '100% !important',
+                  height: '100% !important',
+                  objectFit: 'contain !important', // Ensure content fits within bounds
+                },
               }}
             />
           )
