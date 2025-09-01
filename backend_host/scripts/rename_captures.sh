@@ -75,40 +75,41 @@ process_capture_file() {
     fps=2  # VNC display uses 2 FPS
   fi
   
-  # Calculate position in group (0-4 for 5 FPS, 0-1 for 2 FPS)
-  local position_in_group=$((($frame_int - 1) % $fps))
+  # Calculate group and suffix from frame number (simple approach)
+  local group=$(( (frame_int - 1) / fps ))
+  local suffix=$(( (frame_int - 1) % fps ))
   
-  # Use file creation time as base timestamp for all files in the same processing batch
+  # Use file creation time as base timestamp (simple!)
   local final_timestamp=$(TZ="Europe/Zurich" date -r "$filepath" +%Y%m%d%H%M%S)
   
   local CAPTURE_DIR=$(dirname "$filepath")
   local base_newname="${CAPTURE_DIR}/capture_${final_timestamp}"
   
-  # Determine final filename based on position in group
+  # Determine final filename based on suffix
   if [ "$file_type" = "thumbnail" ]; then
-    if [ $position_in_group -eq 0 ]; then
+    if [ $suffix -eq 0 ]; then
       # First file in group - no suffix
       newname="${base_newname}_thumbnail.jpg"
     else
-      # Subsequent files - add position suffix
-      newname="${base_newname}_${position_in_group}_thumbnail.jpg"
+      # Subsequent files - add suffix
+      newname="${base_newname}_${suffix}_thumbnail.jpg"
     fi
   else
-    if [ $position_in_group -eq 0 ]; then
+    if [ $suffix -eq 0 ]; then
       # First file in group - no suffix
       newname="${base_newname}.jpg"
     else
-      # Subsequent files - add position suffix
-      newname="${base_newname}_${position_in_group}.jpg"
+      # Subsequent files - add suffix
+      newname="${base_newname}_${suffix}.jpg"
     fi
   fi
   
   # Rename the file
   if mv -f "$filepath" "$newname" 2>>"$RENAME_LOG"; then
-    if [ $position_in_group -eq 0 ]; then
+    if [ $suffix -eq 0 ]; then
       echo "Renamed $(basename "$filepath") to $(basename "$newname") (first in group, $file_type) at $(date)" >> "$RENAME_LOG"
     else
-      echo "Renamed $(basename "$filepath") to $(basename "$newname") (position $position_in_group, $file_type) at $(date)" >> "$RENAME_LOG"
+      echo "Renamed $(basename "$filepath") to $(basename "$newname") (suffix $suffix, $file_type) at $(date)" >> "$RENAME_LOG"
     fi
     echo "Processed $file_type image: $(basename "$newname")" >> "$RENAME_LOG"
   else
