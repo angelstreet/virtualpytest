@@ -85,8 +85,10 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
 
   // Handle when an image loads successfully
   const handleImageLoad = useCallback((imageNumber: 1 | 2) => {
+    const currentUrl = imageNumber === 1 ? image1Url : image2Url;
+    console.log(`[${stableHost.host_name}-${stableDevice?.device_id}] DISPLAYING image ${imageNumber}: ${currentUrl}`);
     setActiveImage(imageNumber); // Switch to the newly loaded image
-  }, []);
+  }, [image1Url, image2Url, stableHost.host_name, stableDevice?.device_id]);
 
   // Process screenshot URL with conditional HTTP to HTTPS proxy
   const getImageUrl = useCallback((screenshotPath: string) => screenshotPath || '', []);
@@ -180,8 +182,10 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
       queueRef.current = queueRef.current.slice(1);
       
       if (activeImage === 1) {
+        console.log(`[${stableHost.host_name}-${stableDevice?.device_id}] SETTING image2Url: ${nextUrl}`);
         setImage2Url(nextUrl);
       } else {
+        console.log(`[${stableHost.host_name}-${stableDevice?.device_id}] SETTING image1Url: ${nextUrl}`);
         setImage1Url(nextUrl);
       }
     }
