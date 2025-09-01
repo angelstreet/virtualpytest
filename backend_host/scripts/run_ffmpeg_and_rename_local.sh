@@ -87,7 +87,7 @@ start_grabber() {
     # Hardware video device - Triple output: stream, full-res captures, thumbnails (5 FPS controlled)
     FFMPEG_CMD="/usr/bin/ffmpeg -y -re -fflags nobuffer -thread_queue_size 512 -fix_sub_duration -f v4l2 -video_size 1280x720 -framerate $input_fps -i $source \
       -f alsa -thread_queue_size 256 -i \"$audio_device\" \
-      -filter_complex \"[0:v]split=3[stream][capture][thumb];[stream]scale=640:360[streamout];[capture]fps=5[captureout];[thumb]fps=5,scale=498:280[thumbout]\" \
+      -filter_complex \"[0:v]split=3[stream][capture][thumb];[stream]scale=640:360[streamout];[capture]fps=5[captureout];[thumb]fps=5,scale=320:180[thumbout]\" \
       -map \"[streamout]\" -map 1:a \
       -c:v libx264 -preset ultrafast -tune zerolatency -crf 30 -maxrate 600k -bufsize 1200k \
       -pix_fmt yuv420p -profile:v baseline -level 3.0 \
@@ -108,7 +108,7 @@ start_grabber() {
 
     FFMPEG_CMD="DISPLAY=\"$source\" /usr/bin/ffmpeg -y -threads 1 -thread_type slice -f x11grab -video_size $resolution -framerate $input_fps -i $source \
       -an \
-      -filter_complex \"[0:v]split=3[stream][capture][thumb];[stream]scale=480:360:flags=fast_bilinear:sws_dither=none[streamout];[capture]fps=2[captureout];[thumb]fps=2,scale=498:280[thumbout]\" \
+      -filter_complex \"[0:v]split=3[stream][capture][thumb];[stream]scale=480:360:flags=fast_bilinear:sws_dither=none[streamout];[capture]fps=2[captureout];[thumb]fps=2,scale=320:180[thumbout]\" \
       -map \"[streamout]\" \
       -c:v libx264 -preset ultrafast -tune zerolatency -crf 35 -maxrate 500k -bufsize 1000k \
       -pix_fmt yuv420p -profile:v baseline -level 3.0 -x264opts keyint=120:min-keyint=120:no-scenecut:ref=1:me=dia:subme=0:trellis=0 \

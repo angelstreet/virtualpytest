@@ -48,6 +48,9 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
   const hasInitializedRef = useRef<boolean>(false);
   const startTimestampRef = useRef<string>('');
 
+  // Add ref to track latest displayed timestamp and frame
+  const latestFrameRef = useRef<{ timestamp: string; frame: number }>({ timestamp: '', frame: -1 });
+
   // Detect if this is a mobile device model for proper sizing
   const isMobile = useMemo(() => {
     return isMobileModel(device?.device_model);
@@ -141,30 +144,47 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
     // Log the timestamp being used for verification
     console.log(`[${stableHost.host_name}-${stableDevice?.device_id}] Using timestamp ${currentTimestamp} for frame ${frameNum}: ${finalUrl}`);
     
-    return finalUrl;
+    return { url: finalUrl, timestamp: currentTimestamp, frame: frameNum };
   }, [stableHost, stableDevice, generateThumbnailUrl]);
 
   // Simplify processNextFrame without queue
   const processNextFrame = useCallback(async () => {
     if (isVncDevice || isAnyModalOpen) return;
 
-    const nextFrameUrl = generateNextFrameUrl();
-    if (nextFrameUrl) {
+    const nextFrame = generateNextFrameUrl();
+    if (nextFrame) {
       try {
-        await new Promise((resolve, reject) => {
+        // Add timeout: Race preload with 100ms delay
+        const preloadPromise = new Promise((resolve, reject) => {
           const img = new Image();
-          img.onload = () => {
-            // Directly set the single image URL on success
-            setCurrentImageUrl(nextFrameUrl);
-            resolve(nextFrameUrl);
-          };
+          img.onload = () => resolve(nextFrame);
           img.onerror = reject;
-          img.src = nextFrameUrl;
+          img.src = nextFrame.url;
         });
-        
-        // Remove queue addition and dequeue logic
-      } catch {
-        // Skip if not ready
+
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Preload timeout')), 100)
+        );
+
+        const result = await Promise.race([preloadPromise, timeoutPromise]) as { url: string; timestamp: string; frame: number };
+
+        // Check if this frame is newer than the latest displayed
+        const latest = latestFrameRef.current;
+        const isNewer = 
+          result.timestamp > latest.timestamp || 
+          (result.timestamp === latest.timestamp && result.frame > latest.frame);
+
+        if (isNewer) {
+          setCurrentImageUrl(result.url);
+          latestFrameRef.current = { timestamp: result.timestamp, frame: result.frame };
+        } else {
+          console.log(`Skipping outdated frame: ${result.url} (latest is ${latest.timestamp}_${latest.frame})`);
+        }
+      } catch (err: any) {
+        if (err.message === 'Preload timeout') {
+          console.log(`Preload timed out for: ${nextFrame.url}`);
+        }
+        // Skip if timed out or error
       }
     }
   }, [isVncDevice, isAnyModalOpen, generateNextFrameUrl]);
@@ -217,7 +237,7 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
         if (isMounted && !isStreamModalOpen && !isAnyModalOpen) {
           processNextFrame();
         }
-      }, 200);
+      }, 333);  // Changed from 200 to 333ms for ~3 FPS display
 
       return () => clearInterval(frameInterval);
     };
