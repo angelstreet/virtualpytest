@@ -163,7 +163,7 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
         });
 
         const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Preload timeout')), 100)
+          setTimeout(() => reject(new Error('Preload timeout')), 50)  // Reduced from 100 to 50ms
         );
 
         const result = await Promise.race([preloadPromise, timeoutPromise]) as { url: string; timestamp: string; frame: number };
