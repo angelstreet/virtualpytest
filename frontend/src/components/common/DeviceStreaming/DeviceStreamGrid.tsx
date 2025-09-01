@@ -76,6 +76,7 @@ const DeviceStreamItem: React.FC<DeviceStreamItemProps> = ({ device, allHosts, g
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
+        minHeight: 0, // Allow flex child to shrink below content size
       }}>
         {streamUrl && hostObject ? (
           // VNC devices: Show iframe, Others: Use HLSVideoPlayer
@@ -110,7 +111,7 @@ const DeviceStreamItem: React.FC<DeviceStreamItemProps> = ({ device, allHosts, g
               isCapturing={false}
               model={deviceModel}
               layoutConfig={{
-                minHeight: `${previewHeight - 24}px`,
+                minHeight: isMobileModel ? 'auto' : `${previewHeight - 24}px`, // Let mobile devices use natural height
                 aspectRatio: isMobileModel ? '9/16' : '16/9',
                 objectFit: 'contain', // Content adapts inside fixed preview box
                 isMobileModel,
