@@ -810,13 +810,13 @@ class ZapController:
                 analysis_rectangle = {'x': 300, 'y': 130, 'width': 1300, 'height': 570}
                 banner_region = {'x': 245, 'y': 830, 'width': 1170, 'height': 120}
             
-            # Call blackscreen zapping detection
+            # Call enhanced blackscreen zapping detection with 6s coverage and 30 image cap
             zapping_result = video_controller.detect_zapping(
                 folder_path=capture_folder,
                 key_release_timestamp=key_release_timestamp,
                 analysis_rectangle=analysis_rectangle,
                 banner_region=banner_region,
-                max_images=10
+                max_images=30  # Enhanced: 30 images max for 6s coverage
             )
             
             if zapping_result.get('success', False) and zapping_result.get('zapping_detected', False):
@@ -843,7 +843,10 @@ class ZapController:
                     "analyzed_images": zapping_result.get('analyzed_images', 0),
                     "total_images_available": zapping_result.get('total_images_available', 0),
                     "debug_images": zapping_result.get('debug_images', []),
-                    "message": f"Blackscreen zapping detected (analyzed {zapping_result.get('analyzed_images', 0)} images)",
+                    "early_stopped": zapping_result.get('early_stopped', False),
+                    "coverage_seconds": 6,
+                    "sub_second_precision": True,
+                    "message": f"Enhanced blackscreen zapping detected (analyzed {zapping_result.get('analyzed_images', 0)} images, early_stopped={zapping_result.get('early_stopped', False)})",
                     "details": zapping_result
                 }
                 return result
@@ -933,7 +936,7 @@ class ZapController:
             # Reconstruct the same image paths using identical logic
             print(f"🧊 [ZapController] Getting same images that blackscreen would analyze...")
             
-            # Use the same image collection logic as blackscreen detection
+            # Use enhanced image collection with _1, _2, _3, _4 files (same as blackscreen detection)
             import os
             from datetime import datetime
             captures_folder = os.path.join(capture_folder, 'captures')
@@ -950,21 +953,42 @@ class ZapController:
                     "details": f"Captures folder not found: {captures_folder}"
                 }
             
-            # Get the same 10 images that blackscreen detection would analyze
+            # Enhanced collection: get all available files (_1, _2, _3, _4) for 6 seconds with 30 image cap
             screenshots = []
-            for i in range(10):  # Same max_images as blackscreen detection
+            MAX_SECONDS = 6
+            MAX_TOTAL_IMAGES = 30
+            
+            for i in range(MAX_SECONDS):
                 target_timestamp = key_release_timestamp + i
                 target_datetime = datetime.fromtimestamp(target_timestamp)
-                target_filename = f"capture_{target_datetime.strftime('%Y%m%d%H%M%S')}.jpg"
-                target_path = os.path.join(captures_folder, target_filename)
+                base_filename = f"capture_{target_datetime.strftime('%Y%m%d%H%M%S')}"
                 
-                if os.path.exists(target_path):
-                    screenshots.append(target_path)
-                    print(f"🧊 [ZapController] Found image {target_filename}")
-                else:
-                    print(f"🧊 [ZapController] Missing image {target_filename}")
+                # Collect all files for this second
+                second_files = []
+                
+                # Check for base file
+                base_path = os.path.join(captures_folder, f"{base_filename}.jpg")
+                if os.path.exists(base_path):
+                    second_files.append(base_path)
+                
+                # Check for numbered files (_1, _2, _3, _4)
+                for j in range(1, 5):
+                    numbered_path = os.path.join(captures_folder, f"{base_filename}_{j}.jpg")
+                    if os.path.exists(numbered_path):
+                        second_files.append(numbered_path)
+                
+                # Add files but respect 30-image cap
+                for file_path in second_files:
+                    if len(screenshots) >= MAX_TOTAL_IMAGES:
+                        print(f"🧊 [ZapController] Reached 30-image cap for freeze detection")
+                        break
+                    screenshots.append(file_path)
+                    print(f"🧊 [ZapController] Found image {os.path.basename(file_path)}")
+                
+                if len(screenshots) >= MAX_TOTAL_IMAGES:
+                    break
             
-            print(f"🧊 [ZapController] Using same {len(screenshots)} images that blackscreen analyzed")
+            print(f"🧊 [ZapController] Enhanced freeze collection: {len(screenshots)} images covering {MAX_SECONDS}s")
             
             if len(screenshots) >= 2:
                 # Use existing freeze detection method on the SAME images
@@ -973,11 +997,40 @@ class ZapController:
                 freeze_result = {"success": False, "freeze_detected": False, "message": "Not enough images for freeze detection"}
             
             if freeze_result.get('success', False) and freeze_result.get('freeze_detected', False):
-                # Calculate simple duration based on number of frozen frames
+                # Enhanced duration calculation with early stopping detection
                 comparisons = freeze_result.get('comparisons', [])
-                freeze_duration = len([c for c in comparisons if c.get('is_frozen', False)]) * 1.0  # 1 second per frame
                 
-                print(f"✅ [ZapController] Freeze zapping detected - Duration: {freeze_duration}s")
+                # Look for freeze start and end patterns for early stopping
+                freeze_start_found = False
+                freeze_end_found = False
+                freeze_start_index = None
+                freeze_end_index = None
+                
+                for i, comparison in enumerate(comparisons):
+                    is_frozen = comparison.get('is_frozen', False)
+                    
+                    # Look for freeze start (first frozen comparison)
+                    if is_frozen and not freeze_start_found:
+                        freeze_start_found = True
+                        freeze_start_index = i
+                        print(f"🧊 [ZapController] Freeze START detected at comparison {i+1}")
+                    
+                    # Look for freeze end (first non-frozen after freeze start)
+                    elif freeze_start_found and not is_frozen:
+                        freeze_end_found = True
+                        freeze_end_index = i
+                        print(f"🧊 [ZapController] Freeze END detected at comparison {i+1} - early stopping possible!")
+                        break
+                
+                # Calculate enhanced freeze duration
+                if freeze_start_found and freeze_end_found:
+                    # Complete freeze sequence with sub-second precision
+                    freeze_duration = (freeze_end_index - freeze_start_index) * 0.2  # Approximate based on enhanced collection
+                else:
+                    # Fallback to original calculation
+                    freeze_duration = len([c for c in comparisons if c.get('is_frozen', False)]) * 0.2
+                
+                print(f"✅ [ZapController] Enhanced freeze zapping detected - Duration: {freeze_duration:.1f}s")
                 
                 return {
                     "success": True,
@@ -988,7 +1041,11 @@ class ZapController:
                     "freeze_duration": freeze_duration,
                     "zapping_duration": freeze_duration,
                     "analyzed_images": len(screenshots),
-                    "message": f"Freeze zapping detected (analyzed {len(screenshots)} images)",
+                    "early_stopped": freeze_end_found,
+                    "coverage_seconds": 6,
+                    "freeze_start_index": freeze_start_index,
+                    "freeze_end_index": freeze_end_index,
+                    "message": f"Enhanced freeze zapping detected (analyzed {len(screenshots)} images, early_stopped={freeze_end_found})",
                     "details": freeze_result
                 }
             else:

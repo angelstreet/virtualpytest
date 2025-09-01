@@ -839,15 +839,15 @@ class VideoContentHelpers:
 
     def _get_images_after_timestamp(self, folder_path: str, start_timestamp: float, max_count: int = 10) -> List[Dict]:
         """
-        Simple approach: Get images by incrementing timestamp by 1 second to get next 10 images.
+        Enhanced approach: Get images including _1, _2, _3, _4 files with 6s coverage and 30 image cap.
         
         Args:
             folder_path: Path to main folder (we'll add /captures)
             start_timestamp: Start timestamp (Unix timestamp)
-            max_count: Maximum number of images to return (default: 10)
+            max_count: Maximum number of images to return (default: 10, now supports up to 30)
             
         Returns:
-            List of image data dictionaries
+            List of image data dictionaries with sub-second precision
         """
         try:
             # Images are in the captures subfolder
@@ -858,33 +858,63 @@ class VideoContentHelpers:
                 return []
             
             images = []
+            MAX_SECONDS = 6  # Cover 6 seconds for full zap detection
+            MAX_TOTAL_IMAGES = 30  # Hard cap at 30 images
             
-            # Simple plan: Start from action timestamp and increment by 1 second to get 10 images
-            for i in range(max_count):
+            # Enhanced collection: get all available files (_1, _2, _3, _4) for better precision
+            for i in range(MAX_SECONDS):
                 # Calculate timestamp for this second (start + i seconds)
                 target_timestamp = start_timestamp + i
                 
                 # Convert to capture filename format: capture_YYYYMMDDHHMMSS.jpg
                 target_datetime = datetime.fromtimestamp(target_timestamp)
-                target_filename = f"capture_{target_datetime.strftime('%Y%m%d%H%M%S')}.jpg"
-                target_path = os.path.join(captures_folder, target_filename)
+                base_filename = f"capture_{target_datetime.strftime('%Y%m%d%H%M%S')}"
                 
-                # Check if this image exists
-                if os.path.exists(target_path):
-                    images.append({
-                        'path': target_path,
-                        'timestamp': target_timestamp,
-                        'filename': target_filename
-                    })
-                    print(f"VideoContent[{self.device_name}]: Found image {target_filename}")
+                # Collect all files for this second
+                second_files = []
+                
+                # Check for base file
+                base_path = os.path.join(captures_folder, f"{base_filename}.jpg")
+                if os.path.exists(base_path):
+                    second_files.append(base_path)
+                
+                # Check for numbered files (_1, _2, _3, _4)
+                for j in range(1, 5):
+                    numbered_path = os.path.join(captures_folder, f"{base_filename}_{j}.jpg")
+                    if os.path.exists(numbered_path):
+                        second_files.append(numbered_path)
+                
+                # Calculate dynamic interval based on files found
+                if len(second_files) > 1:
+                    interval = 1.0 / len(second_files)  # Dynamic: 5 files = 0.2s, 2 files = 0.5s
                 else:
-                    print(f"VideoContent[{self.device_name}]: Missing image {target_filename}")
+                    interval = 1.0  # Single file = 1 second
+                
+                # Add files with calculated timestamps
+                for j, file_path in enumerate(second_files):
+                    # Respect 30-image cap
+                    if len(images) >= MAX_TOTAL_IMAGES:
+                        print(f"VideoContent[{self.device_name}]: Reached 30-image cap - stopping collection")
+                        return sorted(images, key=lambda x: x['timestamp'])
+                    
+                    filename = os.path.basename(file_path)
+                    sub_timestamp = target_timestamp + (j * interval)
+                    
+                    images.append({
+                        'path': file_path,
+                        'timestamp': sub_timestamp,
+                        'filename': filename,
+                        'second_group': i,
+                        'files_in_second': len(second_files),
+                        'interval': interval
+                    })
+                    print(f"VideoContent[{self.device_name}]: Found image {filename} (interval: {interval:.1f}s)")
             
-            print(f"VideoContent[{self.device_name}]: Found {len(images)} images starting from timestamp")
-            return images
+            print(f"VideoContent[{self.device_name}]: Enhanced collection: {len(images)} images covering {MAX_SECONDS}s")
+            return sorted(images, key=lambda x: x['timestamp'])
             
         except Exception as e:
-            print(f"VideoContent[{self.device_name}]: Error getting images: {e}")
+            print(f"VideoContent[{self.device_name}]: Error getting enhanced images: {e}")
             return []
 
     def _convert_unix_to_capture_format(self, unix_timestamp: float) -> str:
@@ -906,7 +936,7 @@ class VideoContentHelpers:
 
     def _detect_blackscreen_batch(self, image_data: List[Dict], analysis_rectangle: Dict[str, int] = None) -> List[Dict]:
         """
-        Batch blackscreen detection using proven algorithm from analyze_audio_video.py
+        Enhanced blackscreen detection with early stopping when complete sequence found.
         
         Args:
             image_data: List of image data dictionaries
@@ -916,22 +946,43 @@ class VideoContentHelpers:
             List of blackscreen analysis results
         """
         results = []
+        blackscreen_detected = False
+        blackscreen_ended = False
+        MAX_ANALYSIS_IMAGES = 30  # Safety cap
         
-        for img_data in image_data:
+        for i, img_data in enumerate(image_data):
+            # Safety cap on analysis
+            if i >= MAX_ANALYSIS_IMAGES:
+                print(f"VideoContent[{self.device_name}]: Reached 30-image analysis cap - stopping")
+                break
+                
             image_path = img_data['path']
             
             try:
-                # Use proven blackscreen detection algorithm (copied from analyze_audio_video.py)
+                # Use proven blackscreen detection algorithm
                 is_blackscreen, blackscreen_percentage = self._analyze_blackscreen_simple(image_path, analysis_rectangle)
                 
-                results.append({
+                result = {
                     'path': image_path,
                     'filename': img_data['filename'],
                     'timestamp': img_data['timestamp'],
                     'is_blackscreen': is_blackscreen,
                     'blackscreen_percentage': blackscreen_percentage,
-                    'success': True
-                })
+                    'success': True,
+                    'second_group': img_data.get('second_group', 0),
+                    'files_in_second': img_data.get('files_in_second', 1)
+                }
+                results.append(result)
+                
+                # Early stopping logic
+                if is_blackscreen and not blackscreen_detected:
+                    blackscreen_detected = True
+                    print(f"VideoContent[{self.device_name}]: ⚡ Blackscreen START at {img_data['filename']} (image {i+1}) - continuing to find END...")
+                
+                elif blackscreen_detected and not is_blackscreen:
+                    blackscreen_ended = True
+                    print(f"VideoContent[{self.device_name}]: ✅ Blackscreen END at {img_data['filename']} (image {i+1}) - STOPPING EARLY!")
+                    break  # Early stopping - complete sequence found!
                 
                 print(f"VideoContent[{self.device_name}]: {img_data['filename']} - blackscreen={is_blackscreen} ({blackscreen_percentage:.1f}%)")
                 
@@ -947,6 +998,7 @@ class VideoContentHelpers:
                     'error': str(e)
                 })
         
+        print(f"VideoContent[{self.device_name}]: Blackscreen analysis complete - {len(results)} images analyzed, early_stopped={blackscreen_ended}")
         return results
 
     def _analyze_blackscreen_simple(self, image_path: str, analysis_rectangle: Dict[str, int] = None, threshold: int = 30) -> Tuple[bool, float]:
