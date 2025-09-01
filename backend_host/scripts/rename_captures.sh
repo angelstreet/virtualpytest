@@ -75,14 +75,11 @@ process_capture_file() {
     fps=2  # VNC display uses 2 FPS
   fi
   
-  # Calculate which group this frame belongs to (group = second)
-  local group=$((($frame_int - 1) / $fps))
+  # Calculate position in group (0-4 for 5 FPS, 0-1 for 2 FPS)
   local position_in_group=$((($frame_int - 1) % $fps))
   
-  # Generate timestamp for this group (use file creation time as base)
-  local base_timestamp=$(TZ="Europe/Zurich" date -r "$filepath" +%Y%m%d%H%M%S)
-  local group_timestamp=$(($(TZ="Europe/Zurich" date -r "$filepath" +%s) + $group))
-  local final_timestamp=$(TZ="Europe/Zurich" date -d "@$group_timestamp" +%Y%m%d%H%M%S)
+  # Use file creation time as base timestamp for all files in the same processing batch
+  local final_timestamp=$(TZ="Europe/Zurich" date -r "$filepath" +%Y%m%d%H%M%S)
   
   local CAPTURE_DIR=$(dirname "$filepath")
   local base_newname="${CAPTURE_DIR}/capture_${final_timestamp}"
