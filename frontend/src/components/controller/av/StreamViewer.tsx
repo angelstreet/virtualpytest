@@ -193,10 +193,10 @@ export function StreamViewer({
 
       const hls = new HLS({
         enableWorker: false,
-        lowLatencyMode: false,
+        lowLatencyMode: true,
         liveSyncDuration: 3,
         liveMaxLatencyDuration: 10,
-        maxBufferLength: 30,
+        maxBufferLength: 3,
         maxMaxBufferLength: 60,
         backBufferLength: 10,
         maxBufferSize: 60 * 1000 * 1000,
