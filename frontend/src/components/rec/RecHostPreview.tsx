@@ -145,9 +145,6 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
     const baseUrl = generateThumbnailUrl(stableHost, stableDevice, currentTimestamp)[0]?.replace('_thumbnail.jpg', '') || '';
     const finalUrl = `${baseUrl}${frameSuffix}_thumbnail.jpg`;
     
-    // Log the timestamp being used for verification
-    console.log(`[${stableHost.host_name}-${stableDevice?.device_id}] Using timestamp ${currentTimestamp} for frame ${frameNum}: ${finalUrl}`);
-    
     return { url: finalUrl, timestamp: currentTimestamp, frame: frameNum };
   }, [stableHost, stableDevice, generateThumbnailUrl]);
 
@@ -182,21 +179,20 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
           setCurrentImageUrl(result.url);
           latestFrameRef.current = { timestamp: result.timestamp, frame: result.frame };
         } else {
-          console.log(`Skipping outdated frame: ${result.url} (latest is ${latest.timestamp}_${latest.frame})`);
         }
       } catch (err: any) {
         if (err.message === 'Preload timeout') {
-          console.log(`Preload timed out for: ${nextFrame.url}`);
+        } else {
         }
         // Skip if timed out or error
       }
     }
   }, [isVncDevice, isAnyModalOpen, generateNextFrameUrl]);
 
-  // Single loop - matches ffmpeg generation timing (200ms)
+  // Remove mount/unmount logs
   useEffect(() => {
-    console.log(`[${stableHost.host_name}-${stableDevice?.device_id}] Component mounted`);
-    return () => console.log(`[${stableHost.host_name}-${stableDevice?.device_id}] Component unmounted`);
+    return () => {
+    };
   }, []);
 
   // Single loop - matches ffmpeg generation timing (200ms)
@@ -230,8 +226,6 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
         frameCounterRef.current = 0;
         
         setIsLoading(true);
-        console.log(`[${currentHost.host_name}-${currentDevice?.device_id}] Starting 1.5s wait for timestamp ${startTimestampRef.current}...`);
-        console.log(`[${currentHost.host_name}-${currentDevice?.device_id}] Initialized lastTimestampRef to: ${lastTimestampRef.current}`);
         await new Promise(resolve => setTimeout(resolve, 1500));
         hasInitializedRef.current = true;
         if (isMounted) setIsLoading(false);
@@ -442,8 +436,8 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
                       cursor: 'pointer',
                     }}
                     draggable={false}
-                    onLoad={() => console.log(`Displayed: ${currentImageUrl}`)}
-                    onError={() => console.log(`Failed to display: ${currentImageUrl}`)}
+                    onLoad={() => { }}
+                    onError={() => { }}
                   />
                   <Box
                     onClick={handleOpenStreamModal}
