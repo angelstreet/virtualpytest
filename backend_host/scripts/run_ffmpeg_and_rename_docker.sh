@@ -110,24 +110,24 @@ start_grabber() {
       -map \"[thumbout]\" -c:v mjpeg -q:v 5 -r 1 -f image2 \
       $capture_dir/captures/test_thumb_%06d.jpg"
   elif [ "$source_type" = "x11grab" ]; then
-    # VNC display - Triple output: stream, full-res captures, thumbnails
+    # VNC display - Optimized for low CPU usage: dual output only (stream + captures)
     local resolution=$(get_vnc_resolution "$source")
     
     # Simple DISPLAY export - no XAUTHORITY needed with xhost +local:
     export DISPLAY="$source"
     
-    FFMPEG_CMD="DISPLAY=\"$source\" /usr/bin/ffmpeg -y -f x11grab -framerate \"$fps\" -video_size $resolution -i $source \
+    FFMPEG_CMD="DISPLAY=\"$source\" /usr/bin/ffmpeg -y -threads 1 -thread_type slice -f x11grab -framerate \"$fps\" -video_size $resolution -i $source \
       -an \
-      -filter_complex \"[0:v]split=3[stream][capture][thumb];[stream]scale=512:384[streamout];[capture]fps=$fps[captureout];[thumb]scale=498:280,fps=$fps[thumbout]\" \
+      -filter_complex \"[0:v]split=3[stream][capture][thumb];[stream]scale=480:360:flags=fast_bilinear:sws_dither=none[streamout];[capture]fps=2[captureout];[thumb]scale=498:280,fps=2[thumbout]\" \
       -map \"[streamout]\" \
-      -c:v libx264 -preset veryfast -tune zerolatency -crf 28 -maxrate 1200k -bufsize 2400k -g 30 \
-      -pix_fmt yuv420p -profile:v baseline -level 3.0 \
-      -f hls -hls_time 1 -hls_list_size 600 -hls_flags delete_segments+independent_segments \
+      -c:v libx264 -preset ultrafast -tune zerolatency -crf 35 -maxrate 500k -bufsize 1000k -g 120 \
+      -pix_fmt yuv420p -profile:v baseline -level 3.0 -x264opts keyint=120:min-keyint=120:no-scenecut:ref=1:me=dia:subme=0:trellis=0 \
+      -f hls -hls_time 4 -hls_list_size 150 -hls_flags delete_segments+independent_segments \
       -hls_segment_filename $capture_dir/segment_%03d.ts \
       $capture_dir/output.m3u8 \
-      -map \"[captureout]\" -c:v mjpeg -q:v 5 -r 1 -f image2 \
+      -map \"[captureout]\" -c:v mjpeg -q:v 8 -r 2 -f image2 \
       $capture_dir/captures/test_capture_%06d.jpg \
-      -map \"[thumbout]\" -c:v mjpeg -q:v 5 -r 1 -f image2 \
+      -map \"[thumbout]\" -c:v mjpeg -q:v 8 -r 2 -f image2 \
       $capture_dir/captures/test_thumb_%06d.jpg"
   else
     echo "ERROR: Unsupported source type: $source_type"
