@@ -19,6 +19,7 @@ Smart video preview system that adapts frame rates based on device count for opt
 - Automatic cleanup of old frames
 - Graceful handling of missing images
 - Timestamp-aware batch replacement to prevent mixing old/new frames
+- Parallel preloading of frames with post-sorting to maintain order
 
 ## Key Features
 - ✅ Video-like continuous playback
