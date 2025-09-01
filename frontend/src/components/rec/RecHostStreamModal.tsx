@@ -271,30 +271,6 @@ const RecHostStreamModalContent: React.FC<{
     return modelLower.includes('mobile');
   }, [device?.device_model]);
 
-  // Memoize HLS player configuration to prevent unnecessary re-renders
-  const hlsPlayerConfig = useMemo(() => ({
-    layoutConfig: {
-      minHeight: '300px',
-      aspectRatio: isMobileModel 
-        ? `${DEFAULT_DEVICE_RESOLUTION.height}/${DEFAULT_DEVICE_RESOLUTION.width}` 
-        : `${DEFAULT_DEVICE_RESOLUTION.width}/${DEFAULT_DEVICE_RESOLUTION.height}`,
-      objectFit: 'contain' as const,
-      isMobileModel,
-    },
-    sx: {
-      width: '100%',
-      height: '100%',
-      maxHeight: '100%',
-    },
-  }), [isMobileModel]);
-
-  // Stable mute state to prevent HLS player disruption during monitoring/restart modes
-  const effectiveMuteState = useMemo(() => {
-    // Always mute during monitoring or restart modes to prevent audio conflicts
-    if (monitoringMode || restartMode) return true;
-    return isMuted;
-  }, [isMuted, monitoringMode, restartMode]);
-
   // Stable onReleaseControl callback to prevent re-renders
   const handleReleaseControl = useCallback(() => {
     setShowRemote(false);
@@ -401,10 +377,10 @@ const RecHostStreamModalContent: React.FC<{
               <IconButton
                 onClick={() => setIsMuted((prev) => !prev)}
                 sx={{ color: 'grey.300', '&:hover': { color: 'white' } }}
-                aria-label={effectiveMuteState ? 'Unmute' : 'Mute'}
-                title={effectiveMuteState ? 'Unmute Audio' : 'Mute Audio'}
+                aria-label={isMuted ? 'Unmute' : 'Mute'}
+                title={isMuted ? 'Unmute Audio' : 'Mute Audio'}
               >
-                {effectiveMuteState ? <VolumeOffIcon /> : <VolumeUpIcon />}
+                {isMuted ? <VolumeOffIcon /> : <VolumeUpIcon />}
               </IconButton>
             )}
 
@@ -656,15 +632,25 @@ const RecHostStreamModalContent: React.FC<{
                 })()
               ) : (
                 <HLSVideoPlayer
-                  key={`hls-${streamUrl}`} // Force re-init only when stream URL changes
                   streamUrl={streamUrl}
                   isStreamActive={true}
                   isCapturing={false}
                   model={device?.device_model || 'unknown'}
-                  layoutConfig={hlsPlayerConfig.layoutConfig}
+                  layoutConfig={{
+                    minHeight: '300px',
+                    aspectRatio: isMobileModel 
+                      ? `${DEFAULT_DEVICE_RESOLUTION.height}/${DEFAULT_DEVICE_RESOLUTION.width}` 
+                      : `${DEFAULT_DEVICE_RESOLUTION.width}/${DEFAULT_DEVICE_RESOLUTION.height}`,
+                    objectFit: 'contain', // Prevent cropping/truncation like in preview grid
+                    isMobileModel, // Use our mobile detection result
+                  }}
                   isExpanded={false}
-                  muted={effectiveMuteState}
-                  sx={hlsPlayerConfig.sx}
+                  muted={isMuted}
+                  sx={{
+                    width: '100%',
+                    height: '100%',
+                    maxHeight: '100%', // Ensure video doesn't exceed available container height
+                  }}
                 />
               )
             ) : (
