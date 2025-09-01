@@ -170,9 +170,9 @@ export const useRec = (): UseRecReturn => {
 
       // Log timestamp usage for debugging
       if (providedTimestamp) {
-        console.log(`[@hook:useRec] Using provided timestamp ${providedTimestamp} for ${deviceKey}`);
+        // console.log(`[@hook:useRec] Using provided timestamp ${providedTimestamp} for ${deviceKey}`);
       } else {
-        console.log(`[@hook:useRec] Generated new timestamp ${timestamp} for ${deviceKey}`);
+        // console.log(`[@hook:useRec] Generated new timestamp ${timestamp} for ${deviceKey}`);
       }
 
       // Convert basePattern from original image to thumbnail

@@ -10,14 +10,14 @@ export const calculateVncScaling = (targetSize: { width: number; height: number 
     height: `${vncResolution.height}px` // iframe needs to be VNC resolution size
   };
   
-  console.log(`[@utils:vncUtils] VNC scaling calculation:`, {
-    targetSize,
-    vncResolution,
-    scales: { scaleX: scaleX.toFixed(3), scaleY: scaleY.toFixed(3) },
-    targetDimensions: `${targetSize.width}x${targetSize.height}`,
-    iframeDimensions: `${result.width} x ${result.height}`,
-    transform: result.transform
-  });
+  // console.log(`[@utils:vncUtils] VNC scaling calculation:`, {
+  //   targetSize,
+  //   vncResolution,
+  //   scales: { scaleX: scaleX.toFixed(3), scaleY: scaleY.toFixed(3) },
+  //   targetDimensions: `${targetSize.width}x${targetSize.height}`,
+  //   iframeDimensions: `${result.width} x ${result.height}`,
+  //   transform: result.transform
+  // });
   
   return result;
 };
