@@ -14,6 +14,7 @@ import threading
 import glob
 import logging
 import json
+import re
 from datetime import datetime
 from pathlib import Path
 
@@ -103,8 +104,8 @@ class CaptureMonitor:
             if not frames:
                 return []
 
-            # Filter out thumbnail files - only process original images
-            original_frames = [f for f in frames if '_thumbnail' not in f]
+            # Filter out thumbnail files and numbered files (_1, _2, _3, _4) - only process original images
+            original_frames = [f for f in frames if '_thumbnail' not in f and not re.search(r'_\d+\.jpg$', f)]
             if not original_frames:
                 return []
 
