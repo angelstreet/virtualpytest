@@ -3,9 +3,6 @@
 # Set timezone to Zurich
 export TZ="Europe/Zurich"
 
-# Note: Alert monitoring has been moved to standalone capture_monitor.py service
-# This script now focuses only on video capture and thumbnail creation
-
 # Simple log reset function - truncates log if over 30MB
 reset_log_if_large() {
   local logfile="$1"
@@ -25,7 +22,6 @@ reset_log_if_large() {
 # Log files
 RENAME_LOG="/tmp/rename.log"
 
-
 # Check logs on startup
 reset_log_if_large "$RENAME_LOG"
 
@@ -41,77 +37,93 @@ CAPTURE_DIRS=(
 process_file() {
   local filepath="$1"
   
-  # Handle full resolution captures
-  if [[ "$filepath" =~ test_capture_[0-9]+\.jpg$ ]]; then
+  # Handle full resolution captures (new pattern: capture_0001.jpg)
+  if [[ "$filepath" =~ capture_[0-9]+\.jpg$ ]]; then
     process_capture_file "$filepath" "full"
-  # Handle thumbnail captures  
-  elif [[ "$filepath" =~ test_thumb_[0-9]+\.jpg$ ]]; then
+  # Handle thumbnail captures (new pattern: capture_0001_thumbnail.jpg)
+  elif [[ "$filepath" =~ capture_[0-9]+_thumbnail\.jpg$ ]]; then
     process_capture_file "$filepath" "thumbnail"
   fi
 }
 
-# Function to process capture files (both full-res and thumbnails)
+# Function to process capture files with smart grouping
 process_capture_file() {
   local filepath="$1"
   local file_type="$2"  # "full" or "thumbnail"
   
-  if [ -f "$filepath" ]; then
-    sleep 0.01
-    start_time=$(date +%s.%N)
-    # Use current system time for timestamp
-    timestamp=$(TZ="Europe/Zurich" date -r "$filepath" +%Y%m%d%H%M%S)
-    if [ -z "$timestamp" ]; then
-      echo "Failed to generate timestamp for $filepath" >> "$RENAME_LOG"
-      return
-    fi
-    CAPTURE_DIR=$(dirname "$filepath")
-    
-    # Handle multiple images per second with sequential numbering
-    base_newname="${CAPTURE_DIR}/capture_${timestamp}"
-    
-    # Determine final filename based on type
-    if [ "$file_type" = "thumbnail" ]; then
-      newname="${base_newname}_thumbnail.jpg"
-      # Check for sequential numbering conflicts
-      counter=1
-      while [ -f "$newname" ]; do
-        newname="${base_newname}_${counter}_thumbnail.jpg"
-        ((counter++))
-      done
-    else
-      newname="${base_newname}.jpg"
-      # Check for sequential numbering conflicts
-      counter=1
-      while [ -f "$newname" ]; do
-        newname="${base_newname}_${counter}.jpg"
-        ((counter++))
-      done
-    fi
-    
-    if mv -f "$filepath" "$newname" 2>>"$RENAME_LOG"; then
-      if [[ "$newname" =~ _[0-9]+(_thumbnail)?\.jpg$ ]]; then
-        echo "Renamed $(basename "$filepath") to $(basename "$newname") (sequential #$((counter-1)), $file_type) at $(date)" >> "$RENAME_LOG"
-      else
-        echo "Renamed $(basename "$filepath") to $(basename "$newname") ($file_type) at $(date)" >> "$RENAME_LOG"
-      fi
-      
-      # No ImageMagick processing needed - thumbnails come directly from FFmpeg
-      echo "Processed $file_type image: $(basename "$newname")" >> "$RENAME_LOG"
-     
-    else
-      echo "Failed to rename $filepath to $newname" >> "$RENAME_LOG"
-    fi
-    end_time=$(date +%s.%N)
-    echo "Processed $filepath in $(echo "$end_time - $start_time" | bc) seconds" >> "$RENAME_LOG"
-    
-    # Check log sizes after processing
-    reset_log_if_large "$RENAME_LOG"
-  else
+  if [ ! -f "$filepath" ]; then
     echo "File $filepath does not exist or is not accessible" >> "$RENAME_LOG"
+    return
   fi
+  
+  sleep 0.01
+  start_time=$(date +%s.%N)
+  
+  # Extract frame number from filename (e.g., capture_0001.jpg -> 0001)
+  local frame_num=$(basename "$filepath" | grep -o '[0-9]\+' | head -1)
+  if [ -z "$frame_num" ]; then
+    echo "Could not extract frame number from $filepath" >> "$RENAME_LOG"
+    return
+  fi
+  
+  # Convert to integer for calculations
+  local frame_int=$((10#$frame_num))
+  
+  # Determine FPS based on source (5 FPS for hardware, 2 FPS for VNC)
+  local fps=5
+  if [[ "$filepath" =~ capture3 ]]; then
+    fps=2  # VNC display uses 2 FPS
+  fi
+  
+  # Calculate which group this frame belongs to (group = second)
+  local group=$((($frame_int - 1) / $fps))
+  local position_in_group=$((($frame_int - 1) % $fps))
+  
+  # Generate timestamp for this group (use file creation time as base)
+  local base_timestamp=$(TZ="Europe/Zurich" date -r "$filepath" +%Y%m%d%H%M%S)
+  local group_timestamp=$(($(TZ="Europe/Zurich" date -r "$filepath" +%s) + $group))
+  local final_timestamp=$(TZ="Europe/Zurich" date -d "@$group_timestamp" +%Y%m%d%H%M%S)
+  
+  local CAPTURE_DIR=$(dirname "$filepath")
+  local base_newname="${CAPTURE_DIR}/capture_${final_timestamp}"
+  
+  # Determine final filename based on position in group
+  if [ "$file_type" = "thumbnail" ]; then
+    if [ $position_in_group -eq 0 ]; then
+      # First file in group - no suffix
+      newname="${base_newname}_thumbnail.jpg"
+    else
+      # Subsequent files - add position suffix
+      newname="${base_newname}_${position_in_group}_thumbnail.jpg"
+    fi
+  else
+    if [ $position_in_group -eq 0 ]; then
+      # First file in group - no suffix
+      newname="${base_newname}.jpg"
+    else
+      # Subsequent files - add position suffix
+      newname="${base_newname}_${position_in_group}.jpg"
+    fi
+  fi
+  
+  # Rename the file
+  if mv -f "$filepath" "$newname" 2>>"$RENAME_LOG"; then
+    if [ $position_in_group -eq 0 ]; then
+      echo "Renamed $(basename "$filepath") to $(basename "$newname") (first in group, $file_type) at $(date)" >> "$RENAME_LOG"
+    else
+      echo "Renamed $(basename "$filepath") to $(basename "$newname") (position $position_in_group, $file_type) at $(date)" >> "$RENAME_LOG"
+    fi
+    echo "Processed $file_type image: $(basename "$newname")" >> "$RENAME_LOG"
+  else
+    echo "Failed to rename $filepath to $newname" >> "$RENAME_LOG"
+  fi
+  
+  end_time=$(date +%s.%N)
+  echo "Processed $filepath in $(echo "$end_time - $start_time" | bc) seconds" >> "$RENAME_LOG"
+  
+  # Check log sizes after processing
+  reset_log_if_large "$RENAME_LOG"
 }
-
-# Note: ImageMagick no longer needed - thumbnails generated directly by FFmpeg
 
 # Filter existing directories
 EXISTING_DIRS=()
@@ -130,11 +142,8 @@ if [ ${#EXISTING_DIRS[@]} -eq 0 ]; then
   exit 1
 fi
 
-# Note: Audio analysis has been moved to standalone capture_monitor.py service
-# No background processes started by this script anymore
-
 # Watch all existing directories with a single inotifywait
-inotifywait -m "${EXISTING_DIRS[@]}" -e create -e moved_to --format '%w%f' |
+inotifywait -m "${EXISTING_DIRS[@]}" -e create --format '%w%f' |
   while read -r filepath; do
     process_file "$filepath"
   done

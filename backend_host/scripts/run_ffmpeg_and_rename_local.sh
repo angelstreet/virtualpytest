@@ -1,11 +1,12 @@
 #!/bin/bash
 
-# Configuration array for grabbers: source|audio_device|capture_dir|fps
+# Configuration array for grabbers: source|audio_device|capture_dir|input_fps
 # Hardware video devices: /dev/video0, /dev/video2, etc.
 # VNC displays: :1, :99, etc. no audio for now then pulseaudio
+# input_fps = device capability, output stays fixed at 5 FPS for hardware, 2 FPS for VNC
 declare -A GRABBERS=(
-  ["0"]="/dev/video0|plughw:2,0|/var/www/html/stream/capture1|5"
-  ["2"]=":1|null|/var/www/html/stream/capture3|1"
+  ["0"]="/dev/video0|plughw:2,0|/var/www/html/stream/capture1|25"
+  ["2"]=":1|null|/var/www/html/stream/capture3|2"
 )
 
 # Simple log reset function - truncates log if over 30MB
@@ -66,7 +67,7 @@ cleanup() {
 
 # Function to start processes for a single grabber
 start_grabber() {
-  local source=$1 audio_device=$2 capture_dir=$3 index=$4 fps=$5
+  local source=$1 audio_device=$2 capture_dir=$3 index=$4 input_fps=$5
 
   # Detect source type
   local source_type=$(detect_source_type "$source")
@@ -83,21 +84,21 @@ start_grabber() {
 
   # Build FFmpeg command based on source type
   if [ "$source_type" = "v4l2" ]; then
-    # Hardware video device - Triple output: stream, full-res captures, thumbnails
-    FFMPEG_CMD="/usr/bin/ffmpeg -y -f v4l2 -input_format mjpeg -vsync 1 -framerate  \"$fps\" -video_size 1280x720 -i $source \
+    # Hardware video device - Triple output: stream, full-res captures, thumbnails (5 FPS controlled)
+    FFMPEG_CMD="/usr/bin/ffmpeg -y -re -fflags nobuffer -thread_queue_size 512 -fix_sub_duration -f v4l2 -video_size 1280x720 -framerate $input_fps -i $source \
       -f alsa -thread_queue_size 256 -i \"$audio_device\" \
-      -filter_complex \"[0:v]split=3[stream][capture][thumb];[stream]fps=5,scale=640:360[streamout];[capture]fps=5[captureout];[thumb]fps=5,scale=498:280[thumbout]\" \
+      -filter_complex \"[0:v]split=3[stream][capture][thumb];[stream]scale=640:360[streamout];[capture]fps=5[captureout];[thumb]fps=5,scale=498:280[thumbout]\" \
       -map \"[streamout]\" -map 1:a \
-      -c:v libx264 -preset ultrafast -tune zerolatency -crf 30 -maxrate 600k -bufsize 1200k -g 5 -keyint_min 5 \
+      -c:v libx264 -preset ultrafast -tune zerolatency -crf 30 -maxrate 600k -bufsize 1200k \
       -pix_fmt yuv420p -profile:v baseline -level 3.0 \
       -c:a aac -b:a 32k -ar 22050 -ac 2 \
       -f hls -hls_time 1 -hls_list_size 600 -hls_flags delete_segments+independent_segments \
       -hls_segment_type mpegts -hls_segment_filename $capture_dir/segment_%03d.ts \
       $capture_dir/output.m3u8 \
-      -map \"[captureout]\" -c:v mjpeg -q:v 5 -r 1 -f image2 \
-      $capture_dir/captures/test_capture_%06d.jpg \
-      -map \"[thumbout]\" -c:v mjpeg -q:v 5 -r 1 -f image2 \
-      $capture_dir/captures/test_thumb_%06d.jpg"
+      -map \"[captureout]\" -c:v mjpeg -q:v 5 -f image2 \
+      $capture_dir/captures/capture_%04d.jpg \
+      -map \"[thumbout]\" -c:v mjpeg -q:v 5 -f image2 \
+      $capture_dir/captures/capture_%04d_thumbnail.jpg"
   elif [ "$source_type" = "x11grab" ]; then
     # VNC display - Triple output: stream, full-res captures, thumbnails
     local resolution=$(get_vnc_resolution "$source")
@@ -105,19 +106,19 @@ start_grabber() {
     # Simple DISPLAY export - no XAUTHORITY needed with xhost +local:
     export DISPLAY="$source"
 
-    FFMPEG_CMD="DISPLAY=\"$source\" /usr/bin/ffmpeg -y -f x11grab -framerate \"$fps\" -video_size $resolution -i $source \
+    FFMPEG_CMD="DISPLAY=\"$source\" /usr/bin/ffmpeg -y -re -fflags nobuffer -f x11grab -video_size $resolution -framerate $input_fps -i $source \
       -an \
-      -filter_complex \"[0:v]split=3[stream][capture][thumb];[stream]scale=512:384[streamout];[capture]fps=1[captureout];[thumb]scale=498:280,fps=1[thumbout]\" \
+      -filter_complex \"[0:v]split=3[stream][capture][thumb];[stream]scale=512:384[streamout];[capture]fps=2[captureout];[thumb]fps=2,scale=498:280[thumbout]\" \
       -map \"[streamout]\" \
-      -c:v libx264 -preset veryfast -tune zerolatency -crf 28 -maxrate 1200k -bufsize 2400k -g 30 \
+      -c:v libx264 -preset veryfast -tune zerolatency -crf 28 -maxrate 1200k -bufsize 2400k \
       -pix_fmt yuv420p -profile:v baseline -level 3.0 \
       -f hls -hls_time 1 -hls_list_size 600 -hls_flags delete_segments \
       -hls_segment_filename $capture_dir/segment_%03d.ts \
       $capture_dir/output.m3u8 \
-      -map \"[captureout]\" -c:v mjpeg -q:v 5 -r 1 -f image2 \
-      $capture_dir/captures/test_capture_%06d.jpg \
-      -map \"[thumbout]\" -c:v mjpeg -q:v 5 -r 1 -f image2 \
-      $capture_dir/captures/test_thumb_%06d.jpg"
+      -map \"[captureout]\" -c:v mjpeg -q:v 5 -f image2 \
+      $capture_dir/captures/capture_%04d.jpg \
+      -map \"[thumbout]\" -c:v mjpeg -q:v 5 -f image2 \
+      $capture_dir/captures/capture_%04d_thumbnail.jpg"
   else
     echo "ERROR: Unsupported source type: $source_type"
     return 1
@@ -153,7 +154,7 @@ start_grabber() {
 # Print configuration and check availability
 echo "=== Unified Capture Configuration ==="
 for index in "${!GRABBERS[@]}"; do
-  IFS='|' read -r source audio_device capture_dir fps <<< "${GRABBERS[$index]}"
+  IFS='|' read -r source audio_device capture_dir input_fps <<< "${GRABBERS[$index]}"
 
   source_type=$(detect_source_type "$source")
 
@@ -165,15 +166,15 @@ for index in "${!GRABBERS[@]}"; do
   fi
   echo "  Audio: $audio_device"
   echo "  Output: $capture_dir"
-  echo "  FPS: $fps"
+  echo "  Input FPS: $input_fps"
   echo
 done
 
 # Main loop to start all grabbers
 PIDS=()
 for index in "${!GRABBERS[@]}"; do
-  IFS='|' read -r source audio_device capture_dir fps <<< "${GRABBERS[$index]}"
-  start_grabber "$source" "$audio_device" "$capture_dir" "$index" "$fps" &
+  IFS='|' read -r source audio_device capture_dir input_fps <<< "${GRABBERS[$index]}"
+  start_grabber "$source" "$audio_device" "$capture_dir" "$index" "$input_fps" &
   PIDS+=($!)
 done
 
