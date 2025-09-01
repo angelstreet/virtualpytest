@@ -15,7 +15,7 @@ interface UseRecReturn {
   refreshHosts: () => Promise<void>;
   baseUrlPatterns: Map<string, string>; // host_name-device_id -> base URL pattern
   initializeBaseUrl: (host: Host, device: Device) => Promise<boolean>; // One-time base URL setup
-  generateThumbnailUrl: (host: Host, device: Device) => string | null; // Generate URL with current timestamp (blocked when modal open)
+  generateThumbnailUrl: (host: Host, device: Device) => string[]; // Generate multiple frame URLs with current timestamp (blocked when modal open)
   restartStreams: () => Promise<void>; // Restart streams for all AV devices
   isRestarting: boolean; // Loading state for restart operation
   calculateVncScaling: (targetSize: { width: number; height: number }) => { // VNC scaling calculation for any target size
@@ -120,9 +120,9 @@ export const useRec = (): UseRecReturn => {
     [baseUrlPatterns],
   );
 
-  // Generate thumbnail URL with current timestamp (no server calls) - blocked when modal open
+  // Generate multiple frame URLs with current timestamp (no server calls) - blocked when modal open
   const generateThumbnailUrl = useCallback(
-    (host: Host, device: Device): string | null => {
+    (host: Host, device: Device): string[] => {
       const deviceKey = `${host.host_name}-${device.device_id}`;
 
       // Log which component initiated this call (using stack trace)
@@ -133,7 +133,7 @@ export const useRec = (): UseRecReturn => {
       // Check if any modal is open using ModalContext
       if (isAnyModalOpen) {
         console.log(`[@hook:useRec] Thumbnail generation paused for ${deviceKey} (modal open)`);
-        return null;
+        return [];
       }
 
       // Check global first, then ref, then state
@@ -144,7 +144,7 @@ export const useRec = (): UseRecReturn => {
 
       if (!basePattern) {
         console.warn(`[@hook:useRec] No base URL pattern found for device: ${deviceKey}`);
-        return null;
+        return [];
       }
 
       // Generate current timestamp in YYYYMMDDHHMMSS format
@@ -165,9 +165,18 @@ export const useRec = (): UseRecReturn => {
         'capture_{timestamp}_thumbnail.jpg',
       );
       const thumbnailUrl = thumbnailPattern.replace('{timestamp}', timestamp);
+      const baseUrl = thumbnailUrl.replace('_thumbnail.jpg', '');
+      
+      const frameUrls = [
+        `${baseUrl}_thumbnail.jpg`,     // Frame 0
+        `${baseUrl}_1_thumbnail.jpg`,   // Frame 1  
+        `${baseUrl}_2_thumbnail.jpg`,   // Frame 2
+        `${baseUrl}_3_thumbnail.jpg`,   // Frame 3
+        `${baseUrl}_4_thumbnail.jpg`,   // Frame 4
+      ];
 
-      console.log(`[@hook:useRec] generateThumbnailUrl for ${deviceKey}: ${thumbnailUrl}`);
-      return thumbnailUrl;
+      console.log(`[@hook:useRec] generateThumbnailUrl for ${deviceKey}: ${frameUrls.length} frames`);
+      return frameUrls;
     },
     [baseUrlPatterns, isAnyModalOpen],
   );

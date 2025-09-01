@@ -14,7 +14,7 @@ interface RecHostPreviewProps {
   host: Host;
   device?: Device;
   initializeBaseUrl?: (host: Host, device: Device) => Promise<boolean>;
-  generateThumbnailUrl?: (host: Host, device: Device) => string | null;
+  generateThumbnailUrl?: (host: Host, device: Device) => string[];
   hideHeader?: boolean;
 }
 
@@ -100,19 +100,38 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
     setError(null);
 
     try {
-      // Generate thumbnail URL directly with current timestamp
-      const newThumbnailUrl = generateThumbnailUrl(stableHost, stableDevice);
-
-      if (newThumbnailUrl) {
-        // Add 1.5 second delay to ensure thumbnail is properly generated and available
-        setTimeout(() => {
-          // Simple algorithm: alternate between image1 and image2
-          if (activeImage === 1) {
-            setImage2Url(newThumbnailUrl); // Preload image2
-          } else {
-            setImage1Url(newThumbnailUrl); // Preload image1
+      // Generate multiple frame URLs for video-like display
+      const allFrameUrls = generateThumbnailUrl ? generateThumbnailUrl(stableHost, stableDevice) : [];
+      
+      if (allFrameUrls.length > 0) {
+        // Smart detection: Test which URLs actually exist (no 404 errors)
+        const availableUrls: string[] = [];
+        
+        for (const url of allFrameUrls) {
+          try {
+            const response = await fetch(url, { method: 'HEAD' });
+            if (response.ok) {
+              availableUrls.push(url);
+            } else {
+              break; // Stop at first missing file (they're sequential)
+            }
+          } catch {
+            break; // Stop on any error
           }
-        }, 1500);
+        }
+        
+        // Only cycle through URLs that actually exist - smooth video-like display
+        if (availableUrls.length > 0) {
+          availableUrls.forEach((url: string, index: number) => {
+            setTimeout(() => {
+              if (activeImage === 1) {
+                setImage2Url(url);
+              } else {
+                setImage1Url(url);
+              }
+            }, index * 200 + 100); // 200ms intervals for smooth video feel
+          });
+        }
       } else {
         setError('Base URL not initialized');
 
