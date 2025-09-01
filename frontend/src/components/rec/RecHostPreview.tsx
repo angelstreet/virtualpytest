@@ -14,7 +14,7 @@ interface RecHostPreviewProps {
   host: Host;
   device?: Device;
   initializeBaseUrl?: (host: Host, device: Device) => Promise<boolean>;
-  generateThumbnailUrl?: (host: Host, device: Device) => string[];
+  generateThumbnailUrl?: (host: Host, device: Device, timestamp?: string) => string[];
   hideHeader?: boolean;
 }
 
@@ -142,7 +142,7 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
     // Increment for next call
     frameCounterRef.current++;
 
-    const baseUrl = generateThumbnailUrl(stableHost, stableDevice)[0]?.replace('_thumbnail.jpg', '') || '';
+    const baseUrl = generateThumbnailUrl(stableHost, stableDevice, currentTimestamp)[0]?.replace('_thumbnail.jpg', '') || '';
     const finalUrl = `${baseUrl}${frameSuffix}_thumbnail.jpg`;
     
     // Log the timestamp being used for verification

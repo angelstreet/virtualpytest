@@ -15,7 +15,7 @@ interface UseRecReturn {
   refreshHosts: () => Promise<void>;
   baseUrlPatterns: Map<string, string>; // host_name-device_id -> base URL pattern
   initializeBaseUrl: (host: Host, device: Device) => Promise<boolean>; // One-time base URL setup
-  generateThumbnailUrl: (host: Host, device: Device) => string[]; // Generate multiple frame URLs with current timestamp (blocked when modal open)
+  generateThumbnailUrl: (host: Host, device: Device, timestamp?: string) => string[]; // Generate multiple frame URLs with current timestamp or provided timestamp (blocked when modal open)
   restartStreams: () => Promise<void>; // Restart streams for all AV devices
   isRestarting: boolean; // Loading state for restart operation
   adaptiveInterval: number; // Adaptive interval based on device count
@@ -132,7 +132,7 @@ export const useRec = (): UseRecReturn => {
 
   // Generate multiple frame URLs with current timestamp (no server calls) - blocked when modal open
   const generateThumbnailUrl = useCallback(
-    (host: Host, device: Device): string[] => {
+    (host: Host, device: Device, providedTimestamp?: string): string[] => {
       const deviceKey = `${host.host_name}-${device.device_id}`;
 
       // Log which component initiated this call (using stack trace)
@@ -157,15 +157,23 @@ export const useRec = (): UseRecReturn => {
         return [];
       }
 
-      // Generate current timestamp in YYYYMMDDHHMMSS format
-      const now = new Date();
-      const timestamp =
-        now.getFullYear().toString() +
-        (now.getMonth() + 1).toString().padStart(2, '0') +
-        now.getDate().toString().padStart(2, '0') +
-        now.getHours().toString().padStart(2, '0') +
-        now.getMinutes().toString().padStart(2, '0') +
-        now.getSeconds().toString().padStart(2, '0');
+      // Use provided timestamp or generate current timestamp in YYYYMMDDHHMMSS format
+      const timestamp = providedTimestamp || (() => {
+        const now = new Date();
+        return now.getFullYear().toString() +
+          (now.getMonth() + 1).toString().padStart(2, '0') +
+          now.getDate().toString().padStart(2, '0') +
+          now.getHours().toString().padStart(2, '0') +
+          now.getMinutes().toString().padStart(2, '0') +
+          now.getSeconds().toString().padStart(2, '0');
+      })();
+
+      // Log timestamp usage for debugging
+      if (providedTimestamp) {
+        console.log(`[@hook:useRec] Using provided timestamp ${providedTimestamp} for ${deviceKey}`);
+      } else {
+        console.log(`[@hook:useRec] Generated new timestamp ${timestamp} for ${deviceKey}`);
+      }
 
       // Convert basePattern from original image to thumbnail
       // basePattern is like: "http://host/path/capture_{timestamp}.jpg"
