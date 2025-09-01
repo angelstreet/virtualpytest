@@ -172,6 +172,12 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
 
   // Single loop - matches ffmpeg generation timing (200ms)
   useEffect(() => {
+    console.log(`[${stableHost.host_name}-${stableDevice?.device_id}] Component mounted`);
+    return () => console.log(`[${stableHost.host_name}-${stableDevice?.device_id}] Component unmounted`);
+  }, []);
+
+  // Single loop - matches ffmpeg generation timing (200ms)
+  useEffect(() => {
     if (isVncDevice || isStreamModalOpen || isAnyModalOpen) return;
     if (!stableHost || !stableDevice || !initializeBaseUrl) return;
 
