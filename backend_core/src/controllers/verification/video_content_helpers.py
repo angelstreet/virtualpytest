@@ -161,7 +161,7 @@ class VideoContentHelpers:
     
     def detect_freeze_in_images(self, image_paths: List[str], freeze_threshold: float = 1.0) -> Dict[str, Any]:
         """
-        Detect if images are frozen (identical frames) - Check multiple frames with caching.
+        Detect if images are frozen (identical frames) with early stopping for zapping detection.
         
         Args:
             image_paths: List of image paths to analyze
@@ -178,71 +178,83 @@ class VideoContentHelpers:
                     'freeze_detected': False
                 }
             
-            # Load all images first
-            images = []
-            for image_path in image_paths:
-                if not os.path.exists(image_path):
-                    return {
-                        'success': False,
-                        'error': f'Image file not found: {image_path}',
-                        'freeze_detected': False
-                    }
-                
-                img = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
-                if img is None:
-                    return {
-                        'success': False,
-                        'error': f'Could not load image: {image_path}',
-                        'freeze_detected': False
-                    }
-                
-                images.append({
-                    'path': image_path,
-                    'image': img,
-                    'filename': os.path.basename(image_path)
-                })
-            
-            # Compare consecutive frames
+            # Enhanced freeze detection with early stopping (similar to blackscreen detection)
             comparisons = []
-            for i in range(len(images) - 1):
-                img1 = images[i]
-                img2 = images[i + 1]
+            freeze_detected = False
+            freeze_ended = False
+            MAX_ANALYSIS_IMAGES = 30  # Safety cap
+            
+            # Process images with early stopping logic
+            for i in range(len(image_paths) - 1):
+                # Safety cap on analysis
+                if i >= MAX_ANALYSIS_IMAGES - 1:
+                    print(f"VideoContent[{self.device_name}]: Reached {MAX_ANALYSIS_IMAGES}-image analysis cap - stopping")
+                    break
+                
+                # Load current and next image
+                img1_path = image_paths[i]
+                img2_path = image_paths[i + 1]
+                
+                if not os.path.exists(img1_path) or not os.path.exists(img2_path):
+                    return {
+                        'success': False,
+                        'error': f'Image file not found: {img1_path} or {img2_path}',
+                        'freeze_detected': False
+                    }
+                
+                img1 = cv2.imread(img1_path, cv2.IMREAD_GRAYSCALE)
+                img2 = cv2.imread(img2_path, cv2.IMREAD_GRAYSCALE)
+                
+                if img1 is None or img2 is None:
+                    return {
+                        'success': False,
+                        'error': f'Could not load images: {img1_path}, {img2_path}',
+                        'freeze_detected': False
+                    }
                 
                 # Check if images have same dimensions
-                if img1['image'].shape != img2['image'].shape:
+                if img1.shape != img2.shape:
                     return {
                         'success': False,
-                        'error': f'Image dimensions don\'t match: {img1["image"].shape} vs {img2["image"].shape}',
+                        'error': f'Image dimensions don\'t match: {img1.shape} vs {img2.shape}',
                         'freeze_detected': False
                     }
                 
                 # Optimized sampling for pixel difference (every 10th pixel for performance)
                 sample_rate = SAMPLING_PATTERNS["freeze_sample_rate"]
-                img1_sampled = img1['image'][::sample_rate, ::sample_rate]
-                img2_sampled = img2['image'][::sample_rate, ::sample_rate]
+                img1_sampled = img1[::sample_rate, ::sample_rate]
+                img2_sampled = img2[::sample_rate, ::sample_rate]
                 
                 # Calculate difference
                 diff = cv2.absdiff(img1_sampled, img2_sampled)
                 mean_diff = np.mean(diff)
+                is_frozen = bool(mean_diff < freeze_threshold)
                 
                 comparison = {
-                    'frame1': img1['filename'],
-                    'frame2': img2['filename'],
+                    'frame1': os.path.basename(img1_path),
+                    'frame2': os.path.basename(img2_path),
                     'mean_difference': round(float(mean_diff), 2),
-                    'is_frozen': bool(mean_diff < freeze_threshold),
+                    'is_frozen': is_frozen,
                     'threshold': freeze_threshold
                 }
                 
                 comparisons.append(comparison)
+                print(f"VideoContent[{self.device_name}]: Frame comparison {comparison['frame1']} vs {comparison['frame2']}: diff={mean_diff:.2f}")
                 
-                print(f"VideoContent[{self.device_name}]: Frame comparison {img1['filename']} vs {img2['filename']}: diff={mean_diff:.2f}")
+                # Early stopping logic (similar to blackscreen detection)
+                if is_frozen and not freeze_detected:
+                    freeze_detected = True
+                    print(f"VideoContent[{self.device_name}]: ⚡ Freeze START at comparison {i+1} - continuing to find END...")
+                
+                elif freeze_detected and not is_frozen:
+                    freeze_ended = True
+                    print(f"VideoContent[{self.device_name}]: ✅ Freeze END at comparison {i+1} - STOPPING EARLY!")
+                    break  # Early stopping - complete freeze sequence found!
             
-            # Determine overall freeze status - look for freeze SEQUENCES (like blackscreen sequences)
-            # For zapping detection, we need consecutive frozen frames, not ALL frames frozen
+            # Calculate freeze statistics
             frozen_count = sum(1 for comp in comparisons if comp['is_frozen'])
             
             # Find freeze sequences - look for consecutive frozen frames
-            freeze_sequence_detected = False
             max_consecutive_frozen = 0
             current_consecutive = 0
             
@@ -255,25 +267,24 @@ class VideoContentHelpers:
             
             # Detect freeze if we have at least 1 frozen frame comparison (2 identical images = freeze)
             freeze_sequence_detected = max_consecutive_frozen >= 1
+            freeze_detected_final = freeze_sequence_detected
             
-            # For zapping, freeze sequence = freeze detected (like blackscreen sequence = blackscreen detected)
-            freeze_detected = freeze_sequence_detected
-            
-            print(f"VideoContent[{self.device_name}]: Freeze analysis - {frozen_count}/{len(comparisons)} frozen comparisons, max consecutive: {max_consecutive_frozen}, sequence detected: {freeze_sequence_detected}")
+            print(f"VideoContent[{self.device_name}]: Freeze analysis - {frozen_count}/{len(comparisons)} frozen comparisons, max consecutive: {max_consecutive_frozen}, sequence detected: {freeze_sequence_detected}, early_stopped={freeze_ended}")
             
             overall_result = {
                 'success': True,
-                'freeze_detected': freeze_detected,
+                'freeze_detected': freeze_detected_final,
                 'freeze_sequence_detected': freeze_sequence_detected,
                 'max_consecutive_frozen': max_consecutive_frozen,
-                'analyzed_images': len(images),
+                'analyzed_images': len(comparisons) + 1,  # +1 because comparisons = images - 1
                 'frame_comparisons': len(comparisons),
                 'frozen_comparisons': frozen_count,
                 'freeze_threshold': freeze_threshold,
                 'comparisons': comparisons,
-                'confidence': 0.9 if freeze_detected else 0.1,
+                'confidence': 0.9 if freeze_detected_final else 0.1,
                 'analysis_type': 'freeze_detection',
-                'timestamp': datetime.now().isoformat()
+                'timestamp': datetime.now().isoformat(),
+                'early_stopped': freeze_ended
             }
             
             return overall_result

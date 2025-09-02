@@ -736,29 +736,30 @@ class ZapController:
         # Both methods failed - provide detailed error message and verification images
         print(f"❌ [ZapController] Both blackscreen and freeze detection failed")
         
-        # Add failure verification images from the analyzed images
+        # Add failure verification images from the analyzed images using enhanced collection
         device_id = context.selected_device.device_id
         av_controller = get_controller(device_id, 'av')
+        analyzed_screenshots = []
+        analyzed_filenames = []
+        
         if av_controller:
             capture_folder = getattr(av_controller, 'video_capture_path', None)
             if capture_folder:
-                import os
-                from datetime import datetime
-                captures_folder = os.path.join(capture_folder, 'captures')
-                analyzed_screenshots = []
+                # Use the same enhanced image collection logic as the detection methods
+                from backend_core.src.controllers.verification.video_content_helpers import VideoContentHelpers
+                content_helpers = VideoContentHelpers(av_controller, "ZapController")
                 
-                # Get the same images that both methods would have analyzed
+                # Get enhanced image collection (up to 30 images, 6 seconds)
                 key_release_timestamp = context.last_action_start_time
-                for i in range(10):  # Same max_images as both detection methods
-                    target_timestamp = key_release_timestamp + i
-                    target_datetime = datetime.fromtimestamp(target_timestamp)
-                    target_filename = f"capture_{target_datetime.strftime('%Y%m%d%H%M%S')}.jpg"
-                    target_path = os.path.join(captures_folder, target_filename)
-                    
-                    if os.path.exists(target_path):
-                        analyzed_screenshots.append(target_path)
+                image_data = content_helpers._get_images_after_timestamp(capture_folder, key_release_timestamp, max_count=10)
                 
-                # Add failure images for verification
+                if image_data:
+                    # Extract paths and filenames for failure display
+                    analyzed_screenshots = [img['path'] for img in image_data]
+                    analyzed_filenames = [img['filename'] for img in image_data]
+                    print(f"❌ [ZapController] Collected {len(analyzed_screenshots)} failure images for verification")
+                
+                # Add failure images for verification (full paths for screenshot capture)
                 self._add_failure_images_to_screenshots(context, analyzed_screenshots, "both methods")
         
         return {
@@ -770,10 +771,11 @@ class ZapController:
             "message": "Zapping Detection: ❌ NOT DETECTED",
             "error": "Both blackscreen and freeze detection failed",
             "details": "No blackscreen or freeze transition detected",
-            # Add failure images for thumbnail display (same fields as success case)
-            "first_image": analyzed_screenshots[0] if analyzed_screenshots else None,
-            "blackscreen_start_image": analyzed_screenshots[len(analyzed_screenshots)//2] if len(analyzed_screenshots) > 2 else None,
-            "blackscreen_end_image": analyzed_screenshots[-1] if len(analyzed_screenshots) > 1 else None
+            "analyzed_images": len(analyzed_screenshots),
+            # Add failure images for thumbnail display (filenames only, like success case)
+            "first_image": analyzed_filenames[0] if analyzed_filenames else None,
+            "blackscreen_start_image": analyzed_filenames[len(analyzed_filenames)//2] if len(analyzed_filenames) > 2 else None,
+            "blackscreen_end_image": analyzed_filenames[-1] if len(analyzed_filenames) > 1 else None
         }
     
     def _try_blackscreen_detection(self, context, iteration: int, action_command: str, action_end_time: float) -> Dict[str, Any]:
