@@ -136,6 +136,26 @@ def update_step_results_with_r2_urls(step_results: List[Dict], url_mapping: Dict
                     r2_url = url_mapping.get(original_path, original_path)
                     updated_step[field] = r2_url
         
+        # Update verification results with R2 URLs (for individual verification images)
+        if 'verification_results' in updated_step and updated_step['verification_results']:
+            updated_verification_results = []
+            for verification_result in updated_step['verification_results']:
+                updated_verification = verification_result.copy()
+                
+                # Update verification_images field if it exists
+                if 'verification_images' in updated_verification and updated_verification['verification_images']:
+                    updated_verification_images = []
+                    for img_path in updated_verification['verification_images']:
+                        if img_path and img_path.startswith('http'):
+                            updated_verification_images.append(img_path)
+                        else:
+                            r2_url = url_mapping.get(img_path, img_path)
+                            updated_verification_images.append(r2_url)
+                    updated_verification['verification_images'] = updated_verification_images
+                
+                updated_verification_results.append(updated_verification)
+            updated_step['verification_results'] = updated_verification_results
+        
         # Update analysis results with R2 URLs (for zap controller analysis)
         for analysis_field in ['subtitle_analysis', 'audio_analysis', 'audio_menu_analysis', 'motion_analysis', 'zapping_analysis']:
             if analysis_field in updated_step and updated_step[analysis_field]:

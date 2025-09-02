@@ -323,7 +323,8 @@ def format_image_verification_extras(result: Dict, step: Dict) -> str:
     overlay_image = None
     
     # Find source and overlay images from verification_images
-    verification_images = step.get('verification_images', [])
+    # First try to get from individual verification result, then fall back to step level
+    verification_images = result.get('verification_images', []) or step.get('verification_images', [])
     for img_path in verification_images:
         if img_path:
             filename = os.path.basename(img_path).lower()

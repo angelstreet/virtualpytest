@@ -622,7 +622,8 @@ def execute_navigation_with_verifications(host, device, transition: Dict[str, An
                 'message': verify_result.get('message', 'Verification completed'),
                 'resultType': 'PASS' if verify_result.get('success') else 'FAIL',
                 'error': verify_result.get('error') if not verify_result.get('success') else None,
-                'details': verify_result.get('details', {})  # Preserve verification details (includes reference_image_url)
+                'details': verify_result.get('details', {}),  # Preserve verification details (includes reference_image_url)
+                'verification_images': verify_result.get('verification_images', [])  # Store verification images with each result
             }
             verification_results.append(verification_result)
             
