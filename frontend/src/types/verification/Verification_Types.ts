@@ -22,9 +22,9 @@ export interface ImageVerificationParams {
   image_path: string; // Required: reference image filename or path
   threshold?: number; // Optional: match threshold (0.0 to 1.0), default 0.8
   timeout?: number; // Optional: timeout in seconds, default 1.0
-  area?: ReferenceArea; // Optional: area to search within
   image_filter?: 'none' | 'greyscale' | 'binary'; // Optional: filter to apply, default 'none'
   reference_name?: string; // Optional: reference name for UI display (same as image_path usually)
+  // Area is ALWAYS loaded from database - no parameter needed
 }
 
 // Text verification parameters
@@ -34,9 +34,9 @@ export interface TextVerificationParams {
   confidence?: number; // Optional: confidence level (0.0 to 1.0)
   timeout?: number; // Optional: timeout in seconds, default 10.0
   case_sensitive?: boolean; // Optional: case sensitive matching, default false
-  area?: ReferenceArea; // Optional: area to search within
   image_filter?: 'none' | 'greyscale' | 'binary'; // Optional: filter to apply
   reference_name?: string; // Optional: reference name for UI display
+  // Area is ALWAYS loaded from database - no parameter needed
 }
 
 // ADB verification parameters

@@ -468,10 +468,10 @@ class ImageVerificationController:
             # Optional parameters with defaults
             threshold = float(params.get('threshold', 0.8))  # Keep float for threshold (0.0-1.0 range)
             timeout = int(params.get('timeout', 1))
-            area = params.get('area')
             image_filter = params.get('image_filter', 'none')
             model = params.get('model', self.device_model)  # Use controller's device_model as fallback
             verification_index = verification_config.get('verification_index', 0)  # Get index from config
+            # Area is ALWAYS loaded from database - no parameter accepted
             
             print(f"[@controller:ImageVerification] Searching for image: {image_path}")
             print(f"[@controller:ImageVerification] Timeout: {timeout}s, Threshold: {threshold}")
@@ -484,7 +484,7 @@ class ImageVerificationController:
                     image_path=image_path,
                     timeout=timeout,
                     threshold=threshold,
-                    area=area,
+                    area=None,  # Area will be loaded from database
                     image_list=[source_path],  # Use source_path as image list
                     verification_index=verification_index,  # Use dynamic index
                     image_filter=image_filter,
@@ -495,7 +495,7 @@ class ImageVerificationController:
                     image_path=image_path,
                     timeout=timeout,
                     threshold=threshold,
-                    area=area,
+                    area=None,  # Area will be loaded from database
                     image_list=[source_path],  # Use source_path as image list
                     verification_index=verification_index,  # Use dynamic index
                     image_filter=image_filter,
