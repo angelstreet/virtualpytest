@@ -1274,27 +1274,15 @@ class VideoContentHelpers:
             
             # Auto-calculate analysis rectangle if not provided (exclude banner areas)
             if analysis_rectangle is None:
-                # Determine if mobile (portrait) or TV/desktop (landscape)
-                if img_height > img_width:
-                    # Mobile portrait mode - use top 2/3 of image
-                    analysis_height = int(img_height * 2 / 3)
-                    analysis_rectangle = {
-                        'x': 0,
-                        'y': 0,
-                        'width': img_width,
-                        'height': analysis_height
-                    }
-                    print(f"VideoContent[{self.device_name}]: Mobile portrait detected - using top 2/3: {img_width}x{analysis_height}")
-                else:
-                    # TV/Desktop landscape mode - assume 1920x720, take top 2/3 (480px height)
-                    analysis_height = int(720 * 2 / 3)  # 480px
-                    analysis_rectangle = {
-                        'x': 0,
-                        'y': 0,
-                        'width': 1920,
-                        'height': analysis_height
-                    }
-                    print(f"VideoContent[{self.device_name}]: TV/Desktop landscape detected - using 1920x{analysis_height} (top 2/3 of 720p)")
+                # Use fixed 1920x480 rectangle (top 2/3 of 720p) to exclude banner area
+                analysis_height = int(720 * 2 / 3)  # 480px
+                analysis_rectangle = {
+                    'x': 0,
+                    'y': 0,
+                    'width': 1920,
+                    'height': analysis_height
+                }
+                print(f"VideoContent[{self.device_name}]: No analysis rectangle provided - using fixed 1920x{analysis_height} (excludes banner area)")
             
             # Apply analysis rectangle (to exclude banner area)
             if analysis_rectangle:
