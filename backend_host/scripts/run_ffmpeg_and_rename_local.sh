@@ -89,11 +89,11 @@ start_grabber() {
       -f alsa -thread_queue_size 64 -async 1 -i \"$audio_device\" \
       -filter_complex \"[0:v]split=3[stream][capture][thumb];[stream]scale=640:360[streamout];[capture]fps=5[captureout];[thumb]fps=5,scale=320:180[thumbout]\" \
       -map \"[streamout]\" -map 1:a \
-      -c:v libx264 -preset ultrafast -tune zerolatency -crf 30 -maxrate 400k -bufsize 400k -force_key_frames \"expr:gte(t,n_forced*0.25)\" \
+      -c:v libx264 -preset ultrafast -tune zerolatency -crf 30 -maxrate 400k -bufsize 800k -force_key_frames \"expr:gte(t,n_forced*0.5)\" \
       -pix_fmt yuv420p -profile:v baseline -level 3.0 -fps_mode passthrough \
       -c:a aac -b:a 32k -ar 22050 -ac 2 \
-      -f hls -hls_time 1 -hls_list_size 600 -hls_flags delete_segments+omit_endlist+split_by_time \
-      -hls_segment_type fmp4 -hls_segment_filename $capture_dir/segment_%03d.m4s \
+      -f hls -hls_time 1 -hls_list_size 600 -hls_flags delete_segments+omit_endlist+split_by_time -lhls 1 -hls_segment_type fmp4 \
+      -hls_segment_filename $capture_dir/segment_%03d.ts \
       $capture_dir/output.m3u8 \
       -map \"[captureout]\" -c:v mjpeg -q:v 5 -f image2 \
       $capture_dir/captures/capture_%04d.jpg \
