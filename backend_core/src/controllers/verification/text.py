@@ -355,26 +355,13 @@ class TextVerificationController:
             # Resolve area from database if reference_name is provided
             reference_name = params.get('reference_name')
             if reference_name:
-                try:
-                    from shared.lib.supabase.verifications_references_db import get_references
-                    from shared.lib.utils.app_utils import get_team_id
-                    
-                    team_id = get_team_id()
-                    if team_id:
-                        result = get_references(team_id, device_model=self.device_model, name=reference_name)
-                        if result.get('success') and result.get('references'):
-                            references = result['references']
-                            reference_data = next((ref for ref in references if ref['name'] == reference_name), None)
-                            if reference_data and reference_data.get('area'):
-                                resolved_area = reference_data['area']
-                                area = resolved_area  # Override with database area (keep as dict for text controller)
-                                print(f"[@controller:TextVerification] Using database area for reference {reference_name}: {resolved_area}")
-                            else:
-                                print(f"[@controller:TextVerification] No area found for reference {reference_name}")
-                        else:
-                            print(f"[@controller:TextVerification] Reference {reference_name} not found in database")
-                except Exception as e:
-                    print(f"[@controller:TextVerification] Could not resolve reference area: {e}")
+                from shared.lib.utils.reference_utils import resolve_reference_area_backend
+                resolved_area = resolve_reference_area_backend(reference_name, self.device_model)
+                if resolved_area:
+                    area = resolved_area
+                    print(f"[@controller:TextVerification] Using database area for reference {reference_name}: {resolved_area}")
+                else:
+                    print(f"[@controller:TextVerification] No area found for reference {reference_name}")
             
             print(f"[@controller:TextVerification] Executing {command} with text: '{text}'")
             print(f"[@controller:TextVerification] Parameters: timeout={timeout}, threshold={threshold}, confidence={confidence}, area={area}, filter={image_filter}")
