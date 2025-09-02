@@ -170,16 +170,23 @@ class CaptureMonitor:
                     f"source {VENV_PATH} && python {SCRIPTS_DIR}/analyze_audio_video.py '{frame_path}' '{HOST_NAME}' '{device_id}' '{json.dumps(current_state)}'"
                 ]
                 
+                logger.info(f"[{device_id}] EXECUTING: {' '.join(cmd)}")
+                logger.debug(f"[{device_id}] Working directory: {os.path.dirname(frame_path)}")
+                
                 result = subprocess.run(
                     cmd,
                     capture_output=True,
                     text=True,
-                    timeout=15,  # Reduced timeout for faster processing
+                    timeout=30,  # Increased timeout to prevent premature termination
                     cwd=os.path.dirname(frame_path)
                 )
                 
                 if result.returncode == 0:
                     logger.info(f"[{device_id}] Unified analysis completed: {os.path.basename(frame_path)}")
+                    
+                    # Log stdout for debugging
+                    if result.stdout:
+                        logger.debug(f"[{device_id}] Analysis stdout: {result.stdout[:200]}...")
                     
                     # Parse updated incident state from stdout (if provided)
                     try:
@@ -193,8 +200,18 @@ class CaptureMonitor:
                                 break
                     except Exception as e:
                         logger.warning(f"[{device_id}] Could not parse incident state update: {e}")
+                        
+                    # Check if JSON was actually created
+                    json_path = frame_path.replace('.jpg', '.json')
+                    if os.path.exists(json_path):
+                        logger.info(f"[{device_id}] ✓ JSON VERIFIED: {os.path.basename(json_path)}")
+                    else:
+                        logger.error(f"[{device_id}] ✗ JSON MISSING: {os.path.basename(json_path)} - analysis succeeded but no JSON created")
+                        
                 else:
-                    logger.error(f"[{device_id}] Unified analysis failed: {result.stderr}")
+                    logger.error(f"[{device_id}] Unified analysis FAILED (exit code {result.returncode})")
+                    logger.error(f"[{device_id}] STDERR: {result.stderr}")
+                    logger.error(f"[{device_id}] STDOUT: {result.stdout}")
                     
         except subprocess.TimeoutExpired:
             logger.error(f"[{device_id}] Unified analysis timeout: {os.path.basename(frame_path)}")
