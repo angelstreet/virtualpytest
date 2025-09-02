@@ -1252,14 +1252,14 @@ class VideoContentHelpers:
         print(f"VideoContent[{self.device_name}]: Blackscreen analysis complete - {len(results)} images analyzed, early_stopped={blackscreen_ended}")
         return results
 
-    def _analyze_blackscreen_simple(self, image_path: str, analysis_rectangle: Dict[str, int] = None, threshold: int = 30) -> Tuple[bool, float]:
+    def _analyze_blackscreen_simple(self, image_path: str, analysis_rectangle: Dict[str, int] = None, threshold: int = 5) -> Tuple[bool, float]:
         """
         Simple blackscreen detection optimized for mobile TV interfaces
         
         Args:
             image_path: Path to image file
             analysis_rectangle: Optional rectangle to analyze
-            threshold: Pixel intensity threshold (0-255, default: 30 for mobile)
+            threshold: Pixel intensity threshold (0-255, default: 5 for real blackscreen detection)
             
         Returns:
             Tuple of (is_blackscreen, blackscreen_percentage)
@@ -1269,26 +1269,84 @@ class VideoContentHelpers:
             if img is None:
                 return False, 0.0
             
-            # Crop to analysis rectangle if specified (to exclude banner area)
+            img_height, img_width = img.shape
+            print(f"VideoContent[{self.device_name}]: Image dimensions: {img_width}x{img_height}")
+            
+            # Auto-calculate analysis rectangle if not provided (exclude banner areas)
+            if analysis_rectangle is None:
+                # Determine if mobile (portrait) or TV/desktop (landscape)
+                if img_height > img_width:
+                    # Mobile portrait mode - use top 2/3 of image
+                    analysis_height = int(img_height * 2 / 3)
+                    analysis_rectangle = {
+                        'x': 0,
+                        'y': 0,
+                        'width': img_width,
+                        'height': analysis_height
+                    }
+                    print(f"VideoContent[{self.device_name}]: Mobile portrait detected - using top 2/3: {img_width}x{analysis_height}")
+                else:
+                    # TV/Desktop landscape mode - assume 1920x720, take top 2/3 (480px height)
+                    analysis_height = int(720 * 2 / 3)  # 480px
+                    analysis_rectangle = {
+                        'x': 0,
+                        'y': 0,
+                        'width': 1920,
+                        'height': analysis_height
+                    }
+                    print(f"VideoContent[{self.device_name}]: TV/Desktop landscape detected - using 1920x{analysis_height} (top 2/3 of 720p)")
+            
+            # Apply analysis rectangle (to exclude banner area)
             if analysis_rectangle:
+                # Crop to analysis rectangle (to exclude banner area)
                 x = analysis_rectangle.get('x', 0)
                 y = analysis_rectangle.get('y', 0)
                 width = analysis_rectangle.get('width', img.shape[1])
                 height = analysis_rectangle.get('height', img.shape[0])
                 
-                # Validate rectangle bounds
-                img_height, img_width = img.shape
-                if x < 0 or y < 0 or x + width > img_width or y + height > img_height:
-                    print(f"VideoContent[{self.device_name}]: Analysis rectangle out of bounds, using full image")
+                print(f"VideoContent[{self.device_name}]: Analysis rectangle: x={x}, y={y}, width={width}, height={height}")
+                print(f"VideoContent[{self.device_name}]: Rectangle bounds check: x+width={x+width} <= img_width={img_width}, y+height={y+height} <= img_height={img_height}")
+                
+                # Validate and auto-correct rectangle bounds
+                bounds_valid = True
+                original_rect = (x, y, width, height)
+                
+                # Auto-correct bounds if slightly out of range
+                if x < 0:
+                    width += x  # Reduce width by the negative x offset
+                    x = 0
+                    bounds_valid = False
+                if y < 0:
+                    height += y  # Reduce height by the negative y offset
+                    y = 0
+                    bounds_valid = False
+                if x + width > img_width:
+                    width = img_width - x
+                    bounds_valid = False
+                if y + height > img_height:
+                    height = img_height - y
+                    bounds_valid = False
+                
+                # Check if corrected rectangle is still valid
+                if width <= 0 or height <= 0:
+                    print(f"VideoContent[{self.device_name}]: Analysis rectangle invalid after correction, using full image")
+                    print(f"VideoContent[{self.device_name}]: Original: x={original_rect[0]}, y={original_rect[1]}, w={original_rect[2]}, h={original_rect[3]}")
+                    print(f"VideoContent[{self.device_name}]: Corrected: x={x}, y={y}, w={width}, h={height}")
                 else:
+                    if not bounds_valid:
+                        print(f"VideoContent[{self.device_name}]: Analysis rectangle auto-corrected from {original_rect} to ({x},{y},{width},{height})")
+                    else:
+                        print(f"VideoContent[{self.device_name}]: Using analysis rectangle: {width}x{height} at ({x},{y})")
                     img = img[y:y+height, x:x+width]
+            else:
+                print(f"VideoContent[{self.device_name}]: No analysis rectangle provided, using full image")
             
-            # Count pixels <= threshold (optimized for mobile TV)
+            # Count pixels <= threshold (real blackscreen detection - only truly black pixels)
             very_dark_pixels = np.sum(img <= threshold)
             total_pixels = img.shape[0] * img.shape[1]
             dark_percentage = (very_dark_pixels / total_pixels) * 100
             
-            # Mobile TV interfaces need lower threshold (85-90% instead of 95%)
+            # Real blackscreen detection: 85% of pixels must be truly black (≤5 intensity)
             is_blackscreen = dark_percentage > 85
             
             return is_blackscreen, dark_percentage
