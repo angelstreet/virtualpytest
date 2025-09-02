@@ -423,8 +423,6 @@ def format_analysis_results(step: Dict) -> str:
         motion_status = "✅ DETECTED" if motion_success else "❌ NOT DETECTED"
         analysis_html += f'<div class="analysis-item motion"><strong>Motion Detection:</strong> {motion_status}</div>'
         
-        if motion_analysis.get('total_analyzed'):
-            analysis_html += f'<div class="analysis-detail">Files analyzed: {motion_analysis.get("total_analyzed", 0)}</div>'
         if motion_analysis.get('message'):
             analysis_html += f'<div class="analysis-detail">Details: {motion_analysis.get("message")}</div>'
 
@@ -511,19 +509,20 @@ def format_analysis_results(step: Dict) -> str:
         analysis_html += f'<div class="analysis-item audio"><strong>Audio Speech Detection:</strong> {speech_status}</div>'
         
         if speech_detected:
+            # Combine language, transcript, and confidence in one line
+            details = []
             if audio_analysis.get('detected_language'):
-                analysis_html += f'<div class="analysis-detail">Language: {audio_analysis.get("detected_language")}</div>'
+                details.append(f"Language: {audio_analysis.get('detected_language')}")
             if audio_analysis.get('combined_transcript'):
                 transcript_preview = audio_analysis.get('combined_transcript')[:100] + ('...' if len(audio_analysis.get('combined_transcript', '')) > 100 else '')
-                analysis_html += f'<div class="analysis-detail">Transcript: {transcript_preview}</div>'
+                details.append(f"Transcript: {transcript_preview}")
             if audio_analysis.get('confidence'):
-                analysis_html += f'<div class="analysis-detail">Confidence: {audio_analysis.get("confidence"):.2f}</div>'
+                details.append(f"Confidence: {audio_analysis.get('confidence'):.2f}")
+            
+            if details:
+                analysis_html += f'<div class="analysis-detail">{" | ".join(details)}</div>'
         
-        # Always show segment analysis and audio URLs (regardless of speech detection)
-        if audio_analysis.get('segments_analyzed'):
-            successful_segments = audio_analysis.get('successful_segments', 0)
-            total_segments = audio_analysis.get('segments_analyzed', 0)
-            analysis_html += f'<div class="analysis-detail">Segments: {successful_segments}/{total_segments} with speech</div>'
+        # Show R2 audio URLs for traceability (segments info removed for cleaner display)
         
         # Show R2 audio URLs if available for traceability (always, for verification)
         audio_urls = audio_analysis.get('audio_urls', [])
@@ -604,11 +603,16 @@ def format_analysis_results(step: Dict) -> str:
             channel_info = zapping_analysis.get('channel_info', {})
             analyzed_images = zapping_analysis.get('analyzed_images', 0)
             
-            analysis_html += f'<div class="analysis-detail">Blackscreen/Freeze Duration: {blackscreen_duration:.1f}s</div>'
+            # Combine zapping details in one line
+            zap_details = []
+            zap_details.append(f"Blackscreen/Freeze Duration: {blackscreen_duration:.1f}s")
             if zapping_duration > 0:
-                analysis_html += f'<div class="analysis-detail">Total Zapping Duration: {zapping_duration:.1f}s</div>'
+                zap_details.append(f"Total Zapping Duration: {zapping_duration:.1f}s")
             if analyzed_images > 0:
-                analysis_html += f'<div class="analysis-detail">Images Analyzed: {analyzed_images}</div>'
+                zap_details.append(f"Images Analyzed: {analyzed_images}")
+            
+            if zap_details:
+                analysis_html += f'<div class="analysis-detail">{" - ".join(zap_details)}</div>'
                 
             # Channel information
             if channel_info.get('channel_name'):
