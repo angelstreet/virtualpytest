@@ -352,6 +352,49 @@ class TextVerificationController:
             threshold = float(params.get('threshold', 0.8))  # Text matching sensitivity
             confidence = float(params.get('confidence', 0.8))  # OCR language detection confidence
             
+            # Load area coordinates from database if not provided in params
+            if not area:
+                try:
+                    from shared.lib.supabase.verifications_references_db import get_references
+                    from shared.lib.utils.app_utils import DEFAULT_TEAM_ID
+                    
+                    print(f"[@controller:TextVerification] Loading area from database for text reference: {text}")
+                    
+                    # Query database for this text reference
+                    db_result = get_references(
+                        team_id=DEFAULT_TEAM_ID,
+                        reference_type='reference_text',
+                        device_model=self.device_model or 'android_tv',
+                        name=text
+                    )
+                    
+                    if db_result.get('success') and db_result.get('references'):
+                        references = db_result['references']
+                        if references:
+                            reference_data = references[0]  # Take the first match
+                            area_from_db = reference_data.get('area')
+                            if area_from_db and isinstance(area_from_db, dict):
+                                # Extract area coordinates from the database (text references store area with text data)
+                                if 'x' in area_from_db and 'y' in area_from_db:
+                                    area = {
+                                        'x': area_from_db.get('x'),
+                                        'y': area_from_db.get('y'),
+                                        'width': area_from_db.get('width'),
+                                        'height': area_from_db.get('height')
+                                    }
+                                    print(f"[@controller:TextVerification] Loaded area from database: {area}")
+                                else:
+                                    print(f"[@controller:TextVerification] Database area missing coordinates for text: {text}")
+                            else:
+                                print(f"[@controller:TextVerification] No area found in database for text: {text}")
+                        else:
+                            print(f"[@controller:TextVerification] No database record found for text: {text}")
+                    else:
+                        print(f"[@controller:TextVerification] Database query failed for text: {text}")
+                        
+                except Exception as db_error:
+                    print(f"[@controller:TextVerification] Database area lookup error: {db_error}")
+            
             print(f"[@controller:TextVerification] Executing {command} with text: '{text}'")
             print(f"[@controller:TextVerification] Parameters: timeout={timeout}, threshold={threshold}, confidence={confidence}, area={area}, filter={image_filter}")
             print(f"[@controller:TextVerification] Using source image: {source_path}")
