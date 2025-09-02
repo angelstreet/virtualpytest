@@ -55,7 +55,34 @@ export const useNodeEdit = ({
   useEffect(() => {
     if (isOpen && nodeForm?.verifications && !initializedRef.current) {
       console.log('[useNodeEdit] Initializing verifications from nodeForm:', nodeForm.verifications);
-      verification.handleVerificationsChange(nodeForm.verifications);
+      
+      // Resolve reference areas automatically (same logic as VerificationsList.handleReferenceSelect)
+      const verificationsWithResolvedAreas = nodeForm.verifications.map((verification: any) => {
+        const params = verification.params || {};
+        const referenceName = params.reference_name || params.image_path;
+        
+        if (referenceName && modelReferences[referenceName]) {
+          const selectedRef = modelReferences[referenceName];
+          console.log('[useNodeEdit] Auto-resolving reference area for:', referenceName, selectedRef.area);
+          
+          return {
+            ...verification,
+            params: {
+              ...params,
+              area: {
+                x: selectedRef.area.x,
+                y: selectedRef.area.y,
+                width: selectedRef.area.width,
+                height: selectedRef.area.height,
+              },
+            },
+          };
+        }
+        
+        return verification;
+      });
+      
+      verification.handleVerificationsChange(verificationsWithResolvedAreas);
       initializedRef.current = true;
     } else if (isOpen) {
       console.log('[useNodeEdit] Dialog opened but no verifications in nodeForm:', nodeForm);
@@ -67,7 +94,7 @@ export const useNodeEdit = ({
         initializedRef.current = false;
       }
     };
-  }, [isOpen, nodeForm, verification]); // Removed nodeForm?.verifications to avoid ref change triggers
+  }, [isOpen, nodeForm, verification, modelReferences]); // Added modelReferences dependency
 
   // Reset state when dialog closes
   useEffect(() => {
