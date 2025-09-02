@@ -102,17 +102,12 @@ class ImageVerificationController:
         if image_filter and image_filter != 'none':
             print(f"[@controller:ImageVerification] Using image filter: {image_filter}")
         
-        # Resolve reference image path and load area from database
-        resolved_image_path, area_from_db = self._resolve_reference_image(image_path, model)
+        # Resolve reference image path using provided device model
+        resolved_image_path = self._resolve_reference_image(image_path, model)
         if not resolved_image_path:
             error_msg = f"Reference image file not found: '{image_path}' (could not locate or download reference image)"
             print(f"[@controller:ImageVerification] {error_msg}")
             return False, error_msg, {}
-        
-        # Use area from database if no area was provided in parameters
-        if not area and area_from_db:
-            area = area_from_db
-            print(f"[@controller:ImageVerification] Using area from database: {area}")
         
         # Get filtered reference image path (only change the reference, not source)
         filtered_reference_path = resolved_image_path
@@ -468,10 +463,10 @@ class ImageVerificationController:
             # Optional parameters with defaults
             threshold = float(params.get('threshold', 0.8))  # Keep float for threshold (0.0-1.0 range)
             timeout = int(params.get('timeout', 1))
+            area = params.get('area')
             image_filter = params.get('image_filter', 'none')
             model = params.get('model', self.device_model)  # Use controller's device_model as fallback
             verification_index = verification_config.get('verification_index', 0)  # Get index from config
-            # Area is ALWAYS loaded from database - no parameter accepted
             
             print(f"[@controller:ImageVerification] Searching for image: {image_path}")
             print(f"[@controller:ImageVerification] Timeout: {timeout}s, Threshold: {threshold}")
@@ -484,7 +479,7 @@ class ImageVerificationController:
                     image_path=image_path,
                     timeout=timeout,
                     threshold=threshold,
-                    area=None,  # Area will be loaded from database
+                    area=area,
                     image_list=[source_path],  # Use source_path as image list
                     verification_index=verification_index,  # Use dynamic index
                     image_filter=image_filter,
@@ -495,7 +490,7 @@ class ImageVerificationController:
                     image_path=image_path,
                     timeout=timeout,
                     threshold=threshold,
-                    area=None,  # Area will be loaded from database
+                    area=area,
                     image_list=[source_path],  # Use source_path as image list
                     verification_index=verification_index,  # Use dynamic index
                     image_filter=image_filter,
@@ -691,13 +686,9 @@ class ImageVerificationController:
             print(f"[@controller:ImageVerification] Error creating pixel difference overlay: {e}")
             return None
 
-    def _resolve_reference_image(self, image_path: str, model: str = 'default') -> tuple[Optional[str], Optional[dict]]:
+    def _resolve_reference_image(self, image_path: str, model: str = 'default') -> Optional[str]:
         """
         Resolve reference image path by downloading from R2 if needed.
-        Also loads the area coordinates from the database.
-        
-        Returns:
-            Tuple of (local_path, area_dict) where area_dict contains x, y, width, height
         """
         try:
             # Extract reference name from path
@@ -710,39 +701,6 @@ class ImageVerificationController:
             base_name = reference_name.split('.')[0]
             
             print(f"[@controller:ImageVerification] Resolving reference: {reference_name} for model: {model}")
-            
-            # Load area coordinates from database
-            area_from_db = None
-            try:
-                from shared.lib.supabase.verifications_references_db import get_references
-                from shared.lib.utils.app_utils import DEFAULT_TEAM_ID
-                
-                print(f"[@controller:ImageVerification] Loading area from database for reference: {base_name}")
-                
-                # Query database for this reference
-                db_result = get_references(
-                    team_id=DEFAULT_TEAM_ID,
-                    reference_type='reference_image',
-                    device_model=model,
-                    name=base_name
-                )
-                
-                if db_result.get('success') and db_result.get('references'):
-                    references = db_result['references']
-                    if references:
-                        reference_data = references[0]  # Take the first match
-                        area_from_db = reference_data.get('area')
-                        if area_from_db:
-                            print(f"[@controller:ImageVerification] Loaded area from database: {area_from_db}")
-                        else:
-                            print(f"[@controller:ImageVerification] No area found in database for reference: {base_name}")
-                    else:
-                        print(f"[@controller:ImageVerification] No database record found for reference: {base_name}")
-                else:
-                    print(f"[@controller:ImageVerification] Database query failed for reference: {base_name}")
-                    
-            except Exception as db_error:
-                print(f"[@controller:ImageVerification] Database area lookup error: {db_error}")
             
             # Use provided device model
             local_dir = os.path.join(self.references_dir, model)
@@ -757,7 +715,7 @@ class ImageVerificationController:
             # Check if already exists locally
             if os.path.exists(local_path):
                 print(f"[@controller:ImageVerification] Reference already exists locally: {local_path}")
-                return local_path, area_from_db
+                return local_path
             
             print(f"[@controller:ImageVerification] Downloading from R2 to: {local_path}")
             
@@ -776,18 +734,18 @@ class ImageVerificationController:
                 
                 if download_result.get('success'):
                     print(f"[@controller:ImageVerification] Successfully downloaded reference from R2: {local_path}")
-                    return local_path, area_from_db
+                    return local_path
                 else:
                     print(f"[@controller:ImageVerification] Failed to download from R2: {download_result.get('error')}")
-                    return None, None
+                    return None
                     
             except Exception as download_error:
                 print(f"[@controller:ImageVerification] R2 download error: {download_error}")
-                return None, None
+                return None
                 
         except Exception as e:
             print(f"[@controller:ImageVerification] Reference resolution error: {e}")
-            return None, None
+            return None
 
     def _match_template(self, ref_img, source_img, area: tuple = None) -> float:
         """

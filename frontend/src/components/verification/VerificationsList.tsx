@@ -238,7 +238,12 @@ export const VerificationsList: React.FC<VerificationsListProps> = React.memo(
 
           const baseParams = {
             ...verifications[index].params,
-            // Area is loaded from database - no need to pass it
+            area: {
+              x: selectedRef.area.x,
+              y: selectedRef.area.y,
+              width: selectedRef.area.width,
+              height: selectedRef.area.height,
+            },
           };
 
           if (selectedRef.type === 'image') {
@@ -271,7 +276,6 @@ export const VerificationsList: React.FC<VerificationsListProps> = React.memo(
                 ...baseParams,
                 text: selectedRef.text || '',
                 reference_name: internalKey, // Store internalKey for UI select component
-                // Area is loaded from database - no need to pass it
               },
             });
             console.log(
