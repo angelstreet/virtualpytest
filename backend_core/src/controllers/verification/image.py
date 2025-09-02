@@ -102,12 +102,19 @@ class ImageVerificationController:
         if image_filter and image_filter != 'none':
             print(f"[@controller:ImageVerification] Using image filter: {image_filter}")
         
-        # Resolve reference image path using provided device model
-        resolved_image_path = self._resolve_reference_image(image_path, model)
+        # Resolve reference image path and area using provided device model
+        resolved_image_path, resolved_area = self._resolve_reference_image_and_area(image_path, model)
         if not resolved_image_path:
             error_msg = f"Reference image file not found: '{image_path}' (could not locate or download reference image)"
             print(f"[@controller:ImageVerification] {error_msg}")
             return False, error_msg, {}
+        
+        # Use database area if available, otherwise use passed area
+        if resolved_area:
+            area = (resolved_area['x'], resolved_area['y'], resolved_area['width'], resolved_area['height'])
+            print(f"[@controller:ImageVerification] Using database area for reference {image_path}: {resolved_area}")
+        else:
+            print(f"[@controller:ImageVerification] Using passed area for reference {image_path}: {area}")
         
         # Get filtered reference image path (only change the reference, not source)
         filtered_reference_path = resolved_image_path
@@ -685,6 +692,50 @@ class ImageVerificationController:
         except Exception as e:
             print(f"[@controller:ImageVerification] Error creating pixel difference overlay: {e}")
             return None
+
+    def _resolve_reference_image_and_area(self, image_path: str, model: str = 'default') -> Tuple[Optional[str], Optional[Dict]]:
+        """
+        Resolve reference image path and area from database.
+        Returns both the local image path and the area coordinates.
+        """
+        try:
+            # Extract reference name from path
+            if '/' in image_path:
+                reference_name = os.path.basename(image_path)
+            else:
+                reference_name = image_path
+            
+            # Remove extension if present to get base name
+            base_name = reference_name.split('.')[0]
+            
+            print(f"[@controller:ImageVerification] Resolving reference: {reference_name} for model: {model}")
+            
+            # Query database for reference area
+            resolved_area = None
+            try:
+                from shared.lib.supabase.verifications_references_db import get_references
+                from shared.lib.utils.app_utils import get_team_id
+                
+                team_id = get_team_id()
+                if team_id:
+                    result = get_references(team_id, device_model=model, name=base_name)
+                    if result.get('success') and result.get('references'):
+                        references = result['references']
+                        reference_data = next((ref for ref in references if ref['name'] == base_name), None)
+                        if reference_data and reference_data.get('area'):
+                            resolved_area = reference_data['area']
+                            print(f"[@controller:ImageVerification] Found database area for {base_name}: {resolved_area}")
+            except Exception as e:
+                print(f"[@controller:ImageVerification] Could not query database for area: {e}")
+            
+            # Get image path (existing logic)
+            image_path_result = self._resolve_reference_image(image_path, model)
+            
+            return image_path_result, resolved_area
+            
+        except Exception as e:
+            print(f"[@controller:ImageVerification] Reference resolution error: {e}")
+            return None, None
 
     def _resolve_reference_image(self, image_path: str, model: str = 'default') -> Optional[str]:
         """
