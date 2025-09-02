@@ -253,8 +253,8 @@ class VideoContentHelpers:
                 else:
                     current_consecutive = 0
             
-            # Detect freeze if we have at least 2 consecutive frozen frames (like blackscreen detection)
-            freeze_sequence_detected = max_consecutive_frozen >= 2
+            # Detect freeze if we have at least 1 frozen frame comparison (2 identical images = freeze)
+            freeze_sequence_detected = max_consecutive_frozen >= 1
             
             # For zapping, freeze sequence = freeze detected (like blackscreen sequence = blackscreen detected)
             freeze_detected = freeze_sequence_detected
@@ -719,7 +719,7 @@ class VideoContentHelpers:
             if freeze_sequence['freeze_zapping_detected']:
                 # Calculate freeze duration based on consecutive frozen frames
                 max_consecutive = freeze_results.get('max_consecutive_frozen', 0)
-                freeze_duration = max_consecutive * 0.2  # Approximate 0.2s per frame
+                freeze_duration = max_consecutive * 0.2  # Approximate 0.2s per frame (even 1 frozen = 0.2s)
                 
                 # Zapping duration: from first image to freeze end
                 first_image_time = image_data[0]['timestamp']
