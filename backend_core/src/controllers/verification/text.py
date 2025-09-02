@@ -367,7 +367,7 @@ class TextVerificationController:
                             reference_data = next((ref for ref in references if ref['name'] == reference_name), None)
                             if reference_data and reference_data.get('area'):
                                 resolved_area = reference_data['area']
-                                area = resolved_area  # Override with database area
+                                area = resolved_area  # Override with database area (keep as dict for text controller)
                                 print(f"[@controller:TextVerification] Using database area for reference {reference_name}: {resolved_area}")
                             else:
                                 print(f"[@controller:TextVerification] No area found for reference {reference_name}")
