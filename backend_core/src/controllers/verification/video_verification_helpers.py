@@ -305,40 +305,46 @@ class VideoVerificationHelpers:
                 banner_region and 
                 zapping_result.get('first_content_after_blackscreen')):
                 
-                # Find the image where blackscreen ended (first content after zapping)
-                end_image_name = zapping_result.get('first_content_after_blackscreen', '')
-                if end_image_name:
-                    # Reconstruct full path to the end image
-                    import os
-                    end_image_path = os.path.join(folder_path, end_image_name)
-                    
-                    # Check if banner is present before expensive AI call
-                    if self.controller.ai_helpers.detect_banner_presence(end_image_path, banner_region):
-                        print(f"VideoVerification[{self.device_name}]: Banner detected, analyzing with AI")
-                        banner_result = self.controller.ai_helpers.analyze_channel_banner_ai(end_image_path, banner_region)
+                try:
+                    # Find the image where blackscreen ended (first content after zapping)
+                    end_image_name = zapping_result.get('first_content_after_blackscreen', '')
+                    if end_image_name:
+                        # Reconstruct full path to the end image (images are in captures subfolder)
+                        import os
+                        end_image_path = os.path.join(folder_path, 'captures', end_image_name)
                         
-                        if banner_result.get('success', False):
-                            # Extract channel info regardless of banner_detected flag (preserve partial info)
-                            extracted_info = banner_result.get('channel_info', {})
+                        # Check if banner is present before expensive AI call
+                        if self.controller.ai_helpers.detect_banner_presence(end_image_path, banner_region):
+                            print(f"VideoVerification[{self.device_name}]: Banner detected, analyzing with AI")
+                            banner_result = self.controller.ai_helpers.analyze_channel_banner_ai(end_image_path, banner_region)
                             
-                            # Check if we have any useful information
-                            has_useful_info = any([
-                                extracted_info.get('channel_name'),
-                                extracted_info.get('program_name'),
-                                extracted_info.get('start_time'),
-                                extracted_info.get('end_time')
-                            ])
-                            
-                            if has_useful_info:
-                                channel_info = extracted_info
-                                banner_status = "detected" if banner_result.get('banner_detected', False) else "partial info found"
-                                print(f"VideoVerification[{self.device_name}]: Channel info {banner_status}: {channel_info}")
+                            if banner_result.get('success', False):
+                                # Extract channel info regardless of banner_detected flag (preserve partial info)
+                                extracted_info = banner_result.get('channel_info', {})
+                                
+                                # Check if we have any useful information
+                                has_useful_info = any([
+                                    extracted_info.get('channel_name'),
+                                    extracted_info.get('program_name'),
+                                    extracted_info.get('start_time'),
+                                    extracted_info.get('end_time')
+                                ])
+                                
+                                if has_useful_info:
+                                    channel_info = extracted_info
+                                    banner_status = "detected" if banner_result.get('banner_detected', False) else "partial info found"
+                                    print(f"VideoVerification[{self.device_name}]: Channel info {banner_status}: {channel_info}")
+                                else:
+                                    print(f"VideoVerification[{self.device_name}]: No useful channel information found")
                             else:
-                                print(f"VideoVerification[{self.device_name}]: No useful channel information found")
+                                print(f"VideoVerification[{self.device_name}]: Banner analysis failed")
                         else:
-                            print(f"VideoVerification[{self.device_name}]: Banner analysis failed")
-                    else:
-                        print(f"VideoVerification[{self.device_name}]: No banner presence detected, skipping AI analysis")
+                            print(f"VideoVerification[{self.device_name}]: No banner presence detected, skipping AI analysis")
+                            
+                except Exception as e:
+                    print(f"VideoVerification[{self.device_name}]: Banner analysis error (OpenCV/image processing): {e}")
+                    print(f"VideoVerification[{self.device_name}]: Continuing with zapping detection without banner info")
+                    # channel_info remains empty dict - zapping detection will still work
             
             # Compile comprehensive result
             success = zapping_result.get('zapping_detected', False)
