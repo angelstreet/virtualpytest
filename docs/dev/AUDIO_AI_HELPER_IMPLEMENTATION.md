@@ -74,18 +74,48 @@ test_scripts/
 - **UPDATED Process**:
   1. Uses global `AVControllerInterface.HLS_SEGMENT_DURATION` configuration (currently 2 seconds)
   2. **FIXED**: Scans video capture folder for recent `.ts` HLS segment files (not MP4)
-  3. Extracts audio using ffmpeg with optimized settings:
+  3. **NEW: TS Merging**: If multiple TS files, merges them first into a temporary TS file (no impact on originals)
+  4. Extracts audio using ffmpeg with optimized settings:
      - Input: `segment_*.ts` files (HLS segments with audio)
      - Format: WAV, 16kHz, mono
      - Duration: Uses global HLS segment duration (matches host-side 2s segments)
      - Quality: PCM 16-bit for speech recognition
-  4. Creates temporary audio files for AI analysis
-  5. Returns list of audio file paths
+  5. Creates temporary audio files for AI analysis
+  6. Returns list of audio file paths
 
 ```python
 # CORRECTED ffmpeg command for HLS segments:
 ffmpeg -y -i segment_001.ts -vn -acodec pcm_s16le -ar 16000 -ac 1 audio_segment.wav
 ```
+
+##### NEW: Safe TS Merging Process
+To optimize efficiency, multiple TS segments are merged before audio extraction. This creates a **new temporary merged TS file** without modifying originals.
+
+**Key Safety Features**:
+- **No Impact on Originals**: Original TS files are read-only; merging uses ffmpeg copy mode (`-c:v copy -c:a copy`).
+- **Temporary File**: Merged TS is created in system temp dir (e.g., `/tmp/`) with unique name (e.g., `merged_ts_YYYYMMDD_HHMMSS_mmm.ts`).
+- **Automatic Cleanup**: Temporary merged TS is deleted after audio extraction (via `os.unlink()`), even on errors.
+- **Fallback**: If merge fails (e.g., incompatible segments), processes individual TS files.
+- **Debugging**: Logs full ffmpeg command/output for troubleshooting.
+
+**Diagram**:
+```mermaid
+graph TD
+    A[Find Recent TS Files] --> B{>1 File?}
+    B -->|Yes| C[Create Temp Merged TS<br/>(New File in /tmp/)]
+    C --> D[Extract Audio to WAV]
+    D --> E[Analyze WAV]
+    E --> F[Delete Temp Merged TS]
+    B -->|No| D
+    A -. Fallback .-> D
+```
+
+**Benefits**:
+- Reduces ffmpeg calls (1 merge + 1 extract vs. multiple extracts).
+- Preserves stream timing.
+- Zero risk to source captures.
+
+If merge fails, check logs for ffmpeg errors (e.g., timestamp mismatches) and ensure consistent HLS captures.
 
 ##### `analyze_audio_segments_ai(audio_files, upload_to_r2=True, early_stop=True)`
 - **Purpose**: Local Whisper-powered speech-to-text analysis with R2 storage and early stop optimization
