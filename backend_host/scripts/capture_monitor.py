@@ -106,7 +106,34 @@ class CaptureMonitor:
 
             # Filter out thumbnail files and numbered files (_1, _2, _3, _4) - only process original images
             # Pattern: capture_YYYYMMDDHHMMSS_N.jpg (where N is 1,2,3,4...)
-            original_frames = [f for f in frames if '_thumbnail' not in f and not re.search(r'capture_\d{14}_\d+\.jpg$', os.path.basename(f))]
+            original_frames = []
+            skipped_files = []
+            
+            for f in frames:
+                filename = os.path.basename(f)
+                
+                # Skip thumbnail files
+                if '_thumbnail' in filename:
+                    skipped_files.append(f"THUMBNAIL: {filename}")
+                # Skip numbered files (_1, _2, _3, _4)
+                elif re.search(r'capture_\d{14}_\d+\.jpg$', filename):
+                    skipped_files.append(f"NUMBERED: {filename}")
+                # Skip files that don't match proper timestamp pattern (race condition files)
+                elif not re.search(r'capture_\d{14}\.jpg$', filename):
+                    skipped_files.append(f"INVALID_PATTERN: {filename}")
+                # Only include files that still exist (avoid race conditions)
+                elif os.path.exists(f):
+                    original_frames.append(f)
+                else:
+                    skipped_files.append(f"DISAPPEARED: {filename}")
+            
+            # Log what we found
+            if frames:
+                logger.debug(f"[{device_id}] Found {len(frames)} total files, {len(original_frames)} valid for processing")
+                if skipped_files and len(skipped_files) <= 5:  # Only log if reasonable number
+                    logger.debug(f"[{device_id}] Skipped: {', '.join(skipped_files)}")
+                elif len(skipped_files) > 5:
+                    logger.debug(f"[{device_id}] Skipped {len(skipped_files)} files (too many to list)")
             if not original_frames:
                 return []
 
@@ -115,12 +142,28 @@ class CaptureMonitor:
             
             # Find frames without JSON files (limit to recent ones)
             unanalyzed = []
+            analyzed_count = 0
+            
             for frame_path in original_frames[:max_frames * 2]:  # Check more frames
+                # Double-check file still exists (race condition protection)
+                if not os.path.exists(frame_path):
+                    logger.debug(f"[{device_id}] File disappeared during processing: {os.path.basename(frame_path)}")
+                    continue
+                    
                 json_path = frame_path.replace('.jpg', '.json')
+                filename = os.path.basename(frame_path)
+                
                 if not os.path.exists(json_path):
                     unanalyzed.append(frame_path)
+                    logger.debug(f"[{device_id}] UNANALYZED: {filename} (no JSON)")
                     if len(unanalyzed) >= max_frames:
                         break
+                else:
+                    analyzed_count += 1
+                    logger.debug(f"[{device_id}] ANALYZED: {filename} (JSON exists)")
+            
+            if analyzed_count > 0:
+                logger.debug(f"[{device_id}] Found {analyzed_count} already analyzed files")
             
             return unanalyzed
             
