@@ -428,4 +428,93 @@ def analyze_language_menu():
         return jsonify({
             'success': False,
             'error': f'AI language menu analysis error: {str(e)}'
+        }), 500
+
+@host_verification_video_bp.route('/debugSubtitlesAI', methods=['POST'])
+def debug_subtitles_ai():
+    """Debug AI subtitle detection with public URLs - downloads image first"""
+    try:
+        print("[@route:host_verification_video:debugSubtitlesAI] Processing debug AI subtitle detection request")
+        
+        # Get request data
+        data = request.get_json() or {}
+        device_id = data.get('device_id', 'device1')
+        image_url = data.get('image_url')  # Public URL to download
+        extract_text = data.get('extract_text', True)
+        
+        print(f"[@route:host_verification_video:debugSubtitlesAI] Image URL: {image_url}")
+        print(f"[@route:host_verification_video:debugSubtitlesAI] Extract text: {extract_text}")
+        
+        if not image_url:
+            return jsonify({
+                'success': False,
+                'error': 'image_url is required'
+            }), 400
+        
+        # Download image to temporary location
+        import requests
+        import tempfile
+        import os
+        from urllib.parse import urlparse
+        
+        try:
+            print(f"[@route:host_verification_video:debugSubtitlesAI] Downloading image from: {image_url}")
+            response = requests.get(image_url, timeout=30)
+            response.raise_for_status()
+            
+            # Create temporary file with proper extension
+            parsed_url = urlparse(image_url)
+            file_extension = os.path.splitext(parsed_url.path)[1] or '.jpg'
+            
+            with tempfile.NamedTemporaryFile(delete=False, suffix=file_extension) as temp_file:
+                temp_file.write(response.content)
+                temp_image_path = temp_file.name
+            
+            print(f"[@route:host_verification_video:debugSubtitlesAI] Image downloaded to: {temp_image_path}")
+            
+        except Exception as download_error:
+            print(f"[@route:host_verification_video:debugSubtitlesAI] Download error: {str(download_error)}")
+            return jsonify({
+                'success': False,
+                'error': f'Failed to download image: {str(download_error)}'
+            }), 400
+        
+        try:
+            # Get video verification controller
+            video_controller, device, error_response = get_verification_controller(device_id, 'verification_video')
+            if error_response:
+                return error_response
+            
+            # Execute AI subtitle detection
+            start_time = time.time()
+            result = video_controller.detect_subtitles_ai([temp_image_path], extract_text)
+            execution_time = int((time.time() - start_time) * 1000)
+            
+            # Add execution time and debug info to result
+            result['execution_time_ms'] = execution_time
+            result['debug_info'] = {
+                'original_url': image_url,
+                'temp_file_path': temp_image_path,
+                'downloaded_size': len(response.content)
+            }
+            
+            print(f"[@route:host_verification_video:debugSubtitlesAI] Result: success={result.get('success')}, subtitles={result.get('subtitles_detected')}, time={execution_time}ms")
+            
+            return jsonify(result)
+            
+        finally:
+            # Clean up temporary file
+            try:
+                if os.path.exists(temp_image_path):
+                    os.unlink(temp_image_path)
+                    print(f"[@route:host_verification_video:debugSubtitlesAI] Cleaned up temp file: {temp_image_path}")
+            except Exception as cleanup_error:
+                print(f"[@route:host_verification_video:debugSubtitlesAI] Cleanup error: {str(cleanup_error)}")
+        
+    except Exception as e:
+        print(f"[@route:host_verification_video:debugSubtitlesAI] Error: {str(e)}")
+        print(f"[@route:host_verification_video:debugSubtitlesAI] Traceback: {traceback.format_exc()}")
+        return jsonify({
+            'success': False,
+            'error': f'Debug AI subtitle detection error: {str(e)}'
         }), 500 
