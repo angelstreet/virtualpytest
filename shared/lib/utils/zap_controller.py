@@ -1030,14 +1030,14 @@ class ZapController:
         # Extract timestamp from filename (e.g., capture_20240101120000.jpg -> 20240101120000)
         timestamp = filename.replace('capture_', '').replace('.jpg', '')
         
-        # Remove suffix if present (e.g., capture_20240101120000_2.jpg -> 20240101120000)
+        # Remove suffix if present FIRST (e.g., capture_20240101120000_2.jpg -> 20240101120000)
         if '_' in timestamp:
             timestamp = timestamp.split('_')[0]
         
-        # Validate timestamp format (must be 14 digits: YYYYMMDDHHMMSS)
+        # THEN validate timestamp format (must be 14 digits: YYYYMMDDHHMMSS)
         import re
         if not re.match(r'^\d{14}$', timestamp):
-            print(f"🔍 [ZapController] Skipping invalid filename format: {filename} (timestamp: {timestamp})")
+            print(f"🔍 [ZapController] Skipping invalid filename format: {filename} (clean timestamp: {timestamp})")
             return False
         
         # Additional protection: validate timestamp makes sense as a date
@@ -1046,7 +1046,7 @@ class ZapController:
             datetime.strptime(timestamp, '%Y%m%d%H%M%S')
             return True
         except ValueError:
-            print(f"🔍 [ZapController] Skipping invalid timestamp: {filename} (timestamp: {timestamp})")
+            print(f"🔍 [ZapController] Skipping invalid timestamp: {filename} (clean timestamp: {timestamp})")
             return False
 
     def _add_zapping_images_to_screenshots(self, context, zapping_result: Dict[str, Any], capture_folder: str):
