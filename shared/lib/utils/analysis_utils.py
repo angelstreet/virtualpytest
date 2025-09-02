@@ -61,28 +61,31 @@ def load_recent_analysis_data(device_id: str, timeframe_minutes: int = 5, max_co
         for filename in os.listdir(capture_folder):
             if (filename.startswith('capture_') and filename.endswith('.jpg') and 
                 not filename.endswith('_thumbnail.jpg')):
+                
+                # VALIDATE FILENAME FORMAT FIRST - before any file operations
+                timestamp = filename.replace('capture_', '').replace('.jpg', '')
+                
+                # Remove suffix if present FIRST (e.g., capture_20240101120000_2.jpg -> 20240101120000)
+                if '_' in timestamp:
+                    timestamp = timestamp.split('_')[0]
+                
+                # THEN validate timestamp format (must be 14 digits: YYYYMMDDHHMMSS)
+                import re
+                if not re.match(r'^\d{14}$', timestamp):
+                    print(f"[@analysis_utils] Skipping invalid filename format: {filename} (clean timestamp: {timestamp})")
+                    continue
+                
+                # Additional protection: validate timestamp makes sense as a date
+                try:
+                    from datetime import datetime
+                    datetime.strptime(timestamp, '%Y%m%d%H%M%S')
+                except ValueError:
+                    print(f"[@analysis_utils] Skipping invalid timestamp: {filename} (timestamp: {timestamp})")
+                    continue
+                
+                # Only check file modification time AFTER validation passes
                 filepath = os.path.join(capture_folder, filename)
                 if os.path.getmtime(filepath) >= cutoff_time:
-                    # Extract timestamp from filename
-                    timestamp = filename.replace('capture_', '').replace('.jpg', '')
-                    
-                    # Remove suffix if present FIRST (e.g., capture_20240101120000_2.jpg -> 20240101120000)
-                    if '_' in timestamp:
-                        timestamp = timestamp.split('_')[0]
-                    
-                    # THEN validate timestamp format (must be 14 digits: YYYYMMDDHHMMSS)
-                    import re
-                    if not re.match(r'^\d{14}$', timestamp):
-                        print(f"[@analysis_utils] Skipping invalid filename format: {filename} (clean timestamp: {timestamp})")
-                        continue
-                    
-                    # Additional protection: validate timestamp makes sense as a date
-                    try:
-                        from datetime import datetime
-                        datetime.strptime(timestamp, '%Y%m%d%H%M%S')
-                    except ValueError:
-                        print(f"[@analysis_utils] Skipping invalid timestamp: {filename} (timestamp: {timestamp})")
-                        continue
                     
                     # Check for analysis files
                     base_name = filename.replace('.jpg', '')
@@ -172,28 +175,31 @@ def load_recent_analysis_data_from_path(capture_path: str, timeframe_minutes: in
         for filename in os.listdir(capture_folder):
             if (filename.startswith('capture_') and filename.endswith('.jpg') and 
                 not filename.endswith('_thumbnail.jpg')):
+                
+                # VALIDATE FILENAME FORMAT FIRST - before any file operations
+                timestamp = filename.replace('capture_', '').replace('.jpg', '')
+                
+                # Remove suffix if present FIRST (e.g., capture_20240101120000_2.jpg -> 20240101120000)
+                if '_' in timestamp:
+                    timestamp = timestamp.split('_')[0]
+                
+                # THEN validate timestamp format (must be 14 digits: YYYYMMDDHHMMSS)
+                import re
+                if not re.match(r'^\d{14}$', timestamp):
+                    print(f"[@analysis_utils] Skipping invalid filename format: {filename} (clean timestamp: {timestamp})")
+                    continue
+                
+                # Additional protection: validate timestamp makes sense as a date
+                try:
+                    from datetime import datetime
+                    datetime.strptime(timestamp, '%Y%m%d%H%M%S')
+                except ValueError:
+                    print(f"[@analysis_utils] Skipping invalid timestamp: {filename} (timestamp: {timestamp})")
+                    continue
+                
+                # Only check file modification time AFTER validation passes
                 filepath = os.path.join(capture_folder, filename)
                 if os.path.getmtime(filepath) >= cutoff_time:
-                    # Extract timestamp from filename
-                    timestamp = filename.replace('capture_', '').replace('.jpg', '')
-                    
-                    # Remove suffix if present FIRST (e.g., capture_20240101120000_2.jpg -> 20240101120000)
-                    if '_' in timestamp:
-                        timestamp = timestamp.split('_')[0]
-                    
-                    # THEN validate timestamp format (must be 14 digits: YYYYMMDDHHMMSS)
-                    import re
-                    if not re.match(r'^\d{14}$', timestamp):
-                        print(f"[@analysis_utils] Skipping invalid filename format: {filename} (clean timestamp: {timestamp})")
-                        continue
-                    
-                    # Additional protection: validate timestamp makes sense as a date
-                    try:
-                        from datetime import datetime
-                        datetime.strptime(timestamp, '%Y%m%d%H%M%S')
-                    except ValueError:
-                        print(f"[@analysis_utils] Skipping invalid timestamp: {filename} (timestamp: {timestamp})")
-                        continue
                     
                     # Check for analysis files
                     base_name = filename.replace('.jpg', '')
