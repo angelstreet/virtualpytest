@@ -296,7 +296,8 @@ def main():
         sys.exit(1)
     
     # Skip files with _1, _2, _3, _4 suffixes - only process first image per second
-    if re.search(r'capture_\d{14}_\d+\.jpg$', image_path):
+    # Pattern: capture_YYYYMMDDHHMMSS_N.jpg (where N is 1,2,3,4...)
+    if re.search(r'capture_\d{14}_\d+\.jpg$', os.path.basename(image_path)):
         print(f"[{device_id if device_id else 'unknown'}] Skipping numbered file: {os.path.basename(image_path)}")
         return
     

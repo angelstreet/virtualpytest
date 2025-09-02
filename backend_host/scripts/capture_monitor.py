@@ -105,7 +105,8 @@ class CaptureMonitor:
                 return []
 
             # Filter out thumbnail files and numbered files (_1, _2, _3, _4) - only process original images
-            original_frames = [f for f in frames if '_thumbnail' not in f and not re.search(r'_\d+\.jpg$', f)]
+            # Pattern: capture_YYYYMMDDHHMMSS_N.jpg (where N is 1,2,3,4...)
+            original_frames = [f for f in frames if '_thumbnail' not in f and not re.search(r'capture_\d{14}_\d+\.jpg$', os.path.basename(f))]
             if not original_frames:
                 return []
 
