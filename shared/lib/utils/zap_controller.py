@@ -1168,6 +1168,11 @@ class ZapController:
                     image_filename = file_item['filename']  # e.g., "capture_20240101120000.jpg"
                     image_path = f"{capture_folder}/{image_filename}"
                     
+                    # Validate filename format before adding to prevent FileNotFoundError on malformed files
+                    if not self._validate_capture_filename(image_filename):
+                        print(f"🔍 [ZapController] Skipped motion analysis image with invalid format: {image_filename}")
+                        continue
+                    
                     if image_path not in context.screenshot_paths:
                         context.screenshot_paths.append(image_path)
                         print(f"🖼️ [ZapController] Added motion analysis image {i}/3 for R2 upload: {image_filename}")

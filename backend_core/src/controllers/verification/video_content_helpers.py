@@ -764,9 +764,14 @@ class VideoContentHelpers:
                 'freeze_zapping_detected': freeze_sequence['freeze_zapping_detected'],
                 'freeze_duration': round(freeze_duration, 2),
                 'zapping_duration': round(zapping_duration, 2),
-                'freeze_start_image': self._get_freeze_start_image(image_data, freeze_sequence),
-                'freeze_end_image': self._get_freeze_end_image(image_data, freeze_sequence),
-                'first_content_after_freeze': self._get_first_content_after_freeze(image_data, freeze_sequence),
+                
+                # Image sequence information (same field names as blackscreen detection)
+                'first_image': image_data[0]['filename'] if image_data else None,
+                'blackscreen_start_image': self._get_freeze_start_image(image_data, freeze_sequence),
+                'blackscreen_end_image': self._get_freeze_end_image(image_data, freeze_sequence),
+                'first_content_after_blackscreen': self._get_first_content_after_freeze(image_data, freeze_sequence),
+                'last_image': image_data[-1]['filename'] if image_data else None,
+                
                 'channel_info': channel_info,
                 'analyzed_images': len(image_data),
                 'max_consecutive_frozen': freeze_results.get('max_consecutive_frozen', 0),
