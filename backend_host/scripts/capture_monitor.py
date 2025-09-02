@@ -127,13 +127,13 @@ class CaptureMonitor:
                 else:
                     skipped_files.append(f"DISAPPEARED: {filename}")
             
-            # Log what we found
+            # Log what we found (device_id not available in this method, use capture_dir)
             if frames:
-                logger.debug(f"[{device_id}] Found {len(frames)} total files, {len(original_frames)} valid for processing")
+                logger.debug(f"Found {len(frames)} total files, {len(original_frames)} valid for processing in {os.path.basename(capture_dir)}")
                 if skipped_files and len(skipped_files) <= 5:  # Only log if reasonable number
-                    logger.debug(f"[{device_id}] Skipped: {', '.join(skipped_files)}")
+                    logger.debug(f"Skipped: {', '.join(skipped_files)}")
                 elif len(skipped_files) > 5:
-                    logger.debug(f"[{device_id}] Skipped {len(skipped_files)} files (too many to list)")
+                    logger.debug(f"Skipped {len(skipped_files)} files (too many to list)")
             if not original_frames:
                 return []
 
