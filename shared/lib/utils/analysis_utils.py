@@ -156,7 +156,6 @@ def load_recent_analysis_data_from_path(capture_path: str, timeframe_minutes: in
     try:
         capture_folder = os.path.join(capture_path, 'captures')
         
-        print(f"[@analysis_utils] DEBUG: Checking capture folder: {capture_folder}")
         if not os.path.exists(capture_folder):
             return {
                 'success': False,
@@ -170,11 +169,7 @@ def load_recent_analysis_data_from_path(capture_path: str, timeframe_minutes: in
         cutoff_time = time.time() - (timeframe_minutes * 60)
         files = []
         
-        all_files = os.listdir(capture_folder)
-        capture_files = [f for f in all_files if f.startswith('capture_') and f.endswith('.jpg')]
-        print(f"[@analysis_utils] DEBUG: Found {len(capture_files)} capture files in {capture_folder}: {capture_files[:10]}{'...' if len(capture_files) > 10 else ''}")
-        
-        for filename in all_files:
+        for filename in os.listdir(capture_folder):
             if (filename.startswith('capture_') and filename.endswith('.jpg') and 
                 not filename.endswith('_thumbnail.jpg')):
                 filepath = os.path.join(capture_folder, filename)

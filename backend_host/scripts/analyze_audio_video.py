@@ -180,13 +180,38 @@ def analyze_freeze(image_path, previous_frames_cache=None, device_id="unknown"):
         directory = os.path.dirname(image_path)
         is_thumbnail = '_thumbnail' in current_filename
         
-        # Get all files of same type and sort
+        # Get all files of same type and sort (with filename validation)
         if is_thumbnail:
             file_pattern = lambda f: f.startswith('capture_') and f.endswith('_thumbnail.jpg')
         else:
             file_pattern = lambda f: f.startswith('capture_') and f.endswith('.jpg') and '_thumbnail' not in f
         
-        all_files = sorted([f for f in os.listdir(directory) if file_pattern(f)])
+        # Filter files with validation to prevent FileNotFoundError on malformed filenames
+        valid_files = []
+        for f in os.listdir(directory):
+            if file_pattern(f):
+                # Extract timestamp and validate format (same logic as analysis_utils.py)
+                if is_thumbnail:
+                    timestamp = f.replace('capture_', '').replace('_thumbnail.jpg', '')
+                else:
+                    timestamp = f.replace('capture_', '').replace('.jpg', '')
+                
+                # Remove suffix if present FIRST
+                if '_' in timestamp:
+                    timestamp = timestamp.split('_')[0]
+                
+                # Validate timestamp format (must be 14 digits: YYYYMMDDHHMMSS)
+                if re.match(r'^\d{14}$', timestamp):
+                    try:
+                        from datetime import datetime
+                        datetime.strptime(timestamp, '%Y%m%d%H%M%S')
+                        valid_files.append(f)
+                    except ValueError:
+                        logger.info(f"[{device_id}] Skipping freeze analysis file with invalid timestamp: {f}")
+                else:
+                    logger.info(f"[{device_id}] Skipping freeze analysis file with invalid format: {f} (timestamp: {timestamp})")
+        
+        all_files = sorted(valid_files)
         
         if current_filename not in all_files:
             return False, None
