@@ -33,7 +33,7 @@ import { useToast } from '../hooks/useToast';
 import { useRun } from '../hooks/useRun';
 import { getStatusChip, getScriptDisplayName, isAIScript, getLogsUrl } from '../utils/executionUtils';
 
-import { DeviceStreamGrid } from '../components/common/DeviceStreamGrid';
+import { DeviceStreamGrid } from '../components/common/DeviceStreaming/DeviceStreamGrid';
 
 
 
