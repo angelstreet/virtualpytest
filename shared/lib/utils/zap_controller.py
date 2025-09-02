@@ -1163,10 +1163,15 @@ class ZapController:
             
             # Load the 3 most recent analysis files using the same method as motion detection
             from shared.lib.utils.analysis_utils import load_recent_analysis_data_from_path
+            
+            print(f"🔍 [ZapController] DEBUG: Attempting to load motion analysis images from: {av_controller.video_capture_path}")
             data_result = load_recent_analysis_data_from_path(av_controller.video_capture_path, timeframe_minutes=5, max_count=3)
             
+            print(f"🔍 [ZapController] DEBUG: load_recent_analysis_data_from_path result: success={data_result.get('success')}, error={data_result.get('error')}")
+            
             if data_result['success'] and data_result['analysis_data']:
-                print(f"🖼️ [ZapController] Found {len(data_result['analysis_data'])} motion analysis images")
+                successful_images = [item['filename'] for item in data_result['analysis_data']]
+                print(f"🖼️ [ZapController] Found {len(data_result['analysis_data'])} motion analysis images: {successful_images}")
                 
                 # Reverse for chronological order (oldest first) in reports
                 analysis_data_chronological = list(reversed(data_result['analysis_data']))
@@ -1175,7 +1180,7 @@ class ZapController:
                 for i, file_item in enumerate(analysis_data_chronological, 1):
                     image_filename = file_item['filename']  # e.g., "capture_20240101120000.jpg"
                     image_path = f"{capture_folder}/{image_filename}"
-                    
+                    print(f"🔍 [ZapController] DEBUG: image_path: {image_path}")
                     # Validate filename format before adding to prevent FileNotFoundError on malformed files
                     if not self._validate_capture_filename(image_filename):
                         print(f"🔍 [ZapController] Skipped motion analysis image with invalid format: {image_filename}")

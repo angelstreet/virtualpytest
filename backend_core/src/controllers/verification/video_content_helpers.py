@@ -646,6 +646,11 @@ class VideoContentHelpers:
             # Analyze motion from loaded data using shared utility
             result = analyze_motion_from_loaded_data(data_result['analysis_data'], json_count, strict_mode)
             
+            # DEBUG: Log the successful image names that were analyzed
+            if data_result['analysis_data']:
+                successful_images = [item['filename'] for item in data_result['analysis_data']]
+                print(f"VideoContent[{self.device_name}]: Motion detection analyzed these {len(successful_images)} images: {successful_images}")
+            
             print(f"VideoContent[{self.device_name}]: Motion detection result: {result.get('message', 'Unknown')}")
             return result
             
