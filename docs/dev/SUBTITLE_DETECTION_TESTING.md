@@ -62,16 +62,18 @@ curl -X POST "https://openrouter.ai/api/v1/chat/completions" \
 
 ## 2. VirtualPyTest Host API Test
 
-Test subtitle detection through the host endpoint (requires host to be running):
+Test subtitle detection through the host endpoint (requires host to be running and local image path):
 
 ```bash
 curl -X POST "https://virtualpytest.com/host/verification/video/detectSubtitlesAI" \
   -H "Content-Type: application/json" \
   -d '{
     "device_id": "device2",
-    "image_source_url": "https://pub-604f1a4ce32747778c6d5ac5e3100217.r2.dev/script-reports/stb/fullzap_20250902_20250902184621/capture_20250902184533.jpg"
+    "image_source_url": "/var/www/html/stream/capture1/captures/capture_20250902184533.jpg"
   }'
 ```
+
+**Note**: Host endpoint requires local file paths or URLs that can be converted to local paths with `/host/` in the path.
 
 **Expected Response:**
 ```json
@@ -250,9 +252,41 @@ chmod +x test_subtitle_detection.sh
 - **Host API**: ~2-3 seconds (includes processing overhead)
 - **Server API**: ~3-4 seconds (includes proxy overhead)
 
+## Root Cause Analysis & Fix
+
+### The Problem
+The VirtualPyTest implementation was failing because it switched from a **JSON structured prompt** to a **natural language prompt**:
+
+- **Direct OpenRouter** (✅ WORKS): `"Analyze this image for subtitles. Respond with JSON: {...}"`
+- **VirtualPyTest Before Fix** (❌ FAILED): `"Look at this image and tell me if you can see any subtitles..."`
+
+### The Solution
+Implemented a **fallback approach** in `backend_core/src/controllers/verification/video_ai_helpers.py`:
+
+1. **Primary**: Try JSON structured prompt (same as successful direct test)
+2. **Fallback**: If JSON parsing fails, use natural language parsing
+
+```python
+# Primary: JSON structured prompt
+prompt = "Analyze this image for subtitles. Respond with JSON: {\"subtitles_detected\": true/false, \"extracted_text\": \"text or empty\", \"detected_language\": \"language or unknown\", \"confidence\": 0.0-1.0}"
+
+# Try JSON parsing first
+try:
+    ai_result = json.loads(json_content)
+    # Extract structured data...
+except json.JSONDecodeError:
+    # Fallback to natural language parsing
+    extracted_text, detected_language, confidence = self.parse_natural_language_response(content)
+```
+
+### Git History
+- **Original**: Used JSON structured prompt (worked)
+- **NLD Change** (dddbfc6c): Switched to natural language prompt (broke)
+- **Current Fix**: JSON-first with natural language fallback (robust)
+
 ## Notes
 
 - The direct OpenRouter API test confirmed subtitle detection works correctly
 - The test image contains the subtitle: "lets you browse like Chrome, but it blocks cookies and ads"
-- If VirtualPyTest endpoints fail but OpenRouter works, check the implementation in `video_ai_helpers.py`
+- The fix restores the original JSON approach while keeping natural language as fallback
 - Always test with the direct API first to isolate issues
