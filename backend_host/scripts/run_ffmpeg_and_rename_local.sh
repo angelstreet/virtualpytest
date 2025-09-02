@@ -88,7 +88,7 @@ start_grabber() {
     FFMPEG_CMD="/usr/bin/ffmpeg -y -re -fflags nobuffer+genpts -probesize 32 -analyzeduration 0 -avioflags direct \
       -flags low_delay -strict -2 -thread_queue_size 32 \
       -fix_sub_duration -f v4l2 -input_format mjpeg -video_size 1280x720 -framerate $input_fps -i $source \
-      -f alsa -thread_queue_size 128 -async 1 -i \"$audio_device\" \
+      -f alsa -thread_queue_size 512 -async 1 -i \"$audio_device\" \
       -filter_complex \"[0:v]split=3[stream][capture][thumb];[stream]scale=640:360[streamout];[capture]fps=5[captureout];[thumb]fps=5,scale=320:180[thumbout]\" \
       -map \"[streamout]\" -map 1:a \
       -c:v libx264 -preset ultrafast -tune zerolatency -crf 30 -maxrate 400k -bufsize 800k -force_key_frames \"expr:gte(t,n_forced*0.5)\" \
