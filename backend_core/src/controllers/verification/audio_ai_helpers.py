@@ -205,7 +205,7 @@ class AudioAIHelpers:
             merged_path = os.path.join(temp_dir, merged_filename)
             
             # Build ffmpeg command for TS concatenation with safe flags
-            cmd = ['ffmpeg', '-y', '-safe', '0']  # -safe 0 to handle non-standard filenames
+            cmd = ['ffmpeg', '-y'] 
             
             # Add all input files
             for ts in ts_files:
