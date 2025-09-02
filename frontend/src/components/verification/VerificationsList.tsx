@@ -59,14 +59,14 @@ export const VerificationsList: React.FC<VerificationsListProps> = React.memo(
       if (!modelReferences || Object.keys(modelReferences).length === 0) return;
       
       let hasChanges = false;
-      const resolvedVerifications = verifications.map((verification, index) => {
+      const resolvedVerifications = verifications.map((verification) => {
         const params = verification.params || {};
-        const referenceName = params.reference_name || params.image_path;
+        const referenceName = (params as any).reference_name || (params as any).image_path;
         
         // If verification has a reference name but potentially wrong area, auto-resolve it
         if (referenceName && modelReferences[referenceName]) {
           const selectedRef = modelReferences[referenceName];
-          const currentArea = params.area;
+          const currentArea = (params as any).area;
           const dbArea = selectedRef.area;
           
           // Check if areas are different (need resolution)
@@ -99,7 +99,7 @@ export const VerificationsList: React.FC<VerificationsListProps> = React.memo(
       });
       
       if (hasChanges) {
-        onVerificationsChange(resolvedVerifications);
+        onVerificationsChange(resolvedVerifications as Verification[]);
       }
     }, [verifications, modelReferences, onVerificationsChange]);
     const [passCondition, setPassCondition] = useState<'all' | 'any'>('all');

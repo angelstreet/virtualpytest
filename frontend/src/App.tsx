@@ -34,7 +34,7 @@ const UserInterface = React.lazy(() => import('./pages/UserInterface'));
 const TestCaseEditor = React.lazy(() => import('./pages/TestCaseEditor'));
 const NavigationEditor = React.lazy(() => import('./pages/NavigationEditor'));
 const RemoteTestPage = React.lazy(() => import('./pages/RemoteTestPage'));
-const Notifications = React.lazy(() => import('./pages/Notifications'));
+const Notifications = React.lazy(() => import('./pages/NotificationsMock'));
 
 // 404 Not Found component
 const NotFound: React.FC = () => {

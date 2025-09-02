@@ -26,8 +26,6 @@ const RecContent: React.FC = () => {
     avDevices,
     isLoading,
     error,
-    initializeBaseUrl,
-    generateThumbnailUrl,
     restartStreams,
     isRestarting,
   } = useRec();
@@ -200,8 +198,6 @@ const RecContent: React.FC = () => {
               <RecHostPreview
                 host={host}
                 device={device}
-                initializeBaseUrl={initializeBaseUrl}
-                generateThumbnailUrl={generateThumbnailUrl}
               />
             </Grid>
           ))}

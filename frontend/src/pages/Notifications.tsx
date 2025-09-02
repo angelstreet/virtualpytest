@@ -39,20 +39,12 @@ import {
 import React, { useState, useEffect } from 'react';
 
 import { useNotifications } from '../hooks/pages/useNotifications';
-import {
-  NotificationIntegration,
-  NotificationRule,
-  NotificationHistory,
-} from '../types/pages/Notifications_Types';
 
 const Notifications: React.FC = () => {
   const {
     integrations,
     rules,
     history,
-    loadIntegrations,
-    loadRules,
-    loadHistory,
     deleteIntegration,
     deleteRule,
     testIntegration,
@@ -62,22 +54,24 @@ const Notifications: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState(0);
 
-  // Load data on component mount
+  // Load data on component mount - DISABLED FOR FRONTEND-ONLY VERSION
   useEffect(() => {
-    const loadData = async () => {
-      try {
-        await Promise.all([
-          loadIntegrations(),
-          loadRules(),
-          loadHistory(),
-        ]);
-      } catch (err) {
-        console.error('[@component:Notifications] Error loading data:', err);
-      }
-    };
-
-    loadData();
-  }, [loadIntegrations, loadRules, loadHistory]);
+    // TODO: Enable when backend is ready
+    // const loadData = async () => {
+    //   try {
+    //     await Promise.all([
+    //       loadIntegrations(),
+    //       loadRules(),
+    //       loadHistory(),
+    //     ]);
+    //   } catch (err) {
+    //     console.error('[@component:Notifications] Error loading data:', err);
+    //   }
+    // };
+    // loadData();
+    
+    console.log('[@component:Notifications] Frontend-only mode - API calls disabled');
+  }, []);
 
   // Helper functions
   const getIntegrationIcon = (type: string) => {
