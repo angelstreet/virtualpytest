@@ -2,25 +2,32 @@
 
 This document provides easy-to-use commands for testing subtitle detection using different methods.
 
-## Test Image
-- **URL**: https://pub-604f1a4ce32747778c6d5ac5e3100217.r2.dev/script-reports/stb/fullzap_20250902_20250902184621/capture_20250902184533.jpg
-- **Expected Result**: Contains subtitle text "lets you browse like Chrome, but it blocks cookies and ads"
+## 🚨 **TESTING WORKFLOW - ALWAYS FOLLOW THIS ORDER**
 
-## 1. Direct OpenRouter API Test
+1. **FIRST**: Test OpenRouter API directly to verify API key/quota
+2. **SECOND**: Test VirtualPyTest Host API debug endpoint
+3. **THIRD**: Investigate specific issues if either fails
 
-### Step 1: Download and encode test image
+## Test Images
+- **Primary**: https://pub-604f1a4ce32747778c6d5ac5e3100217.r2.dev/script-reports/stb/fullzap_20250902_20250902184621/capture_20250902184533.jpg
+  - **Expected Result**: Contains subtitle text "lets you browse like Chrome, but it blocks cookies and ads"
+- **Alternative**: Any public image URL with visible subtitles
+
+## 1. 🔥 **STEP 1: Direct OpenRouter API Test (ALWAYS DO FIRST)**
+
+**⚠️ CRITICAL**: Always test this first to verify API key, account status, and quota before debugging VirtualPyTest issues.
+
+### Quick Test Command
 ```bash
 # Download test image
 curl -o /tmp/test_subtitle_image.jpg "https://pub-604f1a4ce32747778c6d5ac5e3100217.r2.dev/script-reports/stb/fullzap_20250902_20250902184621/capture_20250902184533.jpg"
 
 # Convert to base64
 base64 -i /tmp/test_subtitle_image.jpg > /tmp/test_image_b64.txt
-```
 
-### Step 2: Direct OpenRouter API call
-```bash
-curl -X POST "https://openrouter.ai/api/v1/chat/completions" \
-  -H "Authorization: Bearer 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" \
+# Test OpenRouter API directly (load API key from .env)
+source .env && curl -X POST "https://openrouter.ai/api/v1/chat/completions" \
+  -H "Authorization: Bearer $OPENROUTER_API_KEY" \
   -H "Content-Type: application/json" \
   -H "HTTP-Referer: https://virtualpytest.com" \
   -H "X-Title: VirtualPyTest" \
@@ -60,30 +67,42 @@ curl -X POST "https://openrouter.ai/api/v1/chat/completions" \
 }
 ```
 
-## 2. VirtualPyTest Host API Test
+## 2. 🎯 **STEP 2: VirtualPyTest Host API Debug Test**
 
-Test subtitle detection through the host endpoint (requires host to be running and local image path):
+**✅ ONLY DO THIS AFTER STEP 1 PASSES**
+
+### New Debug Endpoint (Recommended)
+This endpoint can handle public URLs directly:
 
 ```bash
-curl -X POST "https://virtualpytest.com/host/verification/video/detectSubtitlesAI" \
+curl -X POST "https://virtualpytest.com/host/verification/video/debugSubtitlesAI" \
   -H "Content-Type: application/json" \
   -d '{
-    "device_id": "device2",
-    "image_source_url": "/var/www/html/stream/capture1/captures/capture_20250902184533.jpg"
+    "device_id": "device1",
+    "image_url": "https://pub-604f1a4ce32747778c6d5ac5e3100217.r2.dev/script-reports/stb/fullzap_20250902_20250902184621/capture_20250902184533.jpg"
   }'
 ```
-
-**Note**: Host endpoint requires local file paths or URLs that can be converted to local paths with `/host/` in the path.
 
 **Expected Response:**
 ```json
 {
   "success": true,
   "subtitles_detected": true,
-  "extracted_text": "lets you browse like Chrome, but it blocks cookies and ads",
+  "combined_extracted_text": "lets you browse like Chrome, but it blocks cookies and ads",
   "detected_language": "English",
-  "confidence": 0.95,
-  "execution_time_ms": 1250
+  "execution_time_ms": 3618,
+  "debug_info": {
+    "original_url": "https://pub-604f1a4ce32747778c6d5ac5e3100217.r2.dev/script-reports/stb/fullzap_20250902_20250902184621/capture_20250902184533.jpg",
+    "downloaded_size": 71549
+  },
+  "results": [
+    {
+      "confidence": 0.95,
+      "extracted_text": "lets you browse like Chrome, but it blocks cookies and ads",
+      "has_subtitles": true,
+      "detected_language": "English"
+    }
+  ]
 }
 ```
 
@@ -224,18 +243,43 @@ chmod +x test_subtitle_detection.sh
 ./test_subtitle_detection.sh "https://pub-604f1a4ce32747778c6d5ac5e3100217.r2.dev/script-reports/stb/fullzap_20250902_20250902184621/capture_20250902184533.jpg"
 ```
 
-## Troubleshooting
+## 🚨 **Troubleshooting Guide**
+
+### ⚠️ **CRITICAL: 401 "User not found" Error**
+
+**If you get `{"error":{"message":"User not found.","code":401}}` from OpenRouter:**
+
+1. **API Key Issues**: 
+   - Invalid or expired API key
+   - Check `.env` file has correct `OPENROUTER_API_KEY`
+   - Verify key format: `sk-or-v1-...`
+
+2. **Account Issues**:
+   - OpenRouter account suspended or deactivated
+   - Payment method expired
+   - Account verification required
+
+3. **Quota/Credit Issues**:
+   - No remaining credits on account
+   - Monthly/daily limits exceeded
+   - Free tier exhausted
+
+**✅ SOLUTION**: Always test Step 1 (Direct OpenRouter) first to isolate the issue!
 
 ### Common Issues:
 
 1. **API Key Issues**: Make sure the API key is valid and has sufficient credits
-2. **Image Format**: Ensure image is in JPEG/PNG format
+2. **Image Format**: Ensure image is in JPEG/PNG format  
 3. **Base64 Encoding**: Verify base64 encoding is correct (no newlines in JSON)
 4. **Network Issues**: Check internet connectivity and firewall settings
+5. **Device ID**: Use `device1` for host API (not `device2`)
 
 ### Error Responses:
 
 ```json
+// 401 - API key/account/quota issues
+{"error": {"message": "User not found", "code": 401}}
+
 // Missing API key
 {"error": {"message": "Invalid API key", "type": "invalid_request_error"}}
 
@@ -244,6 +288,12 @@ chmod +x test_subtitle_detection.sh
 
 // Invalid image format
 {"error": {"message": "Invalid image format", "type": "invalid_request_error"}}
+
+// Host API - No controller
+{"error": "No verification_video controller found for device device2", "success": false}
+
+// Host API - Image download failed
+{"error": "Failed to download image: 404 Client Error", "success": false}
 ```
 
 ## Performance Comparison
@@ -284,9 +334,38 @@ except json.JSONDecodeError:
 - **NLD Change** (dddbfc6c): Switched to natural language prompt (broke)
 - **Current Fix**: JSON-first with natural language fallback (robust)
 
+## 📋 **Quick Reference Summary**
+
+### ✅ **Working Test Commands**
+
+**Step 1 - Direct OpenRouter Test:**
+```bash
+source .env && curl -X POST "https://openrouter.ai/api/v1/chat/completions" \
+  -H "Authorization: Bearer $OPENROUTER_API_KEY" \
+  -H "Content-Type: application/json" \
+  -H "HTTP-Referer: https://virtualpytest.com" \
+  -H "X-Title: VirtualPyTest" \
+  -d '{"model": "qwen/qwen-2.5-vl-7b-instruct", "messages": [{"role": "user", "content": [{"type": "text", "text": "Analyze this image for subtitles. Respond with JSON: {\"subtitles_detected\": true/false, \"extracted_text\": \"text or empty\", \"detected_language\": \"language or unknown\", \"confidence\": 0.0-1.0}"}, {"type": "image_url", "image_url": {"url": "data:image/jpeg;base64,'"$(base64 -i /tmp/test_subtitle_image.jpg)"'"}}]}], "max_tokens": 300, "temperature": 0.0}'
+```
+
+**Step 2 - Host Debug Endpoint:**
+```bash
+curl -X POST "https://virtualpytest.com/host/verification/video/debugSubtitlesAI" \
+  -H "Content-Type: application/json" \
+  -d '{"device_id": "device1", "image_url": "https://pub-604f1a4ce32747778c6d5ac5e3100217.r2.dev/script-reports/stb/fullzap_20250902_20250902184621/capture_20250902184533.jpg"}'
+```
+
+### 🎯 **Key Points**
+- **Always test OpenRouter directly first** - isolates API key/quota issues
+- **Use device1** for host API (not device2)
+- **401 errors** = API key, account, or quota problems
+- **New debug endpoint** handles public URLs automatically
+- **Expected subtitle**: "lets you browse like Chrome, but it blocks cookies and ads"
+
 ## Notes
 
 - The direct OpenRouter API test confirmed subtitle detection works correctly
-- The test image contains the subtitle: "lets you browse like Chrome, but it blocks cookies and ads"
+- The test image contains the subtitle: "lets you browse like Chrome, but it blocks cookies and ads"  
 - The fix restores the original JSON approach while keeping natural language as fallback
 - Always test with the direct API first to isolate issues
+- New debug endpoint `/debugSubtitlesAI` simplifies testing with public URLs
