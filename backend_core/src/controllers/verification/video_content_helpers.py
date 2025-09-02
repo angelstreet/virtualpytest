@@ -709,7 +709,7 @@ class VideoContentHelpers:
             
             # Step 2: Load images for freeze analysis
             image_paths = [img['path'] for img in image_data]
-            freeze_results = self.detect_freeze_in_images(image_paths, freeze_threshold=0.1)
+            freeze_results = self.detect_freeze_in_images(image_paths, freeze_threshold=0.05)
             
             if not freeze_results.get('success', False):
                 return {
