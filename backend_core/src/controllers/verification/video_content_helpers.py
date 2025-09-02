@@ -237,20 +237,41 @@ class VideoContentHelpers:
                 
                 print(f"VideoContent[{self.device_name}]: Frame comparison {img1['filename']} vs {img2['filename']}: diff={mean_diff:.2f}")
             
-            # Determine overall freeze status
-            # Frames are considered frozen if ALL comparisons show very small differences
-            all_frozen = all(comp['is_frozen'] for comp in comparisons)
+            # Determine overall freeze status - look for freeze SEQUENCES (like blackscreen sequences)
+            # For zapping detection, we need consecutive frozen frames, not ALL frames frozen
             frozen_count = sum(1 for comp in comparisons if comp['is_frozen'])
+            
+            # Find freeze sequences - look for consecutive frozen frames
+            freeze_sequence_detected = False
+            max_consecutive_frozen = 0
+            current_consecutive = 0
+            
+            for comp in comparisons:
+                if comp['is_frozen']:
+                    current_consecutive += 1
+                    max_consecutive_frozen = max(max_consecutive_frozen, current_consecutive)
+                else:
+                    current_consecutive = 0
+            
+            # Detect freeze if we have at least 2 consecutive frozen frames (like blackscreen detection)
+            freeze_sequence_detected = max_consecutive_frozen >= 2
+            
+            # For zapping, freeze sequence = freeze detected (like blackscreen sequence = blackscreen detected)
+            freeze_detected = freeze_sequence_detected
+            
+            print(f"VideoContent[{self.device_name}]: Freeze analysis - {frozen_count}/{len(comparisons)} frozen comparisons, max consecutive: {max_consecutive_frozen}, sequence detected: {freeze_sequence_detected}")
             
             overall_result = {
                 'success': True,
-                'freeze_detected': all_frozen,
+                'freeze_detected': freeze_detected,
+                'freeze_sequence_detected': freeze_sequence_detected,
+                'max_consecutive_frozen': max_consecutive_frozen,
                 'analyzed_images': len(images),
                 'frame_comparisons': len(comparisons),
                 'frozen_comparisons': frozen_count,
                 'freeze_threshold': freeze_threshold,
                 'comparisons': comparisons,
-                'confidence': 0.9 if all_frozen else 0.1,
+                'confidence': 0.9 if freeze_detected else 0.1,
                 'analysis_type': 'freeze_detection',
                 'timestamp': datetime.now().isoformat()
             }
@@ -632,6 +653,205 @@ class VideoContentHelpers:
                 'strict_mode': strict_mode,
                 'message': error_msg
             }
+
+    # =============================================================================
+    # Freeze-based Zapping Detection
+    # =============================================================================
+    
+    def detect_freeze_zapping_sequence(self, folder_path: str, key_release_timestamp: float, 
+                                      analysis_rectangle: Dict[str, int] = None, max_images: int = 10, 
+                                      banner_region: Dict[str, int] = None) -> Dict[str, Any]:
+        """
+        Detect freeze-based zapping sequence (similar to blackscreen zapping but for freeze frames).
+        
+        Args:
+            folder_path: Path to folder containing captured images
+            key_release_timestamp: Timestamp when zapping key was released (Unix timestamp)
+            analysis_rectangle: Rectangle to analyze for freeze detection
+            max_images: Maximum number of images to analyze (default: 10)
+            banner_region: Region where banner appears for AI analysis (optional)
+            
+        Returns:
+            Dictionary with freeze zapping analysis results
+        """
+        try:
+            print(f"VideoContent[{self.device_name}]: Starting freeze-based zapping detection in {folder_path}")
+            
+            # Convert Unix timestamp to capture format for display consistency
+            capture_format_timestamp = self._convert_unix_to_capture_format(key_release_timestamp)
+            print(f"VideoContent[{self.device_name}]: Key release timestamp: {capture_format_timestamp} (Unix: {key_release_timestamp})")
+            
+            # Step 1: Get images after timestamp using direct file scanning
+            image_data = self._get_images_after_timestamp(folder_path, key_release_timestamp, max_images)
+            
+            if not image_data:
+                return {
+                    'success': False,
+                    'error': 'No images found after key release timestamp',
+                    'freeze_zapping_detected': False,
+                    'freeze_duration': 0.0,
+                    'debug_images': [],
+                    'analysis_type': 'freeze_zapping_detection'
+                }
+            
+            print(f"VideoContent[{self.device_name}]: Found {len(image_data)} images to analyze for freeze zapping")
+            
+            # Step 2: Load images for freeze analysis
+            image_paths = [img['path'] for img in image_data]
+            freeze_results = self.detect_freeze_in_images(image_paths, freeze_threshold=1.0)
+            
+            if not freeze_results.get('success', False):
+                return {
+                    'success': False,
+                    'error': f"Freeze analysis failed: {freeze_results.get('error', 'Unknown error')}",
+                    'freeze_zapping_detected': False,
+                    'freeze_duration': 0.0,
+                    'analysis_type': 'freeze_zapping_detection'
+                }
+            
+            # Step 3: Find freeze sequence (similar to blackscreen sequence)
+            freeze_sequence = self._find_freeze_sequence(freeze_results.get('comparisons', []))
+            
+            # Step 4: Calculate durations
+            freeze_duration = 0.0
+            zapping_duration = 0.0
+            
+            if freeze_sequence['freeze_zapping_detected']:
+                # Calculate freeze duration based on consecutive frozen frames
+                max_consecutive = freeze_results.get('max_consecutive_frozen', 0)
+                freeze_duration = max_consecutive * 0.2  # Approximate 0.2s per frame
+                
+                # Zapping duration: from first image to freeze end
+                first_image_time = image_data[0]['timestamp']
+                if freeze_sequence.get('freeze_end_index') is not None:
+                    freeze_end_time = image_data[freeze_sequence['freeze_end_index']]['timestamp']
+                    zapping_duration = freeze_end_time - first_image_time
+                else:
+                    # Freeze didn't end in our window
+                    last_image_time = image_data[-1]['timestamp']
+                    zapping_duration = last_image_time - first_image_time
+            
+            # Step 5: Extract channel information (if freeze ended)
+            channel_info = {
+                'channel_name': '',
+                'channel_number': '',
+                'program_name': '',
+                'start_time': '',
+                'end_time': '',
+                'confidence': 0.0
+            }
+            
+            if freeze_sequence['freeze_zapping_detected'] and freeze_sequence.get('freeze_end_index') is not None:
+                if freeze_sequence['freeze_end_index'] < len(image_data) - 1:
+                    channel_info = self._extract_channel_info_from_images(
+                        image_data, freeze_sequence['freeze_end_index'], banner_region
+                    )
+            
+            # Compile complete results
+            overall_result = {
+                'success': True,
+                'freeze_zapping_detected': freeze_sequence['freeze_zapping_detected'],
+                'freeze_duration': round(freeze_duration, 2),
+                'zapping_duration': round(zapping_duration, 2),
+                'freeze_start_image': self._get_freeze_start_image(image_data, freeze_sequence),
+                'freeze_end_image': self._get_freeze_end_image(image_data, freeze_sequence),
+                'first_content_after_freeze': self._get_first_content_after_freeze(image_data, freeze_sequence),
+                'channel_info': channel_info,
+                'analyzed_images': len(image_data),
+                'max_consecutive_frozen': freeze_results.get('max_consecutive_frozen', 0),
+                'frozen_comparisons': freeze_results.get('frozen_comparisons', 0),
+                'frame_comparisons': freeze_results.get('frame_comparisons', 0),
+                'details': {
+                    'freeze_results': freeze_results,
+                    'freeze_sequence': freeze_sequence,
+                    'timestamps': {
+                        'first_image': image_data[0]['timestamp'] if image_data else None,
+                        'last_image': image_data[-1]['timestamp'] if image_data else None
+                    }
+                },
+                'analysis_type': 'freeze_zapping_detection',
+                'timestamp': datetime.now().isoformat()
+            }
+            
+            print(f"VideoContent[{self.device_name}]: Freeze zapping detection complete - detected={freeze_sequence['freeze_zapping_detected']}, duration={freeze_duration}s")
+            return overall_result
+            
+        except Exception as e:
+            print(f"VideoContent[{self.device_name}]: Freeze zapping detection error: {e}")
+            return {
+                'success': False,
+                'error': f'Freeze zapping detection failed: {str(e)}',
+                'freeze_zapping_detected': False,
+                'freeze_duration': 0.0,
+                'analysis_type': 'freeze_zapping_detection'
+            }
+
+    def _find_freeze_sequence(self, comparisons: List[Dict]) -> Dict[str, Any]:
+        """
+        Find freeze start and end in the sequence of comparisons (similar to blackscreen sequence).
+        
+        Args:
+            comparisons: List of frame comparison results
+            
+        Returns:
+            Dictionary with freeze sequence information
+        """
+        freeze_start_index = None
+        freeze_end_index = None
+        freeze_images = []
+        
+        # Find all frozen comparisons
+        for i, comparison in enumerate(comparisons):
+            if comparison.get('is_frozen', False):
+                freeze_images.append(i)
+        
+        if not freeze_images:
+            return {
+                'freeze_start_index': None,
+                'freeze_end_index': None,
+                'freeze_zapping_detected': False
+            }
+        
+        # Find sequence boundaries
+        freeze_start_index = freeze_images[0]
+        print(f"VideoContent[{self.device_name}]: Freeze started at comparison {freeze_start_index}")
+        
+        # Look for freeze end (first non-frozen after start)
+        for i in range(freeze_start_index + 1, len(comparisons)):
+            comparison = comparisons[i]
+            if not comparison.get('is_frozen', False):
+                freeze_end_index = i
+                print(f"VideoContent[{self.device_name}]: Freeze ended at comparison {freeze_end_index}")
+                break
+        
+        freeze_zapping_detected = freeze_start_index is not None
+        
+        return {
+            'freeze_start_index': freeze_start_index,
+            'freeze_end_index': freeze_end_index,
+            'freeze_zapping_detected': freeze_zapping_detected
+        }
+
+    def _get_freeze_start_image(self, image_data: List[Dict], freeze_sequence: Dict[str, Any]) -> Optional[str]:
+        """Get the first freeze image filename."""
+        start_index = freeze_sequence.get('freeze_start_index')
+        if start_index is not None and start_index < len(image_data):
+            return image_data[start_index]['filename']
+        return None
+
+    def _get_freeze_end_image(self, image_data: List[Dict], freeze_sequence: Dict[str, Any]) -> Optional[str]:
+        """Get the last freeze image filename."""
+        end_index = freeze_sequence.get('freeze_end_index')
+        if end_index is not None and end_index > 0:
+            return image_data[end_index - 1]['filename']
+        return None
+
+    def _get_first_content_after_freeze(self, image_data: List[Dict], freeze_sequence: Dict[str, Any]) -> Optional[str]:
+        """Get the first content image after freeze."""
+        end_index = freeze_sequence.get('freeze_end_index')
+        if end_index is not None and end_index < len(image_data):
+            return image_data[end_index]['filename']
+        return None
 
     # =============================================================================
     # Zapping Detection
