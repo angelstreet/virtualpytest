@@ -765,12 +765,17 @@ class VideoContentHelpers:
                 'freeze_duration': round(freeze_duration, 2),
                 'zapping_duration': round(zapping_duration, 2),
                 
-                # Image sequence information (same field names as blackscreen detection)
+                # Image sequence information - using blackscreen field names for compatibility
+                # NOTE: Even for freeze detection, we use "blackscreen_*" field names so that
+                # the same reporting/thumbnail code can handle both blackscreen and freeze results
                 'first_image': image_data[0]['filename'] if image_data else None,
-                'blackscreen_start_image': self._get_freeze_start_image(image_data, freeze_sequence),
-                'blackscreen_end_image': self._get_freeze_end_image(image_data, freeze_sequence),
-                'first_content_after_blackscreen': self._get_first_content_after_freeze(image_data, freeze_sequence),
+                'blackscreen_start_image': self._get_freeze_start_image(image_data, freeze_sequence),  # Actually freeze start
+                'blackscreen_end_image': self._get_freeze_end_image(image_data, freeze_sequence),      # Actually freeze end
+                'first_content_after_blackscreen': self._get_first_content_after_freeze(image_data, freeze_sequence),  # Actually after freeze
                 'last_image': image_data[-1]['filename'] if image_data else None,
+                
+                # Debug images for analysis (all analyzed images for debugging) - same as blackscreen detection
+                'debug_images': [img['filename'] for img in image_data],
                 
                 'channel_info': channel_info,
                 'analyzed_images': len(image_data),

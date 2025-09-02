@@ -962,9 +962,10 @@ class ZapController:
                     "blackscreen_duration": freeze_duration,  # Keep same field name for compatibility
                     "zapping_duration": freeze_result.get('zapping_duration', 0.0),
                     "first_image": freeze_result.get('first_image'),
-                    "blackscreen_start_image": freeze_result.get('freeze_start_image'),
-                    "blackscreen_end_image": freeze_result.get('freeze_end_image'),
-                    "first_content_after_blackscreen": freeze_result.get('first_content_after_freeze'),
+                    # NOTE: freeze_result uses "blackscreen_*" field names for compatibility with reporting code
+                    "blackscreen_start_image": freeze_result.get('blackscreen_start_image'),  # Actually freeze start image
+                    "blackscreen_end_image": freeze_result.get('blackscreen_end_image'),      # Actually freeze end image
+                    "first_content_after_blackscreen": freeze_result.get('first_content_after_blackscreen'),  # Actually first content after freeze
                     "channel_detection_image": freeze_result.get('channel_detection_image'),
                     "last_image": freeze_result.get('last_image'),
                     "channel_info": freeze_result.get('channel_info', {}),
