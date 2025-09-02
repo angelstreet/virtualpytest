@@ -116,6 +116,7 @@ class AudioAIHelpers:
                     return []
             
             # NEW: Merge TS files first if more than one
+            merged_ts = None  # Track for cleanup
             if len(recent_files) > 1:
                 print(f"AudioAI[{self.device_name}]: Merging {len(recent_files)} TS segments into one file...")
                 merged_ts = self._merge_ts_files([f['path'] for f in recent_files])
@@ -169,6 +170,14 @@ class AudioAIHelpers:
                     print(f"AudioAI[{self.device_name}]: Error processing segment {i+1}: {e}")
                     continue
             
+            # NEW: Cleanup temporary merged TS if it was created
+            if merged_ts and os.path.exists(merged_ts):
+                try:
+                    os.unlink(merged_ts)
+                    print(f"AudioAI[{self.device_name}]: Cleaned up temporary merged TS: {os.path.basename(merged_ts)}")
+                except Exception as e:
+                    print(f"AudioAI[{self.device_name}]: Failed to clean up merged TS: {e}")
+            
             if not audio_files:
                 print(f"AudioAI[{self.device_name}]: No audio files extracted from HLS segments")
                 return []
@@ -178,6 +187,9 @@ class AudioAIHelpers:
             
         except Exception as e:
             print(f"AudioAI[{self.device_name}]: Error retrieving audio segments: {e}")
+            # Cleanup on error too
+            if merged_ts and os.path.exists(merged_ts):
+                os.unlink(merged_ts)
             return []
     
     # NEW: Helper method to merge multiple TS files
