@@ -173,13 +173,14 @@ class AudioAIHelpers:
     # AI-Powered Speech-to-Text Analysis
     # =============================================================================
     
-    def analyze_audio_segments_ai(self, audio_files: List[str], upload_to_r2: bool = True) -> Dict[str, Any]:
+    def analyze_audio_segments_ai(self, audio_files: List[str], upload_to_r2: bool = True, early_stop: bool = True) -> Dict[str, Any]:
         """
         AI-powered speech-to-text analysis for multiple audio segments.
         
         Args:
             audio_files: List of audio file paths to analyze
             upload_to_r2: Whether to upload audio files to R2 for traceability (default: True)
+            early_stop: Whether to stop processing after first successful speech detection (default: True)
             
         Returns:
             Dictionary with detailed AI audio analysis results including R2 URLs
@@ -211,6 +212,7 @@ class AudioAIHelpers:
             
             segment_results = []
             all_transcripts = []
+            early_stopped = False
             
             for i, audio_file in enumerate(audio_files):
                 try:
@@ -240,6 +242,14 @@ class AudioAIHelpers:
                     if transcript:
                         all_transcripts.append(transcript)
                         print(f"AudioAI[{self.device_name}]: Segment {i+1} transcript: '{transcript[:50]}{'...' if len(transcript) > 50 else ''}' (lang: {language}, conf: {confidence:.2f})")
+                        
+                        # Early stop optimization: if we found speech and language, no need to process more segments
+                        if early_stop and language != 'unknown' and confidence > 0.5:
+                            remaining_segments = len(audio_files) - (i + 1)
+                            if remaining_segments > 0:
+                                print(f"AudioAI[{self.device_name}]: ⚡ Early stop: Speech detected with language '{language}' (confidence: {confidence:.2f}), skipping {remaining_segments} remaining segment(s)")
+                                early_stopped = True
+                                break
                     else:
                         print(f"AudioAI[{self.device_name}]: Segment {i+1}: No speech detected")
                         
@@ -276,9 +286,10 @@ class AudioAIHelpers:
             
             # Create detection message
             if combined_transcript:
-                detection_message = f"Speech detected in {successful_segments}/{len(audio_files)} segments: '{combined_transcript[:100]}{'...' if len(combined_transcript) > 100 else ''}'"
+                early_stop_info = " (early stopped)" if early_stopped else ""
+                detection_message = f"Speech detected in {successful_segments}/{len(segment_results)} segments{early_stop_info}: '{combined_transcript[:100]}{'...' if len(combined_transcript) > 100 else ''}'"
             else:
-                detection_message = f"No speech detected in any of the {len(audio_files)} audio segments"
+                detection_message = f"No speech detected in any of the {len(segment_results)} audio segments"
             
             # Collect R2 URLs for traceability
             audio_urls = [result.get('audio_url') for result in segment_results if result.get('audio_url')]
@@ -286,7 +297,8 @@ class AudioAIHelpers:
             
             overall_result = {
                 'success': True,
-                'segments_analyzed': len(audio_files),
+                'segments_analyzed': len(segment_results),  # Use actual processed segments, not total files
+                'total_segments_available': len(audio_files),  # Track total segments available
                 'successful_segments': successful_segments,
                 'combined_transcript': combined_transcript,
                 'detected_language': detected_language,
@@ -295,13 +307,15 @@ class AudioAIHelpers:
                 'segments': segment_results,
                 'audio_urls': audio_urls,  # NEW: List of R2 URLs for traceability
                 'uploaded_segments': uploaded_count,  # NEW: Count of uploaded segments
+                'early_stopped': early_stopped,  # NEW: Track if processing was stopped early
                 'analysis_type': 'local_whisper_transcription',
                 'timestamp': datetime.now().isoformat()
             }
             
             # Log R2 upload summary
             if upload_to_r2:
-                print(f"AudioAI[{self.device_name}]: R2 Upload Summary: {uploaded_count}/{len(audio_files)} audio segments uploaded")
+                processed_info = f"{len(segment_results)}/{len(audio_files)}" if early_stopped else f"{len(audio_files)}"
+                print(f"AudioAI[{self.device_name}]: R2 Upload Summary: {uploaded_count} audio segments uploaded (processed {processed_info} segments)")
                 if audio_urls:
                     print(f"AudioAI[{self.device_name}]: Audio files available at: audio-analysis/{self.device_name.replace(' ', '_').lower()}/")
             

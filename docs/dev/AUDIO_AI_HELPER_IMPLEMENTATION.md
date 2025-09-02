@@ -12,14 +12,16 @@ The Audio AI Helper system extends VirtualPyTest's analysis capabilities by addi
 - **Local Whisper**: Replaced OpenRouter API with local Whisper models
 - **Tiny Model**: Uses ~39MB "tiny" model instead of 1.5GB large models
 - **Reduced Segments**: Analyzes 2 segments instead of 3 (33% faster)
+- **Early Stop Optimization**: Stops processing after first successful speech detection (up to 50% faster)
 - **Model Caching**: Loads model once and reuses for all iterations
 - **HLS Integration**: Properly extracts audio from `.ts` HLS segments
 
 **Performance Gains**:
-- **Processing Time**: 1-2 seconds instead of 6+ seconds (4x faster)
+- **Processing Time**: 0.5-2 seconds instead of 6+ seconds (up to 8x faster with early stop)
 - **Network Independent**: No API calls or internet dependency
 - **Resource Efficient**: 40x smaller model size
 - **Reliability**: No API timeouts or rate limits
+- **Smart Processing**: Stops immediately when speech + language detected (saves 50% processing time)
 
 ## 🏗️ Architecture
 
@@ -85,16 +87,23 @@ test_scripts/
 ffmpeg -y -i segment_001.ts -vn -acodec pcm_s16le -ar 16000 -ac 1 audio_segment.wav
 ```
 
-##### `analyze_audio_segments_ai(audio_files, upload_to_r2=True)`
-- **Purpose**: Local Whisper-powered speech-to-text analysis with R2 storage
+##### `analyze_audio_segments_ai(audio_files, upload_to_r2=True, early_stop=True)`
+- **Purpose**: Local Whisper-powered speech-to-text analysis with R2 storage and early stop optimization
 - **Process**:
   1. Loads cached Whisper tiny model (39MB, loads once)
   2. Transcribes audio files locally using Whisper
-  3. Detects language and calculates confidence scores
-  4. **NEW**: Uploads audio files to R2 for traceability and debugging
-  5. Combines results from all segments
-  6. Calculates success rates and performance metrics
-  7. Provides R2 URLs for each analyzed segment
+  3. **NEW**: Early stop optimization - stops processing after first successful speech detection with confidence > 0.5
+  4. Detects language and calculates confidence scores
+  5. Uploads audio files to R2 for traceability and debugging
+  6. Combines results from all segments
+  7. Calculates success rates and performance metrics
+  8. Provides R2 URLs for each analyzed segment
+
+**Early Stop Logic**:
+- If `early_stop=True` (default), processing stops after first segment with speech + language detection
+- Requires confidence > 0.5 and language != 'unknown' to trigger early stop
+- Logs remaining segments skipped for transparency
+- Can save up to 50% processing time when speech is detected in first segment
 
 ##### `transcribe_audio_with_ai(audio_file)`
 - **Purpose**: Single audio file transcription using local Whisper

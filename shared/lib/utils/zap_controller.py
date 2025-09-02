@@ -638,9 +638,9 @@ class ZapController:
                     "detected_language": "unknown"
                 }
             
-            # Analyze audio segments with AI (with R2 upload enabled)
+            # Analyze audio segments with AI (with R2 upload enabled and early stop optimization)
             print(f"🎤 [ZapController] Analyzing {len(audio_files)} audio segments with AI...")
-            audio_analysis = audio_ai.analyze_audio_segments_ai(audio_files, upload_to_r2=True)
+            audio_analysis = audio_ai.analyze_audio_segments_ai(audio_files, upload_to_r2=True, early_stop=True)
             
             if not audio_analysis.get('success'):
                 return {
@@ -657,9 +657,13 @@ class ZapController:
             segments_analyzed = audio_analysis.get('segments_analyzed', 0)
             
             # Log results in the same format as subtitle detection
+            early_stopped = audio_analysis.get('early_stopped', False)
+            total_available = audio_analysis.get('total_segments_available', segments_analyzed)
+            
             if speech_detected and combined_transcript:
                 transcript_preview = combined_transcript[:100] + "..." if len(combined_transcript) > 100 else combined_transcript
-                print(f"🎤 [ZapController] Audio speech detected: '{transcript_preview}' (Language: {detected_language}, Confidence: {confidence:.2f})")
+                early_info = f" (early stopped after {segments_analyzed}/{total_available})" if early_stopped else ""
+                print(f"🎤 [ZapController] Audio speech detected{early_info}: '{transcript_preview}' (Language: {detected_language}, Confidence: {confidence:.2f})")
             else:
                 print(f"🎤 [ZapController] No speech detected in {segments_analyzed} audio segments")
             
@@ -670,13 +674,15 @@ class ZapController:
                 "detected_language": detected_language,
                 "confidence": confidence,
                 "segments_analyzed": segments_analyzed,
+                "total_segments_available": total_available,
                 "successful_segments": audio_analysis.get('successful_segments', 0),
                 "detection_message": audio_analysis.get('detection_message', ''),
                 "segments": audio_analysis.get('segments', []),
                 "audio_urls": audio_analysis.get('audio_urls', []),  # R2 URLs for traceability
                 "uploaded_segments": audio_analysis.get('uploaded_segments', 0),
+                "early_stopped": early_stopped,  # Track early stopping for reporting
                 "analysis_type": "audio_speech_analysis",
-                "message": f"Audio analysis completed: {audio_analysis.get('successful_segments', 0)}/{segments_analyzed} segments with speech"
+                "message": f"Audio analysis completed: {audio_analysis.get('successful_segments', 0)}/{segments_analyzed} segments with speech{' (early stopped)' if early_stopped else ''}"
             }
             
         except Exception as e:
