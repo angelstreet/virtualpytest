@@ -115,7 +115,18 @@ class AudioAIHelpers:
                     print(f"AudioAI[{self.device_name}]: Checked folder: {capture_folder}")
                     return []
             
-            # Extract audio from HLS segment files
+            # NEW: Merge TS files first if more than one
+            if len(recent_files) > 1:
+                print(f"AudioAI[{self.device_name}]: Merging {len(recent_files)} TS segments into one file...")
+                merged_ts = self._merge_ts_files([f['path'] for f in recent_files])
+                if merged_ts:
+                    # Replace recent_files with single merged file
+                    recent_files = [{'path': merged_ts, 'filename': 'merged.ts', 'mtime': time.time()}]
+                    print(f"AudioAI[{self.device_name}]: Merged successfully into: {os.path.basename(merged_ts)}")
+                else:
+                    print(f"AudioAI[{self.device_name}]: Failed to merge TS segments, proceeding with individual files")
+            
+            # Extract audio from (merged) TS file(s)
             audio_files = []
             temp_dir = tempfile.gettempdir()
             
@@ -168,6 +179,56 @@ class AudioAIHelpers:
         except Exception as e:
             print(f"AudioAI[{self.device_name}]: Error retrieving audio segments: {e}")
             return []
+    
+    # NEW: Helper method to merge multiple TS files
+    def _merge_ts_files(self, ts_files: List[str]) -> Optional[str]:
+        """Merge multiple TS files into a single TS file using ffmpeg."""
+        if not ts_files:
+            return None
+        
+        try:
+            temp_dir = tempfile.gettempdir()
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S_%f')[:-3]
+            merged_filename = f"merged_ts_{timestamp}.ts"
+            merged_path = os.path.join(temp_dir, merged_filename)
+            
+            # Build ffmpeg command for TS concatenation with safe flags
+            cmd = ['ffmpeg', '-y', '-safe', '0']  # -safe 0 to handle non-standard filenames
+            
+            # Add all input files
+            for ts in ts_files:
+                cmd.extend(['-i', ts])
+            
+            # Build filter_complex for concat
+            inputs = ''.join(f'[{i}:v][{i}:a]' for i in range(len(ts_files)))
+            cmd.extend([
+                '-filter_complex', f'{inputs}concat=n={len(ts_files)}:v=1:a=1[v][a]',
+                '-map', '[v]',
+                '-map', '[a]',
+                '-c:v', 'copy',  # Copy video codec
+                '-c:a', 'copy',  # Copy audio codec
+                merged_path
+            ])
+            
+            # Run ffmpeg with debug output
+            print(f"AudioAI[{self.device_name}]: Running merge command: {' '.join(cmd)}")
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+            
+            if result.returncode == 0:
+                if os.path.exists(merged_path) and os.path.getsize(merged_path) > 1024:
+                    print(f"AudioAI[{self.device_name}]: Merge successful (size: {os.path.getsize(merged_path)} bytes)")
+                    return merged_path
+                else:
+                    print(f"AudioAI[{self.device_name}]: Merged file is empty or too small")
+            else:
+                print(f"AudioAI[{self.device_name}]: ffmpeg error: {result.stderr}")
+                print(f"AudioAI[{self.device_name}]: ffmpeg stdout: {result.stdout}")
+            
+            return None
+                
+        except Exception as e:
+            print(f"AudioAI[{self.device_name}]: Error merging TS files: {e}")
+            return None
     
     # =============================================================================
     # AI-Powered Speech-to-Text Analysis
