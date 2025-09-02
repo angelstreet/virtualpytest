@@ -20,12 +20,7 @@ def resolve_reference_area_backend(reference_name: str, device_model: str, team_
         Dict with area coordinates or None if not found
     """
     try:
-        # Get team_id if not provided
-        if not team_id:
-            from shared.lib.utils.app_utils import get_team_id, DEFAULT_TEAM_ID
-            team_id = get_team_id()
-            
-        # Fallback to DEFAULT_TEAM_ID if get_team_id() returns None (same as old working code)
+        # Get team_id if not provided - use DEFAULT_TEAM_ID directly for script context
         if not team_id:
             from shared.lib.utils.app_utils import DEFAULT_TEAM_ID
             team_id = DEFAULT_TEAM_ID
