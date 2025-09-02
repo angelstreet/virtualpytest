@@ -69,7 +69,7 @@ class VideoAIHelpers:
             # Use centralized AI utilities
             from shared.lib.utils.ai_utils import call_vision_ai
             
-            prompt = "Look at this image and tell me if you can see any subtitles, captions, or text overlays. If you find subtitles, tell me exactly what text you can read. If there are no subtitles, just say 'No subtitles found'."
+            prompt = "Analyze this image for subtitles. Respond with JSON: {\"subtitles_detected\": true/false, \"extracted_text\": \"text or empty\", \"detected_language\": \"language or unknown\", \"confidence\": 0.0-1.0}"
             
             print(f"VideoAI[{self.device_name}]: Calling AI with prompt: {prompt[:100]}...")
             result = call_vision_ai(prompt, image, max_tokens=300, temperature=0.0)
@@ -79,16 +79,41 @@ class VideoAIHelpers:
                 content = result['content']
                 print(f"VideoAI[{self.device_name}]: AI returned content (length: {len(content)}): {repr(content[:200])}")
                 
-                # Parse natural language response directly
-                print(f"VideoAI[{self.device_name}]: AI response: {content}")
-                
-                # Check if no subtitles found
-                if 'no subtitles found' in content.lower() or 'no subtitles' in content.lower() or not content.strip():
-                    print(f"VideoAI[{self.device_name}]: AI analysis complete - No subtitles detected in image")
-                    return '', 'unknown', 0.0
-                
-                # Use natural language parsing to extract subtitle information
-                extracted_text, detected_language, confidence = self.parse_natural_language_response(content)
+                # Parse JSON response first (primary approach)
+                try:
+                    # Remove markdown code blocks if present
+                    json_content = content
+                    if content.startswith('```json') and content.endswith('```'):
+                        json_content = content[7:-3].strip()
+                    elif content.startswith('```') and content.endswith('```'):
+                        json_content = content[3:-3].strip()
+                    
+                    ai_result = json.loads(json_content)
+                    
+                    extracted_text = ai_result.get('extracted_text', '').strip()
+                    detected_language = ai_result.get('detected_language', 'unknown')
+                    confidence = float(ai_result.get('confidence', 0.0))
+                    
+                    if extracted_text:
+                        print(f"VideoAI[{self.device_name}]: JSON parsing successful - AI extracted subtitle text: '{extracted_text}' -> Language: {detected_language}, Confidence: {confidence}")
+                        return extracted_text, detected_language, confidence
+                    else:
+                        print(f"VideoAI[{self.device_name}]: JSON parsing successful - No subtitles detected in image")
+                        return '', 'unknown', 0.0
+                        
+                except json.JSONDecodeError as e:
+                    print(f"VideoAI[{self.device_name}]: JSON parsing failed, trying natural language fallback: {e}")
+                    
+                    # Fallback to natural language parsing
+                    print(f"VideoAI[{self.device_name}]: AI response: {content}")
+                    
+                    # Check if no subtitles found
+                    if 'no subtitles found' in content.lower() or 'no subtitles' in content.lower() or not content.strip():
+                        print(f"VideoAI[{self.device_name}]: Natural language fallback - No subtitles detected in image")
+                        return '', 'unknown', 0.0
+                    
+                    # Use natural language parsing to extract subtitle information
+                    extracted_text, detected_language, confidence = self.parse_natural_language_response(content)
                 
                 if extracted_text:
                     print(f"VideoAI[{self.device_name}]: AI extracted subtitle text: '{extracted_text}' -> Language: {detected_language}, Confidence: {confidence}")
