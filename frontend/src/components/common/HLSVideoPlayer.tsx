@@ -218,16 +218,17 @@ export function HLSVideoPlayer({
       const hls = new HLS({
         enableWorker: false,
         lowLatencyMode: true,
-        liveSyncDuration: 2,           // Balanced - not too aggressive
-        liveMaxLatencyDuration: 5,     // Allow some buffer for stability
-        maxBufferLength: 3,            // Reasonable buffering for smooth playback
-        maxMaxBufferLength: 8,         // Prevent excessive buffering
-        backBufferLength: 2,           // Small back buffer for seeking
-        maxBufferHole: 0.3,            // Reasonable gap filling
-        fragLoadingTimeOut: 8000,      // Reasonable timeout
-        manifestLoadingTimeOut: 5000,  // Reasonable timeout
-        levelLoadingTimeOut: 5000,     // Reasonable timeout
-        liveBackBufferLength: 2,       // Small live back buffer
+        liveSyncDuration: 1,           // Reduced from 3 to 1 - stay closer to live edge
+        liveMaxLatencyDuration: 3,     // Reduced from 10 to 3 - max allowed latency
+        maxBufferLength: 2,            // Reduced from 3 to 2 - minimal buffering
+        maxMaxBufferLength: 4,         // Reduced from 60 to 4 - prevent over-buffering
+        backBufferLength: 0,           // Reduced from 10 to 0 - no back buffer
+        maxBufferSize: 2 * 1000 * 1000, // Reduced buffer size
+        maxBufferHole: 0.1,            // Reduced from 0.5 to 0.1 - fill gaps faster
+        fragLoadingTimeOut: 5000,      // Reduced from 20000 to 5000 - fail faster
+        manifestLoadingTimeOut: 3000,  // Reduced from 10000 to 3000 - fail faster
+        levelLoadingTimeOut: 3000,     // Reduced from 10000 to 3000 - fail faster
+        liveBackBufferLength: 0,       // No live back buffer
         liveDurationInfinity: true,    // Allow infinite live duration
       });
 
