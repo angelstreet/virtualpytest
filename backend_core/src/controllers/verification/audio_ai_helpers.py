@@ -217,8 +217,6 @@ class AudioAIHelpers:
                 '-filter_complex', f'{inputs}concat=n={len(ts_files)}:v=1:a=1[v][a]',
                 '-map', '[v]',
                 '-map', '[a]',
-                '-c:v', 'copy',  # Copy video codec
-                '-c:a', 'copy',  # Copy audio codec
                 merged_path
             ])
             
