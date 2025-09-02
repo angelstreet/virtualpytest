@@ -884,7 +884,11 @@ class ZapController:
                     "analyzed_images": len(analyzed_screenshots),
                     "message": "Blackscreen detection failed",
                     "error": "No blackscreen detected",
-                    "details": f"No blackscreen transition detected (analyzed {len(analyzed_screenshots)} images)"
+                    "details": f"No blackscreen transition detected (analyzed {len(analyzed_screenshots)} images)",
+                    # Add failure images for thumbnail display (first/middle/last for debugging)
+                    "first_image": os.path.basename(analyzed_screenshots[0]) if analyzed_screenshots else None,
+                    "blackscreen_start_image": os.path.basename(analyzed_screenshots[len(analyzed_screenshots)//2]) if len(analyzed_screenshots) > 2 else None,
+                    "blackscreen_end_image": os.path.basename(analyzed_screenshots[-1]) if len(analyzed_screenshots) > 1 else None
                 }
                 
         except Exception as e:
@@ -1005,7 +1009,11 @@ class ZapController:
                     "analyzed_images": len(analyzed_screenshots),
                     "message": "Freeze detection failed",
                     "error": "No freeze detected",
-                    "details": f"No freeze transition detected (analyzed {len(analyzed_screenshots)} images)"
+                    "details": f"No freeze transition detected (analyzed {len(analyzed_screenshots)} images)",
+                    # Add failure images for thumbnail display (first/middle/last for debugging)
+                    "first_image": os.path.basename(analyzed_screenshots[0]) if analyzed_screenshots else None,
+                    "blackscreen_start_image": os.path.basename(analyzed_screenshots[len(analyzed_screenshots)//2]) if len(analyzed_screenshots) > 2 else None,
+                    "blackscreen_end_image": os.path.basename(analyzed_screenshots[-1]) if len(analyzed_screenshots) > 1 else None
                 }
                 
         except Exception as e:

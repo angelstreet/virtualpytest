@@ -849,24 +849,34 @@ class VideoContentHelpers:
         }
 
     def _get_freeze_start_image(self, image_data: List[Dict], freeze_sequence: Dict[str, Any]) -> Optional[str]:
-        """Get the first freeze image filename."""
+        """Get the first freeze image filename. Adjust comparison index to image index."""
         start_index = freeze_sequence.get('freeze_start_index')
-        if start_index is not None and start_index < len(image_data):
-            return image_data[start_index]['filename']
+        if start_index is not None:
+            # Comparison index maps to second image in comparison (index + 1)
+            image_index = start_index + 1
+            if image_index < len(image_data):
+                return image_data[image_index]['filename']
         return None
 
     def _get_freeze_end_image(self, image_data: List[Dict], freeze_sequence: Dict[str, Any]) -> Optional[str]:
-        """Get the last freeze image filename."""
+        """Get the last freeze image filename. Adjust comparison index to image index."""
         end_index = freeze_sequence.get('freeze_end_index')
-        if end_index is not None and end_index > 0:
-            return image_data[end_index - 1]['filename']
+        if end_index is not None:
+            # For freeze end, we want the last frozen image (end_index maps to first non-frozen)
+            # So last frozen is at comparison end_index - 1, which maps to image end_index
+            image_index = end_index
+            if image_index < len(image_data):
+                return image_data[image_index]['filename']
         return None
 
     def _get_first_content_after_freeze(self, image_data: List[Dict], freeze_sequence: Dict[str, Any]) -> Optional[str]:
-        """Get the first content image after freeze."""
+        """Get the first content image after freeze. Adjust comparison index to image index."""
         end_index = freeze_sequence.get('freeze_end_index')
-        if end_index is not None and end_index < len(image_data):
-            return image_data[end_index]['filename']
+        if end_index is not None:
+            # Comparison end_index is first non-frozen comparison, maps to image end_index + 1
+            image_index = end_index + 1
+            if image_index < len(image_data):
+                return image_data[image_index]['filename']
         return None
 
     # =============================================================================
