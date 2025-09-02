@@ -22,8 +22,14 @@ def resolve_reference_area_backend(reference_name: str, device_model: str, team_
     try:
         # Get team_id if not provided
         if not team_id:
-            from shared.lib.utils.app_utils import get_team_id
+            from shared.lib.utils.app_utils import get_team_id, DEFAULT_TEAM_ID
             team_id = get_team_id()
+            
+        # Fallback to DEFAULT_TEAM_ID if get_team_id() returns None (same as old working code)
+        if not team_id:
+            from shared.lib.utils.app_utils import DEFAULT_TEAM_ID
+            team_id = DEFAULT_TEAM_ID
+            print(f"[@reference_utils:resolve_reference_area_backend] Using DEFAULT_TEAM_ID: {team_id}")
             
         if not team_id:
             return None
