@@ -53,6 +53,55 @@ export const VerificationsList: React.FC<VerificationsListProps> = React.memo(
     showCollapsible,
     title,
   }) => {
+    
+    // Auto-resolve reference areas when verifications load (for node panel consistency)
+    React.useEffect(() => {
+      if (!modelReferences || Object.keys(modelReferences).length === 0) return;
+      
+      let hasChanges = false;
+      const resolvedVerifications = verifications.map((verification, index) => {
+        const params = verification.params || {};
+        const referenceName = params.reference_name || params.image_path;
+        
+        // If verification has a reference name but potentially wrong area, auto-resolve it
+        if (referenceName && modelReferences[referenceName]) {
+          const selectedRef = modelReferences[referenceName];
+          const currentArea = params.area;
+          const dbArea = selectedRef.area;
+          
+          // Check if areas are different (need resolution)
+          const needsResolution = !currentArea || 
+            currentArea.x !== dbArea?.x || 
+            currentArea.y !== dbArea?.y || 
+            currentArea.width !== dbArea?.width || 
+            currentArea.height !== dbArea?.height;
+            
+          if (needsResolution && dbArea) {
+            console.log(`[VerificationsList] Auto-resolving area for ${referenceName}:`, dbArea);
+            hasChanges = true;
+            
+            return {
+              ...verification,
+              params: {
+                ...params,
+                area: {
+                  x: dbArea.x,
+                  y: dbArea.y,
+                  width: dbArea.width,
+                  height: dbArea.height,
+                },
+              },
+            };
+          }
+        }
+        
+        return verification;
+      });
+      
+      if (hasChanges) {
+        onVerificationsChange(resolvedVerifications);
+      }
+    }, [verifications, modelReferences, onVerificationsChange]);
     const [passCondition, setPassCondition] = useState<'all' | 'any'>('all');
     const [collapsed, setCollapsed] = useState<boolean>(false);
     const [imageComparisonDialog, setImageComparisonDialog] = useState<{
