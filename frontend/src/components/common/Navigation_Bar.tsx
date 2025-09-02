@@ -15,6 +15,7 @@ import {
   Link as LinkIcon,
   Warning as IncidentIcon,
   GridView as HeatmapIcon,
+  Notifications as NotificationsIcon,
 } from '@mui/icons-material';
 import { Box, Button } from '@mui/material';
 import React from 'react';
@@ -108,6 +109,11 @@ const NavigationBar: React.FC = () => {
       label: 'Environment',
       path: '/configuration/environment',
       icon: <SettingsIcon fontSize="small" />,
+    },
+    {
+      label: 'Notifications',
+      path: '/configuration/notifications',
+      icon: <NotificationsIcon fontSize="small" />,
     },
     {
       label: 'Remote Test',

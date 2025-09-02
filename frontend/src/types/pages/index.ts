@@ -50,3 +50,4 @@ export * from './UserInterface_Types';
 export * from './TestCase_Types';
 export * from './Models_Types';
 export * from './Monitoring_Types';
+export * from './Notifications_Types';

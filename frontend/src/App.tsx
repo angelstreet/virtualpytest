@@ -34,6 +34,7 @@ const UserInterface = React.lazy(() => import('./pages/UserInterface'));
 const TestCaseEditor = React.lazy(() => import('./pages/TestCaseEditor'));
 const NavigationEditor = React.lazy(() => import('./pages/NavigationEditor'));
 const RemoteTestPage = React.lazy(() => import('./pages/RemoteTestPage'));
+const Notifications = React.lazy(() => import('./pages/Notifications'));
 
 // 404 Not Found component
 const NotFound: React.FC = () => {
@@ -193,6 +194,7 @@ const App: React.FC = () => {
                   <Route path="/configuration/controller" element={<Controller />} />
                   <Route path="/configuration/library" element={<Library />} />
                   <Route path="/configuration/environment" element={<Environment />} />
+                  <Route path="/configuration/notifications" element={<Notifications />} />
 
                   {/* Navigation Editor Route */}
                   <Route

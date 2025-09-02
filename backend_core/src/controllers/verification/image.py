@@ -74,7 +74,7 @@ class ImageVerificationController:
         }
     
     def waitForImageToAppear(self, image_path: str, timeout: float = 1.0, threshold: float = 0.8, 
-                            area: tuple = None, image_list: List[str] = None, 
+                            area: dict = None, image_list: List[str] = None, 
                             verification_index: int = 0, image_filter: str = 'none', model: str = 'default') -> Tuple[bool, str, dict]:
         """
         Wait for image to appear either in provided image list or by capturing new frames.
@@ -204,7 +204,7 @@ class ImageVerificationController:
             return False, "Error : Image not found in current screenshot", additional_data
 
     def waitForImageToDisappear(self, image_path: str, timeout: float = 1.0, threshold: float = 0.8,
-                               area: tuple = None, image_list: List[str] = None,
+                               area: dict = None, image_list: List[str] = None,
                                verification_index: int = 0, image_filter: str = 'none', model: str = 'default') -> Tuple[bool, str, dict]:
         """
         Wait for image to disappear by calling waitForImageToAppear and inverting the result.
@@ -471,10 +471,8 @@ class ImageVerificationController:
             model = params.get('model', self.device_model)  # Use controller's device_model as fallback
             verification_index = verification_config.get('verification_index', 0)  # Get index from config
             
-            # Convert area from dict to tuple format if needed
-            if area and isinstance(area, dict):
-                area = (area['x'], area['y'], area['width'], area['height'])
-                print(f"[@controller:ImageVerification] Converted area dict to tuple: {area}")
+            # Keep area as dict - different functions expect different formats
+            print(f"[@controller:ImageVerification] Using area: {area}")
             
             print(f"[@controller:ImageVerification] Searching for image: {image_path}")
             print(f"[@controller:ImageVerification] Timeout: {timeout}s, Threshold: {threshold}")
@@ -755,7 +753,7 @@ class ImageVerificationController:
             print(f"[@controller:ImageVerification] Reference resolution error: {e}")
             return None
 
-    def _match_template(self, ref_img, source_img, area: tuple = None) -> float:
+    def _match_template(self, ref_img, source_img, area: dict = None) -> float:
         """
         Perform template matching between reference and source images.
         
