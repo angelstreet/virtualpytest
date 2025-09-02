@@ -626,7 +626,7 @@ class ZapController:
             
             # Get recent audio segments - OPTIMIZED: reduced segments for faster processing
             print(f"🎤 [ZapController] Retrieving recent audio segments...")
-            audio_files = audio_ai.get_recent_audio_segments(segment_count=2)  # Reduced from 3 to 2
+            audio_files = audio_ai.get_recent_audio_segments(segment_count=3)  # Increased to 3 for more context (~6s total)
             
             if not audio_files:
                 return {
