@@ -1038,7 +1038,8 @@ class ZapController:
                 actual_analyzed_images = freeze_result.get('analyzed_images', len(screenshots))
                 
                 # Map freeze images to blackscreen-compatible field names for report display
-                freeze_images = self._map_freeze_images_to_blackscreen_format(screenshots, freeze_start_index, freeze_end_index)
+                # Get the actual frozen image filenames from freeze detection comparisons
+                freeze_images = self._extract_freeze_image_names_from_comparisons(freeze_result, screenshots)
                 
                 return {
                     "success": True,
@@ -1072,7 +1073,7 @@ class ZapController:
                 self._add_failure_images_to_screenshots(context, screenshots, "freeze", freeze_result)
                 
                 # Map failure images to blackscreen format for consistent report display
-                failure_images = self._map_freeze_images_to_blackscreen_format(screenshots, None, None)
+                failure_images = self._extract_freeze_image_names_from_comparisons(freeze_result, screenshots)
                 
                 return {
                     "success": False,
@@ -1105,14 +1106,11 @@ class ZapController:
                 "details": f"Freeze detection error: {str(e)}"
             }
 
-    def _map_freeze_images_to_blackscreen_format(self, screenshots: List[str], freeze_start_index: int = None, freeze_end_index: int = None) -> Dict[str, str]:
-        """Map freeze detection images to blackscreen-compatible format for report display."""
+    def _extract_freeze_image_names_from_comparisons(self, freeze_result: Dict[str, Any], screenshots: List[str]) -> Dict[str, str]:
+        """Extract actual frozen image filenames from freeze detection comparisons - simple approach like blackscreen."""
         import os
         
-        if not screenshots:
-            return {}
-        
-        # Convert full paths to filenames (like blackscreen detection does)
+        # Convert full paths to filenames for debug_images
         filenames = [os.path.basename(path) for path in screenshots]
         
         result = {
@@ -1121,20 +1119,30 @@ class ZapController:
             'debug_images': filenames  # All analyzed images for debugging
         }
         
-        # Map freeze indices to image positions
-        if freeze_start_index is not None and freeze_start_index < len(filenames):
-            result['freeze_start_image'] = filenames[freeze_start_index]
-        else:
-            # Fallback: use middle image as freeze start
-            result['freeze_start_image'] = filenames[len(filenames)//2] if len(filenames) > 2 else None
+        # Get comparisons from freeze detection result
+        comparisons = freeze_result.get('comparisons', [])
+        if not comparisons:
+            return result
         
-        if freeze_end_index is not None and freeze_end_index < len(filenames):
-            result['freeze_end_image'] = filenames[freeze_end_index - 1] if freeze_end_index > 0 else None
-            result['first_content_after_freeze'] = filenames[freeze_end_index] if freeze_end_index < len(filenames) else None
-        else:
-            # Fallback: use last image as freeze end
-            result['freeze_end_image'] = filenames[-1] if len(filenames) > 1 else None
-            result['first_content_after_freeze'] = None
+        # Find the first frozen comparison (like blackscreen does)
+        frozen_comparison = None
+        first_content_after_freeze = None
+        
+        for i, comparison in enumerate(comparisons):
+            if comparison.get('is_frozen', False):
+                # Found frozen comparison - get the frozen image (frame2)
+                frozen_comparison = comparison
+                result['freeze_start_image'] = comparison.get('frame2')  # The frozen image
+                result['freeze_end_image'] = comparison.get('frame2')    # Same image (single frozen frame)
+                
+                # Look for first non-frozen comparison after this one
+                for j in range(i + 1, len(comparisons)):
+                    next_comparison = comparisons[j]
+                    if not next_comparison.get('is_frozen', False):
+                        result['first_content_after_freeze'] = next_comparison.get('frame2')  # First different image
+                        break
+                
+                break  # Found the freeze, stop looking
         
         return result
 
