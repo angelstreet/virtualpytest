@@ -147,7 +147,7 @@ class CaptureMonitor:
             for frame_path in original_frames[:max_frames * 2]:  # Check more frames
                 # Double-check file still exists (race condition protection)
                 if not os.path.exists(frame_path):
-                    logger.debug(f"[{device_id}] File disappeared during processing: {os.path.basename(frame_path)}")
+                    logger.debug(f"File disappeared during processing: {os.path.basename(frame_path)}")
                     continue
                     
                 json_path = frame_path.replace('.jpg', '.json')
@@ -155,15 +155,15 @@ class CaptureMonitor:
                 
                 if not os.path.exists(json_path):
                     unanalyzed.append(frame_path)
-                    logger.debug(f"[{device_id}] UNANALYZED: {filename} (no JSON)")
+                    logger.debug(f"UNANALYZED: {filename} (no JSON)")
                     if len(unanalyzed) >= max_frames:
                         break
                 else:
                     analyzed_count += 1
-                    logger.debug(f"[{device_id}] ANALYZED: {filename} (JSON exists)")
+                    logger.debug(f"ANALYZED: {filename} (JSON exists)")
             
             if analyzed_count > 0:
-                logger.debug(f"[{device_id}] Found {analyzed_count} already analyzed files")
+                logger.debug(f"Found {analyzed_count} already analyzed files")
             
             return unanalyzed
             
