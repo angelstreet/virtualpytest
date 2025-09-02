@@ -383,7 +383,11 @@ const RunTests: React.FC = () => {
     setExecutions(prev => [...newExecutions, ...prev]);
 
     if (allDevices.length === 1) {
-      showInfo(`Script "${selectedScript}" started on ${allDevices[0].hostName}:${allDevices[0].deviceId}`);
+      // Get device name for single device execution toast
+      const hostDevices = getDevicesFromHost(allDevices[0].hostName);
+      const deviceObject = hostDevices.find(dev => dev.device_id === allDevices[0].deviceId);
+      const deviceDisplayName = deviceObject?.device_name || allDevices[0].deviceId;
+      showInfo(`Script "${selectedScript}" started on ${allDevices[0].hostName}:${deviceDisplayName}`);
     } else {
       showInfo(`Script "${selectedScript}" started on ${allDevices.length} devices`);
     }
@@ -434,16 +438,22 @@ const RunTests: React.FC = () => {
         // Show individual completion toast
         const device = allDevices.find(d => executionId.includes(`${d.hostName}_${d.deviceId}`));
         if (device) {
+          // Get device name for display in toast
+          const hostDevices = getDevicesFromHost(device.hostName);
+          const deviceObject = hostDevices.find(dev => dev.device_id === device.deviceId);
+          const deviceDisplayName = deviceObject?.device_name || device.deviceId;
+          const deviceLabel = `${device.hostName}:${deviceDisplayName}`;
+          
           if (scriptCompleted) {
             if (testResult === 'success') {
-              showSuccess(`✅ ${device.hostName}:${device.deviceId} completed successfully - Test PASSED`);
+              showSuccess(`✅ ${deviceLabel} completed successfully - Test PASSED`);
             } else if (testResult === 'failure') {
-              showError(`❌ ${device.hostName}:${device.deviceId} completed - Test FAILED`);
+              showError(`❌ ${deviceLabel} completed - Test FAILED`);
             } else {
-              showSuccess(`✅ ${device.hostName}:${device.deviceId} completed successfully`);
+              showSuccess(`✅ ${deviceLabel} completed successfully`);
             }
           } else {
-            showError(`❌ ${device.hostName}:${device.deviceId} execution failed`);
+            showError(`❌ ${deviceLabel} execution failed`);
           }
         }
       };
@@ -683,7 +693,7 @@ const RunTests: React.FC = () => {
                         >
                           {getAvailableDevicesForSelection().map((device) => (
                             <MenuItem key={device.device_id} value={device.device_id}>
-                              {device.device_id}
+                              {device.device_name || device.device_id}
                             </MenuItem>
                           ))}
                         </Select>
@@ -731,18 +741,25 @@ const RunTests: React.FC = () => {
                         Additional devices ({additionalDevices.length}):
                       </Typography>
                       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                        {additionalDevices.map((hd, index) => (
-                          <Chip
-                            key={`${hd.hostName}:${hd.deviceId}`}
-                            label={`${hd.hostName}:${hd.deviceId}`}
-                            onDelete={() => {
-                              setAdditionalDevices(prev => prev.filter((_, i) => i !== index));
-                            }}
-                            color="secondary"
-                            variant="outlined"
-                            size="small"
-                          />
-                        ))}
+                        {additionalDevices.map((hd, index) => {
+                          // Get device name for display
+                          const hostDevices = getDevicesFromHost(hd.hostName);
+                          const deviceObject = hostDevices.find(device => device.device_id === hd.deviceId);
+                          const deviceDisplayName = deviceObject?.device_name || hd.deviceId;
+                          
+                          return (
+                            <Chip
+                              key={`${hd.hostName}:${hd.deviceId}`}
+                              label={`${hd.hostName}:${deviceDisplayName}`}
+                              onDelete={() => {
+                                setAdditionalDevices(prev => prev.filter((_, i) => i !== index));
+                              }}
+                              color="secondary"
+                              variant="outlined"
+                              size="small"
+                            />
+                          );
+                        })}
                       </Box>
                     </Box>
                   )}
@@ -760,16 +777,35 @@ const RunTests: React.FC = () => {
                             {executingIds.map(id => {
                               // Extract device info from execution ID
                               const parts = id.split('_');
-                              const deviceInfo = parts.length >= 4 ? `${parts[2]}:${parts[3]}` : id;
-                              return (
-                                <Chip
-                                  key={id}
-                                  label={deviceInfo}
-                                  color="warning"
-                                  size="small"
-                                  icon={<CircularProgress size={16} />}
-                                />
-                              );
+                              if (parts.length >= 4) {
+                                const hostName = parts[2];
+                                const deviceId = parts[3];
+                                // Get device name for display
+                                const hostDevices = getDevicesFromHost(hostName);
+                                const deviceObject = hostDevices.find(device => device.device_id === deviceId);
+                                const deviceDisplayName = deviceObject?.device_name || deviceId;
+                                const deviceInfo = `${hostName}:${deviceDisplayName}`;
+                                
+                                return (
+                                  <Chip
+                                    key={id}
+                                    label={deviceInfo}
+                                    color="warning"
+                                    size="small"
+                                    icon={<CircularProgress size={16} />}
+                                  />
+                                );
+                              } else {
+                                return (
+                                  <Chip
+                                    key={id}
+                                    label={id}
+                                    color="warning"
+                                    size="small"
+                                    icon={<CircularProgress size={16} />}
+                                  />
+                                );
+                              }
                             })}
                           </Box>
                         </CardContent>
@@ -880,7 +916,13 @@ const RunTests: React.FC = () => {
                         >
                           <TableCell>{getScriptDisplayName(execution.scriptName)}</TableCell>
                           <TableCell>
-                            {execution.hostName}:{execution.deviceId}
+                            {(() => {
+                              // Get device name for display in execution history
+                              const hostDevices = getDevicesFromHost(execution.hostName);
+                              const deviceObject = hostDevices.find(device => device.device_id === execution.deviceId);
+                              const deviceDisplayName = deviceObject?.device_name || execution.deviceId;
+                              return `${execution.hostName}:${deviceDisplayName}`;
+                            })()}
                             {execution.deviceModel && (
                               <Typography variant="caption" display="block" color="text.secondary">
                                 ({execution.deviceModel})
