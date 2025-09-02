@@ -85,7 +85,9 @@ start_grabber() {
   # Build FFmpeg command based on source type
   if [ "$source_type" = "v4l2" ]; then
     # Hardware video device - Triple output: stream, full-res captures, thumbnails (5 FPS controlled)
-    FFMPEG_CMD="/usr/bin/ffmpeg -y -re -fflags nobuffer+genpts -probesize 32 -analyzeduration 0 -avioflags direct -flags low_delay -strict -2 -thread_queue_size 32 -fix_sub_duration -f v4l2 -video_size 1280x720 -framerate $input_fps -i $source \
+    FFMPEG_CMD="/usr/bin/ffmpeg -y -re -fflags nobuffer+genpts -probesize 32 -analyzeduration 0 -avioflags direct \
+      -flags low_delay -strict -2 -thread_queue_size 32 \
+      -fix_sub_duration -f v4l2 -input_format mjpeg -video_size 1280x720 -framerate $input_fps -i $source \
       -f alsa -thread_queue_size 128 -async 1 -i \"$audio_device\" \
       -filter_complex \"[0:v]split=3[stream][capture][thumb];[stream]scale=640:360[streamout];[capture]fps=5[captureout];[thumb]fps=5,scale=320:180[thumbout]\" \
       -map \"[streamout]\" -map 1:a \
