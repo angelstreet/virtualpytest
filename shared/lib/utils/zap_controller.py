@@ -1034,6 +1034,12 @@ class ZapController:
                 
                 print(f"✅ [ZapController] Enhanced freeze zapping detected - Duration: {freeze_duration:.1f}s")
                 
+                # Use actual analyzed images from freeze detection (with early stopping)
+                actual_analyzed_images = freeze_result.get('analyzed_images', len(screenshots))
+                
+                # Map freeze images to blackscreen-compatible field names for report display
+                freeze_images = self._map_freeze_images_to_blackscreen_format(screenshots, freeze_start_index, freeze_end_index)
+                
                 return {
                     "success": True,
                     "zapping_detected": True,
@@ -1042,12 +1048,20 @@ class ZapController:
                     "blackscreen_duration": freeze_duration,  # Keep same field name for compatibility
                     "freeze_duration": freeze_duration,
                     "zapping_duration": freeze_duration,
-                    "analyzed_images": len(screenshots),
+                    "analyzed_images": actual_analyzed_images,  # Use actual processed images, not collected
+                    "collected_images": len(screenshots),  # Show collected for debugging
                     "early_stopped": freeze_end_found,
                     "coverage_seconds": 6,
                     "freeze_start_index": freeze_start_index,
                     "freeze_end_index": freeze_end_index,
-                    "message": f"Enhanced freeze zapping detected (analyzed {len(screenshots)} images, early_stopped={freeze_end_found})",
+                    # Add image fields like blackscreen detection for report display
+                    "first_image": freeze_images.get('first_image'),
+                    "blackscreen_start_image": freeze_images.get('freeze_start_image'),  # Map freeze_start to blackscreen_start
+                    "blackscreen_end_image": freeze_images.get('freeze_end_image'),    # Map freeze_end to blackscreen_end
+                    "first_content_after_blackscreen": freeze_images.get('first_content_after_freeze'),
+                    "last_image": freeze_images.get('last_image'),
+                    "debug_images": freeze_images.get('debug_images', []),
+                    "message": f"Enhanced freeze zapping detected (processed {actual_analyzed_images}/{len(screenshots)} images, early_stopped={freeze_end_found})",
                     "details": freeze_result
                 }
             else:
@@ -1057,6 +1071,9 @@ class ZapController:
                 # Only add if differences are low (< 20) indicating potential freeze
                 self._add_failure_images_to_screenshots(context, screenshots, "freeze", freeze_result)
                 
+                # Map failure images to blackscreen format for consistent report display
+                failure_images = self._map_freeze_images_to_blackscreen_format(screenshots, None, None)
+                
                 return {
                     "success": False,
                     "zapping_detected": False,
@@ -1064,6 +1081,11 @@ class ZapController:
                     "transition_type": "none",
                     "blackscreen_duration": 0.0,
                     "analyzed_images": len(screenshots),
+                    # Add image fields like blackscreen failure case for report display
+                    "first_image": failure_images.get('first_image'),
+                    "blackscreen_start_image": failure_images.get('freeze_start_image'),
+                    "blackscreen_end_image": failure_images.get('freeze_end_image'),
+                    "last_image": failure_images.get('last_image'),
                     "message": "Freeze detection failed",
                     "error": "No freeze detected",
                     "details": f"No freeze transition detected (analyzed {len(screenshots)} images)"
@@ -1082,8 +1104,39 @@ class ZapController:
                 "error": str(e),
                 "details": f"Freeze detection error: {str(e)}"
             }
-    
 
+    def _map_freeze_images_to_blackscreen_format(self, screenshots: List[str], freeze_start_index: int = None, freeze_end_index: int = None) -> Dict[str, str]:
+        """Map freeze detection images to blackscreen-compatible format for report display."""
+        import os
+        
+        if not screenshots:
+            return {}
+        
+        # Convert full paths to filenames (like blackscreen detection does)
+        filenames = [os.path.basename(path) for path in screenshots]
+        
+        result = {
+            'first_image': filenames[0] if filenames else None,
+            'last_image': filenames[-1] if len(filenames) > 1 else None,
+            'debug_images': filenames  # All analyzed images for debugging
+        }
+        
+        # Map freeze indices to image positions
+        if freeze_start_index is not None and freeze_start_index < len(filenames):
+            result['freeze_start_image'] = filenames[freeze_start_index]
+        else:
+            # Fallback: use middle image as freeze start
+            result['freeze_start_image'] = filenames[len(filenames)//2] if len(filenames) > 2 else None
+        
+        if freeze_end_index is not None and freeze_end_index < len(filenames):
+            result['freeze_end_image'] = filenames[freeze_end_index - 1] if freeze_end_index > 0 else None
+            result['first_content_after_freeze'] = filenames[freeze_end_index] if freeze_end_index < len(filenames) else None
+        else:
+            # Fallback: use last image as freeze end
+            result['freeze_end_image'] = filenames[-1] if len(filenames) > 1 else None
+            result['first_content_after_freeze'] = None
+        
+        return result
 
     def _add_zapping_images_to_screenshots(self, context, zapping_result: Dict[str, Any], capture_folder: str):
         """Add key zapping images to context screenshot collection for R2 upload"""

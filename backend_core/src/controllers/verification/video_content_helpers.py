@@ -670,7 +670,7 @@ class VideoContentHelpers:
     # =============================================================================
     
     def detect_freeze_zapping_sequence(self, folder_path: str, key_release_timestamp: float, 
-                                      analysis_rectangle: Dict[str, int] = None, max_images: int = 10, 
+                                      analysis_rectangle: Dict[str, int] = None, max_images: int = 15, 
                                       banner_region: Dict[str, int] = None) -> Dict[str, Any]:
         """
         Detect freeze-based zapping sequence (similar to blackscreen zapping but for freeze frames).
@@ -1090,7 +1090,7 @@ class VideoContentHelpers:
             
             images = []
             MAX_SECONDS = 6  # Cover 6 seconds for full zap detection
-            MAX_TOTAL_IMAGES = 30  # Hard cap at 30 images
+            MAX_TOTAL_IMAGES = min(30, max_count) if max_count > 0 else 30  # Respect max_count parameter
             
             # Enhanced collection: get all available files (_1, _2, _3, _4) for better precision
             for i in range(MAX_SECONDS):
