@@ -867,25 +867,56 @@ Be specific about what you see on the device interface."""
                     # Try analysis with cropped region first
                     analysis_result = self._analyze_banner_with_image(cropped_img, banner_region, "cropped region")
                 
-                # Step 2: Fallback to full image if cropped region failed or no region specified
+                # Step 2: Fallback to full image if cropped region failed or no useful info found
+                # Check if we have useful information even if banner_detected is false
+                has_useful_cropped_info = False
+                if analysis_result and analysis_result.get('success', False):
+                    cropped_info = analysis_result.get('channel_info', {})
+                    has_useful_cropped_info = any([
+                        cropped_info.get('channel_name'),
+                        cropped_info.get('program_name'),
+                        cropped_info.get('start_time'),
+                        cropped_info.get('end_time')
+                    ])
+                
                 if (analysis_result is None or 
                     not analysis_result.get('success', False) or 
-                    not analysis_result.get('banner_detected', False) or
+                    (not analysis_result.get('banner_detected', False) and not has_useful_cropped_info) or
                     analysis_result.get('error') == 'Empty content from AI API'):
                     
                     if banner_region and analysis_result is not None:
-                        print(f"VideoAI[{self.device_name}]: Cropped region analysis failed, retrying with full image")
+                        if has_useful_cropped_info:
+                            print(f"VideoAI[{self.device_name}]: Cropped region found partial info but no banner detected, retrying with full image")
+                        else:
+                            print(f"VideoAI[{self.device_name}]: Cropped region analysis failed, retrying with full image")
                     else:
                         print(f"VideoAI[{self.device_name}]: Starting analysis with full image")
                     
                     # Try analysis with full image
-                    analysis_result = self._analyze_banner_with_image(img, banner_region, "full image")
+                    full_analysis_result = self._analyze_banner_with_image(img, banner_region, "full image")
                     
-                    if (analysis_result.get('success', False) and 
-                        analysis_result.get('banner_detected', False)):
-                        print(f"VideoAI[{self.device_name}]: Full image fallback successful")
+                    # Check if full image has useful info (even if banner_detected is false)
+                    has_useful_full_info = False
+                    if full_analysis_result and full_analysis_result.get('success', False):
+                        full_info = full_analysis_result.get('channel_info', {})
+                        has_useful_full_info = any([
+                            full_info.get('channel_name'),
+                            full_info.get('program_name'),
+                            full_info.get('start_time'),
+                            full_info.get('end_time')
+                        ])
+                    
+                    # Use full image result if it has useful info OR if cropped had no useful info
+                    if has_useful_full_info or not has_useful_cropped_info:
+                        analysis_result = full_analysis_result
+                        if has_useful_full_info:
+                            banner_status = "detected" if full_analysis_result.get('banner_detected', False) else "partial info found"
+                            print(f"VideoAI[{self.device_name}]: Full image analysis {banner_status}")
+                        else:
+                            print(f"VideoAI[{self.device_name}]: Full image analysis also found no useful info")
                     else:
-                        print(f"VideoAI[{self.device_name}]: Both cropped and full image analysis failed")
+                        # Keep cropped result since it had useful info
+                        print(f"VideoAI[{self.device_name}]: Keeping cropped region result with partial info")
                 
                 # Set image path in the final result
                 if analysis_result and analysis_result.get('success', False):

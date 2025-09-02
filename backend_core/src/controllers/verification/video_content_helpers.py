@@ -1475,9 +1475,24 @@ class VideoContentHelpers:
                 channel_result = self.ai_helpers.analyze_channel_banner_ai(image_path, banner_region)
                 print(f"VideoContent[{self.device_name}]: AI analysis result: {channel_result}")
                 
-                # If banner region analysis fails, try with full image as fallback
-                if not (channel_result.get('success', False) and channel_result.get('banner_detected', False)):
-                    print(f"VideoContent[{self.device_name}]: Banner region analysis failed, trying full image analysis on {filename}")
+                # Check if banner region analysis has useful info (even if banner_detected is false)
+                has_useful_banner_info = False
+                if channel_result.get('success', False):
+                    banner_info = channel_result.get('channel_info', {})
+                    has_useful_banner_info = any([
+                        banner_info.get('channel_name'),
+                        banner_info.get('program_name'),
+                        banner_info.get('start_time'),
+                        banner_info.get('end_time')
+                    ])
+                
+                # If banner region analysis fails OR has no useful info, try with full image as fallback
+                if not (channel_result.get('success', False) and (channel_result.get('banner_detected', False) or has_useful_banner_info)):
+                    if has_useful_banner_info:
+                        print(f"VideoContent[{self.device_name}]: Banner region found partial info but no banner detected, trying full image analysis on {filename}")
+                    else:
+                        print(f"VideoContent[{self.device_name}]: Banner region analysis failed, trying full image analysis on {filename}")
+                    
                     full_image_result = self.ai_helpers.analyze_channel_banner_ai(image_path, None)
                     print(f"VideoContent[{self.device_name}]: Full image AI analysis result: {full_image_result}")
                     
@@ -1491,9 +1506,12 @@ class VideoContentHelpers:
                             full_info.get('end_time')
                         ])
                         
-                        if full_has_useful_info:
+                        # Use full image result if it has more/better info than banner region
+                        if full_has_useful_info and (not has_useful_banner_info or full_image_result.get('confidence', 0) > channel_result.get('confidence', 0)):
                             channel_result = full_image_result
                             print(f"VideoContent[{self.device_name}]: Using full image analysis result for {filename}")
+                        elif has_useful_banner_info:
+                            print(f"VideoContent[{self.device_name}]: Keeping banner region result with partial info for {filename}")
                 
                 # Check if we have any useful channel information (regardless of banner_detected flag)
                 if channel_result.get('success', False):
