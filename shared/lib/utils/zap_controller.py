@@ -1022,6 +1022,33 @@ class ZapController:
 
 
 
+    def _validate_capture_filename(self, filename: str) -> bool:
+        """Validate capture filename format to prevent FileNotFoundError on malformed files"""
+        if not filename or not filename.startswith('capture_') or not filename.endswith('.jpg'):
+            return False
+        
+        # Extract timestamp from filename (e.g., capture_20240101120000.jpg -> 20240101120000)
+        timestamp = filename.replace('capture_', '').replace('.jpg', '')
+        
+        # Remove suffix if present (e.g., capture_20240101120000_2.jpg -> 20240101120000)
+        if '_' in timestamp:
+            timestamp = timestamp.split('_')[0]
+        
+        # Validate timestamp format (must be 14 digits: YYYYMMDDHHMMSS)
+        import re
+        if not re.match(r'^\d{14}$', timestamp):
+            print(f"🔍 [ZapController] Skipping invalid filename format: {filename} (timestamp: {timestamp})")
+            return False
+        
+        # Additional protection: validate timestamp makes sense as a date
+        try:
+            from datetime import datetime
+            datetime.strptime(timestamp, '%Y%m%d%H%M%S')
+            return True
+        except ValueError:
+            print(f"🔍 [ZapController] Skipping invalid timestamp: {filename} (timestamp: {timestamp})")
+            return False
+
     def _add_zapping_images_to_screenshots(self, context, zapping_result: Dict[str, Any], capture_folder: str):
         """Add key zapping images to context screenshot collection for R2 upload"""
         try:
@@ -1040,9 +1067,9 @@ class ZapController:
                 zapping_result.get('last_image')
             ]
             
-            # Add each key image to screenshot paths if it exists
+            # Add each key image to screenshot paths if it exists and has valid format
             for image_filename in key_images:
-                if image_filename:
+                if image_filename and self._validate_capture_filename(image_filename):
                     image_path = f"{captures_folder}/{image_filename}"
                     if image_path not in context.screenshot_paths:
                         context.screenshot_paths.append(image_path)
@@ -1052,7 +1079,7 @@ class ZapController:
             debug_images = zapping_result.get('debug_images', [])
             if debug_images:
                 for debug_filename in debug_images:
-                    if debug_filename:
+                    if debug_filename and self._validate_capture_filename(debug_filename):
                         debug_path = f"{captures_folder}/{debug_filename}"
                         if debug_path not in context.screenshot_paths:
                             context.screenshot_paths.append(debug_path)
@@ -1095,12 +1122,16 @@ class ZapController:
             if len(screenshots) >= 2:
                 failure_images.append(screenshots[-1])  # Last image
             
-            # Add failure images to screenshot collection
+            # Add failure images to screenshot collection with filename validation
             for image_path in failure_images:
                 if image_path and image_path not in context.screenshot_paths:
-                    context.screenshot_paths.append(image_path)
                     image_filename = image_path.split('/')[-1] if '/' in image_path else image_path
-                    print(f"🔍 [ZapController] Added {detection_method} failure verification image: {image_filename}")
+                    # Validate filename format before adding to prevent FileNotFoundError
+                    if self._validate_capture_filename(image_filename):
+                        context.screenshot_paths.append(image_path)
+                        print(f"🔍 [ZapController] Added {detection_method} failure verification image: {image_filename}")
+                    else:
+                        print(f"🔍 [ZapController] Skipped {detection_method} failure image with invalid format: {image_filename}")
             
             print(f"🔍 [ZapController] Added {len(failure_images)} verification images for {detection_method} failure (low differences detected)")
             
