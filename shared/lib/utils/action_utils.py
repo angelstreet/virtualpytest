@@ -206,7 +206,15 @@ def execute_action_directly(host, device, action: Dict[str, Any]) -> Dict[str, A
                             'iteration_results': []
                         }
                     
-                    result = web_controller.execute_command(command, params)
+                    # Transform parameters for web controller compatibility
+                    web_params = params.copy()
+                    # Convert element_id to selector for web actions
+                    if 'element_id' in web_params and 'selector' not in web_params:
+                        web_params['selector'] = web_params.pop('element_id')
+                        if iteration == 0:  # Only log transformation once
+                            print(f"[@action_utils:execute_action_directly] Transformed element_id to selector for web action")
+                    
+                    result = web_controller.execute_command(command, web_params)
                     iteration_success = result.get('success', False)
                     
                 elif action_type == 'desktop':

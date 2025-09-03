@@ -296,10 +296,19 @@ class ActionExecutor:
                     # Route to web endpoint
                     if iteration == 0:  # Only log routing once
                         print(f"[@lib:action_executor:_execute_single_action] Routing web action to web endpoint")
+                    
+                    # Transform parameters for web controller compatibility
+                    web_params = params.copy()
+                    # Convert element_id to selector for web actions
+                    if 'element_id' in web_params and 'selector' not in web_params:
+                        web_params['selector'] = web_params.pop('element_id')
+                        if iteration == 0:  # Only log transformation once
+                            print(f"[@lib:action_executor:_execute_single_action] Transformed element_id to selector for web action")
+                    
                     endpoint = '/host/web/executeCommand'
                     request_data = {
                         'command': action.get('command'),
-                        'params': params,
+                        'params': web_params,
                         'device_id': self.device_id or 'device1'
                     }
                 elif action_type == 'desktop':
