@@ -892,7 +892,7 @@ class VideoContentHelpers:
     
     def detect_zapping_sequence(self, folder_path: str, key_release_timestamp: float, 
                                analysis_rectangle: Dict[str, int] = None, max_images: int = 10, 
-                               banner_region: Dict[str, int] = None) -> Dict[str, Any]:
+                               banner_region: Dict[str, int] = None, device_model: str = None) -> Dict[str, Any]:
         """
         Simple zapping detection using existing components and direct file access.
         
@@ -927,8 +927,8 @@ class VideoContentHelpers:
             
             print(f"VideoContent[{self.device_name}]: Found {len(image_data)} images to analyze")
             
-            # Step 2: Batch blackscreen detection using proven algorithm
-            blackscreen_results = self._detect_blackscreen_batch(image_data, analysis_rectangle)
+            # Step 2: Batch blackscreen detection using proven algorithm with device-specific threshold
+            blackscreen_results = self._detect_blackscreen_batch(image_data, analysis_rectangle, device_model)
             
             # Step 3: Find blackscreen sequence
             sequence = self._find_blackscreen_sequence(blackscreen_results)

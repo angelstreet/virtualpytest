@@ -587,7 +587,7 @@ class VideoVerificationController(VerificationControllerInterface):
 
     def detect_zapping(self, folder_path: str, key_release_timestamp: float, 
                       analysis_rectangle: Dict[str, int] = None, banner_region: Dict[str, int] = None, 
-                      max_images: int = 10) -> Dict[str, Any]:
+                      max_images: int = 10, device_model: str = None) -> Dict[str, Any]:
         """
         Detect channel zapping sequence by analyzing images from folder.
         
@@ -632,9 +632,9 @@ class VideoVerificationController(VerificationControllerInterface):
                     'blackscreen_duration': 0.0
                 }
             
-            # Execute core zapping detection
+            # Execute core zapping detection with device-specific threshold
             zapping_result = self.content_helpers.detect_zapping_sequence(
-                folder_path, key_release_timestamp, analysis_rectangle, max_images, banner_region
+                folder_path, key_release_timestamp, analysis_rectangle, max_images, banner_region, device_model
             )
             
             if not zapping_result.get('success', False):

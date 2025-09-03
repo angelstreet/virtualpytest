@@ -837,13 +837,14 @@ class ZapController:
             # Device-specific timeout using helper method
             max_images = self._get_max_images_for_device(device_model)
             
-            # Call enhanced blackscreen zapping detection with device-specific timeout
+            # Call enhanced blackscreen zapping detection with device-specific timeout and threshold
             zapping_result = video_controller.detect_zapping(
                 folder_path=capture_folder,
                 key_release_timestamp=key_release_timestamp,
                 analysis_rectangle=analysis_rectangle,
                 banner_region=banner_region,
-                max_images=max_images
+                max_images=max_images,
+                device_model=device_model
             )
             
             if zapping_result.get('success', False) and zapping_result.get('zapping_detected', False):
