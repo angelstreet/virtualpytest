@@ -336,7 +336,7 @@ The AudioAIHelpers automatically uses the global HLS segment duration defined in
 # In backend_core/src/controllers/base_controller.py
 class AVControllerInterface(BaseController):
     # Global configuration for video segments
-    HLS_SEGMENT_DURATION = 2  # seconds per segment
+    HLS_SEGMENT_DURATION = 1  # seconds per segment
 ```
 
 This ensures the AudioAIHelpers always matches the host-side HLS segment configuration. To modify the segment duration system-wide, simply change this single value.
