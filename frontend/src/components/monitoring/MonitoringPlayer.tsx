@@ -19,7 +19,7 @@ import { MonitoringOverlay } from './MonitoringOverlay';
 interface MonitoringPlayerProps {
   host: Host;
   device: Device;
-  baseUrlPattern?: string; // Base URL pattern from useRec
+  baseUrlPattern?: string; // Optional - monitoring can work autonomously
 }
 
 // Image cache to store loaded images and prevent refetching

@@ -10,6 +10,7 @@ import {
 import { useMonitoringAI } from './useMonitoringAI';
 import { useMonitoringSubtitles } from './useMonitoringSubtitles';
 import { useMonitoringLanguageMenu } from './useMonitoringLanguageMenu';
+import { buildCaptureUrl } from '../../utils/buildUrlUtils';
 
 interface FrameRef {
   timestamp: string;
@@ -140,13 +141,8 @@ export const useMonitoring = ({
     device,
   });
 
-  // Generate monitoring URL with 3-second delay and mechanical fallback
+  // Generate monitoring URL autonomously - create base URL pattern if not provided
   const generateMonitoringUrl = useCallback((): string => {
-    if (!baseUrlPattern) {
-      console.warn('[useMonitoring] No baseUrlPattern provided, monitoring disabled');
-      return '';
-    }
-
     // Generate timestamp for 5 seconds ago to ensure analysis exists
     const now = new Date();
     const delayedTime = new Date(now.getTime() - 5000); // Increased to 5 second delay
@@ -159,9 +155,22 @@ export const useMonitoring = ({
       delayedTime.getMinutes().toString().padStart(2, '0') +
       delayedTime.getSeconds().toString().padStart(2, '0');
 
-    // Replace {timestamp} placeholder in pattern
-    return baseUrlPattern.replace('{timestamp}', timestamp);
-  }, [baseUrlPattern]);
+    // If baseUrlPattern is provided, use it
+    if (baseUrlPattern) {
+      return baseUrlPattern.replace('{timestamp}', timestamp);
+    }
+
+    // Otherwise, generate autonomous monitoring URL using buildCaptureUrl
+    try {
+      const deviceId = device.device_id || 'device1';
+      const captureUrl = buildCaptureUrl(host, timestamp, deviceId);
+      console.log(`[useMonitoring] Generated autonomous monitoring URL: ${captureUrl}`);
+      return captureUrl;
+    } catch (error) {
+      console.warn('[useMonitoring] Failed to generate autonomous monitoring URL:', error);
+      return '';
+    }
+  }, [baseUrlPattern, host, device]);
 
   // Generate monitoring frames (only after initial loading)
   useEffect(() => {
