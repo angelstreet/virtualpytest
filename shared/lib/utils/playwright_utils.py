@@ -92,7 +92,6 @@ class ChromeManager:
             '--disable-extensions',
             '--disable-session-crashed-bubble',  # Disable restore session popup
             '--disable-infobars',  # Disable info bars including restore prompts
-            '--disable-restore-session-state',  # Disable session restore altogether
             '--disable-background-timer-throttling',  # Prevent background issues
             '--disable-backgrounding-occluded-windows',  # Prevent window management issues
             '--disable-renderer-backgrounding',  # Keep renderer active
@@ -108,14 +107,16 @@ class ChromeManager:
             '--disable-background-networking',  # Disable background networking
             '--metrics-recording-only',  # Only record metrics, don't send
             '--no-crash-upload',  # Don't upload crash reports
-            '--disable-session-restore',  # Disable all session restore functionality
-            '--disable-background-tabs',  # Disable background tab restoration
             '--hide-crash-restore-bubble',  # Hide crash restore bubble
             '--disable-dev-shm-usage',  # Overcome limited resource problems on Pi
             '--memory-pressure-off',  # Disable memory pressure system
             '--max_old_space_size=512',  # Limit V8 heap size to 512MB
             '--enable-unsafe-swiftshader',  # Enable unsafe SwiftShader for GPU acceleration
             '--disable-gpu',  # Disable GPU acceleration to prevent GPU-related crashes
+            '--force-fieldtrials=*BackgroundTracing/default/',  # Disable background tracing
+            '--disable-crash-reporter',  # Disable crash reporter
+            '--disable-logging',  # Disable logging that tracks crashes
+            '--silent-debugger-extension-api',  # Silence debugger extension API
         ]
     
     @classmethod
@@ -161,8 +162,22 @@ class ChromeManager:
         print(f'[ChromeManager] Launching Chrome with remote debugging: {executable_path}')
         
         # Prepare Chrome flags and user data directory (path should already be resolved)
-        # Note: No need to clear session files since we force-kill Chrome (no session data is saved)
         os.makedirs(user_data_dir, exist_ok=True)
+        
+        # Clean up crash detection files only (keep session data for passwords/cookies)
+        crash_files = ['Crash Reports', 'chrome_debug.log', 'Singleton*']
+        for crash_file in crash_files:
+            crash_path = os.path.join(user_data_dir, crash_file)
+            if os.path.exists(crash_path):
+                try:
+                    if os.path.isfile(crash_path):
+                        os.remove(crash_path)
+                    elif os.path.isdir(crash_path):
+                        import shutil
+                        shutil.rmtree(crash_path)
+                except Exception as e:
+                    pass  # Ignore cleanup errors
+        
         print(f'[ChromeManager] Using persistent profile: {user_data_dir}')
         
         chrome_flags = cls.get_chrome_flags(debug_port, user_data_dir)
