@@ -817,18 +817,18 @@ Be specific about what you see on the device interface."""
 
     def analyze_channel_banner_ai(self, image_path: str, banner_region: Dict[str, int] = None) -> Dict[str, Any]:
         """
-        AI-powered channel banner analysis using OpenRouter.
+        AI-powered channel banner analysis using OpenRouter - Full image only.
         
         Args:
             image_path: Path to image file containing the banner
-            banner_region: Region where banner appears (optional cropping)
+            banner_region: Region where banner appears (kept for compatibility but not used for cropping)
                           Format: {'x': int, 'y': int, 'width': int, 'height': int}
             
         Returns:
             Dictionary with channel banner analysis results
         """
         try:
-            print(f"VideoAI[{self.device_name}]: AI channel banner analysis")
+            print(f"VideoAI[{self.device_name}]: AI channel banner analysis (full image only)")
             
             # Check if image exists
             if not os.path.exists(image_path):
@@ -847,76 +847,9 @@ Be specific about what you see on the device interface."""
                 if img is None:
                     return {'success': False, 'error': 'Could not load image'}
                 
-                # Enhanced banner detection with fallback approach (same as subtitle analysis)
-                # 1. Try cropped banner region first (optimized for banner detection)
-                # 2. If no banner detected or analysis fails, retry with full image (more context)
-                
-                analysis_result = None
-                
-                # Step 1: Try cropped banner region first (if region specified)
-                if banner_region:
-                    x = banner_region.get('x', 0)
-                    y = banner_region.get('y', 0)
-                    width = banner_region.get('width', img.shape[1])
-                    height = banner_region.get('height', img.shape[0])
-                    
-                    # Crop to specified region
-                    cropped_img = img[y:y+height, x:x+width]
-                    print(f"VideoAI[{self.device_name}]: Cropped image to banner region {x},{y} {width}x{height}")
-                    
-                    # Try analysis with cropped region first
-                    analysis_result = self._analyze_banner_with_image(cropped_img, banner_region, "cropped region")
-                
-                # Step 2: Fallback to full image if cropped region failed or no useful info found
-                # Check if we have useful information even if banner_detected is false
-                has_useful_cropped_info = False
-                if analysis_result and analysis_result.get('success', False):
-                    cropped_info = analysis_result.get('channel_info', {})
-                    has_useful_cropped_info = any([
-                        cropped_info.get('channel_name'),
-                        cropped_info.get('program_name'),
-                        cropped_info.get('start_time'),
-                        cropped_info.get('end_time')
-                    ])
-                
-                if (analysis_result is None or 
-                    not analysis_result.get('success', False) or 
-                    (not analysis_result.get('banner_detected', False) and not has_useful_cropped_info) or
-                    analysis_result.get('error') == 'Empty content from AI API'):
-                    
-                    if banner_region and analysis_result is not None:
-                        if has_useful_cropped_info:
-                            print(f"VideoAI[{self.device_name}]: Cropped region found partial info but no banner detected, retrying with full image")
-                        else:
-                            print(f"VideoAI[{self.device_name}]: Cropped region analysis failed, retrying with full image")
-                    else:
-                        print(f"VideoAI[{self.device_name}]: Starting analysis with full image")
-                    
-                    # Try analysis with full image
-                    full_analysis_result = self._analyze_banner_with_image(img, banner_region, "full image")
-                    
-                    # Check if full image has useful info (even if banner_detected is false)
-                    has_useful_full_info = False
-                    if full_analysis_result and full_analysis_result.get('success', False):
-                        full_info = full_analysis_result.get('channel_info', {})
-                        has_useful_full_info = any([
-                            full_info.get('channel_name'),
-                            full_info.get('program_name'),
-                            full_info.get('start_time'),
-                            full_info.get('end_time')
-                        ])
-                    
-                    # Use full image result if it has useful info OR if cropped had no useful info
-                    if has_useful_full_info or not has_useful_cropped_info:
-                        analysis_result = full_analysis_result
-                        if has_useful_full_info:
-                            banner_status = "detected" if full_analysis_result.get('banner_detected', False) else "partial info found"
-                            print(f"VideoAI[{self.device_name}]: Full image analysis {banner_status}")
-                        else:
-                            print(f"VideoAI[{self.device_name}]: Full image analysis also found no useful info")
-                    else:
-                        # Keep cropped result since it had useful info
-                        print(f"VideoAI[{self.device_name}]: Keeping cropped region result with partial info")
+                # Use full image analysis only - no cropping to avoid OpenCV errors
+                print(f"VideoAI[{self.device_name}]: Analyzing full image for banner detection")
+                analysis_result = self._analyze_banner_with_image(img, banner_region, "full image")
                 
                 # Set image path in the final result
                 if analysis_result and analysis_result.get('success', False):
@@ -940,12 +873,12 @@ Be specific about what you see on the device interface."""
 
     def _create_banner_analysis_prompt(self) -> str:
         """
-        Create specialized prompt for channel banner analysis.
+        Create specialized prompt for channel banner analysis optimized for full image analysis.
         
         Returns:
             Formatted prompt string for AI analysis
         """
-        return """Analyze this image for TV channel information banner/overlay. Look for channel names, program information, and time details.
+        return """Analyze this full TV screen image for channel information banner/overlay. Look for channel names, program information, and time details anywhere in the image.
 
 CRITICAL INSTRUCTIONS:
 1. You MUST ALWAYS respond with valid JSON - never return empty content
@@ -973,18 +906,22 @@ If no channel banner found:
   "confidence": 0.1
 }
 
-IMPORTANT EXTRACTION RULES:
-- Look for channel logos, channel names (BBC One, ITV, Channel 4, etc.)
-- Extract program/show names (News, EastEnders, etc.)
-- Find time information (start time, end time, duration)
-- Look for text overlays, banners, or information bars
-- Check corners and edges of the image for channel info
+FULL IMAGE ANALYSIS RULES:
+- Scan the ENTIRE image for channel information
+- Look for channel logos, channel names (BBC One, ITV, Channel 4, SRF, etc.)
+- Extract program/show names (News, EastEnders, Music@SRF, etc.)
+- Find time information (start time, end time, duration) anywhere on screen
+- Look for text overlays, banners, or information bars in ANY location
+- Check ALL corners and edges of the image for channel info
 - Pay attention to typical TV UI elements (channel number, program guide info)
+- Look for semi-transparent overlays that may appear anywhere
 - Extract exact times in HH:MM format when visible
 - Set confidence based on clarity and completeness of information found
 - If only partial information is visible, include what you can extract
 - Look for "Now" or "Next" program information
 - Check for EPG (Electronic Program Guide) style overlays
+- Examine the bottom area of the screen where banners commonly appear
+- Also check top areas and side areas for channel branding
 
 IMPORTANT: Even if the image has no channel banner, you MUST respond with the "banner_detected": false JSON format above. Never return empty content.
 
@@ -993,10 +930,11 @@ JSON ONLY - NO OTHER TEXT - ALWAYS RESPOND"""
     def detect_banner_presence(self, image_path: str, banner_region: Dict[str, int] = None) -> bool:
         """
         Quick detection to check if a banner is visually present before calling expensive AI analysis.
+        Uses full image analysis only to avoid OpenCV cropping errors.
         
         Args:
             image_path: Path to image file
-            banner_region: Region to check for banner presence
+            banner_region: Region to check for banner presence (kept for compatibility but not used for cropping)
             
         Returns:
             True if banner appears to be present, False otherwise
@@ -1009,20 +947,7 @@ JSON ONLY - NO OTHER TEXT - ALWAYS RESPOND"""
             if img is None:
                 return False
             
-            # Crop to banner region if specified
-            if banner_region:
-                x = banner_region.get('x', 0)
-                y = banner_region.get('y', 0)
-                width = banner_region.get('width', img.shape[1])
-                height = banner_region.get('height', img.shape[0])
-                
-                # Validate bounds
-                img_height, img_width = img.shape[:2]
-                if x < 0 or y < 0 or x + width > img_width or y + height > img_height:
-                    return False
-                
-                img = img[y:y+height, x:x+width]
-            
+            # Use full image analysis only - no cropping to avoid OpenCV errors
             # Simple heuristic: check for text-like edges and non-uniform color distribution
             gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
             
@@ -1039,7 +964,7 @@ JSON ONLY - NO OTHER TEXT - ALWAYS RESPOND"""
             
             banner_likely = has_text_edges and has_color_variation
             
-            print(f"VideoAI[{self.device_name}]: Banner presence check - edges: {edge_density:.4f}, variance: {color_variance:.1f}, likely: {banner_likely}")
+            print(f"VideoAI[{self.device_name}]: Banner presence check (full image) - edges: {edge_density:.4f}, variance: {color_variance:.1f}, likely: {banner_likely}")
             return banner_likely
             
         except Exception as e:
