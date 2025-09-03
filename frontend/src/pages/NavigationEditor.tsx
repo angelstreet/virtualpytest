@@ -318,6 +318,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
 
     // Metrics state
     const [showMetricsModal, setShowMetricsModal] = useState(false);
+    const [isMetricsNotificationSkipped, setIsMetricsNotificationSkipped] = useState(false);
 
     // AI Generation handler
     const handleToggleAIGeneration = useCallback(() => {
@@ -419,6 +420,18 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
 
     const handleCloseMetricsModal = useCallback(() => {
       setShowMetricsModal(false);
+    }, []);
+
+    // Handle metrics notification actions
+    const handleCloseMetricsNotification = useCallback(() => {
+      // This will be called when the toast is clicked to open modal
+      // The toast should hide immediately
+      setIsMetricsNotificationSkipped(true);
+    }, []);
+
+    const handleSkipMetricsNotification = useCallback(() => {
+      // Skip this notification until next refresh/reload
+      setIsMetricsNotificationSkipped(true);
     }, []);
 
     // Helper functions using new normalized API
@@ -1303,8 +1316,13 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
 
         {/* Metrics Notification */}
         <MetricsNotification
-          notificationData={metricsHook.notificationData}
+          notificationData={{
+            ...metricsHook.notificationData,
+            show: metricsHook.notificationData.show && !isMetricsNotificationSkipped
+          }}
           onViewDetails={handleOpenMetricsModal}
+          onClose={handleCloseMetricsNotification}
+          onSkip={handleSkipMetricsNotification}
         />
 
         {/* Metrics Modal */}

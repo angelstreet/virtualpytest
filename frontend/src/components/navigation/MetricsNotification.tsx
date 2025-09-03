@@ -4,8 +4,8 @@
  */
 
 import React from 'react';
-import { Snackbar, Alert, Box } from '@mui/material';
-import { Warning, Error } from '@mui/icons-material';
+import { Snackbar, Alert, Box, IconButton, Tooltip } from '@mui/material';
+import { Warning, Error, Close } from '@mui/icons-material';
 
 import { MetricsNotificationData } from '../../types/navigation/Metrics_Types';
 
@@ -13,6 +13,7 @@ export interface MetricsNotificationProps {
   notificationData: MetricsNotificationData;
   onViewDetails: () => void;
   onClose?: () => void;
+  onSkip?: () => void; // New: Skip this notification until next refresh
   autoHideDuration?: number;
 }
 
@@ -20,13 +21,22 @@ export const MetricsNotification: React.FC<MetricsNotificationProps> = ({
   notificationData,
   onViewDetails,
   onClose,
+  onSkip,
   autoHideDuration = 6000, // 6 seconds
 }) => {
   if (!notificationData.show) {
     return null;
   }
 
-  const handleClick = () => {
+  const handleClick = (event: React.MouseEvent) => {
+    // Prevent event bubbling to avoid closing when clicking the skip button
+    if ((event.target as HTMLElement).closest('.skip-button')) {
+      return;
+    }
+    
+    // Hide toast immediately when opening modal
+    onClose?.();
+    // Then open modal
     onViewDetails();
   };
 
@@ -35,6 +45,11 @@ export const MetricsNotification: React.FC<MetricsNotificationProps> = ({
       return;
     }
     onClose?.();
+  };
+
+  const handleSkip = (event: React.MouseEvent) => {
+    event.stopPropagation(); // Prevent triggering the main click handler
+    onSkip?.();
   };
 
   const getIcon = () => {
@@ -114,6 +129,28 @@ export const MetricsNotification: React.FC<MetricsNotificationProps> = ({
           <Box sx={{ fontSize: '0.8rem', fontWeight: 500 }}>
             {getShortMessage()}
           </Box>
+          
+          {/* Skip button */}
+          {onSkip && (
+            <Tooltip title="Skip until next refresh" placement="top">
+              <IconButton
+                className="skip-button"
+                size="small"
+                onClick={handleSkip}
+                sx={{
+                  padding: '2px',
+                  marginLeft: '8px',
+                  opacity: 0.7,
+                  '&:hover': {
+                    opacity: 1,
+                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                  },
+                }}
+              >
+                <Close fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          )}
         </Box>
       </Alert>
     </Snackbar>

@@ -18,6 +18,8 @@ import {
 import React, { useState, useMemo, useCallback } from 'react';
 
 import { useNode } from '../../hooks/navigation/useNode';
+import { useMetrics } from '../../hooks/navigation/useMetrics';
+import { useValidationColors } from '../../hooks/validation/useValidationColors';
 import { Host } from '../../types/common/Host_Types';
 import { UINavigationNode, NodeForm } from '../../types/pages/Navigation_Types';
 import { getZIndex } from '../../utils/zIndexUtils';
@@ -82,6 +84,13 @@ export const NodeSelectionPanel: React.FC<NodeSelectionPanelProps> = React.memo(
     // Use the consolidated node hook
     const nodeHook = useNode(nodeHookProps);
 
+    // Get metrics for this specific node
+    const metricsHook = useMetrics();
+    const nodeMetrics = metricsHook.getNodeMetrics(selectedNode.id);
+    
+    // Get validation colors for confidence-based styling
+    const { getNodeColors } = useValidationColors([]);
+
     // Add states for confirmation dialogs
     const [showResetConfirm, setShowResetConfirm] = useState(false);
     const [showScreenshotConfirm, setShowScreenshotConfirm] = useState(false);
@@ -126,24 +135,32 @@ export const NodeSelectionPanel: React.FC<NodeSelectionPanelProps> = React.memo(
       [nodeHook, selectedNode.data.parent, nodes],
     );
 
-    // Get metrics from node data (loaded once with tree)
-    const nodeMetrics = useMemo(() => {
-      return selectedNode.data.metrics || { volume: 0, success_rate: 0.0, avg_execution_time: 0 };
-    }, [selectedNode.data.metrics]);
+    // Get confidence-based colors for the node
+    const nodeColors = useMemo(() => {
+      return getNodeColors(selectedNode.data.type as any, nodeMetrics);
+    }, [getNodeColors, selectedNode.data.type, nodeMetrics]);
 
-    // Format success rate as percentage
-    const successRateText = useMemo(() => {
-      if (nodeMetrics.volume === 0) return 'No data';
-      return `${Math.round(nodeMetrics.success_rate * 100)}%`;
-    }, [nodeMetrics.volume, nodeMetrics.success_rate]);
+    // Format metrics display
+    const metricsDisplay = useMemo(() => {
+      if (!nodeMetrics) {
+        return {
+          confidenceText: 'No data',
+          confidenceColor: '#666',
+          volumeText: '0',
+          timeText: '0s'
+        };
+      }
 
-    // Get success rate color
-    const successRateColor = useMemo(() => {
-      if (nodeMetrics.volume === 0) return '#666';
-      if (nodeMetrics.success_rate >= 0.7) return '#4caf50'; // Green for 70%+
-      if (nodeMetrics.success_rate >= 0.5) return '#ff9800'; // Orange for 50-70%
-      return '#f44336'; // Red for <50%
-    }, [nodeMetrics.volume, nodeMetrics.success_rate]);
+      const confidencePercent = Math.round(nodeMetrics.confidence * 100);
+      return {
+        confidenceText: `${confidencePercent}%`,
+        confidenceColor: nodeColors.border, // Use confidence-based border color
+        volumeText: `${nodeMetrics.volume}`,
+        timeText: nodeMetrics.avg_execution_time > 0 
+          ? `${(nodeMetrics.avg_execution_time / 1000).toFixed(1)}s` 
+          : '0s'
+      };
+    }, [nodeMetrics, nodeColors]);
 
     // Memoize event handlers to prevent unnecessary re-renders
     const handleCloseClick = useCallback(
@@ -193,6 +210,7 @@ export const NodeSelectionPanel: React.FC<NodeSelectionPanelProps> = React.memo(
             width: 340,
             p: 1.5,
             zIndex: getZIndex('NAVIGATION_SELECTION_PANEL'),
+            borderLeft: `4px solid ${nodeColors.border}`, // Show confidence color as border
           }}
           onClick={handlePaperClick}
         >
@@ -204,21 +222,21 @@ export const NodeSelectionPanel: React.FC<NodeSelectionPanelProps> = React.memo(
                 <Typography variant="h6" sx={{ margin: 0, fontSize: '1rem' }}>
                   {selectedNode.data.label}
                 </Typography>
-                {/* Show success rate percentage with color coding */}
+                {/* Show confidence percentage with color coding */}
                 <Typography
                   variant="caption"
                   sx={{
                     fontSize: '0.75rem',
                     fontWeight: 'bold',
-                    color: successRateColor,
+                    color: metricsDisplay.confidenceColor,
                     padding: '2px 6px',
                     borderRadius: '4px',
                     backgroundColor: 'rgba(255,255,255,0.1)',
                   }}
                 >
-                  {successRateText}
+                  {metricsDisplay.confidenceText}
                 </Typography>
-                {/* Show average time in seconds */}
+                {/* Show average time */}
                 <Typography
                   variant="caption"
                   sx={{
@@ -230,9 +248,7 @@ export const NodeSelectionPanel: React.FC<NodeSelectionPanelProps> = React.memo(
                     backgroundColor: 'rgba(255,255,255,0.1)',
                   }}
                 >
-                  {nodeMetrics.avg_execution_time > 0
-                    ? `${(nodeMetrics.avg_execution_time / 1000).toFixed(1)}s`
-                    : '0s'}
+                  {metricsDisplay.timeText}
                 </Typography>
                 {/* Show execution count */}
                 <Typography
@@ -246,7 +262,7 @@ export const NodeSelectionPanel: React.FC<NodeSelectionPanelProps> = React.memo(
                     backgroundColor: 'rgba(255,255,255,0.1)',
                   }}
                 >
-                  #{nodeMetrics.volume}
+                  #{metricsDisplay.volumeText}
                 </Typography>
               </Box>
               <IconButton size="small" onClick={handleCloseClick} sx={{ p: 0.25 }}>

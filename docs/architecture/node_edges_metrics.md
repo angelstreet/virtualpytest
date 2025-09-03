@@ -160,16 +160,27 @@ const calculateConfidence = (totalExecutions: number, successRate: number): numb
 
 ### Notification System
 
-#### Toast Notifications
+#### Toast Notifications (Minimalist Design)
+- **Position**: Bottom-right corner
+- **Duration**: 6 seconds auto-hide
 - **Error (Red)**: Global confidence <90%
 - **Warning (Orange)**: Global confidence 90-95%
 - **No notification**: Global confidence ≥95%
+- **Interaction**: Click to view details modal (toast disappears immediately)
+- **Skip Option**: Small close icon to dismiss until next refresh
 
 #### Modal Details
 - **Tabbed interface**: Separate views for nodes and edges
 - **Sortable table**: Items sorted by confidence (lowest first)
+- **Transparent background**: Consistent with TestReports.tsx styling
 - **Metrics breakdown**: Volume, success rate, avg execution time
 - **Improvement tips**: Actionable suggestions
+
+#### Selection Panel Enhancements
+- **Colored Border**: 4px left border showing confidence level
+- **Metrics Display**: Confidence %, execution count, average time
+- **Real-time Updates**: Metrics refresh automatically
+- **Clean Interface**: Removed legacy success rate calculations
 
 ## 🔧 Implementation
 
@@ -184,10 +195,20 @@ frontend/src/
 ├── hooks/navigation/
 │   └── useMetrics.ts                 # Metrics data management
 ├── components/navigation/
-│   ├── MetricsNotification.tsx       # Toast notifications
-│   └── MetricsModal.tsx              # Detailed metrics view
+│   ├── MetricsNotification.tsx       # Toast notifications (minimalist)
+│   ├── MetricsModal.tsx              # Detailed metrics view
+│   ├── Navigation_NodeSelectionPanel.tsx  # Enhanced with metrics display
+│   └── Navigation_EdgeSelectionPanel.tsx  # Enhanced with metrics display
 └── hooks/validation/
     └── useValidationColors.ts        # Enhanced with metrics support
+
+backend_server/src/
+├── routes/
+│   └── server_metrics_routes.py      # API endpoint for metrics
+└── app.py                           # Registers metrics routes
+
+shared/lib/supabase/
+└── execution_results_db.py          # Database layer with get_raw_tree_metrics
 ```
 
 ### Integration Points
@@ -235,6 +256,26 @@ const edgeMetrics = metricsHook.getEdgeMetrics(id);
 
 // Apply confidence-based colors
 const edgeColors = edgeHook.getEdgeColorsForEdge(id, false, edgeMetrics);
+```
+
+#### 4. Selection Panels
+```typescript
+// NodeSelectionPanel.tsx & EdgeSelectionPanel.tsx
+const metricsHook = useMetrics();
+const nodeMetrics = metricsHook.getNodeMetrics(selectedNode.id);
+const { getNodeColors } = useValidationColors([]);
+
+// Get confidence-based colors and display
+const nodeColors = getNodeColors(selectedNode.data.type, nodeMetrics);
+const metricsDisplay = {
+  confidenceText: `${Math.round(nodeMetrics.confidence * 100)}%`,
+  confidenceColor: nodeColors.border,
+  volumeText: `${nodeMetrics.volume}`,
+  timeText: `${(nodeMetrics.avg_execution_time / 1000).toFixed(1)}s`
+};
+
+// Apply colored border to panel
+<Paper sx={{ borderLeft: `4px solid ${nodeColors.border}` }}>
 ```
 
 ## 📈 Usage Examples

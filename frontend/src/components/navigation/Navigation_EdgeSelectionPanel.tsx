@@ -4,6 +4,8 @@ import React, { useEffect, useMemo } from 'react';
 import { useReactFlow } from 'reactflow';
 
 import { useEdge } from '../../hooks/navigation/useEdge';
+import { useMetrics } from '../../hooks/navigation/useMetrics';
+import { useValidationColors } from '../../hooks/validation/useValidationColors';
 import { Host } from '../../types/common/Host_Types';
 import { UINavigationEdge, EdgeForm } from '../../types/pages/Navigation_Types';
 import { getZIndex } from '../../utils/zIndexUtils';
@@ -81,6 +83,13 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
       isControlActive,
     });
 
+    // Get metrics for this specific edge
+    const metricsHook = useMetrics();
+    const edgeMetrics = metricsHook.getEdgeMetrics(selectedEdge.id);
+    
+    // Get validation colors for confidence-based styling
+    const { getEdgeColors } = useValidationColors([]);
+
     // Get actions, retry actions, and failure actions directly from actionSet prop
     const actions = actionSet?.actions || [];
     const retryActions = actionSet?.retry_actions || [];
@@ -107,24 +116,32 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
     // Check if edge can be deleted using hook function
     const isProtectedEdge = edgeHook.isProtectedEdge(selectedEdge);
 
-    // Get metrics from edge data (loaded once with tree)
-    const edgeMetrics = useMemo(() => {
-      return selectedEdge.data?.metrics || { volume: 0, success_rate: 0.0, avg_execution_time: 0 };
-    }, [selectedEdge.data?.metrics]);
+    // Get confidence-based colors for the edge
+    const edgeColors = useMemo(() => {
+      return getEdgeColors(selectedEdge.id, edgeMetrics);
+    }, [getEdgeColors, selectedEdge.id, edgeMetrics]);
 
-    // Format success rate as percentage
-    const successRateText = useMemo(() => {
-      if (edgeMetrics.volume === 0) return 'No data';
-      return `${Math.round(edgeMetrics.success_rate * 100)}%`;
-    }, [edgeMetrics.volume, edgeMetrics.success_rate]);
+    // Format metrics display
+    const metricsDisplay = useMemo(() => {
+      if (!edgeMetrics) {
+        return {
+          confidenceText: 'No data',
+          confidenceColor: '#666',
+          volumeText: '0',
+          timeText: '0s'
+        };
+      }
 
-    // Get success rate color
-    const successRateColor = useMemo(() => {
-      if (edgeMetrics.volume === 0) return '#666';
-      if (edgeMetrics.success_rate >= 0.7) return '#4caf50'; // Green for 70%+
-      if (edgeMetrics.success_rate >= 0.5) return '#ff9800'; // Orange for 50-70%
-      return '#f44336'; // Red for <50%
-    }, [edgeMetrics.volume, edgeMetrics.success_rate]);
+      const confidencePercent = Math.round(edgeMetrics.confidence * 100);
+      return {
+        confidenceText: `${confidencePercent}%`,
+        confidenceColor: edgeColors.stroke, // Use confidence-based stroke color
+        volumeText: `${edgeMetrics.volume}`,
+        timeText: edgeMetrics.avg_execution_time > 0 
+          ? `${(edgeMetrics.avg_execution_time / 1000).toFixed(1)}s` 
+          : '0s'
+      };
+    }, [edgeMetrics, edgeColors]);
 
     const handleEdit = () => {
       // Simple edge form creation
@@ -163,6 +180,7 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
           width: 360,
           p: 1.5,
           zIndex: getZIndex('NAVIGATION_EDGE_PANEL'),
+          borderLeft: `4px solid ${edgeColors.stroke}`, // Show confidence color as border
         }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -174,21 +192,21 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
               <Typography variant="h6" sx={{ margin: 0, fontSize: '1rem' }}>
                 Edge Selection
               </Typography>
-              {/* Show success rate percentage with color coding */}
+              {/* Show confidence percentage with color coding */}
               <Typography
                 variant="caption"
                 sx={{
                   fontSize: '0.75rem',
                   fontWeight: 'bold',
-                  color: successRateColor,
+                  color: metricsDisplay.confidenceColor,
                   padding: '2px 6px',
                   borderRadius: '4px',
                   backgroundColor: 'rgba(255,255,255,0.1)',
                 }}
               >
-                {successRateText}
+                {metricsDisplay.confidenceText}
               </Typography>
-              {/* Show average time in seconds */}
+              {/* Show average time */}
               <Typography
                 variant="caption"
                 sx={{
@@ -200,9 +218,7 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
                   backgroundColor: 'rgba(255,255,255,0.1)',
                 }}
               >
-                {edgeMetrics.avg_execution_time > 0
-                  ? `${(edgeMetrics.avg_execution_time / 1000).toFixed(1)}s`
-                  : '0s'}
+                {metricsDisplay.timeText}
               </Typography>
               {/* Show execution count */}
               <Typography
@@ -216,7 +232,7 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
                   backgroundColor: 'rgba(255,255,255,0.1)',
                 }}
               >
-                #{edgeMetrics.volume}
+                #{metricsDisplay.volumeText}
               </Typography>
             </Box>
             <IconButton
