@@ -9,7 +9,7 @@ This controller manages:
 """
 
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Any, List, Optional
 from .action_utils import execute_edge_actions, capture_validation_screenshot
 from .navigation_utils import goto_node
@@ -1357,8 +1357,8 @@ class ZapController:
                 userinterface_name=getattr(context, 'userinterface_name', 'unknown'),
                 iteration_index=iteration,
                 action_command=context.custom_data.get('action_command', 'unknown'),
-                started_at=datetime.fromtimestamp(start_time),
-                completed_at=datetime.fromtimestamp(end_time),
+                started_at=datetime.fromtimestamp(start_time, tz=timezone.utc),
+                completed_at=datetime.fromtimestamp(end_time, tz=timezone.utc),
                 duration_seconds=duration_seconds,
                 motion_detected=analysis_result.motion_detected,
                 subtitles_detected=analysis_result.subtitles_detected,
