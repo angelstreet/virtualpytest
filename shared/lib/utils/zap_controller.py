@@ -1337,6 +1337,13 @@ class ZapController:
             zapping_details = analysis_result.zapping_details or {}
             channel_info = zapping_details.get('channel_info', {})
             
+            # Debug logging for channel info extraction
+            print(f"[ZapController] Channel info debug:")
+            print(f"  - zapping_details keys: {list(zapping_details.keys())}")
+            print(f"  - channel_info extracted: {channel_info}")
+            print(f"  - zapping_details success: {zapping_details.get('success')}")
+            print(f"  - zapping_detected: {zapping_details.get('zapping_detected')}")
+            
             # Calculate duration
             duration_seconds = end_time - start_time
             

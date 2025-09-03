@@ -86,6 +86,8 @@ def record_zap_iteration(
         print(f"  - completed_at: {completed_at.isoformat()}")
         print(f"  - duration: {duration_seconds}s")
         print(f"  - motion: {motion_detected}, subtitles: {subtitles_detected}, audio: {audio_speech_detected}, blackscreen/freeze: {blackscreen_freeze_detected}")
+        print(f"  - channel_name: '{channel_name}', channel_number: '{channel_number}', program_name: '{program_name}'")
+        print(f"  - program_start_time: '{program_start_time}', program_end_time: '{program_end_time}'")
         
         supabase = get_supabase()
         result = supabase.table('zap_results').insert(zap_data).execute()
