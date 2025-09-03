@@ -21,6 +21,7 @@ server_metrics_bp = Blueprint('server_metrics', __name__, url_prefix='/server/me
 # =====================================================
 
 @server_metrics_bp.route('/tree/<tree_id>', methods=['GET'])
+@server_metrics_bp.route('/getTreeMetrics/<tree_id>', methods=['GET'])
 def get_tree_metrics_api(tree_id):
     """Get aggregated metrics for a navigation tree"""
     error = check_supabase()
