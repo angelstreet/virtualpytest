@@ -324,6 +324,9 @@ def main():
             elif not nav_success:
                 context.error_message = f"Failed to navigate to live node"
         
+        # Print zap summary table from database
+        zap_controller.print_zap_summary_table(context)
+        
         # Print custom fullzap summary and capture it
         summary_text = capture_fullzap_summary(context, args.userinterface_name)
         print_fullzap_summary(context, args.userinterface_name)

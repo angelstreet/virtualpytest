@@ -434,6 +434,9 @@ class ZapController:
         if analysis_result.audio_language and analysis_result.audio_language != 'unknown':
             self.statistics.add_audio_language(analysis_result.audio_language)
 
+        # Record zap iteration to database
+        self._record_zap_iteration_to_db(context, iteration, analysis_result, start_time, end_time)
+
         # Update the ZAP step (not the last step) with analysis results
         if context.step_results and zap_step_index < len(context.step_results):
             zap_step = context.step_results[zap_step_index]
@@ -1321,3 +1324,143 @@ class ZapController:
             'detected_channels': self.statistics.detected_channels,
             'channel_info_results': self.statistics.channel_info_results
         })
+    
+    def _record_zap_iteration_to_db(self, context, iteration: int, analysis_result, start_time: float, end_time: float):
+        """Record individual zap iteration to database"""
+        if not context.script_result_id:
+            return  # Skip if no script result ID
+        
+        try:
+            from shared.lib.supabase.zap_results_db import record_zap_iteration
+            
+            # Extract channel info from zapping analysis
+            zapping_details = analysis_result.zapping_details
+            channel_info = zapping_details.get('channel_info', {}) if zapping_details else {}
+            
+            # Calculate duration
+            duration_seconds = end_time - start_time
+            
+            # Extract blackscreen/freeze details
+            blackscreen_freeze_duration = None
+            detection_method = None
+            if analysis_result.zapping_detected and zapping_details:
+                blackscreen_freeze_duration = zapping_details.get('blackscreen_duration', 0.0)
+                detection_method = zapping_details.get('detection_method', 'blackscreen')
+            
+            # Record to database
+            record_zap_iteration(
+                script_result_id=context.script_result_id,
+                team_id=context.team_id,
+                host_name=context.host.host_name,
+                device_name=context.selected_device.device_name,
+                device_model=context.selected_device.device_model,
+                iteration_index=iteration,
+                action_command=context.custom_data.get('action_command', 'unknown'),
+                start_time=datetime.fromtimestamp(start_time).strftime('%H:%M:%S'),
+                end_time=datetime.fromtimestamp(end_time).strftime('%H:%M:%S'),
+                duration_seconds=duration_seconds,
+                motion_detected=analysis_result.motion_detected,
+                subtitles_detected=analysis_result.subtitles_detected,
+                audio_speech_detected=analysis_result.audio_speech_detected,
+                blackscreen_freeze_detected=analysis_result.zapping_detected,
+                subtitle_language=analysis_result.detected_language,
+                subtitle_text=analysis_result.extracted_text[:500] if analysis_result.extracted_text else None,  # Limit text length
+                audio_language=analysis_result.audio_language if analysis_result.audio_language != 'unknown' else None,
+                audio_transcript=analysis_result.audio_transcript[:500] if analysis_result.audio_transcript else None,  # Limit text length
+                blackscreen_freeze_duration_seconds=blackscreen_freeze_duration,
+                detection_method=detection_method,
+                channel_name=channel_info.get('channel_name'),
+                channel_number=channel_info.get('channel_number'),
+                program_name=channel_info.get('program_name'),
+                program_start_time=channel_info.get('program_start_time'),
+                program_end_time=channel_info.get('program_end_time')
+            )
+        except Exception as e:
+            print(f"⚠️ [ZapController] Failed to record zap iteration to database: {e}")
+    
+    def print_zap_summary_table(self, context):
+        """Print formatted zap summary table from database"""
+        if not context.script_result_id:
+            print("⚠️ [ZapController] No script result ID available for summary table")
+            return
+        
+        try:
+            from shared.lib.supabase.zap_results_db import get_zap_summary_for_script
+            
+            # Get zap data from database
+            summary_data = get_zap_summary_for_script(context.script_result_id)
+            if not summary_data['success'] or not summary_data['zap_iterations']:
+                print("⚠️ [ZapController] No zap data found in database for summary table")
+                return
+            
+            zap_iterations = summary_data['zap_iterations']
+            
+            # Print summary table
+            print("\n" + "="*120)
+            print("🎯 ZAP EXECUTION SUMMARY")
+            print("="*120)
+            
+            # Header info
+            first_iteration = zap_iterations[0]
+            print(f"Host: {first_iteration['host_name']} | Device: {first_iteration['device_name']} ({first_iteration['device_model']}) | Date: {first_iteration['execution_date'][:19]}")
+            print()
+            
+            # Table header
+            print(f"{'Iter':<4} | {'Action':<12} | {'Start':<8} | {'End':<8} | {'Duration':<8} | {'Motion':<6} | {'Subtitles':<10} | {'Audio':<8} | {'B/F':<6} | {'Channel Info':<40}")
+            print("-" * 120)
+            
+            # Table rows
+            motion_count = subtitle_count = audio_count = bf_count = 0
+            for iteration in zap_iterations:
+                # Format detection results
+                motion_icon = "✅" if iteration['motion_detected'] else "❌"
+                subtitle_result = "✅" if iteration['subtitles_detected'] else "❌"
+                if iteration['subtitles_detected'] and iteration['subtitle_language']:
+                    subtitle_result += f" {iteration['subtitle_language'][:2].upper()}"
+                
+                audio_result = "✅" if iteration['audio_speech_detected'] else "❌"
+                if iteration['audio_speech_detected'] and iteration['audio_language']:
+                    audio_result += f" {iteration['audio_language'][:2].upper()}"
+                
+                bf_result = "❌"
+                if iteration['blackscreen_freeze_detected']:
+                    duration = iteration['blackscreen_freeze_duration_seconds'] or 0
+                    method = iteration['detection_method'] or 'B'
+                    method_icon = "⬛" if method == 'blackscreen' else "🧊"
+                    bf_result = f"{method_icon} {duration:.1f}s"
+                
+                # Format channel info
+                channel_info = ""
+                if iteration['channel_name']:
+                    channel_info = iteration['channel_name']
+                    if iteration['channel_number']:
+                        channel_info += f" ({iteration['channel_number']})"
+                    if iteration['program_name']:
+                        channel_info += f" - {iteration['program_name']}"
+                    if iteration['program_start_time'] and iteration['program_end_time']:
+                        channel_info += f" [{iteration['program_start_time']}-{iteration['program_end_time']}]"
+                
+                # Truncate channel info if too long
+                if len(channel_info) > 40:
+                    channel_info = channel_info[:37] + "..."
+                
+                print(f"{iteration['iteration_index']:<4} | {iteration['action_command']:<12} | {iteration['start_time']:<8} | {iteration['end_time']:<8} | {iteration['duration_seconds']:<8.1f}s | {motion_icon:<6} | {subtitle_result:<10} | {audio_result:<8} | {bf_result:<6} | {channel_info:<40}")
+                
+                # Count successes
+                if iteration['motion_detected']:
+                    motion_count += 1
+                if iteration['subtitles_detected']:
+                    subtitle_count += 1
+                if iteration['audio_speech_detected']:
+                    audio_count += 1
+                if iteration['blackscreen_freeze_detected']:
+                    bf_count += 1
+            
+            # Summary totals
+            total_iterations = len(zap_iterations)
+            print("-" * 120)
+            print(f"TOTALS: {total_iterations}/{total_iterations} successful | Motion: {motion_count}/{total_iterations} ({motion_count/total_iterations*100:.0f}%) | Subtitles: {subtitle_count}/{total_iterations} ({subtitle_count/total_iterations*100:.0f}%) | Audio: {audio_count}/{total_iterations} ({audio_count/total_iterations*100:.0f}%) | Blackscreen/Freeze: {bf_count}/{total_iterations} ({bf_count/total_iterations*100:.0f}%)")
+            print("="*120)
+            
+        except Exception as e:
+            print(f"❌ [ZapController] Failed to generate summary table: {e}")
