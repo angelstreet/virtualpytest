@@ -209,7 +209,7 @@ class PlaywrightWebController(WebControllerInterface):
                 except Exception as e:
                     # Connection failed - kill everything and restart
                     print(f"[PLAYWRIGHT]: Connection failed ({e}), killing and restarting Chrome...")
-                    self.utils.kill_chrome()
+                    self.utils.kill_chrome(chrome_process=self.__class__._chrome_process)
                     self.__class__._chrome_process = None
                     self.__class__._chrome_running = False
                     self.__class__._browser_connected = False

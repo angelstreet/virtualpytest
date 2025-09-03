@@ -42,16 +42,45 @@ class ChromeManager:
     def close_chrome_gracefully(debug_port: int = 9222, chrome_process = None):
         """Close Chrome gracefully via CDP, fallback to process termination."""
         print('[ChromeManager] Closing Chrome gracefully...')
-              
+        
+        # First try CDP shutdown using Browser.close command
+        try:
+            import requests
+            print('[ChromeManager] Attempting CDP shutdown...')
+            
+            # Send Browser.close command via CDP
+            response = requests.post(f'http://localhost:{debug_port}/json/runtime/evaluate',
+                                   json={
+                                       'expression': 'window.chrome && window.chrome.app ? window.chrome.app.window.current().close() : window.close()'
+                                   }, timeout=3)
+            
+            if response.status_code == 200:
+                print('[ChromeManager] CDP shutdown command sent successfully')
+                time.sleep(3)  # Give Chrome time to shut down gracefully
+                
+                # Check if Chrome actually closed
+                try:
+                    check_response = requests.get(f'http://localhost:{debug_port}/json', timeout=1)
+                    if check_response.status_code != 200:
+                        print('[ChromeManager] Chrome closed successfully via CDP')
+                        return
+                except:
+                    print('[ChromeManager] Chrome closed successfully via CDP')
+                    return
+                    
+        except Exception as e:
+            print(f'[ChromeManager] CDP shutdown failed: {e}')
+        
+        # Fallback to process termination (but use SIGTERM first, not SIGKILL)
         if chrome_process and chrome_process.poll() is None:
-            print('[ChromeManager] CDP failed, terminating specific process...')
-            chrome_process.terminate()
+            print('[ChromeManager] Using process termination fallback...')
+            chrome_process.terminate()  # SIGTERM - allows graceful shutdown
             try:
-                chrome_process.wait(timeout=5)
-                print('[ChromeManager] Chrome process terminated')
+                chrome_process.wait(timeout=10)  # Give more time for graceful shutdown
+                print('[ChromeManager] Chrome process terminated gracefully')
             except subprocess.TimeoutExpired:
-                print('[ChromeManager] Force killing process...')
-                chrome_process.kill()
+                print('[ChromeManager] Graceful termination timeout, force killing...')
+                chrome_process.kill()  # Only use SIGKILL as last resort
                 chrome_process.wait()
     
     @staticmethod
