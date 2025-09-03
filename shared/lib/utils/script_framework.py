@@ -720,10 +720,13 @@ class ScriptExecutor:
             if context.script_result_id:
                 if context.overall_success:
                     print(f"📝 [{self.script_name}] Recording success in database...")
+                    # Use baseline execution time if available, otherwise current time
+                    execution_time_for_db = getattr(context, 'baseline_execution_time_ms', context.get_execution_time_ms())
+                    print(f"[@script_framework:cleanup_and_exit] DEBUG: Using execution time for DB: {execution_time_for_db}ms ({execution_time_for_db/1000:.1f}s)")
                     update_script_execution_result(
                         script_result_id=context.script_result_id,
                         success=True,
-                        execution_time_ms=actual_execution_time_ms,  # Use captured baseline time
+                        execution_time_ms=execution_time_for_db,
                         html_report_r2_path=report_result.get('report_path') if report_result and report_result.get('success') else None,
                         html_report_r2_url=report_result.get('report_url') if report_result and report_result.get('success') else None,
                         logs_r2_path=report_result.get('logs_path') if report_result and report_result.get('success') else None,
@@ -732,10 +735,12 @@ class ScriptExecutor:
                     )
                 else:
                     print(f"📝 [{self.script_name}] Recording failure in database...")
+                    # Use baseline execution time if available, otherwise current time
+                    execution_time_for_db = getattr(context, 'baseline_execution_time_ms', context.get_execution_time_ms())
                     update_script_execution_result(
                         script_result_id=context.script_result_id,
                         success=False,
-                        execution_time_ms=actual_execution_time_ms,  # Use captured baseline time
+                        execution_time_ms=execution_time_for_db,
                         html_report_r2_path=report_result.get('report_path') if report_result and report_result.get('success') else None,
                         html_report_r2_url=report_result.get('report_url') if report_result and report_result.get('success') else None,
                         logs_r2_path=report_result.get('logs_path') if report_result and report_result.get('success') else None,
