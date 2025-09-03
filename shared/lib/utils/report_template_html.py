@@ -116,6 +116,8 @@ def create_themed_html_template() -> str:
                 </div>
             </div>
             
+            {{zap_summary_section}}
+            
             <div class="section">
                                 <div class="section-header" onclick="toggleSection('steps-content')">
                     <h2>Test Steps ({{passed_steps}}/{{total_steps}} passed)</h2>

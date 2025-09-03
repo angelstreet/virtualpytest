@@ -5,7 +5,7 @@ Database operations for zap_results table
 from datetime import datetime, timezone
 from typing import Dict, Any, List, Optional
 from uuid import uuid4
-from .supabase_client import get_supabase_client
+from shared.lib.utils.supabase_utils import get_supabase_client
 
 
 def get_supabase():

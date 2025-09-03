@@ -124,6 +124,17 @@ def generate_validation_report(report_data: Dict) -> str:
         if test_video_url is None:
             test_video_url = ''
         
+        # Generate zap summary section if script_result_id is available
+        zap_summary_section = ""
+        script_result_id = report_data.get('script_result_id')
+        if script_result_id:
+            try:
+                from .zap_summary_formatter import create_zap_summary_section
+                zap_summary_section = create_zap_summary_section(script_result_id)
+            except Exception as e:
+                print(f"[@utils:report_generation] Failed to generate zap summary: {str(e)}")
+                zap_summary_section = ""
+        
         # Replace placeholders with actual content
         html_content = html_template.format(
             script_name=script_name,
@@ -144,7 +155,8 @@ def generate_validation_report(report_data: Dict) -> str:
             execution_summary=format_console_summary_for_html(report_data.get('execution_summary', '')),
             initial_screenshot=get_thumbnail_screenshot_html(screenshots.get('initial')),
             final_screenshot=get_thumbnail_screenshot_html(screenshots.get('final')),
-            test_video=get_video_thumbnail_html(test_video_url, 'Test Execution')
+            test_video=get_video_thumbnail_html(test_video_url, 'Test Execution'),
+            zap_summary_section=zap_summary_section
         )
         
         print(f"[@utils:report_utils:generate_validation_report] Report generated successfully")

@@ -768,4 +768,130 @@ body {{
         margin-top: 5px;
         margin-left: 0;
     }}
+
+/* Zap Summary Table Styling */
+.zap-summary-container {{
+    padding: 15px;
+    background: var(--bg-secondary);
+    border-radius: 8px;
+    margin: 10px 0;
+}}
+
+.zap-summary-table {{
+    margin-bottom: 20px;
+}}
+
+.zap-table {{
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--bg-primary);
+    border-radius: 6px;
+    overflow: hidden;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}}
+
+.zap-table th,
+.zap-table td {{
+    padding: 8px 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--border-light);
+    font-size: 13px;
+}}
+
+.zap-table th {{
+    background: var(--bg-tertiary);
+    font-weight: 600;
+    color: var(--text-primary);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}}
+
+.zap-table tr:hover {{
+    background: var(--bg-secondary);
+}}
+
+.zap-table td:first-child {{
+    font-weight: 600;
+    text-align: center;
+    width: 50px;
+}}
+
+.zap-table td:nth-child(2) {{
+    font-family: monospace;
+    font-size: 12px;
+    width: 100px;
+}}
+
+.zap-table td:nth-child(3),
+.zap-table td:nth-child(4) {{
+    font-family: monospace;
+    font-size: 12px;
+    width: 80px;
+}}
+
+.zap-table td:nth-child(5) {{
+    text-align: center;
+    width: 70px;
+}}
+
+.zap-table td:nth-child(6),
+.zap-table td:nth-child(7),
+.zap-table td:nth-child(8),
+.zap-table td:nth-child(9) {{
+    text-align: center;
+    width: 80px;
+    font-size: 14px;
+}}
+
+.zap-table td:last-child {{
+    font-size: 12px;
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}}
+
+.zap-statistics {{
+    background: var(--bg-tertiary);
+    padding: 15px;
+    border-radius: 6px;
+    border: 1px solid var(--border-light);
+}}
+
+.zap-statistics h4 {{
+    margin: 0 0 12px 0;
+    color: var(--text-primary);
+    font-size: 14px;
+    font-weight: 600;
+}}
+
+.stats-grid {{
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 10px;
+}}
+
+.stat-item {{
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    background: var(--bg-primary);
+    border-radius: 4px;
+    border: 1px solid var(--border-light);
+}}
+
+.stat-label {{
+    font-size: 12px;
+    color: var(--text-secondary);
+    font-weight: 500;
+}}
+
+.stat-value {{
+    font-size: 13px;
+    color: var(--text-primary);
+    font-weight: 600;
+    font-family: monospace;
+}}
 }}"""
