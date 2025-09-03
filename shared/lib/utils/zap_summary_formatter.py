@@ -42,10 +42,17 @@ def create_zap_summary_section(script_result_id: str) -> str:
     """
     try:
         # Get zap data from database
-        zap_data = get_zap_summary_for_script(script_result_id)
+        zap_response = get_zap_summary_for_script(script_result_id)
+        
+        # Check if we got a valid response
+        if not zap_response or not zap_response.get('success'):
+            return ""  # No zap data or error, return empty section
+        
+        # Extract the actual zap iterations list
+        zap_data = zap_response.get('zap_iterations', [])
         
         if not zap_data or len(zap_data) == 0:
-            return ""  # No zap data, return empty section
+            return ""  # No zap iterations, return empty section
         
         # Generate the HTML table
         table_html = create_zap_summary_table(zap_data)
