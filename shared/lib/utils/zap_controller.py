@@ -256,53 +256,51 @@ class ZapController:
             
             if result.motion_detected:
                 print(f"✅ [ZapController] Motion detected - content changed successfully")
-                
-                # 2. Only analyze subtitles if motion detected
-                if context:
-                    subtitle_result = self._analyze_subtitles(context, iteration, action_command)
-                    result.subtitles_detected = subtitle_result.get('subtitles_detected', False)
-                    result.detected_language = subtitle_result.get('detected_language')
-                    result.extracted_text = subtitle_result.get('extracted_text', '')
-                    result.subtitle_details = subtitle_result
-                
-                # 3. Audio speech analysis if motion detected (after subtitles) - skip for VNC devices
-                if context:
-                    device_model = context.selected_device.device_model if context.selected_device else 'unknown'
-                    if device_model == 'host_vnc':
-                        print(f"⏭️ [ZapController] Skipping audio analysis for VNC device (no audio available)")
-                        result.audio_speech_detected = False
-                        result.audio_transcript = ""
-                        result.audio_language = "unknown"
-                        result.audio_details = {
-                            "success": True, 
-                            "speech_detected": False,
-                            "skipped": True,
-                            "message": "Audio Speech Detection: ⏭️ SKIPPED",
-                            "details": "VNC device has no audio available"
-                        }
-                    else:
-                        audio_speech_result = self._analyze_audio_speech(context, iteration, action_command)
-                        result.audio_speech_detected = audio_speech_result.get('speech_detected', False)
-                        result.audio_transcript = audio_speech_result.get('combined_transcript', '')
-                        result.audio_language = audio_speech_result.get('detected_language', 'unknown')
-                        result.audio_details = audio_speech_result
-                
-                # 4. Audio menu analysis removed - now handled by dedicated navigation steps
-                # Audio menu analysis is independent and should be called when navigating TO audio menu nodes
-                
-                # 5. Only analyze zapping if motion detected and it's a channel up action
-                if context and 'chup' in action_command.lower():
-                    # Get the action end time from context if available
-                    action_end_time = getattr(context, 'last_action_end_time', None)
-                    zapping_result = self._analyze_zapping(context, iteration, action_command, action_end_time)
-                    result.zapping_detected = zapping_result.get('zapping_detected', False)
-                    result.zapping_details = zapping_result
-                else:
-                    result.zapping_details = {"success": True, "message": "Skipped - not a channel up action"}
             else:
-                print(f"⚠️ [ZapController] No motion detected - skipping additional analysis")
-                result.subtitle_details = {"success": True, "message": "Skipped due to no motion"}
-                result.zapping_details = {"success": True, "message": "Skipped due to no motion"}
+                print(f"⚠️ [ZapController] No motion detected - continuing with analysis anyway")
+            
+            # 2. Analyze subtitles regardless of motion detection
+            if context:
+                subtitle_result = self._analyze_subtitles(context, iteration, action_command)
+                result.subtitles_detected = subtitle_result.get('subtitles_detected', False)
+                result.detected_language = subtitle_result.get('detected_language')
+                result.extracted_text = subtitle_result.get('extracted_text', '')
+                result.subtitle_details = subtitle_result
+            
+            # 3. Audio speech analysis (after subtitles) - skip for VNC devices
+            if context:
+                device_model = context.selected_device.device_model if context.selected_device else 'unknown'
+                if device_model == 'host_vnc':
+                    print(f"⏭️ [ZapController] Skipping audio analysis for VNC device (no audio available)")
+                    result.audio_speech_detected = False
+                    result.audio_transcript = ""
+                    result.audio_language = "unknown"
+                    result.audio_details = {
+                        "success": True, 
+                        "speech_detected": False,
+                        "skipped": True,
+                        "message": "Audio Speech Detection: ⏭️ SKIPPED",
+                        "details": "VNC device has no audio available"
+                    }
+                else:
+                    audio_speech_result = self._analyze_audio_speech(context, iteration, action_command)
+                    result.audio_speech_detected = audio_speech_result.get('speech_detected', False)
+                    result.audio_transcript = audio_speech_result.get('combined_transcript', '')
+                    result.audio_language = audio_speech_result.get('detected_language', 'unknown')
+                    result.audio_details = audio_speech_result
+            
+            # 4. Audio menu analysis removed - now handled by dedicated navigation steps
+            # Audio menu analysis is independent and should be called when navigating TO audio menu nodes
+            
+            # 5. Analyze zapping if it's a channel up action (regardless of motion detection)
+            if context and 'chup' in action_command.lower():
+                # Get the action end time from context if available
+                action_end_time = getattr(context, 'last_action_end_time', None)
+                zapping_result = self._analyze_zapping(context, iteration, action_command, action_end_time)
+                result.zapping_detected = zapping_result.get('zapping_detected', False)
+                result.zapping_details = zapping_result
+            else:
+                result.zapping_details = {"success": True, "message": "Skipped - not a channel up action"}
             
             result.success = True
             result.message = f"Analysis completed for {action_command}"
@@ -818,13 +816,21 @@ class ZapController:
                 analysis_rectangle = {'x': 300, 'y': 130, 'width': 1300, 'height': 570}
                 banner_region = {'x': 245, 'y': 830, 'width': 1170, 'height': 120}
             
-            # Call enhanced blackscreen zapping detection with 6s coverage and 30 image cap
+            # Device-specific timeout: VNC (1fps) = 8s, others (5fps) = 4s for android_tv, 6s default
+            if 'vnc' in device_model.lower():
+                max_images = 8  # VNC: 8 seconds * 1fps = 8 images
+            elif 'android_tv' in device_model.lower():
+                max_images = 20  # Android TV: 4 seconds * 5fps = 20 images
+            else:
+                max_images = 30  # Default: 6 seconds * 5fps = 30 images
+            
+            # Call enhanced blackscreen zapping detection with device-specific timeout
             zapping_result = video_controller.detect_zapping(
                 folder_path=capture_folder,
                 key_release_timestamp=key_release_timestamp,
                 analysis_rectangle=analysis_rectangle,
                 banner_region=banner_region,
-                max_images=30  # Enhanced: 30 images max for 6s coverage
+                max_images=max_images
             )
             
             if zapping_result.get('success', False) and zapping_result.get('zapping_detected', False):
@@ -944,12 +950,20 @@ class ZapController:
                 analysis_rectangle = {'x': 300, 'y': 130, 'width': 1300, 'height': 570}
                 banner_region = {'x': 245, 'y': 830, 'width': 1170, 'height': 120}
             
-            # Call freeze zapping detection using existing proven method (same pattern as blackscreen)
+            # Device-specific timeout: VNC (1fps) = 8s, others (5fps) = 4s for android_tv, 6s default
+            if 'vnc' in device_model.lower():
+                max_images = 8  # VNC: 8 seconds * 1fps = 8 images
+            elif 'android_tv' in device_model.lower():
+                max_images = 20  # Android TV: 4 seconds * 5fps = 20 images
+            else:
+                max_images = 30  # Default: 6 seconds * 5fps = 30 images
+            
+            # Call freeze zapping detection using device-specific timeout
             freeze_result = video_controller.content_helpers.detect_freeze_zapping_sequence(
                 folder_path=capture_folder,
                 key_release_timestamp=key_release_timestamp,
                 analysis_rectangle=analysis_rectangle,
-                max_images=30,  # Same as blackscreen: 30 images max for 6s coverage
+                max_images=max_images,
                 banner_region=banner_region
             )
             
