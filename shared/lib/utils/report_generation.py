@@ -127,13 +127,20 @@ def generate_validation_report(report_data: Dict) -> str:
         # Generate zap summary section if script_result_id is available
         zap_summary_section = ""
         script_result_id = report_data.get('script_result_id')
+        print(f"[@utils:report_generation] DEBUG: script_result_id = {script_result_id}")
         if script_result_id:
             try:
                 from .zap_summary_formatter import create_zap_summary_section
+                print(f"[@utils:report_generation] DEBUG: Calling create_zap_summary_section with ID: {script_result_id}")
                 zap_summary_section = create_zap_summary_section(script_result_id)
+                print(f"[@utils:report_generation] DEBUG: Zap summary section length: {len(zap_summary_section)} characters")
             except Exception as e:
                 print(f"[@utils:report_generation] Failed to generate zap summary: {str(e)}")
+                import traceback
+                traceback.print_exc()
                 zap_summary_section = ""
+        else:
+            print(f"[@utils:report_generation] DEBUG: No script_result_id provided, skipping zap summary")
         
         # Replace placeholders with actual content
         html_content = html_template.format(
@@ -185,7 +192,8 @@ def generate_and_upload_script_report(
     exit_code: int = 0,
     parameters: str = "",
     execution_summary: str = "",
-    test_video_url: str = ""
+    test_video_url: str = "",
+    script_result_id: str = None
 ) -> Dict[str, str]:
     """
     Generate HTML report and upload to R2 storage - extracted from validation.py
@@ -318,7 +326,8 @@ def generate_and_upload_script_report(
             'passed_verifications': passed_verifications,
             'failed_verifications': failed_verifications,
             'execution_summary': execution_summary,
-            'test_video_url': test_video_url
+            'test_video_url': test_video_url,
+            'script_result_id': script_result_id
         }
         
         html_content = generate_validation_report(report_data)
