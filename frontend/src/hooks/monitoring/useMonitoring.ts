@@ -10,7 +10,6 @@ import {
 import { useMonitoringAI } from './useMonitoringAI';
 import { useMonitoringSubtitles } from './useMonitoringSubtitles';
 import { useMonitoringLanguageMenu } from './useMonitoringLanguageMenu';
-import { buildCaptureUrl } from '../../utils/buildUrlUtils';
 
 interface FrameRef {
   timestamp: string;
@@ -109,6 +108,8 @@ export const useMonitoring = ({
     return () => clearTimeout(timer);
   }, []);
 
+
+
   // Use dedicated hooks for subtitle detection
   const subtitleHook = useMonitoringSubtitles({
     frames,
@@ -141,7 +142,55 @@ export const useMonitoring = ({
     device,
   });
 
-  // Generate monitoring URL autonomously - create base URL pattern if not provided
+  // State for autonomous base URL pattern (discovered via takeScreenshot API)
+  const [autonomousBaseUrlPattern, setAutonomousBaseUrlPattern] = useState<string | null>(null);
+  const [isInitializingBaseUrl, setIsInitializingBaseUrl] = useState(false);
+
+  // Initialize base URL pattern autonomously using takeScreenshot API (like the original useRec implementation)
+  const initializeAutonomousBaseUrl = useCallback(async (): Promise<void> => {
+    if (autonomousBaseUrlPattern || isInitializingBaseUrl) {
+      return; // Already have pattern or currently initializing
+    }
+
+    setIsInitializingBaseUrl(true);
+    try {
+      console.log('[useMonitoring] Initializing autonomous base URL pattern...');
+      const response = await fetch('/server/av/takeScreenshot', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          host: host,
+          device_id: device?.device_id || 'device1',
+        }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success && result.screenshot_url) {
+          // Extract base pattern: remove timestamp from capture_YYYYMMDDHHMMSS.jpg format
+          const basePattern = result.screenshot_url.replace(
+            /capture_\d{14}\.jpg$/,
+            'capture_{timestamp}.jpg',
+          );
+          
+          setAutonomousBaseUrlPattern(basePattern);
+          console.log(`[useMonitoring] Autonomous base URL pattern initialized: ${basePattern}`);
+        } else {
+          console.warn('[useMonitoring] takeScreenshot API returned no screenshot_url');
+        }
+      } else {
+        console.warn('[useMonitoring] takeScreenshot API failed:', response.status);
+      }
+    } catch (error) {
+      console.error('[useMonitoring] Failed to initialize autonomous base URL pattern:', error);
+    } finally {
+      setIsInitializingBaseUrl(false);
+    }
+  }, [host, device, autonomousBaseUrlPattern, isInitializingBaseUrl]);
+
+  // Generate monitoring URL using the proper base URL pattern
   const generateMonitoringUrl = useCallback((): string => {
     // Generate timestamp for 5 seconds ago to ensure analysis exists
     const now = new Date();
@@ -155,36 +204,28 @@ export const useMonitoring = ({
       delayedTime.getMinutes().toString().padStart(2, '0') +
       delayedTime.getSeconds().toString().padStart(2, '0');
 
-    // If baseUrlPattern is provided, use it
+    // Priority 1: Use provided baseUrlPattern
     if (baseUrlPattern) {
       return baseUrlPattern.replace('{timestamp}', timestamp);
     }
 
-    // Otherwise, generate autonomous monitoring URL with fallback strategies
-    const deviceId = device.device_id || 'device1';
-    
-    // Strategy 1: Try using buildCaptureUrl (requires video_capture_path in device config)
-    try {
-      const captureUrl = buildCaptureUrl(host, timestamp, deviceId);
-      console.log(`[useMonitoring] Generated autonomous monitoring URL (strategy 1): ${captureUrl}`);
-      return captureUrl;
-    } catch (error) {
-      console.log(`[useMonitoring] Strategy 1 failed (${error instanceof Error ? error.message : String(error)}), trying fallback...`);
+    // Priority 2: Use autonomous base URL pattern (discovered via API)
+    if (autonomousBaseUrlPattern) {
+      return autonomousBaseUrlPattern.replace('{timestamp}', timestamp);
     }
-    
-    // Strategy 2: Fallback to simple pattern based on device number (like MonitoringIncidents.tsx)
-    try {
-      const deviceNum = deviceId.replace('device', '');
-      const protocol = host.use_https ? 'https' : 'http';
-      const baseUrl = `${protocol}://${host.host_name}:${host.host_port}`;
-      const fallbackUrl = `${baseUrl}/stream/capture${deviceNum}/captures/capture_${timestamp}.jpg`;
-      console.log(`[useMonitoring] Generated autonomous monitoring URL (strategy 2): ${fallbackUrl}`);
-      return fallbackUrl;
-    } catch (error) {
-      console.warn('[useMonitoring] All strategies failed to generate autonomous monitoring URL:', error);
-      return '';
+
+    // Priority 3: No pattern available yet
+    console.log('[useMonitoring] No base URL pattern available yet, initializing...');
+    initializeAutonomousBaseUrl(); // Trigger initialization
+    return '';
+  }, [baseUrlPattern, autonomousBaseUrlPattern, initializeAutonomousBaseUrl]);
+
+  // Initialize autonomous base URL pattern on mount
+  useEffect(() => {
+    if (!baseUrlPattern && !autonomousBaseUrlPattern && !isInitializingBaseUrl) {
+      initializeAutonomousBaseUrl();
     }
-  }, [baseUrlPattern, host, device]);
+  }, [baseUrlPattern, autonomousBaseUrlPattern, isInitializingBaseUrl, initializeAutonomousBaseUrl]);
 
   // Generate monitoring frames (only after initial loading)
   useEffect(() => {

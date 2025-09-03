@@ -40,7 +40,7 @@ def format_console_summary_for_html(console_text: str) -> str:
     # Simple conversion - preserve line breaks and basic formatting
     html_text = console_text.replace('\n', '<br>')
     html_text = html_text.replace('=', '')  # Remove separator lines
-    html_text = html_text.replace('  •', '<br>  •')  # Better bullet formatting
+    # Remove extra spacing - don't add additional <br> before bullets
     
     return f"""<div class="summary-stats">
     <pre style="white-space: pre-wrap; font-family: 'Courier New', monospace; margin: 0;">{html_text}</pre>
