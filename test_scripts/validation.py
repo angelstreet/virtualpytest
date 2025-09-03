@@ -192,7 +192,7 @@ def execute_validation_sequence_with_force_recovery(executor: ScriptExecutor, co
                 step_end_timestamp = datetime.now().strftime('%H:%M:%S')
                 step_execution_time = int((time.time() - step_start_time) * 1000)
             finally:
-                context.pop_context()
+                pass  # No context cleanup needed - using simple sequential recording
             
             # Collect screenshots from result
             action_screenshots = result.get('action_screenshots', [])
@@ -335,8 +335,16 @@ def capture_validation_summary(context: ScriptExecutionContext, userinterface_na
     lines.append("-"*60)
     lines.append("🎯 [VALIDATION] EXECUTION SUMMARY")
     lines.append("-"*60)
-    lines.append(f"📱 Device: {context.selected_device.device_name} ({context.selected_device.device_model})")
-    lines.append(f"🖥️  Host: {context.host.host_name}")
+    # Handle case where setup failed and device/host are None
+    if context.selected_device:
+        lines.append(f"📱 Device: {context.selected_device.device_name} ({context.selected_device.device_model})")
+    else:
+        lines.append(f"📱 Device: Setup failed - no device selected")
+    
+    if context.host:
+        lines.append(f"🖥️  Host: {context.host.host_name}")
+    else:
+        lines.append(f"🖥️  Host: Setup failed - no host available")
     lines.append(f"📋 Interface: {userinterface_name}")
     lines.append(f"⏱️  Total Time: {context.get_execution_time_ms()/1000:.1f}s")
     lines.append(f"📊 Steps: {successful_steps}/{len(context.step_results)} steps successful")
@@ -352,7 +360,13 @@ def capture_validation_summary(context: ScriptExecutionContext, userinterface_na
     if report_url:
         lines.append(f"📋 Report: {report_url}")
     
-    lines.append(f"🎯 Coverage: {((successful_steps + recovered_steps) / len(context.step_results) * 100):.1f}%")
+    # Calculate coverage safely to avoid division by zero
+    total_steps = len(context.step_results)
+    if total_steps > 0:
+        coverage = ((successful_steps + recovered_steps) / total_steps * 100)
+        lines.append(f"🎯 Coverage: {coverage:.1f}%")
+    else:
+        lines.append(f"🎯 Coverage: 0.0% (no steps executed)")
     
     failed_step_details = [step for step in context.step_results if not step.get('success', False) and not step.get('skipped', False)]
     if failed_step_details:
@@ -467,8 +481,16 @@ def print_validation_summary(context: ScriptExecutionContext, userinterface_name
     print("\n" + "="*60)
     print(f"🎯 [VALIDATION] EXECUTION SUMMARY")
     print("="*60)
-    print(f"📱 Device: {context.selected_device.device_name} ({context.selected_device.device_model})")
-    print(f"🖥️  Host: {context.host.host_name}")
+    # Handle case where setup failed and device/host are None
+    if context.selected_device:
+        print(f"📱 Device: {context.selected_device.device_name} ({context.selected_device.device_model})")
+    else:
+        print(f"📱 Device: Setup failed - no device selected")
+    
+    if context.host:
+        print(f"🖥️  Host: {context.host.host_name}")
+    else:
+        print(f"🖥️  Host: Setup failed - no host available")
     print(f"📋 Interface: {userinterface_name}")
     print(f"⏱️  Total Time: {context.get_execution_time_ms()/1000:.1f}s")
     print(f"📊 Steps: {successful_steps}/{len(context.step_results)} steps successful")
@@ -478,7 +500,13 @@ def print_validation_summary(context: ScriptExecutionContext, userinterface_name
     print(f"🔄 Recovery Navigations: {recovered_steps}")
     print(f"🔍 Verifications: {passed_verifications}/{total_verifications} passed")
     print(f"📸 Screenshots: {len(context.screenshot_paths)} captured")
-    print(f"🎯 Coverage: {((successful_steps + recovered_steps) / len(context.step_results) * 100):.1f}%")
+    # Calculate coverage safely to avoid division by zero
+    total_steps = len(context.step_results)
+    if total_steps > 0:
+        coverage = ((successful_steps + recovered_steps) / total_steps * 100)
+        print(f"🎯 Coverage: {coverage:.1f}%")
+    else:
+        print(f"🎯 Coverage: 0.0% (no steps executed)")
     
     failed_step_details = [step for step in context.step_results if not step.get('success', False) and not step.get('skipped', False)]
     if failed_step_details:
@@ -630,7 +658,9 @@ def main():
                 for step in context.step_results
             )
             
-            coverage = ((successful_steps + recovered_steps) / len(context.step_results) * 100) if context.step_results else 0
+            # Calculate coverage safely
+            total_steps = len(context.step_results)
+            coverage = ((successful_steps + recovered_steps) / total_steps * 100) if total_steps > 0 else 0
             
             # Store validation metrics in custom_data
             context.custom_data['successful_steps'] = f"{successful_steps}/{len(context.step_results)}"

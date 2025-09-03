@@ -506,21 +506,21 @@ def format_analysis_results(step: Dict) -> str:
     if audio_analysis and audio_analysis.get('success') is not None:
         speech_detected = audio_analysis.get('speech_detected', False)
         speech_status = "✅ DETECTED" if speech_detected else "❌ NOT DETECTED"
-        analysis_html += f'<div class="analysis-item audio"><strong>Audio Speech Detection:</strong> {speech_status}</div>'
+        
+        # Build complete one-line format: "Audio Speech Detection: ✅ DETECTED Language: English | Transcript: ... | Confidence: 0.95"
+        audio_line = f'<strong>Audio Speech Detection:</strong> {speech_status}'
         
         if speech_detected:
-            # Combine language, transcript, and confidence in one line
-            details = []
+            # Add details directly to the main line
             if audio_analysis.get('detected_language'):
-                details.append(f"Language: {audio_analysis.get('detected_language')}")
+                audio_line += f' Language: {audio_analysis.get("detected_language")}'
             if audio_analysis.get('combined_transcript'):
                 transcript_preview = audio_analysis.get('combined_transcript')[:100] + ('...' if len(audio_analysis.get('combined_transcript', '')) > 100 else '')
-                details.append(f"Transcript: {transcript_preview}")
+                audio_line += f' | Transcript: {transcript_preview}'
             if audio_analysis.get('confidence'):
-                details.append(f"Confidence: {audio_analysis.get('confidence'):.2f}")
-            
-            if details:
-                analysis_html += f'<div class="analysis-detail">{" | ".join(details)}</div>'
+                audio_line += f' | Confidence: {audio_analysis.get("confidence"):.2f}'
+        
+        analysis_html += f'<div class="analysis-item audio">{audio_line}</div>'
         
         # Show R2 audio URLs for traceability (segments info removed for cleaner display)
         
