@@ -732,10 +732,12 @@ def format_step_screenshots(step: Dict, step_index: int) -> str:
     # Collect all screenshots in chronological order
     if step.get('step_start_screenshot_path'):
         screenshots_for_step.append(('Step Start', step.get('step_start_screenshot_path'), None, None))
-    elif step.get('screenshot_url'):
-        screenshots_for_step.append(('Step Start', step.get('screenshot_url'), None, None))
+    
+    # Main action screenshot (always include if available, especially for failed actions)
+    if step.get('screenshot_url'):
+        screenshots_for_step.append(('Main Action', step.get('screenshot_url'), None, None))
     elif step.get('screenshot_path'):
-        screenshots_for_step.append(('Step Start', step.get('screenshot_path'), None, None))
+        screenshots_for_step.append(('Main Action', step.get('screenshot_path'), None, None))
     
     # Action screenshots
     action_screenshots = step.get('action_screenshots', [])
@@ -758,6 +760,8 @@ def format_step_screenshots(step: Dict, step_index: int) -> str:
         print(f"  [{i+1}] {label}: {path}")
     
     if not screenshots_for_step:
+        # For failed steps, try to show at least the main screenshot even if no step start/end
+        print(f"[@report_step_formatter:format_step_screenshots] ⚠️ Step {step_num} has no screenshots - this may be a failed action")
         return ""
     
     step_id = step.get('step_number', step_index+1)
@@ -765,10 +769,15 @@ def format_step_screenshots(step: Dict, step_index: int) -> str:
     to_node = step.get('to_node', 'Unknown')
     step_title = f"Step {step_id}: {from_node} → {to_node}"
     
-    # Show the FIRST screenshot as thumbnail
+    # Show the FIRST screenshot as thumbnail (prioritize step start, then main action)
     first_screenshot = screenshots_for_step[0]
     first_screenshot_path = first_screenshot[1]
     screenshot_count = len(screenshots_for_step)
+    
+    # For failed steps, emphasize that screenshots are available for debugging
+    step_success = step.get('success', False)
+    if not step_success and screenshot_count > 0:
+        print(f"[@report_step_formatter:format_step_screenshots] 🔍 Failed step {step_num} has {screenshot_count} screenshot(s) for debugging")
     
     from .report_formatting import get_thumbnail_screenshot_html
     thumbnail_html = get_thumbnail_screenshot_html(

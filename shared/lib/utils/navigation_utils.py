@@ -550,22 +550,50 @@ def goto_node(host, device, target_node_label: str, tree_id: str, team_id: str, 
             
             print(f"[@navigation_utils:goto_node] Step {step_num}/{len(navigation_path)}: {from_node} → {to_node}")
             
+            # Step start screenshot - capture BEFORE action execution (like zap controller)
+            step_start_screenshot_path = ""
+            if context:
+                from .report_utils import capture_and_upload_screenshot
+                step_name = f"step_{step_num}_{from_node}_{to_node}"
+                step_start_screenshot_result = capture_and_upload_screenshot(host, device, f"{step_name}_start", "navigation")
+                step_start_screenshot_path = step_start_screenshot_result.get('screenshot_path', '')
+                
+                if step_start_screenshot_path:
+                    print(f"📸 [@navigation_utils:goto_node] Step-start screenshot captured: {step_start_screenshot_path}")
+                    context.add_screenshot(step_start_screenshot_path)
+            
             step_start_time = time.time()
             result = execute_navigation_with_verifications(host, device, step, team_id, tree_id)
             step_execution_time = int((time.time() - step_start_time) * 1000)
+            
+            # Main action screenshot (existing)
+            main_screenshot_path = ""
+            if context:
+                step_screenshot = capture_validation_screenshot(host, device, f"goto_step_{step_num}", "goto")
+                main_screenshot_path = step_screenshot
+                context.add_screenshot(step_screenshot)
+            
+            # Step end screenshot - capture AFTER action execution (like zap controller)
+            step_end_screenshot_path = ""
+            if context:
+                step_end_screenshot_result = capture_and_upload_screenshot(host, device, f"{step_name}_end", "navigation")
+                step_end_screenshot_path = step_end_screenshot_result.get('screenshot_path', '')
+                
+                if step_end_screenshot_path:
+                    print(f"📸 [@navigation_utils:goto_node] Step-end screenshot captured: {step_end_screenshot_path}")
+                    context.add_screenshot(step_end_screenshot_path)
             
             # If context is provided, record the step result
             if context:
                 step_start_timestamp = datetime.fromtimestamp(step_start_time).strftime('%H:%M:%S')
                 step_end_timestamp = datetime.now().strftime('%H:%M:%S')
                 
-                # Capture screenshot
-                step_screenshot = capture_validation_screenshot(host, device, f"goto_step_{step_num}", "goto")
-                context.add_screenshot(step_screenshot)
-                
                 step_result = {
                     'success': result.get('success', False),
-                    'screenshot_path': step_screenshot,
+                    'screenshot_path': main_screenshot_path,
+                    'screenshot_url': result.get('screenshot_url'),
+                    'step_start_screenshot_path': step_start_screenshot_path,
+                    'step_end_screenshot_path': step_end_screenshot_path,
                     'message': f"Navigation step: {from_node} → {to_node}",  # Will be updated with step number
                     'execution_time_ms': step_execution_time,
                     'start_time': step_start_timestamp,
