@@ -84,15 +84,15 @@ const MetricsTable: React.FC<{ items: LowConfidenceItem[] }> = ({ items }) => {
   }
 
   return (
-    <TableContainer component={Paper} sx={{ mt: 2, maxHeight: 400 }}>
-      <Table stickyHeader size="small">
+    <TableContainer component={Paper} variant="outlined" sx={{ mt: 2, maxHeight: 400 }}>
+      <Table stickyHeader size="small" sx={{ '& .MuiTableRow-root': { height: '40px' } }}>
         <TableHead>
           <TableRow>
-            <TableCell><strong>Name</strong></TableCell>
-            <TableCell align="center"><strong>Confidence</strong></TableCell>
-            <TableCell align="center"><strong>Volume</strong></TableCell>
-            <TableCell align="center"><strong>Success Rate</strong></TableCell>
-            <TableCell align="center"><strong>Avg Time</strong></TableCell>
+            <TableCell sx={{ py: 1 }}><strong>Name</strong></TableCell>
+            <TableCell align="center" sx={{ py: 1 }}><strong>Confidence</strong></TableCell>
+            <TableCell align="center" sx={{ py: 1 }}><strong>Volume</strong></TableCell>
+            <TableCell align="center" sx={{ py: 1 }}><strong>Success Rate</strong></TableCell>
+            <TableCell align="center" sx={{ py: 1 }}><strong>Avg Time</strong></TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
@@ -100,11 +100,13 @@ const MetricsTable: React.FC<{ items: LowConfidenceItem[] }> = ({ items }) => {
             <TableRow 
               key={item.id}
               sx={{ 
-                '&:hover': { backgroundColor: 'rgba(0, 0, 0, 0.04)' },
+                '&:hover': { 
+                  backgroundColor: 'rgba(0, 0, 0, 0.04) !important' 
+                },
                 backgroundColor: item.confidence < 0.5 ? 'rgba(244, 67, 54, 0.05)' : 'inherit'
               }}
             >
-              <TableCell>
+              <TableCell sx={{ py: 0.5 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
                     {item.label}
@@ -116,7 +118,7 @@ const MetricsTable: React.FC<{ items: LowConfidenceItem[] }> = ({ items }) => {
                   )}
                 </Box>
               </TableCell>
-              <TableCell align="center">
+              <TableCell align="center" sx={{ py: 0.5 }}>
                 <Chip
                   size="small"
                   label={item.confidence_percentage}
@@ -128,13 +130,13 @@ const MetricsTable: React.FC<{ items: LowConfidenceItem[] }> = ({ items }) => {
                   }}
                 />
               </TableCell>
-              <TableCell align="center">
+              <TableCell align="center" sx={{ py: 0.5 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}>
                   <TrendingDown fontSize="small" color="action" />
                   <Typography variant="body2">{item.volume}</Typography>
                 </Box>
               </TableCell>
-              <TableCell align="center">
+              <TableCell align="center" sx={{ py: 0.5 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}>
                   <CheckCircle 
                     fontSize="small" 
@@ -143,7 +145,7 @@ const MetricsTable: React.FC<{ items: LowConfidenceItem[] }> = ({ items }) => {
                   <Typography variant="body2">{formatSuccessRate(item.success_rate)}</Typography>
                 </Box>
               </TableCell>
-              <TableCell align="center">
+              <TableCell align="center" sx={{ py: 0.5 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}>
                   <Speed fontSize="small" color="action" />
                   <Typography variant="body2">{formatExecutionTime(item.avg_execution_time)}</Typography>
