@@ -32,4 +32,5 @@ from . import server_av_routes
 from . import server_execution_results_routes
 from . import server_script_routes
 from . import server_script_results_routes
+from . import server_metrics_routes
 from . import server_frontend_routes 

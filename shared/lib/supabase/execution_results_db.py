@@ -402,6 +402,44 @@ def get_tree_metrics(team_id: str, node_ids: List[str], edge_ids: List[str]) -> 
             'edges': {edge_id: default_metrics for edge_id in edge_ids}
         }
 
+def get_raw_tree_metrics(team_id: str, tree_id: str, node_ids: List[str], edge_ids: List[str]) -> Dict:
+    """Get complete raw metrics for a tree matching the frontend API interface."""
+    try:
+        supabase = get_supabase()
+        
+        # Get all node metrics with full data including timestamps
+        node_metrics = []
+        if node_ids:
+            node_result = supabase.table('node_metrics').select(
+                'node_id, tree_id, team_id, total_executions, successful_executions, success_rate, avg_execution_time_ms, created_at, updated_at'
+            ).eq('team_id', team_id).eq('tree_id', tree_id).in_('node_id', node_ids).execute()
+            
+            node_metrics = node_result.data or []
+        
+        # Get all edge metrics with full data including timestamps
+        edge_metrics = []
+        if edge_ids:
+            edge_result = supabase.table('edge_metrics').select(
+                'edge_id, tree_id, team_id, total_executions, successful_executions, success_rate, avg_execution_time_ms, created_at, updated_at'
+            ).eq('team_id', team_id).eq('tree_id', tree_id).in_('edge_id', edge_ids).execute()
+            
+            edge_metrics = edge_result.data or []
+        
+        return {
+            'success': True,
+            'node_metrics': node_metrics,
+            'edge_metrics': edge_metrics
+        }
+        
+    except Exception as e:
+        print(f"[@db:execution_results:get_raw_tree_metrics] Error: {str(e)}")
+        return {
+            'success': False,
+            'error': str(e),
+            'node_metrics': [],
+            'edge_metrics': []
+        }
+
 def get_action_execution_history(
     team_id: str,
     edge_id: Optional[str] = None,

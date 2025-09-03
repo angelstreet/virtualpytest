@@ -115,6 +115,7 @@ def register_all_server_routes(app):
             server_execution_results_routes,
             server_script_routes,
             server_script_results_routes,
+            server_metrics_routes,
             server_campaign_results_routes,
             server_frontend_routes
         )
@@ -153,6 +154,7 @@ def register_all_server_routes(app):
             (server_execution_results_routes.server_execution_results_bp, 'Execution results'),
             (server_script_routes.server_script_bp, 'Script management'),
             (server_script_results_routes.server_script_results_bp, 'Script results'),
+            (server_metrics_routes.server_metrics_bp, 'Metrics API'),
             (server_campaign_results_routes.server_campaign_results_bp, 'Campaign results'),
             (server_frontend_routes.server_frontend_bp, 'Frontend control')
         ]
