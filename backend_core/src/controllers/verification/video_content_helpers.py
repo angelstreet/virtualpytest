@@ -1462,10 +1462,9 @@ class VideoContentHelpers:
             
             print(f"VideoContent[{self.device_name}]: Using banner region: {banner_region}")
             
-            # Try to extract channel info from images AFTER blackscreen ends
-            # Banner might take a few seconds to appear, so try multiple images
-            # Start from blackscreen_end_index + 1 to skip the blackscreen end image itself
-            start_index = blackscreen_end_index + 1
+            # Try to extract channel info from images BEFORE blackscreen ends
+            # Start from blackscreen_end_index - 1 to get the last transition image
+            start_index = max(0, blackscreen_end_index - 1)  # Ensure we don't go below 0
             max_attempts = min(3, len(image_data) - start_index)
             
             for i in range(max_attempts):
@@ -1476,7 +1475,7 @@ class VideoContentHelpers:
                 image_path = image_data[image_index]['path']
                 filename = image_data[image_index]['filename']
                 
-                print(f"VideoContent[{self.device_name}]: AI analysis on {filename} (image {i+1} after blackscreen) | banner_region: {banner_region}")
+                print(f"VideoContent[{self.device_name}]: AI analysis on {filename} (image {i+1} from last transition) | banner_region: {banner_region}")
                 
                 # Use AI helper for channel banner analysis with cropped region first
                 channel_result = self.ai_helpers.analyze_channel_banner_ai(image_path, banner_region)
@@ -1544,32 +1543,7 @@ class VideoContentHelpers:
                         'banner_region': banner_region
                     }
             
-            # Try Last Transition image (final image in sequence)
-            if len(image_data) > 0:
-                last_image = image_data[-1]
-                print(f"VideoContent[{self.device_name}]: Trying Last Transition image: {last_image['filename']}")
-                print(f"VideoContent[{self.device_name}]: Last Transition full path: {last_image['path']}")
-                
-                result = self.ai_helpers.analyze_channel_banner_ai(last_image['path'], banner_region)
-                if result.get('success', False):
-                    channel_info = result.get('channel_info', {})
-                    if any([channel_info.get('channel_name'), channel_info.get('channel_number'),
-                           channel_info.get('program_name'), channel_info.get('start_time'), 
-                           channel_info.get('end_time')]):
-                        print(f"VideoContent[{self.device_name}]: Found channel info in Last Transition image {last_image['filename']}: {channel_info}")
-                        return {
-                            'channel_name': channel_info.get('channel_name', ''),
-                            'channel_number': channel_info.get('channel_number', ''),
-                            'program_name': channel_info.get('program_name', ''),
-                            'start_time': channel_info.get('start_time', ''),
-                            'end_time': channel_info.get('end_time', ''),
-                            'confidence': result.get('confidence', 0.0),
-                            'analyzed_image': last_image['filename'],
-                            'banner_region': banner_region,
-                            'last_transition_used': True
-                        }
-            
-            print(f"VideoContent[{self.device_name}]: No channel information found in Last Transition image")
+            print(f"VideoContent[{self.device_name}]: No channel information found in {max_attempts} images from last transition")
             return {
                 'channel_name': '',
                 'channel_number': '',
