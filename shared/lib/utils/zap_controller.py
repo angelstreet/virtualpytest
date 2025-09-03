@@ -753,10 +753,12 @@ class ZapController:
                 device_model = context.selected_device.device_model if context.selected_device else 'unknown'
                 if 'vnc' in device_model.lower():
                     max_images = 8  # VNC: 8 seconds * 1fps = 8 images
-                elif 'android_tv' in device_model.lower():
-                    max_images = 20  # Android TV: 4 seconds * 5fps = 20 images
+                elif 'stb' in device_model.lower():
+                    max_images = 20  # STB: 4 seconds * 5fps = 20 images
+                 elif 'anddroid_tv' in device_model.lower():
+                    max_images = 30  # Android TV: 4 seconds * 5fps = 20 images
                 else:
-                    max_images = 30  # Default: 6 seconds * 5fps = 30 images
+                    max_images = 40  # Default: 8 seconds * 5fps = 40 images
                 
                 print(f"🔍 [ZapController] Collecting {max_images} failure images for both methods (device: {device_model})")
                 
