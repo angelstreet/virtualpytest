@@ -12,7 +12,7 @@ Uses playwright_utils for Chrome management and async execution.
 # Change this to switch between browsers easily:
 # - "chromium" = Full Chrome browser (default, ~170MB, high memory)
 # - "webkit"   = Safari/WebKit engine (lightweight, ~50MB, low memory)
-BROWSER_ENGINE = "webkit"  # <-- Change this line to switch browsers
+BROWSER_ENGINE = "chromium"  # <-- Change this line to switch browsers
 # =============================================================================
 
 import os
