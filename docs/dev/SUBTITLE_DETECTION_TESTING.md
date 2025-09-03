@@ -146,7 +146,7 @@ base64 -i /path/to/your/image.jpg > /tmp/your_image_b64.txt
 
 # Use the same curl command but replace the base64 data
 curl -X POST "https://openrouter.ai/api/v1/chat/completions" \
-  -H "Authorization: Bearer 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" \
+  -H "Authorization: Bearer sk-or-v1-YOUR-API-KEY" \
   -H "Content-Type: application/json" \
   -H "HTTP-Referer: https://virtualpytest.com" \
   -H "X-Title: VirtualPyTest" \
@@ -183,7 +183,7 @@ Create a reusable test script:
 # save as test_subtitle_detection.sh
 
 IMAGE_URL="$1"
-API_KEY="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"
+API_KEY="sk-or-v1-YOUR-API-KEY"
 
 if [ -z "$IMAGE_URL" ]; then
     echo "Usage: $0 <image_url_or_path>"
@@ -252,7 +252,7 @@ chmod +x test_subtitle_detection.sh
 1. **API Key Issues**: 
    - Invalid or expired API key
    - Check `.env` file has correct `OPENROUTER_API_KEY`
-   - Verify key format: `sk-or-v1-...`
+   - Verify key format: `sk-or-v1-YOUR-API-KEY`
 
 2. **Account Issues**:
    - OpenRouter account suspended or deactivated
