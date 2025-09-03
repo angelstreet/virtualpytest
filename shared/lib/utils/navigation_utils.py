@@ -588,6 +588,14 @@ def goto_node(host, device, target_node_label: str, tree_id: str, team_id: str, 
                 step_start_timestamp = datetime.fromtimestamp(step_start_time).strftime('%H:%M:%S')
                 step_end_timestamp = datetime.now().strftime('%H:%M:%S')
                 
+                # Extract action name for labeling (like zap controller does)
+                action_name = "navigation_step"  # Default fallback
+                step_actions = step.get('actions', [])
+                if step_actions and len(step_actions) > 0:
+                    first_action = step_actions[0]
+                    if isinstance(first_action, dict) and first_action.get('command'):
+                        action_name = first_action.get('command')
+                
                 step_result = {
                     'success': result.get('success', False),
                     'screenshot_path': main_screenshot_path,
@@ -600,6 +608,7 @@ def goto_node(host, device, target_node_label: str, tree_id: str, team_id: str, 
                     'end_time': step_end_timestamp,
                     'from_node': from_node,
                     'to_node': to_node,
+                    'action_name': action_name,  # Store action name like zap controller
                     'actions': step.get('actions', []),
                     'verifications': step.get('verifications', []),
                     'verification_results': result.get('verification_results', []),

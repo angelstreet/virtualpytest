@@ -734,10 +734,26 @@ def format_step_screenshots(step: Dict, step_index: int) -> str:
         screenshots_for_step.append(('Step Start', step.get('step_start_screenshot_path'), None, None))
     
     # Main action screenshot (always include if available, especially for failed actions)
+    # Get the actual action command for labeling (like zap controller does)
+    action_label = "Main Action"  # Default fallback
+    
+    # Try to get action name from step data (like zap controller)
+    if step.get('action_name'):
+        action_label = step.get('action_name')
+        print(f"[@report_step_formatter:format_step_screenshots] Using action_name: {action_label}")
+    elif step.get('actions') and len(step.get('actions', [])) > 0:
+        # Get the first action command
+        first_action = step.get('actions')[0]
+        if isinstance(first_action, dict) and first_action.get('command'):
+            action_label = first_action.get('command')
+            print(f"[@report_step_formatter:format_step_screenshots] Extracted action command: {action_label}")
+    
+    print(f"[@report_step_formatter:format_step_screenshots] Final action label: {action_label}")
+    
     if step.get('screenshot_url'):
-        screenshots_for_step.append(('Main Action', step.get('screenshot_url'), None, None))
+        screenshots_for_step.append((action_label, step.get('screenshot_url'), None, None))
     elif step.get('screenshot_path'):
-        screenshots_for_step.append(('Main Action', step.get('screenshot_path'), None, None))
+        screenshots_for_step.append((action_label, step.get('screenshot_path'), None, None))
     
     # Action screenshots
     action_screenshots = step.get('action_screenshots', [])
