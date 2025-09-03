@@ -4,6 +4,7 @@ import { Handle, Position, NodeProps, useReactFlow } from 'reactflow';
 import { UI_BADGE_COLORS } from '../../config/validationColors';
 import { useNavigation } from '../../contexts/navigation/NavigationContext';
 import { useValidationColors } from '../../hooks/validation';
+import { useMetrics } from '../../hooks/navigation/useMetrics';
 import { UINavigationNode, UINavigationEdge } from '../../types/pages/Navigation_Types';
 import { getZIndex } from '../../utils/zIndexUtils';
 
@@ -18,6 +19,10 @@ export const UIMenuNode: React.FC<NodeProps<UINavigationNode['data']>> = ({
   const { getEdges } = useReactFlow();
   const currentEdges = getEdges();
   const { getNodeColors } = useValidationColors(currentEdges as UINavigationEdge[]);
+  
+  // Get metrics for this node
+  const metricsHook = useMetrics();
+  const nodeMetrics = metricsHook.getNodeMetrics(id);
 
   // Use screenshot URL with aggressive cache-busting
   const screenshotUrl = React.useMemo(() => {
@@ -53,7 +58,7 @@ export const UIMenuNode: React.FC<NodeProps<UINavigationNode['data']>> = ({
   }, [id]);
 
   // Get dynamic colors based on validation status
-  const nodeColors = getNodeColors('menu');
+  const nodeColors = getNodeColors('menu', nodeMetrics);
 
   const handleScreenshotDoubleClick = (e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent node double-click from triggering

@@ -4,10 +4,13 @@ import {
   NODE_TYPE_COLORS,
   EDGE_COLORS,
   HANDLE_COLORS,
+  VALIDATION_STATUS_COLORS,
   type NodeType,
   type HandlePosition,
+  getValidationStatusFromConfidence,
 } from '../../config/validationColors';
 import { UINavigationEdge } from '../../types/pages/Navigation_Types';
+import { MetricData } from '../../types/navigation/Metrics_Types';
 
 interface NodeColorResult {
   background: string;
@@ -33,26 +36,56 @@ interface HandleColorResult {
 }
 
 export const useValidationColors = (_edges?: UINavigationEdge[]) => {
-  // Get basic node colors based on node type
-  const getNodeColors = useCallback((nodeType: NodeType): NodeColorResult => {
-    const colors = NODE_TYPE_COLORS[nodeType] || NODE_TYPE_COLORS.screen;
+  // Get node colors with optional metrics override
+  const getNodeColors = useCallback((nodeType: NodeType, metrics?: MetricData | null): NodeColorResult => {
+    const baseColors = NODE_TYPE_COLORS[nodeType] || NODE_TYPE_COLORS.screen;
+
+    // If no metrics, return base colors
+    if (!metrics) {
+      return {
+        background: baseColors.background,
+        border: baseColors.border,
+        textColor: baseColors.textColor,
+        badgeColor: baseColors.badgeColor,
+        // boxShadow removed to eliminate all shadows in nested tree
+      };
+    }
+
+    // Override border color based on confidence level
+    const validationStatus = getValidationStatusFromConfidence(metrics.confidence);
+    const statusColors = VALIDATION_STATUS_COLORS[validationStatus];
 
     return {
-      background: colors.background,
-      border: colors.border,
-      textColor: colors.textColor,
-      badgeColor: colors.badgeColor,
-      // boxShadow removed to eliminate all shadows in nested tree
+      background: baseColors.background,
+      border: statusColors.border, // Override with confidence-based border
+      textColor: baseColors.textColor,
+      badgeColor: baseColors.badgeColor,
+      className: `validation-status-${validationStatus}`,
     };
   }, []);
 
-  // Get basic edge colors (default gray)
-  const getEdgeColors = useCallback((_edgeId: string): EdgeColorResult => {
+  // Get edge colors with optional metrics override
+  const getEdgeColors = useCallback((_edgeId: string, metrics?: MetricData | null): EdgeColorResult => {
+    // If no metrics, return default untested colors
+    if (!metrics) {
+      return {
+        stroke: EDGE_COLORS.untested.stroke,
+        strokeWidth: EDGE_COLORS.untested.strokeWidth,
+        strokeDasharray: EDGE_COLORS.untested.strokeDasharray,
+        opacity: EDGE_COLORS.untested.opacity,
+      };
+    }
+
+    // Use confidence-based colors
+    const validationStatus = getValidationStatusFromConfidence(metrics.confidence);
+    const statusColors = EDGE_COLORS[validationStatus];
+
     return {
-      stroke: EDGE_COLORS.untested.stroke,
-      strokeWidth: EDGE_COLORS.untested.strokeWidth,
-      strokeDasharray: EDGE_COLORS.untested.strokeDasharray,
-      opacity: EDGE_COLORS.untested.opacity,
+      stroke: statusColors.stroke,
+      strokeWidth: statusColors.strokeWidth,
+      strokeDasharray: statusColors.strokeDasharray,
+      opacity: statusColors.opacity,
+      className: `edge-validation-${validationStatus}`,
     };
   }, []);
 

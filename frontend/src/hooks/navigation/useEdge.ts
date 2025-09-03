@@ -54,8 +54,8 @@ export const useEdge = (props?: UseEdgeProps) => {
    * Get edge colors based on validation status
    */
   const getEdgeColorsForEdge = useCallback(
-    (edgeId: string, _isEntryEdge: boolean = false) => {
-      return getEdgeColors(edgeId);
+    (edgeId: string, _isEntryEdge: boolean = false, metrics?: any) => {
+      return getEdgeColors(edgeId, metrics);
     },
     [getEdgeColors],
   );

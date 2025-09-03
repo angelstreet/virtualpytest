@@ -1,0 +1,317 @@
+/**
+ * Metrics Modal Component
+ * Detailed view of low confidence nodes and edges with metrics breakdown
+ */
+
+import React, { useState, useMemo } from 'react';
+import {
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
+  Typography,
+  Box,
+  Chip,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+  Tabs,
+  Tab,
+  IconButton,
+  Tooltip,
+  Alert,
+  LinearProgress,
+} from '@mui/material';
+import {
+  Close,
+  TrendingDown,
+  Speed,
+  CheckCircle,
+  Error,
+  Warning,
+  Refresh,
+} from '@mui/icons-material';
+
+import { LowConfidenceItems, LowConfidenceItem } from '../../types/navigation/Metrics_Types';
+import { 
+  formatExecutionTime, 
+  formatSuccessRate, 
+  getConfidenceColor 
+} from '../../utils/metricsCalculations';
+
+export interface MetricsModalProps {
+  open: boolean;
+  onClose: () => void;
+  lowConfidenceItems: LowConfidenceItems;
+  globalConfidence: number;
+  onRefreshMetrics?: () => void;
+  isLoading?: boolean;
+}
+
+interface TabPanelProps {
+  children?: React.ReactNode;
+  index: number;
+  value: number;
+}
+
+const TabPanel: React.FC<TabPanelProps> = ({ children, value, index }) => {
+  return (
+    <div
+      role="tabpanel"
+      hidden={value !== index}
+      id={`metrics-tabpanel-${index}`}
+      aria-labelledby={`metrics-tab-${index}`}
+    >
+      {value === index && <Box sx={{ pt: 2 }}>{children}</Box>}
+    </div>
+  );
+};
+
+const MetricsTable: React.FC<{ items: LowConfidenceItem[] }> = ({ items }) => {
+  if (items.length === 0) {
+    return (
+      <Alert severity="success" sx={{ mt: 2 }}>
+        <Typography variant="body2">
+          All items have confidence above 90% - Great job! 🎉
+        </Typography>
+      </Alert>
+    );
+  }
+
+  return (
+    <TableContainer component={Paper} sx={{ mt: 2, maxHeight: 400 }}>
+      <Table stickyHeader size="small">
+        <TableHead>
+          <TableRow>
+            <TableCell><strong>Name</strong></TableCell>
+            <TableCell align="center"><strong>Confidence</strong></TableCell>
+            <TableCell align="center"><strong>Volume</strong></TableCell>
+            <TableCell align="center"><strong>Success Rate</strong></TableCell>
+            <TableCell align="center"><strong>Avg Time</strong></TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {items.map((item) => (
+            <TableRow 
+              key={item.id}
+              sx={{ 
+                '&:hover': { backgroundColor: 'rgba(0, 0, 0, 0.04)' },
+                backgroundColor: item.confidence < 0.5 ? 'rgba(244, 67, 54, 0.05)' : 'inherit'
+              }}
+            >
+              <TableCell>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
+                    {item.label}
+                  </Typography>
+                  {item.confidence < 0.5 && (
+                    <Tooltip title="Critical: Very low confidence">
+                      <Error color="error" fontSize="small" />
+                    </Tooltip>
+                  )}
+                </Box>
+              </TableCell>
+              <TableCell align="center">
+                <Chip
+                  size="small"
+                  label={item.confidence_percentage}
+                  sx={{
+                    backgroundColor: getConfidenceColor(item.confidence),
+                    color: 'white',
+                    fontWeight: 'bold',
+                    minWidth: '60px',
+                  }}
+                />
+              </TableCell>
+              <TableCell align="center">
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}>
+                  <TrendingDown fontSize="small" color="action" />
+                  <Typography variant="body2">{item.volume}</Typography>
+                </Box>
+              </TableCell>
+              <TableCell align="center">
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}>
+                  <CheckCircle 
+                    fontSize="small" 
+                    color={item.success_rate > 0.8 ? "success" : item.success_rate > 0.5 ? "warning" : "error"} 
+                  />
+                  <Typography variant="body2">{formatSuccessRate(item.success_rate)}</Typography>
+                </Box>
+              </TableCell>
+              <TableCell align="center">
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}>
+                  <Speed fontSize="small" color="action" />
+                  <Typography variant="body2">{formatExecutionTime(item.avg_execution_time)}</Typography>
+                </Box>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </TableContainer>
+  );
+};
+
+export const MetricsModal: React.FC<MetricsModalProps> = ({
+  open,
+  onClose,
+  lowConfidenceItems,
+  globalConfidence,
+  onRefreshMetrics,
+  isLoading = false,
+}) => {
+  const [tabValue, setTabValue] = useState(0);
+
+  const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
+    setTabValue(newValue);
+  };
+
+  const globalConfidencePercentage = (globalConfidence * 100).toFixed(1);
+  const globalConfidenceColor = getConfidenceColor(globalConfidence);
+
+  const summaryStats = useMemo(() => {
+    const totalItems = lowConfidenceItems.total_count;
+    const criticalItems = [...lowConfidenceItems.nodes, ...lowConfidenceItems.edges]
+      .filter(item => item.confidence < 0.5).length;
+    
+    return {
+      totalItems,
+      criticalItems,
+      nodeCount: lowConfidenceItems.nodes.length,
+      edgeCount: lowConfidenceItems.edges.length,
+    };
+  }, [lowConfidenceItems]);
+
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth="lg"
+      fullWidth
+      PaperProps={{
+        sx: { minHeight: '60vh', maxHeight: '90vh' }
+      }}
+    >
+      <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 1 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Typography variant="h6" component="div">
+            Navigation Confidence Metrics
+          </Typography>
+          
+          {/* Global confidence indicator */}
+          <Chip
+            label={`Global: ${globalConfidencePercentage}%`}
+            sx={{
+              backgroundColor: globalConfidenceColor,
+              color: 'white',
+              fontWeight: 'bold',
+            }}
+          />
+        </Box>
+        
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          {onRefreshMetrics && (
+            <Tooltip title="Refresh metrics">
+              <IconButton onClick={onRefreshMetrics} disabled={isLoading}>
+                <Refresh />
+              </IconButton>
+            </Tooltip>
+          )}
+          <IconButton onClick={onClose}>
+            <Close />
+          </IconButton>
+        </Box>
+      </DialogTitle>
+
+      {isLoading && <LinearProgress />}
+
+      <DialogContent>
+        {/* Summary stats */}
+        <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap' }}>
+          <Chip
+            icon={<Warning />}
+            label={`${summaryStats.totalItems} items below 90%`}
+            color={summaryStats.totalItems > 0 ? 'warning' : 'success'}
+            variant="outlined"
+          />
+          
+          {summaryStats.criticalItems > 0 && (
+            <Chip
+              icon={<Error />}
+              label={`${summaryStats.criticalItems} critical (< 50%)`}
+              color="error"
+              variant="outlined"
+            />
+          )}
+          
+          <Chip
+            label={`${summaryStats.nodeCount} nodes`}
+            variant="outlined"
+            color="primary"
+          />
+          
+          <Chip
+            label={`${summaryStats.edgeCount} edges`}
+            variant="outlined"
+            color="secondary"
+          />
+        </Box>
+
+        {/* Improvement suggestions */}
+        {summaryStats.totalItems > 0 && (
+          <Alert severity="info" sx={{ mb: 2 }}>
+            <Typography variant="body2">
+              <strong>Improvement Tips:</strong> Items with low confidence need more testing. 
+              Focus on increasing execution volume and fixing failing test cases to improve confidence scores.
+            </Typography>
+          </Alert>
+        )}
+
+        {/* Tabs for nodes and edges */}
+        <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+          <Tabs value={tabValue} onChange={handleTabChange} aria-label="metrics tabs">
+            <Tab 
+              label={`Nodes (${lowConfidenceItems.nodes.length})`} 
+              id="metrics-tab-0"
+              aria-controls="metrics-tabpanel-0"
+            />
+            <Tab 
+              label={`Edges (${lowConfidenceItems.edges.length})`} 
+              id="metrics-tab-1"
+              aria-controls="metrics-tabpanel-1"
+            />
+          </Tabs>
+        </Box>
+
+        {/* Tab panels */}
+        <TabPanel value={tabValue} index={0}>
+          <Typography variant="subtitle1" gutterBottom>
+            Nodes with confidence below 90%
+          </Typography>
+          <MetricsTable items={lowConfidenceItems.nodes} />
+        </TabPanel>
+
+        <TabPanel value={tabValue} index={1}>
+          <Typography variant="subtitle1" gutterBottom>
+            Edges with confidence below 90%
+          </Typography>
+          <MetricsTable items={lowConfidenceItems.edges} />
+        </TabPanel>
+      </DialogContent>
+
+      <DialogActions sx={{ px: 3, py: 2 }}>
+        <Typography variant="body2" color="text.secondary" sx={{ flex: 1 }}>
+          Confidence = (Volume Weight × 0.3) + (Success Rate × 0.7)
+        </Typography>
+        <Button onClick={onClose} variant="contained">
+          Close
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+};

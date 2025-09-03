@@ -35,6 +35,8 @@ import { NavigationBreadcrumbCompact } from '../components/navigation/Navigation
 import { EdgeEditDialog } from '../components/navigation/Navigation_EdgeEditDialog';
 import { AIGenerationModal } from '../components/navigation/AIGenerationModal';
 import { EdgeSelectionPanel } from '../components/navigation/Navigation_EdgeSelectionPanel';
+import { MetricsNotification } from '../components/navigation/MetricsNotification';
+import { MetricsModal } from '../components/navigation/MetricsModal';
 import { NavigationEditorHeader } from '../components/navigation/Navigation_EditorHeader';
 import { UIMenuNode } from '../components/navigation/Navigation_MenuNode';
 import { NavigationEdgeComponent } from '../components/navigation/Navigation_NavigationEdge';
@@ -59,6 +61,7 @@ import {
 import { useNavigationEditor } from '../hooks/navigation/useNavigationEditor';
 import { useNestedNavigation } from '../hooks/navigation/useNestedNavigation';
 import { useEdge } from '../hooks/navigation/useEdge';
+import { useMetrics } from '../hooks/navigation/useMetrics';
 import { useUserInterface } from '../hooks/pages/useUserInterface';
 import {
   NodeForm,
@@ -290,6 +293,14 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
       isControlActive,
     });
 
+    // Initialize metrics hook
+    const metricsHook = useMetrics({
+      treeId: actualTreeId,
+      nodes,
+      edges,
+      enabled: true, // Always enabled for confidence tracking
+    });
+
     // Track the last loaded tree ID to prevent unnecessary reloads
     const lastLoadedTreeId = useRef<string | null>(null);
 
@@ -304,6 +315,9 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
 
     // AI Generation modal state
     const [isAIGenerationOpen, setIsAIGenerationOpen] = useState(false);
+
+    // Metrics state
+    const [showMetricsModal, setShowMetricsModal] = useState(false);
 
     // AI Generation handler
     const handleToggleAIGeneration = useCallback(() => {
@@ -396,6 +410,15 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
     const handleCloseGotoPanel = useCallback(() => {
       setShowGotoPanel(false);
       setSelectedNodeForGoto(null);
+    }, []);
+
+    // Handle metrics modal
+    const handleOpenMetricsModal = useCallback(() => {
+      setShowMetricsModal(true);
+    }, []);
+
+    const handleCloseMetricsModal = useCallback(() => {
+      setShowMetricsModal(false);
     }, []);
 
     // Helper functions using new normalized API
@@ -1277,6 +1300,22 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
             </Button>
           </DialogActions>
         </Dialog>
+
+        {/* Metrics Notification */}
+        <MetricsNotification
+          notificationData={metricsHook.notificationData}
+          onViewDetails={handleOpenMetricsModal}
+        />
+
+        {/* Metrics Modal */}
+        <MetricsModal
+          open={showMetricsModal}
+          onClose={handleCloseMetricsModal}
+          lowConfidenceItems={metricsHook.lowConfidenceItems}
+          globalConfidence={metricsHook.globalConfidence}
+          onRefreshMetrics={metricsHook.refreshMetrics}
+          isLoading={metricsHook.isLoading}
+        />
 
         {/* Success/Error Messages */}
         {success && (

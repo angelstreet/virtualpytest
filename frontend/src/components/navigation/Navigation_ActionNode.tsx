@@ -6,6 +6,7 @@ import { useNavigation } from '../../contexts/navigation/NavigationContext';
 import { getZIndex } from '../../utils/zIndexUtils';
 
 import { useValidationColors } from '../../hooks/validation/useValidationColors';
+import { useMetrics } from '../../hooks/navigation/useMetrics';
 import type { UINavigationNode as UINavigationNodeType, UINavigationEdge } from '../../types/pages/Navigation_Types';
 
 export const UIActionNode: React.FC<NodeProps<UINavigationNodeType['data']>> = ({
@@ -20,6 +21,10 @@ export const UIActionNode: React.FC<NodeProps<UINavigationNodeType['data']>> = (
   const { getEdges } = useReactFlow();
   const currentEdges = getEdges();
   const { getNodeColors } = useValidationColors(currentEdges as UINavigationEdge[]);
+  
+  // Get metrics for this node
+  const metricsHook = useMetrics();
+  const nodeMetrics = metricsHook.getNodeMetrics(id);
 
   // Use screenshot URL with aggressive cache-busting
   const screenshotUrl = React.useMemo(() => {
@@ -63,7 +68,7 @@ export const UIActionNode: React.FC<NodeProps<UINavigationNodeType['data']>> = (
   const isCurrentPosition = currentNodeId === id;
 
   // Get dynamic colors based on validation status
-  const nodeColors = getNodeColors(data.type);
+  const nodeColors = getNodeColors(data.type, nodeMetrics);
 
   // Action node colors from validationColors
   const actionColors = NODE_TYPE_COLORS.action;
