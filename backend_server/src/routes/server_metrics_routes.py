@@ -131,6 +131,134 @@ def get_tree_metrics_api(tree_id):
         }), 500
 
 
+@server_metrics_bp.route('/getNodeMetrics/<node_id>/<tree_id>', methods=['GET'])
+def get_node_metrics_api(node_id, tree_id):
+    """Get metrics for a specific node"""
+    error = check_supabase()
+    if error:
+        return error
+        
+    team_id = get_team_id()
+    
+    try:
+        print(f"[@route:metrics:get_node_metrics] Fetching metrics for node: {node_id}, tree: {tree_id}")
+        
+        metrics_result = get_raw_tree_metrics(team_id, tree_id, [node_id], [])
+        
+        if not metrics_result.get('success', False):
+            return jsonify({
+                'success': False,
+                'error': f'Failed to fetch node metrics: {metrics_result.get("error", "Unknown error")}'
+            }), 500
+        
+        node_metrics = metrics_result.get('node_metrics', [])
+        node_metric = node_metrics[0] if node_metrics else None
+        
+        return jsonify({
+            'success': True,
+            'node_metric': node_metric
+        })
+        
+    except Exception as e:
+        print(f"[@route:metrics:get_node_metrics] ERROR: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': f'Server error: {str(e)}'
+        }), 500
+
+
+@server_metrics_bp.route('/getEdgeMetrics/<edge_id>/<tree_id>', methods=['GET'])
+def get_edge_metrics_api(edge_id, tree_id):
+    """Get metrics for a specific edge"""
+    error = check_supabase()
+    if error:
+        return error
+        
+    team_id = get_team_id()
+    
+    try:
+        print(f"[@route:metrics:get_edge_metrics] Fetching metrics for edge: {edge_id}, tree: {tree_id}")
+        
+        metrics_result = get_raw_tree_metrics(team_id, tree_id, [], [edge_id])
+        
+        if not metrics_result.get('success', False):
+            return jsonify({
+                'success': False,
+                'error': f'Failed to fetch edge metrics: {metrics_result.get("error", "Unknown error")}'
+            }), 500
+        
+        edge_metrics = metrics_result.get('edge_metrics', [])
+        edge_metric = edge_metrics[0] if edge_metrics else None
+        
+        return jsonify({
+            'success': True,
+            'edge_metric': edge_metric
+        })
+        
+    except Exception as e:
+        print(f"[@route:metrics:get_edge_metrics] ERROR: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': f'Server error: {str(e)}'
+        }), 500
+
+
+@server_metrics_bp.route('/getActionHistory/<edge_id>/<tree_id>', methods=['GET'])
+def get_action_history_api(edge_id, tree_id):
+    """Get execution history for actions in an edge"""
+    error = check_supabase()
+    if error:
+        return error
+        
+    team_id = get_team_id()
+    
+    try:
+        from shared.lib.supabase.execution_results_db import get_action_execution_history
+        
+        limit = request.args.get('limit', 100, type=int)
+        
+        print(f"[@route:metrics:get_action_history] Fetching history for edge: {edge_id}, tree: {tree_id}")
+        
+        history_result = get_action_execution_history(team_id, edge_id, tree_id, limit)
+        
+        return jsonify(history_result)
+        
+    except Exception as e:
+        print(f"[@route:metrics:get_action_history] ERROR: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': f'Server error: {str(e)}'
+        }), 500
+
+
+@server_metrics_bp.route('/getVerificationHistory/<node_id>/<tree_id>', methods=['GET'])
+def get_verification_history_api(node_id, tree_id):
+    """Get execution history for verifications in a node"""
+    error = check_supabase()
+    if error:
+        return error
+        
+    team_id = get_team_id()
+    
+    try:
+        from shared.lib.supabase.execution_results_db import get_verification_execution_history
+        
+        limit = request.args.get('limit', 100, type=int)
+        
+        print(f"[@route:metrics:get_verification_history] Fetching history for node: {node_id}, tree: {tree_id}")
+        
+        history_result = get_verification_execution_history(team_id, node_id, tree_id, limit)
+        
+        return jsonify(history_result)
+        
+    except Exception as e:
+        print(f"[@route:metrics:get_verification_history] ERROR: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': f'Server error: {str(e)}'
+        }), 500
+
+
 def calculate_confidence(total_executions: int, success_rate: float) -> float:
     """
     Calculate confidence based on volume and success rate
