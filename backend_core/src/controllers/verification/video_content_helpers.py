@@ -1544,28 +1544,19 @@ class VideoContentHelpers:
                         'banner_region': banner_region
                     }
             
-            # Fallback: Try additional candidate images
-            candidate_images = []
-            
-            # Add blackscreen end image if available
-            if blackscreen_end_index < len(image_data):
-                candidate_images.append(image_data[blackscreen_end_index])
-            
-            # Add last transition image if different from blackscreen end
-            if len(image_data) > 0 and (not candidate_images or image_data[-1] != candidate_images[0]):
-                candidate_images.append(image_data[-1])
-            
-            # Analyze candidate images until we find channel info
-            for candidate in candidate_images:
-                print(f"VideoContent[{self.device_name}]: Fallback - analyzing {candidate['filename']}")
+            # Try Last Transition image (final image in sequence)
+            if len(image_data) > 0:
+                last_image = image_data[-1]
+                print(f"VideoContent[{self.device_name}]: Trying Last Transition image: {last_image['filename']}")
+                print(f"VideoContent[{self.device_name}]: Last Transition full path: {last_image['path']}")
                 
-                result = self.ai_helpers.analyze_channel_banner_ai(candidate['path'], banner_region)
+                result = self.ai_helpers.analyze_channel_banner_ai(last_image['path'], banner_region)
                 if result.get('success', False):
                     channel_info = result.get('channel_info', {})
                     if any([channel_info.get('channel_name'), channel_info.get('channel_number'),
                            channel_info.get('program_name'), channel_info.get('start_time'), 
                            channel_info.get('end_time')]):
-                        print(f"VideoContent[{self.device_name}]: Found channel info in {candidate['filename']}: {channel_info}")
+                        print(f"VideoContent[{self.device_name}]: Found channel info in Last Transition image {last_image['filename']}: {channel_info}")
                         return {
                             'channel_name': channel_info.get('channel_name', ''),
                             'channel_number': channel_info.get('channel_number', ''),
@@ -1573,12 +1564,12 @@ class VideoContentHelpers:
                             'start_time': channel_info.get('start_time', ''),
                             'end_time': channel_info.get('end_time', ''),
                             'confidence': result.get('confidence', 0.0),
-                            'analyzed_image': candidate['filename'],
+                            'analyzed_image': last_image['filename'],
                             'banner_region': banner_region,
-                            'fallback_used': True
+                            'last_transition_used': True
                         }
             
-            print(f"VideoContent[{self.device_name}]: No channel information found in any candidate images")
+            print(f"VideoContent[{self.device_name}]: No channel information found in Last Transition image")
             return {
                 'channel_name': '',
                 'channel_number': '',
