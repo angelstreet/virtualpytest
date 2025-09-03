@@ -917,6 +917,7 @@ FULL IMAGE ANALYSIS RULES:
 - Scan the ENTIRE image for channel information
 - Look for channel logos, channel names (BBC One, ITV, Channel 4, SRF, etc.)
 - Extract channel numbers (1, 2, 3, 101, 201, etc.) from banners or overlays
+- IMPORTANT: Channel numbers are typically located to the LEFT of the channel logo
 - Extract program/show names (News, EastEnders, Music@SRF, etc.)
 - Find time information (start time, end time, duration) anywhere on screen
 - Look for text overlays, banners, or information bars in ANY location

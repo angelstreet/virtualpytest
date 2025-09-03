@@ -424,9 +424,9 @@ class FFmpegCaptureController(AVControllerInterface):
             
             # 2. Wait for encoder to finish and get updated playlist
             if test_start_time:
-                # Wait 18 seconds for encoder to finish and write final segments (3 segments)
-                print(f"{self.capture_source}[{self.capture_source}]: Waiting 18s for final segments to complete...")
-                time.sleep(18)
+                # Wait 5 seconds for encoder to finish and write final segments (reduced from 18s)
+                print(f"{self.capture_source}[{self.capture_source}]: Waiting 5s for final segments to complete...")
+                time.sleep(5)
             
             # Read M3U8 playlist to get segment list
             with open(m3u8_path, 'r') as f:
@@ -440,17 +440,29 @@ class FFmpegCaptureController(AVControllerInterface):
                     if os.path.exists(segment_path):
                         all_segments.append((line.strip(), segment_path))
             
-            # DURATION-BASED FILTERING: Take last N segments based on test duration + buffer
+            # TIME-SYNCHRONIZED FILTERING: Take segments that cover the actual test execution period
             segment_files = []
             if test_start_time and duration_seconds:
-                # Calculate segments needed: test duration + buffer, using configurable segment duration
-                buffer_seconds = self.HLS_SEGMENT_DURATION * 3  # 3 segments buffer (before + after)
-                total_duration = duration_seconds + buffer_seconds
-                segments_needed = int(total_duration / self.HLS_SEGMENT_DURATION) + 1  # +1 for safety
+                # Calculate the time range we need to capture
+                current_time = time.time()
+                wait_time_seconds = 5  # We waited 5s for segments to complete
                 
-                print(f"{self.capture_source}[{self.capture_source}]: Test duration: {duration_seconds}s, taking last {segments_needed} segments")
+                # We want segments from test_start_time to test_end_time
+                # But we're capturing at current_time (which is test_end_time + wait_time)
+                # So we need segments from (current_time - wait_time - duration_seconds) to current_time
+                capture_start_time = current_time - wait_time_seconds - duration_seconds
+                capture_end_time = current_time
                 
-                # Take the last N segments (most recent)
+                # Add small buffer for segment boundaries
+                buffer_seconds = self.HLS_SEGMENT_DURATION * 2  # 2 segments buffer (before + after)
+                total_duration_needed = duration_seconds + buffer_seconds + wait_time_seconds
+                segments_needed = int(total_duration_needed / self.HLS_SEGMENT_DURATION) + 1  # +1 for safety
+                
+                print(f"{self.capture_source}[{self.capture_source}]: Test duration: {duration_seconds}s, wait time: {wait_time_seconds}s")
+                print(f"{self.capture_source}[{self.capture_source}]: Capturing {total_duration_needed:.1f}s total, taking last {segments_needed} segments")
+                print(f"{self.capture_source}[{self.capture_source}]: Time range: {capture_start_time:.1f} to {capture_end_time:.1f} (covers full test execution)")
+                
+                # Take the last N segments (which now includes the wait time compensation)
                 segment_files = all_segments[-segments_needed:] if len(all_segments) >= segments_needed else all_segments
             else:
                 # No duration provided, take all available segments
