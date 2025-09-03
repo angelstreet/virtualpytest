@@ -240,6 +240,8 @@ class ZapController:
             return 8  # VNC: 8 seconds * 1fps = 8 images
         elif 'stb' in device_model.lower():
             return 20  # STB: 4 seconds * 5fps = 20 images
+        elif 'android_mobile' in device_model.lower():
+            return 40  # Android Mobile: 8 seconds * 5fps = 40 images
         elif 'android_tv' in device_model.lower():
             return 30  # Android TV: 6 seconds * 5fps = 30 images
         else:

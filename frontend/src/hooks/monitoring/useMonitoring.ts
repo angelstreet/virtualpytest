@@ -160,14 +160,28 @@ export const useMonitoring = ({
       return baseUrlPattern.replace('{timestamp}', timestamp);
     }
 
-    // Otherwise, generate autonomous monitoring URL using buildCaptureUrl
+    // Otherwise, generate autonomous monitoring URL with fallback strategies
+    const deviceId = device.device_id || 'device1';
+    
+    // Strategy 1: Try using buildCaptureUrl (requires video_capture_path in device config)
     try {
-      const deviceId = device.device_id || 'device1';
       const captureUrl = buildCaptureUrl(host, timestamp, deviceId);
-      console.log(`[useMonitoring] Generated autonomous monitoring URL: ${captureUrl}`);
+      console.log(`[useMonitoring] Generated autonomous monitoring URL (strategy 1): ${captureUrl}`);
       return captureUrl;
     } catch (error) {
-      console.warn('[useMonitoring] Failed to generate autonomous monitoring URL:', error);
+      console.log(`[useMonitoring] Strategy 1 failed (${error instanceof Error ? error.message : String(error)}), trying fallback...`);
+    }
+    
+    // Strategy 2: Fallback to simple pattern based on device number (like MonitoringIncidents.tsx)
+    try {
+      const deviceNum = deviceId.replace('device', '');
+      const protocol = host.use_https ? 'https' : 'http';
+      const baseUrl = `${protocol}://${host.host_name}:${host.host_port}`;
+      const fallbackUrl = `${baseUrl}/stream/capture${deviceNum}/captures/capture_${timestamp}.jpg`;
+      console.log(`[useMonitoring] Generated autonomous monitoring URL (strategy 2): ${fallbackUrl}`);
+      return fallbackUrl;
+    } catch (error) {
+      console.warn('[useMonitoring] All strategies failed to generate autonomous monitoring URL:', error);
       return '';
     }
   }, [baseUrlPattern, host, device]);
