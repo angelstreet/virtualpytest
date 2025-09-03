@@ -19,13 +19,13 @@ These tables are automatically updated through PostgreSQL triggers when new exec
 
 ### API Endpoints
 
-The metrics system exposes the following API endpoints:
+The metrics system exposes the following clean, architecture-compliant API endpoints:
 
-- `GET /server/metrics/getTreeMetrics/<tree_id>`: Get metrics for all nodes and edges in a tree
-- `GET /server/metrics/getNodeMetrics/<node_id>/<tree_id>`: Get metrics for a specific node
-- `GET /server/metrics/getEdgeMetrics/<edge_id>/<tree_id>`: Get metrics for a specific edge
-- `GET /server/metrics/getActionHistory/<edge_id>/<tree_id>`: Get execution history for actions in an edge
-- `GET /server/metrics/getVerificationHistory/<node_id>/<tree_id>`: Get execution history for verifications in a node
+- `GET /server/metrics/tree/<tree_id>`: Get metrics for all nodes and edges in a tree
+- `GET /server/metrics/node/<node_id>/<tree_id>`: Get metrics for a specific node
+- `GET /server/metrics/edge/<edge_id>/<tree_id>`: Get metrics for a specific edge
+- `GET /server/metrics/history/actions/<edge_id>/<tree_id>`: Get execution history for actions in an edge
+- `GET /server/metrics/history/verifications/<node_id>/<tree_id>`: Get execution history for verifications in a node
 
 ### Frontend Integration
 
@@ -40,8 +40,8 @@ The frontend uses these metrics in the following components:
 
 The metrics system is implemented in the following files:
 
-- `shared/lib/supabase/navigation_metrics_db.py`: Database functions for retrieving metrics
-- `backend_server/src/routes/server_metrics_routes.py`: API endpoints for metrics
+- `shared/lib/supabase/navigation_metrics_db.py`: Clean database functions following the embedded architecture
+- `backend_server/src/routes/server_metrics_routes.py`: Clean API endpoints with no legacy code
 
 ### Frontend Integration
 
@@ -57,7 +57,7 @@ The frontend integrates with the metrics system through the following hooks:
 To fetch metrics for a tree, use the following endpoint:
 
 ```
-GET /server/metrics/getTreeMetrics/<tree_id>
+GET /server/metrics/tree/<tree_id>
 ```
 
 The response will include metrics for all nodes and edges in the tree:
