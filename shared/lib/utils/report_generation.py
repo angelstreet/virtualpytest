@@ -303,7 +303,28 @@ def generate_and_upload_script_report(
         else:
             print(f"[@utils:report_utils:generate_and_upload_script_report] No stdout provided, skipping log upload")
         
-        # Prepare report data (same structure as validation.py) - now with R2 URLs
+        # Calculate proper start and end times based on actual script execution
+        # execution_timestamp is when report is generated (end time)
+        # start_time should be execution_timestamp - execution_time
+        execution_time_seconds = execution_time / 1000.0  # Convert ms to seconds
+        
+        # Parse execution_timestamp to datetime object
+        end_datetime = datetime.strptime(execution_timestamp, '%Y%m%d%H%M%S')
+        
+        # Calculate start time by subtracting execution duration
+        from datetime import timedelta
+        start_datetime = end_datetime - timedelta(seconds=execution_time_seconds)
+        
+        # Format back to timestamp strings
+        calculated_start_time = start_datetime.strftime('%Y%m%d%H%M%S')
+        calculated_end_time = execution_timestamp  # This is already the end time
+        
+        print(f"[@utils:report_utils:generate_and_upload_script_report] DEBUG: Calculated timing:")
+        print(f"  - Execution duration: {execution_time_seconds:.1f}s ({execution_time}ms)")
+        print(f"  - Start time: {calculated_start_time} ({start_datetime.strftime('%H:%M:%S')})")
+        print(f"  - End time: {calculated_end_time} ({end_datetime.strftime('%H:%M:%S')})")
+
+        # Prepare report data (same structure as validation.py) - now with R2 URLs and correct timestamps
         report_data = {
             'script_name': script_name,
             'device_info': device_info,
@@ -318,6 +339,8 @@ def generate_and_upload_script_report(
             },
             'error_msg': error_message,
             'timestamp': execution_timestamp,
+            'start_time': calculated_start_time,  # Proper start time
+            'end_time': calculated_end_time,      # Proper end time
             'userinterface_name': userinterface_name or f'script_{script_name}',
             'total_steps': len(updated_step_results),
             'passed_steps': sum(1 for step in updated_step_results if step.get('success', False)),
