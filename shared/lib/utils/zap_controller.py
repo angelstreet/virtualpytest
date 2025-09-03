@@ -1335,6 +1335,7 @@ class ZapController:
             
             # Extract channel info from zapping analysis
             zapping_details = analysis_result.zapping_details or {}
+            channel_info = zapping_details.get('channel_info', {})
             
             # Calculate duration
             duration_seconds = end_time - start_time
@@ -1369,11 +1370,11 @@ class ZapController:
                 audio_transcript=analysis_result.audio_transcript[:500] if analysis_result.audio_transcript else None,  # Limit text length
                 blackscreen_freeze_duration_seconds=blackscreen_freeze_duration,
                 detection_method=detection_method,
-                channel_name=zapping_details.get('channel_name'),
-                channel_number=zapping_details.get('channel_number'),
-                program_name=zapping_details.get('program_name'),
-                program_start_time=zapping_details.get('program_start_time'),
-                program_end_time=zapping_details.get('program_end_time')
+                channel_name=channel_info.get('channel_name'),
+                channel_number=channel_info.get('channel_number'),
+                program_name=channel_info.get('program_name'),
+                program_start_time=channel_info.get('start_time'),
+                program_end_time=channel_info.get('end_time')
             )
         except Exception as e:
             print(f"⚠️ [ZapController] Failed to record zap iteration to database: {e}")
