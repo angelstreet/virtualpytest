@@ -239,17 +239,19 @@ class VideoContentHelpers:
                 }
                 
                 comparisons.append(comparison)
-                print(f"VideoContent[{self.device_name}]: Frame comparison {comparison['frame1']} vs {comparison['frame2']}: diff={mean_diff:.2f}")
                 
                 # Early stopping logic (similar to blackscreen detection)
                 if is_frozen and not freeze_detected:
                     freeze_detected = True
-                    print(f"VideoContent[{self.device_name}]: ⚡ Freeze START at comparison {i+1} - continuing to find END...")
+                    print(f"VideoContent[{self.device_name}]: ⚡ Freeze START at comparison {i+1} ({comparison['frame1']} vs {comparison['frame2']}: diff={mean_diff:.2f}) - continuing to find END...")
                 
                 elif freeze_detected and not is_frozen:
                     freeze_ended = True
-                    print(f"VideoContent[{self.device_name}]: ✅ Freeze END at comparison {i+1} - STOPPING EARLY!")
+                    print(f"VideoContent[{self.device_name}]: ✅ Freeze END at comparison {i+1} ({comparison['frame1']} vs {comparison['frame2']}: diff={mean_diff:.2f}) - STOPPING EARLY!")
                     break  # Early stopping - complete freeze sequence found!
+                else:
+                    # Only log non-transition frames in compact format
+                    print(f"VideoContent[{self.device_name}]: {comparison['frame1']} vs {comparison['frame2']}: diff={mean_diff:.2f}, frozen={is_frozen}")
             
             # Calculate freeze statistics
             frozen_count = sum(1 for comp in comparisons if comp['is_frozen'])
@@ -1159,7 +1161,6 @@ class VideoContentHelpers:
                         'files_in_second': len(second_files),
                         'interval': interval
                     })
-                    print(f"VideoContent[{self.device_name}]: Found image {filename} (interval: {interval:.1f}s)")
             
             print(f"VideoContent[{self.device_name}]: Enhanced collection: {len(images)} images covering {MAX_SECONDS}s")
             return sorted(images, key=lambda x: x['timestamp'])
@@ -1185,7 +1186,7 @@ class VideoContentHelpers:
             print(f"VideoContent[{self.device_name}]: Failed to convert timestamp {unix_timestamp}: {e}")
             return ""
 
-    def _detect_blackscreen_batch(self, image_data: List[Dict], analysis_rectangle: Dict[str, int] = None) -> List[Dict]:
+    def _detect_blackscreen_batch(self, image_data: List[Dict], analysis_rectangle: Dict[str, int] = None, device_model: str = None) -> List[Dict]:
         """
         Enhanced blackscreen detection with early stopping when complete sequence found.
         
@@ -1210,8 +1211,12 @@ class VideoContentHelpers:
             image_path = img_data['path']
             
             try:
-                # Use proven blackscreen detection algorithm
-                is_blackscreen, blackscreen_percentage = self._analyze_blackscreen_simple(image_path, analysis_rectangle)
+                # Use proven blackscreen detection algorithm with device-specific threshold
+                is_blackscreen, blackscreen_percentage = self._analyze_blackscreen_simple(image_path, analysis_rectangle, 5, device_model)
+                
+                # Get image dimensions for compact logging
+                img = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+                img_height, img_width = img.shape if img is not None else (0, 0)
                 
                 result = {
                     'path': image_path,
@@ -1235,7 +1240,16 @@ class VideoContentHelpers:
                     print(f"VideoContent[{self.device_name}]: ✅ Blackscreen END at {img_data['filename']} (image {i+1}) - STOPPING EARLY!")
                     break  # Early stopping - complete sequence found!
                 
-                print(f"VideoContent[{self.device_name}]: {img_data['filename']} - blackscreen={is_blackscreen} ({blackscreen_percentage:.1f}%)")
+                # Compact logging: filename, dimensions, analysis region, and result in one line
+                region_info = ""
+                if analysis_rectangle:
+                    x = analysis_rectangle.get('x', 0)
+                    y = analysis_rectangle.get('y', 0)
+                    width = analysis_rectangle.get('width', 0)
+                    height = analysis_rectangle.get('height', 0)
+                    region_info = f" | region={width}x{height}@({x},{y})"
+                
+                print(f"VideoContent[{self.device_name}]: {img_data['filename']} | {img_width}x{img_height}{region_info} | blackscreen={is_blackscreen} ({blackscreen_percentage:.1f}%)")
                 
             except Exception as e:
                 print(f"VideoContent[{self.device_name}]: Failed to analyze {img_data['filename']}: {e}")
@@ -1252,7 +1266,7 @@ class VideoContentHelpers:
         print(f"VideoContent[{self.device_name}]: Blackscreen analysis complete - {len(results)} images analyzed, early_stopped={blackscreen_ended}")
         return results
 
-    def _analyze_blackscreen_simple(self, image_path: str, analysis_rectangle: Dict[str, int] = None, threshold: int = 5) -> Tuple[bool, float]:
+    def _analyze_blackscreen_simple(self, image_path: str, analysis_rectangle: Dict[str, int] = None, threshold: int = 5, device_model: str = None) -> Tuple[bool, float]:
         """
         Simple blackscreen detection optimized for mobile TV interfaces
         
@@ -1270,7 +1284,6 @@ class VideoContentHelpers:
                 return False, 0.0
             
             img_height, img_width = img.shape
-            print(f"VideoContent[{self.device_name}]: Image dimensions: {img_width}x{img_height}")
             
             # Auto-calculate analysis rectangle if not provided (exclude banner areas)
             if analysis_rectangle is None:
@@ -1282,7 +1295,6 @@ class VideoContentHelpers:
                     'width': 1920,
                     'height': analysis_height
                 }
-                print(f"VideoContent[{self.device_name}]: No analysis rectangle provided - using fixed 1920x{analysis_height} (excludes banner area)")
             
             # Apply analysis rectangle (to exclude banner area)
             if analysis_rectangle:
@@ -1291,9 +1303,6 @@ class VideoContentHelpers:
                 y = analysis_rectangle.get('y', 0)
                 width = analysis_rectangle.get('width', img.shape[1])
                 height = analysis_rectangle.get('height', img.shape[0])
-                
-                print(f"VideoContent[{self.device_name}]: Analysis rectangle: x={x}, y={y}, width={width}, height={height}")
-                print(f"VideoContent[{self.device_name}]: Rectangle bounds check: x+width={x+width} <= img_width={img_width}, y+height={y+height} <= img_height={img_height}")
                 
                 # Validate and auto-correct rectangle bounds
                 bounds_valid = True
@@ -1317,26 +1326,24 @@ class VideoContentHelpers:
                 
                 # Check if corrected rectangle is still valid
                 if width <= 0 or height <= 0:
-                    print(f"VideoContent[{self.device_name}]: Analysis rectangle invalid after correction, using full image")
-                    print(f"VideoContent[{self.device_name}]: Original: x={original_rect[0]}, y={original_rect[1]}, w={original_rect[2]}, h={original_rect[3]}")
-                    print(f"VideoContent[{self.device_name}]: Corrected: x={x}, y={y}, w={width}, h={height}")
+                    print(f"VideoContent[{self.device_name}]: Analysis rectangle invalid after correction - Original: x={original_rect[0]}, y={original_rect[1]}, w={original_rect[2]}, h={original_rect[3]} | Corrected: x={x}, y={y}, w={width}, h={height} - using full image")
                 else:
                     if not bounds_valid:
                         print(f"VideoContent[{self.device_name}]: Analysis rectangle auto-corrected from {original_rect} to ({x},{y},{width},{height})")
-                    else:
-                        print(f"VideoContent[{self.device_name}]: Using analysis rectangle: {width}x{height} at ({x},{y})")
                     img = img[y:y+height, x:x+width]
+            
+            # Count all pixels in the smaller rectangle (no sampling for accuracy)
+            very_dark_pixels = np.sum(img <= threshold)
+            total_pixels = img.shape[0] * img.shape[1]
+            dark_percentage = (very_dark_pixels / total_pixels) * 100
+            
+            # Device-specific blackscreen thresholds to account for UI overlays
+            if device_model and 'mobile' in device_model.lower():
+                blackscreen_threshold = 70  # Mobile: 70% threshold (accounts for UI overlays)
             else:
-                print(f"VideoContent[{self.device_name}]: No analysis rectangle provided, using full image")
+                blackscreen_threshold = 85  # Desktop/STB: 85% threshold (minimal UI overlay)
             
-            # Optimized sampling for uniform blackscreen detection (every 5th pixel)
-            sampled_img = img[::5, ::5]  # Sample every 5th pixel for speed
-            very_dark_pixels = np.sum(sampled_img <= threshold)
-            total_sampled_pixels = sampled_img.shape[0] * sampled_img.shape[1]
-            dark_percentage = (very_dark_pixels / total_sampled_pixels) * 100
-            
-            # Real blackscreen detection: 85% of pixels must be truly black (≤5 intensity)
-            is_blackscreen = dark_percentage > 85
+            is_blackscreen = dark_percentage > blackscreen_threshold
             
             return is_blackscreen, dark_percentage
             
@@ -1469,12 +1476,10 @@ class VideoContentHelpers:
                 image_path = image_data[image_index]['path']
                 filename = image_data[image_index]['filename']
                 
-                print(f"VideoContent[{self.device_name}]: Trying AI analysis on {filename} for channel info (image {i+1} after blackscreen)")
-                print(f"VideoContent[{self.device_name}]: Using banner region: {banner_region}")
+                print(f"VideoContent[{self.device_name}]: AI analysis on {filename} (image {i+1} after blackscreen) | banner_region: {banner_region}")
                 
                 # Use AI helper for channel banner analysis with cropped region first
                 channel_result = self.ai_helpers.analyze_channel_banner_ai(image_path, banner_region)
-                print(f"VideoContent[{self.device_name}]: AI analysis result: {channel_result}")
                 
                 # Check if banner region analysis has useful info (even if banner_detected is false)
                 has_useful_banner_info = False
@@ -1489,13 +1494,10 @@ class VideoContentHelpers:
                 
                 # If banner region analysis fails OR has no useful info, try with full image as fallback
                 if not (channel_result.get('success', False) and (channel_result.get('banner_detected', False) or has_useful_banner_info)):
-                    if has_useful_banner_info:
-                        print(f"VideoContent[{self.device_name}]: Banner region found partial info but no banner detected, trying full image analysis on {filename}")
-                    else:
-                        print(f"VideoContent[{self.device_name}]: Banner region analysis failed, trying full image analysis on {filename}")
+                    fallback_reason = "partial info but no banner detected" if has_useful_banner_info else "analysis failed"
+                    print(f"VideoContent[{self.device_name}]: Banner region {fallback_reason}, trying full image analysis on {filename}")
                     
                     full_image_result = self.ai_helpers.analyze_channel_banner_ai(image_path, None)
-                    print(f"VideoContent[{self.device_name}]: Full image AI analysis result: {full_image_result}")
                     
                     # Use full image result if it has useful information (regardless of banner_detected flag)
                     if full_image_result.get('success', False):
