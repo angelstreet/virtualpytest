@@ -127,6 +127,7 @@ def generate_validation_report(report_data: Dict) -> str:
         # Replace placeholders with actual content
         html_content = html_template.format(
             script_name=script_name,
+            execution_date=format_execution_date(start_time),
             start_time=format_timestamp(start_time),
             end_time=format_timestamp(end_time),
             success_status="PASS" if success else "FAIL",
@@ -358,6 +359,17 @@ def format_timestamp(timestamp: str) -> str:
         return dt.strftime('%H:%M:%S')
     except:
         return timestamp
+
+
+def format_execution_date(timestamp: str) -> str:
+    """Format execution date for display in DD/MM/YYYY format."""
+    try:
+        # Convert YYYYMMDDHHMMSS to readable date format
+        dt = datetime.strptime(timestamp, '%Y%m%d%H%M%S')
+        return dt.strftime('%d/%m/%Y')
+    except:
+        # Fallback to current date if timestamp parsing fails
+        return datetime.now().strftime('%d/%m/%Y')
 
 
 def format_execution_time(execution_time_ms: int) -> str:

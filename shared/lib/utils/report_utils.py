@@ -11,6 +11,7 @@ from .report_generation import (
     generate_validation_report,
     generate_and_upload_script_report,
     format_timestamp,
+    format_execution_date,
     format_execution_time
 )
 

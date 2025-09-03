@@ -37,7 +37,7 @@ def create_themed_html_template() -> str:
             <div class="header-left">
                 <h1>{{script_name}}</h1>
                 <div class="time-info">
-                    Start: {{start_time}} | End: {{end_time}}
+                    {{execution_date}} | Start: {{start_time}} | End: {{end_time}}
                 </div>
             </div>
             <div class="theme-toggle">
