@@ -1,11 +1,11 @@
 /**
- * Metrics Notification Component
- * Toast notification for confidence warnings with click-to-view-details
+ * Minimalist Metrics Notification Component
+ * Small toast at bottom right - click to view details
  */
 
 import React from 'react';
-import { Snackbar, Alert, AlertTitle, Box, Chip } from '@mui/material';
-import { Warning, Error, Info } from '@mui/icons-material';
+import { Snackbar, Alert, Box } from '@mui/material';
+import { Warning, Error } from '@mui/icons-material';
 
 import { MetricsNotificationData } from '../../types/navigation/Metrics_Types';
 
@@ -20,7 +20,7 @@ export const MetricsNotification: React.FC<MetricsNotificationProps> = ({
   notificationData,
   onViewDetails,
   onClose,
-  autoHideDuration = 8000, // 8 seconds for important metrics info
+  autoHideDuration = 6000, // 6 seconds
 }) => {
   if (!notificationData.show) {
     return null;
@@ -31,7 +31,6 @@ export const MetricsNotification: React.FC<MetricsNotificationProps> = ({
   };
 
   const handleClose = (_event?: React.SyntheticEvent | Event, reason?: string) => {
-    // Don't auto-close on clickaway for important metrics notifications
     if (reason === 'clickaway') {
       return;
     }
@@ -41,22 +40,22 @@ export const MetricsNotification: React.FC<MetricsNotificationProps> = ({
   const getIcon = () => {
     switch (notificationData.severity) {
       case 'error':
-        return <Error />;
+        return <Error fontSize="small" />;
       case 'warning':
-        return <Warning />;
+        return <Warning fontSize="small" />;
       default:
-        return <Info />;
+        return null;
     }
   };
 
-  const getAlertTitle = () => {
-    switch (notificationData.severity) {
-      case 'error':
-        return 'Navigation Confidence Alert';
-      case 'warning':
-        return 'Navigation Confidence Warning';
-      default:
-        return 'Navigation Metrics';
+  const getShortMessage = () => {
+    const confidence = (notificationData.global_confidence * 100).toFixed(0);
+    const count = notificationData.low_confidence_count;
+    
+    if (notificationData.severity === 'error') {
+      return `Low confidence ${confidence}% • ${count} items`;
+    } else {
+      return `Medium confidence ${confidence}% • ${count} items`;
     }
   };
 
@@ -66,12 +65,13 @@ export const MetricsNotification: React.FC<MetricsNotificationProps> = ({
       autoHideDuration={autoHideDuration}
       onClose={handleClose}
       anchorOrigin={{ 
-        vertical: 'top', 
+        vertical: 'bottom', 
         horizontal: 'right' 
       }}
       sx={{
-        marginTop: '80px', // Below navigation header
-        zIndex: 1400, // Above most UI elements but below modals
+        marginBottom: '20px',
+        marginRight: '20px',
+        zIndex: 1400,
       }}
     >
       <Alert
@@ -81,59 +81,38 @@ export const MetricsNotification: React.FC<MetricsNotificationProps> = ({
         icon={getIcon()}
         sx={{
           cursor: 'pointer',
-          minWidth: '320px',
-          maxWidth: '480px',
+          minWidth: '200px',
+          maxWidth: '280px',
+          fontSize: '0.8rem',
+          padding: '4px 12px',
+          '& .MuiAlert-message': {
+            padding: '4px 0',
+            fontSize: '0.8rem',
+          },
+          '& .MuiAlert-icon': {
+            padding: '4px 0',
+            marginRight: '8px',
+          },
+          '& .MuiAlert-action': {
+            padding: '0',
+            marginRight: '0',
+          },
           '&:hover': {
-            backgroundColor: (theme) => 
-              notificationData.severity === 'error' 
-                ? theme.palette.error.light
-                : notificationData.severity === 'warning'
-                ? theme.palette.warning.light
-                : theme.palette.info.light,
-            opacity: 0.9,
+            transform: 'scale(1.02)',
+            boxShadow: (theme) => theme.shadows[4],
           },
           transition: 'all 0.2s ease-in-out',
+          borderRadius: '8px',
         }}
       >
-        <AlertTitle sx={{ fontWeight: 'bold', marginBottom: 1 }}>
-          {getAlertTitle()}
-        </AlertTitle>
-        
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-          {/* Main message */}
-          <Box sx={{ fontSize: '0.875rem' }}>
-            {notificationData.message}
-          </Box>
-          
-          {/* Metrics chips */}
-          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-            <Chip
-              size="small"
-              label={`Global: ${(notificationData.global_confidence * 100).toFixed(1)}%`}
-              color={notificationData.severity === 'error' ? 'error' : 'warning'}
-              variant="outlined"
-            />
-            
-            {notificationData.low_confidence_count > 0 && (
-              <Chip
-                size="small"
-                label={`${notificationData.low_confidence_count} items need attention`}
-                color="default"
-                variant="outlined"
-              />
-            )}
-          </Box>
-          
-          {/* Click hint */}
-          <Box 
-            sx={{ 
-              fontSize: '0.75rem', 
-              fontStyle: 'italic',
-              opacity: 0.8,
-              marginTop: 0.5,
-            }}
-          >
-            Click to view detailed metrics
+        <Box sx={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'space-between',
+          width: '100%'
+        }}>
+          <Box sx={{ fontSize: '0.8rem', fontWeight: 500 }}>
+            {getShortMessage()}
           </Box>
         </Box>
       </Alert>
