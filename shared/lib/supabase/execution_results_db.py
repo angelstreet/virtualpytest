@@ -411,19 +411,25 @@ def get_raw_tree_metrics(team_id: str, tree_id: str, node_ids: List[str], edge_i
         node_metrics = []
         if node_ids:
             node_result = supabase.table('node_metrics').select(
-                'node_id, tree_id, team_id, total_executions, successful_executions, success_rate, avg_execution_time_ms, created_at, updated_at'
+                'node_id, tree_id, team_id, total_executions, successful_executions, success_rate, avg_execution_time_ms, created_at'
             ).eq('team_id', team_id).eq('tree_id', tree_id).in_('node_id', node_ids).execute()
             
             node_metrics = node_result.data or []
+            # Add updated_at as created_at since the table doesn't have updated_at yet
+            for metric in node_metrics:
+                metric['updated_at'] = metric['created_at']
         
         # Get all edge metrics with full data including timestamps
         edge_metrics = []
         if edge_ids:
             edge_result = supabase.table('edge_metrics').select(
-                'edge_id, tree_id, team_id, total_executions, successful_executions, success_rate, avg_execution_time_ms, created_at, updated_at'
+                'edge_id, tree_id, team_id, total_executions, successful_executions, success_rate, avg_execution_time_ms, created_at'
             ).eq('team_id', team_id).eq('tree_id', tree_id).in_('edge_id', edge_ids).execute()
             
             edge_metrics = edge_result.data or []
+            # Add updated_at as created_at since the table doesn't have updated_at yet
+            for metric in edge_metrics:
+                metric['updated_at'] = metric['created_at']
         
         return {
             'success': True,
