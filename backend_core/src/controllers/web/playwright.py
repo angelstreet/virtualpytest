@@ -441,7 +441,7 @@ class PlaywrightWebController(WebControllerInterface):
                 print(f"[PLAYWRIGHT]: Persistent page access took {connect_time}ms")
                 
                 # Try obvious selectors with short timeout
-                timeout = 1500  # 1500ms per attempt since 1000 was failing
+                timeout = 2000  # 2000ms per attempt since 1000 was failing
                 
                 # Most obvious selectors for text-based elements (including Flutter)
                 selectors_to_try = [
