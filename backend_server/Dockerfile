@@ -5,19 +5,17 @@ RUN apt-get update && apt-get install -y \
     curl \
     wget \
     gnupg2 \
-    software-properties-common \
     supervisor \
     postgresql-client \
     libpq-dev \
     libpq5 \
     nginx \
-    libgl1-mesa-glx \
+    libgl1-mesa-dri \
     libglib2.0-0 \
     libsm6 \
     libxext6 \
     libxrender-dev \
     libgomp1 \
-    libglib2.0-0 \
     xvfb \
     && rm -rf /var/lib/apt/lists/*
 
