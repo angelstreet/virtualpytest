@@ -94,7 +94,7 @@ export default defineConfig({
   server: {
     host: '0.0.0.0',
     port: 5073,
-    allowedHosts: ['virtualpytest.com', 'www.virtualpytest.com', 'localhost', '127.0.0.1'],
+    allowedHosts: ['virtualpytest.com', 'www.virtualpytest.com', 'dev.virtualpytest.com', 'localhost', '127.0.0.1'],
     https: shouldUseHttps
       ? hasCertificates
         ? {
