@@ -12,29 +12,29 @@ The Navigation Metrics System provides **database-driven confidence visualizatio
 ```sql
 -- Node execution metrics (aggregated automatically via triggers)
 CREATE TABLE node_metrics (
+  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
   node_id varchar NOT NULL,
-  tree_id varchar NOT NULL,
-  team_id varchar NOT NULL,
+  tree_id uuid,
+  team_id uuid NOT NULL,
   total_executions integer DEFAULT 0,
   successful_executions integer DEFAULT 0,
-  success_rate decimal(5,4) DEFAULT 0,
+  success_rate numeric DEFAULT 0,
   avg_execution_time_ms integer DEFAULT 0,
-  created_at timestamp DEFAULT NOW(),
-  updated_at timestamp DEFAULT NOW(),
+  created_at timestamp with time zone DEFAULT now(),
   UNIQUE(node_id, tree_id, team_id)
 );
 
 -- Edge execution metrics (aggregated automatically via triggers)  
 CREATE TABLE edge_metrics (
+  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
   edge_id varchar NOT NULL,
-  tree_id varchar NOT NULL,
-  team_id varchar NOT NULL,
+  tree_id uuid,
+  team_id uuid NOT NULL,
   total_executions integer DEFAULT 0,
   successful_executions integer DEFAULT 0,
-  success_rate decimal(5,4) DEFAULT 0,
+  success_rate numeric DEFAULT 0,
   avg_execution_time_ms integer DEFAULT 0,
-  created_at timestamp DEFAULT NOW(),
-  updated_at timestamp DEFAULT NOW(),
+  created_at timestamp with time zone DEFAULT now(),
   UNIQUE(edge_id, tree_id, team_id)
 );
 
@@ -64,26 +64,24 @@ BEGIN
   IF NEW.execution_type = 'verification' AND NEW.node_id IS NOT NULL THEN
     INSERT INTO node_metrics (node_id, tree_id, team_id, total_executions, successful_executions, success_rate, avg_execution_time_ms)
     VALUES (NEW.node_id, NEW.tree_id, NEW.team_id, 1, CASE WHEN NEW.success THEN 1 ELSE 0 END, 
-            CASE WHEN NEW.success THEN 1.0 ELSE 0.0 END, NEW.execution_time_ms)
+            CASE WHEN NEW.success THEN 1.0 ELSE 0.0 END, COALESCE(NEW.execution_time_ms, 0))
     ON CONFLICT (node_id, tree_id, team_id) DO UPDATE SET
       total_executions = node_metrics.total_executions + 1,
       successful_executions = node_metrics.successful_executions + CASE WHEN NEW.success THEN 1 ELSE 0 END,
       success_rate = (node_metrics.successful_executions + CASE WHEN NEW.success THEN 1 ELSE 0 END)::decimal / (node_metrics.total_executions + 1),
-      avg_execution_time_ms = ((node_metrics.avg_execution_time_ms * node_metrics.total_executions) + NEW.execution_time_ms) / (node_metrics.total_executions + 1),
-      updated_at = NOW();
+      avg_execution_time_ms = ((node_metrics.avg_execution_time_ms * node_metrics.total_executions) + COALESCE(NEW.execution_time_ms, 0)) / (node_metrics.total_executions + 1);
   END IF;
   
   -- Update edge_metrics for action executions  
   IF NEW.execution_type = 'action' AND NEW.edge_id IS NOT NULL THEN
     INSERT INTO edge_metrics (edge_id, tree_id, team_id, total_executions, successful_executions, success_rate, avg_execution_time_ms)
     VALUES (NEW.edge_id, NEW.tree_id, NEW.team_id, 1, CASE WHEN NEW.success THEN 1 ELSE 0 END,
-            CASE WHEN NEW.success THEN 1.0 ELSE 0.0 END, NEW.execution_time_ms)
+            CASE WHEN NEW.success THEN 1.0 ELSE 0.0 END, COALESCE(NEW.execution_time_ms, 0))
     ON CONFLICT (edge_id, tree_id, team_id) DO UPDATE SET
       total_executions = edge_metrics.total_executions + 1,
       successful_executions = edge_metrics.successful_executions + CASE WHEN NEW.success THEN 1 ELSE 0 END,
       success_rate = (edge_metrics.successful_executions + CASE WHEN NEW.success THEN 1 ELSE 0 END)::decimal / (edge_metrics.total_executions + 1),
-      avg_execution_time_ms = ((edge_metrics.avg_execution_time_ms * edge_metrics.total_executions) + NEW.execution_time_ms) / (edge_metrics.total_executions + 1),
-      updated_at = NOW();
+      avg_execution_time_ms = ((edge_metrics.avg_execution_time_ms * edge_metrics.total_executions) + COALESCE(NEW.execution_time_ms, 0)) / (edge_metrics.total_executions + 1);
   END IF;
   
   RETURN NEW;
@@ -91,7 +89,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Attach trigger to execution_results table
-CREATE TRIGGER update_metrics_trigger
+CREATE TRIGGER metrics_trigger
   AFTER INSERT ON execution_results
   FOR EACH ROW EXECUTE FUNCTION update_metrics();
 ```
