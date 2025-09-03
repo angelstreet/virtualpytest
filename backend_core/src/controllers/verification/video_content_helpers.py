@@ -1487,6 +1487,7 @@ class VideoContentHelpers:
                     banner_info = channel_result.get('channel_info', {})
                     has_useful_banner_info = any([
                         banner_info.get('channel_name'),
+                        banner_info.get('channel_number'),
                         banner_info.get('program_name'),
                         banner_info.get('start_time'),
                         banner_info.get('end_time')
@@ -1504,6 +1505,7 @@ class VideoContentHelpers:
                         full_info = full_image_result.get('channel_info', {})
                         full_has_useful_info = any([
                             full_info.get('channel_name'),
+                            full_info.get('channel_number'),
                             full_info.get('program_name'),
                             full_info.get('start_time'),
                             full_info.get('end_time')
@@ -1521,6 +1523,7 @@ class VideoContentHelpers:
                     channel_info = channel_result.get('channel_info', {})
                     has_useful_info = any([
                         channel_info.get('channel_name'),
+                        channel_info.get('channel_number'),
                         channel_info.get('program_name'),
                         channel_info.get('start_time'),
                         channel_info.get('end_time')
@@ -1559,8 +1562,9 @@ class VideoContentHelpers:
                 result = self.ai_helpers.analyze_channel_banner_ai(candidate['path'], banner_region)
                 if result.get('success', False):
                     channel_info = result.get('channel_info', {})
-                    if any([channel_info.get('channel_name'), channel_info.get('program_name'), 
-                           channel_info.get('start_time'), channel_info.get('end_time')]):
+                    if any([channel_info.get('channel_name'), channel_info.get('channel_number'),
+                           channel_info.get('program_name'), channel_info.get('start_time'), 
+                           channel_info.get('end_time')]):
                         print(f"VideoContent[{self.device_name}]: Found channel info in {candidate['filename']}: {channel_info}")
                         return {
                             'channel_name': channel_info.get('channel_name', ''),

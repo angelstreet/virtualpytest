@@ -325,6 +325,7 @@ class VideoVerificationHelpers:
                                 # Check if we have any useful information
                                 has_useful_info = any([
                                     extracted_info.get('channel_name'),
+                                    extracted_info.get('channel_number'),
                                     extracted_info.get('program_name'),
                                     extracted_info.get('start_time'),
                                     extracted_info.get('end_time')

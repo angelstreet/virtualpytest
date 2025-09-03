@@ -728,6 +728,7 @@ Be specific about what you see on the device interface."""
                             # Validate and normalize the result
                             banner_detected = ai_result.get('banner_detected', False)
                             channel_name = ai_result.get('channel_name', '')
+                            channel_number = ai_result.get('channel_number', '')
                             program_name = ai_result.get('program_name', '')
                             start_time = ai_result.get('start_time', '')
                             end_time = ai_result.get('end_time', '')
@@ -736,6 +737,7 @@ Be specific about what you see on the device interface."""
                             # Enhanced logging for debugging
                             print(f"VideoAI[{self.device_name}]: Banner detected: {banner_detected} ({analysis_type})")
                             print(f"VideoAI[{self.device_name}]: Channel name: {channel_name}")
+                            print(f"VideoAI[{self.device_name}]: Channel number: {channel_number}")
                             print(f"VideoAI[{self.device_name}]: Program name: {program_name}")
                             print(f"VideoAI[{self.device_name}]: Start time: {start_time}")
                             print(f"VideoAI[{self.device_name}]: End time: {end_time}")
@@ -747,6 +749,7 @@ Be specific about what you see on the device interface."""
                                 'banner_detected': banner_detected,
                                 'channel_info': {
                                     'channel_name': channel_name,
+                                    'channel_number': channel_number,
                                     'program_name': program_name,
                                     'start_time': start_time,
                                     'end_time': end_time
@@ -890,6 +893,7 @@ Required JSON format:
 {
   "banner_detected": true,
   "channel_name": "BBC One",
+  "channel_number": "1",
   "program_name": "News at Six",
   "start_time": "18:00",
   "end_time": "18:30",
@@ -900,6 +904,7 @@ If no channel banner found:
 {
   "banner_detected": false,
   "channel_name": "",
+  "channel_number": "",
   "program_name": "",
   "start_time": "",
   "end_time": "",
@@ -909,6 +914,7 @@ If no channel banner found:
 FULL IMAGE ANALYSIS RULES:
 - Scan the ENTIRE image for channel information
 - Look for channel logos, channel names (BBC One, ITV, Channel 4, SRF, etc.)
+- Extract channel numbers (1, 2, 3, 101, 201, etc.) from banners or overlays
 - Extract program/show names (News, EastEnders, Music@SRF, etc.)
 - Find time information (start time, end time, duration) anywhere on screen
 - Look for text overlays, banners, or information bars in ANY location
