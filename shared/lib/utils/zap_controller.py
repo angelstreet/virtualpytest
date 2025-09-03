@@ -749,13 +749,24 @@ class ZapController:
         if av_controller:
             capture_folder = getattr(av_controller, 'video_capture_path', None)
             if capture_folder:
+                # Calculate max_images using same logic as detection methods
+                device_model = context.selected_device.device_model if context.selected_device else 'unknown'
+                if 'vnc' in device_model.lower():
+                    max_images = 8  # VNC: 8 seconds * 1fps = 8 images
+                elif 'android_tv' in device_model.lower():
+                    max_images = 20  # Android TV: 4 seconds * 5fps = 20 images
+                else:
+                    max_images = 30  # Default: 6 seconds * 5fps = 30 images
+                
+                print(f"🔍 [ZapController] Collecting {max_images} failure images for both methods (device: {device_model})")
+                
                 # Use the same enhanced image collection logic as the detection methods
                 from backend_core.src.controllers.verification.video_content_helpers import VideoContentHelpers
                 content_helpers = VideoContentHelpers(av_controller, "ZapController")
                 
-                # Get enhanced image collection (up to 30 images, 6 seconds)
+                # Get enhanced image collection using proper max_images
                 key_release_timestamp = context.last_action_start_time
-                image_data = content_helpers._get_images_after_timestamp(capture_folder, key_release_timestamp, max_count=10)
+                image_data = content_helpers._get_images_after_timestamp(capture_folder, key_release_timestamp, max_count=max_images)
                 
                 if image_data:
                     # Extract paths and filenames for failure display
@@ -874,8 +885,12 @@ class ZapController:
                 captures_folder = os.path.join(capture_folder, 'captures')
                 analyzed_screenshots = []
                 
+                # Use the actual analyzed count from the detection result, or fall back to max_images
+                actual_analyzed = zapping_result.get('analyzed_images', max_images)
+                print(f"🔍 [ZapController] Reconstructing {actual_analyzed} failure images (max_images={max_images})")
+                
                 # Reconstruct the same images that blackscreen detection analyzed
-                for i in range(10):  # Same max_images as blackscreen detection
+                for i in range(actual_analyzed):
                     target_timestamp = key_release_timestamp + i
                     target_datetime = datetime.fromtimestamp(target_timestamp)
                     target_filename = f"capture_{target_datetime.strftime('%Y%m%d%H%M%S')}.jpg"
@@ -1008,8 +1023,12 @@ class ZapController:
                 captures_folder = os.path.join(capture_folder, 'captures')
                 analyzed_screenshots = []
                 
-                # Reconstruct the same images that freeze detection analyzed (same as blackscreen failure handling)
-                for i in range(10):  # Same max_images as blackscreen detection
+                # Use the actual analyzed count from the detection result, or fall back to max_images
+                actual_analyzed = freeze_result.get('analyzed_images', max_images)
+                print(f"🔍 [ZapController] Reconstructing {actual_analyzed} freeze failure images (max_images={max_images})")
+                
+                # Reconstruct the same images that freeze detection analyzed
+                for i in range(actual_analyzed):
                     target_timestamp = key_release_timestamp + i
                     target_datetime = datetime.fromtimestamp(target_timestamp)
                     target_filename = f"capture_{target_datetime.strftime('%Y%m%d%H%M%S')}.jpg"
