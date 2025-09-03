@@ -832,6 +832,8 @@ Be specific about what you see on the device interface."""
         """
         try:
             print(f"VideoAI[{self.device_name}]: AI channel banner analysis (full image only)")
+            print(f"VideoAI[{self.device_name}]: Testing image: {image_path}")
+            print(f"VideoAI[{self.device_name}]: Banner region: {banner_region}")
             
             # Check if image exists
             if not os.path.exists(image_path):
