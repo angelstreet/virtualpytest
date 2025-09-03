@@ -550,6 +550,14 @@ class ScriptExecutor:
         try:
             print(f"[@script_framework:generate_final_report] DEBUG: Starting final report generation...")
             
+            # CRITICAL: Capture execution time BEFORE any additional processing
+            # This ensures video and report use the same baseline execution time
+            actual_execution_time_ms = context.get_execution_time_ms()
+            actual_test_duration_seconds = actual_execution_time_ms / 1000.0
+            # Store in context for use in cleanup_and_exit
+            context.baseline_execution_time_ms = actual_execution_time_ms
+            print(f"[@script_framework:generate_final_report] DEBUG: Captured baseline execution time: {actual_test_duration_seconds:.1f}s ({actual_execution_time_ms}ms)")
+            
             # Capture final screenshot
             print(f"[@script_framework:generate_final_report] DEBUG: Step 1 - Capturing final screenshot...")
             print(f"📸 [{self.script_name}] Capturing final state screenshot...")
@@ -572,15 +580,14 @@ class ScriptExecutor:
                 av_controller = get_controller(context.selected_device.device_id, 'av')
                 
                 if av_controller and hasattr(av_controller, 'take_video'):
-                    # Calculate time-synchronized video capture
-                    test_duration_seconds = context.get_execution_time_ms() / 1000.0
+                    # Use the captured baseline execution time (not current time which includes processing)
                     test_start_time = context.start_time
                     current_time = time.time()
                     
                     # Video size logic: same size or more, never less
-                    video_duration = max(10.0, test_duration_seconds)  # At least 10s, but capture full test
+                    video_duration = max(10.0, actual_test_duration_seconds)  # Use captured baseline time
                     
-                    print(f"🎥 [{self.script_name}] Test duration: {test_duration_seconds:.1f}s, capturing {video_duration:.1f}s of video")
+                    print(f"🎥 [{self.script_name}] Test duration: {actual_test_duration_seconds:.1f}s, capturing {video_duration:.1f}s of video")
                     print(f"🕐 [{self.script_name}] Test started: {test_start_time}, current: {current_time}")
                     
                     # Pass both duration and start time for synchronized capture
@@ -632,7 +639,7 @@ class ScriptExecutor:
                 script_name=f"{self.script_name}.py",
                 device_info=device_info,
                 host_info=host_info,
-                execution_time=context.get_execution_time_ms(),
+                execution_time=actual_execution_time_ms,  # Use captured baseline time, not current time
                 success=context.overall_success,
                 step_results=context.step_results,
                 screenshot_paths=context.screenshot_paths,
@@ -716,7 +723,7 @@ class ScriptExecutor:
                     update_script_execution_result(
                         script_result_id=context.script_result_id,
                         success=True,
-                        execution_time_ms=context.get_execution_time_ms(),
+                        execution_time_ms=actual_execution_time_ms,  # Use captured baseline time
                         html_report_r2_path=report_result.get('report_path') if report_result and report_result.get('success') else None,
                         html_report_r2_url=report_result.get('report_url') if report_result and report_result.get('success') else None,
                         logs_r2_path=report_result.get('logs_path') if report_result and report_result.get('success') else None,
@@ -728,7 +735,7 @@ class ScriptExecutor:
                     update_script_execution_result(
                         script_result_id=context.script_result_id,
                         success=False,
-                        execution_time_ms=context.get_execution_time_ms(),
+                        execution_time_ms=actual_execution_time_ms,  # Use captured baseline time
                         html_report_r2_path=report_result.get('report_path') if report_result and report_result.get('success') else None,
                         html_report_r2_url=report_result.get('report_url') if report_result and report_result.get('success') else None,
                         logs_r2_path=report_result.get('logs_path') if report_result and report_result.get('success') else None,
@@ -745,14 +752,15 @@ class ScriptExecutor:
             print(f"🔓 [{self.script_name}] Releasing control of device...")
             release_device_control(context.device_key, context.session_id, self.script_name)
         
-        # Print summary
-        self.print_execution_summary(context, userinterface_name)
+        # Print summary (use baseline time if available)
+        baseline_time = getattr(context, 'baseline_execution_time_ms', None)
+        self.print_execution_summary(context, userinterface_name, baseline_time)
         
         # Exit with proper code
         print(f"✅ [{self.script_name}] Script execution completed (test result: {'PASS' if context.overall_success else 'FAIL'})")
         sys.exit(0)
     
-    def print_execution_summary(self, context: ScriptExecutionContext, userinterface_name: str):
+    def print_execution_summary(self, context: ScriptExecutionContext, userinterface_name: str, execution_time_ms: int = None):
         """Print execution summary with hierarchical structure"""
         print("\n" + "="*60)
         print(f"🎯 [{self.script_name.upper()}] EXECUTION SUMMARY")
@@ -763,7 +771,9 @@ class ScriptExecutor:
             print(f"🖥️  Host: {context.host.host_name}")
         
         print(f"📋 Interface: {userinterface_name}")
-        print(f"⏱️  Total Time: {context.get_execution_time_ms()/1000:.1f}s")
+        # Use passed execution time if available, otherwise fall back to context time
+        display_time_ms = execution_time_ms if execution_time_ms is not None else context.get_execution_time_ms()
+        print(f"⏱️  Total Time: {display_time_ms/1000:.1f}s")
         print(f"📊 Steps: {len(context.step_results)} executed")
         print(f"📸 Screenshots: {len(context.screenshot_paths)} captured")
         print(f"🎯 Result: {'SUCCESS' if context.overall_success else 'FAILED'}")
