@@ -5,7 +5,29 @@ Formats zap execution data into HTML table for reports.
 """
 
 from typing import List, Dict, Any, Optional
+from datetime import datetime
 from shared.lib.supabase.zap_results_db import get_zap_summary_for_script
+
+
+def format_time_from_timestamp(timestamp_str: str) -> str:
+    """
+    Format timestamp string to HH:MM:SS format.
+    
+    Args:
+        timestamp_str: ISO timestamp string
+        
+    Returns:
+        Time in HH:MM:SS format or 'N/A' if invalid
+    """
+    if not timestamp_str:
+        return 'N/A'
+    
+    try:
+        # Parse ISO timestamp and format as time only
+        dt = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
+        return dt.strftime('%H:%M:%S')
+    except (ValueError, AttributeError):
+        return 'N/A'
 
 
 def create_zap_summary_section(script_result_id: str) -> str:
@@ -146,8 +168,8 @@ def create_zap_table_row(zap: Dict[str, Any]) -> str:
                 <tr>
                     <td>{zap.get('iteration_index', 'N/A')}</td>
                     <td>{zap.get('action_command', 'N/A')}</td>
-                    <td>{zap.get('start_time', 'N/A')}</td>
-                    <td>{zap.get('end_time', 'N/A')}</td>
+                    <td>{format_time_from_timestamp(zap.get('started_at', ''))}</td>
+                    <td>{format_time_from_timestamp(zap.get('completed_at', ''))}</td>
                     <td>{zap.get('duration_seconds', 0):.1f}s</td>
                     <td>{motion_icon}</td>
                     <td>{subtitle_result}</td>

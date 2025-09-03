@@ -22,8 +22,8 @@ def record_zap_iteration(
     userinterface_name: str,
     iteration_index: int,
     action_command: str,
-    start_time: str,
-    end_time: str,
+    started_at: datetime,
+    completed_at: datetime,
     duration_seconds: float,
     motion_detected: bool = False,
     subtitles_detected: bool = False,
@@ -56,8 +56,8 @@ def record_zap_iteration(
             'execution_date': datetime.now(timezone.utc).isoformat(),
             'iteration_index': iteration_index,
             'action_command': action_command,
-            'start_time': start_time,
-            'end_time': end_time,
+            'started_at': started_at.isoformat(),
+            'completed_at': completed_at.isoformat(),
             'duration_seconds': duration_seconds,
             'motion_detected': motion_detected,
             'subtitles_detected': subtitles_detected,
@@ -82,6 +82,8 @@ def record_zap_iteration(
         print(f"  - userinterface: {userinterface_name}")
         print(f"  - iteration: {iteration_index}")
         print(f"  - action: {action_command}")
+        print(f"  - started_at: {started_at.isoformat()}")
+        print(f"  - completed_at: {completed_at.isoformat()}")
         print(f"  - duration: {duration_seconds}s")
         print(f"  - motion: {motion_detected}, subtitles: {subtitles_detected}, audio: {audio_speech_detected}, blackscreen/freeze: {blackscreen_freeze_detected}")
         

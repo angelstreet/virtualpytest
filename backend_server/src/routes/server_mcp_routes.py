@@ -80,8 +80,8 @@ def execute_task():
             }
         ]
         
-        # Instantiate AI agent controller
-        ai_agent = AIAgentController()
+        # Instantiate AI agent controller with required device_id
+        ai_agent = AIAgentController(device_id="mcp_interface", device_name="MCP_Interface")
         
         # Execute task with MCP context
         ai_result = ai_agent.execute_task(

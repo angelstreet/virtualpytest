@@ -1334,8 +1334,7 @@ class ZapController:
             from shared.lib.supabase.zap_results_db import record_zap_iteration
             
             # Extract channel info from zapping analysis
-            zapping_details = analysis_result.zapping_details
-            channel_info = zapping_details.get('channel_info', {}) if zapping_details else {}
+            zapping_details = analysis_result.zapping_details or {}
             
             # Calculate duration
             duration_seconds = end_time - start_time
@@ -1357,8 +1356,8 @@ class ZapController:
                 userinterface_name=getattr(context, 'userinterface_name', 'unknown'),
                 iteration_index=iteration,
                 action_command=context.custom_data.get('action_command', 'unknown'),
-                start_time=datetime.fromtimestamp(start_time).strftime('%H:%M:%S'),
-                end_time=datetime.fromtimestamp(end_time).strftime('%H:%M:%S'),
+                started_at=datetime.fromtimestamp(start_time),
+                completed_at=datetime.fromtimestamp(end_time),
                 duration_seconds=duration_seconds,
                 motion_detected=analysis_result.motion_detected,
                 subtitles_detected=analysis_result.subtitles_detected,
@@ -1370,11 +1369,11 @@ class ZapController:
                 audio_transcript=analysis_result.audio_transcript[:500] if analysis_result.audio_transcript else None,  # Limit text length
                 blackscreen_freeze_duration_seconds=blackscreen_freeze_duration,
                 detection_method=detection_method,
-                channel_name=channel_info.get('channel_name'),
-                channel_number=channel_info.get('channel_number'),
-                program_name=channel_info.get('program_name'),
-                program_start_time=channel_info.get('program_start_time'),
-                program_end_time=channel_info.get('program_end_time')
+                channel_name=zapping_details.get('channel_name'),
+                channel_number=zapping_details.get('channel_number'),
+                program_name=zapping_details.get('program_name'),
+                program_start_time=zapping_details.get('program_start_time'),
+                program_end_time=zapping_details.get('program_end_time')
             )
         except Exception as e:
             print(f"⚠️ [ZapController] Failed to record zap iteration to database: {e}")
@@ -1445,7 +1444,11 @@ class ZapController:
                 if len(channel_info) > 40:
                     channel_info = channel_info[:37] + "..."
                 
-                print(f"{iteration['iteration_index']:<4} | {iteration['action_command']:<12} | {iteration['start_time']:<8} | {iteration['end_time']:<8} | {iteration['duration_seconds']:<8.1f}s | {motion_icon:<6} | {subtitle_result:<10} | {audio_result:<8} | {bf_result:<6} | {channel_info:<40}")
+                # Format timestamps to HH:MM:SS
+                start_time_str = self._format_timestamp_to_time(iteration.get('started_at', ''))
+                end_time_str = self._format_timestamp_to_time(iteration.get('completed_at', ''))
+                
+                print(f"{iteration['iteration_index']:<4} | {iteration['action_command']:<12} | {start_time_str:<8} | {end_time_str:<8} | {iteration['duration_seconds']:<8.1f}s | {motion_icon:<6} | {subtitle_result:<10} | {audio_result:<8} | {bf_result:<6} | {channel_info:<40}")
                 
                 # Count successes
                 if iteration['motion_detected']:
@@ -1465,3 +1468,16 @@ class ZapController:
             
         except Exception as e:
             print(f"❌ [ZapController] Failed to generate summary table: {e}")
+    
+    def _format_timestamp_to_time(self, timestamp_str: str) -> str:
+        """Format timestamp string to HH:MM:SS format."""
+        if not timestamp_str:
+            return 'N/A'
+        
+        try:
+            from datetime import datetime
+            # Parse ISO timestamp and format as time only
+            dt = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
+            return dt.strftime('%H:%M:%S')
+        except (ValueError, AttributeError):
+            return 'N/A'
