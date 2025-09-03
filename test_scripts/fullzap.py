@@ -207,6 +207,9 @@ def main():
         executor.cleanup_and_exit(context, args.userinterface_name)
         return
     
+    # Set userinterface_name in context for zap database recording
+    context.userinterface_name = args.userinterface_name
+    
     try:
         # Create ZapController for execution and analysis
         zap_controller = create_zap_controller(context)

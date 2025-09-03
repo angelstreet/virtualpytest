@@ -1354,6 +1354,7 @@ class ZapController:
                 host_name=context.host.host_name,
                 device_name=context.selected_device.device_name,
                 device_model=context.selected_device.device_model,
+                userinterface_name=getattr(context, 'userinterface_name', 'unknown'),
                 iteration_index=iteration,
                 action_command=context.custom_data.get('action_command', 'unknown'),
                 start_time=datetime.fromtimestamp(start_time).strftime('%H:%M:%S'),

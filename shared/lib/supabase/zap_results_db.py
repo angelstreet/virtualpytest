@@ -19,6 +19,7 @@ def record_zap_iteration(
     host_name: str,
     device_name: str,
     device_model: str,
+    userinterface_name: str,
     iteration_index: int,
     action_command: str,
     start_time: str,
@@ -51,6 +52,7 @@ def record_zap_iteration(
             'host_name': host_name,
             'device_name': device_name,
             'device_model': device_model,
+            'userinterface_name': userinterface_name,
             'execution_date': datetime.now(timezone.utc).isoformat(),
             'iteration_index': iteration_index,
             'action_command': action_command,
@@ -77,6 +79,7 @@ def record_zap_iteration(
         print(f"[@db:zap_results:record_zap_iteration] Recording zap iteration:")
         print(f"  - zap_result_id: {zap_result_id}")
         print(f"  - script_result_id: {script_result_id}")
+        print(f"  - userinterface: {userinterface_name}")
         print(f"  - iteration: {iteration_index}")
         print(f"  - action: {action_command}")
         print(f"  - duration: {duration_seconds}s")
