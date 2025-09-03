@@ -1329,10 +1329,11 @@ class VideoContentHelpers:
             else:
                 print(f"VideoContent[{self.device_name}]: No analysis rectangle provided, using full image")
             
-            # Count pixels <= threshold (real blackscreen detection - only truly black pixels)
-            very_dark_pixels = np.sum(img <= threshold)
-            total_pixels = img.shape[0] * img.shape[1]
-            dark_percentage = (very_dark_pixels / total_pixels) * 100
+            # Optimized sampling for uniform blackscreen detection (every 5th pixel)
+            sampled_img = img[::5, ::5]  # Sample every 5th pixel for speed
+            very_dark_pixels = np.sum(sampled_img <= threshold)
+            total_sampled_pixels = sampled_img.shape[0] * sampled_img.shape[1]
+            dark_percentage = (very_dark_pixels / total_sampled_pixels) * 100
             
             # Real blackscreen detection: 85% of pixels must be truly black (≤5 intensity)
             is_blackscreen = dark_percentage > 85

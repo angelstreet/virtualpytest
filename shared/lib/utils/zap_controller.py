@@ -822,20 +822,23 @@ class ZapController:
             # Get analysis areas (same as original)
             device_model = context.selected_device.device_model if context.selected_device else 'unknown'
             
+            # Smaller uniform rectangle for all devices: 200,0, 400, 200 (80k pixels)
+            analysis_rectangle = {'x': 200, 'y': 0, 'width': 400, 'height': 200}
+            
             if device_model in ['android_mobile', 'ios_mobile']:
-                analysis_rectangle = {'x': 475, 'y': 50, 'width': 325, 'height': 165}
                 banner_region = {'x': 470, 'y': 230, 'width': 280, 'height': 70}
             else:
-                analysis_rectangle = {'x': 300, 'y': 130, 'width': 1300, 'height': 570}
                 banner_region = {'x': 245, 'y': 830, 'width': 1170, 'height': 120}
             
             # Device-specific timeout: VNC (1fps) = 8s, others (5fps) = 4s for android_tv, 6s default
             if 'vnc' in device_model.lower():
                 max_images = 8  # VNC: 8 seconds * 1fps = 8 images
+            elif 'stb' in device_model.lower():
+                max_images = 20  # STB: 4 seconds * 5fps = 20 images
             elif 'android_tv' in device_model.lower():
-                max_images = 20  # Android TV: 4 seconds * 5fps = 20 images
+                max_images = 30  # Android TV: 4 seconds * 5fps = 20 images
             else:
-                max_images = 30  # Default: 6 seconds * 5fps = 30 images
+                max_images = 40  # Default: 8 seconds * 5fps = 40 images
             
             # Call enhanced blackscreen zapping detection with device-specific timeout
             zapping_result = video_controller.detect_zapping(
@@ -960,11 +963,12 @@ class ZapController:
             # Use same areas as blackscreen detection
             device_model = context.selected_device.device_model if context.selected_device else 'unknown'
             
+            # Smaller uniform rectangle for all devices: 200,0, 400, 200 (80k pixels)
+            analysis_rectangle = {'x': 200, 'y': 0, 'width': 400, 'height': 200}
+            
             if device_model in ['android_mobile', 'ios_mobile']:
-                analysis_rectangle = {'x': 475, 'y': 50, 'width': 325, 'height': 165}
                 banner_region = {'x': 470, 'y': 230, 'width': 280, 'height': 70}
             else:
-                analysis_rectangle = {'x': 300, 'y': 130, 'width': 1300, 'height': 570}
                 banner_region = {'x': 245, 'y': 830, 'width': 1170, 'height': 120}
             
             # Device-specific timeout: VNC (1fps) = 8s, others (5fps) = 4s for android_tv, 6s default
