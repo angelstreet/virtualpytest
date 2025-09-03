@@ -108,11 +108,11 @@ start_grabber() {
     # Simple DISPLAY export - no XAUTHORITY needed with xhost +local:
     export DISPLAY="$source"
 
-    FFMPEG_CMD="DISPLAY=\"$source\" /usr/bin/ffmpeg -y -threads 1 -thread_type slice -f x11grab -video_size $resolution -framerate $input_fps -i $source \
+    FFMPEG_CMD="DISPLAY=\"$source\" /usr/bin/ffmpeg -y -f x11grab -video_size $resolution -framerate $input_fps -i $source \
       -an \
-      -filter_complex \"[0:v]split=3[stream][capture][thumb];[stream]scale=480:360:flags=fast_bilinear:sws_dither=none[streamout];[capture]fps=2[captureout];[thumb]fps=2,scale=320:180[thumbout]\" \
+      -filter_complex \"[0:v]split=3[stream][capture][thumb];[stream]scale=480:360:flags=fast_bilinear[streamout];[capture]fps=1[captureout];[thumb]fps=1,scale=320:180[thumbout]\" \
       -map \"[streamout]\" \
-      -c:v libx264 -preset ultrafast -tune zerolatency -crf 35 -maxrate 500k -bufsize 1000k \
+      -c:v libx264 -preset ultrafast -tune zerolatency -crf 40 -maxrate 300k -bufsize 600k \
       -pix_fmt yuv420p -profile:v baseline -level 3.0 -x264opts keyint=120:min-keyint=120:no-scenecut:ref=1:me=dia:subme=0:trellis=0 \
       -f hls -hls_time 4 -hls_list_size 150 -hls_flags delete_segments \
       -hls_segment_filename $capture_dir/segment_%03d.ts \
