@@ -86,7 +86,34 @@ class ThemeManager {{
 // Initialize theme manager when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {{
     window.themeManager = new ThemeManager();
+    
+    // Handle window resize to recalculate expanded section heights
+    let resizeTimeout;
+    window.addEventListener('resize', () => {{
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(() => {{
+            recalculateExpandedSections();
+        }}, 250);
+    }});
 }});
+
+// Recalculate heights for expanded sections after window resize
+function recalculateExpandedSections() {{
+    const expandedSections = document.querySelectorAll('.collapsible-content.expanded, .step-details.expanded');
+    expandedSections.forEach(section => {{
+        if (section.style.maxHeight && section.style.maxHeight !== 'none') {{
+            const newHeight = section.scrollHeight;
+            section.style.maxHeight = newHeight + 'px';
+            
+            // Set to none after a brief delay for proper scrolling
+            setTimeout(() => {{
+                if (section.classList.contains('expanded')) {{
+                    section.style.maxHeight = 'none';
+                }}
+            }}, 100);
+        }}
+    }});
+}}
 
 function toggleSection(sectionId) {{
     const content = document.getElementById(sectionId);
@@ -100,26 +127,94 @@ function toggleSection(sectionId) {{
     }}
     
     if (content && content.classList.contains('expanded')) {{
+        // Collapsing: measure current height first, then animate to 0
+        const currentHeight = content.scrollHeight;
+        content.style.maxHeight = currentHeight + 'px';
+        
+        // Force reflow
+        content.offsetHeight;
+        
+        // Animate to collapsed
+        content.style.maxHeight = '0px';
         content.classList.remove('expanded');
+        
         if (button) {{
             button.classList.remove('expanded');
             button.textContent = '▶';
         }}
+        
+        // Clean up after transition
+        setTimeout(() => {{
+            if (!content.classList.contains('expanded')) {{
+                content.style.maxHeight = '';
+            }}
+        }}, 400);
+        
     }} else if (content) {{
+        // Expanding: measure content height and animate to it
         content.classList.add('expanded');
+        const targetHeight = content.scrollHeight;
+        content.style.maxHeight = '0px';
+        
+        // Force reflow
+        content.offsetHeight;
+        
+        // Animate to full height
+        content.style.maxHeight = targetHeight + 'px';
+        
         if (button) {{
             button.classList.add('expanded');
             button.textContent = '▼';
         }}
+        
+        // Clean up after transition - set to none for proper scrolling
+        setTimeout(() => {{
+            if (content.classList.contains('expanded')) {{
+                content.style.maxHeight = 'none';
+            }}
+        }}, 400);
     }}
 }}
 
 function toggleStep(stepId) {{
     const details = document.getElementById(stepId);
     if (details.classList.contains('expanded')) {{
+        // Collapsing: measure current height first, then animate to 0
+        const currentHeight = details.scrollHeight;
+        details.style.maxHeight = currentHeight + 'px';
+        
+        // Force reflow
+        details.offsetHeight;
+        
+        // Animate to collapsed
+        details.style.maxHeight = '0px';
         details.classList.remove('expanded');
+        
+        // Clean up after transition
+        setTimeout(() => {{
+            if (!details.classList.contains('expanded')) {{
+                details.style.maxHeight = '';
+            }}
+        }}, 400);
+        
     }} else {{
+        // Expanding: measure content height and animate to it
         details.classList.add('expanded');
+        const targetHeight = details.scrollHeight;
+        details.style.maxHeight = '0px';
+        
+        // Force reflow
+        details.offsetHeight;
+        
+        // Animate to full height
+        details.style.maxHeight = targetHeight + 'px';
+        
+        // Clean up after transition - set to none for proper scrolling
+        setTimeout(() => {{
+            if (details.classList.contains('expanded')) {{
+                details.style.maxHeight = 'none';
+            }}
+        }}, 400);
     }}
 }}
 

@@ -90,6 +90,9 @@ body {{
     padding: 10px;
     font-size: 14px;
     transition: background-color 0.3s ease, color 0.3s ease;
+    min-height: 100vh;
+    overflow-x: hidden;
+    overflow-y: auto;
 }}
 
 .container {{
@@ -275,15 +278,17 @@ body {{
 .collapsible-content {{
     max-height: 0;
     overflow: hidden;
-    transition: max-height 0.3s ease;
+    transition: max-height 0.4s ease;
 }}
 
 .collapsible-content.expanded {{
-    max-height: 2000px;
+    max-height: none;
+    overflow: visible;
 }}
 
 .steps-expanded {{
-    max-height: 2000px;
+    max-height: none;
+    overflow: visible;
 }}
 
 .step-list {{
@@ -363,15 +368,18 @@ body {{
 }}
 
 .step-details {{
-    display: none;
-    padding: 12px;
+    max-height: 0;
+    overflow: hidden;
+    padding: 0 12px;
     background: var(--bg-tertiary);
     border-top: 1px solid var(--border-light);
-    transition: all 0.3s ease;
+    transition: max-height 0.4s ease, padding 0.4s ease;
 }}
 
 .step-details.expanded {{
-    display: block;
+    max-height: none;
+    overflow: visible;
+    padding: 12px;
 }}
 
 .step-details-content {{
