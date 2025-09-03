@@ -234,6 +234,17 @@ class ZapController:
         self.statistics = ZapStatistics()
         self.learned_detection_method = None  # Learn on first success
     
+    def _get_max_images_for_device(self, device_model: str) -> int:
+        """Get device-specific max_images for analysis based on device capabilities"""
+        if 'vnc' in device_model.lower():
+            return 8  # VNC: 8 seconds * 1fps = 8 images
+        elif 'stb' in device_model.lower():
+            return 20  # STB: 4 seconds * 5fps = 20 images
+        elif 'android_tv' in device_model.lower():
+            return 30  # Android TV: 6 seconds * 5fps = 30 images
+        else:
+            return 40  # Default: 8 seconds * 5fps = 40 images
+    
     def analyze_after_zap(self, iteration: int, action_command: str, context) -> ZapAnalysisResult:
         """Perform comprehensive analysis after a zap action"""
         result = ZapAnalysisResult()
@@ -749,16 +760,9 @@ class ZapController:
         if av_controller:
             capture_folder = getattr(av_controller, 'video_capture_path', None)
             if capture_folder:
-                # Calculate max_images using same logic as detection methods
+                # Calculate max_images using device-specific helper
                 device_model = context.selected_device.device_model if context.selected_device else 'unknown'
-                if 'vnc' in device_model.lower():
-                    max_images = 8  # VNC: 8 seconds * 1fps = 8 images
-                elif 'stb' in device_model.lower():
-                    max_images = 20  # STB: 4 seconds * 5fps = 20 images
-                 elif 'anddroid_tv' in device_model.lower():
-                    max_images = 30  # Android TV: 4 seconds * 5fps = 20 images
-                else:
-                    max_images = 40  # Default: 8 seconds * 5fps = 40 images
+                max_images = self._get_max_images_for_device(device_model)
                 
                 print(f"🔍 [ZapController] Collecting {max_images} failure images for both methods (device: {device_model})")
                 
@@ -830,15 +834,8 @@ class ZapController:
             else:
                 banner_region = {'x': 245, 'y': 830, 'width': 1170, 'height': 120}
             
-            # Device-specific timeout: VNC (1fps) = 8s, others (5fps) = 4s for android_tv, 6s default
-            if 'vnc' in device_model.lower():
-                max_images = 8  # VNC: 8 seconds * 1fps = 8 images
-            elif 'stb' in device_model.lower():
-                max_images = 20  # STB: 4 seconds * 5fps = 20 images
-            elif 'android_tv' in device_model.lower():
-                max_images = 30  # Android TV: 4 seconds * 5fps = 20 images
-            else:
-                max_images = 40  # Default: 8 seconds * 5fps = 40 images
+            # Device-specific timeout using helper method
+            max_images = self._get_max_images_for_device(device_model)
             
             # Call enhanced blackscreen zapping detection with device-specific timeout
             zapping_result = video_controller.detect_zapping(
@@ -971,15 +968,8 @@ class ZapController:
             else:
                 banner_region = {'x': 245, 'y': 830, 'width': 1170, 'height': 120}
             
-            # Device-specific timeout: VNC (1fps) = 8s, others (5fps) = 4s for android_tv, 6s default
-            if 'vnc' in device_model.lower():
-                max_images = 8  # VNC: 8 seconds * 1fps = 8 images
-            elif 'stb' in device_model.lower():
-                max_images = 20  # STB: 4 seconds * 5fps = 20 images
-            elif 'android_tv' in device_model.lower():
-                max_images = 30  # Android TV: 4 seconds * 5fps = 30 images
-            else:
-                max_images = 40  # Default: 8 seconds * 5fps = 40 images
+            # Device-specific timeout using helper method
+            max_images = self._get_max_images_for_device(device_model)
             
             # Call freeze zapping detection using device-specific timeout
             freeze_result = video_controller.content_helpers.detect_freeze_zapping_sequence(
