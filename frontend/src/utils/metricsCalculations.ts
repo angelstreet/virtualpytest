@@ -174,6 +174,18 @@ export const generateNotificationData = (
   globalConfidence: number,
   lowConfidenceCount: number,
 ): MetricsNotificationData => {
+  // Don't show notification if there are no metrics at all (0.0% with 0 items)
+  if (globalConfidence === 0 && lowConfidenceCount === 0) {
+    return {
+      show: false,
+      severity: 'info',
+      message: '',
+      global_confidence: globalConfidence,
+      low_confidence_count: lowConfidenceCount,
+    };
+  }
+  
+  // Don't show notification if confidence is high
   if (globalConfidence >= CONFIDENCE_THRESHOLDS.HIGH) {
     return {
       show: false,
@@ -186,7 +198,8 @@ export const generateNotificationData = (
   
   const confidencePercentage = (globalConfidence * 100).toFixed(1);
   
-  if (globalConfidence < CONFIDENCE_THRESHOLDS.MEDIUM) {
+  // Show error notification for low confidence (only if there are actual items)
+  if (globalConfidence < CONFIDENCE_THRESHOLDS.MEDIUM && lowConfidenceCount > 0) {
     return {
       show: true,
       severity: 'error',
@@ -196,10 +209,22 @@ export const generateNotificationData = (
     };
   }
   
+  // Show warning notification for medium confidence (only if there are actual items)
+  if (lowConfidenceCount > 0) {
+    return {
+      show: true,
+      severity: 'warning',
+      message: `Medium confidence (${confidencePercentage}%) - ${lowConfidenceCount} items below 90%`,
+      global_confidence: globalConfidence,
+      low_confidence_count: lowConfidenceCount,
+    };
+  }
+  
+  // No notification needed - good confidence or no problematic items
   return {
-    show: true,
-    severity: 'warning',
-    message: `Medium confidence (${confidencePercentage}%) - ${lowConfidenceCount} items below 90%`,
+    show: false,
+    severity: 'success',
+    message: '',
     global_confidence: globalConfidence,
     low_confidence_count: lowConfidenceCount,
   };
