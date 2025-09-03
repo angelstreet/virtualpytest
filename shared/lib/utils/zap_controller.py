@@ -976,8 +976,10 @@ class ZapController:
                 max_images = 8  # VNC: 8 seconds * 1fps = 8 images
             elif 'stb' in device_model.lower():
                 max_images = 20  # STB: 4 seconds * 5fps = 20 images
+            elif 'android_tv' in device_model.lower():
+                max_images = 30  # Android TV: 4 seconds * 5fps = 30 images
             else:
-                max_images = 30  # Default: 6 seconds * 5fps = 30 images
+                max_images = 40  # Default: 8 seconds * 5fps = 40 images
             
             # Call freeze zapping detection using device-specific timeout
             freeze_result = video_controller.content_helpers.detect_freeze_zapping_sequence(
