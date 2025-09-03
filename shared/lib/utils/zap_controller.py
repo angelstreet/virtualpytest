@@ -1380,13 +1380,14 @@ class ZapController:
             print(f"⚠️ [ZapController] Failed to record zap iteration to database: {e}")
     
     def print_zap_summary_table(self, context):
-        """Print formatted zap summary table from database"""
+        """Print formatted zap summary table from database using shared formatter"""
         if not context.script_result_id:
             print("⚠️ [ZapController] No script result ID available for summary table")
             return
         
         try:
             from shared.lib.supabase.zap_results_db import get_zap_summary_for_script
+            from shared.lib.utils.zap_summary_formatter import generate_zap_summary_text
             
             # Get zap data from database
             summary_data = get_zap_summary_for_script(context.script_result_id)
@@ -1396,76 +1397,9 @@ class ZapController:
             
             zap_iterations = summary_data['zap_iterations']
             
-            # Print summary table
-            print("\n" + "="*120)
-            print("🎯 ZAP EXECUTION SUMMARY")
-            print("="*120)
-            
-            # Header info
-            first_iteration = zap_iterations[0]
-            print(f"Host: {first_iteration['host_name']} | Device: {first_iteration['device_name']} ({first_iteration['device_model']}) | Date: {first_iteration['execution_date'][:19]}")
-            print()
-            
-            # Table header
-            print(f"{'Iter':<4} | {'Action':<12} | {'Start':<8} | {'End':<8} | {'Duration':<8} | {'Motion':<6} | {'Subtitles':<10} | {'Audio':<8} | {'B/F':<6} | {'Channel Info':<40}")
-            print("-" * 120)
-            
-            # Table rows
-            motion_count = subtitle_count = audio_count = bf_count = 0
-            for iteration in zap_iterations:
-                # Format detection results
-                motion_icon = "✅" if iteration['motion_detected'] else "❌"
-                subtitle_result = "✅" if iteration['subtitles_detected'] else "❌"
-                if iteration['subtitles_detected'] and iteration['subtitle_language']:
-                    subtitle_result += f" {iteration['subtitle_language'][:2].upper()}"
-                
-                audio_result = "✅" if iteration['audio_speech_detected'] else "❌"
-                if iteration['audio_speech_detected'] and iteration['audio_language']:
-                    audio_result += f" {iteration['audio_language'][:2].upper()}"
-                
-                bf_result = "❌"
-                if iteration['blackscreen_freeze_detected']:
-                    duration = iteration['blackscreen_freeze_duration_seconds'] or 0
-                    method = iteration['detection_method'] or 'B'
-                    method_icon = "⬛" if method == 'blackscreen' else "🧊"
-                    bf_result = f"{method_icon} {duration:.1f}s"
-                
-                # Format channel info
-                channel_info = ""
-                if iteration['channel_name']:
-                    channel_info = iteration['channel_name']
-                    if iteration['channel_number']:
-                        channel_info += f" ({iteration['channel_number']})"
-                    if iteration['program_name']:
-                        channel_info += f" - {iteration['program_name']}"
-                    if iteration['program_start_time'] and iteration['program_end_time']:
-                        channel_info += f" [{iteration['program_start_time']}-{iteration['program_end_time']}]"
-                
-                # Truncate channel info if too long
-                if len(channel_info) > 40:
-                    channel_info = channel_info[:37] + "..."
-                
-                # Format timestamps to HH:MM:SS
-                start_time_str = self._format_timestamp_to_time(iteration.get('started_at', ''))
-                end_time_str = self._format_timestamp_to_time(iteration.get('completed_at', ''))
-                
-                print(f"{iteration['iteration_index']:<4} | {iteration['action_command']:<12} | {start_time_str:<8} | {end_time_str:<8} | {iteration['duration_seconds']:<8.1f}s | {motion_icon:<6} | {subtitle_result:<10} | {audio_result:<8} | {bf_result:<6} | {channel_info:<40}")
-                
-                # Count successes
-                if iteration['motion_detected']:
-                    motion_count += 1
-                if iteration['subtitles_detected']:
-                    subtitle_count += 1
-                if iteration['audio_speech_detected']:
-                    audio_count += 1
-                if iteration['blackscreen_freeze_detected']:
-                    bf_count += 1
-            
-            # Summary totals
-            total_iterations = len(zap_iterations)
-            print("-" * 120)
-            print(f"TOTALS: {total_iterations}/{total_iterations} successful | Motion: {motion_count}/{total_iterations} ({motion_count/total_iterations*100:.0f}%) | Subtitles: {subtitle_count}/{total_iterations} ({subtitle_count/total_iterations*100:.0f}%) | Audio: {audio_count}/{total_iterations} ({audio_count/total_iterations*100:.0f}%) | Blackscreen/Freeze: {bf_count}/{total_iterations} ({bf_count/total_iterations*100:.0f}%)")
-            print("="*120)
+            # Use shared function to generate the exact same text as reports
+            summary_text = generate_zap_summary_text(zap_iterations)
+            print(f"\n{summary_text}")
             
         except Exception as e:
             print(f"❌ [ZapController] Failed to generate summary table: {e}")
