@@ -132,6 +132,7 @@ class VideoAIHelpers:
     def detect_subtitles_ai_batch(self, image_paths: List[str], extract_text: bool = True) -> Dict[str, Any]:
         """
         AI-powered subtitle detection for multiple images.
+        Tests max 3 images with +1s intervals, breaks early if subtitles found.
         
         Args:
             image_paths: List of image paths to analyze
@@ -142,8 +143,9 @@ class VideoAIHelpers:
         """
         try:
             results = []
+            max_attempts = min(3, len(image_paths))  # Test max 3 images
             
-            for image_path in image_paths:
+            for i, image_path in enumerate(image_paths[:max_attempts]):
                 if not os.path.exists(image_path):
                     results.append({
                         'image_path': image_path,
@@ -224,6 +226,9 @@ class VideoAIHelpers:
                     if has_subtitles and extracted_text:
                         text_preview = extracted_text[:50] + "..." if len(extracted_text) > 50 else extracted_text
                         print(f"VideoAI[{self.device_name}]: AI Subtitle analysis - subtitles=True, errors={has_errors}, text='{text_preview}', confidence={confidence}")
+                        # Early break if subtitles found
+                        print(f"VideoAI[{self.device_name}]: ✅ Subtitles found in image {i+1}/{max_attempts} - breaking early!")
+                        break
                     else:
                         print(f"VideoAI[{self.device_name}]: AI Subtitle analysis - No subtitles detected, errors={has_errors}, confidence={confidence}")
                     

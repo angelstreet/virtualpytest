@@ -302,6 +302,14 @@ chmod +x test_subtitle_detection.sh
 - **Host API**: ~2-3 seconds (includes processing overhead)
 - **Server API**: ~3-4 seconds (includes proxy overhead)
 
+## Subtitle Detection Optimization
+
+**New Behavior (Max 3 Attempts):**
+- Tests maximum 3 images with +1s intervals
+- Breaks early if subtitles are found in any image
+- Only shows the last tested image in logs
+- Reduces API calls and improves performance
+
 ## Root Cause Analysis & Fix
 
 ### The Problem

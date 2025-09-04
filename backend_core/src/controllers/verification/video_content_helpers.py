@@ -418,6 +418,7 @@ class VideoContentHelpers:
     def detect_subtitles_batch(self, image_paths: List[str], extract_text: bool = True) -> Dict[str, Any]:
         """
         Detect subtitles and error messages in multiple images.
+        Tests max 3 images with +1s intervals, breaks early if subtitles found.
         
         Args:
             image_paths: List of image paths to analyze
@@ -427,8 +428,9 @@ class VideoContentHelpers:
             Dictionary with subtitle analysis results
         """
         results = []
+        max_attempts = min(3, len(image_paths))  # Test max 3 images
         
-        for image_path in image_paths:
+        for i, image_path in enumerate(image_paths[:max_attempts]):
             if not os.path.exists(image_path):
                 results.append({
                     'image_path': image_path,
@@ -458,6 +460,11 @@ class VideoContentHelpers:
                 if len(analysis.get('extracted_text', '')) > 50:
                     text_preview += "..."
                 print(f"VideoContent[{self.device_name}]: Subtitle analysis - edges={analysis.get('subtitle_edges', 0)}, subtitles={analysis.get('has_subtitles', False)}, errors={analysis.get('has_errors', False)}, text='{text_preview}', confidence={analysis.get('confidence', 0)}")
+                
+                # Early break if subtitles found
+                if analysis.get('has_subtitles', False) and analysis.get('extracted_text', '').strip():
+                    print(f"VideoContent[{self.device_name}]: ✅ Subtitles found in image {i+1}/{max_attempts} - breaking early!")
+                    break
                 
             except Exception as e:
                 results.append({
