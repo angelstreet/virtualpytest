@@ -243,7 +243,7 @@ class ZapController:
         elif 'android_mobile' in device_model.lower():
             return 40  # Android Mobile: 8 seconds * 5fps = 40 images
         elif 'android_tv' in device_model.lower():
-            return 35  # Android TV: 7 seconds * 5fps = 35 images
+            return 40  # Android TV: 7 seconds * 5fps = 35 images
         else:
             return 40  # Default: 8 seconds * 5fps = 40 images
     
