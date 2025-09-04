@@ -204,35 +204,37 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
                   overflow: 'hidden',
                 }}
               >
-                {/* Absolute fill inside fixed-height container to strictly clamp size for mobile */}
-                <Box sx={{ position: 'absolute', inset: 0 }}>
-                  <HLSVideoPlayer
+                <HLSVideoPlayer
                     streamUrl={streamUrl}
                     isStreamActive={true}
                     isCapturing={false}
                     model={device?.device_model || 'unknown'}
-                    layoutConfig={{
-                      minHeight: '0px', // Let container control height
-                      aspectRatio: isMobile 
-                        ? `${DEFAULT_DEVICE_RESOLUTION.height}/${DEFAULT_DEVICE_RESOLUTION.width}` 
-                        : `${DEFAULT_DEVICE_RESOLUTION.width}/${DEFAULT_DEVICE_RESOLUTION.height}`,
-                      objectFit: 'contain',
-                      isMobileModel: isMobile,
-                    }}
+                    layoutConfig={(() => {
+                      const config = {
+                        minHeight: '0px', // Let container control height
+                        aspectRatio: isMobile 
+                          ? `${DEFAULT_DEVICE_RESOLUTION.height}/${DEFAULT_DEVICE_RESOLUTION.width}` 
+                          : `${DEFAULT_DEVICE_RESOLUTION.width}/${DEFAULT_DEVICE_RESOLUTION.height}`,
+                        objectFit: 'contain' as const,
+                        isMobileModel: isMobile,
+                      };
+                      
+                      console.log('[@component:RecHostPreview] HLS layout config:', {
+                        deviceModel: device?.device_model,
+                        isMobile,
+                        config
+                      });
+                      
+                      return config;
+                    })()}
                     isExpanded={false}
                     muted={true} // Always muted in preview
                     sx={{
                       width: '100%',
                       height: '100%',
-                      '& video': {
-                        // Respect mobile scaling - don't override the internal HLS logic
-                        width: isMobile ? 'auto !important' : '100% !important',
-                        height: '100% !important',
-                        objectFit: 'contain !important',
-                      },
+                      maxHeight: '100%',
                     }}
                   />
-                </Box>
                 {/* Click overlay to open full modal */}
                 <Box
                   onClick={handleOpenStreamModal}

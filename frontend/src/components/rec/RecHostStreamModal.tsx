@@ -631,8 +631,7 @@ const RecHostStreamModalContent: React.FC<{
                   );
                 })()
               ) : (
-                <Box sx={{ position: 'absolute', inset: 0 }}>
-                  <HLSVideoPlayer
+                <HLSVideoPlayer
                     streamUrl={streamUrl}
                     isStreamActive={true}
                     isCapturing={false}
@@ -650,15 +649,9 @@ const RecHostStreamModalContent: React.FC<{
                     sx={{
                       width: '100%',
                       height: '100%',
-                      '& video': {
-                        // Respect mobile scaling - don't override the internal HLS logic
-                        width: isMobileModel ? 'auto !important' : '100% !important',
-                        height: '100% !important',
-                        objectFit: 'contain !important',
-                      },
+                      maxHeight: '100%', // Ensure video doesn't exceed available container height
                     }}
-                  />
-                </Box>
+                />
               )
             ) : (
               <Box
