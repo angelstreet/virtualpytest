@@ -51,30 +51,41 @@ def get_tree_metrics_api(tree_id):
     try:
         print(f"[@route:metrics:get_tree_metrics] Fetching metrics for tree: {tree_id}, team: {team_id}")
         
-        # Get all nodes and edges for the tree
-        nodes_result = get_tree_nodes(tree_id, team_id)
-        edges_result = get_tree_edges(tree_id, team_id)
+        # Get complete tree hierarchy (root + all nested subtrees)
+        from shared.lib.supabase.navigation_trees_db import get_complete_tree_hierarchy
         
-        if not nodes_result.get('success', False):
+        hierarchy_result = get_complete_tree_hierarchy(tree_id, team_id)
+        if not hierarchy_result.get('success', False):
             return jsonify({
                 'success': False,
-                'error': f'Failed to fetch tree nodes: {nodes_result.get("error", "Unknown error")}'
+                'error': f'Failed to fetch tree hierarchy: {hierarchy_result.get("error", "Unknown error")}'
             }), 400
+        
+        # Collect all nodes and edges from entire hierarchy
+        all_nodes = []
+        all_edges = []
+        hierarchy_trees = []
+        
+        for tree_data in hierarchy_result.get('all_trees_data', []):
+            tree_info = tree_data.get('tree_info', {})
+            hierarchy_trees.append({
+                'tree_id': tree_data['tree_id'],
+                'name': tree_info.get('name', ''),
+                'depth': tree_info.get('tree_depth', 0),
+                'is_root': tree_info.get('is_root_tree', False)
+            })
             
-        if not edges_result.get('success', False):
-            return jsonify({
-                'success': False,
-                'error': f'Failed to fetch tree edges: {edges_result.get("error", "Unknown error")}'
-            }), 400
+            # Add nodes and edges from this tree
+            all_nodes.extend(tree_data.get('nodes', []))
+            all_edges.extend(tree_data.get('edges', []))
         
-        nodes = nodes_result.get('nodes', [])
-        edges = edges_result.get('edges', [])
+        # Extract node and edge IDs from entire hierarchy
+        node_ids = [node['node_id'] for node in all_nodes]
+        edge_ids = [edge['edge_id'] for edge in all_edges]
         
-        # Extract node and edge IDs
-        node_ids = [node['node_id'] for node in nodes]
-        edge_ids = [edge['edge_id'] for edge in edges]
-        
-        print(f"[@route:metrics:get_tree_metrics] Found {len(node_ids)} nodes and {len(edge_ids)} edges")
+        print(f"[@route:metrics:get_tree_metrics] Hierarchy: {len(hierarchy_trees)} trees, {len(node_ids)} nodes, {len(edge_ids)} edges")
+        for tree_info in hierarchy_trees:
+            print(f"[@route:metrics:get_tree_metrics] - Tree: {tree_info['name']} (depth: {tree_info['depth']}, root: {tree_info['is_root']})")
         
         # Get metrics using the proper navigation metrics function
         metrics = get_tree_metrics(team_id, node_ids, edge_ids)
@@ -149,6 +160,12 @@ def get_tree_metrics_api(tree_id):
                 'medium': medium_count,
                 'low': low_count,
                 'untested': untested_count
+            },
+            'hierarchy_info': {
+                'total_trees': len(hierarchy_trees),
+                'max_depth': max([t['depth'] for t in hierarchy_trees]) if hierarchy_trees else 0,
+                'has_nested_trees': len(hierarchy_trees) > 1,
+                'trees': hierarchy_trees
             }
         })
         

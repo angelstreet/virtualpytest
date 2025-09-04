@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document describes the implementation of the navigation metrics system in VirtualPyTest. The metrics system provides performance tracking for navigation nodes and edges, including execution statistics, success rates, and timing information.
+This document describes the implementation of the navigation metrics system in VirtualPyTest. The metrics system provides performance tracking for navigation nodes and edges, including execution statistics, success rates, and timing information. **The system supports hierarchical metrics** across nested trees (up to 5 levels deep) for comprehensive confidence tracking.
 
 ## Architecture
 
@@ -54,11 +54,17 @@ The frontend integrates with the metrics system through the following hooks:
 
 ### Fetching Metrics
 
-To fetch metrics for a tree, use the following endpoint:
+To fetch metrics for a tree (including all nested subtrees), use the following endpoint:
 
 ```
 GET /server/metrics/tree/<tree_id>
 ```
+
+**Hierarchical Behavior**: When `tree_id` is a root tree with nested subtrees, the API automatically:
+1. Fetches the complete tree hierarchy using `get_complete_tree_hierarchy()`
+2. Aggregates metrics from all trees in the hierarchy (root + all nested subtrees)
+3. Returns unified metrics covering the entire navigation structure
+4. Includes hierarchy information in the response
 
 The response will include metrics for all nodes and edges in the tree:
 

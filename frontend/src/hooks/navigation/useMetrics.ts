@@ -72,8 +72,19 @@ export const useMetrics = (props?: UseMetricsProps) => {
         nodeCount: Object.keys(data.nodes || {}).length,
         edgeCount: Object.keys(data.edges || {}).length,
         globalConfidence: data.global_confidence || 0,
-        distribution: data.confidence_distribution || {}
+        distribution: data.confidence_distribution || {},
+        hierarchyInfo: data.hierarchy_info || null
       });
+      
+      // Log hierarchy information if present
+      if (data.hierarchy_info) {
+        console.log(`[@useMetrics] Hierarchy: ${data.hierarchy_info.total_trees} trees, max depth: ${data.hierarchy_info.max_depth}, nested: ${data.hierarchy_info.has_nested_trees}`);
+        if (data.hierarchy_info.trees) {
+          data.hierarchy_info.trees.forEach((tree: any) => {
+            console.log(`[@useMetrics] - Tree: ${tree.name} (depth: ${tree.depth}, root: ${tree.is_root})`);
+          });
+        }
+      }
 
       // Convert backend format to frontend MetricData format (no processing needed)
       const processedNodeMetrics = new Map<string, MetricData>();
