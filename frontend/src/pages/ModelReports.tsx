@@ -721,7 +721,7 @@ const ModelReports: React.FC = () => {
                         <TableRow sx={{ '&:hover': { backgroundColor: 'transparent !important' } }}>
                           <TableCell sx={{ py: 0, border: 0 }} colSpan={10}>
                             <Box sx={{ py: 1, px: 2 }}>
-                              <Typography variant="body2" sx={{ fontFamily: 'monospace', color: 'text.secondary' }}>
+                              <Typography variant="body2" sx={{ color: 'text.secondary' }}>
                                 {result.execution_type === 'action' 
                                   ? `Executing command 'press_key' with params: {key: '${result.action_set_id?.includes('home') ? 'HOME' : result.action_set_id?.includes('back') ? 'BACK' : 'OK'}', wait_time: 1500}`
                                   : `waitForElementToAppear Type: adb element: ${result.element_name?.toLowerCase().replace(' ', '_')}`
