@@ -45,48 +45,77 @@ def get_execution_results(
         
         print(f"[@db:execution_results:get_execution_results] Found {len(result.data)} execution results")
         
-        # Enrich results with tree names and node/edge names using new normalized structure
+        # Enrich results with tree names and node/edge names using BATCH queries to avoid timeouts
         enriched_results = []
-        tree_cache = {}  # Cache trees to avoid repeated queries
         
+        # Collect all unique IDs for batch queries
+        tree_ids = list(set([execution.get('tree_id') for execution in result.data if execution.get('tree_id')]))
+        edge_ids = list(set([execution.get('edge_id') for execution in result.data if execution.get('edge_id')]))
+        node_ids = list(set([execution.get('node_id') for execution in result.data if execution.get('node_id')]))
+        
+        print(f"[@db:execution_results:get_execution_results] Batch fetching: {len(tree_ids)} trees, {len(edge_ids)} edges, {len(node_ids)} nodes")
+        
+        # Batch fetch all trees, edges, and nodes
+        tree_cache = {}
+        edge_cache = {}
+        node_cache = {}
+        
+        # Batch fetch trees
+        if tree_ids:
+            trees_result = supabase.table('navigation_trees').select('id, name').eq('team_id', team_id).in_('id', tree_ids).execute()
+            for tree in trees_result.data:
+                tree_cache[tree['id']] = tree
+        
+        # Batch fetch edges with their node info
+        if edge_ids:
+            edges_result = supabase.table('navigation_edges').select(
+                'edge_id, tree_id, label, source_node_id, target_node_id'
+            ).in_('edge_id', edge_ids).execute()
+            for edge in edges_result.data:
+                edge_cache[edge['edge_id']] = edge
+                # Also collect source/target node IDs for batch fetching
+                if edge.get('source_node_id'):
+                    node_ids.append(edge['source_node_id'])
+                if edge.get('target_node_id'):
+                    node_ids.append(edge['target_node_id'])
+        
+        # Batch fetch all nodes (including source/target nodes from edges)
+        node_ids = list(set(node_ids))  # Remove duplicates
+        if node_ids:
+            nodes_result = supabase.table('navigation_nodes').select('node_id, tree_id, label').in_('node_id', node_ids).execute()
+            for node in nodes_result.data:
+                node_cache[node['node_id']] = node
+        
+        print(f"[@db:execution_results:get_execution_results] Cached: {len(tree_cache)} trees, {len(edge_cache)} edges, {len(node_cache)} nodes")
+        
+        # Now process each execution result using cached data (no more database calls)
         for execution in result.data:
             enriched_execution = execution.copy()
             
-            # Get tree information from normalized tables
+            # Get tree information from cache
             tree_id = execution.get('tree_id')
-            if tree_id and tree_id not in tree_cache:
-                tree_query = supabase.table('navigation_trees').select('name').eq('id', tree_id).eq('team_id', team_id).execute()
-                tree_cache[tree_id] = tree_query.data[0] if tree_query.data else None
-            
             tree_data = tree_cache.get(tree_id)
             if tree_data:
                 enriched_execution['tree_name'] = tree_data.get('name', userinterface_name or 'Unknown Tree')
                 
                 if execution.get('execution_type') == 'action' and execution.get('edge_id'):
-                    # Get edge information from normalized structure
+                    # Get edge information from cache
                     edge_id = execution.get('edge_id')
-                    edge_query = supabase.table('navigation_edges').select(
-                        'label, source_node_id, target_node_id'
-                    ).eq('edge_id', edge_id).eq('tree_id', tree_id).execute()
+                    edge_data = edge_cache.get(edge_id)
                     
-                    if edge_query.data:
-                        edge_data = edge_query.data[0]
+                    if edge_data:
                         source_id = edge_data.get('source_node_id')
                         target_id = edge_data.get('target_node_id')
                         
-                        # Get node labels for better edge description
+                        # Get node labels from cache
                         source_label = 'Unknown'
                         target_label = 'Unknown'
                         
-                        if source_id:
-                            source_query = supabase.table('navigation_nodes').select('label').eq('node_id', source_id).eq('tree_id', tree_id).execute()
-                            if source_query.data:
-                                source_label = source_query.data[0].get('label', source_id)
+                        if source_id and source_id in node_cache:
+                            source_label = node_cache[source_id].get('label', source_id)
                         
-                        if target_id:
-                            target_query = supabase.table('navigation_nodes').select('label').eq('node_id', target_id).eq('tree_id', tree_id).execute()
-                            if target_query.data:
-                                target_label = target_query.data[0].get('label', target_id)
+                        if target_id and target_id in node_cache:
+                            target_label = node_cache[target_id].get('label', target_id)
                         
                         edge_name = edge_data.get('label') or f"{source_label} → {target_label}"
                         enriched_execution['element_name'] = edge_name
@@ -94,13 +123,12 @@ def get_execution_results(
                         enriched_execution['element_name'] = f"Edge {edge_id[:8]}"
                     
                 elif execution.get('execution_type') == 'verification' and execution.get('node_id'):
-                    # Get node information from normalized structure
+                    # Get node information from cache
                     node_id = execution.get('node_id')
-                    node_query = supabase.table('navigation_nodes').select('label').eq('node_id', node_id).eq('tree_id', tree_id).execute()
+                    node_data = node_cache.get(node_id)
                     
-                    if node_query.data:
-                        node_label = node_query.data[0].get('label', f"Node {node_id[:8]}")
-                        enriched_execution['element_name'] = node_label
+                    if node_data:
+                        enriched_execution['element_name'] = node_data.get('label', f"Node {node_id[:8]}")
                     else:
                         enriched_execution['element_name'] = f"Node {node_id[:8]}"
             else:

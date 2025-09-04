@@ -5,6 +5,7 @@ import {
   PlayArrow as ActionIcon,
   Visibility as VerificationIcon,
   FilterList as FilterIcon,
+  Assessment as AnalysisIcon,
 } from '@mui/icons-material';
 import {
   Box,
@@ -23,21 +24,31 @@ import {
   Alert,
   ToggleButton,
   ToggleButtonGroup,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  SelectChangeEvent,
 } from '@mui/material';
 import React, { useState, useEffect } from 'react';
 
 import { useExecutionResults, ExecutionResult } from '../hooks/pages/useExecutionResults';
 import { useUserInterface } from '../hooks/pages/useUserInterface';
+import { useMetrics } from '../hooks/navigation/useMetrics';
 
 type FilterType = 'all' | 'action' | 'verification';
 
 const ModelReports: React.FC = () => {
   const { getAllExecutionResults } = useExecutionResults();
   const { getAllUserInterfaces } = useUserInterface();
+  const metricsHook = useMetrics();
   const [executionResults, setExecutionResults] = useState<ExecutionResult[]>([]);
+  const [userInterfaces, setUserInterfaces] = useState<any[]>([]);
+  const [selectedUserInterface, setSelectedUserInterface] = useState<string>('all');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [treeToInterfaceMap, setTreeToInterfaceMap] = useState<Record<string, string>>({});
+  const [treeToNameMap, setTreeToNameMap] = useState<Record<string, string>>({});
   const [filter, setFilter] = useState<FilterType>('all');
 
   // Load execution results and user interfaces on component mount
@@ -48,20 +59,35 @@ const ModelReports: React.FC = () => {
         setError(null);
 
         // Load both execution results and user interfaces in parallel
-        const [results, userInterfaces] = await Promise.all([
+        const [results, interfaces] = await Promise.all([
           getAllExecutionResults(),
           getAllUserInterfaces(),
         ]);
 
         // Create mapping from tree_id to userinterface_name
-        const treeMap: Record<string, string> = {};
-        userInterfaces.forEach((ui) => {
+        const treeToUIMap: Record<string, string> = {};
+        const treeNameMap: Record<string, string> = {};
+        
+        interfaces.forEach((ui) => {
           if (ui.root_tree?.id) {
-            treeMap[ui.root_tree.id] = ui.name;
+            treeToUIMap[ui.root_tree.id] = ui.name;
+            treeNameMap[ui.root_tree.id] = ui.root_tree.name || 'Root Tree';
+          }
+          // Also map any nested trees if they exist (cast to any to handle potential nested_trees)
+          const uiWithNested = ui as any;
+          if (uiWithNested.nested_trees && Array.isArray(uiWithNested.nested_trees)) {
+            uiWithNested.nested_trees.forEach((nestedTree: any) => {
+              if (nestedTree.id) {
+                treeToUIMap[nestedTree.id] = ui.name;
+                treeNameMap[nestedTree.id] = nestedTree.name || 'Nested Tree';
+              }
+            });
           }
         });
 
-        setTreeToInterfaceMap(treeMap);
+        setUserInterfaces(interfaces);
+        setTreeToInterfaceMap(treeToUIMap);
+        setTreeToNameMap(treeNameMap);
         setExecutionResults(results);
       } catch (err) {
         console.error('[@component:ModelReports] Error loading data:', err);
@@ -74,8 +100,25 @@ const ModelReports: React.FC = () => {
     loadData();
   }, [getAllExecutionResults, getAllUserInterfaces]);
 
-  // Filter execution results based on selected filter
+  // Load metrics when user interface changes
+  useEffect(() => {
+    if (selectedUserInterface !== 'all') {
+      const selectedUI = userInterfaces.find(ui => ui.name === selectedUserInterface);
+      if (selectedUI?.root_tree?.id) {
+        metricsHook.fetchMetrics(selectedUI.root_tree.id);
+      }
+    }
+  }, [selectedUserInterface, userInterfaces, metricsHook]);
+
+  // Filter execution results based on selected user interface and filter type
   const filteredResults = executionResults.filter((result) => {
+    // Filter by user interface
+    if (selectedUserInterface !== 'all') {
+      const resultUI = treeToInterfaceMap[result.tree_id];
+      if (resultUI !== selectedUserInterface) return false;
+    }
+    
+    // Filter by execution type
     if (filter === 'all') return true;
     return result.execution_type === filter;
   });
@@ -115,6 +158,11 @@ const ModelReports: React.FC = () => {
     }
   };
 
+  // Handle user interface selection change
+  const handleUserInterfaceChange = (event: SelectChangeEvent) => {
+    setSelectedUserInterface(event.target.value);
+  };
+
   // Format duration helper
   function formatDuration(ms: number): string {
     if (ms < 1000) return `${ms}ms`;
@@ -136,25 +184,41 @@ const ModelReports: React.FC = () => {
     </Box>
   );
 
-  // Empty state component
-  const EmptyState = () => (
-    <TableRow>
-      <TableCell colSpan={6} sx={{ textAlign: 'center', py: 4 }}>
-        <Typography variant="body2" color="textSecondary">
-          {filter === 'all'
-            ? 'No execution results available yet'
-            : `No ${filter === 'action' ? 'node' : 'edge'} execution results available yet`}
-        </Typography>
-      </TableCell>
-    </TableRow>
-  );
 
   return (
     <Box>
-      <Box sx={{ mb: 1 }}>
+      <Box sx={{ mb: 2 }}>
         <Typography variant="h4" gutterBottom>
-          Model Reports
+          Model Analysis Reports
         </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          Analyze model performance by user interface - view confidence scores, success rates, and execution volumes for nodes and edges
+        </Typography>
+        
+        {/* User Interface Selector */}
+        <FormControl size="small" sx={{ minWidth: 200 }}>
+          <InputLabel>User Interface</InputLabel>
+          <Select
+            value={selectedUserInterface}
+            label="User Interface"
+            onChange={handleUserInterfaceChange}
+          >
+            <MenuItem value="all">
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <AnalysisIcon fontSize="small" />
+                All Interfaces
+              </Box>
+            </MenuItem>
+            {userInterfaces.map((ui) => (
+              <MenuItem key={ui.id} value={ui.name}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <ModelIcon fontSize="small" />
+                  {ui.name}
+                </Box>
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
       </Box>
 
       {error && (
@@ -268,16 +332,28 @@ const ModelReports: React.FC = () => {
                     <strong>Type</strong>
                   </TableCell>
                   <TableCell sx={{ py: 1 }}>
+                    <strong>User Interface</strong>
+                  </TableCell>
+                  <TableCell sx={{ py: 1 }}>
                     <strong>Tree Name</strong>
                   </TableCell>
                   <TableCell sx={{ py: 1 }}>
                     <strong>Element Name</strong>
                   </TableCell>
                   <TableCell sx={{ py: 1 }}>
-                    <strong>Status</strong>
+                    <strong>Success Rate</strong>
                   </TableCell>
                   <TableCell sx={{ py: 1 }}>
-                    <strong>Duration</strong>
+                    <strong>Volume</strong>
+                  </TableCell>
+                  <TableCell sx={{ py: 1 }}>
+                    <strong>Avg Duration</strong>
+                  </TableCell>
+                  <TableCell sx={{ py: 1 }}>
+                    <strong>Confidence</strong>
+                  </TableCell>
+                  <TableCell sx={{ py: 1 }}>
+                    <strong>Status</strong>
                   </TableCell>
                   <TableCell sx={{ py: 1 }}>
                     <strong>Executed</strong>
@@ -287,55 +363,106 @@ const ModelReports: React.FC = () => {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={6}>
+                    <TableCell colSpan={10}>
                       <LoadingState />
                     </TableCell>
                   </TableRow>
                 ) : filteredResults.length === 0 ? (
-                  <EmptyState />
+                  <TableRow>
+                    <TableCell colSpan={10} sx={{ textAlign: 'center', py: 4 }}>
+                      <Typography variant="body2" color="textSecondary">
+                        {filter === 'all'
+                          ? 'No execution results available yet'
+                          : `No ${filter === 'action' ? 'node' : 'edge'} execution results available yet`}
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
                 ) : (
-                  filteredResults.map((result) => (
-                    <TableRow
-                      key={result.id}
-                      sx={{
-                        '&:hover': {
-                          backgroundColor: 'rgba(0, 0, 0, 0.04) !important',
-                        },
-                      }}
-                    >
-                      <TableCell sx={{ py: 0.5 }}>
-                        <Chip
-                          icon={
-                            result.execution_type === 'action' ? (
-                              <ActionIcon />
-                            ) : (
-                              <VerificationIcon />
-                            )
-                          }
-                          label={result.execution_type === 'action' ? 'Node' : 'Edge'}
-                          size="small"
-                          variant="outlined"
-                          color={result.execution_type === 'action' ? 'primary' : 'secondary'}
-                        />
-                      </TableCell>
-                      <TableCell sx={{ py: 0.5 }}>
-                        {treeToInterfaceMap[result.tree_id] || result.tree_name}
-                      </TableCell>
-                      <TableCell sx={{ py: 0.5 }}>{result.element_name}</TableCell>
-                      <TableCell sx={{ py: 0.5 }}>
-                        <Chip
-                          icon={result.success ? <PassIcon /> : <FailIcon />}
-                          label={result.success ? 'PASS' : 'FAIL'}
-                          color={result.success ? 'success' : 'error'}
-                          size="small"
-                        />
-                      </TableCell>
-                      <TableCell sx={{ py: 0.5 }}>
-                        {formatDuration(result.execution_time_ms)}
-                      </TableCell>
-                      <TableCell sx={{ py: 0.5 }}>{formatDate(result.executed_at)}</TableCell>
-                    </TableRow>
-                  ))
+                  filteredResults.map((result) => {
+                    // Get metrics for this element
+                    const isAction = result.execution_type === 'action';
+                    const elementId = isAction ? result.edge_id : result.node_id;
+                    const metrics = isAction 
+                      ? metricsHook.getEdgeMetrics(elementId || '') 
+                      : metricsHook.getNodeMetrics(elementId || '');
+                    
+                    return (
+                      <TableRow
+                        key={result.id}
+                        sx={{
+                          '&:hover': {
+                            backgroundColor: 'rgba(0, 0, 0, 0.04) !important',
+                          },
+                        }}
+                      >
+                        <TableCell sx={{ py: 0.5 }}>
+                          <Chip
+                            icon={
+                              result.execution_type === 'action' ? (
+                                <ActionIcon />
+                              ) : (
+                                <VerificationIcon />
+                              )
+                            }
+                            label={result.execution_type === 'action' ? 'Edge' : 'Node'}
+                            size="small"
+                            variant="outlined"
+                            color={result.execution_type === 'action' ? 'primary' : 'secondary'}
+                          />
+                        </TableCell>
+                        <TableCell sx={{ py: 0.5 }}>
+                          {treeToInterfaceMap[result.tree_id] || 'Unknown'}
+                        </TableCell>
+                        <TableCell sx={{ py: 0.5 }}>
+                          {treeToNameMap[result.tree_id] || result.tree_name || 'Unknown Tree'}
+                        </TableCell>
+                        <TableCell sx={{ py: 0.5 }}>{result.element_name}</TableCell>
+                        <TableCell sx={{ py: 0.5 }}>
+                          <Typography variant="body2" sx={{ 
+                            color: metrics?.volume === 0 ? '#666' : 
+                                   (metrics?.success_rate || 0) >= 0.8 ? 'success.main' : 
+                                   (metrics?.success_rate || 0) >= 0.5 ? 'warning.main' : 'error.main'
+                          }}>
+                            {metrics?.volume === 0 ? 'N/A' : `${((metrics?.success_rate || 0) * 100).toFixed(0)}%`}
+                          </Typography>
+                        </TableCell>
+                        <TableCell sx={{ py: 0.5 }}>
+                          <Typography variant="body2">
+                            {metrics?.volume || 0}
+                          </Typography>
+                        </TableCell>
+                        <TableCell sx={{ py: 0.5 }}>
+                          <Typography variant="body2">
+                            {metrics?.avg_execution_time ? formatDuration(metrics.avg_execution_time) : 'N/A'}
+                          </Typography>
+                        </TableCell>
+                        <TableCell sx={{ py: 0.5 }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Typography 
+                              variant="body2" 
+                              sx={{ 
+                                fontWeight: 'bold',
+                                fontSize: '0.9rem',
+                                color: (metrics?.confidence || 0) >= 0.7 ? 'success.main' : 
+                                       (metrics?.confidence || 0) >= 0.5 ? 'warning.main' : 'error.main'
+                              }}
+                            >
+                              {metrics?.confidence ? Math.round(metrics.confidence * 10) : 0}/10
+                            </Typography>
+                          </Box>
+                        </TableCell>
+                        <TableCell sx={{ py: 0.5 }}>
+                          <Chip
+                            icon={result.success ? <PassIcon /> : <FailIcon />}
+                            label={result.success ? 'PASS' : 'FAIL'}
+                            color={result.success ? 'success' : 'error'}
+                            size="small"
+                          />
+                        </TableCell>
+                        <TableCell sx={{ py: 0.5 }}>{formatDate(result.executed_at)}</TableCell>
+                      </TableRow>
+                    );
+                  })
                 )}
               </TableBody>
             </Table>
