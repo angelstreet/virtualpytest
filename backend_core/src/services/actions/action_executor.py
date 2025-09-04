@@ -21,7 +21,7 @@ class ActionExecutor:
     across Python code and API endpoints.
     """
     
-    def __init__(self, host: Dict[str, Any], device_id: Optional[str] = None, tree_id: str = None, edge_id: str = None, team_id: str = None):
+    def __init__(self, host: Dict[str, Any], device_id: Optional[str] = None, tree_id: str = None, edge_id: str = None, team_id: str = None, action_set_id: Optional[str] = None):
         """
         Initialize ActionExecutor
         
@@ -36,6 +36,7 @@ class ActionExecutor:
         self.device_id = device_id
         self.tree_id = tree_id
         self.edge_id = edge_id
+        self.action_set_id = action_set_id
         
         # team_id is required
         self.team_id = team_id
@@ -457,7 +458,8 @@ class ActionExecutor:
                 message=message,
                 error_details=error_details,
                 script_result_id=getattr(self, 'script_result_id', None),
-                script_context=getattr(self, 'script_context', 'direct')
+                script_context=getattr(self, 'script_context', 'direct'),
+                action_set_id=self.action_set_id
             )
             
         except Exception as e:

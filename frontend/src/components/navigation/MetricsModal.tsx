@@ -8,8 +8,6 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
-  DialogActions,
-  Button,
   Typography,
   Box,
   Chip,
@@ -75,7 +73,7 @@ const TabPanel: React.FC<TabPanelProps> = ({ children, value, index }) => {
 const MetricsTable: React.FC<{ items: LowConfidenceItem[] }> = ({ items }) => {
   if (items.length === 0) {
     return (
-      <Alert severity="success" sx={{ mt: 2 }}>
+      <Alert severity="success" sx={{ mt: 1 }}>
         <Typography variant="body2">
           All items have confidence above 90% - Great job! 🎉
         </Typography>
@@ -84,7 +82,7 @@ const MetricsTable: React.FC<{ items: LowConfidenceItem[] }> = ({ items }) => {
   }
 
   return (
-    <TableContainer component={Paper} variant="outlined" sx={{ mt: 2, maxHeight: 400 }}>
+    <TableContainer component={Paper} variant="outlined" sx={{ mt: 1, maxHeight: 350 }}>
       <Table stickyHeader size="small" sx={{ '& .MuiTableRow-root': { height: '40px' } }}>
         <TableHead>
           <TableRow>
@@ -196,7 +194,7 @@ export const MetricsModal: React.FC<MetricsModalProps> = ({
       maxWidth="lg"
       fullWidth
       PaperProps={{
-        sx: { minHeight: '60vh', maxHeight: '90vh' }
+        sx: { maxHeight: '80vh' }
       }}
     >
       <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 1 }}>
@@ -232,7 +230,7 @@ export const MetricsModal: React.FC<MetricsModalProps> = ({
 
       {isLoading && <LinearProgress />}
 
-      <DialogContent>
+      <DialogContent sx={{ pb: 2 }}>
         {/* Summary stats */}
         <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap' }}>
           <Chip
@@ -264,15 +262,6 @@ export const MetricsModal: React.FC<MetricsModalProps> = ({
           />
         </Box>
 
-        {/* Improvement suggestions */}
-        {summaryStats.totalItems > 0 && (
-          <Alert severity="info" sx={{ mb: 2 }}>
-            <Typography variant="body2">
-              <strong>Improvement Tips:</strong> Items with low confidence need more testing. 
-              Focus on increasing execution volume and fixing failing test cases to improve confidence scores.
-            </Typography>
-          </Alert>
-        )}
 
         {/* Tabs for nodes and edges */}
         <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
@@ -292,28 +281,14 @@ export const MetricsModal: React.FC<MetricsModalProps> = ({
 
         {/* Tab panels */}
         <TabPanel value={tabValue} index={0}>
-          <Typography variant="subtitle1" gutterBottom>
-            Nodes with confidence below 90%
-          </Typography>
           <MetricsTable items={lowConfidenceItems.nodes} />
         </TabPanel>
 
         <TabPanel value={tabValue} index={1}>
-          <Typography variant="subtitle1" gutterBottom>
-            Edges with confidence below 90%
-          </Typography>
           <MetricsTable items={lowConfidenceItems.edges} />
         </TabPanel>
       </DialogContent>
 
-      <DialogActions sx={{ px: 3, py: 2 }}>
-        <Typography variant="body2" color="text.secondary" sx={{ flex: 1 }}>
-          Confidence = (Volume Weight × 0.3) + (Success Rate × 0.7)
-        </Typography>
-        <Button onClick={onClose} variant="contained">
-          Close
-        </Button>
-      </DialogActions>
     </Dialog>
   );
 };

@@ -117,7 +117,20 @@ def get_execution_results(
                         if target_id and target_id in node_cache:
                             target_label = node_cache[target_id].get('label', target_id)
                         
-                        edge_name = edge_data.get('label') or f"{source_label} → {target_label}"
+                        # Use action_set_id to determine the specific direction executed
+                        action_set_id = execution.get('action_set_id')
+                        if action_set_id and edge_data.get('action_sets'):
+                            # Find the specific action set that was executed
+                            action_sets = edge_data.get('action_sets', [])
+                            executed_action_set = next((s for s in action_sets if s.get('id') == action_set_id), None)
+                            if executed_action_set:
+                                edge_name = executed_action_set.get('label', f"{source_label} → {target_label}")
+                            else:
+                                edge_name = f"{source_label} ↔ {target_label} (unknown direction)"
+                        else:
+                            # Fallback for old records without action_set_id
+                            edge_name = f"{source_label} ↔ {target_label}"
+                        
                         enriched_execution['element_name'] = edge_name
                     else:
                         enriched_execution['element_name'] = f"Edge {edge_id[:8]}"
@@ -161,7 +174,8 @@ def record_edge_execution(
     message: str = "",
     error_details: Optional[Dict] = None,
     script_result_id: Optional[str] = None,
-    script_context: str = 'direct'
+    script_context: str = 'direct',
+    action_set_id: Optional[str] = None
 ) -> Optional[str]:
     """Record edge action execution directly to database."""
     try:
@@ -180,7 +194,8 @@ def record_edge_execution(
             'error_details': error_details,
             'executed_at': datetime.now().isoformat(),
             'script_result_id': script_result_id,
-            'script_context': script_context
+            'script_context': script_context,
+            'action_set_id': action_set_id
         }
         
         supabase = get_supabase()

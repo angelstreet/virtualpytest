@@ -551,7 +551,8 @@ def execute_navigation_with_verifications(host, device, transition: Dict[str, An
                     message='Navigation actions completed' if actions_success else detailed_error or 'Navigation actions failed',
                     error_details=error_details if not actions_success else None,
                     script_result_id=script_result_id,
-                    script_context=script_context
+                    script_context=script_context,
+                    action_set_id=action_set_id
                 )
             except Exception:
                 pass  # Silent fail as per optimization

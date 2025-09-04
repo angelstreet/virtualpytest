@@ -41,12 +41,6 @@ export const MetricsNotification: React.FC<MetricsNotificationProps> = ({
     setIsMinimized(false);
   };
 
-  const handleClose = (_event?: React.SyntheticEvent | Event, reason?: string) => {
-    if (reason === 'clickaway') {
-      return;
-    }
-    setIsMinimized(true); // Minimize instead of closing completely
-  };
 
   const getIcon = () => {
     switch (notificationData.severity) {
@@ -63,7 +57,7 @@ export const MetricsNotification: React.FC<MetricsNotificationProps> = ({
   // Show minimized icon if minimized
   if (isMinimized) {
     return (
-      <Tooltip title="Click to view metrics details" placement="left">
+      <Tooltip title="Click to restore notification" placement="left">
         <Fab
           size="small"
           color={notificationData.severity === 'error' ? 'error' : 'warning'}
@@ -92,7 +86,7 @@ export const MetricsNotification: React.FC<MetricsNotificationProps> = ({
     <Snackbar
       open={notificationData.show && !isMinimized}
       autoHideDuration={autoHideDuration}
-      onClose={handleClose}
+      onClose={() => setIsMinimized(true)}
       anchorOrigin={{ 
         vertical: 'bottom', 
         horizontal: 'right' 
@@ -106,7 +100,6 @@ export const MetricsNotification: React.FC<MetricsNotificationProps> = ({
       <Alert
         severity={notificationData.severity}
         onClick={handleClick}
-        onClose={handleClose}
         icon={getIcon()}
         sx={{
           cursor: 'pointer',
@@ -164,7 +157,7 @@ export const MetricsNotification: React.FC<MetricsNotificationProps> = ({
           </Box>
           
           {/* Close/Minimize button */}
-          <Tooltip title="Minimize notification" placement="top">
+          <Tooltip title="Minimize" placement="top">
             <IconButton
               size="small"
               onClick={handleMinimize}
