@@ -184,7 +184,7 @@ const ModelReports: React.FC = () => {
 
   // Format duration helper
   function formatDuration(ms: number): string {
-    if (ms < 1000) return `${ms}ms`;
+    if (ms < 1000) return `${Math.round(ms)}ms`;
     if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
     const minutes = Math.floor(ms / 60000);
     const seconds = ((ms % 60000) / 1000).toFixed(1);
@@ -286,12 +286,6 @@ const ModelReports: React.FC = () => {
                   <Box display="flex" alignItems="center" gap={1}>
                     <ModelIcon color="primary" />
                     <Typography variant="h6">Execution Stats</Typography>
-                    <Chip
-                      label={selectedUserInterface}
-                      size="small"
-                      variant="outlined"
-                      color="primary"
-                    />
                   </Box>
 
               <Box display="flex" alignItems="center" gap={4}>
