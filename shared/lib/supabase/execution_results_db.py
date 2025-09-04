@@ -52,13 +52,15 @@ def get_execution_results(
         tree_ids = list(set([execution.get('tree_id') for execution in result.data if execution.get('tree_id')]))
         edge_ids = list(set([execution.get('edge_id') for execution in result.data if execution.get('edge_id')]))
         node_ids = list(set([execution.get('node_id') for execution in result.data if execution.get('node_id')]))
+        script_result_ids = list(set([execution.get('script_result_id') for execution in result.data if execution.get('script_result_id')]))
         
-        print(f"[@db:execution_results:get_execution_results] Batch fetching: {len(tree_ids)} trees, {len(edge_ids)} edges, {len(node_ids)} nodes")
+        print(f"[@db:execution_results:get_execution_results] Batch fetching: {len(tree_ids)} trees, {len(edge_ids)} edges, {len(node_ids)} nodes, {len(script_result_ids)} script reports")
         
-        # Batch fetch all trees, edges, and nodes
+        # Batch fetch all trees, edges, nodes, and script reports
         tree_cache = {}
         edge_cache = {}
         node_cache = {}
+        script_cache = {}
         
         # Batch fetch trees
         if tree_ids:
@@ -86,7 +88,13 @@ def get_execution_results(
             for node in nodes_result.data:
                 node_cache[node['node_id']] = node
         
-        print(f"[@db:execution_results:get_execution_results] Cached: {len(tree_cache)} trees, {len(edge_cache)} edges, {len(node_cache)} nodes")
+        # Batch fetch script reports for report URLs
+        if script_result_ids:
+            scripts_result = supabase.table('script_results').select('id, report_r2_url').in_('id', script_result_ids).execute()
+            for script in scripts_result.data:
+                script_cache[script['id']] = script
+        
+        print(f"[@db:execution_results:get_execution_results] Cached: {len(tree_cache)} trees, {len(edge_cache)} edges, {len(node_cache)} nodes, {len(script_cache)} script reports")
         
         # Now process each execution result using cached data (no more database calls)
         for execution in result.data:
@@ -129,6 +137,11 @@ def get_execution_results(
                         enriched_execution['element_name'] = f"Node {node_id[:8]}"
             else:
                 enriched_execution['tree_name'] = userinterface_name or 'Unknown Tree'
+            
+            # Add script report URL if available
+            script_result_id = execution.get('script_result_id')
+            if script_result_id and script_result_id in script_cache:
+                enriched_execution['script_report_url'] = script_cache[script_result_id].get('report_r2_url')
             
             enriched_results.append(enriched_execution)
         
