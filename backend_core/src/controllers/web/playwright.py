@@ -465,7 +465,24 @@ class PlaywrightWebController(WebControllerInterface):
                             'execution_time': execution_time
                         }
                     except Exception as e:
-                        print(f"[PLAYWRIGHT]: Selector {i+1} failed ({timeout}ms): {sel} - Exception: {str(e)}")
+                        error_str = str(e)
+                        if "intercepts pointer events" in error_str:
+                            print(f"[PLAYWRIGHT]: Selector {i+1} blocked by overlay, trying force click: {sel}")
+                            try:
+                                # Force click bypasses overlay checks
+                                await page.click(sel, timeout=timeout, force=True)
+                                execution_time = int((time.time() - start_time) * 1000)
+                                print(f"[PLAYWRIGHT]: Force click successful using selector {i+1}: {sel}")
+                                return {
+                                    'success': True,
+                                    'error': '',
+                                    'execution_time': execution_time,
+                                    'method': 'force_click'
+                                }
+                            except Exception as force_e:
+                                print(f"[PLAYWRIGHT]: Force click also failed for selector {i+1}: {sel} - {str(force_e)}")
+                        else:
+                            print(f"[PLAYWRIGHT]: Selector {i+1} failed ({timeout}ms): {sel} - Exception: {str(e)}")
                         continue
                 
                 # All selectors failed
