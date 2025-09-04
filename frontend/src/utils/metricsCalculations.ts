@@ -181,9 +181,10 @@ export const generateNotificationData = (
   const metricsWithData = allMetrics.filter(m => m.volume > 0);
   
   let globalSuccessRate = 0;
+  let totalVolume = 0;
   if (metricsWithData.length > 0) {
     const totalWeightedSuccess = metricsWithData.reduce((sum, m) => sum + (m.success_rate * m.volume), 0);
-    const totalVolume = metricsWithData.reduce((sum, m) => sum + m.volume, 0);
+    totalVolume = metricsWithData.reduce((sum, m) => sum + m.volume, 0);
     globalSuccessRate = totalVolume > 0 ? totalWeightedSuccess / totalVolume : 0;
   }
   
@@ -205,6 +206,7 @@ export const generateNotificationData = (
       low_confidence_count: lowConfidenceCount,
       global_success_rate: globalSuccessRate,
       total_items: allMetrics.length,
+      total_volume: totalVolume,
       confidence_distribution: confidenceDistribution,
     };
   }
@@ -221,6 +223,7 @@ export const generateNotificationData = (
       low_confidence_count: lowConfidenceCount,
       global_success_rate: globalSuccessRate,
       total_items: allMetrics.length,
+      total_volume: totalVolume,
       confidence_distribution: confidenceDistribution,
     };
   }
@@ -236,6 +239,7 @@ export const generateNotificationData = (
       low_confidence_count: lowConfidenceCount,
       global_success_rate: globalSuccessRate,
       total_items: allMetrics.length,
+      total_volume: totalVolume,
       confidence_distribution: confidenceDistribution,
     };
   }
@@ -250,6 +254,7 @@ export const generateNotificationData = (
       low_confidence_count: lowConfidenceCount,
       global_success_rate: globalSuccessRate,
       total_items: allMetrics.length,
+      total_volume: totalVolume,
       confidence_distribution: confidenceDistribution,
     };
   }
@@ -263,6 +268,7 @@ export const generateNotificationData = (
     low_confidence_count: lowConfidenceCount,
     global_success_rate: globalSuccessRate,
     total_items: allMetrics.length,
+    total_volume: totalVolume,
     confidence_distribution: confidenceDistribution,
   };
 };

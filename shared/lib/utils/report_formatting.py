@@ -29,7 +29,6 @@ def get_video_thumbnail_html(video_url: str, label: str = "Video") -> str:
             <source src="{video_url}" type="{video_type}">
         </video>
         <div class="play-overlay" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 24px;">▶</div>
-        <div class="video-label" style="text-align: center;">{label}</div>
     </div>
     """
 

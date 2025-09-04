@@ -147,11 +147,15 @@ export const MetricsNotification: React.FC<MetricsNotificationProps> = ({
               {Math.round(notificationData.global_confidence * 10)}/10
             </Box>
             
-            {/* Success Rate and Count - Secondary */}
+            {/* Success Rate with Volume and Count - Secondary */}
             <Box sx={{ fontSize: '0.75rem', fontWeight: 400, opacity: 0.9 }}>
               {notificationData.global_success_rate 
                 ? `${(notificationData.global_success_rate * 100).toFixed(0)}% success`
                 : '0% success'
+              }
+              {notificationData.total_volume && notificationData.total_volume > 0 
+                ? ` #${notificationData.total_volume}`
+                : ''
               } • {notificationData.low_confidence_count} items
             </Box>
           </Box>

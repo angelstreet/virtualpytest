@@ -100,6 +100,7 @@ export interface MetricsNotificationData {
   // Additional metrics for better display
   global_success_rate?: number;
   total_items?: number;
+  total_volume?: number; // Total executions across all items
   confidence_distribution?: {
     high: number;
     medium: number;
