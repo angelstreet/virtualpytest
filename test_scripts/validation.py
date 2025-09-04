@@ -5,11 +5,12 @@ Validation Script for VirtualPyTest
 This script validates all transitions in a navigation tree using the unified script framework.
 
 Usage:
-    python scripts/validation.py <userinterface_name> [--host <host>] [--device <device>]
+    python scripts/validation.py <userinterface_name> [--host <host>] [--device <device>] [--max-iterations <number>]
     
 Example:
     python scripts/validation.py horizon_android_mobile
     python scripts/validation.py horizon_android_mobile --device device2
+    python scripts/validation.py horizon_android_mobile --max-iterations 3
 """
 
 import sys
@@ -160,7 +161,7 @@ def _record_skipped_steps(context: ScriptExecutionContext, navigation_path: list
 
 
 def execute_validation_sequence_with_force_recovery(executor: ScriptExecutor, context: ScriptExecutionContext, 
-                                                   navigation_path: list, custom_step_handler) -> bool:
+                                                   navigation_path: list, custom_step_handler, max_iterations: int = None) -> bool:
     """
     Execute validation sequence with force navigation recovery - each step as top-level.
     Stops immediately if both normal navigation and force navigation fail for any step.
@@ -172,7 +173,14 @@ def execute_validation_sequence_with_force_recovery(executor: ScriptExecutor, co
             
         print(f"🎮 [validation] Starting validation sequence with force recovery on device {context.selected_device.device_id}")
         
-        for i, step in enumerate(navigation_path):
+        # Apply max_iterations limit if specified
+        steps_to_execute = navigation_path
+        if max_iterations is not None and max_iterations > 0:
+            steps_to_execute = navigation_path[:max_iterations]
+            if len(navigation_path) > max_iterations:
+                print(f"🔢 [validation] Limiting execution to {max_iterations} steps (out of {len(navigation_path)} total)")
+        
+        for i, step in enumerate(steps_to_execute):
             step_num = i + 1
             from_node = step.get('from_node_label', 'unknown')
             to_node = step.get('to_node_label', 'unknown')
@@ -181,7 +189,7 @@ def execute_validation_sequence_with_force_recovery(executor: ScriptExecutor, co
             # Simple sequential recording - no context needed
             
             try:
-                print(f"⚡ [validation] Executing step {step_num}/{len(navigation_path)}: {from_node} → {to_node}")
+                print(f"⚡ [validation] Executing step {step_num}/{len(steps_to_execute)}: {from_node} → {to_node}")
                 
                 # Execute the navigation step using custom handler
                 step_start_time = time.time()
@@ -298,16 +306,48 @@ def execute_validation_sequence_with_force_recovery(executor: ScriptExecutor, co
                 # Step was successful normally
                 print(f"✅ [validation] Step {step_num} completed successfully in {step_execution_time}ms")
         
+        # Mark remaining steps as skipped if we stopped due to max_iterations
+        if max_iterations is not None and len(steps_to_execute) < len(navigation_path):
+            remaining_steps = navigation_path[len(steps_to_execute):]
+            for j, remaining_step in enumerate(remaining_steps):
+                remaining_step_num = len(steps_to_execute) + j + 1
+                from_node = remaining_step.get('from_node_label', 'unknown')
+                to_node = remaining_step.get('to_node_label', 'unknown')
+                
+                skipped_step_result = {
+                    'step_number': remaining_step_num,
+                    'success': False,
+                    'skipped': True,
+                    'message': f"Skipped step {remaining_step_num}: {from_node} → {to_node} (max_iterations limit)",
+                    'from_node': from_node,
+                    'to_node': to_node,
+                    'actions': remaining_step.get('actions', []),
+                    'verifications': remaining_step.get('verifications', []),
+                    'verification_results': [],
+                    'error': f'Skipped due to max_iterations limit ({max_iterations})',
+                    'execution_time_ms': 0,
+                    'step_category': 'validation'
+                }
+                context.step_results.append(skipped_step_result)
+            
+            print(f"⏭️  [validation] Marked {len(remaining_steps)} remaining steps as skipped due to max_iterations limit")
+        
         # Calculate overall success
         total_successful = len([s for s in context.step_results if s.get('success', False)])
         total_steps = len(navigation_path)
-        success_rate = total_successful / total_steps if total_steps > 0 else 0
+        executed_steps = len(steps_to_execute)
+        success_rate = total_successful / executed_steps if executed_steps > 0 else 0
         
         print(f"🎉 [validation] Validation sequence completed!")
-        print(f"📊 [validation] Results: {total_successful}/{total_steps} steps successful ({success_rate:.1%})")
+        if max_iterations is not None and executed_steps < total_steps:
+            print(f"📊 [validation] Results: {total_successful}/{executed_steps} executed steps successful ({success_rate:.1%})")
+            print(f"🔢 [validation] Limited by max_iterations: executed {executed_steps}/{total_steps} total steps")
+        else:
+            print(f"📊 [validation] Results: {total_successful}/{total_steps} steps successful ({success_rate:.1%})")
         print(f"🔄 [validation] Recovery: {context.recovered_steps} steps recovered via force navigation")
         
-        return total_successful == total_steps
+        # For success calculation, only consider executed steps
+        return total_successful == executed_steps
         
     except Exception as e:
         print(f"❌ [validation] Execution sequence error: {e}")
@@ -316,7 +356,7 @@ def execute_validation_sequence_with_force_recovery(executor: ScriptExecutor, co
         return False
 
 
-def capture_validation_summary(context: ScriptExecutionContext, userinterface_name: str) -> str:
+def capture_validation_summary(context: ScriptExecutionContext, userinterface_name: str, max_iterations: int = None) -> str:
     """Capture validation summary as text for report"""
     # Calculate verification statistics
     total_verifications = sum(len(step.get('verification_results', [])) for step in context.step_results)
@@ -347,6 +387,12 @@ def capture_validation_summary(context: ScriptExecutionContext, userinterface_na
         lines.append(f"🖥️  Host: Setup failed - no host available")
     lines.append(f"📋 Interface: {userinterface_name}")
     lines.append(f"⏱️  Total Time: {context.get_execution_time_ms()/1000:.1f}s")
+    
+    # Add max_iterations info if it was used
+    if max_iterations is not None:
+        executed_steps = sum(1 for step in context.step_results if not step.get('skipped', False) or step.get('error', '').startswith('Skipped due to critical failure'))
+        lines.append(f"🔢 Max Iterations: {max_iterations} (executed {executed_steps} steps)")
+    
     lines.append(f"📊 Steps: {successful_steps}/{len(context.step_results)} steps successful")
     lines.append(f"✅ Successful: {successful_steps}")
     lines.append(f"❌ Failed: {failed_steps}")
@@ -464,7 +510,7 @@ def capture_validation_summary(context: ScriptExecutionContext, userinterface_na
     return "\n".join(lines)
 
 
-def print_validation_summary(context: ScriptExecutionContext, userinterface_name: str):
+def print_validation_summary(context: ScriptExecutionContext, userinterface_name: str, max_iterations: int = None):
     """Print enhanced validation summary with recovery stats"""
     # Calculate verification statistics
     total_verifications = sum(len(step.get('verification_results', [])) for step in context.step_results)
@@ -493,6 +539,12 @@ def print_validation_summary(context: ScriptExecutionContext, userinterface_name
         print(f"🖥️  Host: Setup failed - no host available")
     print(f"📋 Interface: {userinterface_name}")
     print(f"⏱️  Total Time: {context.get_execution_time_ms()/1000:.1f}s")
+    
+    # Add max_iterations info if it was used
+    if max_iterations is not None:
+        executed_steps = sum(1 for step in context.step_results if not step.get('skipped', False) or step.get('error', '').startswith('Skipped due to critical failure'))
+        print(f"🔢 Max Iterations: {max_iterations} (executed {executed_steps} steps)")
+    
     print(f"📊 Steps: {successful_steps}/{len(context.step_results)} steps successful")
     print(f"✅ Successful: {successful_steps}")
     print(f"❌ Failed: {failed_steps}")
@@ -553,13 +605,15 @@ def main():
     
     # Create argument parser
     parser = executor.create_argument_parser()
+    parser.add_argument('--max-iterations', type=int, default=None, 
+                       help='Maximum number of validation steps to execute (default: unlimited)')
     args = parser.parse_args()
     
     # Setup execution context with database tracking enabled
     context = executor.setup_execution_context(args, enable_db_tracking=True)
     if context.error_message:
         # Capture execution summary even on setup failure
-        summary_text = capture_validation_summary(context, args.userinterface_name)
+        summary_text = capture_validation_summary(context, args.userinterface_name, args.max_iterations)
         context.execution_summary = summary_text
         executor.cleanup_and_exit(context, args.userinterface_name)
         return
@@ -568,7 +622,7 @@ def main():
         # Load navigation tree
         if not executor.load_navigation_tree(context, args.userinterface_name):
             # Capture execution summary even on tree loading failure
-            summary_text = capture_validation_summary(context, args.userinterface_name)
+            summary_text = capture_validation_summary(context, args.userinterface_name, args.max_iterations)
             context.execution_summary = summary_text
             executor.cleanup_and_exit(context, args.userinterface_name)
             return
@@ -594,7 +648,7 @@ def main():
             context.error_message = "No validation sequence found"
             print(f"❌ [validation] {context.error_message}")
             # Capture execution summary even on validation sequence failure
-            summary_text = capture_validation_summary(context, args.userinterface_name)
+            summary_text = capture_validation_summary(context, args.userinterface_name, args.max_iterations)
             context.execution_summary = summary_text
             executor.cleanup_and_exit(context, args.userinterface_name)
             return
@@ -603,7 +657,7 @@ def main():
         
         # Execute validation sequence with custom step handler and critical failure detection
         success = execute_validation_sequence_with_force_recovery(
-            executor, context, validation_sequence, custom_validation_step_handler
+            executor, context, validation_sequence, custom_validation_step_handler, args.max_iterations
         )
         
         # Calculate validation success based on actual step results
@@ -638,7 +692,7 @@ def main():
         
         # Print detailed validation summary and store extra info for framework summary
         if 'context' in locals() and context:
-            summary_text = capture_validation_summary(context, args.userinterface_name)
+            summary_text = capture_validation_summary(context, args.userinterface_name, args.max_iterations)
             print(summary_text)
             context.execution_summary = summary_text
             
