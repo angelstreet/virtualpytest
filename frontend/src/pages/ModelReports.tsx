@@ -227,6 +227,22 @@ const ModelReports: React.FC = () => {
             onChange={handleUserInterfaceChange}
             disabled={userInterfaces.length === 0}
             displayEmpty
+            renderValue={(value) => {
+              if (!value) {
+                return (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, fontStyle: 'italic', opacity: 0.6 }}>
+                    <ModelIcon fontSize="small" />
+                    Select user interface...
+                  </Box>
+                );
+              }
+              return (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <ModelIcon fontSize="small" />
+                  {value}
+                </Box>
+              );
+            }}
           >
             <MenuItem value="">
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, fontStyle: 'italic', opacity: 0.6 }}>
