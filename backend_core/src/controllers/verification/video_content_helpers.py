@@ -159,13 +159,13 @@ class VideoContentHelpers:
     # Freeze Detection
     # =============================================================================
     
-    def detect_freeze_in_images(self, image_paths: List[str], freeze_threshold: float = 0.1) -> Dict[str, Any]:
+    def detect_freeze_in_images(self, image_paths: List[str], freeze_threshold: float = 0.2) -> Dict[str, Any]:
         """
         Detect if images are frozen (identical frames) with early stopping for zapping detection.
         
         Args:
             image_paths: List of image paths to analyze
-            freeze_threshold: Threshold for frame difference detection (0.1 = nearly identical frames)
+            freeze_threshold: Threshold for frame difference detection (0.2 = nearly identical frames)
             
         Returns:
             Dictionary with freeze analysis results
@@ -718,7 +718,7 @@ class VideoContentHelpers:
             
             # Step 2: Load images for freeze analysis
             image_paths = [img['path'] for img in image_data]
-            freeze_results = self.detect_freeze_in_images(image_paths, freeze_threshold=0.1)
+            freeze_results = self.detect_freeze_in_images(image_paths, freeze_threshold=0.2)
             
             if not freeze_results.get('success', False):
                 return {
