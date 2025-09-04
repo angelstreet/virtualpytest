@@ -55,8 +55,8 @@ def create_campaign_config(userinterface_name: str, host: str = "auto", device: 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     
     config = {
-        "campaign_id": f"fullzap-configurable-{timestamp}",
-        "name": f"Configurable Fullzap Campaign - {timestamp}",
+        "campaign_id": f"fullzap-configurable",
+        "name": f"Fullzap Campaign",
         "description": f"Execute fullzap.py with goto_live=True once, then {max_execution} times with goto_live=False (max_iteration={max_iteration})",
         "userinterface_name": userinterface_name,
         "host": host,
