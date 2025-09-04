@@ -631,22 +631,33 @@ const RecHostStreamModalContent: React.FC<{
                   );
                 })()
               ) : (
-                <HLSVideoPlayer
-                  streamUrl={streamUrl}
-                  isStreamActive={true}
-                  isCapturing={false}
-                  model={device?.device_model || 'unknown'}
-                  layoutConfig={{
-                    minHeight: '300px',
-                    aspectRatio: isMobileModel 
-                      ? `${DEFAULT_DEVICE_RESOLUTION.height}/${DEFAULT_DEVICE_RESOLUTION.width}` 
-                      : `${DEFAULT_DEVICE_RESOLUTION.width}/${DEFAULT_DEVICE_RESOLUTION.height}`,
-                    objectFit: 'contain', // Prevent cropping/truncation like in preview grid
-                    isMobileModel, // Use our mobile detection result
-                  }}
-                  isExpanded={false}
-                  muted={isMuted}
-                />
+                <Box sx={{ position: 'absolute', inset: 0 }}>
+                  <HLSVideoPlayer
+                    streamUrl={streamUrl}
+                    isStreamActive={true}
+                    isCapturing={false}
+                    model={device?.device_model || 'unknown'}
+                    layoutConfig={{
+                      minHeight: '0px', // Let container control height
+                      aspectRatio: isMobileModel 
+                        ? `${DEFAULT_DEVICE_RESOLUTION.height}/${DEFAULT_DEVICE_RESOLUTION.width}` 
+                        : `${DEFAULT_DEVICE_RESOLUTION.width}/${DEFAULT_DEVICE_RESOLUTION.height}`,
+                      objectFit: 'contain', // Prevent cropping/truncation like in preview grid
+                      isMobileModel, // Use our mobile detection result
+                    }}
+                    isExpanded={false}
+                    muted={isMuted}
+                    sx={{
+                      width: '100%',
+                      height: '100%',
+                      '& video': {
+                        width: '100% !important',
+                        height: '100% !important',
+                        objectFit: 'contain !important',
+                      },
+                    }}
+                  />
+                </Box>
               )
             ) : (
               <Box

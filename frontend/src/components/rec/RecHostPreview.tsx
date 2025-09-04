@@ -204,22 +204,34 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
                   overflow: 'hidden',
                 }}
               >
-                <HLSVideoPlayer
-                  streamUrl={streamUrl}
-                  isStreamActive={true}
-                  isCapturing={false}
-                  model={device?.device_model || 'unknown'}
-                  layoutConfig={{
-                    minHeight: '150px',
-                    aspectRatio: isMobile 
-                      ? `${DEFAULT_DEVICE_RESOLUTION.height}/${DEFAULT_DEVICE_RESOLUTION.width}` 
-                      : `${DEFAULT_DEVICE_RESOLUTION.width}/${DEFAULT_DEVICE_RESOLUTION.height}`,
-                    objectFit: 'contain',
-                    isMobileModel: isMobile,
-                  }}
-                  isExpanded={false}
-                  muted={true} // Always muted in preview
-                />
+                {/* Absolute fill inside fixed-height container to strictly clamp size for mobile */}
+                <Box sx={{ position: 'absolute', inset: 0 }}>
+                  <HLSVideoPlayer
+                    streamUrl={streamUrl}
+                    isStreamActive={true}
+                    isCapturing={false}
+                    model={device?.device_model || 'unknown'}
+                    layoutConfig={{
+                      minHeight: '0px', // Let container control height
+                      aspectRatio: isMobile 
+                        ? `${DEFAULT_DEVICE_RESOLUTION.height}/${DEFAULT_DEVICE_RESOLUTION.width}` 
+                        : `${DEFAULT_DEVICE_RESOLUTION.width}/${DEFAULT_DEVICE_RESOLUTION.height}`,
+                      objectFit: 'contain',
+                      isMobileModel: isMobile,
+                    }}
+                    isExpanded={false}
+                    muted={true} // Always muted in preview
+                    sx={{
+                      width: '100%',
+                      height: '100%',
+                      '& video': {
+                        width: '100% !important',
+                        height: '100% !important',
+                        objectFit: 'contain !important',
+                      },
+                    }}
+                  />
+                </Box>
                 {/* Click overlay to open full modal */}
                 <Box
                   onClick={handleOpenStreamModal}
