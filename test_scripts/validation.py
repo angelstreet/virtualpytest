@@ -5,12 +5,12 @@ Validation Script for VirtualPyTest
 This script validates all transitions in a navigation tree using the unified script framework.
 
 Usage:
-    python scripts/validation.py <userinterface_name> [--host <host>] [--device <device>] [--max-iterations <number>]
+    python scripts/validation.py <userinterface_name> [--host <host>] [--device <device>] [--max-iteration <number>]
     
 Example:
     python scripts/validation.py horizon_android_mobile
     python scripts/validation.py horizon_android_mobile --device device2
-    python scripts/validation.py horizon_android_mobile --max-iterations 3
+    python scripts/validation.py horizon_android_mobile --max-iteration 3
 """
 
 import sys
@@ -306,47 +306,26 @@ def execute_validation_sequence_with_force_recovery(executor: ScriptExecutor, co
                 # Step was successful normally
                 print(f"✅ [validation] Step {step_num} completed successfully in {step_execution_time}ms")
         
-        # Mark remaining steps as skipped if we stopped due to max_iteration
+        # Log info about remaining steps if we stopped due to max_iteration, but don't add them to results
         if max_iteration is not None and len(steps_to_execute) < len(navigation_path):
-            remaining_steps = navigation_path[len(steps_to_execute):]
-            for j, remaining_step in enumerate(remaining_steps):
-                remaining_step_num = len(steps_to_execute) + j + 1
-                from_node = remaining_step.get('from_node_label', 'unknown')
-                to_node = remaining_step.get('to_node_label', 'unknown')
-                
-                skipped_step_result = {
-                    'step_number': remaining_step_num,
-                    'success': False,
-                    'skipped': True,
-                    'message': f"Skipped step {remaining_step_num}: {from_node} → {to_node} (max_iteration limit)",
-                    'from_node': from_node,
-                    'to_node': to_node,
-                    'actions': remaining_step.get('actions', []),
-                    'verifications': remaining_step.get('verifications', []),
-                    'verification_results': [],
-                    'error': f'Skipped due to max_iteration limit ({max_iteration})',
-                    'execution_time_ms': 0,
-                    'step_category': 'validation'
-                }
-                context.step_results.append(skipped_step_result)
-            
-            print(f"⏭️  [validation] Marked {len(remaining_steps)} remaining steps as skipped due to max_iteration limit")
+            remaining_count = len(navigation_path) - len(steps_to_execute)
+            print(f"⏭️  [validation] Stopped after {len(steps_to_execute)} steps due to max_iteration limit ({remaining_count} steps not executed)")
         
-        # Calculate overall success
+        # Calculate overall success based on executed steps only
         total_successful = len([s for s in context.step_results if s.get('success', False)])
-        total_steps = len(navigation_path)
+        total_steps_in_sequence = len(navigation_path)
         executed_steps = len(steps_to_execute)
         success_rate = total_successful / executed_steps if executed_steps > 0 else 0
         
         print(f"🎉 [validation] Validation sequence completed!")
-        if max_iteration is not None and executed_steps < total_steps:
+        if max_iteration is not None and executed_steps < total_steps_in_sequence:
             print(f"📊 [validation] Results: {total_successful}/{executed_steps} executed steps successful ({success_rate:.1%})")
-            print(f"🔢 [validation] Limited by max_iteration: executed {executed_steps}/{total_steps} total steps")
+            print(f"🔢 [validation] Limited by max_iteration: executed {executed_steps}/{total_steps_in_sequence} total available steps")
         else:
-            print(f"📊 [validation] Results: {total_successful}/{total_steps} steps successful ({success_rate:.1%})")
+            print(f"📊 [validation] Results: {total_successful}/{executed_steps} steps successful ({success_rate:.1%})")
         print(f"🔄 [validation] Recovery: {context.recovered_steps} steps recovered via force navigation")
         
-        # For success calculation, only consider executed steps
+        # Success is based only on executed steps - if we executed 3/3 successfully, that's 100% success
         return total_successful == executed_steps
         
     except Exception as e:
@@ -390,8 +369,8 @@ def capture_validation_summary(context: ScriptExecutionContext, userinterface_na
     
     # Add max_iteration info if it was used
     if max_iteration is not None:
-        executed_steps = sum(1 for step in context.step_results if not step.get('skipped', False) or step.get('error', '').startswith('Skipped due to critical failure'))
-        lines.append(f"🔢 Max Iterations: {max_iteration} (executed {executed_steps} steps)")
+        executed_steps = len(context.step_results)  # Only executed steps are in results now
+        lines.append(f"🔢 Max Iteration Limit: {max_iteration} (executed {executed_steps} steps)")
     
     lines.append(f"📊 Steps: {successful_steps}/{len(context.step_results)} steps successful")
     lines.append(f"✅ Successful: {successful_steps}")
@@ -542,8 +521,8 @@ def print_validation_summary(context: ScriptExecutionContext, userinterface_name
     
     # Add max_iteration info if it was used
     if max_iteration is not None:
-        executed_steps = sum(1 for step in context.step_results if not step.get('skipped', False) or step.get('error', '').startswith('Skipped due to critical failure'))
-        print(f"🔢 Max Iterations: {max_iteration} (executed {executed_steps} steps)")
+        executed_steps = len(context.step_results)  # Only executed steps are in results now
+        print(f"🔢 Max Iteration Limit: {max_iteration} (executed {executed_steps} steps)")
     
     print(f"📊 Steps: {successful_steps}/{len(context.step_results)} steps successful")
     print(f"✅ Successful: {successful_steps}")
@@ -605,7 +584,7 @@ def main():
     
     # Create argument parser
     parser = executor.create_argument_parser()
-    parser.add_argument('--max-iterations', type=int, default=None, 
+    parser.add_argument('--max-iteration', type=int, default=None, 
                        help='Maximum number of validation steps to execute (default: unlimited)')
     args = parser.parse_args()
     
@@ -660,18 +639,18 @@ def main():
             executor, context, validation_sequence, custom_validation_step_handler, args.max_iteration
         )
         
-        # Calculate validation success based on actual step results
+        # Calculate validation success based on executed step results only
         successful_steps = sum(1 for step in context.step_results if step.get('success', False))
-        total_steps = len(context.step_results)
+        executed_steps = len(context.step_results)  # Only executed steps are in results
         
-        # Validation is successful only if ALL steps pass
-        # For validation, we need 100% success rate
-        context.overall_success = successful_steps == total_steps and total_steps > 0
+        # Validation is successful if ALL EXECUTED steps pass
+        # If we executed 3/3 successfully with max_iteration=3, that's 100% success
+        context.overall_success = successful_steps == executed_steps and executed_steps > 0
         
         if context.overall_success:
-            print(f"🎉 [validation] All {successful_steps}/{total_steps} validation steps passed successfully!")
+            print(f"🎉 [validation] All {successful_steps}/{executed_steps} executed validation steps passed successfully!")
         else:
-            print(f"❌ [validation] Validation failed: {successful_steps}/{total_steps} steps passed")
+            print(f"❌ [validation] Validation failed: {successful_steps}/{executed_steps} executed steps passed")
         
     except KeyboardInterrupt:
         handle_keyboard_interrupt(script_name)
