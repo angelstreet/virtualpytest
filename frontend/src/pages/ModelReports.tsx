@@ -48,6 +48,8 @@ const ModelReports: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [treeToInterfaceMap, setTreeToInterfaceMap] = useState<Record<string, string>>({});
   const [filter, setFilter] = useState<FilterType>('all');
+  const [showFailuresOnly, setShowFailuresOnly] = useState(false);
+  const [showUnexecutedOnly, setShowUnexecutedOnly] = useState(false);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
 
   // Toggle row expansion
@@ -215,12 +217,35 @@ const ModelReports: React.FC = () => {
     return entries;
   }, [executionResults]);
 
-  // Filter transformed results based on execution type
+  // Filter transformed results based on execution type and additional filters
   const filteredResults = transformedResults.filter((result: any) => {
     // Filter by execution type
-    if (filter === 'all') return true;
-    return result.execution_type === filter;
-  });
+    if (filter !== 'all' && result.execution_type !== filter) return false;
+    
+    // Get metrics for additional filtering
+    let metrics = null;
+    if (result.execution_type === 'action' && result.action_set_id) {
+      metrics = metricsHook.getEdgeDirectionMetrics(result.element_id, result.action_set_id);
+    } else if (result.execution_type === 'action') {
+      metrics = metricsHook.getEdgeMetrics(result.element_id);
+    } else {
+      metrics = metricsHook.getNodeMetrics(result.element_id);
+    }
+    
+    // Filter by failure rate (not 100% success)
+    if (showFailuresOnly) {
+      const successRate = metrics?.success_rate || 0;
+      if (successRate >= 1.0) return false; // Hide 100% success rate items
+    }
+    
+    // Filter by unexecuted (volume = 0)
+    if (showUnexecutedOnly) {
+      const volume = metrics?.volume || 0;
+      if (volume > 0) return false; // Hide items with volume > 0
+    }
+    
+    return true;
+  }); // Note: Dependencies handled by React's automatic dependency detection
 
   // Calculate stats based on filtered results and their metrics
   const totalElements = filteredResults.length;
@@ -385,7 +410,7 @@ const ModelReports: React.FC = () => {
       ) : (
         <>
           {/* Quick Stats */}
-          <Box sx={{ mb: 0.5 }}>
+          <Box sx={{ mb: 0 }}>
             <Card>
               <CardContent sx={{ py: 0.5 }}>
                 <Box display="flex" alignItems="center" justifyContent="space-between">
@@ -452,12 +477,41 @@ const ModelReports: React.FC = () => {
       {/* Recent Execution Results */}
       <Card>
         <CardContent>
-          <Box display="flex" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
+          <Box display="flex" alignItems="center" justifyContent="space-between" sx={{ mb: 0.5 }}>
             <Typography variant="h6">Recent Execution Results</Typography>
 
             {/* Filter Toggle Buttons */}
             <Box display="flex" alignItems="center" gap={1}>
               <FilterIcon fontSize="small" color="action" />
+              
+              {/* Failure and Unexecuted Filters */}
+              <ToggleButton
+                value="failures"
+                selected={showFailuresOnly}
+                onChange={() => setShowFailuresOnly(!showFailuresOnly)}
+                size="small"
+                sx={{ minWidth: 'auto', px: 1 }}
+              >
+                <Typography variant="caption" sx={{ fontSize: '0.7rem' }}>
+                  ≠100%
+                </Typography>
+              </ToggleButton>
+              
+              <ToggleButton
+                value="unexecuted"
+                selected={showUnexecutedOnly}
+                onChange={() => setShowUnexecutedOnly(!showUnexecutedOnly)}
+                size="small"
+                sx={{ minWidth: 'auto', px: 1 }}
+              >
+                <Typography variant="caption" sx={{ fontSize: '0.7rem' }}>
+                  Vol=0
+                </Typography>
+              </ToggleButton>
+              
+              {/* Divider */}
+              <Box sx={{ width: 1, height: 24, backgroundColor: 'divider', mx: 0.5 }} />
+              
               <ToggleButtonGroup
                 value={filter}
                 exclusive
