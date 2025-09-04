@@ -265,7 +265,7 @@ const CampaignReports: React.FC = () => {
                           <IconButton
                             size="small"
                             onClick={() => handleRowExpand(result.id)}
-                            disabled={!result.script_results || result.script_results.length === 0}
+                            disabled={false}
                           >
                             {expandedRows.has(result.id) ? <ExpandLessIcon /> : <ExpandMoreIcon />}
                           </IconButton>
@@ -316,57 +316,74 @@ const CampaignReports: React.FC = () => {
                       </TableRow>
 
                       {/* Expandable rows for script results - align with main table columns */}
-                      {expandedRows.has(result.id) && result.script_results && result.script_results.length > 0 && 
-                        result.script_results.map((script) => (
-                          <TableRow 
-                            key={script.id}
-                            sx={{
-                              backgroundColor: 'rgba(0, 0, 0, 0.02)',
-                              '&:hover': {
-                                backgroundColor: 'rgba(0, 0, 0, 0.06) !important',
-                              },
-                            }}
-                          >
-                            <TableCell sx={{ py: 0.5, pl: 4 }}>
-                              <ScriptIcon fontSize="small" />
-                            </TableCell>
-                            <TableCell sx={{ py: 0.5 }}>{script.script_name}</TableCell>
-                            <TableCell sx={{ py: 0.5 }}>-</TableCell>
-                            <TableCell sx={{ py: 0.5 }}>-</TableCell>
-                            <TableCell sx={{ py: 0.5 }}>-</TableCell>
-                            <TableCell sx={{ py: 0.5 }}>
-                              <Chip
-                                icon={script.success ? <PassIcon /> : <FailIcon />}
-                                label={script.success ? 'PASS' : 'FAIL'}
-                                color={script.success ? 'success' : 'error'}
-                                size="small"
-                              />
-                            </TableCell>
-                            <TableCell sx={{ py: 0.5 }}>
-                              {script.execution_time_ms
-                                ? formatDuration(script.execution_time_ms)
-                                : 'N/A'}
-                            </TableCell>
-                            <TableCell sx={{ py: 0.5 }}>-</TableCell>
-                            <TableCell sx={{ py: 0.5 }}>
-                              {script.html_report_r2_url ? (
-                                <Chip
-                                  icon={<LinkIcon />}
-                                  label="View Report"
-                                  size="small"
-                                  clickable
-                                  onClick={() => window.open(script.html_report_r2_url!, '_blank')}
-                                  color="primary"
-                                  variant="outlined"
-                                />
-                              ) : (
-                                <Chip label="No Report" size="small" variant="outlined" disabled />
-                              )}
-                            </TableCell>
-                            <TableCell sx={{ py: 0.5 }}>-</TableCell>
-                          </TableRow>
-                        ))
-                      }
+                      {expandedRows.has(result.id) && (
+                        <>
+                          {result.script_results && result.script_results.length > 0 ? (
+                            result.script_results.map((script) => (
+                              <TableRow 
+                                key={script.id}
+                                sx={{
+                                  backgroundColor: 'rgba(0, 0, 0, 0.02)',
+                                  '&:hover': {
+                                    backgroundColor: 'rgba(0, 0, 0, 0.06) !important',
+                                  },
+                                }}
+                              >
+                                <TableCell sx={{ py: 0.5, pl: 4 }}>
+                                  <ScriptIcon fontSize="small" />
+                                </TableCell>
+                                <TableCell sx={{ py: 0.5 }}>{script.script_name}</TableCell>
+                                <TableCell sx={{ py: 0.5 }}>-</TableCell>
+                                <TableCell sx={{ py: 0.5 }}>-</TableCell>
+                                <TableCell sx={{ py: 0.5 }}>-</TableCell>
+                                <TableCell sx={{ py: 0.5 }}>
+                                  <Chip
+                                    icon={script.success ? <PassIcon /> : <FailIcon />}
+                                    label={script.success ? 'PASS' : 'FAIL'}
+                                    color={script.success ? 'success' : 'error'}
+                                    size="small"
+                                  />
+                                </TableCell>
+                                <TableCell sx={{ py: 0.5 }}>
+                                  {script.execution_time_ms
+                                    ? formatDuration(script.execution_time_ms)
+                                    : 'N/A'}
+                                </TableCell>
+                                <TableCell sx={{ py: 0.5 }}>-</TableCell>
+                                <TableCell sx={{ py: 0.5 }}>
+                                  {script.html_report_r2_url ? (
+                                    <Chip
+                                      icon={<LinkIcon />}
+                                      label="View Report"
+                                      size="small"
+                                      clickable
+                                      onClick={() => window.open(script.html_report_r2_url!, '_blank')}
+                                      color="primary"
+                                      variant="outlined"
+                                    />
+                                  ) : (
+                                    <Chip label="No Report" size="small" variant="outlined" disabled />
+                                  )}
+                                </TableCell>
+                                <TableCell sx={{ py: 0.5 }}>-</TableCell>
+                              </TableRow>
+                            ))
+                          ) : (
+                            <TableRow
+                              sx={{
+                                backgroundColor: 'rgba(255, 193, 7, 0.1)',
+                              }}
+                            >
+                              <TableCell sx={{ py: 1, pl: 4 }}>
+                                <ScriptIcon fontSize="small" color="warning" />
+                              </TableCell>
+                              <TableCell colSpan={9} sx={{ py: 1, fontStyle: 'italic', color: 'text.secondary' }}>
+                                No script results linked to this campaign (backend linking issue)
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </>
+                      )}
                     </React.Fragment>
                   ))
                 )}
