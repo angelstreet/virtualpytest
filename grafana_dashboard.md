@@ -419,13 +419,10 @@ Right Panel → Field Overrides:
 ```sql
 SELECT 
   -- Channel number as first column for sorting
-  CASE 
-    WHEN zr.channel_number IS NOT NULL AND zr.channel_number != '' THEN zr.channel_number
-    ELSE '0'
-  END as "Ch#",
+  zr.channel_number as "Ch#",
   
   -- Channel name as second column
-  COALESCE(zr.channel_name, 'Unknown Channel') as "Channel",
+  zr.channel_name as "Channel",
   
   -- Device model
   COALESCE(zr.device_model, 'unknown') as "Platform",
@@ -440,13 +437,10 @@ SELECT
 FROM zap_results zr
 WHERE $__timeFilter(zr.started_at)
   AND zr.channel_name IS NOT NULL
+  AND zr.channel_number IS NOT NULL
+  AND zr.channel_number != ''
 GROUP BY 1, 2, 3
-ORDER BY 
-  CAST(CASE 
-    WHEN zr.channel_number IS NOT NULL AND zr.channel_number != '' THEN zr.channel_number
-    ELSE '0'
-  END AS INTEGER), 
-  "Channel", "Platform"
+ORDER BY CAST(zr.channel_number AS INTEGER), "Channel", "Platform"
 ```
 
 **Configuration:**
