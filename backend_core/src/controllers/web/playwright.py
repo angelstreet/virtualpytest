@@ -699,6 +699,9 @@ class PlaywrightWebController(WebControllerInterface):
                 # Get persistent page from browser+context
                 page = await self._get_persistent_page()
                 
+                # Show click animation and coordinates (like Android mobile)
+                await self._show_click_animation(page, x, y)
+                
                 # Click at coordinates
                 await page.mouse.click(x, y)
                 
@@ -707,10 +710,11 @@ class PlaywrightWebController(WebControllerInterface):
                 result = {
                     'success': True,
                     'error': '',
-                    'execution_time': execution_time
+                    'execution_time': execution_time,
+                    'coordinates': {'x': x, 'y': y}
                 }
                 
-                print(f"[PLAYWRIGHT]: Tap successful")
+                print(f"[PLAYWRIGHT]: Tap successful at ({x}, {y})")
                 return result
                 
             except Exception as e:
@@ -772,6 +776,92 @@ class PlaywrightWebController(WebControllerInterface):
         
         # Assume Chrome is running - no connection checks
         return self.utils.run_async(_async_execute_javascript())
+    
+    async def _show_click_animation(self, page, x: int, y: int):
+        """Show click animation and coordinates like Android mobile overlay."""
+        try:
+            js_code = f"""
+            (() => {{
+                // Create click animation styles if not exists
+                const styleId = 'playwright-click-animation-styles';
+                if (!document.getElementById(styleId)) {{
+                    const style = document.createElement('style');
+                    style.id = styleId;
+                    style.textContent = `
+                        @keyframes playwrightClickPulse {{
+                            0% {{
+                                transform: scale(0.3);
+                                opacity: 1;
+                            }}
+                            100% {{
+                                transform: scale(1.5);
+                                opacity: 0;
+                            }}
+                        }}
+                    `;
+                    document.head.appendChild(style);
+                }}
+                
+                // Create click animation circle
+                const clickAnimation = document.createElement('div');
+                clickAnimation.style.cssText = `
+                    position: fixed;
+                    left: {x - 15}px;
+                    top: {y - 15}px;
+                    width: 30px;
+                    height: 30px;
+                    border-radius: 50%;
+                    background-color: rgba(255, 255, 255, 0.8);
+                    border: 2px solid rgba(0, 123, 255, 0.8);
+                    z-index: 999999;
+                    pointer-events: none;
+                    animation: playwrightClickPulse 0.3s ease-out forwards;
+                `;
+                document.body.appendChild(clickAnimation);
+                
+                // Create coordinate display
+                const coordDisplay = document.createElement('div');
+                coordDisplay.style.cssText = `
+                    position: fixed;
+                    left: {x + 20}px;
+                    top: {y - 15}px;
+                    background-color: rgba(0, 0, 0, 0.8);
+                    color: white;
+                    padding: 4px 8px;
+                    border-radius: 4px;
+                    font-size: 12px;
+                    font-family: monospace;
+                    font-weight: bold;
+                    z-index: 999999;
+                    pointer-events: none;
+                    white-space: nowrap;
+                `;
+                coordDisplay.textContent = '{x}, {y}';
+                document.body.appendChild(coordDisplay);
+                
+                // Remove animation after 300ms
+                setTimeout(() => {{
+                    if (clickAnimation.parentNode) {{
+                        clickAnimation.parentNode.removeChild(clickAnimation);
+                    }}
+                }}, 300);
+                
+                // Remove coordinate display after 2 seconds
+                setTimeout(() => {{
+                    if (coordDisplay.parentNode) {{
+                        coordDisplay.parentNode.removeChild(coordDisplay);
+                    }}
+                }}, 2000);
+                
+                return true;
+            }})()
+            """
+            
+            await page.evaluate(js_code)
+            print(f"[PLAYWRIGHT]: Click animation shown at ({x}, {y})")
+        except Exception as e:
+            print(f"[PLAYWRIGHT]: Click animation failed: {e}")
+            # Don't fail the tap if animation fails
     
     def get_page_info(self) -> Dict[str, Any]:
         """Get current page information using async CDP connection."""
