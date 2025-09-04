@@ -26,7 +26,6 @@ import {
   MenuItem,
   SelectChangeEvent,
   IconButton,
-  Collapse,
   Link,
 } from '@mui/material';
 import { ExpandMore, ExpandLess, OpenInNew } from '@mui/icons-material';
@@ -319,9 +318,7 @@ const ModelReports: React.FC = () => {
         <Typography variant="h4" gutterBottom>
           Model Analysis Reports
         </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Analyze model performance by user interface - view confidence scores, success rates, and execution volumes for nodes and edges
-        </Typography>
+
         
         {/* User Interface Selector */}
         <FormControl size="small" sx={{ minWidth: 250, zIndex: 9999, position: 'relative' }}>
@@ -425,7 +422,7 @@ const ModelReports: React.FC = () => {
                   </Typography>
                 </Box>
                 <Box display="flex" alignItems="center" gap={1}>
-                  <Typography variant="body2">Avg Duration</Typography>
+                  <Typography variant="body2">Duration</Typography>
                   <Typography variant="body2" fontWeight="bold">
                     {avgDuration}
                   </Typography>
@@ -506,7 +503,7 @@ const ModelReports: React.FC = () => {
                     <strong>Volume</strong>
                   </TableCell>
                   <TableCell sx={{ py: 1 }}>
-                    <strong>Avg Duration</strong>
+                    <strong>Duration</strong>
                   </TableCell>
                   <TableCell sx={{ py: 1 }}>
                     <strong>Confidence</strong>
@@ -651,40 +648,20 @@ const ModelReports: React.FC = () => {
                       </TableRow>
                       
                       {/* Expandable Details Row */}
-                      <TableRow>
-                        <TableCell sx={{ py: 0, border: 0 }} colSpan={10}>
-                          <Collapse in={isExpanded} timeout="auto" unmountOnExit>
-                            <Box sx={{ py: 2, px: 2, backgroundColor: 'grey.50' }}>
-                              <Typography variant="subtitle2" gutterBottom>
-                                {result.execution_type === 'action' ? 'Actions Executed:' : 'Verifications Executed:'}
+                      {isExpanded && (
+                        <TableRow sx={{ '&:hover': { backgroundColor: 'transparent !important' } }}>
+                          <TableCell sx={{ py: 0, border: 0 }} colSpan={10}>
+                            <Box sx={{ py: 1, px: 2, backgroundColor: 'grey.50' }}>
+                              <Typography variant="body2" sx={{ fontFamily: 'monospace', color: 'text.secondary' }}>
+                                {result.execution_type === 'action' 
+                                  ? `Executing command 'press_key' with params: {key: '${result.action_set_id?.includes('home') ? 'HOME' : result.action_set_id?.includes('back') ? 'BACK' : 'OK'}', wait_time: 1500}`
+                                  : `waitForElementToAppear Type: adb element: ${result.element_name?.toLowerCase().replace(' ', '_')}`
+                                }
                               </Typography>
-                              <Box sx={{ ml: 2 }}>
-                                {result.execution_type === 'action' ? (
-                                  // Show action commands based on action_set_id
-                                  <Box>
-                                    <Typography variant="body2" sx={{ fontFamily: 'monospace', color: 'text.secondary', mb: 0.5 }}>
-                                      Executing command 'press_key' with params: {'{'}key: '{result.action_set_id?.includes('home') ? 'HOME' : result.action_set_id?.includes('back') ? 'BACK' : 'OK'}', wait_time: 1500{'}'}
-                                    </Typography>
-                                    <Typography variant="body2" sx={{ fontFamily: 'monospace', color: 'success.main' }}>
-                                      ✓ Action completed successfully
-                                    </Typography>
-                                  </Box>
-                                ) : (
-                                  // Show verification commands
-                                  <Box>
-                                    <Typography variant="body2" sx={{ fontFamily: 'monospace', color: 'text.secondary', mb: 0.5 }}>
-                                      waitForElementToAppear Type: adb element: {result.element_name?.toLowerCase().replace(' ', '_')}
-                                    </Typography>
-                                    <Typography variant="body2" sx={{ fontFamily: 'monospace', color: 'success.main' }}>
-                                      ✓ Element found and verified
-                                    </Typography>
-                                  </Box>
-                                )}
-                              </Box>
                             </Box>
-                          </Collapse>
-                        </TableCell>
-                      </TableRow>
+                          </TableCell>
+                        </TableRow>
+                      )}
                     </React.Fragment>
                     );
                   })
