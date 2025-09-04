@@ -72,17 +72,6 @@ export function HLSVideoPlayer({
 
   const finalLayoutConfig = layoutConfig || getStreamViewerLayout(model);
 
-  // Add detailed logging for mobile scaling
-  useEffect(() => {
-    console.log('[@component:HLSVideoPlayer] Layout config details:', {
-      model,
-      isMobileModel: finalLayoutConfig.isMobileModel,
-      aspectRatio: finalLayoutConfig.aspectRatio,
-      objectFit: finalLayoutConfig.objectFit,
-      minHeight: finalLayoutConfig.minHeight,
-      finalLayoutConfig
-    });
-  }, [model, finalLayoutConfig]);
 
   useEffect(() => {
     if (videoElementRef && videoRef.current) {
@@ -419,25 +408,13 @@ export function HLSVideoPlayer({
     >
       <video
         ref={videoRef}
-        style={(() => {
-          const videoStyle = {
-            width: finalLayoutConfig.isMobileModel ? 'auto' : '100%', // Mobile: auto width, Non-mobile: full width
-            height: finalLayoutConfig.isMobileModel ? '100%' : 'auto', // Mobile: full height, Non-mobile: auto height
-            objectFit: isExpanded ? 'fill' : finalLayoutConfig.objectFit || 'contain',
-            backgroundColor: '#000000',
-            display: streamLoaded ? 'block' : 'none',
-          };
-          
-          console.log('[@component:HLSVideoPlayer] Video element style applied:', {
-            model,
-            isMobileModel: finalLayoutConfig.isMobileModel,
-            videoStyle,
-            isExpanded,
-            streamLoaded
-          });
-          
-          return videoStyle;
-        })()}
+        style={{
+          width: finalLayoutConfig.isMobileModel ? 'auto' : '100%', // Mobile: auto width, Non-mobile: full width
+          height: finalLayoutConfig.isMobileModel ? '100%' : 'auto', // Mobile: full height, Non-mobile: auto height
+          objectFit: isExpanded ? 'fill' : finalLayoutConfig.objectFit || 'contain',
+          backgroundColor: '#000000',
+          display: streamLoaded ? 'block' : 'none',
+        }}
         autoPlay
         playsInline
         muted={muted}

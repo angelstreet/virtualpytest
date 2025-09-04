@@ -2,7 +2,6 @@ import { Error as ErrorIcon } from '@mui/icons-material';
 import { Card, Typography, Box, Chip, CircularProgress } from '@mui/material';
 import React, { useState, useCallback, useMemo } from 'react';
 
-import { DEFAULT_DEVICE_RESOLUTION } from '../../config/deviceResolutions';
 import { useStream } from '../../hooks/controller';
 import { useToast } from '../../hooks/useToast';
 import { Host, Device } from '../../types/common/Host_Types';
@@ -209,24 +208,14 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
                     isStreamActive={true}
                     isCapturing={false}
                     model={device?.device_model || 'unknown'}
-                    layoutConfig={(() => {
-                      const config = {
-                        minHeight: '0px', // Let container control height
-                        aspectRatio: isMobile 
-                          ? `${DEFAULT_DEVICE_RESOLUTION.height}/${DEFAULT_DEVICE_RESOLUTION.width}` 
-                          : `${DEFAULT_DEVICE_RESOLUTION.width}/${DEFAULT_DEVICE_RESOLUTION.height}`,
-                        objectFit: 'contain' as const,
-                        isMobileModel: isMobile,
-                      };
-                      
-                      console.log('[@component:RecHostPreview] HLS layout config:', {
-                        deviceModel: device?.device_model,
-                        isMobile,
-                        config
-                      });
-                      
-                      return config;
-                    })()}
+                    layoutConfig={{
+                      minHeight: '0px', // Let container control height
+                      aspectRatio: isMobile 
+                        ? '9/16' 
+                        : '16/9',
+                      objectFit: 'contain' as const,
+                      isMobileModel: isMobile,
+                    }}
                     isExpanded={false}
                     muted={true} // Always muted in preview
                     sx={{
