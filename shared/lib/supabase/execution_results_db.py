@@ -90,7 +90,7 @@ def get_execution_results(
         
         # Batch fetch script reports for report URLs
         if script_result_ids:
-            scripts_result = supabase.table('script_results').select('id, report_r2_url').in_('id', script_result_ids).execute()
+            scripts_result = supabase.table('script_results').select('id, html_report_r2_url').in_('id', script_result_ids).execute()
             for script in scripts_result.data:
                 script_cache[script['id']] = script
         
@@ -141,7 +141,7 @@ def get_execution_results(
             # Add script report URL if available
             script_result_id = execution.get('script_result_id')
             if script_result_id and script_result_id in script_cache:
-                enriched_execution['script_report_url'] = script_cache[script_result_id].get('report_r2_url')
+                enriched_execution['script_report_url'] = script_cache[script_result_id].get('html_report_r2_url')
             
             enriched_results.append(enriched_execution)
         
