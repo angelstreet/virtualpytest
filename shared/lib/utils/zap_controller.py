@@ -237,7 +237,7 @@ class ZapController:
     def _get_max_images_for_device(self, device_model: str) -> int:
         """Get device-specific max_images for analysis based on device capabilities"""
         if 'vnc' in device_model.lower():
-            return 8  # VNC: 8 seconds * 1fps = 8 images
+            return 16  # VNC: 16 seconds * 1fps = 16 images
         elif 'stb' in device_model.lower():
             return 25  # STB: 5 seconds * 5fps = 25 images
         elif 'android_mobile' in device_model.lower():
