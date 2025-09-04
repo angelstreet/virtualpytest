@@ -659,11 +659,11 @@ const ModelReports: React.FC = () => {
                         <TableCell sx={{ py: 0.5 }}>{result.element_name}</TableCell>
                         <TableCell sx={{ py: 0.5 }}>
                           <Typography variant="body2" sx={{ 
-                            color: metrics?.volume === 0 ? '#666' : 
+                            color: (metrics?.volume || 0) === 0 ? 'text.secondary' : 
                                    (metrics?.success_rate || 0) >= 0.8 ? 'success.main' : 
                                    (metrics?.success_rate || 0) >= 0.5 ? 'warning.main' : 'error.main'
                           }}>
-                            {metrics?.volume === 0 ? 'N/A' : `${((metrics?.success_rate || 0) * 100).toFixed(0)}%`}
+                            {(metrics?.volume || 0) === 0 ? 'N/A' : `${((metrics?.success_rate || 0) * 100).toFixed(0)}%`}
                           </Typography>
                         </TableCell>
                         <TableCell sx={{ py: 0.5 }}>
@@ -683,12 +683,12 @@ const ModelReports: React.FC = () => {
                               sx={{ 
                                 fontWeight: 'bold',
                                 fontSize: '0.9rem',
-                                color: metrics?.volume === 0 ? '#666' : 
+                                color: (metrics?.volume || 0) === 0 ? 'text.secondary' : 
                                        (metrics?.confidence || 0) >= 0.7 ? 'success.main' : 
                                        (metrics?.confidence || 0) >= 0.5 ? 'warning.main' : 'error.main'
                               }}
                             >
-                              {metrics?.volume === 0 ? 'N/A' : `${metrics?.confidence ? Math.round(metrics.confidence * 10) : 0}/10`}
+                              {(metrics?.volume || 0) === 0 ? 'N/A' : `${metrics?.confidence ? Math.round(metrics.confidence * 10) : 0}/10`}
                             </Typography>
                           </Box>
                         </TableCell>
@@ -720,7 +720,7 @@ const ModelReports: React.FC = () => {
                       {isExpanded && (
                         <TableRow sx={{ '&:hover': { backgroundColor: 'transparent !important' } }}>
                           <TableCell sx={{ py: 0, border: 0 }} colSpan={10}>
-                            <Box sx={{ py: 1, px: 2, backgroundColor: 'grey.50' }}>
+                            <Box sx={{ py: 1, px: 2 }}>
                               <Typography variant="body2" sx={{ fontFamily: 'monospace', color: 'text.secondary' }}>
                                 {result.execution_type === 'action' 
                                   ? `Executing command 'press_key' with params: {key: '${result.action_set_id?.includes('home') ? 'HOME' : result.action_set_id?.includes('back') ? 'BACK' : 'OK'}', wait_time: 1500}`
