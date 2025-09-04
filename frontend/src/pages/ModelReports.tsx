@@ -5,7 +5,6 @@ import {
   PlayArrow as ActionIcon,
   Visibility as VerificationIcon,
   FilterList as FilterIcon,
-  Assessment as AnalysisIcon,
 } from '@mui/icons-material';
 import {
   Box,
@@ -44,7 +43,7 @@ const ModelReports: React.FC = () => {
   const metricsHook = useMetrics();
   const [executionResults, setExecutionResults] = useState<ExecutionResult[]>([]);
   const [userInterfaces, setUserInterfaces] = useState<any[]>([]);
-  const [selectedUserInterface, setSelectedUserInterface] = useState<string>('all');
+  const [selectedUserInterface, setSelectedUserInterface] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [treeToInterfaceMap, setTreeToInterfaceMap] = useState<Record<string, string>>({});
@@ -58,11 +57,8 @@ const ModelReports: React.FC = () => {
         setLoading(true);
         setError(null);
 
-        // Load both execution results and user interfaces in parallel
-        const [results, interfaces] = await Promise.all([
-          getAllExecutionResults(),
-          getAllUserInterfaces(),
-        ]);
+        // Load user interfaces first
+        const interfaces = await getAllUserInterfaces();
 
         // Create mapping from tree_id to userinterface_name
         const treeToUIMap: Record<string, string> = {};
@@ -88,7 +84,11 @@ const ModelReports: React.FC = () => {
         setUserInterfaces(interfaces);
         setTreeToInterfaceMap(treeToUIMap);
         setTreeToNameMap(treeNameMap);
-        setExecutionResults(results);
+        
+        // Set first user interface as default
+        if (interfaces.length > 0 && !selectedUserInterface) {
+          setSelectedUserInterface(interfaces[0].name);
+        }
       } catch (err) {
         console.error('[@component:ModelReports] Error loading data:', err);
         setError(err instanceof Error ? err.message : 'Failed to load data');
@@ -100,24 +100,41 @@ const ModelReports: React.FC = () => {
     loadData();
   }, [getAllExecutionResults, getAllUserInterfaces]);
 
-  // Load metrics when user interface changes
+  // Load execution results and metrics when user interface changes
   useEffect(() => {
-    if (selectedUserInterface !== 'all') {
-      const selectedUI = userInterfaces.find(ui => ui.name === selectedUserInterface);
-      if (selectedUI?.root_tree?.id) {
-        metricsHook.fetchMetrics(selectedUI.root_tree.id);
+    const loadExecutionResultsForInterface = async () => {
+      if (!selectedUserInterface || userInterfaces.length === 0) return;
+      
+      try {
+        setLoading(true);
+        setError(null);
+        
+        const selectedUI = userInterfaces.find(ui => ui.name === selectedUserInterface);
+        if (selectedUI?.root_tree?.id) {
+          // Load execution results for this specific tree only
+          const results = await getAllExecutionResults();
+          // Filter results by tree_id to reduce processing
+          const filteredResults = results.filter(result => 
+            treeToInterfaceMap[result.tree_id] === selectedUserInterface
+          );
+          setExecutionResults(filteredResults);
+          
+          // Load metrics for this tree
+          metricsHook.fetchMetrics(selectedUI.root_tree.id);
+        }
+      } catch (err) {
+        console.error('[@component:ModelReports] Error loading execution results:', err);
+        setError(err instanceof Error ? err.message : 'Failed to load execution results');
+      } finally {
+        setLoading(false);
       }
-    }
-  }, [selectedUserInterface, userInterfaces, metricsHook]);
+    };
 
-  // Filter execution results based on selected user interface and filter type
+    loadExecutionResultsForInterface();
+  }, [selectedUserInterface, userInterfaces, treeToInterfaceMap, getAllExecutionResults, metricsHook]);
+
+  // Filter execution results based on execution type only (user interface already filtered)
   const filteredResults = executionResults.filter((result) => {
-    // Filter by user interface
-    if (selectedUserInterface !== 'all') {
-      const resultUI = treeToInterfaceMap[result.tree_id];
-      if (resultUI !== selectedUserInterface) return false;
-    }
-    
     // Filter by execution type
     if (filter === 'all') return true;
     return result.execution_type === filter;
@@ -145,7 +162,7 @@ const ModelReports: React.FC = () => {
         )
       : 'N/A';
 
-  // Separate by execution type (for all data stats)
+  // Separate by execution type (for current interface stats)
   const actionExecutions = executionResults.filter((result) => result.execution_type === 'action');
   const verificationExecutions = executionResults.filter(
     (result) => result.execution_type === 'verification',
@@ -196,24 +213,24 @@ const ModelReports: React.FC = () => {
         </Typography>
         
         {/* User Interface Selector */}
-        <FormControl size="small" sx={{ minWidth: 200 }}>
+        <FormControl size="small" sx={{ minWidth: 250 }}>
           <InputLabel>User Interface</InputLabel>
           <Select
             value={selectedUserInterface}
             label="User Interface"
             onChange={handleUserInterfaceChange}
+            disabled={userInterfaces.length === 0}
           >
-            <MenuItem value="all">
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <AnalysisIcon fontSize="small" />
-                All Interfaces
-              </Box>
-            </MenuItem>
             {userInterfaces.map((ui) => (
               <MenuItem key={ui.id} value={ui.name}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <ModelIcon fontSize="small" />
                   {ui.name}
+                  {ui.root_tree?.id && (
+                    <Typography variant="caption" sx={{ ml: 1, opacity: 0.7 }}>
+                      ({ui.root_tree.name || 'Root Tree'})
+                    </Typography>
+                  )}
                 </Box>
               </MenuItem>
             ))}
@@ -235,9 +252,17 @@ const ModelReports: React.FC = () => {
               <Box display="flex" alignItems="center" gap={1}>
                 <ModelIcon color="primary" />
                 <Typography variant="h6">Execution Stats</Typography>
+                {selectedUserInterface && (
+                  <Chip
+                    label={selectedUserInterface}
+                    size="small"
+                    variant="outlined"
+                    color="primary"
+                  />
+                )}
                 {filter !== 'all' && (
                   <Chip
-                    label={`Filtered: ${filter === 'action' ? 'Nodes' : 'Edges'}`}
+                    label={`Filtered: ${filter === 'action' ? 'Edges' : 'Nodes'}`}
                     size="small"
                     variant="outlined"
                   />
@@ -274,13 +299,13 @@ const ModelReports: React.FC = () => {
                 {filter === 'all' && (
                   <>
                     <Box display="flex" alignItems="center" gap={1}>
-                      <Typography variant="body2">Actions</Typography>
+                      <Typography variant="body2">Edges</Typography>
                       <Typography variant="body2" fontWeight="bold">
                         {actionExecutions.length}
                       </Typography>
                     </Box>
                     <Box display="flex" alignItems="center" gap={1}>
-                      <Typography variant="body2">Verifications</Typography>
+                      <Typography variant="body2">Nodes</Typography>
                       <Typography variant="body2" fontWeight="bold">
                         {verificationExecutions.length}
                       </Typography>
