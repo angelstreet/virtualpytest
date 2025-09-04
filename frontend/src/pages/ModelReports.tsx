@@ -232,6 +232,12 @@ const ModelReports: React.FC = () => {
       metrics = metricsHook.getNodeMetrics(result.element_id);
     }
     
+    // Hide edges with volume = 0 (unexecuted edge directions)
+    if (result.execution_type === 'action') {
+      const volume = metrics?.volume || 0;
+      if (volume === 0) return false; // Hide unexecuted edges
+    }
+    
     // Filter by failure rate (not 100% success)
     if (showFailuresOnly) {
       const successRate = metrics?.success_rate || 0;

@@ -646,11 +646,6 @@ const RecHostStreamModalContent: React.FC<{
                   }}
                   isExpanded={false}
                   muted={isMuted}
-                  sx={{
-                    width: '100%',
-                    height: '100%',
-                    maxHeight: '100%', // Ensure video doesn't exceed available container height
-                  }}
                 />
               )
             ) : (

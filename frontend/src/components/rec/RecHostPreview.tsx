@@ -219,11 +219,6 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
                   }}
                   isExpanded={false}
                   muted={true} // Always muted in preview
-                  sx={{
-                    width: '100%',
-                    height: '100%',
-                    maxHeight: '100%',
-                  }}
                 />
                 {/* Click overlay to open full modal */}
                 <Box

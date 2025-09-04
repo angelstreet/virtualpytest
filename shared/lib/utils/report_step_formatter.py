@@ -613,9 +613,11 @@ def format_analysis_results(step: Dict) -> str:
             # Channel information
             if channel_info.get('channel_name'):
                 channel_display = channel_info['channel_name']
+                if channel_info.get('channel_number'):
+                    channel_display += f" ({channel_info['channel_number']})"
                 if channel_info.get('program_name'):
                     channel_display += f" - {channel_info['program_name']}"
-                analysis_html += f'<div class="analysis-detail">Channel: {channel_display}</div>'
+                analysis_html += f'<div class="analysis-detail" style="word-wrap: break-word; max-width: none;">Channel: {channel_display}</div>'
                 
                 if channel_info.get('start_time') and channel_info.get('end_time'):
                     analysis_html += f'<div class="analysis-detail">Program Time: {channel_info["start_time"]}-{channel_info["end_time"]}</div>'
@@ -625,6 +627,13 @@ def format_analysis_results(step: Dict) -> str:
             blackscreen_start = zapping_analysis.get('blackscreen_start_image')
             blackscreen_end = zapping_analysis.get('blackscreen_end_image') 
             first_content = zapping_analysis.get('first_content_after_blackscreen')
+            
+            # Debug logging for missing images
+            print(f"[@report_step_formatter:format_analysis_results] Zapping images debug:")
+            print(f"  before_blackscreen: {before_blackscreen}")
+            print(f"  blackscreen_start: {blackscreen_start}")
+            print(f"  blackscreen_end: {blackscreen_end}")
+            print(f"  first_content: {first_content}")
             
             if before_blackscreen or blackscreen_start or blackscreen_end or first_content:
                 from .report_formatting import create_verification_image_modal_data
@@ -646,7 +655,7 @@ def format_analysis_results(step: Dict) -> str:
                         'title': 'Complete Zapping Sequence Analysis',
                         'images': images
                     }
-                    modal_data_json = json.dumps(modal_data).replace('"', '&quot;').replace("'", "&#x27;")
+                    modal_data_json = json.dumps(modal_data).replace('"', '&quot;').replace("'", "&#x27;").replace(":", "&#58;").replace(":", "&#58;")
                     
                     thumbnails_html = "<div class='zapping-sequence-thumbnails' style='margin-top: 8px; display: flex; gap: 8px;'>"
                     
@@ -689,7 +698,7 @@ def format_analysis_results(step: Dict) -> str:
                     'title': 'Zapping Detection Failure - Analyzed Images',
                     'images': failure_images
                 }
-                modal_data_json = json.dumps(modal_data).replace('"', '&quot;').replace("'", "&#x27;")
+                modal_data_json = json.dumps(modal_data).replace('"', '&quot;').replace("'", "&#x27;").replace(":", "&#58;")
                 
                 thumbnails_html = "<div class='zapping-failure-thumbnails' style='margin-top: 8px; display: flex; gap: 8px;'>"
                 
