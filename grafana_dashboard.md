@@ -297,6 +297,208 @@ LIMIT 500
 
 ---
 
+### Panel 5: Edge Performance Histogram
+**Type:** Bar Chart (Vertical)  
+**Description:** Shows success rate and execution volume for each edge element
+
+```sql
+SELECT 
+  -- Edge name (formatted like in the table)
+  CASE 
+    WHEN er.action_set_id IS NOT NULL AND er.action_set_id LIKE '%_to_%' THEN
+      REPLACE(SPLIT_PART(er.action_set_id, '_to_', 1), '_', ' ') || ' → ' || 
+      REPLACE(SPLIT_PART(er.action_set_id, '_to_', 2), '_', ' ')
+    WHEN er.action_set_id IS NOT NULL THEN
+      REPLACE(er.action_set_id, '_', ' ')
+    ELSE
+      'Edge ' || SUBSTRING(er.edge_id, 1, 8)
+  END as "Edge Name",
+  
+  -- Success Rate
+  ROUND(
+    (SUM(CASE WHEN er.success THEN 1 ELSE 0 END)::decimal / COUNT(*)) * 100, 1
+  ) as "Success Rate",
+  
+  -- Volume
+  COUNT(*) as "Volume"
+
+FROM execution_results er
+WHERE er.execution_type = 'action' 
+  AND $__timeFilter(er.executed_at)
+GROUP BY 
+  CASE 
+    WHEN er.action_set_id IS NOT NULL AND er.action_set_id LIKE '%_to_%' THEN
+      REPLACE(SPLIT_PART(er.action_set_id, '_to_', 1), '_', ' ') || ' → ' || 
+      REPLACE(SPLIT_PART(er.action_set_id, '_to_', 2), '_', ' ')
+    WHEN er.action_set_id IS NOT NULL THEN
+      REPLACE(er.action_set_id, '_', ' ')
+    ELSE
+      'Edge ' || SUBSTRING(er.edge_id, 1, 8)
+  END,
+  er.edge_id, er.action_set_id
+HAVING COUNT(*) >= 3  -- Only show edges with at least 3 executions
+ORDER BY "Success Rate" ASC, "Volume" DESC
+LIMIT 15
+```
+
+**Configuration:**
+- Visualization: Bar Chart (Vertical)
+- X-axis: Edge Name
+- Title: "Edge Performance - Success Rate & Volume"
+
+**Configure the Panel:**
+Right Panel → Field Overrides:
+1. Click **"+ Add field override"**
+2. **First Override (Success Rate):**
+   - Fields with name: `Success Rate`
+   - Add override property: **"Axis" → "Left"**
+   - Add override property: **"Color" → "Green"**
+   - Add override property: **"Unit" → "Percent (0-100)"**
+3. **Second Override (Volume):**
+   - Click **"+ Add field override"** again
+   - Fields with name: `Volume`
+   - Add override property: **"Axis" → "Right"**
+   - Add override property: **"Color" → "Blue"**
+   - Add override property: **"Unit" → "Short"**
+
+---
+
+### Panel 6: Node Performance Histogram
+**Type:** Bar Chart (Vertical)  
+**Description:** Shows success rate and execution volume for each node element
+
+```sql
+SELECT 
+  -- Node name from navigation_nodes
+  COALESCE(nn.label, 'Node ' || SUBSTRING(er.node_id, 1, 8)) as "Node Name",
+  
+  -- Success Rate
+  ROUND(
+    (SUM(CASE WHEN er.success THEN 1 ELSE 0 END)::decimal / COUNT(*)) * 100, 1
+  ) as "Success Rate",
+  
+  -- Volume
+  COUNT(*) as "Volume"
+
+FROM execution_results er
+LEFT JOIN navigation_nodes nn ON (er.node_id = nn.node_id AND er.tree_id = nn.tree_id)
+WHERE er.execution_type = 'verification' 
+  AND $__timeFilter(er.executed_at)
+GROUP BY er.node_id, er.tree_id, nn.label
+HAVING COUNT(*) >= 3  -- Only show nodes with at least 3 executions
+ORDER BY "Success Rate" ASC, "Volume" DESC
+LIMIT 15
+```
+
+**Configuration:**
+- Visualization: Bar Chart (Vertical)
+- X-axis: Node Name
+- Title: "Node Performance - Success Rate & Volume"
+
+**Configure the Panel:**
+Right Panel → Field Overrides:
+1. Click **"+ Add field override"**
+2. **First Override (Success Rate):**
+   - Fields with name: `Success Rate`
+   - Add override property: **"Axis" → "Left"**
+   - Add override property: **"Color" → "Green"**
+   - Add override property: **"Unit" → "Percent (0-100)"**
+3. **Second Override (Volume):**
+   - Click **"+ Add field override"** again
+   - Fields with name: `Volume`
+   - Add override property: **"Axis" → "Right"**
+   - Add override property: **"Color" → "Purple"**
+   - Add override property: **"Unit" → "Short"**
+
+---
+
+### Panel 7: Platform vs Channel Success Matrix
+**Type:** Table  
+**Description:** Matrix showing feature success (Motion/Audio/Subtitles) across channel-platform combinations with color coding
+
+```sql
+SELECT 
+  -- Channel number as first column for sorting
+  CASE 
+    WHEN zr.channel_number IS NOT NULL AND zr.channel_number != '' THEN zr.channel_number
+    ELSE '0'
+  END as "Ch#",
+  
+  -- Channel name as second column
+  COALESCE(zr.channel_name, 'Unknown Channel') as "Channel",
+  
+  -- Device model
+  COALESCE(zr.device_model, 'unknown') as "Platform",
+  
+  -- Individual feature metrics (Motion, Audio, Subtitles order)
+  ROUND((SUM(CASE WHEN zr.motion_detected THEN 1 ELSE 0 END)::decimal / COUNT(*)) * 100, 1) as "Motion %",
+  ROUND((SUM(CASE WHEN zr.audio_speech_detected THEN 1 ELSE 0 END)::decimal / COUNT(*)) * 100, 1) as "Audio %",
+  ROUND((SUM(CASE WHEN zr.subtitles_detected THEN 1 ELSE 0 END)::decimal / COUNT(*)) * 100, 1) as "Subtitles %",
+  
+  COUNT(*) as "Tests"
+  
+FROM zap_results zr
+WHERE $__timeFilter(zr.started_at)
+  AND zr.channel_name IS NOT NULL
+GROUP BY 1, 2, 3
+ORDER BY 
+  CAST(CASE 
+    WHEN zr.channel_number IS NOT NULL AND zr.channel_number != '' THEN zr.channel_number
+    ELSE '0'
+  END AS INTEGER), 
+  "Channel", "Platform"
+```
+
+**Configuration:**
+- **Visualization**: Table
+- **Title**: "Platform vs Channel Feature Success Matrix"
+
+**Field Overrides:**
+Right Panel → Field Overrides:
+
+1. **Click "+ Add field override"**
+2. **First Override (Motion %):**
+   - Fields with name: `Motion %`
+   - Add override property: **"Cell display mode" → "Color background"**
+   - Add override property: **"Color scheme" → "Red-Yellow-Green"**
+   - Add override property: **"Unit" → "Percent (0-100)"**
+   - Add override property: **"Thresholds"**:
+     - Base: Transparent
+     - Red: 0-33
+     - Yellow: 34-66
+     - Green: 67-100
+
+3. **Second Override (Audio %):**
+   - Click **"+ Add field override"** again
+   - Fields with name: `Audio %`
+   - Add override property: **"Cell display mode" → "Color background"**
+   - Add override property: **"Color scheme" → "Red-Yellow-Green"**
+   - Add override property: **"Unit" → "Percent (0-100)"**
+   - Add override property: **"Thresholds"**:
+     - Base: Transparent
+     - Red: 0-33
+     - Yellow: 34-66
+     - Green: 67-100
+
+4. **Third Override (Subtitles %):**
+   - Click **"+ Add field override"** again
+   - Fields with name: `Subtitles %`
+   - Add override property: **"Cell display mode" → "Color background"**
+   - Add override property: **"Color scheme" → "Red-Yellow-Green"**
+   - Add override property: **"Unit" → "Percent (0-100)"**
+   - Add override property: **"Thresholds"**:
+     - Base: Transparent
+     - Red: 0-33
+     - Yellow: 34-66
+     - Green: 67-100
+
+**Result:** Color-coded table where each percentage cell shows:
+- 🟢 Green background: 67-100% (Working well)
+- 🟡 Yellow background: 34-66% (Some issues)
+- 🔴 Red background: 0-33% (Major issues)
+
+---
+
 ## 🎨 Dashboard Layout
 
 ```
@@ -305,6 +507,16 @@ LIMIT 500
 │ Success Rate │    (Bar Gauge)       │   Time (Time Series)  │
 │   (Stat)     │                      │                       │
 └──────────────┴──────────────────────┴───────────────────────┘
+┌──────────────────────────────┬────────────────────────────────┐
+│    Edge Performance          │     Node Performance           │
+│   (Success Rate & Volume)    │   (Success Rate & Volume)      │
+│      [Bar Chart]             │       [Bar Chart]              │
+└──────────────────────────────┴────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│         Platform vs Channel Success Matrix                  │
+│     (Color-coded Motion/Subtitles/Audio Table)             │
+│                    [Table]                                  │
+└─────────────────────────────────────────────────────────────┘
 ┌─────────────────────────────────────────────────────────────┐
 │                ModelReports Table                           │
 │              (Detailed Execution Results)                   │
@@ -318,6 +530,7 @@ LIMIT 500
 ### Data Sources
 - **Primary**: `execution_results` table
 - **Supporting**: `navigation_trees`, `userinterfaces`, `navigation_nodes`, `edge_metrics`, `node_metrics`, `script_results`
+- **Channel Testing**: `zap_results` table (for fullzap.py script analysis)
 
 ### Time Filtering
 All panels use `$__timeFilter(executed_at)` for consistent time range filtering via Grafana's time picker.
@@ -339,10 +552,18 @@ The table query properly handles bidirectional edges by:
 
 1. **Create Dashboard**: Import or create new dashboard in Grafana
 2. **Add Data Source**: Configure PostgreSQL connection to your Supabase database
-3. **Add Panels**: Create 4 panels using the queries above
-4. **Configure Layout**: Arrange panels as shown in the layout diagram
-5. **Set Time Range**: Configure default time range (e.g., Last 24 hours)
-6. **Save Dashboard**: Save with appropriate name and tags
+3. **Add Panels**: Create 7 panels using the queries above:
+   - Panel 1: Overall Success Rate (Stat)
+   - Panel 2: Edge & Node Success Rates (Bar Gauge)
+   - Panel 3: Executions Over Time (Time Series)
+   - Panel 4: ModelReports Table (Table)
+   - Panel 5: Edge Performance Histogram (Bar Chart)
+   - Panel 6: Node Performance Histogram (Bar Chart)
+   - Panel 7: Platform vs Channel Success Matrix (Table)
+4. **Configure Dual Axis**: Follow the Field Overrides instructions for Panels 5 & 6
+5. **Configure Layout**: Arrange panels as shown in the layout diagram
+6. **Set Time Range**: Configure default time range (e.g., Last 24 hours)
+7. **Save Dashboard**: Save with appropriate name and tags
 
 ---
 

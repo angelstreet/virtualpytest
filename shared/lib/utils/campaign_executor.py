@@ -291,6 +291,8 @@ class CampaignExecutor:
             stdout_lines = []
             script_result_id = None
             script_success = None
+            report_url = None
+            logs_url = None
             timeout_seconds = 3600  # 1 hour timeout
             start_time_for_timeout = time.time()
             
@@ -307,6 +309,22 @@ class CampaignExecutor:
                         script_success = output.strip().split("SCRIPT_SUCCESS:", 1)[1].lower() == "true"
                         status_emoji = "✅" if script_success else "❌"
                         print(f"{status_emoji} [Campaign] Script reported success: {script_success}")
+                    elif '[@cloudflare_utils:upload_script_report] INFO: Uploaded script report:' in output:
+                        # Extract report URL from cloudflare upload logs
+                        try:
+                            report_path = output.split('Uploaded script report: ')[1].strip()
+                            base_url = os.environ.get('CLOUDFLARE_R2_PUBLIC_URL', 'https://pub-604f1a4ce32747778c6d5ac5e3100217.r2.dev')
+                            report_url = f"{base_url.rstrip('/')}/{report_path}"
+                            print(f"📊 [Campaign] Report URL captured: {report_url}")
+                        except Exception as e:
+                            print(f"⚠️ [Campaign] Failed to extract report URL: {e}")
+                    elif '[@utils:report_utils:generate_and_upload_script_report] Logs uploaded:' in output:
+                        # Extract logs URL from upload logs
+                        try:
+                            logs_url = output.split('Logs uploaded: ')[1].strip()
+                            print(f"📝 [Campaign] Logs URL captured: {logs_url}")
+                        except Exception as e:
+                            print(f"⚠️ [Campaign] Failed to extract logs URL: {e}")
                     else:
                         # Print with campaign prefix to distinguish from script output
                         print(f"[Script] {output.rstrip()}")
@@ -361,7 +379,9 @@ class CampaignExecutor:
                     "script_result_id": script_result_id,
                     "execution_time_ms": execution_time_ms,
                     "stdout": result.stdout,
-                    "execution_order": execution_order
+                    "execution_order": execution_order,
+                    "report_url": report_url,
+                    "logs_url": logs_url
                 }
             else:
                 error_msg = f"Script failed with return code {result.returncode}"
@@ -376,7 +396,9 @@ class CampaignExecutor:
                     "error": error_msg,
                     "stderr": result.stderr,
                     "stdout": result.stdout,
-                    "execution_order": execution_order
+                    "execution_order": execution_order,
+                    "report_url": report_url,
+                    "logs_url": logs_url
                 }
                 
         except subprocess.TimeoutExpired:
@@ -389,7 +411,9 @@ class CampaignExecutor:
                 "script_result_id": None,
                 "execution_time_ms": execution_time_ms,
                 "error": error_msg,
-                "execution_order": execution_order
+                "execution_order": execution_order,
+                "report_url": None,
+                "logs_url": None
             }
             
         except Exception as e:
@@ -402,7 +426,9 @@ class CampaignExecutor:
                 "script_result_id": None,
                 "execution_time_ms": execution_time_ms,
                 "error": error_msg,
-                "execution_order": execution_order
+                "execution_order": execution_order,
+                "report_url": None,
+                "logs_url": None
             }
     
     def _build_success_result(self, context: CampaignExecutionContext) -> Dict[str, Any]:

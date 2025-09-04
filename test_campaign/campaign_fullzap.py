@@ -227,6 +227,15 @@ def main():
                     status = "✅ SUCCESS" if script_exec['success'] else "❌ FAILED"
                     time_s = script_exec['execution_time_ms'] / 1000
                     print(f"   {i}. {script_exec['script_name']}: {status} ({time_s:.1f}s)")
+                    
+                    # Display report URL if available
+                    if script_exec.get('report_url'):
+                        print(f"      📊 Report: {script_exec['report_url']}")
+                    
+                    # Display logs URL if available
+                    if script_exec.get('logs_url'):
+                        print(f"      📝 Logs: {script_exec['logs_url']}")
+                    
                     if not script_exec['success'] and 'error' in script_exec:
                         print(f"      ❌ Error: {script_exec['error']}")
             
@@ -249,6 +258,14 @@ def main():
                     status = "✅ SUCCESS" if script_exec['success'] else "❌ FAILED"
                     time_s = script_exec['execution_time_ms'] / 1000
                     print(f"   {i}. {script_exec['script_name']}: {status} ({time_s:.1f}s)")
+                    
+                    # Display report URL if available
+                    if script_exec.get('report_url'):
+                        print(f"      📊 Report: {script_exec['report_url']}")
+                    
+                    # Display logs URL if available
+                    if script_exec.get('logs_url'):
+                        print(f"      📝 Logs: {script_exec['logs_url']}")
             
             exit_code = 1
         
