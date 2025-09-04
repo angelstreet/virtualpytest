@@ -351,7 +351,8 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
         },
       });
       const result = await executeCommand(commandJson);
-      setNavigateUrl('');
+      // Don't reset navigateUrl to allow reuse
+      // setNavigateUrl('');
 
       // Set visual feedback based on result
       setNavigateStatus(result.success ? 'success' : 'error');
@@ -383,7 +384,8 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
         params: { selector: clickSelector.trim() },
       });
       const result = await executeCommand(commandJson);
-      setClickSelector('');
+      // Don't reset clickSelector to allow reuse
+      // setClickSelector('');
 
       // Show element highlight if coordinates are available
       showElementHighlight(result);
@@ -425,8 +427,9 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
         params: { x, y },
       });
       const result = await executeCommand(commandJson);
-      setTapX('');
-      setTapY('');
+      // Don't reset tap coordinates to allow reuse
+      // setTapX('');
+      // setTapY('');
 
       // Set visual feedback based on result
       setTapStatus(result.success ? 'success' : 'error');
@@ -459,7 +462,8 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
       });
 
       const result = await executeCommand(commandJson);
-      setFindSelector('');
+      // Don't reset findSelector to allow reuse
+      // setFindSelector('');
 
       // Show element highlight if coordinates are available
       showElementHighlight(result);
