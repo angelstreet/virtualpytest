@@ -99,40 +99,23 @@ def get_execution_results(
                 enriched_execution['tree_name'] = tree_data.get('name', userinterface_name or 'Unknown Tree')
                 
                 if execution.get('execution_type') == 'action' and execution.get('edge_id'):
-                    # Get edge information from cache
-                    edge_id = execution.get('edge_id')
-                    edge_data = edge_cache.get(edge_id)
+                    # For edge actions, use action_set_id formatted with arrows
+                    action_set_id = execution.get('action_set_id')
                     
-                    if edge_data:
-                        source_id = edge_data.get('source_node_id')
-                        target_id = edge_data.get('target_node_id')
-                        
-                        # Get node labels from cache
-                        source_label = 'Unknown'
-                        target_label = 'Unknown'
-                        
-                        if source_id and source_id in node_cache:
-                            source_label = node_cache[source_id].get('label', source_id)
-                        
-                        if target_id and target_id in node_cache:
-                            target_label = node_cache[target_id].get('label', target_id)
-                        
-                        # Use action_set_id to determine the specific direction executed
-                        action_set_id = execution.get('action_set_id')
-                        if action_set_id and edge_data.get('action_sets'):
-                            # Find the specific action set that was executed
-                            action_sets = edge_data.get('action_sets', [])
-                            executed_action_set = next((s for s in action_sets if s.get('id') == action_set_id), None)
-                            if executed_action_set:
-                                edge_name = executed_action_set.get('label', f"{source_label} → {target_label}")
-                            else:
-                                edge_name = f"{source_label} ↔ {target_label} (unknown direction)"
-                        else:
-                            # Fallback for old records without action_set_id
-                            edge_name = f"{source_label} ↔ {target_label}"
-                        
+                    if action_set_id and '_to_' in action_set_id:
+                        # Format action_set_id: "home_to_live" becomes "home → live"
+                        parts = action_set_id.split('_to_')
+                        from_part = parts[0].replace('_', ' ')
+                        to_part = parts[1].replace('_', ' ')
+                        edge_name = f"{from_part} → {to_part}"
+                        enriched_execution['element_name'] = edge_name
+                    elif action_set_id:
+                        # For action_set_id without _to_, just replace underscores
+                        edge_name = action_set_id.replace('_', ' ')
                         enriched_execution['element_name'] = edge_name
                     else:
+                        # Fallback for old records without action_set_id
+                        edge_id = execution.get('edge_id')
                         enriched_execution['element_name'] = f"Edge {edge_id[:8]}"
                     
                 elif execution.get('execution_type') == 'verification' and execution.get('node_id'):
