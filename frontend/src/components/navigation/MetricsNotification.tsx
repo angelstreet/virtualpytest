@@ -5,7 +5,7 @@
 
 import React, { useState } from 'react';
 import { Snackbar, Alert, Box, IconButton, Tooltip, Fab } from '@mui/material';
-import { Warning, Error, Close, Notifications } from '@mui/icons-material';
+import { Warning, Error, Close } from '@mui/icons-material';
 
 import { MetricsNotificationData } from '../../types/navigation/Metrics_Types';
 
@@ -19,7 +19,6 @@ export interface MetricsNotificationProps {
 export const MetricsNotification: React.FC<MetricsNotificationProps> = ({
   notificationData,
   onViewDetails,
-  onClose,
   autoHideDuration = 6000, // 6 seconds
 }) => {
   const [isMinimized, setIsMinimized] = useState(false);
@@ -28,7 +27,7 @@ export const MetricsNotification: React.FC<MetricsNotificationProps> = ({
     return null;
   }
 
-  const handleClick = (event: React.MouseEvent) => {
+  const handleClick = () => {
     // Click on toast opens modal
     onViewDetails();
   };
@@ -60,20 +59,6 @@ export const MetricsNotification: React.FC<MetricsNotificationProps> = ({
     }
   };
 
-  const getShortMessage = () => {
-    const confidenceScore = Math.round(notificationData.global_confidence * 10);
-    const successRate = notificationData.global_success_rate 
-      ? (notificationData.global_success_rate * 100).toFixed(0)
-      : '0';
-    const count = notificationData.low_confidence_count;
-    
-    // Emphasize confidence score (larger, first) then success rate
-    if (notificationData.severity === 'error') {
-      return `Score: ${confidenceScore}/10 • ${successRate}% success • ${count} items`;
-    } else {
-      return `Score: ${confidenceScore}/10 • ${successRate}% success • ${count} items`;
-    }
-  };
 
   // Show minimized icon if minimized
   if (isMinimized) {

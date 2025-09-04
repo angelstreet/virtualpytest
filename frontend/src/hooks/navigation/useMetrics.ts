@@ -8,14 +8,11 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   MetricData,
   TreeMetrics,
-  MetricsApiResponse,
   LowConfidenceItems,
   MetricsNotificationData,
 } from '../../types/navigation/Metrics_Types';
 import { UINavigationNode, UINavigationEdge } from '../../types/pages/Navigation_Types';
 import {
-  processNodeMetrics,
-  processEdgeMetrics,
   calculateGlobalConfidence,
   getLowConfidenceItems,
   generateNotificationData,
