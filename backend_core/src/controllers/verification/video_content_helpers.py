@@ -182,7 +182,7 @@ class VideoContentHelpers:
             comparisons = []
             freeze_detected = False
             freeze_ended = False
-            MAX_ANALYSIS_IMAGES = 30  # Safety cap
+            MAX_ANALYSIS_IMAGES = min(50, len(image_paths))  # Dynamic safety cap based on available images
             
             # Process images with early stopping logic
             for i in range(len(image_paths) - 1):
@@ -1099,12 +1099,12 @@ class VideoContentHelpers:
 
     def _get_images_after_timestamp(self, folder_path: str, start_timestamp: float, max_count: int = 10) -> List[Dict]:
         """
-        Enhanced approach: Get images including _1, _2, _3, _4 files with 6s coverage and 30 image cap.
+        Enhanced approach: Get images including _1, _2, _3, _4 files with dynamic coverage based on max_count.
         
         Args:
             folder_path: Path to main folder (we'll add /captures)
             start_timestamp: Start timestamp (Unix timestamp)
-            max_count: Maximum number of images to return (default: 10, now supports up to 30)
+            max_count: Maximum number of images to return (device-specific from centralized logic)
             
         Returns:
             List of image data dictionaries with sub-second precision
@@ -1118,8 +1118,10 @@ class VideoContentHelpers:
                 return []
             
             images = []
-            MAX_SECONDS = 6  # Cover 6 seconds for full zap detection
-            MAX_TOTAL_IMAGES = min(30, max_count) if max_count > 0 else 30  # Respect max_count parameter
+            # Dynamic seconds calculation based on max_count (assuming 5fps average)
+            # Mobile: 40 images = 8 seconds, VNC: 8 images = 8 seconds, STB: 20 images = 4 seconds
+            MAX_SECONDS = max(6, (max_count // 5) + 1) if max_count > 0 else 8  # Dynamic seconds with minimum 6s
+            MAX_TOTAL_IMAGES = max_count if max_count > 0 else 40  # Respect max_count parameter fully
             
             # Enhanced collection: get all available files (_1, _2, _3, _4) for better precision
             for i in range(MAX_SECONDS):
@@ -1152,9 +1154,9 @@ class VideoContentHelpers:
                 
                 # Add files with calculated timestamps
                 for j, file_path in enumerate(second_files):
-                    # Respect 30-image cap
+                    # Respect max image cap
                     if len(images) >= MAX_TOTAL_IMAGES:
-                        print(f"VideoContent[{self.device_name}]: Reached 30-image cap - stopping collection")
+                        print(f"VideoContent[{self.device_name}]: Reached {MAX_TOTAL_IMAGES}-image cap - stopping collection")
                         return sorted(images, key=lambda x: x['timestamp'])
                     
                     filename = os.path.basename(file_path)
@@ -1169,7 +1171,7 @@ class VideoContentHelpers:
                         'interval': interval
                     })
             
-            print(f"VideoContent[{self.device_name}]: Enhanced collection: {len(images)} images covering {MAX_SECONDS}s")
+            print(f"VideoContent[{self.device_name}]: Enhanced collection: {len(images)} images covering {MAX_SECONDS}s (max_count={max_count})")
             return sorted(images, key=lambda x: x['timestamp'])
             
         except Exception as e:
@@ -1207,12 +1209,12 @@ class VideoContentHelpers:
         results = []
         blackscreen_detected = False
         blackscreen_ended = False
-        MAX_ANALYSIS_IMAGES = 30  # Safety cap
+        MAX_ANALYSIS_IMAGES = min(50, len(image_data))  # Dynamic safety cap based on available images
         
         for i, img_data in enumerate(image_data):
             # Safety cap on analysis
             if i >= MAX_ANALYSIS_IMAGES:
-                print(f"VideoContent[{self.device_name}]: Reached 30-image analysis cap - stopping")
+                print(f"VideoContent[{self.device_name}]: Reached {MAX_ANALYSIS_IMAGES}-image analysis cap - stopping")
                 break
                 
             image_path = img_data['path']
