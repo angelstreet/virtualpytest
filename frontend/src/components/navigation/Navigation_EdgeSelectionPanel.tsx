@@ -4,10 +4,10 @@ import React, { useEffect, useMemo } from 'react';
 import { useReactFlow } from 'reactflow';
 
 import { useEdge } from '../../hooks/navigation/useEdge';
-import { useMetrics } from '../../hooks/navigation/useMetrics';
 import { useValidationColors } from '../../hooks/validation/useValidationColors';
 import { Host } from '../../types/common/Host_Types';
 import { UINavigationEdge, EdgeForm } from '../../types/pages/Navigation_Types';
+import { MetricData } from '../../types/navigation/Metrics_Types';
 import { getZIndex } from '../../utils/zIndexUtils';
 
 interface EdgeSelectionPanelProps {
@@ -34,6 +34,8 @@ interface EdgeSelectionPanelProps {
 
   // NEW: Specific action set to display (if provided, use this instead of extracting from edge)
   actionSet?: any;
+  // Metrics props - passed from NavigationEditor
+  edgeMetrics?: MetricData | null;
 }
 
 export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
@@ -51,6 +53,7 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
     panelIndex = 0,
     onEditWithLabels,
     actionSet, // NEW: specific action set to display
+    edgeMetrics,
   }) => {
     const { getNodes } = useReactFlow();
 
@@ -82,10 +85,6 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
       selectedDeviceId: selectedDeviceId || null,
       isControlActive,
     });
-
-    // Get metrics for this specific edge
-    const metricsHook = useMetrics();
-    const edgeMetrics = metricsHook.getEdgeMetrics(selectedEdge.id);
     
     // Get validation colors for confidence-based styling
     const { getEdgeColors } = useValidationColors([]);

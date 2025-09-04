@@ -18,10 +18,10 @@ import {
 import React, { useState, useMemo, useCallback } from 'react';
 
 import { useNode } from '../../hooks/navigation/useNode';
-import { useMetrics } from '../../hooks/navigation/useMetrics';
 import { useValidationColors } from '../../hooks/validation/useValidationColors';
 import { Host } from '../../types/common/Host_Types';
 import { UINavigationNode, NodeForm } from '../../types/pages/Navigation_Types';
+import { MetricData } from '../../types/navigation/Metrics_Types';
 import { getZIndex } from '../../utils/zIndexUtils';
 
 interface NodeSelectionPanelProps {
@@ -42,6 +42,8 @@ interface NodeSelectionPanelProps {
   currentNodeId?: string;
   // Goto panel callback
   onOpenGotoPanel?: (node: UINavigationNode) => void;
+  // Metrics props - passed from NavigationEditor
+  nodeMetrics?: MetricData | null;
 }
 
 // No custom comparison function - use React's default shallow comparison
@@ -63,6 +65,7 @@ export const NodeSelectionPanel: React.FC<NodeSelectionPanelProps> = React.memo(
     treeId = '',
     currentNodeId,
     onOpenGotoPanel,
+    nodeMetrics,
   }) => {
     // Don't render the panel for entry nodes - MUST be before any hooks
     if ((selectedNode.data.type as string) === 'entry') {
@@ -83,10 +86,6 @@ export const NodeSelectionPanel: React.FC<NodeSelectionPanelProps> = React.memo(
 
     // Use the consolidated node hook
     const nodeHook = useNode(nodeHookProps);
-
-    // Get metrics for this specific node
-    const metricsHook = useMetrics();
-    const nodeMetrics = metricsHook.getNodeMetrics(selectedNode.id);
     
     // Get validation colors for confidence-based styling
     const { getNodeColors } = useValidationColors([]);
