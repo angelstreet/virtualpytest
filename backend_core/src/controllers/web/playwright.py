@@ -456,6 +456,15 @@ class PlaywrightWebController(WebControllerInterface):
                 
                 for i, sel in enumerate(selectors_to_try):
                     try:
+                        # Try hover first to trigger any rollover UI elements
+                        try:
+                            await page.hover(sel, timeout=1000)
+                            print(f"[PLAYWRIGHT]: Hover successful for selector {i+1}: {sel}")
+                            # Small delay to let hover effects appear
+                            await page.wait_for_timeout(200)
+                        except Exception:
+                            print(f"[PLAYWRIGHT]: Hover failed for selector {i+1}: {sel}, proceeding with click")
+                        
                         await page.click(sel, timeout=timeout)
                         execution_time = int((time.time() - start_time) * 1000)
                         print(f"[PLAYWRIGHT]: Click successful using selector {i+1}: {sel}")
@@ -506,6 +515,62 @@ class PlaywrightWebController(WebControllerInterface):
                 }
         
         return self.utils.run_async(_async_click_element())
+    
+    def hover_element(self, selector: str) -> Dict[str, Any]:
+        """Hover over an element to trigger rollover effects.
+        
+        Args:
+            selector: CSS selector, or text content to search for
+        """
+        async def _async_hover_element():
+            try:
+                print(f"[PLAYWRIGHT]: Hovering over element: {selector}")
+                start_time = time.time()
+                
+                # Get persistent page from browser+context
+                page = await self._get_persistent_page()
+                
+                # Try same selectors as click
+                selectors_to_try = [
+                    selector,
+                    f"[aria-label='{selector}']",
+                    f"flt-semantics[aria-label='{selector}']",
+                ]
+                
+                for i, sel in enumerate(selectors_to_try):
+                    try:
+                        await page.hover(sel, timeout=2000)
+                        execution_time = int((time.time() - start_time) * 1000)
+                        print(f"[PLAYWRIGHT]: Hover successful using selector {i+1}: {sel}")
+                        return {
+                            'success': True,
+                            'error': '',
+                            'execution_time': execution_time
+                        }
+                    except Exception as e:
+                        print(f"[PLAYWRIGHT]: Hover selector {i+1} failed: {sel} - {str(e)}")
+                        continue
+                
+                # All selectors failed
+                execution_time = int((time.time() - start_time) * 1000)
+                error_msg = f"Hover failed - element not found with any selector"
+                print(f"[PLAYWRIGHT]: {error_msg}")
+                return {
+                    'success': False,
+                    'error': error_msg,
+                    'execution_time': execution_time
+                }
+                
+            except Exception as e:
+                error_msg = f"Hover error: {e}"
+                print(f"[PLAYWRIGHT]: {error_msg}")
+                return {
+                    'success': False,
+                    'error': error_msg,
+                    'execution_time': 0
+                }
+        
+        return self.utils.run_async(_async_hover_element())
     
     def find_element(self, selector: str) -> Dict[str, Any]:
         """Find an element by selector without clicking it.
@@ -975,6 +1040,18 @@ class PlaywrightWebController(WebControllerInterface):
                 
             return self.find_element(selector)
         
+        elif command == 'hover_element':
+            selector = params.get('selector')
+            
+            if not selector:
+                return {
+                    'success': False,
+                    'error': 'selector parameter is required',
+                    'execution_time': 0
+                }
+                
+            return self.hover_element(selector)
+        
         elif command == 'input_text':
             selector = params.get('selector')
             text = params.get('text', '')
@@ -1343,6 +1420,17 @@ class PlaywrightWebController(WebControllerInterface):
                     'requiresInput': True,
                     'inputLabel': 'Selector or text',
                     'inputPlaceholder': 'TV Guide or #flt-semantic-node-6'
+                },
+                {
+                    'id': 'hover_element',
+                    'label': 'Hover Element',
+                    'command': 'hover_element',
+                    'action_type': 'web',
+                    'params': {},
+                    'description': 'Hover over an element to trigger rollover effects',
+                    'requiresInput': True,
+                    'inputLabel': 'Selector or text',
+                    'inputPlaceholder': '#player-controls or Play Button'
                 },
                 {
                     'id': 'input_text',
