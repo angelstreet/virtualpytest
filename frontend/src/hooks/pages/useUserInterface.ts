@@ -8,6 +8,9 @@ import { useMemo } from 'react';
 
 import { UserInterface, UserInterfaceCreatePayload } from '../../types/pages/UserInterface_Types';
 
+// Simple cache to prevent duplicate requests
+const userInterfaceCache = new Map<string, Promise<UserInterface>>();
+
 export const useUserInterface = () => {
   /**
    * Get all user interfaces
@@ -127,33 +130,50 @@ export const useUserInterface = () => {
   const getUserInterfaceByName = useMemo(
     () =>
       async (name: string): Promise<UserInterface> => {
-        try {
+        // Check cache first
+        const cacheKey = `name:${name}`;
+        if (userInterfaceCache.has(cacheKey)) {
           console.log(
-            `[@hook:useUserInterface:getUserInterfaceByName] Fetching user interface by name: ${name}`,
+            `[@hook:useUserInterface:getUserInterfaceByName] Using cached user interface for name: ${name}`,
           );
-
-          const response = await fetch(`/server/userinterface/getUserInterfaceByName/${name}`);
-          if (!response.ok) {
-            if (response.status === 404) {
-              throw new Error('User interface not found');
-            }
-            throw new Error(
-              `Failed to fetch user interface: ${response.status} ${response.statusText}`,
-            );
-          }
-
-          const userInterface = await response.json();
-          console.log(
-            `[@hook:useUserInterface:getUserInterfaceByName] Successfully loaded user interface: ${userInterface.name} (ID: ${userInterface.id})`,
-          );
-          return userInterface;
-        } catch (error) {
-          console.error(
-            `[@hook:useUserInterface:getUserInterfaceByName] Error fetching user interface by name ${name}:`,
-            error,
-          );
-          throw error;
+          return userInterfaceCache.get(cacheKey)!;
         }
+
+        // Create and cache the promise
+        const fetchPromise = (async () => {
+          try {
+            console.log(
+              `[@hook:useUserInterface:getUserInterfaceByName] Fetching user interface by name: ${name}`,
+            );
+
+            const response = await fetch(`/server/userinterface/getUserInterfaceByName/${name}`);
+            if (!response.ok) {
+              if (response.status === 404) {
+                throw new Error('User interface not found');
+              }
+              throw new Error(
+                `Failed to fetch user interface: ${response.status} ${response.statusText}`,
+              );
+            }
+
+            const userInterface = await response.json();
+            console.log(
+              `[@hook:useUserInterface:getUserInterfaceByName] Successfully loaded user interface: ${userInterface.name} (ID: ${userInterface.id})`,
+            );
+            return userInterface;
+          } catch (error) {
+            // Remove from cache on error so we can retry
+            userInterfaceCache.delete(cacheKey);
+            console.error(
+              `[@hook:useUserInterface:getUserInterfaceByName] Error fetching user interface by name ${name}:`,
+              error,
+            );
+            throw error;
+          }
+        })();
+
+        userInterfaceCache.set(cacheKey, fetchPromise);
+        return fetchPromise;
       },
     [],
   );

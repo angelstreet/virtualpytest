@@ -303,6 +303,9 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
 
     // Track the last loaded tree ID to prevent unnecessary reloads
     const lastLoadedTreeId = useRef<string | null>(null);
+    
+    // Track the last resolved treeName to prevent duplicate userInterface resolution
+    const lastResolvedTreeName = useRef<string | null>(null);
 
     // AV panel collapsed state for other UI elements (keeping for backwards compatibility)
     const [isAVPanelCollapsed, setIsAVPanelCollapsed] = useState(true);
@@ -683,11 +686,17 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
       const resolveUserInterface = async () => {
         if (!treeName) return;
         
+        // Prevent duplicate resolution for the same treeName
+        if (lastResolvedTreeName.current === treeName) return;
+        
         // If we already have the correct userInterface, skip
         if (userInterface?.name === treeName) return;
         
         try {
           console.log(`[@component:NavigationEditor] Resolving userInterface for treeName: ${treeName}`);
+          
+          // Mark as being resolved to prevent duplicates
+          lastResolvedTreeName.current = treeName;
           
           const resolvedInterface = await getUserInterfaceByName(treeName);
           setUserInterfaceFromProps(resolvedInterface);
@@ -695,11 +704,13 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
           console.log(`[@component:NavigationEditor] Successfully resolved userInterface: ${resolvedInterface.name} (ID: ${resolvedInterface.id})`);
         } catch (error) {
           console.error(`[@component:NavigationEditor] Failed to resolve userInterface for treeName ${treeName}:`, error);
+          // Reset on error so we can retry
+          lastResolvedTreeName.current = null;
         }
       };
       
       resolveUserInterface();
-    }, [treeName, userInterface, setUserInterfaceFromProps, getUserInterfaceByName]);
+    }, [treeName, userInterface?.name, setUserInterfaceFromProps]);
 
     // Clean approach: treeName is guaranteed to exist from NavigationEditor
 
