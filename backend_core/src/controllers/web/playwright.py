@@ -422,81 +422,65 @@ class PlaywrightWebController(WebControllerInterface):
         return self.utils.run_async(_async_navigate_to_url())
     
     def click_element(self, selector: str) -> Dict[str, Any]:
-        """Click an element by selector using async CDP connection.
+        """Click an element using dump-first approach (like Android mobile).
         
         Args:
-            selector: CSS selector, or text content to search for
+            selector: CSS selector, text content, or aria-label to search for
         """
-        async def _async_click_element():
-            try:
-                print(f"[PLAYWRIGHT]: Clicking element: {selector}")
-                start_time = time.time()
-                
-                # Assume Chrome is running - no auto-connect checks
-                
-                # Get persistent page from browser+context
-                connect_start = time.time()
-                page = await self._get_persistent_page()
-                connect_time = int((time.time() - connect_start) * 1000)
-                print(f"[PLAYWRIGHT]: Persistent page access took {connect_time}ms")
-                
-                # Try obvious selectors with short timeout
-                timeout = 2000  # 2000ms per attempt since 1000 was failing
-                
-                # Most obvious selectors for text-based elements (including Flutter)
-                selectors_to_try = [
-                    selector,  # Try exact selector first (could be CSS or text)
-                    f"[aria-label='{selector}']",  # Most common for buttons/links
-                    f"[aria-label='{selector}' i]",  # Case-insensitive aria-label
-                    f"flt-semantics[aria-label='{selector}']",  # Flutter semantics exact
-                    f"flt-semantics[aria-label='{selector}' i]",  # Flutter semantics case-insensitive
-                    f"button:has-text('{selector}')",  # Actual buttons with text
-                    f"a:has-text('{selector}')"  # Links with text
-                ]
-                
-                for i, sel in enumerate(selectors_to_try):
-                    try:
-                        # Try hover first to trigger any rollover UI elements
-                        try:
-                            await page.hover(sel, timeout=1000)
-                            print(f"[PLAYWRIGHT]: Hover successful for selector {i+1}: {sel}")
-                            # Small delay to let hover effects appear
-                            await page.wait_for_timeout(200)
-                        except Exception:
-                            print(f"[PLAYWRIGHT]: Hover failed for selector {i+1}: {sel}, proceeding with click")
-                        
-                        await page.click(sel, timeout=timeout)
-                        execution_time = int((time.time() - start_time) * 1000)
-                        print(f"[PLAYWRIGHT]: Click successful using selector {i+1}: {sel}")
-                        return {
-                            'success': True,
-                            'error': '',
-                            'execution_time': execution_time
-                        }
-                    except Exception as e:
-                        error_str = str(e)
-                        if "intercepts pointer events" in error_str:
-                            print(f"[PLAYWRIGHT]: Selector {i+1} blocked by overlay, trying force click: {sel}")
-                            try:
-                                # Force click bypasses overlay checks
-                                await page.click(sel, timeout=timeout, force=True)
-                                execution_time = int((time.time() - start_time) * 1000)
-                                print(f"[PLAYWRIGHT]: Force click successful using selector {i+1}: {sel}")
-                                return {
-                                    'success': True,
-                                    'error': '',
-                                    'execution_time': execution_time,
-                                    'method': 'force_click'
-                                }
-                            except Exception as force_e:
-                                print(f"[PLAYWRIGHT]: Force click also failed for selector {i+1}: {sel} - {str(force_e)}")
-                        else:
-                            print(f"[PLAYWRIGHT]: Selector {i+1} failed ({timeout}ms): {sel} - Exception: {str(e)}")
-                        continue
-                
-                # All selectors failed
+        try:
+            print(f"[PLAYWRIGHT]: Clicking element using dump-first approach: {selector}")
+            start_time = time.time()
+            
+            # Step 1: Find element using dump-first (same as Android mobile)
+            find_result = self.find_element(selector)
+            
+            if not find_result.get('success'):
                 execution_time = int((time.time() - start_time) * 1000)
-                error_msg = f"Click failed - element not found with any selector"
+                error_msg = f"Element not found: {find_result.get('error', 'Unknown error')}"
+                print(f"[PLAYWRIGHT]: {error_msg}")
+                return {
+                    'success': False,
+                    'error': error_msg,
+                    'execution_time': execution_time
+                }
+            
+            # Step 2: Click the found element using coordinates (like Android mobile)
+            element_info = find_result.get('element_info', {})
+            position = element_info.get('position', {})
+            
+            if not position or 'x' not in position:
+                execution_time = int((time.time() - start_time) * 1000)
+                error_msg = f"Element found but no coordinates available"
+                print(f"[PLAYWRIGHT]: {error_msg}")
+                return {
+                    'success': False,
+                    'error': error_msg,
+                    'execution_time': execution_time
+                }
+            
+            # Calculate center coordinates
+            center_x = position['x'] + (position.get('width', 0) / 2)
+            center_y = position['y'] + (position.get('height', 0) / 2)
+            
+            print(f"[PLAYWRIGHT]: Found element, clicking at coordinates ({center_x:.0f}, {center_y:.0f})")
+            
+            # Step 3: Click using coordinates (reuse tap_x_y logic)
+            tap_result = self.tap_x_y(int(center_x), int(center_y))
+            
+            if tap_result.get('success'):
+                execution_time = int((time.time() - start_time) * 1000)
+                print(f"[PLAYWRIGHT]: Click successful using dump-first approach")
+                return {
+                    'success': True,
+                    'error': '',
+                    'execution_time': execution_time,
+                    'method': 'dump_search_click',
+                    'coordinates': {'x': int(center_x), 'y': int(center_y)},
+                    'element_info': element_info
+                }
+            else:
+                execution_time = int((time.time() - start_time) * 1000)
+                error_msg = f"Element found but click failed: {tap_result.get('error', 'Unknown error')}"
                 print(f"[PLAYWRIGHT]: {error_msg}")
                 return {
                     'success': False,
@@ -504,17 +488,16 @@ class PlaywrightWebController(WebControllerInterface):
                     'execution_time': execution_time
                 }
                 
-            except Exception as e:
-                error_msg = f"Click error: {e}"
-                print(f"[PLAYWRIGHT]: {error_msg}")
-                return {
-                    'success': False,
-                    'error': error_msg,
-                    'execution_time': 0,
-                    'selector_attempted': selector
-                }
-        
-        return self.utils.run_async(_async_click_element())
+        except Exception as e:
+            execution_time = int((time.time() - start_time) * 1000)
+            error_msg = f"Click error: {e}"
+            print(f"[PLAYWRIGHT]: {error_msg}")
+            return {
+                'success': False,
+                'error': error_msg,
+                'execution_time': execution_time,
+                'selector_attempted': selector
+            }
     
     def hover_element(self, selector: str) -> Dict[str, Any]:
         """Hover over an element to trigger rollover effects.
@@ -573,85 +556,142 @@ class PlaywrightWebController(WebControllerInterface):
         return self.utils.run_async(_async_hover_element())
     
     def find_element(self, selector: str) -> Dict[str, Any]:
-        """Find an element by selector without clicking it.
+        """Find an element by searching within dumped elements (like Android mobile).
         
         Args:
-            selector: CSS selector, or text content to search for
+            selector: CSS selector, text content, or aria-label to search for
         """
-        async def _async_find_element():
-            try:
-                print(f"[PLAYWRIGHT]: Finding element: {selector}")
-                start_time = time.time()
-                
-                # Get persistent page from browser+context
-                connect_start = time.time()
-                page = await self._get_persistent_page()
-                connect_time = int((time.time() - connect_start) * 1000)
-                print(f"[PLAYWRIGHT]: Persistent page access took {connect_time}ms")
-                
-                # Try obvious selectors with short timeout
-                timeout = 1000  # 500ms per attempt
-                
-                # Most obvious selectors for text-based elements (including Flutter)
-                selectors_to_try = [
-                    selector,  # Try exact selector first (could be CSS or text)
-                    f"[aria-label='{selector}']",  # Most common for buttons/links
-                    f"[aria-label='{selector}' i]",  # Case-insensitive aria-label
-                    f"flt-semantics[aria-label='{selector}']",  # Flutter semantics exact
-                    f"flt-semantics[aria-label='{selector}' i]",  # Flutter semantics case-insensitive
-                    f"button:has-text('{selector}')",  # Actual buttons with text
-                    f"a:has-text('{selector}')"  # Links with text
-                ]
-                
-                for i, sel in enumerate(selectors_to_try):
-                    try:
-                        element = await page.locator(sel).first
-                        await element.wait_for(timeout=timeout)
-                        if await element.is_visible():
-                            bounding_box = await element.bounding_box()
-                            element_info = {}
-                            if bounding_box:
-                                element_info = {
-                                    'x': bounding_box['x'],
-                                    'y': bounding_box['y'],
-                                    'width': bounding_box['width'],
-                                    'height': bounding_box['height']
-                                }
-                            
-                            execution_time = int((time.time() - start_time) * 1000)
-                            print(f"[PLAYWRIGHT]: Element found using selector {i+1}: {sel}")
-                            return {
-                                'success': True,
-                                'error': '',
-                                'execution_time': execution_time,
-                                'element_info': element_info
-                            }
-                    except Exception:
-                        print(f"[PLAYWRIGHT]: Selector {i+1} failed ({timeout}ms): {sel}")
-                        continue
-                
-                # All selectors failed
+        try:
+            print(f"[PLAYWRIGHT]: Finding element using dump-first approach: {selector}")
+            start_time = time.time()
+            
+            # Step 1: Dump all elements first (like Android mobile)
+            dump_result = self.dump_elements()
+            
+            if not dump_result.get('success'):
                 execution_time = int((time.time() - start_time) * 1000)
-                error_msg = f"Element not found with any selector"
+                error_msg = f"Failed to dump elements: {dump_result.get('error', 'Unknown error')}"
                 print(f"[PLAYWRIGHT]: {error_msg}")
                 return {
                     'success': False,
                     'error': error_msg,
                     'execution_time': execution_time
                 }
+            
+            elements = dump_result.get('elements', [])
+            print(f"[PLAYWRIGHT]: Searching within {len(elements)} dumped elements")
+            
+            # Step 2: Search within dumped elements (same logic as Android mobile)
+            matches = self._search_dumped_elements(selector, elements)
+            
+            if matches:
+                # Found element - return coordinates like Android mobile does
+                first_match = matches[0]
+                execution_time = int((time.time() - start_time) * 1000)
                 
-            except Exception as e:
-                error_msg = f"Find error: {e}"
+                print(f"[PLAYWRIGHT]: Element found in dump: {first_match['match_reason']}")
+                return {
+                    'success': True,
+                    'error': '',
+                    'execution_time': execution_time,
+                    'result': {  # Use 'result' key like clicks do for frontend compatibility
+                        'x': first_match['position']['x'],
+                        'y': first_match['position']['y'], 
+                        'width': first_match['position']['width'],
+                        'height': first_match['position']['height']
+                    },
+                    'element_info': first_match,
+                    'method': 'dump_search'
+                }
+            else:
+                execution_time = int((time.time() - start_time) * 1000)
+                error_msg = f"Element '{selector}' not found in {len(elements)} dumped elements"
                 print(f"[PLAYWRIGHT]: {error_msg}")
+                
+                # Log available elements for debugging (like Android mobile does)
+                print(f"[PLAYWRIGHT]: Available elements:")
+                for i, el in enumerate(elements[:10]):  # Show first 10
+                    print(f"[PLAYWRIGHT]:   {i+1}. {el.get('tagName', 'unknown')} - text: '{el.get('textContent', '')}' - aria: '{el.get('attributes', {}).get('aria-label', '')}'")
+                
                 return {
                     'success': False,
                     'error': error_msg,
-                    'execution_time': 0,
-                    'selector_attempted': selector
+                    'execution_time': execution_time
                 }
+                
+        except Exception as e:
+            execution_time = int((time.time() - start_time) * 1000)
+            error_msg = f"Find error: {e}"
+            print(f"[PLAYWRIGHT]: {error_msg}")
+            return {
+                'success': False,
+                'error': error_msg,
+                'execution_time': execution_time,
+                'selector_attempted': selector
+            }
+    
+    def _search_dumped_elements(self, search_term: str, elements: list) -> list:
+        """Search within dumped elements (same logic as Android mobile smart_element_search)."""
+        search_lower = search_term.strip().lower()
+        matches = []
         
-        # Assume Chrome is running - no connection checks
-        return self.utils.run_async(_async_find_element())
+        for element in elements:
+            element_matches = []
+            
+            # Check textContent (like Android mobile text attribute)
+            text_content = element.get('textContent', '').strip()
+            if text_content and search_lower in text_content.lower():
+                element_matches.append({
+                    "attribute": "textContent",
+                    "value": text_content,
+                    "reason": f"Contains '{search_term}' in text content"
+                })
+            
+            # Check aria-label (like Android mobile content_desc)
+            aria_label = element.get('attributes', {}).get('aria-label', '').strip()
+            if aria_label and search_lower in aria_label.lower():
+                element_matches.append({
+                    "attribute": "aria-label", 
+                    "value": aria_label,
+                    "reason": f"Contains '{search_term}' in aria-label"
+                })
+            
+            # Check selector/id (like Android mobile resource_id)
+            selector = element.get('selector', '').strip()
+            if selector and search_lower in selector.lower():
+                element_matches.append({
+                    "attribute": "selector",
+                    "value": selector,
+                    "reason": f"Contains '{search_term}' in selector"
+                })
+            
+            # Check className (like Android mobile class_name)
+            class_name = element.get('className', '').strip()
+            if class_name and search_lower in class_name.lower():
+                element_matches.append({
+                    "attribute": "className",
+                    "value": class_name,
+                    "reason": f"Contains '{search_term}' in class name"
+                })
+            
+            # If matches found, add to results (same as Android mobile)
+            if element_matches:
+                primary_match = element_matches[0]
+                
+                match_info = {
+                    "element_index": element.get('index', 0),
+                    "matched_attribute": primary_match["attribute"],
+                    "matched_value": primary_match["value"],
+                    "match_reason": primary_match["reason"],
+                    "search_term": search_term,
+                    "position": element.get('position', {}),
+                    "selector": element.get('selector', ''),
+                    "full_element": element
+                }
+                
+                matches.append(match_info)
+        
+        return matches
     
     def input_text(self, selector: str, text: str, timeout: int = 30000) -> Dict[str, Any]:
         """Input text into an element using async CDP connection."""
