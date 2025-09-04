@@ -169,6 +169,7 @@ def record_edge_execution(
     tree_id: str,
     edge_id: str,
     host_name: str,
+    device_model: str,
     success: bool,
     execution_time_ms: int,
     message: str = "",
@@ -188,6 +189,7 @@ def record_edge_execution(
             'edge_id': edge_id,
             'execution_type': 'action',
             'host_name': host_name,
+            'device_model': device_model,
             'success': success,
             'execution_time_ms': execution_time_ms,
             'message': message,
@@ -198,12 +200,25 @@ def record_edge_execution(
             'action_set_id': action_set_id
         }
         
+        print(f"[@db:execution_results:record_edge_execution] Recording execution:")
+        print(f"  - execution_id: {execution_id}")
+        print(f"  - team_id: {team_id}")
+        print(f"  - tree_id: {tree_id}")
+        print(f"  - edge_id: {edge_id}")
+        print(f"  - host_name: {host_name}")
+        print(f"  - device_model: {device_model}")
+        print(f"  - success: {success}")
+        print(f"  - execution_time_ms: {execution_time_ms}")
+        print(f"  - action_set_id: {action_set_id}")
+        
         supabase = get_supabase()
         result = supabase.table('execution_results').insert(execution_data).execute()
         
         if result.data:
+            print(f"[@db:execution_results:record_edge_execution] Success: {execution_id}")
             return execution_id
         else:
+            print(f"[@db:execution_results:record_edge_execution] Failed: No data returned")
             return None
             
     except Exception as e:
@@ -215,6 +230,7 @@ def record_node_execution(
     tree_id: str,
     node_id: str,
     host_name: str,
+    device_model: str,
     success: bool,
     execution_time_ms: int,
     message: str = "",
@@ -233,6 +249,7 @@ def record_node_execution(
             'node_id': node_id,
             'execution_type': 'verification',
             'host_name': host_name,
+            'device_model': device_model,
             'success': success,
             'execution_time_ms': execution_time_ms,
             'message': message,
@@ -248,6 +265,7 @@ def record_node_execution(
         print(f"  - tree_id: {tree_id}")
         print(f"  - node_id: {node_id}")
         print(f"  - host_name: {host_name}")
+        print(f"  - device_model: {device_model}")
         print(f"  - success: {success}")
         print(f"  - execution_time_ms: {execution_time_ms}")
         print(f"  - message: {message}")

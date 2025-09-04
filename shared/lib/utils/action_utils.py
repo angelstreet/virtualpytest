@@ -540,7 +540,7 @@ def execute_navigation_with_verifications(host, device, transition: Dict[str, An
         if tree_id and actions:
             try:
                 from shared.lib.supabase.execution_results_db import record_edge_execution
-                record_edge_execution(
+                result = record_edge_execution(
                     team_id=team_id,
                     tree_id=tree_id,
                     edge_id=edge_id,
@@ -554,8 +554,13 @@ def execute_navigation_with_verifications(host, device, transition: Dict[str, An
                     script_context=script_context,
                     action_set_id=action_set_id
                 )
-            except Exception:
-                pass  # Silent fail as per optimization
+                if result:
+                    print(f"[@action_utils:execute_navigation] ✅ Edge execution recorded: {result}")
+                else:
+                    print(f"[@action_utils:execute_navigation] ❌ Edge execution recording failed: No result returned")
+            except Exception as e:
+                print(f"[@action_utils:execute_navigation] ❌ Edge execution recording error: {e}")
+                print(f"[@action_utils:execute_navigation] Parameters: tree_id={tree_id}, edge_id={edge_id}, action_set_id={action_set_id}")
         
         if not actions_success:
             # Capture step-end screenshot even when actions fail
@@ -609,11 +614,12 @@ def execute_navigation_with_verifications(host, device, transition: Dict[str, An
                 try:
                     from shared.lib.supabase.execution_results_db import record_node_execution
                     node_id = transition.get('to_node_id', 'unknown')
-                    record_node_execution(
+                    result = record_node_execution(
                         team_id=team_id,
                         tree_id=tree_id,
                         node_id=node_id,
                         host_name=host.host_name,
+                        device_model=device.device_model,
                         success=verify_result.get('success', False),
                         execution_time_ms=verification_execution_time,
                         message=verify_result.get('message', 'Verification completed'),
@@ -621,8 +627,13 @@ def execute_navigation_with_verifications(host, device, transition: Dict[str, An
                         script_result_id=script_result_id,
                         script_context=script_context
                     )
-                except Exception:
-                    pass
+                    if result:
+                        print(f"[@action_utils:execute_navigation] ✅ Node execution recorded: {result}")
+                    else:
+                        print(f"[@action_utils:execute_navigation] ❌ Node execution recording failed: No result returned")
+                except Exception as e:
+                    print(f"[@action_utils:execute_navigation] ❌ Node execution recording error: {e}")
+                    print(f"[@action_utils:execute_navigation] Parameters: tree_id={tree_id}, node_id={node_id}")
             
             verification_result = {
                 'verification_number': i + 1,
