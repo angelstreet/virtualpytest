@@ -3,9 +3,9 @@
  * Small toast at bottom right - click to view details
  */
 
-import React from 'react';
-import { Snackbar, Alert, Box, IconButton, Tooltip } from '@mui/material';
-import { Warning, Error, Close } from '@mui/icons-material';
+import React, { useState } from 'react';
+import { Snackbar, Alert, Box, IconButton, Tooltip, Fab } from '@mui/material';
+import { Warning, Error, Close, Notifications } from '@mui/icons-material';
 
 import { MetricsNotificationData } from '../../types/navigation/Metrics_Types';
 
@@ -13,7 +13,6 @@ export interface MetricsNotificationProps {
   notificationData: MetricsNotificationData;
   onViewDetails: () => void;
   onClose?: () => void;
-  onSkip?: () => void; // New: Skip this notification until next refresh
   autoHideDuration?: number;
 }
 
@@ -21,35 +20,33 @@ export const MetricsNotification: React.FC<MetricsNotificationProps> = ({
   notificationData,
   onViewDetails,
   onClose,
-  onSkip,
   autoHideDuration = 6000, // 6 seconds
 }) => {
+  const [isMinimized, setIsMinimized] = useState(false);
+
   if (!notificationData.show) {
     return null;
   }
 
   const handleClick = (event: React.MouseEvent) => {
-    // Prevent event bubbling to avoid closing when clicking the skip button
-    if ((event.target as HTMLElement).closest('.skip-button')) {
-      return;
-    }
-    
-    // Hide toast immediately when opening modal
-    onClose?.();
-    // Then open modal
+    // Click on toast opens modal
     onViewDetails();
+  };
+
+  const handleMinimize = (event: React.MouseEvent) => {
+    event.stopPropagation(); // Prevent triggering the main click handler
+    setIsMinimized(true);
+  };
+
+  const handleRestore = () => {
+    setIsMinimized(false);
   };
 
   const handleClose = (_event?: React.SyntheticEvent | Event, reason?: string) => {
     if (reason === 'clickaway') {
       return;
     }
-    onClose?.();
-  };
-
-  const handleSkip = (event: React.MouseEvent) => {
-    event.stopPropagation(); // Prevent triggering the main click handler
-    onSkip?.();
+    setIsMinimized(true); // Minimize instead of closing completely
   };
 
   const getIcon = () => {
@@ -78,9 +75,37 @@ export const MetricsNotification: React.FC<MetricsNotificationProps> = ({
     }
   };
 
+  // Show minimized icon if minimized
+  if (isMinimized) {
+    return (
+      <Tooltip title="Click to view metrics details" placement="left">
+        <Fab
+          size="small"
+          color={notificationData.severity === 'error' ? 'error' : 'warning'}
+          onClick={handleRestore}
+          sx={{
+            position: 'fixed',
+            bottom: 20,
+            right: 20,
+            zIndex: 1400,
+            width: 40,
+            height: 40,
+            '&:hover': {
+              transform: 'scale(1.1)',
+            },
+            transition: 'all 0.2s ease-in-out',
+          }}
+        >
+          {getIcon()}
+        </Fab>
+      </Tooltip>
+    );
+  }
+
+  // Show full toast
   return (
     <Snackbar
-      open={notificationData.show}
+      open={notificationData.show && !isMinimized}
       autoHideDuration={autoHideDuration}
       onClose={handleClose}
       anchorOrigin={{ 
@@ -96,7 +121,7 @@ export const MetricsNotification: React.FC<MetricsNotificationProps> = ({
       <Alert
         severity={notificationData.severity}
         onClick={handleClick}
-        onClose={onClose ? handleClose : undefined}
+        onClose={handleClose}
         icon={getIcon()}
         sx={{
           cursor: 'pointer',
@@ -153,27 +178,24 @@ export const MetricsNotification: React.FC<MetricsNotificationProps> = ({
             </Box>
           </Box>
           
-          {/* Skip button */}
-          {onSkip && (
-            <Tooltip title="Skip until next refresh" placement="top">
-              <IconButton
-                className="skip-button"
-                size="small"
-                onClick={handleSkip}
-                sx={{
-                  padding: '2px',
-                  marginLeft: '8px',
-                  opacity: 0.7,
-                  '&:hover': {
-                    opacity: 1,
-                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                  },
-                }}
-              >
-                <Close fontSize="small" />
-              </IconButton>
-            </Tooltip>
-          )}
+          {/* Close/Minimize button */}
+          <Tooltip title="Minimize notification" placement="top">
+            <IconButton
+              size="small"
+              onClick={handleMinimize}
+              sx={{
+                padding: '2px',
+                marginLeft: '8px',
+                opacity: 0.7,
+                '&:hover': {
+                  opacity: 1,
+                  backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                },
+              }}
+            >
+              <Close fontSize="small" />
+            </IconButton>
+          </Tooltip>
         </Box>
       </Alert>
     </Snackbar>

@@ -209,8 +209,10 @@ export const generateNotificationData = (
     };
   }
   
-  // Don't show notification if confidence is high
-  if (globalConfidence >= CONFIDENCE_THRESHOLDS.HIGH) {
+  const confidenceScore = Math.round(globalConfidence * 10); // Convert to 0-10 scale, whole number
+  
+  // Don't show notification if confidence score is 9/10 or higher
+  if (confidenceScore >= 9) {
     return {
       show: false,
       severity: 'success',
@@ -222,12 +224,10 @@ export const generateNotificationData = (
       confidence_distribution: confidenceDistribution,
     };
   }
-  
-  const confidenceScore = Math.round(globalConfidence * 10); // Convert to 0-10 scale, whole number
   const successRatePercent = (globalSuccessRate * 100).toFixed(0);
   
-  // Show error notification for low confidence (only if there are actual items)
-  if (globalConfidence < CONFIDENCE_THRESHOLDS.MEDIUM && lowConfidenceCount > 0) {
+  // Show error notification for confidence score under 8/10 (only if there are actual items)
+  if (confidenceScore < 8 && lowConfidenceCount > 0) {
     return {
       show: true,
       severity: 'error',
@@ -240,12 +240,12 @@ export const generateNotificationData = (
     };
   }
   
-  // Show warning notification for medium confidence (only if there are actual items)
-  if (lowConfidenceCount > 0) {
+  // Show warning notification for confidence score under 9/10 (only if there are actual items)
+  if (confidenceScore < 9 && lowConfidenceCount > 0) {
     return {
       show: true,
       severity: 'warning',
-      message: `Confidence Score: ${confidenceScore}/10 • Success Rate: ${successRatePercent}% • ${lowConfidenceCount} items below 90%`,
+      message: `Confidence Score: ${confidenceScore}/10 • Success Rate: ${successRatePercent}% • ${lowConfidenceCount} items could be improved`,
       global_confidence: globalConfidence,
       low_confidence_count: lowConfidenceCount,
       global_success_rate: globalSuccessRate,

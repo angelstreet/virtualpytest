@@ -141,7 +141,7 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
       
       return {
         successRateText: `${successRatePercent}%`,
-        successRateColor: successRatePercent >= 90 ? '#22c55e' : successRatePercent >= 70 ? '#f59e0b' : '#ef4444',
+        successRateColor: edgeMetrics.volume === 0 ? '#666' : (successRatePercent >= 90 ? '#22c55e' : successRatePercent >= 70 ? '#f59e0b' : '#ef4444'),
         confidenceScore: confidenceScore,
         confidenceColor: edgeColors.stroke, // Use confidence-based stroke color
         volumeText: `${edgeMetrics.volume}`,

@@ -160,7 +160,7 @@ export const NodeSelectionPanel: React.FC<NodeSelectionPanelProps> = React.memo(
       
       return {
         successRateText: `${successRatePercent}%`,
-        successRateColor: successRatePercent >= 90 ? '#22c55e' : successRatePercent >= 70 ? '#f59e0b' : '#ef4444',
+        successRateColor: nodeMetrics.volume === 0 ? '#666' : (successRatePercent >= 90 ? '#22c55e' : successRatePercent >= 70 ? '#f59e0b' : '#ef4444'),
         confidenceScore: confidenceScore,
         confidenceColor: nodeColors.border, // Use confidence-based border color
         volumeText: `${nodeMetrics.volume}`,

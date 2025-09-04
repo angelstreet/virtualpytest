@@ -284,8 +284,11 @@ export type ValidationStatus = 'untested' | 'testing' | 'high' | 'medium' | 'low
 export type NodeType = keyof typeof NODE_TYPE_COLORS;
 export type HandlePosition = keyof typeof HANDLE_COLORS;
 
-// Utility function to determine validation status from confidence
-export function getValidationStatusFromConfidence(confidence: number): ValidationStatus {
+// Utility function to determine validation status from confidence and volume
+export function getValidationStatusFromConfidence(confidence: number, volume?: number): ValidationStatus {
+  // If volume is 0, it's untested (grey), not low confidence (red)
+  if (volume !== undefined && volume === 0) return 'untested';
+  
   if (confidence >= CONFIDENCE_THRESHOLDS.HIGH) return 'high';
   if (confidence >= CONFIDENCE_THRESHOLDS.MEDIUM) return 'medium';
   return 'low';

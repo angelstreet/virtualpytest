@@ -51,8 +51,8 @@ export const useValidationColors = (_edges?: UINavigationEdge[]) => {
       };
     }
 
-    // Override border color based on confidence level
-    const validationStatus = getValidationStatusFromConfidence(metrics.confidence);
+    // Override border color based on confidence level and volume
+    const validationStatus = getValidationStatusFromConfidence(metrics.confidence, metrics.volume);
     const statusColors = VALIDATION_STATUS_COLORS[validationStatus];
 
     return {
@@ -77,7 +77,7 @@ export const useValidationColors = (_edges?: UINavigationEdge[]) => {
     }
 
     // Use confidence-based colors
-    const validationStatus = getValidationStatusFromConfidence(metrics.confidence);
+    const validationStatus = getValidationStatusFromConfidence(metrics.confidence, metrics.volume);
     const statusColors = EDGE_COLORS[validationStatus];
 
     return {
