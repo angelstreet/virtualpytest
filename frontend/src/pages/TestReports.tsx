@@ -72,7 +72,7 @@ const TestReports: React.FC = () => {
     };
 
     loadScriptResults();
-  }, [getAllScriptResults]);
+  }, []); // Remove getAllScriptResults from dependency array - only run on mount
 
   // Auto-refresh when there are running scripts
   useEffect(() => {
@@ -90,7 +90,7 @@ const TestReports: React.FC = () => {
 
       return () => clearInterval(intervalId);
     }
-  }, [scriptResults, getAllScriptResults]);
+  }, [scriptResults]); // Remove getAllScriptResults from dependency array
 
   // Calculate stats
   const totalReports = scriptResults.length;

@@ -474,7 +474,7 @@ const DependencyReport: React.FC = () => {
     };
 
     loadDependencyData();
-  }, [getAllScriptResults, getAllExecutionResults, getAllUserInterfaces]);
+  }, []); // Remove hook functions from dependency array - only run on mount
 
   // Filter functions
   const filteredScriptNodeDependencies = scriptNodeDependencies.filter(
