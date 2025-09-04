@@ -209,20 +209,15 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
                     isCapturing={false}
                     model={device?.device_model || 'unknown'}
                     layoutConfig={{
-                      minHeight: '0px', // Let container control height
+                      minHeight: '150px',
                       aspectRatio: isMobile 
-                        ? '9/16' 
-                        : '16/9',
-                      objectFit: 'contain' as const,
+                        ? `${DEFAULT_DEVICE_RESOLUTION.height}/${DEFAULT_DEVICE_RESOLUTION.width}` 
+                        : `${DEFAULT_DEVICE_RESOLUTION.width}/${DEFAULT_DEVICE_RESOLUTION.height}`,
+                      objectFit: 'contain',
                       isMobileModel: isMobile,
                     }}
                     isExpanded={false}
                     muted={true} // Always muted in preview
-                    sx={{
-                      width: '100%',
-                      height: '100%',
-                      maxHeight: '100%',
-                    }}
                   />
                 {/* Click overlay to open full modal */}
                 <Box

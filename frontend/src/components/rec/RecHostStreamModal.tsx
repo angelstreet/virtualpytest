@@ -637,7 +637,7 @@ const RecHostStreamModalContent: React.FC<{
                     isCapturing={false}
                     model={device?.device_model || 'unknown'}
                     layoutConfig={{
-                      minHeight: '0px', // Let container control height
+                      minHeight: '300px',
                       aspectRatio: isMobileModel 
                         ? `${DEFAULT_DEVICE_RESOLUTION.height}/${DEFAULT_DEVICE_RESOLUTION.width}` 
                         : `${DEFAULT_DEVICE_RESOLUTION.width}/${DEFAULT_DEVICE_RESOLUTION.height}`,
@@ -646,11 +646,6 @@ const RecHostStreamModalContent: React.FC<{
                     }}
                     isExpanded={false}
                     muted={isMuted}
-                    sx={{
-                      width: '100%',
-                      height: '100%',
-                      maxHeight: '100%', // Ensure video doesn't exceed available container height
-                    }}
                 />
               )
             ) : (
