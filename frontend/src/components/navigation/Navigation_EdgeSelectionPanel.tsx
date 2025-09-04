@@ -124,16 +124,25 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
     const metricsDisplay = useMemo(() => {
       if (!edgeMetrics) {
         return {
-          confidenceText: 'No data',
+          successRateText: 'No data',
+          successRateColor: '#666',
+          confidenceScore: 0,
           confidenceColor: '#666',
           volumeText: '0',
           timeText: '0s'
         };
       }
 
-      const confidencePercent = Math.round(edgeMetrics.confidence * 100);
+      // Success rate should be 0% or 100% for single executions, or actual percentage for multiple
+      const successRatePercent = Math.round(edgeMetrics.success_rate * 100);
+      
+      // Confidence is 0-1, convert to 0-10 scale for display
+      const confidenceScore = Math.round(edgeMetrics.confidence * 10 * 10) / 10; // Round to 1 decimal
+      
       return {
-        confidenceText: `${confidencePercent}%`,
+        successRateText: `${successRatePercent}%`,
+        successRateColor: successRatePercent >= 90 ? '#22c55e' : successRatePercent >= 70 ? '#f59e0b' : '#ef4444',
+        confidenceScore: confidenceScore,
         confidenceColor: edgeColors.stroke, // Use confidence-based stroke color
         volumeText: `${edgeMetrics.volume}`,
         timeText: edgeMetrics.avg_execution_time > 0 
@@ -187,25 +196,27 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
           <Box
             sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}
           >
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1 }}>
               <Typography variant="h6" sx={{ margin: 0, fontSize: '1rem' }}>
                 Edge Selection
               </Typography>
-              {/* Show confidence percentage with color coding */}
+              
+              {/* Success Rate */}
               <Typography
                 variant="caption"
                 sx={{
                   fontSize: '0.75rem',
                   fontWeight: 'bold',
-                  color: metricsDisplay.confidenceColor,
+                  color: metricsDisplay.successRateColor,
                   padding: '2px 6px',
                   borderRadius: '4px',
                   backgroundColor: 'rgba(255,255,255,0.1)',
                 }}
               >
-                {metricsDisplay.confidenceText}
+                {metricsDisplay.successRateText}
               </Typography>
-              {/* Show average time */}
+              
+              {/* Duration */}
               <Typography
                 variant="caption"
                 sx={{
@@ -219,7 +230,8 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
               >
                 {metricsDisplay.timeText}
               </Typography>
-              {/* Show execution count */}
+              
+              {/* Volume */}
               <Typography
                 variant="caption"
                 sx={{
@@ -232,6 +244,26 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
                 }}
               >
                 #{metricsDisplay.volumeText}
+              </Typography>
+            </Box>
+            
+            {/* Confidence Score - Larger, on the right */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Typography
+                variant="h6"
+                sx={{
+                  fontSize: '1.2rem',
+                  fontWeight: 'bold',
+                  color: metricsDisplay.confidenceColor,
+                  padding: '4px 8px',
+                  borderRadius: '6px',
+                  backgroundColor: 'rgba(255,255,255,0.1)',
+                  border: `1px solid ${metricsDisplay.confidenceColor}`,
+                  minWidth: '50px',
+                  textAlign: 'center'
+                }}
+              >
+                {metricsDisplay.confidenceScore}
               </Typography>
             </Box>
             <IconButton
