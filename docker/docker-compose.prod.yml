@@ -1,6 +1,16 @@
 version: '3.8'
 
 services:
+  # Production PostgreSQL for Grafana metrics storage
+  grafana_metrics_db:
+    environment:
+      # Production database settings
+      - POSTGRES_DB=grafana_metrics_prod
+      - POSTGRES_USER=grafana_prod_user
+      - POSTGRES_PASSWORD=${GRAFANA_METRICS_DB_PASSWORD:-grafana_prod_secure_pass}
+    # No port exposure in production for security
+    ports: []
+
   # Backend server service (API + Grafana) - Production overrides
   backend_server:
     environment:
@@ -13,7 +23,7 @@ services:
       # Production Grafana configuration
       - GRAFANA_DOMAIN=virtualpytest.onrender.com
       - GF_SERVER_DOMAIN=virtualpytest.onrender.com
-                  - GF_SERVER_ROOT_URL=https://virtualpytest.onrender.com/grafana
+      - GF_SERVER_ROOT_URL=https://virtualpytest.onrender.com/grafana
       - GF_SERVER_PROTOCOL=https
       - GF_SERVER_SERVE_FROM_SUB_PATH=true
       

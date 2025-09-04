@@ -1,4 +1,4 @@
-# Grafana datasource configuration for VirtualPyTest
+# Production Grafana datasource configuration for VirtualPyTest
 apiVersion: 1
 
 datasources:
@@ -19,11 +19,11 @@ datasources:
     # Read-only access - prevent table creation
     editable: false
     
-  # Local PostgreSQL - DEFAULT for storing metrics and Grafana data
+  # Local PostgreSQL - DEFAULT for storing metrics and Grafana data (PRODUCTION)
   - name: VirtualPyTest Metrics (Local)
     type: postgres
     access: proxy
-    url: postgres://grafana_user:grafana_pass@grafana_metrics_db:5432/grafana_metrics
+    url: postgres://grafana_prod_user:${GRAFANA_METRICS_DB_PASSWORD:-grafana_prod_secure_pass}@grafana_metrics_db:5432/grafana_metrics_prod
     jsonData:
       sslmode: disable  # Local connection, no SSL needed
       postgresVersion: 1300

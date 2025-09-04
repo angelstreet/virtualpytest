@@ -32,6 +32,25 @@ services:
     privileged: true  # Required for hardware access
     restart: unless-stopped
 
+  # Local PostgreSQL for Grafana metrics storage
+  grafana_metrics_db:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=grafana_metrics
+      - POSTGRES_USER=grafana_user
+      - POSTGRES_PASSWORD=grafana_pass
+      - POSTGRES_INITDB_ARGS=--encoding=UTF-8 --lc-collate=C --lc-ctype=C
+    volumes:
+      - grafana-metrics-data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"  # Expose on different port to avoid conflicts
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U grafana_user -d grafana_metrics"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   # Backend server service (API + Grafana)
   backend_server:
     build:
@@ -61,12 +80,13 @@ services:
       - GF_SERVER_HTTP_PORT=3001
       - GF_SERVER_PROTOCOL=http
       - GF_SERVER_DOMAIN=localhost
-                  - GF_SERVER_ROOT_URL=http://localhost:5109/grafana
+      - GF_SERVER_ROOT_URL=http://localhost:5109/grafana
       - GF_SERVER_SERVE_FROM_SUB_PATH=true
-      # Supabase Database connection (only 1 variable needed)
+      # Supabase Database connection (READ-ONLY for fetching data)
       - SUPABASE_DB_URI=${SUPABASE_DB_URI}
     depends_on:
       - shared
+      - grafana_metrics_db
     restart: unless-stopped
 
   # Backend discard service (AI false positive detection)
@@ -108,6 +128,8 @@ volumes:
   # Grafana persistent volumes - data survives container rebuilds
   grafana-data:
   grafana-logs:
+  # Local PostgreSQL data for metrics storage
+  grafana-metrics-data:
 
 networks:
   default:
