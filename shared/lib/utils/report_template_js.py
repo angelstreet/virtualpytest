@@ -316,40 +316,50 @@ function openScreenshot(src) {{
     openScreenshotModal(JSON.stringify(modalData));
 }}
 
-// HLS Video modal functions
-function openHLSVideoModal(videoUrl, label) {{
-    let videoModal = document.getElementById('hls-video-modal');
+// Video modal functions - supports both MP4 and HLS
+function openVideoModal(videoUrl, label) {{
+    let videoModal = document.getElementById('video-modal');
     if (!videoModal) {{
         videoModal = document.createElement('div');
-        videoModal.id = 'hls-video-modal';
+        videoModal.id = 'video-modal';
         videoModal.className = 'modal';
         videoModal.innerHTML = `
             <div class="modal-content video-modal-content">
                 <div class="modal-header">
-                    <h3 id="hls-video-modal-title">${{label}}</h3>
-                    <button class="modal-close" onclick="closeHLSVideoModal()">&times;</button>
+                    <h3 id="video-modal-title">${{label}}</h3>
+                    <button class="modal-close" onclick="closeVideoModal()">&times;</button>
                 </div>
                 <div class="modal-body">
-                    <video id="hls-modal-video" controls style="width: 100%; max-width: 800px;">
-                        Your browser does not support HLS video playback.
+                    <video id="modal-video" controls style="width: 100%; max-width: 800px;">
+                        Your browser does not support video playback.
                     </video>
                 </div>
             </div>
         `;
         document.body.appendChild(videoModal);
     }} else {{
-        document.getElementById('hls-video-modal-title').textContent = label;
+        document.getElementById('video-modal-title').textContent = label;
     }}
     
-    // Setup HLS video playback
-    const video = document.getElementById('hls-modal-video');
+    const video = document.getElementById('modal-video');
     
     // Clear any existing HLS instance
     if (window.currentHls) {{
         window.currentHls.destroy();
+        window.currentHls = null;
     }}
     
-    if (Hls.isSupported()) {{
+    // Detect video type and setup appropriate playback
+    if (videoUrl.includes('.mp4')) {{
+        // MP4 video - use native playback
+        console.log('Loading MP4 video:', videoUrl);
+        video.src = videoUrl;
+        video.addEventListener('loadedmetadata', function() {{
+            video.play().catch(e => console.log('Autoplay prevented:', e));
+        }});
+    }} else if (videoUrl.includes('.m3u8') && typeof Hls !== 'undefined' && Hls.isSupported()) {{
+        // HLS video - use HLS.js
+        console.log('Loading HLS video:', videoUrl);
         const hls = new Hls({{
             debug: false,
             enableWorker: true,
@@ -382,23 +392,31 @@ function openHLSVideoModal(videoUrl, label) {{
         }});
         
         window.currentHls = hls;
-    }} else if (video.canPlayType('application/vnd.apple.mpegurl')) {{
+    }} else if (videoUrl.includes('.m3u8') && video.canPlayType('application/vnd.apple.mpegurl')) {{
+        // Safari native HLS support
+        console.log('Loading HLS video with native support:', videoUrl);
         video.src = videoUrl;
         video.addEventListener('loadedmetadata', function() {{
             video.play().catch(e => console.log('Autoplay prevented:', e));
         }});
     }} else {{
-        video.innerHTML = '<p style="color: red; text-align: center; padding: 20px;">HLS video playback is not supported in this browser.</p>';
+        console.error('Unsupported video format or HLS.js not available:', videoUrl);
+        video.innerHTML = '<p style="color: red; text-align: center; padding: 20px;">Video format not supported in this browser.</p>';
     }}
     
     videoModal.classList.add('active');
 }}
 
-function closeHLSVideoModal() {{
-    const videoModal = document.getElementById('hls-video-modal');
+// Legacy function for backward compatibility
+function openHLSVideoModal(videoUrl, label) {{
+    openVideoModal(videoUrl, label);
+}}
+
+function closeVideoModal() {{
+    const videoModal = document.getElementById('video-modal');
     if (videoModal) {{
         videoModal.classList.remove('active');
-        const video = document.getElementById('hls-modal-video');
+        const video = document.getElementById('modal-video');
         if (video) {{
             video.pause();
         }}
@@ -409,6 +427,11 @@ function closeHLSVideoModal() {{
             window.currentHls = null;
         }}
     }}
+}}
+
+// Legacy function for backward compatibility
+function closeHLSVideoModal() {{
+    closeVideoModal();
 }}
 
 // Verification image modal functions
@@ -532,6 +555,12 @@ document.addEventListener('DOMContentLoaded', function() {{
     
     // Modal click-outside handlers
     document.addEventListener('click', function(e) {{
+        const videoModal = document.getElementById('video-modal');
+        if (videoModal && e.target === videoModal) {{
+            closeVideoModal();
+        }}
+        
+        // Legacy support
         const hlsModal = document.getElementById('hls-video-modal');
         if (hlsModal && e.target === hlsModal) {{
             closeHLSVideoModal();
@@ -545,6 +574,7 @@ document.addEventListener('DOMContentLoaded', function() {{
     
     // Keyboard navigation
     document.addEventListener('keydown', function(e) {{
+        const videoModal = document.getElementById('video-modal');
         const hlsModal = document.getElementById('hls-video-modal');
         const verificationModal = document.getElementById('verification-image-modal');
         
@@ -563,10 +593,10 @@ document.addEventListener('DOMContentLoaded', function() {{
                     closeScreenshot();
                     break;
             }}
-        }} else if (hlsModal && hlsModal.classList.contains('active')) {{
+        }} else if ((videoModal && videoModal.classList.contains('active')) || (hlsModal && hlsModal.classList.contains('active'))) {{
             if (e.key === 'Escape') {{
                 e.preventDefault();
-                closeHLSVideoModal();
+                closeVideoModal();
             }}
         }} else if (verificationModal && verificationModal.classList.contains('active')) {{
             if (e.key === 'Escape') {{

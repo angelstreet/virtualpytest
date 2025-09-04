@@ -102,17 +102,27 @@ export const useEdge = (props?: UseEdgeProps) => {
    */
   const executeActionSet = useCallback(async (
     edge: UINavigationEdge,
-    actionSetId: string
+    actionSetId: string,
+    treeId?: string
   ) => {
     const actionSets = getActionSetsFromEdge(edge);
     const actionSet = actionSets.find(set => set.id === actionSetId);
     if (!actionSet) { 
       throw new Error(`Action set ${actionSetId} not found`); 
     }
+    
+    // Include navigation context for proper metrics recording
+    const navigationContext = {
+      tree_id: treeId,
+      edge_id: edge.id,
+      action_set_id: actionSetId
+    };
+    
     return await actionHook.executeActions(
       actionSet.actions.map(convertToControllerAction),
       (actionSet.retry_actions || []).map(convertToControllerAction),
-      (actionSet.failure_actions || []).map(convertToControllerAction)
+      (actionSet.failure_actions || []).map(convertToControllerAction),
+      navigationContext
     );
   }, [getActionSetsFromEdge, actionHook, convertToControllerAction]);
 

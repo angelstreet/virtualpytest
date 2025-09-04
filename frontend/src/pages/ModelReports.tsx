@@ -28,7 +28,7 @@ import {
   MenuItem,
   SelectChangeEvent,
 } from '@mui/material';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 
 import { useExecutionResults, ExecutionResult } from '../hooks/pages/useExecutionResults';
 import { useUserInterface } from '../hooks/pages/useUserInterface';
@@ -118,7 +118,7 @@ const ModelReports: React.FC = () => {
           console.log(`[@ModelReports] Filtered ${results.length} results to ${filteredResults.length} for interface ${selectedUserInterface}`);
           setExecutionResults(filteredResults);
           
-          // Load metrics for this tree
+          // Load metrics for this tree - this will now include direction-specific metrics
           metricsHook.fetchMetrics(selectedUI.root_tree.id);
         }
       } catch (err) {
@@ -135,34 +135,141 @@ const ModelReports: React.FC = () => {
     }
   }, [selectedUserInterface, userInterfaces, treeToInterfaceMap]);
 
-  // Filter execution results based on execution type only (user interface already filtered)
-  const filteredResults = executionResults.filter((result) => {
+  // Transform execution results into direction-specific entries for display
+  const transformedResults = useMemo(() => {
+    const entries: Array<{
+      id: string;
+      execution_type: 'action' | 'verification';
+      tree_id: string;
+      element_id: string;
+      element_name: string;
+      action_set_id?: string;
+      direction_label?: string;
+      executed_at: string;
+    }> = [];
+
+    // Group execution results by element and direction
+    const elementGroups = new Map<string, any[]>();
+    
+    executionResults.forEach(result => {
+      let groupKey: string;
+      
+      if (result.execution_type === 'action' && result.action_set_id) {
+        // For actions: group by edge_id + action_set_id (direction-specific)
+        groupKey = `${result.edge_id}#${result.action_set_id}`;
+      } else if (result.execution_type === 'action') {
+        // For legacy actions without action_set_id: group by edge_id only
+        groupKey = result.edge_id || 'unknown';
+      } else {
+        // For verifications: group by node_id
+        groupKey = result.node_id || 'unknown';
+      }
+      
+      if (!elementGroups.has(groupKey)) {
+        elementGroups.set(groupKey, []);
+      }
+      elementGroups.get(groupKey)!.push(result);
+    });
+
+    // Create display entries from groups
+    elementGroups.forEach((results, groupKey) => {
+      const firstResult = results[0];
+      const isAction = firstResult.execution_type === 'action';
+      
+      let elementName = 'Unknown';
+      let directionLabel = '';
+      
+      if (isAction && firstResult.action_set_id) {
+        // Parse direction from action_set_id (e.g., "home_to_live" -> "Home → Live")
+        const actionSetId = firstResult.action_set_id;
+        if (actionSetId.includes('_to_')) {
+          const parts = actionSetId.split('_to_');
+          const fromLabel = parts[0].replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase());
+          const toLabel = parts[1].replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase());
+          elementName = `${fromLabel} → ${toLabel}`;
+          directionLabel = elementName;
+        } else {
+          elementName = actionSetId.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase());
+        }
+      } else if (isAction) {
+        // Legacy action without action_set_id
+        elementName = firstResult.edge_id || 'Unknown Edge';
+      } else {
+        // Verification
+        elementName = firstResult.node_id || 'Unknown Node';
+      }
+
+      entries.push({
+        id: groupKey,
+        execution_type: firstResult.execution_type,
+        tree_id: firstResult.tree_id,
+        element_id: isAction ? firstResult.edge_id : firstResult.node_id,
+        element_name: elementName,
+        action_set_id: firstResult.action_set_id,
+        direction_label: directionLabel,
+        executed_at: results[results.length - 1].executed_at // Most recent execution
+      });
+    });
+
+    return entries;
+  }, [executionResults]);
+
+  // Filter transformed results based on execution type
+  const filteredResults = transformedResults.filter((result: any) => {
     // Filter by execution type
     if (filter === 'all') return true;
     return result.execution_type === filter;
   });
 
-  // Calculate stats based on filtered results
-  const totalExecutions = filteredResults.length;
-  const passedExecutions = filteredResults.filter((result) => result.success).length;
-  const successRate =
-    totalExecutions > 0 ? ((passedExecutions / totalExecutions) * 100).toFixed(1) : 'N/A';
+  // Calculate stats based on filtered results and their metrics
+  const totalElements = filteredResults.length;
+  
+  // Calculate aggregated stats from metrics
+  const { totalVolume, totalSuccessful, totalExecutionTime, thisWeekCount } = useMemo(() => {
+    let volume = 0;
+    let successful = 0;
+    let executionTime = 0;
+    let weekCount = 0;
+    
+    const oneWeekAgo = new Date();
+    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+    
+    filteredResults.forEach((result: any) => {
+      let metrics = null;
+      
+      if (result.execution_type === 'action' && result.action_set_id) {
+        // Get direction-specific metrics
+        metrics = metricsHook.getEdgeDirectionMetrics(result.element_id, result.action_set_id);
+      } else if (result.execution_type === 'action') {
+        // Get general edge metrics
+        metrics = metricsHook.getEdgeMetrics(result.element_id);
+      } else {
+        // Get node metrics
+        metrics = metricsHook.getNodeMetrics(result.element_id);
+      }
+      
+      if (metrics) {
+        volume += metrics.volume || 0;
+        successful += Math.round((metrics.volume || 0) * (metrics.success_rate || 0));
+        executionTime += (metrics.avg_execution_time || 0) * (metrics.volume || 0);
+      }
+      
+      // Count this week executions (approximate based on last execution date)
+      if (new Date(result.executed_at) >= oneWeekAgo) {
+        weekCount += metrics?.volume || 0;
+      }
+    });
+    
+    return {
+      totalVolume: volume,
+      totalSuccessful: successful,
+      totalExecutionTime: executionTime,
+      thisWeekCount: weekCount
+    };
+  }, [filteredResults, metricsHook]);
 
-  // Calculate this week's executions (last 7 days)
-  const oneWeekAgo = new Date();
-  oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-  const thisWeekExecutions = filteredResults.filter(
-    (result) => new Date(result.executed_at) >= oneWeekAgo,
-  ).length;
-
-  // Calculate average duration
-  const avgDuration =
-    totalExecutions > 0
-      ? formatDuration(
-          filteredResults.reduce((sum, result) => sum + result.execution_time_ms, 0) /
-            totalExecutions,
-        )
-      : 'N/A';
+  const successRate = totalVolume > 0 ? ((totalSuccessful / totalVolume) * 100).toFixed(1) : 'N/A';
+  const avgDuration = totalVolume > 0 ? formatDuration(totalExecutionTime / totalVolume) : 'N/A';
 
   // Separate by execution type (for current interface stats)
   const actionExecutions = executionResults.filter((result) => result.execution_type === 'action');
@@ -291,16 +398,22 @@ const ModelReports: React.FC = () => {
               <Box display="flex" alignItems="center" gap={4}>
                 <Box display="flex" alignItems="center" gap={1}>
                   <Typography variant="body2">
-                    {filter === 'all' ? 'Total Executions' : 'Filtered Executions'}
+                    {filter === 'all' ? 'Total Elements' : 'Filtered Elements'}
                   </Typography>
                   <Typography variant="body2" fontWeight="bold">
-                    {totalExecutions}
+                    {totalElements}
+                  </Typography>
+                </Box>
+                <Box display="flex" alignItems="center" gap={1}>
+                  <Typography variant="body2">Total Executions</Typography>
+                  <Typography variant="body2" fontWeight="bold">
+                    {totalVolume}
                   </Typography>
                 </Box>
                 <Box display="flex" alignItems="center" gap={1}>
                   <Typography variant="body2">This Week</Typography>
                   <Typography variant="body2" fontWeight="bold">
-                    {thisWeekExecutions}
+                    {thisWeekCount}
                   </Typography>
                 </Box>
                 <Box display="flex" alignItems="center" gap={1}>
@@ -416,13 +529,21 @@ const ModelReports: React.FC = () => {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredResults.map((result) => {
-                    // Get metrics for this element
+                  filteredResults.map((result: any) => {
+                    // Get metrics for this element using direction-specific lookup
                     const isAction = result.execution_type === 'action';
-                    const elementId = isAction ? result.edge_id : result.node_id;
-                    const metrics = isAction 
-                      ? metricsHook.getEdgeMetrics(elementId || '') 
-                      : metricsHook.getNodeMetrics(elementId || '');
+                    let metrics = null;
+                    
+                    if (isAction && result.action_set_id) {
+                      // Get direction-specific metrics
+                      metrics = metricsHook.getEdgeDirectionMetrics(result.element_id, result.action_set_id);
+                    } else if (isAction) {
+                      // Get general edge metrics (legacy)
+                      metrics = metricsHook.getEdgeMetrics(result.element_id);
+                    } else {
+                      // Get node metrics
+                      metrics = metricsHook.getNodeMetrics(result.element_id);
+                    }
                     
                     return (
                       <TableRow
@@ -550,3 +671,4 @@ const ModelReports: React.FC = () => {
 };
 
 export default ModelReports;
+

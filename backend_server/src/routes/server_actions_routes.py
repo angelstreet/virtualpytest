@@ -98,8 +98,14 @@ def action_execute_batch():
         device_id = data.get('device_id', 'device1')
         retry_actions = data.get('retry_actions', [])
         
+        # NEW: Navigation context for proper metrics recording
+        tree_id = data.get('tree_id')
+        edge_id = data.get('edge_id')
+        action_set_id = data.get('action_set_id')
+        
         print(f"[@route:server_actions:action_execute_batch] Processing {len(actions)} main actions, {len(retry_actions)} retry actions")
         print(f"[@route:server_actions:action_execute_batch] Host: {host.get('host_name')}, Device ID: {device_id}")
+        print(f"[@route:server_actions:action_execute_batch] Navigation context: tree_id={tree_id}, edge_id={edge_id}, action_set_id={action_set_id}")
         
         # Validate
         if not actions:
@@ -116,9 +122,10 @@ def action_execute_batch():
             action_executor = ActionExecutor(
                 host=host,
                 device_id=device_id,
-                tree_id=None,  # Not needed for direct action execution
-                edge_id=None,  # Not needed for direct action execution
-                team_id=get_team_id()
+                tree_id=tree_id,  # Include navigation context
+                edge_id=edge_id,  # Include navigation context
+                team_id=get_team_id(),
+                action_set_id=action_set_id  # Include action_set_id for proper metrics
             )
             
             result = action_executor.execute_actions(

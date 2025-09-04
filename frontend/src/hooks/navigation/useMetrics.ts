@@ -196,10 +196,45 @@ export const useMetrics = (props?: UseMetricsProps) => {
   }, [nodeMetrics]);
 
   /**
-   * Get metrics for a specific edge
+   * Get metrics for a specific edge (legacy - returns first found direction)
    */
   const getEdgeMetrics = useCallback((edgeId: string): MetricData | null => {
-    return edgeMetrics.get(edgeId) || null;
+    // First try direct lookup (legacy)
+    const directMetric = edgeMetrics.get(edgeId);
+    if (directMetric) return directMetric;
+    
+    // Then try direction-specific lookup (find first matching direction)
+    for (const [key, metric] of edgeMetrics.entries()) {
+      if (key.startsWith(`${edgeId}#`)) {
+        return metric;
+      }
+    }
+    
+    return null;
+  }, [edgeMetrics]);
+
+  /**
+   * Get metrics for a specific edge direction (edge_id + action_set_id)
+   */
+  const getEdgeDirectionMetrics = useCallback((edgeId: string, actionSetId: string): MetricData | null => {
+    const key = `${edgeId}#${actionSetId}`;
+    return edgeMetrics.get(key) || null;
+  }, [edgeMetrics]);
+
+  /**
+   * Get all direction metrics for an edge
+   */
+  const getAllEdgeDirectionMetrics = useCallback((edgeId: string): Map<string, MetricData> => {
+    const directionMetrics = new Map<string, MetricData>();
+    
+    for (const [key, metric] of edgeMetrics.entries()) {
+      if (key.startsWith(`${edgeId}#`)) {
+        const actionSetId = key.split('#')[1];
+        directionMetrics.set(actionSetId, metric);
+      }
+    }
+    
+    return directionMetrics;
   }, [edgeMetrics]);
 
   /**
@@ -276,6 +311,8 @@ export const useMetrics = (props?: UseMetricsProps) => {
     // Getter functions
     getNodeMetrics,
     getEdgeMetrics,
+    getEdgeDirectionMetrics,
+    getAllEdgeDirectionMetrics,
     hasNodeMetrics,
     hasEdgeMetrics,
 

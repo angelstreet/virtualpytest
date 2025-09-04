@@ -212,7 +212,7 @@ def get_node_metrics_api(node_id, tree_id):
 
 @server_metrics_bp.route('/edge/<edge_id>/<tree_id>', methods=['GET'])
 def get_edge_metrics_api(edge_id, tree_id):
-    """Get metrics for a specific edge."""
+    """Get metrics for a specific edge (all directions)."""
     error = check_supabase()
     if error:
         return error
@@ -222,17 +222,51 @@ def get_edge_metrics_api(edge_id, tree_id):
     try:
         print(f"[@route:metrics:get_edge_metrics] Fetching metrics for edge: {edge_id}, tree: {tree_id}")
         
-        # Get metrics for single edge
+        # Get metrics for single edge - now returns direction-specific metrics
         metrics = get_tree_metrics(team_id, [], [edge_id])
-        edge_metric = metrics['edges'].get(edge_id)
+        
+        # Return all direction-specific metrics for this edge
+        edge_metrics = {}
+        for key, metric_data in metrics['edges'].items():
+            if key.startswith(edge_id):
+                edge_metrics[key] = metric_data
         
         return jsonify({
             'success': True,
-            'edge_metric': edge_metric
+            'edge_metrics': edge_metrics  # Changed from edge_metric to edge_metrics
         })
         
     except Exception as e:
         print(f"[@route:metrics:get_edge_metrics] ERROR: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': f'Server error: {str(e)}'
+        }), 500
+
+
+@server_metrics_bp.route('/edge/<edge_id>/<action_set_id>/<tree_id>', methods=['GET'])
+def get_edge_direction_metrics_api(edge_id, action_set_id, tree_id):
+    """Get metrics for a specific edge direction (edge_id + action_set_id)."""
+    error = check_supabase()
+    if error:
+        return error
+        
+    team_id = get_team_id()
+    
+    try:
+        from shared.lib.supabase.navigation_metrics_db import get_edge_direction_metrics
+        
+        print(f"[@route:metrics:get_edge_direction_metrics] Fetching metrics for edge: {edge_id}, action_set: {action_set_id}, tree: {tree_id}")
+        
+        metrics = get_edge_direction_metrics(team_id, edge_id, action_set_id)
+        
+        return jsonify({
+            'success': True,
+            'metrics': metrics
+        })
+        
+    except Exception as e:
+        print(f"[@route:metrics:get_edge_direction_metrics] ERROR: {str(e)}")
         return jsonify({
             'success': False,
             'error': f'Server error: {str(e)}'

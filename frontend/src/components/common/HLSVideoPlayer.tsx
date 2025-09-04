@@ -19,11 +19,12 @@ interface HLSVideoPlayerProps {
 /**
  * HLS Video Player Component
  *
- * Drop-in replacement for StreamViewer with proven HLS logic.
- * Extracted from StreamViewer.tsx to eliminate code duplication.
+ * Universal video player supporting both HLS streams and MP4 files.
+ * Automatically detects format and uses appropriate playback method.
  *
  * Features:
- * - Balanced HLS configuration (low latency without over-engineering)
+ * - HLS live streaming with low latency configuration
+ * - MP4 video playback for recorded content
  * - Native fallback for Safari
  * - Auto-retry with fallback logic
  * - User interaction handling for autoplay
@@ -190,6 +191,13 @@ export function HLSVideoPlayer({
     setStreamError(null);
     setStreamLoaded(false);
     setRequiresUserInteraction(false);
+
+    // Check if this is an MP4 file (recorded video)
+    if (streamUrl.includes('.mp4')) {
+      console.log('[@component:HLSVideoPlayer] Detected MP4 file, using native playback');
+      const nativeSuccess = await tryNativePlayback();
+      if (nativeSuccess) return;
+    }
 
     if (retryCount >= 2 || useNativePlayer) {
       const nativeSuccess = await tryNativePlayback();

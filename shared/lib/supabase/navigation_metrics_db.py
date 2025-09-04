@@ -51,18 +51,28 @@ def get_tree_metrics(team_id: str, node_ids: List[str], edge_ids: List[str]) -> 
                     'avg_execution_time': metric['avg_execution_time_ms']
                 }
         
-        # Get edge metrics from aggregated table
+        # Get edge metrics from aggregated table - NOW WITH ACTION_SET_ID
         edge_metrics = {}
         if edge_ids:
             edge_result = supabase.table('edge_metrics').select(
-                'edge_id, total_executions, success_rate, avg_execution_time_ms'
+                'edge_id, action_set_id, total_executions, success_rate, avg_execution_time_ms'
             ).eq('team_id', team_id).in_('edge_id', edge_ids).execute()
             
             for metric in edge_result.data:
-                edge_metrics[metric['edge_id']] = {
+                # Create unique key for edge + action_set combination
+                action_set_id = metric.get('action_set_id')
+                if action_set_id:
+                    # Direction-specific metrics: edge_id + action_set_id
+                    metric_key = f"{metric['edge_id']}#{action_set_id}"
+                else:
+                    # Legacy metrics without action_set_id (should not exist after cleanup)
+                    metric_key = metric['edge_id']
+                
+                edge_metrics[metric_key] = {
                     'volume': metric['total_executions'],
                     'success_rate': float(metric['success_rate']),
-                    'avg_execution_time': metric['avg_execution_time_ms']
+                    'avg_execution_time': metric['avg_execution_time_ms'],
+                    'action_set_id': action_set_id
                 }
         
         # Fill in defaults for missing metrics (nodes/edges without execution history)
@@ -72,9 +82,8 @@ def get_tree_metrics(team_id: str, node_ids: List[str], edge_ids: List[str]) -> 
             if node_id not in node_metrics:
                 node_metrics[node_id] = default_metrics.copy()
         
-        for edge_id in edge_ids:
-            if edge_id not in edge_metrics:
-                edge_metrics[edge_id] = default_metrics.copy()
+        # For edges, we no longer fill defaults since we need action_set_id context
+        # The frontend will need to request specific edge+action_set combinations
         
         return {
             'nodes': node_metrics,
@@ -87,7 +96,54 @@ def get_tree_metrics(team_id: str, node_ids: List[str], edge_ids: List[str]) -> 
         default_metrics = {'volume': 0, 'success_rate': 0.0, 'avg_execution_time': 0}
         return {
             'nodes': {node_id: default_metrics.copy() for node_id in node_ids},
-            'edges': {edge_id: default_metrics.copy() for edge_id in edge_ids}
+            'edges': {}  # Empty edges on error since we need action_set_id context
+        }
+
+
+def get_edge_direction_metrics(team_id: str, edge_id: str, action_set_id: str) -> Dict:
+    """
+    Get metrics for a specific edge direction (edge_id + action_set_id combination).
+    
+    Args:
+        team_id: Team identifier
+        edge_id: Edge identifier
+        action_set_id: Action set identifier (direction)
+        
+    Returns:
+        Dict with metrics: {volume: int, success_rate: float, avg_execution_time: int, confidence: float}
+    """
+    try:
+        supabase = get_supabase()
+        
+        # Get direction-specific metrics
+        result = supabase.table('edge_metrics').select(
+            'total_executions, success_rate, avg_execution_time_ms'
+        ).eq('team_id', team_id).eq('edge_id', edge_id).eq('action_set_id', action_set_id).execute()
+        
+        if result.data:
+            metric = result.data[0]
+            return {
+                'volume': metric['total_executions'],
+                'success_rate': float(metric['success_rate']),
+                'avg_execution_time': metric['avg_execution_time_ms'],
+                'confidence': float(metric['success_rate'])  # Use success_rate as confidence for now
+            }
+        else:
+            # No metrics found for this direction
+            return {
+                'volume': 0,
+                'success_rate': 0.0,
+                'avg_execution_time': 0,
+                'confidence': 0.0
+            }
+            
+    except Exception as e:
+        print(f"[@db:navigation_metrics:get_edge_direction_metrics] Error: {str(e)}")
+        return {
+            'volume': 0,
+            'success_rate': 0.0,
+            'avg_execution_time': 0,
+            'confidence': 0.0
         }
 
 

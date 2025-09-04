@@ -11,7 +11,7 @@ from .report_step_formatter import create_compact_step_results_section
 
 
 def get_video_thumbnail_html(video_url: str, label: str = "Video") -> str:
-    """Generate HTML for video thumbnail that opens video URL in modal"""
+    """Generate HTML for video thumbnail that opens video URL in modal (supports MP4 and HLS)"""
     if not video_url or video_url is None:
         return '<div class="video-placeholder" style="text-align: center; color: #888; font-style: italic; padding: 20px;">No video available</div>'
     
@@ -19,10 +19,14 @@ def get_video_thumbnail_html(video_url: str, label: str = "Video") -> str:
     escaped_url = video_url.replace("'", "\\'").replace('"', '\\"')
     escaped_label = label.replace("'", "\\'").replace('"', '\\"')
     
+    # Determine video type for appropriate source tag
+    video_type = "video/mp4" if video_url.endswith('.mp4') else "application/x-mpegURL"
+    video_format = "MP4" if video_url.endswith('.mp4') else "HLS"
+    
     return f"""
-    <div class="video-thumbnail" onclick="console.log('Video thumbnail clicked'); openHLSVideoModal('{escaped_url}', '{escaped_label}')" style="cursor: pointer; position: relative; width: 100%; max-width: 200px;" title="Click to play HLS video">
+    <div class="video-thumbnail" onclick="console.log('Video thumbnail clicked: {video_format}'); openVideoModal('{escaped_url}', '{escaped_label}')" style="cursor: pointer; position: relative; width: 100%; max-width: 200px;" title="Click to play {video_format} video">
         <video muted preload="metadata" style="width: 100%; height: auto; object-fit: contain; max-height: 150px;">
-            <source src="{video_url}" type="application/x-mpegURL">
+            <source src="{video_url}" type="{video_type}">
         </video>
         <div class="play-overlay" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 24px;">▶</div>
         <div class="video-label" style="text-align: center;">{label}</div>

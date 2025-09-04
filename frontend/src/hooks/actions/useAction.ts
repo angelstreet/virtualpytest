@@ -39,6 +39,11 @@ export const useAction = () => {
       actions: EdgeAction[],
       retryActions: EdgeAction[] = [],
       failureActions: EdgeAction[] = [],
+      navigationContext?: {
+        tree_id?: string;
+        edge_id?: string;
+        action_set_id?: string;
+      }
     ): Promise<ActionExecutionResult> => {
       if (!currentHost) {
         const errorMsg = 'No host selected for action execution';
@@ -141,6 +146,8 @@ export const useAction = () => {
             host: currentHost,  // Single source of truth
             device_id: currentDeviceId,  // Single source of truth - no fallbacks
             ...batchPayload,
+            // Include navigation context for proper metrics recording
+            ...(navigationContext || {}),
           }),
         });
 

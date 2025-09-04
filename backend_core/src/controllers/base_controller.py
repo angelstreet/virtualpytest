@@ -394,15 +394,15 @@ class FFmpegCaptureController(AVControllerInterface):
 
     def take_video(self, duration_seconds: float = None, test_start_time: float = None) -> Optional[str]:
         """
-        Upload HLS stream directly to R2 (no MP4 conversion).
-        Fast upload with no processing time.
+        Compress HLS segments to MP4 and upload to R2.
+        Reduces file count from ~180 segments to 1 MP4 file.
         
         Args:
             duration_seconds: How many seconds of video to capture (default: 10s)
             test_start_time: Unix timestamp when test started (for time sync)
             
         Returns:
-            R2 URL of HLS playlist (m3u8), or None if failed
+            R2 URL of compressed MP4 video, or None if failed
         """
         try:
             import time
@@ -412,7 +412,7 @@ class FFmpegCaptureController(AVControllerInterface):
             if duration_seconds is None:
                 duration_seconds = 10.0
                 
-            print(f"{self.capture_source}[{self.capture_source}]: Uploading {duration_seconds}s HLS video (no conversion)")
+            print(f"{self.capture_source}[{self.capture_source}]: Compressing {duration_seconds}s HLS video to MP4")
             
             # 1. Find the M3U8 file (HLS playlist)
             m3u8_path = os.path.join(self.video_capture_path, "output.m3u8")
@@ -474,78 +474,62 @@ class FFmpegCaptureController(AVControllerInterface):
             
             print(f"{self.capture_source}[{self.capture_source}]: Found {len(segment_files)} segments")
             
-            # 3. Create unique folder for this video
-            timestamp = int(time.time())
-            video_folder = f"videos/test_video_{timestamp}"
+            # 3. Compress HLS segments to MP4
+            from shared.lib.utils.video_compression_utils import VideoCompressionUtils
+            compressor = VideoCompressionUtils()
             
-            # 4. Upload HLS files to R2
+            # Estimate compression time and inform user
+            estimated_time = compressor.estimate_compression_time(len(segment_files), duration_seconds)
+            print(f"{self.capture_source}[{self.capture_source}]: Estimated compression time: {estimated_time:.1f}s")
+            
+            # Compress segments to MP4
+            compression_result = compressor.compress_hls_to_mp4(
+                m3u8_path=m3u8_path,
+                segment_files=segment_files,
+                compression_level="medium"  # Good balance of quality/size/speed
+            )
+            
+            if not compression_result['success']:
+                print(f"{self.capture_source}[{self.capture_source}]: Video compression failed: {compression_result['error']}")
+                return None
+            
+            compressed_mp4_path = compression_result['output_path']
+            print(f"{self.capture_source}[{self.capture_source}]: Compression complete - {compression_result['compression_ratio']:.1f}% size reduction")
+            
+            # 4. Upload compressed MP4 to R2
             from shared.lib.utils.cloudflare_utils import get_cloudflare_utils
             uploader = get_cloudflare_utils()
             
-            # Create new M3U8 playlist with only our selected segments
-            new_playlist_content = f"#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:{self.HLS_SEGMENT_DURATION}\n"
-            for segment_name, segment_path in segment_files:
-                new_playlist_content += f"#EXTINF:{self.HLS_SEGMENT_DURATION}.0,\n"
-                new_playlist_content += f"{segment_name}\n"
-            new_playlist_content += "#EXT-X-ENDLIST\n"
+            timestamp = int(time.time())
+            video_filename = f"test_video_{timestamp}.mp4"
+            video_remote_path = f"videos/{video_filename}"
             
-            # Write new playlist to temp file and upload
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.m3u8', delete=False) as temp_file:
-                temp_file.write(new_playlist_content)
-                temp_playlist_path = temp_file.name
+            file_mappings = [{
+                'local_path': compressed_mp4_path,
+                'remote_path': video_remote_path,
+                'content_type': 'video/mp4'
+            }]
             
-            playlist_remote_path = f"{video_folder}/playlist.m3u8"
-            file_mappings = [{'local_path': temp_playlist_path, 'remote_path': playlist_remote_path}]
             upload_result = uploader.upload_files(file_mappings)
             
-            # Convert to single file result
-            if upload_result['uploaded_files']:
-                playlist_result = {
-                    'success': True,
-                    'url': upload_result['uploaded_files'][0]['url']
-                }
-            else:
-                playlist_result = {
-                    'success': False,
-                    'error': upload_result['failed_uploads'][0]['error'] if upload_result['failed_uploads'] else 'Upload failed'
-                }
-            
-            # Clean up temp file
+            # Clean up compressed file
             try:
-                os.unlink(temp_playlist_path)
+                os.unlink(compressed_mp4_path)
             except:
                 pass
             
-            if not playlist_result.get('success'):
-                print(f"{self.capture_source}[{self.capture_source}]: Failed to upload playlist")
-                return None
-            
-            # Upload all segment files
-            uploaded_segments = 0
-            for segment_name, segment_path in segment_files:
-                segment_remote_path = f"{video_folder}/{segment_name}"
-                file_mappings = [{'local_path': segment_path, 'remote_path': segment_remote_path}]
-                upload_result = uploader.upload_files(file_mappings)
+            if upload_result['uploaded_files']:
+                video_url = upload_result['uploaded_files'][0]['url']
                 
-                # Convert to single file result
-                if upload_result['uploaded_files']:
-                    segment_result = {'success': True}
-                else:
-                    segment_result = {'success': False}
+                # DO NOT clean up original segments - they're needed for live streaming
+                print(f"{self.capture_source}[{self.capture_source}]: HLS segments preserved for live streaming")
                 
-                if segment_result.get('success'):
-                    uploaded_segments += 1
-                else:
-                    print(f"{self.capture_source}[{self.capture_source}]: Failed to upload segment {segment_name}")
-            
-            if uploaded_segments == 0:
-                print(f"{self.capture_source}[{self.capture_source}]: No segments uploaded successfully")
+                print(f"{self.capture_source}[{self.capture_source}]: MP4 uploaded: {video_url}")
+                return video_url
+            else:
+                error_msg = upload_result['failed_uploads'][0]['error'] if upload_result['failed_uploads'] else 'Upload failed'
+                print(f"{self.capture_source}[{self.capture_source}]: MP4 upload failed: {error_msg}")
                 return None
-            
-            # 5. Return playlist URL for HLS playback
-            playlist_url = playlist_result.get('url')
-            print(f"{self.capture_source}[{self.capture_source}]: HLS uploaded: {playlist_url} ({uploaded_segments}/{len(segment_files)} segments)")
-            return playlist_url
                 
         except Exception as e:
             print(f"{self.capture_source}[{self.capture_source}]: Error uploading HLS: {e}")

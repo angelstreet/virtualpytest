@@ -24,6 +24,7 @@ export interface ExecutionResult {
   executed_at: string;
   script_result_id?: string;  // NEW: Link to script execution
   script_context?: string;    // NEW: Context of execution ('direct', 'script', 'validation')
+  action_set_id?: string;     // NEW: Direction-specific action set ID for bidirectional edges
 }
 
 export const useExecutionResults = () => {
