@@ -188,8 +188,8 @@ export const useMetrics = (props?: UseMetricsProps) => {
    * Generate notification data
    */
   const notificationData = useMemo((): MetricsNotificationData => {
-    return generateNotificationData(globalConfidence, lowConfidenceItems.total_count);
-  }, [globalConfidence, lowConfidenceItems.total_count]);
+    return generateNotificationData(globalConfidence, lowConfidenceItems.total_count, nodeMetrics, edgeMetrics);
+  }, [globalConfidence, lowConfidenceItems.total_count, nodeMetrics, edgeMetrics]);
 
   /**
    * Get metrics for a specific node

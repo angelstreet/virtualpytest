@@ -162,6 +162,13 @@ def generate_zap_summary_text(zap_data: List[Dict[str, Any]]) -> str:
     total_iterations = len(zap_data)
     lines.append("-" * 120)
     lines.append(f"TOTALS: {total_iterations}/{total_iterations} successful | Motion: {motion_count}/{total_iterations} ({motion_count/total_iterations*100:.0f}%) | Subtitles: {subtitle_count}/{total_iterations} ({subtitle_count/total_iterations*100:.0f}%) | Audio: {audio_count}/{total_iterations} ({audio_count/total_iterations*100:.0f}%) | Blackscreen/Freeze: {bf_count}/{total_iterations} ({bf_count/total_iterations*100:.0f}%)")
+    
+    # Calculate mean durations
+    mean_zap_duration = sum(iteration['duration_seconds'] for iteration in zap_data) / total_iterations
+    bf_durations = [iteration['blackscreen_freeze_duration_seconds'] for iteration in zap_data if iteration['blackscreen_freeze_detected'] and iteration['blackscreen_freeze_duration_seconds']]
+    mean_bf_duration = sum(bf_durations) / len(bf_durations) if bf_durations else 0
+    
+    lines.append(f"MEANS: Zap Duration: {mean_zap_duration:.1f}s | Blackscreen/Freeze Duration: {mean_bf_duration:.1f}s")
     lines.append("=" * 120)
     
     return "\n".join(lines)

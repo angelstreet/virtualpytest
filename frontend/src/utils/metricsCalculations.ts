@@ -168,12 +168,33 @@ export const getLowConfidenceItems = (
 };
 
 /**
- * Generate notification data based on global confidence
+ * Generate notification data based on global confidence and metrics
  */
 export const generateNotificationData = (
   globalConfidence: number,
   lowConfidenceCount: number,
+  nodeMetrics?: Map<string, MetricData>,
+  edgeMetrics?: Map<string, MetricData>,
 ): MetricsNotificationData => {
+  // Calculate global success rate from all metrics
+  const allMetrics = [...(nodeMetrics?.values() || []), ...(edgeMetrics?.values() || [])];
+  const metricsWithData = allMetrics.filter(m => m.volume > 0);
+  
+  let globalSuccessRate = 0;
+  if (metricsWithData.length > 0) {
+    const totalWeightedSuccess = metricsWithData.reduce((sum, m) => sum + (m.success_rate * m.volume), 0);
+    const totalVolume = metricsWithData.reduce((sum, m) => sum + m.volume, 0);
+    globalSuccessRate = totalVolume > 0 ? totalWeightedSuccess / totalVolume : 0;
+  }
+  
+  // Calculate confidence distribution
+  const confidenceDistribution = {
+    high: allMetrics.filter(m => m.confidence >= 0.7).length,
+    medium: allMetrics.filter(m => m.confidence >= 0.49 && m.confidence < 0.7).length,
+    low: allMetrics.filter(m => m.confidence < 0.49 && m.volume > 0).length,
+    untested: allMetrics.filter(m => m.volume === 0).length,
+  };
+  
   // Don't show notification if there are no metrics at all (0.0% with 0 items)
   if (globalConfidence === 0 && lowConfidenceCount === 0) {
     return {
@@ -182,6 +203,9 @@ export const generateNotificationData = (
       message: '',
       global_confidence: globalConfidence,
       low_confidence_count: lowConfidenceCount,
+      global_success_rate: globalSuccessRate,
+      total_items: allMetrics.length,
+      confidence_distribution: confidenceDistribution,
     };
   }
   
@@ -193,19 +217,26 @@ export const generateNotificationData = (
       message: '',
       global_confidence: globalConfidence,
       low_confidence_count: lowConfidenceCount,
+      global_success_rate: globalSuccessRate,
+      total_items: allMetrics.length,
+      confidence_distribution: confidenceDistribution,
     };
   }
   
-  const confidencePercentage = (globalConfidence * 100).toFixed(1);
+  const confidenceScore = Math.round(globalConfidence * 10); // Convert to 0-10 scale, whole number
+  const successRatePercent = (globalSuccessRate * 100).toFixed(0);
   
   // Show error notification for low confidence (only if there are actual items)
   if (globalConfidence < CONFIDENCE_THRESHOLDS.MEDIUM && lowConfidenceCount > 0) {
     return {
       show: true,
       severity: 'error',
-      message: `Low confidence detected (${confidencePercentage}%) - ${lowConfidenceCount} items need attention`,
+      message: `Confidence Score: ${confidenceScore}/10 • Success Rate: ${successRatePercent}% • ${lowConfidenceCount} items need attention`,
       global_confidence: globalConfidence,
       low_confidence_count: lowConfidenceCount,
+      global_success_rate: globalSuccessRate,
+      total_items: allMetrics.length,
+      confidence_distribution: confidenceDistribution,
     };
   }
   
@@ -214,9 +245,12 @@ export const generateNotificationData = (
     return {
       show: true,
       severity: 'warning',
-      message: `Medium confidence (${confidencePercentage}%) - ${lowConfidenceCount} items below 90%`,
+      message: `Confidence Score: ${confidenceScore}/10 • Success Rate: ${successRatePercent}% • ${lowConfidenceCount} items below 90%`,
       global_confidence: globalConfidence,
       low_confidence_count: lowConfidenceCount,
+      global_success_rate: globalSuccessRate,
+      total_items: allMetrics.length,
+      confidence_distribution: confidenceDistribution,
     };
   }
   
@@ -227,6 +261,9 @@ export const generateNotificationData = (
     message: '',
     global_confidence: globalConfidence,
     low_confidence_count: lowConfidenceCount,
+    global_success_rate: globalSuccessRate,
+    total_items: allMetrics.length,
+    confidence_distribution: confidenceDistribution,
   };
 };
 

@@ -137,7 +137,7 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
       const successRatePercent = Math.round(edgeMetrics.success_rate * 100);
       
       // Confidence is 0-1, convert to 0-10 scale for display
-      const confidenceScore = Math.round(edgeMetrics.confidence * 10 * 10) / 10; // Round to 1 decimal
+      const confidenceScore = Math.round(edgeMetrics.confidence * 10); // Round to whole number
       
       return {
         successRateText: `${successRatePercent}%`,

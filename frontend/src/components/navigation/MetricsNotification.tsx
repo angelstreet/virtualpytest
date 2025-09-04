@@ -64,13 +64,17 @@ export const MetricsNotification: React.FC<MetricsNotificationProps> = ({
   };
 
   const getShortMessage = () => {
-    const confidence = (notificationData.global_confidence * 100).toFixed(0);
+    const confidenceScore = Math.round(notificationData.global_confidence * 10);
+    const successRate = notificationData.global_success_rate 
+      ? (notificationData.global_success_rate * 100).toFixed(0)
+      : '0';
     const count = notificationData.low_confidence_count;
     
+    // Emphasize confidence score (larger, first) then success rate
     if (notificationData.severity === 'error') {
-      return `Low confidence ${confidence}% • ${count} items`;
+      return `Score: ${confidenceScore}/10 • ${successRate}% success • ${count} items`;
     } else {
-      return `Medium confidence ${confidence}% • ${count} items`;
+      return `Score: ${confidenceScore}/10 • ${successRate}% success • ${count} items`;
     }
   };
 
@@ -126,8 +130,27 @@ export const MetricsNotification: React.FC<MetricsNotificationProps> = ({
           justifyContent: 'space-between',
           width: '100%'
         }}>
-          <Box sx={{ fontSize: '0.8rem', fontWeight: 500 }}>
-            {getShortMessage()}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1 }}>
+            {/* Confidence Score - Emphasized */}
+            <Box sx={{ 
+              fontSize: '1rem', 
+              fontWeight: 'bold',
+              color: notificationData.severity === 'error' ? '#ef4444' : '#f59e0b',
+              padding: '2px 6px',
+              borderRadius: '4px',
+              backgroundColor: 'rgba(255,255,255,0.2)',
+              border: '1px solid rgba(255,255,255,0.3)'
+            }}>
+              {Math.round(notificationData.global_confidence * 10)}/10
+            </Box>
+            
+            {/* Success Rate and Count - Secondary */}
+            <Box sx={{ fontSize: '0.75rem', fontWeight: 400, opacity: 0.9 }}>
+              {notificationData.global_success_rate 
+                ? `${(notificationData.global_success_rate * 100).toFixed(0)}% success`
+                : '0% success'
+              } • {notificationData.low_confidence_count} items
+            </Box>
           </Box>
           
           {/* Skip button */}

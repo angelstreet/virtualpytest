@@ -97,4 +97,13 @@ export interface MetricsNotificationData {
   message: string;
   global_confidence: number;
   low_confidence_count: number;
+  // Additional metrics for better display
+  global_success_rate?: number;
+  total_items?: number;
+  confidence_distribution?: {
+    high: number;
+    medium: number;
+    low: number;
+    untested: number;
+  };
 }
