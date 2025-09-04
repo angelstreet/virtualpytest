@@ -2,6 +2,7 @@ import { Error as ErrorIcon } from '@mui/icons-material';
 import { Card, Typography, Box, Chip, CircularProgress } from '@mui/material';
 import React, { useState, useCallback, useMemo } from 'react';
 
+import { DEFAULT_DEVICE_RESOLUTION } from '../../config/deviceResolutions';
 import { useStream } from '../../hooks/controller';
 import { useToast } from '../../hooks/useToast';
 import { Host, Device } from '../../types/common/Host_Types';
