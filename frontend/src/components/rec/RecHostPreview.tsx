@@ -214,7 +214,7 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
                       aspectRatio: isMobile 
                         ? `${DEFAULT_DEVICE_RESOLUTION.height}/${DEFAULT_DEVICE_RESOLUTION.width}` 
                         : `${DEFAULT_DEVICE_RESOLUTION.width}/${DEFAULT_DEVICE_RESOLUTION.height}`,
-                      objectFit: 'contain',
+                      objectFit: isMobile ? 'fill' : 'contain',
                       isMobileModel: isMobile,
                     }}
                     isExpanded={false}
