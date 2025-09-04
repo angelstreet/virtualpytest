@@ -214,7 +214,7 @@ const ModelReports: React.FC = () => {
         </Typography>
         
         {/* User Interface Selector */}
-        <FormControl size="small" sx={{ minWidth: 250, zIndex: 1300 }}>
+        <FormControl size="small" sx={{ minWidth: 250, zIndex: 9999, position: 'relative' }}>
           <InputLabel>Select User Interface</InputLabel>
           <Select
             value={selectedUserInterface}
@@ -225,9 +225,17 @@ const ModelReports: React.FC = () => {
             MenuProps={{
               PaperProps: {
                 style: {
-                  zIndex: 1301,
+                  zIndex: 10000,
                   maxHeight: 300,
                 },
+              },
+              anchorOrigin: {
+                vertical: 'bottom',
+                horizontal: 'left',
+              },
+              transformOrigin: {
+                vertical: 'top',
+                horizontal: 'left',
               },
             }}
           >
