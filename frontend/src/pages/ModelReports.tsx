@@ -98,12 +98,14 @@ const ModelReports: React.FC = () => {
     };
 
     loadData();
-  }, [getAllExecutionResults, getAllUserInterfaces]);
+  }, []); // Only run once on mount
 
   // Load execution results and metrics when user interface changes
   useEffect(() => {
     const loadExecutionResultsForInterface = async () => {
-      if (!selectedUserInterface || userInterfaces.length === 0) return;
+      if (!selectedUserInterface || userInterfaces.length === 0 || Object.keys(treeToInterfaceMap).length === 0) {
+        return;
+      }
       
       try {
         setLoading(true);
@@ -111,12 +113,16 @@ const ModelReports: React.FC = () => {
         
         const selectedUI = userInterfaces.find(ui => ui.name === selectedUserInterface);
         if (selectedUI?.root_tree?.id) {
+          console.log(`[@ModelReports] Loading data for interface: ${selectedUserInterface}, tree: ${selectedUI.root_tree.id}`);
+          
           // Load execution results for this specific tree only
           const results = await getAllExecutionResults();
           // Filter results by tree_id to reduce processing
           const filteredResults = results.filter(result => 
             treeToInterfaceMap[result.tree_id] === selectedUserInterface
           );
+          
+          console.log(`[@ModelReports] Filtered ${results.length} results to ${filteredResults.length} for interface ${selectedUserInterface}`);
           setExecutionResults(filteredResults);
           
           // Load metrics for this tree
@@ -130,8 +136,11 @@ const ModelReports: React.FC = () => {
       }
     };
 
-    loadExecutionResultsForInterface();
-  }, [selectedUserInterface, userInterfaces, treeToInterfaceMap, getAllExecutionResults, metricsHook]);
+    // Only run if we have all the necessary data
+    if (selectedUserInterface && userInterfaces.length > 0 && Object.keys(treeToInterfaceMap).length > 0) {
+      loadExecutionResultsForInterface();
+    }
+  }, [selectedUserInterface, userInterfaces, treeToInterfaceMap]);
 
   // Filter execution results based on execution type only (user interface already filtered)
   const filteredResults = executionResults.filter((result) => {
