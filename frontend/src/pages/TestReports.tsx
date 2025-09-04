@@ -72,25 +72,7 @@ const TestReports: React.FC = () => {
     };
 
     loadScriptResults();
-  }, []); // Remove getAllScriptResults from dependency array - only run on mount
-
-  // Auto-refresh when there are running scripts
-  useEffect(() => {
-    const hasRunningScripts = scriptResults.some(result => getExecutionStatus(result) === 'running');
-    
-    if (hasRunningScripts) {
-      const intervalId = setInterval(async () => {
-        try {
-          const results = await getAllScriptResults();
-          setScriptResults(results);
-        } catch (err) {
-          console.error('[@component:TestReports] Error refreshing script results:', err);
-        }
-      }, 5000); // Refresh every 5 seconds
-
-      return () => clearInterval(intervalId);
-    }
-  }, [scriptResults]); // Remove getAllScriptResults from dependency array
+  }, []); // Only run on component mount
 
   // Calculate stats
   const totalReports = scriptResults.length;
