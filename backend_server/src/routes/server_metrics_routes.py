@@ -79,10 +79,77 @@ def get_tree_metrics_api(tree_id):
         # Get metrics using the proper navigation metrics function
         metrics = get_tree_metrics(team_id, node_ids, edge_ids)
         
+        # Add confidence calculation to each metric (backend responsibility)
+        def calculate_confidence(volume: int, success_rate: float) -> float:
+            """Calculate confidence as specified in architecture"""
+            # Volume weight: reaches 1.0 at 10 executions, caps at 1.0
+            volume_weight = min(volume / 10.0, 1.0)
+            # Success rate weight: direct mapping 0.0-1.0
+            success_weight = success_rate
+            # Combined confidence: 30% volume importance, 70% success importance
+            confidence = (volume_weight * 0.3) + (success_weight * 0.7)
+            return min(confidence, 1.0)
+        
+        # Process nodes with confidence
+        processed_nodes = {}
+        for node_id, node_metric in metrics['nodes'].items():
+            confidence = calculate_confidence(node_metric['volume'], node_metric['success_rate'])
+            processed_nodes[node_id] = {
+                'volume': node_metric['volume'],
+                'success_rate': node_metric['success_rate'],
+                'avg_execution_time': node_metric['avg_execution_time'],
+                'confidence': confidence
+            }
+        
+        # Process edges with confidence  
+        processed_edges = {}
+        for edge_id, edge_metric in metrics['edges'].items():
+            confidence = calculate_confidence(edge_metric['volume'], edge_metric['success_rate'])
+            processed_edges[edge_id] = {
+                'volume': edge_metric['volume'],
+                'success_rate': edge_metric['success_rate'],
+                'avg_execution_time': edge_metric['avg_execution_time'],
+                'confidence': confidence
+            }
+        
+        # Calculate global confidence for toast system
+        all_confidences = []
+        all_volumes = []
+        
+        for node_metric in processed_nodes.values():
+            if node_metric['volume'] > 0:
+                all_confidences.append(node_metric['confidence'])
+                all_volumes.append(node_metric['volume'])
+        
+        for edge_metric in processed_edges.values():
+            if edge_metric['volume'] > 0:
+                all_confidences.append(edge_metric['confidence'])
+                all_volumes.append(edge_metric['volume'])
+        
+        # Calculate weighted global confidence
+        global_confidence = 0.0
+        if all_confidences:
+            total_weighted = sum(conf * max(vol, 1) for conf, vol in zip(all_confidences, all_volumes))
+            total_weight = sum(max(vol, 1) for vol in all_volumes)
+            global_confidence = total_weighted / total_weight if total_weight > 0 else 0.0
+        
+        # Count confidence distribution for toast system
+        high_count = sum(1 for conf in all_confidences if conf >= 0.7)
+        medium_count = sum(1 for conf in all_confidences if 0.49 <= conf < 0.7)
+        low_count = sum(1 for conf in all_confidences if conf < 0.49)
+        untested_count = (len(node_ids) + len(edge_ids)) - len(all_confidences)
+        
         return jsonify({
             'success': True,
-            'nodes': metrics['nodes'],
-            'edges': metrics['edges']
+            'nodes': processed_nodes,
+            'edges': processed_edges,
+            'global_confidence': global_confidence,
+            'confidence_distribution': {
+                'high': high_count,
+                'medium': medium_count,
+                'low': low_count,
+                'untested': untested_count
+            }
         })
         
     except Exception as e:

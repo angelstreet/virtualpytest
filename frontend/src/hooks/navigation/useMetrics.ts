@@ -62,40 +62,72 @@ export const useMetrics = (props?: UseMetricsProps) => {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const data: MetricsApiResponse = await response.json();
+      const data = await response.json();
 
       if (!data.success) {
         throw new Error(data.error || 'Failed to fetch metrics');
       }
 
       console.log(`[@useMetrics] Received metrics:`, {
-        nodeCount: data.node_metrics?.length || 0,
-        edgeCount: data.edge_metrics?.length || 0,
-        globalConfidence: data.tree_metrics?.global_confidence || 0,
+        nodeCount: Object.keys(data.nodes || {}).length,
+        edgeCount: Object.keys(data.edges || {}).length,
+        globalConfidence: data.global_confidence || 0,
+        distribution: data.confidence_distribution || {}
       });
 
-      // Process node metrics
+      // Convert backend format to frontend MetricData format (no processing needed)
       const processedNodeMetrics = new Map<string, MetricData>();
-      if (data.node_metrics) {
-        for (const rawMetric of data.node_metrics) {
-          const processed = processNodeMetrics(rawMetric);
-          processedNodeMetrics.set(processed.id, processed);
+      if (data.nodes) {
+        for (const [nodeId, nodeMetric] of Object.entries(data.nodes)) {
+          const metric = nodeMetric as any; // Backend format
+          processedNodeMetrics.set(nodeId, {
+            id: nodeId,
+            volume: metric.volume,
+            success_rate: metric.success_rate,
+            avg_execution_time: metric.avg_execution_time,
+            confidence: metric.confidence, // Backend calculated
+            confidence_level: metric.confidence >= 0.7 ? 'high' : metric.confidence >= 0.49 ? 'medium' : 'low'
+          });
         }
       }
 
-      // Process edge metrics
+      // Convert backend format to frontend MetricData format (no processing needed)
       const processedEdgeMetrics = new Map<string, MetricData>();
-      if (data.edge_metrics) {
-        for (const rawMetric of data.edge_metrics) {
-          const processed = processEdgeMetrics(rawMetric);
-          processedEdgeMetrics.set(processed.id, processed);
+      if (data.edges) {
+        for (const [edgeId, edgeMetric] of Object.entries(data.edges)) {
+          const metric = edgeMetric as any; // Backend format
+          processedEdgeMetrics.set(edgeId, {
+            id: edgeId,
+            volume: metric.volume,
+            success_rate: metric.success_rate,
+            avg_execution_time: metric.avg_execution_time,
+            confidence: metric.confidence, // Backend calculated
+            confidence_level: metric.confidence >= 0.7 ? 'high' : metric.confidence >= 0.49 ? 'medium' : 'low'
+          });
         }
       }
 
       // Update state
       setNodeMetrics(processedNodeMetrics);
       setEdgeMetrics(processedEdgeMetrics);
-      setTreeMetrics(data.tree_metrics);
+      
+      // Set tree metrics from backend global confidence
+      const treeMetrics = data.global_confidence !== undefined ? {
+        tree_id: targetTreeId,
+        global_confidence: data.global_confidence,
+        confidence_distribution: data.confidence_distribution || {
+          high: 0,
+          medium: 0,
+          low: 0,
+          untested: 0
+        },
+        total_nodes: Object.keys(data.nodes || {}).length,
+        total_edges: Object.keys(data.edges || {}).length,
+        nodes_with_metrics: Object.values(data.nodes || {}).filter((n: any) => n.volume > 0).length,
+        edges_with_metrics: Object.values(data.edges || {}).filter((e: any) => e.volume > 0).length
+      } : null;
+      
+      setTreeMetrics(treeMetrics);
       setLastFetchedTreeId(targetTreeId);
 
       console.log(`[@useMetrics] Metrics processed successfully for tree: ${targetTreeId}`);
