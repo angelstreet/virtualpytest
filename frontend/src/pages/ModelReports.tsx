@@ -24,7 +24,6 @@ import {
   ToggleButton,
   ToggleButtonGroup,
   FormControl,
-  InputLabel,
   Select,
   MenuItem,
   SelectChangeEvent,
@@ -47,7 +46,6 @@ const ModelReports: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [treeToInterfaceMap, setTreeToInterfaceMap] = useState<Record<string, string>>({});
-  const [treeToNameMap, setTreeToNameMap] = useState<Record<string, string>>({});
   const [filter, setFilter] = useState<FilterType>('all');
 
   // Load execution results and user interfaces on component mount
@@ -62,12 +60,11 @@ const ModelReports: React.FC = () => {
 
         // Create mapping from tree_id to userinterface_name
         const treeToUIMap: Record<string, string> = {};
-        const treeNameMap: Record<string, string> = {};
         
         interfaces.forEach((ui) => {
           if (ui.root_tree?.id) {
             treeToUIMap[ui.root_tree.id] = ui.name;
-            treeNameMap[ui.root_tree.id] = ui.root_tree.name || 'Root Tree';
+            // treeNameMap[ui.root_tree.id] = ui.root_tree.name || 'Root Tree';
           }
           // Also map any nested trees if they exist (cast to any to handle potential nested_trees)
           const uiWithNested = ui as any;
@@ -75,7 +72,7 @@ const ModelReports: React.FC = () => {
             uiWithNested.nested_trees.forEach((nestedTree: any) => {
               if (nestedTree.id) {
                 treeToUIMap[nestedTree.id] = ui.name;
-                treeNameMap[nestedTree.id] = nestedTree.name || 'Nested Tree';
+                // treeNameMap[nestedTree.id] = nestedTree.name || 'Nested Tree';
               }
             });
           }
@@ -83,7 +80,6 @@ const ModelReports: React.FC = () => {
 
         setUserInterfaces(interfaces);
         setTreeToInterfaceMap(treeToUIMap);
-        setTreeToNameMap(treeNameMap);
         
         // Don't auto-select - let user choose explicitly to avoid race conditions
       } catch (err) {
@@ -219,11 +215,9 @@ const ModelReports: React.FC = () => {
         </Typography>
         
         {/* User Interface Selector */}
-        <FormControl size="small" sx={{ minWidth: 250 }}>
-          <InputLabel>Select User Interface</InputLabel>
+        <FormControl size="small" sx={{ minWidth: 250, zIndex: 9999, position: 'relative' }}>
           <Select
             value={selectedUserInterface}
-            label="Select User Interface"
             onChange={handleUserInterfaceChange}
             disabled={userInterfaces.length === 0}
             displayEmpty
