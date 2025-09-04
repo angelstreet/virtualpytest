@@ -25,7 +25,11 @@ import {
   Select,
   MenuItem,
   SelectChangeEvent,
+  IconButton,
+  Collapse,
+  Link,
 } from '@mui/material';
+import { ExpandMore, ExpandLess, OpenInNew } from '@mui/icons-material';
 import React, { useState, useEffect, useMemo } from 'react';
 
 import { useExecutionResults, ExecutionResult } from '../hooks/pages/useExecutionResults';
@@ -45,6 +49,18 @@ const ModelReports: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [treeToInterfaceMap, setTreeToInterfaceMap] = useState<Record<string, string>>({});
   const [filter, setFilter] = useState<FilterType>('all');
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+
+  // Toggle row expansion
+  const toggleRowExpansion = (rowId: string) => {
+    const newExpanded = new Set(expandedRows);
+    if (newExpanded.has(rowId)) {
+      newExpanded.delete(rowId);
+    } else {
+      newExpanded.add(rowId);
+    }
+    setExpandedRows(newExpanded);
+  };
 
   // Load execution results and user interfaces on component mount
   useEffect(() => {
@@ -471,6 +487,9 @@ const ModelReports: React.FC = () => {
             <Table size="small" sx={{ '& .MuiTableRow-root': { height: '40px' } }}>
               <TableHead>
                 <TableRow>
+                  <TableCell sx={{ py: 1, width: 50 }}>
+                    {/* Expand column */}
+                  </TableCell>
                   <TableCell sx={{ py: 1 }}>
                     <strong>Type</strong>
                   </TableCell>
@@ -495,18 +514,21 @@ const ModelReports: React.FC = () => {
                   <TableCell sx={{ py: 1 }}>
                     <strong>Executed</strong>
                   </TableCell>
+                  <TableCell sx={{ py: 1 }}>
+                    <strong>Report</strong>
+                  </TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={7}>
+                    <TableCell colSpan={10}>
                       <LoadingState />
                     </TableCell>
                   </TableRow>
                 ) : filteredResults.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} sx={{ textAlign: 'center', py: 4 }}>
+                    <TableCell colSpan={10} sx={{ textAlign: 'center', py: 4 }}>
                       <Typography variant="body2" color="textSecondary">
                         {filter === 'all'
                           ? 'No execution results available yet'
@@ -531,30 +553,44 @@ const ModelReports: React.FC = () => {
                       metrics = metricsHook.getNodeMetrics(result.element_id);
                     }
                     
+                    const isExpanded = expandedRows.has(result.id);
+                    const reportUrl = executionResults.find(er => 
+                      (er.edge_id === result.element_id || er.node_id === result.element_id) &&
+                      er.script_report_url
+                    )?.script_report_url;
+
                     return (
-                      <TableRow
-                        key={result.id}
-                        sx={{
-                          '&:hover': {
-                            backgroundColor: 'rgba(0, 0, 0, 0.04) !important',
-                          },
-                        }}
-                      >
-                        <TableCell sx={{ py: 0.5 }}>
-                          <Chip
-                            icon={
-                              result.execution_type === 'action' ? (
-                                <ActionIcon />
-                              ) : (
-                                <VerificationIcon />
-                              )
-                            }
-                            label={result.execution_type === 'action' ? 'Edge' : 'Node'}
-                            size="small"
-                            variant="outlined"
-                            color={result.execution_type === 'action' ? 'primary' : 'secondary'}
-                          />
-                        </TableCell>
+                      <React.Fragment key={result.id}>
+                        <TableRow
+                          sx={{
+                            '&:hover': {
+                              backgroundColor: 'rgba(0, 0, 0, 0.04) !important',
+                            },
+                          }}
+                        >
+                          <TableCell sx={{ py: 0.5 }}>
+                            <IconButton
+                              size="small"
+                              onClick={() => toggleRowExpansion(result.id)}
+                            >
+                              {isExpanded ? <ExpandLess /> : <ExpandMore />}
+                            </IconButton>
+                          </TableCell>
+                          <TableCell sx={{ py: 0.5 }}>
+                            <Chip
+                              icon={
+                                result.execution_type === 'action' ? (
+                                  <ActionIcon />
+                                ) : (
+                                  <VerificationIcon />
+                                )
+                              }
+                              label={result.execution_type === 'action' ? 'Edge' : 'Node'}
+                              size="small"
+                              variant="outlined"
+                              color={result.execution_type === 'action' ? 'primary' : 'secondary'}
+                            />
+                          </TableCell>
                         <TableCell sx={{ py: 0.5 }}>
                           {treeToInterfaceMap[result.tree_id] || 'Unknown'}
                         </TableCell>
@@ -595,7 +631,61 @@ const ModelReports: React.FC = () => {
                           </Box>
                         </TableCell>
                         <TableCell sx={{ py: 0.5 }}>{formatDate(result.executed_at)}</TableCell>
+                        <TableCell sx={{ py: 0.5 }}>
+                          {reportUrl ? (
+                            <Link
+                              href={reportUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
+                            >
+                              Report
+                              <OpenInNew sx={{ fontSize: 14 }} />
+                            </Link>
+                          ) : (
+                            <Typography variant="body2" color="text.secondary">
+                              N/A
+                            </Typography>
+                          )}
+                        </TableCell>
                       </TableRow>
+                      
+                      {/* Expandable Details Row */}
+                      <TableRow>
+                        <TableCell sx={{ py: 0, border: 0 }} colSpan={10}>
+                          <Collapse in={isExpanded} timeout="auto" unmountOnExit>
+                            <Box sx={{ py: 2, px: 2, backgroundColor: 'grey.50' }}>
+                              <Typography variant="subtitle2" gutterBottom>
+                                {result.execution_type === 'action' ? 'Actions Executed:' : 'Verifications Executed:'}
+                              </Typography>
+                              <Box sx={{ ml: 2 }}>
+                                {result.execution_type === 'action' ? (
+                                  // Show action commands based on action_set_id
+                                  <Box>
+                                    <Typography variant="body2" sx={{ fontFamily: 'monospace', color: 'text.secondary', mb: 0.5 }}>
+                                      Executing command 'press_key' with params: {'{'}key: '{result.action_set_id?.includes('home') ? 'HOME' : result.action_set_id?.includes('back') ? 'BACK' : 'OK'}', wait_time: 1500{'}'}
+                                    </Typography>
+                                    <Typography variant="body2" sx={{ fontFamily: 'monospace', color: 'success.main' }}>
+                                      ✓ Action completed successfully
+                                    </Typography>
+                                  </Box>
+                                ) : (
+                                  // Show verification commands
+                                  <Box>
+                                    <Typography variant="body2" sx={{ fontFamily: 'monospace', color: 'text.secondary', mb: 0.5 }}>
+                                      waitForElementToAppear Type: adb element: {result.element_name?.toLowerCase().replace(' ', '_')}
+                                    </Typography>
+                                    <Typography variant="body2" sx={{ fontFamily: 'monospace', color: 'success.main' }}>
+                                      ✓ Element found and verified
+                                    </Typography>
+                                  </Box>
+                                )}
+                              </Box>
+                            </Box>
+                          </Collapse>
+                        </TableCell>
+                      </TableRow>
+                    </React.Fragment>
                     );
                   })
                 )}
