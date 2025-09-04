@@ -415,7 +415,6 @@ export function HLSVideoPlayer({
           maxHeight: finalLayoutConfig.isMobileModel ? undefined : '100%', // Prevent overflow on desktop
           alignSelf: 'center', // Center the video inside the container
           objectFit: isExpanded ? 'fill' : finalLayoutConfig.objectFit || 'contain',
-          aspectRatio: finalLayoutConfig.aspectRatio,
           backgroundColor: '#000000',
           display: streamLoaded ? 'block' : 'none',
         }}
