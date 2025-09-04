@@ -651,7 +651,8 @@ const RecHostStreamModalContent: React.FC<{
                       width: '100%',
                       height: '100%',
                       '& video': {
-                        width: '100% !important',
+                        // Respect mobile scaling - don't override the internal HLS logic
+                        width: isMobileModel ? 'auto !important' : '100% !important',
                         height: '100% !important',
                         objectFit: 'contain !important',
                       },
