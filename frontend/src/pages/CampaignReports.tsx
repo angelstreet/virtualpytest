@@ -166,7 +166,7 @@ const CampaignReports: React.FC = () => {
                 <Typography variant="h6">Quick Stats</Typography>
               </Box>
 
-              <Box display="flex" alignItems="center" gap={4}>
+              <Box display="flex" alignItems="center" gap={2}>
                 <Box display="flex" alignItems="center" gap={1}>
                   <Typography variant="body2">Total Campaigns</Typography>
                   <Typography variant="body2" fontWeight="bold">
@@ -200,9 +200,6 @@ const CampaignReports: React.FC = () => {
       {/* Recent Campaign Reports */}
       <Card>
         <CardContent>
-          <Typography variant="h6" sx={{ mb: 2 }}>
-            Recent Campaign Reports
-          </Typography>
 
           <TableContainer component={Paper} variant="outlined">
             <Table size="small" sx={{ '& .MuiTableRow-root': { height: '40px' } }}>
