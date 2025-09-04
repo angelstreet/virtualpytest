@@ -1,7 +1,5 @@
 import {
   Memory as ModelIcon,
-  CheckCircle as PassIcon,
-  Error as FailIcon,
   PlayArrow as ActionIcon,
   Visibility as VerificationIcon,
   FilterList as FilterIcon,
@@ -180,7 +178,7 @@ const ModelReports: React.FC = () => {
       let directionLabel = '';
       
       if (isAction && firstResult.action_set_id) {
-        // Parse direction from action_set_id (e.g., "home_to_live" -> "Home → Live")
+        // For bidirectional edges, create direction-specific names
         const actionSetId = firstResult.action_set_id;
         if (actionSetId.includes('_to_')) {
           const parts = actionSetId.split('_to_');
@@ -191,12 +189,9 @@ const ModelReports: React.FC = () => {
         } else {
           elementName = actionSetId.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase());
         }
-      } else if (isAction) {
-        // Legacy action without action_set_id
-        elementName = firstResult.edge_id || 'Unknown Edge';
       } else {
-        // Verification
-        elementName = firstResult.node_id || 'Unknown Node';
+        // Use the enriched element_name from the database (includes proper node/edge names)
+        elementName = firstResult.element_name || (isAction ? 'Unknown Edge' : 'Unknown Node');
       }
 
       entries.push({
@@ -514,13 +509,13 @@ const ModelReports: React.FC = () => {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={8}>
+                    <TableCell colSpan={7}>
                       <LoadingState />
                     </TableCell>
                   </TableRow>
                 ) : filteredResults.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} sx={{ textAlign: 'center', py: 4 }}>
+                    <TableCell colSpan={7} sx={{ textAlign: 'center', py: 4 }}>
                       <Typography variant="body2" color="textSecondary">
                         {filter === 'all'
                           ? 'No execution results available yet'
@@ -607,52 +602,6 @@ const ModelReports: React.FC = () => {
                               {metrics?.volume === 0 ? 'N/A' : `${metrics?.confidence ? Math.round(metrics.confidence * 10) : 0}/10`}
                             </Typography>
                           </Box>
-                        </TableCell>
-                        <TableCell sx={{ py: 0.5 }}>
-                          {(() => {
-                            // Show status based on metrics, not individual execution result
-                            if (metrics?.volume === 0) {
-                              return (
-                                <Chip
-                                  label="UNTESTED"
-                                  color="default"
-                                  size="small"
-                                  variant="outlined"
-                                  sx={{ color: '#666' }}
-                                />
-                              );
-                            }
-                            
-                            // Show status based on success rate for tested elements
-                            const successRate = metrics?.success_rate || 0;
-                            if (successRate >= 0.8) {
-                              return (
-                                <Chip
-                                  icon={<PassIcon />}
-                                  label="GOOD"
-                                  color="success"
-                                  size="small"
-                                />
-                              );
-                            } else if (successRate >= 0.5) {
-                              return (
-                                <Chip
-                                  label="MIXED"
-                                  color="warning"
-                                  size="small"
-                                />
-                              );
-                            } else {
-                              return (
-                                <Chip
-                                  icon={<FailIcon />}
-                                  label="POOR"
-                                  color="error"
-                                  size="small"
-                                />
-                              );
-                            }
-                          })()}
                         </TableCell>
                         <TableCell sx={{ py: 0.5 }}>{formatDate(result.executed_at)}</TableCell>
                       </TableRow>
