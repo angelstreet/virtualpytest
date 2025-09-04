@@ -324,9 +324,19 @@ const ModelReports: React.FC = () => {
     return `${minutes}m ${seconds}s`;
   }
 
-  // Format date helper
+  // Format date helper - compact single line format
   function formatDate(dateString: string): string {
-    return new Date(dateString).toLocaleString();
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-GB', { 
+      day: '2-digit', 
+      month: '2-digit', 
+      year: 'numeric' 
+    }) + ', ' + date.toLocaleTimeString('en-GB', { 
+      hour: '2-digit', 
+      minute: '2-digit', 
+      second: '2-digit',
+      hour12: false 
+    });
   }
 
   // Loading state component
@@ -388,7 +398,7 @@ const ModelReports: React.FC = () => {
       </Box>
 
       {error && (
-        <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
+        <Alert severity="error" sx={{ mb: 1 }} onClose={() => setError(null)}>
           {error}
         </Alert>
       )}
@@ -396,8 +406,8 @@ const ModelReports: React.FC = () => {
       {/* Show content only when user interface is selected */}
       {!selectedUserInterface ? (
         <Card>
-          <CardContent sx={{ py: 8, textAlign: 'center' }}>
-            <ModelIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
+          <CardContent sx={{ py: 6, textAlign: 'center' }}>
+            <ModelIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 1 }} />
             <Typography variant="h6" color="text.secondary" gutterBottom>
               Select User Interface to Analyze
             </Typography>
@@ -410,7 +420,7 @@ const ModelReports: React.FC = () => {
       ) : (
         <>
           {/* Quick Stats */}
-          <Box sx={{ mb: 0 }}>
+          <Box sx={{ mb: 1 }}>
             <Card>
               <CardContent sx={{ py: 0.5 }}>
                 <Box display="flex" alignItems="center" justifyContent="space-between">
@@ -419,7 +429,7 @@ const ModelReports: React.FC = () => {
                     <Typography variant="h6">Execution Stats</Typography>
                   </Box>
 
-              <Box display="flex" alignItems="center" gap={4}>
+              <Box display="flex" alignItems="center" gap={2}>
                 <Box display="flex" alignItems="center" gap={1}>
                   <Typography variant="body2">
                     {filter === 'all' ? 'Total Elements' : 'Filtered Elements'}
@@ -535,17 +545,17 @@ const ModelReports: React.FC = () => {
           </Box>
 
           <TableContainer component={Paper} variant="outlined">
-            <Table size="small" sx={{ '& .MuiTableRow-root': { height: '40px' } }}>
+            <Table size="small" sx={{ '& .MuiTableRow-root': { height: '36px' } }}>
               <TableHead>
                 <TableRow>
-                  <TableCell sx={{ py: 1, width: 50 }}>
+                  <TableCell sx={{ py: 1, px: 0.5, width: 40 }}>
                     {/* Expand column */}
                   </TableCell>
                   <TableCell sx={{ py: 1 }}>
                     <strong>Type</strong>
                   </TableCell>
                   <TableCell sx={{ py: 1 }}>
-                    <strong>User Interface</strong>
+                    <strong>Interface</strong>
                   </TableCell>
                   <TableCell sx={{ py: 1 }}>
                     <strong>Name</strong>
@@ -619,10 +629,11 @@ const ModelReports: React.FC = () => {
                             },
                           }}
                         >
-                          <TableCell sx={{ py: 0.5 }}>
+                          <TableCell sx={{ py: 0.5, px: 0.5, width: 40 }}>
                             <IconButton
                               size="small"
                               onClick={() => toggleRowExpansion(result.id)}
+                              sx={{ p: 0.5 }}
                             >
                               {isExpanded ? <ExpandLess /> : <ExpandMore />}
                             </IconButton>
@@ -681,7 +692,11 @@ const ModelReports: React.FC = () => {
                             </Typography>
                           </Box>
                         </TableCell>
-                        <TableCell sx={{ py: 0.5 }}>{formatDate(result.executed_at)}</TableCell>
+                        <TableCell sx={{ py: 0.5 }}>
+                          <Typography variant="body2" sx={{ fontSize: '0.75rem', whiteSpace: 'nowrap' }}>
+                            {formatDate(result.executed_at)}
+                          </Typography>
+                        </TableCell>
                         <TableCell sx={{ py: 0.5 }}>
                           {reportUrl ? (
                             <Link
