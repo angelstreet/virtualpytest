@@ -85,10 +85,7 @@ const ModelReports: React.FC = () => {
         setTreeToInterfaceMap(treeToUIMap);
         setTreeToNameMap(treeNameMap);
         
-        // Set first user interface as default
-        if (interfaces.length > 0 && !selectedUserInterface) {
-          setSelectedUserInterface(interfaces[0].name);
-        }
+        // Don't auto-select - let user choose explicitly to avoid race conditions
       } catch (err) {
         console.error('[@component:ModelReports] Error loading data:', err);
         setError(err instanceof Error ? err.message : 'Failed to load data');
@@ -223,23 +220,25 @@ const ModelReports: React.FC = () => {
         
         {/* User Interface Selector */}
         <FormControl size="small" sx={{ minWidth: 250 }}>
-          <InputLabel>User Interface</InputLabel>
+          <InputLabel>Select User Interface</InputLabel>
           <Select
             value={selectedUserInterface}
-            label="User Interface"
+            label="Select User Interface"
             onChange={handleUserInterfaceChange}
             disabled={userInterfaces.length === 0}
+            displayEmpty
           >
+            <MenuItem value="">
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, fontStyle: 'italic', opacity: 0.6 }}>
+                <ModelIcon fontSize="small" />
+                Select a user interface to analyze...
+              </Box>
+            </MenuItem>
             {userInterfaces.map((ui) => (
               <MenuItem key={ui.id} value={ui.name}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <ModelIcon fontSize="small" />
                   {ui.name}
-                  {ui.root_tree?.id && (
-                    <Typography variant="caption" sx={{ ml: 1, opacity: 0.7 }}>
-                      ({ui.root_tree.name || 'Root Tree'})
-                    </Typography>
-                  )}
                 </Box>
               </MenuItem>
             ))}
@@ -253,30 +252,37 @@ const ModelReports: React.FC = () => {
         </Alert>
       )}
 
-      {/* Quick Stats */}
-      <Box sx={{ mb: 0.5 }}>
+      {/* Show content only when user interface is selected */}
+      {!selectedUserInterface ? (
         <Card>
-          <CardContent sx={{ py: 0.5 }}>
-            <Box display="flex" alignItems="center" justifyContent="space-between">
-              <Box display="flex" alignItems="center" gap={1}>
-                <ModelIcon color="primary" />
-                <Typography variant="h6">Execution Stats</Typography>
-                {selectedUserInterface && (
-                  <Chip
-                    label={selectedUserInterface}
-                    size="small"
-                    variant="outlined"
-                    color="primary"
-                  />
-                )}
-                {filter !== 'all' && (
-                  <Chip
-                    label={`Filtered: ${filter === 'action' ? 'Edges' : 'Nodes'}`}
-                    size="small"
-                    variant="outlined"
-                  />
-                )}
-              </Box>
+          <CardContent sx={{ py: 8, textAlign: 'center' }}>
+            <ModelIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
+            <Typography variant="h6" color="text.secondary" gutterBottom>
+              Select User Interface to Analyze
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Choose a user interface from the dropdown above to view model performance metrics, 
+              confidence scores, and execution data for nodes and edges.
+            </Typography>
+          </CardContent>
+        </Card>
+      ) : (
+        <>
+          {/* Quick Stats */}
+          <Box sx={{ mb: 0.5 }}>
+            <Card>
+              <CardContent sx={{ py: 0.5 }}>
+                <Box display="flex" alignItems="center" justifyContent="space-between">
+                  <Box display="flex" alignItems="center" gap={1}>
+                    <ModelIcon color="primary" />
+                    <Typography variant="h6">Execution Stats</Typography>
+                    <Chip
+                      label={selectedUserInterface}
+                      size="small"
+                      variant="outlined"
+                      color="primary"
+                    />
+                  </Box>
 
               <Box display="flex" alignItems="center" gap={4}>
                 <Box display="flex" alignItems="center" gap={1}>
@@ -346,13 +352,13 @@ const ModelReports: React.FC = () => {
                 <ToggleButton value="all" aria-label="all executions">
                   All
                 </ToggleButton>
-                <ToggleButton value="action" aria-label="node executions">
+                <ToggleButton value="action" aria-label="edge executions">
                   <ActionIcon fontSize="small" sx={{ mr: 0.5 }} />
-                  Nodes
-                </ToggleButton>
-                <ToggleButton value="verification" aria-label="edge executions">
-                  <VerificationIcon fontSize="small" sx={{ mr: 0.5 }} />
                   Edges
+                </ToggleButton>
+                <ToggleButton value="verification" aria-label="node executions">
+                  <VerificationIcon fontSize="small" sx={{ mr: 0.5 }} />
+                  Nodes
                 </ToggleButton>
               </ToggleButtonGroup>
             </Box>
@@ -369,13 +375,10 @@ const ModelReports: React.FC = () => {
                     <strong>User Interface</strong>
                   </TableCell>
                   <TableCell sx={{ py: 1 }}>
-                    <strong>Tree Name</strong>
+                    <strong>Name</strong>
                   </TableCell>
                   <TableCell sx={{ py: 1 }}>
-                    <strong>Element Name</strong>
-                  </TableCell>
-                  <TableCell sx={{ py: 1 }}>
-                    <strong>Success Rate</strong>
+                    <strong>Success</strong>
                   </TableCell>
                   <TableCell sx={{ py: 1 }}>
                     <strong>Volume</strong>
@@ -387,9 +390,6 @@ const ModelReports: React.FC = () => {
                     <strong>Confidence</strong>
                   </TableCell>
                   <TableCell sx={{ py: 1 }}>
-                    <strong>Status</strong>
-                  </TableCell>
-                  <TableCell sx={{ py: 1 }}>
                     <strong>Executed</strong>
                   </TableCell>
                 </TableRow>
@@ -397,17 +397,17 @@ const ModelReports: React.FC = () => {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={10}>
+                    <TableCell colSpan={8}>
                       <LoadingState />
                     </TableCell>
                   </TableRow>
                 ) : filteredResults.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={10} sx={{ textAlign: 'center', py: 4 }}>
+                    <TableCell colSpan={8} sx={{ textAlign: 'center', py: 4 }}>
                       <Typography variant="body2" color="textSecondary">
                         {filter === 'all'
                           ? 'No execution results available yet'
-                          : `No ${filter === 'action' ? 'node' : 'edge'} execution results available yet`}
+                          : `No ${filter === 'action' ? 'edge' : 'node'} execution results available yet`}
                       </Typography>
                     </TableCell>
                   </TableRow>
@@ -447,9 +447,6 @@ const ModelReports: React.FC = () => {
                         <TableCell sx={{ py: 0.5 }}>
                           {treeToInterfaceMap[result.tree_id] || 'Unknown'}
                         </TableCell>
-                        <TableCell sx={{ py: 0.5 }}>
-                          {treeToNameMap[result.tree_id] || result.tree_name || 'Unknown Tree'}
-                        </TableCell>
                         <TableCell sx={{ py: 0.5 }}>{result.element_name}</TableCell>
                         <TableCell sx={{ py: 0.5 }}>
                           <Typography variant="body2" sx={{ 
@@ -477,21 +474,60 @@ const ModelReports: React.FC = () => {
                               sx={{ 
                                 fontWeight: 'bold',
                                 fontSize: '0.9rem',
-                                color: (metrics?.confidence || 0) >= 0.7 ? 'success.main' : 
+                                color: metrics?.volume === 0 ? '#666' : 
+                                       (metrics?.confidence || 0) >= 0.7 ? 'success.main' : 
                                        (metrics?.confidence || 0) >= 0.5 ? 'warning.main' : 'error.main'
                               }}
                             >
-                              {metrics?.confidence ? Math.round(metrics.confidence * 10) : 0}/10
+                              {metrics?.volume === 0 ? 'N/A' : `${metrics?.confidence ? Math.round(metrics.confidence * 10) : 0}/10`}
                             </Typography>
                           </Box>
                         </TableCell>
                         <TableCell sx={{ py: 0.5 }}>
-                          <Chip
-                            icon={result.success ? <PassIcon /> : <FailIcon />}
-                            label={result.success ? 'PASS' : 'FAIL'}
-                            color={result.success ? 'success' : 'error'}
-                            size="small"
-                          />
+                          {(() => {
+                            // Show status based on metrics, not individual execution result
+                            if (metrics?.volume === 0) {
+                              return (
+                                <Chip
+                                  label="UNTESTED"
+                                  color="default"
+                                  size="small"
+                                  variant="outlined"
+                                  sx={{ color: '#666' }}
+                                />
+                              );
+                            }
+                            
+                            // Show status based on success rate for tested elements
+                            const successRate = metrics?.success_rate || 0;
+                            if (successRate >= 0.8) {
+                              return (
+                                <Chip
+                                  icon={<PassIcon />}
+                                  label="GOOD"
+                                  color="success"
+                                  size="small"
+                                />
+                              );
+                            } else if (successRate >= 0.5) {
+                              return (
+                                <Chip
+                                  label="MIXED"
+                                  color="warning"
+                                  size="small"
+                                />
+                              );
+                            } else {
+                              return (
+                                <Chip
+                                  icon={<FailIcon />}
+                                  label="POOR"
+                                  color="error"
+                                  size="small"
+                                />
+                              );
+                            }
+                          })()}
                         </TableCell>
                         <TableCell sx={{ py: 0.5 }}>{formatDate(result.executed_at)}</TableCell>
                       </TableRow>
@@ -503,6 +539,8 @@ const ModelReports: React.FC = () => {
           </TableContainer>
         </CardContent>
       </Card>
+      </>
+      )}
     </Box>
   );
 };
