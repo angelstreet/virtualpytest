@@ -177,21 +177,12 @@ const ModelReports: React.FC = () => {
       let elementName = 'Unknown';
       let directionLabel = '';
       
+      // Always use the backend-provided element_name which is already correctly formatted
+      elementName = firstResult.element_name || (isAction ? 'Unknown Edge' : 'Unknown Node');
+      
+      // For bidirectional edges, the direction is already included in element_name
       if (isAction && firstResult.action_set_id) {
-        // For bidirectional edges, create direction-specific names
-        const actionSetId = firstResult.action_set_id;
-        if (actionSetId.includes('_to_')) {
-          const parts = actionSetId.split('_to_');
-          const fromLabel = parts[0].replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase());
-          const toLabel = parts[1].replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase());
-          elementName = `${fromLabel} → ${toLabel}`;
-          directionLabel = elementName;
-        } else {
-          elementName = actionSetId.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase());
-        }
-      } else {
-        // Use the enriched element_name from the database (includes proper node/edge names)
-        elementName = firstResult.element_name || (isAction ? 'Unknown Edge' : 'Unknown Node');
+        directionLabel = elementName;
       }
 
       entries.push({

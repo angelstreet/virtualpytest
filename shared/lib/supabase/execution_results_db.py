@@ -209,6 +209,8 @@ def record_edge_execution(
         print(f"  - device_model: {device_model}")
         print(f"  - success: {success}")
         print(f"  - execution_time_ms: {execution_time_ms}")
+        print(f"  - message: {message}")
+        print(f"  - error_details: {error_details}")
         print(f"  - action_set_id: {action_set_id}")
         
         supabase = get_supabase()
