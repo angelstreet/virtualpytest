@@ -24,7 +24,6 @@ import {
   Alert,
   Checkbox,
   IconButton,
-  Collapse,
 } from '@mui/material';
 import React, { useState, useEffect } from 'react';
 
@@ -36,7 +35,6 @@ const CampaignReports: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
-  const [scriptResults, setScriptResults] = useState<Record<string, any[]>>({});
 
   // Load campaign results on component mount
   useEffect(() => {
@@ -103,15 +101,6 @@ const CampaignReports: React.FC = () => {
     } else {
       // Expand row - script results are already included in campaign data
       newExpandedRows.add(campaignId);
-      
-      // Get script results from campaign data (no API call needed)
-      const campaign = campaignResults.find(c => c.id === campaignId);
-      if (campaign && campaign.script_results && !scriptResults[campaignId]) {
-        setScriptResults(prev => ({
-          ...prev,
-          [campaignId]: campaign.script_results
-        }));
-      }
     }
     
     setExpandedRows(newExpandedRows);
@@ -326,78 +315,58 @@ const CampaignReports: React.FC = () => {
                         </TableCell>
                       </TableRow>
 
-                      {/* Expandable row for script results */}
-                      <TableRow>
-                        <TableCell colSpan={10} sx={{ py: 0, border: 0 }}>
-                          <Collapse in={expandedRows.has(result.id)} timeout="auto" unmountOnExit>
-                            <Box sx={{ margin: 1, padding: 2, backgroundColor: 'rgba(0, 0, 0, 0.02)' }}>
-                              <Typography variant="h6" gutterBottom component="div" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <ScriptIcon />
-                                Script Executions ({result.script_results?.length || 0})
-                              </Typography>
-                              
-                              {scriptResults[result.id] ? (
-                                <Table size="small">
-                                  <TableHead>
-                                    <TableRow>
-                                      <TableCell><strong>Script Name</strong></TableCell>
-                                      <TableCell><strong>Status</strong></TableCell>
-                                      <TableCell><strong>Duration</strong></TableCell>
-                                      <TableCell><strong>Report</strong></TableCell>
-                                    </TableRow>
-                                  </TableHead>
-                                  <TableBody>
-                                    {scriptResults[result.id].map((script) => (
-                                      <TableRow 
-                                        key={script.id}
-                                        sx={{
-                                          '&:hover': {
-                                            backgroundColor: 'rgba(0, 0, 0, 0.04) !important',
-                                          },
-                                        }}
-                                      >
-                                        <TableCell>{script.script_name}</TableCell>
-                                        <TableCell>
-                                          <Chip
-                                            icon={script.success ? <PassIcon /> : <FailIcon />}
-                                            label={script.success ? 'PASS' : 'FAIL'}
-                                            color={script.success ? 'success' : 'error'}
-                                            size="small"
-                                          />
-                                        </TableCell>
-                                        <TableCell>
-                                          {script.execution_time_ms
-                                            ? formatDuration(script.execution_time_ms)
-                                            : 'N/A'}
-                                        </TableCell>
-                                        <TableCell>
-                                          {script.html_report_r2_url ? (
-                                            <Chip
-                                              icon={<LinkIcon />}
-                                              label="View Report"
-                                              size="small"
-                                              clickable
-                                              onClick={() => window.open(script.html_report_r2_url!, '_blank')}
-                                              color="primary"
-                                              variant="outlined"
-                                            />
-                                          ) : (
-                                            <Chip label="No Report" size="small" variant="outlined" disabled />
-                                          )}
-                                        </TableCell>
-                                      </TableRow>
-                                    ))}
-                                  </TableBody>
-                                </Table>
+                      {/* Expandable rows for script results - align with main table columns */}
+                      {expandedRows.has(result.id) && result.script_results && result.script_results.length > 0 && 
+                        result.script_results.map((script) => (
+                          <TableRow 
+                            key={script.id}
+                            sx={{
+                              backgroundColor: 'rgba(0, 0, 0, 0.02)',
+                              '&:hover': {
+                                backgroundColor: 'rgba(0, 0, 0, 0.06) !important',
+                              },
+                            }}
+                          >
+                            <TableCell sx={{ py: 0.5, pl: 4 }}>
+                              <ScriptIcon fontSize="small" />
+                            </TableCell>
+                            <TableCell sx={{ py: 0.5 }}>{script.script_name}</TableCell>
+                            <TableCell sx={{ py: 0.5 }}>-</TableCell>
+                            <TableCell sx={{ py: 0.5 }}>-</TableCell>
+                            <TableCell sx={{ py: 0.5 }}>-</TableCell>
+                            <TableCell sx={{ py: 0.5 }}>
+                              <Chip
+                                icon={script.success ? <PassIcon /> : <FailIcon />}
+                                label={script.success ? 'PASS' : 'FAIL'}
+                                color={script.success ? 'success' : 'error'}
+                                size="small"
+                              />
+                            </TableCell>
+                            <TableCell sx={{ py: 0.5 }}>
+                              {script.execution_time_ms
+                                ? formatDuration(script.execution_time_ms)
+                                : 'N/A'}
+                            </TableCell>
+                            <TableCell sx={{ py: 0.5 }}>-</TableCell>
+                            <TableCell sx={{ py: 0.5 }}>
+                              {script.html_report_r2_url ? (
+                                <Chip
+                                  icon={<LinkIcon />}
+                                  label="View Report"
+                                  size="small"
+                                  clickable
+                                  onClick={() => window.open(script.html_report_r2_url!, '_blank')}
+                                  color="primary"
+                                  variant="outlined"
+                                />
                               ) : (
-                                <Typography variant="body2" color="textSecondary">
-                                  No script results available
-                                </Typography>
+                                <Chip label="No Report" size="small" variant="outlined" disabled />
                               )}
-                            </Box>
-                          </Collapse>
-                        </TableCell>
-                      </TableRow>
+                            </TableCell>
+                            <TableCell sx={{ py: 0.5 }}>-</TableCell>
+                          </TableRow>
+                        ))
+                      }
                     </React.Fragment>
                   ))
                 )}
