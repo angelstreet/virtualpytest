@@ -17,6 +17,7 @@ import { useVNCState } from '../../../contexts/VNCStateContext';
 import { useVncStream, useStream } from '../../../hooks/controller';
 import { Host } from '../../../types/common/Host_Types';
 import { getZIndex } from '../../../utils/zIndexUtils';
+import { calculateVncScaling } from '../../../utils/vncUtils';
 import { VerificationEditor } from '../verification';
 
 import { RecordingOverlay, LoadingOverlay, ModeIndicatorDot } from './ScreenEditorOverlay';
@@ -38,14 +39,14 @@ interface VNCStreamProps {
 // VNC Viewer Component for iframe display with dynamic scaling
 const VNCViewer = ({ 
   streamUrl, 
-  isExpanded, 
-  calculateVncScaling,
+  panelWidth,
+  panelHeight,
   sx = {} 
 }: { 
   host: Host; 
   streamUrl: string | null; 
-  isExpanded: boolean;
-  calculateVncScaling: (panelState: 'expanded' | 'collapsed') => any;
+  panelWidth: string;
+  panelHeight: string;
   sx?: any;
 }) => {
   const [isVncLoading, setIsVncLoading] = useState(true);
@@ -70,9 +71,10 @@ const VNCViewer = ({
     );
   }
 
-  // Calculate dynamic scaling based on current panel state
-  const panelState = isExpanded ? 'expanded' : 'collapsed';
-  const scaling = calculateVncScaling(panelState);
+  // Calculate dynamic scaling based on actual container dimensions
+  const containerWidth = parseInt(panelWidth);
+  const containerHeight = parseInt(panelHeight) - 40; // Subtract header height
+  const scaling = calculateVncScaling({ width: containerWidth, height: containerHeight });
 
   return (
     <Box
@@ -191,7 +193,6 @@ export const VNCStream = React.memo(
       handleAreaSelected,
       handleImageLoad,
       handleTakeScreenshot: hookTakeScreenshot,
-      calculateVncScaling,
     } = useVncStream({
       host,
       deviceModel: effectiveDeviceModel,
@@ -306,9 +307,7 @@ export const VNCStream = React.memo(
         setIsVNCExpanded(newExpanded);
         onCollapsedChange?.(!newExpanded);
         
-        // Calculate and log new scaling
-        const scaling = calculateVncScaling(newExpanded ? 'expanded' : 'collapsed');
-        console.log(`[@component:VNCStream] Panel toggled to ${newExpanded ? 'expanded' : 'collapsed'} with scaling:`, scaling);
+        console.log(`[@component:VNCStream] Panel toggled to ${newExpanded ? 'expanded' : 'collapsed'}`);
       }
     };
 
@@ -514,8 +513,8 @@ export const VNCStream = React.memo(
                 <VNCViewer
                   host={host}
                   streamUrl={streamUrl}
-                  isExpanded={isVNCExpanded}
-                  calculateVncScaling={calculateVncScaling}
+                  panelWidth={getPanelWidth()}
+                  panelHeight={getPanelHeight()}
                   sx={{
                     position: 'absolute',
                     top: 0,

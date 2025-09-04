@@ -117,6 +117,7 @@ class ChromeManager:
             f'--user-data-dir={user_data_dir}',
             '--no-first-run',
             '--no-default-browser-check',
+            '--start-fullscreen',  # Launch Chrome in fullscreen mode
             '--disable-features=Translate,InfiniteSessionRestore,TabRestore,MediaRouter',
             '--disable-extensions',
             '--disable-session-crashed-bubble',  # Disable restore session popup
