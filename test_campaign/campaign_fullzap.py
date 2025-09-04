@@ -1,17 +1,25 @@
 #!/usr/bin/env python3
 """
-Campaign Script: Double Fullzap Execution
+Campaign Script: Configurable Fullzap Execution
 
-This script demonstrates how to create and execute a test campaign that runs
-fullzap.py twice in a row with different configurations.
+This script creates and executes a test campaign that runs fullzap.py with configurable
+parameters. It first runs with goto_live=True, then runs multiple times with goto_live=False.
 
 Usage:
-    python test_scripts/campaign_fullzap_double.py [userinterface_name] [--host <host>] [--device <device>]
+    python test_campaign/campaign_fullzap.py [userinterface_name] [options]
     
-Example:
-    python test_scripts/campaign_fullzap_double.py
-    python test_scripts/campaign_fullzap_double.py horizon_android_mobile
-    python test_scripts/campaign_fullzap_double.py horizon_android_mobile --host host1 --device device2
+Options:
+    --host <host>               Host name to use (default: auto)
+    --device <device>           Device name to use (default: auto)  
+    --max-iteration <int>       Max iterations per execution (default: 2)
+    --max-execution <int>       Number of executions with goto_live=False (default: 1)
+    --timeout-minutes <int>     Campaign timeout in minutes (default: 60)
+    
+Examples:
+    python test_campaign/campaign_fullzap.py
+    python test_campaign/campaign_fullzap.py horizon_android_mobile
+    python test_campaign/campaign_fullzap.py horizon_android_mobile --max-execution 5 --timeout-minutes 120
+    python test_campaign/campaign_fullzap.py horizon_android_mobile --max-iteration 3 --max-execution 10 --timeout-minutes 180
 """
 
 import sys
@@ -29,46 +37,65 @@ if project_root not in sys.path:
 from shared.lib.utils.campaign_executor import CampaignExecutor, handle_keyboard_interrupt, handle_unexpected_error
 
 
-def create_campaign_config(userinterface_name: str, host: str = "auto", device: str = "auto") -> dict:
-    """Create campaign configuration for double fullzap execution"""
+def create_campaign_config(userinterface_name: str, host: str = "auto", device: str = "auto", max_iteration: int = 2, max_execution: int = 1, timeout_minutes: int = 60) -> dict:
+    """Create campaign configuration for configurable fullzap execution
+    
+    Args:
+        userinterface_name: Name of the user interface to test
+        host: Host name to use (default: "auto")
+        device: Device name to use (default: "auto") 
+        max_iteration: Maximum iterations for each fullzap execution (default: 2)
+        max_execution: Number of times to run the second script with goto_live=False (default: 1)
+        timeout_minutes: Campaign timeout in minutes (default: 60)
+    
+    Returns:
+        dict: Campaign configuration dictionary
+    """
     
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     
     return {
-        "campaign_id": f"fullzap-double-{timestamp}",
-        "name": f"Double Fullzap Campaign - {timestamp}",
-        "description": "Execute fullzap.py twice in a row with different configurations to test zapping functionality",
+        "campaign_id": f"fullzap-configurable-{timestamp}",
+        "name": f"Configurable Fullzap Campaign - {timestamp}",
+        "description": f"Execute fullzap.py with goto_live=True once, then {max_execution} times with goto_live=False (max_iteration={max_iteration})",
         "userinterface_name": userinterface_name,
         "host": host,
         "device": device,
         "execution_config": {
             "continue_on_failure": True,  # Continue even if first script fails
-            "timeout_minutes": 60,       # 1 hour total timeout
+            "timeout_minutes": timeout_minutes,  # Configurable timeout
             "parallel": False            # Execute scripts sequentially
         },
-        "script_configurations": [
-            {
-                "script_name": "fullzap.py",
-                "script_type": "fullzap",
-                "description": "First fullzap execution - Channel Up with navigation to live",
-                "parameters": {
-                    "action": "live_chup",
-                    "max_iteration": 2,
-                    "goto_live": True,
-                }
-            },
-            {
-                "script_name": "fullzap.py", 
-                "script_type": "fullzap",
-                "description": "Second fullzap execution - Channel Down without navigation",
-                "parameters": {
-                    "action": "live_chup", 
-                    "max_iteration": 2,
-                    "goto_live": False,
-                }
-            }
-        ]
+        "script_configurations": []
     }
+    
+    # Add the first script execution (with goto_live: True)
+    config["script_configurations"].append({
+        "script_name": "fullzap.py",
+        "script_type": "fullzap",
+        "description": "First fullzap execution - Channel Up with navigation to live",
+        "parameters": {
+            "action": "live_chup",
+            "max_iteration": max_iteration,
+            "goto_live": True,
+        }
+    })
+    
+    # Add multiple executions of the second script (with goto_live: False)
+    for i in range(max_execution):
+        execution_num = i + 1
+        config["script_configurations"].append({
+            "script_name": "fullzap.py", 
+            "script_type": "fullzap",
+            "description": f"Execution #{execution_num} - Channel Up without navigation to live",
+            "parameters": {
+                "action": "live_chup", 
+                "max_iteration": max_iteration,
+                "goto_live": False,
+            }
+        })
+    
+    return config
 
 
 def print_campaign_summary(campaign_config: dict):
@@ -103,12 +130,12 @@ def print_campaign_summary(campaign_config: dict):
 
 
 def main():
-    """Main function to execute double fullzap campaign"""
-    script_name = "campaign_fullzap_double"
+    """Main function to execute configurable fullzap campaign"""
+    script_name = "campaign_fullzap"
     
     # Create argument parser
     parser = argparse.ArgumentParser(
-        description="Execute double fullzap campaign - runs fullzap.py twice with different configurations"
+        description="Execute configurable fullzap campaign - runs fullzap.py with customizable parameters"
     )
     
     parser.add_argument(
@@ -130,19 +157,46 @@ def main():
         help='Device name to use (default: auto - selects automatically)'
     )
     
+    parser.add_argument(
+        '--max-iteration',
+        type=int,
+        default=2,
+        help='Maximum iterations for each fullzap execution (default: 2)'
+    )
+    
+    parser.add_argument(
+        '--max-execution',
+        type=int,
+        default=1,
+        help='Number of times to run the second script (goto_live: False) (default: 1)'
+    )
+    
+    parser.add_argument(
+        '--timeout-minutes',
+        type=int,
+        default=60,
+        help='Campaign timeout in minutes (default: 60). Consider increasing for higher max-execution values'
+    )
+    
     args = parser.parse_args()
     
-    print(f"🚀 [{script_name}] Starting double fullzap campaign execution")
+    print(f"🚀 [{script_name}] Starting fullzap campaign execution")
     print(f"🌐 Interface: {args.userinterface_name}")
     print(f"🖥️  Host: {args.host}")
     print(f"📱 Device: {args.device}")
+    print(f"🔄 Max Iteration: {getattr(args, 'max_iteration')}")
+    print(f"🔢 Max Execution: {getattr(args, 'max_execution')}")
+    print(f"⏱️  Timeout: {getattr(args, 'timeout_minutes')} minutes")
     
     try:
         # Create campaign configuration
         campaign_config = create_campaign_config(
             userinterface_name=args.userinterface_name,
             host=args.host,
-            device=args.device
+            device=args.device,
+            max_iteration=getattr(args, 'max_iteration'),
+            max_execution=getattr(args, 'max_execution'),
+            timeout_minutes=getattr(args, 'timeout_minutes')
         )
         
         # Print campaign summary
