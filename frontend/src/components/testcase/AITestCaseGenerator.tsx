@@ -44,6 +44,7 @@ export const AITestCaseGenerator: React.FC<AITestCaseGeneratorProps> = ({
   const [prompt, setPrompt] = useState('');
   const [analysis, setAnalysis] = useState<AIAnalysisResponse | null>(null);
   const [selectedInterfaces, setSelectedInterfaces] = useState<string[]>([]);
+  const [expandedSteps, setExpandedSteps] = useState<Set<number>>(new Set());
   
   // Hook for AI operations
   const { 
@@ -74,6 +75,9 @@ export const AITestCaseGenerator: React.FC<AITestCaseGeneratorProps> = ({
       
       // Pre-select all compatible interfaces by default
       setSelectedInterfaces(analysisResult.compatibility_matrix.compatible_userinterfaces);
+      
+      // Reset expanded steps for new analysis
+      setExpandedSteps(new Set());
     } catch (err) {
       console.error('Analysis failed:', err);
       // Error is already handled by the hook
@@ -106,6 +110,19 @@ export const AITestCaseGenerator: React.FC<AITestCaseGeneratorProps> = ({
         ? prev.filter(name => name !== interfaceName)
         : [...prev, interfaceName]
     );
+  }, []);
+
+  // Step expansion toggle handler
+  const handleStepToggle = useCallback((stepIndex: number) => {
+    setExpandedSteps(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(stepIndex)) {
+        newSet.delete(stepIndex);
+      } else {
+        newSet.add(stepIndex);
+      }
+      return newSet;
+    });
   }, []);
 
 
@@ -208,7 +225,7 @@ export const AITestCaseGenerator: React.FC<AITestCaseGeneratorProps> = ({
               boxShadow: 1
             }}>
               {analysis.step_preview.map((step, index) => {
-                const [expanded, setExpanded] = React.useState(false);
+                const expanded = expandedSteps.has(index);
                 
                 return (
                   <Box key={index} sx={{ 
@@ -226,7 +243,7 @@ export const AITestCaseGenerator: React.FC<AITestCaseGeneratorProps> = ({
                         '&:hover': { bgcolor: 'action.hover' },
                         borderRadius: 1
                       }}
-                      onClick={() => setExpanded(!expanded)}
+                      onClick={() => handleStepToggle(index)}
                     >
                       <Chip 
                         label={step.step} 

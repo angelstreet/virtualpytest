@@ -440,7 +440,13 @@ WHERE $__timeFilter(zr.started_at)
   AND zr.channel_number IS NOT NULL
   AND zr.channel_number != ''
 GROUP BY 1, 2, 3
-ORDER BY CAST(zr.channel_number AS INTEGER), "Channel", "Platform"
+ORDER BY 
+  -- Smart sorting: numeric channels first (by number), then non-numeric channels (alphabetically)
+  CASE WHEN zr.channel_number ~ '^[0-9]+$' THEN 0 ELSE 1 END,
+  CASE WHEN zr.channel_number ~ '^[0-9]+$' THEN CAST(zr.channel_number AS INTEGER) ELSE 0 END,
+  zr.channel_number,
+  "Channel", 
+  "Platform"
 ```
 
 **Configuration:**
