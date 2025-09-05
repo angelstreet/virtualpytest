@@ -46,6 +46,9 @@ export const HostManagerProvider: React.FC<HostManagerProviderProps> = ({
   const [activeLocks, setActiveLocks] = useState<Map<string, string>>(new Map());
   const reclaimInProgressRef = useRef(false);
   const initializedRef = useRef(false);
+  
+  // Ref to prevent duplicate API calls in React Strict Mode
+  const isLoadingHostsRef = useRef<boolean>(false);
 
   // Use shared user session for consistent identification
   const { userId, sessionId: browserSessionId, isOurLock } = useUserSession();
@@ -84,14 +87,25 @@ export const HostManagerProvider: React.FC<HostManagerProviderProps> = ({
   // Auto-load hosts on mount
   useEffect(() => {
     const loadHostsOnMount = async () => {
+      // Prevent duplicate calls in React Strict Mode
+      if (isLoadingHostsRef.current) {
+        console.log('[@context:HostManagerProvider] Host loading already in progress, skipping duplicate call');
+        return;
+      }
+      
+      isLoadingHostsRef.current = true;
       setIsLoading(true);
       setError(null);
 
+      console.log('[@context:HostManagerProvider] Loading hosts from API...');
       const result = await loadHosts();
 
       setAvailableHosts(result.hosts);
       setError(result.error);
       setIsLoading(false);
+      isLoadingHostsRef.current = false;
+      
+      console.log('[@context:HostManagerProvider] Hosts loaded successfully:', result.hosts.length);
     };
 
     loadHostsOnMount();
