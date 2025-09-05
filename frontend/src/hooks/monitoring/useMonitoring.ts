@@ -100,11 +100,11 @@ export const useMonitoring = ({
   const [isHistoricalFrameLoaded, setIsHistoricalFrameLoaded] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
 
-  // Initial loading buffer - increased to account for processing time
+  // Initial loading buffer - reduced since we fetch latest available JSON
   useEffect(() => {
     const timer = setTimeout(() => {
       setIsInitialLoading(false);
-    }, 5000); // Increased to 5 seconds - backend needs ~4-5 seconds total processing time
+    }, 3000); // 3 seconds - just enough for latest JSON to be available
     return () => clearTimeout(timer);
   }, []);
 
