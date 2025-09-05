@@ -362,9 +362,8 @@ export const useMonitoring = ({
           } else {
             console.log('[useMonitoring] Analysis failed:', response.status, response.statusText);
             
-            // For missing JSON files, don't use fallback data that could create false error trends
-            // Instead, mark as explicitly unavailable
-            analysis = null;
+            // Skip entirely - don't update any state when JSON is missing
+            return;
           }
 
           // Cache the analysis in the frame reference
@@ -374,13 +373,9 @@ export const useMonitoring = ({
 
           setSelectedFrameAnalysis(analysis);
         } catch {
-          // Cache the failed load as null to avoid repeated attempts
-          setFrames((prev) =>
-            prev.map((frame, index) =>
-              index === currentIndex ? { ...frame, analysis: null } : frame,
-            ),
-          );
-          setSelectedFrameAnalysis(null);
+          // Skip entirely - don't update any state when JSON loading fails
+          console.log('[useMonitoring] Analysis loading failed with exception');
+          return;
         }
       }, 600);
     };
