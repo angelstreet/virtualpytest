@@ -361,12 +361,10 @@ export const useMonitoring = ({
             console.log('[useMonitoring] Analysis loaded:', analysis);
           } else {
             console.log('[useMonitoring] Analysis failed:', response.status, response.statusText);
-
-            // Use previous data if available
-            const previousFrame = frames.find(
-              (frame, index) => index < currentIndex && frame.analysis,
-            );
-            analysis = previousFrame?.analysis || null;
+            
+            // For missing JSON files, don't use fallback data that could create false error trends
+            // Instead, mark as explicitly unavailable
+            analysis = null;
           }
 
           // Cache the analysis in the frame reference
@@ -394,49 +392,56 @@ export const useMonitoring = ({
   const errorTrendData = useMemo((): ErrorTrendData | null => {
     if (frames.length === 0) return null;
 
-    // Get frames with analysis data loaded (recent frames for trend analysis)
-    const framesWithAnalysis = frames.filter((frame) => frame.analysis !== undefined);
+    // Get frames with successfully loaded analysis data (not null, not undefined)
+    // This excludes frames where JSON was missing (404) or failed to load
+    const framesWithValidAnalysis = frames.filter((frame) => frame.analysis !== undefined && frame.analysis !== null);
 
-    if (framesWithAnalysis.length === 0) return null;
+    if (framesWithValidAnalysis.length === 0) return null;
 
     // Analyze up to the last 10 frames for error trends
-    const recentFrames = framesWithAnalysis.slice(-10);
+    const recentFrames = framesWithValidAnalysis.slice(-10);
 
     let blackscreenConsecutive = 0;
     let freezeConsecutive = 0;
     let audioLossConsecutive = 0;
 
     // Count consecutive errors from the end (most recent frames)
+    // Only count frames with valid analysis data to avoid false trends from missing JSON files
     for (let i = recentFrames.length - 1; i >= 0; i--) {
       const analysis = recentFrames[i].analysis;
-      if (!analysis) break;
+      if (!analysis) break; // This shouldn't happen due to our filtering, but safety check
+
+      // Track whether we found any errors in this frame
+      let hasBlackscreenError = analysis.blackscreen;
+      let hasFreezeError = analysis.freeze;
+      let hasAudioLossError = !analysis.audio;
 
       // Count consecutive blackscreen errors
-      if (analysis.blackscreen) {
+      if (hasBlackscreenError) {
         blackscreenConsecutive++;
-      } else if (blackscreenConsecutive > 0) {
-        // Stop counting if we hit a non-error frame
-        break;
+      } else {
+        // Reset blackscreen count if no error in this frame
+        if (blackscreenConsecutive > 0) break;
       }
 
       // Count consecutive freeze errors
-      if (analysis.freeze) {
+      if (hasFreezeError) {
         freezeConsecutive++;
-      } else if (freezeConsecutive > 0) {
-        // Stop counting if we hit a non-error frame
-        break;
+      } else {
+        // Reset freeze count if no error in this frame
+        if (freezeConsecutive > 0) break;
       }
 
-      // Count consecutive audio loss errors (no audio detected)
-      if (!analysis.audio) {
+      // Count consecutive audio loss errors
+      if (hasAudioLossError) {
         audioLossConsecutive++;
-      } else if (audioLossConsecutive > 0) {
-        // Stop counting if we hit a non-error frame
-        break;
+      } else {
+        // Reset audio loss count if no error in this frame
+        if (audioLossConsecutive > 0) break;
       }
 
-      // If no errors are present, stop the consecutive count
-      if (!analysis.blackscreen && !analysis.freeze && analysis.audio) {
+      // If no errors are present in this frame, stop all consecutive counts
+      if (!hasBlackscreenError && !hasFreezeError && !hasAudioLossError) {
         break;
       }
     }
@@ -458,6 +463,8 @@ export const useMonitoring = ({
       hasWarning,
       hasError,
       framesAnalyzed: recentFrames.length,
+      totalFrames: frames.length,
+      validAnalysisFrames: framesWithValidAnalysis.length,
     });
 
     return {

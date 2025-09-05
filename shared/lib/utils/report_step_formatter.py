@@ -505,7 +505,13 @@ def format_analysis_results(step: Dict) -> str:
     # Audio Speech Analysis Results
     if audio_analysis and audio_analysis.get('success') is not None:
         speech_detected = audio_analysis.get('speech_detected', False)
-        speech_status = "✅ DETECTED" if speech_detected else "❌ NOT DETECTED"
+        was_skipped = audio_analysis.get('skipped', False)
+        
+        if was_skipped:
+            speech_status = "⏭️ SKIPPED"
+        else:
+            speech_status = "✅ DETECTED" if speech_detected else "❌ NOT DETECTED"
+        
         analysis_html += f'<div class="analysis-item audio"><strong>Audio Speech Detection:</strong> {speech_status}</div>'
         
         if speech_detected:
