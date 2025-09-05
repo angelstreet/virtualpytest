@@ -675,6 +675,9 @@ class ScriptExecutor:
             
             if report_result.get('success') and report_result.get('report_url'):
                 print(f"📊 [{self.script_name}] Report generated: {report_result['report_url']}")
+                # Display log URL right after report URL
+                if report_result.get('logs_url'):
+                    print(f"📝 [{self.script_name}] Logs uploaded: {report_result['logs_url']}")
             
             print(f"[@script_framework:generate_final_report] DEBUG: Step 5 - About to return report_result")
             return report_result
@@ -711,6 +714,9 @@ class ScriptExecutor:
                 
             if report_result and report_result.get('success') and report_result.get('report_url'):
                 print(f"📊 [{self.script_name}] Report generated: {report_result['report_url']}")
+                # Display log URL right after report URL
+                if report_result.get('logs_url'):
+                    print(f"📝 [{self.script_name}] Logs uploaded: {report_result['logs_url']}")
                 # Store report URL for final summary in custom_data (consistent with validation.py)
                 if not hasattr(context, 'custom_data'):
                     context.custom_data = {}

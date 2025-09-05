@@ -666,6 +666,9 @@ def main():
                 if report_result and report_result.get('success') and report_result.get('report_url'):
                     report_url = report_result.get('report_url')
                     print(f"SCRIPT_REPORT_URL:{report_url}")
+                    # Display log URL right after report URL
+                    if report_result.get('logs_url'):
+                        print(f"SCRIPT_LOGS_URL:{report_result['logs_url']}")
             except Exception as e:
                 print(f"⚠️ [validation] Error generating report: {e}")
         

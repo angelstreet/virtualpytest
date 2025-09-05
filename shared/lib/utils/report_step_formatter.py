@@ -622,11 +622,12 @@ def format_analysis_results(step: Dict) -> str:
                 if channel_info.get('start_time') and channel_info.get('end_time'):
                     analysis_html += f'<div class="analysis-detail">Program Time: {channel_info["start_time"]}-{channel_info["end_time"]}</div>'
             
-            # Complete zapping sequence thumbnails (4 key images)
+            # Complete zapping sequence thumbnails (ensure at least 3 reliable images)
             before_blackscreen = zapping_analysis.get('first_image')  # Image before blackscreen starts
             blackscreen_start = zapping_analysis.get('blackscreen_start_image')
             blackscreen_end = zapping_analysis.get('blackscreen_end_image') 
             first_content = zapping_analysis.get('first_content_after_blackscreen')
+            last_image_fallback = zapping_analysis.get('last_image') or zapping_analysis.get('channel_detection_image')
             
             # Debug logging for missing images
             print(f"[@report_step_formatter:format_analysis_results] Zapping images debug:")
@@ -635,7 +636,7 @@ def format_analysis_results(step: Dict) -> str:
             print(f"  blackscreen_end: {blackscreen_end}")
             print(f"  first_content: {first_content}")
             
-            if before_blackscreen or blackscreen_start or blackscreen_end or first_content:
+            if before_blackscreen or blackscreen_start or blackscreen_end or first_content or last_image_fallback:
                 from .report_formatting import create_verification_image_modal_data
                 
                 # Create modal data for complete zapping sequence (4 images)
@@ -644,10 +645,16 @@ def format_analysis_results(step: Dict) -> str:
                     images.append({'url': before_blackscreen, 'label': 'Before Transition'})
                 if blackscreen_start:
                     images.append({'url': blackscreen_start, 'label': 'First Transition'})
+                # Prefer explicit end/content images; otherwise use a safe fallback to always show >= 3 images
                 if blackscreen_end:
-                    images.append({'url': blackscreen_end, 'label': 'Last Transition'})  
+                    images.append({'url': blackscreen_end, 'label': 'Last Transition'})
+                elif last_image_fallback:
+                    images.append({'url': last_image_fallback, 'label': 'Last Image'})
                 if first_content:
                     images.append({'url': first_content, 'label': 'First Content After'})
+                elif last_image_fallback and all(img.get('url') != last_image_fallback for img in images):
+                    # If we still have fewer than 3 images and haven't used the fallback yet
+                    images.append({'url': last_image_fallback, 'label': 'Last Image'})
                 
                 if images:
                     import json
