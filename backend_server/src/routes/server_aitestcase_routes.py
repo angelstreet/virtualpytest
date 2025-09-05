@@ -65,20 +65,30 @@ def analyze_test_case():
                 'error': 'No userinterfaces found for analysis'
             }), 404
         
-        # Load real commands for all available models
+        # Load real commands for models used by the selected userinterfaces
         from backend_core.src.controllers.ai_descriptions import get_commands_for_device_model
-        from backend_core.src.controllers.controller_config_factory import DEVICE_CONTROLLER_MAP
         
-        print(f"[@route:server_aitestcase:analyze] Loading commands for all device models")
-        all_models = list(DEVICE_CONTROLLER_MAP.keys())
+        print(f"[@route:server_aitestcase:analyze] Loading commands for userinterface models")
+        
+        # Get unique models from all selected userinterfaces
+        interface_models = set()
+        for ui in userinterfaces:
+            ui_models = ui.get('models', [])
+            interface_models.update(ui_models)
+            print(f"[@route:server_aitestcase:analyze] UserInterface {ui.get('name', 'unknown')} supports models: {ui_models}")
+        
+        interface_models = list(interface_models)
+        print(f"[@route:server_aitestcase:analyze] Unique models across all interfaces: {interface_models}")
+        
         model_commands = {}
-        
-        for model in all_models:
+        for model in interface_models:
             model_commands[model] = get_commands_for_device_model(model)
             if 'error' not in model_commands[model]:
                 actions_count = len(model_commands[model].get('actions', []))
                 verifications_count = len(model_commands[model].get('verifications', []))
                 print(f"[@route:server_aitestcase:analyze] Model {model}: {actions_count} actions, {verifications_count} verifications")
+            else:
+                print(f"[@route:server_aitestcase:analyze] Error loading commands for model {model}: {model_commands[model]['error']}")
         
         # Initialize AI Test Case Analyzer with real command data
         from backend_core.src.controllers.ai.ai_testcase_analyzer import AITestCaseAnalyzer
@@ -90,7 +100,8 @@ def analyze_test_case():
         
         # Add model commands to analysis result for frontend debugging
         analysis_result['model_commands'] = model_commands
-        analysis_result['total_models_analyzed'] = len(all_models)
+        analysis_result['total_models_analyzed'] = len(interface_models)
+        analysis_result['interface_models'] = interface_models
         
         # Cache analysis result
         save_analysis_cache(

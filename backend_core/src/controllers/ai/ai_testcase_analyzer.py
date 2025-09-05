@@ -70,7 +70,10 @@ class AITestCaseAnalyzer:
                     'compatible': compatibility['compatible'],
                     'reasoning': compatibility['reasoning'],
                     'confidence': compatibility['confidence'],
-                    'missing_capabilities': compatibility.get('missing_capabilities', [])
+                    'missing_capabilities': compatibility.get('missing_capabilities', []),
+                    'model_details': compatibility.get('model_details', {}),
+                    'compatible_models': compatibility.get('compatible_models', []),
+                    'incompatible_models': compatibility.get('incompatible_models', [])
                 })
                 
             except Exception as e:
@@ -108,6 +111,7 @@ class AITestCaseAnalyzer:
             'analysis_id': analysis_id,
             'understanding': understanding,
             'compatibility_matrix': compatibility_matrix,
+            'compatibility_details': compatibility_results,  # NEW: Detailed per-interface results
             'requires_multiple_testcases': requires_multiple,
             'estimated_complexity': complexity,
             'total_analyzed': len(userinterfaces),
@@ -268,31 +272,60 @@ class AITestCaseAnalyzer:
             return self._analyze_with_heuristics(prompt_lower, ui_name)
     
     def _analyze_with_real_commands(self, prompt_lower: str, ui_name: str, model_commands: Dict[str, Any]) -> Dict[str, Any]:
-        """Analyze compatibility using real command availability."""
-        # Extract device model from interface name (e.g., horizon_android_mobile -> android_mobile)
-        device_model = self._extract_device_model_from_interface(ui_name)
-        
-        if device_model not in model_commands:
-            return {
-                'compatible': False,
-                'reasoning': f'Device model {device_model} not found in command registry',
-                'confidence': 0.1,
-                'missing_capabilities': ['unknown_model']
-            }
-        
-        model_data = model_commands[device_model]
-        if 'error' in model_data:
-            return {
-                'compatible': False,
-                'reasoning': f'Error loading commands for {device_model}: {model_data["error"]}',
-                'confidence': 0.1,
-                'missing_capabilities': ['command_loading_error']
-            }
+        """Analyze compatibility using real command availability for interface models."""
+        # Get the userinterface data to access its models
+        # ui_name is the interface name, we need to find its models from the context
+        # For now, we'll analyze all available models in model_commands as they're already filtered by interface
         
         # Parse prompt to identify required capabilities
         required_capabilities = self._parse_prompt_requirements(prompt_lower)
         
-        # Check if model has required commands
+        # Check compatibility across all models available to this interface
+        compatible_models = []
+        incompatible_models = []
+        model_details = {}
+        
+        for model_name, model_data in model_commands.items():
+            if 'error' in model_data:
+                incompatible_models.append(model_name)
+                model_details[model_name] = {
+                    'compatible': False,
+                    'reasoning': f'Error loading commands: {model_data["error"]}',
+                    'missing_capabilities': ['command_loading_error']
+                }
+                continue
+            
+            # Check if this model supports required capabilities
+            model_compatibility = self._check_model_compatibility(model_name, model_data, required_capabilities)
+            model_details[model_name] = model_compatibility
+            
+            if model_compatibility['compatible']:
+                compatible_models.append(model_name)
+            else:
+                incompatible_models.append(model_name)
+        
+        # Interface is compatible if at least one model supports all requirements
+        is_interface_compatible = len(compatible_models) > 0
+        
+        if is_interface_compatible:
+            reasoning = f"Compatible models: {', '.join(compatible_models)}"
+            if incompatible_models:
+                reasoning += f" (Incompatible: {', '.join(incompatible_models)})"
+        else:
+            reasoning = f"No compatible models found. All models missing required capabilities."
+        
+        return {
+            'compatible': is_interface_compatible,
+            'reasoning': reasoning,
+            'confidence': 0.8 if is_interface_compatible else 0.2,
+            'missing_capabilities': [],  # Interface level - empty if any model is compatible
+            'model_details': model_details,
+            'compatible_models': compatible_models,
+            'incompatible_models': incompatible_models
+        }
+    
+    def _check_model_compatibility(self, model_name: str, model_data: Dict[str, Any], required_capabilities: Dict[str, bool]) -> Dict[str, Any]:
+        """Check if a specific model supports the required capabilities."""
         available_actions = model_data.get('actions', [])
         available_verifications = model_data.get('verifications', [])
         
@@ -347,7 +380,7 @@ class AITestCaseAnalyzer:
         confidence = min(max(compatibility_score, 0.0), 1.0)
         
         if missing_capabilities:
-            reasoning = f"Missing required capabilities: {', '.join(missing_capabilities)}"
+            reasoning = f"Missing: {', '.join(missing_capabilities)}"
         else:
             reasoning = '; '.join(reasons) if reasons else "All required capabilities available"
         

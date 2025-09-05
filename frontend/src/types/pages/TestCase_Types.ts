@@ -121,6 +121,26 @@ export interface AIAnalysisResponse {
     total_verifications: number;
   }>;
   total_models_analyzed?: number;
+  interface_models?: string[];
+  
+  // Interface compatibility details
+  compatibility_details?: Array<{
+    userinterface: string;
+    compatible: boolean;
+    reasoning: string;
+    confidence: number;
+    missing_capabilities: string[];
+    model_details?: Record<string, {
+      compatible: boolean;
+      reasoning: string;
+      confidence: number;
+      missing_capabilities: string[];
+      available_actions_count: number;
+      available_verifications_count: number;
+    }>;
+    compatible_models?: string[];
+    incompatible_models?: string[];
+  }>;
 }
 
 export interface AIGenerationRequest {
