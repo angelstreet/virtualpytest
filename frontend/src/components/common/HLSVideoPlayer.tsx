@@ -406,25 +406,57 @@ export function HLSVideoPlayer({
         ...sx,
       }}
     >
-      <video
-        ref={videoRef}
-        style={{
-          width: '100%',
-          height: finalLayoutConfig.isMobileModel ? '100%' : 'auto',
-          maxWidth: finalLayoutConfig.isMobileModel ? '100%' : undefined,
-          maxHeight: finalLayoutConfig.isMobileModel ? undefined : '100%',
-          alignSelf: 'center',
-          objectFit: isExpanded ? 'fill' : finalLayoutConfig.objectFit || 'contain',
-          backgroundColor: '#000000',
-          display: streamLoaded ? 'block' : 'none',
-        }}
-        autoPlay
-        playsInline
-        muted={muted}
-        draggable={false}
-        preload="none"
-        crossOrigin="anonymous"
-      />
+      { finalLayoutConfig.isMobileModel ? (
+        <div
+          style={{
+            width: '100%',
+            height: '100%',
+            aspectRatio: finalLayoutConfig.aspectRatio,
+            position: 'relative',
+            overflow: 'hidden',
+          }}
+        >
+          <video
+            ref={videoRef}
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+              backgroundColor: '#000000',
+              display: streamLoaded ? 'block' : 'none',
+            }}
+            autoPlay
+            playsInline
+            muted={muted}
+            draggable={false}
+            preload="none"
+            crossOrigin="anonymous"
+          />
+        </div>
+      ) : (
+        <video
+          ref={videoRef}
+          style={{
+            width: '100%',
+            height: finalLayoutConfig.isMobileModel ? '100%' : 'auto',
+            maxWidth: finalLayoutConfig.isMobileModel ? '100%' : undefined,
+            maxHeight: finalLayoutConfig.isMobileModel ? undefined : '100%',
+            alignSelf: 'center',
+            objectFit: isExpanded ? 'fill' : finalLayoutConfig.objectFit || 'contain',
+            backgroundColor: '#000000',
+            display: streamLoaded ? 'block' : 'none',
+          }}
+          autoPlay
+          playsInline
+          muted={muted}
+          draggable={false}
+          preload="none"
+          crossOrigin="anonymous"
+        />
+      )}
 
       {streamError && (
         <Box
