@@ -121,11 +121,19 @@ def generate_zap_summary_text(zap_data: List[Dict[str, Any]]) -> str:
             audio_result += f" {iteration['audio_language'][:2].upper()}"
         
         bf_result = "❌"
+        print(f"🔍 [ZapSummaryFormatter] DEBUG: Iteration {iteration['iteration_index']} B/F data:")
+        print(f"  - blackscreen_freeze_detected: {iteration['blackscreen_freeze_detected']}")
+        print(f"  - blackscreen_freeze_duration_seconds: {iteration['blackscreen_freeze_duration_seconds']}")
+        print(f"  - detection_method: {iteration['detection_method']}")
+        
         if iteration['blackscreen_freeze_detected']:
             duration = iteration['blackscreen_freeze_duration_seconds'] or 0
             method = iteration['detection_method'] or 'B'
             method_icon = "⬛" if method == 'blackscreen' else "🧊"
             bf_result = f"{method_icon} {duration:.1f}s"
+            print(f"  - bf_result: {bf_result}")
+        else:
+            print(f"  - bf_result: ❌ (blackscreen_freeze_detected is False)")
         
         # Format channel info (exact same logic as zap_controller)
         channel_info = ""
