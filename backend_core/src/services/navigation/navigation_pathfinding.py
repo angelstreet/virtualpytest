@@ -202,6 +202,7 @@ def find_shortest_path_unified(root_tree_id: str, target_node_id: str, team_id: 
             # Create navigation transition with action_sets structure ONLY
             navigation_transition = {
                 'transition_number': transition_number,
+                'step_number': transition_number,  # Add step_number for action_utils compatibility
                 'from_node_id': from_node,
                 'to_node_id': to_node,
                 'from_node_label': from_node_info.get('label', from_node),
