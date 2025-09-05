@@ -225,7 +225,7 @@ export const useMonitoring = ({
       console.error('[useMonitoring] Failed to fetch latest JSON:', error);
       return null;
     }
-  }, [host?.host_name, host?.host_url, device?.device_id]); // More specific dependencies
+  }, [host?.host_name, host?.host_url, device?.device_id]);
 
   // Initialize autonomous base URL pattern on mount
   useEffect(() => {
@@ -250,7 +250,7 @@ export const useMonitoring = ({
 
           console.log('[useMonitoring] New frame detected:', latestData.timestamp);
 
-          // Add new frame with guaranteed coherent data (image + JSON from same timestamp)
+          // Add new frame and handle navigation in a single state update
           setFrames((prev) => {
             // Check if we already have this timestamp to avoid duplicates
             const existingFrame = prev.find(frame => frame.timestamp === latestData.timestamp);
@@ -266,21 +266,23 @@ export const useMonitoring = ({
             }];
             const updatedFrames = newFrames.slice(-100); // Always keep last 100 frames
 
-            // ONLY auto-follow when actively playing
-            if (isPlaying && !userSelectedFrame) {
-              setCurrentIndex(updatedFrames.length - 1);
-            }
-            // ONLY move user if their selected frame was deleted from buffer
-            else if (userSelectedFrame) {
-              const currentFrameStillExists = currentIndex < updatedFrames.length;
-              if (!currentFrameStillExists) {
-                // Frame was deleted, move to newest and resume playing
-                setCurrentIndex(updatedFrames.length - 1);
-                setIsPlaying(true); // Resume playing since we had to move
-                setUserSelectedFrame(false); // No longer user-selected
+            // Update current index based on current playing state
+            // This happens in the same render cycle, avoiding stale closures
+            setCurrentIndex((currentIdx) => {
+              // ONLY auto-follow when actively playing AND not user-selected
+              if (isPlaying && !userSelectedFrame) {
+                return updatedFrames.length - 1;
               }
-              // Otherwise: DO NOTHING - stay on selected frame
-            }
+              // ONLY move user if their selected frame was deleted from buffer
+              else if (userSelectedFrame && currentIdx >= updatedFrames.length) {
+                // Frame was deleted, move to newest but DON'T resume playing
+                // Keep the user in control - they paused for a reason
+                console.log('[useMonitoring] User selected frame was deleted, moving to latest but staying paused');
+                return updatedFrames.length - 1;
+              }
+              // Otherwise: DO NOTHING - stay on current frame
+              return currentIdx;
+            });
 
             return updatedFrames;
           });
@@ -299,6 +301,9 @@ export const useMonitoring = ({
   }, [
     fetchLatestMonitoringData,
     isInitialLoading,
+    isPlaying,
+    userSelectedFrame,
+    currentImageUrl,
   ]);
 
   // Auto-play functionality
