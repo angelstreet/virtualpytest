@@ -49,7 +49,7 @@ export const getStreamViewerLayout = (model?: string): StreamViewerLayoutConfig 
     : {
         minHeight: '300px',
         aspectRatio: '16/9', // Landscape for non-mobile - revert to original working values  
-        objectFit: 'contain',
+        objectFit: 'fill',
         isMobileModel: false,
       };
 };
