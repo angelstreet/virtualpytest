@@ -514,7 +514,11 @@ def format_analysis_results(step: Dict) -> str:
         
         analysis_html += f'<div class="analysis-item audio"><strong>Audio Speech Detection:</strong> {speech_status}</div>'
         
-        if speech_detected:
+        if was_skipped:
+            # Show skip reason for skipped analysis
+            if audio_analysis.get('details'):
+                analysis_html += f'<div class="analysis-detail">Details: {audio_analysis.get("details")}</div>'
+        elif speech_detected:
             # Add details on separate lines for better readability
             if audio_analysis.get('detected_language'):
                 analysis_html += f'<div class="analysis-detail">Language: {audio_analysis.get("detected_language")}</div>'
@@ -524,19 +528,18 @@ def format_analysis_results(step: Dict) -> str:
             if audio_analysis.get('confidence'):
                 analysis_html += f'<div class="analysis-detail">Confidence: {audio_analysis.get("confidence"):.2f}</div>'
         
-        # Show R2 audio URLs for traceability (segments info removed for cleaner display)
-        
-        # Show R2 audio URLs if available for traceability (always, for verification)
-        audio_urls = audio_analysis.get('audio_urls', [])
-        if audio_urls:
-            analysis_html += '<div class="analysis-detail">Audio files:'
-            for i, url in enumerate(audio_urls, 1):
-                if url:
-                    analysis_html += f' <a href="{url}" target="_blank" style="font-size: 10px; margin-left: 4px;">Segment {i}</a>'
-            analysis_html += '</div>'
-                
-        elif audio_analysis.get('message'):
-            analysis_html += f'<div class="analysis-detail">Details: {audio_analysis.get("message")}</div>'
+            # Show R2 audio URLs if available for traceability (only for actual analysis, not skipped)
+            audio_urls = audio_analysis.get('audio_urls', [])
+            if audio_urls:
+                analysis_html += '<div class="analysis-detail">Audio files:'
+                for i, url in enumerate(audio_urls, 1):
+                    if url:
+                        analysis_html += f' <a href="{url}" target="_blank" style="font-size: 10px; margin-left: 4px;">Segment {i}</a>'
+                analysis_html += '</div>'
+        else:
+            # Show failure details for failed (not skipped) analysis
+            if audio_analysis.get('message'):
+                analysis_html += f'<div class="analysis-detail">Details: {audio_analysis.get("message")}</div>'
     
     # Audio Menu Analysis Results
     if audio_menu_analysis and audio_menu_analysis.get('success') is not None:
