@@ -564,5 +564,8 @@ export const useMonitoring = ({
     isAnalyzingLanguageMenu: languageMenuHook.isAnalyzingLanguageMenu,
     hasLanguageMenuResults: languageMenuHook.hasLanguageMenuResults,
     currentLanguageMenuAnalysis: languageMenuHook.currentLanguageMenuAnalysis,
+
+    // Current frame timestamp for analysis tracking
+    currentFrameTimestamp: frames[currentIndex]?.timestamp || null,
   };
 };

@@ -77,6 +77,8 @@ export const MonitoringPlayer: React.FC<MonitoringPlayerProps> = ({
     toggleAIPanel,
     submitAIQuery,
     handleAIQueryChange,
+    // Current frame timestamp
+    currentFrameTimestamp,
   } = useMonitoring({
     host: host,
     device: device,
@@ -337,6 +339,7 @@ export const MonitoringPlayer: React.FC<MonitoringPlayerProps> = ({
           showLanguageMenu={
             isAnalyzingLanguageMenu || hasLanguageMenuResults
           }
+          analysisTimestamp={currentFrameTimestamp}
         />
       </Box>
 

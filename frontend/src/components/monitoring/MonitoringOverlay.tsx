@@ -37,18 +37,16 @@ export const MonitoringOverlay: React.FC<MonitoringOverlayProps> = ({
   const subtitles = subtitleAnalysis;
   const languageMenu = languageMenuAnalysis;
 
-  // Format timestamp for display (YYYYMMDDHHMMSS -> YYYY-MM-DD HH:MM:SS)
+  // Format timestamp for display (YYYYMMDDHHMMSS -> HH:MM:SS.000)
   const formatTimestamp = (timestamp?: string): string => {
     if (!timestamp || timestamp.length !== 14) return 'Unknown';
     
-    const year = timestamp.substring(0, 4);
-    const month = timestamp.substring(4, 6);
-    const day = timestamp.substring(6, 8);
     const hour = timestamp.substring(8, 10);
     const minute = timestamp.substring(10, 12);
     const second = timestamp.substring(12, 14);
     
-    return `${year}-${month}-${day} ${hour}:${minute}:${second}`;
+    // Add milliseconds (always .000 since we don't have sub-second precision)
+    return `${hour}:${minute}:${second}.000`;
   };
 
   // Always render overlay with empty state when no analysis
@@ -72,11 +70,9 @@ export const MonitoringOverlay: React.FC<MonitoringOverlayProps> = ({
       >
         {/* Analysis Timestamp */}
         {analysisTimestamp && (
-          <Box sx={{ display: 'flex', alignItems: 'center', mb: 1, pb: 1, borderBottom: '1px solid rgba(255,255,255,0.2)' }}>
-            <Typography variant="caption" sx={{ color: '#cccccc', fontFamily: 'monospace' }}>
-              Analysis: {formatTimestamp(analysisTimestamp)}
-            </Typography>
-          </Box>
+          <Typography variant="body2" sx={{ color: '#ffffff', mb: 0.5 }}>
+            {formatTimestamp(analysisTimestamp)}
+          </Typography>
         )}
 
         {/* Blackscreen */}
@@ -87,7 +83,7 @@ export const MonitoringOverlay: React.FC<MonitoringOverlayProps> = ({
           <Typography
             variant="body2"
             sx={{
-              color: analysis?.blackscreen ? '#ff4444' : '#ffffff',
+              color: analysis?.blackscreen ? '#ff4444' : '#00ff00',
               fontWeight: analysis?.blackscreen ? 'bold' : 'normal',
             }}
           >
@@ -108,7 +104,7 @@ export const MonitoringOverlay: React.FC<MonitoringOverlayProps> = ({
           <Typography
             variant="body2"
             sx={{
-              color: analysis?.freeze ? '#ff4444' : '#ffffff',
+              color: analysis?.freeze ? '#ff4444' : '#00ff00',
               fontWeight: analysis?.freeze ? 'bold' : 'normal',
             }}
           >
