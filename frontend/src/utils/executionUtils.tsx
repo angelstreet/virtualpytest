@@ -18,9 +18,9 @@ export const getScriptDisplayName = (scriptName: string, aiTestCasesInfo?: any[]
   if (scriptName.startsWith('ai_testcase_')) {
     const aiInfo = aiTestCasesInfo?.find(info => info.script_name === scriptName);
     if (aiInfo) {
-      return aiInfo.name || 'Unnamed AI Test Case';
+      return aiInfo.name || 'Unnamed Test Case';
     }
-    return `AI Test Case ${scriptName.replace('ai_testcase_', '').substring(0, 8)}...`;
+    return scriptName.replace('ai_testcase_', '').substring(0, 8) + '...';
   }
   return scriptName;
 };

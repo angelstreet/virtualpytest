@@ -381,45 +381,35 @@ const TestCaseEditor: React.FC = () => {
                 )}
               </Box>
 
-              {/* Compact Steps & Commands */}
+              {/* Actions */}
               <Box sx={{ mb: 2 }}>
                 <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold' }}>
-                  ⚡ Steps ({selectedTestCase.steps?.length || 0})
+                  Actions:
                 </Typography>
                 {selectedTestCase.steps?.length > 0 ? (
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.2, pl: 2 }}>
                     {selectedTestCase.steps.map((step, index) => (
-                      <Paper key={index} sx={{ p: 1.5, bgcolor: 'grey.50', border: '1px solid', borderColor: 'grey.200' }}>
-                        <Typography variant="caption" sx={{ fontWeight: 'bold', display: 'block' }}>
-                          Step {index + 1}: {step.target_node}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          Verify: {step.verify.type} ({step.verify.conditions.length} conditions)
-                        </Typography>
-                      </Paper>
+                      <Typography key={index} variant="body2" sx={{ fontFamily: 'monospace', color: 'text.primary' }}>
+                        {index + 1}. {step.target_node}
+                      </Typography>
                     ))}
                   </Box>
                 ) : (
-                  <Typography variant="caption" color="text.secondary">No steps defined</Typography>
+                  <Typography variant="caption" color="text.secondary" sx={{ pl: 2 }}>No actions defined</Typography>
                 )}
               </Box>
 
-              {/* Compact Verification Conditions */}
+              {/* Verifications */}
               {selectedTestCase.verification_conditions && selectedTestCase.verification_conditions.length > 0 && (
                 <Box sx={{ mb: 2 }}>
                   <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold' }}>
-                    ✅ Verifications ({selectedTestCase.verification_conditions.length})
+                    Verifications:
                   </Typography>
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.2, pl: 2 }}>
                     {selectedTestCase.verification_conditions.map((verification, index) => (
-                      <Paper key={index} sx={{ p: 1.5, bgcolor: 'success.50', border: '1px solid', borderColor: 'success.200' }}>
-                        <Typography variant="caption" sx={{ fontWeight: 'bold', display: 'block' }}>
-                          {verification.type}: {verification.description}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          Critical: {verification.critical ? 'Yes' : 'No'} • Timeout: {verification.timeout}s
-                        </Typography>
-                      </Paper>
+                      <Typography key={index} variant="body2" sx={{ fontFamily: 'monospace', color: 'text.primary' }}>
+                        {index + 1}. {verification.type}({verification.description})
+                      </Typography>
                     ))}
                   </Box>
                 </Box>

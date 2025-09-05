@@ -191,7 +191,7 @@ def format_step_actions(step: Dict) -> str:
     
     # Retry actions
     if retry_actions:
-        actions_html += "<div style='margin-top: 10px;'><strong>Retry Actions:</strong> <span class='retry-status available'>AVAILABLE</span></div>"
+        actions_html += "<div><strong>Retry Actions:</strong> <span class='retry-status available'>AVAILABLE</span></div>"
         for retry_index, retry_action in enumerate(retry_actions, 1):
             command = retry_action.get('command', 'unknown')
             params = retry_action.get('params', {})
@@ -204,7 +204,7 @@ def format_step_actions(step: Dict) -> str:
     
     # Failure actions
     if failure_actions:
-        actions_html += "<div style='margin-top: 10px;'><strong>Failure Actions:</strong> <span class='failure-status available'>AVAILABLE</span></div>"
+        actions_html += "<div><strong>Failure Actions:</strong> <span class='failure-status available'>AVAILABLE</span></div>"
         for failure_index, failure_action in enumerate(failure_actions, 1):
             command = failure_action.get('command', 'unknown')
             params = failure_action.get('params', {})
@@ -348,7 +348,7 @@ def format_image_verification_extras(result: Dict, step: Dict) -> str:
         from .report_formatting import create_verification_image_modal_data
         modal_data = create_verification_image_modal_data(source_image, reference_image, overlay_image)
         
-        thumbnails_html = "<div class='verification-thumbnails' style='margin-top: 8px; display: flex; gap: 10px;'>"
+        thumbnails_html = "<div class='verification-thumbnails' style='margin-top: 4px; display: flex; gap: 10px;'>"
         
         # Order: Source → Reference → Overlay (logical flow)
         if source_image:
@@ -450,7 +450,7 @@ def format_analysis_results(step: Dict) -> str:
             }
             modal_data_json = json.dumps(modal_data).replace('"', '&quot;').replace("'", "&#x27;")
             
-            thumbnails_html = "<div class='motion-analysis-thumbnails' style='margin-top: 8px; display: flex; gap: 8px;'>"
+            thumbnails_html = "<div class='motion-analysis-thumbnails' style='margin-top: 4px; display: flex; gap: 8px;'>"
             
             for i, image in enumerate(images):
                 # Show first 3 images as thumbnails
@@ -493,7 +493,7 @@ def format_analysis_results(step: Dict) -> str:
             modal_data_json = json.dumps(modal_data).replace('"', '&quot;').replace("'", "&#x27;")
             
             analysis_html += f"""
-            <div class='subtitle-screenshot' style='margin-top: 8px;'>
+            <div class='subtitle-screenshot' style='margin-top: 4px;'>
                 <div style='text-align: center;'>
                     <div style='font-size: 11px; color: #666; margin-bottom: 2px;'>Analyzed Image</div>
                     <img src='{analyzed_screenshot}' style='width: 60px; height: 40px; object-fit: contain; border: 1px solid #ddd; border-radius: 3px; cursor: pointer;' 
@@ -587,7 +587,7 @@ def format_analysis_results(step: Dict) -> str:
             modal_data_json = json.dumps(modal_data).replace('"', '&quot;').replace("'", "&#x27;")
             
             analysis_html += f"""
-            <div class='audio-menu-screenshot' style='margin-top: 8px;'>
+            <div class='audio-menu-screenshot' style='margin-top: 4px;'>
                 <div style='text-align: center;'>
                     <div style='font-size: 11px; color: #666; margin-bottom: 2px;'>Analyzed Image</div>
                     <img src='{analyzed_screenshot}' style='width: 60px; height: 40px; object-fit: contain; border: 1px solid #ddd; border-radius: 3px; cursor: pointer;' 
@@ -666,7 +666,7 @@ def format_analysis_results(step: Dict) -> str:
                     }
                     modal_data_json = json.dumps(modal_data).replace('"', '&quot;').replace("'", "&#x27;").replace(":", "&#58;").replace(":", "&#58;")
                     
-                    thumbnails_html = "<div class='zapping-sequence-thumbnails' style='margin-top: 8px; display: flex; gap: 8px;'>"
+                    thumbnails_html = "<div class='zapping-sequence-thumbnails' style='margin-top: 4px; display: flex; gap: 8px;'>"
                     
                     for image in images:
                         thumbnails_html += f"""
@@ -703,7 +703,7 @@ def format_analysis_results(step: Dict) -> str:
                 }
                 modal_data_json = json.dumps(modal_data).replace('"', '&quot;').replace("'", "&#x27;").replace(":", "&#58;")
                 
-                thumbnails_html = "<div class='zapping-failure-mosaic' style='margin-top: 8px;'>"
+                thumbnails_html = "<div class='zapping-failure-mosaic' style='margin-top: 4px;'>"
                 thumbnails_html += f"""
                 <div style='text-align: center;'>
                     <div style='font-size: 11px; color: #666; margin-bottom: 2px;'>Failure Analysis Mosaic</div>
