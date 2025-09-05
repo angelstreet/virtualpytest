@@ -834,4 +834,102 @@ def list_captures():
         return jsonify({
             'success': False,
             'error': f'List captures error: {str(e)}'
+        }), 500
+
+@host_av_bp.route('/monitoring/latest-json', methods=['POST'])
+def get_latest_monitoring_json():
+    """Get the latest available JSON analysis file for monitoring"""
+    try:
+        data = request.get_json() or {}
+        device_id = data.get('device_id', 'device1')
+        
+        print(f"[@route:host_av:latest_json] Getting latest JSON for device: {device_id}")
+        
+        # Get image controller for the specified device (it handles captures)
+        image_controller = get_controller(device_id, 'verification_image')
+        
+        if not image_controller:
+            device = get_device_by_id(device_id)
+            if not device:
+                return jsonify({
+                    'success': False,
+                    'error': f'Device {device_id} not found'
+                }), 404
+            
+            return jsonify({
+                'success': False,
+                'error': f'No image controller found for device {device_id}',
+                'available_capabilities': device.get_capabilities()
+            }), 404
+        
+        # Get capture folder from image controller
+        capture_folder = image_controller.captures_path
+        
+        if not os.path.exists(capture_folder):
+            return jsonify({
+                'success': False,
+                'error': f'Capture folder not found: {capture_folder}'
+            }), 404
+        
+        # Find the latest JSON file
+        json_files = []
+        for filename in os.listdir(capture_folder):
+            if (filename.startswith('capture_') and 
+                filename.endswith('.json')):
+                filepath = os.path.join(capture_folder, filename)
+                if os.path.isfile(filepath):
+                    # Get file modification time as timestamp
+                    timestamp = int(os.path.getmtime(filepath) * 1000)
+                    json_files.append({
+                        'filename': filename,
+                        'timestamp': timestamp,
+                        'filepath': filepath
+                    })
+        
+        if not json_files:
+            return jsonify({
+                'success': False,
+                'error': 'No JSON analysis files found'
+            }), 404
+        
+        # Sort by timestamp (newest first) and get the latest
+        json_files.sort(key=lambda x: x['timestamp'], reverse=True)
+        latest_json = json_files[0]
+        
+        # Build URL using the same mechanism as captures
+        from utils.build_url_utils import buildCaptureUrlFromPath, buildClientImageUrl
+        from utils.host_utils import get_host_instance as get_host
+        
+        try:
+            host = get_host()
+            host_dict = host.to_dict()
+            
+            # Build URL from file path
+            json_url = buildCaptureUrlFromPath(host_dict, latest_json['filepath'], device_id)
+            
+            # Process URL for client consumption
+            client_json_url = buildClientImageUrl(json_url)
+            
+            print(f"[@route:host_av:latest_json] Latest JSON: {latest_json['filename']}")
+            print(f"[@route:host_av:latest_json] JSON URL: {client_json_url}")
+            
+            return jsonify({
+                'success': True,
+                'latest_json_url': client_json_url,
+                'filename': latest_json['filename'],
+                'timestamp': latest_json['timestamp'],
+                'device_id': device_id
+            })
+            
+        except Exception as url_error:
+            return jsonify({
+                'success': False,
+                'error': f'Failed to build JSON URL: {str(url_error)}'
+            }), 500
+        
+    except Exception as e:
+        print(f"[@route:host_av:latest_json] Error: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': f'Latest JSON error: {str(e)}'
         }), 500 
