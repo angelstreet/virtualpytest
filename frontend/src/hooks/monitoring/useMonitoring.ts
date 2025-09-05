@@ -190,35 +190,39 @@ export const useMonitoring = ({
     }
   }, [host, device, autonomousBaseUrlPattern, isInitializingBaseUrl]);
 
-  // Generate monitoring URL using the proper base URL pattern
-  const generateMonitoringUrl = useCallback((): string => {
-    // Generate timestamp for 5 seconds ago to ensure analysis exists
-    const now = new Date();
-    const delayedTime = new Date(now.getTime() - 5000); // Increased to 5 second delay
+  // Fetch latest JSON file and derive image URL
+  const fetchLatestMonitoringData = useCallback(async (): Promise<{imageUrl: string, jsonUrl: string, timestamp: string} | null> => {
+    try {
+      // Get latest JSON file from the capture directory
+      const response = await fetch('/server/monitoring/latest-json', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          host: host,
+          device_id: device?.device_id || 'device1',
+        }),
+      });
 
-    const timestamp =
-      delayedTime.getFullYear().toString() +
-      (delayedTime.getMonth() + 1).toString().padStart(2, '0') +
-      delayedTime.getDate().toString().padStart(2, '0') +
-      delayedTime.getHours().toString().padStart(2, '0') +
-      delayedTime.getMinutes().toString().padStart(2, '0') +
-      delayedTime.getSeconds().toString().padStart(2, '0');
-
-    // Priority 1: Use provided baseUrlPattern
-    if (baseUrlPattern) {
-      return baseUrlPattern.replace('{timestamp}', timestamp);
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success && result.latest_json_url) {
+          const jsonUrl = result.latest_json_url;
+          const imageUrl = jsonUrl.replace('.json', '.jpg'); // Simple replacement
+          const timestampMatch = jsonUrl.match(/capture_(\d{14})/);
+          const timestamp = timestampMatch ? timestampMatch[1] : '';
+          
+          console.log(`[useMonitoring] Latest JSON: ${jsonUrl} -> Image: ${imageUrl}`);
+          return { imageUrl, jsonUrl, timestamp };
+        }
+      }
+      return null;
+    } catch (error) {
+      console.error('[useMonitoring] Failed to fetch latest JSON:', error);
+      return null;
     }
-
-    // Priority 2: Use autonomous base URL pattern (discovered via API)
-    if (autonomousBaseUrlPattern) {
-      return autonomousBaseUrlPattern.replace('{timestamp}', timestamp);
-    }
-
-    // Priority 3: No pattern available yet
-    console.log('[useMonitoring] No base URL pattern available yet, initializing...');
-    initializeAutonomousBaseUrl(); // Trigger initialization
-    return '';
-  }, [baseUrlPattern, autonomousBaseUrlPattern, initializeAutonomousBaseUrl]);
+  }, [host, device]);
 
   // Initialize autonomous base URL pattern on mount
   useEffect(() => {
@@ -227,67 +231,59 @@ export const useMonitoring = ({
     }
   }, [baseUrlPattern, autonomousBaseUrlPattern, isInitializingBaseUrl, initializeAutonomousBaseUrl]);
 
-  // Generate monitoring frames (only after initial loading)
+  // Fetch latest monitoring data (only after initial loading)
   useEffect(() => {
     if (isInitialLoading) return; // Skip during initial loading
 
-    const generateFrame = () => {
-      const newImageUrl = generateMonitoringUrl();
+    const fetchLatestFrame = async () => {
+      const latestData = await fetchLatestMonitoringData();
 
-      if (newImageUrl && newImageUrl !== currentImageUrl) {
-        setCurrentImageUrl(newImageUrl);
+      if (latestData && latestData.imageUrl !== currentImageUrl) {
+        setCurrentImageUrl(latestData.imageUrl);
 
-        // Extract timestamp from the generated URL
-        const timestampMatch = newImageUrl.match(/capture_(\d{14})/);
-        if (timestampMatch) {
-          const timestamp = timestampMatch[1];
+        console.log('[useMonitoring] Latest analysis data:', latestData);
 
-          // Generate JSON URL - frame analysis creates regular .json files
-          console.log('[useMonitoring] Generated image URL:', newImageUrl);
-          const jsonUrl = newImageUrl.replace('.jpg', '.json');
-          console.log('[useMonitoring] Generated JSON URL:', jsonUrl);
+        // Add new frame with guaranteed coherent data (image + JSON from same timestamp)
+        setFrames((prev) => {
+          const newFrames = [...prev, { 
+            timestamp: latestData.timestamp, 
+            imageUrl: latestData.imageUrl, 
+            jsonUrl: latestData.jsonUrl 
+          }];
+          const updatedFrames = newFrames.slice(-100); // Always keep last 100 frames
 
-          // Add 300ms delay to allow image to be captured and available
-          setTimeout(() => {
-            setFrames((prev) => {
-              const newFrames = [...prev, { timestamp, imageUrl: newImageUrl, jsonUrl }];
-              const updatedFrames = newFrames.slice(-100); // Always keep last 100 frames
+          // ONLY auto-follow when actively playing
+          if (isPlaying && !userSelectedFrame) {
+            setCurrentIndex(updatedFrames.length - 1);
+          }
+          // ONLY move user if their selected frame was deleted from buffer
+          else if (userSelectedFrame) {
+            const currentFrameStillExists = currentIndex < updatedFrames.length;
+            if (!currentFrameStillExists) {
+              // Frame was deleted, move to newest and resume playing
+              setCurrentIndex(updatedFrames.length - 1);
+              setIsPlaying(true); // Resume playing since we had to move
+              setUserSelectedFrame(false); // No longer user-selected
+            }
+            // Otherwise: DO NOTHING - stay on selected frame
+          }
 
-              // ONLY auto-follow when actively playing
-              if (isPlaying && !userSelectedFrame) {
-                setCurrentIndex(updatedFrames.length - 1);
-              }
-              // ONLY move user if their selected frame was deleted from buffer
-              else if (userSelectedFrame) {
-                const currentFrameStillExists = currentIndex < updatedFrames.length;
-                if (!currentFrameStillExists) {
-                  // Frame was deleted, move to newest and resume playing
-                  setCurrentIndex(updatedFrames.length - 1);
-                  setIsPlaying(true); // Resume playing since we had to move
-                  setUserSelectedFrame(false); // No longer user-selected
-                }
-                // Otherwise: DO NOTHING - stay on selected frame
-              }
-
-              return updatedFrames;
-            });
-          }, 300);
-        }
+          return updatedFrames;
+        });
       }
     };
 
-    // Generate initial frame immediately
-    generateFrame();
+    // Fetch initial frame immediately
+    fetchLatestFrame();
 
     // Set up interval for continuous monitoring
-    const interval = setInterval(generateFrame, 3000); // Generate every 3 seconds
+    const interval = setInterval(fetchLatestFrame, 3000); // Fetch every 3 seconds
     return () => clearInterval(interval);
   }, [
     currentImageUrl,
-    generateMonitoringUrl,
+    fetchLatestMonitoringData,
     isPlaying,
     userSelectedFrame,
-    baseUrlPattern,
     currentIndex,
     isInitialLoading,
   ]);
@@ -330,16 +326,13 @@ export const useMonitoring = ({
         return;
       }
 
-      // Add 600ms delay before fetching JSON to ensure analysis is complete
-      // (Total delay: 300ms for image + 600ms for JSON = 900ms from capture)
-      setTimeout(async () => {
-        // Load analysis for this frame
-        try {
-          console.log('[useMonitoring] Loading analysis:', selectedFrame.jsonUrl);
-          const response = await fetch(selectedFrame.jsonUrl);
-          let analysis = null;
+      // No delay needed - JSON is guaranteed to exist since we fetched it from latest API
+      try {
+        console.log('[useMonitoring] Loading analysis:', selectedFrame.jsonUrl);
+        const response = await fetch(selectedFrame.jsonUrl);
+        let analysis = null;
 
-          if (response.ok) {
+        if (response.ok) {
             const data = await response.json();
 
             analysis = {
@@ -377,7 +370,6 @@ export const useMonitoring = ({
           console.log('[useMonitoring] Analysis loading failed with exception');
           return;
         }
-      }, 600);
     };
 
     loadSelectedFrameAnalysis();
