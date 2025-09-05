@@ -241,21 +241,37 @@ class AIAgentController(BaseController):
             if available_verifications and isinstance(available_verifications[0], str):
                 available_verifications = [{'verification_type': verif, 'description': f'{verif} verification'} for verif in available_verifications]
             
-            # Use default actions/verifications if not provided
-            if available_actions is None:
-                available_actions = [
-                    {'command': 'click_element', 'params': {'element_id': 'string'}, 'description': 'Click on a UI element'},
-                    {'command': 'navigate', 'params': {'target_node': 'string'}, 'description': 'Navigate to a specific screen'},
-                    {'command': 'wait', 'params': {'duration': 'number'}, 'description': 'Wait for a specified duration'},
-                    {'command': 'press_key', 'params': {'key': 'string'}, 'description': 'Press a key (BACK, HOME, UP, DOWN, etc.)'}
-                ]
-            if available_verifications is None:
-                available_verifications = [
-                    {'verification_type': 'verify_image', 'description': 'Verify image content'},
-                    {'verification_type': 'verify_audio', 'description': 'Verify audio quality'},
-                    {'verification_type': 'verify_video', 'description': 'Verify video playback'},
-                    {'verification_type': 'verify_text', 'description': 'Verify text content'}
-                ]
+            # Use enhanced AI descriptions if not provided
+            if available_actions is None or available_verifications is None:
+                try:
+                    from backend_core.src.controllers.ai_descriptions import get_enhanced_actions_for_ai
+                    enhanced_data = get_enhanced_actions_for_ai(self.device_id)
+                    
+                    if available_actions is None:
+                        available_actions = enhanced_data.get('actions', [])
+                        print(f"AI[{self.device_name}]: Loaded {len(available_actions)} enhanced actions")
+                    
+                    if available_verifications is None:
+                        available_verifications = enhanced_data.get('verifications', [])
+                        print(f"AI[{self.device_name}]: Loaded {len(available_verifications)} enhanced verifications")
+                        
+                except Exception as e:
+                    print(f"AI[{self.device_name}]: Failed to load enhanced descriptions: {e}")
+                    # Fallback to basic descriptions
+                    if available_actions is None:
+                        available_actions = [
+                            {'command': 'click_element', 'params': {'element_id': 'string'}, 'description': 'Click on a UI element'},
+                            {'command': 'execute_navigation', 'params': {'target_node': 'string'}, 'description': 'Navigate to a specific screen'},
+                            {'command': 'wait', 'params': {'duration': 'number'}, 'description': 'Wait for a specified duration'},
+                            {'command': 'press_key', 'params': {'key': 'string'}, 'description': 'Press a key (BACK, HOME, UP, DOWN, etc.)'}
+                        ]
+                    if available_verifications is None:
+                        available_verifications = [
+                            {'verification_type': 'image', 'command': 'waitForImageToAppear', 'description': 'Verify image content appears'},
+                            {'verification_type': 'text', 'command': 'waitForTextToAppear', 'description': 'Verify text appears using OCR'},
+                            {'verification_type': 'video', 'command': 'DetectMotion', 'description': 'Verify video playback motion'},
+                            {'verification_type': 'adb', 'command': 'waitForElementToAppear', 'description': 'Verify Android element appears'}
+                        ]
             
             # Load navigation tree
             navigation_tree = self._get_navigation_tree(userinterface_name)

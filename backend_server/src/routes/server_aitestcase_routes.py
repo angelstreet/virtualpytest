@@ -276,11 +276,24 @@ def generate_test_case():
         
         print("[@route:server_aitestcase:generate_test_case] Calling AI agent")
         
+        # Get enhanced actions for AI generation
+        try:
+            from backend_core.src.controllers.ai_descriptions import get_enhanced_actions_for_ai
+            # Use a virtual device ID for server-side generation
+            enhanced_data = get_enhanced_actions_for_ai('virtual_device')
+            available_actions = enhanced_data.get('actions', [])
+            available_verifications = enhanced_data.get('verifications', [])
+            print(f"[@route:server_aitestcase:generate_test_case] Loaded {len(available_actions)} actions, {len(available_verifications)} verifications")
+        except Exception as e:
+            print(f"[@route:server_aitestcase:generate_test_case] Failed to load enhanced descriptions: {e}")
+            available_actions = []
+            available_verifications = []
+
         # Generate test case using AI - use existing execute_task method
         ai_result = ai_agent.execute_task(
             task_description=prompt,
-            available_actions=[],  # Will be populated by the AI agent
-            available_verifications=[],  # Will be populated by the AI agent  
+            available_actions=available_actions,
+            available_verifications=available_verifications,
             device_model=device_model,
             userinterface_name=interface_name
         )
