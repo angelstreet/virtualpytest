@@ -197,8 +197,8 @@ export const AITestCaseGenerator: React.FC<AITestCaseGeneratorProps> = ({
 
         {/* Step Preview - MAIN FOCUS */}
         {analysis.step_preview && analysis.step_preview.length > 0 && (
-          <Box sx={{ mb: 3 }}>
-            <Typography variant="h6" sx={{ fontWeight: 'bold', color: 'primary.main', mb: 2 }}>
+          <Box>
+            <Typography variant="h6" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
               📋 Generated Test Steps Preview
             </Typography>
             <Box sx={{ 
@@ -287,8 +287,8 @@ export const AITestCaseGenerator: React.FC<AITestCaseGeneratorProps> = ({
 
         {/* Interface Selection - Simple Checkboxes */}
         {hasCompatible && (
-          <Box sx={{ mb: 2 }}>
-            <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'bold' }}>
+          <Box>
+            <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
               🎯 Select Interfaces for Generation
             </Typography>
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
@@ -314,7 +314,7 @@ export const AITestCaseGenerator: React.FC<AITestCaseGeneratorProps> = ({
         )}
 
         {/* Generation Debug Panel - At Bottom */}
-        <Box sx={{ mb: 2 }}>
+        <Box>
           <Box 
             sx={{ 
               display: 'flex', 
@@ -338,30 +338,77 @@ export const AITestCaseGenerator: React.FC<AITestCaseGeneratorProps> = ({
           
           <Collapse in={expandedSteps.has(-1)}>
             <Box sx={{ ml: 2, py: 2 }}>
-              <Typography variant="body2" sx={{ mb: 1, fontWeight: 'bold' }}>
-                Available Commands for Model:
-              </Typography>
-              <Typography variant="caption" sx={{ fontFamily: 'monospace', color: 'text.secondary', display: 'block', mb: 2 }}>
-                Actions: {(analysis as any).available_actions?.length || 0} | Verifications: {(analysis as any).available_verifications?.length || 0}
-              </Typography>
-              
-              {(analysis as any).ai_reasoning && (
+              {analysis.model_commands ? (
                 <>
-                  <Typography variant="body2" sx={{ mb: 1, fontWeight: 'bold' }}>
-                    AI Reasoning:
+                  <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1 }}>
+                    Command Analysis ({analysis.total_models_analyzed || 0} models):
                   </Typography>
-                  <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 2 }}>
-                    {(analysis as any).ai_reasoning}
+                  
+                  {/* Actions Section */}
+                  <Typography variant="body2" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
+                    Actions:
+                  </Typography>
+                  {Object.entries(analysis.model_commands).map(([model, commands]) => (
+                    <Box key={`${model}-actions`} sx={{ ml: 1, mb: 1 }}>
+                      <Typography variant="caption" sx={{ fontWeight: 'bold' }}>
+                        {model}:
+                      </Typography>
+                      <Typography variant="caption" sx={{ ml: 1, color: 'text.secondary', display: 'block' }}>
+                        {commands.actions.length > 0 
+                          ? commands.actions.slice(0, 5).map(a => a.command).join(', ') + 
+                            (commands.actions.length > 5 ? ` (+${commands.actions.length - 5} more)` : '')
+                          : 'No actions available'
+                        }
+                      </Typography>
+                    </Box>
+                  ))}
+                  
+                  {/* Verifications Section */}
+                  <Typography variant="body2" sx={{ fontWeight: 'bold', color: 'secondary.main', mt: 2 }}>
+                    Verifications:
+                  </Typography>
+                  {Object.entries(analysis.model_commands).map(([model, commands]) => (
+                    <Box key={`${model}-verifications`} sx={{ ml: 1, mb: 1 }}>
+                      <Typography variant="caption" sx={{ fontWeight: 'bold' }}>
+                        {model}:
+                      </Typography>
+                      <Typography variant="caption" sx={{ ml: 1, color: 'text.secondary', display: 'block' }}>
+                        {commands.verifications.length > 0 
+                          ? commands.verifications.slice(0, 3).map(v => v.command).join(', ') + 
+                            (commands.verifications.length > 3 ? ` (+${commands.verifications.length - 3} more)` : '')
+                          : 'No verifications available'
+                        }
+                      </Typography>
+                    </Box>
+                  ))}
+                  
+                  {/* Command Summary */}
+                  <Typography variant="body2" sx={{ fontWeight: 'bold', mt: 2 }}>
+                    Summary:
+                  </Typography>
+                  {Object.entries(analysis.model_commands).map(([model, commands]) => (
+                    <Typography key={`${model}-summary`} variant="caption" sx={{ display: 'block', ml: 1, fontFamily: 'monospace' }}>
+                      {model}: {commands.total_actions || commands.actions.length} actions, {commands.total_verifications || commands.verifications.length} verifications
+                    </Typography>
+                  ))}
+                </>
+              ) : (
+                <>
+                  <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+                    Available Commands for Model:
+                  </Typography>
+                  <Typography variant="caption" sx={{ fontFamily: 'monospace', color: 'text.secondary', display: 'block' }}>
+                    Actions: {(analysis as any).available_actions?.length || 0} | Verifications: {(analysis as any).available_verifications?.length || 0}
+                  </Typography>
+                  
+                  <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+                    Command Validation:
+                  </Typography>
+                  <Typography variant="caption" sx={{ color: (analysis as any).validation_status === 'success' ? 'success.main' : 'error.main' }}>
+                    {(analysis as any).validation_message || 'Loading command analysis...'}
                   </Typography>
                 </>
               )}
-              
-              <Typography variant="body2" sx={{ mb: 1, fontWeight: 'bold' }}>
-                Command Validation:
-              </Typography>
-              <Typography variant="caption" sx={{ color: (analysis as any).validation_status === 'success' ? 'success.main' : 'error.main' }}>
-                {(analysis as any).validation_message || 'All commands validated successfully'}
-              </Typography>
             </Box>
           </Collapse>
         </Box>

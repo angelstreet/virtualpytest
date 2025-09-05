@@ -65,13 +65,32 @@ def analyze_test_case():
                 'error': 'No userinterfaces found for analysis'
             }), 404
         
-        # Initialize AI Test Case Analyzer (server-side, no device dependencies)
+        # Load real commands for all available models
+        from backend_core.src.controllers.ai_descriptions import get_commands_for_device_model
+        from backend_core.src.controllers.controller_config_factory import DEVICE_CONTROLLER_MAP
+        
+        print(f"[@route:server_aitestcase:analyze] Loading commands for all device models")
+        all_models = list(DEVICE_CONTROLLER_MAP.keys())
+        model_commands = {}
+        
+        for model in all_models:
+            model_commands[model] = get_commands_for_device_model(model)
+            if 'error' not in model_commands[model]:
+                actions_count = len(model_commands[model].get('actions', []))
+                verifications_count = len(model_commands[model].get('verifications', []))
+                print(f"[@route:server_aitestcase:analyze] Model {model}: {actions_count} actions, {verifications_count} verifications")
+        
+        # Initialize AI Test Case Analyzer with real command data
         from backend_core.src.controllers.ai.ai_testcase_analyzer import AITestCaseAnalyzer
         analyzer = AITestCaseAnalyzer()
-        print(f"[@route:server_aitestcase:analyze] Using AITestCaseAnalyzer for server-side analysis")
+        print(f"[@route:server_aitestcase:analyze] Using AITestCaseAnalyzer with real command analysis")
         
-        # Use AITestCaseAnalyzer for clean compatibility analysis
-        analysis_result = analyzer.analyze_compatibility(prompt, userinterfaces)
+        # Use AITestCaseAnalyzer with command-aware compatibility analysis
+        analysis_result = analyzer.analyze_compatibility(prompt, userinterfaces, model_commands)
+        
+        # Add model commands to analysis result for frontend debugging
+        analysis_result['model_commands'] = model_commands
+        analysis_result['total_models_analyzed'] = len(all_models)
         
         # Cache analysis result
         save_analysis_cache(

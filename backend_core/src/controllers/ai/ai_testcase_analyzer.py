@@ -24,7 +24,7 @@ class AITestCaseAnalyzer:
         # Pure logic and heuristic analysis only
         pass
     
-    def analyze_compatibility(self, prompt: str, userinterfaces: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def analyze_compatibility(self, prompt: str, userinterfaces: List[Dict[str, Any]], model_commands: Dict[str, Any] = None) -> Dict[str, Any]:
         """
         Analyze test case compatibility using heuristics and navigation graphs.
         
@@ -62,8 +62,8 @@ class AITestCaseAnalyzer:
             print(f"[@AITestCaseAnalyzer:analyze] Analyzing interface: {ui_name}")
             
             try:
-                # Analyze compatibility using heuristics
-                compatibility = self._analyze_interface_compatibility(prompt, ui)
+                # Analyze compatibility using real commands if available, fallback to heuristics
+                compatibility = self._analyze_interface_compatibility(prompt, ui, model_commands)
                 
                 compatibility_results.append({
                     'userinterface': ui_name,
@@ -118,6 +118,50 @@ class AITestCaseAnalyzer:
         
         print(f"[@AITestCaseAnalyzer:analyze] Analysis complete: {len(compatible)}/{len(userinterfaces)} compatible")
         return result
+    
+    def _extract_device_model_from_interface(self, ui_name: str) -> str:
+        """Extract device model from interface name."""
+        # Common patterns: horizon_android_mobile -> android_mobile, perseus_360_web -> web
+        if 'android_mobile' in ui_name:
+            return 'android_mobile'
+        elif 'android_tv' in ui_name:
+            return 'android_tv'
+        elif 'fire_tv' in ui_name:
+            return 'fire_tv'
+        elif 'ios_mobile' in ui_name:
+            return 'ios_mobile'
+        elif 'web' in ui_name:
+            return 'web'
+        elif 'stb' in ui_name:
+            return 'stb'
+        else:
+            # Default fallback - try to extract last part
+            parts = ui_name.split('_')
+            if len(parts) >= 2:
+                return '_'.join(parts[-2:])  # Take last two parts
+            return ui_name
+    
+    def _parse_prompt_requirements(self, prompt_lower: str) -> Dict[str, bool]:
+        """Parse prompt to identify required capabilities."""
+        requirements = {}
+        
+        # Navigation requirements
+        if any(word in prompt_lower for word in ['go to', 'navigate', 'open', 'menu', 'live']):
+            requirements['navigation'] = True
+        
+        # Audio verification requirements
+        if any(word in prompt_lower for word in ['audio', 'sound', 'music', 'volume', 'check audio']):
+            requirements['audio_verification'] = True
+        
+        # Video verification requirements
+        if any(word in prompt_lower for word in ['video', 'playback', 'motion', 'check video']):
+            requirements['video_verification'] = True
+        
+        # UI interaction requirements
+        if any(word in prompt_lower for word in ['click', 'tap', 'button', 'text', 'element']):
+            requirements['ui_interaction'] = True
+        
+        return requirements
     
     def generate_test_steps(self, prompt: str, interface_name: str, 
                           navigation_graph: Optional[Dict] = None) -> List[Dict[str, Any]]:
@@ -212,12 +256,112 @@ class AITestCaseAnalyzer:
         else:
             return f"General test case analysis for: '{prompt}'"
     
-    def _analyze_interface_compatibility(self, prompt: str, userinterface: Dict[str, Any]) -> Dict[str, Any]:
-        """Analyze compatibility between prompt and specific userinterface using heuristics."""
+    def _analyze_interface_compatibility(self, prompt: str, userinterface: Dict[str, Any], model_commands: Dict[str, Any] = None) -> Dict[str, Any]:
+        """Analyze compatibility between prompt and specific userinterface using real command checking."""
         ui_name = userinterface.get('name', 'unknown')
         prompt_lower = prompt.lower()
         
-        # Heuristic compatibility rules
+        # If we have real command data, use it; otherwise fallback to heuristics
+        if model_commands:
+            return self._analyze_with_real_commands(prompt_lower, ui_name, model_commands)
+        else:
+            return self._analyze_with_heuristics(prompt_lower, ui_name)
+    
+    def _analyze_with_real_commands(self, prompt_lower: str, ui_name: str, model_commands: Dict[str, Any]) -> Dict[str, Any]:
+        """Analyze compatibility using real command availability."""
+        # Extract device model from interface name (e.g., horizon_android_mobile -> android_mobile)
+        device_model = self._extract_device_model_from_interface(ui_name)
+        
+        if device_model not in model_commands:
+            return {
+                'compatible': False,
+                'reasoning': f'Device model {device_model} not found in command registry',
+                'confidence': 0.1,
+                'missing_capabilities': ['unknown_model']
+            }
+        
+        model_data = model_commands[device_model]
+        if 'error' in model_data:
+            return {
+                'compatible': False,
+                'reasoning': f'Error loading commands for {device_model}: {model_data["error"]}',
+                'confidence': 0.1,
+                'missing_capabilities': ['command_loading_error']
+            }
+        
+        # Parse prompt to identify required capabilities
+        required_capabilities = self._parse_prompt_requirements(prompt_lower)
+        
+        # Check if model has required commands
+        available_actions = model_data.get('actions', [])
+        available_verifications = model_data.get('verifications', [])
+        
+        missing_capabilities = []
+        reasons = []
+        compatibility_score = 0.5  # Base score
+        
+        # Check navigation capabilities
+        if required_capabilities.get('navigation', False):
+            has_navigation = any(action.get('command') in ['execute_navigation', 'click_element', 'tap_coordinates'] 
+                               for action in available_actions)
+            if has_navigation:
+                compatibility_score += 0.2
+                reasons.append("Has navigation capabilities")
+            else:
+                missing_capabilities.append('navigation commands')
+        
+        # Check audio verification capabilities
+        if required_capabilities.get('audio_verification', False):
+            has_audio = any(verif.get('command') in ['DetectAudioSpeech', 'check_audio_quality', 'AnalyzeAudioMenu'] 
+                          for verif in available_verifications)
+            if has_audio:
+                compatibility_score += 0.3
+                reasons.append("Supports audio verification")
+            else:
+                missing_capabilities.append('audio verification commands')
+                compatibility_score -= 0.2
+        
+        # Check video verification capabilities
+        if required_capabilities.get('video_verification', False):
+            has_video = any(verif.get('command') in ['DetectMotion', 'DetectBlackscreen', 'AnalyzeVideoQuality'] 
+                          for verif in available_verifications)
+            if has_video:
+                compatibility_score += 0.3
+                reasons.append("Supports video verification")
+            else:
+                missing_capabilities.append('video verification commands')
+                compatibility_score -= 0.2
+        
+        # Check text/UI interaction capabilities
+        if required_capabilities.get('ui_interaction', False):
+            has_ui = any(action.get('command') in ['click_element', 'tap_coordinates', 'find_element'] 
+                        for action in available_actions)
+            if has_ui:
+                compatibility_score += 0.2
+                reasons.append("Supports UI element interaction")
+            else:
+                missing_capabilities.append('UI interaction commands')
+        
+        # Determine final compatibility
+        is_compatible = compatibility_score >= 0.6 and len(missing_capabilities) == 0
+        confidence = min(max(compatibility_score, 0.0), 1.0)
+        
+        if missing_capabilities:
+            reasoning = f"Missing required capabilities: {', '.join(missing_capabilities)}"
+        else:
+            reasoning = '; '.join(reasons) if reasons else "All required capabilities available"
+        
+        return {
+            'compatible': is_compatible,
+            'reasoning': reasoning,
+            'confidence': confidence,
+            'missing_capabilities': missing_capabilities,
+            'available_actions_count': len(available_actions),
+            'available_verifications_count': len(available_verifications)
+        }
+    
+    def _analyze_with_heuristics(self, prompt_lower: str, ui_name: str) -> Dict[str, Any]:
+        """Fallback heuristic analysis when real commands are not available."""
         compatibility_score = 0.5  # Default neutral
         reasons = []
         missing_capabilities = []

@@ -112,6 +112,15 @@ export interface AIAnalysisResponse {
   ai_reasoning?: string;
   validation_status?: 'success' | 'error';
   validation_message?: string;
+  
+  // Real command data from analysis
+  model_commands?: Record<string, {
+    actions: any[];
+    verifications: any[];
+    total_actions: number;
+    total_verifications: number;
+  }>;
+  total_models_analyzed?: number;
 }
 
 export interface AIGenerationRequest {
