@@ -273,63 +273,21 @@ export const AITestCaseGenerator: React.FC<AITestCaseGeneratorProps> = ({
                       </IconButton>
                     </Box>
                     
-                    {/* Expanded Details - Show exact commands */}
+                    {/* Expanded Details - Compact one-line format */}
                     <Collapse in={expanded}>
-                      <Box sx={{ 
-                        ml: 6, 
-                        mr: 2, 
-                        mb: 1, 
-                        p: 2, 
-                        bgcolor: 'grey.50', 
-                        borderRadius: 1,
-                        border: '1px solid',
-                        borderColor: 'grey.200'
-                      }}>
+                      <Box sx={{ ml: 6, mr: 2, mb: 1 }}>
                         {step.type === 'action' ? (
-                          <Box>
-                            <Typography variant="caption" color="text.secondary" fontWeight="bold">
-                              Action Command:
-                            </Typography>
-                            <Box sx={{ 
-                              fontFamily: 'monospace', 
-                              fontSize: '0.85rem', 
-                              bgcolor: 'background.paper', 
-                              p: 1, 
-                              borderRadius: 0.5,
-                              border: '1px solid',
-                              borderColor: 'divider',
-                              mt: 0.5
-                            }}>
-                              {step.command}({Object.entries(step.params || {}).map(([key, value]) => 
-                                `${key}='${value}'`
-                              ).join(', ')})
-                            </Box>
-                          </Box>
+                          <Typography variant="body2" sx={{ fontFamily: 'monospace', color: 'text.primary' }}>
+                            {step.command}({Object.entries(step.params || {}).map(([key, value]) => 
+                              `${key}='${value}'`
+                            ).join(', ')})
+                          </Typography>
                         ) : (
-                          <Box>
-                            <Typography variant="caption" color="text.secondary" fontWeight="bold">
-                              Verification Command:
-                            </Typography>
-                            <Box sx={{ 
-                              fontFamily: 'monospace', 
-                              fontSize: '0.85rem', 
-                              bgcolor: 'background.paper', 
-                              p: 1, 
-                              borderRadius: 0.5,
-                              border: '1px solid',
-                              borderColor: 'divider',
-                              mt: 0.5
-                            }}>
-                              {step.verification_type && (
-                                <Box sx={{ color: 'secondary.main', fontWeight: 'bold' }}>
-                                  {step.verification_type}
-                                </Box>
-                              )}
-                              {step.command}({Object.entries(step.params || {}).map(([key, value]) => 
-                                `${key}='${value}'`
-                              ).join(', ')})
-                            </Box>
-                          </Box>
+                          <Typography variant="body2" sx={{ fontFamily: 'monospace', color: 'text.primary' }}>
+                            {step.verification_type && `${step.verification_type}.`}{step.command}({Object.entries(step.params || {}).map(([key, value]) => 
+                              `${key}='${value}'`
+                            ).join(', ')})
+                          </Typography>
                         )}
                       </Box>
                     </Collapse>
