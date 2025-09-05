@@ -417,7 +417,7 @@ export const HDMIStream = React.memo(
             {!isMinimized && (
               <Box
                 sx={{
-                  height: `calc(100% - ${headerHeight})`,
+                  height: `100%`,
                   overflow: 'hidden',
                   position: 'relative',
                 }}

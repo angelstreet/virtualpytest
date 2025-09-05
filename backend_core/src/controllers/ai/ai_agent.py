@@ -722,14 +722,38 @@ JSON ONLY - NO OTHER TEXT"""
         overall_success = action_result.get('success', False) and verification_result.get('success', False)
         total_executed = action_result.get('executed_steps', 0) + verification_result.get('executed_verifications', 0)
         total_steps = action_result.get('total_steps', 0) + verification_result.get('total_verifications', 0)
-        
+
+        # Provide a clear top-level error message when execution fails
+        top_level_error = None
+        if not overall_success:
+            # Prefer explicit controller errors
+            top_level_error = action_result.get('error') or verification_result.get('error')
+
+            # Fall back to first failed action error
+            if not top_level_error:
+                for step in action_result.get('step_results', []) or []:
+                    if not step.get('success') and step.get('error'):
+                        top_level_error = step.get('error')
+                        break
+
+            # Fall back to first failed verification error
+            if not top_level_error:
+                for v in verification_result.get('verification_results', []) or []:
+                    if not v.get('success') and v.get('error'):
+                        top_level_error = v.get('error')
+                        break
+
+            if not top_level_error:
+                top_level_error = 'AI plan execution failed'
+
         return {
             'success': overall_success,
             'executed_steps': total_executed,
             'total_steps': total_steps,
             'action_result': action_result,
             'verification_result': verification_result,
-            'message': f'Plan execution completed: {total_executed}/{total_steps} steps successful'
+            'message': f'Plan execution completed: {total_executed}/{total_steps} steps successful',
+            'error': top_level_error
         }
     
     def _execute_actions(self, action_steps: List[Dict[str, Any]], navigation_tree: Dict = None, userinterface_name: str = "horizon_android_mobile") -> Dict[str, Any]:

@@ -100,6 +100,11 @@ def generate_validation_report(report_data: Dict) -> str:
         
         # Extract report data with safe defaults
         script_name = report_data.get('script_name', 'Unknown Script')
+        # For AI testcases, prefer human-friendly title if provided
+        # Expect optional fields: ai_testcase_name, ai_display_name
+        ai_display_name = report_data.get('ai_testcase_name') or report_data.get('ai_display_name')
+        if ai_display_name:
+            script_name = f"AI : {ai_display_name}"
         device_info = report_data.get('device_info', {})
         host_info = report_data.get('host_info', {})
         execution_time = report_data.get('execution_time', 0)

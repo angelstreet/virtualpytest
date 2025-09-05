@@ -85,6 +85,13 @@ def main():
     if context.error_message:
         executor.cleanup_and_exit(context, args.userinterface_name)
         return
+    # Ensure AI display name is available to report generator
+    try:
+        if not hasattr(context, 'custom_data') or context.custom_data is None:
+            context.custom_data = {}
+        context.custom_data['ai_testcase_name'] = script_display_name
+    except Exception:
+        pass
     
     try:
         # Load navigation tree
@@ -145,7 +152,25 @@ def main():
         print(f"[@ai_testcase_executor] AIAgentController execution result: {'SUCCESS' if success else 'FAILED'}")
         
         if not success:
-            error_msg = ai_result.get('error', 'Unknown AI execution error')
+            # Prefer detailed AI error surfaced by controller execution
+            error_msg = ai_result.get('error')
+            if not error_msg:
+                # Try to extract a specific message from action/verification results
+                ar = ai_result.get('action_result', {})
+                vr = ai_result.get('verification_result', {})
+                error_msg = ar.get('error') or vr.get('error')
+                if not error_msg:
+                    for s in (ar.get('step_results') or []):
+                        if not s.get('success') and s.get('error'):
+                            error_msg = s.get('error')
+                            break
+                if not error_msg:
+                    for v in (vr.get('verification_results') or []):
+                        if not v.get('success') and v.get('error'):
+                            error_msg = v.get('error')
+                            break
+            if not error_msg:
+                error_msg = 'AI plan execution failed'
             context.error_message = error_msg
             print(f"[@ai_testcase_executor] AI execution error: {error_msg}")
         
