@@ -43,7 +43,7 @@ export const getStreamViewerLayout = (model?: string): StreamViewerLayoutConfig 
     ? {
         minHeight: '400px',
         aspectRatio: '9/16', // Portrait for mobile - revert to original working values
-        objectFit: 'fill',
+        objectFit: 'cover',
         isMobileModel: true,
       }
     : {

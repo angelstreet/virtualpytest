@@ -409,11 +409,11 @@ export function HLSVideoPlayer({
       <video
         ref={videoRef}
         style={{
-          width: finalLayoutConfig.isMobileModel ? 'auto' : '100%', // Mobile: auto width, Non-mobile: full width
-          height: finalLayoutConfig.isMobileModel ? '100%' : 'auto', // Mobile: full height, Non-mobile: auto height
-          maxWidth: finalLayoutConfig.isMobileModel ? '100%' : undefined, // Prevent overflow on mobile
-          maxHeight: finalLayoutConfig.isMobileModel ? undefined : '100%', // Prevent overflow on desktop
-          alignSelf: 'center', // Center the video inside the container
+          width: '100%',
+          height: finalLayoutConfig.isMobileModel ? '100%' : 'auto',
+          maxWidth: finalLayoutConfig.isMobileModel ? '100%' : undefined,
+          maxHeight: finalLayoutConfig.isMobileModel ? undefined : '100%',
+          alignSelf: 'center',
           objectFit: isExpanded ? 'fill' : finalLayoutConfig.objectFit || 'contain',
           backgroundColor: '#000000',
           display: streamLoaded ? 'block' : 'none',
