@@ -7,6 +7,7 @@ interface ConsecutiveErrorCounts {
   blackscreenConsecutive: number;
   freezeConsecutive: number;
   audioLossConsecutive: number;
+  macroblocksConsecutive: number;
   hasWarning: boolean;
   hasError: boolean;
 }
@@ -111,6 +112,27 @@ export const MonitoringOverlay: React.FC<MonitoringOverlayProps> = ({
             {analysis?.freeze && consecutiveErrorCounts && (
               <Typography component="span" variant="body2" sx={{ color: '#cccccc', ml: 1 }}>
                 ({consecutiveErrorCounts.freezeConsecutive})
+              </Typography>
+            )}
+          </Typography>
+        </Box>
+
+        {/* Macroblocks */}
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
+          <Typography variant="body2" sx={{ color: '#ffffff', mr: 1 }}>
+            Macroblocks:
+          </Typography>
+          <Typography
+            variant="body2"
+            sx={{
+              color: analysis?.macroblocks ? '#ff4444' : '#00ff00',
+              fontWeight: analysis?.macroblocks ? 'bold' : 'normal',
+            }}
+          >
+            {analysis?.macroblocks ? 'Yes' : 'No'}
+            {analysis?.macroblocks && consecutiveErrorCounts && (
+              <Typography component="span" variant="body2" sx={{ color: '#cccccc', ml: 1 }}>
+                ({consecutiveErrorCounts.macroblocksConsecutive})
               </Typography>
             )}
           </Typography>

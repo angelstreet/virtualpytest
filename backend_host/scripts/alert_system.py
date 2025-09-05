@@ -140,6 +140,8 @@ def process_alert_with_memory_state(analysis_result, host_name, device_id, incid
         blackscreen_percentage = analysis_result.get('blackscreen_percentage', 0)
         freeze = analysis_result.get('freeze', False) 
         freeze_diffs = analysis_result.get('freeze_diffs', [])
+        macroblocks = analysis_result.get('macroblocks', False)
+        quality_score = analysis_result.get('quality_score', 0)
         audio = analysis_result.get('audio', True)
         volume_percentage = analysis_result.get('volume_percentage', 0)
         mean_volume_db = analysis_result.get('mean_volume_db', -100)
@@ -147,7 +149,7 @@ def process_alert_with_memory_state(analysis_result, host_name, device_id, incid
         last_3_thumbnails = analysis_result.get('last_3_thumbnails', [])
         
         # Determine current status (simple true/false)
-        video_issue = blackscreen or freeze  # True if any video issue
+        video_issue = blackscreen or freeze or macroblocks  # True if any video issue
         audio_issue = not audio  # True if audio_loss
         
         # Determine specific incident types for database
@@ -157,6 +159,8 @@ def process_alert_with_memory_state(analysis_result, host_name, device_id, incid
             current_incidents.append('blackscreen')
         if freeze:  # Changed from 'elif' to 'if' - freeze can coexist with blackscreen
             current_incidents.append('freeze')
+        if macroblocks:  # Macroblock detection can coexist with other video issues
+            current_incidents.append('macroblocks')
         if audio_issue:
             current_incidents.append('audio_loss')
             
@@ -166,7 +170,7 @@ def process_alert_with_memory_state(analysis_result, host_name, device_id, incid
         logger.info(f"[{device_id}] Analysis: Video={video_issue}, Audio={audio_issue}, Current={current_incidents}, Active={list(active_incidents.keys())}")
         
         # Process each specific incident type (CONSISTENT WITH DIRECT PROCESSING)
-        for incident_type in ['blackscreen', 'freeze', 'audio_loss']:
+        for incident_type in ['blackscreen', 'freeze', 'macroblocks', 'audio_loss']:
             is_active = incident_type in current_incidents
             was_active = incident_type in active_incidents
             
@@ -180,6 +184,8 @@ def process_alert_with_memory_state(analysis_result, host_name, device_id, incid
                     enhanced_metadata['blackscreen_percentage'] = blackscreen_percentage
                 elif incident_type == 'freeze':
                     enhanced_metadata['freeze_diffs'] = freeze_diffs
+                elif incident_type == 'macroblocks':
+                    enhanced_metadata['quality_score'] = quality_score
                 elif incident_type == 'audio_loss':
                     enhanced_metadata['volume_percentage'] = volume_percentage
                     enhanced_metadata['mean_volume_db'] = mean_volume_db

@@ -675,6 +675,111 @@ class VideoContentHelpers:
             }
 
     # =============================================================================
+    # Macroblock Detection
+    # =============================================================================
+    
+    def detect_macroblocks_batch(self, image_paths: List[str]) -> Dict[str, Any]:
+        """
+        Detect macroblocks/image quality issues in multiple images.
+        Similar pattern to detect_blackscreen_batch.
+        """
+        results = []
+        
+        for image_path in image_paths:
+            if not os.path.exists(image_path):
+                results.append({
+                    'image_path': image_path,
+                    'success': False,
+                    'error': 'Image file not found'
+                })
+                continue
+            
+            try:
+                # Use same algorithm as analyze_audio_video.py
+                macroblocks_detected, quality_score = self._analyze_macroblocks_simple(image_path)
+                
+                results.append({
+                    'image_path': os.path.basename(image_path),
+                    'success': True,
+                    'macroblocks_detected': macroblocks_detected,
+                    'quality_score': quality_score
+                })
+                
+                print(f"VideoContent[{self.device_name}]: Macroblock analysis - macroblocks={macroblocks_detected}, quality={quality_score:.1f}")
+                
+            except Exception as e:
+                results.append({
+                    'image_path': image_path,
+                    'success': False,
+                    'error': f'Analysis error: {str(e)}'
+                })
+        
+        # Calculate overall result
+        successful_analyses = [r for r in results if r.get('success')]
+        macroblocks_detected = any(r.get('macroblocks_detected', False) for r in successful_analyses)
+        
+        # Calculate average quality score
+        quality_scores = [r.get('quality_score', 0.0) for r in successful_analyses if r.get('quality_score') is not None]
+        average_quality_score = sum(quality_scores) / len(quality_scores) if quality_scores else 0.0
+        
+        overall_result = {
+            'success': len(successful_analyses) > 0,
+            'macroblocks_detected': macroblocks_detected,
+            'quality_score': round(average_quality_score, 1),
+            'analyzed_images': len(results),
+            'successful_analyses': len(successful_analyses),
+            'results': results,
+            'analysis_type': 'macroblock_detection',
+            'timestamp': datetime.now().isoformat()
+        }
+        
+        return overall_result
+
+    def _analyze_macroblocks_simple(self, image_path: str) -> Tuple[bool, float]:
+        """Same algorithm as analyze_audio_video.py for consistency"""
+        try:
+            img = cv2.imread(image_path)
+            if img is None:
+                return False, 0.0
+            
+            # Convert to different color spaces for analysis
+            hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+            
+            # 1. Detect abnormal color pixels (green/pink artifacts)
+            # Sample every 10th pixel for performance (reuse existing pattern)
+            sample_rate = 10  # Same as freeze detection
+            hsv_sampled = hsv[::sample_rate, ::sample_rate]
+            
+            # Green artifacts: High saturation in green range
+            green_mask = cv2.inRange(hsv_sampled, (40, 100, 50), (80, 255, 255))
+            green_pixels = np.sum(green_mask > 0)
+            
+            # Pink/Magenta artifacts: High saturation in magenta range  
+            pink_mask = cv2.inRange(hsv_sampled, (140, 100, 50), (170, 255, 255))
+            pink_pixels = np.sum(pink_mask > 0)
+            
+            total_sampled = hsv_sampled.shape[0] * hsv_sampled.shape[1]
+            artifact_percentage = ((green_pixels + pink_pixels) / total_sampled) * 100
+            
+            # 2. Simple blur detection using Laplacian variance
+            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            gray_sampled = gray[::sample_rate, ::sample_rate]
+            laplacian_var = cv2.Laplacian(gray_sampled, cv2.CV_64F).var()
+            
+            # Combine metrics: artifacts OR low sharpness indicates macroblocks
+            has_artifacts = artifact_percentage > 2.0  # 2% threshold
+            is_blurry = laplacian_var < 100  # Low variance = blurry
+            
+            macroblocks_detected = has_artifacts or is_blurry
+            quality_score = max(artifact_percentage, (200 - laplacian_var) / 2)  # 0-100 scale
+            
+            return macroblocks_detected, quality_score
+            
+        except Exception as e:
+            print(f"VideoContent[{self.device_name}]: Macroblock analysis error: {e}")
+            return False, 0.0
+
+    # =============================================================================
     # Freeze-based Zapping Detection
     # =============================================================================
     

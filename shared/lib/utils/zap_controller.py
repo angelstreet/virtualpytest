@@ -38,6 +38,11 @@ class ZapAnalysisResult:
         self.audio_language = None
         self.audio_details = {}
         
+        # Macroblock analysis results
+        self.macroblocks_detected = False
+        self.quality_score = 0.0
+        self.macroblock_details = {}
+        
         self.success = False
         self.message = ""
     
@@ -59,7 +64,12 @@ class ZapAnalysisResult:
             "audio_speech_detected": self.audio_speech_detected,
             "audio_transcript": self.audio_transcript,
             "audio_language": self.audio_language,
-            "audio_analysis": self.audio_details
+            "audio_analysis": self.audio_details,
+            
+            # Macroblock analysis results
+            "macroblocks_detected": self.macroblocks_detected,
+            "quality_score": self.quality_score,
+            "macroblock_analysis": self.macroblock_details
         }
 
 
@@ -303,10 +313,16 @@ class ZapController:
                     result.audio_language = audio_speech_result.get('detected_language', 'unknown')
                     result.audio_details = audio_speech_result
             
-            # 4. Audio menu analysis removed - now handled by dedicated navigation steps
+            # 4. Macroblock analysis (after audio speech analysis)
+            macroblock_result = self._analyze_macroblocks(context, iteration, action_command)
+            result.macroblocks_detected = macroblock_result.get('macroblocks_detected', False)
+            result.quality_score = macroblock_result.get('quality_score', 0.0)
+            result.macroblock_details = macroblock_result
+            
+            # 5. Audio menu analysis removed - now handled by dedicated navigation steps
             # Audio menu analysis is independent and should be called when navigating TO audio menu nodes
             
-            # 5. Analyze zapping if it's a channel up action (regardless of motion detection)
+            # 6. Analyze zapping if it's a channel up action (regardless of motion detection)
             if context and 'chup' in action_command.lower():
                 # Get the action end time from context if available
                 action_end_time = getattr(context, 'last_action_end_time', None)
@@ -707,6 +723,55 @@ class ZapController:
                 "success": False,
                 "message": error_msg,
                 "speech_detected": False
+            }
+    
+    def _analyze_macroblocks(self, context, iteration: int, action_command: str) -> Dict[str, Any]:
+        """Analyze macroblocks using direct controller call - same pattern as motion detection"""
+        try:
+            print(f"🔍 [ZapController] Analyzing macroblocks for {action_command} (iteration {iteration})...")
+            
+            device_id = context.selected_device.device_id
+            
+            # Get video verification controller - same as other detections
+            video_controller = get_controller(device_id, 'verification_video')
+            if not video_controller:
+                return {"success": False, "message": f"No video verification controller found for device {device_id}"}
+            
+            # Use the latest screenshot (which should be the clean analysis screenshot)
+            if not context.screenshot_paths:
+                return {"success": False, "message": "No screenshots available for macroblock analysis"}
+            
+            latest_screenshot = context.screenshot_paths[-1]
+            print(f"🔍 [ZapController] Using clean screenshot for macroblock analysis: {latest_screenshot}")
+            
+            # Call detection method (will be added to video controller)
+            result = video_controller.detect_macroblocks([latest_screenshot])
+            
+            success = result.get('success', False)
+            if success:
+                macroblocks_detected = result.get('macroblocks_detected', False)
+                quality_score = result.get('quality_score', 0.0)
+                
+                if macroblocks_detected:
+                    print(f"⚠️ [ZapController] Macroblocks detected - Quality score: {quality_score:.1f}")
+                else:
+                    print(f"✅ [ZapController] No macroblocks detected - Quality score: {quality_score:.1f}")
+            else:
+                print(f"❌ [ZapController] Macroblock analysis failed: {result.get('message', 'Unknown error')}")
+            
+            # Add screenshot to context for reporting
+            context.add_screenshot(latest_screenshot)
+            
+            return result
+            
+        except Exception as e:
+            error_msg = f"Macroblock analysis error: {str(e)}"
+            print(f"🔍 [ZapController] {error_msg}")
+            return {
+                "success": False,
+                "message": error_msg,
+                "macroblocks_detected": False,
+                "quality_score": 0.0
             }
     
     # Audio menu analysis moved to dedicated audio_menu_analyzer.py

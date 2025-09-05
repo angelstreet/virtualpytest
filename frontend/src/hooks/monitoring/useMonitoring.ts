@@ -23,6 +23,7 @@ interface ErrorTrendData {
   blackscreenConsecutive: number;
   freezeConsecutive: number;
   audioLossConsecutive: number;
+  macroblocksConsecutive: number;
   hasWarning: boolean;
   hasError: boolean;
 }
@@ -476,6 +477,7 @@ export const useMonitoring = ({
       blackscreenConsecutive,
       freezeConsecutive,
       audioLossConsecutive,
+      macroblocksConsecutive: 0, // TODO: Implement macroblock consecutive tracking
       hasWarning,
       hasError,
     };

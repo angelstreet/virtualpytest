@@ -50,6 +50,56 @@ SAMPLING_PATTERNS = {
     "subtitle_edge_threshold": 200  # Edge detection threshold
 }
 
+def analyze_macroblocks(image_path, device_id="unknown"):
+    """
+    Fast macroblock/image quality detection using simple algorithms
+    Detects: green/pink pixels, blur, saturation issues
+    """
+    try:
+        img = cv2.imread(image_path)
+        if img is None:
+            logger.error(f"[{device_id}] Could not load image for macroblock analysis: {image_path}")
+            return False, 0.0
+        
+        # Convert to different color spaces for analysis
+        hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+        
+        # 1. Detect abnormal color pixels (green/pink artifacts)
+        # Sample every 10th pixel for performance
+        sample_rate = SAMPLING_PATTERNS["freeze_sample_rate"]  # Reuse existing pattern
+        hsv_sampled = hsv[::sample_rate, ::sample_rate]
+        
+        # Green artifacts: High saturation in green range
+        green_mask = cv2.inRange(hsv_sampled, (40, 100, 50), (80, 255, 255))
+        green_pixels = np.sum(green_mask > 0)
+        
+        # Pink/Magenta artifacts: High saturation in magenta range  
+        pink_mask = cv2.inRange(hsv_sampled, (140, 100, 50), (170, 255, 255))
+        pink_pixels = np.sum(pink_mask > 0)
+        
+        total_sampled = hsv_sampled.shape[0] * hsv_sampled.shape[1]
+        artifact_percentage = ((green_pixels + pink_pixels) / total_sampled) * 100
+        
+        # 2. Simple blur detection using Laplacian variance
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        gray_sampled = gray[::sample_rate, ::sample_rate]
+        laplacian_var = cv2.Laplacian(gray_sampled, cv2.CV_64F).var()
+        
+        # Combine metrics: artifacts OR low sharpness indicates macroblocks
+        has_artifacts = artifact_percentage > 2.0  # 2% threshold
+        is_blurry = laplacian_var < 100  # Low variance = blurry
+        
+        macroblocks_detected = has_artifacts or is_blurry
+        quality_score = max(artifact_percentage, (200 - laplacian_var) / 2)  # 0-100 scale
+        
+        logger.debug(f"[{device_id}] Macroblock analysis: artifacts={artifact_percentage:.1f}%, blur_var={laplacian_var:.1f}, detected={macroblocks_detected}")
+        
+        return macroblocks_detected, quality_score
+        
+    except Exception as e:
+        logger.error(f"[{device_id}] Macroblock analysis error: {e}")
+        return False, 0.0
+
 def get_capture_directory_from_image(image_path):
     """Get capture directory from image path"""
     # Image is in /var/www/html/stream/capture1/captures/capture_*.jpg
@@ -340,6 +390,7 @@ def main():
         # Video Analysis
         blackscreen = analyze_blackscreen(thumbnail_path, device_id=device_id)
         frozen, freeze_details = analyze_freeze(thumbnail_path, device_id=device_id)
+        macroblocks, quality_score = analyze_macroblocks(thumbnail_path, device_id=device_id)
         
         # Audio Analysis
         capture_dir = get_capture_directory_from_image(image_path)
@@ -396,6 +447,8 @@ def main():
             'blackscreen': bool(blackscreen),
             'blackscreen_percentage': round(blackscreen_percentage, 1),
             'freeze': bool(frozen),
+            'macroblocks': bool(macroblocks),
+            'quality_score': round(quality_score, 1),
             'freeze_diffs': freeze_diffs,
             'last_3_filenames': last_3_filenames,
             'last_3_thumbnails': last_3_thumbnails,

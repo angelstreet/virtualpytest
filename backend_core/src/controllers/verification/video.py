@@ -324,6 +324,32 @@ class VideoVerificationController(VerificationControllerInterface):
                 'analysis_type': 'ai_subtitle_detection'
             }
 
+    def detect_macroblocks(self, image_paths: List[str] = None) -> Dict[str, Any]:
+        """Detect macroblocks/image quality issues."""
+        if not self.is_connected:
+            print(f"VideoVerify[{self.device_name}]: ERROR - Not connected")
+            return {"success": False, "error": "Not connected"}
+        
+        try:
+            # Determine which images to analyze
+            if image_paths is None or len(image_paths) == 0:
+                # Capture current screenshot if no paths provided
+                screenshot = self.capture_screenshot("macroblock_analysis.jpg")
+                if not screenshot:
+                    return {"success": False, "error": "Failed to capture screenshot"}
+                image_paths = [screenshot]
+            
+            print(f"VideoVerify[{self.device_name}]: Analyzing {len(image_paths)} images for macroblocks")
+            return self.content_helpers.detect_macroblocks_batch(image_paths)
+            
+        except Exception as e:
+            print(f"VideoVerify[{self.device_name}]: Macroblock detection error: {e}")
+            return {
+                'success': False,
+                'error': f'Macroblock detection failed: {str(e)}',
+                'analysis_type': 'macroblock_detection'
+            }
+
     def detect_motion_from_json(self, json_count: int = 5, strict_mode: bool = True) -> Dict[str, Any]:
         """Detect motion/activity by analyzing the last N JSON analysis files."""
         if not self.is_connected:

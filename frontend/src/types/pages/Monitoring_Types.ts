@@ -19,6 +19,8 @@ export interface MonitoringAnalysis {
   audio: boolean;
   volume_percentage: number;
   mean_volume_db: number;
+  macroblocks: boolean; // Macroblock/image quality detection
+  quality_score: number; // Image quality score (0-100)
   has_incidents: boolean; // Pre-calculated incident status
 }
 
