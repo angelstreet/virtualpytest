@@ -172,7 +172,7 @@ def update_step_results_with_r2_urls(step_results: List[Dict], url_mapping: Dict
                 
                 # Update other potential image fields in analysis results
                 for img_field in ['screenshot_path', 'image_path', 'first_image', 'blackscreen_start_image', 
-                                  'blackscreen_end_image', 'first_content_after_blackscreen']:
+                                  'blackscreen_end_image', 'first_content_after_blackscreen', 'failure_mosaic_path']:
                     if img_field in analysis and analysis[img_field]:
                         original_path = analysis[img_field]
                         if not original_path.startswith('http'):

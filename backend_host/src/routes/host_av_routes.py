@@ -878,13 +878,16 @@ def get_latest_monitoring_json():
                 filename.endswith('.json')):
                 filepath = os.path.join(capture_folder, filename)
                 if os.path.isfile(filepath):
-                    # Get file modification time as timestamp
-                    timestamp = int(os.path.getmtime(filepath) * 1000)
-                    json_files.append({
-                        'filename': filename,
-                        'timestamp': timestamp,
-                        'filepath': filepath
-                    })
+                    # Extract timestamp from filename for consistent sorting
+                    import re
+                    timestamp_match = re.search(r'capture_(\d{14})\.json', filename)
+                    if timestamp_match:
+                        file_timestamp = timestamp_match.group(1)
+                        json_files.append({
+                            'filename': filename,
+                            'timestamp': int(file_timestamp),  # Use filename timestamp, not file mtime
+                            'filepath': filepath
+                        })
         
         if not json_files:
             return jsonify({
@@ -892,7 +895,7 @@ def get_latest_monitoring_json():
                 'error': 'No JSON analysis files found'
             }), 404
         
-        # Sort by timestamp (newest first) and get the latest
+        # Sort by filename timestamp (newest first) and get the latest
         json_files.sort(key=lambda x: x['timestamp'], reverse=True)
         latest_json = json_files[0]
         

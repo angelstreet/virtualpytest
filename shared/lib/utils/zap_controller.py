@@ -757,34 +757,27 @@ class ZapController:
         # Both methods failed - provide detailed error message and verification images
         print(f"❌ [ZapController] Both blackscreen and freeze detection failed")
         
-        # Create failure mosaic for both methods failed case
+        # For both methods failed, we need to get the images ourselves since no detection method succeeded
         device_id = context.selected_device.device_id
         av_controller = get_controller(device_id, 'av')
         analyzed_screenshots = []
-        analyzed_filenames = []
         
         if av_controller:
             capture_folder = getattr(av_controller, 'video_capture_path', None)
             if capture_folder:
-                # Calculate max_images using device-specific helper
+                # Get images using the same method as detection would use
                 device_model = context.selected_device.device_model if context.selected_device else 'unknown'
                 max_images = self._get_max_images_for_device(device_model)
                 
-                print(f"🔍 [ZapController] Collecting {max_images} failure images for mosaic (device: {device_model})")
-                
-                # Use the same enhanced image collection logic as the detection methods
                 from backend_core.src.controllers.verification.video_content_helpers import VideoContentHelpers
                 content_helpers = VideoContentHelpers(av_controller, "ZapController")
                 
-                # Get enhanced image collection using proper max_images
                 key_release_timestamp = context.last_action_start_time
                 image_data = content_helpers._get_images_after_timestamp(capture_folder, key_release_timestamp, max_count=max_images)
                 
                 if image_data:
-                    # Extract paths and filenames for failure display
                     analyzed_screenshots = [img['path'] for img in image_data]
-                    analyzed_filenames = [img['filename'] for img in image_data]
-                    print(f"❌ [ZapController] Collected {len(analyzed_screenshots)} failure images for mosaic")
+                    print(f"🔍 [ZapController] Using {len(analyzed_screenshots)} images for both methods failed mosaic")
                 
                 # Create failure mosaic for both methods failed
                 mosaic_path = self._create_failure_mosaic(context, analyzed_screenshots, "both_failed")
@@ -889,25 +882,17 @@ class ZapController:
             else:
                 print(f"❌ [ZapController] Blackscreen detection failed")
                 
-                # Create failure mosaic instead of individual images
-                import os
-                from datetime import datetime
+                # Use the debug_images from the detection result - these are the actual analyzed images
+                debug_images = zapping_result.get('debug_images', [])
                 captures_folder = os.path.join(capture_folder, 'captures')
                 analyzed_screenshots = []
                 
-                # Use the actual analyzed count from the detection result, or fall back to max_images
-                actual_analyzed = zapping_result.get('analyzed_images', max_images)
-                print(f"🔍 [ZapController] Reconstructing {actual_analyzed} failure images for mosaic (max_images={max_images})")
+                for filename in debug_images:
+                    image_path = os.path.join(captures_folder, filename)
+                    if os.path.exists(image_path):
+                        analyzed_screenshots.append(image_path)
                 
-                # Reconstruct the same images that blackscreen detection analyzed
-                for i in range(actual_analyzed):
-                    target_timestamp = key_release_timestamp + i
-                    target_datetime = datetime.fromtimestamp(target_timestamp)
-                    target_filename = f"capture_{target_datetime.strftime('%Y%m%d%H%M%S')}.jpg"
-                    target_path = os.path.join(captures_folder, target_filename)
-                    
-                    if os.path.exists(target_path):
-                        analyzed_screenshots.append(target_path)
+                print(f"🔍 [ZapController] Using {len(analyzed_screenshots)} actual analyzed images for blackscreen mosaic")
                 
                 # Create failure mosaic with blackscreen analysis data
                 mosaic_path = self._create_failure_mosaic(context, analyzed_screenshots, "blackscreen", zapping_result)
@@ -1025,25 +1010,17 @@ class ZapController:
             else:
                 print(f"❌ [ZapController] Freeze detection failed")
                 
-                # Create failure mosaic with freeze analysis data
-                import os
-                from datetime import datetime
+                # Use the debug_images from the detection result - these are the actual analyzed images
+                debug_images = freeze_result.get('debug_images', [])
                 captures_folder = os.path.join(capture_folder, 'captures')
                 analyzed_screenshots = []
                 
-                # Use the actual analyzed count from the detection result, or fall back to max_images
-                actual_analyzed = freeze_result.get('analyzed_images', max_images)
-                print(f"🔍 [ZapController] Reconstructing {actual_analyzed} freeze failure images for mosaic (max_images={max_images})")
+                for filename in debug_images:
+                    image_path = os.path.join(captures_folder, filename)
+                    if os.path.exists(image_path):
+                        analyzed_screenshots.append(image_path)
                 
-                # Reconstruct the same images that freeze detection analyzed
-                for i in range(actual_analyzed):
-                    target_timestamp = key_release_timestamp + i
-                    target_datetime = datetime.fromtimestamp(target_timestamp)
-                    target_filename = f"capture_{target_datetime.strftime('%Y%m%d%H%M%S')}.jpg"
-                    target_path = os.path.join(captures_folder, target_filename)
-                    
-                    if os.path.exists(target_path):
-                        analyzed_screenshots.append(target_path)
+                print(f"🔍 [ZapController] Using {len(analyzed_screenshots)} actual analyzed images for freeze mosaic")
                 
                 # Create failure mosaic with freeze analysis data (includes comparison results)
                 mosaic_path = self._create_failure_mosaic(context, analyzed_screenshots, "freeze", freeze_result)

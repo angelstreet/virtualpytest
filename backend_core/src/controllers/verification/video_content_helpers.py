@@ -854,7 +854,12 @@ class VideoContentHelpers:
                 print(f"VideoContent[{self.device_name}]: Freeze ended at comparison {freeze_end_index}")
                 break
         
-        freeze_zapping_detected = freeze_start_index is not None
+        # Only consider zapping detected if we have both freeze start AND freeze end
+        # A freeze that never ends indicates a stuck/frozen screen, not successful zapping
+        freeze_zapping_detected = freeze_start_index is not None and freeze_end_index is not None
+        
+        if freeze_start_index is not None and freeze_end_index is None:
+            print(f"VideoContent[{self.device_name}]: Freeze detected but never ended - screen appears stuck/frozen, not successful zapping")
         
         return {
             'freeze_start_index': freeze_start_index,
