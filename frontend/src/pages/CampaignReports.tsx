@@ -144,8 +144,8 @@ const CampaignReports: React.FC = () => {
 
   return (
     <Box>
-      <Box sx={{ mb: 1 }}>
-        <Typography variant="h4" gutterBottom>
+      <Box sx={{ mb: 0.5 }}>
+        <Typography variant="h4" sx={{ mb: 1 }}>
           Campaign Reports
         </Typography>
       </Box>
@@ -157,13 +157,13 @@ const CampaignReports: React.FC = () => {
       )}
 
       {/* Quick Stats */}
-      <Box sx={{ mb: 0.5 }}>
+      <Box sx={{ mb: 1 }}>
         <Card>
           <CardContent sx={{ py: 0.5 }}>
             <Box display="flex" alignItems="center" justifyContent="space-between">
               <Box display="flex" alignItems="center" gap={1}>
                 <CampaignIcon color="primary" />
-                <Typography variant="h6">Quick Stats</Typography>
+                <Typography variant="h6" sx={{ my: 0 }}>Quick Stats</Typography>
               </Box>
 
               <Box display="flex" alignItems="center" gap={2}>

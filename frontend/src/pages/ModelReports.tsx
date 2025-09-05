@@ -355,8 +355,8 @@ const ModelReports: React.FC = () => {
 
   return (
     <Box>
-      <Box sx={{ mb: 2 }}>
-        <Typography variant="h4" gutterBottom>
+      <Box sx={{ mb: 1 }}>
+        <Typography variant="h4" sx={{ mb: 1 }}>
           Model Analysis Reports
         </Typography>
 
@@ -432,7 +432,7 @@ const ModelReports: React.FC = () => {
                 <Box display="flex" alignItems="center" justifyContent="space-between">
                   <Box display="flex" alignItems="center" gap={1}>
                     <ModelIcon color="primary" />
-                    <Typography variant="h6">Execution Stats</Typography>
+                    <Typography variant="h6" sx={{ my: 0 }}>Execution Stats</Typography>
                   </Box>
 
               <Box display="flex" alignItems="center" gap={2}>
@@ -493,8 +493,8 @@ const ModelReports: React.FC = () => {
       {/* Recent Execution Results */}
       <Card>
         <CardContent>
-          <Box display="flex" alignItems="center" justifyContent="space-between" sx={{ mb: 0.5 }}>
-            <Typography variant="h6">Recent Execution Results</Typography>
+          <Box display="flex" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
+            <Typography variant="h6" sx={{ my: 0 }}>Recent Execution Results</Typography>
 
             {/* Filter Toggle Buttons */}
             <Box display="flex" alignItems="center" gap={1}>

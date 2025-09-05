@@ -572,8 +572,8 @@ const MonitoringIncidents: React.FC = () => {
 
   return (
     <Box>
-      <Box sx={{ mb: 1 }}>
-        <Typography variant="h4" gutterBottom>
+      <Box sx={{ mb: 0.5 }}>
+        <Typography variant="h4" sx={{ mb: 1 }}>
           Alerts
         </Typography>
       </Box>
@@ -585,13 +585,13 @@ const MonitoringIncidents: React.FC = () => {
       )}
 
       {/* Quick Stats */}
-      <Box sx={{ mb: 0.5 }}>
+      <Box sx={{ mb: 1 }}>
         <Card>
-          <CardContent sx={{ py: 0 }}>
+          <CardContent sx={{ py: 0.5 }}>
             <Box display="flex" alignItems="center" justifyContent="space-between">
               <Box display="flex" alignItems="center" gap={1}>
                 <MonitorIcon color="primary" />
-                <Typography variant="h6">Incident Summary</Typography>
+                <Typography variant="h6" sx={{ my: 0 }}>Incident Summary</Typography>
               </Box>
 
               <Box display="flex" alignItems="center" gap={4}>
@@ -630,8 +630,8 @@ const MonitoringIncidents: React.FC = () => {
         <Grid item xs={12}>
           <Card>
             <CardContent>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
-                <Typography variant="h6">
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                <Typography variant="h6" sx={{ my: 0 }}>
                   In Progress
                 </Typography>
                 <FormControlLabel
@@ -806,8 +806,8 @@ const MonitoringIncidents: React.FC = () => {
         <Grid item xs={12}>
           <Card>
             <CardContent>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
-                <Typography variant="h6">
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                <Typography variant="h6" sx={{ my: 0 }}>
                   Closed
                 </Typography>
                 <FormControlLabel

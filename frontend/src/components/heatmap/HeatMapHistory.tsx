@@ -100,7 +100,6 @@ export const HeatMapHistory: React.FC<HeatMapHistoryProps> = () => {
     return (
       <Card sx={{ backgroundColor: 'transparent', boxShadow: 'none' }}>
         <CardContent>
-          <Typography variant="h6">Heatmap History</Typography>
           <Typography variant="body2" color="textSecondary" sx={{ mt: 1 }}>
             Loading reports...
           </Typography>
@@ -113,7 +112,6 @@ export const HeatMapHistory: React.FC<HeatMapHistoryProps> = () => {
     return (
       <Card sx={{ backgroundColor: 'transparent', boxShadow: 'none' }}>
         <CardContent>
-          <Typography variant="h6">Heatmap History</Typography>
           <Typography variant="body2" color="error" sx={{ mt: 1 }}>
             {error}
           </Typography>
@@ -126,7 +124,6 @@ export const HeatMapHistory: React.FC<HeatMapHistoryProps> = () => {
     return (
       <Card sx={{ backgroundColor: 'transparent', boxShadow: 'none' }}>
         <CardContent>
-          <Typography variant="h6">Heatmap History</Typography>
           <Typography variant="body2" color="textSecondary" sx={{ mt: 1 }}>
             No heatmap reports found. Generate your first heatmap to see history here.
           </Typography>
@@ -138,7 +135,7 @@ export const HeatMapHistory: React.FC<HeatMapHistoryProps> = () => {
   return (
     <Card sx={{ backgroundColor: 'transparent', boxShadow: 'none' }}>
       <CardContent>
-        <Typography variant="h6" sx={{ mb: 2 }}>
+        <Typography variant="h6" sx={{ mb: 1, my: 0 }}>
           Heatmap History
         </Typography>
 

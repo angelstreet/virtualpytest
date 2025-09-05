@@ -2,75 +2,125 @@
 
 **Open-source, multi-device automation and monitoring made easy.**
 
+*One script = all devices. No expensive licenses. No vendor lock-in.*
+
 ## What is VirtualPyTest?
 
 VirtualPyTest helps you automate, monitor, and remotely control all your devices—TVs, set-top boxes (STBs), mobile phones, and more—with one simple platform.  
-No complicated setup, no expensive hardware, and no coding required.
+**Replace $15k+ commercial tools** with a free, flexible solution that works everywhere.
+
+*[Image placeholder: Dashboard showing multiple devices being controlled simultaneously]*
 
 ---
 
-## Key Features
+## 🎯 **Key Features**
 
-- **Multi-device support:** Control and monitor TVs, mobiles, STBs, and more from a single place.
-- **Remote control:** Use IR, Bluetooth, Android ADB, Appium, and more to simulate any remote or controller.
-- **No-code automation:** Configure your tests, tasks, and device controls in a friendly web UI—no programming needed.
-- **Smart monitoring & alerts:** Get automatic alerts for issues like black screens, freezes, missing subtitles, and more.
-- **Flexible viewing:** Connect HDMI cameras, VNC, and live streams for device UI monitoring.
-- **AI-powered verifications:** Use image recognition and OCR for smarter automation and monitoring.
-- **Open & affordable:** Free to use and extend—no pricey licenses or hardware lock-in.
+### **🎮 Multi-Device Control**
+One script works on Android TV, mobile, STB, iOS - write once, run everywhere.
 
----
+*[Image placeholder: Same test script running on TV, phone, tablet]*
 
-## Who is it for?
+### **📹 Visual Recording** 
+HDMI capture + screenshots automatically saved for every test step.
 
-- **QA engineers:** Automate and validate devices without writing code.
-- **Device monitoring teams:** Watch over many TVs, channels, or mobile devices at once.
-- **Anyone needing remote automation or smart alerts:** From testing to security, VirtualPyTest adapts to your needs.
+*[Image placeholder: Test execution with automatic screenshot timeline]*
 
----
+### **🧪 Script Execution**
+Python automation with navigation trees - no coding required for QA teams.
 
-## Getting Started
+*[Image placeholder: Web UI showing test execution with progress bar]*
 
-**Easiest way:**  
-- Try out our sandbox (coming soon!)  
-- Or install locally on Linux or Raspberry Pi—cheap and simple.
+### **📊 Grafana Integration**
+Real-time monitoring dashboards with test metrics and device health.
 
-**Advanced:**  
-- Use Docker for quick setup on any hardware.
-- Deploy parts in the cloud (Vercel for frontend, Render for backend, Supabase/R2 for storage).
+*[Image placeholder: Grafana dashboard showing test metrics]*
 
-See our [Quick Start Guide](./docs/quickstart.md) for step-by-step instructions!
+### **🤖 AI Verification**
+Smart image/text detection validates test results automatically.
+
+*[Image placeholder: AI detection highlighting UI elements]*
 
 ---
 
-## Why VirtualPyTest?
+## 🎯 **Perfect For**
 
-- **Works everywhere:** One script = all devices/platforms.
-- **No vendor lock-in:** Open source, flexible, and affordable.
-- **Modern features:** AI integration, complete UI, cloud support.
-- **Cost savings:** Competes with tools costing $15k+ per site—do more with less.
-
----
-
-## Demo
-
-*Demo and screenshots coming soon!*  
-Want to see it in action? Stay tuned, or check out our [Wiki](./docs/wiki.md).
+- **QA Teams**: Automate device testing without programming
+- **Device Monitoring**: 24/7 monitoring of TVs, STBs, streaming devices  
+- **Remote Testing**: Control devices from anywhere in the world
+- **Cost Reduction**: Replace expensive commercial testing tools
 
 ---
 
-## Contributing & Support
+## 🚀 **Quick Start**
 
-We welcome contributions and feedback!  
-- Open issues for bugs, ideas, or feature requests.
-- See [CONTRIBUTING.md](./CONTRIBUTING.md) for details.
+```bash
+# Clone and start with Docker
+git clone https://github.com/your-repo/virtualpytest
+cd virtualpytest
+docker compose up
+
+# Access web interface
+open http://localhost:3000
+```
+
+**Ready in 2 minutes** - see our [Getting Started Guide](docs_new/user/getting-started.md) for details.
+
+*[Image placeholder: Terminal showing docker compose up and web interface]*
 
 ---
 
-## License
+## 💰 **Why Choose VirtualPyTest?**
+
+- **✅ Cost Effective**: Free vs $15k+ commercial alternatives
+- **✅ Works Everywhere**: Linux, Pi, Docker, Cloud - deploy anywhere
+- **✅ No Vendor Lock-in**: Open source, modify and extend freely  
+- **✅ QA Friendly**: No coding required, web-based interface
+- **✅ Enterprise Ready**: Grafana monitoring, campaign management, scheduling
+
+---
+
+## 🎬 **See It In Action**
+
+### **Live Demo Examples**
+```bash
+# Navigate to any screen
+python test_scripts/goto.py --node live
+
+# Run channel zapping test  
+python test_scripts/fullzap.py --max_iteration 10
+
+# Complete device validation
+python test_scripts/validation.py horizon_android_mobile
+```
+
+*[Image placeholder: Split screen showing command execution and device response]*
+
+**Want to see more?** Check out our [Features Guide](docs_new/user/features.md) and [Examples](docs_new/examples/).
+
+---
+
+## 📚 **Documentation**
+
+- **🎯 [User Guide](docs_new/user/)** - For QA teams and non-technical users
+- **🔧 [Technical Docs](docs_new/technical/)** - For developers and system admins  
+- **📝 [Examples](docs_new/examples/)** - Practical use cases and tutorials
+
+---
+
+## 🤝 **Community & Support**
+
+- **GitHub Issues**: Bug reports and feature requests
+- **Discussions**: Community Q&A and sharing
+- **Contributing**: We welcome contributions!
+
+---
+
+## 📄 **License**
 
 MIT—free for personal and commercial use.
 
 ---
 
-**Ready to simplify your device automation and monitoring? Try VirtualPyTest today!**
+**Ready to revolutionize your device testing? Try VirtualPyTest today!** 🚀
+
+*Replace expensive testing tools with a free, powerful alternative.*
