@@ -30,6 +30,88 @@ def format_time_from_timestamp(timestamp_str: str) -> str:
         return 'N/A'
 
 
+def create_zap_summary_section_from_data(custom_data: Dict[str, Any]) -> str:
+    """
+    Create the zap summary section HTML for the report using existing data from memory.
+    
+    Args:
+        custom_data: Dictionary containing zap statistics from context.custom_data
+        
+    Returns:
+        HTML string for the zap summary section, or empty string if no data
+    """
+    try:
+        # Check if we have zap data in custom_data
+        if not custom_data or 'motion_results' not in custom_data:
+            print(f"🔍 [ZapSummaryFormatter] DEBUG: No zap data found in custom_data")
+            return ""  # No zap data, return empty section
+        
+        # Convert custom_data to the same format as database results
+        motion_results = custom_data.get('motion_results', [])
+        if not motion_results:
+            print(f"🔍 [ZapSummaryFormatter] DEBUG: No motion_results found in custom_data")
+            return ""
+        
+        # Convert motion_results to database-like format for compatibility
+        zap_data = []
+        for i, result in enumerate(motion_results, 1):
+            # Extract data from the motion result
+            zap_iteration = {
+                'iteration_index': i,
+                'action_command': custom_data.get('action_command', 'unknown'),
+                'motion_detected': result.get('motion_detected', False),
+                'subtitles_detected': result.get('subtitles_detected', False),
+                'audio_speech_detected': result.get('audio_speech_detected', False),
+                'blackscreen_freeze_detected': result.get('zapping_detected', False),
+                'subtitle_language': result.get('detected_language'),
+                'audio_language': result.get('audio_language'),
+                'blackscreen_freeze_duration_seconds': result.get('zapping_analysis', {}).get('blackscreen_duration', 0.0) if result.get('zapping_detected') else None,
+                'detection_method': result.get('zapping_analysis', {}).get('detection_method', 'blackscreen') if result.get('zapping_detected') else None,
+                'channel_name': result.get('zapping_analysis', {}).get('channel_info', {}).get('channel_name') if result.get('zapping_detected') else None,
+                'channel_number': result.get('zapping_analysis', {}).get('channel_info', {}).get('channel_number') if result.get('zapping_detected') else None,
+                'program_name': result.get('zapping_analysis', {}).get('channel_info', {}).get('program_name') if result.get('zapping_detected') else None,
+                'program_start_time': result.get('zapping_analysis', {}).get('channel_info', {}).get('start_time') if result.get('zapping_detected') else None,
+                'program_end_time': result.get('zapping_analysis', {}).get('channel_info', {}).get('end_time') if result.get('zapping_detected') else None,
+                'duration_seconds': 5.0,  # Approximate duration per iteration
+                'started_at': '2025-01-01T00:00:00Z',  # Placeholder
+                'completed_at': '2025-01-01T00:00:05Z',  # Placeholder
+                'execution_date': '2025-01-01T00:00:00Z',  # Placeholder
+                'host_name': 'unknown',
+                'device_name': 'unknown',
+                'device_model': 'unknown'
+            }
+            zap_data.append(zap_iteration)
+        
+        print(f"🔍 [ZapSummaryFormatter] DEBUG: Using existing data from memory:")
+        print(f"  - motion_results count: {len(motion_results)}")
+        print(f"  - converted zap_data count: {len(zap_data)}")
+        
+        if zap_data:
+            for i, iteration in enumerate(zap_data):
+                print(f"  - Iteration {iteration.get('iteration_index', i+1)}: blackscreen_freeze_detected = {iteration.get('blackscreen_freeze_detected')}")
+        
+        # Generate the text-based summary (like logs)
+        text_html = create_zap_summary_text(zap_data)
+        
+        return f"""
+            <div class="section">
+                <div class="section-header" onclick="toggleSection('zap-summary-content')">
+                    <h2>🎯 Zap Execution Summary ({len(zap_data)} iterations)</h2>
+                    <button class="toggle-btn">▶</button>
+                </div>
+                <div id="zap-summary-content" class="collapsible-content">
+                    <div class="zap-summary-container">
+                        {text_html}
+                    </div>
+                </div>
+            </div>
+        """
+        
+    except Exception as e:
+        print(f"[@utils:zap_summary_formatter:create_zap_summary_section_from_data] Error: {str(e)}")
+        return ""  # Return empty section on error
+
+
 def create_zap_summary_section(script_result_id: str) -> str:
     """
     Create the zap summary section HTML for the report.
@@ -121,19 +203,11 @@ def generate_zap_summary_text(zap_data: List[Dict[str, Any]]) -> str:
             audio_result += f" {iteration['audio_language'][:2].upper()}"
         
         bf_result = "❌"
-        print(f"🔍 [ZapSummaryFormatter] DEBUG: Iteration {iteration['iteration_index']} B/F data:")
-        print(f"  - blackscreen_freeze_detected: {iteration['blackscreen_freeze_detected']}")
-        print(f"  - blackscreen_freeze_duration_seconds: {iteration['blackscreen_freeze_duration_seconds']}")
-        print(f"  - detection_method: {iteration['detection_method']}")
-        
         if iteration['blackscreen_freeze_detected']:
             duration = iteration['blackscreen_freeze_duration_seconds'] or 0
             method = iteration['detection_method'] or 'B'
             method_icon = "⬛" if method == 'blackscreen' else "🧊"
             bf_result = f"{method_icon} {duration:.1f}s"
-            print(f"  - bf_result: {bf_result}")
-        else:
-            print(f"  - bf_result: ❌ (blackscreen_freeze_detected is False)")
         
         # Format channel info (exact same logic as zap_controller)
         channel_info = ""

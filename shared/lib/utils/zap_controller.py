@@ -435,10 +435,6 @@ class ZapController:
             self.statistics.add_audio_language(analysis_result.audio_language)
 
         # Record zap iteration to database
-        print(f"🔍 [ZapController] DEBUG: About to record iteration {iteration} to DB:")
-        print(f"  - analysis_result.zapping_detected: {analysis_result.zapping_detected}")
-        print(f"  - analysis_result.zapping_details success: {analysis_result.zapping_details.get('success', 'N/A')}")
-        print(f"  - analysis_result.zapping_details zapping_detected: {analysis_result.zapping_details.get('zapping_detected', 'N/A')}")
         self._record_zap_iteration_to_db(context, iteration, analysis_result, start_time, end_time)
 
         # Update the ZAP step (not the last step) with analysis results
@@ -1437,12 +1433,6 @@ class ZapController:
                 detection_method = zapping_details.get('detection_method', 'blackscreen')
             
             # Record to database
-            print(f"🔍 [ZapController] DEBUG: Recording to DB with values:")
-            print(f"  - iteration_index: {iteration}")
-            print(f"  - blackscreen_freeze_detected: {analysis_result.zapping_detected}")
-            print(f"  - blackscreen_freeze_duration_seconds: {blackscreen_freeze_duration}")
-            print(f"  - detection_method: {detection_method}")
-            
             record_zap_iteration(
                 script_result_id=context.script_result_id,
                 team_id=context.team_id,

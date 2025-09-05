@@ -124,23 +124,23 @@ def generate_validation_report(report_data: Dict) -> str:
         if test_video_url is None:
             test_video_url = ''
         
-        # Generate zap summary section if script_result_id is available
+        # Generate zap summary section using existing data from memory (no database read needed)
         zap_summary_section = ""
-        script_result_id = report_data.get('script_result_id')
-        print(f"[@utils:report_generation] DEBUG: script_result_id = {script_result_id}")
-        if script_result_id:
+        custom_data = report_data.get('custom_data', {})
+        print(f"[@utils:report_generation] DEBUG: custom_data keys = {list(custom_data.keys())}")
+        if custom_data and 'motion_results' in custom_data:
             try:
-                from .zap_summary_formatter import create_zap_summary_section
-                print(f"[@utils:report_generation] DEBUG: Calling create_zap_summary_section with ID: {script_result_id}")
-                zap_summary_section = create_zap_summary_section(script_result_id)
+                from .zap_summary_formatter import create_zap_summary_section_from_data
+                print(f"[@utils:report_generation] DEBUG: Using existing zap data from memory (no DB read)")
+                zap_summary_section = create_zap_summary_section_from_data(custom_data)
                 print(f"[@utils:report_generation] DEBUG: Zap summary section length: {len(zap_summary_section)} characters")
             except Exception as e:
-                print(f"[@utils:report_generation] Failed to generate zap summary: {str(e)}")
+                print(f"[@utils:report_generation] Failed to generate zap summary from memory: {str(e)}")
                 import traceback
                 traceback.print_exc()
                 zap_summary_section = ""
         else:
-            print(f"[@utils:report_generation] DEBUG: No script_result_id provided, skipping zap summary")
+            print(f"[@utils:report_generation] DEBUG: No zap data found in custom_data, skipping zap summary")
         
         # Replace placeholders with actual content
         html_content = html_template.format(
@@ -193,7 +193,8 @@ def generate_and_upload_script_report(
     parameters: str = "",
     execution_summary: str = "",
     test_video_url: str = "",
-    script_result_id: str = None
+    script_result_id: str = None,
+    custom_data: Dict = None
 ) -> Dict[str, str]:
     """
     Generate HTML report and upload to R2 storage - extracted from validation.py
@@ -350,7 +351,8 @@ def generate_and_upload_script_report(
             'failed_verifications': failed_verifications,
             'execution_summary': execution_summary,
             'test_video_url': test_video_url,
-            'script_result_id': script_result_id
+            'script_result_id': script_result_id,
+            'custom_data': custom_data or {}  # Pass zap data from memory
         }
         
         html_content = generate_validation_report(report_data)

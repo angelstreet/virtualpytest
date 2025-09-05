@@ -648,7 +648,8 @@ class ScriptExecutor:
                 execution_summary=getattr(context, 'execution_summary', ''),
                 test_video_url=getattr(context, 'test_video_url', '') or '',
                 stdout=captured_stdout,
-                script_result_id=context.script_result_id
+                script_result_id=context.script_result_id,
+                custom_data=context.custom_data  # Pass zap data from memory instead of reading from DB
             )
             
             # Restore stdout and get the captured output
