@@ -8,6 +8,7 @@ This controller manages:
 - Statistics collection and reporting
 """
 
+import os
 import time
 from datetime import datetime, timezone
 from typing import Dict, Any, List, Optional
