@@ -7,11 +7,14 @@ Complete database schema for VirtualPyTest Supabase database.
 ```
 setup/db/
 ├── schema/                    # SQL schema files
-│   ├── 001_core_tables.sql           # Core tables (devices, controllers, campaigns)
-│   ├── 002_ui_navigation_tables.sql  # UI and navigation trees  
-│   ├── 003_test_execution_tables.sql # Test cases and results
-│   ├── 004_actions_verifications.sql # Actions and verifications
-│   └── 005_monitoring_analytics.sql  # Alerts and metrics
+│   ├── 001_core_tables.sql           # Core tables (devices, campaigns, AI cache, zap results)
+│   ├── 002_ui_navigation_tables.sql  # UI and navigation trees with nested support
+│   ├── 003_test_execution_tables.sql # Test cases and results with AI features
+│   ├── 004_actions_verifications.sql # Verification references
+│   ├── 005_monitoring_analytics.sql  # Alerts and metrics (simplified)
+│   ├── 006_parent_node_sync_triggers.sql # Parent node sync triggers
+│   ├── auto_sync_nested_node.md      # Documentation for nested node sync
+│   └── CURRENT_DATABASE_BACKUP.sql   # Complete backup of current schema
 └── README.md                  # This file
 ```
 
@@ -42,30 +45,40 @@ Copy and paste the entire contents of `004_actions_verifications.sql` and run it
 #### Step 5: Monitoring & Analytics
 Copy and paste the entire contents of `005_monitoring_analytics.sql` and run it.
 
+#### Step 6: Parent Node Sync Triggers
+Copy and paste the entire contents of `006_parent_node_sync_triggers.sql` and run it.
+
 ## ✅ Verification
 
-After running all 5 schema files, verify your setup:
+After running all 6 schema files, verify your setup:
 
 1. Go to **Database** → **Tables** in your Supabase dashboard
-2. You should see **20+ tables** created
+2. You should see **22+ tables** created
 3. All tables should have the correct relationships and indexes
 
 ### Expected Tables:
 
 **Core Tables:**
-- `device_models`, `device`, `controllers`, `environment_profiles`, `campaigns`
+- `teams`, `device_models`, `device`, `environment_profiles`, `campaign_executions`, `ai_analysis_cache`, `zap_results`
 
 **UI & Navigation:**
-- `userinterfaces`, `navigation_trees`, `navigation_nodes`, `navigation_edges` (✅ UPDATED: Bidirectional with action sets), `navigation_trees_history`
+- `userinterfaces`, `navigation_trees`, `navigation_nodes`, `navigation_edges`, `navigation_trees_history`
 
 **Test Execution:**
 - `test_cases`, `test_executions`, `test_results`, `execution_results`, `script_results`
 
-**Actions & Verifications:**
-- `actions`, `verifications`, `verifications_references`
+**Verifications:**
+- `verifications_references`
 
 **Monitoring & Analytics:**
 - `alerts`, `heatmaps`, `node_metrics`, `edge_metrics`
+
+### Key Features:
+- ✅ **Nested Navigation Trees**: Support for multi-level navigation with automatic parent-child sync
+- ✅ **Bidirectional Edges**: Action sets for forward/reverse navigation paths
+- ✅ **AI Test Generation**: AI analysis cache and test case generation support
+- ✅ **Zap Results**: Detailed media analysis and monitoring data
+- ✅ **Automatic Triggers**: Parent node sync and edge label management
 
 ## 🛠️ Application Configuration
 

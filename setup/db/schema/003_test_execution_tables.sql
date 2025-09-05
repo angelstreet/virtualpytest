@@ -1,10 +1,9 @@
 -- VirtualPyTest Test Execution Tables Schema
 -- This file contains tables for test cases, executions, and results
 
--- Test case definitions
+-- Test case definitions (UPDATED SCHEMA)
 CREATE TABLE test_cases (
-    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-    test_id character varying NOT NULL UNIQUE,
+    test_id uuid DEFAULT gen_random_uuid() PRIMARY KEY,  -- UPDATED: Changed from id to test_id
     name character varying NOT NULL,
     test_type character varying NOT NULL CHECK (test_type::text = ANY (ARRAY['functional'::character varying::text, 'performance'::character varying::text, 'endurance'::character varying::text, 'robustness'::character varying::text])),
     start_node character varying NOT NULL,
@@ -13,14 +12,21 @@ CREATE TABLE test_cases (
     creator_id uuid,
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now(),
-    device_id uuid COMMENT ON COLUMN test_cases.device_id IS 'Reference to the device under test',
-    environment_profile_id uuid REFERENCES environment_profiles(id) ON DELETE SET NULL COMMENT ON COLUMN test_cases.environment_profile_id IS 'Reference to environment profile with controller setup',
-    verification_conditions jsonb DEFAULT '[]'::jsonb COMMENT ON COLUMN test_cases.verification_conditions IS 'Array of verification conditions to check during execution',
-    expected_results jsonb DEFAULT '{}'::jsonb COMMENT ON COLUMN test_cases.expected_results IS 'Expected outcomes and verification criteria',
-    execution_config jsonb DEFAULT '{}'::jsonb COMMENT ON COLUMN test_cases.execution_config IS 'Test execution configuration and parameters',
-    tags text[] DEFAULT '{}'::text[] COMMENT ON COLUMN test_cases.tags IS 'Tags for categorization and filtering',
-    priority integer DEFAULT 1 CHECK (priority >= 1 AND priority <= 5) COMMENT ON COLUMN test_cases.priority IS 'Test priority (1=lowest, 5=highest)',
-    estimated_duration integer DEFAULT 60 COMMENT ON COLUMN test_cases.estimated_duration IS 'Estimated execution time in seconds'
+    device_id uuid,
+    environment_profile_id uuid REFERENCES environment_profiles(id) ON DELETE SET NULL,
+    verification_conditions jsonb DEFAULT '[]'::jsonb,
+    expected_results jsonb DEFAULT '{}'::jsonb,
+    execution_config jsonb DEFAULT '{}'::jsonb,
+    tags text[] DEFAULT '{}'::text[],
+    priority integer DEFAULT 1 CHECK (priority >= 1 AND priority <= 5),
+    estimated_duration integer DEFAULT 60,
+    -- UPDATED: AI-related columns
+    creator character varying DEFAULT 'manual'::character varying CHECK (creator::text = ANY (ARRAY['ai'::character varying, 'manual'::character varying]::text[])),
+    original_prompt text,
+    ai_analysis jsonb DEFAULT '{}'::jsonb,
+    compatible_devices jsonb DEFAULT '["all"]'::jsonb,
+    compatible_userinterfaces jsonb DEFAULT '["all"]'::jsonb,
+    device_adaptations jsonb DEFAULT '{}'::jsonb
 );
 
 -- Test execution records
@@ -72,10 +78,11 @@ CREATE TABLE execution_results (
     executed_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
     created_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
     script_result_id uuid,
-    script_context text DEFAULT 'direct'::text
+    script_context text DEFAULT 'direct'::text,
+    action_set_id text  -- UPDATED: Added for bidirectional edge tracking
 );
 
--- Script execution results (updated to match automai schema exactly)
+-- Script execution results (UPDATED SCHEMA)
 CREATE TABLE script_results (
     id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
     team_id uuid NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
@@ -94,7 +101,13 @@ CREATE TABLE script_results (
     error_msg text,
     metadata jsonb,
     created_at timestamp with time zone DEFAULT timezone('utc'::text, now()),
-    updated_at timestamp with time zone DEFAULT timezone('utc'::text, now())
+    updated_at timestamp with time zone DEFAULT timezone('utc'::text, now()),
+    -- UPDATED: Additional fields
+    logs_r2_path text,
+    logs_r2_url text,
+    checked boolean DEFAULT false,
+    check_type character varying,
+    discard_comment text
 );
 
 -- Add indexes for performance

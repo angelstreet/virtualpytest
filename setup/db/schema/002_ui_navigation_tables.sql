@@ -1,26 +1,28 @@
 -- VirtualPyTest UI & Navigation Tables Schema
 -- This file contains tables for user interfaces, navigation trees, nodes, and edges
 
--- User interfaces (screens/apps being tested)
+-- User interfaces (screens/apps being tested) - UPDATED SCHEMA
 CREATE TABLE userinterfaces (
     id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-    name text NOT NULL,
+    name character varying NOT NULL,
+    models text[] DEFAULT '{}'::text[],  -- UPDATED: Array of compatible device models
+    min_version character varying,       -- UPDATED: Minimum version support
+    max_version character varying,       -- UPDATED: Maximum version support
     team_id uuid NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
-    description text,
-    metadata jsonb DEFAULT '{}',
     created_at timestamp with time zone DEFAULT now(),
-    updated_at timestamp with time zone DEFAULT now(),
-    UNIQUE(name, team_id)
+    updated_at timestamp with time zone DEFAULT now()
 );
 
 -- Navigation trees (renamed from original, now stores only metadata)
 CREATE TABLE navigation_trees (
     id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-    name text NOT NULL,
-    userinterface_id uuid NOT NULL REFERENCES userinterfaces(id) ON DELETE CASCADE,
+    name character varying NOT NULL,
+    userinterface_id uuid REFERENCES userinterfaces(id) ON DELETE CASCADE,  -- UPDATED: Made nullable
     team_id uuid NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
     description text,
-    root_node_id text, -- References first node's node_id
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    root_node_id uuid,  -- UPDATED: Changed from text to uuid
     
     -- Nested tree relationship columns
     parent_tree_id uuid REFERENCES navigation_trees(id) ON DELETE CASCADE,
@@ -29,13 +31,9 @@ CREATE TABLE navigation_trees (
     is_root_tree boolean DEFAULT true, -- True only for top-level trees
     
     -- React Flow viewport position fields
-    viewport_x float DEFAULT 0, -- React Flow viewport X position for restoring view state
-    viewport_y float DEFAULT 0, -- React Flow viewport Y position for restoring view state  
-    viewport_zoom float DEFAULT 1, -- React Flow viewport zoom level for restoring view state
-    
-    created_at timestamp with time zone DEFAULT now(),
-    updated_at timestamp with time zone DEFAULT now(),
-    UNIQUE(name, userinterface_id, team_id),
+    viewport_x double precision DEFAULT 0, -- React Flow viewport X position for restoring view state
+    viewport_y double precision DEFAULT 0, -- React Flow viewport Y position for restoring view state  
+    viewport_zoom double precision DEFAULT 1, -- React Flow viewport zoom level for restoring view state
     
     -- Constraints for nested trees
     CONSTRAINT check_tree_depth CHECK (tree_depth >= 0 AND tree_depth <= 5),
@@ -52,8 +50,8 @@ CREATE TABLE navigation_nodes (
     tree_id uuid NOT NULL REFERENCES navigation_trees(id) ON DELETE CASCADE,
     node_id text NOT NULL, -- User-defined node identifier
     label text NOT NULL,
-    position_x float NOT NULL DEFAULT 0,
-    position_y float NOT NULL DEFAULT 0,
+    position_x double precision NOT NULL DEFAULT 0,
+    position_y double precision NOT NULL DEFAULT 0,
     node_type text NOT NULL DEFAULT 'default',
     style jsonb DEFAULT '{}',
     data jsonb DEFAULT '{}',
@@ -114,16 +112,18 @@ CREATE TABLE navigation_edges (
     )
 );
 
--- Navigation trees history (for change tracking)
+-- Navigation trees history (UPDATED SCHEMA)
 CREATE TABLE navigation_trees_history (
     id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-    tree_id uuid NOT NULL REFERENCES navigation_trees(id) ON DELETE CASCADE,
-    version integer NOT NULL DEFAULT 1,
-    change_description text,
-    changed_by_user_id uuid,
-    metadata jsonb DEFAULT '{}',
+    tree_id uuid REFERENCES navigation_trees(id) ON DELETE CASCADE,
+    team_id uuid NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+    version_number integer NOT NULL,  -- UPDATED: More specific naming
+    modification_type text NOT NULL CHECK (modification_type = ANY (ARRAY['create'::text, 'update'::text, 'delete'::text, 'restore'::text])),  -- UPDATED: Added enum constraint
+    modified_by uuid,  -- UPDATED: Renamed from changed_by_user_id
+    tree_data jsonb NOT NULL,  -- UPDATED: Made NOT NULL
+    changes_summary text,  -- UPDATED: Renamed from change_description
     created_at timestamp with time zone DEFAULT now(),
-    team_id uuid NOT NULL REFERENCES teams(id) ON DELETE CASCADE
+    restored_from_version integer  -- UPDATED: Added for restore tracking
 );
 
 -- Add Foreign Key Constraints
