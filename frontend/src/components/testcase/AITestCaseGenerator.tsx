@@ -194,21 +194,6 @@ export const AITestCaseGenerator: React.FC<AITestCaseGeneratorProps> = ({
 
     return (
       <Box>
-        {/* Compact Header */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3, p: 2, bgcolor: 'background.paper', borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
-          <AnalyticsIcon sx={{ fontSize: 24, color: 'success.main' }} />
-          <Box sx={{ flex: 1 }}>
-            <Typography variant="h6" sx={{ mb: 0.5 }}>
-              🔍 Analysis Results
-            </Typography>
-            <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', flexWrap: 'wrap' }}>
-              <Chip size="small" label={`${analysis.compatible_count} Compatible`} color="success" />
-              <Chip size="small" label={`Complexity: ${analysis.estimated_complexity.toUpperCase()}`} 
-                color={analysis.estimated_complexity === 'low' ? 'success' : 
-                       analysis.estimated_complexity === 'medium' ? 'warning' : 'error'} />
-            </Box>
-          </Box>
-        </Box>
 
         {/* Step Preview - MAIN FOCUS */}
         {analysis.step_preview && analysis.step_preview.length > 0 && (
