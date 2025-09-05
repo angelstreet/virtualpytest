@@ -22,7 +22,7 @@ import {
   TextField,
   Autocomplete,
 } from '@mui/material';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 
 
@@ -85,6 +85,9 @@ const RunTests: React.FC = () => {
   const [loadingScripts, setLoadingScripts] = useState<boolean>(false);
   const [showWizard, setShowWizard] = useState<boolean>(false);
   const [executions, setExecutions] = useState<ExecutionRecord[]>([]);
+  
+  // Ref to prevent duplicate API calls in React Strict Mode
+  const isLoadingScriptsRef = useRef<boolean>(false);
 
   // Multi-device support state
   const [additionalDevices, setAdditionalDevices] = useState<{hostName: string, deviceId: string}[]>([]);
@@ -189,8 +192,17 @@ const RunTests: React.FC = () => {
   // Load available scripts from virtualpytest/scripts folder
   useEffect(() => {
     const loadScripts = async () => {
+      // Prevent duplicate calls in React Strict Mode
+      if (isLoadingScriptsRef.current) {
+        console.log('[@RunTests] Script loading already in progress, skipping duplicate call');
+        return;
+      }
+      
+      isLoadingScriptsRef.current = true;
       setLoadingScripts(true);
+      
       try {
+        console.log('[@RunTests] Loading scripts from API...');
         const response = await fetch('/server/script/list');
         const data = await response.json();
 
@@ -206,6 +218,8 @@ const RunTests: React.FC = () => {
           if (data.scripts.length > 0 && !selectedScript) {
             setSelectedScript(data.scripts[0]);
           }
+          
+          console.log('[@RunTests] Scripts loaded successfully:', data.scripts.length);
         } else {
           showError('Failed to load available scripts');
         }
@@ -214,6 +228,7 @@ const RunTests: React.FC = () => {
         console.error('Error loading scripts:', error);
       } finally {
         setLoadingScripts(false);
+        isLoadingScriptsRef.current = false;
       }
     };
 
