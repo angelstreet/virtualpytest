@@ -718,10 +718,13 @@ class ScriptExecutor:
                 # Display log URL right after report URL
                 if report_result.get('logs_url'):
                     print(f"📝 [{self.script_name}] Logs uploaded: {report_result['logs_url']}")
-                # Store report URL for final summary in custom_data (consistent with validation.py)
+                # Store report URL and logs URL for final summary in custom_data (consistent with validation.py)
                 if not hasattr(context, 'custom_data'):
                     context.custom_data = {}
                 context.custom_data['report_url'] = report_result['report_url']
+                # Store logs URL in context for later display
+                if report_result.get('logs_url'):
+                    context.logs_url = report_result['logs_url']
             
             # Update database if tracking is enabled
             if context.script_result_id:
@@ -801,6 +804,9 @@ class ScriptExecutor:
         if hasattr(context, 'custom_data') and context.custom_data:
             for key, value in context.custom_data.items():
                 print(f"{key}: {value}")
+                # Display log URL right after report URL
+                if key == 'report_url' and hasattr(context, 'logs_url') and context.logs_url:
+                    print(f"logs_url: {context.logs_url}")
         
         print("="*60)
     
