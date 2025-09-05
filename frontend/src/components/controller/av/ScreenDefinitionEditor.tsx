@@ -22,7 +22,7 @@ import {
   StatusIndicator,
 } from './ScreenEditorOverlay';
 import { ScreenshotCapture } from './ScreenshotCapture';
-import { StreamViewer } from './StreamViewer';
+import { HLSVideoPlayer } from '../../common/HLSVideoPlayer';
 import { VideoCapture } from './VideoCapture';
 
 export function ScreenDefinitionEditor({
@@ -235,16 +235,13 @@ export function ScreenDefinitionEditor({
                 height: 'calc(100% - 48px)',
               }}
             >
-              {/* Stream viewer - always rendered at top level to prevent unmount/remount */}
-              <StreamViewer
-                key="main-stream-viewer"
+              {/* Unified HLS player */}
+              <HLSVideoPlayer
                 streamUrl={streamUrl}
                 isStreamActive={streamStatus === 'running' && !isScreenshotLoading}
                 isCapturing={isCapturing}
                 model={deviceModel}
                 layoutConfig={!isExpanded ? compactLayoutConfig : undefined}
-                onTap={handleTap}
-                selectedHost={selectedHost}
                 sx={streamViewerSx}
               />
 
@@ -322,17 +319,13 @@ export function ScreenDefinitionEditor({
             boxShadow: 2,
           }}
         >
-          {/* Stream viewer - always rendered to prevent unmount/remount */}
-          <StreamViewer
-            key="compact-stream-viewer"
+          {/* Unified HLS player */}
+          <HLSVideoPlayer
             streamUrl={streamUrl}
             isStreamActive={streamStatus === 'running' && !isScreenshotLoading}
             isCapturing={isCapturing}
             model={deviceModel}
             layoutConfig={compactLayoutConfig}
-            deviceId={avConfig?.host_ip ? `${avConfig.host_ip}:5555` : undefined}
-            onTap={handleTap}
-            selectedHost={selectedHost}
             sx={streamViewerSx}
           />
 

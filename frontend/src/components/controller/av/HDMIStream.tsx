@@ -19,7 +19,7 @@ import { getZIndex } from '../../../utils/zIndexUtils';
 
 import { RecordingOverlay, LoadingOverlay, ModeIndicatorDot } from './ScreenEditorOverlay';
 import { ScreenshotCapture } from './ScreenshotCapture';
-import { StreamViewer } from './StreamViewer';
+import { HLSVideoPlayer } from '../../common/HLSVideoPlayer';
 import { VideoCapture } from './VideoCapture';
 
 interface HDMIStreamProps {
@@ -422,9 +422,8 @@ export const HDMIStream = React.memo(
                   position: 'relative',
                 }}
               >
-                {/* Stream viewer - always rendered in background */}
-                <StreamViewer
-                  key="stream-viewer"
+                {/* Unified HLS player - consistent with RecHostPreview */}
+                <HLSVideoPlayer
                   streamUrl={streamUrl || undefined}
                   isStreamActive={isStreamActive}
                   isCapturing={isCaptureActive}
@@ -436,7 +435,7 @@ export const HDMIStream = React.memo(
                     left: 0,
                     width: '100%',
                     height: '100%',
-                    zIndex: 1, // Background layer
+                    zIndex: 1,
                   }}
                 />
 
