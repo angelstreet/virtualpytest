@@ -46,7 +46,7 @@ process_file() {
   fi
 }
 
-# Removed wait_for_file_stability function - using simple 250ms delay instead
+# Removed wait_for_file_stability function - using close_write event instead
 
 # Function to process capture files with smart grouping
 process_capture_file() {
@@ -58,7 +58,7 @@ process_capture_file() {
     return
   fi
   
-  # File should be stable after 250ms wait in inotifywait loop
+  # File is stable because we trigger on close_write
   
   sleep 0.01
   start_time=$(date +%s.%N)
@@ -163,10 +163,8 @@ if [ ${#EXISTING_DIRS[@]} -eq 0 ]; then
 fi
 
 # Watch all existing directories with a single inotifywait
-# Wait 250ms for FFmpeg to finish writing (5 FPS = 200ms per frame + buffer)
-inotifywait -m "${EXISTING_DIRS[@]}" -e create --format '%w%f' |
+# Trigger on close_write to ensure file is fully written
+inotifywait -m "${EXISTING_DIRS[@]}" -e close_write --format '%w%f' |
   while read -r filepath; do
-    # Wait for FFmpeg to finish writing the file (250ms > 200ms frame interval)
-    sleep 0.25
     process_file "$filepath"
   done
