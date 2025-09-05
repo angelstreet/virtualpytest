@@ -276,18 +276,40 @@ def generate_test_case():
         
         print("[@route:server_aitestcase:generate_test_case] Calling AI agent")
         
-        # Get enhanced actions for AI generation
+        # Get model-specific commands for AI generation
         try:
-            from backend_core.src.controllers.ai_descriptions import get_enhanced_actions_for_ai
-            # Use a virtual device ID for server-side generation
-            enhanced_data = get_enhanced_actions_for_ai('virtual_device')
+            from backend_core.src.controllers.ai_descriptions import get_commands_for_device_model
+            # Use actual device model instead of virtual device
+            enhanced_data = get_commands_for_device_model(device_model)
+            
+            if 'error' in enhanced_data:
+                return jsonify({
+                    'success': False,
+                    'error': f"Device model not supported: {enhanced_data['error']}",
+                    'details': {
+                        'available_models': enhanced_data.get('available_models', []),
+                        'requested_model': device_model
+                    }
+                }), 400
+            
             available_actions = enhanced_data.get('actions', [])
             available_verifications = enhanced_data.get('verifications', [])
-            print(f"[@route:server_aitestcase:generate_test_case] Loaded {len(available_actions)} actions, {len(available_verifications)} verifications")
+            print(f"[@route:server_aitestcase:generate_test_case] Model {device_model}: Loaded {len(available_actions)} actions, {len(available_verifications)} verifications")
+            
+            # Log what commands are available for debugging
+            if available_actions:
+                action_commands = [action.get('command', 'unknown') for action in available_actions]
+                print(f"[@route:server_aitestcase:generate_test_case] Available actions: {action_commands}")
+            if available_verifications:
+                verification_commands = [verif.get('command', 'unknown') for verif in available_verifications]
+                print(f"[@route:server_aitestcase:generate_test_case] Available verifications: {verification_commands}")
+                
         except Exception as e:
-            print(f"[@route:server_aitestcase:generate_test_case] Failed to load enhanced descriptions: {e}")
-            available_actions = []
-            available_verifications = []
+            print(f"[@route:server_aitestcase:generate_test_case] Failed to load model-specific commands: {e}")
+            return jsonify({
+                'success': False,
+                'error': f'Failed to load commands for device model {device_model}: {str(e)}'
+            }), 500
 
         # Generate test case using AI - use existing execute_task method
         ai_result = ai_agent.execute_task(

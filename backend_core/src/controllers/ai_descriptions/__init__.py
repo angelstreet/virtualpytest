@@ -16,12 +16,14 @@ from .description_registry import (
     get_enhanced_description,
     enhance_controller_actions,
     get_all_enhanced_actions_for_device,
-    get_enhanced_actions_for_ai
+    get_enhanced_actions_for_ai,
+    get_commands_for_device_model
 )
 
 __all__ = [
     'get_enhanced_description',
     'enhance_controller_actions', 
     'get_all_enhanced_actions_for_device',
-    'get_enhanced_actions_for_ai'
+    'get_enhanced_actions_for_ai',
+    'get_commands_for_device_model'
 ]

@@ -105,6 +105,13 @@ export interface AIAnalysisResponse {
   total_analyzed: number;
   compatible_count: number;
   step_preview: TestStep[];  // NEW: Preview of generated test steps
+  
+  // Debug information for generation details panel
+  available_actions?: any[];
+  available_verifications?: any[];
+  ai_reasoning?: string;
+  validation_status?: 'success' | 'error';
+  validation_message?: string;
 }
 
 export interface AIGenerationRequest {

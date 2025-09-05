@@ -11,6 +11,100 @@ from .web_descriptions import WEB_DESCRIPTIONS
 from .desktop_descriptions import DESKTOP_DESCRIPTIONS
 from .power_descriptions import POWER_DESCRIPTIONS
 
+# Controller Implementation to Command Mapping
+# Maps each controller implementation to the specific commands it provides
+CONTROLLER_COMMAND_MAP = {
+    # Remote Controller Implementations
+    'android_mobile': [
+        'click_element', 'click_element_by_id', 'tap_coordinates', 'swipe', 
+        'long_press', 'press_key', 'send_text', 'scroll_to_element', 
+        'find_element', 'dump_ui_elements'
+    ],
+    'android_tv': [
+        'click_element', 'click_element_by_id', 'tap_coordinates', 'swipe',
+        'long_press', 'press_key', 'send_text', 'navigate_dpad',
+        'find_element', 'dump_ui_elements'
+    ],
+    'appium': [
+        'find_element', 'click_element', 'send_keys', 'swipe', 'tap',
+        'long_press', 'scroll', 'get_page_source', 'wait_for_element'
+    ],
+    'ir_remote': [
+        'send_ir_command', 'press_button', 'power_on', 'power_off',
+        'volume_up', 'volume_down', 'channel_up', 'channel_down'
+    ],
+    'bluetooth_remote': [
+        'send_bluetooth_command', 'connect_bluetooth', 'disconnect_bluetooth',
+        'press_button', 'send_key_sequence'
+    ],
+    
+    # AV Controller Implementations
+    'hdmi_stream': [
+        'take_screenshot', 'take_video', 'start_stream', 'stop_stream',
+        'get_stream_status', 'capture_frame', 'set_resolution'
+    ],
+    'vnc_stream': [
+        'take_screenshot', 'start_vnc_stream', 'stop_vnc_stream',
+        'get_vnc_status', 'vnc_click', 'vnc_type'
+    ],
+    'camera_stream': [
+        'take_screenshot', 'start_camera_stream', 'stop_camera_stream',
+        'get_camera_status', 'set_camera_resolution'
+    ],
+    
+    # Verification Controller Implementations
+    'image': [
+        'waitForImageToAppear', 'waitForImageToDisappear'
+    ],
+    'text': [
+        'waitForTextToAppear', 'waitForTextToDisappear'
+    ],
+    'video': [
+        'DetectMotion', 'DetectBlackscreen', 'DetectColorChange',
+        'AnalyzeVideoQuality'
+    ],
+    'audio': [
+        'DetectAudioSpeech', 'check_audio_quality', 'DetectSilence',
+        'AnalyzeAudioLevel'
+    ],
+    'adb': [
+        'waitForElementToAppear', 'waitForElementToDisappear',
+        'waitForActivityChange', 'checkElementExists'
+    ],
+    'appium': [
+        'waitForElementToAppear', 'waitForElementToDisappear',
+        'waitForTextInElement', 'checkElementEnabled'
+    ],
+    
+    # Desktop Controller Implementations
+    'bash': [
+        'execute_command', 'run_script', 'check_process', 'kill_process',
+        'read_file', 'write_file', 'list_directory'
+    ],
+    'pyautogui': [
+        'click_desktop', 'right_click_desktop', 'double_click_desktop',
+        'type_text', 'press_hotkey', 'scroll_desktop', 'take_desktop_screenshot',
+        'locate_image_on_desktop', 'move_mouse'
+    ],
+    
+    # Web Controller Implementations
+    'playwright': [
+        'navigate_to_url', 'click_element', 'fill_input', 'select_option',
+        'wait_for_element', 'scroll_page', 'take_page_screenshot',
+        'execute_javascript', 'get_page_title', 'get_page_url'
+    ],
+    
+    # Power Controller Implementations
+    'tapo': [
+        'power_on', 'power_off', 'power_cycle', 'get_power_status',
+        'set_power_schedule', 'get_power_consumption'
+    ],
+    'usb_hub': [
+        'power_on_port', 'power_off_port', 'power_cycle_port',
+        'get_port_status', 'get_all_ports_status'
+    ]
+}
+
 # Combine all descriptions into master registry
 ALL_DESCRIPTIONS = {
     **REMOTE_DESCRIPTIONS,
@@ -227,6 +321,100 @@ def get_all_enhanced_actions_for_device(device_id: str) -> Dict[str, List[Dict[s
     except Exception as e:
         print(f"[@ai_descriptions] Error getting enhanced actions for device {device_id}: {e}")
         return {}
+
+def get_commands_for_device_model(device_model: str) -> Dict[str, Any]:
+    """
+    Get model-specific commands based on DEVICE_CONTROLLER_MAP.
+    This ensures AI only gets commands that the device model actually supports.
+    
+    Args:
+        device_model: Device model name (e.g., 'android_mobile', 'stb', 'S21x')
+        
+    Returns:
+        Dict with 'actions' and 'verifications' keys containing model-specific commands
+    """
+    try:
+        # Import here to avoid circular imports
+        from backend_core.src.controllers.controller_config_factory import DEVICE_CONTROLLER_MAP
+        
+        if device_model not in DEVICE_CONTROLLER_MAP:
+            return {
+                'error': f'Device model {device_model} not supported',
+                'available_models': list(DEVICE_CONTROLLER_MAP.keys()),
+                'actions': [],
+                'verifications': []
+            }
+        
+        model_config = DEVICE_CONTROLLER_MAP[device_model]
+        available_actions = []
+        available_verifications = []
+        
+        print(f"[@ai_descriptions:get_commands_for_device_model] Getting commands for model: {device_model}")
+        print(f"[@ai_descriptions:get_commands_for_device_model] Model config: {model_config}")
+        
+        # Process each controller type this model supports
+        for controller_type, implementations in model_config.items():
+            for impl in implementations:
+                print(f"[@ai_descriptions:get_commands_for_device_model] Processing {controller_type}/{impl}")
+                
+                if controller_type == 'verification':
+                    # Get verification commands for this implementation
+                    if impl in CONTROLLER_COMMAND_MAP:
+                        for cmd in CONTROLLER_COMMAND_MAP[impl]:
+                            if cmd in ALL_DESCRIPTIONS:
+                                desc_info = ALL_DESCRIPTIONS[cmd]
+                                verification = {
+                                    'command': cmd,
+                                    'verification_type': impl,
+                                    'ai_description': desc_info['description'],
+                                    'ai_example': desc_info['example'],
+                                    'params': {}  # Default empty params
+                                }
+                                available_verifications.append(verification)
+                                print(f"[@ai_descriptions:get_commands_for_device_model] Added verification: {cmd}")
+                    else:
+                        print(f"[@ai_descriptions:get_commands_for_device_model] WARNING: No commands found for verification implementation: {impl}")
+                
+                else:  # action controllers (remote, av, desktop, web, power)
+                    # Get action commands for this implementation
+                    if impl in CONTROLLER_COMMAND_MAP:
+                        for cmd in CONTROLLER_COMMAND_MAP[impl]:
+                            if cmd in ALL_DESCRIPTIONS:
+                                desc_info = ALL_DESCRIPTIONS[cmd]
+                                action = {
+                                    'command': cmd,
+                                    'category': controller_type,
+                                    'implementation': impl,
+                                    'ai_description': desc_info['description'],
+                                    'ai_example': desc_info['example'],
+                                    'params': {}  # Default empty params
+                                }
+                                available_actions.append(action)
+                                print(f"[@ai_descriptions:get_commands_for_device_model] Added action: {cmd}")
+                    else:
+                        print(f"[@ai_descriptions:get_commands_for_device_model] WARNING: No commands found for {controller_type} implementation: {impl}")
+        
+        result = {
+            'actions': available_actions,
+            'verifications': available_verifications,
+            'model': device_model,
+            'supported_controllers': model_config,
+            'total_actions': len(available_actions),
+            'total_verifications': len(available_verifications)
+        }
+        
+        print(f"[@ai_descriptions:get_commands_for_device_model] Result: {len(available_actions)} actions, {len(available_verifications)} verifications")
+        return result
+        
+    except Exception as e:
+        print(f"[@ai_descriptions:get_commands_for_device_model] Error getting commands for model {device_model}: {e}")
+        return {
+            'error': f'Error getting commands for model {device_model}: {str(e)}',
+            'actions': [],
+            'verifications': [],
+            'total_actions': 0,
+            'total_verifications': 0
+        }
 
 def get_enhanced_actions_for_ai(device_id: str) -> Dict[str, Any]:
     """
