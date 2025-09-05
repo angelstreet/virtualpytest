@@ -16,6 +16,7 @@ import { useHdmiStream, useStream } from '../../../hooks/controller';
 import { Host } from '../../../types/common/Host_Types';
 import { VerificationEditor } from '../verification';
 import { getZIndex } from '../../../utils/zIndexUtils';
+import { DEFAULT_DEVICE_RESOLUTION } from '../../../config/deviceResolutions';
 
 import { RecordingOverlay, LoadingOverlay, ModeIndicatorDot } from './ScreenEditorOverlay';
 import { ScreenshotCapture } from './ScreenshotCapture';
@@ -268,6 +269,9 @@ export const HDMIStream = React.memo(
     // Check if verification editor should be visible
     const isVerificationVisible = captureMode === 'screenshot' || captureMode === 'video';
 
+    // Compute isMobile from effectiveDeviceModel
+    const isMobile = effectiveDeviceModel?.includes('mobile') || effectiveDeviceModel === 'android_mobile';
+
     return (
       <>
         {/* Main HDMIStream Panel */}
@@ -429,6 +433,14 @@ export const HDMIStream = React.memo(
                   isCapturing={isCaptureActive}
                   model={effectiveDeviceModel}
                   isExpanded={isExpanded}
+                  layoutConfig={{
+                    minHeight: isExpanded ? '400px' : '150px', // Adjust based on panel state
+                    aspectRatio: isMobile
+                      ? `${DEFAULT_DEVICE_RESOLUTION.height}/${DEFAULT_DEVICE_RESOLUTION.width}`
+                      : `${DEFAULT_DEVICE_RESOLUTION.width}/${DEFAULT_DEVICE_RESOLUTION.height}`,
+                    objectFit: isMobile ? 'fill' : 'contain',
+                    isMobileModel: isMobile,
+                  }}
                   sx={{
                     position: 'absolute',
                     top: 0,
