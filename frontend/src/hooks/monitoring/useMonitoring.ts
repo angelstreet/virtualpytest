@@ -76,6 +76,9 @@ interface UseMonitoringReturn {
   isAnalyzingLanguageMenu: boolean;
   hasLanguageMenuResults: boolean;
   currentLanguageMenuAnalysis: LanguageMenuAnalysis | null;
+
+  // Current frame timestamp for analysis tracking
+  currentFrameTimestamp: string | null;
 }
 
 interface UseMonitoringProps {
@@ -222,7 +225,7 @@ export const useMonitoring = ({
       console.error('[useMonitoring] Failed to fetch latest JSON:', error);
       return null;
     }
-  }, [host, device]);
+  }, [host?.host_name, host?.host_url, device?.device_id]); // More specific dependencies
 
   // Initialize autonomous base URL pattern on mount
   useEffect(() => {
@@ -238,38 +241,52 @@ export const useMonitoring = ({
     const fetchLatestFrame = async () => {
       const latestData = await fetchLatestMonitoringData();
 
-      if (latestData && latestData.imageUrl !== currentImageUrl) {
-        setCurrentImageUrl(latestData.imageUrl);
+      if (latestData) {
+        // Check if this is actually new data (different timestamp)
+        const isDifferentFrame = latestData.imageUrl !== currentImageUrl;
+        
+        if (isDifferentFrame) {
+          setCurrentImageUrl(latestData.imageUrl);
 
-        console.log('[useMonitoring] Latest analysis data:', latestData);
+          console.log('[useMonitoring] New frame detected:', latestData.timestamp);
 
-        // Add new frame with guaranteed coherent data (image + JSON from same timestamp)
-        setFrames((prev) => {
-          const newFrames = [...prev, { 
-            timestamp: latestData.timestamp, 
-            imageUrl: latestData.imageUrl, 
-            jsonUrl: latestData.jsonUrl 
-          }];
-          const updatedFrames = newFrames.slice(-100); // Always keep last 100 frames
-
-          // ONLY auto-follow when actively playing
-          if (isPlaying && !userSelectedFrame) {
-            setCurrentIndex(updatedFrames.length - 1);
-          }
-          // ONLY move user if their selected frame was deleted from buffer
-          else if (userSelectedFrame) {
-            const currentFrameStillExists = currentIndex < updatedFrames.length;
-            if (!currentFrameStillExists) {
-              // Frame was deleted, move to newest and resume playing
-              setCurrentIndex(updatedFrames.length - 1);
-              setIsPlaying(true); // Resume playing since we had to move
-              setUserSelectedFrame(false); // No longer user-selected
+          // Add new frame with guaranteed coherent data (image + JSON from same timestamp)
+          setFrames((prev) => {
+            // Check if we already have this timestamp to avoid duplicates
+            const existingFrame = prev.find(frame => frame.timestamp === latestData.timestamp);
+            if (existingFrame) {
+              console.log('[useMonitoring] Frame already exists, skipping:', latestData.timestamp);
+              return prev;
             }
-            // Otherwise: DO NOTHING - stay on selected frame
-          }
 
-          return updatedFrames;
-        });
+            const newFrames = [...prev, { 
+              timestamp: latestData.timestamp, 
+              imageUrl: latestData.imageUrl, 
+              jsonUrl: latestData.jsonUrl 
+            }];
+            const updatedFrames = newFrames.slice(-100); // Always keep last 100 frames
+
+            // ONLY auto-follow when actively playing
+            if (isPlaying && !userSelectedFrame) {
+              setCurrentIndex(updatedFrames.length - 1);
+            }
+            // ONLY move user if their selected frame was deleted from buffer
+            else if (userSelectedFrame) {
+              const currentFrameStillExists = currentIndex < updatedFrames.length;
+              if (!currentFrameStillExists) {
+                // Frame was deleted, move to newest and resume playing
+                setCurrentIndex(updatedFrames.length - 1);
+                setIsPlaying(true); // Resume playing since we had to move
+                setUserSelectedFrame(false); // No longer user-selected
+              }
+              // Otherwise: DO NOTHING - stay on selected frame
+            }
+
+            return updatedFrames;
+          });
+        } else {
+          console.log('[useMonitoring] Same frame, no update needed');
+        }
       }
     };
 
@@ -280,11 +297,7 @@ export const useMonitoring = ({
     const interval = setInterval(fetchLatestFrame, 3000); // Fetch every 3 seconds
     return () => clearInterval(interval);
   }, [
-    currentImageUrl,
     fetchLatestMonitoringData,
-    isPlaying,
-    userSelectedFrame,
-    currentIndex,
     isInitialLoading,
   ]);
 

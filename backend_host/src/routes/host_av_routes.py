@@ -896,7 +896,7 @@ def get_latest_monitoring_json():
         json_files.sort(key=lambda x: x['timestamp'], reverse=True)
         latest_json = json_files[0]
         
-        # Build URL using the same mechanism as captures
+        # Simple: use same URL pattern as images but with .json extension
         from utils.build_url_utils import buildCaptureUrlFromPath, buildClientImageUrl
         from utils.host_utils import get_host_instance as get_host
         
@@ -904,10 +904,11 @@ def get_latest_monitoring_json():
             host = get_host()
             host_dict = host.to_dict()
             
-            # Build URL from file path
+            # Build URL using existing pattern, then fix extension
             json_url = buildCaptureUrlFromPath(host_dict, latest_json['filepath'], device_id)
+            json_url = json_url.replace('.jpg', '.json')  # Fix the extension
             
-            # Process URL for client consumption
+            # Process URL for client consumption  
             client_json_url = buildClientImageUrl(json_url)
             
             print(f"[@route:host_av:latest_json] Latest JSON: {latest_json['filename']}")

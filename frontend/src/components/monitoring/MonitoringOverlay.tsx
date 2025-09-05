@@ -19,6 +19,7 @@ interface MonitoringOverlayProps {
   consecutiveErrorCounts?: ConsecutiveErrorCounts | null; // Consecutive error counts for trend indicators
   showSubtitles?: boolean; // Whether to show subtitle information in overlay
   showLanguageMenu?: boolean; // Whether to show language menu information in overlay
+  analysisTimestamp?: string; // Timestamp of the JSON file being analyzed
 }
 
 export const MonitoringOverlay: React.FC<MonitoringOverlayProps> = ({
@@ -29,11 +30,26 @@ export const MonitoringOverlay: React.FC<MonitoringOverlayProps> = ({
   consecutiveErrorCounts,
   showSubtitles = false,
   showLanguageMenu = false,
+  analysisTimestamp,
 }) => {
   // Use separate data sources
   const analysis = monitoringAnalysis;
   const subtitles = subtitleAnalysis;
   const languageMenu = languageMenuAnalysis;
+
+  // Format timestamp for display (YYYYMMDDHHMMSS -> YYYY-MM-DD HH:MM:SS)
+  const formatTimestamp = (timestamp?: string): string => {
+    if (!timestamp || timestamp.length !== 14) return 'Unknown';
+    
+    const year = timestamp.substring(0, 4);
+    const month = timestamp.substring(4, 6);
+    const day = timestamp.substring(6, 8);
+    const hour = timestamp.substring(8, 10);
+    const minute = timestamp.substring(10, 12);
+    const second = timestamp.substring(12, 14);
+    
+    return `${year}-${month}-${day} ${hour}:${minute}:${second}`;
+  };
 
   // Always render overlay with empty state when no analysis
 
@@ -54,6 +70,15 @@ export const MonitoringOverlay: React.FC<MonitoringOverlayProps> = ({
           ...sx,
         }}
       >
+        {/* Analysis Timestamp */}
+        {analysisTimestamp && (
+          <Box sx={{ display: 'flex', alignItems: 'center', mb: 1, pb: 1, borderBottom: '1px solid rgba(255,255,255,0.2)' }}>
+            <Typography variant="caption" sx={{ color: '#cccccc', fontFamily: 'monospace' }}>
+              Analysis: {formatTimestamp(analysisTimestamp)}
+            </Typography>
+          </Box>
+        )}
+
         {/* Blackscreen */}
         <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
           <Typography variant="body2" sx={{ color: '#ffffff', mr: 1 }}>
