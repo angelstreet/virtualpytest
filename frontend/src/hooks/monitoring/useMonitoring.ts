@@ -367,6 +367,8 @@ export const useMonitoring = ({
               audio: data.audio || false,
               volume_percentage: data.volume_percentage || 0,
               mean_volume_db: data.mean_volume_db || -100,
+              macroblocks: data.macroblocks || false,
+              quality_score: data.quality_score || 0,
               has_incidents: data.has_incidents || false,
             };
 

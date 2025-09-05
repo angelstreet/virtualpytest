@@ -80,6 +80,7 @@ const RunTests: React.FC = () => {
   const [selectedDevice, setSelectedDevice] = useState<string>('');
   const [selectedScript, setSelectedScript] = useState<string>('');
   const [availableScripts, setAvailableScripts] = useState<string[]>([]);
+  const [aiTestCasesInfo, setAiTestCasesInfo] = useState<any[]>([]);
 
   const [loadingScripts, setLoadingScripts] = useState<boolean>(false);
   const [showWizard, setShowWizard] = useState<boolean>(false);
@@ -197,7 +198,9 @@ const RunTests: React.FC = () => {
           setAvailableScripts(data.scripts);
           
           // Store AI test case metadata for display
-          // AI test cases info is now handled by the centralized utility functions
+          if (data.ai_test_cases_info) {
+            setAiTestCasesInfo(data.ai_test_cases_info);
+          }
 
           // Set default selection to first script if available
           if (data.scripts.length > 0 && !selectedScript) {
@@ -237,7 +240,7 @@ const RunTests: React.FC = () => {
         localStorage.removeItem('preselected_from_testcase');
         
         // Show toast to inform user
-        showSuccess(`Pre-selected AI test case: ${getScriptDisplayName(preselectedScript)}`);
+        showSuccess(`Pre-selected AI test case: ${getScriptDisplayName(preselectedScript, aiTestCasesInfo)}`);
       }
     };
 
@@ -652,7 +655,7 @@ const RunTests: React.FC = () => {
                                     />
                                   )}
                                   <Typography variant="body2">
-                                    {getScriptDisplayName(script)}
+                                    {getScriptDisplayName(script, aiTestCasesInfo)}
                                   </Typography>
                                 </Box>
                               </MenuItem>
@@ -914,7 +917,7 @@ const RunTests: React.FC = () => {
                             },
                           }}
                         >
-                          <TableCell>{getScriptDisplayName(execution.scriptName)}</TableCell>
+                          <TableCell>{getScriptDisplayName(execution.scriptName, aiTestCasesInfo)}</TableCell>
                           <TableCell>
                             {(() => {
                               // Get device name for display in execution history
