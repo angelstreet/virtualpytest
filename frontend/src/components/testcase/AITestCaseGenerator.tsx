@@ -341,106 +341,60 @@ export const AITestCaseGenerator: React.FC<AITestCaseGeneratorProps> = ({
               {analysis.model_commands && analysis.compatibility_details ? (
                 <>
                   <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1 }}>
-                    Interface Analysis ({analysis.total_models_analyzed || 0} models):
+                    Interface Analysis:
                   </Typography>
                   
-                  {/* Interface Compatibility Results */}
+                  {/* Per UserInterface Results */}
                   {analysis.compatibility_details.map((interfaceResult) => (
                     <Box key={interfaceResult.userinterface} sx={{ mb: 2, p: 1, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
-                      <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1 }}>
+                      <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <span style={{ color: interfaceResult.compatible ? '#4caf50' : '#f44336' }}>
+                          {interfaceResult.compatible ? '✅' : '❌'}
+                        </span>
                         📱 {interfaceResult.userinterface}
                       </Typography>
                       
-                      {/* Model Compatibility within Interface */}
-                      {interfaceResult.model_details && Object.keys(interfaceResult.model_details).length > 0 ? (
-                        <>
-                          <Typography variant="caption" sx={{ fontWeight: 'bold', color: 'primary.main', display: 'block', mb: 0.5 }}>
-                            Model Compatibility:
+                      <Typography variant="caption" sx={{ display: 'block', mb: 1, color: 'text.secondary' }}>
+                        {interfaceResult.reasoning}
+                      </Typography>
+                      
+                      {/* Show ALL commands per model for this interface */}
+                      {analysis.model_commands && Object.entries(analysis.model_commands).map(([model, commands]) => (
+                        <Box key={model} sx={{ ml: 1, mb: 1, p: 1, backgroundColor: 'background.paper', borderRadius: 0.5 }}>
+                          <Typography variant="caption" sx={{ fontWeight: 'bold', display: 'block', mb: 0.5 }}>
+                            {model} ({commands.actions.length} actions, {commands.verifications.length} verifications):
                           </Typography>
-                          {Object.entries(interfaceResult.model_details).map(([model, details]) => {
-                            const modelDetails = details as {
-                              compatible: boolean;
-                              reasoning: string;
-                              confidence: number;
-                              missing_capabilities: string[];
-                              available_actions_count: number;
-                              available_verifications_count: number;
-                            };
-                            return (
-                              <Box key={model} sx={{ ml: 1, mb: 0.5 }}>
-                                <Typography variant="caption" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                  <span style={{ color: modelDetails.compatible ? '#4caf50' : '#f44336' }}>
-                                    {modelDetails.compatible ? '✅' : '❌'}
-                                  </span>
-                                  <strong>{model}:</strong>
-                                  <span style={{ color: 'text.secondary' }}>
-                                    {modelDetails.reasoning} ({modelDetails.available_actions_count} actions, {modelDetails.available_verifications_count} verifications)
-                                  </span>
-                                </Typography>
-                              </Box>
-                            );
-                          })}
                           
-                          {/* Interface Summary */}
-                          <Typography variant="caption" sx={{ 
-                            display: 'block', 
-                            mt: 1, 
-                            p: 0.5, 
-                            backgroundColor: interfaceResult.compatible ? 'success.light' : 'error.light',
-                            color: interfaceResult.compatible ? 'success.contrastText' : 'error.contrastText',
-                            borderRadius: 0.5,
-                            fontWeight: 'bold'
-                          }}>
-                            Interface Result: {interfaceResult.compatible ? '✅ Compatible' : '❌ Incompatible'} - {interfaceResult.reasoning}
+                          {/* All Actions */}
+                          <Typography variant="caption" sx={{ color: 'primary.main', fontWeight: 'bold' }}>
+                            Actions: 
                           </Typography>
-                        </>
-                      ) : (
-                        <Typography variant="caption" sx={{ color: 'text.secondary', fontStyle: 'italic' }}>
-                          No model details available
-                        </Typography>
-                      )}
+                          <Typography variant="caption" sx={{ display: 'block', ml: 1, fontFamily: 'monospace', fontSize: '0.7rem' }}>
+                            {commands.actions.map(a => a.command).join(', ')}
+                          </Typography>
+                          
+                          {/* All Verifications */}
+                          <Typography variant="caption" sx={{ color: 'secondary.main', fontWeight: 'bold', mt: 0.5, display: 'block' }}>
+                            Verifications: 
+                          </Typography>
+                          <Typography variant="caption" sx={{ display: 'block', ml: 1, fontFamily: 'monospace', fontSize: '0.7rem' }}>
+                            {commands.verifications.length > 0 
+                              ? commands.verifications.map(v => v.command).join(', ')
+                              : 'None available'
+                            }
+                          </Typography>
+                        </Box>
+                      ))}
                     </Box>
-                  ))}
-                  
-                  {/* Available Commands Summary */}
-                  <Typography variant="body2" sx={{ fontWeight: 'bold', mt: 2, mb: 1 }}>
-                    Available Commands ({analysis.interface_models?.join(', ') || 'Unknown models'}):
-                  </Typography>
-                  
-                  {/* Actions Summary */}
-                  <Typography variant="caption" sx={{ fontWeight: 'bold', color: 'primary.main', display: 'block' }}>
-                    Actions:
-                  </Typography>
-                  {Object.entries(analysis.model_commands).map(([model, commands]) => (
-                    <Typography key={`${model}-actions`} variant="caption" sx={{ display: 'block', ml: 1, fontFamily: 'monospace' }}>
-                      {model}: {commands.actions.slice(0, 3).map(a => a.command).join(', ')}{commands.actions.length > 3 ? ` (+${commands.actions.length - 3})` : ''}
-                    </Typography>
-                  ))}
-                  
-                  {/* Verifications Summary */}
-                  <Typography variant="caption" sx={{ fontWeight: 'bold', color: 'secondary.main', display: 'block', mt: 1 }}>
-                    Verifications:
-                  </Typography>
-                  {Object.entries(analysis.model_commands).map(([model, commands]) => (
-                    <Typography key={`${model}-verifications`} variant="caption" sx={{ display: 'block', ml: 1, fontFamily: 'monospace' }}>
-                      {model}: {commands.verifications.slice(0, 2).map(v => v.command).join(', ')}{commands.verifications.length > 2 ? ` (+${commands.verifications.length - 2})` : ''}
-                    </Typography>
                   ))}
                 </>
               ) : (
                 <>
                   <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
-                    Available Commands for Interface:
+                    Loading Interface Analysis...
                   </Typography>
-                  <Typography variant="caption" sx={{ fontFamily: 'monospace', color: 'text.secondary', display: 'block' }}>
-                    Actions: {(analysis as any).available_actions?.length || 0} | Verifications: {(analysis as any).available_verifications?.length || 0}
-                  </Typography>
-                  
-                  <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
-                    Command Validation:
-                  </Typography>
-                  <Typography variant="caption" sx={{ color: (analysis as any).validation_status === 'success' ? 'success.main' : 'error.main' }}>
-                    {(analysis as any).validation_message || 'Loading interface analysis...'}
+                  <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                    Analyzing userinterface compatibility and available commands
                   </Typography>
                 </>
               )}
