@@ -542,6 +542,103 @@ function closeVerificationImageModal() {{
     }}
 }}
 
+// Zapping analysis modal functions - specialized for failure analysis with detailed logs
+function openZappingAnalysisModal(modalData) {{
+    let zappingModal = document.getElementById('zapping-analysis-modal');
+    if (!zappingModal) {{
+        zappingModal = document.createElement('div');
+        zappingModal.id = 'zapping-analysis-modal';
+        zappingModal.className = 'modal';
+        zappingModal.innerHTML = `
+            <div class="modal-content zapping-modal-content" style="width: 90%; max-width: 1200px; max-height: 90vh; overflow-y: auto;">
+                <div class="modal-header">
+                    <h3 id="zapping-modal-title">Zapping Analysis</h3>
+                    <button class="modal-close" onclick="closeZappingAnalysisModal()">&times;</button>
+                </div>
+                <div class="modal-body" style="display: flex; flex-direction: column; gap: 20px;">
+                    <!-- Mosaic Image Section - Top Priority -->
+                    <div id="zapping-mosaic-container" style="text-align: center; background-color: var(--background-secondary); padding: 15px; border-radius: 8px;">
+                        <img id="zapping-mosaic-img" style="max-width: 100%; max-height: 70vh; object-fit: contain; border: 1px solid var(--border-color); border-radius: 4px; cursor: pointer; box-shadow: 0 4px 8px rgba(0,0,0,0.1);" onclick="window.open(this.src, '_blank')" title="Click to open in new tab">
+                        <div style="margin-top: 10px; font-size: 12px; color: var(--text-secondary); font-style: italic;">Click image to open in new tab for detailed inspection</div>
+                    </div>
+                    
+                    <!-- Analysis Log Section - Collapsible -->
+                    <div id="zapping-analysis-section" style="border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden;">
+                        <div class="zapping-log-header" onclick="toggleZappingAnalysisLog()" style="background-color: var(--background-secondary); padding: 12px 15px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; user-select: none;">
+                            <h4 style="margin: 0; color: var(--text-primary); font-family: sans-serif; font-size: 14px;">📋 Detailed Analysis Log</h4>
+                            <span id="zapping-log-toggle" style="font-size: 12px; color: var(--text-secondary);">▶ Click to expand</span>
+                        </div>
+                        <div id="zapping-analysis-log" style="max-height: 0; overflow: hidden; transition: max-height 0.3s ease; background-color: var(--background-primary);">
+                            <div style="padding: 15px; font-family: monospace; font-size: 11px; line-height: 1.4; max-height: 400px; overflow-y: auto;">
+                                <div id="zapping-log-content" style="white-space: pre-wrap; color: var(--text-secondary);"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(zappingModal);
+    }}
+    
+    // Populate the modal with mosaic and analysis log
+    const mosaicImg = document.getElementById('zapping-mosaic-img');
+    const logContent = document.getElementById('zapping-log-content');
+    
+    // Set mosaic image
+    if (modalData.images && modalData.images.length > 0) {{
+        mosaicImg.src = modalData.images[0].url;
+        mosaicImg.alt = modalData.images[0].label || 'Analysis Mosaic';
+    }}
+    
+    // Set analysis log
+    if (modalData.analysis_log && modalData.analysis_log.length > 0) {{
+        logContent.textContent = modalData.analysis_log.join('\\n');
+    }} else {{
+        logContent.textContent = 'No detailed analysis log available.';
+    }}
+    
+    // Ensure log section starts collapsed
+    const logSection = document.getElementById('zapping-analysis-log');
+    const toggleIcon = document.getElementById('zapping-log-toggle');
+    if (logSection && toggleIcon) {{
+        logSection.style.maxHeight = '0px';
+        toggleIcon.textContent = '▶ Click to expand';
+    }}
+    
+    // Update modal title
+    document.getElementById('zapping-modal-title').textContent = modalData.title || 'Zapping Analysis';
+    
+    // Show the modal
+    zappingModal.classList.add('active');
+}}
+
+function closeZappingAnalysisModal() {{
+    const zappingModal = document.getElementById('zapping-analysis-modal');
+    if (zappingModal) {{
+        zappingModal.classList.remove('active');
+    }}
+}}
+
+function toggleZappingAnalysisLog() {{
+    const logSection = document.getElementById('zapping-analysis-log');
+    const toggleIcon = document.getElementById('zapping-log-toggle');
+    
+    if (!logSection || !toggleIcon) return;
+    
+    const isExpanded = logSection.style.maxHeight && logSection.style.maxHeight !== '0px';
+    
+    if (isExpanded) {{
+        // Collapse
+        logSection.style.maxHeight = '0px';
+        toggleIcon.textContent = '▶ Click to expand';
+    }} else {{
+        // Expand
+        const contentHeight = logSection.scrollHeight;
+        logSection.style.maxHeight = Math.min(contentHeight, 400) + 'px';
+        toggleIcon.textContent = '▼ Click to collapse';
+    }}
+}}
+
 // Event listeners
 document.addEventListener('DOMContentLoaded', function() {{
     const modal = document.getElementById('screenshot-modal');
@@ -569,6 +666,11 @@ document.addEventListener('DOMContentLoaded', function() {{
         const verificationModal = document.getElementById('verification-image-modal');
         if (verificationModal && e.target === verificationModal) {{
             closeVerificationImageModal();
+        }}
+        
+        const zappingModal = document.getElementById('zapping-analysis-modal');
+        if (zappingModal && e.target === zappingModal) {{
+            closeZappingAnalysisModal();
         }}
     }});
     
@@ -602,6 +704,11 @@ document.addEventListener('DOMContentLoaded', function() {{
             if (e.key === 'Escape') {{
                 e.preventDefault();
                 closeVerificationImageModal();
+            }}
+        }} else if (document.getElementById('zapping-analysis-modal') && document.getElementById('zapping-analysis-modal').classList.contains('active')) {{
+            if (e.key === 'Escape') {{
+                e.preventDefault();
+                closeZappingAnalysisModal();
             }}
         }}
     }});

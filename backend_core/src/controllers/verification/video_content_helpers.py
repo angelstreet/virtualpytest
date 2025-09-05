@@ -1118,9 +1118,9 @@ class VideoContentHelpers:
                 return []
             
             images = []
-            # Dynamic seconds calculation based on max_count (assuming 5fps average)
-            # Mobile: 40 images = 8 seconds, VNC: 8 images = 8 seconds, STB: 20 images = 4 seconds
-            MAX_SECONDS = max(6, (max_count // 5) + 1) if max_count > 0 else 8  # Dynamic seconds with minimum 6s
+            # Use max_count directly - it's already calculated correctly by _get_max_images_for_device
+            # Just ensure we search enough seconds to find the requested number of images
+            MAX_SECONDS = max_count if max_count > 0 else 40  # Search for max_count seconds worth of images
             MAX_TOTAL_IMAGES = max_count if max_count > 0 else 40  # Respect max_count parameter fully
             
             # Enhanced collection: get all available files (_1, _2, _3, _4) for better precision

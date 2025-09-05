@@ -679,38 +679,29 @@ def format_analysis_results(step: Dict) -> str:
             if analyzed_images > 0:
                 analysis_html += f'<div class="analysis-detail">Images Analyzed: {analyzed_images}</div>'
             
-            # Show failure verification thumbnails (first/middle/last images from analysis)
-            first_image = zapping_analysis.get('first_image')
-            middle_image = zapping_analysis.get('blackscreen_start_image')  # Reused as middle image
-            last_image = zapping_analysis.get('blackscreen_end_image')
+            # Show failure mosaic with detailed analysis
+            failure_mosaic_path = zapping_analysis.get('failure_mosaic_path')
+            analysis_log = zapping_analysis.get('analysis_log', [])
             
-            failure_images = []
-            if first_image:
-                failure_images.append({'url': first_image, 'label': 'First Image'})
-            if middle_image:
-                failure_images.append({'url': middle_image, 'label': 'Middle Image'})
-            if last_image:
-                failure_images.append({'url': last_image, 'label': 'Last Image'})
-            
-            if failure_images:
+            if failure_mosaic_path:
                 import json
+                
+                # Create modal data with mosaic and detailed analysis log
                 modal_data = {
-                    'title': 'Zapping Detection Failure - Analyzed Images',
-                    'images': failure_images
+                    'title': f'Zapping Detection Failure Analysis - {zapping_analysis.get("detection_method", "Unknown").title()} Method',
+                    'images': [{'url': failure_mosaic_path, 'label': f'Analysis Mosaic ({zapping_analysis.get("mosaic_images_count", 0)} images)'}],
+                    'analysis_log': analysis_log
                 }
                 modal_data_json = json.dumps(modal_data).replace('"', '&quot;').replace("'", "&#x27;").replace(":", "&#58;")
                 
-                thumbnails_html = "<div class='zapping-failure-thumbnails' style='margin-top: 8px; display: flex; gap: 8px;'>"
-                
-                for image in failure_images:
-                    thumbnails_html += f"""
-                    <div style='text-align: center;'>
-                        <div style='font-size: 11px; color: #666; margin-bottom: 2px;'>{image['label']}</div>
-                        <img src='{image['url']}' style='width: 55px; height: 37px; object-fit: contain; border: 1px solid #ddd; border-radius: 3px; cursor: pointer; opacity: 0.7;' 
-                             onclick='openVerificationImageModal({modal_data_json})' title='Click to view analyzed images from failed detection'>
-                    </div>
-                    """
-                
+                thumbnails_html = "<div class='zapping-failure-mosaic' style='margin-top: 8px;'>"
+                thumbnails_html += f"""
+                <div style='text-align: center;'>
+                    <div style='font-size: 11px; color: #666; margin-bottom: 2px;'>Failure Analysis Mosaic</div>
+                    <img src='{failure_mosaic_path}' style='width: 120px; height: 80px; object-fit: contain; border: 2px solid #e53e3e; border-radius: 4px; cursor: pointer;' 
+                         onclick='openZappingAnalysisModal({modal_data_json})' title='Click to view detailed failure analysis'>
+                </div>
+                """
                 thumbnails_html += "</div>"
                 analysis_html += thumbnails_html
     
