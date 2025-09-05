@@ -195,64 +195,10 @@ export const AITestCaseGenerator: React.FC<AITestCaseGeneratorProps> = ({
     return (
       <Box>
 
-        {/* Generation Debug Panel */}
-        <Box sx={{ mb: 3 }}>
-          <Box 
-            sx={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: 1, 
-              cursor: 'pointer',
-              p: 1,
-              borderRadius: 1,
-              '&:hover': { bgcolor: 'action.hover' }
-            }}
-            onClick={() => setExpandedSteps(prev => 
-              prev.has(-1) ? new Set([...prev].filter(i => i !== -1)) : new Set([...prev, -1])
-            )}
-          >
-            <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: 'text.secondary' }}>
-              🔧 Generation Details
-            </Typography>
-            <IconButton size="small">
-              {expandedSteps.has(-1) ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-            </IconButton>
-          </Box>
-          
-          <Collapse in={expandedSteps.has(-1)}>
-            <Box sx={{ ml: 2, p: 2, bgcolor: 'grey.50', borderRadius: 1, border: '1px solid', borderColor: 'grey.200' }}>
-              <Typography variant="body2" sx={{ mb: 1, fontWeight: 'bold' }}>
-                Available Commands for Model:
-              </Typography>
-              <Typography variant="caption" sx={{ fontFamily: 'monospace', color: 'text.secondary', display: 'block', mb: 2 }}>
-                Actions: {(analysis as any).available_actions?.length || 0} | Verifications: {(analysis as any).available_verifications?.length || 0}
-              </Typography>
-              
-              {(analysis as any).ai_reasoning && (
-                <>
-                  <Typography variant="body2" sx={{ mb: 1, fontWeight: 'bold' }}>
-                    AI Reasoning:
-                  </Typography>
-                  <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 2 }}>
-                    {(analysis as any).ai_reasoning}
-                  </Typography>
-                </>
-              )}
-              
-              <Typography variant="body2" sx={{ mb: 1, fontWeight: 'bold' }}>
-                Command Validation:
-              </Typography>
-              <Typography variant="caption" sx={{ color: (analysis as any).validation_status === 'success' ? 'success.main' : 'error.main' }}>
-                {(analysis as any).validation_message || 'All commands validated successfully'}
-              </Typography>
-            </Box>
-          </Collapse>
-        </Box>
-
         {/* Step Preview - MAIN FOCUS */}
         {analysis.step_preview && analysis.step_preview.length > 0 && (
           <Box sx={{ mb: 3 }}>
-            <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold', color: 'primary.main' }}>
+            <Typography variant="h6" sx={{ fontWeight: 'bold', color: 'primary.main', mb: 2 }}>
               📋 Generated Test Steps Preview
             </Typography>
             <Box sx={{ 
@@ -338,13 +284,6 @@ export const AITestCaseGenerator: React.FC<AITestCaseGeneratorProps> = ({
         )}
 
         {/* Compatible Interfaces - MINIMAL */}
-        {hasCompatible && (
-          <Alert severity="success" sx={{ mb: 2 }}>
-            <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
-              💡 Compatible with {compatibility_matrix.compatible_userinterfaces.length} interface{compatibility_matrix.compatible_userinterfaces.length !== 1 ? 's' : ''}
-            </Typography>
-          </Alert>
-        )}
 
         {/* Interface Selection - Simple Checkboxes */}
         {hasCompatible && (
@@ -374,6 +313,59 @@ export const AITestCaseGenerator: React.FC<AITestCaseGeneratorProps> = ({
           </Box>
         )}
 
+        {/* Generation Debug Panel - At Bottom */}
+        <Box sx={{ mb: 2 }}>
+          <Box 
+            sx={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: 1, 
+              cursor: 'pointer',
+              py: 1,
+              '&:hover': { opacity: 0.7 }
+            }}
+            onClick={() => setExpandedSteps(prev => 
+              prev.has(-1) ? new Set([...prev].filter(i => i !== -1)) : new Set([...prev, -1])
+            )}
+          >
+            <Typography variant="subtitle2" sx={{ fontWeight: 'bold', color: 'text.secondary' }}>
+              🔧 Generation Details
+            </Typography>
+            <IconButton size="small">
+              {expandedSteps.has(-1) ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+            </IconButton>
+          </Box>
+          
+          <Collapse in={expandedSteps.has(-1)}>
+            <Box sx={{ ml: 2, py: 2 }}>
+              <Typography variant="body2" sx={{ mb: 1, fontWeight: 'bold' }}>
+                Available Commands for Model:
+              </Typography>
+              <Typography variant="caption" sx={{ fontFamily: 'monospace', color: 'text.secondary', display: 'block', mb: 2 }}>
+                Actions: {(analysis as any).available_actions?.length || 0} | Verifications: {(analysis as any).available_verifications?.length || 0}
+              </Typography>
+              
+              {(analysis as any).ai_reasoning && (
+                <>
+                  <Typography variant="body2" sx={{ mb: 1, fontWeight: 'bold' }}>
+                    AI Reasoning:
+                  </Typography>
+                  <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 2 }}>
+                    {(analysis as any).ai_reasoning}
+                  </Typography>
+                </>
+              )}
+              
+              <Typography variant="body2" sx={{ mb: 1, fontWeight: 'bold' }}>
+                Command Validation:
+              </Typography>
+              <Typography variant="caption" sx={{ color: (analysis as any).validation_status === 'success' ? 'success.main' : 'error.main' }}>
+                {(analysis as any).validation_message || 'All commands validated successfully'}
+              </Typography>
+            </Box>
+          </Collapse>
+        </Box>
+
         {/* Compact Action Buttons */}
         <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2 }}>
           <Button 
@@ -387,9 +379,9 @@ export const AITestCaseGenerator: React.FC<AITestCaseGeneratorProps> = ({
             variant="contained"
             onClick={handleGenerate}
             disabled={selectedInterfaces.length === 0 || isGenerating}
-            startIcon={isGenerating ? <CircularProgress size={16} /> : <AIIcon />}
+            startIcon={isGenerating ? <CircularProgress size={16} /> : undefined}
           >
-            {isGenerating ? 'Generating...' : `Generate Test Case for ${selectedInterfaces.length} Interface${selectedInterfaces.length !== 1 ? 's' : ''}`}
+            {isGenerating ? 'Generating...' : 'Generate'}
           </Button>
         </Box>
       </Box>
