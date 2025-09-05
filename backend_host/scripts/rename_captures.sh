@@ -46,6 +46,8 @@ process_file() {
   fi
 }
 
+# Removed wait_for_file_stability function - using simple 250ms delay instead
+
 # Function to process capture files with smart grouping
 process_capture_file() {
   local filepath="$1"
@@ -55,6 +57,8 @@ process_capture_file() {
     echo "File $filepath does not exist or is not accessible" >> "$RENAME_LOG"
     return
   fi
+  
+  # File should be stable after 250ms wait in inotifywait loop
   
   sleep 0.01
   start_time=$(date +%s.%N)
@@ -66,8 +70,12 @@ process_capture_file() {
     return
   fi
   
-  # Convert to integer for calculations
+  # Validate frame number is reasonable (1-99999) and convert to integer
   local frame_int=$((10#$frame_num))
+  if [ "$frame_int" -lt 1 ] || [ "$frame_int" -gt 99999 ]; then
+    echo "Frame number $frame_num out of valid range (1-99999) for $filepath" >> "$RENAME_LOG"
+    return
+  fi
   
   # Determine FPS based on source (5 FPS for hardware, 2 FPS for VNC)
   local fps=5
@@ -104,8 +112,21 @@ process_capture_file() {
     fi
   fi
   
-  # Rename the file
-  if mv -f "$filepath" "$newname" 2>>"$RENAME_LOG"; then
+  # Check if target already exists to avoid conflicts
+  if [ -f "$newname" ]; then
+    echo "Target file $newname already exists, skipping rename of $filepath" >> "$RENAME_LOG"
+    return
+  fi
+  
+  # Validate timestamp format before renaming
+  local timestamp_part=$(basename "$newname" | grep -o '[0-9]\{14\}')
+  if [ -z "$timestamp_part" ]; then
+    echo "Generated filename has invalid timestamp format: $newname" >> "$RENAME_LOG"
+    return
+  fi
+  
+  # Rename the file with error handling
+  if mv "$filepath" "$newname" 2>>"$RENAME_LOG"; then
     if [ $suffix -eq 0 ]; then
       echo "Renamed $(basename "$filepath") to $(basename "$newname") (first in group, $file_type) at $(date)" >> "$RENAME_LOG"
     else
@@ -113,7 +134,8 @@ process_capture_file() {
     fi
     echo "Processed $file_type image: $(basename "$newname")" >> "$RENAME_LOG"
   else
-    echo "Failed to rename $filepath to $newname" >> "$RENAME_LOG"
+    echo "Failed to rename $filepath to $newname - file may be locked or in use" >> "$RENAME_LOG"
+    return
   fi
   
   end_time=$(date +%s.%N)
@@ -141,7 +163,10 @@ if [ ${#EXISTING_DIRS[@]} -eq 0 ]; then
 fi
 
 # Watch all existing directories with a single inotifywait
+# Wait 250ms for FFmpeg to finish writing (5 FPS = 200ms per frame + buffer)
 inotifywait -m "${EXISTING_DIRS[@]}" -e create --format '%w%f' |
   while read -r filepath; do
+    # Wait for FFmpeg to finish writing the file (250ms > 200ms frame interval)
+    sleep 0.25
     process_file "$filepath"
   done
