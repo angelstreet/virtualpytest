@@ -16,7 +16,38 @@ def get_supabase():
     return get_supabase_client()
 
 
-def store_system_metrics(host_name: str, device_data: Dict[str, Any], system_stats: Dict[str, Any]) -> bool:
+def store_system_metrics(host_name: str, metrics_data: Dict[str, Any]) -> bool:
+    """Store server metrics in system_metrics table"""
+    try:
+        supabase = get_supabase()
+        
+        insert_data = {
+            'host_name': host_name,
+            'timestamp': datetime.now().isoformat(),
+            'cpu_percent': metrics_data.get('cpu_percent', 0),
+            'memory_percent': metrics_data.get('memory_percent', 0),
+            'disk_percent': metrics_data.get('disk_percent', 0),
+            'uptime_seconds': metrics_data.get('uptime_seconds', 0),
+            'platform': metrics_data.get('platform', 'unknown'),
+            'architecture': metrics_data.get('architecture', 'unknown'),
+            'ffmpeg_status': metrics_data.get('ffmpeg_status', {}),
+            'monitor_status': metrics_data.get('monitor_status', {})
+        }
+        
+        result = supabase.table('system_metrics').insert(insert_data).execute()
+        
+        if result.data:
+            print(f"✅ Server metrics stored: {host_name}")
+            return True
+        else:
+            return False
+            
+    except Exception as e:
+        print(f"❌ Error storing server metrics for {host_name}: {e}")
+        return False
+
+
+def store_device_metrics(host_name: str, device_data: Dict[str, Any], system_stats: Dict[str, Any]) -> bool:
     """Store per-device metrics in system_device_metrics table"""
     try:
         supabase = get_supabase()

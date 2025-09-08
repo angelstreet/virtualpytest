@@ -323,8 +323,9 @@ def client_ping():
         per_device_metrics = ping_data.get('per_device_metrics', [])
         
         if system_stats and per_device_metrics:
+            from shared.lib.supabase.system_metrics_db import store_device_metrics
             for device_metric in per_device_metrics:
-                store_system_metrics(host_name, device_metric, system_stats)
+                store_device_metrics(host_name, device_metric, system_stats)
         
         print(f"💓 [PING] Host {host_name} ping received - status updated")
         

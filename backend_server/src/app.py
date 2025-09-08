@@ -266,8 +266,8 @@ def start_server(app):
                         'monitor_status': {'status': 'not_applicable'}  # Server doesn't run monitor
                     }
                     
-                    # Store server metrics with 'server' as host_name
-                    store_system_metrics('server', enhanced_stats)
+                    # Store server metrics in system_metrics table
+                    store_system_metrics('server', server_stats)
                     print("[@backend_server:metrics] 📊 Server metrics collected and stored")
                     
                     # Align to minute boundaries for synchronized data collection
