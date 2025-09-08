@@ -21,11 +21,6 @@ const GrafanaDashboard: React.FC = () => {
       slug: 'fullzap-results'
     },
     {
-      title: 'Navigation Execution',
-      uid: '467e4e29-d56b-44d9-b3e5-6e2fac687718',
-      slug: 'navigation-execution'
-    },
-    {
       title: 'Navigation Metrics',
       uid: '9369e579-7f7a-47ec-ae06-f3a49e530b4f',
       slug: 'navigation-metrics'
