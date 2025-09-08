@@ -68,8 +68,8 @@ def store_system_metrics(host_name: str, metrics_data: Dict[str, Any]) -> bool:
             'uptime_seconds': metrics_data.get('uptime_seconds', 0),
             'platform': metrics_data.get('platform', 'unknown'),
             'architecture': metrics_data.get('architecture', 'unknown'),
-            'ffmpeg_status': json.dumps(metrics_data.get('ffmpeg_status', {})),
-            'monitor_status': json.dumps(metrics_data.get('monitor_status', {}))
+            'ffmpeg_status': metrics_data.get('ffmpeg_status', {}),
+            'monitor_status': metrics_data.get('monitor_status', {})
         }
         
         # Insert into database
