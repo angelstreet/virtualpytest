@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 interface Dashboard {
   title: string;
   uid: string;
-  url: string;
+  slug: string;
 }
 
 const GrafanaDashboard: React.FC = () => {
@@ -13,22 +13,22 @@ const GrafanaDashboard: React.FC = () => {
     {
       title: 'Script Results',
       uid: '2a3b060a-7820-4a6e-aa2a-adcbf5408bd3',
-      url: '/grafana/d/2a3b060a-7820-4a6e-aa2a-adcbf5408bd3/script-results'
+      slug: 'script-results'
     },
     {
       title: 'FullZap Results',
       uid: 'f0fa93e1-e6a3-4a46-a374-6666a925952c',
-      url: '/grafana/d/f0fa93e1-e6a3-4a46-a374-6666a925952c/fullzap-results'
+      slug: 'fullzap-results'
     },
     {
       title: 'Navigation Execution',
       uid: '467e4e29-d56b-44d9-b3e5-6e2fac687718',
-      url: '/grafana/d/467e4e29-d56b-44d9-b3e5-6e2fac687718/navigation-execution'
+      slug: 'navigation-execution'
     },
     {
       title: 'Navigation Metrics',
       uid: '9369e579-7f7a-47ec-ae06-f3a49e530b4f',
-      url: '/grafana/d/9369e579-7f7a-47ec-ae06-f3a49e530b4f/navigation-metrics'
+      slug: 'navigation-metrics'
     }
   ];
 
@@ -70,7 +70,7 @@ const GrafanaDashboard: React.FC = () => {
       <Box sx={{ flex: 1, overflow: 'hidden' }}>
         {selectedDashboardData && (
           <iframe
-            src={`${grafanaBaseUrl}${selectedDashboardData.url}?orgId=1&refresh=30s&theme=light&kiosk`}
+            src={`${grafanaBaseUrl}/d/${selectedDashboardData.slug}/${selectedDashboardData.slug}?orgId=1&refresh=30s&theme=light&kiosk`}
             width="100%"
             height="100%"
             frameBorder="0"
