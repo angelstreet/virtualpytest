@@ -8,7 +8,12 @@ import os
 import json
 from datetime import datetime
 from typing import Dict, Any, Optional, List
-from .supabase_client import get_supabase_client
+from shared.lib.utils.supabase_utils import get_supabase_client
+
+
+def get_supabase():
+    """Get the Supabase client instance."""
+    return get_supabase_client()
 
 
 def store_system_metrics(host_name: str, metrics_data: Dict[str, Any]) -> bool:
@@ -23,7 +28,7 @@ def store_system_metrics(host_name: str, metrics_data: Dict[str, Any]) -> bool:
         bool: True if successful, False otherwise
     """
     try:
-        supabase = get_supabase_client()
+        supabase = get_supabase()
         
         # Calculate missing GB values if needed (for server metrics)
         memory_used_gb = metrics_data.get('memory_used_gb', 0)
@@ -95,7 +100,7 @@ def get_system_metrics(host_name: Optional[str] = None,
         List of system metrics records
     """
     try:
-        supabase = get_supabase_client()
+        supabase = get_supabase()
         
         # Build query
         query = supabase.table('system_metrics').select('*')
@@ -137,7 +142,7 @@ def get_latest_system_metrics(host_name: str) -> Optional[Dict[str, Any]]:
         Latest metrics record or None
     """
     try:
-        supabase = get_supabase_client()
+        supabase = get_supabase()
         
         result = supabase.table('system_metrics')\
             .select('*')\
@@ -167,7 +172,7 @@ def cleanup_old_metrics(days: int = 7) -> bool:
         bool: True if successful, False otherwise
     """
     try:
-        supabase = get_supabase_client()
+        supabase = get_supabase()
         
         # Calculate cutoff date
         from datetime import datetime, timedelta

@@ -209,7 +209,7 @@ const SystemMonitoring: React.FC = () => {
               <Button
                 variant="outlined"
                 startIcon={<DashboardIcon />}
-                onClick={() => window.open(`${grafanaBaseUrl}/d/system-monitoring`, '_blank')}
+                onClick={() => window.open(`${grafanaBaseUrl}/d/system-monitoring/system-monitoring`, '_blank')}
                 size="small"
               >
                 Open in Grafana
@@ -226,7 +226,7 @@ const SystemMonitoring: React.FC = () => {
               }}
             >
               <iframe
-                src={`${grafanaBaseUrl}/d-solo/system-monitoring?orgId=1&refresh=30s&theme=light&panelId=1`}
+                src={`${grafanaBaseUrl}/d-solo/system-monitoring/system-monitoring?orgId=1&refresh=30s&theme=light&kiosk=tv`}
                 width="100%"
                 height="100%"
                 frameBorder="0"
