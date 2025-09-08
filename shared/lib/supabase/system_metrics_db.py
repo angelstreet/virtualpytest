@@ -56,7 +56,7 @@ def store_device_metrics(host_name: str, device_data: Dict[str, Any], system_sta
             'host_name': host_name,
             'device_id': device_data.get('device_id', 'unknown'),
             'device_name': device_data.get('device_name', 'Unknown Device'),
-            'device_port': device_data.get('device_port', 'unknown'),
+            'device_port': device_data.get('device_port') or 'unknown',
             'device_model': device_data.get('device_model', 'unknown'),
             'timestamp': datetime.now().isoformat(),
             'cpu_percent': system_stats.get('cpu_percent', 0),

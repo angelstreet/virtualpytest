@@ -112,8 +112,9 @@ def get_per_device_metrics(devices_config: List[Dict[str, Any]]) -> List[Dict[st
         for device in devices_config:
             device_id = device.get('device_id', 'unknown')
             device_name = device.get('device_name', 'Unknown Device')
-            device_port = device.get('device_port', 'unknown')
             device_model = device.get('device_model', 'unknown')
+            
+            device_port = device.get('device_port', 'unknown')
             
             # Extract per-device FFmpeg status
             ffmpeg_device_status = 'unknown'
