@@ -1,286 +1,198 @@
 # System Monitoring Grafana Queries
 
-SQL queries for system monitoring dashboard panels in Grafana.
+SQL queries for the simplified system monitoring dashboard panels in Grafana.
 
-## Panel 1: System Health Overview (Stat Panels)
+## Panel 1: Server Status Overview (Stat Panels)
 
-### CPU Usage (Current)
+### Server CPU Usage
 ```sql
-SELECT 
-  ROUND(AVG(cpu_percent), 1) as "CPU %"
+SELECT ROUND(AVG(cpu_percent), 1) as "Server CPU %" 
 FROM system_metrics 
-WHERE $__timeFilter(timestamp)
-  AND timestamp >= NOW() - INTERVAL '5 minutes'
+WHERE timestamp >= NOW() - INTERVAL '5 minutes' 
+  AND host_name = 'server'
 ```
 
-### Memory Usage (Current)  
+### Server Memory Usage  
 ```sql
-SELECT 
-  ROUND(AVG(memory_percent), 1) as "Memory %"
+SELECT ROUND(AVG(memory_percent), 1) as "Server Memory %" 
 FROM system_metrics 
-WHERE $__timeFilter(timestamp)
-  AND timestamp >= NOW() - INTERVAL '5 minutes'
+WHERE timestamp >= NOW() - INTERVAL '5 minutes' 
+  AND host_name = 'server'
 ```
 
-### Disk Usage (Current)
+### Server Disk Usage
 ```sql
-SELECT 
-  ROUND(AVG(disk_percent), 1) as "Disk %"
+SELECT ROUND(AVG(disk_percent), 1) as "Server Disk %" 
 FROM system_metrics 
-WHERE $__timeFilter(timestamp)
-  AND timestamp >= NOW() - INTERVAL '5 minutes'
+WHERE timestamp >= NOW() - INTERVAL '5 minutes' 
+  AND host_name = 'server'
 ```
 
-### System Uptime (Current)
+### Server Uptime
 ```sql
-SELECT 
-  MAX(uptime_seconds) as "Uptime Seconds"
+SELECT MAX(uptime_seconds) as "Server Uptime" 
 FROM system_metrics 
-WHERE $__timeFilter(timestamp)
-  AND timestamp >= NOW() - INTERVAL '5 minutes'
+WHERE timestamp >= NOW() - INTERVAL '5 minutes' 
+  AND host_name = 'server'
 ```
 
-## Panel 2: System Metrics Over Time (Time Series)
+## Panel 2: Resource Usage Over Time (Time Series)
 
-### CPU, Memory, Disk Usage Trends
+### CPU Usage Over Time (All Systems)
 ```sql
-SELECT 
-  $__timeGroup(timestamp, '1m') as time,
-  AVG(cpu_percent) as "CPU %",
-  AVG(memory_percent) as "Memory %", 
-  AVG(disk_percent) as "Disk %"
-FROM system_metrics
-WHERE $__timeFilter(timestamp)
-GROUP BY time
-ORDER BY time
+SELECT timestamp as time, 
+       host_name as metric, 
+       cpu_percent as value 
+FROM system_metrics 
+WHERE $__timeFilter(timestamp) 
+ORDER BY timestamp
 ```
 
-## Panel 3: Host Status Table
+### Memory Usage Over Time (All Systems)
+```sql
+SELECT timestamp as time, 
+       host_name as metric, 
+       memory_percent as value 
+FROM system_metrics 
+WHERE $__timeFilter(timestamp) 
+ORDER BY timestamp
+```
 
-### Hosts and Server with Latest Metrics
+## Panel 3: Host Metrics with Process Status (Table)
+
+### Comprehensive Host Status with FFmpeg/Monitor Uptime
 ```sql
 WITH latest_metrics AS (
-  SELECT DISTINCT ON (host_name)
-    host_name,
-    timestamp,
-    cpu_percent,
-    memory_percent,
-    disk_percent,
-    uptime_seconds,
-    platform,
-    ffmpeg_status,
-    monitor_status
-  FROM system_metrics
-  WHERE $__timeFilter(timestamp)
+  SELECT DISTINCT ON (host_name) 
+    host_name, 
+    timestamp, 
+    cpu_percent, 
+    memory_percent, 
+    disk_percent, 
+    uptime_seconds, 
+    ffmpeg_status, 
+    monitor_status 
+  FROM system_metrics 
+  WHERE timestamp >= NOW() - INTERVAL '5 minutes' 
+    AND host_name != 'server' 
   ORDER BY host_name, timestamp DESC
-)
+), 
+active_periods AS (
+  SELECT host_name, 
+         'ffmpeg' as process_type, 
+         COUNT(*) * 60 as active_seconds 
+  FROM system_metrics 
+  WHERE host_name != 'server' 
+    AND timestamp >= NOW() - INTERVAL '12 hours' 
+    AND ffmpeg_status->>'status' = 'active' 
+  GROUP BY host_name 
+  UNION ALL 
+  SELECT host_name, 
+         'monitor' as process_type, 
+         COUNT(*) * 60 as active_seconds 
+  FROM system_metrics 
+  WHERE host_name != 'server' 
+    AND timestamp >= NOW() - INTERVAL '12 hours' 
+    AND monitor_status->>'status' = 'active' 
+  GROUP BY host_name
+) 
 SELECT 
+  lm.host_name as "Host", 
+  ROUND(lm.cpu_percent::numeric, 1) as "CPU %", 
+  ROUND(lm.memory_percent::numeric, 1) as "Memory %", 
+  ROUND(lm.disk_percent::numeric, 1) as "Disk %", 
   CASE 
-    WHEN host_name = 'server' THEN '🖥️ Server'
-    ELSE '📱 ' || host_name
-  END as "Host",
-  platform as "Platform",
-  ROUND(cpu_percent, 1) as "CPU %",
-  ROUND(memory_percent, 1) as "Memory %",
-  ROUND(disk_percent, 1) as "Disk %",
-  CASE 
-    WHEN host_name = 'server' THEN 'N/A'
-    WHEN uptime_seconds < 3600 THEN ROUND(uptime_seconds/60) || 'm'
-    WHEN uptime_seconds < 86400 THEN ROUND(uptime_seconds/3600) || 'h'
-    ELSE ROUND(uptime_seconds/86400) || 'd'
-  END as "Uptime",
-  CASE 
-    WHEN host_name = 'server' THEN 'N/A'
-    ELSE (ffmpeg_status->>'status')
-  END as "FFmpeg",
-  CASE 
-    WHEN host_name = 'server' THEN 'N/A'
-    ELSE (monitor_status->>'status')
-  END as "Monitor",
-  TO_CHAR(timestamp, 'HH24:MI:SS') as "Last Seen"
-FROM latest_metrics
-ORDER BY 
-  CASE WHEN host_name = 'server' THEN 0 ELSE 1 END,  -- Server first
-  host_name
-```
-
-## Panel 4: FFmpeg Process Status (Table)
-
-### FFmpeg Status by Host (Hosts Only)
-```sql
-WITH latest_metrics AS (
-  SELECT DISTINCT ON (host_name)
-    host_name,
-    timestamp,
-    ffmpeg_status
-  FROM system_metrics
-  WHERE $__timeFilter(timestamp)
-    AND host_name != 'server'  -- Exclude server
-  ORDER BY host_name, timestamp DESC
-)
-SELECT 
-  host_name as "Host",
-  (ffmpeg_status->>'status') as "Status",
-  (ffmpeg_status->>'processes_running')::int as "Processes",
-  CASE 
-    WHEN (ffmpeg_status->>'status') = 'active' THEN '🟢 Active'
-    WHEN (ffmpeg_status->>'status') = 'stuck' THEN '🟡 Stuck'
-    WHEN (ffmpeg_status->>'status') = 'stopped' THEN '🔴 Stopped'
-    ELSE '⚪ Unknown'
-  END as "Health",
-  TO_CHAR(timestamp, 'HH24:MI:SS') as "Last Check"
-FROM latest_metrics
-WHERE ffmpeg_status IS NOT NULL
-ORDER BY host_name
-```
-
-## Panel 5: Monitor Process Status (Table)
-
-### Capture Monitor Status by Host (Hosts Only)
-```sql
-WITH latest_metrics AS (
-  SELECT DISTINCT ON (host_name)
-    host_name,
-    timestamp,
-    monitor_status
-  FROM system_metrics
-  WHERE $__timeFilter(timestamp)
-    AND host_name != 'server'  -- Exclude server
-  ORDER BY host_name, timestamp DESC
-)
-SELECT 
-  host_name as "Host",
-  (monitor_status->>'status') as "Status",
-  CASE WHEN (monitor_status->>'process_running')::boolean THEN 'Yes' ELSE 'No' END as "Process Running",
-  CASE 
-    WHEN (monitor_status->>'status') = 'active' THEN '🟢 Active'
-    WHEN (monitor_status->>'status') = 'stuck' THEN '🟡 Stuck'  
-    WHEN (monitor_status->>'status') = 'stopped' THEN '🔴 Stopped'
-    ELSE '⚪ Unknown'
-  END as "Health",
-  TO_CHAR(timestamp, 'HH24:MI:SS') as "Last Check"
-FROM latest_metrics
-WHERE monitor_status IS NOT NULL
-ORDER BY host_name
-```
-
-## Panel 6: Resource Usage Histogram (Bar Chart)
-
-### Average Resource Usage by Host
-```sql
-SELECT 
-  host_name as "Host",
-  ROUND(AVG(cpu_percent), 1) as "CPU %",
-  ROUND(AVG(memory_percent), 1) as "Memory %",
-  ROUND(AVG(disk_percent), 1) as "Disk %"
-FROM system_metrics
-WHERE $__timeFilter(timestamp)
-GROUP BY host_name
-ORDER BY host_name
-```
-
-## Panel 7: System Alerts (Table)
-
-### Hosts with High Resource Usage
-```sql
-WITH latest_metrics AS (
-  SELECT DISTINCT ON (host_name)
-    host_name,
-    timestamp,
-    cpu_percent,
-    memory_percent,
-    disk_percent,
-    ffmpeg_status,
-    monitor_status
-  FROM system_metrics
-  WHERE $__timeFilter(timestamp)
-  ORDER BY host_name, timestamp DESC
-),
-alerts AS (
-  SELECT 
-    host_name,
+    WHEN lm.uptime_seconds < 3600 THEN ROUND(lm.uptime_seconds/60) || 'm' 
+    WHEN lm.uptime_seconds < 86400 THEN ROUND(lm.uptime_seconds/3600) || 'h' 
+    ELSE ROUND(lm.uptime_seconds/86400) || 'd' 
+  END as "Uptime", 
+  COALESCE((lm.ffmpeg_status->>'status'), 'N/A') as "FFmpeg", 
+  COALESCE(
     CASE 
-      WHEN cpu_percent > 80 THEN 'High CPU: ' || ROUND(cpu_percent, 1) || '%'
-      WHEN memory_percent > 85 THEN 'High Memory: ' || ROUND(memory_percent, 1) || '%'
-      WHEN disk_percent > 90 THEN 'High Disk: ' || ROUND(disk_percent, 1) || '%'
-      WHEN (ffmpeg_status->>'status') = 'stuck' THEN 'FFmpeg Stuck'
-      WHEN (ffmpeg_status->>'status') = 'stopped' THEN 'FFmpeg Stopped'
-      WHEN (monitor_status->>'status') = 'stuck' THEN 'Monitor Stuck'
-      WHEN (monitor_status->>'status') = 'stopped' THEN 'Monitor Stopped'
-      ELSE NULL
-    END as alert_message,
+      WHEN ap_ffmpeg.active_seconds < 3600 THEN ROUND(ap_ffmpeg.active_seconds/60) || 'm' 
+      WHEN ap_ffmpeg.active_seconds < 86400 THEN ROUND(ap_ffmpeg.active_seconds/3600) || 'h' 
+      ELSE ROUND(ap_ffmpeg.active_seconds/86400) || 'd' 
+    END, '0m'
+  ) as "FFmpeg Uptime", 
+  COALESCE((lm.monitor_status->>'status'), 'N/A') as "Monitor", 
+  COALESCE(
     CASE 
-      WHEN cpu_percent > 90 OR memory_percent > 95 OR disk_percent > 95 THEN 'Critical'
-      WHEN cpu_percent > 80 OR memory_percent > 85 OR disk_percent > 90 THEN 'Warning'
-      WHEN (ffmpeg_status->>'status') IN ('stuck', 'stopped') THEN 'Warning'
-      WHEN (monitor_status->>'status') IN ('stuck', 'stopped') THEN 'Warning'
-      ELSE 'Info'
-    END as severity,
-    timestamp
-  FROM latest_metrics
-)
-SELECT 
-  host_name as "Host",
-  alert_message as "Alert",
-  severity as "Severity",
-  TO_CHAR(timestamp, 'HH24:MI:SS') as "Time"
-FROM alerts
-WHERE alert_message IS NOT NULL
-ORDER BY 
-  CASE severity 
-    WHEN 'Critical' THEN 1 
-    WHEN 'Warning' THEN 2 
-    ELSE 3 
-  END,
-  host_name
+      WHEN ap_monitor.active_seconds < 3600 THEN ROUND(ap_monitor.active_seconds/60) || 'm' 
+      WHEN ap_monitor.active_seconds < 86400 THEN ROUND(ap_monitor.active_seconds/3600) || 'h' 
+      ELSE ROUND(ap_monitor.active_seconds/86400) || 'd' 
+    END, '0m'
+  ) as "Monitor Uptime", 
+  TO_CHAR(lm.timestamp, 'HH24:MI:SS') as "Last Update" 
+FROM latest_metrics lm 
+LEFT JOIN active_periods ap_ffmpeg ON lm.host_name = ap_ffmpeg.host_name 
+  AND ap_ffmpeg.process_type = 'ffmpeg' 
+LEFT JOIN active_periods ap_monitor ON lm.host_name = ap_monitor.host_name 
+  AND ap_monitor.process_type = 'monitor' 
+ORDER BY lm.host_name
 ```
+
+## Key Features
+
+### Process Uptime Tracking
+The Host Metrics table includes **FFmpeg Uptime** and **Monitor Uptime** columns that show:
+- **If process is "active"**: How long it's been continuously active
+- **If process is "stuck/stopped"**: How long it was active before failing
+
+This provides **stability metrics** to understand process reliability.
+
+### Data Synchronization
+- Server and host data collection is synchronized to minute boundaries
+- Eliminates timing offset issues that caused dots instead of lines in time series
+- Ensures smooth line visualization when displaying multiple systems together
 
 ## Panel Configuration Notes
 
-### Stat Panels (Panels 1)
+### Server Stat Panels (Row 1)
 - **Visualization**: Stat
 - **Unit**: Percent (0-100) for CPU/Memory/Disk, Seconds for Uptime
 - **Thresholds**: 
-  - Green: 0-70% (CPU/Memory), 0-80% (Disk)
-  - Yellow: 70-85% (CPU/Memory), 80-90% (Disk)  
-  - Red: 85%+ (CPU/Memory), 90%+ (Disk)
+  - Green: 0-70% (CPU/Memory), 0-85% (Disk)
+  - Yellow: 70-90% (CPU/Memory), 85-95% (Disk)  
+  - Red: 90%+ (CPU/Memory), 95%+ (Disk)
+- **Data Source**: Server only (`host_name = 'server'`)
 
-### Time Series (Panel 2)
+### Time Series Panels (Row 2)
 - **Visualization**: Time Series
 - **Y-Axis**: Percent (0-100)
-- **Legend**: Show
-- **Fill opacity**: 0.3
+- **Legend**: Show (displays each host as separate line)
+- **Line Style**: Forced line rendering with `showPoints: never`
+- **Data Source**: All systems (server + hosts)
 
-### Tables (Panels 3, 4, 5, 7)
+### Host Metrics Table (Row 3)
 - **Visualization**: Table
-- **Field Overrides**: Color coding for Health/Severity columns
-- **Cell display mode**: Color background for status columns
+- **Columns**: Host, CPU%, Memory%, Disk%, Uptime, FFmpeg, FFmpeg Uptime, Monitor, Monitor Uptime, Last Update
+- **Process Uptime**: Shows active time in last 12 hours
+- **Data Source**: Hosts only (excludes server)
 
-### Bar Chart (Panel 6)
-- **Visualization**: Bar Chart
-- **X-axis**: Host names
-- **Y-axis**: Percentage values
-- **Multiple series**: CPU, Memory, Disk
-
-## Dashboard Layout
+## Simplified Dashboard Layout
 
 ```
-┌─────────────┬─────────────┬─────────────┬─────────────┐
-│   CPU %     │  Memory %   │   Disk %    │   Uptime    │
-│   (Stat)    │   (Stat)    │   (Stat)    │   (Stat)    │
-└─────────────┴─────────────┴─────────────┴─────────────┘
-┌─────────────────────────────────────────────────────────┐
-│           System Metrics Over Time (Time Series)       │
-└─────────────────────────────────────────────────────────┘
-┌──────────────────────────┬──────────────────────────────┐
-│    FFmpeg Status         │    Monitor Status            │
-│      (Table)             │      (Table)                 │
-└──────────────────────────┴──────────────────────────────┘
-┌─────────────────────────────────────────────────────────┐
-│              Host Status Overview (Table)              │
-└─────────────────────────────────────────────────────────┘
-┌──────────────────────────┬──────────────────────────────┐
-│  Resource Usage by Host  │    System Alerts             │
-│     (Bar Chart)          │      (Table)                 │
-└──────────────────────────┴──────────────────────────────┘
+┌──────────┬──────────┬──────────┬──────────┐
+│Server CPU│Server Mem│Server Dsk│Server Up │
+│  (Stat)  │  (Stat)  │  (Stat)  │  (Stat)  │
+└──────────┴──────────┴──────────┴──────────┘
+┌─────────────────┬─────────────────────────┐
+│   CPU Usage     │    Memory Usage         │
+│  Over Time      │    Over Time            │
+│ (Time Series)   │   (Time Series)         │
+└─────────────────┴─────────────────────────┘
+┌─────────────────────────────────────────────┐
+│         Host Metrics & Process Status       │
+│              (Comprehensive Table)          │
+└─────────────────────────────────────────────┘
 ```
+
+## Database Schema
+
+The dashboard uses the `system_metrics` table with these key columns:
+- `host_name`: 'server' or host identifier
+- `cpu_percent`, `memory_percent`, `disk_percent`: Resource usage
+- `uptime_seconds`: System uptime
+- `ffmpeg_status`: JSONB with FFmpeg process status
+- `monitor_status`: JSONB with monitor process status
+- `timestamp`: Data collection time (synchronized to minute boundaries)
