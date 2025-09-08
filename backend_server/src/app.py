@@ -270,7 +270,10 @@ def start_server(app):
                     store_system_metrics('server', enhanced_stats)
                     print("[@backend_server:metrics] 📊 Server metrics collected and stored")
                     
-                    time.sleep(60)  # Collect every 60 seconds (same as host ping)
+                    # Align to minute boundaries for synchronized data collection
+                    current_time = time.time()
+                    next_minute = (int(current_time / 60) + 1) * 60
+                    time.sleep(next_minute - current_time)
                 except Exception as e:
                     print(f"[@backend_server:metrics] ❌ Metrics collection error: {e}")
                     time.sleep(60)  # Continue trying
