@@ -70,7 +70,7 @@ const GrafanaDashboard: React.FC = () => {
       <Box sx={{ flex: 1, overflow: 'hidden' }}>
         {selectedDashboardData && (
           <iframe
-            src={`${grafanaBaseUrl}/d/${selectedDashboardData.slug}/${selectedDashboardData.slug}?orgId=1&refresh=30s&theme=light&kiosk`}
+            src={`${grafanaBaseUrl}/d/${selectedDashboardData.uid}/${selectedDashboardData.slug}?orgId=1&refresh=30s&theme=light&kiosk`}
             width="100%"
             height="100%"
             frameBorder="0"
