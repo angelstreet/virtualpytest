@@ -118,6 +118,66 @@ FROM latest_device_metrics
 ORDER BY host_name, capture_folder
 ```
 
+## Panel 4: Stuck Events History (Table)
+
+### Historical Analysis of Process Failures
+```sql
+WITH status_transitions AS (
+  SELECT 
+    device_name,
+    capture_folder,
+    video_device,
+    device_id,
+    timestamp,
+    ffmpeg_status,
+    monitor_status,
+    LAG(ffmpeg_status) OVER (PARTITION BY device_id, capture_folder ORDER BY timestamp) as prev_ffmpeg_status,
+    LAG(monitor_status) OVER (PARTITION BY device_id, capture_folder ORDER BY timestamp) as prev_monitor_status,
+    LAG(timestamp) OVER (PARTITION BY device_id, capture_folder ORDER BY timestamp) as prev_timestamp
+  FROM system_device_metrics 
+  WHERE timestamp >= NOW() - INTERVAL '24 hours'
+),
+stuck_events AS (
+  SELECT 
+    device_name,
+    capture_folder,
+    video_device,
+    timestamp as stuck_time,
+    prev_timestamp,
+    CASE 
+      WHEN ffmpeg_status IN ('stopped', 'stuck') AND prev_ffmpeg_status = 'active' THEN 'FFmpeg'
+      WHEN monitor_status IN ('stopped', 'stuck') AND prev_monitor_status = 'active' THEN 'Monitor'
+      ELSE NULL
+    END as stuck_process,
+    CASE 
+      WHEN ffmpeg_status IN ('stopped', 'stuck') AND prev_ffmpeg_status = 'active' THEN ffmpeg_status
+      WHEN monitor_status IN ('stopped', 'stuck') AND prev_monitor_status = 'active' THEN monitor_status
+      ELSE NULL
+    END as stuck_status
+  FROM status_transitions
+  WHERE (ffmpeg_status IN ('stopped', 'stuck') AND prev_ffmpeg_status = 'active')
+     OR (monitor_status IN ('stopped', 'stuck') AND prev_monitor_status = 'active')
+)
+SELECT 
+  device_name as "Device Name",
+  capture_folder as "Capture Folder",
+  video_device as "Video Device",
+  stuck_process as "Process",
+  stuck_status as "Status",
+  TO_CHAR(stuck_time, 'HH24:MI:SS') as "Stuck Time",
+  CASE 
+    WHEN EXTRACT(EPOCH FROM (stuck_time - prev_timestamp)) < 3600 THEN 
+      ROUND(EXTRACT(EPOCH FROM (stuck_time - prev_timestamp))/60) || 'm'
+    WHEN EXTRACT(EPOCH FROM (stuck_time - prev_timestamp)) < 86400 THEN 
+      ROUND(EXTRACT(EPOCH FROM (stuck_time - prev_timestamp))/3600) || 'h'
+    ELSE 
+      ROUND(EXTRACT(EPOCH FROM (stuck_time - prev_timestamp))/86400) || 'd'
+  END as "Working Duration"
+FROM stuck_events
+ORDER BY stuck_time DESC
+LIMIT 20
+```
+
 ## Key Features
 
 ### Per-Device Granular Tracking
@@ -132,10 +192,16 @@ This enables precise identification of which specific device and process is havi
 
 ### Process Uptime Tracking
 The Host Metrics table includes **FFmpeg Uptime** and **Monitor Uptime** columns that show:
-- **If process is "active"**: How long it's been continuously active
-- **If process is "stuck/stopped"**: How long it was active before failing
+- **Database-Based Calculation**: Analyzes historical status changes from `system_device_metrics`
+- **Working Duration**: How long the process was continuously active before getting stuck
+- **Stability Metrics**: Understand process reliability and failure patterns
 
-This provides **stability metrics** to understand process reliability.
+### Stuck Events History Analysis
+The new **Stuck Events History** panel provides forensic analysis:
+- **Status Transitions**: Detects when processes change from 'active' to 'stuck'/'stopped'
+- **Working Duration**: Shows exactly how long each process worked before failing
+- **Failure Timeline**: 24-hour history of all stuck events with timestamps
+- **Process Identification**: Separate tracking for FFmpeg vs Monitor failures per device
 
 ### Data Synchronization
 - Server and host data collection is synchronized to minute boundaries

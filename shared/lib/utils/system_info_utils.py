@@ -13,6 +13,70 @@ import glob
 import subprocess
 from datetime import datetime
 from typing import List, Dict, Any
+from shared.lib.utils.supabase_utils import get_supabase_client
+
+
+def calculate_process_uptime_from_db(device_id: str, capture_folder: str, process_type: str) -> int:
+    """
+    Calculate process uptime by analyzing database history.
+    
+    Args:
+        device_id: Device identifier
+        capture_folder: Capture folder name (capture1, capture2, etc.)
+        process_type: 'ffmpeg' or 'monitor'
+        
+    Returns:
+        Uptime in seconds (how long the process was working before getting stuck)
+    """
+    try:
+        supabase = get_supabase_client()
+        
+        # Get recent status history for this device/process
+        status_field = f"{process_type}_status"
+        
+        result = supabase.table('system_device_metrics')\
+            .select(f'timestamp, {status_field}')\
+            .eq('device_id', device_id)\
+            .eq('capture_folder', capture_folder)\
+            .gte('timestamp', 'NOW() - INTERVAL \'24 hours\'')\
+            .order('timestamp', desc=False)\
+            .execute()
+        
+        if not result.data or len(result.data) < 2:
+            return 0
+            
+        records = result.data
+        
+        # Find the last continuous active period
+        active_start = None
+        active_end = None
+        
+        for i, record in enumerate(records):
+            status = record.get(status_field, 'unknown')
+            timestamp = record.get('timestamp')
+            
+            if status == 'active':
+                if active_start is None:
+                    active_start = timestamp
+                active_end = timestamp
+            else:
+                # Process stopped/stuck - end of active period
+                if active_start is not None:
+                    break
+        
+        # Calculate duration of last active period
+        if active_start and active_end:
+            from datetime import datetime
+            start_time = datetime.fromisoformat(active_start.replace('Z', '+00:00'))
+            end_time = datetime.fromisoformat(active_end.replace('Z', '+00:00'))
+            duration = (end_time - start_time).total_seconds()
+            return int(max(0, duration))
+            
+        return 0
+        
+    except Exception as e:
+        print(f"⚠️ Error calculating {process_type} uptime for {device_id}/{capture_folder}: {e}")
+        return 0
 
 
 def get_host_system_stats():
@@ -137,10 +201,8 @@ def get_per_device_metrics(devices_config: List[Dict[str, Any]]) -> List[Dict[st
                     last_activity_timestamp = device_files.get('last_activity', 0)
                     if last_activity_timestamp > 0:
                         ffmpeg_last_activity = datetime.fromtimestamp(last_activity_timestamp).isoformat()
-                        # Simple uptime calculation: time since last activity (if recent, assume continuous)
-                        time_since_activity = time.time() - last_activity_timestamp
-                        if time_since_activity < 300:  # If activity within 5 minutes, assume active
-                            ffmpeg_uptime_seconds = int(min(3600, time_since_activity + 300))  # Estimate uptime (max 1 hour for now)
+                        # Calculate uptime from database history
+                        ffmpeg_uptime_seconds = calculate_process_uptime_from_db(device_id, capture_folder, 'ffmpeg')
                 else:
                     ffmpeg_device_status = 'stopped'
             
@@ -156,10 +218,8 @@ def get_per_device_metrics(devices_config: List[Dict[str, Any]]) -> List[Dict[st
                     last_activity_timestamp = device_json.get('last_activity', 0)
                     if last_activity_timestamp > 0:
                         monitor_last_activity = datetime.fromtimestamp(last_activity_timestamp).isoformat()
-                        # Simple uptime calculation: time since last activity (if recent, assume continuous)
-                        time_since_activity = time.time() - last_activity_timestamp
-                        if time_since_activity < 300:  # If activity within 5 minutes, assume active
-                            monitor_uptime_seconds = int(min(3600, time_since_activity + 300))  # Estimate uptime (max 1 hour for now)
+                        # Calculate uptime from database history
+                        monitor_uptime_seconds = calculate_process_uptime_from_db(device_id, capture_folder, 'monitor')
                 else:
                     monitor_device_status = 'stopped'
             
