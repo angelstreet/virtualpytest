@@ -57,9 +57,6 @@ const SystemMonitoring: React.FC = () => {
         <Typography variant="h4" gutterBottom>
           System Monitoring
         </Typography>
-        <Typography variant="body1" color="textSecondary">
-          Real-time monitoring of system performance, FFmpeg processes, and capture monitoring.
-        </Typography>
       </Box>
 
       <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
@@ -72,7 +69,7 @@ const SystemMonitoring: React.FC = () => {
             aria-controls="monitoring-tabpanel-0"
           />
           <Tab 
-            label="Grafana Dashboard" 
+            label="Dashboard" 
             icon={<DashboardIcon />} 
             iconPosition="start"
             id="monitoring-tab-1"
@@ -204,7 +201,7 @@ const SystemMonitoring: React.FC = () => {
           <CardContent>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
               <Typography variant="h6">
-                System Monitoring Dashboard
+                System Monitoring
               </Typography>
               <Button
                 variant="outlined"
@@ -230,26 +227,13 @@ const SystemMonitoring: React.FC = () => {
                 width="100%"
                 height="100%"
                 frameBorder="0"
-                title="System Monitoring Dashboard"
+                title="System Monitoring"
                 style={{
                   border: 'none',
                   display: 'block',
                 }}
               />
             </Box>
-            
-            <Alert severity="info" sx={{ mt: 2 }}>
-              <Typography variant="body2">
-                <strong>Dashboard Features:</strong>
-              </Typography>
-              <Typography variant="body2" component="ul" sx={{ mt: 1, mb: 0 }}>
-                <li>Real-time CPU, Memory, and Disk usage monitoring</li>
-                <li>FFmpeg process health and file creation status</li>
-                <li>Capture monitor process status and JSON file generation</li>
-                <li>System uptime and host status overview</li>
-                <li>Historical trends and performance metrics</li>
-              </Typography>
-            </Alert>
           </CardContent>
         </Card>
       </TabPanel>
