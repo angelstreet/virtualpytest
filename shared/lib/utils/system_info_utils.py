@@ -140,7 +140,7 @@ def get_per_device_metrics(devices_config: List[Dict[str, Any]]) -> List[Dict[st
                         # Simple uptime calculation: time since last activity (if recent, assume continuous)
                         time_since_activity = time.time() - last_activity_timestamp
                         if time_since_activity < 300:  # If activity within 5 minutes, assume active
-                            ffmpeg_uptime_seconds = min(3600, time_since_activity + 300)  # Estimate uptime (max 1 hour for now)
+                            ffmpeg_uptime_seconds = int(min(3600, time_since_activity + 300))  # Estimate uptime (max 1 hour for now)
                 else:
                     ffmpeg_device_status = 'stopped'
             
@@ -159,7 +159,7 @@ def get_per_device_metrics(devices_config: List[Dict[str, Any]]) -> List[Dict[st
                         # Simple uptime calculation: time since last activity (if recent, assume continuous)
                         time_since_activity = time.time() - last_activity_timestamp
                         if time_since_activity < 300:  # If activity within 5 minutes, assume active
-                            monitor_uptime_seconds = min(3600, time_since_activity + 300)  # Estimate uptime (max 1 hour for now)
+                            monitor_uptime_seconds = int(min(3600, time_since_activity + 300))  # Estimate uptime (max 1 hour for now)
                 else:
                     monitor_device_status = 'stopped'
             
