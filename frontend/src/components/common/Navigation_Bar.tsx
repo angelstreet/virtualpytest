@@ -16,6 +16,7 @@ import {
   Warning as IncidentIcon,
   GridView as HeatmapIcon,
   Notifications as NotificationsIcon,
+  Dashboard as DashboardIcon,
 } from '@mui/icons-material';
 import { Box, Button } from '@mui/material';
 import React from 'react';
@@ -172,6 +173,25 @@ const NavigationBar: React.FC = () => {
 
       {/* Test Results Dropdown */}
       <NavigationDropdown label="Test Results" items={testResultsItems} />
+
+      {/* Grafana Dashboard - Simple button */}
+      <Button
+        component={Link}
+        to="/grafana-dashboard"
+        startIcon={<DashboardIcon fontSize="small" />}
+        sx={{
+          color: location.pathname === '/grafana-dashboard' ? 'secondary.main' : 'inherit',
+          fontWeight: location.pathname === '/grafana-dashboard' ? 600 : 400,
+          textTransform: 'none',
+          px: 2,
+          py: 1,
+          '&:hover': {
+            backgroundColor: 'rgba(255, 255, 255, 0.1)',
+          },
+        }}
+      >
+        Grafana Dashboard
+      </Button>
 
       {/* Configuration Dropdown */}
       <NavigationDropdown label="Configuration" items={configurationItems} />

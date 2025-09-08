@@ -22,6 +22,7 @@ const Environment = React.lazy(() => import('./pages/Environment'));
 const Library = React.lazy(() => import('./pages/Library'));
 const Models = React.lazy(() => import('./pages/Models'));
 const SystemMonitoring = React.lazy(() => import('./pages/SystemMonitoring'));
+const GrafanaDashboard = React.lazy(() => import('./pages/GrafanaDashboard'));
 const RunTests = React.lazy(() => import('./pages/RunTests'));
 const RunCampaigns = React.lazy(() => import('./pages/RunCampaigns'));
 const TestReports = React.lazy(() => import('./pages/TestReports'));
@@ -178,6 +179,9 @@ const App: React.FC = () => {
                   <Route path="/test-results/campaign-reports" element={<CampaignReports />} />
                   <Route path="/test-results/model-reports" element={<ModelReports />} />
                   <Route path="/test-results/dependency-report" element={<DependencyReport />} />
+
+                  {/* Grafana Dashboard Route */}
+                  <Route path="/grafana-dashboard" element={<GrafanaDashboard />} />
 
                   {/* Configuration Routes */}
                   <Route
