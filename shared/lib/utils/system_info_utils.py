@@ -134,7 +134,13 @@ def get_per_device_metrics(devices_config: List[Dict[str, Any]]) -> List[Dict[st
                 device_files = ffmpeg_status['recent_files'][capture_folder]
                 if device_files.get('images', 0) > 0 or device_files.get('video_segments', 0) > 0:
                     ffmpeg_device_status = 'active'
-                    ffmpeg_last_activity = datetime.fromtimestamp(device_files.get('last_activity', 0)).isoformat() if device_files.get('last_activity', 0) > 0 else None
+                    last_activity_timestamp = device_files.get('last_activity', 0)
+                    if last_activity_timestamp > 0:
+                        ffmpeg_last_activity = datetime.fromtimestamp(last_activity_timestamp).isoformat()
+                        # Simple uptime calculation: time since last activity (if recent, assume continuous)
+                        time_since_activity = time.time() - last_activity_timestamp
+                        if time_since_activity < 300:  # If activity within 5 minutes, assume active
+                            ffmpeg_uptime_seconds = min(3600, time_since_activity + 300)  # Estimate uptime (max 1 hour for now)
                 else:
                     ffmpeg_device_status = 'stopped'
             
@@ -147,7 +153,13 @@ def get_per_device_metrics(devices_config: List[Dict[str, Any]]) -> List[Dict[st
                 device_json = monitor_status['recent_json_files'][capture_folder]
                 if device_json.get('count', 0) > 0:
                     monitor_device_status = 'active'
-                    monitor_last_activity = datetime.fromtimestamp(device_json.get('last_activity', 0)).isoformat() if device_json.get('last_activity', 0) > 0 else None
+                    last_activity_timestamp = device_json.get('last_activity', 0)
+                    if last_activity_timestamp > 0:
+                        monitor_last_activity = datetime.fromtimestamp(last_activity_timestamp).isoformat()
+                        # Simple uptime calculation: time since last activity (if recent, assume continuous)
+                        time_since_activity = time.time() - last_activity_timestamp
+                        if time_since_activity < 300:  # If activity within 5 minutes, assume active
+                            monitor_uptime_seconds = min(3600, time_since_activity + 300)  # Estimate uptime (max 1 hour for now)
                 else:
                     monitor_device_status = 'stopped'
             

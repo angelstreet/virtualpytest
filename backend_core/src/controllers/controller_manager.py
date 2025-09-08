@@ -314,6 +314,7 @@ def _create_device_with_controllers(device_config: Dict[str, Any]) -> Device:
         device_config.get('device_port'),
         device_config.get('video_stream_path'),
         device_config.get('video_capture_path'),
+        device_config.get('video'),
         device_config.get('ir_type')
     )
     

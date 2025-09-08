@@ -19,7 +19,7 @@ class Device:
         verification_controllers = device.get_controllers('verification')
     """
     
-    def __init__(self, device_id: str, device_name: str, device_model: str, device_ip: str = None, device_port: str = None, video_stream_path: str = None, video_capture_path: str = None, ir_type: str = None):
+    def __init__(self, device_id: str, device_name: str, device_model: str, device_ip: str = None, device_port: str = None, video_stream_path: str = None, video_capture_path: str = None, video: str = None, ir_type: str = None):
         """
         Initialize a device.
         
@@ -31,6 +31,7 @@ class Device:
             device_port: Device port
             video_stream_path: Video stream path for URL building (e.g., '/host/stream/capture1')
             video_capture_path: Video capture path for URL building (e.g., '/var/www/html/stream/capture1')
+            video: Video device path (e.g., '/dev/video0', '/dev/video2')
             ir_type: IR remote type (e.g., 'samsung', 'eos')
         """
         self.device_id = device_id
@@ -43,6 +44,7 @@ class Device:
         # Store video paths for URL building purposes
         self.video_stream_path = video_stream_path
         self.video_capture_path = video_capture_path
+        self.video = video
         
         # Controllers organized by type
         self._controllers: Dict[str, List[BaseController]] = {
@@ -289,5 +291,7 @@ class Device:
             device_dict['video_stream_path'] = self.video_stream_path
         if self.video_capture_path:
             device_dict['video_capture_path'] = self.video_capture_path
+        if self.video:
+            device_dict['video'] = self.video
         
         return device_dict 
