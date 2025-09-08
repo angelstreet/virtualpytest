@@ -16,74 +16,42 @@ def get_supabase():
     return get_supabase_client()
 
 
-def store_system_metrics(host_name: str, metrics_data: Dict[str, Any]) -> bool:
-    """
-    Store system metrics in the database
-    
-    Args:
-        host_name: Name of the host
-        metrics_data: Enhanced system stats from get_enhanced_system_stats()
-    
-    Returns:
-        bool: True if successful, False otherwise
-    """
+def store_system_metrics(host_name: str, device_data: Dict[str, Any], system_stats: Dict[str, Any]) -> bool:
+    """Store per-device metrics in system_device_metrics table"""
     try:
         supabase = get_supabase()
         
-        # Calculate missing GB values if needed (for server metrics)
-        memory_used_gb = metrics_data.get('memory_used_gb', 0)
-        memory_total_gb = metrics_data.get('memory_total_gb', 0)
-        disk_used_gb = metrics_data.get('disk_used_gb', 0)
-        disk_total_gb = metrics_data.get('disk_total_gb', 0)
-        
-        if memory_used_gb == 0 or memory_total_gb == 0:
-            try:
-                import psutil
-                memory = psutil.virtual_memory()
-                memory_used_gb = round(memory.used / (1024**3), 2)
-                memory_total_gb = round(memory.total / (1024**3), 2)
-            except:
-                pass
-        
-        if disk_used_gb == 0 or disk_total_gb == 0:
-            try:
-                import psutil
-                disk = psutil.disk_usage('/')
-                disk_used_gb = round(disk.used / (1024**3), 2)
-                disk_total_gb = round(disk.total / (1024**3), 2)
-            except:
-                pass
-        
-        # Prepare data for insertion
         insert_data = {
             'host_name': host_name,
+            'device_id': device_data.get('device_id', 'unknown'),
+            'device_name': device_data.get('device_name', 'Unknown Device'),
+            'device_port': device_data.get('device_port', 'unknown'),
+            'device_model': device_data.get('device_model', 'unknown'),
             'timestamp': datetime.now().isoformat(),
-            'cpu_percent': metrics_data.get('cpu_percent', 0),
-            'memory_percent': metrics_data.get('memory_percent', 0),
-            'memory_used_gb': memory_used_gb,
-            'memory_total_gb': memory_total_gb,
-            'disk_percent': metrics_data.get('disk_percent', 0),
-            'disk_used_gb': disk_used_gb,
-            'disk_total_gb': disk_total_gb,
-            'uptime_seconds': metrics_data.get('uptime_seconds', 0),
-            'platform': metrics_data.get('platform', 'unknown'),
-            'architecture': metrics_data.get('architecture', 'unknown'),
-            'ffmpeg_status': metrics_data.get('ffmpeg_status', {}),
-            'monitor_status': metrics_data.get('monitor_status', {})
+            'cpu_percent': system_stats.get('cpu_percent', 0),
+            'memory_percent': system_stats.get('memory_percent', 0),
+            'disk_percent': system_stats.get('disk_percent', 0),
+            'uptime_seconds': system_stats.get('uptime_seconds', 0),
+            'platform': system_stats.get('platform', 'unknown'),
+            'architecture': system_stats.get('architecture', 'unknown'),
+            'ffmpeg_status': device_data.get('ffmpeg_status', 'unknown'),
+            'ffmpeg_uptime_seconds': device_data.get('ffmpeg_uptime_seconds', 0),
+            'ffmpeg_last_activity': device_data.get('ffmpeg_last_activity'),
+            'monitor_status': device_data.get('monitor_status', 'unknown'),
+            'monitor_uptime_seconds': device_data.get('monitor_uptime_seconds', 0),
+            'monitor_last_activity': device_data.get('monitor_last_activity')
         }
         
-        # Insert into database
-        result = supabase.table('system_metrics').insert(insert_data).execute()
+        result = supabase.table('system_device_metrics').insert(insert_data).execute()
         
         if result.data:
-            print(f"✅ [METRICS] Stored system metrics for {host_name}")
+            print(f"✅ Device metrics stored: {host_name}/{device_data.get('device_name', 'unknown')}")
             return True
         else:
-            print(f"❌ [METRICS] Failed to store metrics for {host_name}: No data returned")
             return False
             
     except Exception as e:
-        print(f"❌ [METRICS] Error storing system metrics for {host_name}: {e}")
+        print(f"❌ Error storing device metrics for {host_name}: {e}")
         return False
 
 

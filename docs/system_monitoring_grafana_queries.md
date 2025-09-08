@@ -38,100 +38,93 @@ WHERE timestamp >= NOW() - INTERVAL '5 minutes'
 
 ## Panel 2: Resource Usage Over Time (Time Series)
 
-### CPU Usage Over Time (All Systems)
+### CPU Usage Over Time (Per Device)
 ```sql
 SELECT timestamp as time, 
-       host_name as metric, 
+       CONCAT(host_name, ' - ', device_name) as metric, 
        cpu_percent as value 
-FROM system_metrics 
+FROM system_device_metrics 
 WHERE $__timeFilter(timestamp) 
 ORDER BY timestamp
 ```
 
-### Memory Usage Over Time (All Systems)
+### Memory Usage Over Time (Per Device)
 ```sql
 SELECT timestamp as time, 
-       host_name as metric, 
+       CONCAT(host_name, ' - ', device_name) as metric, 
        memory_percent as value 
-FROM system_metrics 
+FROM system_device_metrics 
 WHERE $__timeFilter(timestamp) 
 ORDER BY timestamp
 ```
 
-## Panel 3: Host Metrics with Process Status (Table)
+## Panel 3: Device Metrics - Per Device Status (Table)
 
-### Comprehensive Host Status with FFmpeg/Monitor Uptime
+### Individual Device Status with Separate FFmpeg/Monitor Tracking
 ```sql
-WITH latest_metrics AS (
-  SELECT DISTINCT ON (host_name) 
+WITH latest_device_metrics AS (
+  SELECT DISTINCT ON (host_name, device_id) 
     host_name, 
+    device_id, 
+    device_name, 
+    device_port, 
+    device_model, 
     timestamp, 
     cpu_percent, 
     memory_percent, 
     disk_percent, 
     uptime_seconds, 
     ffmpeg_status, 
-    monitor_status 
-  FROM system_metrics 
+    ffmpeg_last_activity, 
+    ffmpeg_uptime_seconds, 
+    monitor_status, 
+    monitor_last_activity, 
+    monitor_uptime_seconds 
+  FROM system_device_metrics 
   WHERE timestamp >= NOW() - INTERVAL '5 minutes' 
-    AND host_name != 'server' 
-  ORDER BY host_name, timestamp DESC
-), 
-active_periods AS (
-  SELECT host_name, 
-         'ffmpeg' as process_type, 
-         COUNT(*) * 60 as active_seconds 
-  FROM system_metrics 
-  WHERE host_name != 'server' 
-    AND timestamp >= NOW() - INTERVAL '12 hours' 
-    AND ffmpeg_status->>'status' = 'active' 
-  GROUP BY host_name 
-  UNION ALL 
-  SELECT host_name, 
-         'monitor' as process_type, 
-         COUNT(*) * 60 as active_seconds 
-  FROM system_metrics 
-  WHERE host_name != 'server' 
-    AND timestamp >= NOW() - INTERVAL '12 hours' 
-    AND monitor_status->>'status' = 'active' 
-  GROUP BY host_name
+  ORDER BY host_name, device_id, timestamp DESC
 ) 
 SELECT 
-  lm.host_name as "Host", 
-  ROUND(lm.cpu_percent::numeric, 1) as "CPU %", 
-  ROUND(lm.memory_percent::numeric, 1) as "Memory %", 
-  ROUND(lm.disk_percent::numeric, 1) as "Disk %", 
+  host_name as "Host", 
+  device_name as "Device Name", 
+  device_port as "Port", 
+  ROUND(cpu_percent::numeric, 1) as "CPU %", 
+  ROUND(memory_percent::numeric, 1) as "Memory %", 
+  ROUND(disk_percent::numeric, 1) as "Disk %", 
   CASE 
-    WHEN lm.uptime_seconds < 3600 THEN ROUND(lm.uptime_seconds/60) || 'm' 
-    WHEN lm.uptime_seconds < 86400 THEN ROUND(lm.uptime_seconds/3600) || 'h' 
-    ELSE ROUND(lm.uptime_seconds/86400) || 'd' 
+    WHEN uptime_seconds < 3600 THEN ROUND(uptime_seconds/60) || 'm' 
+    WHEN uptime_seconds < 86400 THEN ROUND(uptime_seconds/3600) || 'h' 
+    ELSE ROUND(uptime_seconds/86400) || 'd' 
   END as "Uptime", 
-  COALESCE((lm.ffmpeg_status->>'status'), 'N/A') as "FFmpeg", 
-  COALESCE(
-    CASE 
-      WHEN ap_ffmpeg.active_seconds < 3600 THEN ROUND(ap_ffmpeg.active_seconds/60) || 'm' 
-      WHEN ap_ffmpeg.active_seconds < 86400 THEN ROUND(ap_ffmpeg.active_seconds/3600) || 'h' 
-      ELSE ROUND(ap_ffmpeg.active_seconds/86400) || 'd' 
-    END, '0m'
-  ) as "FFmpeg Uptime", 
-  COALESCE((lm.monitor_status->>'status'), 'N/A') as "Monitor", 
-  COALESCE(
-    CASE 
-      WHEN ap_monitor.active_seconds < 3600 THEN ROUND(ap_monitor.active_seconds/60) || 'm' 
-      WHEN ap_monitor.active_seconds < 86400 THEN ROUND(ap_monitor.active_seconds/3600) || 'h' 
-      ELSE ROUND(ap_monitor.active_seconds/86400) || 'd' 
-    END, '0m'
-  ) as "Monitor Uptime", 
-  TO_CHAR(lm.timestamp, 'HH24:MI:SS') as "Last Update" 
-FROM latest_metrics lm 
-LEFT JOIN active_periods ap_ffmpeg ON lm.host_name = ap_ffmpeg.host_name 
-  AND ap_ffmpeg.process_type = 'ffmpeg' 
-LEFT JOIN active_periods ap_monitor ON lm.host_name = ap_monitor.host_name 
-  AND ap_monitor.process_type = 'monitor' 
-ORDER BY lm.host_name
+  ffmpeg_status as "FFmpeg", 
+  CASE 
+    WHEN ffmpeg_uptime_seconds < 3600 THEN ROUND(ffmpeg_uptime_seconds/60) || 'm' 
+    WHEN ffmpeg_uptime_seconds < 86400 THEN ROUND(ffmpeg_uptime_seconds/3600) || 'h' 
+    ELSE ROUND(ffmpeg_uptime_seconds/86400) || 'd' 
+  END as "FFmpeg Uptime", 
+  COALESCE(TO_CHAR(ffmpeg_last_activity, 'HH24:MI:SS'), 'N/A') as "FFmpeg Last", 
+  monitor_status as "Monitor", 
+  CASE 
+    WHEN monitor_uptime_seconds < 3600 THEN ROUND(monitor_uptime_seconds/60) || 'm' 
+    WHEN monitor_uptime_seconds < 86400 THEN ROUND(monitor_uptime_seconds/3600) || 'h' 
+    ELSE ROUND(monitor_uptime_seconds/86400) || 'd' 
+  END as "Monitor Uptime", 
+  COALESCE(TO_CHAR(monitor_last_activity, 'HH24:MI:SS'), 'N/A') as "Monitor Last", 
+  TO_CHAR(timestamp, 'HH24:MI:SS') as "Last Update" 
+FROM latest_device_metrics 
+ORDER BY host_name, device_port
 ```
 
 ## Key Features
+
+### Per-Device Granular Tracking
+The new system provides **individual device monitoring** with complete separation:
+- **Real Device Names**: Shows actual device names (e.g., "Samsung TV Living Room", "Fire TV Bedroom")
+- **Separate FFmpeg/Monitor Status**: Each device shows independent FFmpeg and Monitor status
+- **Individual Timing**: Separate last activity and uptime tracking for FFmpeg and Monitor per device
+- **Port Mapping**: Shows which capture port (capture1, capture2) each device uses
+
+This enables precise identification of which specific device and process is having issues.
 
 ### Process Uptime Tracking
 The Host Metrics table includes **FFmpeg Uptime** and **Monitor Uptime** columns that show:
@@ -163,11 +156,13 @@ This provides **stability metrics** to understand process reliability.
 - **Line Style**: Forced line rendering with `showPoints: never`
 - **Data Source**: All systems (server + hosts)
 
-### Host Metrics Table (Row 3)
+### Device Metrics Table (Row 3)
 - **Visualization**: Table
-- **Columns**: Host, CPU%, Memory%, Disk%, Uptime, FFmpeg, FFmpeg Uptime, Monitor, Monitor Uptime, Last Update
-- **Process Uptime**: Shows active time in last 12 hours
-- **Data Source**: Hosts only (excludes server)
+- **Columns**: Host, Device Name, Port, CPU%, Memory%, Disk%, Uptime, FFmpeg, FFmpeg Uptime, FFmpeg Last, Monitor, Monitor Uptime, Monitor Last, Last Update
+- **Per-Device Tracking**: Each row represents one device with individual status
+- **Separate Timing**: FFmpeg and Monitor have independent last activity and uptime tracking
+- **Real Names**: Uses actual device names from device registration
+- **Data Source**: system_device_metrics table (per-device records)
 
 ## Simplified Dashboard Layout
 
@@ -189,10 +184,26 @@ This provides **stability metrics** to understand process reliability.
 
 ## Database Schema
 
-The dashboard uses the `system_metrics` table with these key columns:
-- `host_name`: 'server' or host identifier
-- `cpu_percent`, `memory_percent`, `disk_percent`: Resource usage
-- `uptime_seconds`: System uptime
-- `ffmpeg_status`: JSONB with FFmpeg process status
-- `monitor_status`: JSONB with monitor process status
+The dashboard uses two main tables:
+
+### `system_metrics` (Server Data)
+- `host_name`: 'server' only
+- `cpu_percent`, `memory_percent`, `disk_percent`: Server resource usage
+- `uptime_seconds`: Server system uptime
+- `timestamp`: Data collection time (synchronized to minute boundaries)
+
+### `system_device_metrics` (Per-Device Data)
+- `host_name`: Host machine identifier (sunri-pi1, sunri-pi3, etc.)
+- `device_id`: Technical device ID (device1, device2, etc.)
+- `device_name`: Real device name (Samsung TV Living Room, Fire TV Bedroom, etc.)
+- `device_port`: Capture port (capture1, capture2, etc.)
+- `device_model`: Device model (samsung_tv, fire_tv, etc.)
+- `cpu_percent`, `memory_percent`, `disk_percent`: Host resource usage (shared across devices)
+- `uptime_seconds`: Host system uptime
+- `ffmpeg_status`: Per-device FFmpeg status (active, stuck, stopped)
+- `ffmpeg_uptime_seconds`: Duration FFmpeg was continuously active
+- `ffmpeg_last_activity`: Timestamp when FFmpeg last created files
+- `monitor_status`: Per-device Monitor status (active, stuck, stopped)
+- `monitor_uptime_seconds`: Duration Monitor was continuously active
+- `monitor_last_activity`: Timestamp when Monitor last created JSON files
 - `timestamp`: Data collection time (synchronized to minute boundaries)

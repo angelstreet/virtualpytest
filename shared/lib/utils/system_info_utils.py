@@ -11,6 +11,8 @@ import platform
 import time
 import glob
 import subprocess
+from datetime import datetime
+from typing import List, Dict, Any
 
 
 def get_host_system_stats():
@@ -87,6 +89,81 @@ def get_enhanced_system_stats():
         }
 
 
+def get_per_device_metrics(devices_config: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """
+    Get per-device metrics with real device names and separate FFmpeg/Monitor tracking.
+    
+    Args:
+        devices_config: List of device configurations from host registration
+        
+    Returns:
+        List of device metrics with individual status and timing
+    """
+    try:
+        # Get base system stats
+        base_stats = get_host_system_stats()
+        
+        # Get FFmpeg and Monitor status
+        ffmpeg_status = check_ffmpeg_status()
+        monitor_status = check_monitor_status()
+        
+        device_metrics = []
+        
+        for device in devices_config:
+            device_id = device.get('device_id', 'unknown')
+            device_name = device.get('device_name', 'Unknown Device')
+            device_port = device.get('device_port', 'unknown')
+            device_model = device.get('device_model', 'unknown')
+            
+            # Extract per-device FFmpeg status
+            ffmpeg_device_status = 'unknown'
+            ffmpeg_last_activity = None
+            ffmpeg_uptime_seconds = 0
+            
+            if ffmpeg_status.get('recent_files', {}).get(device_port):
+                device_files = ffmpeg_status['recent_files'][device_port]
+                if device_files.get('images', 0) > 0 or device_files.get('video_segments', 0) > 0:
+                    ffmpeg_device_status = 'active'
+                    ffmpeg_last_activity = datetime.fromtimestamp(device_files.get('last_activity', 0)).isoformat() if device_files.get('last_activity', 0) > 0 else None
+                else:
+                    ffmpeg_device_status = 'stopped'
+            
+            # Extract per-device Monitor status  
+            monitor_device_status = 'unknown'
+            monitor_last_activity = None
+            monitor_uptime_seconds = 0
+            
+            if monitor_status.get('recent_json_files', {}).get(device_port):
+                device_json = monitor_status['recent_json_files'][device_port]
+                if device_json.get('count', 0) > 0:
+                    monitor_device_status = 'active'
+                    monitor_last_activity = datetime.fromtimestamp(device_json.get('last_activity', 0)).isoformat() if device_json.get('last_activity', 0) > 0 else None
+                else:
+                    monitor_device_status = 'stopped'
+            
+            # Create device metrics record
+            device_metric = {
+                'device_id': device_id,
+                'device_name': device_name,
+                'device_port': device_port,
+                'device_model': device_model,
+                'ffmpeg_status': ffmpeg_device_status,
+                'ffmpeg_last_activity': ffmpeg_last_activity,
+                'ffmpeg_uptime_seconds': ffmpeg_uptime_seconds,  # Will be calculated from history
+                'monitor_status': monitor_device_status,
+                'monitor_last_activity': monitor_last_activity,
+                'monitor_uptime_seconds': monitor_uptime_seconds  # Will be calculated from history
+            }
+            
+            device_metrics.append(device_metric)
+            
+        return device_metrics
+        
+    except Exception as e:
+        print(f"⚠️ Error getting per-device metrics: {e}")
+        return []
+
+
 def check_ffmpeg_status():
     """Check FFmpeg process and recent file creation status"""
     try:
@@ -142,15 +219,29 @@ def check_ffmpeg_status():
                     'last_activity': max([os.path.getmtime(f) for f in (recent_ts + recent_jpg)]) if (recent_ts + recent_jpg) else 0
                 }
         
-        # Determine overall status
-        if status['processes_running'] > 0:
-            total_recent_files = sum(dev['video_segments'] + dev['images'] for dev in status['recent_files'].values())
-            if total_recent_files > 0:
-                status['status'] = 'active'
+        # Determine per-device status and overall status
+        device_statuses = {}
+        active_devices = 0
+        stuck_devices = 0
+        
+        for device_name, files_info in status['recent_files'].items():
+            recent_files_count = files_info['video_segments'] + files_info['images']
+            if recent_files_count > 0:
+                device_statuses[device_name] = 'active'
+                active_devices += 1
             else:
-                status['status'] = 'stuck'  # Processes running but no recent files
+                device_statuses[device_name] = 'stopped'  # No recent files for this device
+        
+        status['device_statuses'] = device_statuses
+        
+        # Overall status logic
+        if status['processes_running'] > 0:
+            if active_devices > 0:
+                status['status'] = 'active'  # At least one device is active
+            else:
+                status['status'] = 'stuck'  # Processes running but no devices producing files
         else:
-            status['status'] = 'stopped'
+            status['status'] = 'stopped'  # No processes running
             
         return status
         
@@ -209,15 +300,27 @@ def check_monitor_status():
                     'last_activity': max([os.path.getmtime(f) for f in recent_json]) if recent_json else 0
                 }
         
-        # Determine overall status
-        if status['process_running']:
-            total_recent_json = sum(dev['count'] for dev in status['recent_json_files'].values())
-            if total_recent_json > 0:
-                status['status'] = 'active'
+        # Determine per-device status and overall status
+        device_statuses = {}
+        active_devices = 0
+        
+        for device_name, json_info in status['recent_json_files'].items():
+            if json_info['count'] > 0:
+                device_statuses[device_name] = 'active'
+                active_devices += 1
             else:
-                status['status'] = 'stuck'  # Process running but no recent JSON files
+                device_statuses[device_name] = 'stopped'  # No recent JSON files for this device
+        
+        status['device_statuses'] = device_statuses
+        
+        # Overall status logic
+        if status['process_running']:
+            if active_devices > 0:
+                status['status'] = 'active'  # At least one device is active
+            else:
+                status['status'] = 'stuck'  # Process running but no devices producing JSON files
         else:
-            status['status'] = 'stopped'
+            status['status'] = 'stopped'  # No process running
             
         return status
         

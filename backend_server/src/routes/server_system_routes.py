@@ -318,10 +318,13 @@ def client_ping():
         if not success:
             return jsonify({'error': 'Failed to update host ping'}), 500
         
-        # Store system metrics in database if available
+        # Store per-device metrics
         system_stats = ping_data.get('system_stats')
-        if system_stats:
-            store_system_metrics(host_name, system_stats)
+        per_device_metrics = ping_data.get('per_device_metrics', [])
+        
+        if system_stats and per_device_metrics:
+            for device_metric in per_device_metrics:
+                store_system_metrics(host_name, device_metric, system_stats)
         
         print(f"💓 [PING] Host {host_name} ping received - status updated")
         

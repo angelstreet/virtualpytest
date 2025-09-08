@@ -18,7 +18,7 @@ import platform
 from typing import Dict, Any, Optional, List
 from datetime import datetime
 
-from .system_info_utils import get_host_system_stats, get_enhanced_system_stats
+from .system_info_utils import get_host_system_stats, get_enhanced_system_stats, get_per_device_metrics
 # Import get_host dynamically to avoid relative import issues
 try:
     import sys
@@ -305,11 +305,16 @@ def send_ping_to_server():
     try:
         host = get_host()
         
+        # Get device configurations for per-device metrics
+        devices_config = [device.to_dict() for device in host.get_devices()]
+        
         ping_data = {
             'host_name': host.host_name,
             'timestamp': time.time(),
-            'system_stats': get_enhanced_system_stats(),
-            'device_count': host.get_device_count()
+            'system_stats': get_host_system_stats(),  # Base system stats
+            'device_count': host.get_device_count(),
+            'devices_config': devices_config,  # Device information for per-device tracking
+            'per_device_metrics': get_per_device_metrics(devices_config)  # Per-device status
         }
         
         ping_url = client_registration_state['urls'].get('ping')
