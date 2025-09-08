@@ -58,6 +58,8 @@ def store_device_metrics(host_name: str, device_data: Dict[str, Any], system_sta
             'device_name': device_data.get('device_name', 'Unknown Device'),
             'device_port': device_data.get('device_port') or 'unknown',
             'device_model': device_data.get('device_model', 'unknown'),
+            'capture_folder': device_data.get('capture_folder', 'unknown'),
+            'video_device': device_data.get('video_device', 'unknown'),
             'timestamp': datetime.now().isoformat(),
             'cpu_percent': system_stats.get('cpu_percent', 0),
             'memory_percent': system_stats.get('memory_percent', 0),
@@ -76,7 +78,7 @@ def store_device_metrics(host_name: str, device_data: Dict[str, Any], system_sta
         result = supabase.table('system_device_metrics').insert(insert_data).execute()
         
         if result.data:
-            print(f"✅ Device metrics stored: {host_name}/{device_data.get('device_name', 'unknown')}")
+            print(f"✅ Device metrics stored: {host_name}/{device_data.get('device_name', 'unknown')} ({device_data.get('capture_folder', 'unknown')})")
             return True
         else:
             return False

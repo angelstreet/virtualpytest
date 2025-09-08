@@ -68,6 +68,8 @@ WITH latest_device_metrics AS (
     device_id, 
     device_name, 
     device_port, 
+    capture_folder,
+    video_device,
     device_model, 
     timestamp, 
     cpu_percent, 
@@ -87,7 +89,8 @@ WITH latest_device_metrics AS (
 SELECT 
   host_name as "Host", 
   device_name as "Device Name", 
-  device_port as "Port", 
+  capture_folder as "Capture Folder",
+  video_device as "Video Device", 
   ROUND(cpu_percent::numeric, 1) as "CPU %", 
   ROUND(memory_percent::numeric, 1) as "Memory %", 
   ROUND(disk_percent::numeric, 1) as "Disk %", 
@@ -112,7 +115,7 @@ SELECT
   COALESCE(TO_CHAR(monitor_last_activity, 'HH24:MI:SS'), 'N/A') as "Monitor Last", 
   TO_CHAR(timestamp, 'HH24:MI:SS') as "Last Update" 
 FROM latest_device_metrics 
-ORDER BY host_name, device_port
+ORDER BY host_name, capture_folder
 ```
 
 ## Key Features
@@ -122,7 +125,8 @@ The new system provides **individual device monitoring** with complete separatio
 - **Real Device Names**: Shows actual device names (e.g., "Samsung TV Living Room", "Fire TV Bedroom")
 - **Separate FFmpeg/Monitor Status**: Each device shows independent FFmpeg and Monitor status
 - **Individual Timing**: Separate last activity and uptime tracking for FFmpeg and Monitor per device
-- **Port Mapping**: Shows which capture port (capture1, capture2) each device uses
+- **Capture Folder Tracking**: Shows which capture folder (capture, capture1, capture2) each device uses for FFmpeg/Monitor processes
+- **Video Hardware Tracking**: Shows which video device (/dev/video0, /dev/video2) each device uses for hardware identification
 
 This enables precise identification of which specific device and process is having issues.
 
@@ -158,7 +162,7 @@ This provides **stability metrics** to understand process reliability.
 
 ### Device Metrics Table (Row 3)
 - **Visualization**: Table
-- **Columns**: Host, Device Name, Port, CPU%, Memory%, Disk%, Uptime, FFmpeg, FFmpeg Uptime, FFmpeg Last, Monitor, Monitor Uptime, Monitor Last, Last Update
+- **Columns**: Host, Device Name, Capture Folder, Video Device, CPU%, Memory%, Disk%, Uptime, FFmpeg, FFmpeg Uptime, FFmpeg Last, Monitor, Monitor Uptime, Monitor Last, Last Update
 - **Per-Device Tracking**: Each row represents one device with individual status
 - **Separate Timing**: FFmpeg and Monitor have independent last activity and uptime tracking
 - **Real Names**: Uses actual device names from device registration
@@ -196,7 +200,9 @@ The dashboard uses two main tables:
 - `host_name`: Host machine identifier (sunri-pi1, sunri-pi3, etc.)
 - `device_id`: Technical device ID (device1, device2, etc.)
 - `device_name`: Real device name (Samsung TV Living Room, Fire TV Bedroom, etc.)
-- `device_port`: Capture port (capture1, capture2, etc.)
+- `device_port`: Device port number
+- `capture_folder`: Capture folder name (capture, capture1, capture2, etc.)
+- `video_device`: Video hardware device path (/dev/video0, /dev/video2, etc.)
 - `device_model`: Device model (samsung_tv, fire_tv, etc.)
 - `cpu_percent`, `memory_percent`, `disk_percent`: Host resource usage (shared across devices)
 - `uptime_seconds`: Host system uptime

@@ -113,29 +113,38 @@ def get_per_device_metrics(devices_config: List[Dict[str, Any]]) -> List[Dict[st
             device_id = device.get('device_id', 'unknown')
             device_name = device.get('device_name', 'Unknown Device')
             device_model = device.get('device_model', 'unknown')
-            
             device_port = device.get('device_port', 'unknown')
             
-            # Extract per-device FFmpeg status
+            # Extract capture folder from video_capture_path
+            video_capture_path = device.get('video_capture_path', '')
+            capture_folder = 'unknown'
+            if video_capture_path:
+                # Extract folder name from path like '/var/www/html/stream/capture1' -> 'capture1'
+                capture_folder = os.path.basename(video_capture_path.rstrip('/'))
+            
+            # Extract video device path (e.g., '/dev/video0', '/dev/video2')
+            video_device = device.get('video', 'unknown')
+            
+            # Extract per-device FFmpeg status using capture folder
             ffmpeg_device_status = 'unknown'
             ffmpeg_last_activity = None
             ffmpeg_uptime_seconds = 0
             
-            if ffmpeg_status.get('recent_files', {}).get(device_port):
-                device_files = ffmpeg_status['recent_files'][device_port]
+            if ffmpeg_status.get('recent_files', {}).get(capture_folder):
+                device_files = ffmpeg_status['recent_files'][capture_folder]
                 if device_files.get('images', 0) > 0 or device_files.get('video_segments', 0) > 0:
                     ffmpeg_device_status = 'active'
                     ffmpeg_last_activity = datetime.fromtimestamp(device_files.get('last_activity', 0)).isoformat() if device_files.get('last_activity', 0) > 0 else None
                 else:
                     ffmpeg_device_status = 'stopped'
             
-            # Extract per-device Monitor status  
+            # Extract per-device Monitor status using capture folder
             monitor_device_status = 'unknown'
             monitor_last_activity = None
             monitor_uptime_seconds = 0
             
-            if monitor_status.get('recent_json_files', {}).get(device_port):
-                device_json = monitor_status['recent_json_files'][device_port]
+            if monitor_status.get('recent_json_files', {}).get(capture_folder):
+                device_json = monitor_status['recent_json_files'][capture_folder]
                 if device_json.get('count', 0) > 0:
                     monitor_device_status = 'active'
                     monitor_last_activity = datetime.fromtimestamp(device_json.get('last_activity', 0)).isoformat() if device_json.get('last_activity', 0) > 0 else None
@@ -148,6 +157,8 @@ def get_per_device_metrics(devices_config: List[Dict[str, Any]]) -> List[Dict[st
                 'device_name': device_name,
                 'device_port': device_port,
                 'device_model': device_model,
+                'capture_folder': capture_folder,  # Add capture folder for tracking
+                'video_device': video_device,  # Add video device path for hardware tracking
                 'ffmpeg_status': ffmpeg_device_status,
                 'ffmpeg_last_activity': ffmpeg_last_activity,
                 'ffmpeg_uptime_seconds': ffmpeg_uptime_seconds,  # Will be calculated from history
