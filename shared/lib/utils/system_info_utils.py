@@ -245,6 +245,9 @@ def get_per_device_metrics(devices_config: List[Dict[str, Any]]) -> List[Dict[st
             ffmpeg_last_activity = None
             ffmpeg_uptime_seconds = 0
             
+            # Check if FFmpeg processes are running (from overall status)
+            ffmpeg_processes_running = ffmpeg_status.get('processes_running', 0) > 0
+            
             if ffmpeg_status.get('recent_files', {}).get(capture_folder):
                 device_files = ffmpeg_status['recent_files'][capture_folder]
                 if device_files.get('images', 0) > 0 or device_files.get('video_segments', 0) > 0:
@@ -255,7 +258,17 @@ def get_per_device_metrics(devices_config: List[Dict[str, Any]]) -> List[Dict[st
                         # Calculate working uptime: process start -> last file activity
                         ffmpeg_uptime_seconds = calculate_process_working_uptime(capture_folder, 'ffmpeg')
                 else:
-                    ffmpeg_device_status = 'stopped'
+                    # No recent files - check if process is running
+                    if ffmpeg_processes_running:
+                        ffmpeg_device_status = 'stuck'  # Process running but no files
+                    else:
+                        ffmpeg_device_status = 'stopped'  # No process running
+            else:
+                # No files data for this capture folder
+                if ffmpeg_processes_running:
+                    ffmpeg_device_status = 'stuck'  # Process running but no files for this device
+                else:
+                    ffmpeg_device_status = 'stopped'  # No process running
             
             # Clear cache if FFmpeg is stuck/stopped (ready for restart detection)
             clear_process_cache_if_stuck(capture_folder, 'ffmpeg', ffmpeg_device_status)
@@ -264,6 +277,9 @@ def get_per_device_metrics(devices_config: List[Dict[str, Any]]) -> List[Dict[st
             monitor_device_status = 'unknown'
             monitor_last_activity = None
             monitor_uptime_seconds = 0
+            
+            # Check if Monitor process is running (from overall status)
+            monitor_process_running = monitor_status.get('process_running', False)
             
             if monitor_status.get('recent_json_files', {}).get(capture_folder):
                 device_json = monitor_status['recent_json_files'][capture_folder]
@@ -275,7 +291,17 @@ def get_per_device_metrics(devices_config: List[Dict[str, Any]]) -> List[Dict[st
                         # Calculate working uptime: process start -> last file activity
                         monitor_uptime_seconds = calculate_process_working_uptime(capture_folder, 'monitor')
                 else:
-                    monitor_device_status = 'stopped'
+                    # No recent JSON files - check if process is running
+                    if monitor_process_running:
+                        monitor_device_status = 'stuck'  # Process running but no JSON files
+                    else:
+                        monitor_device_status = 'stopped'  # No process running
+            else:
+                # No JSON files data for this capture folder
+                if monitor_process_running:
+                    monitor_device_status = 'stuck'  # Process running but no JSON files for this device
+                else:
+                    monitor_device_status = 'stopped'  # No process running
             
             # Clear cache if Monitor is stuck/stopped (ready for restart detection)
             clear_process_cache_if_stuck(capture_folder, 'monitor', monitor_device_status)
