@@ -15,67 +15,118 @@ from datetime import datetime
 from typing import List, Dict, Any
 from shared.lib.utils.supabase_utils import get_supabase_client
 
+# Global cache for process start times
+_process_start_cache = {}
 
-def calculate_process_uptime_from_db(device_id: str, capture_folder: str, process_type: str) -> int:
+def get_process_start_time(capture_folder: str, process_type: str) -> float:
+    """Get process start time from system"""
+    try:
+        if process_type == 'ffmpeg':
+            # Find FFmpeg process for this capture folder
+            result = subprocess.run(['pgrep', '-f', f'ffmpeg.*{capture_folder}'], 
+                                  capture_output=True, text=True)
+            if result.returncode == 0:
+                pid = result.stdout.strip().split('\n')[0]  # Get first PID
+                # Get process start time using ps
+                ps_result = subprocess.run(['ps', '-o', 'lstart=', '-p', pid], 
+                                         capture_output=True, text=True)
+                if ps_result.returncode == 0:
+                    start_str = ps_result.stdout.strip()
+                    # Parse start time (format: "Mon Jan 1 10:00:00 2024")
+                    return datetime.strptime(start_str, '%a %b %d %H:%M:%S %Y').timestamp()
+                    
+        elif process_type == 'monitor':
+            # Find monitor process (capture_monitor.py)
+            result = subprocess.run(['pgrep', '-f', 'capture_monitor.py'], 
+                                  capture_output=True, text=True)
+            if result.returncode == 0:
+                pid = result.stdout.strip().split('\n')[0]  # Get first PID
+                ps_result = subprocess.run(['ps', '-o', 'lstart=', '-p', pid], 
+                                         capture_output=True, text=True)
+                if ps_result.returncode == 0:
+                    start_str = ps_result.stdout.strip()
+                    return datetime.strptime(start_str, '%a %b %d %H:%M:%S %Y').timestamp()
+        
+        return None
+        
+    except Exception as e:
+        print(f"⚠️ Error getting {process_type} start time for {capture_folder}: {e}")
+        return None
+
+def get_cached_process_start_time(capture_folder: str, process_type: str) -> float:
+    """Get cached process start time, query only if not cached"""
+    cache_key = f"{process_type}_{capture_folder}"
+    
+    # Return cached value if exists
+    if cache_key in _process_start_cache:
+        return _process_start_cache[cache_key]
+    
+    # Query and cache new start time
+    start_time = get_process_start_time(capture_folder, process_type)
+    if start_time:
+        _process_start_cache[cache_key] = start_time
+    
+    return start_time
+
+def clear_process_cache_if_stuck(capture_folder: str, process_type: str, status: str):
+    """Clear cache when process is stuck/stopped (ready for restart detection)"""
+    if status in ['stuck', 'stopped']:
+        cache_key = f"{process_type}_{capture_folder}"
+        _process_start_cache.pop(cache_key, None)  # Clear cache for restart
+
+def calculate_process_working_uptime(capture_folder: str, process_type: str) -> int:
     """
-    Calculate process uptime by analyzing database history.
+    Calculate working uptime: process_start_time -> last_file_activity_time
     
     Args:
-        device_id: Device identifier
         capture_folder: Capture folder name (capture1, capture2, etc.)
         process_type: 'ffmpeg' or 'monitor'
         
     Returns:
-        Uptime in seconds (how long the process was working before getting stuck)
+        Working uptime in seconds (how long process worked before getting stuck)
     """
     try:
-        supabase = get_supabase_client()
+        # Get cached process start time (only queries if not cached)
+        process_start_time = get_cached_process_start_time(capture_folder, process_type)
         
-        # Get recent status history for this device/process
-        status_field = f"{process_type}_status"
-        
-        result = supabase.table('system_device_metrics')\
-            .select(f'timestamp, {status_field}')\
-            .eq('device_id', device_id)\
-            .eq('capture_folder', capture_folder)\
-            .gte('timestamp', 'NOW() - INTERVAL \'24 hours\'')\
-            .order('timestamp', desc=False)\
-            .execute()
-        
-        if not result.data or len(result.data) < 2:
+        if not process_start_time:
             return 0
             
-        records = result.data
+        # Get last file activity time
+        last_activity_time = None
         
-        # Find the last continuous active period
-        active_start = None
-        active_end = None
+        if process_type == 'ffmpeg':
+            # Check FFmpeg output files
+            capture_dir = f'/var/www/html/stream/{capture_folder}'
+            if os.path.exists(capture_dir):
+                # Get video segments and images
+                ts_files = glob.glob(os.path.join(capture_dir, 'segment_*.ts'))
+                captures_dir = os.path.join(capture_dir, 'captures')
+                jpg_files = []
+                if os.path.exists(captures_dir):
+                    jpg_files = glob.glob(os.path.join(captures_dir, 'capture_*.jpg'))
+                
+                all_files = ts_files + jpg_files
+                if all_files:
+                    last_activity_time = max([os.path.getmtime(f) for f in all_files])
+                    
+        elif process_type == 'monitor':
+            # Check Monitor JSON files
+            captures_dir = f'/var/www/html/stream/{capture_folder}/captures'
+            if os.path.exists(captures_dir):
+                json_files = glob.glob(os.path.join(captures_dir, 'capture_*.json'))
+                if json_files:
+                    last_activity_time = max([os.path.getmtime(f) for f in json_files])
         
-        for i, record in enumerate(records):
-            status = record.get(status_field, 'unknown')
-            timestamp = record.get('timestamp')
-            
-            if status == 'active':
-                if active_start is None:
-                    active_start = timestamp
-                active_end = timestamp
-            else:
-                # Process stopped/stuck - end of active period
-                if active_start is not None:
-                    break
-        
-        # Calculate duration of last active period
-        if active_start and active_end:
-            from datetime import datetime
-            start_time = datetime.fromisoformat(active_start.replace('Z', '+00:00'))
-            end_time = datetime.fromisoformat(active_end.replace('Z', '+00:00'))
-            duration = (end_time - start_time).total_seconds()
-            return int(max(0, duration))
+        # Calculate working uptime: start -> last activity
+        if last_activity_time and process_start_time:
+            working_uptime = last_activity_time - process_start_time
+            return int(max(0, working_uptime))
             
         return 0
         
     except Exception as e:
-        print(f"⚠️ Error calculating {process_type} uptime for {device_id}/{capture_folder}: {e}")
+        print(f"⚠️ Error calculating {process_type} working uptime for {capture_folder}: {e}")
         return 0
 
 
@@ -201,10 +252,13 @@ def get_per_device_metrics(devices_config: List[Dict[str, Any]]) -> List[Dict[st
                     last_activity_timestamp = device_files.get('last_activity', 0)
                     if last_activity_timestamp > 0:
                         ffmpeg_last_activity = datetime.fromtimestamp(last_activity_timestamp).isoformat()
-                        # Calculate uptime from database history
-                        ffmpeg_uptime_seconds = calculate_process_uptime_from_db(device_id, capture_folder, 'ffmpeg')
+                        # Calculate working uptime: process start -> last file activity
+                        ffmpeg_uptime_seconds = calculate_process_working_uptime(capture_folder, 'ffmpeg')
                 else:
                     ffmpeg_device_status = 'stopped'
+            
+            # Clear cache if FFmpeg is stuck/stopped (ready for restart detection)
+            clear_process_cache_if_stuck(capture_folder, 'ffmpeg', ffmpeg_device_status)
             
             # Extract per-device Monitor status using capture folder
             monitor_device_status = 'unknown'
@@ -218,10 +272,13 @@ def get_per_device_metrics(devices_config: List[Dict[str, Any]]) -> List[Dict[st
                     last_activity_timestamp = device_json.get('last_activity', 0)
                     if last_activity_timestamp > 0:
                         monitor_last_activity = datetime.fromtimestamp(last_activity_timestamp).isoformat()
-                        # Calculate uptime from database history
-                        monitor_uptime_seconds = calculate_process_uptime_from_db(device_id, capture_folder, 'monitor')
+                        # Calculate working uptime: process start -> last file activity
+                        monitor_uptime_seconds = calculate_process_working_uptime(capture_folder, 'monitor')
                 else:
                     monitor_device_status = 'stopped'
+            
+            # Clear cache if Monitor is stuck/stopped (ready for restart detection)
+            clear_process_cache_if_stuck(capture_folder, 'monitor', monitor_device_status)
             
             # Create device metrics record
             device_metric = {
