@@ -39,7 +39,6 @@ export function HLSVideoPlayer({
   videoElementRef,
   model,
   layoutConfig,
-  isExpanded = false,
   muted = true, // Default to muted for autoplay compliance
 }: HLSVideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);

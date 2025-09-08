@@ -339,7 +339,7 @@ export const MonitoringPlayer: React.FC<MonitoringPlayerProps> = ({
           showLanguageMenu={
             isAnalyzingLanguageMenu || hasLanguageMenuResults
           }
-          analysisTimestamp={currentFrameTimestamp}
+          analysisTimestamp={currentFrameTimestamp || undefined}
         />
       </Box>
 

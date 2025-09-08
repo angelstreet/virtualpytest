@@ -72,8 +72,6 @@ export function ScreenDefinitionEditor({
     handleBackToStream,
     handleImageLoad,
     handleAreaSelected,
-
-    handleTap,
   } = actions;
 
   const compactDimensions = getCompactViewDimensions(deviceModel);

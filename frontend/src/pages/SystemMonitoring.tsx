@@ -2,6 +2,7 @@ import {
   Visibility as MonitorIcon,
   Timeline as MetricsIcon,
   Speed as PerformanceIcon,
+  Dashboard as DashboardIcon,
 } from '@mui/icons-material';
 import {
   Box,
@@ -12,10 +13,44 @@ import {
   Alert,
   Chip,
   LinearProgress,
+  Button,
+  Tabs,
+  Tab,
 } from '@mui/material';
-import React from 'react';
+import React, { useState } from 'react';
+
+interface TabPanelProps {
+  children?: React.ReactNode;
+  index: number;
+  value: number;
+}
+
+function TabPanel(props: TabPanelProps) {
+  const { children, value, index, ...other } = props;
+
+  return (
+    <div
+      role="tabpanel"
+      hidden={value !== index}
+      id={`monitoring-tabpanel-${index}`}
+      aria-labelledby={`monitoring-tab-${index}`}
+      {...other}
+    >
+      {value === index && <Box sx={{ p: 0 }}>{children}</Box>}
+    </div>
+  );
+}
 
 const SystemMonitoring: React.FC = () => {
+  const [tabValue, setTabValue] = useState(0);
+
+  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
+    setTabValue(newValue);
+  };
+
+  // Get Grafana base URL from environment or use default
+  const grafanaBaseUrl = process.env.REACT_APP_GRAFANA_URL || 'http://localhost:5109/grafana';
+
   return (
     <Box>
       <Box sx={{ mb: 3 }}>
@@ -23,14 +58,30 @@ const SystemMonitoring: React.FC = () => {
           System Monitoring
         </Typography>
         <Typography variant="body1" color="textSecondary">
-          Real-time monitoring of test execution and system performance.
+          Real-time monitoring of system performance, FFmpeg processes, and capture monitoring.
         </Typography>
       </Box>
 
-      <Alert severity="info" sx={{ mb: 3 }}>
-        Test monitoring feature is coming soon. This will provide real-time insights into test
-        execution.
-      </Alert>
+      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+        <Tabs value={tabValue} onChange={handleTabChange} aria-label="monitoring tabs">
+          <Tab 
+            label="Overview" 
+            icon={<MonitorIcon />} 
+            iconPosition="start"
+            id="monitoring-tab-0"
+            aria-controls="monitoring-tabpanel-0"
+          />
+          <Tab 
+            label="Grafana Dashboard" 
+            icon={<DashboardIcon />} 
+            iconPosition="start"
+            id="monitoring-tab-1"
+            aria-controls="monitoring-tabpanel-1"
+          />
+        </Tabs>
+      </Box>
+
+      <TabPanel value={tabValue} index={0}>
 
       <Grid container spacing={3}>
         {/* System Status */}
@@ -146,6 +197,62 @@ const SystemMonitoring: React.FC = () => {
           </Card>
         </Grid>
       </Grid>
+      </TabPanel>
+
+      <TabPanel value={tabValue} index={1}>
+        <Card>
+          <CardContent>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              <Typography variant="h6">
+                System Monitoring Dashboard
+              </Typography>
+              <Button
+                variant="outlined"
+                startIcon={<DashboardIcon />}
+                onClick={() => window.open(`${grafanaBaseUrl}/d/system-monitoring`, '_blank')}
+                size="small"
+              >
+                Open in Grafana
+              </Button>
+            </Box>
+            
+            <Box
+              sx={{
+                width: '100%',
+                height: '800px',
+                border: '1px solid #e0e0e0',
+                borderRadius: 1,
+                overflow: 'hidden',
+              }}
+            >
+              <iframe
+                src={`${grafanaBaseUrl}/d-solo/system-monitoring?orgId=1&refresh=30s&theme=light&panelId=1`}
+                width="100%"
+                height="100%"
+                frameBorder="0"
+                title="System Monitoring Dashboard"
+                style={{
+                  border: 'none',
+                  display: 'block',
+                }}
+              />
+            </Box>
+            
+            <Alert severity="info" sx={{ mt: 2 }}>
+              <Typography variant="body2">
+                <strong>Dashboard Features:</strong>
+              </Typography>
+              <Typography variant="body2" component="ul" sx={{ mt: 1, mb: 0 }}>
+                <li>Real-time CPU, Memory, and Disk usage monitoring</li>
+                <li>FFmpeg process health and file creation status</li>
+                <li>Capture monitor process status and JSON file generation</li>
+                <li>System uptime and host status overview</li>
+                <li>Historical trends and performance metrics</li>
+              </Typography>
+            </Alert>
+          </CardContent>
+        </Card>
+      </TabPanel>
     </Box>
   );
 };

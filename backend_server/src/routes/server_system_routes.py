@@ -17,6 +17,7 @@ from typing import TypedDict, Optional, List, Any
 from backend_core.src.controllers.controller_config_factory import create_controller_configs_from_device_info
 
 from shared.lib.utils.host_utils import get_host_manager
+from shared.lib.supabase.system_metrics_db import store_system_metrics
 
 server_system_bp = Blueprint('server_system', __name__, url_prefix='/server/system')
 
@@ -316,6 +317,11 @@ def client_ping():
         
         if not success:
             return jsonify({'error': 'Failed to update host ping'}), 500
+        
+        # Store system metrics in database if available
+        system_stats = ping_data.get('system_stats')
+        if system_stats:
+            store_system_metrics(host_name, system_stats)
         
         print(f"💓 [PING] Host {host_name} ping received - status updated")
         

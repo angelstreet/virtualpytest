@@ -18,7 +18,7 @@ import platform
 from typing import Dict, Any, Optional, List
 from datetime import datetime
 
-from .system_info_utils import get_host_system_stats
+from .system_info_utils import get_host_system_stats, get_enhanced_system_stats
 # Import get_host dynamically to avoid relative import issues
 try:
     import sys
@@ -222,8 +222,8 @@ def register_host_with_server():
             if capabilities:
                 print(f"       Capabilities: {', '.join(capabilities)}")
         
-        # Get system stats
-        system_stats = get_host_system_stats()
+        # Get enhanced system stats for registration
+        system_stats = get_enhanced_system_stats()
         
         # Get HOST_URL from environment variable instead of constructing it
         host_url = os.getenv('HOST_URL', f"http://{host.host_ip}:{host.host_port}")
@@ -308,7 +308,7 @@ def send_ping_to_server():
         ping_data = {
             'host_name': host.host_name,
             'timestamp': time.time(),
-            'system_stats': get_host_system_stats(),
+            'system_stats': get_enhanced_system_stats(),
             'device_count': host.get_device_count()
         }
         
@@ -416,8 +416,8 @@ def start_ping_thread():
     def ping_worker():
         while not ping_stop_event.is_set():
             send_ping_to_server()
-            # Wait 30 seconds or until stop event
-            ping_stop_event.wait(30)
+            # Wait 60 seconds or until stop event (reduced frequency)
+            ping_stop_event.wait(60)
     
     ping_thread = threading.Thread(target=ping_worker, daemon=True)
     ping_thread.start()

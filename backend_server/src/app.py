@@ -226,7 +226,7 @@ def start_server(app):
         signal.signal(signal.SIGTERM, signal_handler)
         signal.signal(signal.SIGINT, signal_handler)
         
-        # Add error monitoring
+        # Add error monitoring and server metrics collection
         import threading
         def monitor_health():
             import time
@@ -239,10 +239,51 @@ def start_server(app):
                     print(f"[@backend_server:monitor] ❌ Health check failed: {e}")
                     break
         
+        def collect_server_metrics():
+            import time
+            from shared.lib.utils.system_info_utils import get_host_system_stats
+            from shared.lib.supabase.system_metrics_db import store_system_metrics
+            
+            time.sleep(15)  # Wait for startup
+            while True:
+                try:
+                    # Get server system stats (reuse host function)
+                    server_stats = get_host_system_stats()
+                    
+                    # Convert to enhanced format for database storage
+                    enhanced_stats = {
+                        'cpu_percent': server_stats.get('cpu_percent', 0),
+                        'memory_percent': server_stats.get('memory_percent', 0),
+                        'memory_used_gb': 0,  # Will be calculated in store function if needed
+                        'memory_total_gb': 0,  # Will be calculated in store function if needed
+                        'disk_percent': server_stats.get('disk_percent', 0),
+                        'disk_used_gb': 0,    # Will be calculated in store function if needed
+                        'disk_total_gb': 0,   # Will be calculated in store function if needed
+                        'uptime_seconds': 0,  # Server uptime not critical
+                        'platform': server_stats.get('platform', 'unknown'),
+                        'architecture': server_stats.get('architecture', 'unknown'),
+                        'ffmpeg_status': {'status': 'not_applicable'},  # Server doesn't run FFmpeg
+                        'monitor_status': {'status': 'not_applicable'}  # Server doesn't run monitor
+                    }
+                    
+                    # Store server metrics with 'server' as host_name
+                    store_system_metrics('server', enhanced_stats)
+                    print("[@backend_server:metrics] 📊 Server metrics collected and stored")
+                    
+                    time.sleep(60)  # Collect every 60 seconds (same as host ping)
+                except Exception as e:
+                    print(f"[@backend_server:metrics] ❌ Metrics collection error: {e}")
+                    time.sleep(60)  # Continue trying
+        
         if os.getenv('RENDER', 'false').lower() == 'true':
             monitor_thread = threading.Thread(target=monitor_health, daemon=True)
             monitor_thread.start()
             print("[@backend_server:start] 🔍 Health monitoring started for Render")
+        
+        # Start server metrics collection thread (always run)
+        metrics_thread = threading.Thread(target=collect_server_metrics, daemon=True)
+        metrics_thread.start()
+        print("[@backend_server:start] 📊 Server metrics collection started")
         
         socketio.run(app, 
                     host='0.0.0.0', 

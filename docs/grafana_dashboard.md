@@ -597,9 +597,215 @@ The table query properly handles bidirectional edges by:
 
 ---
 
+---
+
+## 🖥️ System Monitoring Dashboard
+
+### Overview
+The System Monitoring Dashboard provides real-time insights into host system performance, FFmpeg processes, and capture monitoring status.
+
+### Panel 8: System Health Overview (Stat Panels)
+**Type:** Stat Panels (4 panels in a row)  
+**Description:** Current system resource usage and uptime
+
+#### CPU Usage
+```sql
+SELECT 
+  ROUND(AVG(cpu_percent), 1) as "CPU %"
+FROM system_metrics 
+WHERE $__timeFilter(timestamp)
+  AND timestamp >= NOW() - INTERVAL '5 minutes'
+```
+
+#### Memory Usage
+```sql
+SELECT 
+  ROUND(AVG(memory_percent), 1) as "Memory %"
+FROM system_metrics 
+WHERE $__timeFilter(timestamp)
+  AND timestamp >= NOW() - INTERVAL '5 minutes'
+```
+
+#### Disk Usage
+```sql
+SELECT 
+  ROUND(AVG(disk_percent), 1) as "Disk %"
+FROM system_metrics 
+WHERE $__timeFilter(timestamp)
+  AND timestamp >= NOW() - INTERVAL '5 minutes'
+```
+
+#### System Uptime
+```sql
+SELECT 
+  MAX(uptime_seconds) as "Uptime Seconds"
+FROM system_metrics 
+WHERE $__timeFilter(timestamp)
+  AND timestamp >= NOW() - INTERVAL '5 minutes'
+```
+
+**Configuration:**
+- Visualization: Stat
+- Units: Percent (0-100) for CPU/Memory/Disk, Seconds for Uptime
+- Thresholds:
+  - Green: 0-70% (CPU/Memory), 0-80% (Disk)
+  - Yellow: 70-85% (CPU/Memory), 80-90% (Disk)
+  - Red: 85%+ (CPU/Memory), 90%+ (Disk)
+
+---
+
+### Panel 9: System Metrics Over Time
+**Type:** Time Series  
+**Description:** Historical trends of CPU, Memory, and Disk usage
+
+```sql
+SELECT 
+  $__timeGroup(timestamp, '1m') as time,
+  AVG(cpu_percent) as "CPU %",
+  AVG(memory_percent) as "Memory %", 
+  AVG(disk_percent) as "Disk %"
+FROM system_metrics
+WHERE $__timeFilter(timestamp)
+GROUP BY time
+ORDER BY time
+```
+
+**Configuration:**
+- Visualization: Time Series
+- Y-Axis: Percent (0-100)
+- Legend: Show
+- Fill opacity: 0.3
+- Line width: 2
+
+---
+
+### Panel 10: Host Status Overview
+**Type:** Table  
+**Description:** Current status of all hosts with latest metrics
+
+```sql
+WITH latest_metrics AS (
+  SELECT DISTINCT ON (host_name)
+    host_name,
+    timestamp,
+    cpu_percent,
+    memory_percent,
+    disk_percent,
+    uptime_seconds,
+    platform,
+    ffmpeg_status,
+    monitor_status
+  FROM system_metrics
+  WHERE $__timeFilter(timestamp)
+  ORDER BY host_name, timestamp DESC
+)
+SELECT 
+  host_name as "Host",
+  platform as "Platform",
+  ROUND(cpu_percent, 1) as "CPU %",
+  ROUND(memory_percent, 1) as "Memory %",
+  ROUND(disk_percent, 1) as "Disk %",
+  CASE 
+    WHEN uptime_seconds < 3600 THEN ROUND(uptime_seconds/60) || 'm'
+    WHEN uptime_seconds < 86400 THEN ROUND(uptime_seconds/3600) || 'h'
+    ELSE ROUND(uptime_seconds/86400) || 'd'
+  END as "Uptime",
+  (ffmpeg_status->>'status') as "FFmpeg",
+  (monitor_status->>'status') as "Monitor",
+  TO_CHAR(timestamp, 'HH24:MI:SS') as "Last Seen"
+FROM latest_metrics
+ORDER BY host_name
+```
+
+**Configuration:**
+- Visualization: Table
+- Field Overrides: Color coding for FFmpeg/Monitor status columns
+
+---
+
+### Panel 11: Process Status Monitoring
+**Type:** Table (2 side-by-side tables)  
+**Description:** FFmpeg and Capture Monitor process health
+
+#### FFmpeg Status
+```sql
+WITH latest_metrics AS (
+  SELECT DISTINCT ON (host_name)
+    host_name,
+    timestamp,
+    ffmpeg_status
+  FROM system_metrics
+  WHERE $__timeFilter(timestamp)
+  ORDER BY host_name, timestamp DESC
+)
+SELECT 
+  host_name as "Host",
+  (ffmpeg_status->>'status') as "Status",
+  (ffmpeg_status->>'processes_running')::int as "Processes",
+  CASE 
+    WHEN (ffmpeg_status->>'status') = 'active' THEN '🟢 Active'
+    WHEN (ffmpeg_status->>'status') = 'stuck' THEN '🟡 Stuck'
+    WHEN (ffmpeg_status->>'status') = 'stopped' THEN '🔴 Stopped'
+    ELSE '⚪ Unknown'
+  END as "Health"
+FROM latest_metrics
+WHERE ffmpeg_status IS NOT NULL
+ORDER BY host_name
+```
+
+#### Monitor Status
+```sql
+WITH latest_metrics AS (
+  SELECT DISTINCT ON (host_name)
+    host_name,
+    timestamp,
+    monitor_status
+  FROM system_metrics
+  WHERE $__timeFilter(timestamp)
+  ORDER BY host_name, timestamp DESC
+)
+SELECT 
+  host_name as "Host",
+  (monitor_status->>'status') as "Status",
+  CASE WHEN (monitor_status->>'process_running')::boolean THEN 'Yes' ELSE 'No' END as "Running",
+  CASE 
+    WHEN (monitor_status->>'status') = 'active' THEN '🟢 Active'
+    WHEN (monitor_status->>'status') = 'stuck' THEN '🟡 Stuck'  
+    WHEN (monitor_status->>'status') = 'stopped' THEN '🔴 Stopped'
+    ELSE '⚪ Unknown'
+  END as "Health"
+FROM latest_metrics
+WHERE monitor_status IS NOT NULL
+ORDER BY host_name
+```
+
+---
+
+### System Monitoring Dashboard Layout
+
+```
+┌─────────────┬─────────────┬─────────────┬─────────────┐
+│   CPU %     │  Memory %   │   Disk %    │   Uptime    │
+│   (Stat)    │   (Stat)    │   (Stat)    │   (Stat)    │
+└─────────────┴─────────────┴─────────────┴─────────────┘
+┌─────────────────────────────────────────────────────────┐
+│           System Metrics Over Time (Time Series)       │
+└─────────────────────────────────────────────────────────┘
+┌──────────────────────────┬──────────────────────────────┐
+│    FFmpeg Status         │    Monitor Status            │
+│      (Table)             │      (Table)                 │
+└──────────────────────────┴──────────────────────────────┘
+┌─────────────────────────────────────────────────────────┐
+│              Host Status Overview (Table)              │
+└─────────────────────────────────────────────────────────┘
+```
+
+---
+
 ## 🔄 Updates and Maintenance
 
 - **Regular Review**: Monitor dashboard performance and adjust queries as needed
 - **Index Maintenance**: Ensure database indexes are optimized for query patterns
 - **Data Retention**: Consider archiving old execution results to maintain performance
 - **Query Optimization**: Review and optimize queries based on usage patterns
+- **System Metrics**: Clean up old system_metrics data regularly (7-day retention recommended)
