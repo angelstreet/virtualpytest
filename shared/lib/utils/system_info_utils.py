@@ -104,6 +104,7 @@ def calculate_process_working_uptime(capture_folder: str, process_type: str) -> 
                 captures_dir = os.path.join(capture_dir, 'captures')
                 jpg_files = []
                 if os.path.exists(captures_dir):
+                    # Look for all capture files - both original and renamed (simple pattern)
                     jpg_files = glob.glob(os.path.join(captures_dir, 'capture_*.jpg'))
                 
                 all_files = ts_files + jpg_files

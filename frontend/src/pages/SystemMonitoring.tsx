@@ -49,7 +49,7 @@ const SystemMonitoring: React.FC = () => {
   };
 
   // Get Grafana base URL from environment or use default
-  const grafanaBaseUrl = (import.meta as any).env?.VITE_GRAFANA_URL || 'http://localhost:5109/grafana';
+  const grafanaBaseUrl = (import.meta as any).env?.VITE_GRAFANA_URL || 'https://dev.virtualpytest.com/grafana';
 
   return (
     <Box>
