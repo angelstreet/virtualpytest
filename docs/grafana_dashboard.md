@@ -12,8 +12,10 @@ The Grafana Dashboard page provides a centralized interface for viewing all avai
 ## Available Dashboards
 
 ### 1. Script Results (Default)
-- Purpose: Test script execution results and metrics
+- Purpose: Comprehensive KPI monitoring for test script executions
 - UID: 2a3b060a-7820-4a6e-aa2a-adcbf5408bd3
+- Features: Global KPIs, success rates by interface, volume analysis, performance trends
+- Documentation: [Script Results Dashboard Guide](./script_results_dashboard.md)
 
 ### 2. FullZap Results  
 - Purpose: FullZap test campaign results
