@@ -259,7 +259,7 @@ def start_server(app):
                         'disk_percent': server_stats.get('disk_percent', 0),
                         'disk_used_gb': 0,    # Will be calculated in store function if needed
                         'disk_total_gb': 0,   # Will be calculated in store function if needed
-                        'uptime_seconds': 0,  # Server uptime not critical
+                        'uptime_seconds': server_stats.get('uptime_seconds', 0),
                         'platform': server_stats.get('platform', 'unknown'),
                         'architecture': server_stats.get('architecture', 'unknown'),
                         'ffmpeg_status': {'status': 'not_applicable'},  # Server doesn't run FFmpeg

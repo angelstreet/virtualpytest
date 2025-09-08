@@ -20,6 +20,7 @@ def get_host_system_stats():
             'cpu_percent': psutil.cpu_percent(interval=1),
             'memory_percent': psutil.virtual_memory().percent,
             'disk_percent': psutil.disk_usage('/').percent,
+            'uptime_seconds': int(time.time() - psutil.boot_time()),
             'platform': platform.system(),
             'architecture': platform.machine(),
             'python_version': platform.python_version()
@@ -30,6 +31,7 @@ def get_host_system_stats():
             'cpu_percent': 0,
             'memory_percent': 0,
             'disk_percent': 0,
+            'uptime_seconds': 0,
             'platform': 'unknown',
             'architecture': 'unknown',
             'python_version': 'unknown'
