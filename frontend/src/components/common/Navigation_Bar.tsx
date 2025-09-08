@@ -190,7 +190,7 @@ const NavigationBar: React.FC = () => {
           },
         }}
       >
-        Dashboard
+        Grafana
       </Button>
 
       {/* Configuration Dropdown */}
