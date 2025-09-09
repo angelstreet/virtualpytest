@@ -11,7 +11,7 @@ import platform
 import time
 import glob
 import subprocess
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Dict, Any
 from shared.lib.utils.supabase_utils import get_supabase_client
 
@@ -255,7 +255,7 @@ def get_per_device_metrics(devices_config: List[Dict[str, Any]]) -> List[Dict[st
                     ffmpeg_device_status = 'active'
                     last_activity_timestamp = device_files.get('last_activity', 0)
                     if last_activity_timestamp > 0:
-                        ffmpeg_last_activity = datetime.fromtimestamp(last_activity_timestamp).isoformat()
+                        ffmpeg_last_activity = datetime.fromtimestamp(last_activity_timestamp, tz=timezone.utc).isoformat()
                         # Calculate working uptime: process start -> last file activity
                         ffmpeg_uptime_seconds = calculate_process_working_uptime(capture_folder, 'ffmpeg')
                 else:
@@ -288,7 +288,7 @@ def get_per_device_metrics(devices_config: List[Dict[str, Any]]) -> List[Dict[st
                     monitor_device_status = 'active'
                     last_activity_timestamp = device_json.get('last_activity', 0)
                     if last_activity_timestamp > 0:
-                        monitor_last_activity = datetime.fromtimestamp(last_activity_timestamp).isoformat()
+                        monitor_last_activity = datetime.fromtimestamp(last_activity_timestamp, tz=timezone.utc).isoformat()
                         # Calculate working uptime: process start -> last file activity
                         monitor_uptime_seconds = calculate_process_working_uptime(capture_folder, 'monitor')
                 else:

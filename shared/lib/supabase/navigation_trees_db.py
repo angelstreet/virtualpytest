@@ -9,7 +9,7 @@ This module provides functions for managing navigation trees using the new norma
 Clean, scalable, individual record operations with nested tree functionality.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, List, Optional, Any
 from uuid import uuid4
 
@@ -57,7 +57,7 @@ def save_tree_metadata(tree_data: Dict, team_id: str) -> Dict:
     try:
         supabase = get_supabase()
         tree_data['team_id'] = team_id
-        tree_data['updated_at'] = datetime.now().isoformat()
+        tree_data['updated_at'] = datetime.now(timezone.utc).isoformat()
         
         if 'id' in tree_data and tree_data['id']:
             # Update existing tree
@@ -66,7 +66,7 @@ def save_tree_metadata(tree_data: Dict, team_id: str) -> Dict:
         else:
             # Create new tree
             tree_data['id'] = str(uuid4())
-            tree_data['created_at'] = datetime.now().isoformat()
+            tree_data['created_at'] = datetime.now(timezone.utc).isoformat()
             result = supabase.table('navigation_trees').insert(tree_data).execute()
             print(f"[@db:navigation_trees:save_tree_metadata] Created new tree: {tree_data['id']}")
         
@@ -158,7 +158,7 @@ def save_node(tree_id: str, node_data: Dict, team_id: str) -> Dict:
         supabase = get_supabase()
         node_data['tree_id'] = tree_id
         node_data['team_id'] = team_id
-        node_data['updated_at'] = datetime.now().isoformat()
+        node_data['updated_at'] = datetime.now(timezone.utc).isoformat()
         
         # Check if node exists
         existing = supabase.table('navigation_nodes').select('id')\

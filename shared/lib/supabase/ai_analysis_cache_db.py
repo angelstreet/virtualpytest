@@ -6,7 +6,7 @@ Used for storing temporary analysis results during the two-step test case genera
 """
 
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from typing import Dict, List, Optional
 from uuid import uuid4
 
@@ -27,8 +27,8 @@ def save_analysis_cache(analysis_id: str, prompt: str, analysis_result: Dict,
         'prompt': prompt,
         'analysis_result': json.dumps(analysis_result),
         'compatibility_matrix': json.dumps(compatibility_matrix),
-        'created_at': datetime.now().isoformat(),
-        'expires_at': (datetime.now() + timedelta(hours=1)).isoformat()
+        'created_at': datetime.now(timezone.utc).isoformat(),
+        'expires_at': (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()
     }
     
     try:
@@ -59,7 +59,7 @@ def get_analysis_cache(analysis_id: str, team_id: str) -> Optional[Dict]:
             
             # Check if cache has expired
             expires_at = datetime.fromisoformat(cache_entry['expires_at'].replace('Z', '+00:00'))
-            if datetime.now() > expires_at.replace(tzinfo=None):
+            if datetime.now(timezone.utc) > expires_at.replace(tzinfo=None):
                 # Cache expired, delete it
                 delete_analysis_cache(analysis_id, team_id)
                 return None
@@ -90,7 +90,7 @@ def cleanup_expired_cache(team_id: str = None) -> int:
     supabase = get_supabase()
     
     try:
-        query = supabase.table('ai_analysis_cache').delete().lt('expires_at', datetime.now().isoformat())
+        query = supabase.table('ai_analysis_cache').delete().lt('expires_at', datetime.now(timezone.utc).isoformat())
         
         if team_id:
             query = query.eq('team_id', team_id)
@@ -125,7 +125,7 @@ def get_cache_stats(team_id: str) -> Dict:
         total_entries = total_result.count or 0
         
         # Get expired entries
-        expired_result = supabase.table('ai_analysis_cache').select('id', count='exact').eq('team_id', team_id).lt('expires_at', datetime.now().isoformat()).execute()
+        expired_result = supabase.table('ai_analysis_cache').select('id', count='exact').eq('team_id', team_id).lt('expires_at', datetime.now(timezone.utc).isoformat()).execute()
         expired_entries = expired_result.count or 0
         
         # Get valid entries

@@ -5,7 +5,7 @@ This module provides functions for managing devices in the database.
 Devices represent the physical or virtual test targets.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, List, Optional
 from uuid import uuid4
 
@@ -32,7 +32,7 @@ def save_device(device: Dict, team_id: str, creator_id: str = None) -> None:
         supabase.table('device').update({
             'name': device['name'],
             'model': device.get('model', ''),
-            'updated_at': datetime.now().isoformat()
+            'updated_at': datetime.now(timezone.utc).isoformat()
         }).eq('id', device_id).eq('team_id', team_id).execute()
 
 def get_device(device_id: str, team_id: str) -> Optional[Dict]:

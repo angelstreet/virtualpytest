@@ -5,7 +5,7 @@ This module provides functions for managing environment profiles in the database
 Environment profiles define the configuration for test execution environments.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, List, Optional
 from uuid import uuid4
 
@@ -38,7 +38,7 @@ def save_environment_profile(profile: Dict, team_id: str, creator_id: str = None
             'remote_controller_id': profile.get('remote_controller_id'),
             'av_controller_id': profile.get('av_controller_id'),
             'verification_controller_id': profile.get('verification_controller_id'),
-            'updated_at': datetime.now().isoformat()
+            'updated_at': datetime.now(timezone.utc).isoformat()
         }).eq('id', profile_id).eq('team_id', team_id).execute()
 
 def get_environment_profile(profile_id: str, team_id: str) -> Optional[Dict]:

@@ -5,7 +5,7 @@ This module provides functions for managing controllers in the database.
 Controllers define how devices are controlled during test execution.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, List, Optional
 from uuid import uuid4
 
@@ -36,7 +36,7 @@ def save_controller(controller: Dict, team_id: str, creator_id: str = None) -> N
             'type': controller['type'],
             'config': controller.get('config', {}),
             'device_id': controller.get('device_id'),
-            'updated_at': datetime.now().isoformat()
+            'updated_at': datetime.now(timezone.utc).isoformat()
         }).eq('id', controller_id).eq('team_id', team_id).execute()
 
 def get_controller(controller_id: str, team_id: str) -> Optional[Dict]:

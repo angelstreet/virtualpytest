@@ -6,7 +6,7 @@ Execution results track edge actions and node verifications with metrics.
 Now aligned with embedded actions/verifications architecture.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, List, Optional
 from uuid import uuid4
 
@@ -190,7 +190,7 @@ def record_edge_execution(
             'execution_time_ms': execution_time_ms,
             'message': message,
             'error_details': error_details,
-            'executed_at': datetime.now().isoformat(),
+            'executed_at': datetime.now(timezone.utc).isoformat(),
             'script_result_id': script_result_id,
             'script_context': script_context,
             'action_set_id': action_set_id
@@ -252,7 +252,7 @@ def record_node_execution(
             'execution_time_ms': execution_time_ms,
             'message': message,
             'error_details': error_details,
-            'executed_at': datetime.now().isoformat(),
+            'executed_at': datetime.now(timezone.utc).isoformat(),
             'script_result_id': script_result_id,
             'script_context': script_context
         }
@@ -594,7 +594,7 @@ def update_node_metrics_from_embedded_verifications(
             'team_id': team_id,
             'verification_count': len(verifications),
             'verification_types': verification_types,
-            'updated_at': datetime.now().isoformat()
+            'updated_at': datetime.now(timezone.utc).isoformat()
         }
         
         result = supabase.table('node_metrics').upsert(
@@ -645,7 +645,7 @@ def update_edge_metrics_from_embedded_actions(
 
             'action_types': action_types,
             'final_wait_time': final_wait_time,
-            'updated_at': datetime.now().isoformat()
+            'updated_at': datetime.now(timezone.utc).isoformat()
         }
         
         result = supabase.table('edge_metrics').upsert(

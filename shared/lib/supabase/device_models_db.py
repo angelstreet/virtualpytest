@@ -5,7 +5,7 @@ This module provides functions for managing device models in the database.
 Device models define the types and capabilities of different device categories.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, List, Optional
 
 from shared.lib.utils.supabase_utils import get_supabase_client
@@ -78,8 +78,8 @@ def create_device_model(model_data: Dict, team_id: str, creator_id: str = None) 
             'description': model_data.get('description', ''),
             'controllers': model_data.get('controllers', {}),
             'team_id': team_id,
-            'created_at': datetime.now().isoformat(),
-            'updated_at': datetime.now().isoformat()
+            'created_at': datetime.now(timezone.utc).isoformat(),
+            'updated_at': datetime.now(timezone.utc).isoformat()
         }
         
         result = supabase.table('device_models').insert(insert_data).execute()
@@ -107,7 +107,7 @@ def update_device_model(model_id: str, model_data: Dict, team_id: str) -> Option
     supabase = get_supabase()
     try:
         update_data = {
-            'updated_at': datetime.now().isoformat()
+            'updated_at': datetime.now(timezone.utc).isoformat()
         }
         
         if 'name' in model_data:

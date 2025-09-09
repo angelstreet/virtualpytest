@@ -7,7 +7,7 @@ Simplified single-table approach for campaign tracking that links to script_resu
 
 import os
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, List, Any, Optional
 from uuid import uuid4
 
@@ -52,7 +52,7 @@ def record_campaign_execution_start(
             'host_name': host_name,
             'device_name': device_name,
             'status': 'running',
-            'started_at': datetime.now().isoformat(),
+            'started_at': datetime.now(timezone.utc).isoformat(),
             'success': False,
             'script_configurations': script_configurations or [],
             'execution_config': execution_config or {},
@@ -161,7 +161,7 @@ def update_campaign_execution_result(
         if html_report_r2_url is not None:
             update_data['html_report_r2_url'] = html_report_r2_url
         
-        update_data['updated_at'] = datetime.now().isoformat()
+        update_data['updated_at'] = datetime.now(timezone.utc).isoformat()
         
         print(f"[@db:campaign_executions:update_result] Updating campaign: {campaign_execution_id_uuid}")
         print(f"  - status: {status}")

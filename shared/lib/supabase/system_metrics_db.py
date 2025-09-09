@@ -6,7 +6,7 @@ Database operations for storing and retrieving system monitoring metrics.
 
 import os
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Any, Optional, List
 from shared.lib.utils.supabase_utils import get_supabase_client
 
@@ -23,7 +23,7 @@ def store_system_metrics(host_name: str, metrics_data: Dict[str, Any]) -> bool:
         
         insert_data = {
             'host_name': host_name,
-            'timestamp': datetime.now().isoformat(),
+            'timestamp': datetime.now(timezone.utc).isoformat(),
             'cpu_percent': metrics_data.get('cpu_percent', 0),
             'memory_percent': metrics_data.get('memory_percent', 0),
             'disk_percent': metrics_data.get('disk_percent', 0),
@@ -60,7 +60,7 @@ def store_device_metrics(host_name: str, device_data: Dict[str, Any], system_sta
             'device_model': device_data.get('device_model', 'unknown'),
             'capture_folder': device_data.get('capture_folder', 'unknown'),
             'video_device': device_data.get('video_device', 'unknown'),
-            'timestamp': datetime.now().isoformat(),
+            'timestamp': datetime.now(timezone.utc).isoformat(),
             'cpu_percent': system_stats.get('cpu_percent', 0),
             'memory_percent': system_stats.get('memory_percent', 0),
             'disk_percent': system_stats.get('disk_percent', 0),
@@ -110,8 +110,8 @@ def get_system_metrics(host_name: Optional[str] = None,
             query = query.eq('host_name', host_name)
         
         # Filter by time range (last N hours)
-        from datetime import datetime, timedelta
-        cutoff_time = (datetime.now() - timedelta(hours=hours)).isoformat()
+        from datetime import timedelta
+        cutoff_time = (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat()
         query = query.gte('timestamp', cutoff_time)
         
         # Order by timestamp descending
@@ -176,8 +176,8 @@ def cleanup_old_metrics(days: int = 7) -> bool:
         supabase = get_supabase()
         
         # Calculate cutoff date
-        from datetime import datetime, timedelta
-        cutoff_date = (datetime.now() - timedelta(days=days)).isoformat()
+        from datetime import timedelta
+        cutoff_date = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
         
         # Delete old records
         result = supabase.table('system_metrics')\

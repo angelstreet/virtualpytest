@@ -218,7 +218,7 @@ def mark_script_discarded(team_id: str, script_result_id: str, discard: bool = T
         supabase = get_supabase()
         result = supabase.table('script_results').update({
             'discard': discard,
-            'updated_at': datetime.now().isoformat()
+            'updated_at': datetime.now(timezone.utc).isoformat()
         }).eq('id', script_result_id).eq('team_id', team_id).execute()
         
         if result.data:

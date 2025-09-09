@@ -5,7 +5,7 @@ This module provides functions for fetching heatmap incidents from the database.
 Only handles database operations - host communication is handled by route layer.
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from typing import Dict, List, Optional
 from uuid import uuid4
 
@@ -26,7 +26,7 @@ def get_heatmap_incidents(
         supabase = get_supabase()
         
         # Calculate time range for incidents
-        end_time = datetime.now()
+        end_time = datetime.now(timezone.utc)
         start_time = end_time - timedelta(minutes=timeframe_minutes)
         
         # Query alerts without team_id since alerts table doesn't have that column
@@ -85,7 +85,7 @@ def save_heatmap_to_db(
             'hosts_total': hosts_total,
             'incidents_count': incidents_count,
             'processing_time': processing_time,
-            'generated_at': datetime.now().isoformat()
+            'generated_at': datetime.now(timezone.utc).isoformat()
         }
         
         print(f"[@db:heatmap:save_heatmap_to_db] Saving heatmap: {heatmap_id}")
