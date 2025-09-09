@@ -207,39 +207,37 @@ def get_enhanced_system_stats():
 
 def get_per_device_metrics(devices) -> List[Dict[str, Any]]:
     """
-    Get per-device metrics with real device names and separate FFmpeg/Monitor tracking.
+    Get per-device operational metrics WITHOUT recalculating device configurations.
+    Only checks FFmpeg/Monitor status for incident detection.
     
     Args:
-        devices_config: List of device configurations from host registration
+        devices: List of device objects (not configs)
         
     Returns:
-        List of device metrics with individual status and timing
+        List of device operational metrics only
     """
     try:
-        # Get base system stats
-        base_stats = get_host_system_stats()
-        
-        # Get FFmpeg and Monitor status
+        # Get FFmpeg and Monitor status once
         ffmpeg_status = check_ffmpeg_status()
         monitor_status = check_monitor_status()
         
         device_metrics = []
         
-        for device in devices_config:
-            device_id = device.get('device_id', 'unknown')
-            device_name = device.get('device_name', 'Unknown Device')
-            device_model = device.get('device_model', 'unknown')
-            device_port = device.get('device_port', 'unknown')
+        for device in devices:
+            # Use existing device properties (no recalculation)
+            device_id = device.device_id
+            device_name = device.device_name
+            device_model = device.device_model
+            device_port = getattr(device, 'device_port', 'unknown')
             
-            # Extract capture folder from video_capture_path
-            video_capture_path = device.get('video_capture_path', '')
+            # Extract capture folder from existing video_capture_path
+            video_capture_path = getattr(device, 'video_capture_path', '')
             capture_folder = 'unknown'
             if video_capture_path:
-                # Extract folder name from path like '/var/www/html/stream/capture1' -> 'capture1'
                 capture_folder = os.path.basename(video_capture_path.rstrip('/'))
             
-            # Extract video device path (e.g., '/dev/video0', '/dev/video2')
-            video_device = device.get('video', 'unknown')
+            # Extract video device path
+            video_device = getattr(device, 'video', 'unknown')
             
             # Extract per-device FFmpeg status using capture folder
             ffmpeg_device_status = 'unknown'
@@ -307,7 +305,7 @@ def get_per_device_metrics(devices) -> List[Dict[str, Any]]:
             # Clear cache if Monitor is stuck/stopped (ready for restart detection)
             clear_process_cache_if_stuck(capture_folder, 'monitor', monitor_device_status)
             
-            # Create device metrics record
+            # Create lightweight device metrics (operational only)
             device_metric = {
                 'device_id': device_id,
                 'device_name': device_name,
@@ -328,7 +326,7 @@ def get_per_device_metrics(devices) -> List[Dict[str, Any]]:
         return device_metrics
         
     except Exception as e:
-        print(f"⚠️ Error getting per-device metrics: {e}")
+        print(f"⚠️ Error getting lightweight device metrics: {e}")
         return []
 
 
