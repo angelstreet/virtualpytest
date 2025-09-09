@@ -318,7 +318,7 @@ def record_action_execution(
             'host_name': host_name,
             'error_message': error_message,
             'error_details': error_details,
-            'executed_at': datetime.now().isoformat()
+            'executed_at': datetime.now(timezone.utc).isoformat()
         }
         
         print(f"[@db:execution_results:record_action_execution] Recording action execution:")
@@ -379,7 +379,7 @@ def record_verification_execution(
             'error_details': error_details,
             'confidence_score': confidence_score,
             'result_data': result_data,
-            'executed_at': datetime.now().isoformat()
+            'executed_at': datetime.now(timezone.utc).isoformat()
         }
         
         print(f"[@db:execution_results:record_verification_execution] Recording verification execution:")

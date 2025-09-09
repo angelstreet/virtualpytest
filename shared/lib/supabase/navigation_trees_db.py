@@ -177,7 +177,7 @@ def save_node(tree_id: str, node_data: Dict, team_id: str) -> Dict:
             print(f"[@db:navigation_trees:save_node] Updated node: {node_data['node_id']}")
         else:
             # Insert new node
-            node_data['created_at'] = datetime.now().isoformat()
+            node_data['created_at'] = datetime.now(timezone.utc).isoformat()
             result = supabase.table('navigation_nodes').insert(node_data).execute()
             print(f"[@db:navigation_trees:save_node] Created new node: {node_data['node_id']}")
         
@@ -308,7 +308,7 @@ def save_edge(tree_id: str, edge_data: Dict, team_id: str) -> Dict:
         
         edge_data['tree_id'] = tree_id
         edge_data['team_id'] = team_id
-        edge_data['updated_at'] = datetime.now().isoformat()
+        edge_data['updated_at'] = datetime.now(timezone.utc).isoformat()
         
         # Check if edge exists
         existing = supabase.table('navigation_edges').select('id')\
@@ -327,7 +327,7 @@ def save_edge(tree_id: str, edge_data: Dict, team_id: str) -> Dict:
             print(f"[@db:navigation_trees:save_edge] Updated edge: {edge_data['edge_id']}")
         else:
             # Insert new edge
-            edge_data['created_at'] = datetime.now().isoformat()
+            edge_data['created_at'] = datetime.now(timezone.utc).isoformat()
             result = supabase.table('navigation_edges').insert(edge_data).execute()
             print(f"[@db:navigation_trees:save_edge] Created new edge: {edge_data['edge_id']}")
         
@@ -404,8 +404,8 @@ def create_sub_tree(parent_tree_id: str, parent_node_id: str, tree_data: Dict, t
             'is_root_tree': False,
             'team_id': team_id,
             'id': str(uuid4()),
-            'created_at': datetime.now().isoformat(),
-            'updated_at': datetime.now().isoformat()
+            'created_at': datetime.now(timezone.utc).isoformat(),
+            'updated_at': datetime.now(timezone.utc).isoformat()
         })
         
         # Create the sub-tree
@@ -630,7 +630,7 @@ def move_subtree(subtree_id: str, new_parent_tree_id: str, new_parent_node_id: s
             'parent_tree_id': new_parent_tree_id,
             'parent_node_id': new_parent_node_id,
             'tree_depth': new_parent_depth + 1,
-            'updated_at': datetime.now().isoformat()
+            'updated_at': datetime.now(timezone.utc).isoformat()
         }).eq('id', subtree_id).eq('team_id', team_id).execute()
         
         print(f"[@db:navigation_trees:move_subtree] Moved subtree: {subtree_id} to node: {new_parent_node_id}")

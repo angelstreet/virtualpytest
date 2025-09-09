@@ -5,7 +5,7 @@ This module provides functions for managing test cases in the database.
 """
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, List, Optional
 from uuid import uuid4
 
@@ -60,7 +60,7 @@ def save_test_case(test_case: Dict, team_id: str, creator_id: str = None) -> Dic
     except Exception:
         # Update existing test case
         update_data = test_case_data.copy()
-        update_data['updated_at'] = datetime.now().isoformat()
+        update_data['updated_at'] = datetime.now(timezone.utc).isoformat()
         del update_data['test_id']  # Don't update the ID
         
         result = supabase.table('test_cases').update(update_data).eq('test_id', test_case['test_id']).eq('team_id', team_id).execute()

@@ -5,7 +5,7 @@ This module provides functions for managing user interfaces in the database.
 User interfaces define the different UI contexts for applications being tested.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, List, Optional
 
 from shared.lib.utils.supabase_utils import get_supabase_client
@@ -95,8 +95,8 @@ def create_userinterface(interface_data: Dict, team_id: str, creator_id: str = N
             'min_version': interface_data.get('min_version', ''),
             'max_version': interface_data.get('max_version', ''),
             'team_id': team_id,
-            'created_at': datetime.now().isoformat(),
-            'updated_at': datetime.now().isoformat()
+            'created_at': datetime.now(timezone.utc).isoformat(),
+            'updated_at': datetime.now(timezone.utc).isoformat()
         }
         
         result = supabase.table('userinterfaces').insert(insert_data).execute()
@@ -123,7 +123,7 @@ def update_userinterface(interface_id: str, interface_data: Dict, team_id: str) 
     supabase = get_supabase()
     try:
         update_data = {
-            'updated_at': datetime.now().isoformat()
+            'updated_at': datetime.now(timezone.utc).isoformat()
         }
         
         if 'name' in interface_data:

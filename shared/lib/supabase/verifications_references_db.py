@@ -3,7 +3,7 @@ Database layer for verifications_references table.
 Handles reference assets (reference_image and reference_text) separately from verification actions.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, List, Optional
 
 from shared.lib.utils.supabase_utils import get_supabase_client
@@ -47,7 +47,7 @@ def save_reference(name: str, device_model: str, reference_type: str, team_id: s
             'r2_path': r2_path,
             'r2_url': r2_url,
             'area': area,  # Store as JSONB directly
-            'updated_at': datetime.now().isoformat()
+            'updated_at': datetime.now(timezone.utc).isoformat()
         }
         
         print(f"[@db:verifications_references:save_reference] Saving reference: {name} ({reference_type}) for model: {device_model}")
