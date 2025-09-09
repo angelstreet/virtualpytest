@@ -247,7 +247,7 @@ def start_server(app):
             time.sleep(15)  # Wait for startup
             while True:
                 try:
-                    # Get server system stats (reuse host function)
+                    # Get server system stats (use consistent function)
                     server_stats = get_host_system_stats()
                     
                     # Debug: Show actual metrics values

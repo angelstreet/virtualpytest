@@ -18,6 +18,7 @@ from backend_core.src.controllers.controller_config_factory import create_contro
 
 from shared.lib.utils.host_utils import get_host_manager
 from shared.lib.supabase.system_metrics_db import store_system_metrics
+from shared.lib.utils.system_info_utils import get_host_system_stats
 
 server_system_bp = Blueprint('server_system', __name__, url_prefix='/server/system')
 
@@ -119,7 +120,7 @@ def register_host():
             'status': 'online',
             'last_seen': time.time(),
             'registered_at': datetime.now().isoformat(),
-            'system_stats': host_info.get('system_stats', get_system_stats()),
+            'system_stats': host_info.get('system_stats', get_host_system_stats()),
             
             # === DEVICE LOCK MANAGEMENT ===
             'isLocked': False,
@@ -183,7 +184,7 @@ def unregister_host():
 @server_system_bp.route('/health', methods=['GET'])
 def health_check():
     """Health check endpoint for clients"""
-    system_stats = get_system_stats()
+    system_stats = get_host_system_stats()
     
     return jsonify({
         'status': 'healthy',
@@ -339,49 +340,7 @@ def client_ping():
         print(f"❌ [PING] Error processing host ping: {e}")
         return jsonify({'error': str(e)}), 500
 
-def get_system_stats():
-    """Get current system statistics (CPU, RAM, Disk)"""
-    try:
-        # CPU usage percentage
-        cpu_percent = psutil.cpu_percent(interval=1)
-        
-        # Memory usage
-        memory = psutil.virtual_memory()
-        memory_percent = memory.percent
-        memory_used_gb = memory.used / (1024**3)
-        memory_total_gb = memory.total / (1024**3)
-        
-        # Disk usage (root partition)
-        disk = psutil.disk_usage('/')
-        disk_percent = (disk.used / disk.total) * 100
-        disk_used_gb = disk.used / (1024**3)
-        disk_total_gb = disk.total / (1024**3)
-        
-        return {
-            'cpu': {
-                'percent': round(cpu_percent, 1)
-            },
-            'memory': {
-                'percent': round(memory_percent, 1),
-                'used_gb': round(memory_used_gb, 2),
-                'total_gb': round(memory_total_gb, 2)
-            },
-            'disk': {
-                'percent': round(disk_percent, 1),
-                'used_gb': round(disk_used_gb, 2),
-                'total_gb': round(disk_total_gb, 2)
-            },
-            'timestamp': time.time()
-        }
-    except Exception as e:
-        print(f"⚠️ [SYSTEM] Error getting system stats: {e}")
-        return {
-            'cpu': {'percent': 0},
-            'memory': {'percent': 0, 'used_gb': 0, 'total_gb': 0},
-            'disk': {'percent': 0, 'used_gb': 0, 'total_gb': 0},
-            'timestamp': time.time(),
-            'error': str(e)
-        } 
+# Removed get_system_stats() - now using consistent get_host_system_stats() everywhere 
 
 # Define Host type matching Host_Types.ts
 class Host(TypedDict):

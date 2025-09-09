@@ -311,7 +311,7 @@ def send_ping_to_server():
         ping_data = {
             'host_name': host.host_name,
             'timestamp': time.time(),
-            'system_stats': get_host_system_stats(),  # Base system stats
+            'system_stats': get_host_system_stats(),  # Base system stats - consistent format
             'device_count': host.get_device_count(),
             'devices_config': devices_config,  # Device information for per-device tracking
             'per_device_metrics': get_per_device_metrics(devices_config)  # Per-device status
