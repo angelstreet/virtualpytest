@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mobile Stream Testing - RecHostStreamModal</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #000;
+            color: white;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .modal-container {
+            position: fixed;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: rgba(0, 0, 0, 0.9);
+        }
+
+        .modal-content {
+            width: 95vw;
+            height: 90vh;
+            background-color: #1e1e1e;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .modal-header {
+            padding: 8px 16px;
+            background-color: #2d2d2d;
+            color: white;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            min-height: 48px;
+            border-radius: 8px 8px 0 0;
+        }
+
+        .modal-title {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .controls {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .btn {
+            padding: 6px 12px;
+            border: 1px solid #555;
+            background-color: transparent;
+            color: white;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            min-width: 80px;
+        }
+
+        .btn:hover {
+            background-color: #444;
+        }
+
+        .btn.active {
+            background-color: #2196f3;
+            border-color: #2196f3;
+        }
+
+        .main-content {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+            background-color: black;
+        }
+
+        .stream-container {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: black;
+        }
+
+        .stream-container.with-panels {
+            width: 75%;
+        }
+
+        .video-player {
+            width: 100%;
+            height: 100%;
+            background-color: black;
+        }
+
+        /* Mobile-specific video styling */
+        .mobile-video {
+            object-fit: fill;
+            aspect-ratio: 9/16; /* Mobile portrait aspect ratio */
+        }
+
+        /* Desktop video styling */
+        .desktop-video {
+            object-fit: contain;
+            aspect-ratio: 16/9; /* Desktop landscape aspect ratio */
+        }
+
+        .side-panel {
+            width: 25%;
+            background-color: #2d2d2d;
+            border-left: 1px solid #555;
+            padding: 16px;
+            overflow-y: auto;
+        }
+
+        .test-info {
+            background-color: #333;
+            padding: 12px;
+            border-radius: 4px;
+            margin-bottom: 16px;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+
+        .test-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .test-controls label {
+            font-size: 12px;
+            color: #ccc;
+        }
+
+        .test-controls select, .test-controls input {
+            padding: 4px 8px;
+            background-color: #444;
+            border: 1px solid #555;
+            color: white;
+            border-radius: 4px;
+        }
+
+        .status {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            z-index: 10;
+        }
+
+        .error {
+            color: #f44336;
+        }
+
+        .success {
+            color: #4caf50;
+        }
+
+        .loading {
+            color: #ff9800;
+        }
+    </style>
+</head>
+<body>
+    <div class="modal-container">
+        <div class="modal-content">
+            <!-- Header -->
+            <div class="modal-header">
+                <div class="modal-title">Mobile Stream Test - capture1 (Pi3)</div>
+                <div class="controls">
+                    <button class="btn" id="muteBtn">🔊 Unmuted</button>
+                    <button class="btn active" id="controlBtn">✅ Control Active</button>
+                    <button class="btn" id="remoteBtn">Show Remote</button>
+                    <button class="btn" onclick="window.close()">✕ Close</button>
+                </div>
+            </div>
+
+            <!-- Main Content -->
+            <div class="main-content">
+                <!-- Stream Container -->
+                <div class="stream-container" id="streamContainer">
+                    <div class="status" id="status">Loading stream...</div>
+                    <video 
+                        id="videoPlayer" 
+                        class="video-player mobile-video" 
+                        controls 
+                        muted
+                        autoplay
+                        playsinline>
+                        <source id="videoSource" src="" type="application/x-mpegURL">
+                        Your browser does not support HLS video playback.
+                    </video>
+                </div>
+
+                <!-- Side Panel (hidden by default) -->
+                <div class="side-panel" id="sidePanel" style="display: none;">
+                    <div class="test-info">
+                        <strong>Mobile Stream Testing</strong><br>
+                        Testing RecHostStreamModal mobile scaling with hardcoded stream URL from Pi3.
+                        <br><br>
+                        <strong>Stream URL:</strong><br>
+                        <code style="font-size: 10px; word-break: break-all;">
+                            https://dev.virtualpytest.com/pi3/host/stream/capture1/output.m3u8
+                        </code>
+                    </div>
+
+                    <div class="test-controls">
+                        <label>Device Model:</label>
+                        <select id="deviceModel">
+                            <option value="mobile">Mobile Device</option>
+                            <option value="desktop">Desktop Device</option>
+                            <option value="fire_tv">Fire TV</option>
+                            <option value="android_tv">Android TV</option>
+                        </select>
+
+                        <label>Aspect Ratio:</label>
+                        <select id="aspectRatio">
+                            <option value="9/16">9:16 (Mobile Portrait)</option>
+                            <option value="16/9">16:9 (Desktop Landscape)</option>
+                            <option value="4/3">4:3 (Classic TV)</option>
+                        </select>
+
+                        <label>Object Fit:</label>
+                        <select id="objectFit">
+                            <option value="fill">Fill</option>
+                            <option value="contain">Contain</option>
+                            <option value="cover">Cover</option>
+                            <option value="scale-down">Scale Down</option>
+                        </select>
+
+                        <label>Min Height:</label>
+                        <input type="text" id="minHeight" value="300px">
+
+                        <button class="btn" onclick="applySettings()">Apply Settings</button>
+                        <button class="btn" onclick="resetToMobile()">Reset to Mobile</button>
+                        <button class="btn" onclick="resetToDesktop()">Reset to Desktop</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Hardcoded stream URL from the web search results
+        const STREAM_URL = 'https://dev.virtualpytest.com/pi3/host/stream/capture1/output.m3u8';
+        
+        // Elements
+        const videoPlayer = document.getElementById('videoPlayer');
+        const videoSource = document.getElementById('videoSource');
+        const status = document.getElementById('status');
+        const streamContainer = document.getElementById('streamContainer');
+        const sidePanel = document.getElementById('sidePanel');
+        const muteBtn = document.getElementById('muteBtn');
+        const remoteBtn = document.getElementById('remoteBtn');
+
+        // State
+        let isMuted = true;
+        let showRemote = false;
+
+        // Initialize
+        function init() {
+            console.log('[@test:mobile-stream] Initializing mobile stream test');
+            console.log('[@test:mobile-stream] Stream URL:', STREAM_URL);
+            
+            // Set video source
+            videoSource.src = STREAM_URL;
+            videoPlayer.load();
+            
+            // Set initial mobile configuration
+            resetToMobile();
+            
+            // Add event listeners
+            videoPlayer.addEventListener('loadstart', () => {
+                status.textContent = 'Loading stream...';
+                status.className = 'status loading';
+            });
+            
+            videoPlayer.addEventListener('canplay', () => {
+                status.textContent = 'Stream ready';
+                status.className = 'status success';
+                setTimeout(() => {
+                    status.style.display = 'none';
+                }, 2000);
+            });
+            
+            videoPlayer.addEventListener('error', (e) => {
+                console.error('[@test:mobile-stream] Video error:', e);
+                status.textContent = 'Stream error - check console';
+                status.className = 'status error';
+            });
+
+            // Button handlers
+            muteBtn.onclick = toggleMute;
+            remoteBtn.onclick = toggleRemote;
+        }
+
+        function toggleMute() {
+            isMuted = !isMuted;
+            videoPlayer.muted = isMuted;
+            muteBtn.textContent = isMuted ? '🔇 Muted' : '🔊 Unmuted';
+            console.log('[@test:mobile-stream] Mute toggled:', isMuted);
+        }
+
+        function toggleRemote() {
+            showRemote = !showRemote;
+            if (showRemote) {
+                streamContainer.classList.add('with-panels');
+                sidePanel.style.display = 'block';
+                remoteBtn.textContent = 'Hide Remote';
+                remoteBtn.classList.add('active');
+            } else {
+                streamContainer.classList.remove('with-panels');
+                sidePanel.style.display = 'none';
+                remoteBtn.textContent = 'Show Remote';
+                remoteBtn.classList.remove('active');
+            }
+            console.log('[@test:mobile-stream] Remote panel toggled:', showRemote);
+        }
+
+        function applySettings() {
+            const deviceModel = document.getElementById('deviceModel').value;
+            const aspectRatio = document.getElementById('aspectRatio').value;
+            const objectFit = document.getElementById('objectFit').value;
+            const minHeight = document.getElementById('minHeight').value;
+
+            // Apply styles
+            videoPlayer.style.aspectRatio = aspectRatio;
+            videoPlayer.style.objectFit = objectFit;
+            videoPlayer.style.minHeight = minHeight;
+
+            // Update class for mobile/desktop
+            videoPlayer.className = `video-player ${deviceModel === 'mobile' ? 'mobile-video' : 'desktop-video'}`;
+
+            console.log('[@test:mobile-stream] Settings applied:', {
+                deviceModel,
+                aspectRatio,
+                objectFit,
+                minHeight
+            });
+        }
+
+        function resetToMobile() {
+            document.getElementById('deviceModel').value = 'mobile';
+            document.getElementById('aspectRatio').value = '9/16';
+            document.getElementById('objectFit').value = 'fill';
+            document.getElementById('minHeight').value = '300px';
+            applySettings();
+            console.log('[@test:mobile-stream] Reset to mobile configuration');
+        }
+
+        function resetToDesktop() {
+            document.getElementById('deviceModel').value = 'desktop';
+            document.getElementById('aspectRatio').value = '16/9';
+            document.getElementById('objectFit').value = 'contain';
+            document.getElementById('minHeight').value = '300px';
+            applySettings();
+            console.log('[@test:mobile-stream] Reset to desktop configuration');
+        }
+
+        // Start when page loads
+        document.addEventListener('DOMContentLoaded', init);
+
+        // Handle HLS if supported
+        if (videoPlayer.canPlayType('application/vnd.apple.mpegurl')) {
+            console.log('[@test:mobile-stream] Native HLS support detected');
+        } else {
+            console.log('[@test:mobile-stream] No native HLS support - may need hls.js');
+            // You could add hls.js here if needed
+        }
+    </script>
+</body>
+</html>
