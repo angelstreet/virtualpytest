@@ -45,6 +45,8 @@ SELECT timestamp as time,
        cpu_percent as value 
 FROM system_device_metrics 
 WHERE $__timeFilter(timestamp) 
+  AND capture_folder IS NOT NULL 
+  AND capture_folder != 'invalid_config'
 ORDER BY timestamp
 ```
 
@@ -55,6 +57,8 @@ SELECT timestamp as time,
        memory_percent as value 
 FROM system_device_metrics 
 WHERE $__timeFilter(timestamp) 
+  AND capture_folder IS NOT NULL 
+  AND capture_folder != 'invalid_config'
 ORDER BY timestamp
 ```
 
@@ -84,6 +88,8 @@ WITH latest_device_metrics AS (
     monitor_uptime_seconds 
   FROM system_device_metrics 
   WHERE timestamp >= NOW() - INTERVAL '5 minutes' 
+    AND capture_folder IS NOT NULL 
+    AND capture_folder != 'invalid_config'
   ORDER BY host_name, device_id, timestamp DESC
 ) 
 SELECT 
@@ -135,6 +141,8 @@ SELECT
     description as "Description"
 FROM system_incident 
 WHERE status IN ('open', 'in_progress')
+  AND capture_folder IS NOT NULL 
+  AND capture_folder != 'invalid_config'
 ORDER BY 
     CASE severity 
         WHEN 'critical' THEN 1 
@@ -161,6 +169,7 @@ WITH device_availability AS (
         END) as healthy_minutes
     FROM system_device_metrics 
     WHERE timestamp >= NOW() - INTERVAL '24 hours'
+      AND capture_folder IS NOT NULL  -- Exclude incomplete device configurations
     GROUP BY device_name, capture_folder
 ),
 incident_downtime AS (
@@ -171,6 +180,7 @@ incident_downtime AS (
     FROM system_incident 
     WHERE detected_at >= NOW() - INTERVAL '24 hours'
       AND status IN ('resolved', 'closed')
+      AND capture_folder IS NOT NULL  -- Exclude incomplete device configurations
     GROUP BY device_name, capture_folder
 )
 SELECT 
@@ -205,7 +215,9 @@ SELECT
         THEN total_duration_minutes 
     END), 1) as "Avg Resolution (min)",
     COUNT(CASE WHEN severity = 'critical' AND detected_at >= NOW() - INTERVAL '24 hours' THEN 1 END) as "24h Critical"
-FROM system_incident;
+FROM system_incident
+WHERE capture_folder IS NOT NULL 
+  AND capture_folder != 'invalid_config';
 ```
 
 ## Panel 7: Recent Incident History
@@ -226,6 +238,8 @@ SELECT
     END as "Duration",
     COALESCE(resolution_notes, description) as "Notes"
 FROM system_incident 
+WHERE capture_folder IS NOT NULL 
+  AND capture_folder != 'invalid_config'
 ORDER BY detected_at DESC 
 LIMIT 20;
 ```

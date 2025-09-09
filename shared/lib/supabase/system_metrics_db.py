@@ -189,13 +189,21 @@ def store_device_metrics(host_name: str, device_data: Dict[str, Any], system_sta
     try:
         supabase = get_supabase()
         
+        # CRITICAL VALIDATION: Reject NULL/empty capture_folder
+        capture_folder = device_data.get('capture_folder')
+        if not capture_folder or capture_folder in ['unknown', 'null', None]:
+            device_name = device_data.get('device_name', 'Unknown Device')
+            print(f"🚫 REJECTED: Device {device_name} has invalid capture_folder: {capture_folder}")
+            print(f"   Device config incomplete - skipping metrics insertion to prevent data corruption")
+            return False
+        
         insert_data = {
             'host_name': host_name,
             'device_id': device_data.get('device_id', 'unknown'),
             'device_name': device_data.get('device_name', 'Unknown Device'),
             'device_port': device_data.get('device_port') or 'unknown',
             'device_model': device_data.get('device_model', 'unknown'),
-            'capture_folder': device_data.get('capture_folder', 'unknown'),
+            'capture_folder': capture_folder,  # Already validated above
             'video_device': device_data.get('video_device', 'unknown'),
             'timestamp': datetime.now(timezone.utc).isoformat(),
             'cpu_percent': system_stats.get('cpu_percent', 0),
