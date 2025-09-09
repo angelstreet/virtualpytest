@@ -641,7 +641,7 @@ const RecHostStreamModalContent: React.FC<{
                       aspectRatio: isMobileModel 
                         ? `${DEFAULT_DEVICE_RESOLUTION.height}/${DEFAULT_DEVICE_RESOLUTION.width}` 
                         : `${DEFAULT_DEVICE_RESOLUTION.width}/${DEFAULT_DEVICE_RESOLUTION.height}`,
-                      objectFit: isMobileModel ? 'contain' : 'contain', // Use fill for mobile, contain for desktop
+                      objectFit: isMobileModel ? 'fill' : 'contain', // Use fill for mobile, contain for desktop
                       isMobileModel, // Use our mobile detection result
                     }}
                     isExpanded={false}
