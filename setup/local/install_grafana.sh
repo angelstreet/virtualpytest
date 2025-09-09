@@ -193,201 +193,61 @@ setup_postgresql() {
     fi
 }
 
-# Function to create local Grafana configuration
-create_grafana_config() {
-    echo "⚙️ Creating local Grafana configuration..."
+# Function to setup local Grafana configuration
+setup_grafana_config() {
+    echo "⚙️ Setting up local Grafana configuration..."
     
-    # Create local Grafana config directory
-    mkdir -p "$PROJECT_ROOT/grafana/config"
-    mkdir -p "$PROJECT_ROOT/grafana/data"
-    mkdir -p "$PROJECT_ROOT/grafana/logs"
-    mkdir -p "$PROJECT_ROOT/grafana/provisioning/datasources"
-    mkdir -p "$PROJECT_ROOT/grafana/provisioning/dashboards"
+    # Create Grafana directories
+    if [[ "$OS" == "linux" ]]; then
+        # On Linux, use system directories
+        sudo mkdir -p /var/lib/grafana
+        sudo mkdir -p /var/log/grafana
+        sudo mkdir -p /etc/grafana
+        
+        # Copy the pre-configured database with all dashboards
+        echo "📊 Copying Grafana database with dashboards..."
+        sudo cp "$PROJECT_ROOT/grafana/data/grafana.db" /var/lib/grafana/
+        
+        # Copy the configuration file
+        echo "⚙️ Copying Grafana configuration..."
+        sudo cp "$PROJECT_ROOT/grafana/config/grafana.ini" /etc/grafana/
+        
+        # Update configuration for local use (change port to 3001 to avoid conflicts)
+        sudo sed -i 's/http_port = 3000/http_port = 3001/' /etc/grafana/grafana.ini
+        sudo sed -i 's/domain = dev.virtualpytest.com/domain = localhost/' /etc/grafana/grafana.ini
+        sudo sed -i 's|root_url = https://dev.virtualpytest.com/grafana/|root_url = http://localhost:3001/|' /etc/grafana/grafana.ini
+        sudo sed -i 's/serve_from_sub_path = true/serve_from_sub_path = false/' /etc/grafana/grafana.ini
+        
+        # Set proper permissions
+        sudo chown -R grafana:grafana /var/lib/grafana
+        sudo chown -R grafana:grafana /var/log/grafana
+        sudo chown grafana:grafana /etc/grafana/grafana.ini
+        
+    else
+        # On macOS, use local directories
+        mkdir -p "$GRAFANA_HOME"
+        mkdir -p "$GRAFANA_LOGS"
+        mkdir -p "$(dirname "$GRAFANA_CONF")"
+        
+        # Copy the pre-configured database with all dashboards
+        echo "📊 Copying Grafana database with dashboards..."
+        cp "$PROJECT_ROOT/grafana/data/grafana.db" "$GRAFANA_HOME/"
+        
+        # Copy and modify configuration for local use
+        echo "⚙️ Copying Grafana configuration..."
+        cp "$PROJECT_ROOT/grafana/config/grafana.ini" "$GRAFANA_CONF"
+        
+        # Update configuration for local use (change port to 3001 to avoid conflicts)
+        sed -i '' 's/http_port = 3000/http_port = 3001/' "$GRAFANA_CONF"
+        sed -i '' 's/domain = dev.virtualpytest.com/domain = localhost/' "$GRAFANA_CONF"
+        sed -i '' 's|root_url = https://dev.virtualpytest.com/grafana/|root_url = http://localhost:3001/|' "$GRAFANA_CONF"
+        sed -i '' 's/serve_from_sub_path = true/serve_from_sub_path = false/' "$GRAFANA_CONF"
+    fi
     
-    # Create local Grafana configuration file
-    cat > "$PROJECT_ROOT/grafana/config/grafana-local.ini" << 'EOF'
-##################### Grafana Local Configuration #####################
-
-[paths]
-# Local data directory
-data = ./grafana/data
-logs = ./grafana/logs
-plugins = ./grafana/plugins
-provisioning = ./grafana/provisioning
-
-[server]
-# Local server configuration
-protocol = http
-http_addr = 127.0.0.1
-http_port = 3001
-domain = localhost
-root_url = http://localhost:3001/
-
-[database]
-# Use local SQLite for Grafana metadata
-type = sqlite3
-path = grafana.db
-
-[security]
-# Local development security settings
-admin_user = admin
-admin_password = admin123
-secret_key = virtualpytest_local_secret_key
-allow_embedding = true
-cookie_secure = false
-
-[auth.anonymous]
-# Enable anonymous access for local development
-enabled = true
-org_name = Main Org.
-org_role = Viewer
-
-[users]
-# Allow sign up for local development
-allow_sign_up = true
-auto_assign_org = true
-auto_assign_org_role = Editor
-default_theme = dark
-
-[analytics]
-# Disable analytics for local development
-reporting_enabled = false
-check_for_updates = false
-
-[log]
-mode = console file
-level = info
-
-[log.console]
-level = info
-format = console
-
-[log.file]
-level = info
-format = text
-log_rotate = true
-max_lines = 1000000
-max_size_shift = 28
-daily_rotate = true
-max_days = 7
-EOF
-
-    echo "✅ Local Grafana configuration created"
+    echo "✅ Grafana configuration and database copied successfully"
 }
 
-# Function to create datasource configurations
-create_datasource_config() {
-    echo "🔌 Creating datasource configurations..."
-    
-    # Create local datasource configuration
-    cat > "$PROJECT_ROOT/grafana/provisioning/datasources/local.yml" << 'EOF'
-# Local Grafana datasource configuration for VirtualPyTest
-apiVersion: 1
 
-datasources:
-  # Local PostgreSQL - DEFAULT for storing metrics and Grafana data
-  - name: VirtualPyTest Metrics (Local)
-    type: postgres
-    access: proxy
-    url: postgres://grafana_user:grafana_pass@localhost:5432/grafana_metrics
-    jsonData:
-      sslmode: disable  # Local connection, no SSL needed
-      postgresVersion: 1300
-      timescaledb: false
-      maxOpenConns: 10
-      maxIdleConns: 5
-      connMaxLifetime: 14400
-    # Set as default datasource for metrics storage
-    isDefault: true
-    # Allow editing for metrics and dashboard creation
-    editable: true
-    
-  # Supabase PostgreSQL - READ ONLY for fetching application data (if configured)
-  - name: VirtualPyTest Supabase (Read-Only)
-    type: postgres
-    access: proxy
-    url: ${SUPABASE_DB_URI:-postgres://user:pass@localhost:5432/postgres}
-    jsonData:
-      sslmode: require
-      postgresVersion: 1300
-      timescaledb: false
-      maxOpenConns: 3
-      maxIdleConns: 1
-      connMaxLifetime: 14400
-    # NOT default datasource
-    isDefault: false
-    # Read-only access
-    editable: false
-EOF
-
-    echo "✅ Datasource configuration created"
-}
-
-# Function to create dashboard provisioning
-create_dashboard_config() {
-    echo "📊 Creating dashboard provisioning configuration..."
-    
-    # Create dashboard provisioning configuration
-    cat > "$PROJECT_ROOT/grafana/provisioning/dashboards/dashboards.yml" << 'EOF'
-apiVersion: 1
-
-providers:
-  # VirtualPyTest dashboards from backend_server config
-  - name: 'VirtualPyTest Dashboards'
-    orgId: 1
-    folder: 'VirtualPyTest'
-    type: file
-    disableDeletion: false
-    updateIntervalSeconds: 10
-    allowUiUpdates: true
-    options:
-      path: ./backend_server/config/grafana/dashboards
-      
-  # Local development dashboards
-  - name: 'Local Development'
-    orgId: 1
-    folder: 'Local'
-    type: file
-    disableDeletion: false
-    updateIntervalSeconds: 10
-    allowUiUpdates: true
-    options:
-      path: ./grafana/dashboards
-EOF
-
-    # Create local dashboards directory
-    mkdir -p "$PROJECT_ROOT/grafana/dashboards"
-    
-    # Create a simple local development dashboard
-    cat > "$PROJECT_ROOT/grafana/dashboards/local-development.json" << 'EOF'
-{
-  "dashboard": {
-    "id": null,
-    "title": "Local Development Overview",
-    "tags": ["local", "development"],
-    "timezone": "browser",
-    "panels": [
-      {
-        "id": 1,
-        "title": "Welcome to Local Grafana",
-        "type": "text",
-        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
-        "options": {
-          "mode": "markdown",
-          "content": "# Welcome to VirtualPyTest Local Grafana\n\nThis is your local Grafana instance for development and testing.\n\n## Quick Links\n- [Datasources](http://localhost:3000/datasources)\n- [Dashboard Settings](http://localhost:3000/dashboard/settings)\n- [Explore](http://localhost:3000/explore)\n\n## Next Steps\n1. Configure your datasources\n2. Import VirtualPyTest dashboards\n3. Create custom panels for your metrics\n\n**Note**: This is running in local development mode with anonymous access enabled."
-        }
-      }
-    ],
-    "time": {"from": "now-6h", "to": "now"},
-    "refresh": "30s",
-    "schemaVersion": 30,
-    "version": 1
-  }
-}
-EOF
-
-    echo "✅ Dashboard configuration created"
-}
 
 # Function to create launch script
 create_launch_script() {
@@ -417,9 +277,15 @@ if ! command -v grafana-server &> /dev/null; then
     exit 1
 fi
 
-# Check if configuration exists
-if [ ! -f "grafana/config/grafana-local.ini" ]; then
-    echo "❌ Grafana configuration not found"
+# Check if Grafana is configured
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    GRAFANA_CONF="/usr/local/etc/grafana/grafana.ini"
+else
+    GRAFANA_CONF="/etc/grafana/grafana.ini"
+fi
+
+if [ ! -f "$GRAFANA_CONF" ]; then
+    echo "❌ Grafana configuration not found at $GRAFANA_CONF"
     echo "Please run: ./setup/local/install_grafana.sh"
     exit 1
 fi
@@ -450,11 +316,20 @@ echo "📊 Grafana will be available at: http://localhost:3001"
 echo "🔑 Login: admin / admin123"
 echo "💡 Press Ctrl+C to stop"
 
-# Start Grafana server
-grafana-server \
-    --config="$PROJECT_ROOT/grafana/config/grafana-local.ini" \
-    --homepath="$PROJECT_ROOT/grafana" \
-    web
+# Start Grafana server using system configuration
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    # On macOS, start with Homebrew paths
+    grafana-server \
+        --config="$GRAFANA_CONF" \
+        --homepath="/usr/local/share/grafana" \
+        web
+else
+    # On Linux, start with system paths
+    grafana-server \
+        --config="$GRAFANA_CONF" \
+        --homepath="/usr/share/grafana" \
+        web
+fi
 EOF
 
     # Make launch script executable
@@ -477,10 +352,8 @@ main() {
     # Setup PostgreSQL for metrics
     setup_postgresql
     
-    # Create local configurations
-    create_grafana_config
-    create_datasource_config
-    create_dashboard_config
+    # Setup Grafana configuration and database
+    setup_grafana_config
     create_launch_script
     
     echo ""
@@ -489,9 +362,8 @@ main() {
     echo "📋 What was installed:"
     echo "   ✅ Grafana server"
     echo "   ✅ PostgreSQL database for metrics (grafana_metrics)"
-    echo "   ✅ Local Grafana configuration"
-    echo "   ✅ Datasource configurations"
-    echo "   ✅ Dashboard provisioning"
+    echo "   ✅ Grafana configuration (copied from project)"
+    echo "   ✅ Grafana database with all dashboards (copied from project)"
     echo "   ✅ Launch script"
     echo ""
     echo "🚀 To start Grafana:"

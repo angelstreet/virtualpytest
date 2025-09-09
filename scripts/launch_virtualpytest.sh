@@ -57,7 +57,7 @@ chmod +x "$LAUNCH_ALL_SCRIPT"
 # Delegate to launch_all.sh with appropriate parameters
 echo "🔄 Delegating to setup/local/launch_all.sh..."
 if [ "$INCLUDE_DISCARD" = true ]; then
-    exec "$LAUNCH_ALL_SCRIPT" --discard
+    exec "$LAUNCH_ALL_SCRIPT" --discard --with-grafana
 else
-    exec "$LAUNCH_ALL_SCRIPT"
+    exec "$LAUNCH_ALL_SCRIPT" --with-grafana
 fi

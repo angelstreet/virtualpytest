@@ -37,7 +37,7 @@ VirtualPyTest has 5 main components that work together:
 
 ---
 
-## ⚡ **Installation (3 Commands)**
+## ⚡ **Installation (3 Simple Steps)**
 
 ### Step 1: Get VirtualPyTest
 ```bash
@@ -61,15 +61,14 @@ cd virtualpytest
 
 ### Step 3: Start All Services
 ```bash
-# Start everything with colored logs
-./setup/local/launch_all.sh --with-grafana
+# Start everything with one simple command
+./scripts/launch_virtualpytest.sh
 ```
 
 *You'll see colored logs like:*
 - 🔵 **[SERVER]** - Backend server starting...
 - 🟢 **[HOST]** - Backend host ready...
 - 🟡 **[FRONTEND]** - Web interface loading...
-- 🟣 **[GRAFANA]** - Monitoring dashboard ready...
 
 **Keep this terminal open** - it shows live logs from all services.
 
@@ -152,23 +151,7 @@ VITE_ENVIRONMENT=development
 
 ## ✅ **Verify Installation**
 
-### Step 4: Test Your Installation (Optional)
-
-Before starting services, you can test if everything is installed correctly:
-
-```bash
-# Run installation test
-./setup/local/test_installation.sh
-```
-
-This will check:
-- ✅ Python virtual environment
-- ✅ Frontend dependencies  
-- ✅ Grafana configuration
-- ✅ Database setup
-- ✅ All required tools
-
-### Step 5: Check All Services Are Running
+### Step 4: Check All Services Are Running
 
 Open a **new terminal** (keep the first one with logs running) and test each service:
 
@@ -186,7 +169,7 @@ curl http://localhost:6109/host/health
 curl http://localhost:3001
 ```
 
-### Step 6: Open Web Interfaces
+### Step 5: Open Web Interfaces
 
 Open these URLs in your browser:
 
@@ -199,7 +182,7 @@ Open these URLs in your browser:
 
 ## 🎮 **Your First Test**
 
-### Step 7: Run a Simple Test
+### Step 6: Run a Simple Test
 
 In a **new terminal**, run your first automation test:
 
@@ -302,9 +285,9 @@ sudo pkill -f "python.*5109"
 sudo pkill -f "python.*6109"
 sudo pkill -f "grafana-server"
 
-# Restart installation
+# Restart installation and launch
 ./setup/local/install_all.sh --with-grafana
-./setup/local/launch_all.sh --with-grafana
+./scripts/launch_virtualpytest.sh
 ```
 
 ### Grafana Database Issues
@@ -327,7 +310,7 @@ PGPASSWORD=grafana_pass psql -h localhost -U grafana_user -d grafana_metrics -c 
 # Check if frontend is running
 curl http://localhost:3000
 
-# If not working, check logs in the terminal running launch_all.sh
+# If not working, check logs in the terminal running launch_virtualpytest.sh
 # Look for [FRONTEND] errors in colored output
 ```
 
@@ -343,7 +326,7 @@ python goto.py --node home
 
 ## 💡 **Pro Tips**
 
-- **Keep Logs Open**: Always run `launch_all.sh` in a visible terminal to see real-time logs
+- **Keep Logs Open**: Always run `./scripts/launch_virtualpytest.sh` in a visible terminal to see real-time logs
 - **Use Screenshots**: Every test automatically captures screenshots - check the `captures/` folder
 - **Monitor Health**: Check http://localhost:3001 regularly for system health
 - **Start Simple**: Begin with `goto.py` tests before trying complex campaigns

@@ -286,7 +286,15 @@ if [ "$INCLUDE_GRAFANA" = true ]; then
     
     # Set environment variables for Grafana
     export SUPABASE_DB_URI="${SUPABASE_DB_URI:-postgres://user:pass@localhost:5432/postgres}"
-    run_with_prefix "GRAFANA" "\033[0;35m" "$PROJECT_ROOT" grafana-server --config="$PROJECT_ROOT/grafana/config/grafana-local.ini" --homepath="$PROJECT_ROOT/grafana" web
+    
+    # Start Grafana using system configuration
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        # On macOS, use Homebrew paths
+        run_with_prefix "GRAFANA" "\033[0;35m" "$PROJECT_ROOT" grafana-server --config="/usr/local/etc/grafana/grafana.ini" --homepath="/usr/local/share/grafana" web
+    else
+        # On Linux, use system paths
+        run_with_prefix "GRAFANA" "\033[0;35m" "$PROJECT_ROOT" grafana-server --config="/etc/grafana/grafana.ini" --homepath="/usr/share/grafana" web
+    fi
     sleep 3
 fi
 
