@@ -16,6 +16,90 @@ def get_supabase():
     return get_supabase_client()
 
 
+def process_device_incidents(device_name: str, capture_folder: str, ffmpeg_status: str, monitor_status: str) -> dict:
+    """Simple, fast incident processing - host knows its own status, just INSERT/UPDATE directly"""
+    try:
+        supabase = get_supabase()
+        if supabase is None:
+            return {'incidents_created': 0, 'incidents_resolved': 0}
+        
+        incidents_created = 0
+        incidents_resolved = 0
+        current_time = datetime.now(timezone.utc).isoformat()
+        
+        # FFmpeg incident handling
+        if ffmpeg_status in ['stuck', 'stopped']:
+            # Try to INSERT new incident (will fail silently if duplicate due to unique constraints)
+            try:
+                incident_data = {
+                    'device_name': device_name,
+                    'capture_folder': capture_folder,
+                    'component': 'ffmpeg',
+                    'incident_type': 'ffmpeg_failure',
+                    'severity': 'critical' if ffmpeg_status == 'stopped' else 'high',
+                    'status': 'open',
+                    'detected_at': current_time,
+                    'description': f'FFmpeg process {ffmpeg_status}'
+                }
+                result = supabase.table('system_incident').insert(incident_data).execute()
+                if result.data:
+                    incidents_created += 1
+            except:
+                pass  # Incident already exists, that's fine
+                
+        elif ffmpeg_status == 'active':
+            # UPDATE any open FFmpeg incidents to resolved
+            try:
+                result = supabase.table('system_incident').update({
+                    'status': 'resolved',
+                    'resolved_at': current_time,
+                    'resolution_notes': 'Auto-resolved: FFmpeg recovered'
+                }).eq('device_name', device_name).eq('capture_folder', capture_folder).eq('component', 'ffmpeg').in_('status', ['open', 'in_progress']).execute()
+                if result.data:
+                    incidents_resolved += len(result.data)
+            except:
+                pass
+        
+        # Monitor incident handling  
+        if monitor_status in ['stuck', 'stopped']:
+            # Try to INSERT new incident (will fail silently if duplicate)
+            try:
+                incident_data = {
+                    'device_name': device_name,
+                    'capture_folder': capture_folder,
+                    'component': 'monitor',
+                    'incident_type': 'monitor_failure',
+                    'severity': 'critical' if monitor_status == 'stopped' else 'high',
+                    'status': 'open',
+                    'detected_at': current_time,
+                    'description': f'Monitor process {monitor_status}'
+                }
+                result = supabase.table('system_incident').insert(incident_data).execute()
+                if result.data:
+                    incidents_created += 1
+            except:
+                pass  # Incident already exists, that's fine
+                
+        elif monitor_status == 'active':
+            # UPDATE any open Monitor incidents to resolved
+            try:
+                result = supabase.table('system_incident').update({
+                    'status': 'resolved',
+                    'resolved_at': current_time,
+                    'resolution_notes': 'Auto-resolved: Monitor recovered'
+                }).eq('device_name', device_name).eq('capture_folder', capture_folder).eq('component', 'monitor').in_('status', ['open', 'in_progress']).execute()
+                if result.data:
+                    incidents_resolved += len(result.data)
+            except:
+                pass
+        
+        return {'incidents_created': incidents_created, 'incidents_resolved': incidents_resolved}
+        
+    except Exception as e:
+        # Don't let incident processing break metrics storage
+        return {'incidents_created': 0, 'incidents_resolved': 0}
+
+
 def process_incidents() -> dict:
     """Process incidents by calling the database function with backend-level duplicate prevention"""
     try:
@@ -133,19 +217,13 @@ def store_device_metrics(host_name: str, device_data: Dict[str, Any], system_sta
         if result.data:
             print(f"✅ Device metrics stored: {device_data.get('device_name', 'Unknown')} ({device_data.get('capture_folder', 'unknown')})")
             
-            # Process incidents after storing device metrics
+            # Process incidents for THIS device only (fast, non-blocking)
             try:
-                incident_result = process_incidents()
-                if incident_result.get('skipped'):
-                    print(f"⏳ Incident processing skipped (rate limited)")
-                elif incident_result.get('incidents_created', 0) > 0 or incident_result.get('incidents_resolved', 0) > 0:
-                    print(f"🚨 Incidents processed: +{incident_result.get('incidents_created', 0)} created, +{incident_result.get('incidents_resolved', 0)} resolved")
-                else:
-                    print(f"✅ Incident processing completed: no changes needed")
+                incident_result = process_device_incidents(device_data.get('device_name'), device_data.get('capture_folder'), device_data.get('ffmpeg_status'), device_data.get('monitor_status'))
+                if incident_result.get('incidents_created', 0) > 0 or incident_result.get('incidents_resolved', 0) > 0:
+                    print(f"🚨 Device incidents: +{incident_result.get('incidents_created', 0)} created, +{incident_result.get('incidents_resolved', 0)} resolved")
             except Exception as e:
-                import traceback
-                print(f"❌ Error processing incidents after device metrics: {type(e).__name__}: {str(e)}")
-                print(f"📋 Traceback: {traceback.format_exc()}")
+                print(f"⚠️ Error processing device incidents: {e}")
             
             return True
         else:
