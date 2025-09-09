@@ -56,6 +56,7 @@ WORKDIR /app/backend_server
 RUN mkdir -p /var/lib/grafana /var/log/grafana /etc/grafana \
     && mkdir -p /app/backend_server/config/grafana/provisioning/{datasources,dashboards} \
     && mkdir -p /app/backend_server/config/grafana/dashboards \
+    && mkdir -p /app/backend_server/config/grafana/data/{png,csv,sessions,plugins} \
     && mkdir -p /var/log/supervisor \
     && mkdir -p /usr/share/grafana/data/plugins \
     && mkdir -p /var/lib/grafana/plugins
@@ -68,12 +69,11 @@ RUN useradd -m -u 1000 vptuser \
     && chown -R grafana:grafana /etc/grafana \
     && chown -R grafana:grafana /usr/share/grafana/data/plugins \
     && chown -R grafana:grafana /var/lib/grafana/plugins \
-    && chown -R vptuser:vptuser /app/backend_server/config/grafana \
+    && chown -R grafana:grafana /app/backend_server/config/grafana \
     && chmod -R 755 /usr/share/grafana/data/plugins \
     && chmod -R 755 /var/lib/grafana/plugins \
     && chmod -R 775 /var/lib/grafana \
     && chmod -R 775 /app/backend_server/config/grafana \
-    && chmod 644 /app/backend_server/config/grafana/grafana.ini \
     && chmod -R 755 /var/log/grafana
 
 # Copy supervisor configuration (no nginx)
