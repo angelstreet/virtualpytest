@@ -99,8 +99,15 @@ export const InfraredRemote = React.memo(
           10,
         );
 
-        // Calculate scale ratio based on panel size difference
-        const heightRatio = collapsedHeight / expandedHeight; // 300/600 = 0.5
+        // Account for header height in both states
+        const headerHeight = layoutConfig.panel_layout.header.height 
+          ? parseInt(layoutConfig.panel_layout.header.height.replace('px', ''), 10)
+          : parseInt(layoutConfig.panel_layout.header.padding.replace('px', ''), 10) * 2 + 20; // fallback to padding calculation
+        const actualCollapsedHeight = collapsedHeight - headerHeight;
+        const actualExpandedHeight = expandedHeight - headerHeight;
+
+        // Calculate scale ratio based on actual container size (excluding header)
+        const heightRatio = actualCollapsedHeight / actualExpandedHeight;
         const widthRatio = collapsedWidth / expandedWidth; // 160/240 = 0.667
 
         // Use the smaller ratio to ensure remote fits in collapsed panel
