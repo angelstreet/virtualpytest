@@ -736,7 +736,7 @@ class VideoContentHelpers:
         return overall_result
 
     def _analyze_macroblocks_simple(self, image_path: str) -> Tuple[bool, float]:
-        """Same algorithm as analyze_audio_video.py for consistency"""
+        """Conservative macroblock detection - same algorithm as analyze_audio_video.py"""
         try:
             img = cv2.imread(image_path)
             if img is None:
@@ -744,6 +744,7 @@ class VideoContentHelpers:
             
             # Convert to different color spaces for analysis
             hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+            img_height, img_width = img.shape[:2]
             
             # 1. Detect abnormal color pixels (green/pink artifacts)
             # Sample every 10th pixel for performance (reuse existing pattern)
@@ -761,17 +762,38 @@ class VideoContentHelpers:
             total_sampled = hsv_sampled.shape[0] * hsv_sampled.shape[1]
             artifact_percentage = ((green_pixels + pink_pixels) / total_sampled) * 100
             
-            # 2. Simple blur detection using Laplacian variance
+            # 2. Conservative blur detection using Laplacian variance
             gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
             gray_sampled = gray[::sample_rate, ::sample_rate]
             laplacian_var = cv2.Laplacian(gray_sampled, cv2.CV_64F).var()
             
-            # Combine metrics: artifacts OR low sharpness indicates macroblocks
-            has_artifacts = artifact_percentage > 2.0  # 2% threshold
-            is_blurry = laplacian_var < 100  # Low variance = blurry
+            # CONSERVATIVE THRESHOLDS - Only flag obvious macroblocks
+            has_severe_artifacts = artifact_percentage > 8.0  # Raised from 2% to 8% - must be obvious
+            is_severely_blurry = laplacian_var < 30  # Lowered from 100 to 30 - must be very blurry
             
-            macroblocks_detected = has_artifacts or is_blurry
-            quality_score = max(artifact_percentage, (200 - laplacian_var) / 2)  # 0-100 scale
+            # Additional validation: both conditions should be somewhat present for true macroblocks
+            # If only one condition is met, require it to be very severe
+            if has_severe_artifacts and is_severely_blurry:
+                # Both conditions met - likely macroblocks
+                macroblocks_detected = True
+                confidence = "high"
+            elif has_severe_artifacts and artifact_percentage > 15.0:
+                # Very high artifact percentage alone
+                macroblocks_detected = True
+                confidence = "medium_artifacts"
+            elif is_severely_blurry and laplacian_var < 15:
+                # Extremely blurry alone
+                macroblocks_detected = True
+                confidence = "medium_blur"
+            else:
+                # Neither condition severe enough
+                macroblocks_detected = False
+                confidence = "none"
+            
+            quality_score = max(artifact_percentage, (200 - laplacian_var) / 2) if macroblocks_detected else 0.0
+            
+            # Detailed logging (same format as blackscreen detection)
+            print(f"VideoContent[{self.device_name}]: Macroblock check: {img_width}x{img_height} | artifacts={artifact_percentage:.1f}% (threshold: 8.0%), blur_var={laplacian_var:.1f} (threshold: 30), detected={macroblocks_detected} ({confidence})")
             
             return macroblocks_detected, quality_score
             
