@@ -43,8 +43,12 @@ RUN pip install --no-cache-dir -r backend_server/requirements.txt
 # Copy backend_server source
 COPY backend_server/src/ backend_server/src/
 
-# Copy Grafana configuration
+# Copy backend_server configuration
 COPY backend_server/config/ backend_server/config/
+
+# Copy separate Grafana configuration to expected location
+COPY grafana/config/ backend_server/config/grafana/
+COPY grafana/data/ backend_server/config/grafana/data/
 
 # Copy utils directory (if it exists in project root)
 # Note: This copy is optional and will be skipped if src/utils/ doesn't exist
@@ -73,6 +77,7 @@ RUN useradd -m -u 1000 vptuser \
     && chmod -R 755 /var/lib/grafana/plugins \
     && chmod -R 775 /var/lib/grafana \
     && chmod -R 775 /app/backend_server/config/grafana \
+    && chmod 644 /app/backend_server/config/grafana/grafana.ini \
     && chmod -R 755 /var/log/grafana
 
 # Copy nginx configuration
