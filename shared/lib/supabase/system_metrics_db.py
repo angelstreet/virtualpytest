@@ -21,6 +21,11 @@ def process_incidents() -> dict:
     try:
         supabase = get_supabase()
         
+        # Check if Supabase client is available
+        if supabase is None:
+            print("❌ Supabase client is None - check environment variables")
+            return {'incidents_created': 0, 'incidents_resolved': 0, 'error': 'Supabase client not available'}
+        
         # Backend-level duplicate prevention: Check if we recently processed incidents
         # This prevents race conditions and excessive processing
         import time
@@ -51,8 +56,17 @@ def process_incidents() -> dict:
             return {'incidents_created': 0, 'incidents_resolved': 0}
             
     except Exception as e:
-        print(f"❌ Error processing incidents: {e}")
-        return {'incidents_created': 0, 'incidents_resolved': 0}
+        import traceback
+        print(f"❌ Error processing incidents: {type(e).__name__}: {str(e)}")
+        print(f"📋 Full error details: {traceback.format_exc()}")
+        
+        # Try to get more details from Supabase error
+        if hasattr(e, 'details'):
+            print(f"🔍 Supabase error details: {e.details}")
+        if hasattr(e, 'message'):
+            print(f"💬 Supabase error message: {e.message}")
+            
+        return {'incidents_created': 0, 'incidents_resolved': 0, 'error': str(e)}
 
 
 def store_system_metrics(host_name: str, metrics_data: Dict[str, Any]) -> bool:
@@ -122,10 +136,16 @@ def store_device_metrics(host_name: str, device_data: Dict[str, Any], system_sta
             # Process incidents after storing device metrics
             try:
                 incident_result = process_incidents()
-                if incident_result.get('incidents_created', 0) > 0 or incident_result.get('incidents_resolved', 0) > 0:
+                if incident_result.get('skipped'):
+                    print(f"⏳ Incident processing skipped (rate limited)")
+                elif incident_result.get('incidents_created', 0) > 0 or incident_result.get('incidents_resolved', 0) > 0:
                     print(f"🚨 Incidents processed: +{incident_result.get('incidents_created', 0)} created, +{incident_result.get('incidents_resolved', 0)} resolved")
+                else:
+                    print(f"✅ Incident processing completed: no changes needed")
             except Exception as e:
-                print(f"⚠️ Error processing incidents after device metrics: {e}")
+                import traceback
+                print(f"❌ Error processing incidents after device metrics: {type(e).__name__}: {str(e)}")
+                print(f"📋 Traceback: {traceback.format_exc()}")
             
             return True
         else:
