@@ -21,7 +21,7 @@ VirtualPyTest has 5 main components that work together:
 |-----------|---------|------|--------------|
 | **Frontend** | Web dashboard | 3000 | Your main interface - control everything here |
 | **Backend Server** | API coordinator | 5109 | Manages tests, campaigns, and data |
-| **Backend Host** | Device controller | 6109 | Actually controls your devices (TV, mobile, etc.) |
+| **Backend Host** | Device controller | 6109 | Controls devices + auto-starts stream/monitor services |
 | **Grafana** | Monitoring | 3001 | Charts and metrics (optional but recommended) |
 | **Test Scripts** | Ready examples | - | Pre-built tests you can run immediately |
 
@@ -69,6 +69,12 @@ cd virtualpytest
 - 🔵 **[SERVER]** - Backend server starting...
 - 🟢 **[HOST]** - Backend host ready...
 - 🟡 **[FRONTEND]** - Web interface loading...
+
+**🎯 Smart Service Detection:**
+The Backend Host automatically detects your `.env` configuration and starts:
+- **VNC Services** - Always (for remote desktop)
+- **Stream Services** - Only if video devices configured (`DEVICE1_VIDEO=/dev/video0`)
+- **Monitor Services** - Only if stream services are running
 
 **Keep this terminal open** - it shows live logs from all services.
 
@@ -129,6 +135,11 @@ DEVICE1_NAME=my_android_tv
 DEVICE1_MODEL=android_tv
 DEVICE1_IP=192.168.1.100
 DEVICE1_PORT=8100
+
+# For video capture (automatically starts stream/monitor services)
+DEVICE1_VIDEO=/dev/video0
+DEVICE1_AUDIO=plughw:2,0
+DEVICE1_FPS=10
 ```
 
 ### Step 3.3: Frontend Configuration

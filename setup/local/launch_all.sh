@@ -257,8 +257,9 @@ echo -e "${BLUE}🔵 Starting backend_server...${NC}"
 run_with_prefix "SERVER" "$BLUE" "$PROJECT_ROOT/backend_server" python src/app.py
 sleep 3
 
-echo -e "${GREEN}🟢 Starting backend_host...${NC}"
-run_with_prefix "HOST" "$GREEN" "$PROJECT_ROOT/backend_host" python src/app.py
+echo -e "${GREEN}🟢 Starting backend_host with automatic service detection...${NC}"
+# Use the service orchestrator instead of direct Flask app
+run_with_prefix "HOST" "$GREEN" "$PROJECT_ROOT/backend_host/scripts" bash start_services.sh
 sleep 3
 
 echo -e "${YELLOW}🟡 Starting Frontend...${NC}"

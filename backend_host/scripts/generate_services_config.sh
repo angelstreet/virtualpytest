@@ -6,8 +6,18 @@
 
 set -e
 
-# Configuration
-ENV_FILE="${ENV_FILE:-/app/backend_host/src/.env}"
+# Configuration - Auto-detect environment
+if [ -d "/app/backend_host/src" ]; then
+    # Docker environment
+    DEFAULT_ENV_FILE="/app/backend_host/src/.env"
+else
+    # Local environment
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+    DEFAULT_ENV_FILE="$PROJECT_ROOT/backend_host/src/.env"
+fi
+
+ENV_FILE="${ENV_FILE:-$DEFAULT_ENV_FILE}"
 GRABBERS_CONFIG_FILE="/tmp/grabbers_config.sh"
 SERVICES_LIST_FILE="/tmp/services_list.txt"
 

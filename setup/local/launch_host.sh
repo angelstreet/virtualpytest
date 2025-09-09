@@ -82,12 +82,12 @@ echo "📺 Starting backend_host with real-time logging..."
 echo "💡 Press Ctrl+C to stop"
 echo "=================================================================================="
 
-# Start backend_host with real-time output
-cd backend_host
-echo -e "${GREEN}🟢 Starting backend_host...${NC}"
+# Start backend_host with service orchestrator
+cd backend_host/scripts
+echo -e "${GREEN}🟢 Starting backend_host with automatic service detection...${NC}"
 
-# Start the process and capture PID
-$PYTHON_CMD -u src/app.py 2>&1 | {
+# Start the service orchestrator and capture PID
+bash start_services.sh 2>&1 | {
     while IFS= read -r line; do
         printf "${GREEN}[HOST]${NC} %s\n" "$line"
     done

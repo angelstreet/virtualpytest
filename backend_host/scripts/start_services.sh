@@ -6,8 +6,18 @@
 
 set -e
 
-# Configuration
-SCRIPTS_DIR="/app/backend_host/scripts"
+# Configuration - Auto-detect environment
+if [ -d "/app/backend_host/scripts" ]; then
+    # Docker environment
+    SCRIPTS_DIR="/app/backend_host/scripts"
+    ENV_FILE="/app/backend_host/src/.env"
+else
+    # Local environment
+    SCRIPTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    PROJECT_ROOT="$(cd "$SCRIPTS_DIR/../.." && pwd)"
+    ENV_FILE="$PROJECT_ROOT/backend_host/src/.env"
+fi
+
 SERVICES_LIST_FILE="/tmp/services_list.txt"
 GRABBERS_CONFIG_FILE="/tmp/grabbers_config.sh"
 
@@ -160,7 +170,11 @@ main() {
     log "🎉 All services ready! Starting Flask API on port 6109"
     
     # Change to backend_host directory for Flask app
-    cd /app/backend_host
+    if [ -d "/app/backend_host" ]; then
+        cd /app/backend_host
+    else
+        cd "$PROJECT_ROOT/backend_host"
+    fi
     
     # Start Flask application (foreground process)
     exec python src/app.py
