@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VNC Scaling: Current vs Fixed</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background: #000;
+            color: white;
+        }
+        
+        .comparison {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .side {
+            border: 1px solid #333;
+            padding: 20px;
+            border-radius: 8px;
+        }
+        
+        .current {
+            border-color: #ff6b6b;
+        }
+        
+        .fixed {
+            border-color: #51cf66;
+        }
+        
+        .preview-container {
+            width: 300px;
+            height: 150px;
+            border: 2px solid #444;
+            background: #000;
+            position: relative;
+            overflow: hidden;
+            margin: 20px auto;
+        }
+        
+        .current .preview-container {
+            border-color: #ff6b6b;
+        }
+        
+        .fixed .preview-container {
+            border-color: #51cf66;
+        }
+        
+        /* Current implementation - exactly like RecHostPreview */
+        .current-vnc {
+            border: none;
+            background-color: #000;
+            pointer-events: none;
+        }
+        
+        /* Fixed implementation */
+        .fixed-vnc {
+            border: none;
+            background-color: #000;
+            pointer-events: none;
+            width: 100%;
+            height: 100%;
+        }
+        
+        .info {
+            background: #222;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        .problem {
+            background: #2d1b1b;
+            color: #ff6b6b;
+        }
+        
+        .solution {
+            background: #1b2d1b;
+            color: #51cf66;
+        }
+        
+        .controls {
+            text-align: center;
+            margin: 20px 0;
+        }
+        
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        
+        button:hover {
+            background: #0056b3;
+        }
+        
+        .stats {
+            font-family: monospace;
+            font-size: 12px;
+            background: #111;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        h2 {
+            color: #fff;
+            margin-bottom: 15px;
+        }
+        
+        .current h2 {
+            color: #ff6b6b;
+        }
+        
+        .fixed h2 {
+            color: #51cf66;
+        }
+        
+        @media (max-width: 768px) {
+            .comparison {
+                grid-template-columns: 1fr;
+            }
+            
+            .preview-container {
+                width: 100%;
+                max-width: 300px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>VNC Scaling Comparison: Current vs Fixed</h1>
+    
+    <div class="controls">
+        <button onclick="loadBothStreams()">Load VNC Streams</button>
+        <button onclick="showStats()">Show Statistics</button>
+        <button onclick="clearStreams()">Clear Streams</button>
+    </div>
+    
+    <div class="comparison">
+        <!-- Current Implementation -->
+        <div class="side current">
+            <h2>❌ Current Implementation (RecHostPreview)</h2>
+            
+            <div class="info problem">
+                <strong>Problem:</strong><br>
+                • Creates 1440×847px iframe<br>
+                • Scales it down to ~21% × 18%<br>
+                • Results in tiny, distorted display<br>
+                • Poor mobile performance<br>
+                • DOM overflow issues
+            </div>
+            
+            <div class="preview-container">
+                <iframe id="current-vnc" class="current-vnc" title="Current VNC Implementation"></iframe>
+            </div>
+            
+            <div class="stats" id="current-stats">
+                <strong>Current Stats:</strong><br>
+                DOM Size: Not loaded<br>
+                Display Size: Not loaded<br>
+                Scale Factors: Not loaded
+            </div>
+        </div>
+        
+        <!-- Fixed Implementation -->
+        <div class="side fixed">
+            <h2>✅ Fixed Implementation (Recommended)</h2>
+            
+            <div class="info solution">
+                <strong>Solution:</strong><br>
+                • iframe fills container (100% × 100%)<br>
+                • No transform scaling needed<br>
+                • Clean, responsive display<br>
+                • Better mobile performance<br>
+                • No DOM overflow
+            </div>
+            
+            <div class="preview-container">
+                <iframe id="fixed-vnc" class="fixed-vnc" title="Fixed VNC Implementation"></iframe>
+            </div>
+            
+            <div class="stats" id="fixed-stats">
+                <strong>Fixed Stats:</strong><br>
+                DOM Size: Not loaded<br>
+                Display Size: Not loaded<br>
+                Scale Factors: Not loaded
+            </div>
+        </div>
+    </div>
+    
+    <div class="info" style="margin-top: 30px; text-align: center;">
+        <strong>Key Difference:</strong> The fixed version eliminates the problematic CSS transform scaling 
+        and lets the iframe naturally fill its container, resulting in much better mobile compatibility 
+        and performance.
+    </div>
+
+    <script>
+        const vncUrl = 'https://dev.virtualpytest.com/host/vnc/vnc_lite.html?password=Tizen2023';
+        const vncResolution = { width: 1440, height: 847 };
+        
+        // Current implementation scaling calculation (from RecHostPreview)
+        function calculateCurrentVncScaling(targetSize) {
+            const scaleX = targetSize.width / vncResolution.width;
+            const scaleY = targetSize.height / vncResolution.height;
+            
+            return {
+                transform: `scale(${scaleX}, ${scaleY})`,
+                transformOrigin: 'top left',
+                width: `${vncResolution.width}px`,
+                height: `${vncResolution.height}px`,
+                scaleX,
+                scaleY
+            };
+        }
+        
+        function loadBothStreams() {
+            loadCurrentStream();
+            loadFixedStream();
+        }
+        
+        function loadCurrentStream() {
+            const iframe = document.getElementById('current-vnc');
+            const container = iframe.parentElement;
+            const containerRect = container.getBoundingClientRect();
+            
+            // Apply current scaling (exactly like RecHostPreview)
+            const scaling = calculateCurrentVncScaling({
+                width: containerRect.width,
+                height: containerRect.height
+            });
+            
+            Object.assign(iframe.style, {
+                transform: scaling.transform,
+                transformOrigin: scaling.transformOrigin,
+                width: scaling.width,
+                height: scaling.height
+            });
+            
+            iframe.onload = () => {
+                updateCurrentStats(scaling);
+            };
+            
+            iframe.src = vncUrl + '&t=' + Date.now();
+        }
+        
+        function loadFixedStream() {
+            const iframe = document.getElementById('fixed-vnc');
+            
+            // Fixed implementation - just fill the container
+            iframe.style.width = '100%';
+            iframe.style.height = '100%';
+            iframe.style.transform = 'none';
+            
+            iframe.onload = () => {
+                updateFixedStats();
+            };
+            
+            iframe.src = vncUrl + '&t=' + Date.now();
+        }
+        
+        function updateCurrentStats(scaling) {
+            const iframe = document.getElementById('current-vnc');
+            const rect = iframe.getBoundingClientRect();
+            const statsEl = document.getElementById('current-stats');
+            
+            statsEl.innerHTML = `
+                <strong>Current Stats:</strong><br>
+                DOM Size: ${vncResolution.width}×${vncResolution.height}px<br>
+                Display Size: ${Math.round(rect.width)}×${Math.round(rect.height)}px<br>
+                Scale Factors: ${scaling.scaleX.toFixed(3)} × ${scaling.scaleY.toFixed(3)}<br>
+                Efficiency: ${((rect.width * rect.height) / (vncResolution.width * vncResolution.height) * 100).toFixed(1)}%
+            `;
+        }
+        
+        function updateFixedStats() {
+            const iframe = document.getElementById('fixed-vnc');
+            const rect = iframe.getBoundingClientRect();
+            const statsEl = document.getElementById('fixed-stats');
+            
+            statsEl.innerHTML = `
+                <strong>Fixed Stats:</strong><br>
+                DOM Size: ${Math.round(rect.width)}×${Math.round(rect.height)}px<br>
+                Display Size: ${Math.round(rect.width)}×${Math.round(rect.height)}px<br>
+                Scale Factors: 1.0 × 1.0 (native)<br>
+                Efficiency: 100% (optimal)
+            `;
+        }
+        
+        function showStats() {
+            const currentIframe = document.getElementById('current-vnc');
+            const fixedIframe = document.getElementById('fixed-vnc');
+            
+            if (currentIframe.src) {
+                const container = currentIframe.parentElement;
+                const containerRect = container.getBoundingClientRect();
+                const scaling = calculateCurrentVncScaling({
+                    width: containerRect.width,
+                    height: containerRect.height
+                });
+                updateCurrentStats(scaling);
+            }
+            
+            if (fixedIframe.src) {
+                updateFixedStats();
+            }
+        }
+        
+        function clearStreams() {
+            document.getElementById('current-vnc').src = '';
+            document.getElementById('fixed-vnc').src = '';
+            
+            document.getElementById('current-stats').innerHTML = `
+                <strong>Current Stats:</strong><br>
+                DOM Size: Not loaded<br>
+                Display Size: Not loaded<br>
+                Scale Factors: Not loaded
+            `;
+            
+            document.getElementById('fixed-stats').innerHTML = `
+                <strong>Fixed Stats:</strong><br>
+                DOM Size: Not loaded<br>
+                Display Size: Not loaded<br>
+                Scale Factors: Not loaded
+            `;
+        }
+        
+        // Auto-update stats on window resize
+        window.addEventListener('resize', () => {
+            setTimeout(showStats, 100);
+        });
+    </script>
+</body>
+</html>

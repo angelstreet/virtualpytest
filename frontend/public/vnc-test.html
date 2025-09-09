@@ -165,8 +165,9 @@
             <h2>Test 1: Current VNC Scaling (Problematic)</h2>
             <div class="info">
                 <strong>Method:</strong> transform: scale(scaleX, scaleY) with original iframe size<br>
-                <strong>Issue:</strong> May not scale properly on mobile devices<br>
-                <strong>Container:</strong> 300px height, centered
+                <strong>Issue:</strong> Creates 1440×847px iframe scaled to ~21%×18% = tiny result<br>
+                <strong>Container:</strong> 300px height, but iframe overflows DOM<br>
+                <strong>Problem:</strong> Massive DOM element, poor mobile performance
             </div>
             <div class="vnc-container current-scaling">
                 <iframe id="vnc1" src="" title="VNC Test 1"></iframe>
@@ -177,11 +178,12 @@
         
         <!-- Test 2: Fixed Mobile Scaling -->
         <div class="test-section">
-            <h2>Test 2: Fixed Mobile Scaling</h2>
+            <h2>Test 2: Fixed Mobile Scaling (Recommended)</h2>
             <div class="info">
                 <strong>Method:</strong> width: 100%, height: 100% (fill container)<br>
-                <strong>Fix:</strong> Let iframe fill entire container<br>
-                <strong>Container:</strong> 300px height, centered
+                <strong>Fix:</strong> Let iframe fill entire container without transform scaling<br>
+                <strong>Container:</strong> 300px height, centered<br>
+                <strong>Advantage:</strong> No DOM overflow, proper mobile scaling
             </div>
             <div class="vnc-container fixed-mobile-scaling">
                 <iframe id="vnc2" src="" title="VNC Test 2"></iframe>
@@ -287,11 +289,20 @@
             if (iframe && dimensionsEl) {
                 const rect = iframe.getBoundingClientRect();
                 const computed = window.getComputedStyle(iframe);
+                const container = iframe.parentElement.getBoundingClientRect();
+                
+                // Calculate scaling info for Test 1
+                let scalingInfo = '';
+                if (iframeId === 'vnc1') {
+                    const scaleX = (container.width / vncResolution.width).toFixed(3);
+                    const scaleY = (container.height / vncResolution.height).toFixed(3);
+                    scalingInfo = `| Scales: ${scaleX}×${scaleY} `;
+                }
                 
                 dimensionsEl.innerHTML = `
                     Display: ${Math.round(rect.width)}×${Math.round(rect.height)}px | 
-                    CSS: ${computed.width} × ${computed.height} | 
-                    Transform: ${computed.transform}
+                    CSS: ${computed.width} × ${computed.height} ${scalingInfo}| 
+                    Container: ${Math.round(container.width)}×${Math.round(container.height)}px
                 `;
             }
         }
