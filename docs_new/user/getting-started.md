@@ -1,155 +1,363 @@
 # Getting Started with VirtualPyTest
 
-**Quick setup guide for QA teams and non-technical users.**
+**Simple installation guide for QA teams and engineers.**
 
 ---
 
-## 🎯 **What You'll Learn**
+## 🎯 **What You'll Get**
 
-- Install VirtualPyTest locally in 5 minutes
-- Run your first automated test
-- Access monitoring dashboards
-- Navigate the web interface
+- **Web Interface** - Control devices from your browser
+- **Monitoring Dashboard** - See test results and device health
+- **Automation Scripts** - Ready-to-run test examples
+- **Video Capture** - Screenshots and recordings of all tests
+
+---
+
+## 🏗️ **What Gets Installed**
+
+VirtualPyTest has 5 main components that work together:
+
+| Component | Purpose | Port | What It Does |
+|-----------|---------|------|--------------|
+| **Frontend** | Web dashboard | 3000 | Your main interface - control everything here |
+| **Backend Server** | API coordinator | 5109 | Manages tests, campaigns, and data |
+| **Backend Host** | Device controller | 6109 | Actually controls your devices (TV, mobile, etc.) |
+| **Grafana** | Monitoring | 3001 | Charts and metrics (optional but recommended) |
+| **Test Scripts** | Ready examples | - | Pre-built tests you can run immediately |
 
 ---
 
 ## 📋 **Prerequisites**
 
-- **Computer**: Linux, macOS, or Windows with Docker
-- **Docker**: [Install Docker Desktop](https://www.docker.com/products/docker-desktop/)
-- **Device**: Android TV, mobile, or STB to test (optional for demo)
+- **Ubuntu 18.04+** or similar Linux distribution
+- **Internet connection** for downloading dependencies
+- **8GB RAM** recommended (4GB minimum)
+
+*Note: macOS and Windows work too, but Ubuntu is easiest for beginners.*
 
 ---
 
-## ⚡ **Quick Installation**
+## ⚡ **Installation (3 Commands)**
 
-### Step 1: Download VirtualPyTest
+### Step 1: Get VirtualPyTest
 ```bash
 # Download the project
-git clone https://github.com/your-repo/virtualpytest
+git clone https://github.com/angelstreet/virtualpytest
 cd virtualpytest
 ```
 
-### Step 2: Start Services
+### Step 2: Install Everything
 ```bash
-# Start all services with one command
-docker compose up
+# This installs all components (takes 5-10 minutes)
+./setup/local/install_all.sh --with-grafana
 ```
 
-*Wait 2-3 minutes for all services to start...*
+*The script will:*
+- ✅ Create Python virtual environment
+- ✅ Install all Python dependencies  
+- ✅ Install Node.js dependencies for web interface
+- ✅ Set up Grafana monitoring
+- ✅ Configure all services
 
-### Step 3: Open Web Interface
+### Step 3: Start All Services
 ```bash
-# Open in your browser
-http://localhost:3000
+# Start everything with colored logs
+./setup/local/launch_all.sh --with-grafana
 ```
 
-*[Image placeholder: Web interface dashboard showing main navigation]*
+*You'll see colored logs like:*
+- 🔵 **[SERVER]** - Backend server starting...
+- 🟢 **[HOST]** - Backend host ready...
+- 🟡 **[FRONTEND]** - Web interface loading...
+- 🟣 **[GRAFANA]** - Monitoring dashboard ready...
 
-**That's it!** VirtualPyTest is now running on your computer.
+**Keep this terminal open** - it shows live logs from all services.
+
+---
+
+## ⚙️ **Configure Environment (Important!)**
+
+Before starting services, you need to configure environment files. VirtualPyTest uses 3 different `.env` files:
+
+### Step 3.1: Project-Level Configuration
+
+```bash
+# Copy the main environment template
+cp .env.example .env
+
+# Edit with your values (optional for basic local testing)
+nano .env
+```
+
+**For basic local testing**, you can use the defaults. **For full functionality**, configure:
+
+```bash
+# Database (Supabase) - REQUIRED for data storage
+NEXT_PUBLIC_SUPABASE_URL=https://your-project-id.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key_here
+DATABASE_URL=postgresql://postgres:password@db.project-id.supabase.co:5432/postgres
+
+# Cloud Storage (Cloudflare R2) - OPTIONAL for screenshots
+CLOUDFLARE_R2_ENDPOINT=https://your-account-id.r2.cloudflarestorage.com
+CLOUDFLARE_R2_ACCESS_KEY_ID=your_r2_access_key_id
+CLOUDFLARE_R2_SECRET_ACCESS_KEY=your_r2_secret_access_key
+
+# AI Services - OPTIONAL for smart analysis
+OPENROUTER_API_KEY=your_openrouter_api_key_here
+```
+
+### Step 3.2: Backend Host Configuration
+
+```bash
+# Copy backend host template
+cp backend_host/src/env.example backend_host/src/.env
+
+# Edit with your device settings
+nano backend_host/src/.env
+```
+
+**For basic testing** (desktop only):
+```bash
+HOST_NAME=my-local-host
+HOST_PORT=6109
+HOST_URL=http://localhost:6109
+```
+
+**For device testing** (Android TV, mobile, etc.):
+```bash
+# Uncomment and configure device settings
+DEVICE1_NAME=my_android_tv
+DEVICE1_MODEL=android_tv
+DEVICE1_IP=192.168.1.100
+DEVICE1_PORT=8100
+```
+
+### Step 3.3: Frontend Configuration
+
+```bash
+# Copy frontend template
+cp frontend/env.example frontend/.env
+
+# Edit API endpoint (usually no changes needed for local)
+nano frontend/.env
+```
+
+**Default settings work for local development:**
+```bash
+VITE_SERVER_URL=http://localhost:5109
+VITE_ENVIRONMENT=development
+```
+
+---
+
+## ✅ **Verify Installation**
+
+### Step 4: Test Your Installation (Optional)
+
+Before starting services, you can test if everything is installed correctly:
+
+```bash
+# Run installation test
+./setup/local/test_installation.sh
+```
+
+This will check:
+- ✅ Python virtual environment
+- ✅ Frontend dependencies  
+- ✅ Grafana configuration
+- ✅ Database setup
+- ✅ All required tools
+
+### Step 5: Check All Services Are Running
+
+Open a **new terminal** (keep the first one with logs running) and test each service:
+
+```bash
+# Test Frontend (should show HTML)
+curl http://localhost:3000
+
+# Test Backend Server (should show {"status": "healthy"})
+curl http://localhost:5109/api/health
+
+# Test Backend Host (should show {"status": "ok"})
+curl http://localhost:6109/host/health
+
+# Test Grafana (should show login page)
+curl http://localhost:3001
+```
+
+### Step 6: Open Web Interfaces
+
+Open these URLs in your browser:
+
+- **🌐 Main Dashboard**: http://localhost:3000
+- **📊 Monitoring**: http://localhost:3001 (login: admin / admin123)
+
+*If any URL doesn't work, check the terminal with logs for error messages.*
 
 ---
 
 ## 🎮 **Your First Test**
 
-### 1. **Access the Dashboard**
-- Open `http://localhost:3000` in your browser
-- You'll see the main dashboard with device status
+### Step 7: Run a Simple Test
 
-*[Image placeholder: Dashboard showing connected devices and system status]*
+In a **new terminal**, run your first automation test:
 
-### 2. **Run a Demo Test**
 ```bash
-# Navigate to the test scripts directory
+# Navigate to test scripts
 cd test_scripts
+
+# Activate the Python environment
+source ../venv/bin/activate
 
 # Run a simple navigation test
 python goto.py --node home
 ```
 
-*[Image placeholder: Terminal showing test execution with success message]*
-
-### 3. **View Results**
-- **Screenshots**: Automatic screenshots saved in `/captures`
-- **Logs**: Real-time execution logs in terminal
-- **Dashboard**: Test results appear in web interface
-
----
-
-## 📊 **Monitoring Dashboard**
-
-### Access Grafana
-```bash
-# Open monitoring dashboard
-http://localhost:3000/grafana
+**Expected output:**
+```
+🎯 [GOTO_HOME] EXECUTION SUMMARY
+📱 Device: virtual_device (desktop)
+🖥️  Host: localhost
+📋 Interface: default
+🗺️  Target: home
+📍 Path length: 1 steps
+⏱️  Total Time: 2.3s
+📸 Screenshots: 2 captured
+🎯 Result: SUCCESS
 ```
 
-**Login**: admin / admin123
+### Step 7: View Your Test Results
 
-*[Image placeholder: Grafana dashboard showing test metrics and device health]*
-
-### Key Metrics
-- **Test Success Rate**: Percentage of passing tests
-- **Device Status**: Connected devices and health
-- **Execution Times**: Performance trends over time
-- **Error Rates**: Failed test analysis
+- **Screenshots**: Check the `captures/` folder for automatic screenshots
+- **Web Dashboard**: Refresh http://localhost:3000 to see test results
+- **Monitoring**: Check http://localhost:3001 for test metrics
 
 ---
 
-## 🔧 **Web Interface Tour**
+## 🔧 **Web Interface Overview**
 
-### Main Sections
-- **📊 Dashboard**: System overview and quick actions
-- **🧪 Tests**: Create and manage test cases
-- **📋 Campaigns**: Batch test execution
-- **🌳 Navigation**: Visual device interface mapping
-- **🔧 Devices**: Hardware configuration
-- **📈 Monitoring**: Real-time system metrics
+### Main Dashboard (http://localhost:3000)
 
-*[Image placeholder: Web interface showing main navigation menu]*
+The web interface has these main sections:
 
----
+- **📊 Dashboard**: System status and recent test results
+- **🧪 Tests**: Create and manage individual test cases
+- **📋 Campaigns**: Run multiple tests in batches
+- **🔧 Devices**: Configure your hardware (TVs, phones, etc.)
+- **📈 Monitoring**: Real-time system health
 
-## 🎯 **Common Use Cases**
+### Monitoring Dashboard (http://localhost:3001)
 
-### For QA Teams
-1. **Device Testing**: Validate app behavior across multiple devices
-2. **Regression Testing**: Run test suites automatically
-3. **Visual Validation**: Verify UI elements and content
-4. **Performance Monitoring**: Track device response times
+Grafana provides detailed analytics:
 
-### For Operations Teams
-1. **24/7 Monitoring**: Watch streaming devices continuously
-2. **Health Checks**: Automated device status verification
-3. **Alert Management**: Get notified of device issues
-4. **Reporting**: Generate test execution reports
+- **Test Success Rates**: Track passing/failing tests over time
+- **Device Health**: Monitor connected devices
+- **Performance Metrics**: Execution times and system resources
+- **Alerts**: Get notified of issues
 
 ---
 
-## 🚀 **Next Steps**
+## 🚀 **What's Next?**
 
-1. **📖 [Features Guide](features.md)** - Learn what VirtualPyTest can do
-2. **🧪 [Running Tests](running-tests.md)** - Execute your own test scripts
-3. **📊 [Monitoring Guide](monitoring.md)** - Master the dashboards
-4. **❓ [Troubleshooting](troubleshooting.md)** - Fix common issues
+### Immediate Next Steps
+
+1. **Connect Real Devices**: 
+   - Connect Android TV, mobile, or STB via USB/network
+   - Configure device settings in web interface
+
+2. **Try More Tests**:
+   ```bash
+   # Run channel zapping test
+   python test_scripts/fullzap.py --max_iteration 5
+   
+   # Run device validation
+   python test_scripts/validation.py
+   ```
+
+3. **Create Test Campaigns**:
+   ```bash
+   # Run multiple tests in sequence
+   python test_campaign/campaign_fullzap.py
+   ```
+
+### Learn More
+
+- **📖 [Features Guide](features.md)** - See all VirtualPyTest capabilities
+- **🧪 [Running Tests](running-tests.md)** - Create your own test scripts  
+- **📊 [Monitoring Guide](monitoring.md)** - Master Grafana dashboards
 
 ---
 
-## 💡 **Tips for Success**
+## 🔧 **Quick Troubleshooting**
 
-- **Start Simple**: Begin with basic navigation tests
-- **Use Screenshots**: Visual evidence helps debug issues
-- **Monitor Regularly**: Check dashboards for device health
-- **Save Campaigns**: Reuse successful test combinations
+### Services Won't Start
+```bash
+# Check if ports are already in use
+sudo netstat -tlnp | grep -E ':(3000|3001|5109|6109)'
+
+# Kill conflicting processes
+sudo pkill -f "node.*3000"
+sudo pkill -f "python.*5109"
+sudo pkill -f "python.*6109"
+sudo pkill -f "grafana-server"
+
+# Restart installation
+./setup/local/install_all.sh --with-grafana
+./setup/local/launch_all.sh --with-grafana
+```
+
+### Grafana Database Issues
+```bash
+# Check if PostgreSQL is running
+pg_isready
+
+# Start PostgreSQL if needed
+# On Ubuntu/Linux:
+sudo systemctl start postgresql
+# On macOS:
+brew services start postgresql
+
+# Test Grafana database connection
+PGPASSWORD=grafana_pass psql -h localhost -U grafana_user -d grafana_metrics -c "SELECT version();"
+```
+
+### Web Interface Not Loading
+```bash
+# Check if frontend is running
+curl http://localhost:3000
+
+# If not working, check logs in the terminal running launch_all.sh
+# Look for [FRONTEND] errors in colored output
+```
+
+### Test Scripts Fail
+```bash
+# Make sure you're in the right directory and virtual environment
+cd test_scripts
+source ../venv/bin/activate
+python goto.py --node home
+```
+
+---
+
+## 💡 **Pro Tips**
+
+- **Keep Logs Open**: Always run `launch_all.sh` in a visible terminal to see real-time logs
+- **Use Screenshots**: Every test automatically captures screenshots - check the `captures/` folder
+- **Monitor Health**: Check http://localhost:3001 regularly for system health
+- **Start Simple**: Begin with `goto.py` tests before trying complex campaigns
 
 ---
 
 ## 🆘 **Need Help?**
 
-- **Common Issues**: See [Troubleshooting Guide](troubleshooting.md)
-- **Feature Questions**: Check [Features Documentation](features.md)
-- **Community Support**: GitHub Discussions and Issues
+- **🐛 Issues**: Check [Troubleshooting Guide](troubleshooting.md)
+- **❓ Questions**: See [Features Documentation](features.md)  
+- **💬 Community**: GitHub Discussions and Issues
 
 ---
 
-**Ready to automate your device testing? Let's explore the features!** 🎉
+**🎉 Congratulations! VirtualPyTest is now running on your system.**
+
+*Ready to automate your device testing? Start with simple tests and work your way up to complex campaigns!*

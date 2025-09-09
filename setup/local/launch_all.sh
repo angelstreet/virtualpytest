@@ -286,7 +286,7 @@ if [ "$INCLUDE_GRAFANA" = true ]; then
     
     # Set environment variables for Grafana
     export SUPABASE_DB_URI="${SUPABASE_DB_URI:-postgres://user:pass@localhost:5432/postgres}"
-    run_with_prefix "GRAFANA" "\033[0;35m" "$PROJECT_ROOT" grafana-server --config="$PROJECT_ROOT/grafana/config/grafana.ini" --homepath="$PROJECT_ROOT/grafana" web
+    run_with_prefix "GRAFANA" "\033[0;35m" "$PROJECT_ROOT" grafana-server --config="$PROJECT_ROOT/grafana/config/grafana-local.ini" --homepath="$PROJECT_ROOT/grafana" web
     sleep 3
 fi
 

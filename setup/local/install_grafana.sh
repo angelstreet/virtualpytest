@@ -205,7 +205,7 @@ create_grafana_config() {
     mkdir -p "$PROJECT_ROOT/grafana/provisioning/dashboards"
     
     # Create local Grafana configuration file
-    cat > "$PROJECT_ROOT/grafana/config/grafana.ini" << 'EOF'
+    cat > "$PROJECT_ROOT/grafana/config/grafana-local.ini" << 'EOF'
 ##################### Grafana Local Configuration #####################
 
 [paths]
@@ -418,7 +418,7 @@ if ! command -v grafana-server &> /dev/null; then
 fi
 
 # Check if configuration exists
-if [ ! -f "grafana/config/grafana.ini" ]; then
+if [ ! -f "grafana/config/grafana-local.ini" ]; then
     echo "❌ Grafana configuration not found"
     echo "Please run: ./setup/local/install_grafana.sh"
     exit 1
@@ -452,7 +452,7 @@ echo "💡 Press Ctrl+C to stop"
 
 # Start Grafana server
 grafana-server \
-    --config="$PROJECT_ROOT/grafana/config/grafana.ini" \
+    --config="$PROJECT_ROOT/grafana/config/grafana-local.ini" \
     --homepath="$PROJECT_ROOT/grafana" \
     web
 EOF
