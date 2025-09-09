@@ -639,7 +639,7 @@ const RecHostStreamModalContent: React.FC<{
                     layoutConfig={{
                       minHeight: '300px',
                       aspectRatio: isMobileModel 
-                        ? `${DEFAULT_DEVICE_RESOLUTION.height}/${DEFAULT_DEVICE_RESOLUTION.width}` 
+                        ? '9/16' // Fixed mobile aspect ratio
                         : `${DEFAULT_DEVICE_RESOLUTION.width}/${DEFAULT_DEVICE_RESOLUTION.height}`,
                       objectFit: isMobileModel ? 'fill' : 'contain', // Use fill for mobile, contain for desktop
                       isMobileModel, // Use our mobile detection result
