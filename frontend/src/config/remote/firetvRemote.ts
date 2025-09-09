@@ -72,7 +72,7 @@ export const firetvRemoteConfig = {
     power: {
       key: 'POWER',
       label: '',
-      position: { x: 124, y: 66 },
+      position: { x: 122, y: 65 },
       size: { width: 18, height: 18 },
       shape: 'circle' as const,
       comment: 'POWER',
@@ -120,7 +120,7 @@ export const firetvRemoteConfig = {
     back: {
       key: 'BACK',
       label: '',
-      position: { x: 112, y: 654 },
+      position: { x: 110, y: 644 },
       size: { width: 24, height: 24 },
       shape: 'circle' as const,
       comment: 'BACK',
@@ -128,7 +128,7 @@ export const firetvRemoteConfig = {
     home: {
       key: 'HOME',
       label: '',
-      position: { x: 240, y: 654 },
+      position: { x: 236, y: 644 },
       size: { width: 24, height: 24 },
       shape: 'circle' as const,
       comment: 'HOME',
@@ -136,7 +136,7 @@ export const firetvRemoteConfig = {
     menu: {
       key: 'MENU',
       label: '',
-      position: { x: 366, y: 654 },
+      position: { x: 360, y: 644 },
       size: { width: 24, height: 24 },
       shape: 'circle' as const,
       comment: 'MENU',
@@ -144,7 +144,7 @@ export const firetvRemoteConfig = {
     rewind: {
       key: 'REWIND',
       label: '',
-      position: { x: 112, y: 780 },
+      position: { x: 112, y: 770 },
       size: { width: 24, height: 24 },
       shape: 'circle' as const,
       comment: 'REWIND',
@@ -152,7 +152,7 @@ export const firetvRemoteConfig = {
     play_pause: {
       key: 'PLAY_PAUSE',
       label: '',
-      position: { x: 240, y: 780 },
+      position: { x: 236, y: 768 },
       size: { width: 24, height: 24 },
       shape: 'circle' as const,
       comment: 'PLAY_PAUSE',
@@ -160,7 +160,7 @@ export const firetvRemoteConfig = {
     fast_forward: {
       key: 'FORWARD',
       label: '',
-      position: { x: 366, y: 780 },
+      position: { x: 360, y: 768 },
       size: { width: 24, height: 24 },
       shape: 'circle' as const,
       comment: 'FORWARD',
@@ -168,7 +168,7 @@ export const firetvRemoteConfig = {
     volume_up: {
       key: 'VOLUME_UP',
       label: '',
-      position: { x: 240, y: 910 },
+      position: { x: 234, y: 896 },
       size: { width: 24, height: 24 },
       shape: 'circle' as const,
       comment: 'VOLUME_UP',
@@ -176,7 +176,7 @@ export const firetvRemoteConfig = {
     volume_down: {
       key: 'VOLUME_DOWN',
       label: '',
-      position: { x: 240, y: 1032 },
+      position: { x: 234, y: 1016 },
       size: { width: 24, height: 24 },
       shape: 'circle' as const,
       comment: 'VOLUME_DOWN',
@@ -184,7 +184,7 @@ export const firetvRemoteConfig = {
     mute: {
       key: 'MUTE',
       label: '',
-      position: { x: 112, y: 906 },
+      position: { x: 112, y: 894 },
       size: { width: 24, height: 24 },
       shape: 'circle' as const,
       comment: 'MUTE',
@@ -192,7 +192,7 @@ export const firetvRemoteConfig = {
     channel_up: {
       key: 'CHANNEL_UP',
       label: 'CH+',
-      position: { x: 366, y: 1032 },
+      position: { x: 366, y: 1012 },
       size: { width: 24, height: 24 },
       shape: 'circle' as const,
       comment: 'CHANNEL_UP',
@@ -200,7 +200,7 @@ export const firetvRemoteConfig = {
     channel_down: {
       key: 'CHANNEL_DOWN',
       label: 'CH-',
-      position: { x: 112, y: 1032 },
+      position: { x: 112, y: 1012 },
       size: { width: 24, height: 24 },
       shape: 'circle' as const,
       comment: 'CHANNEL_DOWN',
@@ -210,7 +210,7 @@ export const firetvRemoteConfig = {
     power: {
       key: 'POWER',
       label: '',
-      position: { x: 144, y: 93 },
+      position: { x: 136, y: 70 },
       size: { width: 20, height: 20 },
       shape: 'circle' as const,
       comment: 'POWER',
@@ -218,7 +218,7 @@ export const firetvRemoteConfig = {
     nav_up: {
       key: 'UP',
       label: '▲',
-      position: { x: 276, y: 326 },
+      position: { x: 264, y: 304 },
       size: { width: 26, height: 20 },
       shape: 'rectangle' as const,
       comment: 'UP',
@@ -226,7 +226,7 @@ export const firetvRemoteConfig = {
     nav_left: {
       key: 'LEFT',
       label: '◄',
-      position: { x: 116, y: 470 },
+      position: { x: 106, y: 450 },
       size: { width: 20, height: 26 },
       shape: 'rectangle' as const,
       comment: 'LEFT',
@@ -234,15 +234,15 @@ export const firetvRemoteConfig = {
     nav_center: {
       key: 'OK',
       label: 'OK',
-      position: { x: 206, y: 405 },
-      size: { width: 60, height: 60 },
+      position: { x: 196, y: 385 },
+      size: { width: 58, height: 58 },
       shape: 'circle' as const,
       comment: 'OK',
     },
     nav_right: {
       key: 'RIGHT',
       label: '►',
-      position: { x: 452, y: 470 },
+      position: { x: 442, y: 450 },
       size: { width: 20, height: 26 },
       shape: 'rectangle' as const,
       comment: 'RIGHT',
@@ -250,7 +250,7 @@ export const firetvRemoteConfig = {
     nav_down: {
       key: 'DOWN',
       label: '▼',
-      position: { x: 276, y: 646 },
+      position: { x: 264, y: 618 },
       size: { width: 26, height: 20 },
       shape: 'rectangle' as const,
       comment: 'DOWN',
@@ -258,7 +258,7 @@ export const firetvRemoteConfig = {
     back: {
       key: 'BACK',
       label: '',
-      position: { x: 130, y: 750 },
+      position: { x: 122, y: 720 },
       size: { width: 26, height: 26 },
       shape: 'circle' as const,
       comment: 'BACK',
@@ -266,7 +266,7 @@ export const firetvRemoteConfig = {
     home: {
       key: 'HOME',
       label: '',
-      position: { x: 273, y: 750 },
+      position: { x: 264, y: 720 },
       size: { width: 26, height: 26 },
       shape: 'circle' as const,
       comment: 'HOME',
@@ -274,7 +274,7 @@ export const firetvRemoteConfig = {
     menu: {
       key: 'MENU',
       label: '',
-      position: { x: 420, y: 750 },
+      position: { x: 412, y: 720 },
       size: { width: 26, height: 26 },
       shape: 'circle' as const,
       comment: 'MENU',
@@ -282,7 +282,7 @@ export const firetvRemoteConfig = {
     rewind: {
       key: 'REWIND',
       label: '',
-      position: { x: 130, y: 890 },
+      position: { x: 122, y: 860 },
       size: { width: 26, height: 26 },
       shape: 'circle' as const,
       comment: 'REWIND',
@@ -290,7 +290,7 @@ export const firetvRemoteConfig = {
     play_pause: {
       key: 'PLAY_PAUSE',
       label: '',
-      position: { x: 273, y: 890 },
+      position: { x: 264, y: 860 },
       size: { width: 26, height: 26 },
       shape: 'circle' as const,
       comment: 'PLAY_PAUSE',
@@ -298,7 +298,7 @@ export const firetvRemoteConfig = {
     fast_forward: {
       key: 'FORWARD',
       label: '',
-      position: { x: 415, y: 890 },
+      position: { x: 408, y: 860 },
       size: { width: 26, height: 26 },
       shape: 'circle' as const,
       comment: 'FORWARD',
@@ -306,7 +306,7 @@ export const firetvRemoteConfig = {
     volume_up: {
       key: 'VOLUME_UP',
       label: '',
-      position: { x: 273, y: 1032 },
+      position: { x: 264, y: 1002 },
       size: { width: 26, height: 26 },
       shape: 'circle' as const,
       comment: 'VOLUME_UP',
@@ -314,7 +314,7 @@ export const firetvRemoteConfig = {
     volume_down: {
       key: 'VOLUME_DOWN',
       label: '',
-      position: { x: 273, y: 1170 },
+      position: { x: 264, y: 1140 },
       size: { width: 26, height: 26 },
       shape: 'circle' as const,
       comment: 'VOLUME_DOWN',
@@ -322,7 +322,7 @@ export const firetvRemoteConfig = {
     mute: {
       key: 'MUTE',
       label: '',
-      position: { x: 273, y: 1310 },
+      position: { x: 122, y: 1002 },
       size: { width: 26, height: 26 },
       shape: 'circle' as const,
       comment: 'MUTE',
@@ -330,7 +330,7 @@ export const firetvRemoteConfig = {
     channel_up: {
       key: 'CHANNEL_UP',
       label: 'CH+',
-      position: { x: 130, y: 1032 },
+      position: { x: 408, y: 1140 },
       size: { width: 26, height: 26 },
       shape: 'circle' as const,
       comment: 'CHANNEL_UP',
@@ -338,7 +338,7 @@ export const firetvRemoteConfig = {
     channel_down: {
       key: 'CHANNEL_DOWN',
       label: 'CH-',
-      position: { x: 130, y: 1170 },
+      position: { x: 122, y: 1140 },
       size: { width: 26, height: 26 },
       shape: 'circle' as const,
       comment: 'CHANNEL_DOWN',
