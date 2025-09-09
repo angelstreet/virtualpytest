@@ -104,18 +104,26 @@ def calculate_process_working_uptime(capture_folder: str, process_type: str) -> 
                 captures_dir = os.path.join(capture_dir, 'captures')
                 jpg_files = []
                 if os.path.exists(captures_dir):
-                    # Look for all capture files - both original and renamed (simple pattern)
-                    jpg_files = glob.glob(os.path.join(captures_dir, 'capture_*.jpg'))
+                    # Only use renamed files with timestamp format to avoid race condition
+                    import re
+                    all_jpg_files = glob.glob(os.path.join(captures_dir, '*.jpg'))
+                    # Filter for renamed format: YYYYMMDD_HHMMSS_*.jpg
+                    timestamp_pattern = re.compile(r'^\d{8}_\d{6}_.*\.jpg$')
+                    jpg_files = [f for f in all_jpg_files if timestamp_pattern.match(os.path.basename(f))]
                 
                 all_files = ts_files + jpg_files
                 if all_files:
                     last_activity_time = max([os.path.getmtime(f) for f in all_files])
                     
         elif process_type == 'monitor':
-            # Check Monitor JSON files
+            # Check Monitor JSON files (only renamed ones to avoid race condition)
             captures_dir = f'/var/www/html/stream/{capture_folder}/captures'
             if os.path.exists(captures_dir):
-                json_files = glob.glob(os.path.join(captures_dir, 'capture_*.json'))
+                import re
+                all_json_files = glob.glob(os.path.join(captures_dir, '*.json'))
+                # Filter for renamed format: YYYYMMDD_HHMMSS_*.json
+                timestamp_pattern = re.compile(r'^\d{8}_\d{6}_.*\.json$')
+                json_files = [f for f in all_json_files if timestamp_pattern.match(os.path.basename(f))]
                 if json_files:
                     last_activity_time = max([os.path.getmtime(f) for f in json_files])
         
