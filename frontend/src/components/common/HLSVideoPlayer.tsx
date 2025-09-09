@@ -411,7 +411,7 @@ export function HLSVideoPlayer({
           position: 'absolute',
           top: 0,
           left: 0,
-          width: finalLayoutConfig.isMobileModel ? 'auto' : '100%',
+          width: '100%',
           height: '100%',
           objectFit: finalLayoutConfig.isMobileModel ? 'fill' : 'contain',
           backgroundColor: '#000000',
