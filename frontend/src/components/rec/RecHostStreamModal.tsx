@@ -574,9 +574,13 @@ const RecHostStreamModalContent: React.FC<{
               position: 'relative',
               overflow: 'hidden',
               display: 'flex',
-              alignItems: 'center',
+              alignItems: isMobileModel ? 'flex-start' : 'center', // Top-align mobile to avoid bottom black bars
               justifyContent: 'center',
               backgroundColor: 'black',
+              // For mobile: ensure proper aspect ratio container
+              ...(isMobileModel && {
+                paddingTop: '8px', // Small top padding to account for header spacing
+              }),
             }}
           >
             {monitoringMode && isControlActive ? (
