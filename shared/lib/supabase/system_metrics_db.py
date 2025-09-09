@@ -47,12 +47,12 @@ def process_incidents() -> dict:
         
         result = supabase.rpc('process_incidents').execute()
         
-        if result.data:
-            incident_result = result.data[0] if result.data else {}
+        if result.data and len(result.data) > 0:
+            incident_result = result.data[0]
             print(f"🚨 Incident processing: {incident_result}")
             return incident_result
         else:
-            print("⚠️ No incident processing result returned")
+            print("⚠️ No incident processing result returned (empty data)")
             return {'incidents_created': 0, 'incidents_resolved': 0}
             
     except Exception as e:
