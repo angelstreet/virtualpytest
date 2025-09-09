@@ -155,49 +155,61 @@ ORDER BY
 
 ## Panel 5: Device Availability (SLA Tracking)
 
-### 24-Hour Availability Percentage Per Device
+### 24-Hour True Availability Percentage Per Device
 ```sql
--- Calculate availability percentage per device
-WITH device_availability AS (
+-- Calculate TRUE availability accounting for both incidents and service reliability
+WITH device_metrics AS (
     SELECT 
         device_name,
         capture_folder,
         COUNT(*) as total_minutes,
+        -- Count minutes when both services are working properly
         COUNT(CASE 
             WHEN ffmpeg_status = 'active' AND monitor_status = 'active' 
             THEN 1 
-        END) as healthy_minutes
+        END) as healthy_minutes,
+        -- Count minutes when services are stuck/stopped (service issues)
+        COUNT(CASE 
+            WHEN ffmpeg_status IN ('stuck', 'stopped', 'unknown') 
+              OR monitor_status IN ('stuck', 'stopped', 'unknown')
+            THEN 1 
+        END) as service_issue_minutes
     FROM system_device_metrics 
     WHERE timestamp >= NOW() - INTERVAL '24 hours'
       AND capture_folder IS NOT NULL  -- Exclude incomplete device configurations
+      AND capture_folder != 'invalid_config'
     GROUP BY device_name, capture_folder
 ),
 incident_downtime AS (
     SELECT 
         device_name,
         capture_folder,
-        COALESCE(SUM(total_duration_minutes), 0) as downtime_minutes
+        COALESCE(SUM(total_duration_minutes), 0) as incident_downtime_minutes
     FROM system_incident 
     WHERE detected_at >= NOW() - INTERVAL '24 hours'
       AND status IN ('resolved', 'closed')
       AND capture_folder IS NOT NULL  -- Exclude incomplete device configurations
+      AND capture_folder != 'invalid_config'
     GROUP BY device_name, capture_folder
 )
 SELECT 
-    da.device_name as "Device",
-    da.capture_folder as "Folder",
-    ROUND((da.healthy_minutes * 100.0 / da.total_minutes), 2) as "Availability %",
-    COALESCE(id.downtime_minutes, 0) as "Downtime (min)",
-    1440 - COALESCE(id.downtime_minutes, 0) as "Uptime (min)",
+    dm.device_name as "Device",
+    dm.capture_folder as "Folder",
+    -- TRUE Availability = (Total Period - All Downtime) / Total Period * 100
+    ROUND(((1440 - dm.service_issue_minutes - COALESCE(id.incident_downtime_minutes, 0)) * 100.0 / 1440), 2) as "Availability %",
+    COALESCE(id.incident_downtime_minutes, 0) as "Incident Downtime (min)",
+    dm.service_issue_minutes as "Service Issues (min)",
+    (dm.service_issue_minutes + COALESCE(id.incident_downtime_minutes, 0)) as "Total Downtime (min)",
+    (1440 - dm.service_issue_minutes - COALESCE(id.incident_downtime_minutes, 0)) as "Available Time (min)",
     CASE 
-        WHEN (da.healthy_minutes * 100.0 / da.total_minutes) >= 99.9 THEN '🟢 Excellent'
-        WHEN (da.healthy_minutes * 100.0 / da.total_minutes) >= 99.0 THEN '🟡 Good'
-        WHEN (da.healthy_minutes * 100.0 / da.total_minutes) >= 95.0 THEN '🟠 Fair'
+        WHEN ((1440 - dm.service_issue_minutes - COALESCE(id.incident_downtime_minutes, 0)) * 100.0 / 1440) >= 99.9 THEN '🟢 Excellent'
+        WHEN ((1440 - dm.service_issue_minutes - COALESCE(id.incident_downtime_minutes, 0)) * 100.0 / 1440) >= 99.0 THEN '🟡 Good'
+        WHEN ((1440 - dm.service_issue_minutes - COALESCE(id.incident_downtime_minutes, 0)) * 100.0 / 1440) >= 95.0 THEN '🟠 Fair'
         ELSE '🔴 Poor'
     END as "SLA Status"
-FROM device_availability da
-LEFT JOIN incident_downtime id ON da.device_name = id.device_name 
-    AND da.capture_folder = id.capture_folder
+FROM device_metrics dm
+LEFT JOIN incident_downtime id ON dm.device_name = id.device_name 
+    AND dm.capture_folder = id.capture_folder
 ORDER BY "Availability %" DESC;
 ```
 
@@ -262,6 +274,58 @@ The Host Metrics table includes **FFmpeg Uptime** and **Monitor Uptime** columns
 - **Working Duration**: How long the process was continuously active before getting stuck
 - **Stability Metrics**: Understand process reliability and failure patterns
 
+### True Availability Calculation Methodology
+
+The **True Availability System** provides comprehensive availability tracking that accounts for ALL types of downtime:
+
+#### **🎯 True Availability Formula:**
+```
+Availability % = (Available Time / Total Period) × 100
+
+Where:
+Available Time = Total Period - Total Downtime
+Total Downtime = Incident Downtime + Service Issues Time
+```
+
+#### **📊 Availability Components:**
+
+1. **Total Period**: 24 hours (1440 minutes)
+2. **Incident Downtime**: Duration of formal incidents (resolved/closed)
+3. **Service Issues Time**: Time when services are stuck/stopped/unknown
+4. **Available Time**: Time when both FFmpeg AND Monitor are "active"
+
+#### **🔍 Service Status Classification:**
+- **✅ Available**: `ffmpeg_status='active' AND monitor_status='active'`
+- **❌ Service Issues**: Either service is `stuck`, `stopped`, or `unknown`
+- **📋 Incident Downtime**: Formal incidents with tracked resolution time
+
+#### **📈 Example Calculation:**
+```
+Device: sunri-pi1_Host
+- Total Period: 1440 minutes (24 hours)
+- Service Issues: 336 minutes (services stuck/stopped)
+- Incident Downtime: 0 minutes (no formal incidents)
+- Total Downtime: 336 minutes
+- Available Time: 1104 minutes
+- Availability: (1104 / 1440) × 100 = 76.67%
+```
+
+#### **💡 Why This Approach:**
+- **Realistic**: Reflects actual service functionality, not just process existence
+- **Comprehensive**: Accounts for both formal incidents AND service reliability issues
+- **Actionable**: Clearly separates incident management from service reliability problems
+- **Transparent**: Shows exactly where time is lost (incidents vs service issues)
+
+#### **📊 New Table Columns:**
+- **Device**: Device name
+- **Folder**: Capture folder (capture1, capture2, etc.)
+- **Availability %**: True availability percentage using formula above
+- **Incident Downtime (min)**: Time lost to formal tracked incidents
+- **Service Issues (min)**: Time lost to stuck/stopped services
+- **Total Downtime (min)**: Incident Downtime + Service Issues
+- **Available Time (min)**: Time when services were working properly
+- **SLA Status**: Color-coded status based on availability percentage
+
 ### Incident Management System
 The **New Incident Management System** provides complete incident lifecycle tracking:
 
@@ -313,6 +377,14 @@ The **New Incident Management System** provides complete incident lifecycle trac
 - **Separate Timing**: FFmpeg and Monitor have independent last activity and uptime tracking
 - **Real Names**: Uses actual device names from device registration
 - **Data Source**: system_device_metrics table (per-device records)
+
+### Device Availability Table (Row 5)
+- **Visualization**: Table
+- **Columns**: Device, Folder, Availability %, Incident Downtime (min), Service Issues (min), Total Downtime (min), Available Time (min), SLA Status
+- **True Availability**: Accounts for both formal incidents AND service reliability issues
+- **Transparent Breakdown**: Shows exactly where time is lost (incidents vs service problems)
+- **Actionable Metrics**: Separates incident management from service reliability tracking
+- **Data Source**: system_device_metrics + system_incident tables (combined analysis)
 
 ## New Dashboard Layout
 

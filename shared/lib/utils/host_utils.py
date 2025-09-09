@@ -319,13 +319,17 @@ def send_ping_to_server():
         # Get only operational device metrics (no config recalculation)
         per_device_metrics = get_per_device_metrics(host.get_devices())
         
-        # Debug: Show device metrics being collected
+        # HOST INDEPENDENCE: Store device metrics locally (not via server)
+        from shared.lib.supabase.system_metrics_db import store_device_metrics
         for device_metric in per_device_metrics:
             device_name = device_metric.get('device_name', 'Unknown')
             capture_folder = device_metric.get('capture_folder', 'unknown')
             ffmpeg_status = device_metric.get('ffmpeg_status', 'unknown')
             monitor_status = device_metric.get('monitor_status', 'unknown')
             print(f"[@host:device_debug] 📹 {device_name} ({capture_folder}): FFmpeg={ffmpeg_status}, Monitor={monitor_status}")
+            
+            # Store device metrics independently on host
+            store_device_metrics(host.host_name, device_metric, host_system_stats)
         
         ping_data = {
             'host_name': host.host_name,

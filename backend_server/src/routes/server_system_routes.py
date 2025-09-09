@@ -319,15 +319,11 @@ def client_ping():
         if not success:
             return jsonify({'error': 'Failed to update host ping'}), 500
         
-        # Store per-device operational metrics only
+        # HOST INDEPENDENCE: Device metrics are now stored by host directly
+        # Server only receives device status for monitoring/display purposes
         per_device_metrics = ping_data.get('per_device_metrics', [])
-        
-        if per_device_metrics:
-            # Use host's own system stats for device metrics context
-            host_system_stats = get_host_system_stats()
-            from shared.lib.supabase.system_metrics_db import store_device_metrics
-            for device_metric in per_device_metrics:
-                store_device_metrics(host_name, device_metric, host_system_stats)
+        device_count = len(per_device_metrics) if per_device_metrics else 0
+        print(f"📊 [PING] Host {host_name} reported {device_count} devices")
         
         print(f"💓 [PING] Host {host_name} ping received - status updated")
         
