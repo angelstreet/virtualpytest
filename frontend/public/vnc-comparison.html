@@ -141,7 +141,7 @@
             
             .preview-container {
                 width: 100%;
-                max-width: 300px;
+                height: auto;
             }
         }
     </style>
@@ -274,7 +274,9 @@
                 updateFixedStats();
             };
             
-            iframe.src = vncUrl + '&t=' + Date.now();
+            // Use noVNC's local viewport scaling to fit the entire desktop into the iframe
+            // This performs client-side scaling without needing server resize support
+            iframe.src = vncUrl + '&scaleViewport=1&autoconnect=1&view_only=1&t=' + Date.now();
         }
         
         function updateCurrentStats(scaling) {

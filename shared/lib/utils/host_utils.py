@@ -317,7 +317,7 @@ def send_ping_to_server():
         print(f"✅ Host system metrics stored: {host.host_name}")
         
         # Get only operational device metrics (no config recalculation)
-        per_device_metrics = get_per_device_metrics_lightweight(host.get_devices())
+        per_device_metrics = get_per_device_metrics(host.get_devices())
         
         ping_data = {
             'host_name': host.host_name,
