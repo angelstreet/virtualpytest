@@ -17,9 +17,29 @@ def get_supabase():
 
 
 def process_incidents() -> dict:
-    """Process incidents by calling the database function"""
+    """Process incidents by calling the database function with backend-level duplicate prevention"""
     try:
         supabase = get_supabase()
+        
+        # Backend-level duplicate prevention: Check if we recently processed incidents
+        # This prevents race conditions and excessive processing
+        import time
+        current_time = time.time()
+        
+        # Use a simple in-memory cache to prevent processing more than once per minute
+        if not hasattr(process_incidents, '_last_processed'):
+            process_incidents._last_processed = 0
+            
+        time_since_last = current_time - process_incidents._last_processed
+        
+        # Only process if it's been at least 30 seconds since last processing
+        if time_since_last < 30:
+            print(f"⏳ Incident processing skipped - last processed {time_since_last:.1f}s ago")
+            return {'incidents_created': 0, 'incidents_resolved': 0, 'skipped': True}
+        
+        # Update last processed time
+        process_incidents._last_processed = current_time
+        
         result = supabase.rpc('process_incidents').execute()
         
         if result.data:
