@@ -77,9 +77,51 @@ def setup_and_cleanup():
     print("✅ Flask application setup completed")
     return app
 
+def register_grafana_proxy(app):
+    """Register Grafana proxy routes"""
+    import requests
+    from flask import Response, request
+    
+    @app.route('/grafana/')
+    @app.route('/grafana/<path:path>')
+    def grafana_proxy(path=''):
+        """Proxy requests to local Grafana instance"""
+        try:
+            grafana_url = f"http://localhost:3000/{path}"
+            
+            # Forward query parameters
+            if request.query_string:
+                grafana_url += f"?{request.query_string.decode()}"
+            
+            # Make request to Grafana
+            resp = requests.get(
+                grafana_url,
+                headers={k: v for k, v in request.headers if k.lower() != 'host'},
+                allow_redirects=False,
+                timeout=30
+            )
+            
+            # Return response
+            excluded_headers = ['content-encoding', 'content-length', 'transfer-encoding', 'connection']
+            headers = [(name, value) for (name, value) in resp.raw.headers.items()
+                      if name.lower() not in excluded_headers]
+            
+            return Response(resp.content, resp.status_code, headers)
+            
+        except requests.exceptions.ConnectionError:
+            return "Grafana service is not available", 503
+        except Exception as e:
+            print(f"[@backend_server:grafana_proxy] Error: {str(e)}")
+            return f"Grafana proxy error: {str(e)}", 500
+    
+    print("✅ Grafana proxy routes registered")
+
 def register_all_server_routes(app):
     """Register all server routes - Client-facing API endpoints"""
     print("[@backend_server:routes] Loading server routes...")
+    
+    # Add Grafana proxy route
+    register_grafana_proxy(app)
     
     try:
         from routes import (
