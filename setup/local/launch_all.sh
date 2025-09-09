@@ -1,21 +1,28 @@
 #!/bin/bash
 
 # VirtualPyTest Launch Script - Real-time Unified Logging
-# Usage: ./launch_all.sh [--discard]
+# Usage: ./launch_all.sh [--discard] [--with-grafana]
 #   --discard: Include the AI Discard Service (uses many tokens)
+#   --with-grafana: Include Grafana monitoring service
 
 # Parse command line arguments
 INCLUDE_DISCARD=false
+INCLUDE_GRAFANA=false
 for arg in "$@"; do
     case $arg in
         --discard)
             INCLUDE_DISCARD=true
             shift
             ;;
+        --with-grafana)
+            INCLUDE_GRAFANA=true
+            shift
+            ;;
         -h|--help)
-            echo "Usage: $0 [--discard]"
-            echo "  --discard    Include the AI Discard Service (uses many tokens)"
-            echo "  -h, --help   Show this help message"
+            echo "Usage: $0 [--discard] [--with-grafana]"
+            echo "  --discard       Include the AI Discard Service (uses many tokens)"
+            echo "  --with-grafana  Include Grafana monitoring service"
+            echo "  -h, --help      Show this help message"
             exit 0
             ;;
         *)
@@ -26,11 +33,17 @@ for arg in "$@"; do
     esac
 done
 
-if [ "$INCLUDE_DISCARD" = true ]; then
-    echo "🚀 Starting VirtualPyTest System with Real-time Unified Logging (including AI Discard Service)..."
+SERVICES_MSG="🚀 Starting VirtualPyTest System with Real-time Unified Logging"
+if [ "$INCLUDE_DISCARD" = true ] && [ "$INCLUDE_GRAFANA" = true ]; then
+    SERVICES_MSG="$SERVICES_MSG (with AI Discard + Grafana)..."
+elif [ "$INCLUDE_DISCARD" = true ]; then
+    SERVICES_MSG="$SERVICES_MSG (with AI Discard)..."
+elif [ "$INCLUDE_GRAFANA" = true ]; then
+    SERVICES_MSG="$SERVICES_MSG (with Grafana)..."
 else
-    echo "🚀 Starting VirtualPyTest System with Real-time Unified Logging (without AI Discard Service)..."
+    SERVICES_MSG="$SERVICES_MSG..."
 fi
+echo "$SERVICES_MSG"
 
 set -e
 
@@ -64,10 +77,19 @@ if [ "$INCLUDE_DISCARD" = true ] && [ ! -d "backend_discard/src" ]; then
     MISSING_COMPONENTS="$MISSING_COMPONENTS backend_discard"
 fi
 
+if [ "$INCLUDE_GRAFANA" = true ] && [ ! -f "grafana/config/grafana.ini" ]; then
+    MISSING_COMPONENTS="$MISSING_COMPONENTS grafana"
+fi
+
 if [ -n "$MISSING_COMPONENTS" ]; then
     echo "❌ Missing components:$MISSING_COMPONENTS"
     echo "Please install all components first:"
-    echo "   ./setup/local/install_all.sh"
+    if [[ "$MISSING_COMPONENTS" == *"grafana"* ]]; then
+        echo "   ./setup/local/install_all.sh --with-grafana"
+        echo "   OR ./setup/local/install_grafana.sh"
+    else
+        echo "   ./setup/local/install_all.sh"
+    fi
     exit 1
 fi
 
@@ -202,15 +224,32 @@ if [ "$INCLUDE_DISCARD" = true ]; then
     fi
 fi
 
+# Port 3000 (Grafana) - only check if we're including Grafana
+if [ "$INCLUDE_GRAFANA" = true ]; then
+    # We already checked port 3000 above for Frontend, but Grafana also uses 3000
+    # We'll use port 3001 for Grafana to avoid conflicts
+    GRAFANA_PORT=3001
+    if lsof -ti:$GRAFANA_PORT > /dev/null 2>&1; then
+        echo "🛑 Killing processes on port $GRAFANA_PORT (Grafana)..."
+        lsof -ti:$GRAFANA_PORT | xargs kill -9 2>/dev/null || true
+        sleep 1
+    fi
+fi
+
 echo "✅ All required ports are available"
 
 echo "📺 Starting all processes with real-time unified logging..."
 echo "💡 Press Ctrl+C to stop all processes"
+
+# Build log prefixes message
+LOG_PREFIXES="[SERVER], [HOST], [FRONTEND]"
 if [ "$INCLUDE_DISCARD" = true ]; then
-    echo "💡 Logs will appear with colored prefixes: [SERVER], [HOST], [DISCARD], [FRONTEND]"
-else
-    echo "💡 Logs will appear with colored prefixes: [SERVER], [HOST], [FRONTEND]"
+    LOG_PREFIXES="$LOG_PREFIXES, [DISCARD]"
 fi
+if [ "$INCLUDE_GRAFANA" = true ]; then
+    LOG_PREFIXES="$LOG_PREFIXES, [GRAFANA]"
+fi
+echo "💡 Logs will appear with colored prefixes: $LOG_PREFIXES"
 echo "=================================================================================="
 
 # Start all processes with prefixed output and real-time logging
@@ -229,6 +268,26 @@ sleep 3
 if [ "$INCLUDE_DISCARD" = true ]; then
     echo -e "${RED}🔴 Starting backend_discard (AI analysis service)...${NC}"
     run_with_prefix "DISCARD" "$RED" "$PROJECT_ROOT/backend_discard" python src/app.py
+    sleep 3
+fi
+
+if [ "$INCLUDE_GRAFANA" = true ]; then
+    echo -e "\033[0;35m🟣 Starting Grafana (monitoring service)...\033[0m"
+    # Check if PostgreSQL is running for Grafana metrics
+    if ! pg_isready &> /dev/null; then
+        echo "🐘 Starting PostgreSQL for Grafana..."
+        if [[ "$OSTYPE" == "darwin"* ]]; then
+            brew services start postgresql &> /dev/null || true
+        else
+            sudo systemctl start postgresql &> /dev/null || true
+        fi
+        sleep 2
+    fi
+    
+    # Set environment variables for Grafana
+    export SUPABASE_DB_URI="${SUPABASE_DB_URI:-postgres://user:pass@localhost:5432/postgres}"
+    run_with_prefix "GRAFANA" "\033[0;35m" "$PROJECT_ROOT" grafana-server --config="$PROJECT_ROOT/grafana/config/grafana.ini" --homepath="$PROJECT_ROOT/grafana" web
+    sleep 3
 fi
 
 echo "=================================================================================="
@@ -240,6 +299,9 @@ echo -e "${NC}   backend_server: http://localhost:5109${NC}"
 echo -e "${NC}   backend_host: http://localhost:6109${NC}"
 if [ "$INCLUDE_DISCARD" = true ]; then
     echo -e "${NC}   backend_discard: AI analysis service (port ${DISCARD_PORT:-6209})${NC}"
+fi
+if [ "$INCLUDE_GRAFANA" = true ]; then
+    echo -e "${NC}   Grafana: http://localhost:3001 (admin/admin123)${NC}"
 fi
 echo "=================================================================================="
 
