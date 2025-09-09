@@ -250,21 +250,8 @@ def start_server(app):
                     # Get server system stats (reuse host function)
                     server_stats = get_host_system_stats()
                     
-                    # Convert to enhanced format for database storage
-                    enhanced_stats = {
-                        'cpu_percent': server_stats.get('cpu_percent', 0),
-                        'memory_percent': server_stats.get('memory_percent', 0),
-                        'memory_used_gb': 0,  # Will be calculated in store function if needed
-                        'memory_total_gb': 0,  # Will be calculated in store function if needed
-                        'disk_percent': server_stats.get('disk_percent', 0),
-                        'disk_used_gb': 0,    # Will be calculated in store function if needed
-                        'disk_total_gb': 0,   # Will be calculated in store function if needed
-                        'uptime_seconds': server_stats.get('uptime_seconds', 0),
-                        'platform': server_stats.get('platform', 'unknown'),
-                        'architecture': server_stats.get('architecture', 'unknown'),
-                        'ffmpeg_status': {'status': 'not_applicable'},  # Server doesn't run FFmpeg
-                        'monitor_status': {'status': 'not_applicable'}  # Server doesn't run monitor
-                    }
+                    # Debug: Show actual metrics values
+                    print(f"[@backend_server:debug] 🔍 Raw server stats: CPU={server_stats.get('cpu_percent', 'N/A')}%, RAM={server_stats.get('memory_percent', 'N/A')}%, Disk={server_stats.get('disk_percent', 'N/A')}%")
                     
                     # Store server metrics in system_metrics table
                     store_system_metrics('server', server_stats)
