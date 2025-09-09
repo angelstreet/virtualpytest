@@ -270,14 +270,8 @@ def start_server(app):
                     store_system_metrics('server', server_stats)
                     print("[@backend_server:metrics] 📊 Server metrics collected and stored")
                     
-                    # Process incidents after storing server metrics
-                    try:
-                        from shared.lib.supabase.system_metrics_db import process_incidents
-                        incident_result = process_incidents()
-                        if incident_result.get('incidents_created', 0) > 0 or incident_result.get('incidents_resolved', 0) > 0:
-                            print(f"[@backend_server:incidents] 🚨 Incidents processed: +{incident_result.get('incidents_created', 0)} created, +{incident_result.get('incidents_resolved', 0)} resolved")
-                    except Exception as e:
-                        print(f"[@backend_server:incidents] ⚠️ Error processing incidents: {e}")
+                    # Server doesn't have devices, so no incident processing needed
+                    # Each host manages its own device incidents directly
                     
                     # Align to minute boundaries for synchronized data collection
                     current_time = time.time()
