@@ -316,15 +316,14 @@ def send_ping_to_server():
         store_system_metrics(host.host_name, host_system_stats)
         print(f"✅ Host system metrics stored: {host.host_name}")
         
-        # Get device configurations for per-device metrics
-        devices_config = [device.to_dict() for device in host.get_devices()]
+        # Get only operational device metrics (no config recalculation)
+        per_device_metrics = get_per_device_metrics_lightweight(host.get_devices())
         
         ping_data = {
             'host_name': host.host_name,
             'timestamp': time.time(),
             'device_count': host.get_device_count(),
-            'devices_config': devices_config,  # Device information for per-device tracking
-            'per_device_metrics': get_per_device_metrics(devices_config)  # Per-device status
+            'per_device_metrics': per_device_metrics  # Only operational status
         }
         
         ping_url = client_registration_state['urls'].get('ping')
