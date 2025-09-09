@@ -14,23 +14,83 @@
         }
         
         .container {
-            max-width: 800px;
+            max-width: 1200px;
             margin: 0 auto;
         }
         
-        .test-section {
-            margin-bottom: 40px;
-            border: 1px solid #333;
-            padding: 20px;
+        /* Modal Container - Exact RecHostStreamModal replication */
+        .modal-container {
+            position: fixed;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: rgba(0, 0, 0, 0.9);
+        }
+        
+        .modal-content {
+            width: 95vw;
+            height: 90vh;
+            background-color: #1e1e1e;
             border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        .modal-header {
+            padding: 8px 16px;
+            background-color: #2d2d2d;
+            color: white;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            min-height: 48px;
+            border-radius: 8px 8px 0 0;
+        }
+        
+        .modal-main-content {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+            background-color: black;
+            position: relative;
+        }
+        
+        .test-section {
+            margin-bottom: 20px;
+            border: 1px solid #333;
+            padding: 15px;
+            border-radius: 8px;
+        }
+        
+        /* Stream Container - Exact RecHostStreamModal replication */
+        .stream-container {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: black;
+        }
+        
+        .stream-container.with-remote {
+            width: 75%;
         }
         
         .video-container {
             position: relative;
             width: 100%;
+            height: 300px;
             background: #000;
             border: 2px solid #444;
             margin: 10px 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
         }
         
         /* Test 1: Current problematic mobile scaling */
@@ -160,6 +220,36 @@
     </style>
 </head>
 <body>
+    <!-- Modal Replica Test - Exact RecHostStreamModal Structure -->
+    <div class="modal-container" id="modalTest" style="display: none;">
+        <div class="modal-content">
+            <!-- Header -->
+            <div class="modal-header">
+                <div style="font-size: 18px; font-weight: 600;">S21x - Live Stream (Modal Test)</div>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <button class="btn" onclick="toggleModalRemote()">Show Remote</button>
+                    <button class="btn" onclick="closeModal()">✕ Close</button>
+                </div>
+            </div>
+            
+            <!-- Main Content -->
+            <div class="modal-main-content">
+                <!-- Stream Container -->
+                <div class="stream-container" id="modalStreamContainer">
+                    <video id="modalVideo" 
+                           style="width: 100%; height: 100%; object-fit: fill; aspect-ratio: 9/16; background: black;"
+                           muted playsinline autoplay preload="none"></video>
+                </div>
+                
+                <!-- Remote Panel (hidden by default) -->
+                <div id="modalRemotePanel" style="display: none; width: 25%; background: #2d2d2d; border-left: 1px solid #555; padding: 16px;">
+                    <h3>Remote Panel</h3>
+                    <p>This simulates the remote control panel</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="container">
         <h1>HLS Mobile Scaling Test</h1>
         <p>Testing HLS stream: <code>https://dev.virtualpytest.com/host/stream/capture1/output.m3u8</code></p>                                                                                                         
@@ -169,6 +259,7 @@
             <button onclick="stopAllStreams()">Stop All Streams</button>
             <button onclick="toggleMute()">Toggle Mute</button>
             <button onclick="logAllDimensions()">Log Dimensions</button>
+            <button onclick="showModal()" style="background: #28a745;">🎯 Test Modal Replica</button>
         </div>
         
         <div id="status" class="info">Click "Load All Streams" to start testing</div>
@@ -247,9 +338,10 @@
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <script>
         const streamUrl = 'https://dev.virtualpytest.com/host/stream/capture1/output.m3u8';
-        const videos = ['video1', 'video2', 'video3', 'video4', 'video5'];
+        const videos = ['video1', 'video2', 'video3', 'video4', 'video5', 'modalVideo'];
         const hlsInstances = {};
         let isMuted = true;
+        let modalRemoteShown = false;
         
         function updateStatus(videoId, message, isError = false) {
             const statusEl = document.getElementById(`status${videoId.slice(-1)}`);
@@ -459,10 +551,63 @@
             }
         });
         
+        // Modal control functions
+        function showModal() {
+            document.getElementById('modalTest').style.display = 'flex';
+            // Load the modal video
+            setTimeout(() => {
+                loadStream('modalVideo');
+            }, 500);
+            console.log('Modal opened - testing exact RecHostStreamModal structure');
+        }
+        
+        function closeModal() {
+            document.getElementById('modalTest').style.display = 'none';
+            // Stop modal video
+            const video = document.getElementById('modalVideo');
+            if (video) {
+                video.pause();
+                video.src = '';
+            }
+            if (hlsInstances['modalVideo']) {
+                hlsInstances['modalVideo'].destroy();
+                delete hlsInstances['modalVideo'];
+            }
+            console.log('Modal closed');
+        }
+        
+        function toggleModalRemote() {
+            const container = document.getElementById('modalStreamContainer');
+            const panel = document.getElementById('modalRemotePanel');
+            const button = event.target;
+            
+            modalRemoteShown = !modalRemoteShown;
+            
+            if (modalRemoteShown) {
+                container.style.width = '75%';
+                panel.style.display = 'block';
+                button.textContent = 'Hide Remote';
+                console.log('Modal remote panel shown - stream width: 75%');
+            } else {
+                container.style.width = '100%';
+                panel.style.display = 'none';
+                button.textContent = 'Show Remote';
+                console.log('Modal remote panel hidden - stream width: 100%');
+            }
+        }
+        
+        // Handle escape key for modal
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeModal();
+            }
+        });
+
         // Log when page loads
         console.log('HLS Mobile Scaling Test initialized');
         console.log('Stream URL:', streamUrl);
         console.log('Available tests:', videos.length);
+        console.log('🎯 Click "Test Modal Replica" to test exact RecHostStreamModal structure');
     </script>
 </body>
 </html>
