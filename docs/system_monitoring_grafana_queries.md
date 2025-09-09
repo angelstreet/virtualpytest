@@ -236,7 +236,7 @@ WHERE capture_folder IS NOT NULL
 
 ### Recent Incidents with Resolution Status (Last 20)
 ```sql
--- Recent incidents with resolution status
+-- Recent incidents with resolution status including end time and proper duration
 SELECT 
     device_name as "Device",
     capture_folder as "Folder", 
@@ -245,8 +245,18 @@ SELECT
     status as "Status",
     TO_CHAR(detected_at, 'MM-DD HH24:MI') as "Detected",
     CASE 
-        WHEN status IN ('resolved', 'closed') THEN COALESCE(total_duration_minutes, 0) || 'm'
-        ELSE ROUND(EXTRACT(EPOCH FROM (NOW() - detected_at))/60) || 'm (ongoing)'
+        WHEN status IN ('resolved', 'closed') AND resolved_at IS NOT NULL 
+        THEN TO_CHAR(resolved_at, 'MM-DD HH24:MI')
+        ELSE 'N/A'
+    END as "Resolved",
+    CASE 
+        WHEN status IN ('resolved', 'closed') AND total_duration_minutes IS NOT NULL 
+        THEN total_duration_minutes || 'm'
+        WHEN status IN ('resolved', 'closed') AND resolved_at IS NOT NULL AND detected_at IS NOT NULL
+        THEN ROUND(EXTRACT(EPOCH FROM (resolved_at - detected_at))/60) || 'm'
+        WHEN status IN ('open', 'in_progress')
+        THEN ROUND(EXTRACT(EPOCH FROM (NOW() - detected_at))/60) || 'm (ongoing)'
+        ELSE '0m'
     END as "Duration",
     COALESCE(resolution_notes, description) as "Notes"
 FROM system_incident 
@@ -412,7 +422,7 @@ The **New Incident Management System** provides complete incident lifecycle trac
 └─────────────────────┴─────────────────────┘
 ┌─────────────────────────────────────────────┐
 │            Recent Incident History          │  [Row 6: Historical View]
-│                  (Last 20)                  │
+│     (Last 20 with End Time & Duration)     │
 └─────────────────────────────────────────────┘
 ```
 

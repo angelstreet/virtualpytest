@@ -48,16 +48,29 @@ def process_device_incidents(device_name: str, capture_folder: str, ffmpeg_statu
                 pass  # Incident already exists, that's fine
                 
         elif ffmpeg_status == 'active':
-            # UPDATE any open FFmpeg incidents to resolved
+            # UPDATE any open FFmpeg incidents to resolved with duration calculation
             try:
-                result = supabase.table('system_incident').update({
-                    'status': 'resolved',
-                    'resolved_at': current_time,
-                    'resolution_notes': 'Auto-resolved: FFmpeg recovered'
-                }).eq('device_name', device_name).eq('capture_folder', capture_folder).eq('component', 'ffmpeg').in_('status', ['open', 'in_progress']).execute()
-                if result.data:
-                    incidents_resolved += len(result.data)
-            except:
+                # First get the open incidents to calculate duration
+                open_incidents = supabase.table('system_incident').select('incident_id, detected_at').eq('device_name', device_name).eq('capture_folder', capture_folder).eq('component', 'ffmpeg').in_('status', ['open', 'in_progress']).execute()
+                
+                if open_incidents.data:
+                    for incident in open_incidents.data:
+                        # Calculate duration in minutes
+                        detected_at = datetime.fromisoformat(incident['detected_at'].replace('Z', '+00:00'))
+                        resolved_at = datetime.fromisoformat(current_time.replace('Z', '+00:00'))
+                        duration_minutes = int((resolved_at - detected_at).total_seconds() / 60)
+                        
+                        # Update with duration
+                        supabase.table('system_incident').update({
+                            'status': 'resolved',
+                            'resolved_at': current_time,
+                            'total_duration_minutes': duration_minutes,
+                            'resolution_notes': 'Auto-resolved: FFmpeg recovered'
+                        }).eq('incident_id', incident['incident_id']).execute()
+                        
+                        incidents_resolved += 1
+            except Exception as e:
+                print(f"⚠️ Error resolving FFmpeg incident: {e}")
                 pass
         
         # Monitor incident handling  
@@ -81,16 +94,29 @@ def process_device_incidents(device_name: str, capture_folder: str, ffmpeg_statu
                 pass  # Incident already exists, that's fine
                 
         elif monitor_status == 'active':
-            # UPDATE any open Monitor incidents to resolved
+            # UPDATE any open Monitor incidents to resolved with duration calculation
             try:
-                result = supabase.table('system_incident').update({
-                    'status': 'resolved',
-                    'resolved_at': current_time,
-                    'resolution_notes': 'Auto-resolved: Monitor recovered'
-                }).eq('device_name', device_name).eq('capture_folder', capture_folder).eq('component', 'monitor').in_('status', ['open', 'in_progress']).execute()
-                if result.data:
-                    incidents_resolved += len(result.data)
-            except:
+                # First get the open incidents to calculate duration
+                open_incidents = supabase.table('system_incident').select('incident_id, detected_at').eq('device_name', device_name).eq('capture_folder', capture_folder).eq('component', 'monitor').in_('status', ['open', 'in_progress']).execute()
+                
+                if open_incidents.data:
+                    for incident in open_incidents.data:
+                        # Calculate duration in minutes
+                        detected_at = datetime.fromisoformat(incident['detected_at'].replace('Z', '+00:00'))
+                        resolved_at = datetime.fromisoformat(current_time.replace('Z', '+00:00'))
+                        duration_minutes = int((resolved_at - detected_at).total_seconds() / 60)
+                        
+                        # Update with duration
+                        supabase.table('system_incident').update({
+                            'status': 'resolved',
+                            'resolved_at': current_time,
+                            'total_duration_minutes': duration_minutes,
+                            'resolution_notes': 'Auto-resolved: Monitor recovered'
+                        }).eq('incident_id', incident['incident_id']).execute()
+                        
+                        incidents_resolved += 1
+            except Exception as e:
+                print(f"⚠️ Error resolving Monitor incident: {e}")
                 pass
         
         return {'incidents_created': incidents_created, 'incidents_resolved': incidents_resolved}
