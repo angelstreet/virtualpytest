@@ -305,13 +305,23 @@ def send_ping_to_server():
     try:
         host = get_host()
         
+        # Store host's own system metrics (same routine as server)
+        host_system_stats = get_host_system_stats()
+        
+        # Debug: Show host's own system stats
+        print(f"[@host:debug] 🔍 Host system stats: CPU={host_system_stats.get('cpu_percent', 'N/A')}%, RAM={host_system_stats.get('memory_percent', 'N/A')}%, Disk={host_system_stats.get('disk_percent', 'N/A')}%")
+        
+        # Store host system metrics directly (same function as server uses)
+        from shared.lib.supabase.system_metrics_db import store_system_metrics
+        store_system_metrics(host.host_name, host_system_stats)
+        print(f"✅ Host system metrics stored: {host.host_name}")
+        
         # Get device configurations for per-device metrics
         devices_config = [device.to_dict() for device in host.get_devices()]
         
         ping_data = {
             'host_name': host.host_name,
             'timestamp': time.time(),
-            'system_stats': get_host_system_stats(),  # Base system stats - consistent format
             'device_count': host.get_device_count(),
             'devices_config': devices_config,  # Device information for per-device tracking
             'per_device_metrics': get_per_device_metrics(devices_config)  # Per-device status

@@ -72,10 +72,13 @@ CREATE TABLE system_incident (
 );
 ```
 
-### 2. Simple Host-Based Incident Detection
+### 2. Simple Host-Based Architecture
 
 #### Design Philosophy
-Each host **knows its own device status** and directly manages incidents for its devices:
+Each host/server **manages its own metrics and incidents independently**:
+- **Server**: Stores its own system metrics every 60s
+- **Host**: Stores its own system metrics + device metrics every 60s
+- **Same function**: Both use `get_host_system_stats()` and `store_system_metrics()`
 - **No complex queries** or database lookups
 - **Direct INSERT/UPDATE** based on current status
 - **Fast, lightweight processing** (10-50ms per device)
