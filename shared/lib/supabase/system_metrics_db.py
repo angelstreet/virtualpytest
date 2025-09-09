@@ -16,6 +16,25 @@ def get_supabase():
     return get_supabase_client()
 
 
+def process_incidents() -> dict:
+    """Process incidents by calling the database function"""
+    try:
+        supabase = get_supabase()
+        result = supabase.rpc('process_incidents').execute()
+        
+        if result.data:
+            incident_result = result.data[0] if result.data else {}
+            print(f"🚨 Incident processing: {incident_result}")
+            return incident_result
+        else:
+            print("⚠️ No incident processing result returned")
+            return {'incidents_created': 0, 'incidents_resolved': 0}
+            
+    except Exception as e:
+        print(f"❌ Error processing incidents: {e}")
+        return {'incidents_created': 0, 'incidents_resolved': 0}
+
+
 def store_system_metrics(host_name: str, metrics_data: Dict[str, Any]) -> bool:
     """Store server metrics in system_metrics table"""
     try:
@@ -78,13 +97,22 @@ def store_device_metrics(host_name: str, device_data: Dict[str, Any], system_sta
         result = supabase.table('system_device_metrics').insert(insert_data).execute()
         
         if result.data:
-            print(f"✅ Device metrics stored: {host_name}/{device_data.get('device_name', 'unknown')} ({device_data.get('capture_folder', 'unknown')})")
+            print(f"✅ Device metrics stored: {device_data.get('device_name', 'Unknown')} ({device_data.get('capture_folder', 'unknown')})")
+            
+            # Process incidents after storing device metrics
+            try:
+                incident_result = process_incidents()
+                if incident_result.get('incidents_created', 0) > 0 or incident_result.get('incidents_resolved', 0) > 0:
+                    print(f"🚨 Incidents processed: +{incident_result.get('incidents_created', 0)} created, +{incident_result.get('incidents_resolved', 0)} resolved")
+            except Exception as e:
+                print(f"⚠️ Error processing incidents after device metrics: {e}")
+            
             return True
         else:
             return False
             
     except Exception as e:
-        print(f"❌ Error storing device metrics for {host_name}: {e}")
+        print(f"❌ Error storing device metrics: {e}")
         return False
 
 

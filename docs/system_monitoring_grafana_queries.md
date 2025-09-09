@@ -118,68 +118,116 @@ FROM latest_device_metrics
 ORDER BY host_name, capture_folder
 ```
 
-## Panel 4: Incident History (Table)
+## Panel 4: Current Active Incidents (Critical Priority)
 
-### Comprehensive Incident Detection and Analysis
+### Active Incidents - What's Broken RIGHT NOW
 ```sql
-WITH status_transitions AS (
-  SELECT 
-    device_name,
-    capture_folder,
-    video_device,
-    device_id,
-    timestamp,
-    ffmpeg_status,
-    monitor_status,
-    LAG(ffmpeg_status) OVER (PARTITION BY device_id, capture_folder ORDER BY timestamp) as prev_ffmpeg_status,
-    LAG(monitor_status) OVER (PARTITION BY device_id, capture_folder ORDER BY timestamp) as prev_monitor_status,
-    LAG(timestamp) OVER (PARTITION BY device_id, capture_folder ORDER BY timestamp) as prev_timestamp
-  FROM system_device_metrics 
-  WHERE timestamp >= NOW() - INTERVAL '24 hours'
+-- Shows incidents happening RIGHT NOW
+SELECT 
+    incident_id as "ID",
+    device_name as "Device",
+    capture_folder as "Folder",
+    component as "Component",
+    severity as "Severity",
+    incident_type as "Type",
+    ROUND(EXTRACT(EPOCH FROM (NOW() - detected_at))/60) as "Duration (min)",
+    TO_CHAR(detected_at, 'HH24:MI:SS') as "Started",
+    description as "Description"
+FROM system_incident 
+WHERE status IN ('open', 'in_progress')
+ORDER BY 
+    CASE severity 
+        WHEN 'critical' THEN 1 
+        WHEN 'high' THEN 2 
+        WHEN 'medium' THEN 3 
+        ELSE 4 
+    END, 
+    detected_at ASC;
+```
+
+## Panel 5: Device Availability (SLA Tracking)
+
+### 24-Hour Availability Percentage Per Device
+```sql
+-- Calculate availability percentage per device
+WITH device_availability AS (
+    SELECT 
+        device_name,
+        capture_folder,
+        COUNT(*) as total_minutes,
+        COUNT(CASE 
+            WHEN ffmpeg_status = 'active' AND monitor_status = 'active' 
+            THEN 1 
+        END) as healthy_minutes
+    FROM system_device_metrics 
+    WHERE timestamp >= NOW() - INTERVAL '24 hours'
+    GROUP BY device_name, capture_folder
 ),
-incidents AS (
-  SELECT 
-    device_name,
-    capture_folder,
-    video_device,
-    timestamp as incident_time,
-    prev_timestamp,
-    CASE 
-      WHEN prev_ffmpeg_status = 'active' AND ffmpeg_status = 'stuck' THEN 'FFmpeg Got Stuck'
-      WHEN prev_ffmpeg_status = 'active' AND ffmpeg_status = 'stopped' THEN 'FFmpeg Stopped'
-      WHEN prev_ffmpeg_status = 'stuck' AND ffmpeg_status = 'stopped' THEN 'FFmpeg Died'
-      WHEN prev_monitor_status = 'active' AND monitor_status = 'stuck' THEN 'Monitor Got Stuck'
-      WHEN prev_monitor_status = 'active' AND monitor_status = 'stopped' THEN 'Monitor Stopped'
-      WHEN prev_monitor_status = 'stuck' AND monitor_status = 'stopped' THEN 'Monitor Died'
-    END as incident_type,
-    CASE 
-      WHEN prev_ffmpeg_status = 'active' AND ffmpeg_status IN ('stuck', 'stopped') THEN ffmpeg_status
-      WHEN prev_ffmpeg_status = 'stuck' AND ffmpeg_status = 'stopped' THEN ffmpeg_status
-      WHEN prev_monitor_status = 'active' AND monitor_status IN ('stuck', 'stopped') THEN monitor_status
-      WHEN prev_monitor_status = 'stuck' AND monitor_status = 'stopped' THEN monitor_status
-    END as current_status
-  FROM status_transitions
-  WHERE (prev_ffmpeg_status = 'active' AND ffmpeg_status IN ('stuck', 'stopped'))
-     OR (prev_ffmpeg_status = 'stuck' AND ffmpeg_status = 'stopped')
-     OR (prev_monitor_status = 'active' AND monitor_status IN ('stuck', 'stopped'))
-     OR (prev_monitor_status = 'stuck' AND monitor_status = 'stopped')
+incident_downtime AS (
+    SELECT 
+        device_name,
+        capture_folder,
+        COALESCE(SUM(total_duration_minutes), 0) as downtime_minutes
+    FROM system_incident 
+    WHERE detected_at >= NOW() - INTERVAL '24 hours'
+      AND status IN ('resolved', 'closed')
+    GROUP BY device_name, capture_folder
 )
 SELECT 
-  device_name as "Device",
-  capture_folder as "Folder",
-  incident_type as "Event",
-  TO_CHAR(incident_time, 'HH24:MI:SS') as "When",
-  CASE 
-    WHEN EXTRACT(EPOCH FROM (incident_time - prev_timestamp)) < 3600 THEN 
-      ROUND(EXTRACT(EPOCH FROM (incident_time - prev_timestamp))/60) || 'm'
-    WHEN EXTRACT(EPOCH FROM (incident_time - prev_timestamp)) < 86400 THEN 
-      ROUND(EXTRACT(EPOCH FROM (incident_time - prev_timestamp))/3600) || 'h'
-    ELSE 
-      ROUND(EXTRACT(EPOCH FROM (incident_time - prev_timestamp))/86400) || 'd'
-  END as "Worked For"
-FROM incidents
-ORDER BY incident_time DESC
-LIMIT 20
+    da.device_name as "Device",
+    da.capture_folder as "Folder",
+    ROUND((da.healthy_minutes * 100.0 / da.total_minutes), 2) as "Availability %",
+    COALESCE(id.downtime_minutes, 0) as "Downtime (min)",
+    1440 - COALESCE(id.downtime_minutes, 0) as "Uptime (min)",
+    CASE 
+        WHEN (da.healthy_minutes * 100.0 / da.total_minutes) >= 99.9 THEN '🟢 Excellent'
+        WHEN (da.healthy_minutes * 100.0 / da.total_minutes) >= 99.0 THEN '🟡 Good'
+        WHEN (da.healthy_minutes * 100.0 / da.total_minutes) >= 95.0 THEN '🟠 Fair'
+        ELSE '🔴 Poor'
+    END as "SLA Status"
+FROM device_availability da
+LEFT JOIN incident_downtime id ON da.device_name = id.device_name 
+    AND da.capture_folder = id.capture_folder
+ORDER BY "Availability %" DESC;
+```
+
+## Panel 6: Incident Summary Statistics
+
+### High-Level Incident Metrics
+```sql
+-- High-level incident metrics
+SELECT 
+    COUNT(CASE WHEN status IN ('open', 'in_progress') THEN 1 END) as "Active Incidents",
+    COUNT(CASE WHEN detected_at >= NOW() - INTERVAL '24 hours' THEN 1 END) as "24h Incidents",
+    COUNT(CASE WHEN detected_at >= NOW() - INTERVAL '7 days' THEN 1 END) as "7d Incidents",
+    ROUND(AVG(CASE 
+        WHEN status IN ('resolved', 'closed') AND total_duration_minutes IS NOT NULL 
+        THEN total_duration_minutes 
+    END), 1) as "Avg Resolution (min)",
+    COUNT(CASE WHEN severity = 'critical' AND detected_at >= NOW() - INTERVAL '24 hours' THEN 1 END) as "24h Critical"
+FROM system_incident;
+```
+
+## Panel 7: Recent Incident History
+
+### Recent Incidents with Resolution Status (Last 20)
+```sql
+-- Recent incidents with resolution status
+SELECT 
+    device_name as "Device",
+    capture_folder as "Folder", 
+    component as "Component",
+    severity as "Severity",
+    status as "Status",
+    TO_CHAR(detected_at, 'MM-DD HH24:MI') as "Detected",
+    CASE 
+        WHEN status IN ('resolved', 'closed') THEN COALESCE(total_duration_minutes, 0) || 'm'
+        ELSE ROUND(EXTRACT(EPOCH FROM (NOW() - detected_at))/60) || 'm (ongoing)'
+    END as "Duration",
+    COALESCE(resolution_notes, description) as "Notes"
+FROM system_incident 
+ORDER BY detected_at DESC 
+LIMIT 20;
 ```
 
 ## Key Features
@@ -200,27 +248,26 @@ The Host Metrics table includes **FFmpeg Uptime** and **Monitor Uptime** columns
 - **Working Duration**: How long the process was continuously active before getting stuck
 - **Stability Metrics**: Understand process reliability and failure patterns
 
-### Incident History Analysis
-The **Incident History** panel provides comprehensive forensic analysis:
+### Incident Management System
+The **New Incident Management System** provides complete incident lifecycle tracking:
 
-#### **Status Detection Logic**:
-- **`active`**: Process running AND creating files (working normally)
-- **`stuck`**: Process running BUT no files created (process stuck)
-- **`stopped`**: Process not running (service down)
+#### **Incident Status Lifecycle**:
+- **`open`**: Incident detected and needs attention
+- **`in_progress`**: Incident is being actively worked on
+- **`resolved`**: Issue fixed, service recovered
+- **`closed`**: Incident confirmed resolved and documented
 
-#### **Incident Types Detected**:
-- **"FFmpeg Got Stuck"**: `active` → `stuck` (process running but stopped creating files)
-- **"FFmpeg Stopped"**: `active` → `stopped` (process died while working)
-- **"FFmpeg Died"**: `stuck` → `stopped` (stuck process finally died)
-- **"Monitor Got Stuck"**: `active` → `stuck` (monitor running but no JSON files)
-- **"Monitor Stopped"**: `active` → `stopped` (monitor process died)
-- **"Monitor Died"**: `stuck` → `stopped` (stuck monitor finally died)
+#### **Incident Types and Severity**:
+- **FFmpeg Failure**: `critical` (stopped) or `high` (stuck)
+- **Monitor Failure**: `critical` (stopped) or `high` (stuck)
+- **Auto-Detection**: Prevents duplicate incidents for ongoing issues
+- **Auto-Resolution**: Automatically resolves when services recover
 
-#### **Timeline Analysis**:
-- **"When"**: Exact time the incident was detected in database
-- **"Worked For"**: How long the process worked before the incident
-- **24-hour History**: Complete incident timeline for forensic analysis
-- **Per-Device Tracking**: Separate incident tracking for each device and capture folder
+#### **Real-Time Capabilities**:
+- **Active Incidents**: Shows what's broken RIGHT NOW
+- **Availability Tracking**: Real uptime percentages (99.9%, 99.0%, etc.)
+- **SLA Compliance**: Color-coded availability status
+- **MTTR Metrics**: Average resolution time tracking
 
 ### Data Synchronization
 - Server and host data collection is synchronized to minute boundaries
@@ -253,27 +300,39 @@ The **Incident History** panel provides comprehensive forensic analysis:
 - **Real Names**: Uses actual device names from device registration
 - **Data Source**: system_device_metrics table (per-device records)
 
-## Simplified Dashboard Layout
+## New Dashboard Layout
 
 ```
 ┌──────────┬──────────┬──────────┬──────────┐
-│Server CPU│Server Mem│Server Dsk│Server Up │
+│Server CPU│Server Mem│Server Dsk│Server Up │  [Row 1: Server Stats]
 │  (Stat)  │  (Stat)  │  (Stat)  │  (Stat)  │
 └──────────┴──────────┴──────────┴──────────┘
 ┌─────────────────┬─────────────────────────┐
-│   CPU Usage     │    Memory Usage         │
+│   CPU Usage     │    Memory Usage         │  [Row 2: Time Series]
 │  Over Time      │    Over Time            │
 │ (Time Series)   │   (Time Series)         │
 └─────────────────┴─────────────────────────┘
 ┌─────────────────────────────────────────────┐
-│         Host Metrics & Process Status       │
+│         Host Metrics & Process Status       │  [Row 3: Device Table]
 │              (Comprehensive Table)          │
+└─────────────────────────────────────────────┘
+┌─────────────────────────────────────────────┐
+│          🚨 ACTIVE INCIDENTS 🚨             │  [Row 4: Critical - What's Broken NOW]
+│               (Priority Table)              │
+└─────────────────────────────────────────────┘
+┌─────────────────┬─────────────────────────┐
+│ Device Availability │  Incident Statistics │  [Row 5: SLA & Metrics]
+│   (SLA Tracking)    │    (Summary Stats)   │
+└─────────────────────┴─────────────────────┘
+┌─────────────────────────────────────────────┐
+│            Recent Incident History          │  [Row 6: Historical View]
+│                  (Last 20)                  │
 └─────────────────────────────────────────────┘
 ```
 
 ## Database Schema
 
-The dashboard uses two main tables:
+The dashboard uses three main tables:
 
 ### `system_metrics` (Server Data)
 - `host_name`: 'server' only
@@ -298,3 +357,17 @@ The dashboard uses two main tables:
 - `monitor_uptime_seconds`: Duration Monitor was continuously active
 - `monitor_last_activity`: Timestamp when Monitor last created JSON files
 - `timestamp`: Data collection time (synchronized to minute boundaries)
+
+### `system_incident` (Incident Management) **NEW**
+- `incident_id`: Primary key, auto-increment
+- `incident_uuid`: Unique UUID for external references
+- `host_name`, `device_id`, `device_name`, `capture_folder`: Device identification
+- `incident_type`: 'ffmpeg_failure', 'monitor_failure', 'system_failure'
+- `severity`: 'critical', 'high', 'medium', 'low'
+- `component`: 'ffmpeg', 'monitor', 'system'
+- `status`: 'open', 'in_progress', 'resolved', 'closed'
+- `detected_at`: When incident was first detected
+- `resolved_at`: When incident was resolved (auto or manual)
+- `total_duration_minutes`: Complete incident duration
+- `description`: Auto-generated incident description
+- `resolution_notes`: How the incident was resolved
