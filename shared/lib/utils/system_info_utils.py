@@ -293,7 +293,7 @@ def get_per_device_metrics(devices) -> List[Dict[str, Any]]:
             # Check files directly in the device's video_capture_path
             if video_capture_path and os.path.exists(video_capture_path):
                 current_time = time.time()
-                cutoff_time = current_time - 10  # Only look for files from last 10 seconds
+                cutoff_time = current_time - 300  # Look for files from last 5 minutes
                 
                 # Check for recent images (.jpg files) in captures subdirectory - FFmpeg only needs JPG
                 captures_dir = os.path.join(video_capture_path, 'captures')
@@ -346,7 +346,7 @@ def get_per_device_metrics(devices) -> List[Dict[str, Any]]:
                 captures_dir = os.path.join(video_capture_path, 'captures')
                 if os.path.exists(captures_dir):
                     current_time = time.time()
-                    cutoff_time = current_time - 10  # Only look for files from last 10 seconds
+                    cutoff_time = current_time - 300  # Look for files from last 5 minutes
                     
                     # Check for recent JSON files
                     recent_json = []
@@ -440,32 +440,34 @@ def check_ffmpeg_status():
         capture_dirs = get_active_capture_dirs()
         
         current_time = time.time()
-        cutoff_time = current_time - 10  # Only look for files from last 10 seconds
+        cutoff_time = current_time - 300  # Look for files from last 5 minutes
         
         for capture_dir in capture_dirs:
             if os.path.exists(capture_dir):
                 device_name = os.path.basename(capture_dir)
                 
-                # Check for recent images (.jpg files) only - FFmpeg only needs JPG
+                # Check for recent images (.jpg files) with timestamp format only
                 captures_dir = os.path.join(capture_dir, 'captures')
-                recent_jpg = []
+                recent_jpg_count = 0
                 if os.path.exists(captures_dir):
                     try:
-                        for entry in os.scandir(captures_dir):
-                            if entry.is_file() and entry.name.endswith('.jpg'):
-                                if entry.stat().st_mtime > cutoff_time:
-                                    recent_jpg.append(entry.path)
-                    except OSError:
+                        # Use find command to count timestamp format files newer than 1 minute
+                        import subprocess
+                        result = subprocess.run([
+                            'find', captures_dir, '-name', 'capture_20*.jpg', '-mmin', '-1'
+                        ], capture_output=True, text=True)
+                        if result.returncode == 0:
+                            recent_jpg_count = len([f for f in result.stdout.strip().split('\n') if f])
+                    except Exception:
                         pass
                 
                 # Single line per folder with debug info
-                print(f"🔍 [FFMPEG] {device_name}: {len(recent_jpg)} JPG files (last 10s) [path: {captures_dir}]")
+                print(f"🔍 [FFMPEG] {device_name}: {recent_jpg_count} JPG files (last 1m)")
                 
-                last_activity = max([os.path.getmtime(f) for f in recent_jpg]) if recent_jpg else 0
                 status['recent_files'][device_name] = {
                     'video_segments': 0,  # Not checking TS files anymore
-                    'images': len(recent_jpg),
-                    'last_activity': last_activity
+                    'images': recent_jpg_count,
+                    'last_activity': time.time() if recent_jpg_count > 0 else 0
                 }
         
         # Determine per-device status and overall status
@@ -531,29 +533,29 @@ def check_monitor_status():
         base_capture_dirs = get_active_capture_dirs()
         capture_dirs = [os.path.join(d, 'captures') for d in base_capture_dirs]
         
-        current_time = time.time()
-        cutoff_time = current_time - 10  # Only look for files from last 10 seconds
-        
         for captures_dir in capture_dirs:
             if os.path.exists(captures_dir):
                 device_name = os.path.basename(os.path.dirname(captures_dir))  # capture1, capture2, etc.
                 
-                # Check for recent JSON files - optimized
-                recent_json = []
+                # Check for recent JSON files with timestamp format
+                recent_json_count = 0
                 try:
-                    for entry in os.scandir(captures_dir):
-                        if entry.is_file() and entry.name.endswith('.json'):
-                            if entry.stat().st_mtime > cutoff_time:
-                                recent_json.append(entry.path)
-                except OSError:
+                    # Use find command to count timestamp format files newer than 1 minute
+                    import subprocess
+                    result = subprocess.run([
+                        'find', captures_dir, '-name', 'capture_20*.json', '-mmin', '-1'
+                    ], capture_output=True, text=True)
+                    if result.returncode == 0:
+                        recent_json_count = len([f for f in result.stdout.strip().split('\n') if f])
+                except Exception:
                     pass
                 
                 # Single line per folder with debug info
-                print(f"🔍 [MONITOR] {device_name}: {len(recent_json)} JSON files (last 10s) [path: {captures_dir}]")
+                print(f"🔍 [MONITOR] {device_name}: {recent_json_count} JSON files (last 1m)")
                 
                 status['recent_json_files'][device_name] = {
-                    'count': len(recent_json),
-                    'last_activity': max([os.path.getmtime(f) for f in recent_json]) if recent_json else 0
+                    'count': recent_json_count,
+                    'last_activity': time.time() if recent_json_count > 0 else 0
                 }
         
         # Determine per-device status and overall status
