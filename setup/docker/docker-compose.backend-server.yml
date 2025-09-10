@@ -1,0 +1,63 @@
+# VirtualPyTest Backend Server Only
+# API server with Grafana monitoring - uses external Supabase database
+# Use: docker-compose -f docker-compose.backend-server.yml up
+
+services:
+  # Backend Server - API + Grafana (includes shared library)
+  backend_server:
+    build:
+      context: ../
+      dockerfile: backend_server/Dockerfile
+    container_name: virtualpytest-backend-server
+    ports:
+      - "5109:5109"  # nginx proxy (Flask API + Grafana)
+      - "3001:3001"  # Grafana direct access
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - grafana-logs:/var/log/grafana
+    environment:
+      - SERVER_PORT=5109
+      - SERVER_URL=http://localhost:5109
+      - DEBUG=false
+      - CORS_ORIGINS=http://localhost:3000,https://your-frontend-domain.com
+      
+      # External Supabase Database Configuration
+      # Configure these in your .env file
+      - SUPABASE_DB_URI=${SUPABASE_DB_URI}
+      - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
+      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      
+      # Grafana Configuration
+      - GRAFANA_ADMIN_USER=admin
+      - GRAFANA_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin123}
+      - GRAFANA_SECRET_KEY=${GRAFANA_SECRET_KEY:-backend-server-grafana-key}
+      - GRAFANA_DOMAIN=${GRAFANA_DOMAIN:-localhost}
+      - GF_SERVER_HTTP_PORT=3001
+      - GF_SERVER_PROTOCOL=http
+      - GF_SERVER_DOMAIN=${GRAFANA_DOMAIN:-localhost}
+      - GF_SERVER_ROOT_URL=http://${GRAFANA_DOMAIN:-localhost}:5109/grafana
+      - GF_SERVER_SERVE_FROM_SUB_PATH=true
+      
+      # Grafana Supabase Datasource Configuration
+      - GF_DATABASE_TYPE=postgres
+      - GF_DATABASE_HOST=${SUPABASE_DB_HOST}
+      - GF_DATABASE_NAME=${SUPABASE_DB_NAME}
+      - GF_DATABASE_USER=${SUPABASE_DB_USER}
+      - GF_DATABASE_PASSWORD=${SUPABASE_DB_PASSWORD}
+      
+    env_file:
+      - ../.env  # Load project root .env file
+    restart: unless-stopped
+
+volumes:
+  # Grafana configuration and dashboards
+  grafana-data:
+    name: virtualpytest-backend-server-grafana-data
+  grafana-logs:
+    name: virtualpytest-backend-server-grafana-logs
+
+networks:
+  default:
+    name: virtualpytest-backend-server-network
+    driver: bridge

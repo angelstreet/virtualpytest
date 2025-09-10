@@ -1,24 +1,25 @@
-# Local Development with PostgreSQL
-# Use: docker-compose -f docker-compose.local.yml up
+# VirtualPyTest Standalone - Complete Local Setup
+# Everything included: Database + Backend Services + Frontend + Monitoring
+# Use: docker-compose -f docker-compose.standalone.yml up
 
 services:
-  # Local PostgreSQL - Main Application Database
+  # Main PostgreSQL Database - VirtualPyTest Application Data
   postgres:
     image: postgres:15-alpine
     container_name: virtualpytest-postgres
     environment:
       - POSTGRES_DB=virtualpytest
-      - POSTGRES_USER=vpt_user
-      - POSTGRES_PASSWORD=vpt_local_pass
+      - POSTGRES_USER=virtualpytest_user
+      - POSTGRES_PASSWORD=virtualpytest_pass
       - POSTGRES_INITDB_ARGS=--encoding=UTF-8 --lc-collate=C --lc-ctype=C
     volumes:
       - postgres-data:/var/lib/postgresql/data
-      - ../setup/db/schema:/docker-entrypoint-initdb.d  # Auto-run schema files
+      - ../db/schema:/docker-entrypoint-initdb.d  # Auto-run migration files
     ports:
-      - "5432:5432"  # Standard PostgreSQL port
+      - "5432:5432"
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U vpt_user -d virtualpytest"]
+      test: ["CMD-SHELL", "pg_isready -U virtualpytest_user -d virtualpytest"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -30,7 +31,7 @@ services:
       -c shared_buffers=256MB
       -c effective_cache_size=1GB
 
-  # Separate PostgreSQL for Grafana metrics (keeps metrics separate)
+  # Grafana Metrics Database - Separate for monitoring data
   grafana_metrics_db:
     image: postgres:15-alpine
     container_name: virtualpytest-grafana-metrics
@@ -50,18 +51,41 @@ services:
       timeout: 5s
       retries: 5
 
-  # Redis for caching and sessions (optional but recommended)
-  redis:
-    image: redis:7-alpine
-    container_name: virtualpytest-redis
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis-data:/data
-    restart: unless-stopped
-    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
 
-  # Backend Server with local PostgreSQL
+  # Backend Host - Device Controller
+  backend_host:
+    build:
+      context: ../
+      dockerfile: backend_host/Dockerfile
+    container_name: virtualpytest-backend-host
+    ports:
+      - "6109:6109"
+    volumes:
+      - ../shared:/app/shared:ro
+      - ../backend_core:/app/backend_core:ro
+      - /dev:/dev  # Hardware access for device control
+    environment:
+      - HOST_PORT=6109
+      - HOST_NAME=standalone-host-1
+      - HOST_URL=http://localhost:6109
+      - SERVER_URL=http://backend_server:5109
+      - DEBUG=false
+      
+      # Local PostgreSQL Configuration
+      - DATABASE_URL=postgresql://virtualpytest_user:virtualpytest_pass@postgres:5432/virtualpytest
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=virtualpytest
+      - POSTGRES_USER=virtualpytest_user
+      - POSTGRES_PASSWORD=virtualpytest_pass
+      
+    depends_on:
+      postgres:
+        condition: service_healthy
+    privileged: true  # Required for hardware access
+    restart: unless-stopped
+
+  # Backend Server - API + Grafana
   backend_server:
     build:
       context: ../
@@ -78,22 +102,21 @@ services:
     environment:
       - SERVER_PORT=5109
       - SERVER_URL=http://localhost:5109
-      - DEBUG=true
-      - FLASK_ENV=development
-      - CORS_ORIGINS=http://localhost:3000,http://localhost:5173
+      - DEBUG=false
+      - CORS_ORIGINS=http://localhost:3000
       
       # Local PostgreSQL Configuration
-      - DATABASE_URL=postgresql://vpt_user:vpt_local_pass@postgres:5432/virtualpytest
+      - DATABASE_URL=postgresql://virtualpytest_user:virtualpytest_pass@postgres:5432/virtualpytest
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
       - POSTGRES_DB=virtualpytest
-      - POSTGRES_USER=vpt_user
-      - POSTGRES_PASSWORD=vpt_local_pass
+      - POSTGRES_USER=virtualpytest_user
+      - POSTGRES_PASSWORD=virtualpytest_pass
       
       # Grafana Configuration
       - GRAFANA_ADMIN_USER=admin
       - GRAFANA_ADMIN_PASSWORD=admin123
-      - GRAFANA_SECRET_KEY=local-grafana-secret-key
+      - GRAFANA_SECRET_KEY=standalone-grafana-secret-key
       - GRAFANA_DOMAIN=localhost
       - GF_SERVER_HTTP_PORT=3001
       - GF_SERVER_PROTOCOL=http
@@ -101,71 +124,32 @@ services:
       - GF_SERVER_ROOT_URL=http://localhost:5109/grafana
       - GF_SERVER_SERVE_FROM_SUB_PATH=true
       
-      # Grafana PostgreSQL Datasource (points to local main DB)
+      # Grafana PostgreSQL Datasource (points to main DB)
       - GF_DATABASE_TYPE=postgres
       - GF_DATABASE_HOST=postgres:5432
       - GF_DATABASE_NAME=virtualpytest
-      - GF_DATABASE_USER=vpt_user
-      - GF_DATABASE_PASSWORD=vpt_local_pass
-      
-      # Redis Configuration (optional)
-      - REDIS_URL=redis://redis:6379/0
+      - GF_DATABASE_USER=virtualpytest_user
+      - GF_DATABASE_PASSWORD=virtualpytest_pass
       
     depends_on:
       postgres:
         condition: service_healthy
       grafana_metrics_db:
         condition: service_healthy
-      redis:
-        condition: service_started
     restart: unless-stopped
 
-  # Backend Host
-  backend_host:
-    build:
-      context: ../
-      dockerfile: backend_host/Dockerfile
-    container_name: virtualpytest-backend-host
-    ports:
-      - "6109:6109"
-    volumes:
-      - ../shared:/app/shared:ro
-      - ../backend_core:/app/backend_core:ro
-      - /dev:/dev  # Hardware access
-    environment:
-      - HOST_PORT=6109
-      - HOST_NAME=local-host-1
-      - HOST_URL=http://localhost:6109
-      - SERVER_URL=http://backend_server:5109
-      - DEBUG=true
-      - FLASK_ENV=development
-      
-      # Local PostgreSQL Configuration
-      - DATABASE_URL=postgresql://vpt_user:vpt_local_pass@postgres:5432/virtualpytest
-      
-    depends_on:
-      postgres:
-        condition: service_healthy
-      backend_server:
-        condition: service_started
-    privileged: true
-    restart: unless-stopped
-
-  # Frontend Development Server
+  # Frontend - React Web Interface
   frontend:
     build:
       context: ../frontend
-      dockerfile: Dockerfile.dev
+      dockerfile: Dockerfile
     container_name: virtualpytest-frontend
     ports:
-      - "3000:3000"
-    volumes:
-      - ../frontend:/app
-      - /app/node_modules
+      - "3000:80"
     environment:
+      - BACKEND_API_URL=http://backend_server:5109
       - VITE_SERVER_URL=http://localhost:5109
       - VITE_DATABASE_TYPE=postgresql
-      - CHOKIDAR_USEPOLLING=true
     depends_on:
       - backend_server
     restart: unless-stopped
@@ -182,11 +166,8 @@ volumes:
     name: virtualpytest-grafana-data
   grafana-logs:
     name: virtualpytest-grafana-logs
-  # Redis cache
-  redis-data:
-    name: virtualpytest-redis-data
 
 networks:
   default:
-    name: virtualpytest-local-network
+    name: virtualpytest-standalone-network
     driver: bridge

@@ -1,0 +1,48 @@
+# VirtualPyTest Backend Host Only
+# Device controller for hardware interface - connects to external backend_server
+# Use: docker-compose -f docker-compose.backend-host.yml up
+
+services:
+  # Backend Host - Device Controller (includes shared library)
+  backend_host:
+    build:
+      context: ../
+      dockerfile: backend_host/Dockerfile
+    container_name: virtualpytest-backend-host
+    ports:
+      - "6109:6109"
+    volumes:
+      - /dev:/dev  # Hardware access for device control
+    environment:
+      - HOST_PORT=6109
+      - HOST_NAME=${HOST_NAME:-docker-host-1}
+      - HOST_URL=http://localhost:6109
+      - DEBUG=false
+      
+      # External Backend Server Configuration
+      # Configure these in your .env file
+      - SERVER_URL=${SERVER_URL:-http://your-backend-server:5109}
+      
+      # External Supabase Database Configuration (optional - for direct DB access)
+      # Configure these in your .env file if host needs direct database access
+      - SUPABASE_DB_URI=${SUPABASE_DB_URI}
+      - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
+      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+      
+      # Device Configuration
+      # Configure these in your .env file for your specific hardware
+      - DEVICE1_NAME=${DEVICE1_NAME}
+      - DEVICE1_MODEL=${DEVICE1_MODEL}
+      - DEVICE1_VIDEO=${DEVICE1_VIDEO}
+      - DEVICE1_AUDIO=${DEVICE1_AUDIO}
+      - DEVICE1_REMOTE=${DEVICE1_REMOTE}
+      
+    env_file:
+      - ../.env  # Load project root .env file
+    privileged: true  # Required for hardware access
+    restart: unless-stopped
+
+networks:
+  default:
+    name: virtualpytest-backend-host-network
+    driver: bridge
