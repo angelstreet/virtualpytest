@@ -1231,6 +1231,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
                 streamMinimized={isAVPanelMinimized}
                 captureMode={captureMode}
                 isVerificationVisible={isVerificationVisible}
+                isNavigationEditorContext={true}
               />
             );
           }

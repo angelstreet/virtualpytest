@@ -40,6 +40,8 @@ interface RemotePanelProps {
   captureMode?: 'stream' | 'screenshot' | 'video';
   // Verification editor visibility state - hides overlay when verification editor is shown
   isVerificationVisible?: boolean;
+  // Navigation editor context - positions overlay at bottom left of viewport
+  isNavigationEditorContext?: boolean;
   // NEW: Stream container dimensions for modal context
   streamContainerDimensions?: {
     width: number;
@@ -66,6 +68,7 @@ export const RemotePanel = React.memo(
     streamHidden = false,
     captureMode = 'stream',
     isVerificationVisible = false,
+    isNavigationEditorContext = false,
     streamContainerDimensions,
     disableResize = false,
   }: RemotePanelProps) {
@@ -268,6 +271,7 @@ export const RemotePanel = React.memo(
               streamHidden={streamHidden}
               captureMode={captureMode}
               isVerificationVisible={isVerificationVisible}
+              isNavigationEditorContext={isNavigationEditorContext}
               streamContainerDimensions={stableStreamContainerDimensions}
               sx={{
                 height: '100%',

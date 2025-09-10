@@ -40,6 +40,8 @@ interface AndroidMobileRemoteProps {
   captureMode?: 'stream' | 'screenshot' | 'video';
   // Verification editor visibility state
   isVerificationVisible?: boolean;
+  // Navigation editor context - positions overlay at bottom left of viewport
+  isNavigationEditorContext?: boolean;
   // NEW: Stream container dimensions for modal context
   streamContainerDimensions?: {
     width: number;
@@ -63,6 +65,7 @@ export const AndroidMobileRemote = React.memo(
     streamHidden = false,
     captureMode = 'stream',
     isVerificationVisible = false,
+    isNavigationEditorContext = false,
     streamContainerDimensions,
   }: AndroidMobileRemoteProps) {
     const hookResult = useAndroidMobile(host, deviceId);
@@ -135,6 +138,31 @@ export const AndroidMobileRemote = React.memo(
         return info;
       }
 
+      // NEW: NavigationEditor context - position overlay at bottom left of viewport
+      if (isNavigationEditorContext) {
+        // Calculate overlay size based on device aspect ratio
+        const deviceAspectRatio = deviceResolution.width / deviceResolution.height;
+        const overlayHeight = 300; // Fixed height for mobile overlay in NavigationEditor
+        const overlayWidth = overlayHeight * deviceAspectRatio;
+        
+        // Position at bottom left with margin
+        const margin = 20;
+        const info = {
+          position: {
+            x: margin,
+            y: window.innerHeight - overlayHeight - margin,
+          },
+          size: {
+            width: Math.round(overlayWidth),
+            height: overlayHeight,
+          },
+          deviceResolution: deviceResolution, // Use actual device resolution
+          isCollapsed: false, // Always expanded in NavigationEditor
+        };
+        console.log('[@component:AndroidMobileRemote] NavigationEditor context - overlay positioned at:', info);
+        return info;
+      }
+
       // EXISTING: Use HDMI stream config for floating panel context
       // Keep HDMI stream resolution for overlay positioning (visual alignment)
       const hdmiStreamResolution = DEFAULT_DEVICE_RESOLUTION;
@@ -194,6 +222,7 @@ export const AndroidMobileRemote = React.memo(
       panelHeight,
       deviceResolution,
       streamCollapsed,
+      isNavigationEditorContext,
       streamContainerDimensions,
     ]);
 
@@ -622,6 +651,7 @@ export const AndroidMobileRemote = React.memo(
     const streamMinimizedChanged = prevProps.streamMinimized !== nextProps.streamMinimized;
     const captureModeChanged = prevProps.captureMode !== nextProps.captureMode;
     const isVerificationVisibleChanged = prevProps.isVerificationVisible !== nextProps.isVerificationVisible;
+    const isNavigationEditorContextChanged = prevProps.isNavigationEditorContext !== nextProps.isNavigationEditorContext;
     const onDisconnectCompleteChanged =
       prevProps.onDisconnectComplete !== nextProps.onDisconnectComplete;
     const streamContainerDimensionsChanged =
@@ -640,6 +670,7 @@ export const AndroidMobileRemote = React.memo(
       !streamMinimizedChanged &&
       !captureModeChanged &&
       !isVerificationVisibleChanged &&
+      !isNavigationEditorContextChanged &&
       !onDisconnectCompleteChanged &&
       !streamContainerDimensionsChanged;
 
