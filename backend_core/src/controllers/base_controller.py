@@ -508,13 +508,29 @@ class FFmpegCaptureController(AVControllerInterface):
                     except:
                         pass
             
-            # Extract .ts segment filenames from playlist
+            # Get all segment files directly from directory and sort by segment number
+            import glob
+            import re
+            
+            # Get all .ts files from directory
+            segment_pattern = os.path.join(self.video_capture_path, "segment_*.ts")
+            all_segment_paths = glob.glob(segment_pattern)
+            
+            # Sort by segment number (highest numbers are most recent)
+            def extract_segment_number(filepath):
+                match = re.search(r'segment_(\d+)\.ts', filepath)
+                return int(match.group(1)) if match else 0
+            
+            all_segment_paths.sort(key=extract_segment_number)
+            
+            # Convert to (filename, filepath) tuples
             all_segments = []
-            for line in playlist_content.splitlines():
-                if line.endswith('.ts'):
-                    segment_path = os.path.join(self.video_capture_path, line.strip())
-                    if os.path.exists(segment_path):
-                        all_segments.append((line.strip(), segment_path))
+            for segment_path in all_segment_paths:
+                if os.path.exists(segment_path):
+                    filename = os.path.basename(segment_path)
+                    all_segments.append((filename, segment_path))
+            
+            print(f"{self.capture_source}[{self.capture_source}]: Found {len(all_segments)} total segments in directory")
             
             # SIMPLE FILTERING: Take the last N segments based on duration
             if duration_seconds:
