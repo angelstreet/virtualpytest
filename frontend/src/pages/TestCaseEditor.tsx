@@ -34,7 +34,7 @@ import { TestCase as AITestCase } from '../types/pages/TestCase_Types';
 
 
 
-import { buildServerUrl } from './utils/buildUrlUtils';
+import { buildServerUrl } from '../utils/buildUrlUtils';
 const TestCaseEditor: React.FC = () => {
   // Use registration context for centralized URL management
   const [testCases, setTestCases] = useState<TestCase[]>([]);

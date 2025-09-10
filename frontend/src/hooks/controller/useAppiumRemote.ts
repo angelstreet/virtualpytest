@@ -4,7 +4,7 @@ import { appiumRemoteConfig } from '../../config/remote/appiumRemote';
 import { Host } from '../../types/common/Host_Types';
 import { AppiumElement, AppiumApp, AppiumSession } from '../../types/controller/Remote_Types';
 
-import { buildServerUrl } from './utils/buildUrlUtils';
+import { buildServerUrl } from '../../utils/buildUrlUtils';
 interface UseAppiumRemoteReturn {
   // State
   appiumElements: AppiumElement[];

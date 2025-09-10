@@ -12,7 +12,7 @@ import { Host } from '../../types/common/Host_Types';
 import type { Actions } from '../../types/controller/Action_Types';
 import { ModelReferences } from '../../types/verification/Verification_Types';
 
-import { buildServerUrl } from './utils/buildUrlUtils';
+import { buildServerUrl } from '../../utils/buildUrlUtils';
 // ========================================
 // TYPES
 // ========================================

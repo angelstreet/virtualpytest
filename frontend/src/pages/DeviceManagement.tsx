@@ -33,7 +33,7 @@ import CreateDeviceDialog from '../components/devicemanagement/DeviceManagement_
 import EditDeviceDialog from '../components/devicemanagement/DeviceManagement_EditDialog';
 import { Device } from '../types/common/Host_Types';
 
-import { buildServerUrl } from './utils/buildUrlUtils';
+import { buildServerUrl } from '../utils/buildUrlUtils';
 // Using unified Device interface from Host_Types.ts
 
 // Using unified Device interface from Host_Types.ts

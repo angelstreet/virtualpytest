@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo } from 'react';
 
-import { buildServerUrl } from './utils/buildUrlUtils';
+import { buildServerUrl } from '../../utils/buildUrlUtils';
 import {
   LanguageMenuAnalysis,
 } from '../../types/pages/Monitoring_Types';

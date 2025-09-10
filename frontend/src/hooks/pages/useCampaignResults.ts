@@ -6,7 +6,7 @@
 
 import { useMemo } from 'react';
 
-import { buildServerUrl } from './utils/buildUrlUtils';
+import { buildServerUrl } from '../../utils/buildUrlUtils';
 export interface ScriptResult {
   id: string;
   script_name: string;

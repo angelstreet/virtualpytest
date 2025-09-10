@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 
 import { ControllerTypesResponse } from '../../types/controller/Remote_Types';
 
-import { buildServerUrl } from './utils/buildUrlUtils';
+import { buildServerUrl } from '../../utils/buildUrlUtils';
 export function useControllers() {
   const [controllerTypes, setControllerTypes] = useState<ControllerTypesResponse | null>(null);
   const [loading, setLoading] = useState(true);

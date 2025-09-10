@@ -20,8 +20,6 @@ export * from './infrastructure';
 // ZIndex utilities
 export * from './zIndexUtils';
 
-// Frontend utilities
-export * from './frontendUtils';
 
 // Build URL utilities
 export * from './buildUrlUtils';

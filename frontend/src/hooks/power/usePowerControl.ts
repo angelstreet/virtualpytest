@@ -13,7 +13,7 @@ import {
 } from '../../types/power';
 import { Host } from '../../types/common/Host_Types';
 
-import { buildServerUrl } from './utils/buildUrlUtils';
+import { buildServerUrl } from '../../utils/buildUrlUtils';
 interface UsePowerControlOptions {
   host: Host;
   device_id: string;

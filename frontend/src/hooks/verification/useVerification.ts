@@ -3,7 +3,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { useDeviceData } from '../../contexts/device/DeviceDataContext';
 import { Verification } from '../../types/verification/Verification_Types';
 
-import { buildServerUrl } from './utils/buildUrlUtils';
+import { buildServerUrl } from '../../utils/buildUrlUtils';
 // Define interfaces for verification data structures
 interface ImageComparisonDialogData {
   open: boolean;

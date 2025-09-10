@@ -10,7 +10,7 @@ import { useMemo } from 'react';
 
 import { Model, ModelCreatePayload } from '../../types/pages/Models_Types';
 
-import { buildServerUrl } from './utils/buildUrlUtils';
+import { buildServerUrl } from '../../utils/buildUrlUtils';
 // Server Response interface
 export interface ServerResponse<T> {
   status: string;

@@ -2,7 +2,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 
 import { Host } from '../../types/common/Host_Types';
 
-import { buildServerUrl } from './utils/buildUrlUtils';
+import { buildServerUrl } from '../../utils/buildUrlUtils';
 export const usePyAutoGUI = (host: Host, _deviceId: string) => {
   // Minimal state similar to bash
   const [terminalOutput, setTerminalOutput] = useState<string>('');

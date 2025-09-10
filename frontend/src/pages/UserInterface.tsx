@@ -35,7 +35,7 @@ import { useNavigate } from 'react-router-dom';
 
 import { useUserInterface } from '../hooks/pages/useUserInterface';
 import { Model } from '../types/pages/Models_Types';
-import { buildServerUrl } from './utils/buildUrlUtils';
+import { buildServerUrl } from '../utils/buildUrlUtils';
 import {
   UserInterface as UserInterfaceType,
   UserInterfaceCreatePayload,

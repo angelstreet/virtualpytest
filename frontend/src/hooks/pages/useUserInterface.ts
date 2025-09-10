@@ -8,7 +8,7 @@ import { useMemo } from 'react';
 
 import { UserInterface, UserInterfaceCreatePayload } from '../../types/pages/UserInterface_Types';
 
-import { buildServerUrl } from './utils/buildUrlUtils';
+import { buildServerUrl } from '../../utils/buildUrlUtils';
 // Simple cache to prevent duplicate requests
 const userInterfaceCache = new Map<string, Promise<UserInterface>>();
 

@@ -4,7 +4,7 @@ import { Host, Device } from '../../types/common/Host_Types';
 import { useHostManager } from '../useHostManager';
 import { calculateVncScaling } from '../../utils/vncUtils';
 
-import { buildServerUrl } from './utils/buildUrlUtils';
+import { buildServerUrl } from '../../utils/buildUrlUtils';
 // Removed global state - no longer needed for simple monitoring patterns
 
 interface UseRecReturn {

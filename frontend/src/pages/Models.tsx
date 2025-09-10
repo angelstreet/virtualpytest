@@ -23,7 +23,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import CreateModelDialog from '../components/models/Models_CreateDialog';
 import { Model, ModelCreatePayload } from '../types/pages/Models_Types';
 
-import { buildServerUrl } from './utils/buildUrlUtils';
+import { buildServerUrl } from '../utils/buildUrlUtils';
 const Models: React.FC = () => {
   const [models, setModels] = useState<Model[]>([]);
   const [loading, setLoading] = useState(true);

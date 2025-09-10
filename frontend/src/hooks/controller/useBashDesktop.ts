@@ -2,7 +2,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 
 import { Host } from '../../types/common/Host_Types';
 
-import { buildServerUrl } from './utils/buildUrlUtils';
+import { buildServerUrl } from '../../utils/buildUrlUtils';
 export const useBashDesktop = (host: Host, _deviceId: string) => {
   // Minimal terminal state
   const [terminalOutput, setTerminalOutput] = useState<string>('');

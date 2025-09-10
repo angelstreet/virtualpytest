@@ -3,7 +3,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { androidTvRemoteConfig } from '../../config/remote/androidTvRemote';
 import { Host } from '../../types/common/Host_Types';
 
-import { buildServerUrl } from './utils/buildUrlUtils';
+import { buildServerUrl } from '../../utils/buildUrlUtils';
 interface AndroidTvSession {
   connected: boolean;
   connecting: boolean;

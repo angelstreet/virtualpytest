@@ -3,7 +3,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Host } from '../../types/common/Host_Types';
 import { DragArea, VncStreamState, VncStreamActions } from '../../types/controller/Vnc_Types';
 
-import { buildServerUrl } from './utils/buildUrlUtils';
+import { buildServerUrl } from '../../utils/buildUrlUtils';
 interface UseVncStreamProps {
   host: Host;
   deviceModel?: string;

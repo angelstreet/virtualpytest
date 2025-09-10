@@ -4,7 +4,7 @@ import { PanelInfo } from '../../../types/controller/Panel_Types';
 import { AppiumElement } from '../../../types/controller/Remote_Types';
 import { getZIndex } from '../../../utils/zIndexUtils';
 
-import { buildServerUrl } from './utils/buildUrlUtils';
+import { buildServerUrl } from '../../../utils/buildUrlUtils';
 interface ScaledElement {
   id: string;
   x: number;

@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 
-import { buildServerUrl } from './utils/buildUrlUtils';
+import { buildServerUrl } from '../../utils/buildUrlUtils';
 interface MCPTaskResponse {
   success: boolean;
   result?: string;

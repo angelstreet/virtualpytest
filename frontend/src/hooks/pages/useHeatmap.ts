@@ -9,7 +9,7 @@ import { useMemo, useState, useCallback } from 'react';
 
 import { MonitoringAnalysis } from '../../types/pages/Monitoring_Types';
 
-import { buildServerUrl } from './utils/buildUrlUtils';
+import { buildServerUrl } from '../../utils/buildUrlUtils';
 export interface HeatmapImage {
   host_name: string;
   device_id: string;

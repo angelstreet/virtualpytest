@@ -11,7 +11,7 @@ import { useMonitoringAI } from './useMonitoringAI';
 import { useMonitoringSubtitles } from './useMonitoringSubtitles';
 import { useMonitoringLanguageMenu } from './useMonitoringLanguageMenu';
 
-import { buildServerUrl } from './utils/buildUrlUtils';
+import { buildServerUrl } from '../../utils/buildUrlUtils';
 interface FrameRef {
   timestamp: string;
   imageUrl: string;

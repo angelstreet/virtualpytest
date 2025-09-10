@@ -18,7 +18,7 @@ import {
 } from '@mui/material';
 import React, { useState, useEffect } from 'react';
 
-import { buildServerUrl } from './utils/buildUrlUtils';
+import { buildServerUrl } from '../../../utils/buildUrlUtils';
 interface PowerPanelProps {
   hostName: string;
   /** Custom styling */

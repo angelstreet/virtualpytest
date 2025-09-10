@@ -6,7 +6,7 @@ import { useDeviceData } from '../../contexts/device/DeviceDataContext';
 
 import { useVerification } from './useVerification';
 
-import { buildServerUrl } from './utils/buildUrlUtils';
+import { buildServerUrl } from '../../utils/buildUrlUtils';
 // Define interfaces for editor-specific data structures
 interface DetectedTextData {
   text: string;

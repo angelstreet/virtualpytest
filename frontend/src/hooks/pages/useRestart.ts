@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 
 import { Host, Device } from '../../types/common/Host_Types';
 
-import { buildServerUrl } from './utils/buildUrlUtils';
+import { buildServerUrl } from '../../utils/buildUrlUtils';
 export interface RestartFrame {
   filename: string;
   timestamp: string; // YYYYMMDDHHMMSS format

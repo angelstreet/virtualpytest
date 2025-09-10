@@ -3,7 +3,7 @@ import { io, type Socket } from 'socket.io-client';
 
 import { Host } from '../../types/common/Host_Types';
 
-import { buildServerUrl } from './utils/buildUrlUtils';
+import { buildServerUrl } from '../../utils/buildUrlUtils';
 interface PlaywrightWebSession {
   connected: boolean;
   host: Host;

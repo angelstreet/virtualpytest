@@ -13,7 +13,7 @@ import {
 } from '../../types/pages/Navigation_Types';
 import { useValidationColors } from '../validation/useValidationColors';
 
-import { buildServerUrl } from './utils/buildUrlUtils';
+import { buildServerUrl } from '../../utils/buildUrlUtils';
 export interface UseNodeProps {
   selectedHost?: Host;
   selectedDeviceId?: string;

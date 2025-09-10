@@ -7,7 +7,7 @@ import { useHostManager } from '../useHostManager';
 import { UINavigationEdge } from '../../types/pages/Navigation_Types';
 import { useEdge } from './useEdge';
 
-import { buildServerUrl } from './utils/buildUrlUtils';
+import { buildServerUrl } from '../../utils/buildUrlUtils';
 export const useNavigationEditor = () => {
   // Get the navigation config context (save/load functionality)
   const navigationConfig = useNavigationConfig();

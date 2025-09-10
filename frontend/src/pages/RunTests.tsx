@@ -37,7 +37,7 @@ import { DeviceStreamGrid } from '../components/common/DeviceStreaming/DeviceStr
 
 
 
-import { buildServerUrl } from './utils/buildUrlUtils';
+import { buildServerUrl } from '../utils/buildUrlUtils';
 // Simple execution record interface
 interface ExecutionRecord {
   id: string;

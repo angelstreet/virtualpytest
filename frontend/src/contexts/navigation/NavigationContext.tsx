@@ -19,7 +19,7 @@ import {
 import { useDeviceData } from '../device/DeviceDataContext';
 import { useNavigationConfig } from './NavigationConfigContext';
 
-import { buildServerUrl } from './utils/buildUrlUtils';
+import { buildServerUrl } from '../../utils/buildUrlUtils';
 // ========================================
 // TYPES
 // ========================================

@@ -2,7 +2,7 @@ import { RemoteDeviceConfig } from '../../types/controller/Remote_Types';
 import { useState, useEffect, useCallback } from 'react';
 import { Host } from '../../types/common/Host_Types';
 
-import { buildServerUrl } from './utils/buildUrlUtils';
+import { buildServerUrl } from '../../utils/buildUrlUtils';
 // Android TV configuration - uses server route proxying to host
 export const ANDROID_TV_CONFIG: RemoteDeviceConfig = {
   type: 'android-tv',

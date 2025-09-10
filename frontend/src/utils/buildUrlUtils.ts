@@ -268,11 +268,7 @@ const getDeviceCaptureUrlPath = (host: any, deviceId: string): string => {
     `Device ${deviceId} not found in host configuration. Available devices: ${availableDevices.join(', ')}`,
   );
 };
-# URL Building Documentation
 
-This content will be added to buildUrlUtils.ts
-
-```typescript
 // =====================================================
 // DOCUMENTATION & USAGE GUIDELINES
 // =====================================================
@@ -336,4 +332,3 @@ This content will be added to buildUrlUtils.ts
  * - Host configuration in database: host_url, host_ip, host_port
  *   Used by: buildHostUrl(), buildStreamUrl(), buildCaptureUrl()
  */
-```

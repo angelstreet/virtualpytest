@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 
-import { buildServerUrl } from './utils/buildUrlUtils';
+import { buildServerUrl } from '../utils/buildUrlUtils';
 interface ScriptParameter {
   name: string;
   type: 'positional' | 'optional';

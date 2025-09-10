@@ -7,7 +7,7 @@ import {
 } from '../../types/pages/Monitoring_Types';
 import { useToast } from '../useToast';
 
-import { buildServerUrl } from './utils/buildUrlUtils';
+import { buildServerUrl } from '../../utils/buildUrlUtils';
 interface FrameRef {
   timestamp: string;
   imageUrl: string;

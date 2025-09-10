@@ -16,7 +16,7 @@ import { useHostManager } from '../../../hooks/useHostManager';
 import { DeviceFormData } from '../../../types/controller/Controller_Types';
 import { Model as DeviceModel } from '../../../types/pages/Models_Types';
 
-import { buildServerUrl } from './utils/buildUrlUtils';
+import { buildServerUrl } from '../../../utils/buildUrlUtils';
 interface ModelSelectionStepProps {
   formData: DeviceFormData;
   onUpdate: (updates: Partial<DeviceFormData>) => void;

@@ -3,7 +3,7 @@ import { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import { Host } from '../../types/common/Host_Types';
 import { AndroidElement, AndroidApp } from '../../types/controller/Remote_Types';
 
-import { buildServerUrl } from './utils/buildUrlUtils';
+import { buildServerUrl } from '../../utils/buildUrlUtils';
 interface AndroidMobileLayoutConfig {
   containerWidth: number;
   containerHeight: number;

@@ -3,7 +3,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { useDeviceData } from '../../contexts/device/DeviceDataContext';
 import type { EdgeAction } from '../../types/controller/Action_Types';
 
-import { buildServerUrl } from './utils/buildUrlUtils';
+import { buildServerUrl } from '../../utils/buildUrlUtils';
 // Define interfaces for action data structures
 interface ActionExecutionResult {
   success: boolean;

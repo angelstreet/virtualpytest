@@ -9,7 +9,7 @@ import { useMemo } from 'react';
 
 import { Alert } from '../../types/pages/Monitoring_Types';
 
-import { buildServerUrl } from './utils/buildUrlUtils';
+import { buildServerUrl } from '../../utils/buildUrlUtils';
 export const useAlerts = () => {
   /**
    * Get all alerts (optimized single query)

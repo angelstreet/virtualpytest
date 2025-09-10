@@ -33,7 +33,7 @@ import { ControllerConfigurationStep } from './wizard/DeviceManagement_Controlle
 import { ModelSelectionStep } from './wizard/DeviceManagement_ModelSelectionStep';
 import { ReviewStep } from './wizard/DeviceManagement_ReviewStep';
 
-import { buildServerUrl } from './utils/buildUrlUtils';
+import { buildServerUrl } from '../../utils/buildUrlUtils';
 interface EditDeviceDialogProps {
   open: boolean;
   device: Device | null;

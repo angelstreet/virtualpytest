@@ -5,7 +5,7 @@ import { getInfraredRemoteConfig } from '../../config/remote/infraredRemoteFacto
 import { InfraredRemoteConfig } from '../../config/remote/infraredRemoteBase';
 import { Host } from '../../types/common/Host_Types';
 
-import { buildServerUrl } from './utils/buildUrlUtils';
+import { buildServerUrl } from '../../utils/buildUrlUtils';
 interface InfraredRemoteSession {
   connected: boolean;
   connecting: boolean;
