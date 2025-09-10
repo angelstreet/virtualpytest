@@ -153,6 +153,14 @@ start_grabber() {
   trap "cleanup $FFMPEG_PID $RENAME_PID $CLEAN_PID $source" SIGINT SIGTERM
 }
 
+# Create active captures configuration file
+ACTIVE_CAPTURES_FILE="/tmp/active_captures.conf"
+> "$ACTIVE_CAPTURES_FILE"
+for index in "${!GRABBERS[@]}"; do
+  IFS='|' read -r source audio_device capture_dir input_fps <<< "${GRABBERS[$index]}"
+  echo "$capture_dir" >> "$ACTIVE_CAPTURES_FILE"
+done
+
 # Print configuration and check availability
 echo "=== Unified Capture Configuration ==="
 for index in "${!GRABBERS[@]}"; do

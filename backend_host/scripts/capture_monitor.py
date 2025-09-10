@@ -29,13 +29,45 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Configuration
-CAPTURE_DIRS = [
-    "/var/www/html/stream/capture1/captures",
-    "/var/www/html/stream/capture2/captures", 
-    "/var/www/html/stream/capture3/captures",
-    "/var/www/html/stream/capture4/captures"
-]
+# Configuration - Dynamic capture directories
+def get_active_capture_dirs():
+    """Read active capture directories from configuration file created by FFmpeg script"""
+    config_file = "/tmp/active_captures.conf"
+    capture_dirs = []
+    
+    try:
+        if os.path.exists(config_file):
+            with open(config_file, 'r') as f:
+                for line in f:
+                    capture_dir = line.strip()
+                    if capture_dir:
+                        # Add /captures subdirectory for monitor
+                        captures_subdir = os.path.join(capture_dir, 'captures')
+                        if os.path.exists(captures_subdir):
+                            capture_dirs.append(captures_subdir)
+            logger.info(f"Loaded {len(capture_dirs)} active capture directories from {config_file}")
+            if capture_dirs:
+                logger.info(f"Active directories: {', '.join([os.path.basename(os.path.dirname(d)) for d in capture_dirs])}")
+        else:
+            logger.warning(f"Configuration file not found: {config_file}, using fallback")
+            # Fallback to hardcoded for safety
+            capture_dirs = [
+                "/var/www/html/stream/capture1/captures",
+                "/var/www/html/stream/capture2/captures", 
+                "/var/www/html/stream/capture3/captures",
+                "/var/www/html/stream/capture4/captures"
+            ]
+    except Exception as e:
+        logger.error(f"Error reading active captures config: {e}, using fallback")
+        # Fallback to hardcoded
+        capture_dirs = [
+            "/var/www/html/stream/capture1/captures",
+            "/var/www/html/stream/capture2/captures", 
+            "/var/www/html/stream/capture3/captures",
+            "/var/www/html/stream/capture4/captures"
+        ]
+        
+    return capture_dirs
 
 HOST_NAME = os.getenv('USER')
 # Use backend_host scripts directory
@@ -63,9 +95,10 @@ class CaptureMonitor:
         self.running = False
         
     def get_existing_directories(self):
-        """Get list of existing capture directories"""
+        """Get list of existing capture directories (dynamic from config)"""
+        capture_dirs = get_active_capture_dirs()
         existing = []
-        for capture_dir in CAPTURE_DIRS:
+        for capture_dir in capture_dirs:
             if os.path.exists(capture_dir):
                 existing.append(capture_dir)
                 logger.info(f"Monitoring: {capture_dir}")
