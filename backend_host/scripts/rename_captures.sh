@@ -33,76 +33,21 @@ CAPTURE_DIRS=(
   "/var/www/html/stream/capture4/captures"
 )
 
-# Global associative array to track processed pairs
-declare -A PROCESSED_PAIRS
-
-# Function to process a file pair atomically with deduplication
-process_file() {
-  local filepath="$1"
+# Optimized function to process thumbnail file and its original pair
+process_thumbnail_file() {
+  local thumbnail_path="$1"
+  local original_path="${thumbnail_path%%_thumbnail.jpg}.jpg"
   
-  # Determine file type and find pair
-  local original_path thumbnail_path frame_num
-  if [[ "$filepath" =~ capture_([0-9]+)\.jpg$ ]]; then
-    frame_num="${BASH_REMATCH[1]}"
-    original_path="$filepath"
-    thumbnail_path="${filepath%%.jpg}_thumbnail.jpg"
-  elif [[ "$filepath" =~ capture_([0-9]+)_thumbnail\.jpg$ ]]; then
-    frame_num="${BASH_REMATCH[1]}"
-    thumbnail_path="$filepath"
-    original_path="${filepath%%_thumbnail.jpg}.jpg"
-  else
-    return
-  fi
-  
-  # Create unique pair identifier based on directory and frame number
-  local capture_dir=$(dirname "$filepath")
-  local pair_id="${capture_dir}/capture_${frame_num}"
-  
-  # Check if this pair is already being processed or was recently processed
-  if [[ -n "${PROCESSED_PAIRS[$pair_id]}" ]]; then
-    echo "$(date '+%H:%M:%S') Skipping duplicate processing of pair: $(basename "$pair_id")" >> "$RENAME_LOG"
-    return  # Skip duplicate processing
-  fi
-  
-  # Mark pair as being processed
-  PROCESSED_PAIRS[$pair_id]="processing"
-  
-  # Wait briefly for pair if missing
-  if [ ! -f "$original_path" ] || [ ! -f "$thumbnail_path" ]; then
+  # Check for original file (should already exist since thumbnail is created last)
+  if [ ! -f "$original_path" ]; then
     sleep 0.1
-    if [ ! -f "$original_path" ] || [ ! -f "$thumbnail_path" ]; then
-      unset PROCESSED_PAIRS[$pair_id]  # Remove lock if pair incomplete
-      return  # Skip, will be processed on next event
+    if [ ! -f "$original_path" ]; then
+      return  # Skip if original still missing (rare edge case)
     fi
   fi
   
   # Process both files atomically
   process_capture_pair "$original_path" "$thumbnail_path"
-  
-  # Mark as completed and clean up old entries periodically
-  PROCESSED_PAIRS[$pair_id]="completed"
-  
-  # Clean up old processed pairs every 100 files to prevent memory bloat
-  if (( ${#PROCESSED_PAIRS[@]} > 100 )); then
-    cleanup_processed_pairs
-  fi
-}
-
-# Function to clean up old processed pairs
-cleanup_processed_pairs() {
-  local current_time=$(date +%s)
-  local cleanup_count=0
-  
-  # Remove completed entries older than 60 seconds
-  for pair_id in "${!PROCESSED_PAIRS[@]}"; do
-    if [[ "${PROCESSED_PAIRS[$pair_id]}" == "completed" ]]; then
-      unset PROCESSED_PAIRS[$pair_id]
-      ((cleanup_count++))
-      if (( cleanup_count >= 50 )); then
-        break  # Clean up in batches to avoid blocking
-      fi
-    fi
-  done
 }
 
 # Removed wait_for_file_stability function - using close_write event instead
@@ -113,23 +58,18 @@ process_capture_pair() {
   local thumbnail_path="$2"
   
   if [ ! -f "$original_path" ] || [ ! -f "$thumbnail_path" ]; then
-    echo "File pair incomplete: $original_path or $thumbnail_path missing" >> "$RENAME_LOG"
     return
   fi
-  
-  start_time=$(date +%s.%N)
   
   # Extract frame number from original filename
   local frame_num=$(basename "$original_path" | grep -o '[0-9]\+' | head -1)
   if [ -z "$frame_num" ]; then
-    echo "Could not extract frame number from $original_path" >> "$RENAME_LOG"
     return
   fi
   
   # Validate frame number
   local frame_int=$((10#$frame_num))
   if [ "$frame_int" -lt 1 ] || [ "$frame_int" -gt 99999 ]; then
-    echo "Frame number $frame_num out of valid range for $original_path" >> "$RENAME_LOG"
     return
   fi
   
@@ -160,7 +100,6 @@ process_capture_pair() {
   
   # Check if targets already exist
   if [ -f "$new_original" ] || [ -f "$new_thumbnail" ]; then
-    echo "Target files already exist, skipping pair: $(basename "$original_path")" >> "$RENAME_LOG"
     return
   fi
   
@@ -168,12 +107,8 @@ process_capture_pair() {
   if mv "$original_path" "$new_original" && mv "$thumbnail_path" "$new_thumbnail"; then
     echo "$(date '+%H:%M:%S') Renamed pair: $(basename "$original_path") + $(basename "$thumbnail_path") -> $(basename "$new_original") + $(basename "$new_thumbnail")" >> "$RENAME_LOG"
   else
-    echo "$(date '+%H:%M:%S') Failed to rename pair atomically: $(basename "$original_path")" >> "$RENAME_LOG"
     return
   fi
-  
-  end_time=$(date +%s.%N)
-  echo "Processed pair in $(echo "$end_time - $start_time" | bc) seconds" >> "$RENAME_LOG"
   
   reset_log_if_large "$RENAME_LOG"
 }
@@ -183,21 +118,20 @@ EXISTING_DIRS=()
 for CAPTURE_DIR in "${CAPTURE_DIRS[@]}"; do
   if [ -d "$CAPTURE_DIR" ]; then
     EXISTING_DIRS+=("$CAPTURE_DIR")
-    echo "Will watch $CAPTURE_DIR for new files..." >> "$RENAME_LOG"
-  else
-    echo "Directory $CAPTURE_DIR does not exist, skipping..." >> "$RENAME_LOG"
   fi
 done
 
 # Exit if no directories exist
 if [ ${#EXISTING_DIRS[@]} -eq 0 ]; then
-  echo "No valid directories to watch, exiting." >> "$RENAME_LOG"
   exit 1
 fi
 
 # Watch all existing directories with a single inotifywait
-# Trigger on close_write to ensure file is fully written
+# Only trigger on thumbnail files (created last) for optimal performance
 inotifywait -m "${EXISTING_DIRS[@]}" -e close_write --format '%w%f' |
   while read -r filepath; do
-    process_file "$filepath"
+    # Only process thumbnail files (original should already exist)
+    if [[ "$filepath" =~ capture_[0-9]+_thumbnail\.jpg$ ]]; then
+      process_thumbnail_file "$filepath"
+    fi
   done
