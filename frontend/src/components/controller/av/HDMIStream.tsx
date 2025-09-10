@@ -66,11 +66,21 @@ export const HDMIStream = React.memo(
       return device?.device_model || 'unknown';
     }, [deviceModel, host.devices, deviceId]);
 
-    // Load AV config
+    // Load AV config - force desktop layout for NavigationEditor
     useEffect(() => {
       const loadConfig = async () => {
-        const config = await loadAVConfig('hdmi_stream', effectiveDeviceModel);
+        // In NavigationEditor, always use desktop config for consistent panel sizing
+        // regardless of device model (mobile devices still get desktop-sized HDMI panel)
+        const configDeviceModel = 'desktop'; // Force desktop config
+        const config = await loadAVConfig('hdmi_stream', configDeviceModel);
         setAvConfig(config);
+        
+        // DEBUG: Log config loading decision
+        console.log('[@component:HDMIStream] DEBUG - Config Loading:', {
+          effectiveDeviceModel,
+          configDeviceModel,
+          reason: 'Forced desktop config for NavigationEditor'
+        });
       };
 
       loadConfig();
