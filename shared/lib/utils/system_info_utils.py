@@ -30,9 +30,10 @@ def get_active_capture_dirs():
                     capture_dir = line.strip()
                     if capture_dir and os.path.exists(capture_dir):
                         capture_dirs.append(capture_dir)
-            # Silently load configuration
+            print(f"🔍 [CONFIG] Loaded {len(capture_dirs)} active capture directories from {config_file}")
+            print(f"🔍 [CONFIG] Active directories: {capture_dirs}")
         else:
-            # Silently use fallback
+            print(f"🔍 [CONFIG] Configuration file not found: {config_file}, using fallback")
             # Fallback to hardcoded for safety
             capture_dirs = [
                 '/var/www/html/stream/capture1',
@@ -457,8 +458,8 @@ def check_ffmpeg_status():
                     except OSError:
                         pass
                 
-                # Single line per folder
-                print(f"🔍 [FFMPEG] {device_name}: {len(recent_jpg)} JPG files (last 10s)")
+                # Single line per folder with debug info
+                print(f"🔍 [FFMPEG] {device_name}: {len(recent_jpg)} JPG files (last 10s) [path: {captures_dir}]")
                 
                 last_activity = max([os.path.getmtime(f) for f in recent_jpg]) if recent_jpg else 0
                 status['recent_files'][device_name] = {
@@ -547,8 +548,8 @@ def check_monitor_status():
                 except OSError:
                     pass
                 
-                # Single line per folder
-                print(f"🔍 [MONITOR] {device_name}: {len(recent_json)} JSON files (last 10s)")
+                # Single line per folder with debug info
+                print(f"🔍 [MONITOR] {device_name}: {len(recent_json)} JSON files (last 10s) [path: {captures_dir}]")
                 
                 status['recent_json_files'][device_name] = {
                     'count': len(recent_json),
