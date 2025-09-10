@@ -33,115 +33,104 @@ CAPTURE_DIRS=(
   "/var/www/html/stream/capture4/captures"
 )
 
-# Function to process a file
+# Function to process a file pair atomically
 process_file() {
   local filepath="$1"
   
-  # Handle full resolution captures (new pattern: capture_0001.jpg)
+  # Determine file type and find pair
+  local original_path thumbnail_path
   if [[ "$filepath" =~ capture_[0-9]+\.jpg$ ]]; then
-    process_capture_file "$filepath" "full"
-  # Handle thumbnail captures (new pattern: capture_0001_thumbnail.jpg)
+    original_path="$filepath"
+    thumbnail_path="${filepath%%.jpg}_thumbnail.jpg"
   elif [[ "$filepath" =~ capture_[0-9]+_thumbnail\.jpg$ ]]; then
-    process_capture_file "$filepath" "thumbnail"
+    thumbnail_path="$filepath"
+    original_path="${filepath%%_thumbnail.jpg}.jpg"
+  else
+    return
   fi
+  
+  # Wait briefly for pair if missing
+  if [ ! -f "$original_path" ] || [ ! -f "$thumbnail_path" ]; then
+    sleep 0.1
+    if [ ! -f "$original_path" ] || [ ! -f "$thumbnail_path" ]; then
+      return  # Skip, will be processed on next event
+    fi
+  fi
+  
+  # Process both files atomically
+  process_capture_pair "$original_path" "$thumbnail_path"
 }
 
 # Removed wait_for_file_stability function - using close_write event instead
 
-# Function to process capture files with smart grouping
-process_capture_file() {
-  local filepath="$1"
-  local file_type="$2"  # "full" or "thumbnail"
+# Function to process capture file pairs atomically
+process_capture_pair() {
+  local original_path="$1"
+  local thumbnail_path="$2"
   
-  if [ ! -f "$filepath" ]; then
-    echo "File $filepath does not exist or is not accessible" >> "$RENAME_LOG"
+  if [ ! -f "$original_path" ] || [ ! -f "$thumbnail_path" ]; then
+    echo "File pair incomplete: $original_path or $thumbnail_path missing" >> "$RENAME_LOG"
     return
   fi
   
-  # File is stable because we trigger on close_write
-  
-  sleep 0.01
   start_time=$(date +%s.%N)
   
-  # Extract frame number from filename (e.g., capture_0001.jpg -> 0001)
-  local frame_num=$(basename "$filepath" | grep -o '[0-9]\+' | head -1)
+  # Extract frame number from original filename
+  local frame_num=$(basename "$original_path" | grep -o '[0-9]\+' | head -1)
   if [ -z "$frame_num" ]; then
-    echo "Could not extract frame number from $filepath" >> "$RENAME_LOG"
+    echo "Could not extract frame number from $original_path" >> "$RENAME_LOG"
     return
   fi
   
-  # Validate frame number is reasonable (1-99999) and convert to integer
+  # Validate frame number
   local frame_int=$((10#$frame_num))
   if [ "$frame_int" -lt 1 ] || [ "$frame_int" -gt 99999 ]; then
-    echo "Frame number $frame_num out of valid range (1-99999) for $filepath" >> "$RENAME_LOG"
+    echo "Frame number $frame_num out of valid range for $original_path" >> "$RENAME_LOG"
     return
   fi
   
-  # Determine FPS based on source (5 FPS for hardware, 2 FPS for VNC)
+  # Determine FPS based on source
   local fps=5
-  if [[ "$filepath" =~ capture3 ]]; then
+  if [[ "$original_path" =~ capture3 ]]; then
     fps=2  # VNC display uses 2 FPS
   fi
   
-  # Calculate group and suffix from frame number (simple approach)
-  local group=$(( (frame_int - 1) / fps ))
+  # Calculate suffix from frame number
   local suffix=$(( (frame_int - 1) % fps ))
   
-  # Use file creation time as base timestamp (simple!)
-  local final_timestamp=$(TZ="Europe/Zurich" date -r "$filepath" +%Y%m%d%H%M%S)
+  # Use original file creation time as timestamp
+  local final_timestamp=$(TZ="Europe/Zurich" date -r "$original_path" +%Y%m%d%H%M%S)
   
-  local CAPTURE_DIR=$(dirname "$filepath")
+  local CAPTURE_DIR=$(dirname "$original_path")
   local base_newname="${CAPTURE_DIR}/capture_${final_timestamp}"
   
-  # Determine final filename based on suffix
-  if [ "$file_type" = "thumbnail" ]; then
-    if [ $suffix -eq 0 ]; then
-      # First file in group - no suffix
-      newname="${base_newname}_thumbnail.jpg"
-    else
-      # Subsequent files - add suffix
-      newname="${base_newname}_${suffix}_thumbnail.jpg"
-    fi
+  # Generate new filenames
+  local new_original new_thumbnail
+  if [ $suffix -eq 0 ]; then
+    new_original="${base_newname}.jpg"
+    new_thumbnail="${base_newname}_thumbnail.jpg"
   else
-    if [ $suffix -eq 0 ]; then
-      # First file in group - no suffix
-      newname="${base_newname}.jpg"
-    else
-      # Subsequent files - add suffix
-      newname="${base_newname}_${suffix}.jpg"
-    fi
+    new_original="${base_newname}_${suffix}.jpg"
+    new_thumbnail="${base_newname}_${suffix}_thumbnail.jpg"
   fi
   
-  # Check if target already exists to avoid conflicts
-  if [ -f "$newname" ]; then
-    echo "Target file $newname already exists, skipping rename of $filepath" >> "$RENAME_LOG"
+  # Check if targets already exist
+  if [ -f "$new_original" ] || [ -f "$new_thumbnail" ]; then
+    echo "Target files already exist, skipping pair: $(basename "$original_path")" >> "$RENAME_LOG"
     return
   fi
   
-  # Validate timestamp format before renaming
-  local timestamp_part=$(basename "$newname" | grep -o '[0-9]\{14\}')
-  if [ -z "$timestamp_part" ]; then
-    echo "Generated filename has invalid timestamp format: $newname" >> "$RENAME_LOG"
-    return
-  fi
-  
-  # Rename the file with error handling
-  if mv "$filepath" "$newname" 2>>"$RENAME_LOG"; then
-    if [ $suffix -eq 0 ]; then
-      echo "Renamed $(basename "$filepath") to $(basename "$newname") (first in group, $file_type) at $(date)" >> "$RENAME_LOG"
-    else
-      echo "Renamed $(basename "$filepath") to $(basename "$newname") (suffix $suffix, $file_type) at $(date)" >> "$RENAME_LOG"
-    fi
-    echo "Processed $file_type image: $(basename "$newname")" >> "$RENAME_LOG"
+  # Atomic rename: both files or neither
+  if mv "$original_path" "$new_original" && mv "$thumbnail_path" "$new_thumbnail"; then
+    echo "Renamed pair: $(basename "$original_path") + $(basename "$thumbnail_path") -> $(basename "$new_original") + $(basename "$new_thumbnail")" >> "$RENAME_LOG"
   else
-    echo "Failed to rename $filepath to $newname - file may be locked or in use" >> "$RENAME_LOG"
+    echo "Failed to rename pair atomically: $(basename "$original_path")" >> "$RENAME_LOG"
     return
   fi
   
   end_time=$(date +%s.%N)
-  echo "Processed $filepath in $(echo "$end_time - $start_time" | bc) seconds" >> "$RENAME_LOG"
+  echo "Processed pair in $(echo "$end_time - $start_time" | bc) seconds" >> "$RENAME_LOG"
   
-  # Check log sizes after processing
   reset_log_if_large "$RENAME_LOG"
 }
 
