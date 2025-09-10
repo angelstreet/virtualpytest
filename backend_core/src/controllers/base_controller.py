@@ -572,9 +572,20 @@ class FFmpegCaptureController(AVControllerInterface):
             print(f"{self.capture_source}[{self.capture_source}]: Compression complete - {compression_result['compression_ratio']:.1f}% size reduction")
             print(f"{self.capture_source}[{self.capture_source}]: MP4 saved locally: {local_video_path}")
             
-            # Build URL for nginx to serve the file
-            # Convert local path to URL path (e.g., /var/www/html/stream/capture1/restart_video.mp4 -> /host/stream/capture1/restart_video.mp4)
-            video_url = self.video_stream_path + "/" + video_filename
+            # Build proper URL using host URL building utilities
+            # The file is now at: /var/www/html/stream/capture1/restart_video.mp4
+            # We need to build the full host URL, not just the path
+            from utils.build_url_utils import buildHostImageUrl
+            from utils.host_utils import get_host_instance
+            
+            try:
+                host = get_host_instance()
+                host_dict = host.to_dict()
+                video_url = buildHostImageUrl(host_dict, local_video_path)
+            except Exception as url_error:
+                print(f"{self.capture_source}[{self.capture_source}]: Failed to build host URL: {url_error}")
+                # Fallback to stream path
+                video_url = self.video_stream_path + "/" + video_filename
             
             # DO NOT clean up original segments - they're needed for live streaming
             print(f"{self.capture_source}[{self.capture_source}]: HLS segments preserved for live streaming")

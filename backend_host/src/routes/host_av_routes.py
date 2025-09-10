@@ -556,6 +556,7 @@ def generate_restart_video():
             }), 404
         
         print(f"[@route:host_av:generate_restart_video] Using AV controller: {type(av_controller).__name__}")
+        print(f"[@route:host_av:generate_restart_video] Controller details - Source: {getattr(av_controller, 'capture_source', 'unknown')}, Path: {getattr(av_controller, 'video_capture_path', 'unknown')}")
         
         # Generate MP4 from recent HLS segments
         import time
