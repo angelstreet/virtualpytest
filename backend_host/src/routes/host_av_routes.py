@@ -337,14 +337,16 @@ def take_screenshot():
             }), 404
         
         print(f"[@route:host_av:take_screenshot] Using AV controller: {type(av_controller).__name__}")
+        print(f"[@route:host_av:take_screenshot] Controller details - Source: {getattr(av_controller, 'capture_source', 'unknown')}, Path: {getattr(av_controller, 'video_capture_path', 'unknown')}")
         
         # Take screenshot using controller - returns local file path
         screenshot_path = av_controller.take_screenshot()
         
         if not screenshot_path:
+            print(f"[@route:host_av:take_screenshot] FAILURE - Controller returned None for screenshot")
             return jsonify({
                 'success': False,
-                'error': 'Failed to take temporary screenshot'
+                'error': 'Failed to take temporary screenshot - controller returned None'
             }), 500
         
         print(f"[@route:host_av:take_screenshot] Screenshot path from controller: {screenshot_path}")
