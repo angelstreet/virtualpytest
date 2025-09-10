@@ -55,71 +55,18 @@ export const hdmiStreamConfig = {
   },
 } as const;
 
-// Mobile-specific HDMI Stream configuration (portrait orientation)
-export const hdmiStreamMobileConfig = {
-  stream_info: {
-    name: 'HDMI',
-    type: 'hdmi_stream' as const,
-    default_quality: 'high' as const,
-    supported_resolutions: [`${DEFAULT_DEVICE_RESOLUTION.width}x${DEFAULT_DEVICE_RESOLUTION.height}`, '1280x720', '640x480'] as const,
-    default_resolution: `${DEFAULT_DEVICE_RESOLUTION.width}x${DEFAULT_DEVICE_RESOLUTION.height}` as const,
-  },
-  panel_layout: {
-    collapsed: {
-      width: '240px',
-      height: '380px', // Portrait - taller than wide
-      position: {
-        bottom: '20px',
-        left: '20px',
-      },
-    },
-    expanded: {
-      width: '340px',
-      height: '600px', // Portrait - taller than wide
-      position: {
-        bottom: '20px',
-        right: '20px',
-      },
-    },
-    showControlsInCollapsed: false,
-    showControlsInExpanded: true,
-    header: {
-      height: HDMI_STREAM_HEADER_HEIGHT,
-      fontSize: '0.875rem',
-      fontWeight: 'bold',
-      iconSize: 'small',
-      padding: '6px',
-      backgroundColor: '#1E1E1E',
-      borderColor: '#333',
-      textColor: '#ffffff',
-    },
-  },
-  content_layout: {
-    collapsed: {
-      objectFit: 'cover' as const,
-      width: 'auto',
-      height: '100%',
-    },
-    expanded: {
-      objectFit: 'cover' as const,
-      width: 'auto',
-      height: '100%',
-    },
-  },
-} as const;
+// Mobile config removed - all devices use unified desktop layout
 
 export type HdmiStreamConfig = typeof hdmiStreamConfig;
-export type HdmiStreamMobileConfig = typeof hdmiStreamMobileConfig;
 
 /**
- * Get stream content layout configuration based on device model and panel state
- * @param deviceModel The device model (e.g., 'android_mobile', 'android_tv')
+ * Get unified stream content layout configuration for all device types
+ * Always returns desktop layout - mobile content will show with black bars
+ * @param deviceModel The device model (ignored - kept for API compatibility)
  * @param isExpanded Whether the panel is in expanded state
  * @returns Content layout configuration for the stream
  */
-export const getStreamContentLayout = (deviceModel?: string, isExpanded: boolean = false) => {
-  const isMobile = deviceModel?.includes('mobile') || deviceModel === 'android_mobile';
-  const config = isMobile ? hdmiStreamMobileConfig : hdmiStreamConfig;
-
-  return isExpanded ? config.content_layout.expanded : config.content_layout.collapsed;
+export const getStreamContentLayout = (_deviceModel?: string, isExpanded: boolean = false) => {
+  // Always use desktop config for consistent layout
+  return isExpanded ? hdmiStreamConfig.content_layout.expanded : hdmiStreamConfig.content_layout.collapsed;
 }; 

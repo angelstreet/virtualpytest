@@ -263,13 +263,7 @@ const RecHostStreamModalContent: React.FC<{
   // Stable device resolution to prevent re-renders
   const stableDeviceResolution = useMemo(() => DEFAULT_DEVICE_RESOLUTION, []);
 
-  // Check if device is mobile model (consistent with RecHostPreview)
-  const isMobileModel = useMemo(() => {
-    const model = device?.device_model;
-    if (!model) return false;
-    const modelLower = model.toLowerCase();
-    return modelLower.includes('mobile');
-  }, [device?.device_model]);
+  // All devices use unified desktop layout - no mobile detection needed
 
   // Stable onReleaseControl callback to prevent re-renders
   const handleReleaseControl = useCallback(() => {
@@ -574,7 +568,7 @@ const RecHostStreamModalContent: React.FC<{
               position: 'relative',
               overflow: 'hidden',
               display: 'flex',
-              alignItems: isMobileModel ? 'flex-start' : 'center', // Top-align mobile to avoid bottom black bars
+              alignItems: 'center', // Center all content - black bars handled by video player
               justifyContent: 'center',
               backgroundColor: 'black',
             }}
@@ -638,11 +632,9 @@ const RecHostStreamModalContent: React.FC<{
                     model={device?.device_model || 'unknown'}
                     layoutConfig={{
                       minHeight: '150px',
-                      aspectRatio: isMobileModel 
-                        ? `${DEFAULT_DEVICE_RESOLUTION.height}/${DEFAULT_DEVICE_RESOLUTION.width}` 
-                        : `${DEFAULT_DEVICE_RESOLUTION.width}/${DEFAULT_DEVICE_RESOLUTION.height}`,
-                      objectFit: isMobileModel ? 'fill' : 'contain',
-                      isMobileModel,
+                      aspectRatio: 'auto', // Let content determine ratio, accept black bars
+                      objectFit: 'contain', // Always preserve aspect ratio
+                      isMobileModel: false, // Always false - unified desktop layout
                     }}
                     isExpanded={false}
                     muted={isMuted}

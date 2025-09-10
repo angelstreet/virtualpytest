@@ -2,7 +2,7 @@ import { Error as ErrorIcon } from '@mui/icons-material';
 import { Card, Typography, Box, Chip, CircularProgress } from '@mui/material';
 import React, { useState, useCallback, useMemo } from 'react';
 
-import { DEFAULT_DEVICE_RESOLUTION } from '../../config/deviceResolutions';
+// DEFAULT_DEVICE_RESOLUTION import removed - no longer needed for unified layout
 import { useStream } from '../../hooks/controller';
 import { useToast } from '../../hooks/useToast';
 import { Host, Device } from '../../types/common/Host_Types';
@@ -17,12 +17,7 @@ interface RecHostPreviewProps {
   hideHeader?: boolean;
 }
 
-// Simple mobile detection function to match MonitoringPlayer logic
-const isMobileModel = (model?: string): boolean => {
-  if (!model) return false;
-  const modelLower = model.toLowerCase();
-  return modelLower.includes('mobile');
-};
+// Mobile detection removed - all devices use unified desktop layout
 
 export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
   host,
@@ -33,10 +28,7 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
   const [error] = useState<string | null>(null);
   const [isStreamModalOpen, setIsStreamModalOpen] = useState(false);
 
-  // Detect if this is a mobile device model for proper sizing
-  const isMobile = useMemo(() => {
-    return isMobileModel(device?.device_model);
-  }, [device?.device_model]);
+  // All devices use unified desktop layout - no mobile detection needed
 
   // Check if this is a VNC device
   const isVncDevice = useMemo(() => {
@@ -209,14 +201,12 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
                     isStreamActive={true}
                     isCapturing={false}
                     model={device?.device_model || 'unknown'}
-                    layoutConfig={{
-                      minHeight: '150px',
-                      aspectRatio: isMobile 
-                        ? `${DEFAULT_DEVICE_RESOLUTION.height}/${DEFAULT_DEVICE_RESOLUTION.width}` 
-                        : `${DEFAULT_DEVICE_RESOLUTION.width}/${DEFAULT_DEVICE_RESOLUTION.height}`,
-                      objectFit: isMobile ? 'fill' : 'contain',
-                      isMobileModel: isMobile,
-                    }}
+                layoutConfig={{
+                  minHeight: '150px',
+                  aspectRatio: 'auto', // Let content determine ratio, accept black bars
+                  objectFit: 'contain', // Always preserve aspect ratio
+                  isMobileModel: false, // Always false - unified desktop layout
+                }}
                     isExpanded={false}
                     muted={true} // Always muted in preview
                   />

@@ -1,5 +1,5 @@
 /**
- * Central configuration for layout settings based on device model type
+ * Central configuration for layout settings - unified desktop layout for all devices
  * This ensures consistent layout behavior across components
  */
 
@@ -22,58 +22,34 @@ export interface VerificationEditorLayoutConfig {
 }
 
 /**
- * Determines if a model name refers to a mobile device
- * @param model The model name string
- * @returns boolean indicating if this is a mobile model
- */
-export const isMobileModel = (model?: string): boolean => {
-  if (!model) return false;
-  const modelLower = model.toLowerCase();
-  return modelLower.includes('mobile');
-};
-
-/**
- * Get the appropriate StreamViewer layout configuration based on model type
- * @param model The model name string
- * @returns StreamViewerLayoutConfig with the appropriate settings
+ * Get the unified StreamViewer layout configuration for all device types
+ * Always returns desktop layout - mobile content will show with black bars
+ * @param model The model name string (ignored - kept for API compatibility)
+ * @returns StreamViewerLayoutConfig with unified desktop settings
  */
 export const getStreamViewerLayout = (model?: string): StreamViewerLayoutConfig => {
-  const mobile = isMobileModel(model);
-  return mobile
-    ? {
-        minHeight: '400px',
-        aspectRatio: '9/16', // Portrait for mobile - revert to original working values
-        objectFit: 'fill',
-        isMobileModel: true,
-      }
-    : {
-        minHeight: '300px',
-        aspectRatio: '16/9', // Landscape for non-mobile - revert to original working values  
-        objectFit: 'fill',
-        isMobileModel: false,
-      };
+  // Always return desktop layout for consistent UI
+  return {
+    minHeight: '300px',
+    aspectRatio: 'auto', // Let content determine ratio, accept black bars
+    objectFit: 'contain', // Always preserve aspect ratio
+    isMobileModel: false, // Always false - no mobile-specific behavior
+  };
 };
 
 /**
- * Get the appropriate VerificationEditor layout configuration based on model type
- * @param model The model name string
- * @returns VerificationEditorLayoutConfig with the appropriate settings
+ * Get the unified VerificationEditor layout configuration for all device types
+ * Always returns desktop layout for consistent verification UI
+ * @param model The model name string (ignored - kept for API compatibility)
+ * @returns VerificationEditorLayoutConfig with unified desktop settings
  */
 export const getVerificationEditorLayout = (model?: string): VerificationEditorLayoutConfig => {
-  const mobile = isMobileModel(model);
-  return mobile
-    ? {
-        width: 360,
-        height: 510,
-        captureHeight: 200,
-        objectFit: 'fill',
-        isMobileModel: true,
-      }
-    : {
-        width: 640,
-        height: 510,
-        captureHeight: 140,
-        objectFit: 'contain',
-        isMobileModel: false,
-      };
+  // Always return desktop layout for consistent verification UI
+  return {
+    width: 640,
+    height: 510,
+    captureHeight: 140,
+    objectFit: 'contain', // Always preserve aspect ratio
+    isMobileModel: false, // Always false - no mobile-specific behavior
+  };
 };
