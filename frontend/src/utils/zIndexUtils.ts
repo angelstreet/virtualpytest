@@ -51,6 +51,7 @@ const Z_INDEX_ORDER = [
   'MODAL_BACKDROP', // 280 - Modal backdrop/overlay
   'MODAL_CONTENT', // 290 - Modal content windows
   'SCREENSHOT_MODAL', // 300 - Screenshot viewing modals
+  'SCREENSHOT_CAPTURE_OVERLAY', // 310 - Screenshot capture drag selection overlay
 ] as const;
 
 type ZIndexComponent = (typeof Z_INDEX_ORDER)[number];

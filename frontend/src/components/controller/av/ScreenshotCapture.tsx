@@ -90,7 +90,7 @@ export function ScreenshotCapture({
           imageRef={imageRef}
           onAreaSelected={onAreaSelected}
           selectedArea={selectedArea || null}
-          sx={{ zIndex: 10 }}
+          sx={{}}
         />
       )}
 

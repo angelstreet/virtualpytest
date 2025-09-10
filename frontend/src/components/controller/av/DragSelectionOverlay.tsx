@@ -1,6 +1,8 @@
 import { Box } from '@mui/material';
 import React, { useState, useCallback, useRef } from 'react';
 
+import { getZIndex } from '../../../utils/zIndexUtils';
+
 interface DragArea {
   x: number;
   y: number;
@@ -191,7 +193,7 @@ export const DragSelectionOverlay: React.FC<DragSelectionOverlayProps> = ({
         cursor: isDragging ? 'crosshair' : isHoveringImage ? 'crosshair' : 'default',
         userSelect: 'none',
         pointerEvents: 'auto', // Always allow pointer events
-        zIndex: 5,
+        zIndex: getZIndex('SCREENSHOT_CAPTURE_OVERLAY'), // Above all overlays including AndroidMobileOverlay
         ...sx,
       }}
       onMouseDown={handleMouseDown}

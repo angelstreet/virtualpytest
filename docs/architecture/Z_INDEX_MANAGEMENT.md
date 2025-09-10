@@ -57,10 +57,11 @@ const zIndex = getZIndex('NAVIGATION_PANELS', 1); // Returns 111
 - **HEADER** (260) - Page headers
 - **HEADER_DROPDOWN** (270) - Header dropdown menus
 
-### Modals (280-300)
+### Modals (280-310)
 - **MODAL_BACKDROP** (280) - Modal backdrop/overlay
 - **MODAL_CONTENT** (290) - Modal content windows
 - **SCREENSHOT_MODAL** (300) - Screenshot viewing modals
+- **SCREENSHOT_CAPTURE_OVERLAY** (310) - Screenshot capture drag selection overlay
 
 ## Key Design Principles
 
