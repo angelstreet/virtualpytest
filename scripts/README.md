@@ -224,9 +224,10 @@ which ffmpeg
 sudo apt install python3-pip python3-venv  # Linux
 brew install python3 ffmpeg  # macOS
 
-# Virtual environment setup
-python3 -m venv ~/myvenv
-source ~/myvenv/bin/activate
+# Virtual environment setup (use project venv)
+cd /path/to/virtualpytest
+python3 -m venv venv
+source venv/bin/activate
 pip install -r requirements.txt
 ```
 

@@ -288,10 +288,17 @@ def execute_script(script_name: str, device_id: str, parameters: str = "") -> Di
             # This prevents double execution and ensures proper context setup
             actual_script_path = get_script_path(actual_script)
             
-            hostname = os.getenv('HOST_NAME', 'localhost')
+            # Use PROJECT_ROOT environment variable or detect from current script location
+            project_root = os.getenv('PROJECT_ROOT')
+            if not project_root:
+                # Auto-detect project root (shared/lib/utils -> go up 3 levels)
+                current_dir = os.path.dirname(os.path.abspath(__file__))
+                project_root = os.path.abspath(os.path.join(current_dir, '..', '..', '..'))
+            
+            venv_activate = os.path.join(project_root, 'venv', 'bin', 'activate')
             
             # Build command with parameters for direct execution
-            base_command = f"bash -c 'source /home/{hostname}/virtualpytest/venv/bin/activate && python {actual_script_path}"
+            base_command = f"bash -c 'source {venv_activate} && python {actual_script_path}"
             
             if parameters and parameters.strip():
                 command = f"{base_command} {parameters.strip()}'"
@@ -403,10 +410,17 @@ def execute_script(script_name: str, device_id: str, parameters: str = "") -> Di
     try:
         script_path = get_script_path(script_name)
         
-        hostname = os.getenv('HOST_NAME', 'localhost')
+        # Use PROJECT_ROOT environment variable or detect from current script location
+        project_root = os.getenv('PROJECT_ROOT')
+        if not project_root:
+            # Auto-detect project root (shared/lib/utils -> go up 3 levels)
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            project_root = os.path.abspath(os.path.join(current_dir, '..', '..', '..'))
+        
+        venv_activate = os.path.join(project_root, 'venv', 'bin', 'activate')
         
         # Build command with parameters
-        base_command = f"bash -c 'source /home/{hostname}/virtualpytest/venv/bin/activate && python {script_path}"
+        base_command = f"bash -c 'source {venv_activate} && python {script_path}"
         
         if parameters and parameters.strip():
             # Add parameters to the command

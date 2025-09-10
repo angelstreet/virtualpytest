@@ -40,7 +40,9 @@ CAPTURE_DIRS = [
 HOST_NAME = os.getenv('USER')
 # Use backend_host scripts directory
 SCRIPTS_DIR = os.path.dirname(os.path.abspath(__file__))  # backend_host/scripts/
-VENV_PATH = os.path.expanduser("~/myvenv/bin/activate")  # Use ~ expansion
+# Use project venv (go up 2 levels from backend_host/scripts/ to project root)
+PROJECT_ROOT = os.path.abspath(os.path.join(SCRIPTS_DIR, '..', '..'))
+VENV_PATH = os.path.join(PROJECT_ROOT, 'venv', 'bin', 'activate')
 
 UNIFIED_ANALYSIS_INTERVAL = 3   # seconds - aligned timing for video + audio
 

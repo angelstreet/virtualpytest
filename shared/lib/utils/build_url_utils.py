@@ -552,9 +552,12 @@ def resolveImageFilePath(image_path: str) -> str:
     if not image_path:
         raise ValueError('No image path specified')
     
-    # Security check - allow /tmp/ paths and other safe paths
-    if not (image_path.startswith('/tmp/') or image_path.startswith('/home/pi/virtualpytest/')):
-        raise ValueError(f'Invalid image path: {image_path}')
+    # Security check - allow /tmp/ paths and project paths
+    project_root = os.getenv('PROJECT_ROOT', '/home/pi/virtualpytest')  # fallback for compatibility
+    allowed_paths = ['/tmp/', project_root, '/var/www/html/']
+    
+    if not any(image_path.startswith(path) for path in allowed_paths):
+        raise ValueError(f'Invalid image path: {image_path}. Allowed paths: {allowed_paths}')
     
     return image_path
 

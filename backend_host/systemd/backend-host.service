@@ -1,3 +1,7 @@
+# NOTE: This is a template file for reference only.
+# Use setup/local/install_host_services.sh to generate the actual service file
+# with correct dynamic paths for your system.
+
 [Unit]
 Description=VirtualPyTest backend_host Service (Hardware Interface)
 After=network.target
@@ -5,18 +9,19 @@ Wants=network.target
 
 [Service]
 Type=simple
-User=sunri-pi2
-Group=sunri-pi2
-WorkingDirectory=/home/sunri-pi1/virtualpytest/backend_host
+User=%USER%
+Group=%USER%
+WorkingDirectory=%PROJECT_ROOT%/backend_host
 Environment=HOST_PORT=6109
-Environment=HOST_NAME=sunri-pi2
-Environment=HOST_URL=http://sunri-pi2:6109
+Environment=HOST_NAME=%HOSTNAME%
+Environment=HOST_URL=http://%HOSTNAME%:6109
 Environment=SERVER_URL=https://your-backend_server.onrender.com
 Environment=DEBUG=false
+Environment=PYTHONPATH=%PROJECT_ROOT%/shared/lib:%PROJECT_ROOT%/backend_core/src
 
 # Git pull and start service
-ExecStartPre=/usr/bin/git -C /home/sunri-pi1/virtualpytest pull
-ExecStart=/usr/bin/python3 src/app.py
+ExecStartPre=/usr/bin/git -C %PROJECT_ROOT% pull
+ExecStart=%PROJECT_ROOT%/venv/bin/python src/app.py
 
 # Restart policy
 Restart=always

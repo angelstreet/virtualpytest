@@ -168,8 +168,8 @@ echo "test_capture_123456.jpg created" > /var/www/html/stream/capture1/captures/
 
 ### Systemd Integration
 ```bash
-# Use with systemd service
-ExecStart=/home/pi/virtualpytest/backend_host/scripts/run_ffmpeg_and_rename_rpi1.sh
+# Use with systemd service (replace with your actual project path)
+ExecStart=%PROJECT_ROOT%/backend_host/scripts/run_ffmpeg_and_rename_rpi1.sh
 ```
 
 ## 🔧 **Configuration**
