@@ -66,22 +66,6 @@ if [ ! -d "frontend/node_modules" ]; then
     MISSING_COMPONENTS="$MISSING_COMPONENTS frontend-deps"
 fi
 
-# Check for permission issues
-PERMISSION_ISSUES=""
-
-if [ ! -d "/var/www/html/stream" ]; then
-    PERMISSION_ISSUES="$PERMISSION_ISSUES missing-www-directories"
-fi
-
-if [ -d "/var/www/html/stream" ] && [ ! -w "/var/www/html/stream" ]; then
-    PERMISSION_ISSUES="$PERMISSION_ISSUES www-not-writable"
-fi
-
-# Check if current user is in www-data group
-if ! groups "$(whoami)" | grep -q "www-data"; then
-    PERMISSION_ISSUES="$PERMISSION_ISSUES user-not-in-www-data"
-fi
-
 if [ "$INCLUDE_DISCARD" = true ] && [ ! -d "backend_discard/src" ]; then
     MISSING_COMPONENTS="$MISSING_COMPONENTS backend_discard"
 fi
@@ -100,32 +84,6 @@ if [ -n "$MISSING_COMPONENTS" ]; then
         echo "   ./setup/local/install_all.sh"
     fi
     exit 1
-fi
-
-if [ -n "$PERMISSION_ISSUES" ]; then
-    echo "❌ Permission issues detected:$PERMISSION_ISSUES"
-    echo ""
-    echo "🔧 Common permission errors this will cause:"
-    echo "   - PermissionError: [Errno 13] Permission denied: '/var/www'"
-    echo "   - Failed to create directories in /var/www/html/stream/"
-    echo "   - ImageVerificationController initialization failures"
-    echo ""
-    echo "🛠️ To fix permission issues, run:"
-    echo "   sudo ./setup/local/fix_permissions.sh --user $(whoami)"
-    echo ""
-    echo "   OR run the full permission setup:"
-    echo "   sudo ./setup/local/setup_permissions.sh --user $(whoami)"
-    echo ""
-    echo "⚠️ After fixing permissions, you may need to log out and back in"
-    echo "   for group changes to take effect."
-    echo ""
-    read -p "Continue anyway? (y/N): " -n 1 -r
-    echo
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-        echo "Exiting to fix permission issues first."
-        exit 1
-    fi
-    echo "⚠️ Continuing with permission issues - expect errors..."
 fi
 
 # Detect Python executable
