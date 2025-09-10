@@ -52,9 +52,9 @@ touch shared/setup.py
 touch backend_core/setup.py
 
 # Create Docker Compose files
-touch docker/docker-compose.yml
-touch docker/docker-compose.dev.yml
-touch docker/docker-compose.prod.yml
+touch setup/docker/docker-compose.yml
+touch setup/docker/docker-compose.dev.yml
+touch setup/docker/docker-compose.prod.yml
 ```
 
 ### Phase 2: Migrate Shared Components
@@ -594,7 +594,7 @@ EOF
 #### Step 7.4: Docker Compose for Development
 
 ```bash
-cat > docker/docker-compose.dev.yml << 'EOF'
+cat > setup/docker/docker-compose.dev.yml << 'EOF'
 version: '3.8'
 
 services:

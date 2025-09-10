@@ -48,8 +48,8 @@ cd virtualpytest
 
 ### Step 2: Install Everything
 ```bash
-# This installs all components (takes 5-10 minutes)
-./setup/local/install_all.sh --with-grafana
+# This installs all components including Grafana (takes 5-10 minutes)
+./setup/local/install_all.sh
 ```
 
 *The script will:*
@@ -61,7 +61,7 @@ cd virtualpytest
 
 ### Step 3: Start All Services
 ```bash
-# Start everything with one simple command
+# Start everything with one simple command (includes Grafana)
 ./scripts/launch_virtualpytest.sh
 ```
 
@@ -297,7 +297,7 @@ sudo pkill -f "python.*6109"
 sudo pkill -f "grafana-server"
 
 # Restart installation and launch
-./setup/local/install_all.sh --with-grafana
+./setup/local/install_all.sh
 ./scripts/launch_virtualpytest.sh
 ```
 

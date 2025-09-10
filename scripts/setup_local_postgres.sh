@@ -14,7 +14,7 @@ NC='\033[0m' # No Color
 
 # Configuration
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-COMPOSE_FILE="$PROJECT_ROOT/docker/docker-compose.local.yml"
+COMPOSE_FILE="$PROJECT_ROOT/setup/docker/docker-compose.local.yml"
 ENV_FILE="$PROJECT_ROOT/.env"
 ENV_EXAMPLE="$PROJECT_ROOT/env.local.example"
 

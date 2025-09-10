@@ -172,7 +172,7 @@ If you prefer Docker for local development:
 ./setup/docker/launch_all.sh
 
 # Or use docker-compose directly
-docker-compose -f docker/docker-compose.dev.yml up
+docker-compose -f setup/docker/docker-compose.dev.yml up
 ```
 
 ## 📊 Real-time Logging
