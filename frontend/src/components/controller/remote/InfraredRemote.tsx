@@ -215,8 +215,8 @@ export const InfraredRemote = React.memo(
                 key={buttonId}
                 sx={{
                   position: 'absolute',
-                  left: `${typedButton.position.x * remoteScale}px`,
-                  top: `${typedButton.position.y * remoteScale}px`,
+                  left: `${(typedButton.position.x + layoutConfig.remote_info.global_offset.x) * remoteScale + (isCollapsed ? 1 : 0)}px`,
+                  top: `${(typedButton.position.y + layoutConfig.remote_info.global_offset.y) * remoteScale + (isCollapsed ? 1 : 0)}px`,
                   width: `${typedButton.size.width * layoutConfig.remote_info.button_scale_factor * remoteScale}px`,
                   height: `${typedButton.size.height * layoutConfig.remote_info.button_scale_factor * remoteScale}px`,
                   borderRadius: typedButton.shape === 'circle' ? '50%' : '4px',
