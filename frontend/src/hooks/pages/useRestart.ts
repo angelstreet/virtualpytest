@@ -1,14 +1,8 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 import { Host, Device } from '../../types/common/Host_Types';
 
 import { buildServerUrl } from '../../utils/buildUrlUtils';
-export interface RestartFrame {
-  filename: string;
-  timestamp: string; // YYYYMMDDHHMMSS format
-  image_url?: string; // Optional - loaded progressively
-  file_mtime: number;
-}
 
 interface UseRestartParams {
   host: Host;
@@ -16,33 +10,33 @@ interface UseRestartParams {
 }
 
 interface UseRestartReturn {
-  frames: RestartFrame[];
-  currentIndex: number;
-  currentFrameUrl: string | null;
-  isPlaying: boolean;
-  isInitialLoading: boolean;
-  handlePlayPause: () => void;
-  handleSliderChange: (_event: Event, newValue: number | number[]) => void;
+  videoUrl: string | null;
+  isGenerating: boolean;
+  isReady: boolean;
+  error: string | null;
+  processingTime: number | null;
 }
 
 export const useRestart = ({ host, device }: UseRestartParams): UseRestartReturn => {
-  const [frames, setFrames] = useState<RestartFrame[]>([]);
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [isReady, setIsReady] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [processingTime, setProcessingTime] = useState<number | null>(null);
 
-  // Auto-play timer
-  const playTimer = useRef<NodeJS.Timeout | null>(null);
-
-  // Load all frames at once
-  const loadAllFrames = useCallback(async () => {
+  // Generate 5-minute MP4 video from HLS segments
+  const generateRestartVideo = useCallback(async () => {
     try {
-      setIsInitialLoading(true);
+      setIsGenerating(true);
+      setError(null);
+      setVideoUrl(null);
+      setIsReady(false);
+      
       console.log(
-        `[@hook:useRestart] Loading all frames for ${host.host_name}-${device.device_id}`,
+        `[@hook:useRestart] Generating 5-minute restart video for ${host.host_name}-${device.device_id}`,
       );
 
-      const response = await fetch(buildServerUrl('/server/rec/getRestartImages'), {
+      const response = await fetch(buildServerUrl('/server/av/generateRestartVideo'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -50,118 +44,45 @@ export const useRestart = ({ host, device }: UseRestartParams): UseRestartReturn
         body: JSON.stringify({
           host: host,
           device_id: device.device_id || 'device1',
-          timeframe_minutes: 5,
-          max_frames: 100, // Limit to 100 frames
+          duration_minutes: 5,
         }),
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to load frames: ${response.status} ${response.statusText}`);
+        throw new Error(`Failed to generate video: ${response.status} ${response.statusText}`);
       }
 
       const data = await response.json();
 
-      if (data.success && data.frames) {
+      if (data.success && data.video_url) {
         console.log(
-          `[@hook:useRestart] Successfully loaded ${data.frames.length} frames with URLs`,
+          `[@hook:useRestart] Successfully generated restart video in ${data.processing_time_seconds}s`,
         );
 
-        setFrames(data.frames);
-
-        // Set to oldest frame initially (oldest first)
-        if (data.frames.length > 0) {
-          setCurrentIndex(0);
-        }
+        setVideoUrl(data.video_url);
+        setProcessingTime(data.processing_time_seconds);
+        setIsReady(true);
       } else {
-        console.warn(`[@hook:useRestart] No frames available or request failed:`, data.error);
-        setFrames([]);
+        throw new Error(data.error || 'Failed to generate restart video');
       }
     } catch (error) {
-      console.error(`[@hook:useRestart] Error loading frames:`, error);
-      setFrames([]);
+      console.error(`[@hook:useRestart] Error generating video:`, error);
+      setError(error instanceof Error ? error.message : 'Failed to generate restart video');
     } finally {
-      setIsInitialLoading(false);
+      setIsGenerating(false);
     }
   }, [host, device.device_id]);
 
-  // Auto-play functionality
-  const startAutoPlay = useCallback(() => {
-    if (playTimer.current) {
-      clearInterval(playTimer.current);
-    }
-
-    playTimer.current = setInterval(() => {
-      setCurrentIndex((prevIndex) => {
-        const nextIndex = prevIndex + 1;
-        if (nextIndex >= frames.length) {
-          // Loop back to start
-          return 0;
-        }
-        return nextIndex;
-      });
-    }, 3000); // 3 seconds per frame
-  }, [frames.length]);
-
-  const stopAutoPlay = useCallback(() => {
-    if (playTimer.current) {
-      clearInterval(playTimer.current);
-      playTimer.current = null;
-    }
-  }, []);
-
-  // Handle play/pause
-  const handlePlayPause = useCallback(() => {
-    setIsPlaying((prev) => {
-      const newPlaying = !prev;
-      if (newPlaying) {
-        startAutoPlay();
-      } else {
-        stopAutoPlay();
-      }
-      return newPlaying;
-    });
-  }, [startAutoPlay, stopAutoPlay]);
-
-  // Handle slider change
-  const handleSliderChange = useCallback(
-    (_event: Event, newValue: number | number[]) => {
-      const index = Array.isArray(newValue) ? newValue[0] : newValue;
-      setCurrentIndex(index);
-
-      // Pause auto-play when manually scrubbing
-      if (isPlaying) {
-        setIsPlaying(false);
-        stopAutoPlay();
-      }
-    },
-    [isPlaying, stopAutoPlay],
-  );
-
-  // Get current frame URL
-  const currentFrameUrl =
-    frames.length > 0 && currentIndex < frames.length
-      ? frames[currentIndex].image_url || null
-      : null;
-
-  // Initial data fetch - load all frames at once
+  // Generate video on mount
   useEffect(() => {
-    loadAllFrames();
-  }, [loadAllFrames]);
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      stopAutoPlay();
-    };
-  }, [stopAutoPlay]);
+    generateRestartVideo();
+  }, [generateRestartVideo]);
 
   return {
-    frames,
-    currentIndex,
-    currentFrameUrl,
-    isPlaying,
-    isInitialLoading,
-    handlePlayPause,
-    handleSliderChange,
+    videoUrl,
+    isGenerating,
+    isReady,
+    error,
+    processingTime,
   };
 };

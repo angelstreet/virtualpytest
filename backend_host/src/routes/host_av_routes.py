@@ -501,6 +501,68 @@ def save_screenshot():
             'error': str(e)
         }), 500
 
+@host_av_bp.route('/generateRestartVideo', methods=['POST'])
+def generate_restart_video():
+    """Generate 5-minute MP4 video from recent HLS segments for restart functionality"""
+    try:
+        # Get device_id from request (defaults to device1)
+        data = request.get_json() or {}
+        device_id = data.get('device_id', 'device1')
+        duration_minutes = data.get('duration_minutes', 5)
+        
+        print(f"[@route:host_av:generate_restart_video] Generating {duration_minutes}min MP4 for device: {device_id}")
+        
+        # Get AV controller for the specified device
+        av_controller = get_controller(device_id, 'av')
+        
+        if not av_controller:
+            device = get_device_by_id(device_id)
+            if not device:
+                return jsonify({
+                    'success': False,
+                    'error': f'Device {device_id} not found'
+                }), 404
+            
+            return jsonify({
+                'success': False,
+                'error': f'No AV controller found for device {device_id}',
+                'available_capabilities': device.get_capabilities()
+            }), 404
+        
+        print(f"[@route:host_av:generate_restart_video] Using AV controller: {type(av_controller).__name__}")
+        
+        # Generate MP4 from recent HLS segments
+        import time
+        start_time = time.time()
+        
+        # Use take_video method with duration in seconds
+        duration_seconds = duration_minutes * 60
+        mp4_url = av_controller.take_video(duration_seconds=duration_seconds)
+        
+        processing_time = time.time() - start_time
+        
+        if mp4_url:
+            return jsonify({
+                'success': True,
+                'video_url': mp4_url,
+                'duration_minutes': duration_minutes,
+                'processing_time_seconds': round(processing_time, 2),
+                'device_id': device_id,
+                'message': f'Successfully generated {duration_minutes}-minute restart video'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'Failed to generate restart video - no HLS segments available or processing failed'
+            }), 500
+            
+    except Exception as e:
+        print(f"[@route:host_av:generate_restart_video] Error: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 @host_av_bp.route('/startCapture', methods=['POST'])
 def start_video_capture():
     """Start video capture using new architecture"""

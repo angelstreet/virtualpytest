@@ -67,7 +67,6 @@ except ImportError as e:
 def register_host_routes(app):
     """Register all host routes - Hardware interface endpoints"""
     from routes import (
-        host_rec_routes,
         host_control_routes, 
         host_web_routes,
         host_aiagent_routes,
@@ -91,7 +90,6 @@ def register_host_routes(app):
     
     # Register all host blueprints
     blueprints = [
-        (host_rec_routes.host_rec_bp, 'Recording operations'),
         (host_control_routes.host_control_bp, 'Device control'),
         (host_web_routes.host_web_bp, 'Web automation'),
         (host_aiagent_routes.host_aiagent_bp, 'AI agent execution'),

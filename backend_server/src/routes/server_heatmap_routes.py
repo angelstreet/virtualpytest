@@ -50,8 +50,7 @@ def get_hosts_devices():
                 capabilities = device.get('device_capabilities', {})
                 av_capability = capabilities.get('av')
                 
-                if (isinstance(capabilities, dict) and 'av' in capabilities and av_capability and 
-                    av_capability != 'vnc_stream'):
+                if (isinstance(capabilities, dict) and 'av' in capabilities and av_capability):
                     hosts_devices.append({
                         'host_name': host_name,
                         'device_id': device.get('device_id', 'device1'),
@@ -61,8 +60,7 @@ def get_hosts_devices():
             host_capabilities = host_data.get('capabilities', {})
             av_capability = host_capabilities.get('av')
             
-            if (isinstance(host_capabilities, dict) and 'av' in host_capabilities and av_capability and
-                av_capability != 'vnc_stream'):
+            if (isinstance(host_capabilities, dict) and 'av' in host_capabilities and av_capability):
                 hosts_devices.append({
                     'host_name': host_name,
                     'device_id': 'device1',

@@ -2,7 +2,6 @@
 
 # Import all host route modules
 from . import (
-    host_rec_routes,
     host_control_routes,
     host_web_routes,
     host_aiagent_routes,
