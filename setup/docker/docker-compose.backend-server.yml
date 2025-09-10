@@ -6,7 +6,7 @@ services:
   # Backend Server - API + Grafana (includes shared library)
   backend_server:
     build:
-      context: ../
+      context: ../../
       dockerfile: backend_server/Dockerfile
     container_name: virtualpytest-backend-server
     ports:
@@ -47,7 +47,7 @@ services:
       - GF_DATABASE_PASSWORD=${SUPABASE_DB_PASSWORD}
       
     env_file:
-      - ../.env  # Load project root .env file
+      - ../../.env  # Load project root .env file
     restart: unless-stopped
 
 volumes:
