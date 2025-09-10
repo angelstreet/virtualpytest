@@ -26,24 +26,14 @@ if [ ! -d "venv" ]; then
     exit 1
 fi
 
-# Kill any existing app.py processes and port conflicts
-echo "🔍 Checking for existing app.py processes..."
-pkill -f "python.*app\.py" 2>/dev/null || true
-sleep 1
-
-echo "🔍 Checking for processes using ports..."
-for port in 5000 6109 6409; do
-    if lsof -ti:$port > /dev/null 2>&1; then
-        echo "🛑 Killing processes on port $port..."
-        lsof -ti:$port | xargs kill -9 2>/dev/null || true
-        sleep 1
-    fi
-done
-
-# Clean up PID files
-rm -f /tmp/*backend_host* /tmp/*host* 2>/dev/null || true
-
-echo "✅ All conflicting processes cleared"
+# Kill any process using port 6409
+echo "🔍 Checking for processes using port 6409..."
+if lsof -ti:6409 > /dev/null 2>&1; then
+    echo "🛑 Killing processes on port 6409..."
+    lsof -ti:6409 | xargs kill -9 2>/dev/null || true
+    sleep 1
+fi
+echo "✅ Port 6409 is available"
 
 # Detect Python executable
 PYTHON_CMD=""
@@ -92,13 +82,12 @@ echo "📺 Starting backend_host with real-time logging..."
 echo "💡 Press Ctrl+C to stop"
 echo "=================================================================================="
 
-# Start backend_host Flask application (local development)
-cd backend_host/src
-echo -e "${GREEN}🟢 Starting backend_host Flask application...${NC}"
-echo -e "${GREEN}💡 VNC services should be managed separately via systemd services${NC}"
+# Start backend_host with real-time output
+cd backend_host
+echo -e "${GREEN}🟢 Starting backend_host...${NC}"
 
-# Start the Flask application directly
-python app.py 2>&1 | {
+# Start the process and capture PID
+$PYTHON_CMD -u src/app.py 2>&1 | {
     while IFS= read -r line; do
         printf "${GREEN}[HOST]${NC} %s\n" "$line"
     done
@@ -107,10 +96,9 @@ python app.py 2>&1 | {
 HOST_PID=$!
 echo $HOST_PID > /tmp/backend_host.pid
 
-echo "Started backend_host Flask app with PID: $HOST_PID"
-echo "🌐 backend_host API: http://localhost:6109"
+echo "Started backend_host with PID: $HOST_PID"
+echo "🌐 backend_host: http://localhost:6109"
 echo "💡 Logs will appear with [HOST] prefix below"
-echo "🔧 To manage VNC services: ./backend_host/manage_services.sh"
 echo "=================================================================================="
 
 # Wait for the process
