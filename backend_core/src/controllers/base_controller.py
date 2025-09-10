@@ -545,7 +545,7 @@ class FFmpegCaptureController(AVControllerInterface):
                 if len(segment_files) > 5:
                     print(f"{self.capture_source}[{self.capture_source}]: Using segments {segment_files[0][0]} to {segment_files[-1][0]} ({len(segment_files)} total)")
             
-            # 3. Compress HLS segments to MP4
+            # 3. Compress HLS segments to MP4 directly to final location
             from shared.lib.utils.video_compression_utils import VideoCompressionUtils
             compressor = VideoCompressionUtils()
             
@@ -553,10 +553,15 @@ class FFmpegCaptureController(AVControllerInterface):
             estimated_time = compressor.estimate_compression_time(len(segment_files), duration_seconds)
             print(f"{self.capture_source}[{self.capture_source}]: Estimated compression time: {estimated_time:.1f}s")
             
-            # Compress segments to MP4
+            # Set final output path directly in capture folder
+            video_filename = "restart_video.mp4"  # Fixed filename - will be overwritten
+            local_video_path = os.path.join(self.video_capture_path, video_filename)
+            
+            # Compress segments to MP4 directly to final location
             compression_result = compressor.compress_hls_to_mp4(
                 m3u8_path=m3u8_path,
                 segment_files=segment_files,
+                output_path=local_video_path,  # Compress directly to final location
                 compression_level="medium"  # Good balance of quality/size/speed
             )
             
@@ -564,24 +569,11 @@ class FFmpegCaptureController(AVControllerInterface):
                 print(f"{self.capture_source}[{self.capture_source}]: Video compression failed: {compression_result['error']}")
                 return None
             
-            compressed_mp4_path = compression_result['output_path']
             print(f"{self.capture_source}[{self.capture_source}]: Compression complete - {compression_result['compression_ratio']:.1f}% size reduction")
-            
-            # 4. Save MP4 locally in capture folder for nginx to serve
-            video_filename = "restart_video.mp4"  # Fixed filename - will be overwritten
-            local_video_path = os.path.join(self.video_capture_path, video_filename)
-            
-            # Move compressed MP4 to capture folder
-            try:
-                import shutil
-                shutil.move(compressed_mp4_path, local_video_path)
-                print(f"{self.capture_source}[{self.capture_source}]: MP4 saved locally: {local_video_path}")
-            except Exception as move_error:
-                print(f"{self.capture_source}[{self.capture_source}]: Failed to move MP4: {move_error}")
-                return None
+            print(f"{self.capture_source}[{self.capture_source}]: MP4 saved locally: {local_video_path}")
             
             # Build URL for nginx to serve the file
-            # Convert local path to URL path (e.g., /var/www/html/stream/capture1/restart_video_123.mp4 -> /host/stream/capture1/restart_video_123.mp4)
+            # Convert local path to URL path (e.g., /var/www/html/stream/capture1/restart_video.mp4 -> /host/stream/capture1/restart_video.mp4)
             video_url = self.video_stream_path + "/" + video_filename
             
             # DO NOT clean up original segments - they're needed for live streaming
