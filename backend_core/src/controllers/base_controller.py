@@ -567,40 +567,28 @@ class FFmpegCaptureController(AVControllerInterface):
             compressed_mp4_path = compression_result['output_path']
             print(f"{self.capture_source}[{self.capture_source}]: Compression complete - {compression_result['compression_ratio']:.1f}% size reduction")
             
-            # 4. Upload compressed MP4 to R2
-            from shared.lib.utils.cloudflare_utils import get_cloudflare_utils
-            uploader = get_cloudflare_utils()
+            # 4. Save MP4 locally in capture folder for nginx to serve
+            video_filename = "restart_video.mp4"  # Fixed filename - will be overwritten
+            local_video_path = os.path.join(self.video_capture_path, video_filename)
             
-            timestamp = int(time.time())
-            video_filename = f"test_video_{timestamp}.mp4"
-            video_remote_path = f"videos/{video_filename}"
-            
-            file_mappings = [{
-                'local_path': compressed_mp4_path,
-                'remote_path': video_remote_path,
-                'content_type': 'video/mp4'
-            }]
-            
-            upload_result = uploader.upload_files(file_mappings)
-            
-            # Clean up compressed file
+            # Move compressed MP4 to capture folder
             try:
-                os.unlink(compressed_mp4_path)
-            except:
-                pass
-            
-            if upload_result['uploaded_files']:
-                video_url = upload_result['uploaded_files'][0]['url']
-                
-                # DO NOT clean up original segments - they're needed for live streaming
-                print(f"{self.capture_source}[{self.capture_source}]: HLS segments preserved for live streaming")
-                
-                print(f"{self.capture_source}[{self.capture_source}]: MP4 uploaded: {video_url}")
-                return video_url
-            else:
-                error_msg = upload_result['failed_uploads'][0]['error'] if upload_result['failed_uploads'] else 'Upload failed'
-                print(f"{self.capture_source}[{self.capture_source}]: MP4 upload failed: {error_msg}")
+                import shutil
+                shutil.move(compressed_mp4_path, local_video_path)
+                print(f"{self.capture_source}[{self.capture_source}]: MP4 saved locally: {local_video_path}")
+            except Exception as move_error:
+                print(f"{self.capture_source}[{self.capture_source}]: Failed to move MP4: {move_error}")
                 return None
+            
+            # Build URL for nginx to serve the file
+            # Convert local path to URL path (e.g., /var/www/html/stream/capture1/restart_video_123.mp4 -> /host/stream/capture1/restart_video_123.mp4)
+            video_url = self.video_stream_path + "/" + video_filename
+            
+            # DO NOT clean up original segments - they're needed for live streaming
+            print(f"{self.capture_source}[{self.capture_source}]: HLS segments preserved for live streaming")
+            print(f"{self.capture_source}[{self.capture_source}]: Restart video available at: {video_url}")
+            
+            return video_url
                 
         except Exception as e:
             print(f"{self.capture_source}[{self.capture_source}]: Error uploading HLS: {e}")
