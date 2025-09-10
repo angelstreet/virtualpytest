@@ -38,6 +38,8 @@ interface RemotePanelProps {
   showScreenshot?: boolean;
   // Current capture mode from HDMIStream
   captureMode?: 'stream' | 'screenshot' | 'video';
+  // Verification editor visibility state - hides overlay when verification editor is shown
+  isVerificationVisible?: boolean;
   // NEW: Stream container dimensions for modal context
   streamContainerDimensions?: {
     width: number;
@@ -63,6 +65,7 @@ export const RemotePanel = React.memo(
     streamMinimized = false,
     streamHidden = false,
     captureMode = 'stream',
+    isVerificationVisible = false,
     streamContainerDimensions,
     disableResize = false,
   }: RemotePanelProps) {
@@ -264,6 +267,7 @@ export const RemotePanel = React.memo(
               streamMinimized={streamMinimized}
               streamHidden={streamHidden}
               captureMode={captureMode}
+              isVerificationVisible={isVerificationVisible}
               streamContainerDimensions={stableStreamContainerDimensions}
               sx={{
                 height: '100%',

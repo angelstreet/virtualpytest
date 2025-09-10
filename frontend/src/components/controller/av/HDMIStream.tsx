@@ -434,7 +434,7 @@ export const HDMIStream = React.memo(
                   model={effectiveDeviceModel}
                   isExpanded={isExpanded}
                   layoutConfig={{
-                    minHeight: isExpanded ? '400px' : '150px', // Adjust based on panel state
+                    minHeight: '150px',
                     aspectRatio: isMobile
                       ? `${DEFAULT_DEVICE_RESOLUTION.height}/${DEFAULT_DEVICE_RESOLUTION.width}`
                       : `${DEFAULT_DEVICE_RESOLUTION.width}/${DEFAULT_DEVICE_RESOLUTION.height}`,

@@ -637,12 +637,12 @@ const RecHostStreamModalContent: React.FC<{
                     isCapturing={false}
                     model={device?.device_model || 'unknown'}
                     layoutConfig={{
-                      minHeight: '300px',
+                      minHeight: '150px',
                       aspectRatio: isMobileModel 
-                        ? '9/16' // Fixed mobile aspect ratio
+                        ? `${DEFAULT_DEVICE_RESOLUTION.height}/${DEFAULT_DEVICE_RESOLUTION.width}` 
                         : `${DEFAULT_DEVICE_RESOLUTION.width}/${DEFAULT_DEVICE_RESOLUTION.height}`,
-                      objectFit: isMobileModel ? 'fill' : 'contain', // Use fill for mobile, contain for desktop
-                      isMobileModel, // Use our mobile detection result
+                      objectFit: isMobileModel ? 'fill' : 'contain',
+                      isMobileModel,
                     }}
                     isExpanded={false}
                     muted={isMuted}

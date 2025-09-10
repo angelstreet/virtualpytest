@@ -38,6 +38,8 @@ interface AndroidMobileRemoteProps {
   streamHidden?: boolean;
   // Current capture mode from HDMIStream
   captureMode?: 'stream' | 'screenshot' | 'video';
+  // Verification editor visibility state
+  isVerificationVisible?: boolean;
   // NEW: Stream container dimensions for modal context
   streamContainerDimensions?: {
     width: number;
@@ -60,6 +62,7 @@ export const AndroidMobileRemote = React.memo(
     streamMinimized = false,
     streamHidden = false,
     captureMode = 'stream',
+    isVerificationVisible = false,
     streamContainerDimensions,
   }: AndroidMobileRemoteProps) {
     const hookResult = useAndroidMobile(host, deviceId);
@@ -580,19 +583,20 @@ export const AndroidMobileRemote = React.memo(
           </Box>
         </Box>
 
-        {/* AndroidMobileOverlay - Only visible when in stream mode (not during screenshot/video capture), not minimized, and not hidden */}
+        {/* AndroidMobileOverlay - Only visible when in stream mode (not during screenshot/video capture or verification editor), not minimized, and not hidden */}
         {panelInfo &&
         typeof document !== 'undefined' &&
         captureMode === 'stream' &&
         !streamMinimized &&
-        !streamHidden
+        !streamHidden &&
+        !isVerificationVisible
           ? createPortal(
               <AndroidMobileOverlay
                 key={`overlay-${isLandscape}`} // Force re-render on orientation change
                 elements={androidElements}
                 deviceWidth={isLandscape ? 2340 : 1080} // Swap dimensions for landscape
                 deviceHeight={isLandscape ? 1080 : 2340} // Swap dimensions for landscape
-                isVisible={captureMode === 'stream' && !streamMinimized && !streamHidden}
+                isVisible={captureMode === 'stream' && !streamMinimized && !streamHidden && !isVerificationVisible}
                 onElementClick={handleOverlayElementClick}
                 panelInfo={panelInfo}
                 host={host}
@@ -617,6 +621,7 @@ export const AndroidMobileRemote = React.memo(
     const streamCollapsedChanged = prevProps.streamCollapsed !== nextProps.streamCollapsed;
     const streamMinimizedChanged = prevProps.streamMinimized !== nextProps.streamMinimized;
     const captureModeChanged = prevProps.captureMode !== nextProps.captureMode;
+    const isVerificationVisibleChanged = prevProps.isVerificationVisible !== nextProps.isVerificationVisible;
     const onDisconnectCompleteChanged =
       prevProps.onDisconnectComplete !== nextProps.onDisconnectComplete;
     const streamContainerDimensionsChanged =
@@ -634,6 +639,7 @@ export const AndroidMobileRemote = React.memo(
       !streamCollapsedChanged &&
       !streamMinimizedChanged &&
       !captureModeChanged &&
+      !isVerificationVisibleChanged &&
       !onDisconnectCompleteChanged &&
       !streamContainerDimensionsChanged;
 
