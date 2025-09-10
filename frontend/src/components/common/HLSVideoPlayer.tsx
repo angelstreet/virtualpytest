@@ -71,6 +71,32 @@ export function HLSVideoPlayer({
 
   const finalLayoutConfig = layoutConfig || getStreamViewerLayout(model);
 
+  // DEBUG: Log layout config and video element dimensions
+  useEffect(() => {
+    console.log('[@component:HLSVideoPlayer] DEBUG - Layout Config:', {
+      finalLayoutConfig,
+      providedLayoutConfig: layoutConfig,
+      model,
+      streamUrl,
+      isStreamActive
+    });
+    
+    if (videoRef.current) {
+      const video = videoRef.current;
+      const computedStyle = getComputedStyle(video);
+      console.log('[@component:HLSVideoPlayer] DEBUG - Video Element:', {
+        clientWidth: video.clientWidth,
+        clientHeight: video.clientHeight,
+        videoWidth: video.videoWidth,
+        videoHeight: video.videoHeight,
+        computedWidth: computedStyle.width,
+        computedHeight: computedStyle.height,
+        computedAspectRatio: computedStyle.aspectRatio,
+        computedObjectFit: computedStyle.objectFit
+      });
+    }
+  }, [finalLayoutConfig, layoutConfig, model, streamUrl, isStreamActive]);
+
 
   useEffect(() => {
     if (videoElementRef && videoRef.current) {

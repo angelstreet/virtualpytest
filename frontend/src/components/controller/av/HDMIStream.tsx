@@ -272,6 +272,20 @@ export const HDMIStream = React.memo(
     // Compute isMobile from effectiveDeviceModel
     const isMobile = effectiveDeviceModel?.includes('mobile') || effectiveDeviceModel === 'android_mobile';
 
+    // DEBUG: Log container and layout information
+    useEffect(() => {
+      console.log('[@component:HDMIStream] DEBUG - Container dimensions:', {
+        collapsedWidth,
+        collapsedHeight,
+        expandedWidth,
+        expandedHeight,
+        isExpanded,
+        isMinimized,
+        isMobile,
+        effectiveDeviceModel
+      });
+    }, [collapsedWidth, collapsedHeight, expandedWidth, expandedHeight, isExpanded, isMinimized, isMobile, effectiveDeviceModel]);
+
     return (
       <>
         {/* Main HDMIStream Panel */}
@@ -434,14 +448,26 @@ export const HDMIStream = React.memo(
                   isCapturing={isCaptureActive}
                   model={effectiveDeviceModel}
                   isExpanded={isExpanded}
-                  layoutConfig={{
-                    minHeight: isExpanded ? '400px' : '120px', // Adjust for fixed container: 200px - 40px header - 40px padding = ~120px
-                    aspectRatio: isMobile
-                      ? `${DEFAULT_DEVICE_RESOLUTION.height}/${DEFAULT_DEVICE_RESOLUTION.width}`
-                      : `${DEFAULT_DEVICE_RESOLUTION.width}/${DEFAULT_DEVICE_RESOLUTION.height}`,
-                    objectFit: isMobile ? 'fill' : 'contain',
-                    isMobileModel: isMobile,
-                  }}
+                  layoutConfig={(() => {
+                    const config = {
+                      minHeight: isExpanded ? '400px' : '120px', // Adjust for fixed container: 200px - 40px header - 40px padding = ~120px
+                      aspectRatio: isMobile
+                        ? `${DEFAULT_DEVICE_RESOLUTION.height}/${DEFAULT_DEVICE_RESOLUTION.width}`
+                        : `${DEFAULT_DEVICE_RESOLUTION.width}/${DEFAULT_DEVICE_RESOLUTION.height}`,
+                      objectFit: (isMobile ? 'fill' : 'contain') as 'fill' | 'contain' | 'cover',
+                      isMobileModel: isMobile,
+                    };
+                    
+                    // DEBUG: Log the layout config being passed
+                    console.log('[@component:HDMIStream] DEBUG - HLS Layout Config:', {
+                      config,
+                      containerWidth: getPanelWidth(),
+                      containerHeight: getPanelHeight(),
+                      DEFAULT_DEVICE_RESOLUTION
+                    });
+                    
+                    return config;
+                  })()}
                   sx={{
                     position: 'absolute',
                     top: 0,
