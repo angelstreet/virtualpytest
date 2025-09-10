@@ -516,29 +516,16 @@ class FFmpegCaptureController(AVControllerInterface):
                     if os.path.exists(segment_path):
                         all_segments.append((line.strip(), segment_path))
             
-            # TIME-SYNCHRONIZED FILTERING: Take segments that cover the actual test execution period
-            segment_files = []
-            if test_start_time and duration_seconds:
-                # Calculate the time range we need to capture
-                current_time = time.time()
-                wait_time_seconds = 5  # We waited 5s for segments to complete
+            # SIMPLE FILTERING: Take the last N segments based on duration
+            if duration_seconds:
+                # Simple calculation: duration ÷ segment_duration = segments needed
+                segments_needed = int(duration_seconds / actual_segment_duration) + 2  # +2 for small buffer
                 
-                # We want segments from test_start_time to test_end_time
-                # But we're capturing at current_time (which is test_end_time + wait_time)
-                # So we need segments from (current_time - wait_time - duration_seconds) to current_time
-                capture_start_time = current_time - wait_time_seconds - duration_seconds
-                capture_end_time = current_time
+                print(f"{self.capture_source}[{self.capture_source}]: Duration: {duration_seconds}s, Segment duration: {actual_segment_duration}s")
+                print(f"{self.capture_source}[{self.capture_source}]: Segments needed: {duration_seconds}s ÷ {actual_segment_duration}s = {segments_needed} segments")
+                print(f"{self.capture_source}[{self.capture_source}]: Available segments: {len(all_segments)}, taking last {segments_needed}")
                 
-                # Add small buffer for segment boundaries using actual segment duration
-                buffer_seconds = actual_segment_duration * 2  # 2 segments buffer (before + after)
-                total_duration_needed = duration_seconds + buffer_seconds + wait_time_seconds
-                segments_needed = int(total_duration_needed / actual_segment_duration) + 1  # +1 for safety
-                
-                print(f"{self.capture_source}[{self.capture_source}]: Test duration: {duration_seconds}s, wait time: {wait_time_seconds}s")
-                print(f"{self.capture_source}[{self.capture_source}]: Capturing {total_duration_needed:.1f}s total, taking last {segments_needed} segments")
-                print(f"{self.capture_source}[{self.capture_source}]: Time range: {capture_start_time:.1f} to {capture_end_time:.1f} (covers full test execution)")
-                
-                # Take the last N segments (which now includes the wait time compensation)
+                # Take the last N segments
                 segment_files = all_segments[-segments_needed:] if len(all_segments) >= segments_needed else all_segments
             else:
                 # No duration provided, take all available segments
@@ -548,7 +535,15 @@ class FFmpegCaptureController(AVControllerInterface):
                 print(f"{self.capture_source}[{self.capture_source}]: No video segments found")
                 return None
             
-            print(f"{self.capture_source}[{self.capture_source}]: Found {len(segment_files)} segments")
+            print(f"{self.capture_source}[{self.capture_source}]: Selected {len(segment_files)} segments out of {len(all_segments)} total")
+            print(f"{self.capture_source}[{self.capture_source}]: Segment duration: {actual_segment_duration}s, Expected video length: {len(segment_files) * actual_segment_duration:.1f}s")
+            
+            # Log first and last few segments for debugging
+            if len(segment_files) > 0:
+                print(f"{self.capture_source}[{self.capture_source}]: First segment: {segment_files[0][0]}")
+                print(f"{self.capture_source}[{self.capture_source}]: Last segment: {segment_files[-1][0]}")
+                if len(segment_files) > 5:
+                    print(f"{self.capture_source}[{self.capture_source}]: Using segments {segment_files[0][0]} to {segment_files[-1][0]} ({len(segment_files)} total)")
             
             # 3. Compress HLS segments to MP4
             from shared.lib.utils.video_compression_utils import VideoCompressionUtils

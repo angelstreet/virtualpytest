@@ -349,7 +349,7 @@ export default function RemoteTestPage() {
 
   // Stable stream container dimensions to prevent re-renders - copied from RecHostStreamModal
   const streamContainerDimensions = useMemo(() => {
-    if (!useModalLayout) return undefined;
+    if (!useModalLayout && !showStackedTest) return undefined;
 
     const windowWidth = typeof window !== 'undefined' ? window.innerWidth : DEFAULT_DEVICE_RESOLUTION.width;
     const windowHeight = typeof window !== 'undefined' ? window.innerHeight : DEFAULT_DEVICE_RESOLUTION.height;
@@ -379,7 +379,7 @@ export default function RemoteTestPage() {
       x: Math.round(streamX),
       y: Math.round(streamY),
     };
-  }, [useModalLayout]);
+  }, [useModalLayout, showStackedTest]);
 
   // Stable device resolution to prevent re-renders
   const stableDeviceResolution = useMemo(() => DEFAULT_DEVICE_RESOLUTION, []);
@@ -640,10 +640,10 @@ export default function RemoteTestPage() {
                 deviceResolution={stableDeviceResolution}
                 streamCollapsed={false}
                 streamMinimized={false}
-                streamContainerDimensions={{
-                  ...streamContainerDimensions!,
-                  height: Math.round((streamContainerDimensions!.height - 60) / 2) + 30
-                }}
+                streamContainerDimensions={streamContainerDimensions ? {
+                  ...streamContainerDimensions,
+                  height: Math.round((streamContainerDimensions.height - 60) / 2) + 30
+                } : undefined}
                 disableResize={true}
               />
               
@@ -659,10 +659,10 @@ export default function RemoteTestPage() {
                 deviceResolution={stableDeviceResolution}
                 streamCollapsed={false}
                 streamMinimized={false}
-                streamContainerDimensions={{
-                  ...streamContainerDimensions!,
-                  height: Math.round((streamContainerDimensions!.height - 60) / 2) + 30
-                }}
+                streamContainerDimensions={streamContainerDimensions ? {
+                  ...streamContainerDimensions,
+                  height: Math.round((streamContainerDimensions.height - 60) / 2) + 30
+                } : undefined}
                 disableResize={true}
               />
             </Box>
