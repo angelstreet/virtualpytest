@@ -1,0 +1,26 @@
+[Unit]
+Description=Capture Monitor Service - HDMI Capture Analysis and Alerting
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=sunri-pi1
+Group=sunri-pi1
+WorkingDirectory=/home/sunri-pi1/virtualpytest/backend_host/scripts
+ExecStart=/home/sunri-pi1/virtualpytest/venv/bin/python /home/sunri-pi1/virtualpytest/backend_host/scripts/capture_monitor.py
+TimeoutStopSec=10
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+# Environment
+Environment=HOST_NAME=sunri-pi1
+Environment=PYTHONPATH=/home/sunri-pi1/virtualpytest/backend_host/scripts
+
+# Security
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target
