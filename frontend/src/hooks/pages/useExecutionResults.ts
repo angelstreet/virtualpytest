@@ -6,6 +6,7 @@
 
 import { useMemo } from 'react';
 
+import { buildServerUrl } from './utils/buildUrlUtils';
 export interface ExecutionResult {
   id: string;
   team_id: string;
@@ -39,7 +40,7 @@ export const useExecutionResults = () => {
           '[@hook:useExecutionResults:getAllExecutionResults] Fetching all execution results from server',
         );
 
-        const response = await fetch('/server/execution-results/getAllExecutionResults');
+        const response = await fetch(buildServerUrl('/server/execution-results/getAllExecutionResults'));
 
         console.log(
           '[@hook:useExecutionResults:getAllExecutionResults] Response status:',

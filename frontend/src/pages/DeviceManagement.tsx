@@ -33,6 +33,7 @@ import CreateDeviceDialog from '../components/devicemanagement/DeviceManagement_
 import EditDeviceDialog from '../components/devicemanagement/DeviceManagement_EditDialog';
 import { Device } from '../types/common/Host_Types';
 
+import { buildServerUrl } from './utils/buildUrlUtils';
 // Using unified Device interface from Host_Types.ts
 
 // Using unified Device interface from Host_Types.ts
@@ -61,7 +62,7 @@ const DeviceManagement: React.FC = () => {
       setLoading(true);
       setError(null);
 
-      const response = await fetch('/server/devices/getAllDevices');
+      const response = await fetch(buildServerUrl('/server/devices/getAllDevices'));
 
       console.log('[@component:DeviceManagement] Response status:', response.status);
       console.log(
@@ -157,7 +158,7 @@ const DeviceManagement: React.FC = () => {
 
       console.log('[@component:DeviceManagement] Creating device with full data:', newDeviceData);
 
-      const response = await fetch('/server/devices/createDevice', {
+      const response = await fetch(buildServerUrl('/server/devices/createDevice'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

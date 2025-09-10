@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo } from 'react';
 
+import { buildServerUrl } from './utils/buildUrlUtils';
 import {
   LanguageMenuAnalysis,
 } from '../../types/pages/Monitoring_Types';
@@ -76,7 +77,7 @@ export const useMonitoringLanguageMenu = ({
     try {
       console.log('[useMonitoringLanguageMenu] Analyzing language menu for frame:', currentFrame.imageUrl);
 
-      const response = await fetch('/server/verification/video/analyzeLanguageMenu', {
+      const response = await fetch(buildServerUrl('/server/verification/video/analyzeLanguageMenu'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

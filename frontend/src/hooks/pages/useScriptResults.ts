@@ -6,6 +6,7 @@
 
 import { useMemo } from 'react';
 
+import { buildServerUrl } from './utils/buildUrlUtils';
 export interface ScriptResult {
   id: string;
   team_id: string;
@@ -46,7 +47,7 @@ export const useScriptResults = () => {
           '[@hook:useScriptResults:getAllScriptResults] Fetching all script results from server',
         );
 
-        const response = await fetch('/server/script-results/getAllScriptResults');
+        const response = await fetch(buildServerUrl('/server/script-results/getAllScriptResults'));
 
         console.log(
           '[@hook:useScriptResults:getAllScriptResults] Response status:',

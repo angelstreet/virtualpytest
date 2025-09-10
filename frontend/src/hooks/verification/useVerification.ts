@@ -3,6 +3,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { useDeviceData } from '../../contexts/device/DeviceDataContext';
 import { Verification } from '../../types/verification/Verification_Types';
 
+import { buildServerUrl } from './utils/buildUrlUtils';
 // Define interfaces for verification data structures
 interface ImageComparisonDialogData {
   open: boolean;
@@ -230,7 +231,7 @@ export const useVerification = ({
 
         console.log('[useVerification] Batch payload:', batchPayload);
 
-        const response = await fetch('/server/verification/executeBatch', {
+        const response = await fetch(buildServerUrl('/server/verification/executeBatch'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

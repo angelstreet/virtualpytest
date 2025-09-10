@@ -4,6 +4,7 @@ import { appiumRemoteConfig } from '../../config/remote/appiumRemote';
 import { Host } from '../../types/common/Host_Types';
 import { AppiumElement, AppiumApp, AppiumSession } from '../../types/controller/Remote_Types';
 
+import { buildServerUrl } from './utils/buildUrlUtils';
 interface UseAppiumRemoteReturn {
   // State
   appiumElements: AppiumElement[];
@@ -117,7 +118,7 @@ export const useAppiumRemote = (host: Host, deviceId?: string): UseAppiumRemoteR
           requestBody.device_id = deviceId;
         }
 
-        const response = await fetch('/server/remote/executeCommand', {
+        const response = await fetch(buildServerUrl('/server/remote/executeCommand'), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -157,7 +158,7 @@ export const useAppiumRemote = (host: Host, deviceId?: string): UseAppiumRemoteR
         requestBody.device_id = deviceId;
       }
 
-      const response = await fetch('/server/remote/screenshotAndDump', {
+      const response = await fetch(buildServerUrl('/server/remote/screenshotAndDump'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -246,7 +247,7 @@ export const useAppiumRemote = (host: Host, deviceId?: string): UseAppiumRemoteR
           requestBody.device_id = deviceId;
         }
 
-        const response = await fetch('/server/remote/executeCommand', {
+        const response = await fetch(buildServerUrl('/server/remote/executeCommand'), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

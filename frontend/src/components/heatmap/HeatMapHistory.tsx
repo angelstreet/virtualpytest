@@ -15,6 +15,7 @@ import {
 } from '@mui/material';
 import React, { useState, useEffect } from 'react';
 
+import { buildServerUrl } from './utils/buildUrlUtils';
 interface HeatmapReport {
   id: string;
   timestamp: string;
@@ -41,7 +42,7 @@ export const HeatMapHistory: React.FC<HeatMapHistoryProps> = () => {
       setLoading(true);
       setError(null);
 
-      const response = await fetch('/server/heatmap/history?limit=10');
+      const response = await fetch(buildServerUrl('/server/heatmap/history?limit=10'));
 
       if (!response.ok) {
         throw new Error(`Failed to fetch reports: ${response.status} ${response.statusText}`);

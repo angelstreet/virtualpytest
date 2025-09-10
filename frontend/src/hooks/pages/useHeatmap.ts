@@ -9,6 +9,7 @@ import { useMemo, useState, useCallback } from 'react';
 
 import { MonitoringAnalysis } from '../../types/pages/Monitoring_Types';
 
+import { buildServerUrl } from './utils/buildUrlUtils';
 export interface HeatmapImage {
   host_name: string;
   device_id: string;
@@ -63,7 +64,7 @@ export const useHeatmap = () => {
       try {
         console.log('[@hook:useHeatmap:getHeatmapData] Fetching heatmap data from server');
 
-        const response = await fetch('/server/heatmap/getData');
+        const response = await fetch(buildServerUrl('/server/heatmap/getData'));
         console.log('[@hook:useHeatmap:getHeatmapData] Response status:', response.status);
 
         if (!response.ok) {
@@ -134,7 +135,7 @@ export const useHeatmap = () => {
       );
       await new Promise((resolve) => setTimeout(resolve, 5000));
 
-      const response = await fetch('/server/heatmap/generate', {
+      const response = await fetch(buildServerUrl('/server/heatmap/generate'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

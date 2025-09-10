@@ -4,6 +4,7 @@ import { PanelInfo } from '../../../types/controller/Panel_Types';
 import { AppiumElement } from '../../../types/controller/Remote_Types';
 import { getZIndex } from '../../../utils/zIndexUtils';
 
+import { buildServerUrl } from './utils/buildUrlUtils';
 interface ScaledElement {
   id: string;
   x: number;
@@ -136,7 +137,7 @@ export const AppiumOverlay = React.memo(function AppiumOverlay({
         `[@component:AppiumOverlay] Direct tap at device coordinates (${deviceX}, ${deviceY})`,
       );
 
-      const response = await fetch('/server/remote/tapCoordinates', {
+      const response = await fetch(buildServerUrl('/server/remote/tapCoordinates'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

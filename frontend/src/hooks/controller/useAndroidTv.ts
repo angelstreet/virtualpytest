@@ -3,6 +3,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { androidTvRemoteConfig } from '../../config/remote/androidTvRemote';
 import { Host } from '../../types/common/Host_Types';
 
+import { buildServerUrl } from './utils/buildUrlUtils';
 interface AndroidTvSession {
   connected: boolean;
   connecting: boolean;
@@ -113,7 +114,7 @@ export const useAndroidTv = (
           requestBody.device_id = deviceId;
         }
 
-        const response = await fetch('/server/remote/executeCommand', {
+        const response = await fetch(buildServerUrl('/server/remote/executeCommand'), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

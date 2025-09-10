@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 
 import { Host, Device } from '../../types/common/Host_Types';
 
+import { buildServerUrl } from './utils/buildUrlUtils';
 interface ExecutionLogEntry {
   timestamp: string;
   type: string;
@@ -75,7 +76,7 @@ export const useAIAgent = ({ host, device, enabled = true }: UseAIAgentProps): U
 
       console.log('[useAIAgent] Executing task:', taskInput);
 
-      const response = await fetch('/server/aiagent/executeTask', {
+      const response = await fetch(buildServerUrl('/server/aiagent/executeTask'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -119,7 +120,7 @@ export const useAIAgent = ({ host, device, enabled = true }: UseAIAgentProps): U
             await new Promise((resolve) => setTimeout(resolve, pollInterval));
 
             try {
-              const statusResponse = await fetch('/server/aiagent/getStatus', {
+              const statusResponse = await fetch(buildServerUrl('/server/aiagent/getStatus'), {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',
@@ -220,7 +221,7 @@ export const useAIAgent = ({ host, device, enabled = true }: UseAIAgentProps): U
     try {
       console.log('[useAIAgent] Stopping task execution');
 
-      const response = await fetch('/server/aiagent/stopExecution', {
+      const response = await fetch(buildServerUrl('/server/aiagent/stopExecution'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

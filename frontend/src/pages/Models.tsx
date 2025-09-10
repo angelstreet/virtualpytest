@@ -23,6 +23,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import CreateModelDialog from '../components/models/Models_CreateDialog';
 import { Model, ModelCreatePayload } from '../types/pages/Models_Types';
 
+import { buildServerUrl } from './utils/buildUrlUtils';
 const Models: React.FC = () => {
   const [models, setModels] = useState<Model[]>([]);
   const [loading, setLoading] = useState(true);
@@ -36,7 +37,7 @@ const Models: React.FC = () => {
       setLoading(true);
       setError(null);
 
-      const response = await fetch('/server/devicemodel/getAllModels');
+      const response = await fetch(buildServerUrl('/server/devicemodel/getAllModels'));
       if (!response.ok) {
         throw new Error(`Failed to fetch models: ${response.status}`);
       }
@@ -91,7 +92,7 @@ const Models: React.FC = () => {
 
       console.log('[@component:Models] Creating model:', newModelData);
 
-      const response = await fetch('/server/devicemodel/createDeviceModel', {
+      const response = await fetch(buildServerUrl('/server/devicemodel/createDeviceModel'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

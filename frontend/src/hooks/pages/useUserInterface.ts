@@ -8,6 +8,7 @@ import { useMemo } from 'react';
 
 import { UserInterface, UserInterfaceCreatePayload } from '../../types/pages/UserInterface_Types';
 
+import { buildServerUrl } from './utils/buildUrlUtils';
 // Simple cache to prevent duplicate requests
 const userInterfaceCache = new Map<string, Promise<UserInterface>>();
 
@@ -22,7 +23,7 @@ export const useUserInterface = () => {
           '[@hook:useUserInterface:getAllUserInterfaces] Fetching all user interfaces from server',
         );
 
-        const response = await fetch('/server/userinterface/getAllUserInterfaces');
+        const response = await fetch(buildServerUrl('/server/userinterface/getAllUserInterfaces'));
 
         console.log(
           '[@hook:useUserInterface:getAllUserInterfaces] Response status:',
@@ -190,7 +191,7 @@ export const useUserInterface = () => {
             payload,
           );
 
-          const response = await fetch('/server/userinterface/createUserInterface', {
+          const response = await fetch(buildServerUrl('/server/userinterface/createUserInterface'), {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 
+import { buildServerUrl } from './utils/buildUrlUtils';
 interface ScriptParameter {
   name: string;
   type: 'positional' | 'optional';
@@ -115,7 +116,7 @@ export const useRun = ({ selectedScript, selectedDevice, selectedHost, deviceMod
 
       setAnalyzingScript(true);
       try {
-        const response = await fetch('/server/script/analyze', {
+        const response = await fetch(buildServerUrl('/server/script/analyze'), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

@@ -13,6 +13,7 @@ import {
 } from '../../types/power';
 import { Host } from '../../types/common/Host_Types';
 
+import { buildServerUrl } from './utils/buildUrlUtils';
 interface UsePowerControlOptions {
   host: Host;
   device_id: string;
@@ -55,7 +56,7 @@ export const usePowerControl = ({
     setStatusError(null);
 
     try {
-      const response = await fetch('/server/power/getStatus', {
+      const response = await fetch(buildServerUrl('/server/power/getStatus'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -92,7 +93,7 @@ export const usePowerControl = ({
       setCommandError(null);
 
       try {
-        const response = await fetch('/server/power/executeCommand', {
+        const response = await fetch(buildServerUrl('/server/power/executeCommand'), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

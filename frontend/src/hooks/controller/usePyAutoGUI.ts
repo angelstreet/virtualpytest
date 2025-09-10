@@ -2,6 +2,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 
 import { Host } from '../../types/common/Host_Types';
 
+import { buildServerUrl } from './utils/buildUrlUtils';
 export const usePyAutoGUI = (host: Host, _deviceId: string) => {
   // Minimal state similar to bash
   const [terminalOutput, setTerminalOutput] = useState<string>('');
@@ -28,7 +29,7 @@ export const usePyAutoGUI = (host: Host, _deviceId: string) => {
       try {
         console.log('[@hook:usePyAutoGUI] Executing command:', command, params);
 
-        const response = await fetch('/server/desktop/pyautogui/executeCommand', {
+        const response = await fetch(buildServerUrl('/server/desktop/pyautogui/executeCommand'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

@@ -6,6 +6,7 @@
  */
 
 import { useState, useCallback } from 'react';
+import { buildServerUrl } from '../../utils/buildUrlUtils';
 import {
   NotificationIntegration,
   NotificationRule,
@@ -39,7 +40,7 @@ interface UseNotificationsReturn {
   error: string | null;
 }
 
-const NOTIFICATIONS_API_BASE_URL = '/server/notifications';
+const NOTIFICATIONS_API_BASE_URL = buildServerUrl('/server/notifications');
 
 export const useNotifications = (): UseNotificationsReturn => {
   // State

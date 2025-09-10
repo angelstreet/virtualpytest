@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 
 import { Host, Device } from '../../types/common/Host_Types';
 
+import { buildServerUrl } from './utils/buildUrlUtils';
 export interface RestartFrame {
   filename: string;
   timestamp: string; // YYYYMMDDHHMMSS format
@@ -41,7 +42,7 @@ export const useRestart = ({ host, device }: UseRestartParams): UseRestartReturn
         `[@hook:useRestart] Loading all frames for ${host.host_name}-${device.device_id}`,
       );
 
-      const response = await fetch('/server/rec/getRestartImages', {
+      const response = await fetch(buildServerUrl('/server/rec/getRestartImages'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

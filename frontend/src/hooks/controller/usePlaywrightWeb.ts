@@ -3,6 +3,7 @@ import { io, type Socket } from 'socket.io-client';
 
 import { Host } from '../../types/common/Host_Types';
 
+import { buildServerUrl } from './utils/buildUrlUtils';
 interface PlaywrightWebSession {
   connected: boolean;
   host: Host;
@@ -57,7 +58,7 @@ export const usePlaywrightWeb = (host: Host) => {
           params,
         );
 
-        const response = await fetch('/server/web/executeCommand', {
+        const response = await fetch(buildServerUrl('/server/web/executeCommand'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -89,7 +90,7 @@ export const usePlaywrightWeb = (host: Host) => {
   // Get web controller status
   const getStatus = useCallback(async () => {
     try {
-      const response = await fetch('/server/web/getStatus', {
+      const response = await fetch(buildServerUrl('/server/web/getStatus'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

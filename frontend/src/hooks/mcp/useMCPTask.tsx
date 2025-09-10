@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 
+import { buildServerUrl } from './utils/buildUrlUtils';
 interface MCPTaskResponse {
   success: boolean;
   result?: string;
@@ -65,7 +66,7 @@ export const useMCPTask = (): UseMCPTaskReturn => {
     setLastResponse(null);
 
     try {
-      const response = await fetch('/server/mcp/execute-task', {
+      const response = await fetch(buildServerUrl('/server/mcp/execute-task'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

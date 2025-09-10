@@ -37,6 +37,7 @@ import { DeviceStreamGrid } from '../components/common/DeviceStreaming/DeviceStr
 
 
 
+import { buildServerUrl } from './utils/buildUrlUtils';
 // Simple execution record interface
 interface ExecutionRecord {
   id: string;
@@ -203,7 +204,7 @@ const RunTests: React.FC = () => {
       
       try {
         console.log('[@RunTests] Loading scripts from API...');
-        const response = await fetch('/server/script/list');
+        const response = await fetch(buildServerUrl('/server/script/list'));
         const data = await response.json();
 
         if (data.success && data.scripts) {

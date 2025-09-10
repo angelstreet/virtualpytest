@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { buildServerUrl } from '../utils/buildUrlUtils';
 
 import {
   Computer as ComputerIcon,
@@ -64,9 +65,9 @@ const Dashboard: React.FC = () => {
     try {
       setLoading(true);
       const [campaignsResponse, testCasesResponse, treesResponse] = await Promise.all([
-        fetch('/server/campaigns/getAllCampaigns'),
-        fetch('/server/testcases/getAllTestCases'),
-        fetch('/server/navigationTrees'), // Correct endpoint for getting all trees
+        fetch(buildServerUrl('/server/campaigns/getAllCampaigns')),
+        fetch(buildServerUrl('/server/testcases/getAllTestCases')),
+        fetch(buildServerUrl('/server/navigationTrees')), // Correct endpoint for getting all trees
       ]);
 
       let testCases: TestCase[] = [];

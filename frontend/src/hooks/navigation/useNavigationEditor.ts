@@ -7,6 +7,7 @@ import { useHostManager } from '../useHostManager';
 import { UINavigationEdge } from '../../types/pages/Navigation_Types';
 import { useEdge } from './useEdge';
 
+import { buildServerUrl } from './utils/buildUrlUtils';
 export const useNavigationEditor = () => {
   // Get the navigation config context (save/load functionality)
   const navigationConfig = useNavigationConfig();
@@ -735,7 +736,7 @@ export const useNavigationEditor = () => {
       // Interface operations
       listAvailableTrees: async () => {
         try {
-          const response = await fetch('/server/userinterface/getAllUserInterfaces');
+          const response = await fetch(buildServerUrl('/server/userinterface/getAllUserInterfaces'));
           if (!response.ok) {
             throw new Error(`Failed to fetch user interfaces: ${response.status}`);
           }

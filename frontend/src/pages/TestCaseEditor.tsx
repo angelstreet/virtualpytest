@@ -34,6 +34,7 @@ import { TestCase as AITestCase } from '../types/pages/TestCase_Types';
 
 
 
+import { buildServerUrl } from './utils/buildUrlUtils';
 const TestCaseEditor: React.FC = () => {
   // Use registration context for centralized URL management
   const [testCases, setTestCases] = useState<TestCase[]>([]);
@@ -50,7 +51,7 @@ const TestCaseEditor: React.FC = () => {
   const fetchTestCases = async () => {
     try {
       // Use correct testcases endpoint
-      const response = await fetch('/server/testcases/getAllTestCases');
+      const response = await fetch(buildServerUrl('/server/testcases/getAllTestCases'));
       if (response.ok) {
         const data = await response.json();
         setTestCases(data);

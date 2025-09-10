@@ -35,6 +35,7 @@ import { useNavigate } from 'react-router-dom';
 
 import { useUserInterface } from '../hooks/pages/useUserInterface';
 import { Model } from '../types/pages/Models_Types';
+import { buildServerUrl } from './utils/buildUrlUtils';
 import {
   UserInterface as UserInterfaceType,
   UserInterfaceCreatePayload,
@@ -81,7 +82,7 @@ const UserInterface: React.FC = () => {
     const loadModels = async () => {
       try {
         setModelsLoading(true);
-        const response = await fetch('/server/devicemodel/getAllModels');
+        const response = await fetch(buildServerUrl('/server/devicemodel/getAllModels'));
         if (!response.ok) {
           throw new Error(`Failed to fetch models: ${response.status}`);
         }

@@ -2,6 +2,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 
 import { Host } from '../../types/common/Host_Types';
 
+import { buildServerUrl } from './utils/buildUrlUtils';
 export const useBashDesktop = (host: Host, _deviceId: string) => {
   // Minimal terminal state
   const [terminalOutput, setTerminalOutput] = useState<string>('');
@@ -28,7 +29,7 @@ export const useBashDesktop = (host: Host, _deviceId: string) => {
       try {
         console.log('[@hook:useBashDesktop] Executing command:', command);
 
-        const response = await fetch('/server/desktop/bash/executeCommand', {
+        const response = await fetch(buildServerUrl('/server/desktop/bash/executeCommand'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

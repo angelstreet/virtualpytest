@@ -4,6 +4,7 @@ import { Host, Device } from '../../types/common/Host_Types';
 import { useHostManager } from '../useHostManager';
 import { calculateVncScaling } from '../../utils/vncUtils';
 
+import { buildServerUrl } from './utils/buildUrlUtils';
 // Removed global state - no longer needed for simple monitoring patterns
 
 interface UseRecReturn {
@@ -115,7 +116,7 @@ export const useRec = (): UseRecReturn => {
         try {
           // console.log(`[@hook:useRec] Restarting stream for ${host.host_name}-${device.device_id}`);
 
-          const response = await fetch('/server/av/restartStream', {
+          const response = await fetch(buildServerUrl('/server/av/restartStream'), {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',

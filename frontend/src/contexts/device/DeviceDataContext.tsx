@@ -12,6 +12,7 @@ import { Host } from '../../types/common/Host_Types';
 import type { Actions } from '../../types/controller/Action_Types';
 import { ModelReferences } from '../../types/verification/Verification_Types';
 
+import { buildServerUrl } from './utils/buildUrlUtils';
 // ========================================
 // TYPES
 // ========================================
@@ -206,7 +207,7 @@ export const DeviceDataProvider: React.FC<DeviceDataProviderProps> = ({ children
       setState((prev) => ({ ...prev, referencesLoading: true, referencesError: null }));
 
       try {
-        const response = await fetch('/server/verification/getAllReferences', {
+        const response = await fetch(buildServerUrl('/server/verification/getAllReferences'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ host: state.currentHost }),

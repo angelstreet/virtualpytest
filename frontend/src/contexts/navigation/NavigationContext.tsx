@@ -19,6 +19,7 @@ import {
 import { useDeviceData } from '../device/DeviceDataContext';
 import { useNavigationConfig } from './NavigationConfigContext';
 
+import { buildServerUrl } from './utils/buildUrlUtils';
 // ========================================
 // TYPES
 // ========================================
@@ -1077,7 +1078,7 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
 
                           // Refresh navigation cache (non-blocking)
               try {
-                await fetch('/server/pathfinding/cache/refresh', {
+                await fetch(buildServerUrl('/server/pathfinding/cache/refresh'), {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({ 
@@ -1323,7 +1324,7 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
            setError(null);
 
            // Mock action execution - replace with actual API call
-           const result = await fetch('/server/action/execute', {
+           const result = await fetch(buildServerUrl('/server/action/execute'), {
              method: 'POST',
              headers: { 'Content-Type': 'application/json' },
              body: JSON.stringify({

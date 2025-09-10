@@ -6,6 +6,7 @@ import { useDeviceData } from '../../contexts/device/DeviceDataContext';
 
 import { useVerification } from './useVerification';
 
+import { buildServerUrl } from './utils/buildUrlUtils';
 // Define interfaces for editor-specific data structures
 interface DetectedTextData {
   text: string;
@@ -315,7 +316,7 @@ export const useVerificationEditor = ({
         console.log(
           '[@hook:useVerificationEditor] Saving text reference using processed image from detectText',
         );
-        const response = await fetch('/server/verification/text/saveText', {
+        const response = await fetch(buildServerUrl('/server/verification/text/saveText'), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -412,7 +413,7 @@ export const useVerificationEditor = ({
         }
 
         // Image references: Single call uploads to R2 and saves to database
-        const response = await fetch('/server/verification/image/saveImage', {
+        const response = await fetch(buildServerUrl('/server/verification/image/saveImage'), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

@@ -9,6 +9,7 @@
  */
 
 import { useState, useCallback, useEffect } from 'react';
+import { buildServerUrl } from '../../utils/buildUrlUtils';
 import {
   CampaignConfig,
   CampaignExecution,
@@ -66,8 +67,8 @@ interface UseCampaignReturn {
   error: string | null;
 }
 
-const CAMPAIGN_API_BASE_URL = '/server/campaigns';
-const SCRIPT_API_BASE_URL = '/server/script';
+const CAMPAIGN_API_BASE_URL = buildServerUrl('/server/campaigns');
+const SCRIPT_API_BASE_URL = buildServerUrl('/server/script');
 
 export const useCampaign = (): UseCampaignReturn => {
   // Execution State

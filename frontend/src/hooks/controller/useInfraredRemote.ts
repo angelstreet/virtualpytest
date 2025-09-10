@@ -5,6 +5,7 @@ import { getInfraredRemoteConfig } from '../../config/remote/infraredRemoteFacto
 import { InfraredRemoteConfig } from '../../config/remote/infraredRemoteBase';
 import { Host } from '../../types/common/Host_Types';
 
+import { buildServerUrl } from './utils/buildUrlUtils';
 interface InfraredRemoteSession {
   connected: boolean;
   connecting: boolean;
@@ -148,7 +149,7 @@ export const useInfraredRemote = (
           requestBody.device_id = deviceId;
         }
 
-        const response = await fetch('/server/remote/executeCommand', {
+        const response = await fetch(buildServerUrl('/server/remote/executeCommand'), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

@@ -2,6 +2,7 @@ import { RemoteDeviceConfig } from '../../types/controller/Remote_Types';
 import { useState, useEffect, useCallback } from 'react';
 import { Host } from '../../types/common/Host_Types';
 
+import { buildServerUrl } from './utils/buildUrlUtils';
 // Android TV configuration - uses server route proxying to host
 export const ANDROID_TV_CONFIG: RemoteDeviceConfig = {
   type: 'android-tv',
@@ -193,7 +194,7 @@ export function useRemoteConfigs({
         );
 
         // Use centralized server route for stream tap
-        const response = await fetch('/server/remote/streamTap', {
+        const response = await fetch(buildServerUrl('/server/remote/streamTap'), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -237,7 +238,7 @@ export function useRemoteConfigs({
         console.log(`[@hook:useRemoteConfigs] Handling coordinate tap at (${x}, ${y})`);
 
         // Use centralized server route for coordinate tap
-        const response = await fetch('/server/remote/tapCoordinates', {
+        const response = await fetch(buildServerUrl('/server/remote/tapCoordinates'), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

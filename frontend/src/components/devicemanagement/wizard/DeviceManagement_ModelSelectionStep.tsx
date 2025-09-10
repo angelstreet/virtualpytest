@@ -16,6 +16,7 @@ import { useHostManager } from '../../../hooks/useHostManager';
 import { DeviceFormData } from '../../../types/controller/Controller_Types';
 import { Model as DeviceModel } from '../../../types/pages/Models_Types';
 
+import { buildServerUrl } from './utils/buildUrlUtils';
 interface ModelSelectionStepProps {
   formData: DeviceFormData;
   onUpdate: (updates: Partial<DeviceFormData>) => void;
@@ -43,7 +44,7 @@ export const ModelSelectionStep: React.FC<ModelSelectionStepProps> = ({
       try {
         console.log('[@component:ModelSelectionStep] Fetching device models');
 
-        const response = await fetch('/server/devicemodel/getAllModels');
+        const response = await fetch(buildServerUrl('/server/devicemodel/getAllModels'));
         if (!response.ok) {
           throw new Error(
             `Failed to fetch device models: ${response.status} ${response.statusText}`,

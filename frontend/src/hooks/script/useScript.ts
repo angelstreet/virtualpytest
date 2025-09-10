@@ -6,6 +6,7 @@
  */
 
 import { useState, useCallback } from 'react';
+import { buildServerUrl } from '../../utils/buildUrlUtils';
 
 interface ScriptExecutionResult {
   success: boolean;
@@ -41,7 +42,7 @@ interface UseScriptReturn {
 }
 
 // Simple constant for the API base URL
-const SCRIPT_API_BASE_URL = '/server/script';
+const SCRIPT_API_BASE_URL = buildServerUrl('/server/script');
 
 export const useScript = (): UseScriptReturn => {
   const [isExecuting, setIsExecuting] = useState(false);

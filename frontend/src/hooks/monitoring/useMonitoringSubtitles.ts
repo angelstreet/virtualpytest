@@ -7,6 +7,7 @@ import {
 } from '../../types/pages/Monitoring_Types';
 import { useToast } from '../useToast';
 
+import { buildServerUrl } from './utils/buildUrlUtils';
 interface FrameRef {
   timestamp: string;
   imageUrl: string;
@@ -135,7 +136,7 @@ export const useMonitoringSubtitles = ({
     try {
       console.log('[useMonitoringSubtitles] Detecting subtitles for frame:', currentFrame.imageUrl);
 
-      const response = await fetch('/server/verification/video/detectSubtitles', {
+      const response = await fetch(buildServerUrl('/server/verification/video/detectSubtitles'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -242,7 +243,7 @@ export const useMonitoringSubtitles = ({
         currentFrame.imageUrl,
       );
 
-      const response = await fetch('/server/verification/video/detectSubtitlesAI', {
+      const response = await fetch(buildServerUrl('/server/verification/video/detectSubtitlesAI'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

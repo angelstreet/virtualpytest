@@ -4,6 +4,7 @@
  */
 
 import { useState, useCallback } from 'react';
+import { buildServerUrl } from './utils/buildUrlUtils';
 import { 
   AITestCaseRequest, 
   AITestCaseResponse, 
@@ -29,7 +30,7 @@ export const useAITestCase = () => {
     try {
       console.log('[@useAITestCase:analyzeTestCase] Starting analysis for prompt:', prompt);
 
-      const response = await fetch('/server/aitestcase/analyzeTestCase', {
+      const response = await fetch(buildServerUrl('/server/aitestcase/analyzeTestCase'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -67,7 +68,7 @@ export const useAITestCase = () => {
     try {
       console.log('[@useAITestCase:generateTestCases] Generating for interfaces:', confirmedInterfaces);
 
-      const response = await fetch('/server/aitestcase/generateTestCases', {
+      const response = await fetch(buildServerUrl('/server/aitestcase/generateTestCases'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -111,7 +112,7 @@ export const useAITestCase = () => {
     try {
       console.log('[@useAITestCase:generateTestCase] Starting AI test case generation', request);
 
-      const response = await fetch('/server/aitestcase/generateTestCase', {
+      const response = await fetch(buildServerUrl('/server/aitestcase/generateTestCase'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -162,7 +163,7 @@ export const useAITestCase = () => {
     try {
       console.log('[@useAITestCase:executeTestCase] Starting test case execution', { testCaseId, deviceId });
 
-      const response = await fetch('/server/aitestcase/executeTestCase', {
+      const response = await fetch(buildServerUrl('/server/aitestcase/executeTestCase'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -209,7 +210,7 @@ export const useAITestCase = () => {
     try {
       console.log('[@useAITestCase:validateCompatibility] Validating compatibility', { testCaseId, interfaceName });
 
-      const response = await fetch('/server/aitestcase/validateCompatibility', {
+      const response = await fetch(buildServerUrl('/server/aitestcase/validateCompatibility'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

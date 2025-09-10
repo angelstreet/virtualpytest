@@ -9,6 +9,7 @@ import { useMemo } from 'react';
 
 import { Alert } from '../../types/pages/Monitoring_Types';
 
+import { buildServerUrl } from './utils/buildUrlUtils';
 export const useAlerts = () => {
   /**
    * Get all alerts (optimized single query)
@@ -18,7 +19,7 @@ export const useAlerts = () => {
       try {
         console.log('[@hook:useAlerts:getAllAlerts] Fetching all alerts from server');
 
-        const response = await fetch('/server/alerts/getAllAlerts');
+        const response = await fetch(buildServerUrl('/server/alerts/getAllAlerts'));
 
         console.log('[@hook:useAlerts:getAllAlerts] Response status:', response.status);
 

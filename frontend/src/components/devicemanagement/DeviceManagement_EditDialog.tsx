@@ -33,6 +33,7 @@ import { ControllerConfigurationStep } from './wizard/DeviceManagement_Controlle
 import { ModelSelectionStep } from './wizard/DeviceManagement_ModelSelectionStep';
 import { ReviewStep } from './wizard/DeviceManagement_ReviewStep';
 
+import { buildServerUrl } from './utils/buildUrlUtils';
 interface EditDeviceDialogProps {
   open: boolean;
   device: Device | null;
@@ -92,7 +93,7 @@ const EditDeviceDialog: React.FC<EditDeviceDialogProps> = ({
       try {
         console.log('[@component:EditDeviceDialog] Fetching device models');
 
-        const response = await fetch('/server/devicemodel/getAllModels');
+        const response = await fetch(buildServerUrl('/server/devicemodel/getAllModels'));
         if (!response.ok) {
           throw new Error(
             `Failed to fetch device models: ${response.status} ${response.statusText}`,

@@ -13,6 +13,7 @@ import {
 } from '../../types/pages/Navigation_Types';
 import { useValidationColors } from '../validation/useValidationColors';
 
+import { buildServerUrl } from './utils/buildUrlUtils';
 export interface UseNodeProps {
   selectedHost?: Host;
   selectedDeviceId?: string;
@@ -114,7 +115,7 @@ export const useNode = (props?: UseNodeProps) => {
         // Sanitize filename by removing spaces and special characters
         const sanitizedFilename = label.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_-]/g, '');
         
-        const response = await fetch('/server/av/saveScreenshot', {
+        const response = await fetch(buildServerUrl('/server/av/saveScreenshot'), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

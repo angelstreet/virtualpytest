@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 
 import { ControllerTypesResponse } from '../../types/controller/Remote_Types';
 
+import { buildServerUrl } from './utils/buildUrlUtils';
 export function useControllers() {
   const [controllerTypes, setControllerTypes] = useState<ControllerTypesResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -12,7 +13,7 @@ export function useControllers() {
       setLoading(true);
       console.log('[@hook:useControllers] Fetching controller types');
 
-      const response = await fetch('/server/control/getAllControllers');
+      const response = await fetch(buildServerUrl('/server/control/getAllControllers'));
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);

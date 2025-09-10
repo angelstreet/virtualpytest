@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useToast } from '../useToast';
 
+import { buildServerUrl } from './utils/buildUrlUtils';
 interface FrameRef {
   timestamp: string;
   imageUrl: string;
@@ -99,7 +100,7 @@ export const useMonitoringAI = ({
     try {
       console.log('[useMonitoringAI] Processing AI query for frame:', currentFrame.imageUrl);
 
-      const response = await fetch('/server/verification/video/analyzeImageAI', {
+      const response = await fetch(buildServerUrl('/server/verification/video/analyzeImageAI'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 
 import { useUserSession } from '../hooks/useUserSession';
 import { Host, Device } from '../types/common/Host_Types';
+import { buildServerUrl } from '../utils/buildUrlUtils';
 
 import { HostManagerContext } from './HostManagerContext';
 
@@ -212,7 +213,7 @@ export const HostManagerProvider: React.FC<HostManagerProviderProps> = ({
       );
 
       // Get list of all locked devices from server
-      const response = await fetch('/server/control/lockedDevices', {
+      const response = await fetch(buildServerUrl('/server/control/lockedDevices'), {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -291,7 +292,7 @@ export const HostManagerProvider: React.FC<HostManagerProviderProps> = ({
         );
         console.log(`[@context:HostManagerProvider] Using user ID for lock: ${userId}`);
 
-        const response = await fetch('/server/control/takeControl', {
+        const response = await fetch(buildServerUrl('/server/control/takeControl'), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -391,7 +392,7 @@ export const HostManagerProvider: React.FC<HostManagerProviderProps> = ({
         );
         console.log(`[@context:HostManagerProvider] Using user ID for unlock: ${userId}`);
 
-        const response = await fetch('/server/control/releaseControl', {
+        const response = await fetch(buildServerUrl('/server/control/releaseControl'), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

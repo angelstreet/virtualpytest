@@ -3,7 +3,48 @@
  *
  * Single source of truth for all URL construction patterns.
  * Mirrors the Python buildUrlUtils.py for consistency.
+ *
+ * CRITICAL: Always use these functions for URL building to ensure:
+ * - Environment-specific configuration (dev vs prod)
+ * - Consistent URL patterns across the application
+ * - Easy maintenance and debugging
+ * - Proper routing in different deployment scenarios
+ *
+ * URL Building Categories:
+ * 1. Server URLs - Backend API endpoints (buildServerUrl)
+ * 2. Host URLs - Direct device communication (buildHostUrl)
+ * 3. Image URLs - Static assets and captures (buildHostImageUrl, buildCloudImageUrl)
+ * 4. Stream URLs - Live video streams (buildStreamUrl)
  */
+
+// =====================================================
+// SERVER URL BUILDING (Frontend to Backend Server)
+// =====================================================
+
+/**
+ * Build server URL for backend API endpoints (Frontend to backend_server)
+ * 
+ * Uses VITE_SERVER_URL environment variable to determine the backend server location.
+ * This ensures requests go to the correct backend regardless of deployment environment.
+ * 
+ * Examples:
+ * - Development: buildServerUrl('/server/control/lockedDevices') 
+ *   → http://localhost:5109/server/control/lockedDevices
+ * - Production: buildServerUrl('/server/control/lockedDevices')
+ *   → https://virtualpytest.onrender.com/server/control/lockedDevices
+ * 
+ * @param endpoint - API endpoint (e.g., '/server/control/lockedDevices')
+ * @returns Complete URL to backend server endpoint
+ */
+export const buildServerUrl = (endpoint: string): string => {
+  const serverUrl = (import.meta as any).env?.VITE_SERVER_URL || 'http://localhost:5109';
+  const cleanEndpoint = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint;
+  return `${serverUrl}/${cleanEndpoint}`;
+};
+
+// =====================================================
+// HOST URL BUILDING (Frontend to Device Hosts)
+// =====================================================
 
 /**
  * Build host URL for direct host communication (Frontend to host)
@@ -227,3 +268,72 @@ const getDeviceCaptureUrlPath = (host: any, deviceId: string): string => {
     `Device ${deviceId} not found in host configuration. Available devices: ${availableDevices.join(', ')}`,
   );
 };
+# URL Building Documentation
+
+This content will be added to buildUrlUtils.ts
+
+```typescript
+// =====================================================
+// DOCUMENTATION & USAGE GUIDELINES
+// =====================================================
+
+/**
+ * URL BUILDING BEST PRACTICES
+ * 
+ * WHY CENTRALIZED URL BUILDING IS CRITICAL:
+ * 
+ * 1. ENVIRONMENT FLEXIBILITY
+ *    - Development: APIs run on localhost:5109
+ *    - Production: APIs run on virtualpytest.onrender.com
+ *    - Without centralized building, you get hardcoded URLs that break in different environments
+ * 
+ * 2. DEPLOYMENT ARCHITECTURE SUPPORT
+ *    - Frontend deployed on Vercel (www.virtualpytest.com)
+ *    - Backend deployed on Render (virtualpytest.onrender.com)
+ *    - Direct fetch('/server/...') goes to frontend domain, not backend!
+ * 
+ * 3. DEBUGGING & MAINTENANCE
+ *    - Single place to change URL patterns
+ *    - Easy to trace URL construction issues
+ *    - Consistent error handling and validation
+ * 
+ * 4. SECURITY & CORS
+ *    - Proper cross-origin request handling
+ *    - Environment-specific CORS configuration
+ *    - Prevents accidental exposure of internal URLs
+ * 
+ * USAGE PATTERNS:
+ * 
+ * ❌ WRONG - Direct fetch with relative URLs:
+ *    await fetch('/server/control/lockedDevices')
+ *    → Goes to: https://www.virtualpytest.com/server/control/lockedDevices (WRONG!)
+ * 
+ * ✅ CORRECT - Use buildServerUrl:
+ *    import { buildServerUrl } from '../utils/buildUrlUtils';
+ *    await fetch(buildServerUrl('/server/control/lockedDevices'))
+ *    → Goes to: https://virtualpytest.onrender.com/server/control/lockedDevices (CORRECT!)
+ * 
+ * ❌ WRONG - Hardcoded constants:
+ *    const API_BASE = '/server/campaigns';
+ * 
+ * ✅ CORRECT - Use buildServerUrl in constants:
+ *    const API_BASE = buildServerUrl('/server/campaigns');
+ * 
+ * FUNCTION SELECTION GUIDE:
+ * 
+ * - buildServerUrl()     → Backend API calls (campaigns, scripts, control, etc.)
+ * - buildHostUrl()       → Direct device communication (screenshots, actions, etc.)
+ * - buildStreamUrl()     → Live video streams from devices
+ * - buildCaptureUrl()    → Screenshot and capture images
+ * - buildHostImageUrl()  → Any image served by device hosts
+ * - buildCloudImageUrl() → Images stored in cloud storage (R2, S3)
+ * 
+ * ENVIRONMENT VARIABLES REQUIRED:
+ * 
+ * - VITE_SERVER_URL: Backend server URL (e.g., https://virtualpytest.onrender.com)
+ *   Used by: buildServerUrl()
+ * 
+ * - Host configuration in database: host_url, host_ip, host_port
+ *   Used by: buildHostUrl(), buildStreamUrl(), buildCaptureUrl()
+ */
+```

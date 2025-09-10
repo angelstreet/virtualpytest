@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 
 import { Host } from '../../types/common/Host_Types';
 
+import { buildServerUrl } from './utils/buildUrlUtils';
 interface UseStreamProps {
   host: Host;
   device_id: string; // Can be empty string when no device is selected
@@ -85,7 +86,7 @@ export const useStream = ({ host, device_id }: UseStreamProps): UseStreamReturn 
           `[@hook:useStream] Fetching stream URL for host: ${host.host_name}, device: ${device_id}`,
         );
 
-        const response = await fetch('/server/av/getStreamUrl', {
+        const response = await fetch(buildServerUrl('/server/av/getStreamUrl'), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

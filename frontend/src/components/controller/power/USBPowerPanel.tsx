@@ -18,6 +18,7 @@ import {
 } from '@mui/material';
 import React, { useState, useEffect } from 'react';
 
+import { buildServerUrl } from './utils/buildUrlUtils';
 interface PowerPanelProps {
   hostName: string;
   /** Custom styling */
@@ -52,7 +53,7 @@ export const TapoPowerPanel: React.FC<PowerPanelProps> = ({ sx = {} }) => {
 
   const checkConnectionStatus = async () => {
     try {
-      const response = await fetch('/server/power/status');
+      const response = await fetch(buildServerUrl('/server/power/status'));
       const result = await response.json();
 
       if (result.success && result.connected) {
@@ -71,7 +72,7 @@ export const TapoPowerPanel: React.FC<PowerPanelProps> = ({ sx = {} }) => {
 
     try {
       console.log('[@component:TapoPowerPanel] Checking power status...');
-      const response = await fetch('/server/power/power-status');
+      const response = await fetch(buildServerUrl('/server/power/power-status'));
       const result = await response.json();
 
       if (result.success && result.power_status) {
@@ -101,7 +102,7 @@ export const TapoPowerPanel: React.FC<PowerPanelProps> = ({ sx = {} }) => {
     try {
       console.log('[@component:TapoPowerPanel] Starting power connection...');
 
-      const response = await fetch('/server/power/takeControl', {
+      const response = await fetch(buildServerUrl('/server/power/takeControl'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -139,7 +140,7 @@ export const TapoPowerPanel: React.FC<PowerPanelProps> = ({ sx = {} }) => {
 
     try {
       console.log('[@component:TapoPowerPanel] Disconnecting power controller...');
-      await fetch('/server/power/releaseControl', {
+      await fetch(buildServerUrl('/server/power/releaseControl'), {
         method: 'POST',
       });
 
@@ -171,7 +172,7 @@ export const TapoPowerPanel: React.FC<PowerPanelProps> = ({ sx = {} }) => {
 
     try {
       console.log('[@component:TapoPowerPanel] Toggling power...');
-      const response = await fetch('/server/power/toggle', {
+      const response = await fetch(buildServerUrl('/server/power/toggle'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -217,7 +218,7 @@ export const TapoPowerPanel: React.FC<PowerPanelProps> = ({ sx = {} }) => {
 
     try {
       console.log('[@component:TapoPowerPanel] Rebooting device...');
-      const response = await fetch('/server/power/reboot', {
+      const response = await fetch(buildServerUrl('/server/power/reboot'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

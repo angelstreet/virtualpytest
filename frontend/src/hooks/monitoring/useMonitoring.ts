@@ -11,6 +11,7 @@ import { useMonitoringAI } from './useMonitoringAI';
 import { useMonitoringSubtitles } from './useMonitoringSubtitles';
 import { useMonitoringLanguageMenu } from './useMonitoringLanguageMenu';
 
+import { buildServerUrl } from './utils/buildUrlUtils';
 interface FrameRef {
   timestamp: string;
   imageUrl: string;
@@ -159,7 +160,7 @@ export const useMonitoring = ({
     setIsInitializingBaseUrl(true);
     try {
       console.log('[useMonitoring] Initializing autonomous base URL pattern...');
-      const response = await fetch('/server/av/takeScreenshot', {
+      const response = await fetch(buildServerUrl('/server/av/takeScreenshot'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -198,7 +199,7 @@ export const useMonitoring = ({
   const fetchLatestMonitoringData = useCallback(async (): Promise<{imageUrl: string, jsonUrl: string, timestamp: string} | null> => {
     try {
       // Get latest JSON file from the capture directory
-      const response = await fetch('/server/av/monitoring/latest-json', {
+      const response = await fetch(buildServerUrl('/server/av/monitoring/latest-json'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

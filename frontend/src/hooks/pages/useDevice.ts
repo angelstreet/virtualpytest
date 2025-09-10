@@ -10,6 +10,7 @@ import { useMemo } from 'react';
 
 import { Model, ModelCreatePayload as ModelCreateData } from '../../types/pages/Models_Types';
 
+import { buildServerUrl } from './utils/buildUrlUtils';
 // Server Response interface
 export interface ServerResponse<T> {
   status: string;
@@ -35,7 +36,7 @@ class DeviceModelServerService {
   async getAllDeviceModels(): Promise<Model[]> {
     try {
       console.log('[@hook:useDeviceModels:getAllDeviceModels] Fetching all device models');
-      const response = await fetch('/server/devicemodel/getAllModels', {
+      const response = await fetch(buildServerUrl('/server/devicemodel/getAllModels'), {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -97,7 +98,7 @@ class DeviceModelServerService {
   async createDeviceModel(model: Omit<Model, 'id' | 'created_at' | 'updated_at'>): Promise<Model> {
     try {
       console.log('[@hook:useDeviceModels:createDeviceModel] Creating device model:', model);
-      const response = await fetch('/server/devicemodel/createDeviceModel', {
+      const response = await fetch(buildServerUrl('/server/devicemodel/createDeviceModel'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

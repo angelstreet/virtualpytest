@@ -3,6 +3,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { useDeviceData } from '../../contexts/device/DeviceDataContext';
 import type { EdgeAction } from '../../types/controller/Action_Types';
 
+import { buildServerUrl } from './utils/buildUrlUtils';
 // Define interfaces for action data structures
 interface ActionExecutionResult {
   success: boolean;
@@ -139,7 +140,7 @@ export const useAction = () => {
 
         console.log('[useAction] Batch payload:', batchPayload);
 
-        const response = await fetch('/server/action/executeBatch', {
+        const response = await fetch(buildServerUrl('/server/action/executeBatch'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

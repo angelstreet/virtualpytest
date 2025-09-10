@@ -6,6 +6,7 @@
 
 import { useMemo } from 'react';
 
+import { buildServerUrl } from './utils/buildUrlUtils';
 export interface ScriptResult {
   id: string;
   script_name: string;
@@ -56,7 +57,7 @@ export const useCampaignResults = () => {
           '[@hook:useCampaignResults:getAllCampaignResults] Fetching all campaign results from server',
         );
 
-        const response = await fetch('/server/campaign-results/getAllCampaignResults');
+        const response = await fetch(buildServerUrl('/server/campaign-results/getAllCampaignResults'));
 
         console.log(
           '[@hook:useCampaignResults:getAllCampaignResults] Response status:',

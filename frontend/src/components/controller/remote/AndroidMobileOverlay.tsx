@@ -5,6 +5,7 @@ import { AndroidElement } from '../../../types/controller/Remote_Types';
 import { getZIndex } from '../../../utils/zIndexUtils';
 
 
+import { buildServerUrl } from './utils/buildUrlUtils';
 interface ScaledElement {
   id: string;
   x: number;
@@ -183,7 +184,7 @@ export const AndroidMobileOverlay = React.memo(
     // Direct server tap function - bypasses useRemoteConfigs double conversion
     const handleDirectTap = async (deviceX: number, deviceY: number) => {
       try {
-        const response = await fetch('/server/remote/tapCoordinates', {
+        const response = await fetch(buildServerUrl('/server/remote/tapCoordinates'), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
