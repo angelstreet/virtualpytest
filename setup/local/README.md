@@ -41,8 +41,8 @@ Quick reference for VirtualPyTest local installation and launch scripts.
 # 2. Install everything (includes Grafana by default)
 ./install_all.sh
 
-# 3. Launch everything (includes Grafana by default)
-./launch_all.sh --with-grafana
+# 3. Launch everything (Grafana is built into backend_server)
+./launch_all.sh
 ```
 
 ## 📋 **Individual Components**

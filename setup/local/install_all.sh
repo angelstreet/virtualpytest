@@ -14,14 +14,14 @@ for arg in "$@"; do
             INSTALL_GRAFANA=false
             shift
             ;;
-        --with-grafana)
+)
             INSTALL_GRAFANA=true
             shift
             ;;
         -h|--help)
             echo "Usage: $0 [--no-grafana]"
             echo "  --no-grafana      Skip Grafana installation (monitoring disabled)"
-            echo "  --with-grafana    Install Grafana (default behavior)"
+            echo "      Install Grafana (default behavior)"
             echo "  -h, --help        Show this help message"
             exit 0
             ;;
@@ -102,7 +102,7 @@ echo "   📊 Grafana DB: postgresql://grafana_user:grafana_pass@localhost:5432/
 echo ""
 echo "🚀 You can now run services locally:"
 if [ "$INSTALL_GRAFANA" = true ]; then
-    echo "   ./setup/local/launch_all.sh --with-grafana - Start all services (recommended)"
+    echo "   ./setup/local/launch_all.sh  - Start all services (recommended)"
     echo "   ./setup/local/launch_grafana.sh            - Start Grafana monitoring only"
 else
     echo "   ./setup/local/launch_all.sh                - Start all services (no monitoring)"

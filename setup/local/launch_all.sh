@@ -1,28 +1,25 @@
 #!/bin/bash
 
 # VirtualPyTest Launch Script - Real-time Unified Logging
-# Usage: ./launch_all.sh [--discard] [--with-grafana]
+# Usage: ./launch_all.sh [--discard]
 #   --discard: Include the AI Discard Service (uses many tokens)
-#   --with-grafana: Include Grafana monitoring service
+# Note: Grafana is built into backend_server and accessible at /grafana/
 
 # Parse command line arguments
 INCLUDE_DISCARD=false
-INCLUDE_GRAFANA=false
 for arg in "$@"; do
     case $arg in
         --discard)
             INCLUDE_DISCARD=true
             shift
             ;;
-        --with-grafana)
-            INCLUDE_GRAFANA=true
-            shift
-            ;;
         -h|--help)
-            echo "Usage: $0 [--discard] [--with-grafana]"
-            echo "  --discard       Include the AI Discard Service (uses many tokens)"
-            echo "  --with-grafana  Include Grafana monitoring service"
-            echo "  -h, --help      Show this help message"
+            echo "Usage: $0 [--discard]"
+            echo "  --discard    Include the AI Discard Service (uses many tokens)"
+            echo "  -h, --help   Show this help message"
+            echo ""
+            echo "Note: Grafana monitoring is built into backend_server"
+            echo "      Access at: http://localhost:5109/grafana/"
             exit 0
             ;;
         *)
@@ -34,12 +31,8 @@ for arg in "$@"; do
 done
 
 SERVICES_MSG="🚀 Starting VirtualPyTest System with Real-time Unified Logging"
-if [ "$INCLUDE_DISCARD" = true ] && [ "$INCLUDE_GRAFANA" = true ]; then
-    SERVICES_MSG="$SERVICES_MSG (with AI Discard + Grafana)..."
-elif [ "$INCLUDE_DISCARD" = true ]; then
+if [ "$INCLUDE_DISCARD" = true ]; then
     SERVICES_MSG="$SERVICES_MSG (with AI Discard)..."
-elif [ "$INCLUDE_GRAFANA" = true ]; then
-    SERVICES_MSG="$SERVICES_MSG (with Grafana)..."
 else
     SERVICES_MSG="$SERVICES_MSG..."
 fi
@@ -272,49 +265,8 @@ if [ "$INCLUDE_DISCARD" = true ]; then
     sleep 3
 fi
 
-if [ "$INCLUDE_GRAFANA" = true ]; then
-    echo -e "\033[0;35m🟣 Starting Grafana (monitoring service)...\033[0m"
-    # Check if PostgreSQL is running for Grafana metrics
-    if ! pg_isready &> /dev/null; then
-        echo "🐘 Starting PostgreSQL for Grafana..."
-        if [[ "$OSTYPE" == "darwin"* ]]; then
-            brew services start postgresql &> /dev/null || true
-        else
-            sudo systemctl start postgresql &> /dev/null || true
-        fi
-        sleep 2
-    fi
-    
-    # Set environment variables for Grafana
-    export SUPABASE_DB_URI="${SUPABASE_DB_URI:-postgres://user:pass@localhost:5432/postgres}"
-    
-    # Start Grafana using local project configuration
-    LOCAL_GRAFANA_CONFIG="$PROJECT_ROOT/grafana/config/grafana.ini"
-    LOCAL_GRAFANA_HOME="$PROJECT_ROOT/grafana"
-    
-    if [ ! -f "$LOCAL_GRAFANA_CONFIG" ]; then
-        echo "❌ Local Grafana configuration not found: $LOCAL_GRAFANA_CONFIG"
-        echo "   Run: ./setup/local/install_grafana.sh"
-        exit 1
-    fi
-    
-    # Ensure local Grafana directories exist with correct permissions
-    mkdir -p "$PROJECT_ROOT/grafana/data"
-    mkdir -p "$PROJECT_ROOT/grafana/logs"
-    mkdir -p "$PROJECT_ROOT/grafana/plugins"
-    
-    # Set Grafana environment variables to override config file paths
-    export GF_PATHS_DATA="$PROJECT_ROOT/grafana/data"
-    export GF_PATHS_LOGS="$PROJECT_ROOT/grafana/logs"
-    export GF_PATHS_PLUGINS="$PROJECT_ROOT/grafana/plugins"
-    export GF_SERVER_HTTP_PORT="3001"
-    export GF_SERVER_DOMAIN="localhost"
-    export GF_SERVER_ROOT_URL="http://localhost:3001/"
-    export GF_SERVER_SERVE_FROM_SUB_PATH="false"
-    
-    run_with_prefix "GRAFANA" "\033[0;35m" "$PROJECT_ROOT" grafana-server --config="$LOCAL_GRAFANA_CONFIG" --homepath="$LOCAL_GRAFANA_HOME" web
-    sleep 3
-fi
+# Grafana is managed by backend_server as a built-in service
+# No separate Grafana startup needed - it's accessible via backend_server proxy at /grafana/
 
 echo "=================================================================================="
 echo -e "${NC}✅ All processes started! Watching for logs...${NC}"
@@ -323,11 +275,9 @@ echo -e "${NC}🌐 URLs:${NC}"
 echo -e "${NC}   Frontend: http://localhost:3000${NC}"
 echo -e "${NC}   backend_server: http://localhost:5109${NC}"
 echo -e "${NC}   backend_host: http://localhost:6109${NC}"
+echo -e "${NC}   Grafana (built-in): http://localhost:5109/grafana/${NC}"
 if [ "$INCLUDE_DISCARD" = true ]; then
     echo -e "${NC}   backend_discard: AI analysis service (port ${DISCARD_PORT:-6209})${NC}"
-fi
-if [ "$INCLUDE_GRAFANA" = true ]; then
-    echo -e "${NC}   Grafana: http://localhost:3001 (admin/admin123)${NC}"
 fi
 echo "=================================================================================="
 
