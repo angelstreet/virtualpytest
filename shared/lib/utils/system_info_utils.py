@@ -265,17 +265,7 @@ def get_per_device_metrics(devices) -> List[Dict[str, Any]]:
                 current_time = time.time()
                 cutoff_time = current_time - 10  # Only look for files from last 10 seconds
                 
-                # Check for recent video segments (.ts files) in main directory
-                recent_ts = []
-                try:
-                    for entry in os.scandir(video_capture_path):
-                        if entry.is_file() and entry.name.startswith('segment_') and entry.name.endswith('.ts'):
-                            if entry.stat().st_mtime > cutoff_time:
-                                recent_ts.append(entry.path)
-                except OSError:
-                    pass
-                
-                # Check for recent images (.jpg files) in captures subdirectory
+                # Check for recent images (.jpg files) in captures subdirectory - FFmpeg only needs JPG
                 captures_dir = os.path.join(video_capture_path, 'captures')
                 recent_jpg = []
                 if os.path.exists(captures_dir):
@@ -290,20 +280,17 @@ def get_per_device_metrics(devices) -> List[Dict[str, Any]]:
                 else:
                     print(f"🔍 [DEVICE_DEBUG] {device_name}: captures/ directory does not exist at {captures_dir}")
                 
-                print(f"🔍 [DEVICE_DEBUG] {device_name}: Found {len(recent_ts)} recent TS files (last 10s)")
-                
-                total_recent_files = len(recent_ts) + len(recent_jpg)
+                total_recent_files = len(recent_jpg)
                 
                 if total_recent_files > 0:
                     ffmpeg_device_status = 'active'
                     # Get last activity time
-                    all_recent_files = recent_ts + recent_jpg
-                    if all_recent_files:
-                        last_activity_timestamp = max([os.path.getmtime(f) for f in all_recent_files])
+                    if recent_jpg:
+                        last_activity_timestamp = max([os.path.getmtime(f) for f in recent_jpg])
                         ffmpeg_last_activity = datetime.fromtimestamp(last_activity_timestamp, tz=timezone.utc).isoformat()
                         # Calculate working uptime: process start -> last file activity
                         ffmpeg_uptime_seconds = calculate_process_working_uptime(capture_folder, 'ffmpeg')
-                    print(f"🔍 [DEVICE_DEBUG] {device_name}: FFmpeg status = ACTIVE ({total_recent_files} recent files)")
+                    print(f"🔍 [DEVICE_DEBUG] {device_name}: FFmpeg status = ACTIVE ({total_recent_files} recent JPG files)")
                 else:
                     # No recent files - check if process is running
                     if ffmpeg_processes_running:
@@ -461,19 +448,7 @@ def check_ffmpeg_status():
                 device_name = os.path.basename(capture_dir)
                 print(f"🔍 [FFMPEG_DEBUG] Checking {device_name} in {capture_dir}")
                 
-                # Check for recent video segments (.ts files) - optimized
-                recent_ts = []
-                try:
-                    for entry in os.scandir(capture_dir):
-                        if entry.is_file() and entry.name.startswith('segment_') and entry.name.endswith('.ts'):
-                            if entry.stat().st_mtime > cutoff_time:
-                                recent_ts.append(entry.path)
-                except OSError:
-                    pass
-                
-                print(f"🔍 [FFMPEG_DEBUG] {device_name}: Found {len(recent_ts)} recent .ts files (last 10s)")
-                
-                # Check for recent images (.jpg files) - optimized
+                # Check for recent images (.jpg files) only - FFmpeg only needs JPG
                 captures_dir = os.path.join(capture_dir, 'captures')
                 recent_jpg = []
                 if os.path.exists(captures_dir):
@@ -488,11 +463,9 @@ def check_ffmpeg_status():
                 else:
                     print(f"🔍 [FFMPEG_DEBUG] {device_name}: captures/ directory does not exist")
                 
-                print(f"🔍 [FFMPEG_DEBUG] {device_name}: Recent files - TS: {len(recent_ts)}, JPG: {len(recent_jpg)}")
-                
-                last_activity = max([os.path.getmtime(f) for f in (recent_ts + recent_jpg)]) if (recent_ts + recent_jpg) else 0
+                last_activity = max([os.path.getmtime(f) for f in recent_jpg]) if recent_jpg else 0
                 status['recent_files'][device_name] = {
-                    'video_segments': len(recent_ts),
+                    'video_segments': 0,  # Not checking TS files anymore
                     'images': len(recent_jpg),
                     'last_activity': last_activity
                 }
@@ -506,8 +479,8 @@ def check_ffmpeg_status():
         
         print(f"🔍 [FFMPEG_DEBUG] Determining device statuses...")
         for device_name, files_info in status['recent_files'].items():
-            recent_files_count = files_info['video_segments'] + files_info['images']
-            print(f"🔍 [FFMPEG_DEBUG] {device_name}: Recent files count = {recent_files_count} (TS: {files_info['video_segments']}, JPG: {files_info['images']})")
+            recent_files_count = files_info['images']  # Only check JPG files now
+            print(f"🔍 [FFMPEG_DEBUG] {device_name}: Recent files count = {recent_files_count} (JPG: {files_info['images']})")
             
             if recent_files_count > 0:
                 device_statuses[device_name] = 'active'
