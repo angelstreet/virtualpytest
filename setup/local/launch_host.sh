@@ -26,14 +26,24 @@ if [ ! -d "venv" ]; then
     exit 1
 fi
 
-# Kill any process using port 6409
-echo "🔍 Checking for processes using port 6409..."
-if lsof -ti:6409 > /dev/null 2>&1; then
-    echo "🛑 Killing processes on port 6409..."
-    lsof -ti:6409 | xargs kill -9 2>/dev/null || true
-    sleep 1
-fi
-echo "✅ Port 6409 is available"
+# Kill any existing app.py processes and port conflicts
+echo "🔍 Checking for existing app.py processes..."
+pkill -f "python.*app\.py" 2>/dev/null || true
+sleep 1
+
+echo "🔍 Checking for processes using ports..."
+for port in 5000 6109 6409; do
+    if lsof -ti:$port > /dev/null 2>&1; then
+        echo "🛑 Killing processes on port $port..."
+        lsof -ti:$port | xargs kill -9 2>/dev/null || true
+        sleep 1
+    fi
+done
+
+# Clean up PID files
+rm -f /tmp/*backend_host* /tmp/*host* 2>/dev/null || true
+
+echo "✅ All conflicting processes cleared"
 
 # Detect Python executable
 PYTHON_CMD=""
