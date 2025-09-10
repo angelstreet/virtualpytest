@@ -2,6 +2,31 @@
 
 **Simple installation guide for QA teams and engineers.**
 
+## 🚀 **TL;DR - Quick Start**
+
+```bash
+# 1. Clone project
+git clone https://github.com/angelstreet/virtualpytest
+cd virtualpytest
+
+# 2. Install everything (auto-installs requirements + creates .env files)
+./setup/local/install_all.sh
+
+# 3. IMPORTANT: Edit .env files for your setup (see locations below)
+# Main config: .env
+# Host config: backend_host/src/.env  
+# Frontend config: frontend/.env
+
+# 4. Launch all services
+./scripts/launch_virtualpytest.sh
+
+# 5. Open browser: http://localhost:3000
+```
+
+**That's it!**
+
+⚠️ **IMPORTANT**: You must edit the 3 .env files before launching to configure your setup
+
 ---
 
 ## 🎯 **What You'll Get**
@@ -34,198 +59,6 @@ VirtualPyTest has 5 main components that work together:
 - **8GB RAM** recommended (4GB minimum)
 
 *Note: macOS and Windows work too, but Ubuntu is easiest for beginners.*
-
----
-
-## ⚡ **Installation (3 Simple Steps)**
-
-### Step 1: Get VirtualPyTest
-```bash
-# Download the project
-git clone https://github.com/angelstreet/virtualpytest
-cd virtualpytest
-```
-
-### Step 2: Install Everything
-```bash
-# This installs all components including Grafana (takes 5-10 minutes)
-./setup/local/install_all.sh
-```
-
-*The script will:*
-- ✅ Create Python virtual environment
-- ✅ Install all Python dependencies  
-- ✅ Install Node.js dependencies for web interface
-- ✅ Set up Grafana monitoring
-- ✅ Configure all services
-
-### Step 3: Start All Services
-```bash
-# Start everything with one simple command (includes Grafana)
-./scripts/launch_virtualpytest.sh
-```
-
-*You'll see colored logs like:*
-- 🔵 **[SERVER]** - Backend server starting...
-- 🟢 **[HOST]** - Backend host ready...
-- 🟡 **[FRONTEND]** - Web interface loading...
-
-**🎯 Smart Service Detection:**
-The Backend Host automatically detects your `.env` configuration and starts:
-- **VNC Services** - Always (for remote desktop)
-- **Stream Services** - Only if video devices configured (`DEVICE1_VIDEO=/dev/video0`)
-- **Monitor Services** - Only if stream services are running
-
-**Keep this terminal open** - it shows live logs from all services.
-
----
-
-## ⚙️ **Configure Environment (Important!)**
-
-Before starting services, you need to configure environment files. VirtualPyTest uses 3 different `.env` files:
-
-### Step 3.1: Project-Level Configuration
-
-```bash
-# Copy the main environment template
-cp .env.example .env
-
-# Edit with your values (optional for basic local testing)
-nano .env
-```
-
-**For basic local testing**, you can use the defaults. **For full functionality**, configure:
-
-```bash
-# Database (Supabase) - REQUIRED for data storage
-NEXT_PUBLIC_SUPABASE_URL=https://your-project-id.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key_here
-DATABASE_URL=postgresql://postgres:password@db.project-id.supabase.co:5432/postgres
-
-# Cloud Storage (Cloudflare R2) - OPTIONAL for screenshots
-CLOUDFLARE_R2_ENDPOINT=https://your-account-id.r2.cloudflarestorage.com
-CLOUDFLARE_R2_ACCESS_KEY_ID=your_r2_access_key_id
-CLOUDFLARE_R2_SECRET_ACCESS_KEY=your_r2_secret_access_key
-
-# AI Services - OPTIONAL for smart analysis
-OPENROUTER_API_KEY=your_openrouter_api_key_here
-```
-
-### Step 3.2: Backend Host Configuration
-
-```bash
-# Copy backend host template
-cp backend_host/src/env.example backend_host/src/.env
-
-# Edit with your device settings
-nano backend_host/src/.env
-```
-
-**For basic testing** (desktop only):
-```bash
-HOST_NAME=my-local-host
-HOST_PORT=6109
-HOST_URL=http://localhost:6109
-```
-
-**For device testing** (Android TV, mobile, etc.):
-```bash
-# Uncomment and configure device settings
-DEVICE1_NAME=my_android_tv
-DEVICE1_MODEL=android_tv
-DEVICE1_IP=192.168.1.100
-DEVICE1_PORT=8100
-
-# For video capture (automatically starts stream/monitor services)
-DEVICE1_VIDEO=/dev/video0
-DEVICE1_AUDIO=plughw:2,0
-DEVICE1_FPS=10
-```
-
-### Step 3.3: Frontend Configuration
-
-```bash
-# Copy frontend template
-cp frontend/env.example frontend/.env
-
-# Edit API endpoint (usually no changes needed for local)
-nano frontend/.env
-```
-
-**Default settings work for local development:**
-```bash
-VITE_SERVER_URL=http://localhost:5109
-VITE_ENVIRONMENT=development
-```
-
----
-
-## ✅ **Verify Installation**
-
-### Step 4: Check All Services Are Running
-
-Open a **new terminal** (keep the first one with logs running) and test each service:
-
-```bash
-# Test Frontend (should show HTML)
-curl http://localhost:3000
-
-# Test Backend Server (should show {"status": "healthy"})
-curl http://localhost:5109/api/health
-
-# Test Backend Host (should show {"status": "ok"})
-curl http://localhost:6109/host/health
-
-# Test Grafana (should show login page)
-curl http://localhost:3001
-```
-
-### Step 5: Open Web Interfaces
-
-Open these URLs in your browser:
-
-- **🌐 Main Dashboard**: http://localhost:3000
-- **📊 Monitoring**: http://localhost:3001 (login: admin / admin123)
-
-*If any URL doesn't work, check the terminal with logs for error messages.*
-
----
-
-## 🎮 **Your First Test**
-
-### Step 6: Run a Simple Test
-
-In a **new terminal**, run your first automation test:
-
-```bash
-# Navigate to test scripts
-cd test_scripts
-
-# Activate the Python environment
-source ../venv/bin/activate
-
-# Run a simple navigation test
-python goto.py --node home
-```
-
-**Expected output:**
-```
-🎯 [GOTO_HOME] EXECUTION SUMMARY
-📱 Device: virtual_device (desktop)
-🖥️  Host: localhost
-📋 Interface: default
-🗺️  Target: home
-📍 Path length: 1 steps
-⏱️  Total Time: 2.3s
-📸 Screenshots: 2 captured
-🎯 Result: SUCCESS
-```
-
-### Step 7: View Your Test Results
-
-- **Screenshots**: Check the `captures/` folder for automatic screenshots
-- **Web Dashboard**: Refresh http://localhost:3000 to see test results
-- **Monitoring**: Check http://localhost:3001 for test metrics
 
 ---
 
@@ -300,48 +133,6 @@ sudo pkill -f "grafana-server"
 ./setup/local/install_all.sh
 ./scripts/launch_virtualpytest.sh
 ```
-
-### Grafana Database Issues
-```bash
-# Check if PostgreSQL is running
-pg_isready
-
-# Start PostgreSQL if needed
-# On Ubuntu/Linux:
-sudo systemctl start postgresql
-# On macOS:
-brew services start postgresql
-
-# Test Grafana database connection
-PGPASSWORD=grafana_pass psql -h localhost -U grafana_user -d grafana_metrics -c "SELECT version();"
-```
-
-### Web Interface Not Loading
-```bash
-# Check if frontend is running
-curl http://localhost:3000
-
-# If not working, check logs in the terminal running launch_virtualpytest.sh
-# Look for [FRONTEND] errors in colored output
-```
-
-### Test Scripts Fail
-```bash
-# Make sure you're in the right directory and virtual environment
-cd test_scripts
-source ../venv/bin/activate
-python goto.py --node home
-```
-
----
-
-## 💡 **Pro Tips**
-
-- **Keep Logs Open**: Always run `./scripts/launch_virtualpytest.sh` in a visible terminal to see real-time logs
-- **Use Screenshots**: Every test automatically captures screenshots - check the `captures/` folder
-- **Monitor Health**: Check http://localhost:3001 regularly for system health
-- **Start Simple**: Begin with `goto.py` tests before trying complex campaigns
-
 ---
 
 ## 🆘 **Need Help?**

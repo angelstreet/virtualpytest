@@ -58,7 +58,39 @@ chmod +x setup/local/install_*.sh
 
 echo "🚀 Installing all components..."
 
-# Install individual components
+# Install system requirements first (automatically)
+echo "0️⃣ Installing system requirements..."
+if [ -f "./setup/local/install_requirements.sh" ]; then
+    ./setup/local/install_requirements.sh
+else
+    echo "⚠️ Warning: install_requirements.sh not found, skipping system requirements"
+fi
+
+echo ""
+echo "📄 Setting up environment files..."
+# Automatically copy .env.example files to .env
+if [ -f "env.local.example" ] && [ ! -f ".env" ]; then
+    cp env.local.example .env
+    echo "✅ Created main .env from env.local.example"
+else
+    echo "ℹ️ Main .env already exists or template not found"
+fi
+
+if [ -f "backend_host/src/env.example" ] && [ ! -f "backend_host/src/.env" ]; then
+    cp backend_host/src/env.example backend_host/src/.env
+    echo "✅ Created backend_host/.env from env.example"
+else
+    echo "ℹ️ Backend host .env already exists or template not found"
+fi
+
+if [ -f "frontend/env.example" ] && [ ! -f "frontend/.env" ]; then
+    cp frontend/env.example frontend/.env
+    echo "✅ Created frontend/.env from env.example"
+else
+    echo "ℹ️ Frontend .env already exists or template not found"
+fi
+
+echo ""
 echo "1️⃣ Installing database..."
 ./setup/local/install_db.sh
 
@@ -89,11 +121,10 @@ echo "🎉 All components installed successfully!"
 echo "🐍 Virtual environment created at: $(pwd)/venv"
 echo "🔌 To activate manually: source venv/bin/activate"
 echo ""
-echo "📝 IMPORTANT: Configure your .env files before launching:"
-echo "   backend_host/src/.env - Hardware interface settings"
-echo "   backend_server/src/.env - API server settings (use local database)"
-echo "   frontend/.env - Frontend settings"
-echo "   shared/.env - Shared library settings"
+echo "📝 IMPORTANT: Edit your .env files before launching (already created from templates):"
+echo "   📁 .env - Main configuration (database, API keys)"
+echo "   📁 backend_host/src/.env - Hardware/device settings"
+echo "   📁 frontend/.env - Web interface settings"
 echo ""
 echo "🗄️ Database Configuration:"
 echo "   📁 Local database config: config/database/local.env"
