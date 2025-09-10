@@ -30,8 +30,6 @@ def get_active_capture_dirs():
                     capture_dir = line.strip()
                     if capture_dir and os.path.exists(capture_dir):
                         capture_dirs.append(capture_dir)
-            print(f"🔍 [CONFIG] Loaded {len(capture_dirs)} active capture directories from {config_file}")
-            print(f"🔍 [CONFIG] Active directories: {capture_dirs}")
         else:
             print(f"🔍 [CONFIG] Configuration file not found: {config_file}, using fallback")
             # Fallback to hardcoded for safety
@@ -414,8 +412,8 @@ def check_ffmpeg_status():
                     except Exception:
                         pass
                 
-                # Single line per folder with debug info
-                print(f"🔍 [FFMPEG] {device_name}: {recent_jpg_count} JPG files (last 1m)")
+                # Single line per folder with debug info including process status
+                print(f"🔍 [FFMPEG] {device_name}: {recent_jpg_count} JPG files (last 1m) | Processes: {status['processes_running']}")
                 
                 status['recent_files'][device_name] = {
                     'images': recent_jpg_count,
@@ -502,8 +500,8 @@ def check_monitor_status():
                 except Exception:
                     pass
                 
-                # Single line per folder with debug info
-                print(f"🔍 [MONITOR] {device_name}: {recent_json_count} JSON files (last 1m)")
+                # Single line per folder with debug info including process status
+                print(f"🔍 [MONITOR] {device_name}: {recent_json_count} JSON files (last 1m) | Process: {'running' if status['process_running'] else 'stopped'}")
                 
                 status['recent_json_files'][device_name] = {
                     'count': recent_json_count,
