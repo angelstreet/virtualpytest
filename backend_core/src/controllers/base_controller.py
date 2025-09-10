@@ -373,7 +373,8 @@ class FFmpegCaptureController(AVControllerInterface):
             print(f"{self.capture_source}[{self.capture_source}]: Expected file not found, looking for most recent capture...")
             try:
                 all_files = os.listdir(captures_path)
-                capture_files = [f for f in all_files if f.startswith('capture_') and f.endswith('.jpg')]
+                # Filter for regular capture files (not thumbnails or other files)
+                capture_files = [f for f in all_files if f.startswith('capture_') and f.endswith('.jpg') and '_thumbnail' not in f]
                 
                 if capture_files:
                     # Sort by filename (which contains timestamp) to get most recent
@@ -393,7 +394,7 @@ class FFmpegCaptureController(AVControllerInterface):
                     else:
                         print(f"{self.capture_source}[{self.capture_source}]: Most recent file is too old ({age_seconds:.1f}s)")
                 else:
-                    print(f"{self.capture_source}[{self.capture_source}]: No capture files found in directory")
+                    print(f"{self.capture_source}[{self.capture_source}]: No regular capture files found in directory")
                     
             except Exception as fallback_error:
                 print(f"{self.capture_source}[{self.capture_source}]: ERROR in fallback logic: {fallback_error}")
