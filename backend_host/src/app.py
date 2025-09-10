@@ -220,8 +220,8 @@ def main():
 
         options = {
             'bind': f'0.0.0.0:{host_port}',
-            'workers': 1,  # Single worker for development/single-host setup
-            'threads': 4,  # Enable 4 threads for parallel script execution
+            'workers': 2,  # " devices management and hardware control"
+            'threads': 1,  # 1 thread to handle async playwright
             'timeout': 3600,  # 1 hour timeout to match server timeout
         }
         
