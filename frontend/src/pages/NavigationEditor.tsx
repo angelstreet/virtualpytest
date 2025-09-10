@@ -310,6 +310,9 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
     // AV panel collapsed state for other UI elements (keeping for backwards compatibility)
     const [isAVPanelCollapsed, setIsAVPanelCollapsed] = useState(true);
 
+    // AV panel minimized state for overlay coordination
+    const [isAVPanelMinimized, setIsAVPanelMinimized] = useState(false);
+
     // Capture mode state for coordinating between AV and Remote panels
     const [captureMode, setCaptureMode] = useState<'stream' | 'screenshot' | 'video'>('stream');
 
@@ -411,6 +414,12 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
     const handleCaptureModeChange = useCallback((mode: 'stream' | 'screenshot' | 'video') => {
       setCaptureMode(mode);
       console.log('[@NavigationEditor] Capture mode changed to:', mode);
+    }, []);
+
+    // Handle AV panel minimized changes
+    const handleAVPanelMinimizedChange = useCallback((isMinimized: boolean) => {
+      setIsAVPanelMinimized(isMinimized);
+      console.log('[@NavigationEditor] AV panel minimized changed to:', isMinimized);
     }, []);
 
 
@@ -1219,7 +1228,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
                 onReleaseControl={handleDisconnectComplete}
                 deviceResolution={DEFAULT_DEVICE_RESOLUTION}
                 streamCollapsed={isAVPanelCollapsed}
-                streamMinimized={false}
+                streamMinimized={isAVPanelMinimized}
                 captureMode={captureMode}
                 isVerificationVisible={isVerificationVisible}
               />
@@ -1240,6 +1249,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
                 deviceModel={deviceModel}
                 isControlActive={isControlActive}
                 onCollapsedChange={handleAVPanelCollapsedChange}
+                onMinimizedChange={handleAVPanelMinimizedChange}
                 onCaptureModeChange={handleCaptureModeChange}
               />
             );
@@ -1251,6 +1261,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
                 deviceModel={deviceModel}
                 isControlActive={isControlActive}
                 onCollapsedChange={handleAVPanelCollapsedChange}
+                onMinimizedChange={handleAVPanelMinimizedChange}
                 onCaptureModeChange={handleCaptureModeChange}
                 deviceResolution={DEFAULT_DEVICE_RESOLUTION}
               />
