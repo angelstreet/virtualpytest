@@ -1,4 +1,4 @@
-import { hdmiStreamConfig, hdmiStreamMobileConfig } from './hdmiStream';
+import { hdmiStreamConfig } from './hdmiStream';
 import { vncStreamConfig } from './vncStream';
 
 /**
@@ -92,7 +92,7 @@ export const loadAVConfig = async (streamType: string, deviceModel?: string): Pr
         // Use mobile config if device is mobile, otherwise use regular config
         if (deviceModel && isMobileDevice(deviceModel)) {
           console.log(`[@config:avPanelLayout] Using mobile HDMI config for ${deviceModel}`);
-          return hdmiStreamMobileConfig;
+          return hdmiStreamConfig; // Use unified desktop config for all devices
         } else {
           console.log(`[@config:avPanelLayout] Using standard HDMI config for ${deviceModel}`);
           return hdmiStreamConfig;
