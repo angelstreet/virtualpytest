@@ -33,32 +33,76 @@ CAPTURE_DIRS=(
   "/var/www/html/stream/capture4/captures"
 )
 
-# Function to process a file pair atomically
+# Global associative array to track processed pairs
+declare -A PROCESSED_PAIRS
+
+# Function to process a file pair atomically with deduplication
 process_file() {
   local filepath="$1"
   
   # Determine file type and find pair
-  local original_path thumbnail_path
-  if [[ "$filepath" =~ capture_[0-9]+\.jpg$ ]]; then
+  local original_path thumbnail_path frame_num
+  if [[ "$filepath" =~ capture_([0-9]+)\.jpg$ ]]; then
+    frame_num="${BASH_REMATCH[1]}"
     original_path="$filepath"
     thumbnail_path="${filepath%%.jpg}_thumbnail.jpg"
-  elif [[ "$filepath" =~ capture_[0-9]+_thumbnail\.jpg$ ]]; then
+  elif [[ "$filepath" =~ capture_([0-9]+)_thumbnail\.jpg$ ]]; then
+    frame_num="${BASH_REMATCH[1]}"
     thumbnail_path="$filepath"
     original_path="${filepath%%_thumbnail.jpg}.jpg"
   else
     return
   fi
   
+  # Create unique pair identifier based on directory and frame number
+  local capture_dir=$(dirname "$filepath")
+  local pair_id="${capture_dir}/capture_${frame_num}"
+  
+  # Check if this pair is already being processed or was recently processed
+  if [[ -n "${PROCESSED_PAIRS[$pair_id]}" ]]; then
+    echo "$(date '+%H:%M:%S') Skipping duplicate processing of pair: $(basename "$pair_id")" >> "$RENAME_LOG"
+    return  # Skip duplicate processing
+  fi
+  
+  # Mark pair as being processed
+  PROCESSED_PAIRS[$pair_id]="processing"
+  
   # Wait briefly for pair if missing
   if [ ! -f "$original_path" ] || [ ! -f "$thumbnail_path" ]; then
     sleep 0.1
     if [ ! -f "$original_path" ] || [ ! -f "$thumbnail_path" ]; then
+      unset PROCESSED_PAIRS[$pair_id]  # Remove lock if pair incomplete
       return  # Skip, will be processed on next event
     fi
   fi
   
   # Process both files atomically
   process_capture_pair "$original_path" "$thumbnail_path"
+  
+  # Mark as completed and clean up old entries periodically
+  PROCESSED_PAIRS[$pair_id]="completed"
+  
+  # Clean up old processed pairs every 100 files to prevent memory bloat
+  if (( ${#PROCESSED_PAIRS[@]} > 100 )); then
+    cleanup_processed_pairs
+  fi
+}
+
+# Function to clean up old processed pairs
+cleanup_processed_pairs() {
+  local current_time=$(date +%s)
+  local cleanup_count=0
+  
+  # Remove completed entries older than 60 seconds
+  for pair_id in "${!PROCESSED_PAIRS[@]}"; do
+    if [[ "${PROCESSED_PAIRS[$pair_id]}" == "completed" ]]; then
+      unset PROCESSED_PAIRS[$pair_id]
+      ((cleanup_count++))
+      if (( cleanup_count >= 50 )); then
+        break  # Clean up in batches to avoid blocking
+      fi
+    fi
+  done
 }
 
 # Removed wait_for_file_stability function - using close_write event instead
@@ -122,9 +166,9 @@ process_capture_pair() {
   
   # Atomic rename: both files or neither
   if mv "$original_path" "$new_original" && mv "$thumbnail_path" "$new_thumbnail"; then
-    echo "Renamed pair: $(basename "$original_path") + $(basename "$thumbnail_path") -> $(basename "$new_original") + $(basename "$new_thumbnail")" >> "$RENAME_LOG"
+    echo "$(date '+%H:%M:%S') Renamed pair: $(basename "$original_path") + $(basename "$thumbnail_path") -> $(basename "$new_original") + $(basename "$new_thumbnail")" >> "$RENAME_LOG"
   else
-    echo "Failed to rename pair atomically: $(basename "$original_path")" >> "$RENAME_LOG"
+    echo "$(date '+%H:%M:%S') Failed to rename pair atomically: $(basename "$original_path")" >> "$RENAME_LOG"
     return
   fi
   
