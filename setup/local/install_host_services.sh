@@ -47,8 +47,8 @@ fi
 # Create systemd service files
 echo "🖥️ Creating systemd service files..."
 
-# Capture Monitor Service
-cat > /tmp/virtualpytest-capture-monitor.service << 'EOF'
+# Capture Monitor Service (matches backend_host/config/services/monitor.service)
+cat > /tmp/monitor.service << 'EOF'
 [Unit]
 Description=VirtualPyTest Capture Monitor Service
 After=network.target
@@ -71,8 +71,8 @@ StandardError=append:/tmp/capture_monitor_service.log
 WantedBy=multi-user.target
 EOF
 
-# FFmpeg Capture Service
-cat > /tmp/virtualpytest-ffmpeg-capture.service << EOF
+# FFmpeg Capture Service (matches backend_host/config/services/stream.service)
+cat > /tmp/stream.service << EOF
 [Unit]
 Description=VirtualPyTest FFmpeg Capture Service
 After=network.target
@@ -83,7 +83,7 @@ Type=simple
 User=$USER
 Group=$USER
 WorkingDirectory=$(pwd)/backend_host/scripts
-ExecStart=/bin/bash run_ffmpeg_and_rename_rpi1.sh
+ExecStart=/bin/bash run_ffmpeg_and_rename_local.sh
 Restart=always
 RestartSec=15
 StandardOutput=append:/tmp/ffmpeg_service.log
@@ -93,61 +93,49 @@ StandardError=append:/tmp/ffmpeg_service.log
 WantedBy=multi-user.target
 EOF
 
-# Rename Captures Service
-cat > /tmp/virtualpytest-rename-captures.service << EOF
+# VNC Server Service (matches backend_host/config/services/vncserver.service)
+cat > /tmp/vncserver.service << EOF
 [Unit]
-Description=VirtualPyTest Rename Captures Service
-After=virtualpytest-ffmpeg-capture.service
-Wants=virtualpytest-ffmpeg-capture.service
+Description=Tigervnc full-control service for display 1
+After=network.target
 
 [Service]
-Type=simple
+Type=forking
 User=$USER
-Group=$USER
-WorkingDirectory=$(pwd)/backend_host/scripts
-ExecStart=/bin/bash rename_captures.sh
-Restart=always
-RestartSec=10
-StandardOutput=append:/tmp/rename_service.log
-StandardError=append:/tmp/rename_service.log
+ExecStart=/usr/bin/vncserver :1 -rfbauth /home/$USER/.vnc/passwd -rfbport 5901 -localhost no
+ExecStop=/usr/bin/vncserver -kill :1
+Restart=on-failure
 
 [Install]
 WantedBy=multi-user.target
 EOF
 
-# Cleanup Service (timer-based)
-cat > /tmp/virtualpytest-cleanup.service << EOF
+# noVNC Service (matches backend_host/config/services/novnc.service)
+cat > /tmp/novnc.service << EOF
 [Unit]
-Description=VirtualPyTest Cleanup Service
+Description=noVNC websockify service
 After=network.target
 
 [Service]
-Type=oneshot
+Type=simple
 User=$USER
-Group=$USER
-WorkingDirectory=$(pwd)/backend_host/scripts
-ExecStart=/bin/bash clean_captures.sh
-StandardOutput=append:/tmp/cleanup_service.log
-StandardError=append:/tmp/cleanup_service.log
-EOF
-
-cat > /tmp/virtualpytest-cleanup.timer << 'EOF'
-[Unit]
-Description=VirtualPyTest Cleanup Timer
-Requires=virtualpytest-cleanup.service
-
-[Timer]
-OnCalendar=*:0/5
-Persistent=true
+WorkingDirectory=/home/$USER/noVNC
+ExecStart=/usr/bin/websockify --web . 6080 localhost:5901
+Restart=on-failure
 
 [Install]
-WantedBy=timers.target
+WantedBy=multi-user.target
 EOF
+
+# No separate rename/cleanup services needed - they're handled internally by the stream service
 
 # Install systemd services
 echo "📋 Installing systemd services..."
-sudo cp /tmp/virtualpytest-*.service /etc/systemd/system/
-sudo cp /tmp/virtualpytest-*.timer /etc/systemd/system/
+# Core services (matching backend_host/config/services/ names)
+sudo cp /tmp/monitor.service /etc/systemd/system/
+sudo cp /tmp/stream.service /etc/systemd/system/
+sudo cp /tmp/vncserver.service /etc/systemd/system/
+sudo cp /tmp/novnc.service /etc/systemd/system/
 sudo systemctl daemon-reload
 
 # Copy management scripts from examples
@@ -191,8 +179,10 @@ echo "   ./backend_host/manage_services.sh start     # Start all services"
 echo "   ./backend_host/manage_services.sh status    # Check status"
 echo "   ./backend_host/manage_services.sh logs      # View logs"
 echo ""
-echo "🔧 Individual services:"
-echo "   - virtualpytest-ffmpeg-capture     # Video/audio capture"
-echo "   - virtualpytest-rename-captures    # File processing"
-echo "   - virtualpytest-capture-monitor    # Analysis & alerts"
-echo "   - virtualpytest-cleanup.timer      # Cleanup (every 5 min)" 
+echo "🔧 Available services (matching backend_host/config/services/):"
+echo "   - monitor.service                   # Capture analysis & alerts"
+echo "   - stream.service                    # Video/audio capture + rename + cleanup"
+echo "   - vncserver.service                 # VNC server"
+echo "   - novnc.service                     # noVNC web interface"
+echo ""
+echo "💡 Note: rename and cleanup are handled internally by stream.service" 

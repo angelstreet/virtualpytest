@@ -288,14 +288,31 @@ if [ "$INCLUDE_GRAFANA" = true ]; then
     # Set environment variables for Grafana
     export SUPABASE_DB_URI="${SUPABASE_DB_URI:-postgres://user:pass@localhost:5432/postgres}"
     
-    # Start Grafana using system configuration
-    if [[ "$OSTYPE" == "darwin"* ]]; then
-        # On macOS, use Homebrew paths
-        run_with_prefix "GRAFANA" "\033[0;35m" "$PROJECT_ROOT" grafana-server --config="/usr/local/etc/grafana/grafana.ini" --homepath="/usr/local/share/grafana" web
-    else
-        # On Linux, use system paths
-        run_with_prefix "GRAFANA" "\033[0;35m" "$PROJECT_ROOT" grafana-server --config="/etc/grafana/grafana.ini" --homepath="/usr/share/grafana" web
+    # Start Grafana using local project configuration
+    LOCAL_GRAFANA_CONFIG="$PROJECT_ROOT/grafana/config/grafana.ini"
+    LOCAL_GRAFANA_HOME="$PROJECT_ROOT/grafana"
+    
+    if [ ! -f "$LOCAL_GRAFANA_CONFIG" ]; then
+        echo "❌ Local Grafana configuration not found: $LOCAL_GRAFANA_CONFIG"
+        echo "   Run: ./setup/local/install_grafana.sh"
+        exit 1
     fi
+    
+    # Ensure local Grafana directories exist with correct permissions
+    mkdir -p "$PROJECT_ROOT/grafana/data"
+    mkdir -p "$PROJECT_ROOT/grafana/logs"
+    mkdir -p "$PROJECT_ROOT/grafana/plugins"
+    
+    # Set Grafana environment variables to override config file paths
+    export GF_PATHS_DATA="$PROJECT_ROOT/grafana/data"
+    export GF_PATHS_LOGS="$PROJECT_ROOT/grafana/logs"
+    export GF_PATHS_PLUGINS="$PROJECT_ROOT/grafana/plugins"
+    export GF_SERVER_HTTP_PORT="3001"
+    export GF_SERVER_DOMAIN="localhost"
+    export GF_SERVER_ROOT_URL="http://localhost:3001/"
+    export GF_SERVER_SERVE_FROM_SUB_PATH="false"
+    
+    run_with_prefix "GRAFANA" "\033[0;35m" "$PROJECT_ROOT" grafana-server --config="$LOCAL_GRAFANA_CONFIG" --homepath="$LOCAL_GRAFANA_HOME" web
     sleep 3
 fi
 
