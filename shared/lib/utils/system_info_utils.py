@@ -290,33 +290,13 @@ def get_per_device_metrics(devices) -> List[Dict[str, Any]]:
             # Check if FFmpeg processes are running (from overall status)
             ffmpeg_processes_running = ffmpeg_status.get('processes_running', 0) > 0
             
-            # Check files directly in the device's video_capture_path
-            if video_capture_path and os.path.exists(video_capture_path):
-                current_time = time.time()
-                cutoff_time = current_time - 300  # Look for files from last 5 minutes
-                
-                # Check for recent images (.jpg files) in captures subdirectory - FFmpeg only needs JPG
-                captures_dir = os.path.join(video_capture_path, 'captures')
-                recent_jpg = []
-                if os.path.exists(captures_dir):
-                    try:
-                        for entry in os.scandir(captures_dir):
-                            if entry.is_file() and entry.name.endswith('.jpg'):
-                                if entry.stat().st_mtime > cutoff_time:
-                                    recent_jpg.append(entry.path)
-                    except OSError:
-                        pass
-                
-                total_recent_files = len(recent_jpg)
-                
-                if total_recent_files > 0:
+            # Use existing FFmpeg status data (no duplicate file checking)
+            if ffmpeg_status.get('recent_files', {}).get(capture_folder):
+                device_files = ffmpeg_status['recent_files'][capture_folder]
+                if device_files.get('images', 0) > 0:
                     ffmpeg_device_status = 'active'
-                    # Get last activity time
-                    if recent_jpg:
-                        last_activity_timestamp = max([os.path.getmtime(f) for f in recent_jpg])
-                        ffmpeg_last_activity = datetime.fromtimestamp(last_activity_timestamp, tz=timezone.utc).isoformat()
-                        # Calculate working uptime: process start -> last file activity
-                        ffmpeg_uptime_seconds = calculate_process_working_uptime(capture_folder, 'ffmpeg')
+                    ffmpeg_last_activity = datetime.now(tz=timezone.utc).isoformat()
+                    ffmpeg_uptime_seconds = calculate_process_working_uptime(capture_folder, 'ffmpeg')
                 else:
                     # No recent files - check if process is running
                     if ffmpeg_processes_running:
@@ -324,9 +304,9 @@ def get_per_device_metrics(devices) -> List[Dict[str, Any]]:
                     else:
                         ffmpeg_device_status = 'stopped'  # No process running
             else:
-                # Video capture path doesn't exist
+                # No data for this capture folder
                 if ffmpeg_processes_running:
-                    ffmpeg_device_status = 'stuck'  # Process running but path doesn't exist
+                    ffmpeg_device_status = 'stuck'  # Process running but no data for device
                 else:
                     ffmpeg_device_status = 'stopped'  # No process running
             
@@ -341,46 +321,23 @@ def get_per_device_metrics(devices) -> List[Dict[str, Any]]:
             # Check if Monitor process is running (from overall status)
             monitor_process_running = monitor_status.get('process_running', False)
             
-            # Check JSON files directly in the device's video_capture_path/captures
-            if video_capture_path and os.path.exists(video_capture_path):
-                captures_dir = os.path.join(video_capture_path, 'captures')
-                if os.path.exists(captures_dir):
-                    current_time = time.time()
-                    cutoff_time = current_time - 300  # Look for files from last 5 minutes
-                    
-                    # Check for recent JSON files
-                    recent_json = []
-                    try:
-                        for entry in os.scandir(captures_dir):
-                            if entry.is_file() and entry.name.endswith('.json'):
-                                if entry.stat().st_mtime > cutoff_time:
-                                    recent_json.append(entry.path)
-                    except OSError:
-                        pass
-                    
-                    if len(recent_json) > 0:
-                        monitor_device_status = 'active'
-                        # Get last activity time
-                        last_activity_timestamp = max([os.path.getmtime(f) for f in recent_json])
-                        monitor_last_activity = datetime.fromtimestamp(last_activity_timestamp, tz=timezone.utc).isoformat()
-                        # Calculate working uptime: process start -> last file activity
-                        monitor_uptime_seconds = calculate_process_working_uptime(capture_folder, 'monitor')
-                    else:
-                        # No recent JSON files - check if process is running
-                        if monitor_process_running:
-                            monitor_device_status = 'stuck'  # Process running but no JSON files
-                        else:
-                            monitor_device_status = 'stopped'  # No process running
+            # Use existing Monitor status data (no duplicate file checking)
+            if monitor_status.get('recent_json_files', {}).get(capture_folder):
+                device_json = monitor_status['recent_json_files'][capture_folder]
+                if device_json.get('count', 0) > 0:
+                    monitor_device_status = 'active'
+                    monitor_last_activity = datetime.now(tz=timezone.utc).isoformat()
+                    monitor_uptime_seconds = calculate_process_working_uptime(capture_folder, 'monitor')
                 else:
-                    # Captures directory doesn't exist
+                    # No recent JSON files - check if process is running
                     if monitor_process_running:
-                        monitor_device_status = 'stuck'  # Process running but captures dir missing
+                        monitor_device_status = 'stuck'  # Process running but no JSON files
                     else:
                         monitor_device_status = 'stopped'  # No process running
             else:
-                # Video capture path doesn't exist
+                # No data for this capture folder
                 if monitor_process_running:
-                    monitor_device_status = 'stuck'  # Process running but path doesn't exist
+                    monitor_device_status = 'stuck'  # Process running but no data for device
                 else:
                     monitor_device_status = 'stopped'  # No process running
             
