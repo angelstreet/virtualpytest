@@ -244,10 +244,12 @@ def get_per_device_metrics(devices) -> List[Dict[str, Any]]:
             if video_capture_path:
                 capture_folder = os.path.basename(video_capture_path.rstrip('/'))
             
+            print(f"🔍 [DEVICE_DEBUG] {device_name}: video_capture_path = '{video_capture_path}' -> capture_folder = '{capture_folder}'")
+            
             # Extract video device path
             video_device = getattr(device, 'video', 'unknown')
             
-            # Extract per-device FFmpeg status using capture folder
+            # Extract per-device FFmpeg status by checking files directly in device path
             ffmpeg_device_status = 'unknown'
             ffmpeg_last_activity = None
             ffmpeg_uptime_seconds = 0
@@ -256,42 +258,74 @@ def get_per_device_metrics(devices) -> List[Dict[str, Any]]:
             ffmpeg_processes_running = ffmpeg_status.get('processes_running', 0) > 0
             
             print(f"🔍 [DEVICE_DEBUG] {device_name} ({capture_folder}): FFmpeg processes running = {ffmpeg_processes_running}")
-            print(f"🔍 [DEVICE_DEBUG] {device_name} ({capture_folder}): FFmpeg recent_files keys = {list(ffmpeg_status.get('recent_files', {}).keys())}")
+            print(f"🔍 [DEVICE_DEBUG] {device_name} ({capture_folder}): Checking files directly in device path: {video_capture_path}")
             
-            if ffmpeg_status.get('recent_files', {}).get(capture_folder):
-                device_files = ffmpeg_status['recent_files'][capture_folder]
-                print(f"🔍 [DEVICE_DEBUG] {device_name} ({capture_folder}): Device files = {device_files}")
+            # Check files directly in the device's video_capture_path
+            if video_capture_path and os.path.exists(video_capture_path):
+                current_time = time.time()
+                cutoff_time = current_time - 10  # Only look for files from last 10 seconds
                 
-                if device_files.get('images', 0) > 0 or device_files.get('video_segments', 0) > 0:
+                # Check for recent video segments (.ts files) in main directory
+                recent_ts = []
+                try:
+                    for entry in os.scandir(video_capture_path):
+                        if entry.is_file() and entry.name.startswith('segment_') and entry.name.endswith('.ts'):
+                            if entry.stat().st_mtime > cutoff_time:
+                                recent_ts.append(entry.path)
+                except OSError:
+                    pass
+                
+                # Check for recent images (.jpg files) in captures subdirectory
+                captures_dir = os.path.join(video_capture_path, 'captures')
+                recent_jpg = []
+                if os.path.exists(captures_dir):
+                    try:
+                        for entry in os.scandir(captures_dir):
+                            if entry.is_file() and entry.name.endswith('.jpg'):
+                                if entry.stat().st_mtime > cutoff_time:
+                                    recent_jpg.append(entry.path)
+                    except OSError:
+                        pass
+                    print(f"🔍 [DEVICE_DEBUG] {device_name}: Found {len(recent_jpg)} recent JPG files (last 10s)")
+                else:
+                    print(f"🔍 [DEVICE_DEBUG] {device_name}: captures/ directory does not exist at {captures_dir}")
+                
+                print(f"🔍 [DEVICE_DEBUG] {device_name}: Found {len(recent_ts)} recent TS files (last 10s)")
+                
+                total_recent_files = len(recent_ts) + len(recent_jpg)
+                
+                if total_recent_files > 0:
                     ffmpeg_device_status = 'active'
-                    last_activity_timestamp = device_files.get('last_activity', 0)
-                    if last_activity_timestamp > 0:
+                    # Get last activity time
+                    all_recent_files = recent_ts + recent_jpg
+                    if all_recent_files:
+                        last_activity_timestamp = max([os.path.getmtime(f) for f in all_recent_files])
                         ffmpeg_last_activity = datetime.fromtimestamp(last_activity_timestamp, tz=timezone.utc).isoformat()
                         # Calculate working uptime: process start -> last file activity
                         ffmpeg_uptime_seconds = calculate_process_working_uptime(capture_folder, 'ffmpeg')
-                    print(f"🔍 [DEVICE_DEBUG] {device_name} ({capture_folder}): FFmpeg status = ACTIVE (files found)")
+                    print(f"🔍 [DEVICE_DEBUG] {device_name}: FFmpeg status = ACTIVE ({total_recent_files} recent files)")
                 else:
                     # No recent files - check if process is running
                     if ffmpeg_processes_running:
                         ffmpeg_device_status = 'stuck'  # Process running but no files
-                        print(f"🔍 [DEVICE_DEBUG] {device_name} ({capture_folder}): FFmpeg status = STUCK (process running, no files)")
+                        print(f"🔍 [DEVICE_DEBUG] {device_name}: FFmpeg status = STUCK (process running, no recent files)")
                     else:
                         ffmpeg_device_status = 'stopped'  # No process running
-                        print(f"🔍 [DEVICE_DEBUG] {device_name} ({capture_folder}): FFmpeg status = STOPPED (no process, no files)")
+                        print(f"🔍 [DEVICE_DEBUG] {device_name}: FFmpeg status = STOPPED (no process, no recent files)")
             else:
-                # No files data for this capture folder
-                print(f"🔍 [DEVICE_DEBUG] {device_name} ({capture_folder}): No files data for this capture folder")
+                # Video capture path doesn't exist
+                print(f"🔍 [DEVICE_DEBUG] {device_name}: Video capture path does not exist: {video_capture_path}")
                 if ffmpeg_processes_running:
-                    ffmpeg_device_status = 'stuck'  # Process running but no files for this device
-                    print(f"🔍 [DEVICE_DEBUG] {device_name} ({capture_folder}): FFmpeg status = STUCK (process running, no data for device)")
+                    ffmpeg_device_status = 'stuck'  # Process running but path doesn't exist
+                    print(f"🔍 [DEVICE_DEBUG] {device_name}: FFmpeg status = STUCK (process running, path missing)")
                 else:
                     ffmpeg_device_status = 'stopped'  # No process running
-                    print(f"🔍 [DEVICE_DEBUG] {device_name} ({capture_folder}): FFmpeg status = STOPPED (no process, no data)")
+                    print(f"🔍 [DEVICE_DEBUG] {device_name}: FFmpeg status = STOPPED (no process, path missing)")
             
             # Clear cache if FFmpeg is stuck/stopped (ready for restart detection)
             clear_process_cache_if_stuck(capture_folder, 'ffmpeg', ffmpeg_device_status)
             
-            # Extract per-device Monitor status using capture folder
+            # Extract per-device Monitor status by checking JSON files directly in device path
             monitor_device_status = 'unknown'
             monitor_last_activity = None
             monitor_uptime_seconds = 0
@@ -300,37 +334,61 @@ def get_per_device_metrics(devices) -> List[Dict[str, Any]]:
             monitor_process_running = monitor_status.get('process_running', False)
             
             print(f"🔍 [DEVICE_DEBUG] {device_name} ({capture_folder}): Monitor process running = {monitor_process_running}")
-            print(f"🔍 [DEVICE_DEBUG] {device_name} ({capture_folder}): Monitor recent_json_files keys = {list(monitor_status.get('recent_json_files', {}).keys())}")
+            print(f"🔍 [DEVICE_DEBUG] {device_name} ({capture_folder}): Checking JSON files directly in device path: {video_capture_path}")
             
-            if monitor_status.get('recent_json_files', {}).get(capture_folder):
-                device_json = monitor_status['recent_json_files'][capture_folder]
-                print(f"🔍 [DEVICE_DEBUG] {device_name} ({capture_folder}): Device JSON = {device_json}")
-                
-                if device_json.get('count', 0) > 0:
-                    monitor_device_status = 'active'
-                    last_activity_timestamp = device_json.get('last_activity', 0)
-                    if last_activity_timestamp > 0:
+            # Check JSON files directly in the device's video_capture_path/captures
+            if video_capture_path and os.path.exists(video_capture_path):
+                captures_dir = os.path.join(video_capture_path, 'captures')
+                if os.path.exists(captures_dir):
+                    current_time = time.time()
+                    cutoff_time = current_time - 10  # Only look for files from last 10 seconds
+                    
+                    # Check for recent JSON files
+                    recent_json = []
+                    try:
+                        for entry in os.scandir(captures_dir):
+                            if entry.is_file() and entry.name.endswith('.json'):
+                                if entry.stat().st_mtime > cutoff_time:
+                                    recent_json.append(entry.path)
+                    except OSError:
+                        pass
+                    
+                    print(f"🔍 [DEVICE_DEBUG] {device_name}: Found {len(recent_json)} recent JSON files (last 10s)")
+                    
+                    if len(recent_json) > 0:
+                        monitor_device_status = 'active'
+                        # Get last activity time
+                        last_activity_timestamp = max([os.path.getmtime(f) for f in recent_json])
                         monitor_last_activity = datetime.fromtimestamp(last_activity_timestamp, tz=timezone.utc).isoformat()
                         # Calculate working uptime: process start -> last file activity
                         monitor_uptime_seconds = calculate_process_working_uptime(capture_folder, 'monitor')
-                    print(f"🔍 [DEVICE_DEBUG] {device_name} ({capture_folder}): Monitor status = ACTIVE (JSON files found)")
+                        print(f"🔍 [DEVICE_DEBUG] {device_name}: Monitor status = ACTIVE ({len(recent_json)} recent JSON files)")
+                    else:
+                        # No recent JSON files - check if process is running
+                        if monitor_process_running:
+                            monitor_device_status = 'stuck'  # Process running but no JSON files
+                            print(f"🔍 [DEVICE_DEBUG] {device_name}: Monitor status = STUCK (process running, no recent JSON files)")
+                        else:
+                            monitor_device_status = 'stopped'  # No process running
+                            print(f"🔍 [DEVICE_DEBUG] {device_name}: Monitor status = STOPPED (no process, no recent JSON files)")
                 else:
-                    # No recent JSON files - check if process is running
+                    # Captures directory doesn't exist
+                    print(f"🔍 [DEVICE_DEBUG] {device_name}: captures/ directory does not exist at {captures_dir}")
                     if monitor_process_running:
-                        monitor_device_status = 'stuck'  # Process running but no JSON files
-                        print(f"🔍 [DEVICE_DEBUG] {device_name} ({capture_folder}): Monitor status = STUCK (process running, no JSON files)")
+                        monitor_device_status = 'stuck'  # Process running but captures dir missing
+                        print(f"🔍 [DEVICE_DEBUG] {device_name}: Monitor status = STUCK (process running, captures dir missing)")
                     else:
                         monitor_device_status = 'stopped'  # No process running
-                        print(f"🔍 [DEVICE_DEBUG] {device_name} ({capture_folder}): Monitor status = STOPPED (no process, no JSON files)")
+                        print(f"🔍 [DEVICE_DEBUG] {device_name}: Monitor status = STOPPED (no process, captures dir missing)")
             else:
-                # No JSON files data for this capture folder
-                print(f"🔍 [DEVICE_DEBUG] {device_name} ({capture_folder}): No JSON files data for this capture folder")
+                # Video capture path doesn't exist
+                print(f"🔍 [DEVICE_DEBUG] {device_name}: Video capture path does not exist: {video_capture_path}")
                 if monitor_process_running:
-                    monitor_device_status = 'stuck'  # Process running but no JSON files for this device
-                    print(f"🔍 [DEVICE_DEBUG] {device_name} ({capture_folder}): Monitor status = STUCK (process running, no data for device)")
+                    monitor_device_status = 'stuck'  # Process running but path doesn't exist
+                    print(f"🔍 [DEVICE_DEBUG] {device_name}: Monitor status = STUCK (process running, path missing)")
                 else:
                     monitor_device_status = 'stopped'  # No process running
-                    print(f"🔍 [DEVICE_DEBUG] {device_name} ({capture_folder}): Monitor status = STOPPED (no process, no data)")
+                    print(f"🔍 [DEVICE_DEBUG] {device_name}: Monitor status = STOPPED (no process, path missing)")
             
             # Clear cache if Monitor is stuck/stopped (ready for restart detection)
             clear_process_cache_if_stuck(capture_folder, 'monitor', monitor_device_status)
@@ -395,6 +453,7 @@ def check_ffmpeg_status():
         ]
         
         current_time = time.time()
+        cutoff_time = current_time - 10  # Only look for files from last 10 seconds
         print(f"🔍 [FFMPEG_DEBUG] Current time: {current_time} ({datetime.fromtimestamp(current_time)})")
         
         for capture_dir in capture_dirs:
@@ -402,42 +461,43 @@ def check_ffmpeg_status():
                 device_name = os.path.basename(capture_dir)
                 print(f"🔍 [FFMPEG_DEBUG] Checking {device_name} in {capture_dir}")
                 
-                # Check for recent video segments (.ts files)
-                ts_files = glob.glob(os.path.join(capture_dir, 'segment_*.ts'))
-                print(f"🔍 [FFMPEG_DEBUG] {device_name}: Found {len(ts_files)} total .ts files")
-                
+                # Check for recent video segments (.ts files) - optimized
                 recent_ts = []
-                for f in ts_files:
-                    mtime = os.path.getmtime(f)
-                    age_seconds = current_time - mtime
-                    if age_seconds < 300:  # 5 minutes
-                        recent_ts.append(f)
-                    print(f"🔍 [FFMPEG_DEBUG] {device_name}: {os.path.basename(f)} - age: {age_seconds:.1f}s ({'RECENT' if age_seconds < 300 else 'OLD'})")
+                try:
+                    for entry in os.scandir(capture_dir):
+                        if entry.is_file() and entry.name.startswith('segment_') and entry.name.endswith('.ts'):
+                            if entry.stat().st_mtime > cutoff_time:
+                                recent_ts.append(entry.path)
+                except OSError:
+                    pass
                 
-                # Check for recent images (.jpg files) - FIXED PATTERN
+                print(f"🔍 [FFMPEG_DEBUG] {device_name}: Found {len(recent_ts)} recent .ts files (last 10s)")
+                
+                # Check for recent images (.jpg files) - optimized
                 captures_dir = os.path.join(capture_dir, 'captures')
                 recent_jpg = []
                 if os.path.exists(captures_dir):
-                    # Use broader pattern to catch all .jpg files (not just capture_*.jpg)
-                    jpg_files = glob.glob(os.path.join(captures_dir, '*.jpg'))
-                    print(f"🔍 [FFMPEG_DEBUG] {device_name}: Found {len(jpg_files)} total .jpg files in captures/")
-                    
-                    for f in jpg_files:
-                        mtime = os.path.getmtime(f)
-                        age_seconds = current_time - mtime
-                        if age_seconds < 300:  # 5 minutes
-                            recent_jpg.append(f)
-                        print(f"🔍 [FFMPEG_DEBUG] {device_name}: {os.path.basename(f)} - age: {age_seconds:.1f}s ({'RECENT' if age_seconds < 300 else 'OLD'})")
+                    try:
+                        for entry in os.scandir(captures_dir):
+                            if entry.is_file() and entry.name.endswith('.jpg'):
+                                if entry.stat().st_mtime > cutoff_time:
+                                    recent_jpg.append(entry.path)
+                    except OSError:
+                        pass
+                    print(f"🔍 [FFMPEG_DEBUG] {device_name}: Found {len(recent_jpg)} recent .jpg files (last 10s)")
                 else:
                     print(f"🔍 [FFMPEG_DEBUG] {device_name}: captures/ directory does not exist")
                 
                 print(f"🔍 [FFMPEG_DEBUG] {device_name}: Recent files - TS: {len(recent_ts)}, JPG: {len(recent_jpg)}")
                 
+                last_activity = max([os.path.getmtime(f) for f in (recent_ts + recent_jpg)]) if (recent_ts + recent_jpg) else 0
                 status['recent_files'][device_name] = {
                     'video_segments': len(recent_ts),
                     'images': len(recent_jpg),
-                    'last_activity': max([os.path.getmtime(f) for f in (recent_ts + recent_jpg)]) if (recent_ts + recent_jpg) else 0
+                    'last_activity': last_activity
                 }
+                
+                print(f"🔍 [FFMPEG_DEBUG] {device_name}: Stored status = {status['recent_files'][device_name]}")
         
         # Determine per-device status and overall status
         device_statuses = {}
@@ -518,6 +578,7 @@ def check_monitor_status():
         ]
         
         current_time = time.time()
+        cutoff_time = current_time - 10  # Only look for files from last 10 seconds
         print(f"🔍 [MONITOR_DEBUG] Current time: {current_time} ({datetime.fromtimestamp(current_time)})")
         
         for captures_dir in capture_dirs:
@@ -525,19 +586,17 @@ def check_monitor_status():
                 device_name = os.path.basename(os.path.dirname(captures_dir))  # capture1, capture2, etc.
                 print(f"🔍 [MONITOR_DEBUG] Checking {device_name} in {captures_dir}")
                 
-                # Check for recent JSON files - FIXED PATTERN
-                json_files = glob.glob(os.path.join(captures_dir, '*.json'))
-                print(f"🔍 [MONITOR_DEBUG] {device_name}: Found {len(json_files)} total .json files")
-                
+                # Check for recent JSON files - optimized
                 recent_json = []
-                for f in json_files:
-                    mtime = os.path.getmtime(f)
-                    age_seconds = current_time - mtime
-                    if age_seconds < 300:  # 5 minutes
-                        recent_json.append(f)
-                    print(f"🔍 [MONITOR_DEBUG] {device_name}: {os.path.basename(f)} - age: {age_seconds:.1f}s ({'RECENT' if age_seconds < 300 else 'OLD'})")
+                try:
+                    for entry in os.scandir(captures_dir):
+                        if entry.is_file() and entry.name.endswith('.json'):
+                            if entry.stat().st_mtime > cutoff_time:
+                                recent_json.append(entry.path)
+                except OSError:
+                    pass
                 
-                print(f"🔍 [MONITOR_DEBUG] {device_name}: Recent JSON files: {len(recent_json)}")
+                print(f"🔍 [MONITOR_DEBUG] {device_name}: Found {len(recent_json)} recent .json files (last 10s)")
                 
                 status['recent_json_files'][device_name] = {
                     'count': len(recent_json),
