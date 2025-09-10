@@ -82,12 +82,13 @@ echo "📺 Starting backend_host with real-time logging..."
 echo "💡 Press Ctrl+C to stop"
 echo "=================================================================================="
 
-# Start backend_host with service orchestrator
-cd backend_host/scripts
-echo -e "${GREEN}🟢 Starting backend_host with automatic service detection...${NC}"
+# Start backend_host Flask application (local development)
+cd backend_host/src
+echo -e "${GREEN}🟢 Starting backend_host Flask application...${NC}"
+echo -e "${GREEN}💡 VNC services should be managed separately via systemd services${NC}"
 
-# Start the service orchestrator and capture PID
-bash start_services.sh 2>&1 | {
+# Start the Flask application directly
+python app.py 2>&1 | {
     while IFS= read -r line; do
         printf "${GREEN}[HOST]${NC} %s\n" "$line"
     done
@@ -96,9 +97,10 @@ bash start_services.sh 2>&1 | {
 HOST_PID=$!
 echo $HOST_PID > /tmp/backend_host.pid
 
-echo "Started backend_host with PID: $HOST_PID"
-echo "🌐 backend_host: http://localhost:6109"
+echo "Started backend_host Flask app with PID: $HOST_PID"
+echo "🌐 backend_host API: http://localhost:6109"
 echo "💡 Logs will appear with [HOST] prefix below"
+echo "🔧 To manage VNC services: ./backend_host/manage_services.sh"
 echo "=================================================================================="
 
 # Wait for the process
