@@ -11,7 +11,7 @@ services:
       - key: PYTHONPATH
         value: /opt/render/project/src:/opt/render/project
       - key: SERVER_PORT
-        value: 10000
+        value: 80
       - key: DEBUG
         value: false
       - key: RENDER

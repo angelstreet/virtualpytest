@@ -2,40 +2,43 @@
 
 ## 🎯 **Overview**
 
-This document explains the Docker configuration for the VirtualPyTest backend server, designed for deployment on **Render** with **no nginx reverse proxy**. The container runs Flask API and Grafana using supervisor for process management.
+This document explains the Docker configuration for the VirtualPyTest backend server, designed for deployment on **Render** with **nginx reverse proxy**. The container runs nginx, Flask API and Grafana using supervisor for process management.
 
 ## 🏗️ **Architecture**
 
 ### **Deployment Flow:**
 ```
 Internet → Render Load Balancer → Docker Container
-                                      │
-                                      ├─ Flask API (port 10000) ← Main service
-                                      └─ Grafana (port 3000) ← Internal service
+                                     │
+                                     ├─ nginx (port 80) ← Entry point
+                                     ├─ Flask API (port 5110) ← Internal service
+                                     └─ Grafana (port 3000) ← Internal service
 ```
 
 ### **Service Communication:**
 ```
 External Requests:
-- https://virtualpytest.onrender.com/server/* → Flask API
-- https://virtualpytest.onrender.com/grafana/* → Flask → Grafana (proxy)
+- https://virtualpytest.onrender.com/server/* → nginx → Flask API
+- https://virtualpytest.onrender.com/grafana/* → nginx → Flask → Grafana (proxy)
 
 Internal Services:
-- Flask: localhost:10000 (exposed to Render)
+- nginx: localhost:80 (exposed to Render)
+- Flask: localhost:5110 (internal only)
 - Grafana: localhost:3000 (internal only)
 ```
 
 ## 📦 **Container Components**
 
 ### **Services Managed by Supervisor:**
-1. **Flask API** - Main backend service
-2. **Grafana** - Monitoring and dashboards
+1. **nginx** - Reverse proxy and routing
+2. **Flask API** - Main backend service  
+3. **Grafana** - Monitoring and dashboards
 
-### **Key Changes from Previous Version:**
-- ❌ **Removed nginx** - No reverse proxy needed
-- ✅ **Direct Flask exposure** - Port 10000 exposed to Render
-- ✅ **Flask proxies Grafana** - Application-level routing
-- ✅ **Simplified architecture** - Fewer moving parts
+### **Key Features:**
+- ✅ **nginx reverse proxy** - Handles /server/ URL routing
+- ✅ **Flask API** - Port 5110 internal service
+- ✅ **Grafana integration** - Accessible via /grafana/ routes
+- ✅ **Proper URL routing** - Strips /server/ prefix for Flask
 
 ## 🔧 **Configuration Files**
 

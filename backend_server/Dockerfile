@@ -1,10 +1,11 @@
 FROM python:3.11-slim
 
-# Install system dependencies including Grafana (no nginx)
+# Install system dependencies including nginx and Grafana
 RUN apt-get update && apt-get install -y \
     curl \
     wget \
     gnupg2 \
+    nginx \
     supervisor \
     postgresql-client \
     libpq-dev \
@@ -45,6 +46,9 @@ COPY backend_server/src/ backend_server/src/
 # Copy backend_server configuration
 COPY backend_server/config/ backend_server/config/
 
+# Copy nginx configuration for Render
+COPY backend_server/config/nginx/render.conf /etc/nginx/sites-available/default
+
 # Copy separate Grafana configuration to expected location
 COPY grafana/config/ backend_server/config/grafana/
 COPY grafana/data/ backend_server/config/grafana/data/
@@ -76,18 +80,18 @@ RUN useradd -m -u 1000 vptuser \
     && chmod -R 775 /app/backend_server/config/grafana \
     && chmod -R 755 /var/log/grafana
 
-# Copy supervisor configuration (no nginx)
-COPY backend_server/config/supervisor/supervisord-no-nginx.conf /etc/supervisor/conf.d/virtualpytest.conf
+# Copy supervisor configuration (with nginx)
+COPY backend_server/config/supervisor/supervisord.conf /etc/supervisor/conf.d/virtualpytest.conf
 
-# Expose only Flask port (Render routes to this)
-EXPOSE 10000
+# Expose nginx port (Render routes to this)
+EXPOSE 80
 
-# Health check for Flask directly
+# Health check for nginx (which proxies to Flask)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-  CMD curl -f http://localhost:10000/health || exit 1
+  CMD curl -f http://localhost:80/health || exit 1
 
 # Run supervisor as root (needed for Grafana)
 USER root
 
-# Run supervisor to manage Flask and Grafana (no nginx)
+# Run supervisor to manage nginx, Flask and Grafana
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/supervisord.conf", "-n"] 
