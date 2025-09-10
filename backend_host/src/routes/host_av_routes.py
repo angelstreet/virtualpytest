@@ -508,7 +508,7 @@ def generate_restart_video():
         # Get device_id from request (defaults to device1)
         data = request.get_json() or {}
         device_id = data.get('device_id', 'device1')
-        duration_minutes = data.get('duration_minutes', 5)
+        duration_minutes = data.get('duration_minutes', 1)
         
         print(f"[@route:host_av:generate_restart_video] Generating {duration_minutes}min MP4 for device: {device_id}")
         

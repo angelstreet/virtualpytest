@@ -33,7 +33,7 @@ export const useRestart = ({ host, device }: UseRestartParams): UseRestartReturn
       setIsReady(false);
       
       console.log(
-        `[@hook:useRestart] Generating 5-minute restart video for ${host.host_name}-${device.device_id}`,
+        `[@hook:useRestart] Generating 1-minute restart video for ${host.host_name}-${device.device_id}`,
       );
 
       const response = await fetch(buildServerUrl('/server/av/generateRestartVideo'), {
@@ -44,7 +44,7 @@ export const useRestart = ({ host, device }: UseRestartParams): UseRestartReturn
         body: JSON.stringify({
           host: host,
           device_id: device.device_id || 'device1',
-          duration_minutes: 5,
+          duration_minutes: 1,
         }),
       });
 
@@ -56,7 +56,7 @@ export const useRestart = ({ host, device }: UseRestartParams): UseRestartReturn
 
       if (data.success && data.video_url) {
         console.log(
-          `[@hook:useRestart] Successfully generated restart video in ${data.processing_time_seconds}s`,
+          `[@hook:useRestart] Successfully generated 1-minute restart video in ${data.processing_time_seconds}s`,
         );
 
         setVideoUrl(data.video_url);

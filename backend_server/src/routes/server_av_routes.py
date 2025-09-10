@@ -542,7 +542,7 @@ def generate_restart_video():
         request_data = request.get_json() or {}
         host = request_data.get('host')
         device_id = request_data.get('device_id', 'device1')
-        duration_minutes = request_data.get('duration_minutes', 5)
+        duration_minutes = request_data.get('duration_minutes', 1)
 
         # Validate host
         if not host:
