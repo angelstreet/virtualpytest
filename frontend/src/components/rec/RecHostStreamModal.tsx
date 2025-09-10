@@ -263,7 +263,13 @@ const RecHostStreamModalContent: React.FC<{
   // Stable device resolution to prevent re-renders
   const stableDeviceResolution = useMemo(() => DEFAULT_DEVICE_RESOLUTION, []);
 
-  // All devices use unified desktop layout - no mobile detection needed
+  // Check if device is mobile model (consistent with RecHostPreview)
+  const isMobileModel = useMemo(() => {
+    const model = device?.device_model;
+    if (!model) return false;
+    const modelLower = model.toLowerCase();
+    return modelLower.includes('mobile');
+  }, [device?.device_model]);
 
   // Stable onReleaseControl callback to prevent re-renders
   const handleReleaseControl = useCallback(() => {
@@ -568,7 +574,7 @@ const RecHostStreamModalContent: React.FC<{
               position: 'relative',
               overflow: 'hidden',
               display: 'flex',
-              alignItems: 'center', // Center all content - black bars handled by video player
+              alignItems: isMobileModel ? 'flex-start' : 'center', // Top-align mobile to avoid bottom black bars
               justifyContent: 'center',
               backgroundColor: 'black',
             }}
@@ -631,10 +637,12 @@ const RecHostStreamModalContent: React.FC<{
                     isCapturing={false}
                     model={device?.device_model || 'unknown'}
                     layoutConfig={{
-                      minHeight: '150px',
-                      aspectRatio: 'auto', // Let content determine ratio, accept black bars
-                      objectFit: 'contain', // Always preserve aspect ratio
-                      isMobileModel: false, // Always false - unified desktop layout
+                      minHeight: '300px',
+                      aspectRatio: isMobileModel 
+                        ? '9/16' // Fixed mobile aspect ratio
+                        : `${DEFAULT_DEVICE_RESOLUTION.width}/${DEFAULT_DEVICE_RESOLUTION.height}`,
+                      objectFit: isMobileModel ? 'fill' : 'contain', // Use fill for mobile, contain for desktop
+                      isMobileModel, // Use our mobile detection result
                     }}
                     isExpanded={false}
                     muted={isMuted}

@@ -16,7 +16,7 @@ import { useHdmiStream, useStream } from '../../../hooks/controller';
 import { Host } from '../../../types/common/Host_Types';
 import { VerificationEditor } from '../verification';
 import { getZIndex } from '../../../utils/zIndexUtils';
-// DEFAULT_DEVICE_RESOLUTION import removed - no longer needed for unified layout
+import { DEFAULT_DEVICE_RESOLUTION } from '../../../config/deviceResolutions';
 
 import { RecordingOverlay, LoadingOverlay, ModeIndicatorDot } from './ScreenEditorOverlay';
 import { ScreenshotCapture } from './ScreenshotCapture';
@@ -66,21 +66,11 @@ export const HDMIStream = React.memo(
       return device?.device_model || 'unknown';
     }, [deviceModel, host.devices, deviceId]);
 
-    // Load AV config - force desktop layout for NavigationEditor
+    // Load AV config
     useEffect(() => {
       const loadConfig = async () => {
-        // In NavigationEditor, always use desktop config for consistent panel sizing
-        // regardless of device model (mobile devices still get desktop-sized HDMI panel)
-        const configDeviceModel = 'desktop'; // Force desktop config
-        const config = await loadAVConfig('hdmi_stream', configDeviceModel);
+        const config = await loadAVConfig('hdmi_stream', effectiveDeviceModel);
         setAvConfig(config);
-        
-        // DEBUG: Log config loading decision
-        console.log('[@component:HDMIStream] DEBUG - Config Loading:', {
-          effectiveDeviceModel,
-          configDeviceModel,
-          reason: 'Forced desktop config for NavigationEditor'
-        });
       };
 
       loadConfig();
@@ -279,7 +269,8 @@ export const HDMIStream = React.memo(
     // Check if verification editor should be visible
     const isVerificationVisible = captureMode === 'screenshot' || captureMode === 'video';
 
-    // All devices use unified desktop layout - no mobile detection needed
+    // Compute isMobile from effectiveDeviceModel
+    const isMobile = effectiveDeviceModel?.includes('mobile') || effectiveDeviceModel === 'android_mobile';
 
     return (
       <>
@@ -431,7 +422,6 @@ export const HDMIStream = React.memo(
               <Box
                 sx={{
                   height: `100%`,
-                  width: `100%`,
                   overflow: 'hidden',
                   position: 'relative',
                 }}
@@ -444,10 +434,12 @@ export const HDMIStream = React.memo(
                   model={effectiveDeviceModel}
                   isExpanded={isExpanded}
                   layoutConfig={{
-                    minHeight: isExpanded ? '400px' : '120px', // Adjust for fixed container: 200px - 40px header - 40px padding = ~120px
-                    aspectRatio: 'auto', // Let content determine ratio, accept black bars
-                    objectFit: 'contain', // Always preserve aspect ratio
-                    isMobileModel: false, // Always false - unified desktop layout
+                    minHeight: isExpanded ? '400px' : '150px', // Adjust based on panel state
+                    aspectRatio: isMobile
+                      ? `${DEFAULT_DEVICE_RESOLUTION.height}/${DEFAULT_DEVICE_RESOLUTION.width}`
+                      : `${DEFAULT_DEVICE_RESOLUTION.width}/${DEFAULT_DEVICE_RESOLUTION.height}`,
+                    objectFit: isMobile ? 'fill' : 'contain',
+                    isMobileModel: isMobile,
                   }}
                   sx={{
                     position: 'absolute',

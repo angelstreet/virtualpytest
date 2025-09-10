@@ -12,7 +12,7 @@ import React from 'react';
 import { createPortal } from 'react-dom';
 
 import { DEFAULT_DEVICE_RESOLUTION } from '../../../config/deviceResolutions';
-import { hdmiStreamConfig, HDMI_STREAM_HEADER_HEIGHT } from '../../../config/av/hdmiStream';
+import { hdmiStreamMobileConfig, HDMI_STREAM_HEADER_HEIGHT } from '../../../config/av/hdmiStream';
 import { useAndroidMobile } from '../../../hooks/controller/useAndroidMobile';
 import { Host } from '../../../types/common/Host_Types';
 import { PanelInfo } from '../../../types/controller/Panel_Types';
@@ -140,7 +140,7 @@ export const AndroidMobileRemote = React.memo(
       const hdmiStreamResolution = DEFAULT_DEVICE_RESOLUTION;
 
       // Get HDMI stream dimensions from config based on stream collapsed state (not panel state)
-      const streamConfig = hdmiStreamConfig.panel_layout; // Use unified desktop config for all devices
+      const streamConfig = hdmiStreamMobileConfig.panel_layout;
       const currentStreamConfig = streamCollapsed ? streamConfig.collapsed : streamConfig.expanded;
 
       // Parse dimensions from config
