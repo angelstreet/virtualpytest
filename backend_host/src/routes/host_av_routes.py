@@ -503,14 +503,40 @@ def save_screenshot():
 
 @host_av_bp.route('/generateRestartVideo', methods=['POST'])
 def generate_restart_video():
-    """Generate 5-minute MP4 video from recent HLS segments for restart functionality"""
+    """Generate 30-second MP4 video from recent HLS segments for restart functionality"""
     try:
         # Get device_id from request (defaults to device1)
         data = request.get_json() or {}
         device_id = data.get('device_id', 'device1')
-        duration_minutes = data.get('duration_minutes', 1)
+        duration_seconds = data.get('duration_seconds', 30)
         
-        print(f"[@route:host_av:generate_restart_video] Generating {duration_minutes}min MP4 for device: {device_id}")
+        # Simple deduplication - check if same request is already processing
+        import time
+        request_key = f"{device_id}_{duration_seconds}"
+        current_time = time.time()
+        
+        # Use a simple in-memory cache with 30-second expiry
+        if not hasattr(generate_restart_video, '_processing_cache'):
+            generate_restart_video._processing_cache = {}
+        
+        # Clean expired entries
+        generate_restart_video._processing_cache = {
+            k: v for k, v in generate_restart_video._processing_cache.items() 
+            if current_time - v < 30
+        }
+        
+        # Check if already processing
+        if request_key in generate_restart_video._processing_cache:
+            print(f"[@route:host_av:generate_restart_video] Duplicate request detected for {device_id}, ignoring")
+            return jsonify({
+                'success': False,
+                'error': 'Video generation already in progress for this device'
+            }), 429
+        
+        # Mark as processing
+        generate_restart_video._processing_cache[request_key] = current_time
+        
+        print(f"[@route:host_av:generate_restart_video] Generating {duration_seconds}s MP4 for device: {device_id}")
         
         # Get AV controller for the specified device
         av_controller = get_controller(device_id, 'av')
@@ -534,21 +560,22 @@ def generate_restart_video():
         # Generate MP4 from recent HLS segments
         import time
         start_time = time.time()
-        
-        # Use take_video method with duration in seconds
-        duration_seconds = duration_minutes * 60
         mp4_url = av_controller.take_video(duration_seconds=duration_seconds)
         
         processing_time = time.time() - start_time
+        
+        # Remove from processing cache
+        if request_key in generate_restart_video._processing_cache:
+            del generate_restart_video._processing_cache[request_key]
         
         if mp4_url:
             return jsonify({
                 'success': True,
                 'video_url': mp4_url,
-                'duration_minutes': duration_minutes,
+                'duration_seconds': duration_seconds,
                 'processing_time_seconds': round(processing_time, 2),
                 'device_id': device_id,
-                'message': f'Successfully generated {duration_minutes}-minute restart video'
+                'message': f'Successfully generated {duration_seconds}-second restart video'
             })
         else:
             return jsonify({
@@ -558,6 +585,15 @@ def generate_restart_video():
             
     except Exception as e:
         print(f"[@route:host_av:generate_restart_video] Error: {str(e)}")
+        
+        # Remove from processing cache on error
+        try:
+            request_key = f"{data.get('device_id', 'device1')}_{data.get('duration_seconds', 30)}"
+            if hasattr(generate_restart_video, '_processing_cache') and request_key in generate_restart_video._processing_cache:
+                del generate_restart_video._processing_cache[request_key]
+        except:
+            pass
+        
         return jsonify({
             'success': False,
             'error': str(e)

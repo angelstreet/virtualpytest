@@ -63,9 +63,9 @@ export const RestartPlayer: React.FC<RestartPlayerProps> = ({ host, device }) =>
           }}
         >
           <CircularProgress sx={{ color: 'white' }} />
-          <Typography>Generating 1-minute restart video...</Typography>
+          <Typography>Generating 30-second restart video...</Typography>
           <Typography variant="caption" sx={{ opacity: 0.7 }}>
-            This should take 5-10 seconds
+            This should take 3-5 seconds
           </Typography>
         </Box>
       )}
@@ -171,7 +171,7 @@ export const RestartPlayer: React.FC<RestartPlayerProps> = ({ host, device }) =>
               textShadow: '1px 1px 2px rgba(0,0,0,0.8)',
             }}
           >
-            1-min video • Generated in {processingTime}s
+            30s video • Generated in {processingTime}s
           </Typography>
         </Box>
       )}

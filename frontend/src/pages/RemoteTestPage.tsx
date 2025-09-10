@@ -340,6 +340,7 @@ export default function RemoteTestPage() {
   const [selectedHost, setSelectedHost] = useState<TestHost>(mockHosts[0]);
   const [useModalLayout, setUseModalLayout] = useState<boolean>(false);
   const [showRemote, setShowRemote] = useState<boolean>(true);
+  const [showStackedTest, setShowStackedTest] = useState<boolean>(false);
 
   // State to coordinate between HDMIStream and RemotePanel
   const [captureMode] = useState<'stream' | 'screenshot' | 'video'>('stream');
@@ -480,6 +481,27 @@ export default function RemoteTestPage() {
         />
       </Paper>
 
+      {/* Fire TV + Android TV Stacked Test */}
+      <Paper sx={{ p: 2, mb: 3, backgroundColor: 'secondary.light' }}>
+        <FormControlLabel
+          control={
+            <Switch
+              checked={showStackedTest}
+              onChange={(e) => setShowStackedTest(e.target.checked)}
+              color="primary"
+            />
+          }
+          label={
+            <Typography variant="body2" fontWeight="bold">
+              Fire TV + Android TV Stacked Modal Test
+            </Typography>
+          }
+        />
+        <Typography variant="caption" display="block" sx={{ mt: 1 }}>
+          Shows both Fire TV and Android TV remotes stacked in modal layout for comparison
+        </Typography>
+      </Paper>
+
       {/* Current Selection Info */}
       <Paper sx={{ p: 2, mb: 3, backgroundColor: 'info.light' }}>
         <Typography variant="h6" gutterBottom>
@@ -533,7 +555,120 @@ export default function RemoteTestPage() {
       </Paper>
 
       {/* Test Components */}
-      {useModalLayout ? (
+      {showStackedTest ? (
+        // Fire TV + Android TV Stacked Modal Test
+        <Box
+          sx={{
+            position: 'relative',
+            width: '95vw',
+            height: '90vh',
+            backgroundColor: 'background.paper',
+            borderRadius: 2,
+            boxShadow: 24,
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
+            margin: '0 auto',
+          }}
+        >
+          {/* Header */}
+          <Box
+            sx={{
+              px: 2,
+              py: 1,
+              backgroundColor: 'grey.800',
+              color: 'white',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              borderRadius: '8px 8px 0 0',
+              minHeight: 48,
+            }}
+          >
+            <Typography variant="h6" component="h2">
+              Fire TV + Android TV Stacked Modal Test
+            </Typography>
+          </Box>
+
+          {/* Main Content */}
+          <Box
+            sx={{
+              flex: 1,
+              display: 'flex',
+              overflow: 'hidden',
+              backgroundColor: 'black',
+              position: 'relative',
+            }}
+          >
+            {/* Stream Viewer */}
+            <Box
+              sx={{
+                width: '75%',
+                position: 'relative',
+                overflow: 'hidden',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: 'black',
+              }}
+            >
+              <Typography sx={{ color: 'white' }}>Fire TV + Android TV Modal Test</Typography>
+            </Box>
+
+            {/* Stacked Remote Panels */}
+            <Box
+              sx={{
+                width: '25%',
+                backgroundColor: 'background.default',
+                borderLeft: '1px solid',
+                borderColor: 'divider',
+                overflow: 'auto',
+                display: 'flex',
+                flexDirection: 'column',
+                height: '100%',
+              }}
+            >
+              {/* Android TV Remote */}
+              <RemotePanel
+                host={mockHosts.find(h => h.host_name === 'Test Android TV') as any}
+                deviceId="device1"
+                deviceModel="android_tv"
+                remoteType="android_tv"
+                isConnected={true}
+                onReleaseControl={() => console.log('Release Android TV control')}
+                initialCollapsed={false}
+                deviceResolution={stableDeviceResolution}
+                streamCollapsed={false}
+                streamMinimized={false}
+                streamContainerDimensions={{
+                  ...streamContainerDimensions!,
+                  height: Math.round((streamContainerDimensions!.height - 60) / 2) + 30
+                }}
+                disableResize={true}
+              />
+              
+              {/* Fire TV Remote */}
+              <RemotePanel
+                host={mockHosts.find(h => h.host_name === 'Test FireTV Remote') as any}
+                deviceId="device1"
+                deviceModel="ir_remote"
+                remoteType="ir_remote"
+                isConnected={true}
+                onReleaseControl={() => console.log('Release Fire TV control')}
+                initialCollapsed={false}
+                deviceResolution={stableDeviceResolution}
+                streamCollapsed={false}
+                streamMinimized={false}
+                streamContainerDimensions={{
+                  ...streamContainerDimensions!,
+                  height: Math.round((streamContainerDimensions!.height - 60) / 2) + 30
+                }}
+                disableResize={true}
+              />
+            </Box>
+          </Box>
+        </Box>
+      ) : useModalLayout ? (
         // Modal layout - mimic RecHostStreamModal layout
         <Box
           sx={{

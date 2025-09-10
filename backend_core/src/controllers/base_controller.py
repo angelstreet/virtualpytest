@@ -493,9 +493,20 @@ class FFmpegCaptureController(AVControllerInterface):
                 print(f"{self.capture_source}[{self.capture_source}]: Waiting 5s for final segments to complete...")
                 time.sleep(5)
             
-            # Read M3U8 playlist to get segment list
+            # Read M3U8 playlist to get segment list and detect actual segment duration
             with open(m3u8_path, 'r') as f:
                 playlist_content = f.read()
+            
+            # Detect actual segment duration from M3U8 file
+            actual_segment_duration = self.HLS_SEGMENT_DURATION  # Default fallback
+            for line in playlist_content.splitlines():
+                if line.startswith('#EXT-X-TARGETDURATION:'):
+                    try:
+                        actual_segment_duration = float(line.split(':')[1])
+                        print(f"{self.capture_source}[{self.capture_source}]: Detected segment duration: {actual_segment_duration}s")
+                        break
+                    except:
+                        pass
             
             # Extract .ts segment filenames from playlist
             all_segments = []
@@ -518,10 +529,10 @@ class FFmpegCaptureController(AVControllerInterface):
                 capture_start_time = current_time - wait_time_seconds - duration_seconds
                 capture_end_time = current_time
                 
-                # Add small buffer for segment boundaries
-                buffer_seconds = self.HLS_SEGMENT_DURATION * 2  # 2 segments buffer (before + after)
+                # Add small buffer for segment boundaries using actual segment duration
+                buffer_seconds = actual_segment_duration * 2  # 2 segments buffer (before + after)
                 total_duration_needed = duration_seconds + buffer_seconds + wait_time_seconds
-                segments_needed = int(total_duration_needed / self.HLS_SEGMENT_DURATION) + 1  # +1 for safety
+                segments_needed = int(total_duration_needed / actual_segment_duration) + 1  # +1 for safety
                 
                 print(f"{self.capture_source}[{self.capture_source}]: Test duration: {duration_seconds}s, wait time: {wait_time_seconds}s")
                 print(f"{self.capture_source}[{self.capture_source}]: Capturing {total_duration_needed:.1f}s total, taking last {segments_needed} segments")

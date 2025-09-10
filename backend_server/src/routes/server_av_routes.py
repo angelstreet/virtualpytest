@@ -542,13 +542,13 @@ def generate_restart_video():
         request_data = request.get_json() or {}
         host = request_data.get('host')
         device_id = request_data.get('device_id', 'device1')
-        duration_minutes = request_data.get('duration_minutes', 1)
+        duration_seconds = request_data.get('duration_seconds', 30)
 
         # Validate host
         if not host:
             return jsonify({'success': False, 'error': 'Host required'}), 400
 
-        print(f"[@route:server_av:generate_restart_video] Host: {host.get('host_name')}, Device: {device_id}, Duration: {duration_minutes}min")
+        print(f"[@route:server_av:generate_restart_video] Host: {host.get('host_name')}, Device: {device_id}, Duration: {duration_seconds}s")
 
         # Add device_id to query params for host route
         query_params = {'device_id': device_id}
