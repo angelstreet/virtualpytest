@@ -131,13 +131,10 @@ def calculate_process_working_uptime(capture_folder: str, process_type: str) -> 
         last_activity_time = None
         
         if process_type == 'ffmpeg':
-            # Check FFmpeg output files
+            # Check FFmpeg output files (only JPG images)
             capture_dir = f'/var/www/html/stream/{capture_folder}'
             if os.path.exists(capture_dir):
-                # Get video segments and images
-                ts_files = glob.glob(os.path.join(capture_dir, 'segment_*.ts'))
                 captures_dir = os.path.join(capture_dir, 'captures')
-                jpg_files = []
                 if os.path.exists(captures_dir):
                     # Only use renamed files with timestamp format to avoid race condition
                     import re
@@ -145,10 +142,9 @@ def calculate_process_working_uptime(capture_folder: str, process_type: str) -> 
                     # Filter for renamed format: YYYYMMDD_HHMMSS_*.jpg
                     timestamp_pattern = re.compile(r'^\d{8}_\d{6}_.*\.jpg$')
                     jpg_files = [f for f in all_jpg_files if timestamp_pattern.match(os.path.basename(f))]
-                
-                all_files = ts_files + jpg_files
-                if all_files:
-                    last_activity_time = max([os.path.getmtime(f) for f in all_files])
+                    
+                    if jpg_files:
+                        last_activity_time = max([os.path.getmtime(f) for f in jpg_files])
                     
         elif process_type == 'monitor':
             # Check Monitor JSON files (only renamed ones to avoid race condition)
@@ -422,7 +418,6 @@ def check_ffmpeg_status():
                 print(f"🔍 [FFMPEG] {device_name}: {recent_jpg_count} JPG files (last 1m)")
                 
                 status['recent_files'][device_name] = {
-                    'video_segments': 0,  # Not checking TS files anymore
                     'images': recent_jpg_count,
                     'last_activity': time.time() if recent_jpg_count > 0 else 0
                 }
