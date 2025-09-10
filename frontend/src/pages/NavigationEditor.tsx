@@ -1142,6 +1142,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
                   deviceResolution={DEFAULT_DEVICE_RESOLUTION}
                   streamCollapsed={isAVPanelCollapsed}
                   streamMinimized={false}
+                  streamHidden={showAVPanel} // Hide overlay when AV panel is active (screenshot/video mode)
                   captureMode="stream"
                   initialCollapsed={true}
                 />
@@ -1155,6 +1156,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
                   deviceResolution={DEFAULT_DEVICE_RESOLUTION}
                   streamCollapsed={isAVPanelCollapsed}
                   streamMinimized={false}
+                  streamHidden={showAVPanel} // Hide overlay when AV panel is active (screenshot/video mode)
                   captureMode="stream"
                   initialCollapsed={true}
                 />

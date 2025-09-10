@@ -55,6 +55,7 @@ fi
 
 # Make all install scripts executable
 chmod +x setup/local/install_*.sh
+chmod +x setup/local/setup_permissions.sh
 
 echo "🚀 Installing all components..."
 
@@ -64,6 +65,35 @@ if [ -f "./setup/local/install_requirements.sh" ]; then
     ./setup/local/install_requirements.sh
 else
     echo "⚠️ Warning: install_requirements.sh not found, skipping system requirements"
+fi
+
+echo ""
+echo "🔐 Setting up system permissions..."
+# Set up permissions for www-data and directories (requires sudo)
+if command -v sudo >/dev/null 2>&1; then
+    echo "Setting up permissions (requires sudo access)..."
+    if sudo -n true 2>/dev/null; then
+        # Can run sudo without password
+        sudo ./setup/local/setup_permissions.sh --user "$(whoami)"
+    else
+        # Need to prompt for sudo password
+        echo "⚠️ Permission setup requires sudo access for:"
+        echo "   - Creating /var/www directories"
+        echo "   - Setting up www-data user permissions"
+        echo "   - Configuring system group memberships"
+        echo ""
+        read -p "Run permission setup now? (y/N): " -n 1 -r
+        echo
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            sudo ./setup/local/setup_permissions.sh --user "$(whoami)"
+        else
+            echo "⚠️ Skipping permission setup. You may need to run it manually later:"
+            echo "   sudo ./setup/local/setup_permissions.sh --user $(whoami)"
+        fi
+    fi
+else
+    echo "⚠️ sudo not available. Skipping permission setup."
+    echo "   You may need to manually create directories and set permissions."
 fi
 
 echo ""
@@ -125,6 +155,11 @@ echo "📝 IMPORTANT: Edit your .env files before launching (already created fro
 echo "   📁 .env - Main configuration (database, API keys)"
 echo "   📁 backend_host/src/.env - Hardware/device settings"
 echo "   📁 frontend/.env - Web interface settings"
+echo ""
+echo "🔐 Permission Setup:"
+echo "   ✅ System permissions configured for www-data and directories"
+echo "   ⚠️ If you skipped permission setup, run manually:"
+echo "      sudo ./setup/local/setup_permissions.sh --user $(whoami)"
 echo ""
 echo "🗄️ Database Configuration:"
 echo "   📁 Local database config: config/database/local.env"
