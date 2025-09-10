@@ -56,24 +56,23 @@ COPY grafana/data/ backend_server/config/grafana/data/
 # Set working directory to backend_server
 WORKDIR /app/backend_server
 
-# Create directories for Grafana with proper plugin support and SQLite database
+# Create non-root user for security
+RUN useradd -m -u 1000 vptuser
+
+# Create directories for Grafana and set proper permissions
 RUN mkdir -p /var/lib/grafana /var/log/grafana /etc/grafana \
     && mkdir -p /app/backend_server/config/grafana/provisioning/{datasources,dashboards} \
     && mkdir -p /app/backend_server/config/grafana/dashboards \
     && mkdir -p /app/backend_server/config/grafana/data/{png,csv,sessions,plugins} \
     && mkdir -p /var/log/supervisor \
     && mkdir -p /usr/share/grafana/data/plugins \
-    && mkdir -p /var/lib/grafana/plugins
-
-# Create non-root user for security and fix Grafana permissions
-RUN useradd -m -u 1000 vptuser \
+    && mkdir -p /var/lib/grafana/plugins \
     && chown -R vptuser:vptuser /app \
-    && chown -R grafana:grafana /var/lib/grafana \
-    && chown -R grafana:grafana /var/log/grafana \
-    && chown -R grafana:grafana /etc/grafana \
-    && chown -R grafana:grafana /usr/share/grafana/data/plugins \
-    && chown -R grafana:grafana /var/lib/grafana/plugins \
-    && chown -R grafana:grafana /app/backend_server/config/grafana \
+    && chown -R vptuser:vptuser /var/lib/grafana \
+    && chown -R vptuser:vptuser /var/log/grafana \
+    && chown -R vptuser:vptuser /etc/grafana \
+    && chown -R vptuser:vptuser /usr/share/grafana/data/plugins \
+    && chown -R vptuser:vptuser /var/lib/grafana/plugins \
     && chmod -R 755 /usr/share/grafana/data/plugins \
     && chmod -R 755 /var/lib/grafana/plugins \
     && chmod -R 775 /var/lib/grafana \
