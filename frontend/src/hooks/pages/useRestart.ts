@@ -4,6 +4,9 @@ import { Host, Device } from '../../types/common/Host_Types';
 
 import { buildServerUrl } from '../../utils/buildUrlUtils';
 
+// Global cache to prevent duplicate requests across component remounts
+const videoGenerationCache = new Map<string, Promise<any>>();
+
 interface UseRestartParams {
   host: Host;
   device: Device;
@@ -23,23 +26,44 @@ export const useRestart = ({ host, device }: UseRestartParams): UseRestartReturn
   const [isReady, setIsReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [processingTime, setProcessingTime] = useState<number | null>(null);
-  const hasInitialized = useRef(false);
 
-  // Generate video once on mount - prevent React Strict Mode double execution
+  // Generate video once on mount - use global cache to prevent duplicate requests
   useEffect(() => {
-    if (hasInitialized.current) return;
-    hasInitialized.current = true;
-    
-    let cancelled = false;
+    const cacheKey = `${host.host_name}-${device.device_id}`;
+    console.log(`[@hook:useRestart] Effect starting for ${cacheKey}`);
+
+    // Check if request is already in progress
+    if (videoGenerationCache.has(cacheKey)) {
+      console.log(`[@hook:useRestart] Using cached request for ${cacheKey}`);
+      setIsGenerating(true);
+      videoGenerationCache.get(cacheKey)!
+        .then((data) => {
+          console.log(`[@hook:useRestart] Cached request completed for ${cacheKey}:`, data);
+          if (data.success && data.video_url) {
+            setVideoUrl(data.video_url);
+            setProcessingTime(data.processing_time_seconds);
+            setIsReady(true);
+          } else {
+            setError(data.error || 'Video generation failed');
+          }
+        })
+        .catch((err) => {
+          console.log(`[@hook:useRestart] Cached request failed for ${cacheKey}:`, err);
+          setError(err instanceof Error ? err.message : 'Video generation failed');
+        })
+        .finally(() => {
+          setIsGenerating(false);
+        });
+      return;
+    }
+
+    // Start new request
+    setIsGenerating(true);
+    setError(null);
 
     const generateVideo = async () => {
-      if (cancelled) return;
-      
-      setIsGenerating(true);
-      setError(null);
-      
       try {
-        console.log(`[@hook:useRestart] Generating restart video for ${host.host_name}-${device.device_id}`);
+        console.log(`[@hook:useRestart] Starting new request for ${cacheKey}`);
 
         const response = await fetch(buildServerUrl('/server/av/generateRestartVideo'), {
           method: 'POST',
@@ -60,11 +84,20 @@ export const useRestart = ({ host, device }: UseRestartParams): UseRestartReturn
         const data = await response.json();
         console.log(`[@hook:useRestart] Response data:`, data);
         
-        if (cancelled) {
-          console.log(`[@hook:useRestart] Request was cancelled, ignoring response`);
-          return;
-        }
+        return data;
+      } catch (err) {
+        console.log(`[@hook:useRestart] Request failed:`, err);
+        throw err;
+      }
+    };
 
+    // Cache the promise
+    const requestPromise = generateVideo();
+    videoGenerationCache.set(cacheKey, requestPromise);
+
+    // Handle the response
+    requestPromise
+      .then((data) => {
         if (data.success && data.video_url) {
           setVideoUrl(data.video_url);
           setProcessingTime(data.processing_time_seconds);
@@ -73,21 +106,21 @@ export const useRestart = ({ host, device }: UseRestartParams): UseRestartReturn
         } else {
           throw new Error(data.error || 'Video generation failed');
         }
-      } catch (err) {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'Video generation failed');
-        }
-      } finally {
-        if (!cancelled) {
-          setIsGenerating(false);
-        }
-      }
-    };
-
-    generateVideo();
+      })
+      .catch((err) => {
+        setError(err instanceof Error ? err.message : 'Video generation failed');
+      })
+      .finally(() => {
+        setIsGenerating(false);
+        // Clean up cache after completion
+        setTimeout(() => {
+          videoGenerationCache.delete(cacheKey);
+        }, 1000);
+      });
 
     return () => {
-      cancelled = true;
+      console.log(`[@hook:useRestart] Effect cleanup for ${cacheKey}`);
+      // Don't cancel the request, let it complete for other instances
     };
   }, []); // No dependencies - generate once only
 
