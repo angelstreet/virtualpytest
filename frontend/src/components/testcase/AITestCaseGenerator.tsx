@@ -286,10 +286,10 @@ export const AITestCaseGenerator: React.FC<AITestCaseGeneratorProps> = ({
               📋 Generated Test Steps Preview
             </Typography>
             <Box sx={{ 
-              p: 2, 
+              p: 1, 
               bgcolor: 'background.paper', 
               borderRadius: 1, 
-              border: '2px solid', 
+              border: '1px solid', 
               borderColor: 'primary.light',
               boxShadow: 1
             }}>
@@ -306,11 +306,12 @@ export const AITestCaseGenerator: React.FC<AITestCaseGeneratorProps> = ({
                       sx={{ 
                         display: 'flex', 
                         alignItems: 'center', 
-                        gap: 2, 
-                        py: 1,
+                        gap: 1, 
+                        py: 0.5,
+                        px: 0.5,
                         cursor: 'pointer',
                         '&:hover': { bgcolor: 'action.hover' },
-                        borderRadius: 1
+                        borderRadius: 0.5
                       }}
                       onClick={() => handleStepToggle(index)}
                     >
@@ -318,15 +319,15 @@ export const AITestCaseGenerator: React.FC<AITestCaseGeneratorProps> = ({
                         label={step.step} 
                         size="small" 
                         color="primary" 
-                        sx={{ minWidth: 32 }}
+                        sx={{ minWidth: 28, height: 20, fontSize: '0.7rem' }}
                       />
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flex: 1 }}>
                         {step.type === 'action' ? (
-                          <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+                          <Typography variant="body2" sx={{ fontWeight: 'bold', fontSize: '0.875rem' }}>
                             🧭 {step.description}
                           </Typography>
                         ) : (
-                          <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+                          <Typography variant="body2" sx={{ fontWeight: 'bold', fontSize: '0.875rem' }}>
                             🔍 {step.description}
                           </Typography>
                         )}
@@ -336,6 +337,7 @@ export const AITestCaseGenerator: React.FC<AITestCaseGeneratorProps> = ({
                         size="small" 
                         variant="outlined"
                         color={step.type === 'action' ? 'primary' : 'secondary'}
+                        sx={{ fontSize: '0.7rem', height: 20 }}
                       />
                       <IconButton size="small">
                         {expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
@@ -421,7 +423,7 @@ export const AITestCaseGenerator: React.FC<AITestCaseGeneratorProps> = ({
           </Box>
           
           <Collapse in={expandedSteps.has(-1)}>
-            <Box sx={{ ml: 2, py: 2 }}>
+            <Box sx={{ ml: 2, py: 0 }}>
               {analysis.model_commands && analysis.compatibility_details ? (
                 <>
                   <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1 }}>
