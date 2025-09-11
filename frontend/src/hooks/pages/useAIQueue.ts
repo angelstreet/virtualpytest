@@ -24,8 +24,8 @@ export const useAIQueue = () => {
   const getQueueStatus = useMemo(
     () => async (): Promise<AIQueueStatus> => {
       try {
-        // Use backend_discard health endpoint (port 6209)
-        const response = await fetch('http://localhost:6209/health');
+        // Use backend_server proxy to get queue data from Redis
+        const response = await fetch(buildServerUrl('/server/ai-queue/status'));
         
         if (!response.ok) {
           throw new Error(`Failed to fetch queue status: ${response.status}`);

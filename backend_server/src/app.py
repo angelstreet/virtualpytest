@@ -158,7 +158,8 @@ def register_all_server_routes(app):
             server_script_results_routes,
             server_metrics_routes,
             server_campaign_results_routes,
-            server_frontend_routes
+            server_frontend_routes,
+            server_ai_queue_routes
         )
         
         # Register all server blueprints
@@ -196,7 +197,8 @@ def register_all_server_routes(app):
             (server_script_results_routes.server_script_results_bp, 'Script results'),
             (server_metrics_routes.server_metrics_bp, 'Metrics API'),
             (server_campaign_results_routes.server_campaign_results_bp, 'Campaign results'),
-            (server_frontend_routes.server_frontend_bp, 'Frontend control')
+            (server_frontend_routes.server_frontend_bp, 'Frontend control'),
+            (server_ai_queue_routes.server_ai_queue_bp, 'AI queue monitoring')
         ]
         
         for blueprint, description in blueprints:
