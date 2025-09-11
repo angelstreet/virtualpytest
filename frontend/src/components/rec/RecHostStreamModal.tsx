@@ -152,29 +152,9 @@ const RecHostStreamModalContent: React.FC<{
     // Stream container position calculation
     const streamX = modalX;
     
-    // Calculate stream Y position with dynamic offset detection
-    // The base position is modalY + headerHeight, but we need to account for:
-    // 1. Modal border radius (borderRadius: 2 in theme)
-    // 2. Any internal spacing/padding in the modal structure
-    // 3. Browser rendering differences
-    
-    // Base calculation
-    const baseStreamY = modalY + headerMinHeight;
-    
-    // Dynamic offset calculation based on modal styling
-    // The modal has borderRadius: 2, and the header has borderRadius: '8px 8px 0 0'
-    // This creates a small visual offset where the content area doesn't align perfectly
-    // with the mathematical calculation due to the rounded corners and internal spacing
-    
-    // Calculate offset based on modal dimensions and styling
-    const modalBorderRadius = 16; // borderRadius: 2 = 2 * 8px (MUI default)
-    const headerBorderRadius = 8; // '8px 8px 0 0'
-    
-    // The offset is typically a small fraction of the border radius
-    // This accounts for the visual displacement caused by rounded corners
-    const visualOffset = Math.min(modalBorderRadius * 0.5, headerBorderRadius * 0.75);
-    
-    const streamY = baseStreamY + visualOffset;
+    // Calculate stream Y position - this should be the actual content area position
+    // The content area starts immediately after the header
+    const streamY = modalY + headerMinHeight;
 
     const dimensions = {
       width: Math.round(streamAreaWidth),
@@ -188,14 +168,7 @@ const RecHostStreamModalContent: React.FC<{
       modalSize: { width: modalWidth, height: modalHeight },
       modalPosition: { x: modalX, y: modalY },
       headerHeight: headerMinHeight,
-      baseStreamY,
-      visualOffset,
       streamPosition: { x: streamX, y: streamY },
-      borderRadiusCalculation: {
-        modalBorderRadius,
-        headerBorderRadius,
-        calculatedOffset: visualOffset
-      },
       finalDimensions: dimensions,
     });
 
