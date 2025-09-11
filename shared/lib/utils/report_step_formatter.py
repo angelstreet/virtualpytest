@@ -539,10 +539,12 @@ def format_analysis_results(step: Dict) -> str:
             }
             modal_data_json = json.dumps(modal_data).replace('"', '&quot;').replace("'", "&#x27;")
             
+            # Extract capture filename for display
+            capture_filename = extract_capture_filename_from_url(analyzed_screenshot)
             analysis_html += f"""
             <div class='subtitle-screenshot' style='margin-top: 4px;'>
                 <div style='text-align: center;'>
-                    <div style='font-size: 11px; color: #666; margin-bottom: 2px;'>Analyzed Image</div>
+                    <div style='font-size: 11px; color: #666; margin-bottom: 2px;'>{capture_filename}</div>
                     <img src='{analyzed_screenshot}' style='width: 60px; height: 40px; object-fit: contain; border: 1px solid #ddd; border-radius: 3px; cursor: pointer;' 
                          onclick='openVerificationImageModal({modal_data_json})' title='Click to view subtitle analysis screenshot'>
                 </div>
@@ -633,10 +635,12 @@ def format_analysis_results(step: Dict) -> str:
             }
             modal_data_json = json.dumps(modal_data).replace('"', '&quot;').replace("'", "&#x27;")
             
+            # Extract capture filename for display
+            capture_filename = extract_capture_filename_from_url(analyzed_screenshot)
             analysis_html += f"""
             <div class='audio-menu-screenshot' style='margin-top: 4px;'>
                 <div style='text-align: center;'>
-                    <div style='font-size: 11px; color: #666; margin-bottom: 2px;'>Analyzed Image</div>
+                    <div style='font-size: 11px; color: #666; margin-bottom: 2px;'>{capture_filename}</div>
                     <img src='{analyzed_screenshot}' style='width: 60px; height: 40px; object-fit: contain; border: 1px solid #ddd; border-radius: 3px; cursor: pointer;' 
                          onclick='openVerificationImageModal({modal_data_json})' title='Click to view audio menu analysis screenshot'>
                 </div>
