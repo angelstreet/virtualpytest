@@ -476,29 +476,22 @@ function openVerificationImageModal(modalData) {{
             imageDiv.style.minWidth = '300px';
         }}
         
-        // Extract timestamp from filename (capture_YYYYMMDDHHMMSS.jpg)
-        const extractTimestamp = (url) => {{
-            const match = url.match(/capture_(\\d{{8}})(\\d{{6}})/);
+        // Extract sequence number from filename (capture_0001.jpg)
+        const extractSequenceInfo = (url) => {{
+            const match = url.match(/capture_(\\d+)\\.jpg/);
             if (match) {{
-                const date = match[1]; // YYYYMMDD
-                const time = match[2]; // HHMMSS
-                const year = date.substring(0, 4);
-                const month = date.substring(4, 6);
-                const day = date.substring(6, 8);
-                const hour = time.substring(0, 2);
-                const minute = time.substring(2, 4);
-                const second = time.substring(4, 6);
-                return hour + ':' + minute + ':' + second;
+                const sequence = match[1];
+                return `#${{sequence}}`;
             }}
             return '';
         }};
         
-        const timestamp = extractTimestamp(image.url);
+        const sequenceInfo = extractSequenceInfo(image.url);
         
-        // Timestamp display (small, gray text)
-        if (timestamp) {{
+        // Sequence info display (small, gray text)
+        if (sequenceInfo) {{
             const timestampDiv = document.createElement('div');
-            timestampDiv.textContent = timestamp;
+            timestampDiv.textContent = sequenceInfo;
             timestampDiv.style.fontSize = '12px';
             timestampDiv.style.color = '#999';
             timestampDiv.style.marginBottom = '5px';

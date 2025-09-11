@@ -1213,27 +1213,17 @@ class ZapController:
         if not filename or not filename.startswith('capture_') or not filename.endswith('.jpg'):
             return False
         
-        # Extract timestamp from filename (e.g., capture_20240101120000.jpg -> 20240101120000)
-        timestamp = filename.replace('capture_', '').replace('.jpg', '')
-        
-        # Remove suffix if present FIRST (e.g., capture_20240101120000_2.jpg -> 20240101120000)
-        if '_' in timestamp:
-            timestamp = timestamp.split('_')[0]
-        
-        # THEN validate timestamp format (must be 14 digits: YYYYMMDDHHMMSS)
+        # Validate sequential format: capture_0001.jpg, capture_0002.jpg, etc.
         import re
-        if not re.match(r'^\d{14}$', timestamp):
-            print(f"🔍 [ZapController] Skipping invalid filename format: {filename} (clean timestamp: {timestamp})")
+        if not re.match(r'^capture_\d+\.jpg$', filename):
+            print(f"🔍 [ZapController] Skipping invalid filename format: {filename}")
             return False
         
-        # Additional protection: validate timestamp makes sense as a date
-        try:
-            from datetime import datetime
-            datetime.strptime(timestamp, '%Y%m%d%H%M%S')
-            return True
-        except ValueError:
-            print(f"🔍 [ZapController] Skipping invalid timestamp: {filename} (clean timestamp: {timestamp})")
+        # Additional protection: ensure it's not a thumbnail
+        if '_thumbnail' in filename:
             return False
+            
+        return True
 
     def _add_zapping_images_to_screenshots(self, context, zapping_result: Dict[str, Any], capture_folder: str):
         """Add key zapping images to context screenshot collection for R2 upload"""
@@ -1338,7 +1328,7 @@ class ZapController:
                 
                 # Add the corresponding image files to screenshot collection
                 for i, file_item in enumerate(analysis_data_chronological, 1):
-                    image_filename = file_item['filename']  # e.g., "capture_20240101120000.jpg"
+                    image_filename = file_item['filename']  # e.g., "capture_0001.jpg"
                     image_path = f"{capture_folder}/{image_filename}"
                     # Validate filename format before adding to prevent FileNotFoundError on malformed files
                     if not self._validate_capture_filename(image_filename):

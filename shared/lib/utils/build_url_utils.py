@@ -42,26 +42,26 @@ def buildHostUrl(host_info: dict, endpoint: str) -> str:
 # SPECIALIZED URL BUILDERS
 # =====================================================
 
-def buildCaptureUrl(host_info: dict, timestamp: str, device_id: str) -> str:
+def buildCaptureUrl(host_info: dict, filename: str, device_id: str) -> str:
     """
     Build URL for live screenshot captures
     
     Args:
         host_info: Host information from registry
-        timestamp: Screenshot timestamp (YYYYMMDDHHMMSS format)
+        filename: Screenshot filename (sequential format like 'capture_0001.jpg')
         device_id: Device ID for multi-device hosts (required)
         
     Returns:
         Complete URL to screenshot capture
         
     Example:
-        buildCaptureUrl(host_info, '20250117134500', 'device1')
-        -> 'https://host:444/host/stream/capture1/captures/capture_20250117134500.jpg'
+        buildCaptureUrl(host_info, 'capture_0001.jpg', 'device1')
+        -> 'https://host:444/host/stream/capture1/captures/capture_0001.jpg'
     """
     # Get device-specific capture path
     capture_path = _get_device_capture_path(host_info, device_id)
     
-    return buildHostUrl(host_info, f'host{capture_path}/capture_{timestamp}.jpg')
+    return buildHostUrl(host_info, f'host{capture_path}/{filename}')
 
 def buildCroppedImageUrl(host_info: dict, filename: str, device_id: str) -> str:
     """
@@ -443,34 +443,32 @@ def get_device_by_id(host_info: dict, device_id: str) -> dict:
 
 def buildCaptureUrlFromPath(host_info: dict, capture_path: str, device_id: str) -> str:
     """
-    Build URL for capture from a local file path by extracting timestamp
+    Build URL for capture from a local file path by extracting filename
     
     Args:
         host_info: Host information from registry
-        capture_path: Local file path to capture (e.g., '/path/capture_20250117134500.jpg')
+        capture_path: Local file path to capture (e.g., '/path/capture_0001.jpg')
         device_id: Device ID for multi-device hosts (required)
         
     Returns:
         Complete URL to capture
         
     Raises:
-        ValueError: If timestamp cannot be extracted from path
+        ValueError: If filename cannot be extracted from path
         
     Example:
-        buildCaptureUrlFromPath(host_info, '/tmp/capture_20250117134500.jpg', 'device1')
-        -> 'https://host:444/host/stream/capture1/captures/capture_20250117134500.jpg'
+        buildCaptureUrlFromPath(host_info, '/tmp/capture_0001.jpg', 'device1')
+        -> 'https://host:444/host/stream/capture1/captures/capture_0001.jpg'
     """
-    import re
+    import os
     
-    # Extract timestamp from capture path
-    timestamp_match = re.search(r'capture_(\d{14})(?:_audio)?\.(?:jpg|json)', capture_path)
-    if not timestamp_match:
-        raise ValueError(f'Failed to extract timestamp from capture path: {capture_path}')
-    
-    timestamp = timestamp_match.group(1)
+    # Extract filename from capture path
+    filename = os.path.basename(capture_path)
+    if not filename.startswith('capture_'):
+        raise ValueError(f'Invalid capture filename format: {filename}')
     
     # Use existing buildCaptureUrl function
-    return buildCaptureUrl(host_info, timestamp, device_id)
+    return buildCaptureUrl(host_info, filename, device_id)
 
 def buildStreamUrlForDevice(host_info: dict, device_id: str) -> str:
     """
@@ -508,7 +506,7 @@ def resolveCaptureFilePath(filename: str) -> str:
     Resolve local file path for a capture filename
     
     Args:
-        filename: Capture filename (e.g., 'capture_20250117134500.jpg')
+        filename: Capture filename (e.g., 'capture_0001.jpg')
         
     Returns:
         Local file path to capture
@@ -517,8 +515,8 @@ def resolveCaptureFilePath(filename: str) -> str:
         ValueError: If filename is invalid or unsafe
         
     Example:
-        resolveCaptureFilePath('capture_20250117134500.jpg')
-        -> '/tmp/captures/capture_20250117134500.jpg'
+        resolveCaptureFilePath('capture_0001.jpg')
+        -> '/tmp/captures/capture_0001.jpg'
     """
     # Security validation - ensure the path is safe
     if '..' in filename or filename.startswith('/'):

@@ -2,7 +2,7 @@
 """
 Unified Capture Analysis Script for HDMI Capture Monitoring
 Analyzes both video frames and audio segments in a single pass
-Usage: analyze_capture.py /path/to/capture_YYYYMMDDHHMMSS.jpg [host_name]
+Usage: analyze_capture.py /path/to/capture_0001.jpg [host_name]
 """
 
 import os
@@ -391,11 +391,7 @@ def main():
         print(f"Error: Invalid image file: {image_path}", file=sys.stderr)
         sys.exit(1)
     
-    # Skip files with _1, _2, _3, _4 suffixes - only process first image per second
-    # Pattern: capture_YYYYMMDDHHMMSS_N.jpg (where N is 1,2,3,4...)
-    if re.search(r'capture_\d{14}_\d+\.jpg$', os.path.basename(image_path)):
-        print(f"[{device_id if device_id else 'unknown'}] Skipping numbered file: {os.path.basename(image_path)}")
-        return
+    # Sequential format: capture_0001.jpg, capture_0002.jpg, etc. (no numbered suffixes)
     
     print(f"[{device_id if device_id else 'unknown'}] Processing: {os.path.basename(image_path)} (unified analysis)")
     

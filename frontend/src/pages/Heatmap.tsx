@@ -167,7 +167,7 @@ const Heatmap: React.FC = () => {
     const cleanFilename = filename.includes('/') ? filename.split('/').pop() || filename : filename;
 
     // Extract the base URL from the original image URL
-    // Example: "http://host/path/capture_20250723155519.jpg" -> "http://host/path/"
+    // Example: "http://host/path/capture_0001.jpg" -> "http://host/path/"
     const lastSlashIndex = originalImageUrl.lastIndexOf('/');
     if (lastSlashIndex === -1) {
       console.error('[@Heatmap] Invalid image URL format:', originalImageUrl);

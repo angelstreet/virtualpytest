@@ -1255,53 +1255,51 @@ class VideoContentHelpers:
             MAX_SECONDS = max_count if max_count > 0 else 40  # Search for max_count seconds worth of images
             MAX_TOTAL_IMAGES = max_count if max_count > 0 else 40  # Respect max_count parameter fully
             
-            # Enhanced collection: get all available files (_1, _2, _3, _4) for better precision
-            for i in range(MAX_SECONDS):
-                # Calculate timestamp for this second (start + i seconds)
-                target_timestamp = start_timestamp + i
-                
-                # Convert to capture filename format: capture_YYYYMMDDHHMMSS.jpg
-                target_datetime = datetime.fromtimestamp(target_timestamp)
-                base_filename = f"capture_{target_datetime.strftime('%Y%m%d%H%M%S')}"
-                
-                # Collect all files for this second
-                second_files = []
-                
-                # Check for base file
-                base_path = os.path.join(captures_folder, f"{base_filename}.jpg")
-                if os.path.exists(base_path):
-                    second_files.append(base_path)
-                
-                # Check for numbered files (_1, _2, _3, _4)
-                for j in range(1, 5):
-                    numbered_path = os.path.join(captures_folder, f"{base_filename}_{j}.jpg")
-                    if os.path.exists(numbered_path):
-                        second_files.append(numbered_path)
-                
-                # Calculate dynamic interval based on files found
-                if len(second_files) > 1:
-                    interval = 1.0 / len(second_files)  # Dynamic: 5 files = 0.2s, 2 files = 0.5s
-                else:
-                    interval = 1.0  # Single file = 1 second
-                
-                # Add files with calculated timestamps
-                for j, file_path in enumerate(second_files):
-                    # Respect max image cap
-                    if len(images) >= MAX_TOTAL_IMAGES:
-                        print(f"VideoContent[{self.device_name}]: Reached {MAX_TOTAL_IMAGES}-image cap - stopping collection")
-                        return sorted(images, key=lambda x: x['timestamp'])
+            # Enhanced collection: get sequential files after the start timestamp
+            import glob
+            import re
+            
+            # Get all sequential capture files
+            all_files = glob.glob(os.path.join(captures_folder, 'capture_*.jpg'))
+            # Filter out thumbnails and sort by number
+            capture_files = []
+            for f in all_files:
+                filename = os.path.basename(f)
+                if '_thumbnail' not in filename:
+                    match = re.match(r'capture_(\d+)\.jpg', filename)
+                    if match:
+                        capture_files.append((int(match.group(1)), f))
+            
+            # Sort by capture number
+            capture_files.sort(key=lambda x: x[0])
+            
+            # Filter files that are after the start timestamp (by mtime)
+            valid_files = []
+            for _, file_path in capture_files:
+                file_mtime = os.path.getmtime(file_path)
+                if file_mtime >= start_timestamp:
+                    valid_files.append(file_path)
                     
-                    filename = os.path.basename(file_path)
-                    sub_timestamp = target_timestamp + (j * interval)
-                    
-                    images.append({
-                        'path': file_path,
-                        'timestamp': sub_timestamp,
-                        'filename': filename,
-                        'second_group': i,
-                        'files_in_second': len(second_files),
-                        'interval': interval
-                    })
+            # Take only the requested number of files
+            if max_count > 0:
+                valid_files = valid_files[:max_count]
+            
+            # Add files with their actual timestamps (from mtime)
+            for file_path in valid_files:
+                # Respect max image cap
+                if len(images) >= MAX_TOTAL_IMAGES:
+                    print(f"VideoContent[{self.device_name}]: Reached {MAX_TOTAL_IMAGES}-image cap - stopping collection")
+                    break
+                
+                filename = os.path.basename(file_path)
+                file_timestamp = os.path.getmtime(file_path)
+                
+                images.append({
+                    'path': file_path,
+                    'timestamp': file_timestamp,
+                    'filename': filename,
+                    'sequential_format': True
+                })
             
             print(f"VideoContent[{self.device_name}]: Enhanced collection: {len(images)} images covering {MAX_SECONDS}s (max_count={max_count})")
             return sorted(images, key=lambda x: x['timestamp'])
@@ -1312,20 +1310,18 @@ class VideoContentHelpers:
 
     def _convert_unix_to_capture_format(self, unix_timestamp: float) -> str:
         """
-        Convert Unix timestamp to capture filename format: YYYYMMDDHHMMSS
+        Convert Unix timestamp to sequential capture format (deprecated - kept for compatibility)
         
         Args:
             unix_timestamp: Unix timestamp (float)
             
         Returns:
-            Timestamp string in YYYYMMDDHHMMSS format
+            Empty string (sequential naming doesn't use timestamp conversion)
         """
-        try:
-            dt = datetime.fromtimestamp(unix_timestamp)
-            return dt.strftime('%Y%m%d%H%M%S')
-        except (ValueError, OSError) as e:
-            print(f"VideoContent[{self.device_name}]: Failed to convert timestamp {unix_timestamp}: {e}")
-            return ""
+        # Sequential naming doesn't require timestamp conversion
+        # This method is kept for compatibility but returns empty string
+        print(f"VideoContent[{self.device_name}]: Warning - timestamp conversion deprecated with sequential naming")
+        return ""
 
     def _detect_blackscreen_batch(self, image_data: List[Dict], analysis_rectangle: Dict[str, int] = None, device_model: str = None) -> List[Dict]:
         """
