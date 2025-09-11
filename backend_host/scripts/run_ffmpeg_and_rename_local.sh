@@ -46,6 +46,13 @@ get_vnc_resolution() {
   echo "$resolution"
 }
 
+# Function to reset video device before capture
+reset_video_device() {
+  local device="$1"
+  sudo fuser -k "$device" 2>/dev/null || true
+  sleep 3
+}
+
 # Function to kill existing processes and clean up files for a specific grabber
 kill_existing_processes() {
   local output_dir=$1 source=$2
@@ -91,6 +98,11 @@ start_grabber() {
 
   # Kill existing processes
   kill_existing_processes "$capture_dir" "$source"
+
+  # Reset video device if it's a hardware device
+  if [ "$source_type" = "v4l2" ]; then
+    reset_video_device "$source"
+  fi
 
   # Build FFmpeg command based on source type
   if [ "$source_type" = "v4l2" ]; then
