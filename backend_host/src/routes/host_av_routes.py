@@ -525,6 +525,10 @@ def generate_restart_video():
             if current_time - v < 30
         }
         
+        # Debug cache state
+        print(f"[@route:host_av:generate_restart_video] Cache state: {list(generate_restart_video._processing_cache.keys())}")
+        print(f"[@route:host_av:generate_restart_video] Checking key: {request_key}")
+        
         # Check if already processing
         if request_key in generate_restart_video._processing_cache:
             print(f"[@route:host_av:generate_restart_video] Duplicate request detected for {device_id}, ignoring")
@@ -536,6 +540,7 @@ def generate_restart_video():
         # Mark as processing
         generate_restart_video._processing_cache[request_key] = current_time
         print(f"[@route:host_av:generate_restart_video] Starting video generation for {device_id} (cache key: {request_key})")
+        print(f"[@route:host_av:generate_restart_video] Cache after adding: {list(generate_restart_video._processing_cache.keys())}")
         
         print(f"[@route:host_av:generate_restart_video] Generating {duration_seconds}s MP4 for device: {device_id}")
         

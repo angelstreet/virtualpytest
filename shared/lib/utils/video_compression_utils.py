@@ -85,19 +85,15 @@ class VideoCompressionUtils:
                     if os.path.exists(segment_path)
                 )
                 
-                # FFmpeg command to concatenate and compress
+                # FFmpeg command - try stream copy first (faster, avoids re-encoding issues)
                 cmd = [
                     'ffmpeg', '-y',
                     '-f', 'concat',
                     '-safe', '0',
                     '-i', concat_file_path,
-                    '-c:v', 'libx264',
-                    '-preset', settings['preset'],
-                    '-crf', str(settings['crf']),
-                    '-maxrate', settings['maxrate'],
-                    '-bufsize', settings['bufsize'],
-                    '-c:a', 'aac',
-                    '-b:a', '64k',
+                    '-c', 'copy',  # Copy streams without re-encoding
+                    '-avoid_negative_ts', 'make_zero',  # Fix timestamp issues
+                    '-fflags', '+genpts',  # Generate presentation timestamps
                     '-movflags', '+faststart',  # Optimize for streaming
                     output_path
                 ]
