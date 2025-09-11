@@ -66,7 +66,7 @@ export const hdmiStreamMobileConfig = {
   },
   panel_layout: {
     collapsed: {
-      width: '240px',
+      width: '200px',
       height: '380px', // Portrait - taller than wide
       position: {
         bottom: '20px',
