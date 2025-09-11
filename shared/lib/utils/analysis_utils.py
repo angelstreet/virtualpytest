@@ -71,7 +71,10 @@ def load_recent_analysis_data(device_id: str, timeframe_minutes: int = 5, max_co
                 
                 # Only check file modification time AFTER validation passes
                 filepath = os.path.join(capture_folder, filename)
-                if os.path.getmtime(filepath) >= cutoff_time:
+                file_mtime = os.path.getmtime(filepath)
+                if file_mtime >= cutoff_time:
+                    # Use file modification time as timestamp
+                    timestamp = int(file_mtime * 1000)
                     
                     # Check for analysis files
                     base_name = filename.replace('.jpg', '')
@@ -94,7 +97,7 @@ def load_recent_analysis_data(device_id: str, timeframe_minutes: int = 5, max_co
                             file_item = {
                                 'filename': filename,
                                 'timestamp': timestamp,
-                                'file_mtime': int(os.path.getmtime(filepath) * 1000),
+                                'file_mtime': timestamp,
                                 'analysis_json': analysis_data
                             }
                             
@@ -171,7 +174,10 @@ def load_recent_analysis_data_from_path(capture_path: str, timeframe_minutes: in
                 
                 # Only check file modification time AFTER validation passes
                 filepath = os.path.join(capture_folder, filename)
-                if os.path.getmtime(filepath) >= cutoff_time:
+                file_mtime = os.path.getmtime(filepath)
+                if file_mtime >= cutoff_time:
+                    # Use file modification time as timestamp
+                    timestamp = int(file_mtime * 1000)
                     
                     # Check for analysis files
                     base_name = filename.replace('.jpg', '')
@@ -193,7 +199,7 @@ def load_recent_analysis_data_from_path(capture_path: str, timeframe_minutes: in
                             file_item = {
                                 'filename': filename,
                                 'timestamp': timestamp,
-                                'file_mtime': int(os.path.getmtime(filepath) * 1000),
+                                'file_mtime': timestamp,
                                 'analysis_json': analysis_data
                             }
                             
