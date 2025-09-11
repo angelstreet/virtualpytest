@@ -78,17 +78,15 @@ def create_zapping_failure_mosaic(image_paths: List[str],
                 img_resized = img.resize((thumb_width, thumb_height), Image.Resampling.LANCZOS)
                 mosaic.paste(img_resized, (x, y))
                 
-                # Extract timestamp from filename
+                # Extract sequence number from filename and use file mtime for timestamp
                 filename = os.path.basename(image_path)
                 timestamp = "Unknown"
                 if filename.startswith('capture_') and filename.endswith('.jpg'):
                     try:
-                        timestamp_part = filename.replace('capture_', '').replace('.jpg', '')
-                        if '_' in timestamp_part:
-                            timestamp_part = timestamp_part.split('_')[0]
-                        if len(timestamp_part) == 14:
-                            dt = datetime.strptime(timestamp_part, '%Y%m%d%H%M%S')
-                            timestamp = dt.strftime('%H:%M:%S')
+                        # Use file modification time for timestamp display
+                        file_mtime = os.path.getmtime(image_path)
+                        dt = datetime.fromtimestamp(file_mtime)
+                        timestamp = dt.strftime('%H:%M:%S')
                     except:
                         pass
                 
