@@ -25,7 +25,6 @@ interface HeatmapReport {
   html_url: string;
   devices_count: number;
   incidents_count: number;
-  processing_time?: number;
   created_at: string;
 }
 
@@ -214,9 +213,6 @@ export const HeatMapHistory = forwardRef<HeatMapHistoryRef, HeatMapHistoryProps>
                 <TableCell>
                   <strong>Incidents</strong>
                 </TableCell>
-                <TableCell>
-                  <strong>Processing Time</strong>
-                </TableCell>
                 <TableCell align="center">
                   <strong>Link</strong>
                 </TableCell>
@@ -254,11 +250,6 @@ export const HeatMapHistory = forwardRef<HeatMapHistoryRef, HeatMapHistoryProps>
                       color={report.incidents_count > 0 ? 'error' : 'success'}
                       variant="outlined"
                     />
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="caption">
-                      {report.processing_time ? `${report.processing_time.toFixed(1)}s` : 'N/A'}
-                    </Typography>
                   </TableCell>
                   <TableCell align="center">
                     <IconButton
