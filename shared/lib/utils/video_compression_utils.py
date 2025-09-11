@@ -57,25 +57,11 @@ class VideoCompressionUtils:
             settings = VideoCompressionUtils._get_compression_settings(compression_level)
             
             # Create temporary concat file for FFmpeg
-            print(f"[VideoCompressionUtils] Creating concat file for {len(segment_files)} segments...")
-            valid_segments = 0
-            total_segment_size = 0
-            
             with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as concat_file:
-                for i, (segment_name, segment_path) in enumerate(segment_files):
+                for segment_name, segment_path in segment_files:
                     if os.path.exists(segment_path):
-                        segment_size = os.path.getsize(segment_path)
-                        total_segment_size += segment_size
                         concat_file.write(f"file '{segment_path}'\n")
-                        valid_segments += 1
-                        if i < 3 or i >= len(segment_files) - 3:  # Show first 3 and last 3
-                            print(f"[VideoCompressionUtils] Segment {i}: {segment_name} ({segment_size} bytes)")
-                    else:
-                        print(f"[VideoCompressionUtils] WARNING: Segment not found: {segment_path}")
                 concat_file_path = concat_file.name
-            
-            print(f"[VideoCompressionUtils] Valid segments: {valid_segments}/{len(segment_files)}")
-            print(f"[VideoCompressionUtils] Total segment size: {total_segment_size} bytes ({total_segment_size/1024/1024:.1f} MB)")
             
             try:
                 # Calculate original size
@@ -85,32 +71,25 @@ class VideoCompressionUtils:
                     if os.path.exists(segment_path)
                 )
                 
-                # FFmpeg command - try stream copy first (faster, avoids re-encoding issues)
+                # FFmpeg command to concatenate and compress
                 cmd = [
                     'ffmpeg', '-y',
                     '-f', 'concat',
                     '-safe', '0',
                     '-i', concat_file_path,
-                    '-c', 'copy',  # Copy streams without re-encoding
-                    '-avoid_negative_ts', 'make_zero',  # Fix timestamp issues
-                    '-fflags', '+genpts',  # Generate presentation timestamps
+                    '-c:v', 'libx264',
+                    '-preset', settings['preset'],
+                    '-crf', str(settings['crf']),
+                    '-maxrate', settings['maxrate'],
+                    '-bufsize', settings['bufsize'],
+                    '-c:a', 'aac',
+                    '-b:a', '64k',
                     '-movflags', '+faststart',  # Optimize for streaming
                     output_path
                 ]
                 
-                # Print debug info to console (logger may not be configured)
-                print(f"[VideoCompressionUtils] Compressing {len(segment_files)} HLS segments to MP4...")
-                print(f"[VideoCompressionUtils] FFmpeg command: {' '.join(cmd)}")
-                print(f"[VideoCompressionUtils] Concat file: {concat_file_path}")
-                
-                # Debug: Show first few lines of concat file
-                try:
-                    with open(concat_file_path, 'r') as f:
-                        concat_content = f.read()
-                        print(f"[VideoCompressionUtils] Concat file content (first 500 chars):")
-                        print(concat_content[:500])
-                except Exception as e:
-                    print(f"[VideoCompressionUtils] Could not read concat file: {e}")
+                logger.info(f"Compressing {len(segment_files)} HLS segments to MP4...")
+                logger.info(f"Command: {' '.join(cmd)}")
                 
                 # Run FFmpeg compression
                 result = subprocess.run(
@@ -120,14 +99,8 @@ class VideoCompressionUtils:
                     timeout=300  # 5 minute timeout
                 )
                 
-                print(f"[VideoCompressionUtils] FFmpeg return code: {result.returncode}")
-                if result.stdout:
-                    print(f"[VideoCompressionUtils] FFmpeg stdout: {result.stdout}")
-                if result.stderr:
-                    print(f"[VideoCompressionUtils] FFmpeg stderr: {result.stderr}")
-                
                 if result.returncode != 0:
-                    print(f"[VideoCompressionUtils] FFmpeg compression failed: {result.stderr}")
+                    logger.error(f"FFmpeg compression failed: {result.stderr}")
                     return {
                         'success': False,
                         'error': f'FFmpeg failed: {result.stderr}'
