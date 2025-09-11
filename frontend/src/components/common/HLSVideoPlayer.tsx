@@ -2,7 +2,7 @@ import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import { Box, Typography, IconButton } from '@mui/material';
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 
-import { StreamViewerLayoutConfig, getStreamViewerLayout } from '../../config/layoutConfig';
+import { StreamViewerLayoutConfig } from '../../config/layoutConfig';
 
 interface HLSVideoPlayerProps {
   streamUrl?: string;
@@ -69,7 +69,6 @@ export function HLSVideoPlayer({
     };
   }, []);
 
-  const finalLayoutConfig = layoutConfig || getStreamViewerLayout(model);
 
 
   useEffect(() => {
@@ -420,7 +419,7 @@ export function HLSVideoPlayer({
           left: 0,
           width: '100%',
           height: '100%',
-          objectFit: finalLayoutConfig.isMobileModel ? 'fill' : 'contain',
+          objectFit: 'contain', // Always use contain to maintain aspect ratio
           backgroundColor: '#000000',
           display: streamLoaded ? 'block' : 'none',
         }}

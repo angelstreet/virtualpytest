@@ -370,17 +370,17 @@ const RecHostStreamModalContent: React.FC<{
   }, [aiError, showError]);
 
   return (
-    <Box
-      sx={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: getZIndex('MODAL_CONTENT'),
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: 'rgba(0, 0, 0, 0.9)',
-      }}
-    >
+      <Box
+        sx={{
+          position: 'fixed',
+          inset: 0,
+          zIndex: getZIndex('MODAL_CONTENT'),
+          display: 'flex',
+          alignItems: 'flex-end',
+          justifyContent: 'center',
+          backgroundColor: 'rgba(0, 0, 0, 0.9)',
+        }}
+      >
       <Box
         sx={{
           width: '95vw',
@@ -682,7 +682,7 @@ const RecHostStreamModalContent: React.FC<{
                       aspectRatio: isMobileModel 
                         ? '9/16' // Fixed mobile aspect ratio
                         : `${DEFAULT_DEVICE_RESOLUTION.width}/${DEFAULT_DEVICE_RESOLUTION.height}`,
-                      objectFit: isMobileModel ? 'fill' : 'contain', // Use fill for mobile, contain for desktop
+                      objectFit: 'contain', // Always use contain to maintain aspect ratio
                       isMobileModel, // Use our mobile detection result
                     }}
                     isExpanded={false}
