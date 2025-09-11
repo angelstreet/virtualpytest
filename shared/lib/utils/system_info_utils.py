@@ -134,25 +134,25 @@ def calculate_process_working_uptime(capture_folder: str, process_type: str) -> 
             if os.path.exists(capture_dir):
                 captures_dir = os.path.join(capture_dir, 'captures')
                 if os.path.exists(captures_dir):
-                    # Only use renamed files with timestamp format to avoid race condition
+                    # Use sequential files (not thumbnails) to avoid race condition
                     import re
                     all_jpg_files = glob.glob(os.path.join(captures_dir, '*.jpg'))
-                    # Filter for renamed format: YYYYMMDD_HHMMSS_*.jpg
-                    timestamp_pattern = re.compile(r'^\d{8}_\d{6}_.*\.jpg$')
-                    jpg_files = [f for f in all_jpg_files if timestamp_pattern.match(os.path.basename(f))]
+                    # Filter for sequential format: capture_*.jpg (not thumbnails)
+                    sequential_pattern = re.compile(r'^capture_\d+\.jpg$')
+                    jpg_files = [f for f in all_jpg_files if sequential_pattern.match(os.path.basename(f))]
                     
                     if jpg_files:
                         last_activity_time = max([os.path.getmtime(f) for f in jpg_files])
                     
         elif process_type == 'monitor':
-            # Check Monitor JSON files (only renamed ones to avoid race condition)
+            # Check Monitor JSON files (sequential format to avoid race condition)
             captures_dir = f'/var/www/html/stream/{capture_folder}/captures'
             if os.path.exists(captures_dir):
                 import re
                 all_json_files = glob.glob(os.path.join(captures_dir, '*.json'))
-                # Filter for renamed format: YYYYMMDD_HHMMSS_*.json
-                timestamp_pattern = re.compile(r'^\d{8}_\d{6}_.*\.json$')
-                json_files = [f for f in all_json_files if timestamp_pattern.match(os.path.basename(f))]
+                # Filter for sequential format: capture_*.json
+                sequential_pattern = re.compile(r'^capture_\d+\.json$')
+                json_files = [f for f in all_json_files if sequential_pattern.match(os.path.basename(f))]
                 if json_files:
                     last_activity_time = max([os.path.getmtime(f) for f in json_files])
         
@@ -397,15 +397,15 @@ def check_ffmpeg_status():
             if os.path.exists(capture_dir):
                 device_name = os.path.basename(capture_dir)
                 
-                # Check for recent images (.jpg files) with timestamp format only
+                # Check for recent images (.jpg files) with sequential format only
                 captures_dir = os.path.join(capture_dir, 'captures')
                 recent_jpg_count = 0
                 if os.path.exists(captures_dir):
                     try:
-                        # Use find command to count timestamp format files newer than 1 minute
+                        # Use find command to count sequential format files newer than 1 minute
                         import subprocess
                         result = subprocess.run([
-                            'find', captures_dir, '-name', 'capture_20*.jpg', '-mmin', '-1'
+                            'find', captures_dir, '-name', 'capture_*.jpg', '!', '-name', '*_thumbnail.jpg', '-mmin', '-1'
                         ], capture_output=True, text=True)
                         if result.returncode == 0:
                             recent_jpg_count = len([f for f in result.stdout.strip().split('\n') if f])
@@ -487,13 +487,13 @@ def check_monitor_status():
             if os.path.exists(captures_dir):
                 device_name = os.path.basename(os.path.dirname(captures_dir))  # capture1, capture2, etc.
                 
-                # Check for recent JSON files with timestamp format
+                # Check for recent JSON files with sequential format
                 recent_json_count = 0
                 try:
-                    # Use find command to count timestamp format files newer than 1 minute
+                    # Use find command to count sequential format files newer than 1 minute
                     import subprocess
                     result = subprocess.run([
-                        'find', captures_dir, '-name', 'capture_20*.json', '-mmin', '-1'
+                        'find', captures_dir, '-name', 'capture_*.json', '-mmin', '-1'
                     ], capture_output=True, text=True)
                     if result.returncode == 0:
                         recent_json_count = len([f for f in result.stdout.strip().split('\n') if f])
