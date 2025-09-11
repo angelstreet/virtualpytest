@@ -11,8 +11,7 @@ import requests
 from datetime import datetime, timezone
 from flask import Blueprint, jsonify
 
-# Import shared utilities
-from shared.lib.utils.env_utils import load_environment_variables
+# No additional imports needed - using direct Redis access
 
 # Create blueprint
 server_ai_queue_bp = Blueprint('server_ai_queue', __name__, url_prefix='/server/ai-queue')
