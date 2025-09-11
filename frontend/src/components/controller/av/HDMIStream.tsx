@@ -438,7 +438,7 @@ export const HDMIStream = React.memo(
                     aspectRatio: isMobile
                       ? `${DEFAULT_DEVICE_RESOLUTION.height}/${DEFAULT_DEVICE_RESOLUTION.width}`
                       : `${DEFAULT_DEVICE_RESOLUTION.width}/${DEFAULT_DEVICE_RESOLUTION.height}`,
-                    objectFit: isMobile ? 'fill' : 'contain',
+                    objectFit: isMobile ? 'cover' : 'contain',
                     isMobileModel: isMobile,
                   }}
                   sx={{
