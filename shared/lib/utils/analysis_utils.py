@@ -9,7 +9,6 @@ import os
 import time
 import json
 from typing import Dict, List, Any, Optional
-from shared.lib.utils.host_utils import get_host
 
 
 def load_recent_analysis_data(device_id: str, timeframe_minutes: int = 5, max_count: Optional[int] = None) -> Dict[str, Any]:
@@ -32,19 +31,27 @@ def load_recent_analysis_data(device_id: str, timeframe_minutes: int = 5, max_co
         }
     """
     try:
-        # Get device directly from existing host instance
-        host = get_host()
-        device = host.get_device(device_id)
-        if not device:
+        # Get capture path directly from environment variables (no host initialization)
+        if device_id == 'host':
+            capture_path = os.getenv('HOST_VIDEO_CAPTURE_PATH')
+        else:
+            # Extract device number from device_id (e.g., 'device1' -> '1')
+            device_num = device_id.replace('device', '')
+            if device_num.isdigit():
+                capture_path = os.getenv(f'DEVICE{device_num}_VIDEO_CAPTURE_PATH')
+            else:
+                capture_path = None
+        
+        if not capture_path:
             return {
                 'success': False,
-                'error': f'Device {device_id} not found',
+                'error': f'No capture path configured for device {device_id}',
                 'analysis_data': [],
                 'total': 0,
                 'device_id': device_id
             }
         
-        capture_folder = os.path.join(device.video_capture_path, 'captures')
+        capture_folder = os.path.join(capture_path, 'captures')
         
         if not os.path.exists(capture_folder):
             return {

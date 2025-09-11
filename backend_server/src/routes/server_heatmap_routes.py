@@ -162,15 +162,20 @@ def process_host_results(host_results):
         
         for item in analysis_data:
             timestamp = item.get('timestamp', '')
-            print(f"[@process_host_results] Processing item with timestamp: {timestamp}")
+            # Process timestamp for grouping
             
             if timestamp:
                 try:
-                    # Handle Unix timestamp in milliseconds (from sequential naming)
+                    # Handle different timestamp formats after migration
                     if isinstance(timestamp, (int, float)) or (isinstance(timestamp, str) and timestamp.isdigit()):
-                        # Convert milliseconds to seconds and create datetime
+                        # Unix timestamp in milliseconds (from sequential naming)
                         timestamp_seconds = int(timestamp) / 1000.0
                         dt = datetime.fromtimestamp(timestamp_seconds)
+                    elif isinstance(timestamp, str) and 'T' in timestamp:
+                        # ISO format timestamp (from analysis data after migration)
+                        # Remove microseconds if present and parse
+                        timestamp_clean = timestamp.split('.')[0] if '.' in timestamp else timestamp
+                        dt = datetime.fromisoformat(timestamp_clean.replace('Z', '+00:00'))
                     else:
                         # Fallback for old YYYYMMDDHHMMSS format (should not occur after migration)
                         dt = datetime.strptime(str(timestamp), '%Y%m%d%H%M%S')
@@ -179,7 +184,7 @@ def process_host_results(host_results):
                     seconds = (dt.second // 10) * 10
                     bucket_dt = dt.replace(second=seconds, microsecond=0)
                     bucket_key = bucket_dt.strftime('%Y%m%d%H%M%S')
-                    print(f"[@process_host_results] Created bucket_key: {bucket_key} for timestamp {timestamp}")
+                    # Group into 10-second buckets for heatmap generation
                     
                     device_key = f"{result['host_name']}_{result['device_id']}"
                     
@@ -228,7 +233,7 @@ def process_host_results(host_results):
                         }
                         
                 except Exception as e:
-                    print(f"[@process_host_results] Exception processing timestamp {timestamp}: {e}")
+                    print(f"[@process_host_results] Failed to parse timestamp '{timestamp}': {e}")
                     continue
     
     # Separate frontend and background data
