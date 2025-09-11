@@ -64,8 +64,8 @@ CONTROLLER_COMMAND_MAP = {
         'AnalyzeVideoQuality'
     ],
     'audio': [
-        'DetectAudioSpeech', 'check_audio_quality', 'DetectSilence',
-        'AnalyzeAudioLevel'
+        'DetectAudioSpeech', 'DetectAudioPresence', 'AnalyzeAudioMenu',
+        'DetectAudioLanguage', 'VerifyAudioQuality', 'WaitForAudioToStart', 'WaitForAudioToStop'
     ],
     'adb': [
         'waitForElementToAppear', 'waitForElementToDisappear',
@@ -335,7 +335,7 @@ def get_commands_for_device_model(device_model: str) -> Dict[str, Any]:
     """
     try:
         # Import here to avoid circular imports
-        from backend_core.src.controllers.controller_config_factory import DEVICE_CONTROLLER_MAP
+        from backend_core.src.controllers.controller_config_factory import DEVICE_CONTROLLER_MAP, CONTROLLER_VERIFICATION_MAP
         
         if device_model not in DEVICE_CONTROLLER_MAP:
             return {
@@ -357,42 +357,46 @@ def get_commands_for_device_model(device_model: str) -> Dict[str, Any]:
             for impl in implementations:
                 print(f"[@ai_descriptions:get_commands_for_device_model] Processing {controller_type}/{impl}")
                 
-                if controller_type == 'verification':
-                    # Get verification commands for this implementation
-                    if impl in CONTROLLER_COMMAND_MAP:
-                        for cmd in CONTROLLER_COMMAND_MAP[impl]:
-                            if cmd in ALL_DESCRIPTIONS:
-                                desc_info = ALL_DESCRIPTIONS[cmd]
-                                verification = {
-                                    'command': cmd,
-                                    'verification_type': impl,
-                                    'ai_description': desc_info['description'],
-                                    'ai_example': desc_info['example'],
-                                    'params': {}  # Default empty params
-                                }
-                                available_verifications.append(verification)
-                                print(f"[@ai_descriptions:get_commands_for_device_model] Added verification: {cmd}")
-                    else:
-                        print(f"[@ai_descriptions:get_commands_for_device_model] WARNING: No commands found for verification implementation: {impl}")
-                
-                else:  # action controllers (remote, av, desktop, web, power)
-                    # Get action commands for this implementation
-                    if impl in CONTROLLER_COMMAND_MAP:
-                        for cmd in CONTROLLER_COMMAND_MAP[impl]:
-                            if cmd in ALL_DESCRIPTIONS:
-                                desc_info = ALL_DESCRIPTIONS[cmd]
-                                action = {
-                                    'command': cmd,
-                                    'category': controller_type,
-                                    'implementation': impl,
-                                    'ai_description': desc_info['description'],
-                                    'ai_example': desc_info['example'],
-                                    'params': {}  # Default empty params
-                                }
-                                available_actions.append(action)
-                                print(f"[@ai_descriptions:get_commands_for_device_model] Added action: {cmd}")
-                    else:
-                        print(f"[@ai_descriptions:get_commands_for_device_model] WARNING: No commands found for {controller_type} implementation: {impl}")
+                # Get action commands for this implementation
+                if impl in CONTROLLER_COMMAND_MAP:
+                    for cmd in CONTROLLER_COMMAND_MAP[impl]:
+                        if cmd in ALL_DESCRIPTIONS:
+                            desc_info = ALL_DESCRIPTIONS[cmd]
+                            action = {
+                                'command': cmd,
+                                'category': controller_type,
+                                'implementation': impl,
+                                'ai_description': desc_info['description'],
+                                'ai_example': desc_info['example'],
+                                'params': {}  # Default empty params
+                            }
+                            available_actions.append(action)
+                            print(f"[@ai_descriptions:get_commands_for_device_model] Added action: {cmd}")
+                else:
+                    print(f"[@ai_descriptions:get_commands_for_device_model] WARNING: No commands found for {controller_type} implementation: {impl}")
+        
+        # Load verification commands from CONTROLLER_VERIFICATION_MAP
+        verification_types = []
+        for controller_list in model_config.values():
+            for controller_impl in controller_list:
+                verification_types.extend(CONTROLLER_VERIFICATION_MAP.get(controller_impl, []))
+        
+        # Add verification commands
+        for verif_type in set(verification_types):
+            if verif_type in CONTROLLER_COMMAND_MAP:
+                for cmd in CONTROLLER_COMMAND_MAP[verif_type]:
+                    if cmd in ALL_DESCRIPTIONS:
+                        desc_info = ALL_DESCRIPTIONS[cmd]
+                        verification = {
+                            'command': cmd,
+                            'category': 'verification',
+                            'implementation': verif_type,
+                            'ai_description': desc_info['description'],
+                            'ai_example': desc_info['example'],
+                            'params': {}
+                        }
+                        available_verifications.append(verification)
+                        print(f"[@ai_descriptions:get_commands_for_device_model] Added verification: {cmd}")
         
         result = {
             'actions': available_actions,

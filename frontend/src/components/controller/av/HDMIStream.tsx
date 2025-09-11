@@ -434,11 +434,15 @@ export const HDMIStream = React.memo(
                   model={effectiveDeviceModel}
                   isExpanded={isExpanded}
                   layoutConfig={{
-                    minHeight: isExpanded ? '400px' : '150px', // Adjust based on panel state
+                    minHeight: isExpanded 
+                      ? (isMobile ? '560px' : '400px') 
+                      : (isMobile ? '340px' : '150px'), // Account for header height in mobile collapsed
                     aspectRatio: isMobile
                       ? `${DEFAULT_DEVICE_RESOLUTION.height}/${DEFAULT_DEVICE_RESOLUTION.width}`
                       : `${DEFAULT_DEVICE_RESOLUTION.width}/${DEFAULT_DEVICE_RESOLUTION.height}`,
-                    objectFit: isMobile ? 'cover' : 'contain',
+                    objectFit: isMobile 
+                      ? (isExpanded ? 'cover' : 'contain') // Use contain for collapsed mobile to prevent cropping
+                      : 'contain',
                     isMobileModel: isMobile,
                   }}
                   sx={{

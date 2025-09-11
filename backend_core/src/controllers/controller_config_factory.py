@@ -74,13 +74,13 @@ DEVICE_CONTROLLER_MAP = {
 
 # Controller → Verification Capabilities
 CONTROLLER_VERIFICATION_MAP = {
-    'hdmi_stream': ['image', 'text', 'video'],
-    'camera_stream': ['image', 'text', 'video'],  # Camera supports same verification as HDMI
-    'vnc_stream': ['image', 'text', 'video'],  # VNC supports same verification as HDMI
+    'hdmi_stream': ['image', 'text', 'video', 'audio'],
+    'camera_stream': ['image', 'text', 'video', 'audio'],
+    'vnc_stream': ['image', 'text', 'video'],
     'android_mobile': ['adb'],
-    'android_tv': [],  # No verification for android_tv remote
+    'android_tv': [],
     'appium': ['appium'],
-    'bash': [],  # No verification for bash desktop controller (uses AV controller verification)
+    'bash': [],
     'ai_agent': ['task_execution']
 }
 

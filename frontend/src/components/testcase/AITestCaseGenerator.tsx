@@ -191,9 +191,79 @@ export const AITestCaseGenerator: React.FC<AITestCaseGeneratorProps> = ({
 
     const { compatibility_matrix } = analysis;
     const hasCompatible = compatibility_matrix.compatible_userinterfaces.length > 0;
+    const compatibleCount = analysis.compatible_count || 0;
+    const incompatibleCount = analysis.incompatible_count || 0;
 
     return (
       <Box>
+
+        {/* Compatibility Summary - NEW */}
+        <Box sx={{ 
+          mb: 3, 
+          p: 2, 
+          bgcolor: 'background.paper', 
+          borderRadius: 2, 
+          border: '1px solid', 
+          borderColor: 'divider',
+          boxShadow: 1
+        }}>
+          <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 2 }}>
+            🎯 Compatibility Analysis
+          </Typography>
+          
+          <Box sx={{ display: 'flex', gap: 3, mb: 2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <span style={{ fontSize: '1.2em' }}>✅</span>
+              <Typography variant="body1" sx={{ fontWeight: 'bold', color: 'success.main' }}>
+                Compatible: {compatibleCount}
+              </Typography>
+            </Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <span style={{ fontSize: '1.2em' }}>❌</span>
+              <Typography variant="body1" sx={{ fontWeight: 'bold', color: 'error.main' }}>
+                Non-Compatible: {incompatibleCount}
+              </Typography>
+            </Box>
+          </Box>
+
+          {/* Interface Details */}
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+            {analysis.compatibility_details?.map((detail, index) => (
+              <Box key={index} sx={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: 2,
+                p: 1,
+                borderRadius: 1,
+                bgcolor: detail.compatible ? 'success.light' : 'error.light',
+                color: detail.compatible ? 'success.contrastText' : 'error.contrastText'
+              }}>
+                <span style={{ fontSize: '1em' }}>
+                  {detail.compatible ? '✅' : '❌'}
+                </span>
+                <Typography variant="body2" sx={{ fontWeight: 'bold', flex: 1 }}>
+                  {detail.userinterface}
+                </Typography>
+                {!detail.compatible && (
+                  <Typography variant="caption" sx={{ 
+                    fontStyle: 'italic',
+                    opacity: 0.8
+                  }}>
+                    Missing: {detail.missing_capabilities?.join(', ') || 'Unknown capabilities'}
+                  </Typography>
+                )}
+                {detail.compatible && (
+                  <Typography variant="caption" sx={{ 
+                    fontStyle: 'italic',
+                    opacity: 0.8
+                  }}>
+                    All capabilities available
+                  </Typography>
+                )}
+              </Box>
+            ))}
+          </Box>
+        </Box>
 
         {/* Step Preview - MAIN FOCUS */}
         {analysis.step_preview && analysis.step_preview.length > 0 && (

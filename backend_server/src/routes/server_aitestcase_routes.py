@@ -90,6 +90,57 @@ def analyze_test_case():
             else:
                 print(f"[@route:server_aitestcase:analyze] Error loading commands for model {model}: {model_commands[model]['error']}")
         
+        # Add comprehensive capability analysis logging
+        print(f"\n=== AI CAPABILITY ANALYSIS ===")
+        print(f"Available Actions Across All Controllers:")
+        
+        all_actions = {}
+        all_verifications = {}
+        
+        for model, commands in model_commands.items():
+            if 'error' not in commands:
+                actions = commands.get('actions', [])
+                verifications = commands.get('verifications', [])
+                
+                for action in actions:
+                    cmd = action.get('command')
+                    if cmd not in all_actions:
+                        all_actions[cmd] = []
+                    all_actions[cmd].append(model)
+                
+                for verif in verifications:
+                    cmd = verif.get('command')
+                    if cmd not in all_verifications:
+                        all_verifications[cmd] = []
+                    all_verifications[cmd].append(model)
+        
+        for action, models in all_actions.items():
+            print(f"  - {action}: {', '.join(models)}")
+        
+        print(f"Available Verifications Across All Controllers:")
+        for verif, models in all_verifications.items():
+            print(f"  - {verif}: {', '.join(models)}")
+        
+        print(f"Navigation Nodes Available:")
+        for ui in userinterfaces:
+            ui_name = ui.get('name')
+            try:
+                root_tree = get_root_tree_for_interface(ui.get('userinterface_id'), team_id)
+                if root_tree:
+                    tree_data = get_full_tree(root_tree.get('tree_id'), team_id)
+                    if tree_data.get('success'):
+                        nodes = tree_data.get('nodes', [])
+                        node_names = [node.get('node_id') for node in nodes if node.get('node_id')]
+                        print(f"  - {ui_name}: {', '.join(node_names[:10])}{'...' if len(node_names) > 10 else ''}")
+                    else:
+                        print(f"  - {ui_name}: No navigation tree available")
+                else:
+                    print(f"  - {ui_name}: No root tree found")
+            except Exception as e:
+                print(f"  - {ui_name}: Error loading navigation - {e}")
+        
+        print(f"=== END ANALYSIS ===\n")
+        
         # Initialize AI Test Case Analyzer with real command data
         from backend_core.src.controllers.ai.ai_testcase_analyzer import AITestCaseAnalyzer
         analyzer = AITestCaseAnalyzer()
