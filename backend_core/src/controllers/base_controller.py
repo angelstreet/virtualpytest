@@ -532,8 +532,8 @@ class FFmpegCaptureController(AVControllerInterface):
             # Build proper URL using host URL building utilities
             # The file is now at: /var/www/html/stream/capture1/restart_video.mp4
             # We need to build the full host URL, not just the path
-            from utils.build_url_utils import buildHostImageUrl
-            from utils.host_utils import get_host_instance
+            from shared.lib.utils.build_url_utils import buildHostImageUrl
+            from shared.lib.utils.host_utils import get_host_instance
             
             try:
                 host = get_host_instance()
