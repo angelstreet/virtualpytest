@@ -47,7 +47,7 @@ import { useAlerts } from '../hooks/pages/useAlerts';
 import { Alert } from '../types/pages/Monitoring_Types';
 
 const MonitoringIncidents: React.FC = () => {
-  const { getAllAlerts } = useAlerts();
+  const { getAllAlerts, updateCheckedStatus, updateDiscardStatus } = useAlerts();
   const [activeAlerts, setActiveAlerts] = useState<Alert[]>([]);
   const [closedAlerts, setClosedAlerts] = useState<Alert[]>([]);
   const [loading, setLoading] = useState(true);
@@ -220,6 +220,44 @@ const MonitoringIncidents: React.FC = () => {
     }
   }
 
+  // Handle checked status toggle
+  const handleCheckedToggle = async (alert: Alert) => {
+    try {
+      const newChecked = !alert.checked;
+      await updateCheckedStatus(alert.id, newChecked);
+      
+      // Update local state
+      const updateAlert = (alerts: Alert[]) => 
+        alerts.map(a => a.id === alert.id ? { ...a, checked: newChecked, check_type: 'manual' } : a);
+      
+      setActiveAlerts(updateAlert);
+      setClosedAlerts(updateAlert);
+    } catch (error) {
+      console.error('Failed to update checked status:', error);
+      setError('Failed to update checked status');
+    }
+  };
+
+  // Handle discard status toggle
+  const handleDiscardToggle = async (alert: Alert) => {
+    try {
+      const newDiscard = !alert.discard;
+      const checkType = alert.check_type === 'ai' ? 'ai_and_human' : 'manual';
+      
+      await updateDiscardStatus(alert.id, newDiscard, undefined, checkType);
+      
+      // Update local state
+      const updateAlert = (alerts: Alert[]) => 
+        alerts.map(a => a.id === alert.id ? { ...a, discard: newDiscard, check_type: checkType } : a);
+      
+      setActiveAlerts(updateAlert);
+      setClosedAlerts(updateAlert);
+    } catch (error) {
+      console.error('Failed to update discard status:', error);
+      setError('Failed to update discard status');
+    }
+  };
+
   // Get individual discard analysis components
   const getCheckedStatus = (alert: Alert) => {
     if (alert.checked === undefined || alert.checked === null) {
@@ -230,6 +268,8 @@ const MonitoringIncidents: React.FC = () => {
           color="default"
           size="small"
           variant="outlined"
+          clickable
+          onClick={() => handleCheckedToggle(alert)}
         />
       );
     }
@@ -239,6 +279,8 @@ const MonitoringIncidents: React.FC = () => {
         label={alert.checked ? 'Checked' : 'Unchecked'}
         color={alert.checked ? 'success' : 'default'}
         size="small"
+        clickable
+        onClick={() => handleCheckedToggle(alert)}
       />
     );
   };
@@ -257,6 +299,8 @@ const MonitoringIncidents: React.FC = () => {
         label={alert.discard ? 'Discarded' : 'Valid'}
         color={alert.discard ? 'warning' : 'success'}
         size="small"
+        clickable
+        onClick={() => handleDiscardToggle(alert)}
       />
     );
   };

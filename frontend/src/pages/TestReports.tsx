@@ -44,7 +44,7 @@ import React, { useState, useEffect } from 'react';
 import { useScriptResults, ScriptResult } from '../hooks/pages/useScriptResults';
 
 const TestReports: React.FC = () => {
-  const { getAllScriptResults } = useScriptResults();
+  const { getAllScriptResults, updateCheckedStatus, updateDiscardStatus } = useScriptResults();
   const [scriptResults, setScriptResults] = useState<ScriptResult[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -159,6 +159,40 @@ const TestReports: React.FC = () => {
 
   // Note: toggleRowExpansion removed - not needed for this implementation
 
+  // Handle checked status toggle
+  const handleCheckedToggle = async (result: ScriptResult) => {
+    try {
+      const newChecked = !result.checked;
+      await updateCheckedStatus(result.id, newChecked);
+      
+      // Update local state
+      setScriptResults(prev => 
+        prev.map(r => r.id === result.id ? { ...r, checked: newChecked, check_type: 'manual' } : r)
+      );
+    } catch (error) {
+      console.error('Failed to update checked status:', error);
+      setError('Failed to update checked status');
+    }
+  };
+
+  // Handle discard status toggle
+  const handleDiscardToggle = async (result: ScriptResult) => {
+    try {
+      const newDiscard = !result.discard;
+      const checkType = result.check_type === 'ai' ? 'ai_and_human' : 'manual';
+      
+      await updateDiscardStatus(result.id, newDiscard, undefined, checkType);
+      
+      // Update local state
+      setScriptResults(prev => 
+        prev.map(r => r.id === result.id ? { ...r, discard: newDiscard, check_type: checkType } : r)
+      );
+    } catch (error) {
+      console.error('Failed to update discard status:', error);
+      setError('Failed to update discard status');
+    }
+  };
+
   // Get individual discard analysis components
   const getCheckedStatus = (result: ScriptResult) => {
     if (result.checked === undefined || result.checked === null) {
@@ -169,6 +203,8 @@ const TestReports: React.FC = () => {
           color="default"
           size="small"
           variant="outlined"
+          clickable
+          onClick={() => handleCheckedToggle(result)}
         />
       );
     }
@@ -178,6 +214,8 @@ const TestReports: React.FC = () => {
         label={result.checked ? 'Checked' : 'Unchecked'}
         color={result.checked ? 'success' : 'default'}
         size="small"
+        clickable
+        onClick={() => handleCheckedToggle(result)}
       />
     );
   };
@@ -196,6 +234,8 @@ const TestReports: React.FC = () => {
         label={result.discard ? 'Discarded' : 'Valid'}
         color={result.discard ? 'warning' : 'success'}
         size="small"
+        clickable
+        onClick={() => handleDiscardToggle(result)}
       />
     );
   };

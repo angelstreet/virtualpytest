@@ -95,6 +95,25 @@ class BackendDiscardService:
             print(f"❌ Failed to initialize service: {e}")
             return False
     
+    def is_already_checked_by_human(self, task_type: str, task_id: str) -> bool:
+        """Check if task has already been checked by human"""
+        try:
+            table_name = 'alerts' if task_type == 'alert' else 'script_results'
+            
+            result = self.supabase.table(table_name).select('checked').eq('id', task_id).execute()
+            
+            if result.data and len(result.data) > 0:
+                checked = result.data[0].get('checked', False)
+                if checked:
+                    print(f"📋 {task_type} {task_id} already checked by human")
+                    return True
+            
+            return False
+            
+        except Exception as e:
+            print(f"❌ Error checking human status for {task_id}: {e}")
+            return False
+    
     def process_task(self, task: Dict[str, Any]) -> bool:
         """Process a single task from the queue"""
         try:
@@ -105,6 +124,11 @@ class BackendDiscardService:
             
             print(f"🔄 Processing {task_type} task: {task_id}")
             self.stats['tasks_processed'] += 1
+            
+            # Check if already checked by human - skip AI processing
+            if self.is_already_checked_by_human(task_type, task_id):
+                print(f"⏭️ Skipping {task_type} {task_id} - already checked by human")
+                return True
             
             # Analyze based on task type
             analysis = None

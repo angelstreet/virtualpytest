@@ -103,9 +103,79 @@ export const useAlerts = () => {
     [getAllAlerts],
   );
 
+  const updateCheckedStatus = useMemo(
+    () => async (alertId: string, checked: boolean, checkType: string = 'manual'): Promise<void> => {
+      try {
+        console.log(
+          `[@hook:useAlerts:updateCheckedStatus] Updating checked status for ${alertId}: ${checked}`,
+        );
+
+        const response = await fetch(buildServerUrl(`/server/alerts/updateCheckedStatus/${alertId}`), {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            checked,
+            check_type: checkType,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to update checked status: ${response.status} ${response.statusText}`);
+        }
+
+        console.log(`[@hook:useAlerts:updateCheckedStatus] Successfully updated checked status`);
+      } catch (error) {
+        console.error('[@hook:useAlerts:updateCheckedStatus] Error:', error);
+        throw error;
+      }
+    },
+    [],
+  );
+
+  const updateDiscardStatus = useMemo(
+    () => async (
+      alertId: string, 
+      discard: boolean, 
+      discardComment?: string, 
+      checkType: string = 'manual'
+    ): Promise<void> => {
+      try {
+        console.log(
+          `[@hook:useAlerts:updateDiscardStatus] Updating discard status for ${alertId}: ${discard}`,
+        );
+
+        const response = await fetch(buildServerUrl(`/server/alerts/updateDiscardStatus/${alertId}`), {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            discard,
+            discard_comment: discardComment,
+            check_type: checkType,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to update discard status: ${response.status} ${response.statusText}`);
+        }
+
+        console.log(`[@hook:useAlerts:updateDiscardStatus] Successfully updated discard status`);
+      } catch (error) {
+        console.error('[@hook:useAlerts:updateDiscardStatus] Error:', error);
+        throw error;
+      }
+    },
+    [],
+  );
+
   return {
     getAllAlerts,
     getActiveAlerts,
     getClosedAlerts,
+    updateCheckedStatus,
+    updateDiscardStatus,
   };
 };

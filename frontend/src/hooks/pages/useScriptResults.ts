@@ -112,7 +112,77 @@ export const useScriptResults = () => {
     [],
   );
 
+  const updateCheckedStatus = useMemo(
+    () => async (scriptResultId: string, checked: boolean, checkType: string = 'manual'): Promise<void> => {
+      try {
+        console.log(
+          `[@hook:useScriptResults:updateCheckedStatus] Updating checked status for ${scriptResultId}: ${checked}`,
+        );
+
+        const response = await fetch(buildServerUrl(`/server/script-results/updateCheckedStatus/${scriptResultId}`), {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            checked,
+            check_type: checkType,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to update checked status: ${response.status} ${response.statusText}`);
+        }
+
+        console.log(`[@hook:useScriptResults:updateCheckedStatus] Successfully updated checked status`);
+      } catch (error) {
+        console.error('[@hook:useScriptResults:updateCheckedStatus] Error:', error);
+        throw error;
+      }
+    },
+    [],
+  );
+
+  const updateDiscardStatus = useMemo(
+    () => async (
+      scriptResultId: string, 
+      discard: boolean, 
+      discardComment?: string, 
+      checkType: string = 'manual'
+    ): Promise<void> => {
+      try {
+        console.log(
+          `[@hook:useScriptResults:updateDiscardStatus] Updating discard status for ${scriptResultId}: ${discard}`,
+        );
+
+        const response = await fetch(buildServerUrl(`/server/script-results/updateDiscardStatus/${scriptResultId}`), {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            discard,
+            discard_comment: discardComment,
+            check_type: checkType,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to update discard status: ${response.status} ${response.statusText}`);
+        }
+
+        console.log(`[@hook:useScriptResults:updateDiscardStatus] Successfully updated discard status`);
+      } catch (error) {
+        console.error('[@hook:useScriptResults:updateDiscardStatus] Error:', error);
+        throw error;
+      }
+    },
+    [],
+  );
+
   return {
     getAllScriptResults,
+    updateCheckedStatus,
+    updateDiscardStatus,
   };
 }; 

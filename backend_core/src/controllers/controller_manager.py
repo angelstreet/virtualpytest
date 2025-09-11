@@ -26,6 +26,7 @@ from backend_core.src.controllers.verification.text import TextVerificationContr
 from backend_core.src.controllers.verification.adb import ADBVerificationController
 from backend_core.src.controllers.verification.appium import AppiumVerificationController
 from backend_core.src.controllers.verification.video import VideoVerificationController
+from backend_core.src.controllers.verification.audio import AudioVerificationController
 from backend_core.src.controllers.power.tapo_power import TapoPowerController
 # from backend_core.src.controllers.ai.ai_agent import AIAgentController  # Lazy import to avoid circular import
 
@@ -262,6 +263,8 @@ def _create_controller_instance(controller_type: str, implementation: str, param
             return TextVerificationController(**params)
         elif implementation == 'video':
             return VideoVerificationController(**params)
+        elif implementation == 'audio':
+            return AudioVerificationController(**params)
         elif implementation == 'adb':
             return ADBVerificationController(**params)
         elif implementation == 'appium':

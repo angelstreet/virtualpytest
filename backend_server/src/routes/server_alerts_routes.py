@@ -13,7 +13,9 @@ from flask import Blueprint, jsonify, request
 from shared.lib.supabase.alerts_db import (
     get_all_alerts,
     get_active_alerts,
-    get_closed_alerts
+    get_closed_alerts,
+    update_alert_checked_status,
+    update_alert_discard_status
 )
 
 from shared.lib.utils.app_utils import check_supabase, get_team_id
@@ -138,4 +140,49 @@ def get_all_closed_alerts():
             'error': str(e),
             'alerts': [],
             'count': 0
-        }), 500 
+        }), 500
+
+@server_alerts_bp.route('/updateCheckedStatus/<alert_id>', methods=['PUT'])
+def update_alert_checked_status_route(alert_id):
+    """Update alert checked status"""
+    error = check_supabase()
+    if error:
+        return error
+    
+    try:
+        data = request.json
+        checked = data.get('checked', False)
+        check_type = data.get('check_type', 'manual')
+        
+        success = update_alert_checked_status(alert_id, checked, check_type)
+        
+        if success:
+            return jsonify({'status': 'success'})
+        else:
+            return jsonify({'error': 'Alert not found or failed to update'}), 404
+            
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@server_alerts_bp.route('/updateDiscardStatus/<alert_id>', methods=['PUT'])
+def update_alert_discard_status_route(alert_id):
+    """Update alert discard status"""
+    error = check_supabase()
+    if error:
+        return error
+    
+    try:
+        data = request.json
+        discard = data.get('discard', False)
+        discard_comment = data.get('discard_comment')
+        check_type = data.get('check_type', 'manual')
+        
+        success = update_alert_discard_status(alert_id, discard, discard_comment, check_type)
+        
+        if success:
+            return jsonify({'status': 'success'})
+        else:
+            return jsonify({'error': 'Alert not found or failed to update'}), 404
+            
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500 
