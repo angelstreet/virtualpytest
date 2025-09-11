@@ -602,6 +602,7 @@ export const AndroidMobileRemote = React.memo(
                 host={host}
                 deviceId={deviceId}
                 isLandscape={isLandscape}
+                isModalContext={!!streamContainerDimensions} // Modal context when streamContainerDimensions provided
               />,
               document.body,
             )
