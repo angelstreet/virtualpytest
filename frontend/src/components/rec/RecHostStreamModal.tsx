@@ -123,6 +123,14 @@ const RecHostStreamModalContent: React.FC<{
     enabled: aiAgentMode && isControlActive,
   });
 
+  // Check if device is mobile model (consistent with RecHostPreview)
+  const isMobileModel = useMemo(() => {
+    const model = device?.device_model;
+    if (!model) return false;
+    const modelLower = model.toLowerCase();
+    return modelLower.includes('mobile');
+  }, [device?.device_model]);
+
   // Stable stream container dimensions to prevent re-renders
   const streamContainerDimensions = useMemo(() => {
     const windowWidth = typeof window !== 'undefined' ? window.innerWidth : DEFAULT_DEVICE_RESOLUTION.width;
@@ -135,8 +143,9 @@ const RecHostStreamModalContent: React.FC<{
     // Header height calculation based on actual Box styling
     const headerMinHeight = 48; // minHeight from header Box
 
-    // Use fixed stream area (assume remote might be shown)
-    const streamAreaWidth = modalWidth * 0.75;
+    // For mobile devices, remote panel is always shown, so stream area is 75% of modal width
+    // For desktop devices, use full modal width
+    const streamAreaWidth = isMobileModel ? modalWidth * 0.75 : modalWidth;
     const streamAreaHeight = modalHeight - headerMinHeight;
 
     // Modal position (centered)
@@ -194,7 +203,7 @@ const RecHostStreamModalContent: React.FC<{
     });
 
     return dimensions;
-  }, []);
+  }, [isMobileModel]);
 
   // Check if this is a desktop device (host_vnc)
   const isDesktopDevice = useMemo(() => {
@@ -303,14 +312,6 @@ const RecHostStreamModalContent: React.FC<{
 
   // Stable device resolution to prevent re-renders
   const stableDeviceResolution = useMemo(() => DEFAULT_DEVICE_RESOLUTION, []);
-
-  // Check if device is mobile model (consistent with RecHostPreview)
-  const isMobileModel = useMemo(() => {
-    const model = device?.device_model;
-    if (!model) return false;
-    const modelLower = model.toLowerCase();
-    return modelLower.includes('mobile');
-  }, [device?.device_model]);
 
   // Stable onReleaseControl callback to prevent re-renders
   const handleReleaseControl = useCallback(() => {
