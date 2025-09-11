@@ -39,9 +39,16 @@ const AIQueueMonitor: React.FC = () => {
     queueType: 'incidents' | 'scripts' | 'all';
     queueName: string;
   }>({ open: false, queueType: 'all', queueName: '' });
+  const [isFetching, setIsFetching] = useState(false);
 
   const fetchStatus = async (includeItems: boolean = false) => {
+    // Prevent multiple concurrent requests
+    if (isFetching) {
+      return;
+    }
+
     try {
+      setIsFetching(true);
       setError(null);
       const status = await getQueueStatus(includeItems);
       setQueueStatus(status);
@@ -49,14 +56,19 @@ const AIQueueMonitor: React.FC = () => {
       setError(err instanceof Error ? err.message : 'Failed to fetch queue status');
     } finally {
       setLoading(false);
+      setIsFetching(false);
     }
   };
 
   useEffect(() => {
     fetchStatus();
-    const interval = setInterval(fetchStatus, 5000); // Refresh every 5s
+    const interval = setInterval(() => {
+      // Fetch items if any section is expanded, otherwise just fetch counts
+      const shouldIncludeItems = expandedSections.size > 0;
+      fetchStatus(shouldIncludeItems);
+    }, 5000); // Refresh every 5s
     return () => clearInterval(interval);
-  }, [getQueueStatus]);
+  }, [getQueueStatus, expandedSections]);
 
   const toggleSection = async (section: string) => {
     const isCurrentlyExpanded = expandedSections.has(section);
@@ -71,7 +83,7 @@ const AIQueueMonitor: React.FC = () => {
       return newSet;
     });
 
-    // If expanding and we don't have items yet, fetch them
+    // If expanding and we don't have items yet, fetch them immediately
     if (!isCurrentlyExpanded && queueStatus && 
         (!queueStatus.queues[section as keyof typeof queueStatus.queues]?.items || 
          queueStatus.queues[section as keyof typeof queueStatus.queues]?.items?.length === 0)) {
@@ -169,7 +181,7 @@ const AIQueueMonitor: React.FC = () => {
                 </Box>
 
                 <Collapse in={expandedSections.has('incidents')}>
-                  <Box sx={{ mt: 1, p: 2, bgcolor: 'rgba(0,0,0,0.02)', borderRadius: 1 }}>
+                  <Box sx={{ mt: 1, p: 2 }}>
                     {queueStatus.queues.incidents.items && queueStatus.queues.incidents.items.length > 0 ? (
                       <Box>
                         <Typography variant="body2" sx={{ mb: 1, fontWeight: 'bold' }}>
@@ -177,7 +189,7 @@ const AIQueueMonitor: React.FC = () => {
                         </Typography>
                         <Box sx={{ maxHeight: 200, overflowY: 'auto' }}>
                           {queueStatus.queues.incidents.items.slice(0, 50).map((item, index) => (
-                            <Box key={index} sx={{ mb: 1, p: 1, bgcolor: 'white', borderRadius: 0.5, fontSize: '0.75rem' }}>
+                            <Box key={index} sx={{ mb: 1, p: 1, borderRadius: 0.5, fontSize: '0.75rem' }}>
                               <Typography variant="caption" sx={{ fontWeight: 'bold' }}>
                                 ID: {item.id}
                               </Typography>
@@ -234,7 +246,7 @@ const AIQueueMonitor: React.FC = () => {
                 </Box>
 
                 <Collapse in={expandedSections.has('scripts')}>
-                  <Box sx={{ mt: 1, p: 2, bgcolor: 'rgba(0,0,0,0.02)', borderRadius: 1 }}>
+                  <Box sx={{ mt: 1, p: 2 }}>
                     {queueStatus.queues.scripts.items && queueStatus.queues.scripts.items.length > 0 ? (
                       <Box>
                         <Typography variant="body2" sx={{ mb: 1, fontWeight: 'bold' }}>
@@ -242,7 +254,7 @@ const AIQueueMonitor: React.FC = () => {
                         </Typography>
                         <Box sx={{ maxHeight: 200, overflowY: 'auto' }}>
                           {queueStatus.queues.scripts.items.slice(0, 50).map((item, index) => (
-                            <Box key={index} sx={{ mb: 1, p: 1, bgcolor: 'white', borderRadius: 0.5, fontSize: '0.75rem' }}>
+                            <Box key={index} sx={{ mb: 1, p: 1, borderRadius: 0.5, fontSize: '0.75rem' }}>
                               <Typography variant="caption" sx={{ fontWeight: 'bold' }}>
                                 ID: {item.id}
                               </Typography>

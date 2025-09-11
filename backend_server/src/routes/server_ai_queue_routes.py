@@ -97,11 +97,11 @@ def peek_redis_queue(queue_name, limit=50):
             'Content-Type': 'application/json'
         }
         
-        # Get the last N items from the queue (LRANGE -N -1)
+        # Get the first N items from the queue (newest items, since LPUSH adds to head)
         response = requests.post(
             redis_url,
             headers=headers,
-            json=['LRANGE', queue_name, f'-{limit}', '-1'],
+            json=['LRANGE', queue_name, '0', str(limit - 1)],
             timeout=5
         )
         
