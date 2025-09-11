@@ -36,6 +36,7 @@ const TestCaseEditor = React.lazy(() => import('./pages/TestCaseEditor'));
 const NavigationEditor = React.lazy(() => import('./pages/NavigationEditor'));
 const RemoteTestPage = React.lazy(() => import('./pages/RemoteTestPage'));
 const Notifications = React.lazy(() => import('./pages/NotificationsMock'));
+const AIQueueMonitor = React.lazy(() => import('./pages/AIQueueMonitor'));
 
 // 404 Not Found component
 const NotFound: React.FC = () => {
@@ -173,6 +174,7 @@ const App: React.FC = () => {
                   <Route path="/monitoring/system" element={<SystemMonitoring />} />
                   <Route path="/monitoring/incidents" element={<MonitoringIncidents />} />
                   <Route path="/monitoring/heatmap" element={<Heatmap />} />
+                  <Route path="/monitoring/ai-queue" element={<AIQueueMonitor />} />
 
                   {/* Test Results Routes */}
                   <Route path="/test-results/reports" element={<TestReports />} />

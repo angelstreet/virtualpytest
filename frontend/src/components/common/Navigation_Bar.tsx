@@ -59,6 +59,11 @@ const NavigationBar: React.FC = () => {
       path: '/monitoring/heatmap',
       icon: <HeatmapIcon fontSize="small" />,
     },
+    {
+      label: 'AI Queue',
+      path: '/monitoring/ai-queue',
+      icon: <DashboardIcon fontSize="small" />,
+    },
   ];
 
   const testResultsItems = [

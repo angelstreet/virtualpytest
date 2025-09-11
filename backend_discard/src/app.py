@@ -277,11 +277,30 @@ class BackendDiscardService:
                         stats = {k: (v.isoformat() if isinstance(v, datetime) else v) 
                                 for k, v in self.service.stats.items()}
                     
+                    # Get queue details
+                    queue_lengths = self.service.queue_processor.get_all_queue_lengths() if self.service.queue_processor else {}
+                    
                     response = {
                         'status': 'healthy' if is_healthy else 'unhealthy',
                         'service': 'backend_discard',
                         'timestamp': datetime.now(timezone.utc).isoformat(),
-                        'stats': stats
+                        'stats': stats,
+                        'queues': {
+                            'incidents': {
+                                'name': 'p1_alerts',
+                                'length': queue_lengths.get('p1_alerts', 0),
+                                'processed': stats.get('alerts_processed', 0),
+                                'discarded': stats.get('alerts_discarded', 0),
+                                'validated': stats.get('alerts_validated', 0)
+                            },
+                            'scripts': {
+                                'name': 'p2_scripts', 
+                                'length': queue_lengths.get('p2_scripts', 0),
+                                'processed': stats.get('scripts_processed', 0),
+                                'discarded': stats.get('scripts_discarded', 0),
+                                'validated': stats.get('scripts_validated', 0)
+                            }
+                        }
                     }
                     
                     self.send_response(status_code)
