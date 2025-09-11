@@ -241,12 +241,12 @@ def analyze_freeze(image_path, previous_frames_cache=None, device_id="unknown"):
         if img is None:
             return False, None
         
-        # Extract timestamp from filename
-        current_match = re.search(r'capture_(\d{14})(?:_thumbnail)?\.jpg', image_path)
+        # Extract sequence number from filename
+        current_match = re.search(r'capture_(\d+)(?:_thumbnail)?\.jpg', image_path)
         if not current_match:
             return False, None
         
-        current_timestamp = current_match.group(1)
+        current_sequence = current_match.group(1)
         current_filename = os.path.basename(image_path)
         directory = os.path.dirname(image_path)
         is_thumbnail = '_thumbnail' in current_filename
@@ -261,19 +261,15 @@ def analyze_freeze(image_path, previous_frames_cache=None, device_id="unknown"):
         valid_files = []
         for f in os.listdir(directory):
             if file_pattern(f):
-                # Extract timestamp and validate format (same logic as analysis_utils.py)
+                # Extract sequence number and validate format (sequential naming)
                 if is_thumbnail:
-                    timestamp = f.replace('capture_', '').replace('_thumbnail.jpg', '')
+                    sequence_match = re.search(r'capture_(\d+)_thumbnail\.jpg', f)
                 else:
-                    timestamp = f.replace('capture_', '').replace('.jpg', '')
+                    sequence_match = re.search(r'capture_(\d+)\.jpg', f)
                 
-                # Remove suffix if present FIRST
-                if '_' in timestamp:
-                    timestamp = timestamp.split('_')[0]
-                
-                # Sequential format validation - simplified for sequential naming
-                # Files are now sequential (capture_0001.jpg) - no timestamp validation needed
-                valid_files.append(f)
+                # Sequential format validation - must match pattern
+                if sequence_match:
+                    valid_files.append(f)
         
         all_files = sorted(valid_files)
         
@@ -286,8 +282,8 @@ def analyze_freeze(image_path, previous_frames_cache=None, device_id="unknown"):
         if current_index < 2:
             # Save current frame to cache
             new_cache = {
-                'frame2': {'filename': current_filename, 'data': img, 'timestamp': current_timestamp},
-                'last_updated': current_timestamp
+                'frame2': {'filename': current_filename, 'data': img, 'sequence': current_sequence},
+                'last_updated': current_sequence
             }
             save_frame_cache(cache_file_path, new_cache)
             return False, None
@@ -344,13 +340,13 @@ def analyze_freeze(image_path, previous_frames_cache=None, device_id="unknown"):
         }
         
         # Update cache
-        prev1_match = re.search(r'capture_(\d{14})(?:_thumbnail)?\.jpg', prev1_filename)
-        prev1_timestamp = prev1_match.group(1) if prev1_match else 'unknown'
+        prev1_match = re.search(r'capture_(\d+)(?:_thumbnail)?\.jpg', prev1_filename)
+        prev1_sequence = prev1_match.group(1) if prev1_match else 'unknown'
         
         new_cache = {
-            'frame1': {'filename': prev1_filename, 'data': prev1_img, 'timestamp': prev1_timestamp},
-            'frame2': {'filename': current_filename, 'data': img, 'timestamp': current_timestamp},
-            'last_updated': current_timestamp
+            'frame1': {'filename': prev1_filename, 'data': prev1_img, 'sequence': prev1_sequence},
+            'frame2': {'filename': current_filename, 'data': img, 'sequence': current_sequence},
+            'last_updated': current_sequence
         }
         
         logger.info(f"[{device_id}] Freeze check: {'FREEZE' if is_frozen else 'Normal'} (diffs: {mean_diff_1vs2:.2f}, {mean_diff_1vs3:.2f}, {mean_diff_2vs3:.2f})")

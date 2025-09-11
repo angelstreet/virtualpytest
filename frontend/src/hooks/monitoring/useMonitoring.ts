@@ -215,11 +215,11 @@ export const useMonitoring = ({
         if (result.success && result.latest_json_url) {
           const jsonUrl = result.latest_json_url;
           const imageUrl = jsonUrl.replace('.json', '.jpg'); // Simple replacement
-          const timestampMatch = jsonUrl.match(/capture_(\d{14})/);
-          const timestamp = timestampMatch ? timestampMatch[1] : '';
+          const sequenceMatch = jsonUrl.match(/capture_(\d+)/);
+          const sequence = sequenceMatch ? sequenceMatch[1] : '';
           
           console.log(`[useMonitoring] Latest JSON: ${jsonUrl} -> Image: ${imageUrl}`);
-          return { imageUrl, jsonUrl, timestamp };
+          return { imageUrl, jsonUrl, sequence };
         }
       }
       return null;

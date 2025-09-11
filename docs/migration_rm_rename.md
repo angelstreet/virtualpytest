@@ -72,7 +72,11 @@ The timestamp-based file renaming system has been successfully removed and repla
 9. **`frontend/src/hooks/monitoring/useMonitoring.ts`** ✅ - Updated URL pattern extraction
 10. **`backend_discard/scripts/`** ✅ - Updated test data files for AI analyzer
 11. **`backend_host/src/routes/host_av_routes.py`** ✅ - Fixed JSON file sorting logic
-12. **All README files** ✅ - Updated documentation
+12. **`shared/lib/utils/image_mosaic_generator.py`** ✅ - Updated timestamp extraction to use file mtime
+13. **`frontend/src/components/heatmap/HeatMapFreezeModal.tsx`** ✅ - Updated to use sequence numbers
+14. **`frontend/src/hooks/monitoring/useMonitoring.ts`** ✅ - Fixed remaining timestamp extraction logic
+15. **`backend_host/scripts/analyze_audio_video.py`** ✅ - Fixed freeze detection timestamp logic
+16. **All README files** ✅ - Updated documentation
 
 ## Testing Required
 

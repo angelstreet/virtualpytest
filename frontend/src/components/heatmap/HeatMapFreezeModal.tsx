@@ -82,20 +82,14 @@ export const HeatMapFreezeModal: React.FC<HeatMapFreezeModalProps> = ({
             const frameUrl = constructFrameUrl(cleanFilename, freezeModalImage.image_url);
             const diff = frameDifferences[index];
 
-            // Extract timestamp from filename (assuming format: capture_YYYYMMDDHHMMSS.jpg)
-            const timestampMatch = cleanFilename.match(/capture_(\d{14})/);
-            const timestamp = timestampMatch ? timestampMatch[1] : '';
+            // Extract sequence number from filename (format: capture_0001.jpg)
+            const sequenceMatch = cleanFilename.match(/capture_(\d+)/);
+            const sequenceNumber = sequenceMatch ? sequenceMatch[1] : '';
 
-            // Format timestamp to readable format
-            const formatTimestamp = (ts: string) => {
-              if (ts.length !== 14) return ts;
-              const year = ts.substring(0, 4);
-              const month = ts.substring(4, 6);
-              const day = ts.substring(6, 8);
-              const hour = ts.substring(8, 10);
-              const minute = ts.substring(10, 12);
-              const second = ts.substring(12, 14);
-              return `${year}-${month}-${day} ${hour}:${minute}:${second}`;
+            // Format sequence number for display
+            const formatSequence = (seq: string) => {
+              if (!seq) return 'Unknown';
+              return `#${seq.padStart(4, '0')}`;
             };
 
             return (
@@ -117,7 +111,7 @@ export const HeatMapFreezeModal: React.FC<HeatMapFreezeModalProps> = ({
                     fontSize: '0.75rem',
                   }}
                 >
-                  {timestamp ? formatTimestamp(timestamp) : `Frame ${index + 1}`} - Frame ({diff})
+                  {sequenceNumber ? formatSequence(sequenceNumber) : `Frame ${index + 1}`} - Frame ({diff})
                 </Typography>
                 <img
                   src={frameUrl}
