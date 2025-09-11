@@ -94,7 +94,7 @@ def load_recent_analysis_data(device_id: str, timeframe_minutes: int = 5, max_co
                             
                             file_item = {
                                 'filename': filename,
-                                'timestamp': timestamp,
+                                'timestamp': analysis_data.get('timestamp', ''),
                                 'file_mtime': int(os.path.getmtime(filepath) * 1000),
                                 'analysis_json': analysis_data
                             }
@@ -193,7 +193,7 @@ def load_recent_analysis_data_from_path(capture_path: str, timeframe_minutes: in
                             
                             file_item = {
                                 'filename': filename,
-                                'timestamp': timestamp,
+                                'timestamp': analysis_data.get('timestamp', ''),
                                 'file_mtime': int(os.path.getmtime(filepath) * 1000),
                                 'analysis_json': analysis_data
                             }
