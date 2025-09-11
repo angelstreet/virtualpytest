@@ -24,59 +24,62 @@ export const useRestart = ({ host, device }: UseRestartParams): UseRestartReturn
   const [error, setError] = useState<string | null>(null);
   const [processingTime, setProcessingTime] = useState<number | null>(null);
 
-  // Generate 5-minute MP4 video from HLS segments
-  const generateRestartVideo = useCallback(async () => {
-    try {
+  // Generate video once on mount - no dependencies to prevent re-generation
+  useEffect(() => {
+    let cancelled = false;
+
+    const generateVideo = async () => {
+      if (cancelled) return;
+      
       setIsGenerating(true);
       setError(null);
-      setVideoUrl(null);
-      setIsReady(false);
       
-      console.log(
-        `[@hook:useRestart] Generating 30-second restart video for ${host.host_name}-${device.device_id}`,
-      );
+      try {
+        console.log(`[@hook:useRestart] Generating restart video for ${host.host_name}-${device.device_id}`);
 
-      const response = await fetch(buildServerUrl('/server/av/generateRestartVideo'), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          host: host,
-          device_id: device.device_id || 'device1',
-          duration_seconds: 30,
-        }),
-      });
+        const response = await fetch(buildServerUrl('/server/av/generateRestartVideo'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            host: host,
+            device_id: device.device_id || 'device1',
+            duration_seconds: 30,
+          }),
+        });
 
-      if (!response.ok) {
-        throw new Error(`Failed to generate video: ${response.status} ${response.statusText}`);
+        if (!response.ok) {
+          throw new Error(`Failed to generate video: ${response.status}`);
+        }
+
+        const data = await response.json();
+        
+        if (cancelled) return;
+
+        if (data.success && data.video_url) {
+          setVideoUrl(data.video_url);
+          setProcessingTime(data.processing_time_seconds);
+          setIsReady(true);
+          console.log(`[@hook:useRestart] Video ready in ${data.processing_time_seconds}s`);
+        } else {
+          throw new Error(data.error || 'Video generation failed');
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : 'Video generation failed');
+        }
+      } finally {
+        if (!cancelled) {
+          setIsGenerating(false);
+        }
       }
+    };
 
-      const data = await response.json();
+    generateVideo();
 
-      if (data.success && data.video_url) {
-        console.log(
-          `[@hook:useRestart] Successfully generated 30-second restart video in ${data.processing_time_seconds}s`,
-        );
-
-        setVideoUrl(data.video_url);
-        setProcessingTime(data.processing_time_seconds);
-        setIsReady(true);
-      } else {
-        throw new Error(data.error || 'Failed to generate restart video');
-      }
-    } catch (error) {
-      console.error(`[@hook:useRestart] Error generating video:`, error);
-      setError(error instanceof Error ? error.message : 'Failed to generate restart video');
-    } finally {
-      setIsGenerating(false);
-    }
-  }, [host, device.device_id]);
-
-  // Generate video on mount
-  useEffect(() => {
-    generateRestartVideo();
-  }, [generateRestartVideo]);
+    return () => {
+      cancelled = true;
+    };
+  }, []); // No dependencies - generate once only
 
   return {
     videoUrl,

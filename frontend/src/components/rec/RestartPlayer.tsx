@@ -1,10 +1,8 @@
 import { Box, Typography, CircularProgress, Alert } from '@mui/material';
-import React, { useMemo } from 'react';
+import React from 'react';
 
-import { getStreamViewerLayout } from '../../config/layoutConfig';
 import { useRestart } from '../../hooks/pages/useRestart';
 import { Host, Device } from '../../types/common/Host_Types';
-import { HLSVideoPlayer } from '../common/HLSVideoPlayer';
 
 import { RestartOverlay } from './RestartOverlay';
 
@@ -14,22 +12,7 @@ interface RestartPlayerProps {
 }
 
 export const RestartPlayer: React.FC<RestartPlayerProps> = ({ host, device }) => {
-  // Generate 5-minute MP4 restart video
-  const {
-    videoUrl,
-    isGenerating,
-    isReady,
-    error,
-    processingTime,
-  } = useRestart({
-    host: host,
-    device: device,
-  });
-
-  // Layout configuration for video player
-  const layoutConfig = useMemo(() => {
-    return getStreamViewerLayout(device?.device_model);
-  }, [device?.device_model]);
+  const { videoUrl, isGenerating, isReady, error, processingTime } = useRestart({ host, device });
 
   return (
     <Box
@@ -93,39 +76,25 @@ export const RestartPlayer: React.FC<RestartPlayerProps> = ({ host, device }) =>
         </Box>
       )}
 
-      {/* Video player - ready state */}
+      {/* Simple video player - ready state */}
       {isReady && videoUrl && !isGenerating && (
         <Box
+          component="video"
+          src={videoUrl}
+          controls
+          autoPlay
+          muted={false}
           sx={{
             position: 'absolute',
             top: 0,
             left: 0,
             width: '100%',
             height: '100%',
-            backgroundColor: 'transparent',
+            objectFit: 'contain',
+            objectPosition: 'top center',
             zIndex: 1,
-            overflow: 'hidden',
           }}
-        >
-          <HLSVideoPlayer
-            streamUrl={videoUrl}
-            isStreamActive={true}
-            isCapturing={false}
-            model={device?.device_model}
-            layoutConfig={layoutConfig}
-            muted={false} // Enable audio for restart video
-            sx={{
-              width: '100%',
-              height: '100%',
-              '& video': {
-                width: '100%',
-                height: '100%',
-                objectFit: layoutConfig.objectFit || 'contain',
-                objectPosition: 'top center',
-              },
-            }}
-          />
-        </Box>
+        />
       )}
 
       {/* Restart overlay */}
