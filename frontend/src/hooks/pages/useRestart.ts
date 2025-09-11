@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 import { Host, Device } from '../../types/common/Host_Types';
 
@@ -23,9 +23,13 @@ export const useRestart = ({ host, device }: UseRestartParams): UseRestartReturn
   const [isReady, setIsReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [processingTime, setProcessingTime] = useState<number | null>(null);
+  const hasInitialized = useRef(false);
 
-  // Generate video once on mount - no dependencies to prevent re-generation
+  // Generate video once on mount - prevent React Strict Mode double execution
   useEffect(() => {
+    if (hasInitialized.current) return;
+    hasInitialized.current = true;
+    
     let cancelled = false;
 
     const generateVideo = async () => {
