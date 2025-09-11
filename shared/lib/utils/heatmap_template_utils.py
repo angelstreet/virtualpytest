@@ -19,8 +19,8 @@ def create_heatmap_html_template() -> str:
             background: #f8f9fa; color: #333; padding: 20px;
         }}
         .container {{ max-width: 1400px; margin: 0 auto; background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }}
-        .header {{ background: linear-gradient(135deg, #4a90e2, #357abd); color: white; padding: 20px; }}
-        .header h1 {{ font-size: 1.4em; margin: 0; }}
+        .header {{ background: linear-gradient(135deg, #4a90e2, #357abd); color: white; padding: 10px 20px; }}
+        .header h1 {{ font-size: 1.4em; margin: 0; line-height: 1.2; }}
         
         .mosaic-player {{ padding: 20px; }}
         .mosaic-container {{ 
@@ -54,7 +54,8 @@ def create_heatmap_html_template() -> str:
         .frame-counter {{ font-size: 0.9em; min-width: 60px; text-align: right; }}
         
         .analysis-section {{ padding: 20px; }}
-        .analysis-table {{ width: 100%; border-collapse: collapse; margin-top: 15px; background: white; }}
+        .analysis-section h2 {{ margin: 0 0 15px 0; }}
+        .analysis-table {{ width: 100%; border-collapse: collapse; margin-top: 0; background: white; }}
         .analysis-table th {{ background: #f5f5f5; padding: 12px 8px; text-align: left; font-weight: bold; border-bottom: 1px solid #ddd; }}
         .analysis-table td {{ padding: 8px; border-bottom: 1px solid #eee; }}
         .analysis-table tr:hover {{ background-color: #f9f9f9; }}
