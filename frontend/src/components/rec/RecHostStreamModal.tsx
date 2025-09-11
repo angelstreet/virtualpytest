@@ -140,10 +140,12 @@ const RecHostStreamModalContent: React.FC<{
 
     // Header height calculation based on actual Box styling
     const headerMinHeight = 48; // minHeight from header Box
+    const headerPadding = 16; // py: 1 = 8px top + 8px bottom = 16px total
+    const actualHeaderHeight = headerMinHeight + headerPadding; // 48 + 16 = 64px
 
     // Use fixed stream area (mobile overlay always shows with remote panel = 20%)
     const streamAreaWidth = modalWidth * 0.80;
-    const streamAreaHeight = modalHeight - headerMinHeight;
+    const streamAreaHeight = modalHeight - actualHeaderHeight;
 
     // Modal position (centered)
     const modalX = (windowWidth - modalWidth) / 2;
@@ -153,8 +155,8 @@ const RecHostStreamModalContent: React.FC<{
     const streamX = modalX;
     
     // Calculate stream Y position - this should be the actual content area position
-    // The content area starts immediately after the header
-    const streamY = modalY + headerMinHeight;
+    // The content area starts immediately after the header (including padding)
+    const streamY = modalY + actualHeaderHeight;
 
     const dimensions = {
       width: Math.round(streamAreaWidth),
@@ -167,7 +169,7 @@ const RecHostStreamModalContent: React.FC<{
       windowSize: { width: windowWidth, height: windowHeight },
       modalSize: { width: modalWidth, height: modalHeight },
       modalPosition: { x: modalX, y: modalY },
-      headerHeight: headerMinHeight,
+      headerHeight: actualHeaderHeight,
       streamPosition: { x: streamX, y: streamY },
       finalDimensions: dimensions,
     });

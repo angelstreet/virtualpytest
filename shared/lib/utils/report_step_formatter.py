@@ -7,6 +7,38 @@ Handles the formatting of individual step results for HTML reports.
 import os
 import json
 from typing import Dict, List
+from datetime import datetime
+
+
+def format_timestamp_to_hhmmss_ms(timestamp_str: str) -> str:
+    """Format timestamp string to HHMMSS.ms format."""
+    if not timestamp_str:
+        return 'N/A'
+    
+    try:
+        # Parse ISO timestamp and format with milliseconds
+        dt = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
+        # Format as HHMMSS.ms (microseconds / 1000 for milliseconds)
+        ms = dt.microsecond // 1000
+        return f"{dt.strftime('%H%M%S')}.{ms:03d}"
+    except (ValueError, AttributeError):
+        return 'N/A'
+
+
+def extract_capture_filename_from_url(url_or_path: str) -> str:
+    """Extract capture filename from URL or path."""
+    if not url_or_path:
+        return 'unknown'
+    
+    try:
+        # Extract filename from URL or path
+        filename = os.path.basename(url_or_path)
+        # Remove .jpg extension if present
+        if filename.endswith('.jpg'):
+            filename = filename[:-4]
+        return filename
+    except:
+        return 'unknown'
 
 
 def create_compact_step_results_section(step_results: List[Dict], screenshots: Dict) -> str:
@@ -435,13 +467,26 @@ def format_analysis_results(step: Dict) -> str:
             images = []
             for motion_img in motion_images:
                 image_url = motion_img.get('path', '')  # Will be converted to R2 URL by report utils
-                # Extract analysis info for label
+                # Extract analysis info for label with improved formatting
                 analysis_data = motion_img.get('analysis_data', {})
-                freeze_status = "Freeze" if analysis_data.get('freeze', False) else "No Freeze"
-                blackscreen_status = "Blackscreen" if analysis_data.get('blackscreen', False) else "Content"
-                audio_status = "Audio" if analysis_data.get('audio', True) else "No Audio"
                 
-                label = f"{motion_img.get('timestamp', 'Unknown')} ({freeze_status}, {blackscreen_status}, {audio_status})"
+                # Format capture name and timestamp
+                filename = motion_img.get('filename', 'unknown')
+                timestamp_str = motion_img.get('timestamp', '')
+                
+                # Extract HHMMSS.ms from ISO timestamp
+                formatted_time = format_timestamp_to_hhmmss_ms(timestamp_str)
+                
+                # First line: capture name - time
+                first_line = f"{filename} - {formatted_time}"
+                
+                # Second line: status indicators
+                freeze_status = "Freeze" if analysis_data.get('freeze', False) else "No Freeze"
+                blackscreen_status = "Blackscreen" if analysis_data.get('blackscreen', False) else "No Blackscreen"
+                audio_status = "Audio" if analysis_data.get('audio', True) else "No Audio"
+                second_line = f"{freeze_status}, {blackscreen_status}, {audio_status}"
+                
+                label = f"{first_line}\\n{second_line}"
                 images.append({'url': image_url, 'label': label})
             
             modal_data = {
@@ -455,9 +500,11 @@ def format_analysis_results(step: Dict) -> str:
             for i, image in enumerate(images):
                 # Show first 3 images as thumbnails
                 if i < 3:
+                    # Extract capture name and time from label (first line before \n)
+                    label_first_line = image['label'].split('\\n')[0] if '\\n' in image['label'] else image['label']
                     thumbnails_html += f"""
                     <div style='text-align: center;'>
-                        <div style='font-size: 11px; color: #666; margin-bottom: 2px;'>Image {i+1}</div>
+                        <div style='font-size: 11px; color: #666; margin-bottom: 2px;'>{label_first_line}</div>
                         <img src='{image['url']}' style='width: 55px; height: 37px; object-fit: contain; border: 1px solid #ddd; border-radius: 3px; cursor: pointer;' 
                              onclick='openVerificationImageModal({modal_data_json})' title='Click to view motion analysis images'>
                     </div>
@@ -650,13 +697,17 @@ def format_analysis_results(step: Dict) -> str:
                 # Create modal data for complete zapping sequence (4 images)
                 images = []
                 if before_blackscreen:
-                    images.append({'url': before_blackscreen, 'label': 'Before Transition'})
+                    filename = extract_capture_filename_from_url(before_blackscreen)
+                    images.append({'url': before_blackscreen, 'label': f'{filename}\\nBefore Transition'})
                 if blackscreen_start:
-                    images.append({'url': blackscreen_start, 'label': 'First Transition'})
+                    filename = extract_capture_filename_from_url(blackscreen_start)
+                    images.append({'url': blackscreen_start, 'label': f'{filename}\\nFirst Transition'})
                 if blackscreen_end:
-                    images.append({'url': blackscreen_end, 'label': 'Last Transition'})  
+                    filename = extract_capture_filename_from_url(blackscreen_end)
+                    images.append({'url': blackscreen_end, 'label': f'{filename}\\nLast Transition'})  
                 if first_content:
-                    images.append({'url': first_content, 'label': 'First Content After'})
+                    filename = extract_capture_filename_from_url(first_content)
+                    images.append({'url': first_content, 'label': f'{filename}\\nFirst Content After'})
                 
                 if images:
                     import json
@@ -669,9 +720,11 @@ def format_analysis_results(step: Dict) -> str:
                     thumbnails_html = "<div class='zapping-sequence-thumbnails' style='margin-top: 4px; display: flex; gap: 8px;'>"
                     
                     for image in images:
+                        # Extract capture name from label (first line before \n)
+                        label_first_line = image['label'].split('\\n')[0] if '\\n' in image['label'] else image['label']
                         thumbnails_html += f"""
                         <div style='text-align: center;'>
-                            <div style='font-size: 11px; color: #666; margin-bottom: 2px;'>{image['label']}</div>
+                            <div style='font-size: 11px; color: #666; margin-bottom: 2px;'>{label_first_line}</div>
                             <img src='{image['url']}' style='width: 55px; height: 37px; object-fit: contain; border: 1px solid #ddd; border-radius: 3px; cursor: pointer;' 
                                  onclick='openVerificationImageModal({modal_data_json})' title='Click to view complete zapping sequence'>
                         </div>
