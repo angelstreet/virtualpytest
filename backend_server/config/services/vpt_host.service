@@ -1,0 +1,27 @@
+[Unit]
+Description=VirtualPyTest Host Service - Launch VirtualPyTest Host Client
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=sunri-pi3
+Group=sunri-pi3
+WorkingDirectory=/home/sunri-pi3/virtualpytest/scripts
+ExecStartPre=/usr/bin/git pull
+ExecStart=/bin/bash /home/sunri-pi3/virtualpytest/scripts/launch_virtualhost.sh
+TimeoutStopSec=10
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+# Environment
+Environment=HOST_NAME=sunri-pi3
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+
+# Security
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target
