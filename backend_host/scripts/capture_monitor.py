@@ -82,7 +82,33 @@ class CaptureMonitor:
     def __init__(self):
         self.running = True
         self.incident_states = {}  # Memory-based incident state: {device_id: {active_incidents: {}, last_analysis: timestamp}}
+        self.cleanup_logs_on_startup()
         self.setup_signal_handlers()
+        
+    def cleanup_logs_on_startup(self):
+        """Clean up all monitoring log files on service restart for fresh debugging"""
+        try:
+            log_files = [
+                '/tmp/capture_monitor.log',  # This service's log
+                '/tmp/analysis.log',         # analyze_audio_video.py log
+                '/tmp/alerts.log'            # alert_system.py log
+            ]
+            
+            print(f"[@capture_monitor] Cleaning monitoring logs on service restart...")
+            
+            for log_file in log_files:
+                if os.path.exists(log_file):
+                    # Truncate the file instead of deleting to avoid permission issues
+                    with open(log_file, 'w') as f:
+                        f.write(f"=== LOG CLEANED ON MONITOR RESTART: {datetime.now().isoformat()} ===\n")
+                    print(f"[@capture_monitor] ✓ Cleaned: {log_file}")
+                else:
+                    print(f"[@capture_monitor] ○ Not found (will be created): {log_file}")
+                    
+            print(f"[@capture_monitor] Log cleanup complete - fresh logs for debugging")
+                    
+        except Exception as e:
+            print(f"[@capture_monitor] Warning: Could not clean log files: {e}")
         
     def setup_signal_handlers(self):
         """Setup graceful shutdown"""

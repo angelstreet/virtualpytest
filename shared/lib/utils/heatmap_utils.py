@@ -615,8 +615,7 @@ def process_heatmap_generation(job_id: str, images_by_timestamp: Dict[str, List[
                                     html_r2_url=None, # No individual HTML URL for comprehensive report
                                     hosts_included=hosts_included,
                                     hosts_total=hosts_total,
-                                    incidents_count=incidents_count,
-                                    processing_time=current_processing_time
+                                    incidents_count=incidents_count
                                 )
                                 
                                 print(f"[@heatmap_utils] Saved heatmap to database with ID: {heatmap_id}")
