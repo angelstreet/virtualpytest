@@ -1536,7 +1536,7 @@ class ZapController:
             return 'N/A'
     
     def _format_timestamp_to_hhmmss_ms(self, timestamp_str: str) -> str:
-        """Format timestamp string to HHMMSS.ms format."""
+        """Format timestamp string to readable format like 21H25m26s.698ms."""
         if not timestamp_str:
             return 'N/A'
         
@@ -1544,8 +1544,8 @@ class ZapController:
             from datetime import datetime
             # Parse ISO timestamp and format with milliseconds
             dt = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
-            # Format as HHMMSS.ms (microseconds / 1000 for milliseconds)
+            # Format as 21H25m26s.698ms (more readable)
             ms = dt.microsecond // 1000
-            return f"{dt.strftime('%H%M%S')}.{ms:03d}"
+            return f"{dt.strftime('%H')}H{dt.strftime('%M')}m{dt.strftime('%S')}s.{ms:03d}ms"
         except (ValueError, AttributeError):
             return 'N/A'

@@ -500,7 +500,7 @@ function openVerificationImageModal(modalData) {{
         }}
         
         const title = document.createElement('h4');
-        title.textContent = image.label;
+        title.innerHTML = image.label;  // Use innerHTML to support HTML formatting like <br> and <span> tags
         title.style.marginBottom = '10px';
         title.style.color = 'var(--text-primary)';
         title.style.fontSize = '14px';

@@ -11,16 +11,16 @@ from datetime import datetime
 
 
 def format_timestamp_to_hhmmss_ms(timestamp_str: str) -> str:
-    """Format timestamp string to HHMMSS.ms format."""
+    """Format timestamp string to readable format like 21H25m26s.698ms."""
     if not timestamp_str:
         return 'N/A'
     
     try:
         # Parse ISO timestamp and format with milliseconds
         dt = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
-        # Format as HHMMSS.ms (microseconds / 1000 for milliseconds)
+        # Format as 21H25m26s.698ms (more readable)
         ms = dt.microsecond // 1000
-        return f"{dt.strftime('%H%M%S')}.{ms:03d}"
+        return f"{dt.strftime('%H')}H{dt.strftime('%M')}m{dt.strftime('%S')}s.{ms:03d}ms"
     except (ValueError, AttributeError):
         return 'N/A'
 
@@ -474,19 +474,30 @@ def format_analysis_results(step: Dict) -> str:
                 filename = motion_img.get('filename', 'unknown')
                 timestamp_str = motion_img.get('timestamp', '')
                 
-                # Extract HHMMSS.ms from ISO timestamp
+                # Extract readable timestamp
                 formatted_time = format_timestamp_to_hhmmss_ms(timestamp_str)
                 
                 # First line: capture name - time
                 first_line = f"{filename} - {formatted_time}"
                 
-                # Second line: status indicators
-                freeze_status = "Freeze" if analysis_data.get('freeze', False) else "No Freeze"
-                blackscreen_status = "Blackscreen" if analysis_data.get('blackscreen', False) else "No Blackscreen"
-                audio_status = "Audio" if analysis_data.get('audio', True) else "No Audio"
-                second_line = f"{freeze_status}, {blackscreen_status}, {audio_status}"
+                # Second line: status indicators with proper Yes/No format and color coding
+                freeze_val = analysis_data.get('freeze', False)
+                blackscreen_val = analysis_data.get('blackscreen', False)
+                audio_val = analysis_data.get('audio', True)
                 
-                label = f"{first_line}\\n{second_line}"
+                freeze_status = "Yes" if freeze_val else "No"
+                blackscreen_status = "Yes" if blackscreen_val else "No"
+                audio_status = "Yes" if audio_val else "No"
+                
+                # Determine color based on issues (red if freeze yes, blackscreen yes, or audio no)
+                has_issues = freeze_val or blackscreen_val or not audio_val
+                color = "#ff4444" if has_issues else "#44ff44"  # Red for issues, green for good
+                
+                # Create HTML-formatted second line with color
+                second_line_html = f'<span style="color: {color};">Freeze:{freeze_status}, Blackscreen:{blackscreen_status}, Audio:{audio_status}</span>'
+                
+                # Use actual newline character and HTML formatting
+                label = f"{first_line}<br>{second_line_html}"
                 images.append({'url': image_url, 'label': label})
             
             modal_data = {
@@ -500,8 +511,8 @@ def format_analysis_results(step: Dict) -> str:
             for i, image in enumerate(images):
                 # Show first 3 images as thumbnails
                 if i < 3:
-                    # Extract capture name and time from label (first line before \n)
-                    label_first_line = image['label'].split('\\n')[0] if '\\n' in image['label'] else image['label']
+                    # Extract capture name and time from label (first line before <br> or newline)
+                    label_first_line = image['label'].split('<br>')[0] if '<br>' in image['label'] else image['label'].split('\n')[0] if '\n' in image['label'] else image['label']
                     thumbnails_html += f"""
                     <div style='text-align: center;'>
                         <div style='font-size: 11px; color: #666; margin-bottom: 2px;'>{label_first_line}</div>
@@ -702,16 +713,16 @@ def format_analysis_results(step: Dict) -> str:
                 images = []
                 if before_blackscreen:
                     filename = extract_capture_filename_from_url(before_blackscreen)
-                    images.append({'url': before_blackscreen, 'label': f'{filename}\\nBefore Transition'})
+                    images.append({'url': before_blackscreen, 'label': f'{filename}\nBefore Transition'})
                 if blackscreen_start:
                     filename = extract_capture_filename_from_url(blackscreen_start)
-                    images.append({'url': blackscreen_start, 'label': f'{filename}\\nFirst Transition'})
+                    images.append({'url': blackscreen_start, 'label': f'{filename}\nFirst Transition'})
                 if blackscreen_end:
                     filename = extract_capture_filename_from_url(blackscreen_end)
-                    images.append({'url': blackscreen_end, 'label': f'{filename}\\nLast Transition'})  
+                    images.append({'url': blackscreen_end, 'label': f'{filename}\nLast Transition'})  
                 if first_content:
                     filename = extract_capture_filename_from_url(first_content)
-                    images.append({'url': first_content, 'label': f'{filename}\\nFirst Content After'})
+                    images.append({'url': first_content, 'label': f'{filename}\nFirst Content After'})
                 
                 if images:
                     import json
@@ -724,8 +735,8 @@ def format_analysis_results(step: Dict) -> str:
                     thumbnails_html = "<div class='zapping-sequence-thumbnails' style='margin-top: 4px; display: flex; gap: 8px;'>"
                     
                     for image in images:
-                        # Extract capture name from label (first line before \n)
-                        label_first_line = image['label'].split('\\n')[0] if '\\n' in image['label'] else image['label']
+                        # Extract capture name from label (first line before actual newline)
+                        label_first_line = image['label'].split('\n')[0] if '\n' in image['label'] else image['label']
                         thumbnails_html += f"""
                         <div style='text-align: center;'>
                             <div style='font-size: 11px; color: #666; margin-bottom: 2px;'>{label_first_line}</div>
