@@ -85,13 +85,16 @@ def load_recent_analysis_data(device_id: str, timeframe_minutes: int = 5, max_co
                     base_name = filename.replace('.jpg', '')
                     frame_json_path = os.path.join(capture_folder, f"{base_name}.json")
                     
-                    # Only include files that have JSON analysis (same as heatmap)
-                    if os.path.exists(frame_json_path):
+                    # Include all images, with fallback data for missing JSON analysis
+                    analysis_data = None
+                    has_json = os.path.exists(frame_json_path)
+                    
+                    if has_json:
                         try:
                             with open(frame_json_path, 'r') as f:
                                 analysis_data = json.load(f)
                                 
-                            # Calculate has_incidents based on the analysis data (same as heatmap)
+                            # Calculate has_incidents based on the analysis data
                             has_incidents = (
                                 analysis_data.get('freeze', False) or
                                 analysis_data.get('blackscreen', False) or
@@ -99,20 +102,42 @@ def load_recent_analysis_data(device_id: str, timeframe_minutes: int = 5, max_co
                             )
                             analysis_data['has_incidents'] = has_incidents
                             
-                            file_item = {
-                                'filename': filename,
-                                'timestamp': analysis_data.get('timestamp', ''),
-                                'file_mtime': int(os.path.getmtime(filepath) * 1000),
-                                'analysis_json': analysis_data
-                            }
-                            
-                            files.append(file_item)
-                            
                         except (json.JSONDecodeError, IOError) as e:
-                            # Skip files with corrupted or unreadable JSON (same as heatmap)
-                            print(f"[@analysis_utils] Skipping {filename}: JSON error {e}")
-                            continue
-                    # Skip files without JSON analysis - don't add them to the response
+                            print(f"[@analysis_utils] JSON error for {filename}: {e}, using fallback data")
+                            has_json = False
+                            analysis_data = None
+                    
+                    # Use fallback data if no JSON or JSON error
+                    if not has_json or analysis_data is None:
+                        # Create fallback analysis data for images without JSON
+                        from datetime import datetime
+                        analysis_data = {
+                            'timestamp': datetime.fromtimestamp(os.path.getmtime(filepath)).isoformat(),
+                            'filename': filename,
+                            'thumbnail': filename.replace('.jpg', '_thumbnail.jpg'),
+                            'blackscreen': None,  # N/A
+                            'blackscreen_percentage': 0,
+                            'freeze': None,  # N/A
+                            'macroblocks': None,  # N/A
+                            'quality_score': 0,
+                            'freeze_diffs': [],
+                            'last_3_filenames': [],
+                            'last_3_thumbnails': [],
+                            'audio': None,  # N/A
+                            'volume_percentage': 0,
+                            'mean_volume_db': -100.0,
+                            'has_incidents': True,  # Mark as incident to ensure visibility
+                            'analysis_status': 'missing_json'  # Flag for yellow border
+                        }
+                    
+                    file_item = {
+                        'filename': filename,
+                        'timestamp': analysis_data.get('timestamp', ''),
+                        'file_mtime': int(os.path.getmtime(filepath) * 1000),
+                        'analysis_json': analysis_data
+                    }
+                    
+                    files.append(file_item)
         
         # Sort by timestamp (newest first) (same as heatmap)
         files.sort(key=lambda x: x['timestamp'], reverse=True)
@@ -185,7 +210,11 @@ def load_recent_analysis_data_from_path(capture_path: str, timeframe_minutes: in
                     base_name = filename.replace('.jpg', '')
                     frame_json_path = os.path.join(capture_folder, f"{base_name}.json")
                     
-                    if os.path.exists(frame_json_path):
+                    # Include all images, with fallback data for missing JSON analysis
+                    analysis_data = None
+                    has_json = os.path.exists(frame_json_path)
+                    
+                    if has_json:
                         try:
                             with open(frame_json_path, 'r') as f:
                                 analysis_data = json.load(f)
@@ -198,19 +227,42 @@ def load_recent_analysis_data_from_path(capture_path: str, timeframe_minutes: in
                             )
                             analysis_data['has_incidents'] = has_incidents
                             
-                            file_item = {
-                                'filename': filename,
-                                'timestamp': analysis_data.get('timestamp', ''),
-                                'file_mtime': int(os.path.getmtime(filepath) * 1000),
-                                'analysis_json': analysis_data
-                            }
-                            
-                            files.append(file_item)
-                            
                         except (json.JSONDecodeError, IOError) as e:
-                            # Skip files with corrupted or unreadable JSON
-                            print(f"[@analysis_utils] Skipping {filename}: JSON error {e}")
-                            continue
+                            print(f"[@analysis_utils] JSON error for {filename}: {e}, using fallback data")
+                            has_json = False
+                            analysis_data = None
+                    
+                    # Use fallback data if no JSON or JSON error
+                    if not has_json or analysis_data is None:
+                        # Create fallback analysis data for images without JSON
+                        from datetime import datetime
+                        analysis_data = {
+                            'timestamp': datetime.fromtimestamp(os.path.getmtime(filepath)).isoformat(),
+                            'filename': filename,
+                            'thumbnail': filename.replace('.jpg', '_thumbnail.jpg'),
+                            'blackscreen': None,  # N/A
+                            'blackscreen_percentage': 0,
+                            'freeze': None,  # N/A
+                            'macroblocks': None,  # N/A
+                            'quality_score': 0,
+                            'freeze_diffs': [],
+                            'last_3_filenames': [],
+                            'last_3_thumbnails': [],
+                            'audio': None,  # N/A
+                            'volume_percentage': 0,
+                            'mean_volume_db': -100.0,
+                            'has_incidents': True,  # Mark as incident to ensure visibility
+                            'analysis_status': 'missing_json'  # Flag for yellow border
+                        }
+                    
+                    file_item = {
+                        'filename': filename,
+                        'timestamp': analysis_data.get('timestamp', ''),
+                        'file_mtime': int(os.path.getmtime(filepath) * 1000),
+                        'analysis_json': analysis_data
+                    }
+                    
+                    files.append(file_item)
         
         # Sort by timestamp (newest first)
         files.sort(key=lambda x: x['timestamp'], reverse=True)

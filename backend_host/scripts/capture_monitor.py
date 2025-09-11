@@ -133,15 +133,32 @@ class CaptureMonitor:
         return existing
     
     def get_device_id_from_path(self, capture_dir):
-        """Extract device_id from capture directory path"""
+        """Extract device_id from capture directory path with enhanced mapping"""
         try:
             # capture_dir = "/var/www/html/stream/capture1/captures"
             parent_dir = os.path.dirname(capture_dir)  # "/var/www/html/stream/capture1"
             folder_name = os.path.basename(parent_dir)  # "capture1"
-            if folder_name.startswith('capture') and folder_name[7:].isdigit():
-                return f"device{folder_name[7:]}"  # "device1"
+            
+            logger.debug(f"Mapping capture directory: {capture_dir} -> folder: {folder_name}")
+            
+            if folder_name.startswith('capture') and len(folder_name) > 7:
+                capture_num = folder_name[7:]  # Extract number after "capture"
+                if capture_num.isdigit():
+                    device_id = f"device{capture_num}"
+                    logger.debug(f"Mapped {folder_name} -> {device_id}")
+                    return device_id
+                else:
+                    logger.warning(f"Invalid capture number in {folder_name}: '{capture_num}'")
+            elif folder_name == 'capture':
+                # Handle case where folder is just "capture" (no number)
+                logger.debug(f"Mapped {folder_name} -> host (VNC device)")
+                return "host"
+            else:
+                logger.warning(f"Unrecognized capture folder pattern: {folder_name}")
+            
             return "device-unknown"
-        except Exception:
+        except Exception as e:
+            logger.error(f"Error extracting device_id from {capture_dir}: {e}")
             return "device-unknown"
     
     def get_incident_state(self, device_id):
@@ -162,7 +179,10 @@ class CaptureMonitor:
         try:
             pattern = os.path.join(capture_dir, "capture_*.jpg")
             frames = glob.glob(pattern)
+            device_name = os.path.basename(os.path.dirname(capture_dir))  # e.g., "capture3"
+            
             if not frames:
+                logger.debug(f"[{device_name}] No capture files found in {capture_dir}")
                 return []
 
             # Filter out thumbnail files and numbered files (_1, _2, _3, _4) - only process original images
@@ -185,43 +205,60 @@ class CaptureMonitor:
                 else:
                     skipped_files.append(f"DISAPPEARED: {filename}")
             
-            # Log what we found (device_id not available in this method, use capture_dir)
-            if frames:
-                logger.debug(f"Found {len(frames)} total files, {len(original_frames)} valid for processing in {os.path.basename(capture_dir)}")
-                if skipped_files and len(skipped_files) <= 5:  # Only log if reasonable number
-                    logger.debug(f"Skipped: {', '.join(skipped_files)}")
-                elif len(skipped_files) > 5:
-                    logger.debug(f"Skipped {len(skipped_files)} files (too many to list)")
+            # Enhanced logging for debugging missing JSON issues
+            logger.info(f"[{device_name}] SCAN SUMMARY: {len(frames)} total files, {len(original_frames)} valid for processing")
+            if skipped_files and len(skipped_files) <= 10:  # Show more skipped files for debugging
+                logger.debug(f"[{device_name}] Skipped: {', '.join(skipped_files)}")
+            elif len(skipped_files) > 10:
+                logger.debug(f"[{device_name}] Skipped {len(skipped_files)} files (too many to list)")
+                
             if not original_frames:
+                logger.warning(f"[{device_name}] No valid frames found for processing")
                 return []
 
             # Sort by modification time, get most recent frames
             original_frames.sort(key=os.path.getmtime, reverse=True)
             
-            # Find frames without JSON files (limit to recent ones)
+            # Find frames without JSON files (limit to recent ones) with detailed logging
             unanalyzed = []
             analyzed_count = 0
+            missing_json_details = []
             
-            for frame_path in original_frames[:max_frames * 2]:  # Check more frames
+            for frame_path in original_frames[:max_frames * 3]:  # Check more frames for debugging
                 # Double-check file still exists (race condition protection)
                 if not os.path.exists(frame_path):
-                    logger.debug(f"File disappeared during processing: {os.path.basename(frame_path)}")
+                    logger.debug(f"[{device_name}] File disappeared during processing: {os.path.basename(frame_path)}")
                     continue
                     
                 json_path = frame_path.replace('.jpg', '.json')
                 filename = os.path.basename(frame_path)
                 
+                # Get file timestamps for debugging
+                frame_mtime = os.path.getmtime(frame_path)
+                frame_age = time.time() - frame_mtime
+                
                 if not os.path.exists(json_path):
                     unanalyzed.append(frame_path)
-                    logger.debug(f"UNANALYZED: {filename} (no JSON)")
+                    missing_json_details.append(f"{filename} (age: {frame_age:.1f}s)")
+                    logger.debug(f"[{device_name}] UNANALYZED: {filename} (no JSON, age: {frame_age:.1f}s)")
                     if len(unanalyzed) >= max_frames:
                         break
                 else:
                     analyzed_count += 1
-                    logger.debug(f"ANALYZED: {filename} (JSON exists)")
+                    json_mtime = os.path.getmtime(json_path)
+                    json_age = time.time() - json_mtime
+                    logger.debug(f"[{device_name}] ANALYZED: {filename} (JSON exists, age: {json_age:.1f}s)")
+            
+            # Enhanced logging for missing JSON debugging
+            if unanalyzed:
+                logger.warning(f"[{device_name}] MISSING JSON: Found {len(unanalyzed)} unanalyzed frames: {', '.join(missing_json_details[:3])}{'...' if len(missing_json_details) > 3 else ''}")
             
             if analyzed_count > 0:
-                logger.debug(f"Found {analyzed_count} already analyzed files")
+                logger.info(f"[{device_name}] Found {analyzed_count} already analyzed files")
+            
+            # Additional debugging: Check if analysis script is running properly
+            if len(unanalyzed) > max_frames:
+                logger.error(f"[{device_name}] ANALYSIS BACKLOG: {len(unanalyzed)} unanalyzed frames detected - analysis may be failing or too slow")
             
             return unanalyzed
             
@@ -302,17 +339,79 @@ class CaptureMonitor:
                     except Exception as e:
                         logger.warning(f"[{device_id}] Could not parse incident state update: {e}")
                         
-                    # Check if JSON was actually created
+                    # Enhanced JSON verification with debugging
                     json_path = frame_path.replace('.jpg', '.json')
+                    thumbnail_path = frame_path.replace('.jpg', '_thumbnail.jpg')
+                    
+                    # Wait a moment for file system to sync
+                    time.sleep(0.1)
+                    
                     if os.path.exists(json_path):
-                        logger.info(f"[{device_id}] ✓ JSON VERIFIED: {os.path.basename(json_path)}")
+                        # Verify JSON is valid and complete
+                        try:
+                            with open(json_path, 'r') as f:
+                                json_data = json.load(f)
+                            
+                            # Check if JSON has required fields
+                            required_fields = ['timestamp', 'filename', 'blackscreen', 'freeze', 'audio']
+                            missing_fields = [field for field in required_fields if field not in json_data]
+                            
+                            if missing_fields:
+                                logger.error(f"[{device_id}] ✗ JSON INCOMPLETE: {os.path.basename(json_path)} missing fields: {missing_fields}")
+                            else:
+                                logger.info(f"[{device_id}] ✓ JSON VERIFIED: {os.path.basename(json_path)} (complete)")
+                                
+                        except json.JSONDecodeError as e:
+                            logger.error(f"[{device_id}] ✗ JSON CORRUPTED: {os.path.basename(json_path)} - {e}")
+                        except Exception as e:
+                            logger.error(f"[{device_id}] ✗ JSON READ ERROR: {os.path.basename(json_path)} - {e}")
                     else:
                         logger.error(f"[{device_id}] ✗ JSON MISSING: {os.path.basename(json_path)} - analysis succeeded but no JSON created")
                         
+                        # Additional debugging for missing JSON
+                        logger.error(f"[{device_id}] DEBUG INFO:")
+                        logger.error(f"[{device_id}]   - Frame exists: {os.path.exists(frame_path)}")
+                        logger.error(f"[{device_id}]   - Thumbnail exists: {os.path.exists(thumbnail_path)}")
+                        logger.error(f"[{device_id}]   - Working directory: {os.path.dirname(frame_path)}")
+                        logger.error(f"[{device_id}]   - Expected JSON path: {json_path}")
+                        
+                        # Check if analysis script created any files
+                        frame_dir = os.path.dirname(frame_path)
+                        recent_files = []
+                        try:
+                            for f in os.listdir(frame_dir):
+                                if f.endswith('.json'):
+                                    file_path = os.path.join(frame_dir, f)
+                                    if os.path.getmtime(file_path) > time.time() - 60:  # Created in last minute
+                                        recent_files.append(f)
+                            logger.error(f"[{device_id}]   - Recent JSON files in directory: {recent_files}")
+                        except Exception as e:
+                            logger.error(f"[{device_id}]   - Could not list directory: {e}")
+                        
                 else:
                     logger.error(f"[{device_id}] Unified analysis FAILED (exit code {result.returncode})")
+                    logger.error(f"[{device_id}] COMMAND: {' '.join(cmd)}")
                     logger.error(f"[{device_id}] STDERR: {result.stderr}")
                     logger.error(f"[{device_id}] STDOUT: {result.stdout}")
+                    
+                    # Additional debugging for failed analysis
+                    thumbnail_path = frame_path.replace('.jpg', '_thumbnail.jpg')
+                    logger.error(f"[{device_id}] FAILURE DEBUG:")
+                    logger.error(f"[{device_id}]   - Frame exists: {os.path.exists(frame_path)}")
+                    logger.error(f"[{device_id}]   - Thumbnail exists: {os.path.exists(thumbnail_path)}")
+                    logger.error(f"[{device_id}]   - Scripts dir: {SCRIPTS_DIR}")
+                    logger.error(f"[{device_id}]   - Venv path: {VENV_PATH}")
+                    logger.error(f"[{device_id}]   - Host name: {HOST_NAME}")
+                    
+                    # Check if analysis script exists
+                    analysis_script = os.path.join(SCRIPTS_DIR, 'analyze_audio_video.py')
+                    logger.error(f"[{device_id}]   - Analysis script exists: {os.path.exists(analysis_script)}")
+                    
+                    # Check venv activation
+                    if os.path.exists(VENV_PATH):
+                        logger.error(f"[{device_id}]   - Venv activate script exists: True")
+                    else:
+                        logger.error(f"[{device_id}]   - Venv activate script exists: False")
                     
         except subprocess.TimeoutExpired:
             logger.error(f"[{device_id}] Unified analysis timeout: {os.path.basename(frame_path)}")

@@ -396,7 +396,13 @@ def main():
         # Video Analysis
         blackscreen = analyze_blackscreen(thumbnail_path, device_id=device_id)
         frozen, freeze_details = analyze_freeze(thumbnail_path, device_id=device_id)
-        macroblocks, quality_score = analyze_macroblocks(thumbnail_path, device_id=device_id)
+        
+        # Skip macroblock analysis if freeze or blackscreen detected (performance optimization)
+        if blackscreen or frozen:
+            macroblocks, quality_score = False, 0.0
+            logger.info(f"[{device_id}] Macroblock check: SKIPPED (freeze={frozen}, blackscreen={blackscreen}) - defaulting to False")
+        else:
+            macroblocks, quality_score = analyze_macroblocks(thumbnail_path, device_id=device_id)
         
         # Audio Analysis
         capture_dir = get_capture_directory_from_image(image_path)
