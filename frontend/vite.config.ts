@@ -1,5 +1,5 @@
 import fs from 'fs';
-import { exec } from 'child_process';
+import { execSync } from 'child_process';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 
@@ -12,21 +12,26 @@ const certPath = '/home/sunri-pi1/vite-certs/fullchain.pem';
 const keyPath = '/home/sunri-pi1/vite-certs/privkey.pem';
 const hasCertificates = fs.existsSync(certPath) && fs.existsSync(keyPath);
 
-// Kill any process using port 5073
+// Kill any process using port 5073 synchronously
 const killPort5073 = () => {
-  exec('lsof -ti:5073', (error, stdout) => {
-    if (stdout && stdout.trim()) {
+  try {
+    const pids = execSync('lsof -ti:5073', { encoding: 'utf8' }).trim();
+    if (pids) {
       console.log('🛑 Killing processes on port 5073...');
-      exec(`kill -9 ${stdout.trim()}`, () => {
-        console.log('✅ Port 5073 is now available');
-      });
+      execSync(`kill -9 ${pids}`, { encoding: 'utf8' });
+      console.log('✅ Port 5073 is now available');
+      // Wait a moment for the port to be fully released
+      execSync('sleep 1');
     } else {
       console.log('✅ Port 5073 is already available');
     }
-  });
+  } catch (error) {
+    // No processes found on port 5073, which is what we want
+    console.log('✅ Port 5073 is already available');
+  }
 };
 
-// Kill port before starting
+// Kill port before starting - this will block until complete
 killPort5073();
 
 // Define registered frontend routes (must match your React Router routes)
@@ -112,6 +117,7 @@ export default defineConfig({
   server: {
     host: '0.0.0.0',
     port: 5073,
+    strictPort: true, // Don't try other ports if 5073 is unavailable
     allowedHosts: ['virtualpytest.com', 'www.virtualpytest.com', 'dev.virtualpytest.com', 'virtualpytest-server.onrender.com', 'virtualpytest.vercel.app', '*.vercel.app', 'localhost', '127.0.0.1'],
     https: shouldUseHttps
       ? hasCertificates
