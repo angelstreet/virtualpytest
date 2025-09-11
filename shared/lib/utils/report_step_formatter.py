@@ -41,6 +41,61 @@ def extract_capture_filename_from_url(url_or_path: str) -> str:
         return 'unknown'
 
 
+def format_capture_display_name(capture_filename: str) -> str:
+    """Format capture filename consistently across all analysis types."""
+    if not capture_filename:
+        return 'unknown'
+    
+    try:
+        import re
+        # Look for timestamp patterns in filename
+        timestamp_match = re.search(r'(\d{8}_\d{6})', capture_filename)  # YYYYMMDD_HHMMSS
+        if timestamp_match:
+            timestamp_str = timestamp_match.group(1)
+            # Convert to readable format: YYYYMMDD_HHMMSS -> HH:MM:SS
+            if len(timestamp_str) == 15:  # YYYYMMDD_HHMMSS
+                time_part = timestamp_str[9:]  # Get HHMMSS
+                formatted_time = f"{time_part[:2]}:{time_part[2:4]}:{time_part[4:6]}"
+                return f"{capture_filename} - {formatted_time}"
+        else:
+            # Check for numeric capture ID patterns
+            # Pattern 1: Pure numbers (like "10149")
+            pure_numeric_match = re.search(r'^(\d{4,5})$', capture_filename)
+            if pure_numeric_match:
+                return f"#{capture_filename}"
+            
+            # Pattern 2: capture_NNNNN format (like "capture_10096")
+            capture_numeric_match = re.search(r'^capture_(\d{4,5})$', capture_filename)
+            if capture_numeric_match:
+                capture_id = capture_numeric_match.group(1)
+                return f"#{capture_id}"
+            
+            # If no pattern found, just use filename as-is
+            return capture_filename
+    except Exception:
+        # Fallback to just filename if formatting fails
+        return capture_filename
+
+
+def format_screenshot_display_name(screenshot_url_or_path: str) -> str:
+    """
+    Single function to format screenshot display names consistently.
+    Combines extract_capture_filename_from_url + format_capture_display_name.
+    
+    Args:
+        screenshot_url_or_path: URL or path to screenshot
+        
+    Returns:
+        Formatted display name (e.g., "#10149", "screenshot_20250911_213045 - 21:30:45")
+    """
+    if not screenshot_url_or_path:
+        return 'unknown'
+    
+    # Extract filename and format in one step
+    filename = extract_capture_filename_from_url(screenshot_url_or_path)
+    return format_capture_display_name(filename)
+
+
 def create_compact_step_results_section(step_results: List[Dict], screenshots: Dict) -> str:
     """Create HTML for compact step-by-step results."""
     if not step_results:
@@ -554,35 +609,8 @@ def format_analysis_results(step: Dict) -> str:
             }
             modal_data_json = json.dumps(modal_data).replace('"', '&quot;').replace("'", "&#x27;")
             
-            # Extract capture filename and format consistently with motion analysis
-            capture_filename = extract_capture_filename_from_url(analyzed_screenshot)
-            
-            # Try to extract timestamp from filename if it follows standard pattern
-            # Standard patterns: capture_NNNN.jpg, screenshot_YYYYMMDD_HHMMSS.jpg, etc.
-            formatted_display = capture_filename
-            try:
-                import re
-                # Look for timestamp patterns in filename
-                timestamp_match = re.search(r'(\d{8}_\d{6})', capture_filename)  # YYYYMMDD_HHMMSS
-                if timestamp_match:
-                    timestamp_str = timestamp_match.group(1)
-                    # Convert to readable format: YYYYMMDD_HHMMSS -> HH:MM:SS
-                    if len(timestamp_str) == 15:  # YYYYMMDD_HHMMSS
-                        time_part = timestamp_str[9:]  # Get HHMMSS
-                        formatted_time = f"{time_part[:2]}:{time_part[2:4]}:{time_part[4:6]}"
-                        formatted_display = f"{capture_filename} - {formatted_time}"
-                else:
-                    # Check for numeric capture ID pattern (like #10149)
-                    numeric_match = re.search(r'^(\d{4,5})$', capture_filename)  # 4-5 digit numbers
-                    if numeric_match:
-                        # Format as capture ID (consistent with motion analysis style)
-                        formatted_display = f"#{capture_filename}"
-                    else:
-                        # If no pattern found, just use filename as-is
-                        formatted_display = capture_filename
-            except Exception:
-                # Fallback to just filename if timestamp parsing fails
-                formatted_display = capture_filename
+            # Use single function to format screenshot display name
+            formatted_display = format_screenshot_display_name(analyzed_screenshot)
             
             analysis_html += f"""
             <div class='subtitle-screenshot' style='margin-top: 4px;'>
@@ -678,29 +706,8 @@ def format_analysis_results(step: Dict) -> str:
             }
             modal_data_json = json.dumps(modal_data).replace('"', '&quot;').replace("'", "&#x27;")
             
-            # Extract capture filename and format consistently with motion analysis
-            capture_filename = extract_capture_filename_from_url(analyzed_screenshot)
-            
-            # Try to extract timestamp from filename if it follows standard pattern
-            # Standard patterns: capture_NNNN.jpg, screenshot_YYYYMMDD_HHMMSS.jpg, etc.
-            formatted_display = capture_filename
-            try:
-                import re
-                # Look for timestamp patterns in filename
-                timestamp_match = re.search(r'(\d{8}_\d{6})', capture_filename)  # YYYYMMDD_HHMMSS
-                if timestamp_match:
-                    timestamp_str = timestamp_match.group(1)
-                    # Convert to readable format: YYYYMMDD_HHMMSS -> HH:MM:SS
-                    if len(timestamp_str) == 15:  # YYYYMMDD_HHMMSS
-                        time_part = timestamp_str[9:]  # Get HHMMSS
-                        formatted_time = f"{time_part[:2]}:{time_part[2:4]}:{time_part[4:6]}"
-                        formatted_display = f"{capture_filename} - {formatted_time}"
-                else:
-                    # If no timestamp pattern found, just use filename as-is
-                    formatted_display = capture_filename
-            except Exception:
-                # Fallback to just filename if timestamp parsing fails
-                formatted_display = capture_filename
+            # Use single function to format screenshot display name
+            formatted_display = format_screenshot_display_name(analyzed_screenshot)
             
             analysis_html += f"""
             <div class='audio-menu-screenshot' style='margin-top: 4px;'>
@@ -766,17 +773,17 @@ def format_analysis_results(step: Dict) -> str:
                 # Create modal data for complete zapping sequence (4 images)
                 images = []
                 if before_blackscreen:
-                    filename = extract_capture_filename_from_url(before_blackscreen)
-                    images.append({'url': before_blackscreen, 'label': f'{filename}\nBefore Transition'})
+                    formatted_display = format_screenshot_display_name(before_blackscreen)
+                    images.append({'url': before_blackscreen, 'label': f'{formatted_display}\nBefore Transition'})
                 if blackscreen_start:
-                    filename = extract_capture_filename_from_url(blackscreen_start)
-                    images.append({'url': blackscreen_start, 'label': f'{filename}\nFirst Transition'})
+                    formatted_display = format_screenshot_display_name(blackscreen_start)
+                    images.append({'url': blackscreen_start, 'label': f'{formatted_display}\nFirst Transition'})
                 if blackscreen_end:
-                    filename = extract_capture_filename_from_url(blackscreen_end)
-                    images.append({'url': blackscreen_end, 'label': f'{filename}\nLast Transition'})  
+                    formatted_display = format_screenshot_display_name(blackscreen_end)
+                    images.append({'url': blackscreen_end, 'label': f'{formatted_display}\nLast Transition'})  
                 if first_content:
-                    filename = extract_capture_filename_from_url(first_content)
-                    images.append({'url': first_content, 'label': f'{filename}\nFirst Content After'})
+                    formatted_display = format_screenshot_display_name(first_content)
+                    images.append({'url': first_content, 'label': f'{formatted_display}\nFirst Content After'})
                 
                 if images:
                     import json
@@ -858,7 +865,10 @@ def format_step_screenshots(step: Dict, step_index: int) -> str:
     
     # Collect all screenshots in chronological order
     if step.get('step_start_screenshot_path'):
-        screenshots_for_step.append(('Step Start', step.get('step_start_screenshot_path'), None, None))
+        # Use enhanced formatting for navigation step screenshots
+        start_screenshot_path = step.get('step_start_screenshot_path')
+        start_formatted_display = format_screenshot_display_name(start_screenshot_path)
+        screenshots_for_step.append((f'{start_formatted_display}\nStep Start', start_screenshot_path, None, None))
     
     # Main action screenshot (always include if available, especially for failed actions)
     # Get the actual action command for labeling (like zap controller does)
@@ -878,9 +888,15 @@ def format_step_screenshots(step: Dict, step_index: int) -> str:
     print(f"[@report_step_formatter:format_step_screenshots] Final action label: {action_label}")
     
     if step.get('screenshot_url'):
-        screenshots_for_step.append((action_label, step.get('screenshot_url'), None, None))
+        # Use enhanced formatting for main action screenshot
+        main_screenshot_path = step.get('screenshot_url')
+        main_formatted_display = format_screenshot_display_name(main_screenshot_path)
+        screenshots_for_step.append((f'{main_formatted_display}\n{action_label}', main_screenshot_path, None, None))
     elif step.get('screenshot_path'):
-        screenshots_for_step.append((action_label, step.get('screenshot_path'), None, None))
+        # Use enhanced formatting for main action screenshot
+        main_screenshot_path = step.get('screenshot_path')
+        main_formatted_display = format_screenshot_display_name(main_screenshot_path)
+        screenshots_for_step.append((f'{main_formatted_display}\n{action_label}', main_screenshot_path, None, None))
     
     # Action screenshots
     action_screenshots = step.get('action_screenshots', [])
@@ -888,11 +904,16 @@ def format_step_screenshots(step: Dict, step_index: int) -> str:
     for i, screenshot_path in enumerate(action_screenshots):
         action_cmd = actions[i].get('command', 'unknown') if i < len(actions) else 'unknown'
         action_params = actions[i].get('params', {}) if i < len(actions) else {}
-        screenshots_for_step.append((f'Action {i+1}', screenshot_path, action_cmd, action_params))
+        # Use enhanced formatting for action screenshots
+        action_formatted_display = format_screenshot_display_name(screenshot_path)
+        screenshots_for_step.append((f'{action_formatted_display}\nAction {i+1}', screenshot_path, action_cmd, action_params))
     
     # Step end screenshot
     if step.get('step_end_screenshot_path'):
-        screenshots_for_step.append(('Step End', step.get('step_end_screenshot_path'), None, None))
+        # Use enhanced formatting for navigation step screenshots
+        end_screenshot_path = step.get('step_end_screenshot_path')
+        end_formatted_display = format_screenshot_display_name(end_screenshot_path)
+        screenshots_for_step.append((f'{end_formatted_display}\nStep End', end_screenshot_path, None, None))
         print(f"[@report_step_formatter:format_step_screenshots] ✅ Step {step_num} end screenshot included")
     else:
         expected_filename = f"step_{step_num}_{step.get('from_node', 'unknown')}_{step.get('to_node', 'unknown')}_end"

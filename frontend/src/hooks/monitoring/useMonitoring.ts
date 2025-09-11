@@ -196,7 +196,7 @@ export const useMonitoring = ({
   }, [host, device, autonomousBaseUrlPattern, isInitializingBaseUrl]);
 
   // Fetch latest JSON file and derive image URL
-  const fetchLatestMonitoringData = useCallback(async (): Promise<{imageUrl: string, jsonUrl: string, timestamp: string} | null> => {
+  const fetchLatestMonitoringData = useCallback(async (): Promise<{imageUrl: string, jsonUrl: string, timestamp: string, sequence: string} | null> => {
     try {
       // Get latest JSON file from the capture directory
       const response = await fetch(buildServerUrl('/server/av/monitoring/latest-json'), {
@@ -217,9 +217,10 @@ export const useMonitoring = ({
           const imageUrl = jsonUrl.replace('.json', '.jpg'); // Simple replacement
           const sequenceMatch = jsonUrl.match(/capture_(\d+)/);
           const sequence = sequenceMatch ? sequenceMatch[1] : '';
+          const timestamp = result.timestamp || new Date().toISOString();
           
           console.log(`[useMonitoring] Latest JSON: ${jsonUrl} -> Image: ${imageUrl}`);
-          return { imageUrl, jsonUrl, sequence };
+          return { imageUrl, jsonUrl, sequence, timestamp };
         }
       }
       return null;

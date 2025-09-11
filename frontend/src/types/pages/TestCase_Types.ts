@@ -126,7 +126,7 @@ export interface AIAnalysisResponse {
   validation_status?: 'success' | 'error';
   validation_message?: string;
   total_models_analyzed?: number;
-  interface_models?: string[];
+  interface_models?: Record<string, {
     compatible: boolean;
     reasoning: string;
     confidence: number;

@@ -15,7 +15,7 @@ import {
   Box,
   Button,
 } from '@mui/material';
-import React, { useState, useEffect, useImperativeHandle, forwardRef } from 'react';
+import { useState, useEffect, useImperativeHandle, forwardRef } from 'react';
 
 import { buildServerUrl } from '../../utils/buildUrlUtils';
 interface HeatmapReport {
@@ -36,7 +36,7 @@ export interface HeatMapHistoryRef {
   refreshReports: () => Promise<void>;
 }
 
-export const HeatMapHistory = forwardRef<HeatMapHistoryRef, HeatMapHistoryProps>((props, ref) => {
+export const HeatMapHistory = forwardRef<HeatMapHistoryRef, HeatMapHistoryProps>((_props, ref) => {
   const [reports, setReports] = useState<HeatmapReport[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

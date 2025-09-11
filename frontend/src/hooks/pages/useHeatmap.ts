@@ -49,6 +49,7 @@ export interface HeatmapGeneration {
   html_url?: string; // URL to comprehensive HTML report
   error?: string;
   heatmap_data?: HeatmapData; // The exact data used for generation
+  processing_time?: number; // Processing time in seconds
 }
 
 export const useHeatmap = () => {
