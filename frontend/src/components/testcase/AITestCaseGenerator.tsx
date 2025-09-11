@@ -197,72 +197,86 @@ export const AITestCaseGenerator: React.FC<AITestCaseGeneratorProps> = ({
     return (
       <Box>
 
-        {/* Compatibility Summary - NEW */}
+        {/* Compatibility Summary - Compact & Collapsible */}
         <Box sx={{ 
           mb: 1, 
-          p: 1, 
           bgcolor: 'background.paper', 
-          borderRadius: 2, 
+          borderRadius: 1, 
           border: '1px solid', 
-          borderColor: 'divider',
-          boxShadow: 1
+          borderColor: 'divider'
         }}>
-          <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 1 }}>
-            🎯 Compatibility Analysis
-          </Typography>
-          
-          <Box sx={{ display: 'flex', gap: 2, mb: 1 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <span style={{ fontSize: '1.2em' }}>✅</span>
-              <Typography variant="body1" sx={{ fontWeight: 'bold', color: 'success.main' }}>
-                Compatible: {compatibleCount}
+          {/* Header - Always Visible */}
+          <Box 
+            sx={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'space-between',
+              p: 1,
+              cursor: 'pointer',
+              '&:hover': { bgcolor: 'action.hover' }
+            }}
+            onClick={() => handleStepToggle(-2)}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
+                🎯 Compatibility Analysis
               </Typography>
+              <Box sx={{ display: 'flex', gap: 2 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  <span style={{ fontSize: '0.9em' }}>✅</span>
+                  <Typography variant="body2" sx={{ fontWeight: 'bold', color: 'success.main' }}>
+                    {compatibleCount}
+                  </Typography>
+                </Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  <span style={{ fontSize: '0.9em' }}>❌</span>
+                  <Typography variant="body2" sx={{ fontWeight: 'bold', color: 'error.main' }}>
+                    {incompatibleCount}
+                  </Typography>
+                </Box>
+              </Box>
             </Box>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <span style={{ fontSize: '1.2em' }}>❌</span>
-              <Typography variant="body1" sx={{ fontWeight: 'bold', color: 'error.main' }}>
-                Non-Compatible: {incompatibleCount}
-              </Typography>
-            </Box>
+            <IconButton size="small">
+              {expandedSteps.has(-2) ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+            </IconButton>
           </Box>
 
-          {/* Interface Details */}
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-            {analysis.compatibility_details?.map((detail, index) => (
-              <Box key={index} sx={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                gap: 1,
-                p: 1,
-                borderRadius: 1,
-                bgcolor: detail.compatible ? 'success.light' : 'error.light',
-                color: detail.compatible ? 'success.contrastText' : 'error.contrastText'
-              }}>
-                <span style={{ fontSize: '1em' }}>
-                  {detail.compatible ? '✅' : '❌'}
-                </span>
-                <Typography variant="body2" sx={{ fontWeight: 'bold', flex: 1 }}>
-                  {detail.userinterface}
-                </Typography>
-                {!detail.compatible && (
-                  <Typography variant="caption" sx={{ 
-                    fontStyle: 'italic',
-                    opacity: 0.8
+          {/* Collapsible Details */}
+          <Collapse in={expandedSteps.has(-2)}>
+            <Box sx={{ px: 1, pb: 1 }}>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                {analysis.compatibility_details?.map((detail, index) => (
+                  <Box key={index} sx={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: 1,
+                    py: 0.5,
+                    px: 1,
+                    borderRadius: 0.5,
+                    bgcolor: detail.compatible ? 'success.light' : 'error.light',
+                    color: detail.compatible ? 'success.contrastText' : 'error.contrastText'
                   }}>
-                    Missing: {detail.missing_capabilities?.join(', ') || 'Unknown capabilities'}
-                  </Typography>
-                )}
-                {detail.compatible && (
-                  <Typography variant="caption" sx={{ 
-                    fontStyle: 'italic',
-                    opacity: 0.8
-                  }}>
-                    All capabilities available
-                  </Typography>
-                )}
+                    <span style={{ fontSize: '0.8em' }}>
+                      {detail.compatible ? '✅' : '❌'}
+                    </span>
+                    <Typography variant="caption" sx={{ fontWeight: 'bold', flex: 1 }}>
+                      {detail.userinterface}
+                    </Typography>
+                    <Typography variant="caption" sx={{ 
+                      fontStyle: 'italic',
+                      opacity: 0.8,
+                      fontSize: '0.7rem'
+                    }}>
+                      {detail.compatible 
+                        ? 'All capabilities available'
+                        : `Missing: ${detail.missing_capabilities?.join(', ') || 'Unknown capabilities'}`
+                      }
+                    </Typography>
+                  </Box>
+                ))}
               </Box>
-            ))}
-          </Box>
+            </Box>
+          </Collapse>
         </Box>
 
         {/* Step Preview - MAIN FOCUS */}
@@ -428,33 +442,56 @@ export const AITestCaseGenerator: React.FC<AITestCaseGeneratorProps> = ({
                         {interfaceResult.reasoning}
                       </Typography>
                       
-                      {/* Show ALL commands per model for this interface */}
-                      {analysis.model_commands && Object.entries(analysis.model_commands).map(([model, commands]) => (
-                        <Box key={model} sx={{ ml: 1, mb: 1, p: 1, backgroundColor: 'background.paper', borderRadius: 0.5 }}>
-                          <Typography variant="caption" sx={{ fontWeight: 'bold', display: 'block', mb: 0.5 }}>
-                            {model} ({commands.actions.length} actions, {commands.verifications.length} verifications):
+                      {/* Show only models supported by this specific interface */}
+                      {(interfaceResult as any).compatible_models && (interfaceResult as any).compatible_models.length > 0 && (
+                        <Box sx={{ ml: 1, mt: 1 }}>
+                          <Typography variant="caption" sx={{ fontWeight: 'bold', color: 'success.main' }}>
+                            Supported Models: {(interfaceResult as any).compatible_models.join(', ')}
                           </Typography>
                           
-                          {/* All Actions */}
-                          <Typography variant="caption" sx={{ color: 'primary.main', fontWeight: 'bold' }}>
-                            Actions: 
-                          </Typography>
-                          <Typography variant="caption" sx={{ display: 'block', ml: 1, fontFamily: 'monospace', fontSize: '0.7rem' }}>
-                            {commands.actions.map(a => a.command).join(', ')}
-                          </Typography>
-                          
-                          {/* All Verifications */}
-                          <Typography variant="caption" sx={{ color: 'secondary.main', fontWeight: 'bold', mt: 0.5, display: 'block' }}>
-                            Verifications: 
-                          </Typography>
-                          <Typography variant="caption" sx={{ display: 'block', ml: 1, fontFamily: 'monospace', fontSize: '0.7rem' }}>
-                            {commands.verifications.length > 0 
-                              ? commands.verifications.map(v => v.command).join(', ')
-                              : 'None available'
-                            }
+                          {/* Show commands for supported models only */}
+                          {analysis.model_commands && (interfaceResult as any).compatible_models.map((model: string) => {
+                            const commands = analysis.model_commands?.[model];
+                            if (!commands) return null;
+                            
+                            return (
+                              <Box key={model} sx={{ mt: 1, p: 1, backgroundColor: 'background.paper', borderRadius: 0.5 }}>
+                                <Typography variant="caption" sx={{ fontWeight: 'bold', display: 'block', mb: 0.5 }}>
+                                  {model} ({commands.actions.length} actions, {commands.verifications.length} verifications)
+                                </Typography>
+                                
+                                {/* Actions - Compact */}
+                                <Typography variant="caption" sx={{ color: 'primary.main', fontWeight: 'bold' }}>
+                                  Actions: 
+                                </Typography>
+                                <Typography variant="caption" sx={{ display: 'block', ml: 1, fontFamily: 'monospace', fontSize: '0.65rem' }}>
+                                  {commands.actions.map((a: any) => a.command).join(', ')}
+                                </Typography>
+                                
+                                {/* Verifications - Compact */}
+                                <Typography variant="caption" sx={{ color: 'secondary.main', fontWeight: 'bold', mt: 0.5, display: 'block' }}>
+                                  Verifications: 
+                                </Typography>
+                                <Typography variant="caption" sx={{ display: 'block', ml: 1, fontFamily: 'monospace', fontSize: '0.65rem' }}>
+                                  {commands.verifications.length > 0 
+                                    ? commands.verifications.map((v: any) => v.command).join(', ')
+                                    : 'None available'
+                                  }
+                                </Typography>
+                              </Box>
+                            );
+                          })}
+                        </Box>
+                      )}
+                      
+                      {/* Show incompatible models if any */}
+                      {(interfaceResult as any).incompatible_models && (interfaceResult as any).incompatible_models.length > 0 && (
+                        <Box sx={{ ml: 1, mt: 1 }}>
+                          <Typography variant="caption" sx={{ fontWeight: 'bold', color: 'error.main' }}>
+                            Unsupported Models: {(interfaceResult as any).incompatible_models.join(', ')}
                           </Typography>
                         </Box>
-                      ))}
+                      )}
                     </Box>
                   ))}
                 </>

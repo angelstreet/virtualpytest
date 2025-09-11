@@ -104,7 +104,20 @@ export interface AIAnalysisResponse {
   estimated_complexity: 'low' | 'medium' | 'high';
   total_analyzed: number;
   compatible_count: number;
+  incompatible_count: number;
+  compatibility_details?: Array<{
+    userinterface: string;
+    compatible: boolean;
+    reasoning: string;
+    missing_capabilities?: string[];
+    compatible_models?: string[];
+    incompatible_models?: string[];
+  }>;
   step_preview: TestStep[];  // NEW: Preview of generated test steps
+  model_commands?: Record<string, {
+    actions: any[];
+    verifications: any[];
+  }>;
   
   // Debug information for generation details panel
   available_actions?: any[];
@@ -112,20 +125,8 @@ export interface AIAnalysisResponse {
   ai_reasoning?: string;
   validation_status?: 'success' | 'error';
   validation_message?: string;
-  
-  // Real command data from analysis
-  model_commands?: Record<string, {
-    actions: any[];
-    verifications: any[];
-    total_actions: number;
-    total_verifications: number;
-  }>;
   total_models_analyzed?: number;
   interface_models?: string[];
-  
-  // Interface compatibility details
-  compatibility_details?: Array<{
-    userinterface: string;
     compatible: boolean;
     reasoning: string;
     confidence: number;

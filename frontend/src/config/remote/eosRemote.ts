@@ -35,7 +35,7 @@ export const eosRemoteConfig = {
     showScreenshotInCollapsed: false,
     showScreenshotInExpanded: true,
     header: {
-      height: '40px',
+      height: '20px',
       fontSize: '0.875rem',
       fontWeight: 'bold',
       iconSize: 'small',
