@@ -51,13 +51,19 @@ export const useRestart = ({ host, device }: UseRestartParams): UseRestartReturn
           }),
         });
 
+        console.log(`[@hook:useRestart] Response received: ${response.status}`);
+
         if (!response.ok) {
           throw new Error(`Failed to generate video: ${response.status}`);
         }
 
         const data = await response.json();
+        console.log(`[@hook:useRestart] Response data:`, data);
         
-        if (cancelled) return;
+        if (cancelled) {
+          console.log(`[@hook:useRestart] Request was cancelled, ignoring response`);
+          return;
+        }
 
         if (data.success && data.video_url) {
           setVideoUrl(data.video_url);

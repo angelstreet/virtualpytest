@@ -1,5 +1,5 @@
 import { Box, Typography, CircularProgress, Alert } from '@mui/material';
-import React from 'react';
+import React, { useEffect } from 'react';
 
 import { useRestart } from '../../hooks/pages/useRestart';
 import { Host, Device } from '../../types/common/Host_Types';
@@ -12,7 +12,15 @@ interface RestartPlayerProps {
 }
 
 export const RestartPlayer: React.FC<RestartPlayerProps> = ({ host, device }) => {
+  console.log(`[@component:RestartPlayer] Component mounting for ${host.host_name}-${device.device_id}`);
+  
   const { videoUrl, isGenerating, isReady, error, processingTime } = useRestart({ host, device });
+
+  useEffect(() => {
+    return () => {
+      console.log(`[@component:RestartPlayer] Component unmounting for ${host.host_name}-${device.device_id}`);
+    };
+  }, [host.host_name, device.device_id]);
 
   return (
     <Box
