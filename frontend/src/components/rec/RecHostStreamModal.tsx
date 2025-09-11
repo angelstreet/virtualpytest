@@ -132,27 +132,68 @@ const RecHostStreamModalContent: React.FC<{
     const modalWidth = windowWidth * 0.95;
     const modalHeight = windowHeight * 0.9;
 
-    // Header height
-    const headerHeight = 48;
+    // Header height calculation based on actual Box styling
+    const headerMinHeight = 48; // minHeight from header Box
 
     // Use fixed stream area (assume remote might be shown)
     const streamAreaWidth = modalWidth * 0.75;
-    const streamAreaHeight = modalHeight - headerHeight;
+    const streamAreaHeight = modalHeight - headerMinHeight;
 
     // Modal position (centered)
     const modalX = (windowWidth - modalWidth) / 2;
     const modalY = (windowHeight - modalHeight) / 2;
 
-    // Stream container position
+    // Stream container position calculation
     const streamX = modalX;
-    const streamY = modalY + headerHeight;
+    
+    // Calculate stream Y position with dynamic offset detection
+    // The base position is modalY + headerHeight, but we need to account for:
+    // 1. Modal border radius (borderRadius: 2 in theme)
+    // 2. Any internal spacing/padding in the modal structure
+    // 3. Browser rendering differences
+    
+    // Base calculation
+    const baseStreamY = modalY + headerMinHeight;
+    
+    // Dynamic offset calculation based on modal styling
+    // The modal has borderRadius: 2, and the header has borderRadius: '8px 8px 0 0'
+    // This creates a small visual offset where the content area doesn't align perfectly
+    // with the mathematical calculation due to the rounded corners and internal spacing
+    
+    // Calculate offset based on modal dimensions and styling
+    const modalBorderRadius = 16; // borderRadius: 2 = 2 * 8px (MUI default)
+    const headerBorderRadius = 8; // '8px 8px 0 0'
+    
+    // The offset is typically a small fraction of the border radius
+    // This accounts for the visual displacement caused by rounded corners
+    const visualOffset = Math.min(modalBorderRadius * 0.5, headerBorderRadius * 0.75);
+    
+    const streamY = baseStreamY + visualOffset;
 
-    return {
+    const dimensions = {
       width: Math.round(streamAreaWidth),
       height: Math.round(streamAreaHeight),
       x: Math.round(streamX),
       y: Math.round(streamY),
     };
+
+    console.log('[@RecHostStreamModal] Stream container dimensions calculated:', {
+      windowSize: { width: windowWidth, height: windowHeight },
+      modalSize: { width: modalWidth, height: modalHeight },
+      modalPosition: { x: modalX, y: modalY },
+      headerHeight: headerMinHeight,
+      baseStreamY,
+      visualOffset,
+      streamPosition: { x: streamX, y: streamY },
+      borderRadiusCalculation: {
+        modalBorderRadius,
+        headerBorderRadius,
+        calculatedOffset: visualOffset
+      },
+      finalDimensions: dimensions,
+    });
+
+    return dimensions;
   }, []);
 
   // Check if this is a desktop device (host_vnc)
