@@ -45,6 +45,17 @@ process_thumbnail_file() {
       return  # Skip if original still missing (rare edge case)
     fi
   fi
+
+  # Add readiness check: confirm neither file is still open by any process
+  for attempt in {1..2}; do
+    if ! lsof "$original_path" >/dev/null 2>&1 && ! lsof "$thumbnail_path" >/dev/null 2>&1; then
+      break  # Both closed, proceed
+    fi
+    if [ $attempt -eq 2 ]; then
+      return  # Still open after retry, skip
+    fi
+    sleep 0.05
+  done
   
   # Process both files atomically
   process_capture_pair "$original_path" "$thumbnail_path"
