@@ -464,37 +464,31 @@ export const AITestCaseGenerator: React.FC<AITestCaseGeneratorProps> = ({
                         
                         return (
                           <Box sx={{ mt: 1 }}>
-                            <Typography variant="caption" sx={{ fontWeight: 'bold', color: interfaceResult.compatible ? 'success.main' : 'text.secondary' }}>
-                              Interface Models: {interfaceModels.join(', ')}
-                            </Typography>
-                            
-                            {/* Show commands for this interface's models only */}
+                            {/* Show commands for this interface's models - no redundant labels */}
                             {analysis.model_commands && interfaceModels.map((model: string) => {
                               const commands = analysis.model_commands?.[model];
                               if (!commands) return (
-                                <Box key={model} sx={{ mt: 1, p: 1, backgroundColor: 'error.light', borderRadius: 0.5 }}>
-                                  <Typography variant="caption" sx={{ fontWeight: 'bold', color: 'error.main' }}>
-                                    {model}: No command data available
-                                  </Typography>
-                                </Box>
+                                <Typography key={model} variant="caption" sx={{ display: 'block', color: 'error.main', fontStyle: 'italic' }}>
+                                  {model}: No command data available
+                                </Typography>
                               );
                               
                               return (
-                                <Box key={model} sx={{ mt: 1, p: 1, backgroundColor: 'background.paper', borderRadius: 0.5, border: '1px solid', borderColor: 'divider' }}>
+                                <Box key={model} sx={{ mt: 0.5 }}>
                                   <Typography variant="caption" sx={{ fontWeight: 'bold', display: 'block', mb: 0.5 }}>
-                                    {model} ({commands.actions.length} actions, {commands.verifications.length} verifications)
+                                    {commands.actions.length} actions, {commands.verifications.length} verifications
                                   </Typography>
                                   
                                   {/* Actions - Compact */}
                                   <Typography variant="caption" sx={{ color: 'primary.main', fontWeight: 'bold' }}>
                                     Actions: 
                                   </Typography>
-                                  <Typography variant="caption" sx={{ display: 'block', ml: 1, fontFamily: 'monospace', fontSize: '0.65rem' }}>
+                                  <Typography variant="caption" sx={{ display: 'block', ml: 1, fontFamily: 'monospace', fontSize: '0.65rem', mb: 0.5 }}>
                                     {commands.actions.map((a: any) => a.command).join(', ')}
                                   </Typography>
                                   
                                   {/* Verifications - Compact */}
-                                  <Typography variant="caption" sx={{ color: 'secondary.main', fontWeight: 'bold', mt: 0.5, display: 'block' }}>
+                                  <Typography variant="caption" sx={{ color: 'secondary.main', fontWeight: 'bold' }}>
                                     Verifications: 
                                   </Typography>
                                   <Typography variant="caption" sx={{ display: 'block', ml: 1, fontFamily: 'monospace', fontSize: '0.65rem' }}>
