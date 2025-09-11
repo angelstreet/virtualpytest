@@ -46,13 +46,23 @@ get_vnc_resolution() {
   echo "$resolution"
 }
 
-# Function to kill existing processes for a specific grabber
+# Function to kill existing processes and clean up files for a specific grabber
 kill_existing_processes() {
   local output_dir=$1 source=$2
   echo "Checking for existing processes for $source..."
   pkill -9 -f "ffmpeg.*$source" 2>/dev/null && echo "Killed existing ffmpeg for $source"
   pkill -9 -f "rename_captures.sh.*$output_dir" 2>/dev/null && echo "Killed existing rename_captures.sh for $output_dir"
   pkill -9 -f "clean_captures.sh.*$output_dir" 2>/dev/null && echo "Killed existing clean_captures.sh for $output_dir"
+  
+  # Wait for processes to fully stop
+  sleep 2
+  
+  # Clean up old files for fresh start
+  echo "Cleaning old files for fresh start..."
+  rm -f "$output_dir"/segment_*.ts
+  rm -f "$output_dir"/output.m3u8
+  rm -f "$output_dir"/captures/capture_*
+  echo "Cleaned up old files in $output_dir (segments, playlist, screenshots, metadata)"
 }
 
 # Cleanup function
@@ -131,7 +141,14 @@ start_grabber() {
   # Start ffmpeg
   echo "Starting ffmpeg for $source ($source_type) with audio: $audio_device..."
   local FFMPEG_LOG="/tmp/ffmpeg_output_${index}.log"
+  
+  # Clean log file for fresh start
+  echo "Cleaning log file for fresh start: $FFMPEG_LOG"
+  > "$FFMPEG_LOG"
+  
+  # Also set up log size management for long-running sessions
   reset_log_if_large "$FFMPEG_LOG"
+  
   eval $FFMPEG_CMD > "$FFMPEG_LOG" 2>&1 &
   local FFMPEG_PID=$!
   echo "Started ffmpeg for $source with PID: $FFMPEG_PID"
