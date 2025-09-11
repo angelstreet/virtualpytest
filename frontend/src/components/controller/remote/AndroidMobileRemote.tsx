@@ -266,7 +266,7 @@ export const AndroidMobileRemote = React.memo(
         >
           <Box
             sx={{
-              maxWidth: '250px',
+              maxWidth: '230px',
               margin: '0 auto',
               width: '100%',
             }}
@@ -539,13 +539,19 @@ export const AndroidMobileRemote = React.memo(
 
 
               {/* Scroll buttons */}
-              <Box sx={{ display: 'flex', gap: 0.5 }}>
+              <Box sx={{ display: 'flex', gap: 0.25 }}>
                 <Button
                   variant="outlined"
                   size="small"
                   onClick={() => handleRemoteCommand('SWIPE_UP')}
                   disabled={!session.connected}
-                  sx={{ flex: 1, fontSize: '0.7rem', padding: '2px 6px' }}
+                  sx={{ 
+                    flex: 1, 
+                    fontSize: '0.65rem', 
+                    padding: '1px 2px',
+                    minWidth: '40px',
+                    maxWidth: '55px'
+                  }}
                 >
                   Scr↑
                 </Button>
@@ -554,7 +560,13 @@ export const AndroidMobileRemote = React.memo(
                   size="small"
                   onClick={() => handleRemoteCommand('SWIPE_DOWN')}
                   disabled={!session.connected}
-                  sx={{ flex: 1, fontSize: '0.7rem', padding: '2px 6px' }}
+                  sx={{ 
+                    flex: 1, 
+                    fontSize: '0.65rem', 
+                    padding: '1px 2px',
+                    minWidth: '40px',
+                    maxWidth: '55px'
+                  }}
                 >
                   Scr↓
                 </Button>
@@ -563,7 +575,13 @@ export const AndroidMobileRemote = React.memo(
                   size="small"
                   onClick={() => handleRemoteCommand('SWIPE_LEFT')}
                   disabled={!session.connected}
-                  sx={{ flex: 1, fontSize: '0.7rem', padding: '2px 6px' }}
+                  sx={{ 
+                    flex: 1, 
+                    fontSize: '0.65rem', 
+                    padding: '1px 2px',
+                    minWidth: '40px',
+                    maxWidth: '55px'
+                  }}
                 >
                   Scr←
                 </Button>
@@ -572,7 +590,13 @@ export const AndroidMobileRemote = React.memo(
                   size="small"
                   onClick={() => handleRemoteCommand('SWIPE_RIGHT')}
                   disabled={!session.connected}
-                  sx={{ flex: 1, fontSize: '0.7rem', padding: '2px 6px' }}
+                  sx={{ 
+                    flex: 1, 
+                    fontSize: '0.65rem', 
+                    padding: '1px 2px',
+                    minWidth: '40px',
+                    maxWidth: '55px'
+                  }}
                 >
                   Scr→
                 </Button>

@@ -5,7 +5,7 @@ export const androidMobileRemoteConfig = {
   },
   panel_layout: {
     collapsed: {
-      width: '240px',
+      width: '220px',
       height: '380px',
       position: {
         bottom: '20px',
@@ -13,7 +13,7 @@ export const androidMobileRemoteConfig = {
       },
     },
     expanded: {
-      width: '280px',
+      width: '260px',
       height: '520px',
       position: {
         bottom: '20px',
