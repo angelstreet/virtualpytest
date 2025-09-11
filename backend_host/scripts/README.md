@@ -75,13 +75,8 @@ python analyze_audio_video.py /path/to/capture_20240115120000.jpg [host_name] [d
 
 ## 🎬 **Capture Management Scripts**
 
-### `rename_captures.sh`
-**File renaming service** that converts test captures to timestamped files.
-
-```bash
-# Run rename monitoring (typically as background service)
-./rename_captures.sh
-```
+### `rename_captures.sh` (REMOVED)
+**DEPRECATED** - File renaming system has been removed. FFmpeg now uses sequential naming (`capture_%04d.jpg`) directly.
 
 **Process:**
 1. Watches `test_capture_*.jpg` files via `inotifywait`
@@ -139,7 +134,7 @@ declare -A GRABBERS=(
 
 **Output Streams:**
 - **HLS**: `output.m3u8` + `segment_*.ts` files for live streaming
-- **Images**: `test_capture_*.jpg` files for analysis (renamed by `rename_captures.sh`)
+- **Images**: `capture_*.jpg` files for analysis (sequential naming)
 
 ## 🚀 **Usage Patterns**
 
@@ -154,16 +149,15 @@ python capture_monitor.py
 
 # Test file processing
 echo "test_capture_123456.jpg created" > /var/www/html/stream/capture1/captures/test_capture_123456.jpg
-# Watch rename_captures.sh process it
+# Files use sequential naming directly
 ```
 
 ### Service Integration
 ```bash
 # Typical host startup sequence:
 1. ./run_ffmpeg_and_rename_rpi1.sh &     # Start video capture
-2. ./rename_captures.sh &                # Start file processing  
-3. python capture_monitor.py &           # Start monitoring
-4. ./clean_captures.sh &                 # Start cleanup (loop)
+2. python capture_monitor.py &           # Start monitoring
+3. ./clean_captures.sh &                 # Start cleanup (loop)
 ```
 
 ### Systemd Integration
@@ -183,7 +177,7 @@ DEBUG=false
 
 # System environment
 USER=pi                    # Used by capture_monitor.py
-TZ="Europe/Zurich"        # Used by rename_captures.sh
+TZ="Europe/Zurich"        # Used by analysis scripts
 ```
 
 ### Hardware Requirements
@@ -222,7 +216,7 @@ pip install opencv-python numpy pytesseract python-dotenv
 # Check if services are running
 ps aux | grep capture_monitor
 ps aux | grep ffmpeg
-ps aux | grep rename_captures
+# rename_captures.sh removed
 
 # Check recent activity
 tail -f /tmp/capture_monitor.log
@@ -304,7 +298,7 @@ export DEBUG=true
 
 # Test individual components
 python analyze_audio_video.py --help
-./rename_captures.sh --dry-run  # If supported
+# rename_captures.sh removed
 ```
 
 ## 🤝 **Contributing**
@@ -321,6 +315,6 @@ python analyze_audio_video.py --help
 | `capture_monitor.py` | `time`, `threading`, `glob` | None | Service coordination |
 | `alert_system.py` | `json`, `datetime`, `dotenv` | None | Alert processing |
 | `analyze_audio_video.py` | `cv2`, `numpy`, `pytesseract` | `ffmpeg` | Analysis engine |
-| `rename_captures.sh` | None | `inotifywait`, `convert` | File processing |
+| `rename_captures.sh` | REMOVED | - | File processing (deprecated) |
 | `run_ffmpeg_*.sh` | None | `ffmpeg`, `v4l2` | Video capture |
 | `clean_captures.sh` | None | `find` | Cleanup | 

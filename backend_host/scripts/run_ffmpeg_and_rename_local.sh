@@ -136,10 +136,7 @@ start_grabber() {
   local FFMPEG_PID=$!
   echo "Started ffmpeg for $source with PID: $FFMPEG_PID"
 
-  # Start rename script
-  /usr/local/bin/rename_captures.sh "$capture_dir" &
-  local RENAME_PID=$!
-  echo "Started rename_captures.sh for $capture_dir with PID: $RENAME_PID"
+  # Rename script removed - using sequential naming
 
   # Start clean script
   while true; do
@@ -150,7 +147,7 @@ start_grabber() {
   echo "Started clean_captures.sh loop for $capture_dir with PID: $CLEAN_PID"
 
   # Set up trap for this grabber
-  trap "cleanup $FFMPEG_PID $RENAME_PID $CLEAN_PID $source" SIGINT SIGTERM
+  trap "cleanup $FFMPEG_PID $CLEAN_PID $source" SIGINT SIGTERM
 }
 
 # Create active captures configuration file

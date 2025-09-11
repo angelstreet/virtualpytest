@@ -165,12 +165,18 @@ class CloudflareUtils:
                     if not content_type:
                         content_type = 'application/octet-stream'
                 
+                # Add mtime metadata for capture files
+                extra_args = {'ContentType': content_type}
+                if 'capture_' in os.path.basename(local_path) and local_path.endswith('.jpg'):
+                    capture_time = str(int(os.path.getmtime(local_path)))
+                    extra_args['Metadata'] = {'capture_time': capture_time}
+                
                 with open(local_path, 'rb') as f:
                     self.s3_client.upload_fileobj(
                         f,
                         self.bucket_name,
                         remote_path,
-                        ExtraArgs={'ContentType': content_type}
+                        ExtraArgs=extra_args
                     )
                 
                 file_url = self.get_public_url(remote_path)

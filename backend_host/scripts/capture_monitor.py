@@ -150,11 +150,8 @@ class CaptureMonitor:
                 # Skip thumbnail files
                 if '_thumbnail' in filename:
                     skipped_files.append(f"THUMBNAIL: {filename}")
-                # Skip numbered files (_1, _2, _3, _4)
-                elif re.search(r'capture_\d{14}_\d+\.jpg$', filename):
-                    skipped_files.append(f"NUMBERED: {filename}")
-                # Skip files that don't match proper timestamp pattern (race condition files)
-                elif not re.search(r'capture_\d{14}\.jpg$', filename):
+                # Skip files that don't match sequential pattern (capture_*.jpg)
+                elif not re.search(r'capture_\d+\.jpg$', filename):
                     skipped_files.append(f"INVALID_PATTERN: {filename}")
                 # Only include files that still exist (avoid race conditions)
                 elif os.path.exists(f):

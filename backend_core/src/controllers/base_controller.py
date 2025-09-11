@@ -298,13 +298,11 @@ class FFmpegCaptureController(AVControllerInterface):
 
     def take_screenshot(self, filename: str = None) -> Optional[str]:
         """
-        Take screenshot using FFmpeg timestamp logic.
+        Take screenshot using mtime-based lookup for sequential files.
         Returns local file path only - routes will build URLs using existing URL building functions.
         """
         try:
             import time
-            from datetime import datetime
-            import pytz
             import os
             
             print(f"{self.capture_source}[{self.capture_source}]: Starting take_screenshot process")
@@ -320,88 +318,40 @@ class FFmpegCaptureController(AVControllerInterface):
                 print(f"{self.capture_source}[{self.capture_source}]: ERROR - No read access to captures directory: {captures_path}")
                 return None
             
-            # List existing files for debugging
-            try:
-                existing_files = os.listdir(captures_path)
-                recent_files = [f for f in existing_files if f.startswith('capture_') and f.endswith('.jpg')]
-                print(f"{self.capture_source}[{self.capture_source}]: Found {len(recent_files)} existing capture files")
-                if recent_files:
-                    # Show the 3 most recent files
-                    recent_files.sort(reverse=True)
-                    for i, f in enumerate(recent_files[:3]):
-                        file_path = os.path.join(captures_path, f)
-                        file_time = os.path.getmtime(file_path)
-                        age_seconds = time.time() - file_time
-                        print(f"{self.capture_source}[{self.capture_source}]:   Recent file {i+1}: {f} (age: {age_seconds:.1f}s)")
-            except Exception as list_error:
-                print(f"{self.capture_source}[{self.capture_source}]: ERROR - Cannot list captures directory: {list_error}")
-            
-            # Generate timestamp in Zurich timezone (Europe/Zurich) in format: YYYYMMDDHHMMSS
-            now = datetime.now()
-            zurich_tz = pytz.timezone("Europe/Zurich")
-            zurich_time = now.astimezone(zurich_tz)
-            
-            # Format: YYYYMMDDHHMMSS (no separators)
-            year = zurich_time.year
-            month = str(zurich_time.month).zfill(2)
-            day = str(zurich_time.day).zfill(2)
-            hours = str(zurich_time.hour).zfill(2)
-            minutes = str(zurich_time.minute).zfill(2)
-            seconds = str(zurich_time.second).zfill(2)
-            
-            timestamp = f"{year}{month}{day}{hours}{minutes}{seconds}"
-            screenshot_path = f'{captures_path}/capture_{timestamp}.jpg'
-            
-            print(f"{self.capture_source}[{self.capture_source}]: Looking for screenshot with timestamp: {timestamp}")
-            print(f"{self.capture_source}[{self.capture_source}]: Expected screenshot path: {screenshot_path}")
-            
-            # Wait 500ms first for FFmpeg to generate the file
-            print(f"{self.capture_source}[{self.capture_source}]: Waiting 500ms for FFmpeg to generate file...")
+            # Brief wait for FFmpeg to write the file
             time.sleep(0.5)
-            if os.path.exists(screenshot_path):
-                print(f"{self.capture_source}[{self.capture_source}]: SUCCESS - Screenshot found after 500ms")
-                return screenshot_path
             
-            # If not found, wait 1 more second
-            print(f"{self.capture_source}[{self.capture_source}]: File not found after 500ms, waiting 1 more second...")
-            time.sleep(1.0)
-            if os.path.exists(screenshot_path):
-                print(f"{self.capture_source}[{self.capture_source}]: SUCCESS - Screenshot found after 1.5s total")
-                return screenshot_path
+            # Find sequential capture files (not thumbnails)
+            captures = [f for f in os.listdir(captures_path) if f.startswith('capture_') and f.endswith('.jpg') and '_thumbnail' not in f]
+            if not captures:
+                print(f"{self.capture_source}[{self.capture_source}]: ERROR - No capture files found in directory")
+                return None
             
-            # Not found after total 1.5s - try to find the most recent file instead
-            print(f"{self.capture_source}[{self.capture_source}]: Expected file not found, looking for most recent capture...")
-            try:
-                all_files = os.listdir(captures_path)
-                # Filter for regular capture files (not thumbnails or other files)
-                capture_files = [f for f in all_files if f.startswith('capture_') and f.endswith('.jpg') and '_thumbnail' not in f]
-                
-                if capture_files:
-                    # Sort by filename (which contains timestamp) to get most recent
-                    capture_files.sort(reverse=True)
-                    most_recent = capture_files[0]
-                    most_recent_path = os.path.join(captures_path, most_recent)
-                    
-                    # Check if it's recent (within last 10 seconds)
-                    file_time = os.path.getmtime(most_recent_path)
-                    age_seconds = time.time() - file_time
-                    
-                    print(f"{self.capture_source}[{self.capture_source}]: Most recent file: {most_recent} (age: {age_seconds:.1f}s)")
-                    
-                    if age_seconds <= 10:  # Use recent file if it's within 10 seconds
-                        print(f"{self.capture_source}[{self.capture_source}]: Using recent file as fallback: {most_recent_path}")
-                        return most_recent_path
-                    else:
-                        print(f"{self.capture_source}[{self.capture_source}]: Most recent file is too old ({age_seconds:.1f}s)")
-                else:
-                    print(f"{self.capture_source}[{self.capture_source}]: No regular capture files found in directory")
-                    
-            except Exception as fallback_error:
-                print(f"{self.capture_source}[{self.capture_source}]: ERROR in fallback logic: {fallback_error}")
+            # Find files with mtime within 2 seconds of now
+            candidates = []
+            now = time.time()
+            for f in captures:
+                path = os.path.join(captures_path, f)
+                try:
+                    mtime = os.path.getmtime(path)
+                    age = now - mtime
+                    if age <= 2:  # Within 2 seconds
+                        candidates.append((age, path))
+                        print(f"{self.capture_source}[{self.capture_source}]: Found candidate: {f} (age: {age:.1f}s)")
+                except OSError:
+                    continue  # File might have been deleted
             
-            # Not found after total 1.5s
-            print(f"{self.capture_source}[{self.capture_source}]: FAILURE - Screenshot not found: {screenshot_path}")
-            return None
+            if not candidates:
+                print(f"{self.capture_source}[{self.capture_source}]: ERROR - No recent files found (within 2s)")
+                return None
+            
+            # Return the file with the smallest age (closest to now)
+            candidates.sort()  # Sort by age (smallest first)
+            closest_path = candidates[0][1]
+            closest_age = candidates[0][0]
+            
+            print(f"{self.capture_source}[{self.capture_source}]: SUCCESS - Using closest file: {os.path.basename(closest_path)} (age: {closest_age:.1f}s)")
+            return closest_path
                 
         except Exception as e:
             print(f'{self.capture_source}[{self.capture_source}]: ERROR taking screenshot: {e}')
@@ -428,14 +378,7 @@ class FFmpegCaptureController(AVControllerInterface):
                 print(f'{self.capture_source}[{self.capture_source}]: Failed to take temporary screenshot')
                 return None
             
-            # Extract timestamp from temp screenshot path to get the actual image file
-            import re
-            timestamp_match = re.search(r'capture_(\d{14})\.jpg', temp_screenshot_path)
-            if not timestamp_match:
-                print(f'{self.capture_source}[{self.capture_source}]: Could not extract timestamp from temp path: {temp_screenshot_path}')
-                return None
-            
-            # The temp_screenshot_path is already the local file path we need
+            # The temp_screenshot_path is already the local file path we need (sequential naming)
             local_screenshot_path = temp_screenshot_path
             
             # Check if local file exists with retry for timing issues

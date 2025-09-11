@@ -79,13 +79,8 @@ Service launcher scripts for VirtualPyTest microservices deployment.
 ./mac/mac_clean_captures.sh
 ```
 
-### `mac/mac_rename_captures.sh`
-**macOS file processing** for development captures.
-
-```bash
-# Process captures on macOS
-./mac/mac_rename_captures.sh
-```
+### `mac/mac_rename_captures.sh` (DEPRECATED)
+**REMOVED** - File renaming system has been removed. FFmpeg now uses sequential naming directly.
 
 ## 🔧 **Usage Patterns**
 

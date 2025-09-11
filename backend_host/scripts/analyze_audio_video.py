@@ -462,7 +462,7 @@ def main():
 
         # Simple consistent result
         result = {
-            'timestamp': datetime.now().isoformat(),
+            'timestamp': datetime.fromtimestamp(os.path.getmtime(image_path)).isoformat(),
             'filename': os.path.basename(image_path),
             'thumbnail': os.path.basename(thumbnail_path),
             'blackscreen': bool(blackscreen),
