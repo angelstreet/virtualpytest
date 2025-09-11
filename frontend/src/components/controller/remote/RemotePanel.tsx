@@ -68,7 +68,6 @@ export const RemotePanel = React.memo(
     streamHidden = false,
     captureMode = 'stream',
     isVerificationVisible = false,
-    isNavigationEditorContext = false,
     streamContainerDimensions,
     disableResize = false,
   }: RemotePanelProps) {
@@ -271,7 +270,6 @@ export const RemotePanel = React.memo(
               streamHidden={streamHidden}
               captureMode={captureMode}
               isVerificationVisible={isVerificationVisible}
-              isNavigationEditorContext={isNavigationEditorContext}
               streamContainerDimensions={stableStreamContainerDimensions}
               sx={{
                 height: '100%',
