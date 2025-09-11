@@ -1,6 +1,6 @@
 export const bluetoothRemoteConfig = {
   remote_info: {
-    name: 'Bluetooth Remote',
+    name: 'Bluetooth',
     type: 'bluetooth_remote' as const,
   },
   panel_layout: {

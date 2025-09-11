@@ -1,6 +1,6 @@
 export const firetvRemoteConfig = {
   remote_info: {
-    name: 'Fire TV',
+    name: 'FireTV',
     type: 'ir_remote' as const,
     image_url: '/firetv_remote.png',
     default_scale: 1,

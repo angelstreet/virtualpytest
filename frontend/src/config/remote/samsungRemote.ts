@@ -1,6 +1,6 @@
 export const samsungRemoteConfig = {
   remote_info: {
-    name: 'Samsung Remote',
+    name: 'Samsung',
     type: 'ir_remote' as const,
     image_url: '/samsung_remote.png',
     default_scale: 1,

@@ -1,6 +1,6 @@
 export const eosRemoteConfig = {
   remote_info: {
-    name: 'EOS Remote',
+    name: 'EOS',
     type: 'ir_remote' as const,
     image_url: '/eos_remote.png',
     default_scale: 1,
