@@ -516,12 +516,8 @@ class FFmpegCaptureController(AVControllerInterface):
             segment_pattern = os.path.join(self.video_capture_path, "segment_*.ts")
             all_segment_paths = glob.glob(segment_pattern)
             
-            # Sort by segment number (highest numbers are most recent)
-            def extract_segment_number(filepath):
-                match = re.search(r'segment_(\d+)\.ts', filepath)
-                return int(match.group(1)) if match else 0
-            
-            all_segment_paths.sort(key=extract_segment_number)
+            # Sort by file modification time (most recent last)
+            all_segment_paths.sort(key=lambda path: os.path.getmtime(path))
             
             # Convert to (filename, filepath) tuples
             all_segments = []

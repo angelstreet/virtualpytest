@@ -129,15 +129,6 @@ export const RestartPlayer: React.FC<RestartPlayerProps> = ({ host, device }) =>
             py: 1,
           }}
         >
-          <Typography
-            variant="body2"
-            sx={{
-              color: '#ffffff',
-              textShadow: '1px 1px 2px rgba(0,0,0,0.8)',
-            }}
-          >
-            Generated in {processingTime}s
-          </Typography>
         </Box>
       )}
     </Box>
