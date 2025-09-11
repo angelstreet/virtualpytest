@@ -71,7 +71,8 @@ The timestamp-based file renaming system has been successfully removed and repla
 8. **`frontend/src/pages/Heatmap.tsx`** ✅ - Updated comment examples
 9. **`frontend/src/hooks/monitoring/useMonitoring.ts`** ✅ - Updated URL pattern extraction
 10. **`backend_discard/scripts/`** ✅ - Updated test data files for AI analyzer
-11. **All README files** ✅ - Updated documentation
+11. **`backend_host/src/routes/host_av_routes.py`** ✅ - Fixed JSON file sorting logic
+12. **All README files** ✅ - Updated documentation
 
 ## Testing Required
 
@@ -82,6 +83,7 @@ The timestamp-based file renaming system has been successfully removed and repla
 5. **Error Handling**: Confirm graceful failure when no recent files exist
 6. **Metrics System**: Verify device status shows "active" instead of "stuck"
 7. **Backend Discard**: Verify AI analyzer processes sequential filenames correctly
+8. **Heatmap Generation**: Verify heatmap can find and process sequential analysis files
 
 ## Benefits Achieved
 

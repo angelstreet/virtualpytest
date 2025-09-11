@@ -980,14 +980,14 @@ def get_latest_monitoring_json():
                 filename.endswith('.json')):
                 filepath = os.path.join(capture_folder, filename)
                 if os.path.isfile(filepath):
-                    # Extract timestamp from filename for consistent sorting
+                    # Extract sequence number from filename for consistent sorting
                     import re
-                    timestamp_match = re.search(r'capture_(\d{14})\.json', filename)
-                    if timestamp_match:
-                        file_timestamp = timestamp_match.group(1)
+                    sequence_match = re.search(r'capture_(\d+)\.json', filename)
+                    if sequence_match:
+                        sequence_number = sequence_match.group(1)
                         json_files.append({
                             'filename': filename,
-                            'timestamp': int(file_timestamp),  # Use filename timestamp, not file mtime
+                            'timestamp': int(sequence_number),  # Use sequence number for sorting
                             'filepath': filepath
                         })
         
@@ -997,7 +997,7 @@ def get_latest_monitoring_json():
                 'error': 'No JSON analysis files found'
             }), 404
         
-        # Sort by filename timestamp (newest first) and get the latest
+        # Sort by sequence number (newest first) and get the latest
         json_files.sort(key=lambda x: x['timestamp'], reverse=True)
         latest_json = json_files[0]
         
