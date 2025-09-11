@@ -1,4 +1,4 @@
-import { OpenInNew } from '@mui/icons-material';
+import { OpenInNew, Refresh } from '@mui/icons-material';
 import {
   Typography,
   Card,
@@ -12,8 +12,10 @@ import {
   Paper,
   IconButton,
   Chip,
+  Box,
+  Button,
 } from '@mui/material';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useImperativeHandle, forwardRef } from 'react';
 
 import { buildServerUrl } from '../../utils/buildUrlUtils';
 interface HeatmapReport {
@@ -31,7 +33,11 @@ interface HeatMapHistoryProps {
   // We can add props later if needed to filter by team, etc.
 }
 
-export const HeatMapHistory: React.FC<HeatMapHistoryProps> = () => {
+export interface HeatMapHistoryRef {
+  refreshReports: () => Promise<void>;
+}
+
+export const HeatMapHistory = forwardRef<HeatMapHistoryRef, HeatMapHistoryProps>((props, ref) => {
   const [reports, setReports] = useState<HeatmapReport[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -58,9 +64,26 @@ export const HeatMapHistory: React.FC<HeatMapHistoryProps> = () => {
     }
   };
 
+  // Expose refresh function to parent components
+  useImperativeHandle(ref, () => ({
+    refreshReports: fetchReports,
+  }));
+
   // Load reports on component mount
   useEffect(() => {
     fetchReports();
+  }, []);
+
+  // Auto-refresh when component becomes visible (page focus)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        fetchReports();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, []);
 
   // Format timestamp for display
@@ -136,9 +159,20 @@ export const HeatMapHistory: React.FC<HeatMapHistoryProps> = () => {
   return (
     <Card sx={{ backgroundColor: 'transparent', boxShadow: 'none' }}>
       <CardContent>
-        <Typography variant="h6" sx={{ mb: 1, my: 0 }}>
-          Heatmap History
-        </Typography>
+        <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+          <Typography variant="h6" sx={{ mb: 1, my: 0 }}>
+            Heatmap History
+          </Typography>
+          <Button
+            startIcon={<Refresh />}
+            onClick={fetchReports}
+            disabled={loading}
+            size="small"
+            variant="outlined"
+          >
+            Refresh
+          </Button>
+        </Box>
 
         <TableContainer
           component={Paper}
@@ -245,4 +279,4 @@ export const HeatMapHistory: React.FC<HeatMapHistoryProps> = () => {
       </CardContent>
     </Card>
   );
-};
+});

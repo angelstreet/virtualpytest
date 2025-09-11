@@ -77,7 +77,9 @@ The timestamp-based file renaming system has been successfully removed and repla
 14. **`frontend/src/hooks/monitoring/useMonitoring.ts`** ✅ - Fixed remaining timestamp extraction logic
 15. **`backend_host/scripts/analyze_audio_video.py`** ✅ - Fixed freeze detection timestamp logic
 16. **`shared/lib/utils/analysis_utils.py`** ✅ - Fixed undefined timestamp variable causing heatmap failure
-17. **All README files** ✅ - Updated documentation
+17. **`backend_server/src/routes/server_heatmap_routes.py`** ✅ - Fixed timestamp processing for Unix milliseconds
+18. **`shared/lib/supabase/heatmap_db.py`** ✅ - Fixed database schema mismatch (removed processing_time column)
+19. **All README files** ✅ - Updated documentation
 
 ## Testing Required
 

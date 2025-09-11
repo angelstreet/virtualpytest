@@ -588,41 +588,8 @@ def process_heatmap_generation(job_id: str, images_by_timestamp: Dict[str, List[
                                 'images_count': len(processed_images)
                             })
                             
-                            # Save to database using passed team_id
-                            try:
-                                from shared.lib.supabase.heatmap_db import save_heatmap_to_db
-                                
-                                hosts_included = len([img for img in processed_images if img.get('image_data')])
-                                hosts_total = len(processed_images)
-                                incidents_count = len([inc for inc in incidents if timestamp in inc.get('start_time', '')])
-                                
-                                # Calculate processing time from job start
-                                current_processing_time = None
-                                with job_lock:
-                                    job = active_jobs.get(job_id)
-                                    if job and job.start_time:
-                                        current_processing_time = (datetime.now() - job.start_time).total_seconds()
-                                
-                                heatmap_id = save_heatmap_to_db(
-                                    team_id=team_id,
-                                    timestamp=timestamp,
-                                    job_id=job_id,
-                                    mosaic_r2_path=mosaic_r2_path,
-                                    mosaic_r2_url=mosaic_upload['url'],
-                                    metadata_r2_path=metadata_r2_path,
-                                    metadata_r2_url=metadata_upload['url'],
-                                    html_r2_path=None, # No individual HTML path for comprehensive report
-                                    html_r2_url=None, # No individual HTML URL for comprehensive report
-                                    hosts_included=hosts_included,
-                                    hosts_total=hosts_total,
-                                    incidents_count=incidents_count
-                                )
-                                
-                                print(f"[@heatmap_utils] Saved heatmap to database with ID: {heatmap_id}")
-                                
-                            except Exception as db_error:
-                                print(f"[@heatmap_utils] WARNING: Failed to save heatmap to database: {db_error}")
-                                # Don't fail the entire job for database errors
+                            # Database save will be done once at the end for the entire job
+                            print(f"[@heatmap_utils] Mosaic and metadata uploaded successfully for timestamp {timestamp}")
                         else:
                             # Upload failed - raise exception to fail the job
                             errors = []
@@ -738,16 +705,48 @@ def process_heatmap_generation(job_id: str, images_by_timestamp: Dict[str, List[
                             active_jobs[job_id].html_url = html_upload['html_url']  # Store single HTML URL
                     print(f"[@heatmap_utils] Comprehensive HTML report uploaded: {html_upload['html_url']}")
                     
-                    # Update all database records for this job with the comprehensive HTML URL
+                    # Save ONE consolidated database record for the entire job
                     try:
-                        from shared.lib.supabase.heatmap_db import update_heatmaps_with_html_url
-                        update_success = update_heatmaps_with_html_url(job_id, html_upload['html_url'])
-                        if update_success:
-                            print(f"[@heatmap_utils] Database records updated with HTML URL")
-                        else:
-                            print(f"[@heatmap_utils] WARNING: Failed to update database records with HTML URL")
-                    except Exception as update_error:
-                        print(f"[@heatmap_utils] WARNING: Error updating database with HTML URL: {update_error}")
+                        from shared.lib.supabase.heatmap_db import save_heatmap_to_db
+                        
+                        # Calculate consolidated stats from all processed images
+                        total_hosts_included = len(set(f"{img.get('host_name')}_{img.get('device_id')}" for img in all_processed_images if img.get('image_data')))
+                        total_hosts_total = len(set(f"{img.get('host_name')}_{img.get('device_id')}" for img in all_processed_images))
+                        total_incidents_count = len(incidents)
+                        
+                        # Use the first timestamp as the primary timestamp for the job
+                        primary_timestamp = timestamps[0] if timestamps else datetime.now().strftime('%Y%m%d%H%M%S')
+                        
+                        # Calculate final processing time
+                        final_processing_time = None
+                        with job_lock:
+                            job = active_jobs.get(job_id)
+                            if job and job.start_time:
+                                final_processing_time = (datetime.now() - job.start_time).total_seconds()
+                        
+                        # Create consolidated mosaic URLs (JSON array for multiple timestamps)
+                        mosaic_urls_json = [img['mosaic_url'] for img in generated_images]
+                        
+                        heatmap_id = save_heatmap_to_db(
+                            team_id=team_id,
+                            timestamp=primary_timestamp,
+                            job_id=job_id,
+                            mosaic_r2_path=f"heatmaps/{primary_timestamp}/",  # Base path for all mosaics
+                            mosaic_r2_url=mosaic_urls_json[0] if mosaic_urls_json else None,  # Primary mosaic URL
+                            metadata_r2_path=f"heatmaps/{primary_timestamp}/metadata.json",
+                            metadata_r2_url=generated_images[0]['metadata_url'] if generated_images else None,
+                            html_r2_path=f"heatmaps/{primary_timestamp}/mosaic.html",
+                            html_r2_url=html_upload['html_url'],
+                            hosts_included=total_hosts_included,
+                            hosts_total=total_hosts_total,
+                            incidents_count=total_incidents_count
+                        )
+                        
+                        print(f"[@heatmap_utils] Saved consolidated heatmap job to database with ID: {heatmap_id}")
+                        
+                    except Exception as db_error:
+                        print(f"[@heatmap_utils] WARNING: Failed to save consolidated heatmap to database: {db_error}")
+                        # Don't fail the entire job for database errors
                 else:
                     print(f"[@heatmap_utils] WARNING: HTML report upload failed: {html_upload.get('error', 'Unknown')}")
             else:

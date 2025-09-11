@@ -5,6 +5,7 @@ Handles the creation and organization of controllers for devices.
 """
 
 import os
+import threading
 from typing import Dict, List, Any, Optional
 from shared.lib.models.host import Host
 from shared.lib.models.device import Device
@@ -443,13 +444,15 @@ def _create_device_with_controllers(device_config: Dict[str, Any]) -> Device:
     return device
 
 
-# Global host instance
+# Global host instance with thread safety
 _host_instance: Optional[Host] = None
+_host_creation_lock = threading.Lock()
 
 
 def get_host() -> Host:
     """
     Get the global host instance, creating it if necessary.
+    Thread-safe singleton pattern.
     
     Returns:
         Host instance
@@ -457,6 +460,12 @@ def get_host() -> Host:
     global _host_instance
     
     if _host_instance is None:
-        _host_instance = create_host_from_environment()
+        with _host_creation_lock:
+            # Double-check pattern
+            if _host_instance is None:
+                print("[@controller_manager:get_host] Creating new host instance")
+                _host_instance = create_host_from_environment()
+            else:
+                print("[@controller_manager:get_host] Using existing host instance (race condition avoided)")
     
     return _host_instance

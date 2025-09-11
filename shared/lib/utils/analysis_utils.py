@@ -9,7 +9,7 @@ import os
 import time
 import json
 from typing import Dict, List, Any, Optional
-from shared.lib.utils.host_utils import get_controller
+from shared.lib.utils.host_utils import get_host
 
 
 def load_recent_analysis_data(device_id: str, timeframe_minutes: int = 5, max_count: Optional[int] = None) -> Dict[str, Any]:
@@ -32,18 +32,19 @@ def load_recent_analysis_data(device_id: str, timeframe_minutes: int = 5, max_co
         }
     """
     try:
-        # Get capture path from AV controller
-        av_controller = get_controller(device_id, 'av')
-        if not av_controller:
+        # Get device directly from existing host instance
+        host = get_host()
+        device = host.get_device(device_id)
+        if not device:
             return {
                 'success': False,
-                'error': f'No AV controller found for device {device_id}',
+                'error': f'Device {device_id} not found',
                 'analysis_data': [],
                 'total': 0,
                 'device_id': device_id
             }
         
-        capture_folder = os.path.join(av_controller.video_capture_path, 'captures')
+        capture_folder = os.path.join(device.video_capture_path, 'captures')
         
         if not os.path.exists(capture_folder):
             return {
@@ -71,10 +72,7 @@ def load_recent_analysis_data(device_id: str, timeframe_minutes: int = 5, max_co
                 
                 # Only check file modification time AFTER validation passes
                 filepath = os.path.join(capture_folder, filename)
-                file_mtime = os.path.getmtime(filepath)
-                if file_mtime >= cutoff_time:
-                    # Use file modification time as timestamp
-                    timestamp = int(file_mtime * 1000)
+                if os.path.getmtime(filepath) >= cutoff_time:
                     
                     # Check for analysis files
                     base_name = filename.replace('.jpg', '')
@@ -97,7 +95,7 @@ def load_recent_analysis_data(device_id: str, timeframe_minutes: int = 5, max_co
                             file_item = {
                                 'filename': filename,
                                 'timestamp': timestamp,
-                                'file_mtime': timestamp,
+                                'file_mtime': int(os.path.getmtime(filepath) * 1000),
                                 'analysis_json': analysis_data
                             }
                             
@@ -174,10 +172,7 @@ def load_recent_analysis_data_from_path(capture_path: str, timeframe_minutes: in
                 
                 # Only check file modification time AFTER validation passes
                 filepath = os.path.join(capture_folder, filename)
-                file_mtime = os.path.getmtime(filepath)
-                if file_mtime >= cutoff_time:
-                    # Use file modification time as timestamp
-                    timestamp = int(file_mtime * 1000)
+                if os.path.getmtime(filepath) >= cutoff_time:
                     
                     # Check for analysis files
                     base_name = filename.replace('.jpg', '')
@@ -199,7 +194,7 @@ def load_recent_analysis_data_from_path(capture_path: str, timeframe_minutes: in
                             file_item = {
                                 'filename': filename,
                                 'timestamp': timestamp,
-                                'file_mtime': timestamp,
+                                'file_mtime': int(os.path.getmtime(filepath) * 1000),
                                 'analysis_json': analysis_data
                             }
                             

@@ -26,7 +26,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 
 import { HeatMapAnalysisSection } from '../components/heatmap/HeatMapAnalysisSection';
 import { HeatMapFreezeModal } from '../components/heatmap/HeatMapFreezeModal';
-import { HeatMapHistory } from '../components/heatmap/HeatMapHistory';
+import { HeatMapHistory, HeatMapHistoryRef } from '../components/heatmap/HeatMapHistory';
 import { MonitoringOverlay } from '../components/monitoring/MonitoringOverlay';
 import { useHeatmap, HeatmapData, HeatmapImage } from '../hooks/pages/useHeatmap';
 
@@ -185,6 +185,7 @@ const Heatmap: React.FC = () => {
   // Refs
   const mosaicImageRef = useRef<HTMLImageElement>(null);
   const statusCheckInterval = useRef<NodeJS.Timeout | null>(null);
+  const historyRef = useRef<HeatMapHistoryRef>(null);
 
   // State to track actual rendered image dimensions for precise label positioning
   const [actualImageBounds, setActualImageBounds] = useState<{
@@ -240,6 +241,14 @@ const Heatmap: React.FC = () => {
       console.log('[@component:Heatmap] Using completed generation data');
       setHeatmapData(generationData);
       setTotalFrames(generationData.timeline_timestamps.length);
+      
+      // Refresh history when generation completes
+      if (historyRef.current) {
+        console.log('[@component:Heatmap] Refreshing history after generation completion');
+        historyRef.current.refreshReports().catch((error) => {
+          console.error('[@component:Heatmap] Failed to refresh history:', error);
+        });
+      }
     } else {
       // Clear data if no completed generation data - no fallbacks, no random data
       console.log('[@component:Heatmap] No completed generation data - clearing display');
@@ -954,7 +963,7 @@ const Heatmap: React.FC = () => {
       />
 
       {/* Heatmap History Section */}
-      <HeatMapHistory />
+      <HeatMapHistory ref={historyRef} />
 
       {renderTooltip()}
       <HeatMapFreezeModal
