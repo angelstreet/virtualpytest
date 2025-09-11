@@ -17,7 +17,7 @@ export interface VerificationEditorLayoutConfig {
   width: number;
   height: number;
   captureHeight: number;
-  objectFit: 'fill' | 'contain';
+  objectFit: 'cover' | 'contain';
   isMobileModel: boolean;
 }
 
@@ -66,14 +66,14 @@ export const getVerificationEditorLayout = (model?: string): VerificationEditorL
         width: 360,
         height: 510,
         captureHeight: 200,
-        objectFit: 'fill',
+        objectFit: 'cover',
         isMobileModel: true,
       }
     : {
         width: 640,
         height: 510,
         captureHeight: 140,
-        objectFit: 'contain',
+        objectFit: 'cover',
         isMobileModel: false,
       };
 };
