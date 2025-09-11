@@ -59,7 +59,7 @@ def get_analysis_cache(analysis_id: str, team_id: str) -> Optional[Dict]:
             
             # Check if cache has expired
             expires_at = datetime.fromisoformat(cache_entry['expires_at'].replace('Z', '+00:00'))
-            if datetime.now(timezone.utc) > expires_at.replace(tzinfo=None):
+            if datetime.now(timezone.utc) > expires_at:
                 # Cache expired, delete it
                 delete_analysis_cache(analysis_id, team_id)
                 return None

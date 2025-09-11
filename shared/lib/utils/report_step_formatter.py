@@ -487,10 +487,14 @@ def format_analysis_results(step: Dict) -> str:
                 
                 freeze_status = "Yes" if freeze_val else "No"
                 blackscreen_status = "Yes" if blackscreen_val else "No"
-                audio_status = "Yes" if audio_val else "No"
+                # FIXED: Audio field semantics - invert display to match user expectation
+                # Display "Yes" when audio is present (good), "No" when no audio (bad)
+                # This makes audio consistent with freeze/blackscreen where the status indicates presence
+                audio_status = "No" if audio_val else "Yes"
                 
-                # Determine color based on issues (red if freeze yes, blackscreen yes, or audio no)
-                has_issues = freeze_val or blackscreen_val or not audio_val
+                # Color logic: issues = freeze present OR blackscreen present OR no audio
+                # If audio_val is inverted in source data, adjust color logic accordingly
+                has_issues = freeze_val or blackscreen_val or audio_val
                 color = "#ff4444" if has_issues else "#44ff44"  # Red for issues, green for good
                 
                 # Create HTML-formatted second line with color
@@ -550,12 +554,40 @@ def format_analysis_results(step: Dict) -> str:
             }
             modal_data_json = json.dumps(modal_data).replace('"', '&quot;').replace("'", "&#x27;")
             
-            # Extract capture filename for display
+            # Extract capture filename and format consistently with motion analysis
             capture_filename = extract_capture_filename_from_url(analyzed_screenshot)
+            
+            # Try to extract timestamp from filename if it follows standard pattern
+            # Standard patterns: capture_NNNN.jpg, screenshot_YYYYMMDD_HHMMSS.jpg, etc.
+            formatted_display = capture_filename
+            try:
+                import re
+                # Look for timestamp patterns in filename
+                timestamp_match = re.search(r'(\d{8}_\d{6})', capture_filename)  # YYYYMMDD_HHMMSS
+                if timestamp_match:
+                    timestamp_str = timestamp_match.group(1)
+                    # Convert to readable format: YYYYMMDD_HHMMSS -> HH:MM:SS
+                    if len(timestamp_str) == 15:  # YYYYMMDD_HHMMSS
+                        time_part = timestamp_str[9:]  # Get HHMMSS
+                        formatted_time = f"{time_part[:2]}:{time_part[2:4]}:{time_part[4:6]}"
+                        formatted_display = f"{capture_filename} - {formatted_time}"
+                else:
+                    # Check for numeric capture ID pattern (like #10149)
+                    numeric_match = re.search(r'^(\d{4,5})$', capture_filename)  # 4-5 digit numbers
+                    if numeric_match:
+                        # Format as capture ID (consistent with motion analysis style)
+                        formatted_display = f"#{capture_filename}"
+                    else:
+                        # If no pattern found, just use filename as-is
+                        formatted_display = capture_filename
+            except Exception:
+                # Fallback to just filename if timestamp parsing fails
+                formatted_display = capture_filename
+            
             analysis_html += f"""
             <div class='subtitle-screenshot' style='margin-top: 4px;'>
                 <div style='text-align: center;'>
-                    <div style='font-size: 11px; color: #666; margin-bottom: 2px;'>{capture_filename}</div>
+                    <div style='font-size: 11px; color: #666; margin-bottom: 2px;'>{formatted_display}</div>
                     <img src='{analyzed_screenshot}' style='width: 60px; height: 40px; object-fit: contain; border: 1px solid #ddd; border-radius: 3px; cursor: pointer;' 
                          onclick='openVerificationImageModal({modal_data_json})' title='Click to view subtitle analysis screenshot'>
                 </div>
@@ -646,12 +678,34 @@ def format_analysis_results(step: Dict) -> str:
             }
             modal_data_json = json.dumps(modal_data).replace('"', '&quot;').replace("'", "&#x27;")
             
-            # Extract capture filename for display
+            # Extract capture filename and format consistently with motion analysis
             capture_filename = extract_capture_filename_from_url(analyzed_screenshot)
+            
+            # Try to extract timestamp from filename if it follows standard pattern
+            # Standard patterns: capture_NNNN.jpg, screenshot_YYYYMMDD_HHMMSS.jpg, etc.
+            formatted_display = capture_filename
+            try:
+                import re
+                # Look for timestamp patterns in filename
+                timestamp_match = re.search(r'(\d{8}_\d{6})', capture_filename)  # YYYYMMDD_HHMMSS
+                if timestamp_match:
+                    timestamp_str = timestamp_match.group(1)
+                    # Convert to readable format: YYYYMMDD_HHMMSS -> HH:MM:SS
+                    if len(timestamp_str) == 15:  # YYYYMMDD_HHMMSS
+                        time_part = timestamp_str[9:]  # Get HHMMSS
+                        formatted_time = f"{time_part[:2]}:{time_part[2:4]}:{time_part[4:6]}"
+                        formatted_display = f"{capture_filename} - {formatted_time}"
+                else:
+                    # If no timestamp pattern found, just use filename as-is
+                    formatted_display = capture_filename
+            except Exception:
+                # Fallback to just filename if timestamp parsing fails
+                formatted_display = capture_filename
+            
             analysis_html += f"""
             <div class='audio-menu-screenshot' style='margin-top: 4px;'>
                 <div style='text-align: center;'>
-                    <div style='font-size: 11px; color: #666; margin-bottom: 2px;'>{capture_filename}</div>
+                    <div style='font-size: 11px; color: #666; margin-bottom: 2px;'>{formatted_display}</div>
                     <img src='{analyzed_screenshot}' style='width: 60px; height: 40px; object-fit: contain; border: 1px solid #ddd; border-radius: 3px; cursor: pointer;' 
                          onclick='openVerificationImageModal({modal_data_json})' title='Click to view audio menu analysis screenshot'>
                 </div>
