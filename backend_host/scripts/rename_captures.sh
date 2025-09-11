@@ -64,12 +64,16 @@ process_capture_pair() {
   # Extract frame number from original filename
   local frame_num=$(basename "$original_path" | grep -o '[0-9]\+' | head -1)
   if [ -z "$frame_num" ]; then
+    local device_name=$(basename "$(dirname "$original_path")" | sed 's/captures$//')
+    echo "$(date '+%H:%M:%S') [$device_name] No frame number found in filename: $(basename "$original_path")" >> "$RENAME_LOG"
     return
   fi
   
-  # Validate frame number
+  # Validate frame number (increased limit to handle larger frame counts)
   local frame_int=$((10#$frame_num))
-  if [ "$frame_int" -lt 1 ] || [ "$frame_int" -gt 99999 ]; then
+  if [ "$frame_int" -lt 1 ] || [ "$frame_int" -gt 9999999 ]; then
+    local device_name=$(basename "$(dirname "$original_path")" | sed 's/captures$//')
+    echo "$(date '+%H:%M:%S') [$device_name] Frame number $frame_int out of valid range for $(basename "$original_path")" >> "$RENAME_LOG"
     return
   fi
   
@@ -86,6 +90,7 @@ process_capture_pair() {
   local final_timestamp=$(TZ="Europe/Zurich" date -r "$original_path" +%Y%m%d%H%M%S)
   
   local CAPTURE_DIR=$(dirname "$original_path")
+  local device_name=$(basename "$CAPTURE_DIR" | sed 's/captures$//')
   local base_newname="${CAPTURE_DIR}/capture_${final_timestamp}"
   
   # Generate new filenames
@@ -100,13 +105,15 @@ process_capture_pair() {
   
   # Check if targets already exist
   if [ -f "$new_original" ] || [ -f "$new_thumbnail" ]; then
+    echo "$(date '+%H:%M:%S') [$device_name] Target files already exist, skipping: $(basename "$new_original")" >> "$RENAME_LOG"
     return
   fi
   
   # Atomic rename: both files or neither
   if mv "$original_path" "$new_original" && mv "$thumbnail_path" "$new_thumbnail"; then
-    echo "$(date '+%H:%M:%S') Renamed pair: $(basename "$original_path") + $(basename "$thumbnail_path") -> $(basename "$new_original") + $(basename "$new_thumbnail")" >> "$RENAME_LOG"
+    echo "$(date '+%H:%M:%S') [$device_name] Renamed pair: $(basename "$original_path") + $(basename "$thumbnail_path") -> $(basename "$new_original") + $(basename "$new_thumbnail")" >> "$RENAME_LOG"
   else
+    echo "$(date '+%H:%M:%S') [$device_name] Failed to rename pair: $(basename "$original_path") + $(basename "$thumbnail_path")" >> "$RENAME_LOG"
     return
   fi
   
