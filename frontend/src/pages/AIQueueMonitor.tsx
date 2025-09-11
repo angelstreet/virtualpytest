@@ -39,16 +39,9 @@ const AIQueueMonitor: React.FC = () => {
     queueType: 'incidents' | 'scripts' | 'all';
     queueName: string;
   }>({ open: false, queueType: 'all', queueName: '' });
-  const [isFetching, setIsFetching] = useState(false);
 
   const fetchStatus = async (includeItems: boolean = false) => {
-    // Prevent multiple concurrent requests
-    if (isFetching) {
-      return;
-    }
-
     try {
-      setIsFetching(true);
       setError(null);
       const status = await getQueueStatus(includeItems);
       setQueueStatus(status);
@@ -56,23 +49,14 @@ const AIQueueMonitor: React.FC = () => {
       setError(err instanceof Error ? err.message : 'Failed to fetch queue status');
     } finally {
       setLoading(false);
-      setIsFetching(false);
     }
   };
 
   useEffect(() => {
-    fetchStatus();
-    const interval = setInterval(() => {
-      // Fetch items if any section is expanded, otherwise just fetch counts
-      const shouldIncludeItems = expandedSections.size > 0;
-      fetchStatus(shouldIncludeItems);
-    }, 5000); // Refresh every 5s
-    return () => clearInterval(interval);
-  }, [getQueueStatus, expandedSections]);
+    fetchStatus(true); // Always fetch with items on mount
+  }, [getQueueStatus]);
 
-  const toggleSection = async (section: string) => {
-    const isCurrentlyExpanded = expandedSections.has(section);
-    
+  const toggleSection = (section: string) => {
     setExpandedSections(prev => {
       const newSet = new Set(prev);
       if (newSet.has(section)) {
@@ -82,13 +66,6 @@ const AIQueueMonitor: React.FC = () => {
       }
       return newSet;
     });
-
-    // If expanding and we don't have items yet, fetch them immediately
-    if (!isCurrentlyExpanded && queueStatus && 
-        (!queueStatus.queues[section as keyof typeof queueStatus.queues]?.items || 
-         queueStatus.queues[section as keyof typeof queueStatus.queues]?.items?.length === 0)) {
-      await fetchStatus(true);
-    }
   };
 
   const handleClearQueue = (queueType: 'incidents' | 'scripts' | 'all', queueName: string) => {
@@ -99,8 +76,8 @@ const AIQueueMonitor: React.FC = () => {
     try {
       await clearQueues(clearDialog.queueType);
       setClearDialog({ open: false, queueType: 'all', queueName: '' });
-      // Refresh queue status
-      fetchStatus();
+      // Refresh queue status after clearing
+      await fetchStatus(true);
     } catch (error) {
       console.error('Failed to clear queue:', error);
     }
