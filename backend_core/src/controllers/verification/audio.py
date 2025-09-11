@@ -697,85 +697,55 @@ class AudioVerificationController(VerificationControllerInterface):
                 message = result.get('message', f"Audio activity {'detected' if success else 'not detected'} from JSON analysis")
                 details = result
                 
-            # Map AI description commands to actual implementations
-            elif command == 'DetectAudioPresence':
-                min_level = params.get('threshold', 0.1)  # Use threshold as min_level
-                duration = params.get('duration', 3.0)
+            # Map AI description commands to existing audio detection (MINIMAL CHANGES)
+            elif command in ['DetectAudioPresence', 'WaitForAudioToStart', 'VerifyAudioQuality', 'DetectAudioSpeech']:
+                # Use existing detect_motion_from_json which analyzes recent audio segments
+                json_count = int(params.get('json_count', 5))
+                strict_mode = params.get('strict_mode', False)  # Less strict for general audio detection
                 
-                success = self.verify_audio_playing(min_level * 100, duration)  # Convert to percentage
-                message = f"Audio presence {'detected' if success else 'not detected'}"
-                details = {
-                    'threshold': min_level,
-                    'duration': duration
-                }
-                
-            elif command == 'WaitForAudioToStart':
-                threshold = params.get('threshold', 0.1)
-                timeout = params.get('timeout', 10.0)
-                
-                success = self.verify_audio_playing(threshold * 100, timeout)  # Convert to percentage
-                message = f"Audio start {'detected' if success else 'timed out'}"
-                details = {
-                    'threshold': threshold,
-                    'timeout': timeout
-                }
+                result = self.detect_motion_from_json(json_count, strict_mode)
+                success = result.get('audio_ok', False)
+                message = f"Audio {'detected' if success else 'not detected'} using existing analysis"
+                details = result
                 
             elif command == 'WaitForAudioToStop':
-                threshold = params.get('threshold', 0.1)
-                timeout = params.get('timeout', 5.0)
+                # For audio stop, use strict mode to detect silence
+                json_count = int(params.get('json_count', 5))
                 
-                # For audio stop, we check for silence
-                success = self.detect_silence(threshold * 100, timeout)  # Convert to percentage
+                result = self.detect_motion_from_json(json_count, strict_mode=True)
+                success = not result.get('audio_ok', True)  # Invert - success if no audio
                 message = f"Audio stop {'detected' if success else 'timed out'}"
-                details = {
-                    'threshold': threshold,
-                    'timeout': timeout
-                }
-                
-            elif command == 'VerifyAudioQuality':
-                duration = params.get('duration', 5.0)
-                
-                # Use audio level analysis as a proxy for quality
-                level = self.analyze_audio_level(duration=duration)
-                success = level > 10.0  # Consider quality good if level > 10%
-                message = f"Audio quality {'good' if success else 'poor'} (level: {level:.1f}%)"
-                details = {
-                    'duration': duration,
-                    'audio_level': level,
-                    'quality_threshold': 10.0
-                }
-                
-            elif command == 'DetectAudioSpeech':
-                duration = params.get('duration', 5.0)
-                
-                # Use audio presence as a proxy for speech detection
-                success = self.verify_audio_playing(5.0, duration)  # Require higher level for speech
-                message = f"Speech {'detected' if success else 'not detected'} in audio"
-                details = {
-                    'duration': duration,
-                    'speech_threshold': 5.0
-                }
+                details = result
                 
             elif command == 'DetectAudioLanguage':
-                duration = params.get('duration', 10.0)
-                
-                # Simplified: just detect if audio is present
-                success = self.verify_audio_playing(5.0, duration)
-                message = f"Audio language analysis {'completed' if success else 'failed'}"
-                details = {
-                    'duration': duration,
-                    'language': 'unknown',  # Placeholder - would need actual language detection
-                    'confidence': 0.5 if success else 0.0
-                }
+                # Use existing AudioAIHelpers for language detection
+                try:
+                    from backend_core.src.controllers.verification.audio_ai_helpers import AudioAIHelpers
+                    audio_ai = AudioAIHelpers(self.av_controller, self.device_name)
+                    
+                    # Get recent audio segments and analyze
+                    audio_files = audio_ai.get_recent_audio_segments(segment_count=2)
+                    if audio_files:
+                        analysis = audio_ai.analyze_audio_segments_ai(audio_files, upload_to_r2=False)
+                        success = analysis.get('success', False) and analysis.get('detected_language', 'unknown') != 'unknown'
+                        message = f"Language detection: {analysis.get('detected_language', 'unknown')}"
+                        details = analysis
+                    else:
+                        success = False
+                        message = "No audio segments available for language detection"
+                        details = {'error': 'No audio segments'}
+                        
+                except ImportError:
+                    success = False
+                    message = "AudioAI not available for language detection"
+                    details = {'error': 'AudioAI not available'}
                 
             elif command == 'AnalyzeAudioMenu':
-                # Simplified: check if audio is present (menu might have audio feedback)
-                success = self.verify_audio_playing(1.0, 2.0)
+                # Use existing audio detection with low threshold for menu sounds
+                result = self.detect_motion_from_json(3, strict_mode=False)
+                success = result.get('success', False)
                 message = f"Audio menu analysis {'completed' if success else 'failed'}"
-                details = {
-                    'menu_detected': success,
-                    'audio_feedback': success
-                }
+                details = result
                 
             else:
                 return {

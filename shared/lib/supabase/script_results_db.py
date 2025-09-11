@@ -232,6 +232,74 @@ def mark_script_discarded(team_id: str, script_result_id: str, discard: bool = T
         print(f"[@db:script_results:mark_script_discarded] Error: {str(e)}")
         return False
 
+def update_script_checked_status(team_id: str, script_result_id: str, checked: bool, check_type: str = 'manual') -> bool:
+    """Update script result checked status."""
+    try:
+        print(f"[@db:script_results:update_script_checked_status] Updating script {script_result_id}: checked={checked}, check_type={check_type}")
+        
+        supabase = get_supabase()
+        result = supabase.table('script_results').update({
+            'checked': checked,
+            'check_type': check_type,
+            'updated_at': datetime.now(timezone.utc).isoformat()
+        }).eq('id', script_result_id).eq('team_id', team_id).execute()
+        
+        if result.data:
+            print(f"[@db:script_results:update_script_checked_status] Success")
+            return True
+        else:
+            print(f"[@db:script_results:update_script_checked_status] Failed - script not found")
+            return False
+            
+    except Exception as e:
+        print(f"[@db:script_results:update_script_checked_status] Error: {str(e)}")
+        return False
+
+def update_script_discard_status(team_id: str, script_result_id: str, discard: bool, discard_comment: Optional[str] = None, check_type: str = 'manual') -> bool:
+    """Update script result discard status with optional comment append."""
+    try:
+        print(f"[@db:script_results:update_script_discard_status] Updating script {script_result_id}: discard={discard}")
+        
+        supabase = get_supabase()
+        
+        # Get current record to append to existing comment if needed
+        current_result = supabase.table('script_results').select('discard_comment, check_type').eq('id', script_result_id).eq('team_id', team_id).execute()
+        
+        update_data = {
+            'discard': discard,
+            'updated_at': datetime.now(timezone.utc).isoformat()
+        }
+        
+        # Handle comment appending
+        if discard_comment:
+            existing_comment = current_result.data[0].get('discard_comment', '') if current_result.data else ''
+            existing_check_type = current_result.data[0].get('check_type', '') if current_result.data else ''
+            
+            if existing_comment and existing_check_type == 'ai':
+                # Append human comment to AI comment
+                update_data['discard_comment'] = f"{existing_comment}\n\nHuman: {discard_comment}"
+                update_data['check_type'] = 'ai_and_human'
+            else:
+                # Replace or set new comment
+                update_data['discard_comment'] = discard_comment
+                update_data['check_type'] = check_type
+        else:
+            # Just update check_type if no comment provided
+            update_data['check_type'] = check_type
+        
+        result = supabase.table('script_results').update(update_data).eq('id', script_result_id).eq('team_id', team_id).execute()
+        
+        if result.data:
+            print(f"[@db:script_results:update_script_discard_status] Success")
+            return True
+        else:
+            print(f"[@db:script_results:update_script_discard_status] Failed - script not found")
+            return False
+            
+    except Exception as e:
+        print(f"[@db:script_results:update_script_discard_status] Error: {str(e)}")
+        return False
+
 def delete_script_result(team_id: str, script_result_id: str) -> bool:
     """Delete script result from shared.lib.supabase."""
     try:
