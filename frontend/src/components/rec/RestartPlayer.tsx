@@ -46,10 +46,7 @@ export const RestartPlayer: React.FC<RestartPlayerProps> = ({ host, device }) =>
           }}
         >
           <CircularProgress sx={{ color: 'white' }} />
-          <Typography>Generating 30-second restart video...</Typography>
-          <Typography variant="caption" sx={{ opacity: 0.7 }}>
-            This should take 3-5 seconds
-          </Typography>
+          <Typography>Generating restart video...</Typography>
         </Box>
       )}
 
@@ -118,29 +115,28 @@ export const RestartPlayer: React.FC<RestartPlayerProps> = ({ host, device }) =>
         />
       </Box>
 
-      {/* Processing time indicator */}
+      {/* Processing time indicator - top */}
       {isReady && processingTime && (
         <Box
           sx={{
             position: 'absolute',
-            bottom: 16,
-            right: 16,
+            top: 16,
+            left: 16,
             zIndex: 1000010,
             backgroundColor: 'rgba(0,0,0,0.7)',
             borderRadius: 1,
-            px: 1,
-            py: 0.5,
+            px: 2,
+            py: 1,
           }}
         >
           <Typography
-            variant="caption"
+            variant="body2"
             sx={{
               color: '#ffffff',
-              fontSize: '0.7rem',
               textShadow: '1px 1px 2px rgba(0,0,0,0.8)',
             }}
           >
-            30s video • Generated in {processingTime}s
+            Generated in {processingTime}s
           </Typography>
         </Box>
       )}

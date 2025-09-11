@@ -537,12 +537,14 @@ class FFmpegCaptureController(AVControllerInterface):
                 # Simple calculation: duration ÷ segment_duration = segments needed
                 segments_needed = int(duration_seconds / actual_segment_duration) + 2  # +2 for small buffer
                 
-                print(f"{self.capture_source}[{self.capture_source}]: Duration: {duration_seconds}s, Segment duration: {actual_segment_duration}s")
-                print(f"{self.capture_source}[{self.capture_source}]: Segments needed: {duration_seconds}s ÷ {actual_segment_duration}s = {segments_needed} segments")
-                print(f"{self.capture_source}[{self.capture_source}]: Available segments: {len(all_segments)}, taking last {segments_needed}")
-                
-                # Take the last N segments
-                segment_files = all_segments[-segments_needed:] if len(all_segments) >= segments_needed else all_segments
+                # Use all available segments if not enough for requested duration
+                if len(all_segments) < segments_needed:
+                    segment_files = all_segments
+                    actual_duration = len(all_segments) * actual_segment_duration
+                    print(f"{self.capture_source}[{self.capture_source}]: Only {len(all_segments)} segments available ({actual_duration}s), using all")
+                else:
+                    segment_files = all_segments[-segments_needed:]
+                    print(f"{self.capture_source}[{self.capture_source}]: Taking last {segments_needed} segments ({duration_seconds}s)")
             else:
                 # No duration provided, take all available segments
                 segment_files = all_segments

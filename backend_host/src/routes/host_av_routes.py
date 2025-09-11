@@ -535,6 +535,7 @@ def generate_restart_video():
         
         # Mark as processing
         generate_restart_video._processing_cache[request_key] = current_time
+        print(f"[@route:host_av:generate_restart_video] Starting video generation for {device_id} (cache key: {request_key})")
         
         print(f"[@route:host_av:generate_restart_video] Generating {duration_seconds}s MP4 for device: {device_id}")
         
