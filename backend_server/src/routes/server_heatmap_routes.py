@@ -101,9 +101,21 @@ async def query_host_analysis(session, host_device, timeframe_minutes):
                         if '/' in filename:
                             filename = os.path.basename(filename)
                         
-                        # Use existing URL building utilities to construct proper capture URL
-                        from shared.lib.utils.build_url_utils import buildCaptureUrl
-                        image_url = buildCaptureUrl(host_data, filename, device_id)
+                        # Build image URL with correct device-to-capture directory mapping
+                        host_url = host_data.get('host_url', '').rstrip('/')
+                        
+                        # Map device IDs to their actual capture directories
+                        if device_id == 'host':
+                            # VNC host device uses capture3 directory (not capture)
+                            capture_dir = 'capture3'
+                        elif device_id == 'device1':
+                            # Mobile device uses capture1 directory
+                            capture_dir = 'capture1'
+                        else:
+                            # Fallback: extract number from device_id
+                            capture_dir = f'capture{device_id.replace("device", "")}'
+                        
+                        image_url = f"{host_url}/host/stream/{capture_dir}/captures/{filename}"
                         
                         try:
                             async with session.get(image_url, timeout=aiohttp.ClientTimeout(total=10)) as img_response:
@@ -204,9 +216,21 @@ def process_host_results(host_results):
                         if '/' in filename:
                             filename = os.path.basename(filename)
                         
-                        # Use existing URL building utilities to construct proper capture URL
-                        from shared.lib.utils.build_url_utils import buildCaptureUrl
-                        image_url = buildCaptureUrl(host_data, filename, device_id)
+                        # Build image URL with correct device-to-capture directory mapping
+                        host_url = host_data.get('host_url', '').rstrip('/')
+                        
+                        # Map device IDs to their actual capture directories
+                        if device_id == 'host':
+                            # VNC host device uses capture3 directory (not capture)
+                            capture_dir = 'capture3'
+                        elif device_id == 'device1':
+                            # Mobile device uses capture1 directory
+                            capture_dir = 'capture1'
+                        else:
+                            # Fallback: extract number from device_id
+                            capture_dir = f'capture{device_id.replace("device", "")}'
+                        
+                        image_url = f"{host_url}/host/stream/{capture_dir}/captures/{filename}"
                         
                         # Frontend data (without image bytes)
                         frontend_device_data = {
