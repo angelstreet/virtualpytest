@@ -67,6 +67,11 @@ CONTROLLER_COMMAND_MAP = {
         'DetectAudioSpeech', 'DetectAudioPresence', 'AnalyzeAudioMenu',
         'DetectAudioLanguage', 'VerifyAudioQuality', 'WaitForAudioToStart', 'WaitForAudioToStop'
     ],
+    'web': [
+        'wait_for_element', 'wait_for_element_visible', 'wait_for_element_hidden',
+        'wait_for_text', 'wait_for_url', 'is_element_visible', 'is_element_enabled',
+        'get_element_text', 'get_page_title', 'get_current_url'
+    ],
     'adb': [
         'waitForElementToAppear', 'waitForElementToDisappear',
         'waitForActivityChange', 'checkElementExists'

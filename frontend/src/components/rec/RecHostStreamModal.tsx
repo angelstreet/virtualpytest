@@ -140,7 +140,7 @@ const RecHostStreamModalContent: React.FC<{
 
     // Header height calculation based on actual Box styling
     const headerMinHeight = 48; // minHeight from header Box
-    const headerPadding = 48; // py: 1 = 8px top + 8px bottom = 16px total
+    const headerPadding = 16; // py: 1 = 8px top + 8px bottom = 16px total
     const actualHeaderHeight = headerMinHeight + headerPadding; // 48 + 16 = 64px
 
     // Use fixed stream area (mobile overlay always shows with remote panel = 20%)

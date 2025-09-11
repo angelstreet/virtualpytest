@@ -376,10 +376,23 @@ class AITestCaseAnalyzer:
                 missing_capabilities.append('UI interaction commands')
         
         # Determine final compatibility
-        is_compatible = compatibility_score >= 0.6 and len(missing_capabilities) == 0
+        # Must have both actions AND verifications to be compatible
+        has_actions = len(available_actions) > 0
+        has_verifications = len(available_verifications) > 0
+        
+        is_compatible = (compatibility_score >= 0.6 and 
+                        len(missing_capabilities) == 0 and 
+                        has_actions and 
+                        has_verifications)
         confidence = min(max(compatibility_score, 0.0), 1.0)
         
-        if missing_capabilities:
+        if not has_actions and not has_verifications:
+            reasoning = "No actions or verifications available"
+        elif not has_actions:
+            reasoning = "No actions available"
+        elif not has_verifications:
+            reasoning = "No verifications available"
+        elif missing_capabilities:
             reasoning = f"Missing: {', '.join(missing_capabilities)}"
         else:
             reasoning = '; '.join(reasons) if reasons else "All required capabilities available"

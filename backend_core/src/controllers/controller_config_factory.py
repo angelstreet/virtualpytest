@@ -69,6 +69,15 @@ DEVICE_CONTROLLER_MAP = {
         'power': [],  # Add tapo power controller
         'network': [],
         'ai': ['ai_agent']
+    },
+    'web': {
+        'av': [], 
+        'remote': [],
+        'desktop': ['bash', 'pyautogui'],  # Desktop automation for web testing
+        'web': ['playwright'],  # Web automation with Playwright
+        'power': [],
+        'network': [],
+        'ai': ['ai_agent']
     }
 }
 
@@ -77,6 +86,7 @@ CONTROLLER_VERIFICATION_MAP = {
     'hdmi_stream': ['image', 'text', 'video', 'audio'],
     'camera_stream': ['image', 'text', 'video', 'audio'],
     'vnc_stream': ['image', 'text', 'video'],
+    'playwright': ['web', 'image', 'text'],  # Web verification capabilities
     'android_mobile': ['adb'],
     'android_tv': [],
     'appium': ['appium'],
