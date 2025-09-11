@@ -69,14 +69,6 @@ process_capture_pair() {
     return
   fi
   
-  # Validate frame number (increased limit to handle larger frame counts)
-  local frame_int=$((10#$frame_num))
-  if [ "$frame_int" -lt 1 ] || [ "$frame_int" -gt 9999999 ]; then
-    local device_name=$(basename "$(dirname "$original_path")" | sed 's/captures$//')
-    echo "$(date '+%H:%M:%S') [$device_name] Frame number $frame_int out of valid range for $(basename "$original_path")" >> "$RENAME_LOG"
-    return
-  fi
-  
   # Determine FPS based on source
   local fps=5
   if [[ "$original_path" =~ capture3 ]]; then
@@ -84,6 +76,7 @@ process_capture_pair() {
   fi
   
   # Calculate suffix from frame number
+  local frame_int=$((10#$frame_num))
   local suffix=$(( (frame_int - 1) % fps ))
   
   # Use original file creation time as timestamp
