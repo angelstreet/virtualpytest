@@ -438,60 +438,77 @@ export const AITestCaseGenerator: React.FC<AITestCaseGeneratorProps> = ({
                         📱 {interfaceResult.userinterface}
                       </Typography>
                       
-                      <Typography variant="caption" sx={{ display: 'block', mb: 1, color: 'text.secondary' }}>
-                        {interfaceResult.reasoning}
-                      </Typography>
-                      
-                      {/* Show only models supported by this specific interface */}
-                      {(interfaceResult as any).compatible_models && (interfaceResult as any).compatible_models.length > 0 && (
-                        <Box sx={{ ml: 1, mt: 1 }}>
-                          <Typography variant="caption" sx={{ fontWeight: 'bold', color: 'success.main' }}>
-                            Supported Models: {(interfaceResult as any).compatible_models.join(', ')}
-                          </Typography>
-                          
-                          {/* Show commands for supported models only */}
-                          {analysis.model_commands && (interfaceResult as any).compatible_models.map((model: string) => {
-                            const commands = analysis.model_commands?.[model];
-                            if (!commands) return null;
+                      {/* Show only the actual models configured for this specific interface */}
+                      {(() => {
+                        // Get the actual models for this specific user interface
+                        const getInterfaceModels = (interfaceName: string) => {
+                          // Map interface names to their actual supported models
+                          const interfaceModelMap: Record<string, string[]> = {
+                            'horizon_android_mobile': ['android_mobile'],
+                            'horizon_android_tv': ['android_tv'],
+                            'horizon_tv': ['fire_tv', 'stb'], // Fire TV and STB for horizon_tv
+                            'perseus_360_web': ['web']
+                          };
+                          return interfaceModelMap[interfaceName] || [];
+                        };
+                        
+                        const interfaceModels = getInterfaceModels(interfaceResult.userinterface);
+                        
+                        if (interfaceModels.length === 0) {
+                          return (
+                            <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary', fontStyle: 'italic' }}>
+                              No models configured for this interface
+                            </Typography>
+                          );
+                        }
+                        
+                        return (
+                          <Box sx={{ mt: 1 }}>
+                            <Typography variant="caption" sx={{ fontWeight: 'bold', color: interfaceResult.compatible ? 'success.main' : 'text.secondary' }}>
+                              Interface Models: {interfaceModels.join(', ')}
+                            </Typography>
                             
-                            return (
-                              <Box key={model} sx={{ mt: 1, p: 1, backgroundColor: 'background.paper', borderRadius: 0.5 }}>
-                                <Typography variant="caption" sx={{ fontWeight: 'bold', display: 'block', mb: 0.5 }}>
-                                  {model} ({commands.actions.length} actions, {commands.verifications.length} verifications)
-                                </Typography>
-                                
-                                {/* Actions - Compact */}
-                                <Typography variant="caption" sx={{ color: 'primary.main', fontWeight: 'bold' }}>
-                                  Actions: 
-                                </Typography>
-                                <Typography variant="caption" sx={{ display: 'block', ml: 1, fontFamily: 'monospace', fontSize: '0.65rem' }}>
-                                  {commands.actions.map((a: any) => a.command).join(', ')}
-                                </Typography>
-                                
-                                {/* Verifications - Compact */}
-                                <Typography variant="caption" sx={{ color: 'secondary.main', fontWeight: 'bold', mt: 0.5, display: 'block' }}>
-                                  Verifications: 
-                                </Typography>
-                                <Typography variant="caption" sx={{ display: 'block', ml: 1, fontFamily: 'monospace', fontSize: '0.65rem' }}>
-                                  {commands.verifications.length > 0 
-                                    ? commands.verifications.map((v: any) => v.command).join(', ')
-                                    : 'None available'
-                                  }
-                                </Typography>
-                              </Box>
-                            );
-                          })}
-                        </Box>
-                      )}
-                      
-                      {/* Show incompatible models if any */}
-                      {(interfaceResult as any).incompatible_models && (interfaceResult as any).incompatible_models.length > 0 && (
-                        <Box sx={{ ml: 1, mt: 1 }}>
-                          <Typography variant="caption" sx={{ fontWeight: 'bold', color: 'error.main' }}>
-                            Unsupported Models: {(interfaceResult as any).incompatible_models.join(', ')}
-                          </Typography>
-                        </Box>
-                      )}
+                            {/* Show commands for this interface's models only */}
+                            {analysis.model_commands && interfaceModels.map((model: string) => {
+                              const commands = analysis.model_commands?.[model];
+                              if (!commands) return (
+                                <Box key={model} sx={{ mt: 1, p: 1, backgroundColor: 'error.light', borderRadius: 0.5 }}>
+                                  <Typography variant="caption" sx={{ fontWeight: 'bold', color: 'error.main' }}>
+                                    {model}: No command data available
+                                  </Typography>
+                                </Box>
+                              );
+                              
+                              return (
+                                <Box key={model} sx={{ mt: 1, p: 1, backgroundColor: 'background.paper', borderRadius: 0.5, border: '1px solid', borderColor: 'divider' }}>
+                                  <Typography variant="caption" sx={{ fontWeight: 'bold', display: 'block', mb: 0.5 }}>
+                                    {model} ({commands.actions.length} actions, {commands.verifications.length} verifications)
+                                  </Typography>
+                                  
+                                  {/* Actions - Compact */}
+                                  <Typography variant="caption" sx={{ color: 'primary.main', fontWeight: 'bold' }}>
+                                    Actions: 
+                                  </Typography>
+                                  <Typography variant="caption" sx={{ display: 'block', ml: 1, fontFamily: 'monospace', fontSize: '0.65rem' }}>
+                                    {commands.actions.map((a: any) => a.command).join(', ')}
+                                  </Typography>
+                                  
+                                  {/* Verifications - Compact */}
+                                  <Typography variant="caption" sx={{ color: 'secondary.main', fontWeight: 'bold', mt: 0.5, display: 'block' }}>
+                                    Verifications: 
+                                  </Typography>
+                                  <Typography variant="caption" sx={{ display: 'block', ml: 1, fontFamily: 'monospace', fontSize: '0.65rem' }}>
+                                    {commands.verifications.length > 0 
+                                      ? commands.verifications.map((v: any) => v.command).join(', ')
+                                      : 'None available'
+                                    }
+                                  </Typography>
+                                </Box>
+                              );
+                            })}
+                          </Box>
+                        );
+                      })()}
                     </Box>
                   ))}
                 </>

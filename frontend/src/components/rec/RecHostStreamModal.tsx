@@ -608,8 +608,8 @@ const RecHostStreamModalContent: React.FC<{
                 if (!isControlActive) return '100%';
                 const panelCount = (showRemote ? 1 : 0) + (showWeb ? 1 : 0);
                 if (panelCount === 0) return '100%';
-                if (panelCount === 1) return '75%';
-                return '50%'; // Two panels shown
+                if (panelCount === 1) return '80%'; // Changed from 75% to 80% (100% - 20%)
+                return '60%'; // Changed from 50% to 60% (100% - 40% for two 20% panels)
               })(),
               height: '100%', // Use full available height (already excluding header)
               position: 'relative',
@@ -637,7 +637,7 @@ const RecHostStreamModalContent: React.FC<{
                   
                   // Calculate target size based on current modal stream area
                   const targetWidth = hasPanel 
-                    ? streamContainerDimensions.width * 0.75  // 75% when panels shown
+                    ? streamContainerDimensions.width * 0.80  // 80% when panels shown (changed from 75%)
                     : streamContainerDimensions.width;        // 100% when no panels
                   const targetHeight = streamContainerDimensions.height;
                   
@@ -716,7 +716,7 @@ const RecHostStreamModalContent: React.FC<{
               sx={{
                 width: (() => {
                   const panelCount = (showRemote ? 1 : 0) + (showWeb ? 1 : 0);
-                  return panelCount === 2 ? '25%' : '25%'; // 25% each when both panels shown
+                  return panelCount === 2 ? '20%' : '20%'; // Changed from 25% to 20% each
                 })(),
                 backgroundColor: 'background.default',
                 borderLeft: '1px solid',
@@ -843,7 +843,7 @@ const RecHostStreamModalContent: React.FC<{
               sx={{
                 width: (() => {
                   const panelCount = (showRemote ? 1 : 0) + (showWeb ? 1 : 0);
-                  return panelCount === 2 ? '25%' : '25%'; // 25% each when both panels shown
+                  return panelCount === 2 ? '20%' : '20%'; // Changed from 25% to 20% each
                 })(),
                 backgroundColor: 'background.default',
                 borderLeft: '1px solid',
