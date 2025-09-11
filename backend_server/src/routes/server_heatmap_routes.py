@@ -101,8 +101,9 @@ async def query_host_analysis(session, host_device, timeframe_minutes):
                         if '/' in filename:
                             filename = os.path.basename(filename)
                         
-                        host_url_base = host_data.get('host_url', '').rstrip('/')
-                        image_url = f"{host_url_base}/host/stream/capture{device_id[-1]}/captures/{filename}"
+                        # Use existing URL building utilities to construct proper capture URL
+                        from shared.lib.utils.build_url_utils import buildCaptureUrl
+                        image_url = buildCaptureUrl(host_data, filename, device_id)
                         
                         try:
                             async with session.get(image_url, timeout=aiohttp.ClientTimeout(total=10)) as img_response:
@@ -203,8 +204,9 @@ def process_host_results(host_results):
                         if '/' in filename:
                             filename = os.path.basename(filename)
                         
-                        host_url = host_data.get('host_url', '').rstrip('/')
-                        image_url = f"{host_url}/host/stream/capture{device_id[-1]}/captures/{filename}"
+                        # Use existing URL building utilities to construct proper capture URL
+                        from shared.lib.utils.build_url_utils import buildCaptureUrl
+                        image_url = buildCaptureUrl(host_data, filename, device_id)
                         
                         # Frontend data (without image bytes)
                         frontend_device_data = {
