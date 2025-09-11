@@ -545,7 +545,7 @@ export const AndroidMobileRemote = React.memo(
                   size="small"
                   onClick={() => handleRemoteCommand('SWIPE_UP')}
                   disabled={!session.connected}
-                  sx={{ flex: 1, fontSize: '0.7rem', padding: '4px 6px' }}
+                  sx={{ flex: 1, fontSize: '0.7rem', padding: '2px 6px' }}
                 >
                   Scr↑
                 </Button>
@@ -554,7 +554,7 @@ export const AndroidMobileRemote = React.memo(
                   size="small"
                   onClick={() => handleRemoteCommand('SWIPE_DOWN')}
                   disabled={!session.connected}
-                  sx={{ flex: 1, fontSize: '0.7rem', padding: '4px 6px' }}
+                  sx={{ flex: 1, fontSize: '0.7rem', padding: '2px 6px' }}
                 >
                   Scr↓
                 </Button>
@@ -563,7 +563,7 @@ export const AndroidMobileRemote = React.memo(
                   size="small"
                   onClick={() => handleRemoteCommand('SWIPE_LEFT')}
                   disabled={!session.connected}
-                  sx={{ flex: 1, fontSize: '0.7rem', padding: '4px 6px' }}
+                  sx={{ flex: 1, fontSize: '0.7rem', padding: '2px 6px' }}
                 >
                   Scr←
                 </Button>
@@ -572,7 +572,7 @@ export const AndroidMobileRemote = React.memo(
                   size="small"
                   onClick={() => handleRemoteCommand('SWIPE_RIGHT')}
                   disabled={!session.connected}
-                  sx={{ flex: 1, fontSize: '0.7rem', padding: '4px 6px' }}
+                  sx={{ flex: 1, fontSize: '0.7rem', padding: '2px 6px' }}
                 >
                   Scr→
                 </Button>

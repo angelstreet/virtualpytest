@@ -78,27 +78,6 @@ export const androidMobileRemoteConfig = {
       shape: 'rectangle' as const,
       comment: 'Menu button',
     },
-    camera: {
-      key: 'CAMERA',
-      position: { x: 40, y: 260 },
-      size: { width: 25, height: 25 },
-      shape: 'circle' as const,
-      comment: 'Camera button',
-    },
-    call: {
-      key: 'CALL',
-      position: { x: 90, y: 260 },
-      size: { width: 25, height: 25 },
-      shape: 'circle' as const,
-      comment: 'Call button',
-    },
-    endcall: {
-      key: 'ENDCALL',
-      position: { x: 140, y: 260 },
-      size: { width: 25, height: 25 },
-      shape: 'circle' as const,
-      comment: 'End call button',
-    },
     volume_down: {
       key: 'VOLUME_DOWN',
       position: { x: 30, y: 300 },
