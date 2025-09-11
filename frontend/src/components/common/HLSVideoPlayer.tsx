@@ -136,7 +136,7 @@ export function HLSVideoPlayer({
       const handleLoadedMetadata = () => {
         console.log('[@component:HLSVideoPlayer] Native playback loaded successfully');
         setStreamLoaded(true);
-        setStreamError(null);
+        setStreamError(null); // Clear any existing errors
         setRetryCount(0);
         attemptPlay();
       };
@@ -148,7 +148,7 @@ export function HLSVideoPlayer({
 
       const handleCanPlay = () => {
         setStreamLoaded(true);
-        setStreamError(null);
+        setStreamError(null); // Clear any existing errors
       };
 
       video.addEventListener('loadedmetadata', handleLoadedMetadata);
@@ -245,6 +245,7 @@ export function HLSVideoPlayer({
       hls.on(HLS.Events.MANIFEST_PARSED, () => {
         console.log('[@component:HLSVideoPlayer] HLS manifest parsed successfully');
         setStreamLoaded(true);
+        setStreamError(null); // Clear any existing errors
         setRetryCount(0);
         attemptPlay();
       });
@@ -338,7 +339,8 @@ export function HLSVideoPlayer({
   }, [retryCount, maxRetries, retryDelay, initializeStream, tryNativePlayback]);
 
   useEffect(() => {
-    if (streamError && retryCount < maxRetries) {
+    // Don't retry if stream is already loaded and working
+    if (streamError && retryCount < maxRetries && !streamLoaded) {
       console.log(
         `[@component:HLSVideoPlayer] Stream error detected, current retry count: ${retryCount}/${maxRetries}`,
       );
@@ -347,8 +349,13 @@ export function HLSVideoPlayer({
       console.warn(
         `[@component:HLSVideoPlayer] Max retries (${maxRetries}) reached, stopping retry attempts`,
       );
+    } else if (streamError && streamLoaded) {
+      console.log(
+        `[@component:HLSVideoPlayer] Stream error cleared because stream is now loaded`,
+      );
+      setStreamError(null);
     }
-  }, [streamError, retryCount, maxRetries, handleStreamError]);
+  }, [streamError, retryCount, maxRetries, streamLoaded, handleStreamError]);
 
   useEffect(() => {
     if (useNativePlayer && streamUrl && isStreamActive) {
