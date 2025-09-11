@@ -125,8 +125,14 @@ const RecHostStreamModalContent: React.FC<{
 
   // Stable stream container dimensions to prevent re-renders
   const streamContainerDimensions = useMemo(() => {
-    const windowWidth = typeof window !== 'undefined' ? window.innerWidth : DEFAULT_DEVICE_RESOLUTION.width;
-    const windowHeight = typeof window !== 'undefined' ? window.innerHeight : DEFAULT_DEVICE_RESOLUTION.height;
+    // Only calculate when window is available
+    if (typeof window === 'undefined') {
+      console.log('[@RecHostStreamModal] Window not available, skipping dimension calculation');
+      return { width: 0, height: 0, x: 0, y: 0 };
+    }
+
+    const windowWidth = window.innerWidth;
+    const windowHeight = window.innerHeight;
 
     // Modal dimensions (95vw x 90vh)
     const modalWidth = windowWidth * 0.95;
@@ -135,8 +141,8 @@ const RecHostStreamModalContent: React.FC<{
     // Header height calculation based on actual Box styling
     const headerMinHeight = 48; // minHeight from header Box
 
-    // Use fixed stream area (assume remote might be shown)
-    const streamAreaWidth = modalWidth * 0.75;
+    // Use fixed stream area (mobile overlay always shows with remote panel = 20%)
+    const streamAreaWidth = modalWidth * 0.80;
     const streamAreaHeight = modalHeight - headerMinHeight;
 
     // Modal position (centered)
@@ -195,6 +201,22 @@ const RecHostStreamModalContent: React.FC<{
 
     return dimensions;
   }, []);
+
+  // Force recalculation after mount when window is available
+  const [isWindowReady, setIsWindowReady] = useState(false);
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setIsWindowReady(true);
+    }
+  }, []);
+
+  // Recalculate dimensions when window becomes available
+  const finalStreamContainerDimensions = useMemo(() => {
+    if (!isWindowReady || typeof window === 'undefined') {
+      return { width: 0, height: 0, x: 0, y: 0 };
+    }
+    return streamContainerDimensions;
+  }, [streamContainerDimensions, isWindowReady]);
 
   // Check if this is a desktop device (host_vnc)
   const isDesktopDevice = useMemo(() => {
@@ -637,9 +659,9 @@ const RecHostStreamModalContent: React.FC<{
                   
                   // Calculate target size based on current modal stream area
                   const targetWidth = hasPanel 
-                    ? streamContainerDimensions.width * 0.80  // 80% when panels shown (changed from 75%)
-                    : streamContainerDimensions.width;        // 100% when no panels
-                  const targetHeight = streamContainerDimensions.height;
+                    ? finalStreamContainerDimensions.width * 0.80  // 80% when panels shown (changed from 75%)
+                    : finalStreamContainerDimensions.width;        // 100% when no panels
+                  const targetHeight = finalStreamContainerDimensions.height;
                   
                   const vncScaling = calculateVncScaling({ 
                     width: targetWidth, 
@@ -735,7 +757,7 @@ const RecHostStreamModalContent: React.FC<{
                   isConnected={isControlActive}
                   onReleaseControl={handleReleaseControl}
                   initialCollapsed={false}
-                  streamContainerDimensions={streamContainerDimensions}
+                  streamContainerDimensions={finalStreamContainerDimensions}
                 />
               ) : (() => {
                 // Handle multiple remote controllers
@@ -746,9 +768,9 @@ const RecHostStreamModalContent: React.FC<{
                   // For Fire TV devices, render both remotes directly (like host VNC)
                   // Account for panel overhead: header (30px) only, no disconnect button in modal
                   const panelOverhead = 30; // Header only, disconnect button removed in modal
-                  const availableHeightForRemotes = streamContainerDimensions.height - (panelOverhead * 2); 
+                  const availableHeightForRemotes = finalStreamContainerDimensions.height - (panelOverhead * 2); 
                   const stackedDimensions = {
-                    ...streamContainerDimensions,
+                    ...finalStreamContainerDimensions,
                     height: Math.round(availableHeightForRemotes / 2) + panelOverhead
                   };
                   return (
@@ -789,9 +811,9 @@ const RecHostStreamModalContent: React.FC<{
                   const filteredRemoteTypes = remoteTypes.filter(Boolean);
                   // Account for panel overhead: header (30px) only, no disconnect button in modal
                   const panelOverhead = 30; // Header only, disconnect button removed in modal
-                  const availableHeightForRemotes = streamContainerDimensions.height - (panelOverhead * filteredRemoteTypes.length);
+                  const availableHeightForRemotes = finalStreamContainerDimensions.height - (panelOverhead * filteredRemoteTypes.length);
                   const stackedDimensions = {
-                    ...streamContainerDimensions,
+                    ...finalStreamContainerDimensions,
                     height: Math.round(availableHeightForRemotes / filteredRemoteTypes.length) + panelOverhead
                   };
                   return (
@@ -828,7 +850,7 @@ const RecHostStreamModalContent: React.FC<{
                       deviceResolution={stableDeviceResolution}
                       streamCollapsed={false}
                       streamMinimized={false}
-                      streamContainerDimensions={streamContainerDimensions}
+                      streamContainerDimensions={finalStreamContainerDimensions}
                       disableResize={true}
                     />
                   );
