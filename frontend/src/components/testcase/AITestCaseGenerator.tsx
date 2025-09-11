@@ -132,7 +132,7 @@ export const AITestCaseGenerator: React.FC<AITestCaseGeneratorProps> = ({
     <Box>
       <Stack spacing={3}>
         <Box sx={{ textAlign: 'center' }}>
-          <AIIcon sx={{ fontSize: 48, color: 'primary.main', mb: 2 }} />
+          <AIIcon sx={{ fontSize: 48, color: 'primary.main', mb: 0 }} />
           <Typography variant="h5" gutterBottom>
             🤖 Describe Your Test Case
           </Typography>
@@ -156,7 +156,7 @@ export const AITestCaseGenerator: React.FC<AITestCaseGeneratorProps> = ({
           <Typography variant="subtitle2" gutterBottom>
             Sample prompts:
           </Typography>
-          <Stack direction="row" spacing={1} flexWrap="wrap" gap={1}>
+          <Stack direction="row" spacing={0.5} flexWrap="wrap" gap={0.5}>
             {getSamplePrompts().map((sample, index) => (
               <Chip
                 key={index}
@@ -170,7 +170,7 @@ export const AITestCaseGenerator: React.FC<AITestCaseGeneratorProps> = ({
           </Stack>
         </Box>
 
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 3 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1 }}>
           <Button
             variant="contained"
             onClick={handleAnalyze}
@@ -199,19 +199,19 @@ export const AITestCaseGenerator: React.FC<AITestCaseGeneratorProps> = ({
 
         {/* Compatibility Summary - NEW */}
         <Box sx={{ 
-          mb: 3, 
-          p: 2, 
+          mb: 1, 
+          p: 1, 
           bgcolor: 'background.paper', 
           borderRadius: 2, 
           border: '1px solid', 
           borderColor: 'divider',
           boxShadow: 1
         }}>
-          <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 2 }}>
+          <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 1 }}>
             🎯 Compatibility Analysis
           </Typography>
           
-          <Box sx={{ display: 'flex', gap: 3, mb: 2 }}>
+          <Box sx={{ display: 'flex', gap: 2, mb: 1 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <span style={{ fontSize: '1.2em' }}>✅</span>
               <Typography variant="body1" sx={{ fontWeight: 'bold', color: 'success.main' }}>
@@ -232,7 +232,7 @@ export const AITestCaseGenerator: React.FC<AITestCaseGeneratorProps> = ({
               <Box key={index} sx={{ 
                 display: 'flex', 
                 alignItems: 'center', 
-                gap: 2,
+                gap: 1,
                 p: 1,
                 borderRadius: 1,
                 bgcolor: detail.compatible ? 'success.light' : 'error.light',

@@ -312,7 +312,7 @@ const TestCaseEditor: React.FC = () => {
       <Dialog open={isDialogOpen} onClose={handleCloseDialog} maxWidth="lg" fullWidth>
         <DialogTitle>🤖 AI Test Case Generator</DialogTitle>
         <DialogContent>
-          <Box sx={{ pt: 2 }}>
+          <Box sx={{ pt: 0 }}>
             <AITestCaseGenerator 
               onTestCasesCreated={handleAITestCasesCreated} 
               onCancel={handleCloseDialog}
