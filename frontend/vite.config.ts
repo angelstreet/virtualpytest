@@ -1,4 +1,5 @@
 import fs from 'fs';
+import { exec } from 'child_process';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 
@@ -10,6 +11,23 @@ const shouldUseHttps = serverUrl.startsWith('https://');
 const certPath = '/home/sunri-pi1/vite-certs/fullchain.pem';
 const keyPath = '/home/sunri-pi1/vite-certs/privkey.pem';
 const hasCertificates = fs.existsSync(certPath) && fs.existsSync(keyPath);
+
+// Kill any process using port 5073
+const killPort5073 = () => {
+  exec('lsof -ti:5073', (error, stdout) => {
+    if (stdout && stdout.trim()) {
+      console.log('🛑 Killing processes on port 5073...');
+      exec(`kill -9 ${stdout.trim()}`, () => {
+        console.log('✅ Port 5073 is now available');
+      });
+    } else {
+      console.log('✅ Port 5073 is already available');
+    }
+  });
+};
+
+// Kill port before starting
+killPort5073();
 
 // Define registered frontend routes (must match your React Router routes)
 const registeredRoutes = [
