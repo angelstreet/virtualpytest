@@ -147,20 +147,39 @@ def process_host_results(host_results):
     images_with_data_by_timestamp = {}  # For background processing with image data
     device_latest_by_bucket = {}
     
+    print(f"[@process_host_results] Processing {len(host_results)} host results")
+    
     for result in host_results:
-        if isinstance(result, Exception) or not result.get('success'):
+        if isinstance(result, Exception):
+            print(f"[@process_host_results] Skipping exception result: {result}")
+            continue
+        if not result.get('success'):
+            print(f"[@process_host_results] Skipping failed result: {result.get('error', 'Unknown error')}")
             continue
         
         analysis_data = result.get('analysis_data', [])
+        print(f"[@process_host_results] Host {result.get('host_name')} has {len(analysis_data)} analysis items")
+        
         for item in analysis_data:
             timestamp = item.get('timestamp', '')
+            print(f"[@process_host_results] Processing item with timestamp: {timestamp}")
             
             if timestamp:
                 try:
-                    dt = datetime.strptime(timestamp, '%Y%m%d%H%M%S')
+                    # Handle Unix timestamp in milliseconds (from sequential naming)
+                    if isinstance(timestamp, (int, float)) or (isinstance(timestamp, str) and timestamp.isdigit()):
+                        # Convert milliseconds to seconds and create datetime
+                        timestamp_seconds = int(timestamp) / 1000.0
+                        dt = datetime.fromtimestamp(timestamp_seconds)
+                    else:
+                        # Fallback for old YYYYMMDDHHMMSS format (should not occur after migration)
+                        dt = datetime.strptime(str(timestamp), '%Y%m%d%H%M%S')
+                    
+                    # Create 10-second buckets for grouping
                     seconds = (dt.second // 10) * 10
                     bucket_dt = dt.replace(second=seconds, microsecond=0)
                     bucket_key = bucket_dt.strftime('%Y%m%d%H%M%S')
+                    print(f"[@process_host_results] Created bucket_key: {bucket_key} for timestamp {timestamp}")
                     
                     device_key = f"{result['host_name']}_{result['device_id']}"
                     
@@ -168,7 +187,7 @@ def process_host_results(host_results):
                         device_latest_by_bucket[bucket_key] = {}
                     
                     if (device_key not in device_latest_by_bucket[bucket_key] or 
-                        timestamp > device_latest_by_bucket[bucket_key][device_key]['timestamp']):
+                        timestamp > device_latest_by_bucket[bucket_key][device_key]['frontend']['timestamp']):
                         
                         # Build image URL
                         host_data = result.get('host_data', {})
@@ -208,14 +227,17 @@ def process_host_results(host_results):
                             'background': background_device_data
                         }
                         
-                except Exception:
+                except Exception as e:
+                    print(f"[@process_host_results] Exception processing timestamp {timestamp}: {e}")
                     continue
     
     # Separate frontend and background data
+    print(f"[@process_host_results] Final buckets: {list(device_latest_by_bucket.keys())}")
     for bucket_key, devices in device_latest_by_bucket.items():
         images_by_timestamp[bucket_key] = [device_data['frontend'] for device_data in devices.values()]
         images_with_data_by_timestamp[bucket_key] = [device_data['background'] for device_data in devices.values()]
     
+    print(f"[@process_host_results] Returning {len(images_by_timestamp)} timestamp buckets")
     return images_by_timestamp, images_with_data_by_timestamp
 
 # =====================================================
