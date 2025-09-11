@@ -271,16 +271,9 @@ def analyze_freeze(image_path, previous_frames_cache=None, device_id="unknown"):
                 if '_' in timestamp:
                     timestamp = timestamp.split('_')[0]
                 
-                # Validate timestamp format (must be 14 digits: YYYYMMDDHHMMSS)
-                if re.match(r'^\d{14}$', timestamp):
-                    try:
-                        from datetime import datetime
-                        datetime.strptime(timestamp, '%Y%m%d%H%M%S')
-                        valid_files.append(f)
-                    except ValueError:
-                        logger.info(f"[{device_id}] Skipping freeze analysis file with invalid timestamp: {f}")
-                else:
-                    logger.info(f"[{device_id}] Skipping freeze analysis file with invalid format: {f} (timestamp: {timestamp})")
+                # Sequential format validation - simplified for sequential naming
+                # Files are now sequential (capture_0001.jpg) - no timestamp validation needed
+                valid_files.append(f)
         
         all_files = sorted(valid_files)
         

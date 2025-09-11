@@ -140,7 +140,7 @@ class CaptureMonitor:
                 return []
 
             # Filter out thumbnail files and numbered files (_1, _2, _3, _4) - only process original images
-            # Pattern: capture_YYYYMMDDHHMMSS_N.jpg (where N is 1,2,3,4...)
+            # Pattern: capture_N.jpg (where N is sequential number)
             original_frames = []
             skipped_files = []
             
