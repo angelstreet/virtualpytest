@@ -13,7 +13,7 @@ export const hdmiStreamConfig = {
   },
   panel_layout: {
     collapsed: {
-      width: '300px',
+      width: '230px',
       height: '172px',
       position: {
         bottom: '20px',
@@ -21,7 +21,7 @@ export const hdmiStreamConfig = {
       },
     },
     expanded: {
-      width: '700px',
+      width: '640px',
       height: '400px',
       position: {
         bottom: '20px',
