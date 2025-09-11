@@ -174,10 +174,10 @@ export const useMonitoring = ({
       if (response.ok) {
         const result = await response.json();
         if (result.success && result.screenshot_url) {
-          // Extract base pattern: remove timestamp from capture_YYYYMMDDHHMMSS.jpg format
+          // Extract base pattern: remove sequence number from capture_NNNN.jpg format
           const basePattern = result.screenshot_url.replace(
-            /capture_\d{14}\.jpg$/,
-            'capture_{timestamp}.jpg',
+            /capture_\d+\.jpg$/,
+            'capture_{sequence}.jpg',
           );
           
           setAutonomousBaseUrlPattern(basePattern);

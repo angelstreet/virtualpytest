@@ -16,7 +16,7 @@ ALERT DETAILS:
 - Metadata: {
   "audio": false,
   "freeze": true,
-  "filename": "capture_20250818000618.jpg",
+  "filename": "capture_0118.jpg",
   "r2_images": {
     "timestamp": "2025-08-18T00:06:20.123268",
     "original_urls": [
@@ -40,7 +40,7 @@ ALERT DETAILS:
       "alerts/freeze/device1/20250818000620/thumb_2.jpg"
     ]
   },
-  "thumbnail": "capture_20250818000618_thumbnail.jpg",
+  "thumbnail": "capture_0118_thumbnail.jpg",
   "timestamp": "2025-08-18T00:06:20.117647",
   "blackscreen": false,
   "freeze_diffs": [
@@ -50,14 +50,14 @@ ALERT DETAILS:
   ],
   "mean_volume_db": -100.0,
   "last_3_filenames": [
-    "/var/www/html/stream/capture1/captures/capture_20250818000616.jpg",
-    "/var/www/html/stream/capture1/captures/capture_20250818000617.jpg",
-    "/var/www/html/stream/capture1/captures/capture_20250818000618.jpg"
+    "/var/www/html/stream/capture1/captures/capture_0116.jpg",
+    "/var/www/html/stream/capture1/captures/capture_0117.jpg",
+    "/var/www/html/stream/capture1/captures/capture_0118.jpg"
   ],
   "last_3_thumbnails": [
-    "/var/www/html/stream/capture1/captures/capture_20250818000616_thumbnail.jpg",
-    "/var/www/html/stream/capture1/captures/capture_20250818000617_thumbnail.jpg",
-    "/var/www/html/stream/capture1/captures/capture_20250818000618_thumbnail.jpg"
+    "/var/www/html/stream/capture1/captures/capture_0116_thumbnail.jpg",
+    "/var/www/html/stream/capture1/captures/capture_0117_thumbnail.jpg",
+    "/var/www/html/stream/capture1/captures/capture_0118_thumbnail.jpg"
   ],
   "volume_percentage": 0,
   "blackscreen_percentage": 0
