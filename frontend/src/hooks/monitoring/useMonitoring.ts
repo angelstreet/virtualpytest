@@ -98,25 +98,23 @@ export const useMonitoring = ({
   const [lastProcessedSequence, setLastProcessedSequence] = useState<string>('');
   const [initialFramesLoaded, setInitialFramesLoaded] = useState(0);
 
-  // Initial loading: Wait for 4 frames with complete AI analysis (optimized for 0.5 FPS)
+  // Initial loading: Wait for 3 frames with JSON only (fast display)
   useEffect(() => {
-    if (initialFramesLoaded >= 4) {
-      console.log('[useMonitoring] 🎯 Initial buffer complete: 4 frames loaded, starting display');
+    if (initialFramesLoaded >= 3) {
+      console.log('[useMonitoring] 🎯 Initial buffer complete: 3 frames loaded, starting display');
       setIsInitialLoading(false);
     }
   }, [initialFramesLoaded]);
 
 
 
-  // Sequential AI analysis - completes frame analysis before queuing
-  const analyzeFrameAsync = useCallback(async (queuedFrame: QueuedFrame): Promise<void> => {
+  // Fast JSON loading for immediate display
+  const loadFrameJsonAsync = useCallback(async (queuedFrame: QueuedFrame): Promise<void> => {
     const startTime = performance.now();
-    console.log('[useMonitoring] 🚀 Starting background AI analysis for:', queuedFrame.imageUrl);
+    console.log('[useMonitoring] ⚡ Fast JSON loading for:', queuedFrame.imageUrl);
     
-    // Load JSON analysis first
-    const jsonStartTime = performance.now();
+    // Load JSON analysis only (fast)
     let jsonAnalysis = null;
-    
     try {
       const jsonResponse = await fetch(queuedFrame.jsonUrl);
       if (jsonResponse.ok) {
@@ -125,10 +123,32 @@ export const useMonitoring = ({
     } catch (error) {
       console.warn('[useMonitoring] Failed to load JSON:', error);
     }
-    const jsonTime = performance.now() - jsonStartTime;
+    
+    const totalTime = performance.now() - startTime;
+    console.log(`[useMonitoring] ✅ JSON loaded in ${totalTime.toFixed(0)}ms for:`, queuedFrame.imageUrl);
 
-    // Optimized AI analysis (removed Language Menu Analysis for speed)
-    const aiStartTime = performance.now();
+    // Update frame with JSON only (ready for display)
+    queuedFrame.analysis = jsonAnalysis;
+    queuedFrame.subtitleAnalysis = null; // Will be filled by background AI
+    queuedFrame.languageMenuAnalysis = null; // Removed for performance
+    queuedFrame.aiDescription = null; // Will be filled by background AI
+
+    // Count as complete for initial buffer (JSON only needed for display)
+    if (jsonAnalysis && initialFramesLoaded < 3) {
+      setInitialFramesLoaded(count => {
+        const newCount = count + 1;
+        console.log(`[useMonitoring] 📊 Initial frame ${newCount}/3 ready for display (JSON loaded)`);
+        return newCount;
+      });
+    }
+  }, [initialFramesLoaded]);
+
+  // Background AI analysis for caching (runs separately)
+  const analyzeFrameAIAsync = useCallback(async (queuedFrame: QueuedFrame): Promise<void> => {
+    const startTime = performance.now();
+    console.log('[useMonitoring] 🤖 Background AI analysis for:', queuedFrame.imageUrl);
+
+    // AI analysis in background (for caching)
     const [subtitleResult, descriptionResult] = await Promise.allSettled([
       fetch(buildServerUrl('/server/verification/video/detectSubtitlesAI'), {
         method: 'POST',
@@ -153,7 +173,7 @@ export const useMonitoring = ({
       }).then(r => r.ok ? r.json() : null),
     ]);
 
-    // Process results
+    // Process AI results
     let subtitleAnalysis = null;
     if (subtitleResult.status === 'fulfilled' && subtitleResult.value?.success) {
       const data = subtitleResult.value.results?.[0] || {};
@@ -166,33 +186,25 @@ export const useMonitoring = ({
       };
     }
 
-    // Language menu analysis removed for performance optimization
-    let languageMenuAnalysis = null;
-
     let aiDescription = null;
     if (descriptionResult.status === 'fulfilled' && descriptionResult.value?.success) {
       aiDescription = descriptionResult.value.response;
     }
 
-    const aiTime = performance.now() - aiStartTime;
     const totalTime = performance.now() - startTime;
-    console.log(`[useMonitoring] ✅ Sequential AI analysis completed in ${totalTime.toFixed(0)}ms (JSON: ${jsonTime.toFixed(0)}ms, AI: ${aiTime.toFixed(0)}ms) for:`, queuedFrame.imageUrl);
+    console.log(`[useMonitoring] ✅ Background AI completed in ${totalTime.toFixed(0)}ms for:`, queuedFrame.imageUrl);
 
-    // Directly update the frame object with analysis results
-    queuedFrame.analysis = jsonAnalysis;
+    // Update frame with AI results (cached for when user revisits)
     queuedFrame.subtitleAnalysis = subtitleAnalysis;
-    queuedFrame.languageMenuAnalysis = languageMenuAnalysis;
     queuedFrame.aiDescription = aiDescription;
 
-    // Check if this is part of initial buffer (language menu analysis removed)
-    const isFrameComplete = jsonAnalysis && subtitleAnalysis && aiDescription;
-    if (isFrameComplete && initialFramesLoaded < 4) {
-      setInitialFramesLoaded(count => {
-        const newCount = count + 1;
-        console.log(`[useMonitoring] 📊 Initial frame ${newCount}/4 completed with optimized AI analysis`);
-        return newCount;
-      });
-    }
+    // Update both queue and frames array with cached AI results
+    setDisplayQueue(prev => prev.map(frame => 
+      frame.imageUrl === queuedFrame.imageUrl ? { ...frame, subtitleAnalysis, aiDescription } : frame
+    ));
+    setFrames(prev => prev.map(frame => 
+      frame.imageUrl === queuedFrame.imageUrl ? { ...frame, subtitleAnalysis, aiDescription } : frame
+    ));
   }, [host, device?.device_id]);
 
   // State for autonomous base URL pattern (discovered via takeScreenshot API)
@@ -314,22 +326,28 @@ export const useMonitoring = ({
               sequence: latestData.sequence,
             };
 
-            // Wait for complete AI analysis before queuing
-            console.log(`[useMonitoring] 🤖 [${timestamp}] Starting AI analysis for frame ${frameSequence}...`);
-            await analyzeFrameAsync(queuedFrame);
+            // Phase 1: Fast JSON loading for immediate display
+            console.log(`[useMonitoring] ⚡ [${timestamp}] Loading JSON for frame ${frameSequence}...`);
+            await loadFrameJsonAsync(queuedFrame);
             
-            // Now queue the complete frame
+            // Queue frame immediately after JSON load (ready for display)
             setDisplayQueue(prev => {
               const newQueue = [...prev, queuedFrame].slice(-10);
-              console.log(`[useMonitoring] ✅ [${timestamp}] Complete frame queued: seq=${latestData.sequence}, queue length=${newQueue.length}`);
+              console.log(`[useMonitoring] ✅ [${timestamp}] Frame queued for display: seq=${latestData.sequence}, queue length=${newQueue.length}`);
               return newQueue;
             });
             setLastProcessedSequence(latestData.sequence);
             setCurrentImageUrl(latestData.imageUrl);
+
+            // Phase 2: Start background AI analysis for caching (non-blocking)
+            console.log(`[useMonitoring] 🤖 [${timestamp}] Starting background AI caching for frame ${frameSequence}...`);
+            analyzeFrameAIAsync(queuedFrame).catch(error => {
+              console.warn('[useMonitoring] Background AI caching failed:', error);
+            });
           }
           
-          // Check for new frames every 500ms (slower since we wait for AI completion)
-          await new Promise(resolve => setTimeout(resolve, 500));
+          // Check for new frames every 200ms (faster since we only wait for JSON)
+          await new Promise(resolve => setTimeout(resolve, 200));
         } catch (error) {
           console.error('[useMonitoring] Queue feeder error:', error);
           await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1s on error
@@ -342,7 +360,7 @@ export const useMonitoring = ({
     return () => {
       isRunning = false;
     };
-  }, [fetchLatestMonitoringData, analyzeFrameAsync, lastProcessedSequence, initialFramesLoaded]);
+  }, [fetchLatestMonitoringData, loadFrameJsonAsync, analyzeFrameAIAsync, lastProcessedSequence, initialFramesLoaded]);
 
   // Process 2: Display Consumer - Simple 1 FPS display from complete frames
   useEffect(() => {

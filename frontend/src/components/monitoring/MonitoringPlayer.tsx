@@ -283,20 +283,7 @@ export const MonitoringPlayer: React.FC<MonitoringPlayerProps> = ({
         </Box>
       )}
 
-      {/* No frames state */}
-      {!isInitialLoading && frames.length === 0 && (
-        <Box
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            height: '100%',
-            color: 'white',
-          }}
-        >
-          <Typography>Waiting for monitoring data...</Typography>
-        </Box>
-      )}
+      {/* No frames state removed - initial loading handles this case */}
 
       {/* Monitoring overlay */}
       <Box
