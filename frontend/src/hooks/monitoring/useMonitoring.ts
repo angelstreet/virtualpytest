@@ -308,16 +308,17 @@ export const useMonitoring = ({
       // Wait a moment for autonomous base URL initialization
       await new Promise(resolve => setTimeout(resolve, 1000));
       
-      console.log('[useMonitoring] 🔄 Starting sequential queue feeder process...');
+      console.log('[useMonitoring] 🔄 Starting fast initial buffer (3 frames)...');
       
-      while (isRunning) {
+      // Phase 1: Fast initial buffer - exactly 3 frames for immediate display
+      for (let i = 0; i < 3 && isRunning; i++) {
         try {
           const latestData = await fetchLatestMonitoringData();
           
           if (latestData && latestData.sequence !== lastProcessedSequence) {
             frameSequence++;
             const timestamp = new Date().toISOString();
-            console.log(`[useMonitoring] 📦 [${timestamp}] Processing frame ${frameSequence}: seq=${latestData.sequence}, url=${latestData.imageUrl}`);
+            console.log(`[useMonitoring] ⚡ [${timestamp}] Fast loading frame ${frameSequence}/3: seq=${latestData.sequence}`);
             
             const queuedFrame: QueuedFrame = {
               timestamp: latestData.timestamp,
@@ -326,31 +327,63 @@ export const useMonitoring = ({
               sequence: latestData.sequence,
             };
 
-            // Phase 1: Fast JSON loading for immediate display
-            console.log(`[useMonitoring] ⚡ [${timestamp}] Loading JSON for frame ${frameSequence}...`);
+            // Fast JSON loading only
             await loadFrameJsonAsync(queuedFrame);
             
-            // Queue frame immediately after JSON load (ready for display)
-            setDisplayQueue(prev => {
-              const newQueue = [...prev, queuedFrame].slice(-10);
-              console.log(`[useMonitoring] ✅ [${timestamp}] Frame queued for display: seq=${latestData.sequence}, queue length=${newQueue.length}`);
-              return newQueue;
-            });
+            // Queue immediately
+            setDisplayQueue(prev => [...prev, queuedFrame]);
             setLastProcessedSequence(latestData.sequence);
             setCurrentImageUrl(latestData.imageUrl);
 
-            // Phase 2: Start background AI analysis for caching (non-blocking)
-            console.log(`[useMonitoring] 🤖 [${timestamp}] Starting background AI caching for frame ${frameSequence}...`);
+            // Start background AI (non-blocking)
             analyzeFrameAIAsync(queuedFrame).catch(error => {
-              console.warn('[useMonitoring] Background AI caching failed:', error);
+              console.warn('[useMonitoring] Background AI failed:', error);
             });
           }
           
-          // Check for new frames every 200ms (faster since we only wait for JSON)
-          await new Promise(resolve => setTimeout(resolve, 200));
+          // Small delay between initial frames
+          if (i < 2) await new Promise(resolve => setTimeout(resolve, 100));
+        } catch (error) {
+          console.error('[useMonitoring] Initial buffer error:', error);
+        }
+      }
+      
+      console.log('[useMonitoring] ✅ Fast initial buffer complete - player should be visible');
+      
+      // Phase 2: Normal operation - continue feeding queue
+      while (isRunning) {
+        try {
+          const latestData = await fetchLatestMonitoringData();
+          
+          if (latestData && latestData.sequence !== lastProcessedSequence) {
+            frameSequence++;
+            const timestamp = new Date().toISOString();
+            console.log(`[useMonitoring] 📦 [${timestamp}] Normal frame ${frameSequence}: seq=${latestData.sequence}`);
+            
+            const queuedFrame: QueuedFrame = {
+              timestamp: latestData.timestamp,
+              imageUrl: latestData.imageUrl,
+              jsonUrl: latestData.jsonUrl,
+              sequence: latestData.sequence,
+            };
+
+            await loadFrameJsonAsync(queuedFrame);
+            
+            setDisplayQueue(prev => [...prev, queuedFrame].slice(-10));
+            setLastProcessedSequence(latestData.sequence);
+            setCurrentImageUrl(latestData.imageUrl);
+
+            // Background AI caching
+            analyzeFrameAIAsync(queuedFrame).catch(error => {
+              console.warn('[useMonitoring] Background AI failed:', error);
+            });
+          }
+          
+          // Normal polling rate
+          await new Promise(resolve => setTimeout(resolve, 500));
         } catch (error) {
           console.error('[useMonitoring] Queue feeder error:', error);
-          await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1s on error
+          await new Promise(resolve => setTimeout(resolve, 1000));
         }
       }
     };
