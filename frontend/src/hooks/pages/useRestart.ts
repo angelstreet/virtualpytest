@@ -97,9 +97,9 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
             setProcessingTime(data.processing_time_seconds);
             setIsReady(true);
             
-            // Load analysis data from R2 if available
-            if (includeAudioAnalysis) {
-              loadAnalysisFromR2(data.video_url);
+            // Process analysis data if available
+            if (includeAudioAnalysis && data.analysis_data) {
+              processAnalysisData(data.analysis_data);
             }
           } else {
             setError(data.error || 'Video generation failed');
@@ -163,9 +163,9 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
           setIsReady(true);
           console.log(`[@hook:useRestart] Video ready in ${data.processing_time_seconds}s`);
           
-          // Load analysis data from R2 if available
-          if (includeAudioAnalysis) {
-            loadAnalysisFromR2(data.video_url);
+          // Process analysis data if available
+          if (includeAudioAnalysis && data.analysis_data) {
+            processAnalysisData(data.analysis_data);
           }
         } else {
           throw new Error(data.error || 'Video generation failed');
@@ -188,67 +188,36 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
     };
   }, []); // No dependencies - generate once only
 
-  // Load analysis data from R2 (stored by backend)
-  const loadAnalysisFromR2 = async (videoUrl: string) => {
+  // Process analysis data from backend response
+  const processAnalysisData = (data: any) => {
     try {
-      console.log('[@hook:useRestart] Loading analysis data from R2...');
+      console.log('[@hook:useRestart] Processing analysis data from backend:', data);
       
-      // Extract video filename to construct R2 key
-      const videoFilename = videoUrl.split('/').pop()?.replace('.mp4', '') || '';
-      const r2Key = `restart_analysis/${device.device_id}/${videoFilename}.json`;
-      
-      // Poll for analysis data (backend stores it asynchronously)
-      let attempts = 0;
-      const maxAttempts = 30; // 30 seconds max wait
-      
-      const pollForData = async (): Promise<void> => {
-        try {
-          const response = await fetch(`https://dev.virtualpytest.com/r2/${r2Key}`);
-          
-          if (response.ok) {
-            const analysisData = await response.json();
-            console.log('[@hook:useRestart] Analysis data loaded:', analysisData);
-            
-            // Extract audio analysis (already processed by backend)
-            if (analysisData.audio_analysis) {
-              setAnalysisResults(prev => ({
-                ...prev,
-                audio: {
-                  success: analysisData.audio_analysis.success,
-                  combined_transcript: analysisData.audio_analysis.combined_transcript || '',
-                  detected_language: analysisData.audio_analysis.detected_language || 'unknown',
-                  speech_detected: analysisData.audio_analysis.speech_detected || false,
-                  confidence: analysisData.audio_analysis.confidence || 0,
-                  execution_time_ms: 0, // Backend processing time
-                }
-              }));
-              setAnalysisProgress(prev => ({ ...prev, audio: 'completed' }));
-            }
-            
-            // Use screenshot URLs for frontend analysis
-            if (analysisData.screenshot_urls && analysisData.screenshot_urls.length > 0) {
-              // Trigger frontend analysis using existing routes
-              analyzeScreenshotsForSubtitles(analysisData.screenshot_urls);
-              analyzeScreenshotsForDescription(analysisData.screenshot_urls);
-            }
-            
-          } else if (attempts < maxAttempts) {
-            // Data not ready yet, wait and retry
-            attempts++;
-            setTimeout(pollForData, 1000);
-          } else {
-            console.log('[@hook:useRestart] Analysis data not found after 30s, skipping');
+      // Extract audio analysis if available
+      if (data.audio_analysis) {
+        setAnalysisResults(prev => ({
+          ...prev,
+          audio: {
+            success: data.audio_analysis.success,
+            combined_transcript: data.audio_analysis.combined_transcript || '',
+            detected_language: data.audio_analysis.detected_language || 'unknown',
+            speech_detected: data.audio_analysis.speech_detected || false,
+            confidence: data.audio_analysis.confidence || 0,
+            execution_time_ms: data.audio_analysis.execution_time_ms || 0,
           }
-        } catch (error) {
-          console.error('[@hook:useRestart] Error loading analysis data:', error);
-        }
-      };
+        }));
+        setAnalysisProgress(prev => ({ ...prev, audio: 'completed' }));
+      }
       
-      // Start polling
-      pollForData();
+      // Use screenshot URLs for frontend analysis if available
+      if (data.screenshot_urls && data.screenshot_urls.length > 0) {
+        // Trigger frontend analysis using existing routes
+        analyzeScreenshotsForSubtitles(data.screenshot_urls);
+        analyzeScreenshotsForDescription(data.screenshot_urls);
+      }
       
     } catch (error) {
-      console.error('[@hook:useRestart] Error setting up analysis data loading:', error);
+      console.error('[@hook:useRestart] Error processing analysis data:', error);
     }
   };
 
