@@ -1,88 +1,99 @@
-# Rolling Buffer Monitoring System
+# Two-Process Monitoring System
 
 ## Overview
 
-The autonomous monitoring system uses a **rolling buffer architecture** to achieve smooth 1 FPS display while performing AI analysis that takes ~3 seconds per frame.
+The autonomous monitoring system uses a **dual-process architecture** to achieve consistent 1 FPS display while performing AI analysis that takes ~4 seconds per frame.
 
 ## Architecture
 
 ### Core Concept
-- **Buffer Depth**: 3 frames ahead of display
-- **AI Processing Time**: ~3 seconds per frame
-- **Display Rate**: 1 FPS (1000ms intervals)
-- **Key Insight**: 3-frame buffer absorbs 3-second AI latency
+- **Process Separation**: Queue feeding and display consumption are completely independent
+- **AI Processing Time**: ~4-5 seconds per frame
+- **Display Rate**: Consistent 1 FPS (1000ms intervals)
+- **Key Insight**: Fast frame detection feeds queue, slow AI analysis runs in background
 
-## Implementation Flow
+## Two-Process Implementation
 
-### Phase 1: Initial Buffer (9 seconds)
+### Process 1: Queue Feeder (Background)
 ```
-Time 0-9s: Load Frame 1,2,3 + AI analysis in parallel
-├── Frame 1: Subtitle + Language Menu + Description analysis
-├── Frame 2: Subtitle + Language Menu + Description analysis  
-└── Frame 3: Subtitle + Language Menu + Description analysis
-Result: 3 frames ready for display after ~9 seconds
+Continuous Loop (200ms polling):
+├── Detect new frame → Queue immediately
+├── Start AI analysis in background (non-blocking)
+└── Repeat without waiting for AI completion
+
+Result: Queue always fed by fast frame detection (~200ms)
 ```
 
-### Phase 2: Rolling Display (1 FPS sustained)
+### Process 2: Display Consumer (1 FPS Timer)
 ```
-Time 9s:  Display Frame 1 → Start Frame 4 AI (completes at 12s)
-Time 10s: Display Frame 2 → Start Frame 5 AI (completes at 13s)  
-Time 11s: Display Frame 3 → Start Frame 6 AI (completes at 14s)
-Time 12s: Display Frame 4 → Start Frame 7 AI (completes at 15s)
-...continues indefinitely...
+1000ms Timer:
+├── Take next frame from queue
+├── Display frame immediately
+└── Never wait for AI completion
+
+Result: Consistent 1 FPS regardless of AI processing time
 ```
 
 ## Technical Details
 
-### AI Analysis Components
+### Process 3: Background AI Analysis (Asynchronous)
 Each frame undergoes 3 parallel AI analyses:
 1. **Subtitle Detection** (`/detectSubtitlesAI`) - ~1.6-2.2s
 2. **Language Menu Analysis** (`/analyzeLanguageMenu`) - ~1.6-2.1s  
 3. **Image Description** (`/analyzeImageAI`) - ~1.3-2.8s
 
-**Total Time**: ~2-3 seconds (parallel execution)
+**Total Time**: ~4-5 seconds (parallel execution + JSON loading)
 
-### Buffer Management
-- **Display Queue**: Holds completed frames ready for display
-- **Processing**: Each display triggers next frame AI analysis
-- **Rolling**: Always maintains 3 frames ahead of current display
+### Queue Management
+- **Display Queue**: Holds frames ready for display (max 10 frames)
+- **Frame Detection**: 200ms polling rate (5 FPS detection)
+- **Display Rate**: 1000ms intervals (1 FPS consumption)
+- **AI Updates**: Results applied asynchronously when ready
 
 ### Performance Metrics
-- **First Display**: 9 seconds (initial buffer fill)
-- **Sustained Rate**: 1 FPS (1000ms intervals)
-- **Buffer Efficiency**: 100% (never starves due to 3-frame lead)
+- **First Display**: 1 second (initial loading buffer)
+- **Sustained Rate**: 1 FPS (guaranteed by queue separation)
+- **Queue Efficiency**: Never empty (5 FPS feeding vs 1 FPS consumption)
 
 ## Code Structure
 
 ### Key Components
-- `useMonitoring.ts` - Main hook with rolling buffer logic
-- `analyzeFrame()` - Parallel AI analysis function with timing
-- `initializeBuffer()` - Initial 3-frame parallel loading
-- `displayInterval` - 1000ms display loop with next frame trigger
+- `useMonitoring.ts` - Main hook with dual-process architecture
+- `analyzeFrameAsync()` - Background AI analysis (non-blocking)
+- `queueFeederLoop()` - Continuous frame detection and queuing
+- `displayInterval` - 1000ms display consumer
 
-### Timing Measurements
+### Process Flow
 ```javascript
-console.log(`✅ Frame analysis completed in ${totalTime}ms (JSON: ${jsonTime}ms, AI: ${aiTime}ms)`)
-console.log(`📊 Display queue length: ${prev.length}`)
-console.log(`🎬 Displaying frame: ${nextFrame.imageUrl}`)
+// Process 1: Queue Feeder
+queueFeederLoop() → fetchLatestMonitoringData() → queue immediately → analyzeFrameAsync()
+
+// Process 2: Display Consumer  
+displayInterval → consume from queue → display frame
+
+// Process 3: AI Analysis
+analyzeFrameAsync() → update frames when ready
 ```
 
 ## Benefits
 
-1. **Smooth Playback**: True 1 FPS without stuttering
-2. **Autonomous**: No manual button presses required
-3. **Efficient**: Parallel processing maximizes throughput
-4. **Scalable**: Buffer depth can be adjusted for different AI latencies
-5. **Robust**: Handles AI failures gracefully (continues with available data)
+1. **Consistent Performance**: True 1 FPS guaranteed by process separation
+2. **Autonomous**: No manual intervention required
+3. **Non-blocking**: AI analysis never blocks display pipeline
+4. **Scalable**: Queue absorbs any AI processing variance
+5. **Elegant**: Simple, clean architecture without fallbacks
 
 ## Frame Data Structure
 
 Each frame contains:
 ```typescript
-interface FrameRef {
+interface QueuedFrame {
   timestamp: string;           // ISO 8601 from MCM metadata
   imageUrl: string;           // Capture image URL
   jsonUrl: string;            // MCM analysis JSON URL
+  sequence: string;           // Frame sequence number
+  // AI analysis added asynchronously:
+  analysis?: MonitoringAnalysis | null;
   subtitleAnalysis?: SubtitleAnalysis | null;
   languageMenuAnalysis?: LanguageMenuAnalysis | null;
   aiDescription?: string | null;
@@ -93,32 +104,30 @@ interface FrameRef {
 
 ### MonitoringPlayer
 - Displays current frame image
-- Shows AI description overlay (top-centered, 2 lines max)
-- Removed manual detection buttons (fully autonomous)
+- Shows AI description overlay (when available)
+- Fully autonomous operation
 
 ### MonitoringOverlay  
-- Shows subtitle analysis results
-- Shows language menu detection results
-- Displays timestamp from MCM metadata (HH:MM:SS format)
+- Shows subtitle analysis results (when available)
+- Shows language menu detection results (when available)
+- Displays timestamp from MCM metadata
 
 ## Performance Optimization
 
-The rolling buffer ensures:
+The dual-process architecture ensures:
 - **No blocking**: Display never waits for AI completion
-- **Continuous processing**: Always 3 frames being analyzed
-- **Memory efficient**: Maintains only necessary frames in memory
+- **Continuous feeding**: Queue always populated by fast detection
+- **Memory efficient**: Max 10 frames in queue, 100 in history
 - **Predictable timing**: Consistent 1 FPS regardless of AI variance
 
 ## Monitoring Logs
 
 Key log patterns to watch:
 ```
-🚀 Initializing 3-frame buffer...
-📦 Processing frame 1: capture_48919.jpg
-✅ Frame analysis completed in 2847ms (JSON: 45ms, AI: 2802ms)
-✅ Buffer initialized with 3 frames in 9000ms
+🔄 Starting queue feeder process...
+📦 New frame 1: capture_48919.jpg
 🎬 Displaying frame: capture_48919.jpg
-➕ Added frame to queue: capture_48941.jpg
+✅ Background AI analysis completed in 4718ms (JSON: 12ms, AI: 4706ms)
 ```
 
-This architecture provides smooth, autonomous monitoring with AI-enhanced analysis at true 1 FPS performance.
+This architecture provides smooth, autonomous monitoring with AI-enhanced analysis at guaranteed 1 FPS performance.

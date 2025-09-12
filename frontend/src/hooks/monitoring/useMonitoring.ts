@@ -335,9 +335,8 @@ export const useMonitoring = ({
           
           if (latestData && latestData.sequence !== lastProcessedSequence) {
             frameSequence++;
-            console.log(`[useMonitoring] 📦 Queue feeder: New frame detected ${frameSequence}:`, latestData.imageUrl);
+            console.log(`[useMonitoring] 📦 New frame ${frameSequence}:`, latestData.imageUrl);
             
-            // Create queued frame immediately (no waiting for AI)
             const queuedFrame: QueuedFrame = {
               timestamp: latestData.timestamp,
               imageUrl: latestData.imageUrl,
@@ -345,12 +344,9 @@ export const useMonitoring = ({
               sequence: latestData.sequence,
             };
 
-            // Add to queue immediately
-            setDisplayQueue(prev => [...prev, queuedFrame].slice(-10)); // Keep max 10 frames in queue
+            setDisplayQueue(prev => [...prev, queuedFrame].slice(-10));
             setLastProcessedSequence(latestData.sequence);
             setCurrentImageUrl(latestData.imageUrl);
-
-            console.log(`[useMonitoring] ➕ Frame queued immediately:`, queuedFrame.imageUrl);
 
             // Start AI analysis in background (non-blocking)
             analyzeFrameAsync(queuedFrame).catch(error => {
@@ -380,17 +376,12 @@ export const useMonitoring = ({
 
     const displayInterval = setInterval(() => {
       setDisplayQueue(prev => {
-        console.log(`[useMonitoring] 📊 Display consumer: Queue length: ${prev.length}`);
-        
-        if (prev.length === 0) {
-          console.log(`[useMonitoring] ⚠️ Display queue empty - showing placeholder or last frame`);
-          return prev;
-        }
+        if (prev.length === 0) return prev;
 
         const [nextFrame, ...rest] = prev;
-        console.log(`[useMonitoring] 🎬 Display consumer: Showing frame:`, nextFrame.imageUrl);
+        console.log(`[useMonitoring] 🎬 Displaying frame:`, nextFrame.imageUrl);
         
-        // Convert QueuedFrame to FrameRef for frames array
+        // Convert QueuedFrame to FrameRef and add to frames array
         const frameRef: FrameRef = {
           timestamp: nextFrame.timestamp,
           imageUrl: nextFrame.imageUrl,
@@ -401,16 +392,15 @@ export const useMonitoring = ({
           aiDescription: nextFrame.aiDescription,
         };
 
-        // Add to frames array and update current index
         setFrames(current => {
-          const newFrames = [...current, frameRef].slice(-100); // Keep last 100 frames
+          const newFrames = [...current, frameRef].slice(-100);
           setCurrentIndex(newFrames.length - 1);
           return newFrames;
         });
 
         return rest;
       });
-    }, 1000); // Consistent 1 FPS display
+    }, 1000);
 
     return () => clearInterval(displayInterval);
   }, [isInitialLoading]);
