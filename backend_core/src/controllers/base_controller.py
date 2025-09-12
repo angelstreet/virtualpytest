@@ -554,8 +554,15 @@ class FFmpegCaptureController(AVControllerInterface):
                     # Initialize AudioAI helpers (same as ZapController)
                     audio_ai = AudioAIHelpers(self, f"RestartVideo-{self.device_name}")
                     
-                    # Get recent audio segments (same as ZapController)
-                    audio_files = audio_ai.get_recent_audio_segments(segment_count=3)
+                    # Use the SAME segments that were used for video generation (for synchronization)
+                    # For restart video, analyze the FULL duration (same as video), not just 3s like zap controller
+                    video_segment_files_for_audio = segment_files  # Use ALL video segments for audio analysis
+                    
+                    print(f"[RestartVideo] Using SAME {len(video_segment_files_for_audio)} segments for audio as video ({duration_seconds}s):")
+                    for i, (filename, _) in enumerate(video_segment_files_for_audio):
+                        print(f"[RestartVideo] Audio segment {i+1}: {filename}")
+                    
+                    audio_files = audio_ai.extract_audio_from_segments(video_segment_files_for_audio, segment_count=len(video_segment_files_for_audio))
                     
                     if not audio_files:
                         return {
