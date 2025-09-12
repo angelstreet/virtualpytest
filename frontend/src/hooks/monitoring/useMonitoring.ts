@@ -341,42 +341,54 @@ export const useMonitoring = ({
       setDisplayQueue(prev => [...prev, ...completedFrames]);
     };
 
-    // Display frames and trigger next frame processing
-    const displayInterval = setInterval(async () => {
-      setDisplayQueue(prev => {
-        console.log(`[useMonitoring] 📊 Display queue length: ${prev.length}`);
-        if (prev.length === 0) {
-          console.log(`[useMonitoring] ⚠️ Display queue empty - waiting for AI analysis to complete`);
-          return prev;
-        }
-        const [nextFrame, ...rest] = prev;
-        
-        console.log(`[useMonitoring] 🎬 Displaying frame:`, nextFrame.imageUrl);
-        
-        setFrames(current => {
-          const newFrames = [...current, nextFrame].slice(-100);
-          setCurrentIndex(newFrames.length - 1);
-          return newFrames;
-        });
-
-        // Immediately start processing next frame (rolling buffer)
-        processNextFrame().then(newFrame => {
-          if (newFrame) {
-            console.log(`[useMonitoring] ➕ Added frame to queue:`, newFrame.imageUrl);
-            setDisplayQueue(queue => [...queue, newFrame]);
-          } else {
-            console.log(`[useMonitoring] ❌ No new frame available`);
+    // Initialize buffer first, then start display interval
+    const initializeAndStart = async () => {
+      console.log('[useMonitoring] 🚀 Starting initial buffer fill...');
+      await initializeBuffer();
+      console.log('[useMonitoring] ✅ Initial buffer complete - starting 1 FPS display');
+      
+      // Only start display interval AFTER initial buffer is complete
+      const displayInterval = setInterval(async () => {
+        setDisplayQueue(prev => {
+          console.log(`[useMonitoring] 📊 Display queue length: ${prev.length}`);
+          if (prev.length === 0) {
+            console.log(`[useMonitoring] ⚠️ Display queue empty - waiting for AI analysis to complete`);
+            return prev;
           }
-        });
-        
-        return rest;
-      });
-    }, 1000); // True 1 FPS - rolling buffer absorbs AI latency
+          const [nextFrame, ...rest] = prev;
+          
+          console.log(`[useMonitoring] 🎬 Displaying frame:`, nextFrame.imageUrl);
+          
+          setFrames(current => {
+            const newFrames = [...current, nextFrame].slice(-100);
+            setCurrentIndex(newFrames.length - 1);
+            return newFrames;
+          });
 
-    initializeBuffer();
+          // Immediately start processing next frame (rolling buffer)
+          processNextFrame().then(newFrame => {
+            if (newFrame) {
+              console.log(`[useMonitoring] ➕ Added frame to queue:`, newFrame.imageUrl);
+              setDisplayQueue(queue => [...queue, newFrame]);
+            } else {
+              console.log(`[useMonitoring] ❌ No new frame available`);
+            }
+          });
+          
+          return rest;
+        });
+      }, 1000); // True 1 FPS - rolling buffer absorbs AI latency
+
+      return displayInterval;
+    };
+
+    let displayInterval: NodeJS.Timeout;
+    initializeAndStart().then(interval => {
+      displayInterval = interval;
+    });
 
     return () => {
-      clearInterval(displayInterval);
+      if (displayInterval) clearInterval(displayInterval);
     };
   }, [isInitialLoading, fetchLatestMonitoringData, analyzeFrame]);
 
