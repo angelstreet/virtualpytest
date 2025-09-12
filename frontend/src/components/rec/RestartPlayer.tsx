@@ -5,7 +5,6 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useRestart } from '../../hooks/pages/useRestart';
 import { Host, Device } from '../../types/common/Host_Types';
 
-import { RestartOverlay } from './RestartOverlay';
 import { RestartSettingsPanel } from './RestartSettingsPanel';
 import { RestartSummaryOverlay } from './RestartSummaryOverlay';
 import { RestartSubtitleOverlay } from './RestartSubtitleOverlay';
@@ -133,13 +132,6 @@ export const RestartPlayer: React.FC<RestartPlayerProps> = ({ host, device, incl
           pointerEvents: 'none',
         }}
       >
-        <RestartOverlay
-          timestamp={
-            isReady && processingTime
-              ? `Generated in ${processingTime}s`
-              : undefined
-          }
-        />
 
         {/* Summary overlay - top */}
         {showSummaryOverlay && analysisResults.videoDescription && (
@@ -168,14 +160,18 @@ export const RestartPlayer: React.FC<RestartPlayerProps> = ({ host, device, incl
             variant="determinate" 
             value={(() => {
               const completed = Object.values(analysisProgress).filter(status => status === 'completed').length;
-              return (completed / 3) * 100;
+              const errors = Object.values(analysisProgress).filter(status => status === 'error').length;
+              return ((completed + errors) / 3) * 100;
             })()}
             sx={{ 
               height: 6, 
               borderRadius: 3,
               backgroundColor: 'rgba(255,255,255,0.2)',
               '& .MuiLinearProgress-bar': {
-                backgroundColor: '#00AA00',
+                backgroundColor: (() => {
+                  const errors = Object.values(analysisProgress).filter(status => status === 'error').length;
+                  return errors > 0 ? '#FF6B6B' : '#00AA00';
+                })(),
                 borderRadius: 3,
                 transition: 'transform 0.4s ease-in-out'
               }

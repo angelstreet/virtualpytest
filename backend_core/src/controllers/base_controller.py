@@ -675,19 +675,33 @@ class FFmpegCaptureController(AVControllerInterface):
                     
                     # Store in R2 for frontend access
                     try:
-                        from shared.lib.utils.r2_utils import upload_json_to_r2
+                        import json
+                        import tempfile
+                        from shared.lib.utils.cloudflare_utils import get_cloudflare_utils
                         
                         video_filename = os.path.basename(video_url).replace('.mp4', '')
                         r2_key = f"restart_analysis/{self.device_name}/{video_filename}.json"
                         
-                        upload_result = upload_json_to_r2(analysis_data, r2_key)
-                        if upload_result['success']:
+                        # Create temporary JSON file
+                        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as temp_file:
+                            json.dump(analysis_data, temp_file, indent=2)
+                            temp_json_path = temp_file.name
+                        
+                        # Upload using existing cloudflare_utils pattern
+                        uploader = get_cloudflare_utils()
+                        file_mappings = [{'local_path': temp_json_path, 'remote_path': r2_key}]
+                        upload_result = uploader.upload_files(file_mappings)
+                        
+                        # Clean up temp file
+                        os.unlink(temp_json_path)
+                        
+                        if upload_result.get('uploaded_files'):
                             print(f"[RestartVideo] Analysis data stored in R2: {r2_key}")
                             if audio_result.get('combined_transcript'):
                                 transcript_preview = audio_result['combined_transcript'][:100] + "..." if len(audio_result['combined_transcript']) > 100 else audio_result['combined_transcript']
                                 print(f"[RestartVideo] Audio transcript: '{transcript_preview}'")
                         else:
-                            print(f"[RestartVideo] Failed to store analysis data: {upload_result.get('error')}")
+                            print(f"[RestartVideo] Failed to store analysis data: {upload_result.get('failed_uploads', [])}")
                     except Exception as e:
                         print(f"[RestartVideo] R2 upload error: {e}")
                         
