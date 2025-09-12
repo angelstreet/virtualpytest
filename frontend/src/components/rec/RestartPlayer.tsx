@@ -1,14 +1,14 @@
 import { Box, Typography, CircularProgress, Alert, IconButton, LinearProgress } from '@mui/material';
-import { Description as DescriptionIcon, Subtitles as SubtitlesIcon, VolumeUp as AudioIcon, OpenInNew } from '@mui/icons-material';
+import { Settings as SettingsIcon } from '@mui/icons-material';
 import React, { useEffect, useRef, useState } from 'react';
 
 import { useRestart } from '../../hooks/pages/useRestart';
 import { Host, Device } from '../../types/common/Host_Types';
 
 import { RestartOverlay } from './RestartOverlay';
-import { SubtitleOverlay } from './SubtitleOverlay';
-import { SubtitleSettings, SubtitleStyle } from './SubtitleSettings';
-import { VideoDescriptionPanel } from './VideoDescriptionPanel';
+import { RestartSettingsPanel } from './RestartSettingsPanel';
+import { RestartSummaryOverlay } from './RestartSummaryOverlay';
+import { RestartSubtitleOverlay } from './RestartSubtitleOverlay';
 
 interface RestartPlayerProps {
   host: Host;
@@ -21,15 +21,10 @@ export const RestartPlayer: React.FC<RestartPlayerProps> = ({ host, device, incl
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [subtitleSettings, setSubtitleSettings] = useState<SubtitleStyle>({
-    fontSize: 'medium',
-    fontFamily: 'default',
-    textStyle: 'white',
-    opacity: 1.0,
-    showOriginal: true,
-    showTranslation: false,
-    targetLanguage: 'en'
-  });
+  const [showSummaryOverlay, setShowSummaryOverlay] = useState(false);
+  const [showSubtitleOverlay, setShowSubtitleOverlay] = useState(false);
+  const [summaryLanguage, setSummaryLanguage] = useState('en');
+  const [subtitleLanguage, setSubtitleLanguage] = useState('en');
   
   const { videoUrl, isGenerating, isReady, error, processingTime, audioAnalysis, subtitleAnalysis, videoDescription, analysisProgress, isAnalysisComplete } = useRestart({ 
     host, 
@@ -144,22 +139,27 @@ export const RestartPlayer: React.FC<RestartPlayerProps> = ({ host, device, incl
           }
         />
 
-        {/* Subtitle overlay - only show if subtitle analysis is complete */}
-        {subtitleAnalysis && subtitleAnalysis.subtitles_detected && (
-          <SubtitleOverlay
-            transcript={subtitleAnalysis.extracted_text}
-            detectedLanguage={subtitleAnalysis.detected_language}
-            speechDetected={subtitleAnalysis.subtitles_detected}
+        {/* Summary overlay - top */}
+        {showSummaryOverlay && videoDescription && (
+          <RestartSummaryOverlay
             videoRef={videoRef}
-            videoDuration={10}
-            subtitleSettings={subtitleSettings}
+            frameDescriptions={videoDescription.frame_descriptions}
+            language={summaryLanguage}
+          />
+        )}
+
+        {/* Subtitle overlay - bottom, covers original */}
+        {showSubtitleOverlay && subtitleAnalysis?.extracted_text && (
+          <RestartSubtitleOverlay
+            subtitleText={subtitleAnalysis.extracted_text}
+            language={subtitleLanguage}
           />
         )}
       </Box>
 
-      {/* Analysis Progress Bar (top-right, like Heatmap) */}
+      {/* Analysis Progress Bar (top-right, animated) */}
       {includeAudioAnalysis && !isAnalysisComplete && (
-        <Box sx={{ position: 'absolute', top: 16, right: 16, zIndex: 1000030, minWidth: 120 }}>
+        <Box sx={{ position: 'absolute', top: 16, right: 16, zIndex: 1000030, width: 100 }}>
           <LinearProgress 
             variant="determinate" 
             value={(() => {
@@ -167,114 +167,51 @@ export const RestartPlayer: React.FC<RestartPlayerProps> = ({ host, device, incl
               return (completed / 3) * 100;
             })()}
             sx={{ 
-              height: 4, 
-              borderRadius: 2,
-              backgroundColor: 'rgba(255,255,255,0.3)',
+              height: 6, 
+              borderRadius: 3,
+              backgroundColor: 'rgba(255,255,255,0.2)',
               '& .MuiLinearProgress-bar': {
-                backgroundColor: '#00AA00'
+                backgroundColor: '#00AA00',
+                borderRadius: 3,
+                transition: 'transform 0.4s ease-in-out'
               }
             }}
           />
-          <Typography variant="caption" sx={{ color: 'white', fontSize: '0.7rem', display: 'block', textAlign: 'center', mt: 0.5 }}>
-            Analyzing... {Object.values(analysisProgress).filter(status => status === 'completed').length}/3
-          </Typography>
         </Box>
       )}
 
-      {/* Analysis Settings Icons (appear when complete, like Heatmap report icon) */}
+      {/* Settings Button (appears when analysis complete) */}
       {isAnalysisComplete && (
-        <Box sx={{ position: 'absolute', top: 16, right: 16, zIndex: 1000030, display: 'flex', gap: 1 }}>
-          {/* Audio Settings */}
-          {audioAnalysis && (
-            <IconButton
-              size="small"
-              sx={{
-                backgroundColor: 'rgba(0, 0, 0, 0.7)',
-                color: '#ffffff',
-                '&:hover': { backgroundColor: 'rgba(0, 0, 0, 0.9)' },
-              }}
-              title="Audio Analysis"
-            >
-              <AudioIcon fontSize="small" />
-            </IconButton>
-          )}
-          
-          {/* Subtitle Settings */}
-          {subtitleAnalysis && (
-            <IconButton
-              onClick={() => setSettingsOpen(true)}
-              size="small"
-              sx={{
-                backgroundColor: 'rgba(0, 0, 0, 0.7)',
-                color: '#ffffff',
-                '&:hover': { backgroundColor: 'rgba(0, 0, 0, 0.9)' },
-              }}
-              title="Subtitle Settings"
-            >
-              <SubtitlesIcon fontSize="small" />
-            </IconButton>
-          )}
-          
-          {/* Description Panel */}
-          {videoDescription && (
-            <IconButton
-              size="small"
-              sx={{
-                backgroundColor: 'rgba(0, 0, 0, 0.7)',
-                color: '#ffffff',
-                '&:hover': { backgroundColor: 'rgba(0, 0, 0, 0.9)' },
-              }}
-              title="Video Description"
-            >
-              <DescriptionIcon fontSize="small" />
-            </IconButton>
-          )}
-          
-          {/* Report Link (future feature, like Heatmap) */}
-          <IconButton
-            size="small"
-            sx={{
-              backgroundColor: 'rgba(0, 0, 0, 0.7)',
-              color: '#ffffff',
-              '&:hover': { backgroundColor: 'rgba(0, 0, 0, 0.9)' },
-            }}
-            title="View Report"
-          >
-            <OpenInNew fontSize="small" />
-          </IconButton>
-        </Box>
-      )}
-
-      {/* Subtitle Settings Modal */}
-      <SubtitleSettings
-        open={settingsOpen}
-        onClose={() => setSettingsOpen(false)}
-        settings={subtitleSettings}
-        onSettingsChange={setSubtitleSettings}
-        originalLanguage={subtitleAnalysis?.detected_language}
-      />
-
-      {/* Processing time indicator - top */}
-      {isReady && processingTime && (
-        <Box
+        <IconButton
+          onClick={() => setSettingsOpen(true)}
           sx={{
             position: 'absolute',
             top: 16,
-            left: 16,
-            zIndex: 1000010,
-            backgroundColor: 'rgba(0,0,0,0.7)',
-            borderRadius: 1,
-            px: 2,
-            py: 1,
+            right: 16,
+            zIndex: 1000030,
+            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+            color: '#ffffff',
+            '&:hover': { backgroundColor: 'rgba(0, 0, 0, 0.9)' },
           }}
         >
-        </Box>
+          <SettingsIcon />
+        </IconButton>
       )}
 
-      {/* Video Description Panel */}
-      <VideoDescriptionPanel
-        videoDescription={videoDescription || undefined}
-        framesAnalyzed={10}
+      {/* Settings Panel */}
+      <RestartSettingsPanel
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        showSummaryOverlay={showSummaryOverlay}
+        onToggleSummary={setShowSummaryOverlay}
+        showSubtitleOverlay={showSubtitleOverlay}
+        onToggleSubtitle={setShowSubtitleOverlay}
+        summaryLanguage={summaryLanguage}
+        onSummaryLanguageChange={setSummaryLanguage}
+        subtitleLanguage={subtitleLanguage}
+        onSubtitleLanguageChange={setSubtitleLanguage}
+        videoDescription={videoDescription?.video_summary}
+        audioTranscript={audioAnalysis?.transcript}
       />
     </Box>
   );
