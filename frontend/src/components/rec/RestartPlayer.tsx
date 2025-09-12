@@ -1,20 +1,27 @@
 import { Box, Typography, CircularProgress, Alert } from '@mui/material';
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 
 import { useRestart } from '../../hooks/pages/useRestart';
 import { Host, Device } from '../../types/common/Host_Types';
 
 import { RestartOverlay } from './RestartOverlay';
+import { SubtitleOverlay } from './SubtitleOverlay';
 
 interface RestartPlayerProps {
   host: Host;
   device: Device;
+  includeAudioAnalysis?: boolean;
 }
 
-export const RestartPlayer: React.FC<RestartPlayerProps> = ({ host, device }) => {
+export const RestartPlayer: React.FC<RestartPlayerProps> = ({ host, device, includeAudioAnalysis }) => {
   console.log(`[@component:RestartPlayer] Component mounting for ${host.host_name}-${device.device_id}`);
   
-  const { videoUrl, isGenerating, isReady, error, processingTime } = useRestart({ host, device });
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const { videoUrl, isGenerating, isReady, error, processingTime, transcript, detectedLanguage, speechDetected } = useRestart({ 
+    host, 
+    device, 
+    includeAudioAnalysis 
+  });
 
   useEffect(() => {
     return () => {
@@ -85,6 +92,7 @@ export const RestartPlayer: React.FC<RestartPlayerProps> = ({ host, device }) =>
       {isReady && videoUrl && !isGenerating && (
         <Box
           component="video"
+          ref={videoRef}
           src={videoUrl}
           controls
           autoPlay
@@ -120,6 +128,15 @@ export const RestartPlayer: React.FC<RestartPlayerProps> = ({ host, device }) =>
               ? `Generated in ${processingTime}s`
               : undefined
           }
+        />
+
+        {/* Subtitle overlay */}
+        <SubtitleOverlay
+          transcript={transcript}
+          detectedLanguage={detectedLanguage}
+          speechDetected={speechDetected}
+          videoRef={videoRef}
+          videoDuration={30}
         />
       </Box>
 

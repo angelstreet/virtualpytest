@@ -627,7 +627,7 @@ const RecHostStreamModalContent: React.FC<{
                 baseUrlPattern={baseUrlPatterns.get(`${host.host_name}-${device?.device_id}`)}
               />
             ) : restartMode && isControlActive ? (
-              <RestartPlayer host={host} device={device!} />
+              <RestartPlayer host={host} device={device!} includeAudioAnalysis={true} />
             ) : streamUrl ? (
               // Check if this is a VNC device - use iframe instead of HLS player
               device?.device_model === 'host_vnc' ? (
