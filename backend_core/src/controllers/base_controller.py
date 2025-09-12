@@ -546,173 +546,155 @@ class FFmpegCaptureController(AVControllerInterface):
             
             print(f"{self.capture_source}[{self.capture_source}]: Restart video available at: {video_url}")
             
-            # FAST RETURN: Video URL immediately available
+            # Return video URL only if no analysis requested
             if not include_audio_analysis:
                 return video_url
             
-            # Background parallel analysis (3 analyses in parallel)
-            import concurrent.futures
-            import threading
+            # SYNCHRONOUS ANALYSIS: Process immediately and return complete results
+            print(f"[RestartVideo] Starting synchronous analysis for {video_url}")
             
-            # Background analysis using existing screenshots and local audio processing
-            def background_analysis():
+            # 1. Get audio transcript locally (same method as ZapController)
+            def get_audio_transcript_locally():
                 try:
-                    print(f"[RestartVideo] Starting background analysis for {video_url}")
+                    from backend_core.src.controllers.verification.audio_ai_helpers import AudioAIHelpers
                     
-                    # 1. Get audio transcript locally (same method as ZapController)
-                    def get_audio_transcript_locally():
-                        try:
-                            from backend_core.src.controllers.verification.audio_ai_helpers import AudioAIHelpers
-                            
-                            # Initialize AudioAI helpers (same as ZapController)
-                            audio_ai = AudioAIHelpers(self, f"RestartVideo-{self.device_name}")
-                            
-                            # Get recent audio segments (same as ZapController)
-                            audio_files = audio_ai.get_recent_audio_segments(segment_count=3)
-                            
-                            if not audio_files:
-                                return {
-                                    'success': True,
-                                    'speech_detected': False,
-                                    'combined_transcript': '',
-                                    'detected_language': 'unknown'
-                                }
-                            
-                            # Analyze with AI (same as ZapController) - returns results immediately
-                            audio_analysis = audio_ai.analyze_audio_segments_ai(audio_files, upload_to_r2=True, early_stop=True)
-                            
-                            if not audio_analysis.get('success'):
-                                return {
-                                    'success': False,
-                                    'speech_detected': False,
-                                    'combined_transcript': '',
-                                    'detected_language': 'unknown'
-                                }
-                            
-                            # Extract results immediately (same as ZapController)
-                            return {
-                                'success': True,
-                                'speech_detected': audio_analysis.get('successful_segments', 0) > 0,
-                                'combined_transcript': audio_analysis.get('combined_transcript', ''),
-                                'detected_language': audio_analysis.get('detected_language', 'unknown'),
-                                'confidence': audio_analysis.get('confidence', 0.0),
-                                'segments_analyzed': audio_analysis.get('segments_analyzed', 0)
-                            }
-                            
-                        except Exception as e:
-                            print(f"[RestartVideo] Audio analysis error: {e}")
-                            return {
-                                'success': False,
-                                'speech_detected': False,
-                                'combined_transcript': '',
-                                'detected_language': 'unknown',
-                                'error': str(e)
-                            }
+                    # Initialize AudioAI helpers (same as ZapController)
+                    audio_ai = AudioAIHelpers(self, f"RestartVideo-{self.device_name}")
                     
-                    # 2. Get screenshot URLs from the video recording period
-                    def get_video_screenshots():
-                        try:
-                            capture_folder = f"{self.video_capture_path}/captures"
-                            import glob, os
-                            
-                            # Find screenshots from the last 15 seconds (covers video recording period)
-                            pattern = os.path.join(capture_folder, "capture_*.jpg")
-                            screenshots = glob.glob(pattern)
-                            
-                            if not screenshots:
-                                return []
-                            
-                            # Sort by modification time, get last 15 screenshots (covers 10s video + buffer)
-                            recent_screenshots = sorted(screenshots, key=os.path.getmtime)[-15:]
-                            
-                            # Convert to web URLs for frontend
-                            screenshot_urls = []
-                            for screenshot_path in recent_screenshots:
-                                filename = os.path.basename(screenshot_path)
-                                # Convert to web URL: /host/stream/capture1/captures/capture_0001.jpg
-                                screenshot_url = f"/host/stream/{self.device_name}/captures/{filename}"
-                                screenshot_urls.append(screenshot_url)
-                            
-                            print(f"[RestartVideo] Found {len(screenshot_urls)} screenshots for analysis")
-                            return screenshot_urls
-                            
-                        except Exception as e:
-                            print(f"[RestartVideo] Screenshot collection error: {e}")
-                            return []
+                    # Get recent audio segments (same as ZapController)
+                    audio_files = audio_ai.get_recent_audio_segments(segment_count=3)
                     
-                    # Get both audio and screenshot data locally
-                    audio_result = get_audio_transcript_locally()
-                    screenshot_urls = get_video_screenshots()
+                    if not audio_files:
+                        return {
+                            'success': True,
+                            'speech_detected': False,
+                            'combined_transcript': '',
+                            'detected_language': 'unknown',
+                            'confidence': 0.0,
+                            'segments_analyzed': 0
+                        }
                     
-                    # Store complete analysis results in R2 for frontend access
-                    from datetime import datetime
-                    analysis_data = {
-                        'video_url': video_url,
-                        'timestamp': time.time(),
-                        'created_at': datetime.now().isoformat(),
-                        'screenshot_urls': screenshot_urls,
-                        'audio_analysis': {
-                            'success': audio_result.get('success', False),
-                            'speech_detected': audio_result.get('speech_detected', False),
-                            'combined_transcript': audio_result.get('combined_transcript', ''),
-                            'detected_language': audio_result.get('detected_language', 'unknown'),
-                            'confidence': audio_result.get('confidence', 0.0),
-                            'segments_analyzed': audio_result.get('segments_analyzed', 0),
-                            'execution_time_ms': 0  # Will be set by frontend analysis
-                        },
-                        'video_analysis': {
-                            'success': len(screenshot_urls) > 0,
-                            'frames_available': len(screenshot_urls),
-                            'execution_time_ms': 0  # Will be set by frontend analysis
-                        },
-                        'subtitle_analysis': {
-                            'success': len(screenshot_urls) > 0,
-                            'frames_available': len(screenshot_urls),
-                            'execution_time_ms': 0  # Will be set by frontend analysis
-                        },
-                        'analysis_complete': True
+                    # Analyze with AI (same as ZapController) - returns results immediately
+                    audio_analysis = audio_ai.analyze_audio_segments_ai(audio_files, upload_to_r2=True, early_stop=True)
+                    
+                    if not audio_analysis.get('success'):
+                        return {
+                            'success': False,
+                            'speech_detected': False,
+                            'combined_transcript': '',
+                            'detected_language': 'unknown',
+                            'confidence': 0.0,
+                            'segments_analyzed': 0
+                        }
+                    
+                    # Extract results immediately (same as ZapController)
+                    return {
+                        'success': True,
+                        'speech_detected': audio_analysis.get('successful_segments', 0) > 0,
+                        'combined_transcript': audio_analysis.get('combined_transcript', ''),
+                        'detected_language': audio_analysis.get('detected_language', 'unknown'),
+                        'confidence': audio_analysis.get('confidence', 0.0),
+                        'segments_analyzed': audio_analysis.get('segments_analyzed', 0)
                     }
                     
-                    # Store in R2 for frontend access
-                    try:
-                        import json
-                        import tempfile
-                        from shared.lib.utils.cloudflare_utils import get_cloudflare_utils
-                        
-                        video_filename = os.path.basename(video_url).replace('.mp4', '')
-                        r2_key = f"restart_analysis/{self.device_name}/{video_filename}.json"
-                        
-                        # Create temporary JSON file
-                        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as temp_file:
-                            json.dump(analysis_data, temp_file, indent=2)
-                            temp_json_path = temp_file.name
-                        
-                        # Upload using existing cloudflare_utils pattern
-                        uploader = get_cloudflare_utils()
-                        file_mappings = [{'local_path': temp_json_path, 'remote_path': r2_key}]
-                        upload_result = uploader.upload_files(file_mappings)
-                        
-                        # Clean up temp file
-                        os.unlink(temp_json_path)
-                        
-                        if upload_result.get('uploaded_files'):
-                            print(f"[RestartVideo] Analysis data stored in R2: {r2_key}")
-                            if audio_result.get('combined_transcript'):
-                                transcript_preview = audio_result['combined_transcript'][:100] + "..." if len(audio_result['combined_transcript']) > 100 else audio_result['combined_transcript']
-                                print(f"[RestartVideo] Audio transcript: '{transcript_preview}'")
-                        else:
-                            print(f"[RestartVideo] Failed to store analysis data: {upload_result.get('failed_uploads', [])}")
-                    except Exception as e:
-                        print(f"[RestartVideo] R2 upload error: {e}")
-                        
                 except Exception as e:
-                    print(f"[RestartVideo] Background analysis error: {e}")
+                    print(f"[RestartVideo] Audio analysis error: {e}")
+                    return {
+                        'success': False,
+                        'speech_detected': False,
+                        'combined_transcript': '',
+                        'detected_language': 'unknown',
+                        'confidence': 0.0,
+                        'segments_analyzed': 0,
+                        'error': str(e)
+                    }
             
-            # Start background analysis (non-blocking)
-            threading.Thread(target=background_analysis, daemon=True).start()
+            # 2. Get screenshot URLs from the video recording period
+            def get_video_screenshots():
+                try:
+                    capture_folder = f"{self.video_capture_path}/captures"
+                    import glob, os
+                    
+                    # Find screenshots from the last 15 seconds (covers video recording period)
+                    pattern = os.path.join(capture_folder, "capture_*.jpg")
+                    screenshots = glob.glob(pattern)
+                    
+                    if not screenshots:
+                        return []
+                    
+                    # Sort by modification time, get last 15 screenshots (covers 10s video + buffer)
+                    recent_screenshots = sorted(screenshots, key=os.path.getmtime)[-15:]
+                    
+                    # Convert to proper host URLs for frontend using buildHostImageUrl
+                    from shared.lib.utils.build_url_utils import buildHostImageUrl
+                    from shared.lib.utils.host_utils import get_host_instance
+                    
+                    screenshot_urls = []
+                    try:
+                        host = get_host_instance()
+                        host_dict = host.to_dict()
+                        
+                        for screenshot_path in recent_screenshots:
+                            # Build proper host URL for each screenshot
+                            screenshot_url = buildHostImageUrl(host_dict, screenshot_path)
+                            screenshot_urls.append(screenshot_url)
+                            
+                    except Exception as url_error:
+                        print(f"[RestartVideo] Failed to build screenshot URLs: {url_error}")
+                        # Fallback to relative paths
+                        for screenshot_path in recent_screenshots:
+                            filename = os.path.basename(screenshot_path)
+                            screenshot_url = f"{self.video_stream_path}/captures/{filename}"
+                            screenshot_urls.append(screenshot_url)
+                    
+                    print(f"[RestartVideo] Found {len(screenshot_urls)} screenshots for analysis")
+                    return screenshot_urls
+                    
+                except Exception as e:
+                    print(f"[RestartVideo] Screenshot collection error: {e}")
+                    return []
             
-            # Return video URL immediately for fast display
-            return video_url
+            # Execute analysis synchronously
+            audio_result = get_audio_transcript_locally()
+            screenshot_urls = get_video_screenshots()
+            
+            # Build complete response with analysis data
+            from datetime import datetime
+            analysis_data = {
+                'audio_analysis': {
+                    'success': audio_result.get('success', False),
+                    'speech_detected': audio_result.get('speech_detected', False),
+                    'combined_transcript': audio_result.get('combined_transcript', ''),
+                    'detected_language': audio_result.get('detected_language', 'unknown'),
+                    'confidence': audio_result.get('confidence', 0.0),
+                    'segments_analyzed': audio_result.get('segments_analyzed', 0),
+                    'execution_time_ms': 0  # Actual time will be calculated by caller
+                },
+                'screenshot_urls': screenshot_urls,
+                'video_analysis': {
+                    'success': len(screenshot_urls) > 0,
+                    'frames_available': len(screenshot_urls)
+                },
+                'subtitle_analysis': {
+                    'success': len(screenshot_urls) > 0,
+                    'frames_available': len(screenshot_urls)
+                },
+                'analysis_complete': True,
+                'timestamp': time.time(),
+                'created_at': datetime.now().isoformat()
+            }
+            
+            # Log analysis results
+            if audio_result.get('combined_transcript'):
+                transcript_preview = audio_result['combined_transcript'][:100] + "..." if len(audio_result['combined_transcript']) > 100 else audio_result['combined_transcript']
+                print(f"[RestartVideo] Audio transcript: '{transcript_preview}'")
+            
+            # Return complete results as dict
+            return {
+                'success': True,
+                'video_url': video_url,
+                'analysis_data': analysis_data
+            }
                 
         except Exception as e:
             print(f"{self.capture_source}[{self.capture_source}]: Error uploading HLS: {e}")
