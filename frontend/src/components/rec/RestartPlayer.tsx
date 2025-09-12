@@ -1,5 +1,5 @@
 import { Box, Typography, CircularProgress, Alert, IconButton, LinearProgress } from '@mui/material';
-import { Settings as SettingsIcon, Description as DescriptionIcon, Subtitles as SubtitlesIcon, VolumeUp as AudioIcon, OpenInNew } from '@mui/icons-material';
+import { Description as DescriptionIcon, Subtitles as SubtitlesIcon, VolumeUp as AudioIcon, OpenInNew } from '@mui/icons-material';
 import React, { useEffect, useRef, useState } from 'react';
 
 import { useRestart } from '../../hooks/pages/useRestart';
@@ -273,7 +273,7 @@ export const RestartPlayer: React.FC<RestartPlayerProps> = ({ host, device, incl
 
       {/* Video Description Panel */}
       <VideoDescriptionPanel
-        videoDescription={videoDescription}
+        videoDescription={videoDescription || undefined}
         framesAnalyzed={10}
       />
     </Box>

@@ -20,7 +20,7 @@ interface FrameRef {
 
 interface BufferedFrame {
   frame: FrameRef;
-  aiPromise: Promise<void>;
+  aiPromise: Promise<FrameRef>;
 }
 
 interface ErrorTrendData {
@@ -87,7 +87,7 @@ export const useMonitoring = ({
   );
   const [isHistoricalFrameLoaded, setIsHistoricalFrameLoaded] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
-  const [frameBuffer, setFrameBuffer] = useState<BufferedFrame[]>([]);
+  const [_frameBuffer, setFrameBuffer] = useState<BufferedFrame[]>([]);
   const [_displayQueue, setDisplayQueue] = useState<FrameRef[]>([]);
 
   // Initial loading buffer - reduced to max 1 second as requested
@@ -285,19 +285,18 @@ export const useMonitoring = ({
   useEffect(() => {
     if (isInitialLoading) return;
 
-    const processFrames = async () => {
-      // Poll for new frames
-      const latestData = await fetchLatestMonitoringData();
-      if (!latestData || latestData.imageUrl === currentImageUrl) return;
+    let lastProcessedUrl = currentImageUrl || '';
 
+    const processNextFrame = async () => {
+      const latestData = await fetchLatestMonitoringData();
+      if (!latestData || latestData.imageUrl === lastProcessedUrl) return false;
+
+      lastProcessedUrl = latestData.imageUrl;
       setCurrentImageUrl(latestData.imageUrl);
 
-      // Always add new frame, remove oldest if buffer full
-      const aiPromise = analyzeFrame(latestData).then(frame => {
-        setDisplayQueue(prev => [...prev, frame]);
-        setFrameBuffer(prev => prev.slice(1)); // Remove completed frame from buffer
-      });
+      const aiPromise = analyzeFrame(latestData);
       
+      // Add to buffer
       setFrameBuffer(prev => {
         const newBuffer = [...prev, { 
           frame: { 
@@ -307,12 +306,19 @@ export const useMonitoring = ({
           }, 
           aiPromise 
         }];
-        return newBuffer.slice(-3); // Keep only last 3 frames
+        return newBuffer.slice(-3); // Keep rolling buffer of 3
       });
+
+      // When AI completes, add to display queue
+      aiPromise.then(frame => {
+        setDisplayQueue(prev => [...prev, frame]);
+      });
+
+      return true;
     };
 
-    // Display frames at 1 FPS
-    const displayInterval = setInterval(() => {
+    // Display frames at 1 FPS and process next frame when displaying
+    const displayInterval = setInterval(async () => {
       setDisplayQueue(prev => {
         if (prev.length === 0) return prev;
         const [nextFrame, ...rest] = prev;
@@ -323,19 +329,28 @@ export const useMonitoring = ({
           return newFrames;
         });
         
+        // Process next frame when we display one (rolling buffer)
+        processNextFrame();
+        
         return rest;
       });
     }, 1000);
 
-    // Poll for new frames
-    const pollInterval = setInterval(processFrames, 1000);
-    processFrames(); // Initial call
+    // Initial buffer fill - process first 3 frames
+    const fillInitialBuffer = async () => {
+      for (let i = 0; i < 3; i++) {
+        const processed = await processNextFrame();
+        if (!processed) break; // No more frames available
+        await new Promise(resolve => setTimeout(resolve, 200)); // Small delay
+      }
+    };
+
+    fillInitialBuffer();
 
     return () => {
       clearInterval(displayInterval);
-      clearInterval(pollInterval);
     };
-  }, [isInitialLoading, fetchLatestMonitoringData, analyzeFrame, currentImageUrl, frameBuffer.length]);
+  }, [isInitialLoading, fetchLatestMonitoringData, analyzeFrame]);
 
   // Auto-play functionality
   useEffect(() => {
