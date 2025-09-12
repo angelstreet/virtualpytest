@@ -4,13 +4,64 @@ import React from 'react';
 interface RestartSubtitleOverlayProps {
   subtitleText?: string;
   language: string;
+  style: string;
+  fontSize: string;
 }
 
 export const RestartSubtitleOverlay: React.FC<RestartSubtitleOverlayProps> = ({
   subtitleText,
   language,
+  style,
+  fontSize,
 }) => {
   if (!subtitleText) return null;
+
+  // Style configurations
+  const getSubtitleStyle = () => {
+    switch (style) {
+      case 'yellow':
+        return {
+          color: '#ffff00',
+          backgroundColor: 'rgba(0, 0, 0, 0.8)',
+          textShadow: '2px 2px 4px rgba(0,0,0,0.8)',
+        };
+      case 'white':
+        return {
+          color: '#ffffff',
+          backgroundColor: 'rgba(0, 0, 0, 0.8)',
+          textShadow: '2px 2px 4px rgba(0,0,0,0.8)',
+        };
+      case 'white-border':
+        return {
+          color: '#ffffff',
+          backgroundColor: 'transparent',
+          textShadow: '2px 2px 0px #000000, -2px -2px 0px #000000, 2px -2px 0px #000000, -2px 2px 0px #000000',
+        };
+      case 'black-bg':
+        return {
+          color: '#ffffff',
+          backgroundColor: 'rgba(0, 0, 0, 0.9)',
+          textShadow: 'none',
+        };
+      default:
+        return {
+          color: '#ffff00',
+          backgroundColor: 'rgba(0, 0, 0, 0.8)',
+          textShadow: '2px 2px 4px rgba(0,0,0,0.8)',
+        };
+    }
+  };
+
+  const getFontSize = () => {
+    switch (fontSize) {
+      case 'small': return '0.9rem';
+      case 'medium': return '1.1rem';
+      case 'large': return '1.3rem';
+      default: return '1.1rem';
+    }
+  };
+
+  const subtitleStyle = getSubtitleStyle();
 
   return (
     <Box
@@ -27,13 +78,13 @@ export const RestartSubtitleOverlay: React.FC<RestartSubtitleOverlayProps> = ({
       <Typography
         variant="body1"
         sx={{
-          backgroundColor: 'rgba(0, 0, 0, 0.9)',
-          color: '#ffffff',
+          backgroundColor: subtitleStyle.backgroundColor,
+          color: subtitleStyle.color,
           p: 1.5,
-          borderRadius: 1,
-          fontSize: '1rem',
+          borderRadius: style === 'white-border' ? 0 : 1,
+          fontSize: getFontSize(),
           fontWeight: 500,
-          textShadow: '1px 1px 2px rgba(0,0,0,0.8)',
+          textShadow: subtitleStyle.textShadow,
         }}
       >
         {subtitleText}

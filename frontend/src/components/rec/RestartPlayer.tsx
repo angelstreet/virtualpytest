@@ -1,5 +1,5 @@
 import { Box, Typography, CircularProgress, Alert, IconButton, LinearProgress } from '@mui/material';
-import { Settings as SettingsIcon } from '@mui/icons-material';
+import { Settings as SettingsIcon, Assessment as ReportIcon } from '@mui/icons-material';
 import React, { useEffect, useRef, useState } from 'react';
 
 import { useRestart } from '../../hooks/pages/useRestart';
@@ -25,8 +25,10 @@ export const RestartPlayer: React.FC<RestartPlayerProps> = ({ host, device, incl
   const [showSubtitleOverlay, setShowSubtitleOverlay] = useState(false);
   const [summaryLanguage, setSummaryLanguage] = useState('en');
   const [subtitleLanguage, setSubtitleLanguage] = useState('en');
+  const [subtitleStyle, setSubtitleStyle] = useState('yellow');
+  const [subtitleFontSize, setSubtitleFontSize] = useState('medium');
   
-  const { videoUrl, isGenerating, isReady, error, processingTime, audioAnalysis, subtitleAnalysis, videoDescription, analysisProgress, isAnalysisComplete } = useRestart({ 
+  const { videoUrl, isGenerating, isReady, error, processingTime, analysisResults, analysisProgress, isAnalysisComplete } = useRestart({ 
     host, 
     device, 
     includeAudioAnalysis 
@@ -140,19 +142,21 @@ export const RestartPlayer: React.FC<RestartPlayerProps> = ({ host, device, incl
         />
 
         {/* Summary overlay - top */}
-        {showSummaryOverlay && videoDescription && (
+        {showSummaryOverlay && analysisResults.videoDescription && (
           <RestartSummaryOverlay
             videoRef={videoRef}
-            frameDescriptions={videoDescription.frame_descriptions}
+            frameDescriptions={analysisResults.videoDescription.frame_descriptions}
             language={summaryLanguage}
           />
         )}
 
         {/* Subtitle overlay - bottom, covers original */}
-        {showSubtitleOverlay && subtitleAnalysis?.extracted_text && (
+        {showSubtitleOverlay && analysisResults.subtitles?.extracted_text && (
           <RestartSubtitleOverlay
-            subtitleText={subtitleAnalysis.extracted_text}
+            subtitleText={analysisResults.subtitles.extracted_text}
             language={subtitleLanguage}
+            style={subtitleStyle}
+            fontSize={subtitleFontSize}
           />
         )}
       </Box>
@@ -180,22 +184,35 @@ export const RestartPlayer: React.FC<RestartPlayerProps> = ({ host, device, incl
         </Box>
       )}
 
-      {/* Settings Button (appears when analysis complete) */}
+      {/* Settings and Report Buttons (appears when analysis complete) */}
       {isAnalysisComplete && (
-        <IconButton
-          onClick={() => setSettingsOpen(true)}
-          sx={{
-            position: 'absolute',
-            top: 16,
-            right: 16,
-            zIndex: 1000030,
-            backgroundColor: 'rgba(0, 0, 0, 0.7)',
-            color: '#ffffff',
-            '&:hover': { backgroundColor: 'rgba(0, 0, 0, 0.9)' },
-          }}
-        >
-          <SettingsIcon />
-        </IconButton>
+        <Box sx={{ position: 'absolute', top: 16, right: 16, zIndex: 1000030, display: 'flex', flexDirection: 'column', gap: 1 }}>
+          <IconButton
+            onClick={() => {
+              // Open report in new tab
+              const reportUrl = `/reports/restart/${host.host_name}/${device.device_id}`;
+              window.open(reportUrl, '_blank');
+            }}
+            sx={{
+              backgroundColor: 'rgba(0, 0, 0, 0.7)',
+              color: '#ffffff',
+              '&:hover': { backgroundColor: 'rgba(0, 0, 0, 0.9)' },
+            }}
+          >
+            <ReportIcon />
+          </IconButton>
+          
+          <IconButton
+            onClick={() => setSettingsOpen(true)}
+            sx={{
+              backgroundColor: 'rgba(0, 0, 0, 0.7)',
+              color: '#ffffff',
+              '&:hover': { backgroundColor: 'rgba(0, 0, 0, 0.9)' },
+            }}
+          >
+            <SettingsIcon />
+          </IconButton>
+        </Box>
       )}
 
       {/* Settings Panel */}
@@ -210,8 +227,12 @@ export const RestartPlayer: React.FC<RestartPlayerProps> = ({ host, device, incl
         onSummaryLanguageChange={setSummaryLanguage}
         subtitleLanguage={subtitleLanguage}
         onSubtitleLanguageChange={setSubtitleLanguage}
-        videoDescription={videoDescription?.video_summary}
-        audioTranscript={audioAnalysis?.transcript}
+        subtitleStyle={subtitleStyle}
+        onSubtitleStyleChange={setSubtitleStyle}
+        subtitleFontSize={subtitleFontSize}
+        onSubtitleFontSizeChange={setSubtitleFontSize}
+        videoDescription={analysisResults.videoDescription?.video_summary}
+        audioTranscript={analysisResults.audio?.combined_transcript}
       />
     </Box>
   );

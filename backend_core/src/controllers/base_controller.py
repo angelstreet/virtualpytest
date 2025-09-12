@@ -554,138 +554,145 @@ class FFmpegCaptureController(AVControllerInterface):
             import concurrent.futures
             import threading
             
-            # Start background analysis in separate thread (non-blocking)
+            # Background analysis using existing screenshots and local audio processing
             def background_analysis():
                 try:
-                    results = {}
+                    print(f"[RestartVideo] Starting background analysis for {video_url}")
                     
-                    def extract_audio():
+                    # 1. Get audio transcript locally (same method as ZapController)
+                    def get_audio_transcript_locally():
                         try:
                             from backend_core.src.controllers.verification.audio_ai_helpers import AudioAIHelpers
+                            
+                            # Initialize AudioAI helpers (same as ZapController)
                             audio_ai = AudioAIHelpers(self, f"RestartVideo-{self.device_name}")
-                            audio_files = audio_ai.extract_audio_from_segments(segment_files, segment_count=3)
-                            if audio_files:
-                                results['audio'] = audio_ai.analyze_audio_segments_ai(audio_files, upload_to_r2=True, early_stop=True)
-                            else:
-                                results['audio'] = {'success': False, 'message': 'No audio extracted'}
-                        except Exception as e:
-                            results['audio'] = {'success': False, 'error': str(e)}
-                
-                    def extract_video_descriptions():
-                        try:
-                            # Extract 10 frames (1 per second) from 10s video
-                            temp_frames_dir = tempfile.mkdtemp(prefix="video_frames_")
-                            frames_cmd = f"ffmpeg -i {local_video_path} -vf fps=1 -t 10 {temp_frames_dir}/frame_%03d.jpg -y"
-                            subprocess.run(frames_cmd, shell=True, check=True, capture_output=True)
-                        
                             
-                            frame_files = sorted([f for f in os.listdir(temp_frames_dir) if f.endswith('.jpg')])
-                            frame_descriptions = []
+                            # Get recent audio segments (same as ZapController)
+                            audio_files = audio_ai.get_recent_audio_segments(segment_count=3)
                             
-                            # Analyze each frame using existing AI system
-                            for i, frame_file in enumerate(frame_files[:10]):
-                                try:
-                                    frame_path = os.path.join(temp_frames_dir, frame_file)
-                                    
-                                    # Use existing AI description system (same as useMonitoring)
-                                    from shared.lib.utils.ai_utils import call_vision_ai
-                                    description_result = call_vision_ai(
-                                        image_path=frame_path,
-                                        prompt="Describe what you see in this frame in 1-2 sentences"
-                                    )
-                                    
-                                    if description_result and description_result.get('success'):
-                                        frame_descriptions.append(f"Second {i+1}: {description_result.get('response', '')}")
-                                except Exception as frame_error:
-                                    print(f"Frame {i+1} analysis failed: {frame_error}")
-                                    continue
-                            
-                            # Generate 10-line summary
-                            if frame_descriptions:
-                                summary_prompt = f"Based on these frame descriptions from a 10-second video, provide exactly 10 lines summarizing what happened:\n\n" + "\n".join(frame_descriptions)
-                                
-                                from shared.lib.utils.ai_utils import call_text_ai
-                                summary_result = call_text_ai(summary_prompt)
-                                
-                                results['video_description'] = {
+                            if not audio_files:
+                                return {
                                     'success': True,
-                                    'frame_descriptions': frame_descriptions,
-                                    'video_summary': summary_result.get('response', '') if summary_result.get('success') else '',
-                                    'frames_analyzed': len(frame_descriptions)
+                                    'speech_detected': False,
+                                    'combined_transcript': '',
+                                    'detected_language': 'unknown'
                                 }
                             
-                            # Cleanup
-                            import shutil
-                            shutil.rmtree(temp_frames_dir, ignore_errors=True)
+                            # Analyze with AI (same as ZapController) - returns results immediately
+                            audio_analysis = audio_ai.analyze_audio_segments_ai(audio_files, upload_to_r2=True, early_stop=True)
+                            
+                            if not audio_analysis.get('success'):
+                                return {
+                                    'success': False,
+                                    'speech_detected': False,
+                                    'combined_transcript': '',
+                                    'detected_language': 'unknown'
+                                }
+                            
+                            # Extract results immediately (same as ZapController)
+                            return {
+                                'success': True,
+                                'speech_detected': audio_analysis.get('successful_segments', 0) > 0,
+                                'combined_transcript': audio_analysis.get('combined_transcript', ''),
+                                'detected_language': audio_analysis.get('detected_language', 'unknown'),
+                                'confidence': audio_analysis.get('confidence', 0.0),
+                                'segments_analyzed': audio_analysis.get('segments_analyzed', 0)
+                            }
                             
                         except Exception as e:
-                            print(f"Video description analysis failed: {e}")
-                            results['video_description'] = {'success': False, 'error': str(e)}
-                
-                    def extract_subtitles():
+                            print(f"[RestartVideo] Audio analysis error: {e}")
+                            return {
+                                'success': False,
+                                'speech_detected': False,
+                                'combined_transcript': '',
+                                'detected_language': 'unknown',
+                                'error': str(e)
+                            }
+                    
+                    # 2. Get screenshot URLs from the video recording period
+                    def get_video_screenshots():
                         try:
-                            # Use existing subtitle detection system (same as useMonitoring)
-                            from shared.lib.utils.ai_utils import call_vision_ai
+                            capture_folder = f"{self.video_capture_path}/captures"
+                            import glob, os
                             
-                            # Analyze middle frame for subtitles (frame 5 of 10)
-                            middle_frame_path = os.path.join(temp_frames_dir, f"frame_005.jpg")
-                            if os.path.exists(middle_frame_path):
-                                subtitle_result = call_vision_ai(
-                                    image_path=middle_frame_path,
-                                    prompt="Are there subtitles visible in this image? If yes, extract the text. If no, respond with 'No subtitles detected'."
-                                )
-                                
-                                if subtitle_result and subtitle_result.get('success'):
-                                    subtitle_text = subtitle_result.get('response', '')
-                                    has_subtitles = 'no subtitles' not in subtitle_text.lower()
-                                    
-                                    results['subtitles'] = {
-                                        'success': True,
-                                        'subtitles_detected': has_subtitles,
-                                        'extracted_text': subtitle_text if has_subtitles else '',
-                                        'confidence': 0.9 if has_subtitles else 0.1
-                                    }
-                                else:
-                                    results['subtitles'] = {'success': False, 'error': 'Subtitle analysis failed'}
-                            else:
-                                results['subtitles'] = {'success': False, 'error': 'Middle frame not found'}
+                            # Find screenshots from the last 15 seconds (covers video recording period)
+                            pattern = os.path.join(capture_folder, "capture_*.jpg")
+                            screenshots = glob.glob(pattern)
+                            
+                            if not screenshots:
+                                return []
+                            
+                            # Sort by modification time, get last 15 screenshots (covers 10s video + buffer)
+                            recent_screenshots = sorted(screenshots, key=os.path.getmtime)[-15:]
+                            
+                            # Convert to web URLs for frontend
+                            screenshot_urls = []
+                            for screenshot_path in recent_screenshots:
+                                filename = os.path.basename(screenshot_path)
+                                # Convert to web URL: /host/stream/capture1/captures/capture_0001.jpg
+                                screenshot_url = f"/host/stream/{self.device_name}/captures/{filename}"
+                                screenshot_urls.append(screenshot_url)
+                            
+                            print(f"[RestartVideo] Found {len(screenshot_urls)} screenshots for analysis")
+                            return screenshot_urls
+                            
                         except Exception as e:
-                            results['subtitles'] = {'success': False, 'error': str(e)}
+                            print(f"[RestartVideo] Screenshot collection error: {e}")
+                            return []
                     
-                    # Run 3 analyses in parallel
-                    with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
-                        futures = [
-                            executor.submit(extract_audio),
-                            executor.submit(extract_video_descriptions),
-                            executor.submit(extract_subtitles)
-                        ]
-                        for future in concurrent.futures.as_completed(futures):
-                            future.result()  # Wait for completion
+                    # Get both audio and screenshot data locally
+                    audio_result = get_audio_transcript_locally()
+                    screenshot_urls = get_video_screenshots()
                     
-                    # Store results for report generation
+                    # Store complete analysis results in R2 for frontend access
                     from datetime import datetime
                     analysis_data = {
                         'video_url': video_url,
-                        'duration_seconds': duration_seconds,
-                        'timestamp': datetime.now().isoformat(),
-                        'host_name': getattr(self, 'host_name', 'unknown'),
-                        'device_id': getattr(self, 'device_name', 'unknown'),
-                        'audio_analysis': results.get('audio', {}),
-                        'video_description': results.get('video_description', {}),
-                        'subtitle_analysis': results.get('subtitles', {}),
+                        'timestamp': time.time(),
+                        'created_at': datetime.now().isoformat(),
+                        'screenshot_urls': screenshot_urls,
+                        'audio_analysis': {
+                            'success': audio_result.get('success', False),
+                            'speech_detected': audio_result.get('speech_detected', False),
+                            'combined_transcript': audio_result.get('combined_transcript', ''),
+                            'detected_language': audio_result.get('detected_language', 'unknown'),
+                            'confidence': audio_result.get('confidence', 0.0),
+                            'segments_analyzed': audio_result.get('segments_analyzed', 0),
+                            'execution_time_ms': 0  # Will be set by frontend analysis
+                        },
+                        'video_analysis': {
+                            'success': len(screenshot_urls) > 0,
+                            'frames_available': len(screenshot_urls),
+                            'execution_time_ms': 0  # Will be set by frontend analysis
+                        },
+                        'subtitle_analysis': {
+                            'success': len(screenshot_urls) > 0,
+                            'frames_available': len(screenshot_urls),
+                            'execution_time_ms': 0  # Will be set by frontend analysis
+                        },
+                        'analysis_complete': True
                     }
                     
-                    # Store in R2 for report generation (like heatmap)
+                    # Store in R2 for frontend access
                     try:
                         from shared.lib.utils.r2_utils import upload_json_to_r2
-                        analysis_filename = f"restart_analysis_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-                        analysis_url = upload_json_to_r2(analysis_data, analysis_filename, 'restart-reports')
-                        print(f"Restart analysis stored: {analysis_url}")
+                        
+                        video_filename = os.path.basename(video_url).replace('.mp4', '')
+                        r2_key = f"restart_analysis/{self.device_name}/{video_filename}.json"
+                        
+                        upload_result = upload_json_to_r2(analysis_data, r2_key)
+                        if upload_result['success']:
+                            print(f"[RestartVideo] Analysis data stored in R2: {r2_key}")
+                            if audio_result.get('combined_transcript'):
+                                transcript_preview = audio_result['combined_transcript'][:100] + "..." if len(audio_result['combined_transcript']) > 100 else audio_result['combined_transcript']
+                                print(f"[RestartVideo] Audio transcript: '{transcript_preview}'")
+                        else:
+                            print(f"[RestartVideo] Failed to store analysis data: {upload_result.get('error')}")
                     except Exception as e:
-                        print(f"Failed to store restart analysis: {e}")
-                    
+                        print(f"[RestartVideo] R2 upload error: {e}")
+                        
                 except Exception as e:
-                    print(f"Background analysis failed: {e}")
+                    print(f"[RestartVideo] Background analysis error: {e}")
             
             # Start background analysis (non-blocking)
             threading.Thread(target=background_analysis, daemon=True).start()

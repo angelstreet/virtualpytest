@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Restart Video System provides fast 10-second video generation with AI-powered analysis and overlay capabilities. Users can generate restart videos instantly and access advanced features through a unified settings panel.
+The Restart Video System provides fast 10-second video generation with AI-powered analysis and overlay capabilities. The system **reuses existing infrastructure** including continuous screenshot capture, audio processing, and image-based AI analysis routes - **no new routes or legacy code**.
 
 ## Architecture
 
@@ -10,22 +10,22 @@ The Restart Video System provides fast 10-second video generation with AI-powere
 
 #### Video Generation (`backend_core/src/controllers/base_controller.py`)
 - **Fast Generation**: 10-second MP4 videos generated in 2-3 seconds
-- **Background Analysis**: 3 parallel AI analyses run after video generation
-- **HLS Source**: Uses existing HLS segments for video creation
-- **R2 Storage**: Analysis results stored for future reporting
+- **Local Audio Processing**: Uses existing `AudioAIHelpers` directly (same as ZapController)
+- **Screenshot Collection**: Leverages existing continuous capture system
+- **R2 Storage**: Analysis data stored for frontend polling
 
-#### Analysis Pipeline
-1. **Audio Analysis**: Extracts audio from HLS segments, transcribes with Whisper
-2. **Subtitle Detection**: Analyzes middle frame (frame 5/10) for subtitle presence  
-3. **Video Description**: Extracts 10 frames (1 per second), generates AI descriptions
+#### Analysis Pipeline (Using Existing Infrastructure)
+1. **Audio Analysis**: Local processing via `AudioAIHelpers.get_recent_audio_segments()` + `analyze_audio_segments_ai()`
+2. **Screenshot Collection**: Uses existing `/captures/capture_*.jpg` files from continuous capture
+3. **Frontend Analysis**: Uses existing image-based routes for subtitle/description analysis
 
 ### Frontend Components
 
 #### Core Hook (`frontend/src/hooks/pages/useRestart.ts`)
 - **Fast Video Display**: Returns video URL immediately
-- **Progressive Loading**: Tracks analysis progress (audio, subtitles, description)
-- **Background Requests**: 3 parallel analysis API calls
-- **State Management**: Manages video, analysis results, and progress states
+- **R2 Data Polling**: Loads audio analysis from backend-stored R2 data
+- **Existing Route Usage**: Uses `/server/verification/video/detectSubtitlesAI` and `/server/verification/video/analyzeImageAI` with screenshot URLs
+- **Progressive Analysis**: Audio from backend, visuals from frontend using existing routes
 
 #### Main Player (`frontend/src/components/rec/RestartPlayer.tsx`)
 - **Video Display**: Standard HTML5 video player
@@ -83,7 +83,7 @@ Settings Panel:
     └── [Full transcript text]
 ```
 
-## API Endpoints
+## API Endpoints (Existing Routes Only)
 
 ### Video Generation
 ```
@@ -92,7 +92,7 @@ Body: {
   host: Host,
   device_id: string,
   duration_seconds: 10,
-  include_audio_analysis: false
+  include_audio_analysis: true  // Enables backend audio processing
 }
 Response: {
   success: true,
@@ -101,42 +101,70 @@ Response: {
 }
 ```
 
-### Background Analysis (3 parallel calls)
+### Frontend Analysis (Using Existing Image-Based Routes)
 ```
-POST /server/verification/audio/analyzeAudio
-POST /server/verification/video/detectSubtitlesAI  
-POST /server/verification/video/analyzeVideoDescription
+POST /server/verification/video/detectSubtitlesAI
+Body: {
+  host: Host,
+  device_id: string,
+  image_source_url: string,  // Screenshot URL from continuous capture
+  extract_text: true
+}
+
+POST /server/verification/video/analyzeImageAI  
+Body: {
+  host: Host,
+  device_id: string,
+  image_source_url: string,  // Screenshot URL from continuous capture
+  prompt: "Describe what you see in this frame in 1-2 sentences"
+}
+```
+
+### R2 Data Access
+```
+GET https://dev.virtualpytest.com/r2/restart_analysis/{device_id}/{video_filename}.json
+Response: {
+  audio_analysis: { combined_transcript, detected_language, ... },
+  screenshot_urls: ["/host/stream/capture1/captures/capture_0001.jpg", ...],
+  analysis_complete: true
+}
 ```
 
 ## Data Structures
 
-### Analysis Results
+### Analysis Results (Updated Structure)
 ```typescript
 interface AnalysisResults {
-  audioAnalysis: {
-    transcript: string;
+  audio: {
+    success: boolean;
+    combined_transcript: string;
     detected_language: string;
-    successful_segments: number;
-  };
-  subtitleAnalysis: {
+    speech_detected: boolean;
+    confidence: number;
+    execution_time_ms: number;
+  } | null;
+  subtitles: {
+    success: boolean;
     subtitles_detected: boolean;
     extracted_text: string;
-    confidence: number;
-  };
+    detected_language?: string;
+    execution_time_ms: number;
+  } | null;
   videoDescription: {
     frame_descriptions: string[];  // Per-second descriptions
-    video_summary: string;         // Final 10-line summary
+    video_summary: string;         // Generated summary
     frames_analyzed: number;
-  };
+    execution_time_ms: number;
+  } | null;
 }
 ```
 
 ### Progress Tracking
 ```typescript
 interface AnalysisProgress {
-  audio: 'pending' | 'loading' | 'completed' | 'error';
-  subtitles: 'pending' | 'loading' | 'completed' | 'error';
-  description: 'pending' | 'loading' | 'completed' | 'error';
+  audio: 'idle' | 'loading' | 'completed' | 'error';
+  subtitles: 'idle' | 'loading' | 'completed' | 'error';
+  videoDescription: 'idle' | 'loading' | 'completed' | 'error';
 }
 ```
 
@@ -149,10 +177,10 @@ interface AnalysisProgress {
 - **Quality**: Inherits from HLS stream quality
 
 ### Analysis Settings
-- **Audio Segments**: 3 segments (~6 seconds total)
-- **Frame Analysis**: 10 frames (1 per second)
-- **Subtitle Frame**: Middle frame (frame 5/10)
-- **AI Model**: Whisper (tiny) for audio, OpenRouter vision models for frames
+- **Audio Processing**: Local `AudioAIHelpers` with 3 recent segments
+- **Screenshot Analysis**: Uses existing continuous capture screenshots (every 2nd screenshot, up to 10)
+- **Subtitle Detection**: Middle screenshot from available screenshots
+- **AI Models**: Existing Whisper for audio, OpenRouter vision models for images
 
 ### UI Settings
 - **Progress Bar**: 100px width, 6px height, top-right
@@ -163,15 +191,17 @@ interface AnalysisProgress {
 
 ### Timing Benchmarks
 - **Video Generation**: 2-3 seconds (MP4 creation only)
-- **Audio Analysis**: 3-5 seconds (parallel)
-- **Subtitle Detection**: 2-3 seconds (parallel)
-- **Video Description**: 8-12 seconds (parallel)
-- **Total Time**: Video shows immediately, analysis completes in 8-12 seconds
+- **Audio Analysis**: 1-2 seconds (local processing, no HTTP)
+- **R2 Data Polling**: 1-2 seconds (backend stores data)
+- **Subtitle Detection**: 2-3 seconds (existing route with screenshot)
+- **Video Description**: 5-8 seconds (existing route with multiple screenshots)
+- **Total Time**: Video shows immediately, analysis completes in 5-8 seconds
 
 ### Resource Usage
-- **Storage**: Videos stored in R2, analysis results cached
-- **Memory**: Temporary frame extraction (~50MB during analysis)
-- **Network**: 3 parallel API calls during background analysis
+- **Storage**: Videos stored in R2, analysis data stored in R2
+- **Memory**: No temporary files - uses existing screenshots
+- **Network**: R2 polling + existing image-based analysis routes
+- **CPU**: Local audio processing (backend), image analysis (existing routes)
 
 ## Integration Points
 
@@ -184,15 +214,41 @@ interface AnalysisProgress {
 />
 ```
 
-### Monitoring System
-- Reuses AI analysis infrastructure from `useMonitoring`
-- Same vision AI models and processing pipeline
-- Consistent analysis result formats
+### Existing Infrastructure Reuse
+- **Screenshot System**: Uses existing continuous capture (`/captures/capture_*.jpg`)
+- **Audio Processing**: Uses existing `AudioAIHelpers` (same as ZapController)
+- **AI Routes**: Uses existing `/server/verification/video/detectSubtitlesAI` and `/server/verification/video/analyzeImageAI`
+- **R2 Storage**: Uses existing R2 infrastructure for data storage
 
 ### Translation System
 - Integrates with existing translation utilities
 - Supports multiple target languages
 - Maintains translation state per overlay type
+
+## Implementation Approach
+
+### Key Design Principles
+1. **No New Routes**: Uses only existing `/server/av/generateRestartVideo`, `/server/verification/video/detectSubtitlesAI`, and `/server/verification/video/analyzeImageAI`
+2. **No Legacy Code**: Clean implementation without backward compatibility or fallback mechanisms
+3. **Reuse Existing Infrastructure**: Leverages continuous screenshot capture, AudioAIHelpers, and R2 storage
+4. **Local Processing**: Audio analysis happens locally in backend (no HTTP overhead)
+5. **Progressive Loading**: Video shows immediately, analysis loads progressively
+
+### Data Flow
+```
+1. Frontend → /server/av/generateRestartVideo (include_audio_analysis: true)
+2. Backend → take_video() generates MP4 + starts background analysis
+3. Backend → AudioAIHelpers processes audio locally → stores in R2
+4. Backend → Collects screenshot URLs → stores in R2
+5. Frontend → Polls R2 for analysis data
+6. Frontend → Uses screenshot URLs with existing image routes for visual analysis
+```
+
+### Why This Approach Works
+- **Fast**: Video available in 2-3 seconds, no waiting for analysis
+- **Efficient**: No temporary files, no new routes, minimal network overhead
+- **Reliable**: Uses proven existing systems (AudioAIHelpers, continuous capture, image analysis)
+- **Maintainable**: Single source of truth, no duplicate code paths
 
 ## Future Enhancements
 
@@ -210,15 +266,16 @@ interface AnalysisProgress {
 ## Troubleshooting
 
 ### Common Issues
-1. **Video not appearing**: Check HLS segment availability
-2. **Analysis not starting**: Verify `includeAudioAnalysis=true`
-3. **Overlays not syncing**: Check video `currentTime` event listeners
-4. **Settings panel not opening**: Ensure analysis is complete
+1. **Video not appearing**: Check HLS segment availability and `/server/av/generateRestartVideo` response
+2. **Audio analysis not loading**: Check R2 data polling and `restart_analysis/{device_id}/{video}.json` file
+3. **Screenshot analysis failing**: Verify continuous capture is running and screenshots exist in `/captures/`
+4. **Overlays not showing**: Check that analysis completed and data structure matches expected format
 
 ### Debug Information
 - Console logs prefixed with `[@hook:useRestart]` and `[@component:RestartPlayer]`
-- Analysis progress tracked in browser developer tools
-- Network tab shows parallel analysis requests
+- R2 polling logs show data loading progress
+- Network tab shows R2 requests and existing image analysis routes
+- Backend logs show `[RestartVideo]` prefixed messages for audio processing
 
 ## Migration Notes
 
@@ -227,7 +284,9 @@ interface AnalysisProgress {
 - `SubtitleSettings.tsx` → Replaced by `RestartSettingsPanel.tsx`
 - `VideoDescriptionPanel.tsx` → Replaced by `RestartSettingsPanel.tsx`
 
-### Breaking Changes
-- Settings interface completely redesigned
-- Overlay positioning and styling updated
-- Analysis data structure modified for per-second summaries
+### Implementation Changes
+- **Data Structure**: Updated to use `analysisResults` object with proper TypeScript interfaces
+- **Route Usage**: Uses existing image-based routes instead of creating new video-based routes
+- **Audio Processing**: Moved from HTTP routes to local `AudioAIHelpers` processing
+- **Screenshot Integration**: Leverages existing continuous capture instead of extracting frames
+- **No Legacy Code**: Clean implementation without backward compatibility layers

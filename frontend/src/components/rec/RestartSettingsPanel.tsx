@@ -1,4 +1,4 @@
-import { Box, Typography, IconButton, Slide, Paper, Checkbox, FormControlLabel, Select, MenuItem } from '@mui/material';
+import { Box, Typography, IconButton, Slide, Paper, Checkbox, FormControlLabel, Select, MenuItem, Divider, FormControl, InputLabel } from '@mui/material';
 import { Close as CloseIcon } from '@mui/icons-material';
 import React from 'react';
 
@@ -13,6 +13,10 @@ interface RestartSettingsPanelProps {
   onSummaryLanguageChange: (lang: string) => void;
   subtitleLanguage: string;
   onSubtitleLanguageChange: (lang: string) => void;
+  subtitleStyle: string;
+  onSubtitleStyleChange: (style: string) => void;
+  subtitleFontSize: string;
+  onSubtitleFontSizeChange: (size: string) => void;
   videoDescription?: string;
   audioTranscript?: string;
 }
@@ -28,6 +32,10 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
   onSummaryLanguageChange,
   subtitleLanguage,
   onSubtitleLanguageChange,
+  subtitleStyle,
+  onSubtitleStyleChange,
+  subtitleFontSize,
+  onSubtitleFontSizeChange,
   videoDescription,
   audioTranscript,
 }) => {
@@ -56,8 +64,8 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
         </Box>
 
         {/* Video Summary */}
-        <Box sx={{ mb: 3 }}>
-          <Typography variant="subtitle1" sx={{ mb: 2 }}>Video Summary</Typography>
+        <Box sx={{ mb: 2 }}>
+          <Typography variant="subtitle1" sx={{ mb: 1, fontSize: '0.95rem' }}>Video Summary</Typography>
           <FormControlLabel
             control={
               <Checkbox
@@ -87,8 +95,8 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
         </Box>
 
         {/* Subtitles */}
-        <Box sx={{ mb: 3 }}>
-          <Typography variant="subtitle1" sx={{ mb: 2 }}>Subtitles</Typography>
+        <Box sx={{ mb: 2 }}>
+          <Typography variant="subtitle1" sx={{ mb: 1, fontSize: '0.95rem' }}>Subtitles</Typography>
           <FormControlLabel
             control={
               <Checkbox
@@ -98,22 +106,49 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
               />
             }
             label="Show Subtitle Overlay"
+            sx={{ mb: 1 }}
           />
-          <Select
-            value={subtitleLanguage}
-            onChange={(e) => onSubtitleLanguageChange(e.target.value)}
-            size="small"
-            sx={{ ml: 2, color: '#ffffff', '& .MuiOutlinedInput-notchedOutline': { borderColor: '#ffffff' } }}
-          >
-            <MenuItem value="en">English</MenuItem>
-            <MenuItem value="es">Spanish</MenuItem>
-            <MenuItem value="fr">French</MenuItem>
-          </Select>
+          
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 1 }}>
+            <Select
+              value={subtitleLanguage}
+              onChange={(e) => onSubtitleLanguageChange(e.target.value)}
+              size="small"
+              sx={{ minWidth: 100, color: '#ffffff', '& .MuiOutlinedInput-notchedOutline': { borderColor: '#ffffff' } }}
+            >
+              <MenuItem value="en">English</MenuItem>
+              <MenuItem value="es">Spanish</MenuItem>
+              <MenuItem value="fr">French</MenuItem>
+            </Select>
+            
+            <Select
+              value={subtitleStyle}
+              onChange={(e) => onSubtitleStyleChange(e.target.value)}
+              size="small"
+              sx={{ minWidth: 120, color: '#ffffff', '& .MuiOutlinedInput-notchedOutline': { borderColor: '#ffffff' } }}
+            >
+              <MenuItem value="yellow">Yellow</MenuItem>
+              <MenuItem value="white">White</MenuItem>
+              <MenuItem value="white-border">White Border</MenuItem>
+              <MenuItem value="black-bg">Black Background</MenuItem>
+            </Select>
+            
+            <Select
+              value={subtitleFontSize}
+              onChange={(e) => onSubtitleFontSizeChange(e.target.value)}
+              size="small"
+              sx={{ minWidth: 80, color: '#ffffff', '& .MuiOutlinedInput-notchedOutline': { borderColor: '#ffffff' } }}
+            >
+              <MenuItem value="small">Small</MenuItem>
+              <MenuItem value="medium">Medium</MenuItem>
+              <MenuItem value="large">Large</MenuItem>
+            </Select>
+          </Box>
         </Box>
 
         {/* Audio Transcript */}
         <Box>
-          <Typography variant="subtitle1" sx={{ mb: 2 }}>Audio Transcript</Typography>
+          <Typography variant="subtitle1" sx={{ mb: 1, fontSize: '0.95rem' }}>Audio Transcript</Typography>
           <Typography variant="body2" sx={{ p: 2, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 1, maxHeight: 150, overflow: 'auto' }}>
             {audioTranscript || 'No transcript available'}
           </Typography>
