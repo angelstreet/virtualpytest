@@ -22,6 +22,7 @@ export const RestartPlayer: React.FC<RestartPlayerProps> = ({ host, device, incl
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [showSummaryOverlay, setShowSummaryOverlay] = useState(false);
   const [showSubtitleOverlay, setShowSubtitleOverlay] = useState(false);
+  const [showAudioTranscriptOverlay, setShowAudioTranscriptOverlay] = useState(false);
   const [summaryLanguage, setSummaryLanguage] = useState('en');
   const [subtitleLanguage, setSubtitleLanguage] = useState('en');
   const [subtitleStyle, setSubtitleStyle] = useState('yellow');
@@ -223,6 +224,8 @@ export const RestartPlayer: React.FC<RestartPlayerProps> = ({ host, device, incl
         onToggleSummary={setShowSummaryOverlay}
         showSubtitleOverlay={showSubtitleOverlay}
         onToggleSubtitle={setShowSubtitleOverlay}
+        showAudioTranscriptOverlay={showAudioTranscriptOverlay}
+        onToggleAudioTranscript={setShowAudioTranscriptOverlay}
         summaryLanguage={summaryLanguage}
         onSummaryLanguageChange={setSummaryLanguage}
         subtitleLanguage={subtitleLanguage}
@@ -231,7 +234,7 @@ export const RestartPlayer: React.FC<RestartPlayerProps> = ({ host, device, incl
         onSubtitleStyleChange={setSubtitleStyle}
         subtitleFontSize={subtitleFontSize}
         onSubtitleFontSizeChange={setSubtitleFontSize}
-        videoDescription={analysisResults.videoDescription?.video_summary}
+        videoDescription={analysisResults.videoDescription || undefined}
         audioTranscript={analysisResults.audio?.combined_transcript}
       />
     </Box>
