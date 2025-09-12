@@ -447,18 +447,25 @@ def get_restart_video_js() -> str:
 
 def create_restart_video_template() -> str:
     """Create the complete HTML template for restart video reports"""
-    css_content = get_restart_video_css()
-    js_content = get_restart_video_js()
     
-    return """<!DOCTYPE html>
+    # Escape braces in CSS and JS content to avoid format() conflicts
+    css_content = get_restart_video_css().replace('{', '{{').replace('}', '}}')
+    js_content = get_restart_video_js().replace('{', '{{').replace('}', '}}')
+    
+    # Build the template using string replacement instead of format() to avoid brace conflicts
+    template_parts = []
+    
+    template_parts.append("""<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Restart Video Report - {device_name}</title>
-    <style>
-""" + css_content + """
-    </style>
+    <style>""")
+    
+    template_parts.append(css_content)
+    
+    template_parts.append("""    </style>
 </head>
 <body>
     <div class="video-container">
@@ -467,12 +474,12 @@ def create_restart_video_template() -> str:
             <!-- Report Header -->
             <div class="report-header">
                 <div class="report-title">Restart Video Analysis</div>
-                <div class="report-meta">{{host_name}} • {{device_name}} • {{timestamp}}</div>
+                <div class="report-meta">{host_name} • {device_name} • {timestamp}</div>
             </div>
             
             <!-- Video Element -->
             <video id="restart-video" class="video-element" preload="metadata">
-                <source src="{{video_url}}" type="video/mp4">
+                <source src="{video_url}" type="video/mp4">
                 Your browser does not support the video tag.
             </video>
             
@@ -516,7 +523,7 @@ def create_restart_video_template() -> str:
                     <div class="expand-icon">▶</div>
                 </div>
                 <div id="summary-content" class="analysis-content">
-                    <div class="analysis-text">{{video_summary}}</div>
+                    <div class="analysis-text">{video_summary}</div>
                 </div>
             </div>
             
@@ -533,7 +540,7 @@ def create_restart_video_template() -> str:
                     <div class="expand-icon">▶</div>
                 </div>
                 <div id="subtitle-content" class="analysis-content">
-                    <div id="subtitle-original" class="analysis-text subtitle">{{subtitle_text}}</div>
+                    <div id="subtitle-original" class="analysis-text subtitle">{subtitle_text}</div>
                     <div id="subtitle-translated" class="analysis-text translated hidden"></div>
                 </div>
             </div>
@@ -551,7 +558,7 @@ def create_restart_video_template() -> str:
                     <div class="expand-icon">▶</div>
                 </div>
                 <div id="audio-content" class="analysis-content">
-                    <div id="audio-original" class="analysis-text audio">{{audio_transcript}}</div>
+                    <div id="audio-original" class="analysis-text audio">{audio_transcript}</div>
                     <div id="audio-translated" class="analysis-text translated hidden"></div>
                 </div>
             </div>
@@ -562,8 +569,12 @@ def create_restart_video_template() -> str:
         // Analysis data for JavaScript
         window.ANALYSIS_DATA = {analysis_data_json};
     </script>
-    <script>
-""" + js_content + """
-    </script>
+    <script>""")
+    
+    template_parts.append(js_content)
+    
+    template_parts.append("""    </script>
 </body>
-</html>"""
+</html>""")
+    
+    return ''.join(template_parts)
