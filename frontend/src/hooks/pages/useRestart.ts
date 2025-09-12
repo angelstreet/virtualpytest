@@ -10,6 +10,7 @@ const videoGenerationCache = new Map<string, Promise<any>>();
 interface UseRestartParams {
   host: Host;
   device: Device;
+  includeAudioAnalysis?: boolean;
 }
 
 interface UseRestartReturn {
@@ -18,14 +19,20 @@ interface UseRestartReturn {
   isReady: boolean;
   error: string | null;
   processingTime: number | null;
+  transcript?: string;
+  detectedLanguage?: string;
+  speechDetected?: boolean;
 }
 
-export const useRestart = ({ host, device }: UseRestartParams): UseRestartReturn => {
+export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartParams): UseRestartReturn => {
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isReady, setIsReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [processingTime, setProcessingTime] = useState<number | null>(null);
+  const [transcript, setTranscript] = useState<string | undefined>(undefined);
+  const [detectedLanguage, setDetectedLanguage] = useState<string | undefined>(undefined);
+  const [speechDetected, setSpeechDetected] = useState<boolean | undefined>(undefined);
 
   // Generate video once on mount - use global cache to prevent duplicate requests
   useEffect(() => {
@@ -42,6 +49,9 @@ export const useRestart = ({ host, device }: UseRestartParams): UseRestartReturn
           if (data.success && data.video_url) {
             setVideoUrl(data.video_url);
             setProcessingTime(data.processing_time_seconds);
+            setTranscript(data.transcript);
+            setDetectedLanguage(data.detected_language);
+            setSpeechDetected(data.speech_detected);
             setIsReady(true);
           } else {
             setError(data.error || 'Video generation failed');
@@ -72,6 +82,7 @@ export const useRestart = ({ host, device }: UseRestartParams): UseRestartReturn
             host: host,
             device_id: device.device_id || 'device1',
             duration_seconds: 30,
+            include_audio_analysis: includeAudioAnalysis || false,
           }),
         });
 
@@ -101,6 +112,9 @@ export const useRestart = ({ host, device }: UseRestartParams): UseRestartReturn
         if (data.success && data.video_url) {
           setVideoUrl(data.video_url);
           setProcessingTime(data.processing_time_seconds);
+          setTranscript(data.transcript);
+          setDetectedLanguage(data.detected_language);
+          setSpeechDetected(data.speech_detected);
           setIsReady(true);
           console.log(`[@hook:useRestart] Video ready in ${data.processing_time_seconds}s`);
         } else {
@@ -130,5 +144,8 @@ export const useRestart = ({ host, device }: UseRestartParams): UseRestartReturn
     isReady,
     error,
     processingTime,
+    transcript,
+    detectedLanguage,
+    speechDetected,
   };
 };

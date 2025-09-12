@@ -76,7 +76,7 @@ SCRIPTS_DIR = os.path.dirname(os.path.abspath(__file__))  # backend_host/scripts
 PROJECT_ROOT = os.path.abspath(os.path.join(SCRIPTS_DIR, '..', '..'))
 VENV_PATH = os.path.join(PROJECT_ROOT, 'venv', 'bin', 'activate')
 
-UNIFIED_ANALYSIS_INTERVAL = 3   # seconds - aligned timing for video + audio
+UNIFIED_ANALYSIS_INTERVAL = 1   # seconds - aligned timing for video + audio
 
 class CaptureMonitor:
     def __init__(self):

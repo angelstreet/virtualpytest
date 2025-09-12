@@ -192,6 +192,30 @@ class AudioAIHelpers:
                 os.unlink(merged_ts)
             return []
     
+    def extract_audio_from_segments(self, segment_files: List[Tuple[str, str]], segment_count: int = 3) -> List[str]:
+        """Extract audio from specific HLS segments (optimized for restart video)."""
+        try:
+            selected_segments = segment_files[-segment_count:] if len(segment_files) > segment_count else segment_files
+            audio_files = []
+            temp_dir = tempfile.mkdtemp(prefix="restart_audio_")
+            
+            for i, (filename, segment_path) in enumerate(selected_segments):
+                timestamp = datetime.now().strftime('%Y%m%d_%H%M%S_%f')[:-3]
+                audio_filename = f"restart_audio_{i}_{timestamp}.wav"
+                audio_path = os.path.join(temp_dir, audio_filename)
+                
+                cmd = ['ffmpeg', '-y', '-i', segment_path, '-vn', '-acodec', 'pcm_s16le', '-ar', '16000', '-ac', '1', audio_path]
+                result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+                
+                if result.returncode == 0 and os.path.exists(audio_path) and os.path.getsize(audio_path) > 1024:
+                    audio_files.append(audio_path)
+            
+            return audio_files
+            
+        except Exception as e:
+            print(f"AudioAI[{self.device_name}]: Audio extraction error: {e}")
+            return []
+    
     # NEW: Helper method to merge multiple TS files
     def _merge_ts_files(self, ts_files: List[str]) -> Optional[str]:
         """Merge multiple TS files into a single TS file using ffmpeg."""

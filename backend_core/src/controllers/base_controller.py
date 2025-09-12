@@ -400,17 +400,17 @@ class FFmpegCaptureController(AVControllerInterface):
             print(f'{self.capture_source}[{self.capture_source}]: Error saving screenshot: {e}')
             return None
 
-    def take_video(self, duration_seconds: float = None, test_start_time: float = None) -> Optional[str]:
+    def take_video(self, duration_seconds: float = None, test_start_time: float = None, include_audio_analysis: bool = False) -> Optional[str]:
         """
-        Compress HLS segments to MP4 and upload to R2.
-        Reduces file count from ~180 segments to 1 MP4 file.
+        Compress HLS segments to MP4 and optionally analyze audio in parallel.
         
         Args:
             duration_seconds: How many seconds of video to capture (default: 10s)
             test_start_time: Unix timestamp when test started (for time sync)
+            include_audio_analysis: If True, analyze audio in parallel and return combined results
             
         Returns:
-            R2 URL of compressed MP4 video, or None if failed
+            R2 URL of compressed MP4 video, or dict with video+audio results if include_audio_analysis=True
         """
         try:
             import time
@@ -544,9 +544,39 @@ class FFmpegCaptureController(AVControllerInterface):
                 # Fallback to stream path
                 video_url = self.video_stream_path + "/" + video_filename
             
-            # DO NOT clean up original segments - they're needed for live streaming
-            print(f"{self.capture_source}[{self.capture_source}]: HLS segments preserved for live streaming")
             print(f"{self.capture_source}[{self.capture_source}]: Restart video available at: {video_url}")
+            
+            # Parallel audio analysis if requested
+            if include_audio_analysis:
+                import concurrent.futures
+                
+                results = {}
+                
+                def extract_audio():
+                    try:
+                        from backend_core.src.controllers.verification.audio_ai_helpers import AudioAIHelpers
+                        audio_ai = AudioAIHelpers(self, f"RestartVideo-{self.device_name}")
+                        audio_files = audio_ai.extract_audio_from_segments(segment_files, segment_count=3)
+                        if audio_files:
+                            results['audio'] = audio_ai.analyze_audio_segments_ai(audio_files, upload_to_r2=True, early_stop=True)
+                        else:
+                            results['audio'] = {'success': False, 'message': 'No audio extracted'}
+                    except Exception as e:
+                        results['audio'] = {'success': False, 'error': str(e)}
+                
+                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                    executor.submit(extract_audio).result()
+                
+                audio_result = results.get('audio', {})
+                return {
+                    'success': True,
+                    'video_url': video_url,
+                    'duration_seconds': duration_seconds,
+                    'audio_analysis': audio_result,
+                    'speech_detected': audio_result.get('successful_segments', 0) > 0,
+                    'transcript': audio_result.get('combined_transcript', ''),
+                    'detected_language': audio_result.get('detected_language', 'unknown')
+                }
             
             return video_url
                 

@@ -7,17 +7,17 @@ import {
   LanguageMenuAnalysis,
 } from '../../types/pages/Monitoring_Types';
 
-import { useMonitoringAI } from './useMonitoringAI';
-import { useMonitoringSubtitles } from './useMonitoringSubtitles';
-import { useMonitoringLanguageMenu } from './useMonitoringLanguageMenu';
-
 import { buildServerUrl } from '../../utils/buildUrlUtils';
 interface FrameRef {
   timestamp: string;
   imageUrl: string;
   jsonUrl: string;
   analysis?: MonitoringAnalysis | null;
-  subtitleDetectionPerformed?: boolean; // Flag to track if manual subtitle detection was done
+  subtitleAnalysis?: SubtitleAnalysis | null;
+  languageMenuAnalysis?: LanguageMenuAnalysis | null;
+  aiDescription?: string | null;
+  aiAnalysisPerformed?: boolean; // Flag to track if autonomous AI analysis was done
+  aiAnalysisInProgress?: boolean; // Flag to track if AI analysis is currently running
 }
 
 interface ErrorTrendData {
@@ -47,22 +47,8 @@ interface UseMonitoringReturn {
   handleSliderChange: (event: Event, newValue: number | number[]) => void;
   handleHistoricalFrameLoad: () => void;
 
-  // Subtitle detection
-  detectSubtitles: () => Promise<void>;
-  detectSubtitlesAI: () => Promise<void>;
-  isDetectingSubtitles: boolean;
-  isDetectingSubtitlesAI: boolean;
-  hasSubtitleDetectionResults: boolean; // Whether current frame has subtitle detection results
-
-  // AI Query functionality
-  isAIQueryVisible: boolean;
-  aiQuery: string;
-  aiResponse: string;
-  isProcessingAIQuery: boolean;
-  toggleAIPanel: () => void;
-  submitAIQuery: () => Promise<void>;
-  clearAIQuery: () => void;
-  handleAIQueryChange: (query: string) => void;
+  // Autonomous AI analysis status
+  isPerformingAIAnalysis: boolean;
 
   // Subtitle trend analysis
   subtitleTrendAnalysis: SubtitleTrendAnalysis | null;
@@ -70,14 +56,10 @@ interface UseMonitoringReturn {
   // Error trend analysis
   errorTrendData: ErrorTrendData | null;
 
-  // Current subtitle analysis for components that need subtitle data
+  // Current analysis data for overlay display
   currentSubtitleAnalysis: SubtitleAnalysis | null;
-
-  // Language menu detection
-  analyzeLanguageMenu: () => Promise<void>;
-  isAnalyzingLanguageMenu: boolean;
-  hasLanguageMenuResults: boolean;
   currentLanguageMenuAnalysis: LanguageMenuAnalysis | null;
+  currentAIDescription: string | null;
 
   // Current frame timestamp for analysis tracking
   currentFrameTimestamp: string | null;
@@ -104,48 +86,146 @@ export const useMonitoring = ({
   );
   const [isHistoricalFrameLoaded, setIsHistoricalFrameLoaded] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [isPerformingAIAnalysis, setIsPerformingAIAnalysis] = useState(false);
 
-  // Initial loading buffer - reduced since we fetch latest available JSON
+  // Initial loading buffer - reduced to max 1 second as requested
   useEffect(() => {
     const timer = setTimeout(() => {
       setIsInitialLoading(false);
-    }, 3000); // 3 seconds - just enough for latest JSON to be available
+    }, 1000); // 1 second maximum delay before showing first image
     return () => clearTimeout(timer);
   }, []);
 
 
 
-  // Use dedicated hooks for subtitle detection
-  const subtitleHook = useMonitoringSubtitles({
-    frames,
-    currentIndex,
-    setFrames,
-    setIsPlaying,
-    setUserSelectedFrame,
-    host,
-    device,
-  });
+  // Autonomous AI analysis function - performs all 3 analyses sequentially
+  const performAutonomousAIAnalysis = useCallback(async (latestData: {imageUrl: string, jsonUrl: string, timestamp: string}): Promise<void> => {
+    setIsPerformingAIAnalysis(true);
 
-  // Use dedicated hook for AI functionality
-  const aiHook = useMonitoringAI({
-    frames,
-    currentIndex,
-    setIsPlaying,
-    setUserSelectedFrame,
-    host,
-    device,
-  });
+    try {
+      console.log('[useMonitoring] Starting autonomous AI analysis for frame:', latestData.imageUrl);
 
-  // Use dedicated hook for language menu analysis
-  const languageMenuHook = useMonitoringLanguageMenu({
-    frames,
-    currentIndex,
-    setFrames,
-    setIsPlaying,
-    setUserSelectedFrame,
-    host,
-    device,
-  });
+      // Sequential analysis: Subtitles → Language Menu → Description
+      
+      // 1. Subtitle Detection
+      const subtitleResponse = await fetch(buildServerUrl('/server/verification/video/detectSubtitlesAI'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          host: host,
+          device_id: device?.device_id,
+          image_source_url: latestData.imageUrl,
+          extract_text: true,
+        }),
+      });
+
+      let subtitleAnalysis: SubtitleAnalysis | null = null;
+      if (subtitleResponse.ok) {
+        const subtitleResult = await subtitleResponse.json();
+        if (subtitleResult.success) {
+          const responseData = subtitleResult.results?.[0] || {};
+          subtitleAnalysis = {
+            subtitles_detected: subtitleResult.subtitles_detected || false,
+            combined_extracted_text: subtitleResult.combined_extracted_text || responseData.extracted_text || '',
+            detected_language: subtitleResult.detected_language !== 'unknown' ? subtitleResult.detected_language : undefined,
+            confidence: responseData.confidence || (subtitleResult.subtitles_detected ? 0.9 : 0.1),
+            detection_message: subtitleResult.detection_message || '',
+          };
+        }
+      }
+
+      // 2. Language Menu Analysis
+      const languageMenuResponse = await fetch(buildServerUrl('/server/verification/video/analyzeLanguageMenu'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          host: host,
+          device_id: device?.device_id,
+          image_source_url: latestData.imageUrl,
+        }),
+      });
+
+      let languageMenuAnalysis: LanguageMenuAnalysis | null = null;
+      if (languageMenuResponse.ok) {
+        const languageMenuResult = await languageMenuResponse.json();
+        if (languageMenuResult.success) {
+          languageMenuAnalysis = {
+            menu_detected: languageMenuResult.menu_detected || false,
+            audio_languages: languageMenuResult.audio_languages || [],
+            subtitle_languages: languageMenuResult.subtitle_languages || [],
+            selected_audio: languageMenuResult.selected_audio ?? -1,
+            selected_subtitle: languageMenuResult.selected_subtitle ?? -1,
+          };
+        }
+      }
+
+      // 3. AI Image Description
+      const descriptionResponse = await fetch(buildServerUrl('/server/verification/video/analyzeImageAI'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          host: host,
+          device_id: device?.device_id,
+          image_source_url: latestData.imageUrl,
+          query: 'Provide a short description of what you see in this image',
+        }),
+      });
+
+      let aiDescription: string | null = null;
+      if (descriptionResponse.ok) {
+        const descriptionResult = await descriptionResponse.json();
+        if (descriptionResult.success && descriptionResult.response) {
+          aiDescription = descriptionResult.response;
+        }
+      }
+
+        // Add frame with all analysis results to buffer
+        setCurrentImageUrl(latestData.imageUrl);
+        
+        setFrames((prev) => {
+          // Check if we already have this timestamp to avoid duplicates
+          const existingFrame = prev.find(frame => frame.timestamp === latestData.timestamp);
+          if (existingFrame) {
+            console.log('[useMonitoring] Frame already exists, skipping:', latestData.timestamp);
+            return prev;
+          }
+
+          const newFrames = [...prev, { 
+            timestamp: latestData.timestamp, 
+            imageUrl: latestData.imageUrl, 
+            jsonUrl: latestData.jsonUrl,
+            subtitleAnalysis,
+            languageMenuAnalysis,
+            aiDescription,
+            aiAnalysisPerformed: true,
+            aiAnalysisInProgress: false,
+          }];
+          const updatedFrames = newFrames.slice(-100); // Always keep last 100 frames
+
+          // Update current index based on current playing state
+          setCurrentIndex((currentIdx) => {
+            // ONLY auto-follow when actively playing AND not user-selected
+            if (isPlaying && !userSelectedFrame) {
+              return updatedFrames.length - 1;
+            }
+            // ONLY move user if their selected frame was deleted from buffer
+            else if (userSelectedFrame && currentIdx >= updatedFrames.length) {
+              console.log('[useMonitoring] User selected frame was deleted, moving to latest but staying paused');
+              return updatedFrames.length - 1;
+            }
+            return currentIdx;
+          });
+
+          return updatedFrames;
+        });
+
+        console.log('[useMonitoring] Frame with AI analysis added:', latestData.timestamp);
+    } catch (error) {
+      console.error('[useMonitoring] Autonomous AI analysis failed:', error);
+    } finally {
+      setIsPerformingAIAnalysis(false);
+    }
+  }, [host, device?.device_id, isPlaying, userSelectedFrame]);
 
   // State for autonomous base URL pattern (discovered via takeScreenshot API)
   const [autonomousBaseUrlPattern, setAutonomousBaseUrlPattern] = useState<string | null>(null);
@@ -249,46 +329,10 @@ export const useMonitoring = ({
         const isDifferentFrame = latestData.imageUrl !== currentImageUrl;
         
         if (isDifferentFrame) {
-          setCurrentImageUrl(latestData.imageUrl);
+          console.log('[useMonitoring] New frame detected, starting AI analysis first:', latestData.timestamp);
 
-          console.log('[useMonitoring] New frame detected:', latestData.timestamp);
-
-          // Add new frame and handle navigation in a single state update
-          setFrames((prev) => {
-            // Check if we already have this timestamp to avoid duplicates
-            const existingFrame = prev.find(frame => frame.timestamp === latestData.timestamp);
-            if (existingFrame) {
-              console.log('[useMonitoring] Frame already exists, skipping:', latestData.timestamp);
-              return prev;
-            }
-
-            const newFrames = [...prev, { 
-              timestamp: latestData.timestamp, 
-              imageUrl: latestData.imageUrl, 
-              jsonUrl: latestData.jsonUrl 
-            }];
-            const updatedFrames = newFrames.slice(-100); // Always keep last 100 frames
-
-            // Update current index based on current playing state
-            // This happens in the same render cycle, avoiding stale closures
-            setCurrentIndex((currentIdx) => {
-              // ONLY auto-follow when actively playing AND not user-selected
-              if (isPlaying && !userSelectedFrame) {
-                return updatedFrames.length - 1;
-              }
-              // ONLY move user if their selected frame was deleted from buffer
-              else if (userSelectedFrame && currentIdx >= updatedFrames.length) {
-                // Frame was deleted, move to newest but DON'T resume playing
-                // Keep the user in control - they paused for a reason
-                console.log('[useMonitoring] User selected frame was deleted, moving to latest but staying paused');
-                return updatedFrames.length - 1;
-              }
-              // Otherwise: DO NOTHING - stay on current frame
-              return currentIdx;
-            });
-
-            return updatedFrames;
-          });
+          // WAIT for AI analysis BEFORE showing the image
+          await performAutonomousAIAnalysis(latestData);
         } else {
           console.log('[useMonitoring] Same frame, no update needed');
         }
@@ -487,11 +531,72 @@ export const useMonitoring = ({
     };
   }, [frames]);
 
-  // Subtitle trend analysis moved to useMonitoringSubtitles
-  const subtitleTrendAnalysis = subtitleHook.subtitleTrendAnalysis;
+  // Subtitle trend analysis - computed from autonomous analysis results
+  const subtitleTrendAnalysis = useMemo((): SubtitleTrendAnalysis | null => {
+    if (frames.length === 0) return null;
 
-  // Get current subtitle analysis from the subtitle hook
-  const currentSubtitleAnalysis = subtitleHook.currentSubtitleAnalysis;
+    // Get frames with subtitle data from autonomous analysis
+    const framesWithSubtitles = frames.filter(
+      (frame) => frame.subtitleAnalysis !== undefined && frame.aiAnalysisPerformed === true,
+    );
+
+    if (framesWithSubtitles.length === 0) return null;
+
+    // Use up to 3 frames for subtitle trend analysis
+    const targetFrameCount = Math.min(3, framesWithSubtitles.length);
+    const recentFrames = framesWithSubtitles.slice(-targetFrameCount);
+
+    // Check for subtitle presence across frames
+    let noSubtitlesCount = 0;
+    let currentHasSubtitles = false;
+
+    recentFrames.forEach((frame, index) => {
+      const subtitleData = frame.subtitleAnalysis;
+      if (!subtitleData) return;
+
+      // Check current frame (most recent)
+      if (index === recentFrames.length - 1) {
+        currentHasSubtitles = subtitleData.subtitles_detected || false;
+      }
+
+      // Count frames without subtitles
+      if (!subtitleData.subtitles_detected) {
+        noSubtitlesCount++;
+      }
+    });
+
+    // Red indicator logic:
+    // - Show red if ALL analyzed frames have no subtitles
+    // - AND we have analyzed at least the target number of frames
+    const showRedIndicator =
+      noSubtitlesCount === recentFrames.length && recentFrames.length >= targetFrameCount;
+
+    return {
+      showRedIndicator,
+      currentHasSubtitles,
+      framesAnalyzed: recentFrames.length,
+      noSubtitlesStreak: noSubtitlesCount,
+    };
+  }, [frames]);
+
+  // Get current analysis data for overlay display
+  const currentSubtitleAnalysis = useMemo(() => {
+    if (frames.length === 0 || currentIndex >= frames.length) return null;
+    const currentFrame = frames[currentIndex];
+    return currentFrame?.subtitleAnalysis || null;
+  }, [frames, currentIndex]);
+
+  const currentLanguageMenuAnalysis = useMemo(() => {
+    if (frames.length === 0 || currentIndex >= frames.length) return null;
+    const currentFrame = frames[currentIndex];
+    return currentFrame?.languageMenuAnalysis || null;
+  }, [frames, currentIndex]);
+
+  const currentAIDescription = useMemo(() => {
+    if (frames.length === 0 || currentIndex >= frames.length) return null;
+    const currentFrame = frames[currentIndex];
+    return currentFrame?.aiDescription || null;
+  }, [frames, currentIndex]);
 
   // Handlers
   const handlePlayPause = useCallback(() => {
@@ -544,22 +649,8 @@ export const useMonitoring = ({
     handleSliderChange,
     handleHistoricalFrameLoad,
 
-    // Subtitle detection (from dedicated hook)
-    detectSubtitles: subtitleHook.detectSubtitles,
-    detectSubtitlesAI: subtitleHook.detectSubtitlesAI,
-    isDetectingSubtitles: subtitleHook.isDetectingSubtitles,
-    isDetectingSubtitlesAI: subtitleHook.isDetectingSubtitlesAI,
-    hasSubtitleDetectionResults: subtitleHook.hasSubtitleDetectionResults,
-
-    // AI Query functionality (from dedicated hook)
-    isAIQueryVisible: aiHook.isAIQueryVisible,
-    aiQuery: aiHook.aiQuery,
-    aiResponse: aiHook.aiResponse,
-    isProcessingAIQuery: aiHook.isProcessingAIQuery,
-    toggleAIPanel: aiHook.toggleAIPanel,
-    submitAIQuery: aiHook.submitAIQuery,
-    clearAIQuery: aiHook.clearAIQuery,
-    handleAIQueryChange: aiHook.handleAIQueryChange,
+    // Autonomous AI analysis status
+    isPerformingAIAnalysis,
 
     // Subtitle trend analysis
     subtitleTrendAnalysis,
@@ -567,14 +658,10 @@ export const useMonitoring = ({
     // Error trend analysis
     errorTrendData,
 
-    // Current subtitle analysis for components that need subtitle data
+    // Current analysis data for overlay display
     currentSubtitleAnalysis,
-
-    // Language menu detection (from dedicated hook)
-    analyzeLanguageMenu: languageMenuHook.analyzeLanguageMenu,
-    isAnalyzingLanguageMenu: languageMenuHook.isAnalyzingLanguageMenu,
-    hasLanguageMenuResults: languageMenuHook.hasLanguageMenuResults,
-    currentLanguageMenuAnalysis: languageMenuHook.currentLanguageMenuAnalysis,
+    currentLanguageMenuAnalysis,
+    currentAIDescription,
 
     // Current frame timestamp for analysis tracking
     currentFrameTimestamp: frames[currentIndex]?.timestamp || null,

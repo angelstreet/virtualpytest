@@ -1,12 +1,10 @@
-import { PlayArrow, Pause, Subtitles, SmartToy, Send, Language } from '@mui/icons-material';
+import { PlayArrow, Pause } from '@mui/icons-material';
 import {
   Box,
   Slider,
   IconButton,
   Typography,
   CircularProgress,
-  TextField,
-  Button,
 } from '@mui/material';
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 
@@ -47,7 +45,7 @@ export const MonitoringPlayer: React.FC<MonitoringPlayerProps> = ({
   const lastImageChangeTime = useRef<number>(0);
   const imageChangeTimeout = useRef<NodeJS.Timeout | null>(null);
 
-  // Monitoring hook - only detects images when control is active
+  // Monitoring hook - now fully autonomous
   const {
     frames,
     currentIndex,
@@ -58,25 +56,10 @@ export const MonitoringPlayer: React.FC<MonitoringPlayerProps> = ({
     handlePlayPause,
     handleSliderChange,
     errorTrendData,
-    detectSubtitles,
-    detectSubtitlesAI,
-    isDetectingSubtitles,
-    isDetectingSubtitlesAI,
-    hasSubtitleDetectionResults,
+    isPerformingAIAnalysis,
     currentSubtitleAnalysis,
-    // Language menu detection
-    analyzeLanguageMenu,
-    isAnalyzingLanguageMenu,
-    hasLanguageMenuResults,
     currentLanguageMenuAnalysis,
-    // AI Query functionality
-    isAIQueryVisible,
-    aiQuery,
-    aiResponse,
-    isProcessingAIQuery,
-    toggleAIPanel,
-    submitAIQuery,
-    handleAIQueryChange,
+    currentAIDescription,
     // Current frame timestamp
     currentFrameTimestamp,
   } = useMonitoring({
@@ -333,14 +316,46 @@ export const MonitoringPlayer: React.FC<MonitoringPlayerProps> = ({
           subtitleAnalysis={currentSubtitleAnalysis}
           languageMenuAnalysis={currentLanguageMenuAnalysis}
           consecutiveErrorCounts={errorTrendData}
-          showSubtitles={
-            isDetectingSubtitles || isDetectingSubtitlesAI || hasSubtitleDetectionResults
-          }
-          showLanguageMenu={
-            isAnalyzingLanguageMenu || hasLanguageMenuResults
-          }
+          showSubtitles={!!currentSubtitleAnalysis}
+          showLanguageMenu={!!currentLanguageMenuAnalysis}
           analysisTimestamp={currentFrameTimestamp || undefined}
         />
+
+        {/* AI Description Overlay - minimal top-centered display */}
+        {currentAIDescription && (
+          <Box
+            sx={{
+              position: 'absolute',
+              top: 16,
+              left: '50%',
+              transform: 'translateX(-50%)',
+              maxWidth: '60%',
+              minWidth: 300,
+              p: 1,
+              backgroundColor: 'rgba(0, 0, 0, 0.75)',
+              borderRadius: 1,
+              border: '1px solid rgba(255, 255, 255, 0.2)',
+              textAlign: 'center',
+            }}
+          >
+            <Typography
+              variant="body2"
+              sx={{
+                color: '#ffffff',
+                fontSize: '0.7rem',
+                lineHeight: 1.2,
+                fontWeight: 400,
+                display: '-webkit-box',
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: 'vertical',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+            >
+              {currentAIDescription}
+            </Typography>
+          </Box>
+        )}
       </Box>
 
       {/* Timeline controls - only when we have frames and not loading */}
@@ -382,144 +397,33 @@ export const MonitoringPlayer: React.FC<MonitoringPlayerProps> = ({
               {isPlaying ? <Pause /> : <PlayArrow />}
             </IconButton>
 
-            {/* Subtitle detection button */}
-            <IconButton
-              size="medium"
-              onClick={detectSubtitles}
-              disabled={isDetectingSubtitles || isDetectingSubtitlesAI}
-              sx={{
-                color: currentSubtitleAnalysis?.subtitles_detected ? '#4caf50' : '#ffffff',
-                backgroundColor: 'rgba(255,255,255,0.1)',
-                '&:hover': {
-                  backgroundColor: 'rgba(255,255,255,0.2)',
-                },
-                '&:disabled': {
-                  color: 'rgba(255,255,255,0.5)',
-                  backgroundColor: 'rgba(255,255,255,0.05)',
-                },
-              }}
-              title={
-                isDetectingSubtitles
-                  ? 'Detecting subtitles...'
-                  : 'Detect subtitles in current frame'
-              }
-            >
-              {isDetectingSubtitles ? (
-                <CircularProgress size={20} sx={{ color: '#ffffff' }} />
-              ) : (
-                <Subtitles />
-              )}
-            </IconButton>
-
-            {/* AI Subtitle detection button */}
-            <IconButton
-              size="medium"
-              onClick={detectSubtitlesAI}
-              disabled={isDetectingSubtitles || isDetectingSubtitlesAI}
-              sx={{
-                color: currentSubtitleAnalysis?.subtitles_detected ? '#ff9800' : '#ffffff',
-                backgroundColor: 'rgba(255,255,255,0.1)',
-                border: '1px solid rgba(255,152,0,0.3)',
-                '&:hover': {
-                  backgroundColor: 'rgba(255,152,0,0.1)',
-                  borderColor: 'rgba(255,152,0,0.5)',
-                },
-                '&:disabled': {
-                  color: 'rgba(255,255,255,0.5)',
-                  backgroundColor: 'rgba(255,255,255,0.05)',
-                  borderColor: 'rgba(255,255,255,0.1)',
-                },
-              }}
-              title={
-                isDetectingSubtitlesAI
-                  ? 'Detecting AI subtitles...'
-                  : 'Detect subtitles using AI in current frame'
-              }
-            >
-              {isDetectingSubtitlesAI ? (
-                <CircularProgress size={20} sx={{ color: '#ffffff' }} />
-              ) : (
-                <Box
+            {/* AI Analysis Status Indicator */}
+            {isPerformingAIAnalysis && (
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1,
+                  backgroundColor: 'rgba(0,150,255,0.2)',
+                  border: '1px solid rgba(0,150,255,0.3)',
+                  borderRadius: 1,
+                  px: 1,
+                  py: 0.5,
+                }}
+              >
+                <CircularProgress size={16} sx={{ color: '#ffffff' }} />
+                <Typography
+                  variant="caption"
                   sx={{
-                    position: 'relative',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
+                    color: '#ffffff',
+                    fontSize: '0.7rem',
+                    textShadow: '1px 1px 2px rgba(0,0,0,0.8)',
                   }}
                 >
-                  <Subtitles />
-                  <Typography
-                    variant="caption"
-                    sx={{
-                      position: 'absolute',
-                      bottom: -2,
-                      right: -1,
-                      fontSize: '0.6rem',
-                      fontWeight: 'bold',
-                      color: '#ff9800',
-                      textShadow: '1px 1px 2px rgba(0,0,0,0.8)',
-                    }}
-                  >
-                    AI
-                  </Typography>
-                </Box>
-              )}
-            </IconButton>
-
-            {/* Language Menu detection button */}
-            <IconButton
-              size="medium"
-              onClick={analyzeLanguageMenu}
-              disabled={isAnalyzingLanguageMenu || isDetectingSubtitles || isDetectingSubtitlesAI}
-              sx={{
-                color: currentLanguageMenuAnalysis?.menu_detected ? '#9c27b0' : '#ffffff',
-                backgroundColor: 'rgba(255,255,255,0.1)',
-                border: '1px solid rgba(156,39,176,0.3)',
-                '&:hover': {
-                  backgroundColor: 'rgba(156,39,176,0.1)',
-                  borderColor: 'rgba(156,39,176,0.5)',
-                },
-                '&:disabled': {
-                  color: 'rgba(255,255,255,0.5)',
-                  backgroundColor: 'rgba(255,255,255,0.05)',
-                  borderColor: 'rgba(255,255,255,0.1)',
-                },
-              }}
-              title={
-                isAnalyzingLanguageMenu
-                  ? 'Analyzing language menu...'
-                  : 'Analyze language/subtitle menu options'
-              }
-            >
-              {isAnalyzingLanguageMenu ? (
-                <CircularProgress size={20} sx={{ color: '#ffffff' }} />
-              ) : (
-                <Box
-                  sx={{
-                    position: 'relative',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <Language />
-                  <Typography
-                    variant="caption"
-                    sx={{
-                      position: 'absolute',
-                      bottom: -2,
-                      right: -1,
-                      fontSize: '0.6rem',
-                      fontWeight: 'bold',
-                      color: '#9c27b0',
-                      textShadow: '1px 1px 2px rgba(0,0,0,0.8)',
-                    }}
-                  >
-                    AI
-                  </Typography>
-                </Box>
-              )}
-            </IconButton>
+                  AI Analyzing...
+                </Typography>
+              </Box>
+            )}
           </Box>
 
           {/* Frame counter */}
@@ -541,7 +445,7 @@ export const MonitoringPlayer: React.FC<MonitoringPlayerProps> = ({
             sx={{
               position: 'absolute',
               bottom: 12,
-              left: '200px', // Space for button grid (4 buttons + gaps)
+              left: '120px', // Space for play button + AI indicator
               right: '80px',
             }}
           >
@@ -569,160 +473,6 @@ export const MonitoringPlayer: React.FC<MonitoringPlayerProps> = ({
         </Box>
       )}
 
-      {/* AI Query Panel - positioned vertically centered on right side */}
-      <Box
-        sx={{
-          position: 'absolute',
-          top: '50%',
-          right: 16,
-          transform: 'translateY(-50%)',
-          zIndex: 1000020, // Higher than timeline controls
-          pointerEvents: 'auto',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'flex-end',
-        }}
-      >
-        {/* AI Button - always visible */}
-        <IconButton
-          size="medium"
-          onClick={toggleAIPanel}
-          disabled={frames.length === 0}
-          sx={{
-            color: '#ffffff',
-            backgroundColor: 'rgba(0,150,255,0.2)',
-            border: '1px solid rgba(0,150,255,0.3)',
-            mb: isAIQueryVisible ? 1 : 0,
-            '&:hover': {
-              backgroundColor: 'rgba(0,150,255,0.3)',
-              borderColor: 'rgba(0,150,255,0.5)',
-            },
-            '&:disabled': {
-              color: 'rgba(255,255,255,0.3)',
-              backgroundColor: 'rgba(255,255,255,0.05)',
-              borderColor: 'rgba(255,255,255,0.1)',
-            },
-          }}
-          title="Ask AI about this image"
-        >
-          <SmartToy />
-        </IconButton>
-
-        {/* Sliding Query Panel */}
-        <Box
-          sx={{
-            width: isAIQueryVisible ? '320px' : '0px',
-            height: isAIQueryVisible ? 'auto' : '0px',
-            overflow: 'hidden',
-            transition: 'width 300ms ease-in-out, height 300ms ease-in-out',
-            backgroundColor: isAIQueryVisible ? 'rgba(0,0,0,0.85)' : 'transparent',
-            borderRadius: isAIQueryVisible ? 1 : 0,
-            border: isAIQueryVisible ? '1px solid rgba(255,255,255,0.2)' : 'none',
-          }}
-        >
-          {isAIQueryVisible && (
-            <Box sx={{ p: 2, width: '320px' }}>
-              {/* Input field and send button */}
-              <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
-                <TextField
-                  size="small"
-                  placeholder="Ask about the image..."
-                  value={aiQuery}
-                  onChange={(e) => handleAIQueryChange(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault();
-                      submitAIQuery();
-                    }
-                  }}
-                  disabled={isProcessingAIQuery}
-                  inputProps={{
-                    maxLength: 100,
-                    autoComplete: 'off',
-                    autoCorrect: 'off',
-                    autoCapitalize: 'off',
-                    spellCheck: false,
-                  }}
-                  sx={{
-                    width: '200px',
-                    mb: 1,
-                    '& .MuiOutlinedInput-root': {
-                      backgroundColor: 'rgba(0, 0, 0, 0.7)',
-                      '& fieldset': {
-                        borderColor: '#444',
-                      },
-                      '&:hover fieldset': {
-                        borderColor: '#666',
-                      },
-                      '&.Mui-focused fieldset': {
-                        borderColor: '#2196f3',
-                      },
-                    },
-                    '& .MuiInputBase-input': {
-                      color: '#ffffff',
-                      fontSize: '0.875rem',
-                      '&::placeholder': {
-                        color: '#888',
-                        opacity: 1,
-                      },
-                    },
-                  }}
-                />
-                <Button
-                  variant="contained"
-                  size="small"
-                  onClick={submitAIQuery}
-                  disabled={!aiQuery.trim() || isProcessingAIQuery}
-                  sx={{
-                    backgroundColor: '#2196f3',
-                    color: '#ffffff',
-                    minWidth: '60px',
-                    '&:hover': {
-                      backgroundColor: '#1976d2',
-                    },
-                    '&.Mui-disabled': {
-                      backgroundColor: '#444',
-                      color: '#888',
-                    },
-                  }}
-                >
-                  {isProcessingAIQuery ? (
-                    <CircularProgress size={16} sx={{ color: '#888' }} />
-                  ) : (
-                    <Send sx={{ fontSize: 16 }} />
-                  )}
-                </Button>
-              </Box>
-
-              {/* AI Response */}
-              {aiResponse && (
-                <Box
-                  sx={{
-                    mt: 1,
-                    p: 1,
-                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                    borderRadius: 1,
-                    border: '1px solid #444',
-                    maxWidth: '280px',
-                  }}
-                >
-                  <Typography
-                    variant="body2"
-                    sx={{
-                      color: '#ffffff',
-                      fontSize: '0.8rem',
-                      lineHeight: 1.3,
-                      whiteSpace: 'pre-wrap',
-                    }}
-                  >
-                    {aiResponse}
-                  </Typography>
-                </Box>
-              )}
-            </Box>
-          )}
-        </Box>
-      </Box>
     </Box>
   );
 };
