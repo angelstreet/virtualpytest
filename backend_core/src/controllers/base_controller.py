@@ -440,16 +440,9 @@ class FFmpegCaptureController(AVControllerInterface):
             with open(m3u8_path, 'r') as f:
                 playlist_content = f.read()
             
-            # Detect actual segment duration from M3U8 file
-            actual_segment_duration = self.HLS_SEGMENT_DURATION  # Default fallback
-            for line in playlist_content.splitlines():
-                if line.startswith('#EXT-X-TARGETDURATION:'):
-                    try:
-                        actual_segment_duration = float(line.split(':')[1])
-                        print(f"{self.capture_source}[{self.capture_source}]: Detected segment duration: {actual_segment_duration}s")
-                        break
-                    except:
-                        pass
+            # Use configured segment duration (ignore M3U8 detection)
+            actual_segment_duration = self.HLS_SEGMENT_DURATION
+            print(f"{self.capture_source}[{self.capture_source}]: Using configured segment duration: {actual_segment_duration}s")
             
             # Get all segment files directly from directory and sort by segment number
             import glob
