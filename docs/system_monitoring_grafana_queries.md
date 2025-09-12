@@ -1,10 +1,28 @@
-# System Monitoring Grafana Queries
+# System Monitoring Grafana Dashboards
 
-SQL queries for the simplified system monitoring dashboard panels in Grafana.
+Updated documentation for the **System Server Monitoring** and **System Host Monitoring** dashboards.
 
-## Panel 1: Server Status Overview (Stat Panels)
+## Dashboard Architecture
 
-### Server CPU Usage
+We have **two separate dashboards** that monitor different aspects of the system:
+
+### 1. System Server Monitoring
+- **Focus**: Backend server infrastructure monitoring
+- **UID**: `system-monitoring`
+- **Data Source**: `system_metrics` table (server-only data)
+- **Panels**: 20 panels focused on server performance and availability
+
+### 2. System Host Monitoring  
+- **Focus**: Host machines and device availability monitoring
+- **UID**: `fe85e054-7760-4133-8118-3dfe663dee66`
+- **Data Source**: `system_metrics` + `system_device_metrics` tables
+- **Panels**: 25 panels focused on host performance and device availability
+
+## System Server Monitoring Dashboard
+
+### Server Status Overview (Top Row - Stat Panels)
+
+#### Server CPU Usage
 ```sql
 SELECT ROUND(AVG(cpu_percent), 1) as "Server CPU %" 
 FROM system_metrics 
@@ -12,7 +30,7 @@ WHERE timestamp >= NOW() - INTERVAL '5 minutes'
   AND host_name = 'server'
 ```
 
-### Server Memory Usage  
+#### Server Memory Usage  
 ```sql
 SELECT ROUND(AVG(memory_percent), 1) as "Server Memory %" 
 FROM system_metrics 
@@ -20,7 +38,7 @@ WHERE timestamp >= NOW() - INTERVAL '5 minutes'
   AND host_name = 'server'
 ```
 
-### Server Disk Usage
+#### Server Disk Usage
 ```sql
 SELECT ROUND(AVG(disk_percent), 1) as "Server Disk %" 
 FROM system_metrics 
@@ -28,442 +46,300 @@ WHERE timestamp >= NOW() - INTERVAL '5 minutes'
   AND host_name = 'server'
 ```
 
-### Server Uptime
+#### Server Uptime
 ```sql
-SELECT MAX(uptime_seconds) as "Server Uptime" 
+SELECT uptime_seconds as "Server Uptime"
 FROM system_metrics 
 WHERE timestamp >= NOW() - INTERVAL '5 minutes' 
   AND host_name = 'server'
+ORDER BY timestamp DESC
+LIMIT 1
 ```
 
-## Panel 2: Resource Usage Over Time (Time Series)
+### Server Availability Metrics (Time-Based Calculation)
 
-### CPU Usage Over Time (Per Device)
-```sql
-SELECT timestamp as time, 
-       CONCAT(host_name, ' - ', device_name) as metric, 
-       cpu_percent as value 
-FROM system_device_metrics 
-WHERE $__timeFilter(timestamp) 
-  AND capture_folder IS NOT NULL 
-  AND capture_folder != 'invalid_config'
-ORDER BY timestamp
+#### Server Availability Formula
+```
+Expected Pings = Time Period × 60 minutes/hour × 24 hours/day
+Available Pings = COUNT(records where server is responsive)
+Availability % = (Available Pings / Expected Pings) × 100
 ```
 
-### Memory Usage Over Time (Per Device)
+#### Daily Server Availability (24h = 1,440 expected pings)
 ```sql
-SELECT timestamp as time, 
-       CONCAT(host_name, ' - ', device_name) as metric, 
-       memory_percent as value 
-FROM system_device_metrics 
-WHERE $__timeFilter(timestamp) 
-  AND capture_folder IS NOT NULL 
-  AND capture_folder != 'invalid_config'
-ORDER BY timestamp
+WITH server_availability AS (
+    SELECT COUNT(*) as available_pings
+    FROM system_metrics 
+    WHERE host_name = 'server'
+      AND timestamp >= NOW() - INTERVAL '24 hours'
+)
+SELECT ROUND((available_pings * 100.0 / 1440), 0) as "Availability %"
+FROM server_availability
 ```
 
-## Panel 3: Device Metrics - Per Device Status (Table)
-
-### Individual Device Status with Separate FFmpeg/Monitor Tracking
+#### Weekly Server Availability (7d = 10,080 expected pings)
 ```sql
-WITH latest_device_metrics AS (
-  SELECT DISTINCT ON (host_name, device_id) 
-    host_name, 
-    device_id, 
-    device_name, 
-    device_port, 
-    capture_folder,
-    video_device,
-    device_model, 
-    timestamp, 
-    cpu_percent, 
-    memory_percent, 
-    disk_percent, 
-    uptime_seconds, 
-    ffmpeg_status, 
-    ffmpeg_last_activity, 
-    ffmpeg_uptime_seconds, 
-    monitor_status, 
-    monitor_last_activity, 
-    monitor_uptime_seconds 
-  FROM system_device_metrics 
-  WHERE timestamp >= NOW() - INTERVAL '5 minutes' 
-    AND capture_folder IS NOT NULL 
-    AND capture_folder != 'invalid_config'
-  ORDER BY host_name, device_id, timestamp DESC
-) 
-SELECT 
-  host_name as "Host", 
-  device_name as "Device Name", 
-  capture_folder as "Capture Folder",
-  video_device as "Video Device", 
-  ROUND(cpu_percent::numeric, 1) as "CPU %", 
-  ROUND(memory_percent::numeric, 1) as "Memory %", 
-  ROUND(disk_percent::numeric, 1) as "Disk %", 
-  CASE 
-    WHEN uptime_seconds < 3600 THEN ROUND(uptime_seconds/60) || 'm' 
-    WHEN uptime_seconds < 86400 THEN ROUND(uptime_seconds/3600) || 'h' 
-    ELSE ROUND(uptime_seconds/86400) || 'd' 
-  END as "Uptime", 
-  ffmpeg_status as "FFmpeg", 
-  CASE 
-    WHEN ffmpeg_uptime_seconds < 3600 THEN ROUND(ffmpeg_uptime_seconds/60) || 'm' 
-    WHEN ffmpeg_uptime_seconds < 86400 THEN ROUND(ffmpeg_uptime_seconds/3600) || 'h' 
-    ELSE ROUND(ffmpeg_uptime_seconds/86400) || 'd' 
-  END as "FFmpeg Uptime", 
-  COALESCE(TO_CHAR(ffmpeg_last_activity, 'HH24:MI:SS'), 'N/A') as "FFmpeg Last", 
-  monitor_status as "Monitor", 
-  CASE 
-    WHEN monitor_uptime_seconds < 3600 THEN ROUND(monitor_uptime_seconds/60) || 'm' 
-    WHEN monitor_uptime_seconds < 86400 THEN ROUND(monitor_uptime_seconds/3600) || 'h' 
-    ELSE ROUND(monitor_uptime_seconds/86400) || 'd' 
-  END as "Monitor Uptime", 
-  COALESCE(TO_CHAR(monitor_last_activity, 'HH24:MI:SS'), 'N/A') as "Monitor Last", 
-  TO_CHAR(timestamp, 'HH24:MI:SS') as "Last Update" 
-FROM latest_device_metrics 
-ORDER BY host_name, capture_folder
+WITH server_availability AS (
+    SELECT COUNT(*) as available_pings
+    FROM system_metrics 
+    WHERE host_name = 'server'
+      AND timestamp >= NOW() - INTERVAL '7 days'
+)
+SELECT ROUND((available_pings * 100.0 / 10080), 0) as "Availability %"
+FROM server_availability
 ```
 
-## Panel 4: Current Active Incidents (Critical Priority)
+## System Host Monitoring Dashboard
 
-### Active Incidents - What's Broken RIGHT NOW
+### Host Status Overview (Top Row - Stat Panels)
+
+#### Host CPU Usage (Average across all hosts)
 ```sql
--- Shows incidents happening RIGHT NOW
-SELECT 
-    incident_id as "ID",
-    device_name as "Device",
-    capture_folder as "Folder",
-    component as "Component",
-    severity as "Severity",
-    incident_type as "Type",
-    ROUND(EXTRACT(EPOCH FROM (NOW() - detected_at))/60) as "Duration (min)",
-    TO_CHAR(detected_at, 'HH24:MI:SS') as "Started",
-    description as "Description"
-FROM system_incident 
-WHERE status IN ('open', 'in_progress')
-  AND capture_folder IS NOT NULL 
-  AND capture_folder != 'invalid_config'
-ORDER BY 
-    CASE severity 
-        WHEN 'critical' THEN 1 
-        WHEN 'high' THEN 2 
-        WHEN 'medium' THEN 3 
-        ELSE 4 
-    END, 
-    detected_at ASC;
+SELECT ROUND(AVG(cpu_percent), 1) as "Host CPU %" 
+FROM system_metrics 
+WHERE timestamp >= NOW() - INTERVAL '5 minutes' 
+  AND host_name != 'server'
 ```
 
-## Panel 5: Device Availability (SLA Tracking)
-
-### 24-Hour True Availability Percentage Per Device
+#### Host Memory Usage (Average across all hosts)
 ```sql
--- Calculate TRUE availability accounting for both incidents and service reliability
-WITH device_metrics AS (
+SELECT ROUND(AVG(memory_percent), 1) as "Host Memory %" 
+FROM system_metrics 
+WHERE timestamp >= NOW() - INTERVAL '5 minutes' 
+  AND host_name != 'server'
+```
+
+#### Host Uptime (Latest uptime from any host)
+```sql
+WITH latest_host_metrics AS (
+    SELECT DISTINCT ON (host_name) 
+        host_name,
+        uptime_seconds,
+        timestamp
+    FROM system_metrics 
+    WHERE host_name != 'server'
+    ORDER BY host_name, timestamp DESC
+)
+SELECT uptime_seconds as "Host Uptime"
+FROM latest_host_metrics
+ORDER BY uptime_seconds DESC
+LIMIT 1
+```
+
+### Device Availability Monitoring (Core Feature)
+
+The **Device Availability System** uses **time-based ping calculations** with **sophisticated service status logic**.
+
+#### Device Availability Logic
+```
+Expected Pings Per Period:
+- Daily (24h): 1,440 pings (24 × 60)
+- Weekly (7d): 10,080 pings (7 × 24 × 60)  
+- Monthly (30d): 43,200 pings (30 × 24 × 60)
+- Yearly (365d): 525,600 pings (365 × 24 × 60)
+
+Available Pings = COUNT(pings where ffmpeg_status = 'active' AND monitor_status = 'active')
+Availability % = (Available Pings / Expected Pings) × 100
+```
+
+#### Device Status Classification
+- **✅ Available**: `ffmpeg_status = 'active' AND monitor_status = 'active'`
+- **❌ Unavailable**: Any other status (`stuck`, `inactive`, `stopped`, `NULL`)
+- **Missing Pings**: Count as downtime (device not reporting)
+
+#### Daily Device Availability (Left Panel)
+```sql
+WITH device_availability AS (
     SELECT 
         device_name,
-        capture_folder,
-        COUNT(*) as total_minutes,
-        -- Count minutes when both services are working properly
-        COUNT(CASE 
-            WHEN ffmpeg_status = 'active' AND monitor_status = 'active' 
-            THEN 1 
-        END) as healthy_minutes,
-        -- Count minutes when services are stuck/stopped (service issues)
-        COUNT(CASE 
-            WHEN ffmpeg_status IN ('stuck', 'stopped', 'unknown') 
-              OR monitor_status IN ('stuck', 'stopped', 'unknown')
-            THEN 1 
-        END) as service_issue_minutes
+        COUNT(CASE WHEN ffmpeg_status = 'active' AND monitor_status = 'active' THEN 1 END) as available_pings
     FROM system_device_metrics 
-    WHERE timestamp >= NOW() - INTERVAL '24 hours'
-      AND capture_folder IS NOT NULL  -- Exclude incomplete device configurations
-      AND capture_folder != 'invalid_config'
-    GROUP BY device_name, capture_folder
-),
-incident_downtime AS (
-    SELECT 
-        device_name,
-        capture_folder,
-        COALESCE(SUM(total_duration_minutes), 0) as incident_downtime_minutes
-    FROM system_incident 
-    WHERE detected_at >= NOW() - INTERVAL '24 hours'
-      AND status IN ('resolved', 'closed')
-      AND capture_folder IS NOT NULL  -- Exclude incomplete device configurations
-      AND capture_folder != 'invalid_config'
-    GROUP BY device_name, capture_folder
+    WHERE host_name != 'server'
+      AND timestamp >= NOW() - INTERVAL '24 hours'
+    GROUP BY device_name
 )
 SELECT 
-    dm.device_name as "Device",
-    dm.capture_folder as "Folder",
-    -- TRUE Availability = (Total Period - All Downtime) / Total Period * 100
-    ROUND(((1440 - dm.service_issue_minutes - COALESCE(id.incident_downtime_minutes, 0)) * 100.0 / 1440), 2) as "Availability %",
-    COALESCE(id.incident_downtime_minutes, 0) as "Incident Downtime (min)",
-    dm.service_issue_minutes as "Service Issues (min)",
-    (dm.service_issue_minutes + COALESCE(id.incident_downtime_minutes, 0)) as "Total Downtime (min)",
-    (1440 - dm.service_issue_minutes - COALESCE(id.incident_downtime_minutes, 0)) as "Available Time (min)",
-    CASE 
-        WHEN ((1440 - dm.service_issue_minutes - COALESCE(id.incident_downtime_minutes, 0)) * 100.0 / 1440) >= 99.9 THEN '🟢 Excellent'
-        WHEN ((1440 - dm.service_issue_minutes - COALESCE(id.incident_downtime_minutes, 0)) * 100.0 / 1440) >= 99.0 THEN '🟡 Good'
-        WHEN ((1440 - dm.service_issue_minutes - COALESCE(id.incident_downtime_minutes, 0)) * 100.0 / 1440) >= 95.0 THEN '🟠 Fair'
-        ELSE '🔴 Poor'
-    END as "SLA Status"
-FROM device_metrics dm
-LEFT JOIN incident_downtime id ON dm.device_name = id.device_name 
-    AND dm.capture_folder = id.capture_folder
-ORDER BY "Availability %" DESC;
+    device_name as "Device",
+    ROUND((available_pings * 100.0 / 1440), 0) as "Availability %"
+FROM device_availability
+ORDER BY device_name
 ```
 
-## Panel 6: Incident Summary Statistics
-
-### High-Level Incident Metrics
+#### Daily Device Uptime/Downtime (Right Panel - Stacked)
 ```sql
--- High-level incident metrics
-SELECT 
-    COUNT(CASE WHEN status IN ('open', 'in_progress') THEN 1 END) as "Active Incidents",
-    COUNT(CASE WHEN detected_at >= NOW() - INTERVAL '24 hours' THEN 1 END) as "24h Incidents",
-    COUNT(CASE WHEN detected_at >= NOW() - INTERVAL '7 days' THEN 1 END) as "7d Incidents",
-    ROUND(AVG(CASE 
-        WHEN status IN ('resolved', 'closed') AND total_duration_minutes IS NOT NULL 
-        THEN total_duration_minutes 
-    END), 1) as "Avg Resolution (min)",
-    COUNT(CASE WHEN severity = 'critical' AND detected_at >= NOW() - INTERVAL '24 hours' THEN 1 END) as "24h Critical"
-FROM system_incident
-WHERE capture_folder IS NOT NULL 
-  AND capture_folder != 'invalid_config';
-```
-
-## Panel 7: Recent Incident History
-
-### Recent Incidents with Resolution Status (Last 20)
-```sql
--- Recent incidents with resolution status including end time and proper duration
+WITH device_availability AS (
+    SELECT 
+        device_name,
+        COUNT(CASE WHEN ffmpeg_status = 'active' AND monitor_status = 'active' THEN 1 END) as available_pings
+    FROM system_device_metrics 
+    WHERE host_name != 'server'
+      AND timestamp >= NOW() - INTERVAL '24 hours'
+    GROUP BY device_name
+)
 SELECT 
     device_name as "Device",
-    capture_folder as "Folder", 
-    component as "Component",
-    severity as "Severity",
-    status as "Status",
-    TO_CHAR(detected_at, 'MM-DD HH24:MI') as "Detected",
+    ROUND((available_pings * 24.0 / 1440), 0) as "Uptime",
+    ROUND(24 - (available_pings * 24.0 / 1440), 0) as "Downtime"
+FROM device_availability
+ORDER BY device_name
+```
+
+### Debug Tables
+
+#### Host Debug Data
+```sql
+SELECT 
+    host_name as "Host",
+    TO_CHAR(timestamp, 'YYYY-MM-DD HH24:MI:SS') as "Last Update",
+    uptime_seconds as "Uptime (sec)",
     CASE 
-        WHEN status IN ('resolved', 'closed') AND resolved_at IS NOT NULL 
-        THEN TO_CHAR(resolved_at, 'MM-DD HH24:MI')
-        ELSE 'N/A'
-    END as "Resolved",
+        WHEN uptime_seconds < 3600 THEN ROUND(uptime_seconds/60) || 'm' 
+        WHEN uptime_seconds < 86400 THEN ROUND(uptime_seconds/3600, 1) || 'h' 
+        ELSE ROUND(uptime_seconds/86400, 1) || 'd' 
+    END as "Uptime (formatted)",
+    cpu_percent as "CPU %",
+    memory_percent as "Memory %",
+    disk_percent as "Disk %",
     CASE 
-        WHEN status IN ('resolved', 'closed') AND total_duration_minutes IS NOT NULL 
-        THEN total_duration_minutes || 'm'
-        WHEN status IN ('resolved', 'closed') AND resolved_at IS NOT NULL AND detected_at IS NOT NULL
-        THEN ROUND(EXTRACT(EPOCH FROM (resolved_at - detected_at))/60) || 'm'
-        WHEN status IN ('open', 'in_progress')
-        THEN ROUND(EXTRACT(EPOCH FROM (NOW() - detected_at))/60) || 'm (ongoing)'
-        ELSE '0m'
-    END as "Duration",
-    COALESCE(resolution_notes, description) as "Notes"
-FROM system_incident 
-WHERE capture_folder IS NOT NULL 
-  AND capture_folder != 'invalid_config'
-ORDER BY detected_at DESC 
-LIMIT 20;
+        WHEN uptime_seconds > 0 THEN '✅ Online' 
+        ELSE '❌ Offline' 
+    END as "Host Status"
+FROM system_metrics 
+WHERE host_name != 'server'
+ORDER BY timestamp DESC
+LIMIT 10
+```
+
+#### Device Availability Debug Data
+```sql
+WITH latest_device_status AS (
+    SELECT DISTINCT ON (device_name, host_name)
+        device_name,
+        host_name,
+        timestamp as last_ping,
+        ffmpeg_status as current_ffmpeg,
+        monitor_status as current_monitor
+    FROM system_device_metrics 
+    WHERE host_name != 'server'
+      AND timestamp >= NOW() - INTERVAL '24 hours'
+    ORDER BY device_name, host_name, timestamp DESC
+),
+device_availability_stats AS (
+    SELECT 
+        device_name,
+        host_name,
+        COUNT(*) as total_pings_received,
+        COUNT(CASE WHEN ffmpeg_status = 'active' AND monitor_status = 'active' THEN 1 END) as available_pings,
+        MAX(CASE WHEN ffmpeg_status = 'active' AND monitor_status = 'active' THEN timestamp END) as last_available
+    FROM system_device_metrics 
+    WHERE host_name != 'server'
+      AND timestamp >= NOW() - INTERVAL '24 hours'
+    GROUP BY device_name, host_name
+)
+SELECT 
+    l.device_name as "Device",
+    l.host_name as "Host",
+    TO_CHAR(l.last_ping, 'YYYY-MM-DD HH24:MI:SS') as "Last Ping",
+    TO_CHAR(s.last_available, 'YYYY-MM-DD HH24:MI:SS') as "Last Available",
+    l.current_ffmpeg as "FFmpeg Status",
+    l.current_monitor as "Monitor Status",
+    s.total_pings_received as "Pings Received",
+    1440 as "Expected Pings (24h)",
+    s.available_pings as "Available Pings",
+    ROUND((s.available_pings * 100.0 / 1440), 1) as "Availability % (24h)",
+    CASE 
+        WHEN l.current_ffmpeg = 'active' AND l.current_monitor = 'active' THEN '✅ Available' 
+        ELSE '❌ Unavailable' 
+    END as "Current Status",
+    CASE 
+        WHEN s.last_available IS NOT NULL 
+        THEN ROUND(EXTRACT(EPOCH FROM (NOW() - s.last_available))/60, 1)
+        ELSE NULL
+    END as "Minutes Since Available"
+FROM latest_device_status l
+JOIN device_availability_stats s ON l.device_name = s.device_name AND l.host_name = s.host_name
+ORDER BY l.last_ping DESC
 ```
 
 ## Key Features
 
-### Per-Device Granular Tracking
-The new system provides **individual device monitoring** with complete separation:
-- **Real Device Names**: Shows actual device names (e.g., "Samsung TV Living Room", "Fire TV Bedroom")
-- **Separate FFmpeg/Monitor Status**: Each device shows independent FFmpeg and Monitor status
-- **Individual Timing**: Separate last activity and uptime tracking for FFmpeg and Monitor per device
-- **Capture Folder Tracking**: Shows which capture folder (capture, capture1, capture2) each device uses for FFmpeg/Monitor processes
-- **Video Hardware Tracking**: Shows which video device (/dev/video0, /dev/video2) each device uses for hardware identification
+### 1. Separated Monitoring Domains
+- **Server Monitoring**: Backend infrastructure health and availability
+- **Host Monitoring**: Host machines and device service availability
+- **Clear Separation**: Different data sources and calculation methods
 
-This enables precise identification of which specific device and process is having issues.
+### 2. Time-Based Availability Calculation
+- **Expected Pings**: Based on theoretical maximum (1 ping per minute)
+- **Available Pings**: Only when both FFmpeg AND Monitor are active
+- **Realistic Metrics**: Accounts for missing data as downtime
+- **Coherent Panels**: Left (%) and right (time units) use same calculation base
 
-### Process Uptime Tracking
-The Host Metrics table includes **FFmpeg Uptime** and **Monitor Uptime** columns that show:
-- **Database-Based Calculation**: Analyzes historical status changes from `system_device_metrics`
-- **Working Duration**: How long the process was continuously active before getting stuck
-- **Stability Metrics**: Understand process reliability and failure patterns
+### 3. Sophisticated Device Logic
+- **Dual Service Requirement**: Device available only when BOTH services active
+- **Status Classification**: 
+  - `active` = Available ✅
+  - `stuck`, `inactive`, `stopped`, `NULL` = Unavailable ❌
+- **Missing Data Handling**: Counts as downtime (device not reporting)
 
-### True Availability Calculation Methodology
+### 4. Debug Capabilities
+- **Host Debug**: Shows host machine health and uptime
+- **Device Debug**: Shows device service status and availability calculations
+- **Coherent Metrics**: Debug tables use same formulas as panels
+- **Troubleshooting**: Compare received vs expected vs available pings
 
-The **True Availability System** provides comprehensive availability tracking that accounts for ALL types of downtime:
-
-#### **🎯 True Availability Formula:**
+### 5. Panel Layout (8 Core Availability Panels)
 ```
-Availability % = (Available Time / Total Period) × 100
-
-Where:
-Available Time = Total Period - Total Downtime
-Total Downtime = Incident Downtime + Service Issues Time
-```
-
-#### **📊 Availability Components:**
-
-1. **Total Period**: 24 hours (1440 minutes)
-2. **Incident Downtime**: Duration of formal incidents (resolved/closed)
-3. **Service Issues Time**: Time when services are stuck/stopped/unknown
-4. **Available Time**: Time when both FFmpeg AND Monitor are "active"
-
-#### **🔍 Service Status Classification:**
-- **✅ Available**: `ffmpeg_status='active' AND monitor_status='active'`
-- **❌ Service Issues**: Either service is `stuck`, `stopped`, or `unknown`
-- **📋 Incident Downtime**: Formal incidents with tracked resolution time
-
-#### **📈 Example Calculation:**
-```
-Device: sunri-pi1_Host
-- Total Period: 1440 minutes (24 hours)
-- Service Issues: 336 minutes (services stuck/stopped)
-- Incident Downtime: 0 minutes (no formal incidents)
-- Total Downtime: 336 minutes
-- Available Time: 1104 minutes
-- Availability: (1104 / 1440) × 100 = 76.67%
-```
-
-#### **💡 Why This Approach:**
-- **Realistic**: Reflects actual service functionality, not just process existence
-- **Comprehensive**: Accounts for both formal incidents AND service reliability issues
-- **Actionable**: Clearly separates incident management from service reliability problems
-- **Transparent**: Shows exactly where time is lost (incidents vs service issues)
-
-#### **📊 New Table Columns:**
-- **Device**: Device name
-- **Folder**: Capture folder (capture1, capture2, etc.)
-- **Availability %**: True availability percentage using formula above
-- **Incident Downtime (min)**: Time lost to formal tracked incidents
-- **Service Issues (min)**: Time lost to stuck/stopped services
-- **Total Downtime (min)**: Incident Downtime + Service Issues
-- **Available Time (min)**: Time when services were working properly
-- **SLA Status**: Color-coded status based on availability percentage
-
-### Incident Management System
-The **New Incident Management System** provides complete incident lifecycle tracking:
-
-#### **Incident Status Lifecycle**:
-- **`open`**: Incident detected and needs attention
-- **`in_progress`**: Incident is being actively worked on
-- **`resolved`**: Issue fixed, service recovered
-- **`closed`**: Incident confirmed resolved and documented
-
-#### **Incident Types and Severity**:
-- **FFmpeg Failure**: `critical` (stopped) or `high` (stuck)
-- **Monitor Failure**: `critical` (stopped) or `high` (stuck)
-- **Auto-Detection**: Prevents duplicate incidents for ongoing issues
-- **Auto-Resolution**: Automatically resolves when services recover
-
-#### **Real-Time Capabilities**:
-- **Active Incidents**: Shows what's broken RIGHT NOW
-- **Availability Tracking**: Real uptime percentages (99.9%, 99.0%, etc.)
-- **SLA Compliance**: Color-coded availability status
-- **MTTR Metrics**: Average resolution time tracking
-
-### Data Synchronization
-- Server and host data collection is synchronized to minute boundaries
-- Eliminates timing offset issues that caused dots instead of lines in time series
-- Ensures smooth line visualization when displaying multiple systems together
-
-## Panel Configuration Notes
-
-### Server Stat Panels (Row 1)
-- **Visualization**: Stat
-- **Unit**: Percent (0-100) for CPU/Memory/Disk, Seconds for Uptime
-- **Thresholds**: 
-  - Green: 0-70% (CPU/Memory), 0-85% (Disk)
-  - Yellow: 70-90% (CPU/Memory), 85-95% (Disk)  
-  - Red: 90%+ (CPU/Memory), 95%+ (Disk)
-- **Data Source**: Server only (`host_name = 'server'`)
-
-### Time Series Panels (Row 2)
-- **Visualization**: Time Series
-- **Y-Axis**: Percent (0-100)
-- **Legend**: Show (displays each host as separate line)
-- **Line Style**: Forced line rendering with `showPoints: never`
-- **Data Source**: All systems (server + hosts)
-
-### Device Metrics Table (Row 3)
-- **Visualization**: Table
-- **Columns**: Host, Device Name, Capture Folder, Video Device, CPU%, Memory%, Disk%, Uptime, FFmpeg, FFmpeg Uptime, FFmpeg Last, Monitor, Monitor Uptime, Monitor Last, Last Update
-- **Per-Device Tracking**: Each row represents one device with individual status
-- **Separate Timing**: FFmpeg and Monitor have independent last activity and uptime tracking
-- **Real Names**: Uses actual device names from device registration
-- **Data Source**: system_device_metrics table (per-device records)
-
-### Device Availability Table (Row 5)
-- **Visualization**: Table
-- **Columns**: Device, Folder, Availability %, Incident Downtime (min), Service Issues (min), Total Downtime (min), Available Time (min), SLA Status
-- **True Availability**: Accounts for both formal incidents AND service reliability issues
-- **Transparent Breakdown**: Shows exactly where time is lost (incidents vs service problems)
-- **Actionable Metrics**: Separates incident management from service reliability tracking
-- **Data Source**: system_device_metrics + system_incident tables (combined analysis)
-
-## New Dashboard Layout
-
-```
-┌──────────┬──────────┬──────────┬──────────┐
-│Server CPU│Server Mem│Server Dsk│Server Up │  [Row 1: Server Stats]
-│  (Stat)  │  (Stat)  │  (Stat)  │  (Stat)  │
-└──────────┴──────────┴──────────┴──────────┘
 ┌─────────────────┬─────────────────────────┐
-│   CPU Usage     │    Memory Usage         │  [Row 2: Time Series]
-│  Over Time      │    Over Time            │
-│ (Time Series)   │   (Time Series)         │
+│ Daily Availability │   Daily Uptime/Downtime │
+│    (% 0-100)       │     (Hours 0-24)        │
+├─────────────────┼─────────────────────────┤
+│ Weekly Availability│  Weekly Uptime/Downtime │
+│    (% 0-100)       │      (Days 0-7)         │
+├─────────────────┼─────────────────────────┤
+│Monthly Availability│ Monthly Uptime/Downtime │
+│    (% 0-100)       │     (Days 0-30)         │
+├─────────────────┼─────────────────────────┤
+│Yearly Availability │ Yearly Uptime/Downtime │
+│    (% 0-100)       │     (Days 0-365)        │
 └─────────────────┴─────────────────────────┘
-┌─────────────────────────────────────────────┐
-│         Host Metrics & Process Status       │  [Row 3: Device Table]
-│              (Comprehensive Table)          │
-└─────────────────────────────────────────────┘
-┌─────────────────────────────────────────────┐
-│          🚨 ACTIVE INCIDENTS 🚨             │  [Row 4: Critical - What's Broken NOW]
-│               (Priority Table)              │
-└─────────────────────────────────────────────┘
-┌─────────────────┬─────────────────────────┐
-│ Device Availability │  Incident Statistics │  [Row 5: SLA & Metrics]
-│   (SLA Tracking)    │    (Summary Stats)   │
-└─────────────────────┴─────────────────────┘
-┌─────────────────────────────────────────────┐
-│            Recent Incident History          │  [Row 6: Historical View]
-│     (Last 20 with End Time & Duration)     │
-└─────────────────────────────────────────────┘
 ```
 
 ## Database Schema
 
-The dashboard uses three main tables:
+### `system_metrics` (Host & Server Data)
+- **Server Data**: `host_name = 'server'` (backend server metrics)
+- **Host Data**: `host_name != 'server'` (host machine metrics)
+- **Fields**: `cpu_percent`, `memory_percent`, `disk_percent`, `uptime_seconds`
+- **Frequency**: 1 record per minute per host/server
 
-### `system_metrics` (Server Data)
-- `host_name`: 'server' only
-- `cpu_percent`, `memory_percent`, `disk_percent`: Server resource usage
-- `uptime_seconds`: Server system uptime
-- `timestamp`: Data collection time (synchronized to minute boundaries)
+### `system_device_metrics` (Device-Level Data)
+- **Device Data**: Per-device service status and metrics
+- **Key Fields**: 
+  - `device_name`: Device identifier
+  - `host_name`: Which host runs this device
+  - `ffmpeg_status`: FFmpeg service status (`active`, `stuck`, `inactive`)
+  - `monitor_status`: Monitor service status (`active`, `stuck`, `inactive`)
+- **Frequency**: 1 record per minute per device
 
-### `system_device_metrics` (Per-Device Data)
-- `host_name`: Host machine identifier (sunri-pi1, sunri-pi3, etc.)
-- `device_id`: Technical device ID (device1, device2, etc.)
-- `device_name`: Real device name (Samsung TV Living Room, Fire TV Bedroom, etc.)
-- `device_port`: Device port number
-- `capture_folder`: Capture folder name (capture, capture1, capture2, etc.)
-- `video_device`: Video hardware device path (/dev/video0, /dev/video2, etc.)
-- `device_model`: Device model (samsung_tv, fire_tv, etc.)
-- `cpu_percent`, `memory_percent`, `disk_percent`: Host resource usage (shared across devices)
-- `uptime_seconds`: Host system uptime
-- `ffmpeg_status`: Per-device FFmpeg status (active, stuck, stopped)
-- `ffmpeg_uptime_seconds`: Duration FFmpeg was continuously active
-- `ffmpeg_last_activity`: Timestamp when FFmpeg last created files
-- `monitor_status`: Per-device Monitor status (active, stuck, stopped)
-- `monitor_uptime_seconds`: Duration Monitor was continuously active
-- `monitor_last_activity`: Timestamp when Monitor last created JSON files
-- `timestamp`: Data collection time (synchronized to minute boundaries)
+### `system_incident` (Incident Management)
+- **Incident Tracking**: Formal incident lifecycle management
+- **Status Flow**: `open` → `in_progress` → `resolved` → `closed`
+- **Integration**: Used in server dashboard for incident metrics
 
-### `system_incident` (Incident Management) **NEW**
-- `incident_id`: Primary key, auto-increment
-- `incident_uuid`: Unique UUID for external references
-- `host_name`, `device_id`, `device_name`, `capture_folder`: Device identification
-- `incident_type`: 'ffmpeg_failure', 'monitor_failure', 'system_failure'
-- `severity`: 'critical', 'high', 'medium', 'low'
-- `component`: 'ffmpeg', 'monitor', 'system'
-- `status`: 'open', 'in_progress', 'resolved', 'closed'
-- `detected_at`: When incident was first detected
-- `resolved_at`: When incident was resolved (auto or manual)
-- `total_duration_minutes`: Complete incident duration
-- `description`: Auto-generated incident description
-- `resolution_notes`: How the incident was resolved
+## Configuration Notes
+
+### Panel Types
+- **Stat Panels**: Single value displays (CPU, Memory, Disk, Uptime)
+- **Bar Charts**: Availability percentages and uptime/downtime comparisons
+- **Time Series**: Resource usage trends over time
+- **Tables**: Debug data and detailed metrics
+
+### Thresholds
+- **Availability**: Red (0-90%), Yellow (90-95%), Green (95-100%)
+- **Resource Usage**: Green (0-70%), Yellow (70-90%), Red (90-100%)
+- **Uptime**: Red (0-1h), Yellow (1h-24h), Green (24h+)
+
+### Refresh Rate
+- **Both Dashboards**: 30-second auto-refresh
+- **Time Range**: Last 24 hours default
+- **Real-Time**: Near real-time monitoring with 1-minute data granularity
