@@ -87,7 +87,7 @@ export const useMonitoring = ({
   );
   const [isHistoricalFrameLoaded, setIsHistoricalFrameLoaded] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
-  const [_frameBuffer, setFrameBuffer] = useState<BufferedFrame[]>([]);
+  const [_frameBuffer] = useState<BufferedFrame[]>([]);
   const [_displayQueue, setDisplayQueue] = useState<FrameRef[]>([]);
 
   // Initial loading buffer - reduced to max 1 second as requested
@@ -102,7 +102,11 @@ export const useMonitoring = ({
 
   // AI analysis for buffered frame
   const analyzeFrame = useCallback(async (frameData: {imageUrl: string, jsonUrl: string, timestamp: string}): Promise<FrameRef> => {
+    const startTime = performance.now();
+    console.log('[useMonitoring] 🚀 Starting frame analysis for:', frameData.imageUrl);
+    
     // Load JSON analysis first
+    const jsonStartTime = performance.now();
     let jsonAnalysis = null;
     let realTimestamp = frameData.timestamp;
     
@@ -115,8 +119,10 @@ export const useMonitoring = ({
     } catch (error) {
       console.warn('[useMonitoring] Failed to load JSON:', error);
     }
+    const jsonTime = performance.now() - jsonStartTime;
 
     // Parallel AI analysis
+    const aiStartTime = performance.now();
     const [subtitleResult, languageMenuResult, descriptionResult] = await Promise.allSettled([
       fetch(buildServerUrl('/server/verification/video/detectSubtitlesAI'), {
         method: 'POST',
@@ -179,6 +185,10 @@ export const useMonitoring = ({
     if (descriptionResult.status === 'fulfilled' && descriptionResult.value?.success) {
       aiDescription = descriptionResult.value.response;
     }
+
+    const aiTime = performance.now() - aiStartTime;
+    const totalTime = performance.now() - startTime;
+    console.log(`[useMonitoring] ✅ Frame analysis completed in ${totalTime.toFixed(0)}ms (JSON: ${jsonTime.toFixed(0)}ms, AI: ${aiTime.toFixed(0)}ms) for:`, frameData.imageUrl);
 
     return {
       timestamp: realTimestamp,
@@ -281,71 +291,82 @@ export const useMonitoring = ({
     }
   }, [baseUrlPattern, autonomousBaseUrlPattern, isInitializingBaseUrl, initializeAutonomousBaseUrl]);
 
-  // Buffer management and display
+  // Rolling buffer pipeline - measure and optimize for 1 FPS
   useEffect(() => {
     if (isInitialLoading) return;
 
     let lastProcessedUrl = currentImageUrl || '';
+    let frameSequence = 0;
 
     const processNextFrame = async () => {
       const latestData = await fetchLatestMonitoringData();
-      if (!latestData || latestData.imageUrl === lastProcessedUrl) return false;
+      if (!latestData || latestData.imageUrl === lastProcessedUrl) return null;
 
       lastProcessedUrl = latestData.imageUrl;
       setCurrentImageUrl(latestData.imageUrl);
+      frameSequence++;
 
-      const aiPromise = analyzeFrame(latestData);
+      console.log(`[useMonitoring] 📦 Processing frame ${frameSequence}:`, latestData.imageUrl);
       
-      // Add to buffer
-      setFrameBuffer(prev => {
-        const newBuffer = [...prev, { 
-          frame: { 
-            timestamp: latestData.timestamp, 
-            imageUrl: latestData.imageUrl, 
-            jsonUrl: latestData.jsonUrl 
-          }, 
-          aiPromise 
-        }];
-        return newBuffer.slice(-3); // Keep rolling buffer of 3
-      });
-
-      // When AI completes, add to display queue
-      aiPromise.then(frame => {
-        setDisplayQueue(prev => [...prev, frame]);
-      });
-
-      return true;
+      // Start AI analysis and return promise
+      const aiPromise = analyzeFrame(latestData);
+      return aiPromise;
     };
 
-    // Display frames at 1 FPS and process next frame when displaying
+    // Initial buffer: Load first 3 frames in parallel
+    const initializeBuffer = async () => {
+      console.log('[useMonitoring] 🚀 Initializing 3-frame buffer...');
+      const bufferStartTime = performance.now();
+      
+      const promises = [];
+      for (let i = 0; i < 3; i++) {
+        const framePromise = processNextFrame();
+        if (framePromise) promises.push(framePromise);
+        await new Promise(resolve => setTimeout(resolve, 100)); // Small delay between fetches
+      }
+
+      if (promises.length === 0) return;
+
+      // Wait for all 3 frames to complete
+      const results = await Promise.allSettled(promises);
+      const completedFrames = results
+        .filter(r => r.status === 'fulfilled')
+        .map(r => r.value)
+        .filter((frame): frame is FrameRef => frame !== null);
+
+      const bufferTime = performance.now() - bufferStartTime;
+      console.log(`[useMonitoring] ✅ Buffer initialized with ${completedFrames.length} frames in ${bufferTime.toFixed(0)}ms`);
+
+      // Add completed frames to display queue
+      setDisplayQueue(prev => [...prev, ...completedFrames]);
+    };
+
+    // Display frames at 1 FPS and trigger next frame processing
     const displayInterval = setInterval(async () => {
       setDisplayQueue(prev => {
         if (prev.length === 0) return prev;
         const [nextFrame, ...rest] = prev;
+        
+        console.log(`[useMonitoring] 🎬 Displaying frame:`, nextFrame.imageUrl);
         
         setFrames(current => {
           const newFrames = [...current, nextFrame].slice(-100);
           setCurrentIndex(newFrames.length - 1);
           return newFrames;
         });
-        
-        // Process next frame when we display one (rolling buffer)
-        processNextFrame();
+
+        // Immediately start processing next frame (rolling buffer)
+        processNextFrame().then(newFrame => {
+          if (newFrame) {
+            setDisplayQueue(queue => [...queue, newFrame]);
+          }
+        });
         
         return rest;
       });
-    }, 1000);
+    }, 1000); // 1 FPS display
 
-    // Initial buffer fill - process first 3 frames
-    const fillInitialBuffer = async () => {
-      for (let i = 0; i < 3; i++) {
-        const processed = await processNextFrame();
-        if (!processed) break; // No more frames available
-        await new Promise(resolve => setTimeout(resolve, 200)); // Small delay
-      }
-    };
-
-    fillInitialBuffer();
+    initializeBuffer();
 
     return () => {
       clearInterval(displayInterval);
