@@ -341,10 +341,14 @@ export const useMonitoring = ({
       setDisplayQueue(prev => [...prev, ...completedFrames]);
     };
 
-    // Display frames at 1 FPS and trigger next frame processing
+    // Display frames and trigger next frame processing
     const displayInterval = setInterval(async () => {
       setDisplayQueue(prev => {
-        if (prev.length === 0) return prev;
+        console.log(`[useMonitoring] 📊 Display queue length: ${prev.length}`);
+        if (prev.length === 0) {
+          console.log(`[useMonitoring] ⚠️ Display queue empty - waiting for AI analysis to complete`);
+          return prev;
+        }
         const [nextFrame, ...rest] = prev;
         
         console.log(`[useMonitoring] 🎬 Displaying frame:`, nextFrame.imageUrl);
@@ -358,13 +362,16 @@ export const useMonitoring = ({
         // Immediately start processing next frame (rolling buffer)
         processNextFrame().then(newFrame => {
           if (newFrame) {
+            console.log(`[useMonitoring] ➕ Added frame to queue:`, newFrame.imageUrl);
             setDisplayQueue(queue => [...queue, newFrame]);
+          } else {
+            console.log(`[useMonitoring] ❌ No new frame available`);
           }
         });
         
         return rest;
       });
-    }, 1000); // 1 FPS display
+    }, 1000); // True 1 FPS - rolling buffer absorbs AI latency
 
     initializeBuffer();
 
