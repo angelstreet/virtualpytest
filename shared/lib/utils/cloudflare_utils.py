@@ -40,7 +40,8 @@ class CloudflareUtils:
     initializations.
     
     Configuration:
-    - Copy shared/env.example to shared/.env and configure your credentials
+    - Environment variables should be loaded by the main application (app_utils.load_environment_variables)
+    - Requires: CLOUDFLARE_R2_ENDPOINT, CLOUDFLARE_R2_ACCESS_KEY_ID, CLOUDFLARE_R2_SECRET_ACCESS_KEY
     - Endpoint URL should NOT include bucket name (e.g., https://account.r2.cloudflarestorage.com)
     - Bucket name is passed separately to boto3 operations
     """
@@ -65,42 +66,10 @@ class CloudflareUtils:
             
         logger.info("Initializing CloudflareUtils singleton")
         
-        # Load environment variables from .env file
-        self._load_environment()
-        
         # Use 'virtualpytest' as bucket name (boto3 requires valid bucket name)
         self.bucket_name = 'virtualpytest'
         self.s3_client = self._init_s3_client()
         self._initialized = True
-    
-    def _load_environment(self):
-        """Load environment variables from .env file"""
-        try:
-            from dotenv import load_dotenv
-            import os
-            
-            # Try to find .env file in shared directory
-            current_dir = os.path.dirname(os.path.abspath(__file__))  # /shared/lib/utils
-            shared_dir = os.path.dirname(os.path.dirname(current_dir))  # /shared
-            env_path = os.path.join(shared_dir, '.env')
-            
-            if os.path.exists(env_path):
-                logger.info(f"Loading environment from: {env_path}")
-                load_dotenv(env_path)
-            else:
-                logger.warning(f"No .env file found at: {env_path}")
-                logger.info("Copy shared/env.example to shared/.env and configure your credentials")
-            
-            # Log what we found (without showing sensitive values)
-            logger.info(f"CLOUDFLARE_R2_ENDPOINT: {'SET' if os.environ.get('CLOUDFLARE_R2_ENDPOINT') else 'NOT_SET'}")
-            logger.info(f"CLOUDFLARE_R2_ACCESS_KEY_ID: {'SET' if os.environ.get('CLOUDFLARE_R2_ACCESS_KEY_ID') else 'NOT_SET'}")
-            logger.info(f"CLOUDFLARE_R2_SECRET_ACCESS_KEY: {'SET' if os.environ.get('CLOUDFLARE_R2_SECRET_ACCESS_KEY') else 'NOT_SET'}")
-            logger.info(f"CLOUDFLARE_R2_PUBLIC_URL: {'SET' if os.environ.get('CLOUDFLARE_R2_PUBLIC_URL') else 'NOT_SET'}")
-            
-        except ImportError:
-            logger.warning("python-dotenv not available, relying on system environment variables")
-        except Exception as e:
-            logger.error(f"Error loading environment: {e}")
     
     def _init_s3_client(self):
         """Initialize S3 client for Cloudflare R2."""
