@@ -400,17 +400,21 @@ class FFmpegCaptureController(AVControllerInterface):
             print(f'{self.capture_source}[{self.capture_source}]: Error saving screenshot: {e}')
             return None
 
-    def take_video(self, duration_seconds: float = None, test_start_time: float = None, include_audio_analysis: bool = False) -> Optional[str]:
+    def takeRestartVideo(self, duration_seconds: float = None, test_start_time: float = None) -> Optional[Dict[str, Any]]:
         """
-        Compress HLS segments to MP4 and optionally analyze audio in parallel.
+        Generate restart video with complete AI analysis (audio, subtitles, video descriptions).
+        Dedicated method for restart video use case with full analysis pipeline.
         
         Args:
             duration_seconds: How many seconds of video to capture (default: 10s)
             test_start_time: Unix timestamp when test started (for time sync)
-            include_audio_analysis: If True, analyze audio in parallel and return combined results
             
         Returns:
-            R2 URL of compressed MP4 video, or dict with video+audio results if include_audio_analysis=True
+            Dict with video_url and complete analysis_data including:
+            - audio_analysis: Speech-to-text transcription
+            - subtitle_analysis: AI-powered subtitle detection  
+            - video_analysis: Frame descriptions and video summary
+            - screenshot_urls: URLs of analyzed frames
         """
         try:
             import time
@@ -540,8 +544,7 @@ class FFmpegCaptureController(AVControllerInterface):
             print(f"{self.capture_source}[{self.capture_source}]: Restart video available at: {video_url}")
             
             # Return video URL only if no analysis requested
-            if not include_audio_analysis:
-                return video_url
+            # Always perform full analysis for restart video
             
             # SYNCHRONOUS ANALYSIS: Process immediately and return complete results
             print(f"[RestartVideo] Starting synchronous analysis for {video_url}")
@@ -615,15 +618,23 @@ class FFmpegCaptureController(AVControllerInterface):
                     capture_folder = f"{self.video_capture_path}/captures"
                     import glob, os
                     
-                    # Find screenshots from the last 15 seconds (covers video recording period)
+                    # Find screenshots from the video recording period (dynamic based on video duration)
                     pattern = os.path.join(capture_folder, "capture_*.jpg")
                     screenshots = glob.glob(pattern)
                     
                     if not screenshots:
                         return []
                     
-                    # Sort by modification time, get last 15 screenshots (covers 10s video + buffer)
-                    recent_screenshots = sorted(screenshots, key=os.path.getmtime)[-15:]
+                    # Calculate dynamic screenshot count based on video duration
+                    # Assume 2-5 FPS capture rate, use video duration + 50% buffer for safety
+                    buffer_multiplier = 1.5  # 50% buffer
+                    estimated_fps = 3  # Conservative estimate between 2-5 FPS
+                    screenshot_count = max(10, int(duration_seconds * estimated_fps * buffer_multiplier))
+                    
+                    print(f"[RestartVideo] Video duration: {duration_seconds}s, estimated screenshots needed: {screenshot_count}")
+                    
+                    # Sort by modification time, get last N screenshots based on video duration
+                    recent_screenshots = sorted(screenshots, key=os.path.getmtime)[-screenshot_count:]
                     
                     # Convert to proper host URLs for frontend using buildHostImageUrl
                     from shared.lib.utils.build_url_utils import buildHostImageUrl
@@ -658,6 +669,124 @@ class FFmpegCaptureController(AVControllerInterface):
             audio_result = get_audio_transcript_locally()
             screenshot_urls = get_video_screenshots()
             
+            # 3. Perform subtitle analysis on collected screenshots
+            def get_subtitle_analysis():
+                try:
+                    if not screenshot_urls:
+                        return {
+                            'success': False,
+                            'subtitles_detected': False,
+                            'extracted_text': '',
+                            'detected_language': 'unknown',
+                            'confidence': 0.0,
+                            'frames_analyzed': 0
+                        }
+                    
+                    # Convert URLs to local paths for analysis
+                    from shared.lib.utils.build_url_utils import convertHostUrlToLocalPath
+                    local_paths = []
+                    for url in screenshot_urls[:5]:  # Analyze first 5 screenshots for subtitles
+                        if url.startswith(('http://', 'https://')):
+                            local_path = convertHostUrlToLocalPath(url)
+                            local_paths.append(local_path)
+                        else:
+                            local_paths.append(url)
+                    
+                    # Get video verification controller for AI analysis
+                    from backend_core.src.controllers.verification.video import VideoVerificationController
+                    video_controller = VideoVerificationController(self.device_name)
+                    
+                    print(f"[RestartVideo] Starting subtitle analysis on {len(local_paths)} screenshots")
+                    subtitle_result = video_controller.detect_subtitles_ai(local_paths, extract_text=True)
+                    
+                    return {
+                        'success': subtitle_result.get('success', False),
+                        'subtitles_detected': subtitle_result.get('subtitles_detected', False),
+                        'extracted_text': subtitle_result.get('extracted_text', ''),
+                        'detected_language': subtitle_result.get('detected_language', 'unknown'),
+                        'confidence': subtitle_result.get('confidence', 0.0),
+                        'frames_analyzed': len(local_paths)
+                    }
+                    
+                except Exception as e:
+                    print(f"[RestartVideo] Subtitle analysis error: {e}")
+                    return {
+                        'success': False,
+                        'subtitles_detected': False,
+                        'extracted_text': '',
+                        'detected_language': 'unknown',
+                        'confidence': 0.0,
+                        'frames_analyzed': 0,
+                        'error': str(e)
+                    }
+            
+            # 4. Perform video description analysis on collected screenshots
+            def get_video_description_analysis():
+                try:
+                    if not screenshot_urls:
+                        return {
+                            'success': False,
+                            'frame_descriptions': [],
+                            'video_summary': '',
+                            'frames_analyzed': 0
+                        }
+                    
+                    # Convert URLs to local paths for analysis
+                    from shared.lib.utils.build_url_utils import convertHostUrlToLocalPath
+                    local_paths = []
+                    for url in screenshot_urls[:10]:  # Analyze up to 10 screenshots for descriptions
+                        if url.startswith(('http://', 'https://')):
+                            local_path = convertHostUrlToLocalPath(url)
+                            local_paths.append(local_path)
+                        else:
+                            local_paths.append(url)
+                    
+                    # Get video verification controller for AI analysis
+                    from backend_core.src.controllers.verification.video import VideoVerificationController
+                    video_controller = VideoVerificationController(self.device_name)
+                    
+                    print(f"[RestartVideo] Starting video description analysis on {len(local_paths)} screenshots")
+                    
+                    frame_descriptions = []
+                    for i, local_path in enumerate(local_paths):
+                        frame_query = f"Describe what is happening in this frame from a {duration_seconds}s video sequence. Be concise and specific about UI elements, actions, or content visible."
+                        description = video_controller.analyze_image_with_ai(local_path, frame_query)
+                        if description and description.strip():
+                            frame_descriptions.append(f"Frame {i+1}: {description.strip()}")
+                        else:
+                            frame_descriptions.append(f"Frame {i+1}: No description available")
+                    
+                    # Generate overall video summary
+                    if frame_descriptions:
+                        summary_query = f"Based on the {len(frame_descriptions)} frame descriptions, provide a concise summary of what happened in this {duration_seconds}s video sequence."
+                        # Use first frame for summary context (could be improved to use a composite)
+                        video_summary = video_controller.analyze_image_with_ai(local_paths[0], summary_query)
+                        if not video_summary or not video_summary.strip():
+                            video_summary = f"Video sequence showing {len(frame_descriptions)} frames of activity"
+                    else:
+                        video_summary = "No video description available"
+                    
+                    return {
+                        'success': True,
+                        'frame_descriptions': frame_descriptions,
+                        'video_summary': video_summary.strip(),
+                        'frames_analyzed': len(local_paths)
+                    }
+                    
+                except Exception as e:
+                    print(f"[RestartVideo] Video description analysis error: {e}")
+                    return {
+                        'success': False,
+                        'frame_descriptions': [],
+                        'video_summary': '',
+                        'frames_analyzed': 0,
+                        'error': str(e)
+                    }
+            
+            # Execute all analysis
+            subtitle_result = get_subtitle_analysis()
+            video_description_result = get_video_description_analysis()
+            
             # Build complete response with analysis data
             from datetime import datetime
             analysis_data = {
@@ -672,11 +801,19 @@ class FFmpegCaptureController(AVControllerInterface):
                 },
                 'screenshot_urls': screenshot_urls,
                 'video_analysis': {
-                    'success': len(screenshot_urls) > 0,
+                    'success': video_description_result.get('success', False),
+                    'frame_descriptions': video_description_result.get('frame_descriptions', []),
+                    'video_summary': video_description_result.get('video_summary', ''),
+                    'frames_analyzed': video_description_result.get('frames_analyzed', 0),
                     'frames_available': len(screenshot_urls)
                 },
                 'subtitle_analysis': {
-                    'success': len(screenshot_urls) > 0,
+                    'success': subtitle_result.get('success', False),
+                    'subtitles_detected': subtitle_result.get('subtitles_detected', False),
+                    'extracted_text': subtitle_result.get('extracted_text', ''),
+                    'detected_language': subtitle_result.get('detected_language', 'unknown'),
+                    'confidence': subtitle_result.get('confidence', 0.0),
+                    'frames_analyzed': subtitle_result.get('frames_analyzed', 0),
                     'frames_available': len(screenshot_urls)
                 },
                 'analysis_complete': True,
@@ -689,6 +826,15 @@ class FFmpegCaptureController(AVControllerInterface):
                 transcript_preview = audio_result['combined_transcript'][:100] + "..." if len(audio_result['combined_transcript']) > 100 else audio_result['combined_transcript']
                 print(f"[RestartVideo] Audio transcript: '{transcript_preview}'")
             
+            if subtitle_result.get('subtitles_detected') and subtitle_result.get('extracted_text'):
+                subtitle_preview = subtitle_result['extracted_text'][:100] + "..." if len(subtitle_result['extracted_text']) > 100 else subtitle_result['extracted_text']
+                print(f"[RestartVideo] Subtitles detected: '{subtitle_preview}'")
+            
+            if video_description_result.get('success') and video_description_result.get('frame_descriptions'):
+                frame_count = len(video_description_result['frame_descriptions'])
+                summary_preview = video_description_result.get('video_summary', '')[:100] + "..." if len(video_description_result.get('video_summary', '')) > 100 else video_description_result.get('video_summary', '')
+                print(f"[RestartVideo] Video analysis: {frame_count} frames analyzed, summary: '{summary_preview}'")
+            
             # Return complete results as dict
             return {
                 'success': True,
@@ -698,6 +844,57 @@ class FFmpegCaptureController(AVControllerInterface):
                 
         except Exception as e:
             print(f"{self.capture_source}[{self.capture_source}]: Error uploading HLS: {e}")
+            return None
+    
+    def take_video(self, duration_seconds: float = None, test_start_time: float = None) -> Optional[str]:
+        """
+        Simple video capture without analysis (for script framework and other use cases).
+        
+        Args:
+            duration_seconds: How many seconds of video to capture (default: 10s)
+            test_start_time: Unix timestamp when test started (for time sync)
+            
+        Returns:
+            R2 URL of compressed MP4 video, or None if failed
+        """
+        try:
+            import time
+            import os
+            import tempfile
+            
+            if duration_seconds is None:
+                duration_seconds = 10.0  # Fixed 10 seconds for fast restart videos
+                
+            print(f"{self.capture_source}[{self.capture_source}]: Compressing {duration_seconds}s HLS video to MP4")
+            
+            # Use configured segment duration consistently
+            print(f"{self.capture_source}[{self.capture_source}]: Using configured segment duration: {self.HLS_SEGMENT_DURATION}s")
+            
+            # Get recent HLS segments for compression
+            segment_files = self._get_recent_segments(duration_seconds)
+            if not segment_files:
+                print(f"{self.capture_source}[{self.capture_source}]: No HLS segments found for compression")
+                return None
+            
+            # Compress segments to MP4
+            video_filename = "restart_video.mp4"
+            local_video_path = os.path.join(self.video_capture_path, video_filename)
+            
+            success = self._compress_segments_to_mp4(segment_files, local_video_path, duration_seconds)
+            if not success:
+                return None
+            
+            # Build video URL for access
+            if self.video_stream_path.startswith('http'):
+                video_url = f"{self.video_stream_path}/{video_filename}"
+            else:
+                video_url = self.video_stream_path + "/" + video_filename
+            
+            print(f"{self.capture_source}[{self.capture_source}]: Video available at: {video_url}")
+            return video_url
+            
+        except Exception as e:
+            print(f"{self.capture_source}[{self.capture_source}]: Error creating video: {e}")
             return None
         
     def take_control(self) -> Dict[str, Any]:

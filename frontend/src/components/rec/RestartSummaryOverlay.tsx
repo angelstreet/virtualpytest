@@ -4,13 +4,11 @@ import React, { useState, useEffect } from 'react';
 interface RestartSummaryOverlayProps {
   videoRef?: React.RefObject<HTMLVideoElement>;
   frameDescriptions?: string[];
-  language: string;
 }
 
 export const RestartSummaryOverlay: React.FC<RestartSummaryOverlayProps> = ({
   videoRef,
   frameDescriptions,
-  language,
 }) => {
   const [currentSummary, setCurrentSummary] = useState<string>('');
 

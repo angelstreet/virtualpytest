@@ -193,9 +193,51 @@ class AudioAIHelpers:
             return []
     
     def extract_audio_from_segments(self, segment_files: List[Tuple[str, str]], segment_count: int = 3) -> List[str]:
-        """Extract audio from specific HLS segments (optimized for restart video)."""
+        """Extract audio from specific HLS segments (optimized for restart video with merging)."""
         try:
             selected_segments = segment_files[-segment_count:] if len(segment_files) > segment_count else segment_files
+            
+            if not selected_segments:
+                return []
+            
+            # For restart video with many segments, merge them first like zap controller
+            if len(selected_segments) > 1:
+                print(f"AudioAI[{self.device_name}]: Merging {len(selected_segments)} TS segments into one file...")
+                
+                # Extract paths for merging
+                ts_paths = [segment_path for _, segment_path in selected_segments]
+                merged_ts = self._merge_ts_files(ts_paths)
+                
+                if merged_ts:
+                    print(f"AudioAI[{self.device_name}]: Merge successful (size: {os.path.getsize(merged_ts)} bytes)")
+                    print(f"AudioAI[{self.device_name}]: Merged successfully into: {os.path.basename(merged_ts)}")
+                    
+                    # Extract audio from merged file
+                    temp_dir = tempfile.mkdtemp(prefix="restart_audio_")
+                    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S_%f')[:-3]
+                    audio_filename = f"restart_merged_audio_{timestamp}.wav"
+                    audio_path = os.path.join(temp_dir, audio_filename)
+                    
+                    cmd = ['ffmpeg', '-y', '-i', merged_ts, '-vn', '-acodec', 'pcm_s16le', '-ar', '16000', '-ac', '1', audio_path]
+                    result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+                    
+                    # Cleanup merged TS file
+                    try:
+                        os.remove(merged_ts)
+                        print(f"AudioAI[{self.device_name}]: Cleaned up temporary merged TS: {os.path.basename(merged_ts)}")
+                    except:
+                        pass
+                    
+                    if result.returncode == 0 and os.path.exists(audio_path) and os.path.getsize(audio_path) > 1024:
+                        print(f"AudioAI[{self.device_name}]: Successfully extracted merged audio: {os.path.basename(audio_path)}")
+                        return [audio_path]
+                    else:
+                        print(f"AudioAI[{self.device_name}]: Failed to extract audio from merged file")
+                        return []
+                else:
+                    print(f"AudioAI[{self.device_name}]: Failed to merge TS segments, falling back to individual processing")
+            
+            # Fallback: process individual segments (original behavior)
             audio_files = []
             temp_dir = tempfile.mkdtemp(prefix="restart_audio_")
             

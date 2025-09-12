@@ -139,7 +139,6 @@ export const RestartPlayer: React.FC<RestartPlayerProps> = ({ host, device, incl
           <RestartSummaryOverlay
             videoRef={videoRef}
             frameDescriptions={analysisResults.videoDescription.frame_descriptions}
-            language={summaryLanguage}
           />
         )}
 
@@ -147,15 +146,14 @@ export const RestartPlayer: React.FC<RestartPlayerProps> = ({ host, device, incl
         {showSubtitleOverlay && analysisResults.subtitles?.extracted_text && (
           <RestartSubtitleOverlay
             subtitleText={analysisResults.subtitles.extracted_text}
-            language={subtitleLanguage}
             style={subtitleStyle}
             fontSize={subtitleFontSize}
           />
         )}
       </Box>
 
-      {/* Analysis Progress Bar (top-right, animated) */}
-      {includeAudioAnalysis && !isAnalysisComplete && (
+      {/* AI Analysis Progress Bar (shows after video appears, until analysis complete) */}
+      {isReady && includeAudioAnalysis && !isAnalysisComplete && (
         <Box sx={{ position: 'absolute', top: 16, right: 16, zIndex: 1000030, width: 100 }}>
           <LinearProgress 
             variant="determinate" 
@@ -171,7 +169,7 @@ export const RestartPlayer: React.FC<RestartPlayerProps> = ({ host, device, incl
               '& .MuiLinearProgress-bar': {
                 backgroundColor: (() => {
                   const errors = Object.values(analysisProgress).filter(status => status === 'error').length;
-                  return errors > 0 ? '#FF6B6B' : '#00AA00';
+                  return errors > 0 ? '#FF6B6B' : '#00AA00'; // Red for errors, green for success
                 })(),
                 borderRadius: 3,
                 transition: 'transform 0.4s ease-in-out'
@@ -181,8 +179,8 @@ export const RestartPlayer: React.FC<RestartPlayerProps> = ({ host, device, incl
         </Box>
       )}
 
-      {/* Settings and Report Buttons (appears when analysis complete) */}
-      {isAnalysisComplete && (
+      {/* Settings and Report Buttons (appears when everything is complete) */}
+      {isReady && !isGenerating && (!includeAudioAnalysis || isAnalysisComplete) && (
         <Box sx={{ position: 'absolute', top: 16, right: 16, zIndex: 1000030, display: 'flex', flexDirection: 'column', gap: 1 }}>
           <Tooltip title="Link Report" placement="left">
             <IconButton

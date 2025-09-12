@@ -1,4 +1,4 @@
-import { Box, Typography, IconButton, Slide, Paper, Checkbox, FormControlLabel, Select, MenuItem, Divider, FormControl, InputLabel, Collapse } from '@mui/material';
+import { Box, Typography, IconButton, Slide, Paper, Checkbox, Select, MenuItem, Collapse } from '@mui/material';
 import { Close as CloseIcon, ExpandMore as ExpandMoreIcon, ExpandLess as ExpandLessIcon } from '@mui/icons-material';
 import React, { useState } from 'react';
 

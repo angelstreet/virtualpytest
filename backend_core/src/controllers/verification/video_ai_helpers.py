@@ -90,6 +90,11 @@ class VideoAIHelpers:
                     
                     ai_result = json.loads(json_content)
                     
+                    # Check if AI actually detected subtitles - ignore language/confidence if not
+                    if not ai_result.get('subtitles_detected', False):
+                        print(f"VideoAI[{self.device_name}]: JSON parsing successful - No subtitles detected in image")
+                        return '', 'unknown', 0.0
+                    
                     extracted_text = ai_result.get('extracted_text', '').strip()
                     detected_language = ai_result.get('detected_language', 'unknown')
                     confidence = float(ai_result.get('confidence', 0.0))
@@ -98,8 +103,8 @@ class VideoAIHelpers:
                         print(f"VideoAI[{self.device_name}]: JSON parsing successful - AI extracted subtitle text: '{extracted_text}' -> Language: {detected_language}, Confidence: {confidence}")
                         return extracted_text, detected_language, confidence
                     else:
-                        print(f"VideoAI[{self.device_name}]: JSON parsing successful - No subtitles detected in image")
-                        return '', 'unknown', 0.0
+                        print(f"VideoAI[{self.device_name}]: Subtitles detected but no text extracted")
+                        return '', detected_language, confidence
                         
                 except json.JSONDecodeError as e:
                     print(f"VideoAI[{self.device_name}]: JSON parsing failed, trying natural language fallback: {e}")

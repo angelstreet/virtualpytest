@@ -560,10 +560,10 @@ def generate_restart_video():
         print(f"[@route:host_av:generate_restart_video] Using AV controller: {type(av_controller).__name__}")
         print(f"[@route:host_av:generate_restart_video] Controller details - Source: {getattr(av_controller, 'capture_source', 'unknown')}, Path: {getattr(av_controller, 'video_capture_path', 'unknown')}")
         
-        # Generate MP4 from recent HLS segments (with optional audio analysis)
+        # Generate restart video with complete AI analysis (audio, subtitles, video descriptions)
         import time
         start_time = time.time()
-        result = av_controller.take_video(duration_seconds=duration_seconds, include_audio_analysis=include_audio_analysis)
+        result = av_controller.takeRestartVideo(duration_seconds=duration_seconds)
         
         processing_time = time.time() - start_time
         
@@ -572,24 +572,13 @@ def generate_restart_video():
             del generate_restart_video._processing_cache[request_key]
         
         if result:
-            if isinstance(result, dict):
-                # Audio analysis included
-                result.update({
-                    'processing_time_seconds': round(processing_time, 2),
-                    'device_id': device_id,
-                    'message': f'Successfully generated {duration_seconds}-second restart video with audio analysis'
-                })
-                return jsonify(result)
-            else:
-                # Video only
-                return jsonify({
-                    'success': True,
-                    'video_url': result,
-                    'duration_seconds': duration_seconds,
-                    'processing_time_seconds': round(processing_time, 2),
-                    'device_id': device_id,
-                    'message': f'Successfully generated {duration_seconds}-second restart video'
-                })
+            # takeRestartVideo always returns a dict with complete analysis
+            result.update({
+                'processing_time_seconds': round(processing_time, 2),
+                'device_id': device_id,
+                'message': f'Successfully generated {duration_seconds}-second restart video with complete AI analysis'
+            })
+            return jsonify(result)
         else:
             return jsonify({
                 'success': False,

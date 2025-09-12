@@ -3,14 +3,12 @@ import React from 'react';
 
 interface RestartSubtitleOverlayProps {
   subtitleText?: string;
-  language: string;
   style: string;
   fontSize: string;
 }
 
 export const RestartSubtitleOverlay: React.FC<RestartSubtitleOverlayProps> = ({
   subtitleText,
-  language,
   style,
   fontSize,
 }) => {
