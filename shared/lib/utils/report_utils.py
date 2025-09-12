@@ -10,6 +10,7 @@ from .report_generation import (
     capture_and_upload_screenshot,
     generate_validation_report,
     generate_and_upload_script_report,
+    generate_and_upload_restart_report,
     format_timestamp,
     format_execution_date,
     format_execution_time

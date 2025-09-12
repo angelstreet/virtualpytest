@@ -1,6 +1,6 @@
 import { Box, Typography, IconButton, Slide, Paper, Checkbox, Select, MenuItem, Collapse } from '@mui/material';
 import { Close as CloseIcon, ExpandMore as ExpandMoreIcon, ExpandLess as ExpandLessIcon } from '@mui/icons-material';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 interface RestartSettingsPanelProps {
   open: boolean;
@@ -72,6 +72,8 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
   const [isTranscriptExpanded, setIsTranscriptExpanded] = useState(false);
   const [isVideoDescriptionExpanded, setIsVideoDescriptionExpanded] = useState(false);
   const [isSubtitleExpanded, setIsSubtitleExpanded] = useState(false);
+  const [translatedTranscript, setTranslatedTranscript] = useState<string>('');
+  const [translatedSubtitle, setTranslatedSubtitle] = useState<string>('');
 
   // Language code to name mapping
   const getLanguageName = (code: string): string => {
@@ -90,20 +92,91 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
     return languageNames[code.toLowerCase()] || code.toUpperCase();
   };
 
-  // Simple translation function (placeholder - in real app would use translation API)
-  const translateText = (text: string, targetLang: string, originalLang: string = 'en'): string => {
+  // Translation cache to avoid re-translating same content
+  const [translationCache, setTranslationCache] = useState<Record<string, string>>({});
+
+  // Dynamic translation function with caching
+  const translateText = async (text: string, targetLang: string, originalLang: string = 'en'): Promise<string> => {
     if (!text || targetLang === originalLang) return text;
     
-    // Placeholder translations - in real app would use Google Translate API or similar
+    // Create cache key
+    const cacheKey = `${originalLang}-${targetLang}-${text.substring(0, 50)}`;
+    
+    // Check cache first
+    if (translationCache[cacheKey]) {
+      return translationCache[cacheKey];
+    }
+    
+    // For now, use placeholder translations (can be replaced with real API)
     const translations: Record<string, Record<string, string>> = {
       'en': {
         'es': text.replace(/Hello/gi, 'Hola').replace(/Thank you/gi, 'Gracias').replace(/Please/gi, 'Por favor'),
-        'fr': text.replace(/Hello/gi, 'Bonjour').replace(/Thank you/gi, 'Merci').replace(/Please/gi, 'S\'il vous plaît')
+        'fr': text.replace(/Hello/gi, 'Bonjour').replace(/Thank you/gi, 'Merci').replace(/Please/gi, 'S\'il vous plaît'),
+        'de': text.replace(/Hello/gi, 'Hallo').replace(/Thank you/gi, 'Danke').replace(/Please/gi, 'Bitte'),
+        'it': text.replace(/Hello/gi, 'Ciao').replace(/Thank you/gi, 'Grazie').replace(/Please/gi, 'Per favore'),
+        'pt': text.replace(/Hello/gi, 'Olá').replace(/Thank you/gi, 'Obrigado').replace(/Please/gi, 'Por favor'),
+        'ru': text.replace(/Hello/gi, 'Привет').replace(/Thank you/gi, 'Спасибо').replace(/Please/gi, 'Пожалуйста')
       }
     };
     
-    return translations[originalLang]?.[targetLang] || `[${targetLang.toUpperCase()}] ${text}`;
+    // Get translated text without language prefix
+    const translatedText = translations[originalLang]?.[targetLang] || text;
+    
+    // Cache the result
+    setTranslationCache(prev => ({
+      ...prev,
+      [cacheKey]: translatedText
+    }));
+    
+    return translatedText;
   };
+
+  // Effect to handle dynamic translation when language changes
+  useEffect(() => {
+    const handleTranslation = async () => {
+      if (audioTranscript && audioTranscriptLanguage !== (audioAnalysis?.detected_language?.toLowerCase() || 'en')) {
+        try {
+          const translated = await translateText(
+            audioTranscript, 
+            audioTranscriptLanguage, 
+            audioAnalysis?.detected_language?.toLowerCase() || 'en'
+          );
+          setTranslatedTranscript(translated);
+        } catch (error) {
+          console.error('Translation error:', error);
+          setTranslatedTranscript(audioTranscript); // Fallback to original
+        }
+      } else {
+        setTranslatedTranscript('');
+      }
+    };
+
+    handleTranslation();
+  }, [audioTranscript, audioTranscriptLanguage, audioAnalysis?.detected_language]);
+
+  // Effect to handle subtitle translation when language changes
+  useEffect(() => {
+    const handleSubtitleTranslation = async () => {
+      if (subtitleData?.extracted_text && subtitleLanguage !== (subtitleData?.detected_language?.toLowerCase() || 'en')) {
+        try {
+          const translated = await translateText(
+            subtitleData.extracted_text, 
+            subtitleLanguage, 
+            subtitleData.detected_language?.toLowerCase() || 'en'
+          );
+          setTranslatedSubtitle(translated);
+        } catch (error) {
+          console.error('Subtitle translation error:', error);
+          setTranslatedSubtitle(subtitleData.extracted_text); // Fallback to original
+        }
+      } else {
+        setTranslatedSubtitle('');
+      }
+    };
+
+    handleSubtitleTranslation();
+  }, [subtitleData?.extracted_text, subtitleLanguage, subtitleData?.detected_language]);
+
   return (
     <Slide direction="left" in={open} mountOnEnter unmountOnExit>
       <Paper
@@ -370,7 +443,7 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
                     borderLeft: '3px solid #4CAF50'
                   }}>
                     <strong>Translated ({getLanguageName(subtitleLanguage)}):</strong><br />
-                    {translateText(subtitleData.extracted_text, subtitleLanguage, subtitleData.detected_language || 'en')}
+                    {translatedSubtitle || 'Translating...'}
                   </Typography>
                 )}
               </Box>
@@ -457,7 +530,7 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
                   borderLeft: '3px solid #4CAF50'
                 }}>
                   <strong>Translated ({getLanguageName(audioTranscriptLanguage)}):</strong><br />
-                  {translateText(audioTranscript, audioTranscriptLanguage, audioAnalysis?.detected_language?.toLowerCase() || 'en')}
+                  {translatedTranscript || 'Translating...'}
                 </Typography>
               )}
             </Box>

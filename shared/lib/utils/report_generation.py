@@ -402,6 +402,128 @@ def generate_and_upload_script_report(
         }
 
 
+def generate_and_upload_restart_report(
+    host_info: Dict,
+    device_info: Dict,
+    video_url: str,
+    analysis_data: Dict,
+    processing_time: float,
+    timestamp: str = None
+) -> Dict[str, str]:
+    """
+    Generate HTML report for restart video and upload to R2 storage.
+    Follows the same pattern as script reports but for restart video functionality.
+    
+    Args:
+        host_info: Dict with host_name
+        device_info: Dict with device_name, device_model, device_id
+        video_url: URL to the generated restart video
+        analysis_data: Dict containing audio, subtitle, and video analysis results
+        processing_time: Processing time in seconds
+        timestamp: Optional timestamp, will generate if not provided
+        
+    Returns:
+        Dict with 'report_url', 'report_path', and 'success' keys
+    """
+    try:
+        print(f"[@utils:report_utils:generate_and_upload_restart_report] Starting restart report generation...")
+        
+        from .cloudflare_utils import upload_restart_report
+        from datetime import datetime
+        
+        if not timestamp:
+            timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
+        
+        # Create restart video report data structure
+        report_data = {
+            'report_type': 'restart_video',
+            'script_name': 'Restart Video Analysis',
+            'device_info': device_info,
+            'host_info': host_info,
+            'execution_time': int(processing_time * 1000),  # Convert to milliseconds
+            'success': True,
+            'userinterface_name': 'restart_video',
+            'execution_timestamp': timestamp,
+            'total_steps': 1,
+            'successful_steps': 1,
+            'failed_steps': 0,
+            'total_verifications': 0,
+            'passed_verifications': 0,
+            'failed_verifications': 0,
+            'step_results': [{
+                'step_number': 1,
+                'success': True,
+                'message': 'Restart video generation and AI analysis',
+                'execution_time_ms': int(processing_time * 1000),
+                'start_time': datetime.now().strftime('%H:%M:%S'),
+                'end_time': datetime.now().strftime('%H:%M:%S'),
+                'from_node': 'Video Generation',
+                'to_node': 'Analysis Complete',
+                'actions': [{
+                    'command': 'generateRestartVideo',
+                    'params': {'duration_seconds': 10},
+                    'label': 'Generate 10-second restart video with AI analysis'
+                }],
+                'verifications': [],
+                'verification_results': [],
+                'restart_video_data': {
+                    'video_url': video_url,
+                    'analysis_data': analysis_data,
+                    'processing_time_seconds': processing_time
+                }
+            }],
+            'screenshot_paths': [],
+            'error_message': '',
+            'execution_summary': f'Generated restart video with comprehensive AI analysis in {processing_time:.1f}s',
+            'test_video_url': video_url,  # The restart video itself
+            'script_result_id': None,
+            'custom_data': {
+                'restart_video_url': video_url,
+                'audio_analysis': analysis_data.get('audio_analysis', {}),
+                'subtitle_analysis': analysis_data.get('subtitle_analysis', {}),
+                'video_analysis': analysis_data.get('video_analysis', {}),
+                'processing_time_seconds': processing_time
+            }
+        }
+        
+        # Generate HTML report using the same template as script reports
+        html_content = generate_validation_report(report_data)
+        
+        # Upload report to R2 using timestamp-based structure
+        upload_result = upload_restart_report(
+            html_content=html_content,
+            host_name=host_info.get('host_name', 'unknown'),
+            device_id=device_info.get('device_id', 'unknown'),
+            timestamp=timestamp
+        )
+        
+        if upload_result['success']:
+            report_url = upload_result['report_url']
+            report_path = upload_result['report_path']
+            print(f"[@cloudflare_utils:upload_restart_report] INFO: Uploaded restart report: {report_path}")
+            print(f"[@utils:report_utils:generate_and_upload_restart_report] Report uploaded: {report_url}")
+            return {
+                'success': True,
+                'report_url': report_url,
+                'report_path': report_path
+            }
+        else:
+            print(f"[@utils:report_utils:generate_and_upload_restart_report] Upload failed: {upload_result.get('error', 'Unknown error')}")
+            return {
+                'success': False,
+                'report_url': '',
+                'report_path': ''
+            }
+        
+    except Exception as e:
+        print(f"[@utils:report_utils:generate_and_upload_restart_report] Error: {str(e)}")
+        return {
+            'success': False,
+            'report_url': '',
+            'report_path': ''
+        }
+
+
 def format_timestamp(timestamp: str) -> str:
     """Format timestamp for display."""
     try:

@@ -624,11 +624,10 @@ class FFmpegCaptureController(AVControllerInterface):
                     if not screenshots:
                         return []
                     
-                    # Calculate dynamic screenshot count based on video duration
-                    # Assume 2-5 FPS capture rate, use video duration + 50% buffer for safety
-                    buffer_multiplier = 1.5  # 50% buffer
-                    estimated_fps = 3  # Conservative estimate between 2-5 FPS
-                    screenshot_count = max(10, int(duration_seconds * estimated_fps * buffer_multiplier))
+                    # Calculate screenshot count based on HLS segment duration
+                    # Each segment is HLS_SEGMENT_DURATION seconds, so we need duration_seconds / segment_duration screenshots
+                    screenshots_per_second = 1.0 / self.HLS_SEGMENT_DURATION  # Screenshots per second based on segment duration
+                    screenshot_count = max(5, int(duration_seconds * screenshots_per_second))
                     
                     print(f"[RestartVideo] Video duration: {duration_seconds}s, estimated screenshots needed: {screenshot_count}")
                     

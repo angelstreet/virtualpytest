@@ -60,7 +60,22 @@ interface BackendAnalysisData {
     confidence: number;
     segments_analyzed: number;
   };
+  subtitle_analysis?: {
+    success: boolean;
+    subtitles_detected: boolean;
+    extracted_text: string;
+    detected_language: string;
+    confidence: number;
+    frames_analyzed: number;
+  };
+  video_analysis?: {
+    success: boolean;
+    frame_descriptions: string[];
+    video_summary: string;
+    frames_analyzed: number;
+  };
   screenshot_urls?: string[];
+  video_id?: string;
   analysis_complete?: boolean;
 }
 
@@ -199,15 +214,92 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
       setAnalysisProgress(prev => ({ ...prev, audio: 'completed' }));
     }
     
-    // Mark frontend analyses as completed (backend provides comprehensive analysis)
-    setAnalysisProgress(prev => ({
-      ...prev,
-      subtitles: 'completed',
-      videoDescription: 'completed'
-    }));
+    // Process subtitle analysis from backend
+    if (analysisData.subtitle_analysis) {
+      const subtitleData = analysisData.subtitle_analysis;
+      setAnalysisResults(prev => ({
+        ...prev,
+        subtitles: {
+          success: subtitleData.success,
+          subtitles_detected: subtitleData.subtitles_detected || false,
+          extracted_text: subtitleData.extracted_text || '',
+          detected_language: subtitleData.detected_language || 'unknown',
+          execution_time_ms: 0,
+        }
+      }));
+      setAnalysisProgress(prev => ({ ...prev, subtitles: 'completed' }));
+    }
+    
+    // Process video description analysis from backend
+    if (analysisData.video_analysis) {
+      const videoData = analysisData.video_analysis;
+      setAnalysisResults(prev => ({
+        ...prev,
+        videoDescription: {
+          frame_descriptions: videoData.frame_descriptions || [],
+          video_summary: videoData.video_summary || '',
+          frames_analyzed: videoData.frames_analyzed || 0,
+          execution_time_ms: 0,
+        }
+      }));
+      setAnalysisProgress(prev => ({ ...prev, videoDescription: 'completed' }));
+    }
+    
+    // If no subtitle or video analysis provided, mark as completed anyway
+    if (!analysisData.subtitle_analysis) {
+      setAnalysisProgress(prev => ({ ...prev, subtitles: 'completed' }));
+    }
+    if (!analysisData.video_analysis) {
+      setAnalysisProgress(prev => ({ ...prev, videoDescription: 'completed' }));
+    }
     
     console.log('[@hook:useRestart] All analysis processing complete');
   }, []);
+
+  const triggerAsyncAnalysis = useCallback(async (videoId: string, screenshotUrls: string[]) => {
+    console.log('[@hook:useRestart] Triggering async analysis for video ID:', videoId);
+    
+    try {
+      setAnalysisProgress(prev => ({
+        ...prev,
+        subtitles: 'loading',
+        videoDescription: 'loading'
+      }));
+
+      const response = await fetch(buildServerUrl('/server/av/analyzeRestartVideo'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          host,
+          device_id: device.device_id || 'device1',
+          video_id: videoId,
+          screenshot_urls: screenshotUrls,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Async analysis failed: ${response.status} ${response.statusText}`);
+      }
+
+      const asyncData = await response.json();
+      
+      if (asyncData.success && asyncData.analysis_data) {
+        console.log('[@hook:useRestart] Async analysis completed:', asyncData.analysis_data);
+        processBackendAnalysis(asyncData.analysis_data);
+      } else {
+        throw new Error(asyncData.error || 'Async analysis failed');
+      }
+
+    } catch (error) {
+      console.error('[@hook:useRestart] Async analysis error:', error);
+      // Mark as completed even on error to avoid infinite loading
+      setAnalysisProgress(prev => ({
+        ...prev,
+        subtitles: 'error',
+        videoDescription: 'error'
+      }));
+    }
+  }, [host, device.device_id, processBackendAnalysis]);
 
   const generateVideoRequest = useCallback(async (): Promise<BackendResponse> => {
     const response = await fetch(buildServerUrl('/server/av/generateRestartVideo'), {
@@ -275,6 +367,11 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
       // Process analysis data if available
       if (includeAudioAnalysis && data.analysis_data) {
         processBackendAnalysis(data.analysis_data);
+        
+        // Trigger async analysis if video_id and screenshot_urls are available
+        if (data.analysis_data.video_id && data.analysis_data.screenshot_urls) {
+          triggerAsyncAnalysis(data.analysis_data.video_id, data.analysis_data.screenshot_urls);
+        }
       }
 
     } catch (err) {

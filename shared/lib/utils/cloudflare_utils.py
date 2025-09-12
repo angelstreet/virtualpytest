@@ -474,6 +474,67 @@ def upload_script_report(html_content: str, device_model: str, script_name: str,
             'error': str(e)
         }
 
+def upload_restart_report(html_content: str, host_name: str, device_id: str, timestamp: str) -> Dict:
+    """Upload restart video report HTML to R2 in the restart-reports folder."""
+    try:
+        uploader = get_cloudflare_utils()
+        
+        # Create report folder path: restart-reports/{timestamp}/
+        # Use timestamp-based structure like script reports, not device-based
+        report_path = f"restart-reports/{timestamp}/restart_video.html"
+        
+        # Create temporary HTML file
+        import tempfile
+        import os
+        
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.html', delete=False) as temp_file:
+            temp_file.write(html_content)
+            temp_file_path = temp_file.name
+        
+        try:
+            # Upload HTML report
+            file_mappings = [{'local_path': temp_file_path, 'remote_path': report_path}]
+            upload_result = uploader.upload_files(file_mappings)
+            
+            # Convert to single file result
+            if upload_result['uploaded_files']:
+                result = {
+                    'success': True,
+                    'url': upload_result['uploaded_files'][0]['url'],
+                    'remote_path': upload_result['uploaded_files'][0]['remote_path']
+                }
+            else:
+                result = {
+                    'success': False,
+                    'error': upload_result['failed_uploads'][0]['error'] if upload_result['failed_uploads'] else 'Upload failed'
+                }
+            
+            if result['success']:
+                logger.info(f"Uploaded restart report: {report_path}")
+                return {
+                    'success': True,
+                    'report_path': report_path,
+                    'report_url': result['url'],
+                    'folder_path': f"restart-reports/{timestamp}"
+                }
+            else:
+                return {
+                    'success': False,
+                    'error': result.get('error', 'Upload failed')
+                }
+                
+        finally:
+            # Clean up temporary file
+            if os.path.exists(temp_file_path):
+                os.unlink(temp_file_path)
+                
+    except Exception as e:
+        logger.error(f"Restart report upload failed: {str(e)}")
+        return {
+            'success': False,
+            'error': str(e)
+        }
+
 def upload_script_logs(log_content: str, device_model: str, script_name: str, timestamp: str) -> Dict:
     """Upload script execution logs to R2."""
     try:
