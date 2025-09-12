@@ -1,4 +1,4 @@
-import { Box, Typography, CircularProgress, Alert, IconButton, LinearProgress } from '@mui/material';
+import { Box, Typography, CircularProgress, Alert, IconButton, LinearProgress, Tooltip } from '@mui/material';
 import { Settings as SettingsIcon, Assessment as ReportIcon } from '@mui/icons-material';
 import React, { useEffect, useRef, useState } from 'react';
 
@@ -27,7 +27,7 @@ export const RestartPlayer: React.FC<RestartPlayerProps> = ({ host, device, incl
   const [subtitleStyle, setSubtitleStyle] = useState('yellow');
   const [subtitleFontSize, setSubtitleFontSize] = useState('medium');
   
-  const { videoUrl, isGenerating, isReady, error, processingTime, analysisResults, analysisProgress, isAnalysisComplete } = useRestart({ 
+  const { videoUrl, isGenerating, isReady, error, analysisResults, analysisProgress, isAnalysisComplete } = useRestart({ 
     host, 
     device, 
     includeAudioAnalysis 
@@ -183,31 +183,35 @@ export const RestartPlayer: React.FC<RestartPlayerProps> = ({ host, device, incl
       {/* Settings and Report Buttons (appears when analysis complete) */}
       {isAnalysisComplete && (
         <Box sx={{ position: 'absolute', top: 16, right: 16, zIndex: 1000030, display: 'flex', flexDirection: 'column', gap: 1 }}>
-          <IconButton
-            onClick={() => {
-              // Open report in new tab
-              const reportUrl = `/reports/restart/${host.host_name}/${device.device_id}`;
-              window.open(reportUrl, '_blank');
-            }}
-            sx={{
-              backgroundColor: 'rgba(0, 0, 0, 0.7)',
-              color: '#ffffff',
-              '&:hover': { backgroundColor: 'rgba(0, 0, 0, 0.9)' },
-            }}
-          >
-            <ReportIcon />
-          </IconButton>
+          <Tooltip title="Link Report" placement="left">
+            <IconButton
+              onClick={() => {
+                // Open report in new tab
+                const reportUrl = `/reports/restart/${host.host_name}/${device.device_id}`;
+                window.open(reportUrl, '_blank');
+              }}
+              sx={{
+                backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                color: '#ffffff',
+                '&:hover': { backgroundColor: 'rgba(0, 0, 0, 0.9)' },
+              }}
+            >
+              <ReportIcon />
+            </IconButton>
+          </Tooltip>
           
-          <IconButton
-            onClick={() => setSettingsOpen(true)}
-            sx={{
-              backgroundColor: 'rgba(0, 0, 0, 0.7)',
-              color: '#ffffff',
-              '&:hover': { backgroundColor: 'rgba(0, 0, 0, 0.9)' },
-            }}
-          >
-            <SettingsIcon />
-          </IconButton>
+          <Tooltip title="Settings" placement="left">
+            <IconButton
+              onClick={() => setSettingsOpen(true)}
+              sx={{
+                backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                color: '#ffffff',
+                '&:hover': { backgroundColor: 'rgba(0, 0, 0, 0.9)' },
+              }}
+            >
+              <SettingsIcon />
+            </IconButton>
+          </Tooltip>
         </Box>
       )}
 

@@ -199,11 +199,14 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
       setAnalysisProgress(prev => ({ ...prev, audio: 'completed' }));
     }
     
-    // Trigger frontend analysis for screenshots if available
-    if (analysisData.screenshot_urls && analysisData.screenshot_urls.length > 0) {
-      analyzeScreenshotsForSubtitles(analysisData.screenshot_urls);
-      analyzeScreenshotsForDescription(analysisData.screenshot_urls);
-    }
+    // Mark frontend analyses as completed (backend provides comprehensive analysis)
+    setAnalysisProgress(prev => ({
+      ...prev,
+      subtitles: 'completed',
+      videoDescription: 'completed'
+    }));
+    
+    console.log('[@hook:useRestart] All analysis processing complete');
   }, []);
 
   const generateVideoRequest = useCallback(async (): Promise<BackendResponse> => {
@@ -299,160 +302,7 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
   // ANALYSIS FUNCTIONS
   // =====================================================
 
-  const analyzeScreenshotsForSubtitles = useCallback(async (screenshotUrls: string[]) => {
-    if (!screenshotUrls.length) return;
-    
-    try {
-      setAnalysisProgress(prev => ({ ...prev, subtitles: 'loading' }));
-      
-      // Use middle screenshot for analysis
-      const middleIndex = Math.floor(screenshotUrls.length / 2);
-      const middleScreenshot = screenshotUrls[middleIndex];
-      
-      const startTime = Date.now();
-      const result = await analyzeSubtitlesRequest(middleScreenshot);
-      const executionTime = Date.now() - startTime;
-      
-      if (result) {
-        setAnalysisResults(prev => ({
-          ...prev,
-          subtitles: {
-            success: result.success,
-            subtitles_detected: result.subtitles_detected || false,
-            extracted_text: result.extracted_text || '',
-            detected_language: result.detected_language,
-            execution_time_ms: executionTime,
-          }
-        }));
-        setAnalysisProgress(prev => ({ ...prev, subtitles: 'completed' }));
-      } else {
-        setAnalysisProgress(prev => ({ ...prev, subtitles: 'error' }));
-      }
-    } catch (error) {
-      console.error('[@hook:useRestart] Subtitle analysis error:', error);
-      setAnalysisProgress(prev => ({ ...prev, subtitles: 'error' }));
-    }
-  }, []);
-
-  const analyzeScreenshotsForDescription = useCallback(async (screenshotUrls: string[]) => {
-    if (!screenshotUrls.length) return;
-    
-    try {
-      setAnalysisProgress(prev => ({ ...prev, videoDescription: 'loading' }));
-      
-      // Take every 2nd screenshot for analysis (up to 10 frames)
-      const selectedScreenshots = screenshotUrls.filter((_, index) => index % 2 === 0).slice(0, 10);
-      
-      const startTime = Date.now();
-      const frameDescriptions: string[] = [];
-      
-      // Analyze each screenshot
-      for (let i = 0; i < selectedScreenshots.length; i++) {
-        try {
-          const result = await analyzeVideoDescriptionRequest(selectedScreenshots[i]);
-          if (result) {
-            frameDescriptions.push(`Frame ${i + 1}: ${result}`);
-          }
-        } catch (error) {
-          console.error(`[@hook:useRestart] Frame ${i + 1} analysis failed:`, error);
-          frameDescriptions.push(`Frame ${i + 1}: Analysis failed`);
-        }
-      }
-      
-      const videoSummary = frameDescriptions.length > 0 
-        ? `Video analysis completed with ${frameDescriptions.length} frames analyzed.`
-        : 'No frame descriptions available';
-      
-      const executionTime = Date.now() - startTime;
-      
-      setAnalysisResults(prev => ({
-        ...prev,
-        videoDescription: {
-          frame_descriptions: frameDescriptions,
-          video_summary: videoSummary,
-          frames_analyzed: frameDescriptions.length,
-          execution_time_ms: executionTime,
-        }
-      }));
-      setAnalysisProgress(prev => ({ ...prev, videoDescription: 'completed' }));
-      
-    } catch (error) {
-      console.error('[@hook:useRestart] Video description analysis error:', error);
-      setAnalysisProgress(prev => ({ ...prev, videoDescription: 'error' }));
-    }
-  }, []);
-
-  const analyzeSubtitlesRequest = useCallback(async (imageUrl: string) => {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000);
-    
-    try {
-      const response = await fetch(buildServerUrl('/server/verification/video/detectSubtitlesAI'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          host,
-          device_id: device.device_id,
-          image_source_url: imageUrl,
-          extract_text: true,
-        }),
-        signal: controller.signal
-      });
-      
-      clearTimeout(timeoutId);
-      
-      if (!response.ok) {
-        throw new Error(`Subtitle analysis failed: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      return data.success ? data : null;
-    } catch (error) {
-      clearTimeout(timeoutId);
-      if (error instanceof Error && error.name === 'AbortError') {
-        console.error('[@hook:useRestart] Subtitle analysis timed out');
-      } else {
-        console.error('[@hook:useRestart] Subtitle analysis failed:', error);
-      }
-      return null;
-    }
-  }, [host, device.device_id]);
-
-  const analyzeVideoDescriptionRequest = useCallback(async (imageUrl: string) => {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 20000);
-    
-    try {
-      const response = await fetch(buildServerUrl('/server/verification/video/analyzeImageAI'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          host,
-          device_id: device.device_id,
-          image_source_url: imageUrl,
-          prompt: 'Describe what you see in this frame in 1-2 sentences',
-        }),
-        signal: controller.signal
-      });
-      
-      clearTimeout(timeoutId);
-      
-      if (!response.ok) {
-        throw new Error(`Video description analysis failed: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      return data.success ? data.response : null;
-    } catch (error) {
-      clearTimeout(timeoutId);
-      if (error instanceof Error && error.name === 'AbortError') {
-        console.error('[@hook:useRestart] Video description analysis timed out');
-      } else {
-        console.error('[@hook:useRestart] Video description analysis failed:', error);
-      }
-      return null;
-    }
-  }, [host, device.device_id]);
+  // Screenshot analysis functions removed - backend provides comprehensive analysis
 
   // =====================================================
   // PUBLIC API FUNCTIONS
@@ -463,13 +313,15 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
     return null;
   }, []);
 
-  const analyzeSubtitles = useCallback(async (imageUrl: string) => {
-    return analyzeSubtitlesRequest(imageUrl);
-  }, [analyzeSubtitlesRequest]);
+  const analyzeSubtitles = useCallback(async (_imageUrl: string) => {
+    console.log('[@hook:useRestart] Subtitle analysis is handled by backend during video generation');
+    return null;
+  }, []);
 
-  const analyzeVideoDescription = useCallback(async (imageUrl: string) => {
-    return analyzeVideoDescriptionRequest(imageUrl);
-  }, [analyzeVideoDescriptionRequest]);
+  const analyzeVideoDescription = useCallback(async (_imageUrl: string) => {
+    console.log('[@hook:useRestart] Video description analysis is handled by backend during video generation');
+    return null;
+  }, []);
 
   const regenerateVideo = useCallback(async () => {
     videoCache.delete(host, device);
