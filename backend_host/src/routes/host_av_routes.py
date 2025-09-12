@@ -567,17 +567,35 @@ def generate_restart_video():
         
         processing_time = time.time() - start_time
         
+        # If result is successful, regenerate with processing time for proper report
+        if result and result.get('success'):
+            # Regenerate with actual processing time for accurate report
+            result = av_controller.generateRestartVideoFast(
+                duration_seconds=duration_seconds, 
+                processing_time=processing_time
+            )
+        
         # Remove from processing cache
         if request_key in generate_restart_video._processing_cache:
             del generate_restart_video._processing_cache[request_key]
         
         if result:
-            # takeRestartVideo always returns a dict with complete analysis
+            # Update processing time in the result
             result.update({
                 'processing_time_seconds': round(processing_time, 2),
                 'device_id': device_id,
                 'message': f'Successfully generated {duration_seconds}-second restart video with complete AI analysis'
             })
+            
+            # Update analysis data with actual processing time
+            if 'analysis_data' in result and result['analysis_data']:
+                if 'audio_analysis' in result['analysis_data']:
+                    result['analysis_data']['audio_analysis']['execution_time_ms'] = int(processing_time * 1000)
+            
+            # If report generation was successful, extract report URL for logging
+            if result.get('report_url'):
+                print(f"[@cloudflare_utils:upload_restart_report] INFO: Uploaded restart report: {result.get('report_path', 'unknown')}")
+            
             return jsonify(result)
         else:
             return jsonify({

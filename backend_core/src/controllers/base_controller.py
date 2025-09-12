@@ -400,7 +400,7 @@ class FFmpegCaptureController(AVControllerInterface):
             print(f'{self.capture_source}[{self.capture_source}]: Error saving screenshot: {e}')
             return None
 
-    def generateRestartVideoFast(self, duration_seconds: float = None, test_start_time: float = None) -> Optional[Dict[str, Any]]:
+    def generateRestartVideoFast(self, duration_seconds: float = None, test_start_time: float = None, processing_time: float = None) -> Optional[Dict[str, Any]]:
         """
         Fast restart video generation - returns video URL + audio analysis only.
         Shows player immediately while AI analysis runs in background.
@@ -827,12 +827,64 @@ class FFmpegCaptureController(AVControllerInterface):
             print(f"[RestartVideo] Screenshots collected: {len(screenshot_urls)} frames")
             print(f"[RestartVideo] AI analysis will be performed asynchronously")
             
-            # Return complete results as dict
-            return {
-                'success': True,
-                'video_url': video_url,
-                'analysis_data': analysis_data
-            }
+            # Generate timestamped report following script report pattern
+            print(f"[RestartVideo] Generating timestamped report...")
+            
+            # Get host and device info for report
+            try:
+                from shared.lib.utils.host_utils import get_host_instance
+                host = get_host_instance()
+                host_info = {'host_name': host.host_name}
+                device_info = {
+                    'device_name': self.device_name,
+                    'device_model': getattr(self, 'device_model', 'Unknown'),
+                    'device_id': getattr(self, 'device_id', self.device_name)
+                }
+            except Exception as e:
+                print(f"[RestartVideo] Failed to get host/device info: {e}")
+                host_info = {'host_name': 'unknown'}
+                device_info = {
+                    'device_name': self.device_name,
+                    'device_model': 'Unknown',
+                    'device_id': self.device_name
+                }
+            
+            # Use processing time from caller if provided, otherwise default to 0
+            if processing_time is None:
+                processing_time = 0.0
+            
+            # Generate report using the new report generation function
+            from shared.lib.utils.report_utils import generate_and_upload_restart_report
+            
+            report_result = generate_and_upload_restart_report(
+                host_info=host_info,
+                device_info=device_info,
+                video_url=video_url,
+                analysis_data=analysis_data,
+                processing_time=processing_time
+            )
+            
+            if report_result.get('success'):
+                print(f"[RestartVideo] Report generated: {report_result['report_url']}")
+                
+                # Return both video URL and report URL (like script execution)
+                return {
+                    'success': True,
+                    'video_url': video_url,
+                    'report_url': report_result['report_url'],
+                    'report_path': report_result['report_path'],
+                    'analysis_data': analysis_data
+                }
+            else:
+                print(f"[RestartVideo] Report generation failed: {report_result.get('error', 'Unknown error')}")
+                
+                # Fallback to original response if report fails
+                return {
+                    'success': True,
+                    'video_url': video_url,
+                    'analysis_data': analysis_data,
+                    'report_error': report_result.get('error', 'Report generation failed')
+                }
                 
         except Exception as e:
             print(f"{self.capture_source}[{self.capture_source}]: Error generating fast restart video: {e}")
