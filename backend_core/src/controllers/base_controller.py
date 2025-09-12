@@ -400,21 +400,20 @@ class FFmpegCaptureController(AVControllerInterface):
             print(f'{self.capture_source}[{self.capture_source}]: Error saving screenshot: {e}')
             return None
 
-    def takeRestartVideo(self, duration_seconds: float = None, test_start_time: float = None) -> Optional[Dict[str, Any]]:
+    def generateRestartVideoFast(self, duration_seconds: float = None, test_start_time: float = None) -> Optional[Dict[str, Any]]:
         """
-        Generate restart video with complete AI analysis (audio, subtitles, video descriptions).
-        Dedicated method for restart video use case with full analysis pipeline.
+        Fast restart video generation - returns video URL + audio analysis only.
+        Shows player immediately while AI analysis runs in background.
         
         Args:
             duration_seconds: How many seconds of video to capture (default: 10s)
             test_start_time: Unix timestamp when test started (for time sync)
             
         Returns:
-            Dict with video_url and complete analysis_data including:
-            - audio_analysis: Speech-to-text transcription
-            - subtitle_analysis: AI-powered subtitle detection  
-            - video_analysis: Frame descriptions and video summary
-            - screenshot_urls: URLs of analyzed frames
+            Dict with video_url and basic analysis_data including:
+            - audio_analysis: Speech-to-text transcription (included for immediate display)
+            - screenshot_urls: URLs for later AI analysis
+            - video_id: Unique identifier for async analysis
         """
         try:
             import time
@@ -783,12 +782,16 @@ class FFmpegCaptureController(AVControllerInterface):
                         'error': str(e)
                     }
             
-            # Execute all analysis
-            subtitle_result = get_subtitle_analysis()
-            video_description_result = get_video_description_analysis()
+            # Execute only fast analysis (audio + screenshot collection)
+            # Skip slow video description analysis - will be done async
             
-            # Build complete response with analysis data
+            # Build fast response with basic analysis data
             from datetime import datetime
+            import uuid
+            
+            # Generate unique video ID for async analysis
+            video_id = f"restart_{int(time.time())}_{str(uuid.uuid4())[:8]}"
+            
             analysis_data = {
                 'audio_analysis': {
                     'success': audio_result.get('success', False),
@@ -801,39 +804,29 @@ class FFmpegCaptureController(AVControllerInterface):
                 },
                 'screenshot_urls': screenshot_urls,
                 'video_analysis': {
-                    'success': video_description_result.get('success', False),
-                    'frame_descriptions': video_description_result.get('frame_descriptions', []),
-                    'video_summary': video_description_result.get('video_summary', ''),
-                    'frames_analyzed': video_description_result.get('frames_analyzed', 0),
-                    'frames_available': len(screenshot_urls)
+                    'success': False,
+                    'pending': True,  # Indicates analysis is pending
+                    'message': 'Video analysis will be performed asynchronously'
                 },
                 'subtitle_analysis': {
-                    'success': subtitle_result.get('success', False),
-                    'subtitles_detected': subtitle_result.get('subtitles_detected', False),
-                    'extracted_text': subtitle_result.get('extracted_text', ''),
-                    'detected_language': subtitle_result.get('detected_language', 'unknown'),
-                    'confidence': subtitle_result.get('confidence', 0.0),
-                    'frames_analyzed': subtitle_result.get('frames_analyzed', 0),
-                    'frames_available': len(screenshot_urls)
+                    'success': False,
+                    'pending': True,  # Indicates analysis is pending
+                    'message': 'Subtitle analysis will be performed asynchronously'
                 },
-                'analysis_complete': True,
+                'video_id': video_id,  # For async analysis tracking
+                'analysis_complete': False,  # Fast analysis only
                 'timestamp': time.time(),
                 'created_at': datetime.now().isoformat()
             }
             
-            # Log analysis results
+            # Log fast analysis results
             if audio_result.get('combined_transcript'):
                 transcript_preview = audio_result['combined_transcript'][:100] + "..." if len(audio_result['combined_transcript']) > 100 else audio_result['combined_transcript']
                 print(f"[RestartVideo] Audio transcript: '{transcript_preview}'")
             
-            if subtitle_result.get('subtitles_detected') and subtitle_result.get('extracted_text'):
-                subtitle_preview = subtitle_result['extracted_text'][:100] + "..." if len(subtitle_result['extracted_text']) > 100 else subtitle_result['extracted_text']
-                print(f"[RestartVideo] Subtitles detected: '{subtitle_preview}'")
-            
-            if video_description_result.get('success') and video_description_result.get('frame_descriptions'):
-                frame_count = len(video_description_result['frame_descriptions'])
-                summary_preview = video_description_result.get('video_summary', '')[:100] + "..." if len(video_description_result.get('video_summary', '')) > 100 else video_description_result.get('video_summary', '')
-                print(f"[RestartVideo] Video analysis: {frame_count} frames analyzed, summary: '{summary_preview}'")
+            print(f"[RestartVideo] Fast generation complete - Video ID: {video_id}")
+            print(f"[RestartVideo] Screenshots collected: {len(screenshot_urls)} frames")
+            print(f"[RestartVideo] AI analysis will be performed asynchronously")
             
             # Return complete results as dict
             return {
@@ -843,8 +836,197 @@ class FFmpegCaptureController(AVControllerInterface):
             }
                 
         except Exception as e:
-            print(f"{self.capture_source}[{self.capture_source}]: Error uploading HLS: {e}")
+            print(f"{self.capture_source}[{self.capture_source}]: Error generating fast restart video: {e}")
             return None
+    
+    def analyzeRestartVideoAsync(self, video_id: str, screenshot_urls: List[str]) -> Optional[Dict[str, Any]]:
+        """
+        Async AI analysis for restart video - subtitle detection + video descriptions.
+        Called by frontend after player is shown.
+        
+        Args:
+            video_id: Unique identifier from fast generation
+            screenshot_urls: URLs of screenshots to analyze
+            
+        Returns:
+            Dict with complete AI analysis results:
+            - subtitle_analysis: AI-powered subtitle detection
+            - video_analysis: Frame descriptions and video summary
+        """
+        try:
+            import time
+            from datetime import datetime
+            
+            print(f"[RestartVideoAsync] Starting async AI analysis for video ID: {video_id}")
+            print(f"[RestartVideoAsync] Analyzing {len(screenshot_urls)} screenshots")
+            
+            # 1. Perform subtitle analysis on collected screenshots
+            def get_subtitle_analysis():
+                try:
+                    if not screenshot_urls:
+                        return {
+                            'success': False,
+                            'subtitles_detected': False,
+                            'extracted_text': '',
+                            'detected_language': 'unknown',
+                            'confidence': 0.0,
+                            'frames_analyzed': 0
+                        }
+                    
+                    # Convert URLs to local paths for analysis
+                    from shared.lib.utils.build_url_utils import convertHostUrlToLocalPath
+                    local_paths = []
+                    for url in screenshot_urls[:5]:  # Analyze first 5 screenshots for subtitles
+                        if url.startswith(('http://', 'https://')):
+                            local_path = convertHostUrlToLocalPath(url)
+                            local_paths.append(local_path)
+                        else:
+                            local_paths.append(url)
+                    
+                    # Get video verification controller for AI analysis
+                    from backend_core.src.controllers.verification.video import VideoVerificationController
+                    video_controller = VideoVerificationController(self.device_name)
+                    
+                    print(f"[RestartVideoAsync] Starting subtitle analysis on {len(local_paths)} screenshots")
+                    subtitle_result = video_controller.detect_subtitles_ai(local_paths, extract_text=True)
+                    
+                    return {
+                        'success': subtitle_result.get('success', False),
+                        'subtitles_detected': subtitle_result.get('subtitles_detected', False),
+                        'extracted_text': subtitle_result.get('extracted_text', ''),
+                        'detected_language': subtitle_result.get('detected_language', 'unknown'),
+                        'confidence': subtitle_result.get('confidence', 0.0),
+                        'frames_analyzed': len(local_paths)
+                    }
+                    
+                except Exception as e:
+                    print(f"[RestartVideoAsync] Subtitle analysis error: {e}")
+                    return {
+                        'success': False,
+                        'subtitles_detected': False,
+                        'extracted_text': '',
+                        'detected_language': 'unknown',
+                        'confidence': 0.0,
+                        'frames_analyzed': 0,
+                        'error': str(e)
+                    }
+            
+            # 2. Perform video description analysis on collected screenshots
+            def get_video_description_analysis():
+                try:
+                    if not screenshot_urls:
+                        return {
+                            'success': False,
+                            'frame_descriptions': [],
+                            'video_summary': '',
+                            'frames_analyzed': 0
+                        }
+                    
+                    # Convert URLs to local paths for analysis
+                    from shared.lib.utils.build_url_utils import convertHostUrlToLocalPath
+                    local_paths = []
+                    for url in screenshot_urls[:10]:  # Analyze up to 10 screenshots for descriptions
+                        if url.startswith(('http://', 'https://')):
+                            local_path = convertHostUrlToLocalPath(url)
+                            local_paths.append(local_path)
+                        else:
+                            local_paths.append(url)
+                    
+                    # Get video verification controller for AI analysis
+                    from backend_core.src.controllers.verification.video import VideoVerificationController
+                    video_controller = VideoVerificationController(self.device_name)
+                    
+                    print(f"[RestartVideoAsync] Starting video description analysis on {len(local_paths)} screenshots")
+                    
+                    frame_descriptions = []
+                    for i, local_path in enumerate(local_paths):
+                        frame_query = f"Describe what is happening in this frame from a video sequence. Be concise and specific about UI elements, actions, or content visible."
+                        description = video_controller.analyze_image_with_ai(local_path, frame_query)
+                        if description and description.strip():
+                            frame_descriptions.append(f"Frame {i+1}: {description.strip()}")
+                        else:
+                            frame_descriptions.append(f"Frame {i+1}: No description available")
+                    
+                    # Generate overall video summary
+                    if frame_descriptions:
+                        summary_query = f"Based on the {len(frame_descriptions)} frame descriptions, provide a concise summary of what happened in this video sequence."
+                        # Use first frame for summary context (could be improved to use a composite)
+                        video_summary = video_controller.analyze_image_with_ai(local_paths[0], summary_query)
+                        if not video_summary or not video_summary.strip():
+                            video_summary = f"Video sequence showing {len(frame_descriptions)} frames of activity"
+                    else:
+                        video_summary = "No video description available"
+                    
+                    return {
+                        'success': True,
+                        'frame_descriptions': frame_descriptions,
+                        'video_summary': video_summary.strip(),
+                        'frames_analyzed': len(local_paths)
+                    }
+                    
+                except Exception as e:
+                    print(f"[RestartVideoAsync] Video description analysis error: {e}")
+                    return {
+                        'success': False,
+                        'frame_descriptions': [],
+                        'video_summary': '',
+                        'frames_analyzed': 0,
+                        'error': str(e)
+                    }
+            
+            # Execute async analysis
+            subtitle_result = get_subtitle_analysis()
+            video_description_result = get_video_description_analysis()
+            
+            # Build complete async analysis response
+            analysis_data = {
+                'video_id': video_id,
+                'subtitle_analysis': {
+                    'success': subtitle_result.get('success', False),
+                    'subtitles_detected': subtitle_result.get('subtitles_detected', False),
+                    'extracted_text': subtitle_result.get('extracted_text', ''),
+                    'detected_language': subtitle_result.get('detected_language', 'unknown'),
+                    'confidence': subtitle_result.get('confidence', 0.0),
+                    'frames_analyzed': subtitle_result.get('frames_analyzed', 0),
+                    'frames_available': len(screenshot_urls)
+                },
+                'video_analysis': {
+                    'success': video_description_result.get('success', False),
+                    'frame_descriptions': video_description_result.get('frame_descriptions', []),
+                    'video_summary': video_description_result.get('video_summary', ''),
+                    'frames_analyzed': video_description_result.get('frames_analyzed', 0),
+                    'frames_available': len(screenshot_urls)
+                },
+                'analysis_complete': True,
+                'timestamp': time.time(),
+                'created_at': datetime.now().isoformat()
+            }
+            
+            # Log async analysis results
+            if subtitle_result.get('subtitles_detected') and subtitle_result.get('extracted_text'):
+                subtitle_preview = subtitle_result['extracted_text'][:100] + "..." if len(subtitle_result['extracted_text']) > 100 else subtitle_result['extracted_text']
+                print(f"[RestartVideoAsync] Subtitles detected: '{subtitle_preview}'")
+            
+            if video_description_result.get('success') and video_description_result.get('frame_descriptions'):
+                frame_count = len(video_description_result['frame_descriptions'])
+                summary_preview = video_description_result.get('video_summary', '')[:100] + "..." if len(video_description_result.get('video_summary', '')) > 100 else video_description_result.get('video_summary', '')
+                print(f"[RestartVideoAsync] Video analysis: {frame_count} frames analyzed, summary: '{summary_preview}'")
+            
+            print(f"[RestartVideoAsync] Async analysis complete for video ID: {video_id}")
+            
+            # Return complete async analysis results
+            return {
+                'success': True,
+                'analysis_data': analysis_data
+            }
+                
+        except Exception as e:
+            print(f"[RestartVideoAsync] Error in async analysis: {e}")
+            return {
+                'success': False,
+                'error': str(e),
+                'video_id': video_id
+            }
     
     def take_video(self, duration_seconds: float = None, test_start_time: float = None) -> Optional[str]:
         """

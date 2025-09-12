@@ -563,7 +563,7 @@ def generate_restart_video():
         # Generate restart video with complete AI analysis (audio, subtitles, video descriptions)
         import time
         start_time = time.time()
-        result = av_controller.takeRestartVideo(duration_seconds=duration_seconds)
+        result = av_controller.generateRestartVideoFast(duration_seconds=duration_seconds)
         
         processing_time = time.time() - start_time
         
@@ -596,6 +596,68 @@ def generate_restart_video():
         except:
             pass
         
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@host_av_bp.route('/analyzeRestartVideo', methods=['POST'])
+def analyze_restart_video():
+    """Async AI analysis for restart video - subtitle detection + video descriptions"""
+    try:
+        print("[@route:host_av:analyze_restart_video] Processing async AI analysis request")
+        
+        # Get request data
+        data = request.get_json() or {}
+        device_id = data.get('device_id', 'device1')
+        video_id = data.get('video_id')
+        screenshot_urls = data.get('screenshot_urls', [])
+        
+        if not video_id:
+            return jsonify({
+                'success': False,
+                'error': 'video_id is required'
+            }), 400
+        
+        if not screenshot_urls:
+            return jsonify({
+                'success': False,
+                'error': 'screenshot_urls are required'
+            }), 400
+        
+        print(f"[@route:host_av:analyze_restart_video] Video ID: {video_id}")
+        print(f"[@route:host_av:analyze_restart_video] Screenshots: {len(screenshot_urls)} frames")
+        
+        # Get AV controller
+        av_controller, device, error_response = get_av_controller(device_id)
+        if error_response:
+            return error_response
+        
+        print(f"[@route:host_av:analyze_restart_video] Using AV controller: {type(av_controller).__name__}")
+        
+        # Perform async AI analysis
+        import time
+        start_time = time.time()
+        result = av_controller.analyzeRestartVideoAsync(video_id=video_id, screenshot_urls=screenshot_urls)
+        
+        processing_time = time.time() - start_time
+        
+        if result:
+            # Add processing metadata
+            result.update({
+                'processing_time_seconds': round(processing_time, 2),
+                'device_id': device_id,
+                'message': f'Successfully completed async AI analysis for video {video_id}'
+            })
+            return jsonify(result)
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'Failed to perform async AI analysis'
+            }), 500
+            
+    except Exception as e:
+        print(f"[@route:host_av:analyze_restart_video] Error: {str(e)}")
         return jsonify({
             'success': False,
             'error': str(e)

@@ -570,6 +570,46 @@ def generate_restart_video():
             'error': str(e)
         }), 500
 
+@server_av_bp.route('/analyzeRestartVideo', methods=['POST'])
+def analyze_restart_video():
+    """Proxy async AI analysis request to selected host with device_id"""
+    try:
+        print("[@route:server_av:analyze_restart_video] Proxying async AI analysis request")
+        
+        # Extract request data
+        request_data = request.get_json() or {}
+        host = request_data.get('host')
+        device_id = request_data.get('device_id', 'device1')
+        video_id = request_data.get('video_id')
+        screenshot_urls = request_data.get('screenshot_urls', [])
+
+        # Validate host
+        if not host:
+            return jsonify({'success': False, 'error': 'Host required'}), 400
+
+        print(f"[@route:server_av:analyze_restart_video] Host: {host.get('host_name')}, Device: {device_id}, Video ID: {video_id}")
+        print(f"[@route:server_av:analyze_restart_video] Screenshots: {len(screenshot_urls)} frames")
+
+        # Add device_id to query params for host route
+        query_params = {'device_id': device_id}
+
+        # Proxy to host with device_id (longer timeout for AI analysis)
+        response_data, status_code = proxy_to_host_with_params(
+            '/host/av/analyzeRestartVideo',
+            'POST',
+            request_data,
+            query_params,
+            timeout=120  # 2 minute timeout for AI analysis
+        )
+
+        return jsonify(response_data), status_code
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 @server_av_bp.route('/startCapture', methods=['POST'])
 def start_video_capture():
     """Proxy start video capture request to selected host with device_id"""
