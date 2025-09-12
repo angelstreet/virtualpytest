@@ -29,7 +29,7 @@ export const RestartPlayer: React.FC<RestartPlayerProps> = ({ host, device, incl
   const [subtitleStyle, setSubtitleStyle] = useState('yellow');
   const [subtitleFontSize, setSubtitleFontSize] = useState('medium');
   
-  const { videoUrl, isGenerating, isReady, error, analysisResults, analysisProgress, isAnalysisComplete } = useRestart({ 
+  const { videoUrl, isGenerating, isReady, error, analysisResults, analysisProgress, isAnalysisComplete, reportUrl } = useRestart({ 
     host, 
     device, 
     includeAudioAnalysis 
@@ -186,10 +186,14 @@ export const RestartPlayer: React.FC<RestartPlayerProps> = ({ host, device, incl
           <Tooltip title="Link Report" placement="left">
             <IconButton
               onClick={() => {
-                // Open report in new tab
-                const reportUrl = `/reports/restart/${host.host_name}/${device.device_id}`;
-                window.open(reportUrl, '_blank');
+                // Open report in new tab using dynamic URL from backend
+                if (reportUrl) {
+                  window.open(reportUrl, '_blank');
+                } else {
+                  console.warn('Report URL not available yet - analysis may still be in progress');
+                }
               }}
+              disabled={!reportUrl}
               sx={{
                 backgroundColor: 'rgba(0, 0, 0, 0.7)',
                 color: '#ffffff',

@@ -84,6 +84,7 @@ interface BackendResponse {
   video_url?: string;
   processing_time_seconds?: number;
   analysis_data?: BackendAnalysisData;
+  report_url?: string;
   error?: string;
 }
 
@@ -94,6 +95,7 @@ interface UseRestartReturn {
   isReady: boolean;
   error: string | null;
   processingTime: number | null;
+  reportUrl: string | null;
   
   // Analysis state
   analysisResults: AnalysisResults;
@@ -177,6 +179,7 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
   const [isReady, setIsReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [processingTime, setProcessingTime] = useState<number | null>(null);
+  const [reportUrl, setReportUrl] = useState<string | null>(null);
   
   const [analysisResults, setAnalysisResults] = useState<AnalysisResults>({
     audio: null,
@@ -286,6 +289,12 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
       if (asyncData.success && asyncData.analysis_data) {
         console.log('[@hook:useRestart] Async analysis completed:', asyncData.analysis_data);
         processBackendAnalysis(asyncData.analysis_data);
+        
+        // Capture report URL from async analysis response
+        if (asyncData.report_url) {
+          console.log('[@hook:useRestart] Report URL received:', asyncData.report_url);
+          setReportUrl(asyncData.report_url);
+        }
       } else {
         throw new Error(asyncData.error || 'Async analysis failed');
       }
@@ -448,6 +457,7 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
     isReady,
     error,
     processingTime,
+    reportUrl,
     
     // Analysis state
     analysisResults,

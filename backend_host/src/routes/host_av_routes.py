@@ -570,38 +570,8 @@ def generate_restart_video():
         
         processing_time = time.time() - start_time
         
-        # Update result with actual processing time for report generation
-        if result and result.get('success'):
-            # Regenerate report with actual processing time
-            try:
-                from shared.lib.utils.report_utils import generate_and_upload_restart_report
-                from shared.lib.utils.host_utils import get_host_instance
-                
-                # Get host and device info
-                host = get_host_instance()
-                host_info = {'host_name': host.host_name}
-                device_info = {
-                    'device_name': av_controller.device_name,
-                    'device_model': getattr(av_controller, 'device_model', 'Unknown'),
-                    'device_id': device_id
-                }
-                
-                # Generate report with correct processing time
-                report_result = generate_and_upload_restart_report(
-                    host_info=host_info,
-                    device_info=device_info,
-                    video_url=result.get('video_url', ''),
-                    analysis_data=result.get('analysis_data', {}),
-                    processing_time=processing_time
-                )
-                
-                if report_result.get('success'):
-                    result['report_url'] = report_result['report_url']
-                    result['report_path'] = report_result['report_path']
-                    
-            except Exception as e:
-                print(f"[@route:host_av:generate_restart_video] Report generation error: {e}")
-                # Continue without report if generation fails
+        # Phase 1: No report generation - just return video URL and basic analysis
+        # Report will be generated in Phase 2 after complete AI analysis
         
         # Remove from processing cache
         if request_key in generate_restart_video._processing_cache:
@@ -675,9 +645,21 @@ def analyze_restart_video():
         print(f"[@route:host_av:analyze_restart_video] Screenshots: {len(screenshot_urls)} frames")
         
         # Get AV controller
-        av_controller, device, error_response = get_av_controller(device_id)
-        if error_response:
-            return error_response
+        av_controller = get_controller(device_id, 'av')
+        
+        if not av_controller:
+            device = get_device_by_id(device_id)
+            if not device:
+                return jsonify({
+                    'success': False,
+                    'error': f'Device {device_id} not found'
+                }), 404
+            
+            return jsonify({
+                'success': False,
+                'error': f'No AV controller found for device {device_id}',
+                'available_capabilities': device.get_capabilities()
+            }), 404
         
         print(f"[@route:host_av:analyze_restart_video] Using AV controller: {type(av_controller).__name__}")
         
@@ -695,6 +677,47 @@ def analyze_restart_video():
                 'device_id': device_id,
                 'message': f'Successfully completed async AI analysis for video {video_id}'
             })
+            
+            # Phase 2: Generate report now that ALL AI analysis is complete
+            try:
+                from shared.lib.utils.report_utils import generate_and_upload_restart_report
+                from shared.lib.utils.host_utils import get_host_instance
+                
+                # Get host and device info
+                host = get_host_instance()
+                host_info = {'host_name': host.host_name}
+                device_info = {
+                    'device_name': av_controller.device_name,
+                    'device_model': getattr(av_controller, 'device_model', 'Unknown'),
+                    'device_id': device_id
+                }
+                
+                # Get video URL from the analysis result or reconstruct it
+                video_url = result.get('video_url', '')
+                if not video_url:
+                    # Reconstruct video URL if not provided
+                    video_url = f"{av_controller.video_stream_path}/restart_video.mp4"
+                
+                # Generate complete report with all analysis data
+                report_result = generate_and_upload_restart_report(
+                    host_info=host_info,
+                    device_info=device_info,
+                    video_url=video_url,
+                    analysis_data=result.get('analysis_data', {}),
+                    processing_time=processing_time
+                )
+                
+                if report_result.get('success'):
+                    result['report_url'] = report_result['report_url']
+                    result['report_path'] = report_result['report_path']
+                    print(f"[@cloudflare_utils:upload_restart_report] INFO: Uploaded restart report: {report_result['report_path']}")
+                else:
+                    print(f"[@route:host_av:analyze_restart_video] Report generation failed: {report_result.get('error')}")
+                    
+            except Exception as e:
+                print(f"[@route:host_av:analyze_restart_video] Report generation error: {e}")
+                # Continue without report if generation fails
+            
             return jsonify(result)
         else:
             return jsonify({
