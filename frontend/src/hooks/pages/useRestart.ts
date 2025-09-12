@@ -277,6 +277,7 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
           device_id: device.device_id || 'device1',
           video_id: videoId,
           screenshot_urls: screenshotUrls,
+          duration_seconds: 10, // Restart videos are always 10 seconds
         }),
       });
 

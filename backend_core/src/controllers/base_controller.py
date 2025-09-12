@@ -667,122 +667,8 @@ class FFmpegCaptureController(AVControllerInterface):
             audio_result = get_audio_transcript_locally()
             screenshot_urls = get_video_screenshots()
             
-            # 3. Perform subtitle analysis on collected screenshots
-            def get_subtitle_analysis():
-                try:
-                    if not screenshot_urls:
-                        return {
-                            'success': False,
-                            'subtitles_detected': False,
-                            'extracted_text': '',
-                            'detected_language': 'unknown',
-                            'confidence': 0.0,
-                            'frames_analyzed': 0
-                        }
-                    
-                    # Convert URLs to local paths for analysis
-                    from shared.lib.utils.build_url_utils import convertHostUrlToLocalPath
-                    local_paths = []
-                    for url in screenshot_urls[:5]:  # Analyze first 5 screenshots for subtitles
-                        if url.startswith(('http://', 'https://')):
-                            local_path = convertHostUrlToLocalPath(url)
-                            local_paths.append(local_path)
-                        else:
-                            local_paths.append(url)
-                    
-                    # Get video verification controller for AI analysis
-                    from backend_core.src.controllers.verification.video import VideoVerificationController
-                    video_controller = VideoVerificationController(self.device_name)
-                    
-                    print(f"[RestartVideo] Starting subtitle analysis on {len(local_paths)} screenshots")
-                    subtitle_result = video_controller.detect_subtitles_ai(local_paths, extract_text=True)
-                    
-                    return {
-                        'success': subtitle_result.get('success', False),
-                        'subtitles_detected': subtitle_result.get('subtitles_detected', False),
-                        'extracted_text': subtitle_result.get('extracted_text', ''),
-                        'detected_language': subtitle_result.get('detected_language', 'unknown'),
-                        'confidence': subtitle_result.get('confidence', 0.0),
-                        'frames_analyzed': len(local_paths)
-                    }
-                    
-                except Exception as e:
-                    print(f"[RestartVideo] Subtitle analysis error: {e}")
-                    return {
-                        'success': False,
-                        'subtitles_detected': False,
-                        'extracted_text': '',
-                        'detected_language': 'unknown',
-                        'confidence': 0.0,
-                        'frames_analyzed': 0,
-                        'error': str(e)
-                    }
-            
-            # 4. Perform video description analysis on collected screenshots
-            def get_video_description_analysis():
-                try:
-                    if not screenshot_urls:
-                        return {
-                            'success': False,
-                            'frame_descriptions': [],
-                            'video_summary': '',
-                            'frames_analyzed': 0
-                        }
-                    
-                    # Convert URLs to local paths for analysis
-                    from shared.lib.utils.build_url_utils import convertHostUrlToLocalPath
-                    local_paths = []
-                    for url in screenshot_urls[:10]:  # Analyze up to 10 screenshots for descriptions
-                        if url.startswith(('http://', 'https://')):
-                            local_path = convertHostUrlToLocalPath(url)
-                            local_paths.append(local_path)
-                        else:
-                            local_paths.append(url)
-                    
-                    # Get video verification controller for AI analysis
-                    from backend_core.src.controllers.verification.video import VideoVerificationController
-                    video_controller = VideoVerificationController(self.device_name)
-                    
-                    print(f"[RestartVideo] Starting video description analysis on {len(local_paths)} screenshots")
-                    
-                    frame_descriptions = []
-                    for i, local_path in enumerate(local_paths):
-                        frame_query = f"Describe what is happening in this frame from a {duration_seconds}s video sequence. Be concise and specific about UI elements, actions, or content visible."
-                        description = video_controller.analyze_image_with_ai(local_path, frame_query)
-                        if description and description.strip():
-                            frame_descriptions.append(f"Frame {i+1}: {description.strip()}")
-                        else:
-                            frame_descriptions.append(f"Frame {i+1}: No description available")
-                    
-                    # Generate overall video summary
-                    if frame_descriptions:
-                        summary_query = f"Based on the {len(frame_descriptions)} frame descriptions, provide a concise summary of what happened in this {duration_seconds}s video sequence."
-                        # Use first frame for summary context (could be improved to use a composite)
-                        video_summary = video_controller.analyze_image_with_ai(local_paths[0], summary_query)
-                        if not video_summary or not video_summary.strip():
-                            video_summary = f"Video sequence showing {len(frame_descriptions)} frames of activity"
-                    else:
-                        video_summary = "No video description available"
-                    
-                    return {
-                        'success': True,
-                        'frame_descriptions': frame_descriptions,
-                        'video_summary': video_summary.strip(),
-                        'frames_analyzed': len(local_paths)
-                    }
-                    
-                except Exception as e:
-                    print(f"[RestartVideo] Video description analysis error: {e}")
-                    return {
-                        'success': False,
-                        'frame_descriptions': [],
-                        'video_summary': '',
-                        'frames_analyzed': 0,
-                        'error': str(e)
-                    }
-            
             # Execute only fast analysis (audio + screenshot collection)
-            # Skip slow video description analysis - will be done async
+            # All AI analysis (subtitles + video descriptions) will be done async via analyzeRestartVideoAsync()
             
             # Build fast response with basic analysis data
             from datetime import datetime
@@ -838,7 +724,7 @@ class FFmpegCaptureController(AVControllerInterface):
             print(f"{self.capture_source}[{self.capture_source}]: Error generating fast restart video: {e}")
             return None
     
-    def analyzeRestartVideoAsync(self, video_id: str, screenshot_urls: List[str]) -> Optional[Dict[str, Any]]:
+    def analyzeRestartVideoAsync(self, video_id: str, screenshot_urls: List[str], duration_seconds: float = 10.0) -> Optional[Dict[str, Any]]:
         """
         Async AI analysis for restart video - subtitle detection + video descriptions.
         Called by frontend after player is shown.
@@ -846,6 +732,7 @@ class FFmpegCaptureController(AVControllerInterface):
         Args:
             video_id: Unique identifier from fast generation
             screenshot_urls: URLs of screenshots to analyze
+            duration_seconds: Duration of the video in seconds (default: 10.0)
             
         Returns:
             Dict with complete AI analysis results:
@@ -859,10 +746,34 @@ class FFmpegCaptureController(AVControllerInterface):
             print(f"[RestartVideoAsync] Starting async AI analysis for video ID: {video_id}")
             print(f"[RestartVideoAsync] Analyzing {len(screenshot_urls)} screenshots")
             
-            # 1. Perform subtitle analysis on collected screenshots
+            # Convert URLs to local paths ONCE for consistent analysis
+            from shared.lib.utils.build_url_utils import convertHostUrlToLocalPath
+            
+            # Calculate expected screenshot count based on video duration and HLS segment duration
+            # This ensures we analyze exactly the same period as the generated video
+            expected_screenshot_count = int(duration_seconds / self.HLS_SEGMENT_DURATION) if hasattr(self, 'HLS_SEGMENT_DURATION') else 10
+            actual_screenshot_count = min(len(screenshot_urls), expected_screenshot_count)
+            
+            print(f"[RestartVideoAsync] Video duration: {duration_seconds}s, expected screenshots: {expected_screenshot_count}, actual: {actual_screenshot_count}")
+            
+            local_screenshot_paths = []
+            for url in screenshot_urls[:actual_screenshot_count]:  # Use exact screenshot count matching video duration
+                if url.startswith(('http://', 'https://')):
+                    local_path = convertHostUrlToLocalPath(url)
+                    local_screenshot_paths.append(local_path)
+                else:
+                    local_screenshot_paths.append(url)
+            
+            print(f"[RestartVideoAsync] Converted {len(local_screenshot_paths)} screenshot URLs to local paths")
+            
+            # Initialize video verification controller ONCE for both analyses
+            from backend_core.src.controllers.verification.video import VideoVerificationController
+            video_controller = VideoVerificationController(self.device_name)
+            
+            # 1. Perform subtitle analysis on the consistent screenshot list
             def get_subtitle_analysis():
                 try:
-                    if not screenshot_urls:
+                    if not local_screenshot_paths:
                         return {
                             'success': False,
                             'subtitles_detected': False,
@@ -872,22 +783,8 @@ class FFmpegCaptureController(AVControllerInterface):
                             'frames_analyzed': 0
                         }
                     
-                    # Convert URLs to local paths for analysis
-                    from shared.lib.utils.build_url_utils import convertHostUrlToLocalPath
-                    local_paths = []
-                    for url in screenshot_urls[:5]:  # Analyze first 5 screenshots for subtitles
-                        if url.startswith(('http://', 'https://')):
-                            local_path = convertHostUrlToLocalPath(url)
-                            local_paths.append(local_path)
-                        else:
-                            local_paths.append(url)
-                    
-                    # Get video verification controller for AI analysis
-                    from backend_core.src.controllers.verification.video import VideoVerificationController
-                    video_controller = VideoVerificationController(self.device_name)
-                    
-                    print(f"[RestartVideoAsync] Starting subtitle analysis on {len(local_paths)} screenshots")
-                    subtitle_result = video_controller.detect_subtitles_ai(local_paths, extract_text=True)
+                    print(f"[RestartVideoAsync] Starting subtitle analysis on {len(local_screenshot_paths)} screenshots")
+                    subtitle_result = video_controller.detect_subtitles_ai(local_screenshot_paths, extract_text=True)
                     
                     return {
                         'success': subtitle_result.get('success', False),
@@ -895,7 +792,7 @@ class FFmpegCaptureController(AVControllerInterface):
                         'extracted_text': subtitle_result.get('extracted_text', ''),
                         'detected_language': subtitle_result.get('detected_language', 'unknown'),
                         'confidence': subtitle_result.get('confidence', 0.0),
-                        'frames_analyzed': len(local_paths)
+                        'frames_analyzed': len(local_screenshot_paths)
                     }
                     
                 except Exception as e:
@@ -910,10 +807,10 @@ class FFmpegCaptureController(AVControllerInterface):
                         'error': str(e)
                     }
             
-            # 2. Perform video description analysis on collected screenshots
+            # 2. Perform video description analysis on the consistent screenshot list
             def get_video_description_analysis():
                 try:
-                    if not screenshot_urls:
+                    if not local_screenshot_paths:
                         return {
                             'success': False,
                             'frame_descriptions': [],
@@ -921,24 +818,10 @@ class FFmpegCaptureController(AVControllerInterface):
                             'frames_analyzed': 0
                         }
                     
-                    # Convert URLs to local paths for analysis
-                    from shared.lib.utils.build_url_utils import convertHostUrlToLocalPath
-                    local_paths = []
-                    for url in screenshot_urls[:10]:  # Analyze up to 10 screenshots for descriptions
-                        if url.startswith(('http://', 'https://')):
-                            local_path = convertHostUrlToLocalPath(url)
-                            local_paths.append(local_path)
-                        else:
-                            local_paths.append(url)
-                    
-                    # Get video verification controller for AI analysis
-                    from backend_core.src.controllers.verification.video import VideoVerificationController
-                    video_controller = VideoVerificationController(self.device_name)
-                    
-                    print(f"[RestartVideoAsync] Starting video description analysis on {len(local_paths)} screenshots")
+                    print(f"[RestartVideoAsync] Starting video description analysis on {len(local_screenshot_paths)} screenshots")
                     
                     frame_descriptions = []
-                    for i, local_path in enumerate(local_paths):
+                    for i, local_path in enumerate(local_screenshot_paths):
                         frame_query = f"Describe what is happening in this frame from a video sequence. Be concise and specific about UI elements, actions, or content visible."
                         description = video_controller.analyze_image_with_ai(local_path, frame_query)
                         if description and description.strip():
@@ -950,7 +833,7 @@ class FFmpegCaptureController(AVControllerInterface):
                     if frame_descriptions:
                         summary_query = f"Based on the {len(frame_descriptions)} frame descriptions, provide a concise summary of what happened in this video sequence."
                         # Use first frame for summary context (could be improved to use a composite)
-                        video_summary = video_controller.analyze_image_with_ai(local_paths[0], summary_query)
+                        video_summary = video_controller.analyze_image_with_ai(local_screenshot_paths[0], summary_query)
                         if not video_summary or not video_summary.strip():
                             video_summary = f"Video sequence showing {len(frame_descriptions)} frames of activity"
                     else:
@@ -960,7 +843,7 @@ class FFmpegCaptureController(AVControllerInterface):
                         'success': True,
                         'frame_descriptions': frame_descriptions,
                         'video_summary': video_summary.strip(),
-                        'frames_analyzed': len(local_paths)
+                        'frames_analyzed': len(local_screenshot_paths)
                     }
                     
                 except Exception as e:

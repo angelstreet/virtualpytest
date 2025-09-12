@@ -450,14 +450,14 @@ def create_restart_video_template() -> str:
     css_content = get_restart_video_css()
     js_content = get_restart_video_js()
     
-    return f"""<!DOCTYPE html>
+    return """<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Restart Video Report - {{device_name}}</title>
+    <title>Restart Video Report - {device_name}</title>
     <style>
-{css_content}
+""" + css_content + """
     </style>
 </head>
 <body>
@@ -560,10 +560,10 @@ def create_restart_video_template() -> str:
     
     <script>
         // Analysis data for JavaScript
-        window.ANALYSIS_DATA = {{analysis_data_json}};
+        window.ANALYSIS_DATA = {analysis_data_json};
     </script>
     <script>
-{js_content}
+""" + js_content + """
     </script>
 </body>
 </html>"""

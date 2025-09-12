@@ -628,6 +628,7 @@ def analyze_restart_video():
         device_id = data.get('device_id', 'device1')
         video_id = data.get('video_id')
         screenshot_urls = data.get('screenshot_urls', [])
+        duration_seconds = data.get('duration_seconds', 10)  # Default to 10 seconds for restart videos
         
         if not video_id:
             return jsonify({
@@ -642,6 +643,7 @@ def analyze_restart_video():
             }), 400
         
         print(f"[@route:host_av:analyze_restart_video] Video ID: {video_id}")
+        print(f"[@route:host_av:analyze_restart_video] Duration: {duration_seconds}s")
         print(f"[@route:host_av:analyze_restart_video] Screenshots: {len(screenshot_urls)} frames")
         
         # Get AV controller
@@ -666,7 +668,11 @@ def analyze_restart_video():
         # Perform async AI analysis
         import time
         start_time = time.time()
-        result = av_controller.analyzeRestartVideoAsync(video_id=video_id, screenshot_urls=screenshot_urls)
+        result = av_controller.analyzeRestartVideoAsync(
+            video_id=video_id, 
+            screenshot_urls=screenshot_urls, 
+            duration_seconds=duration_seconds
+        )
         
         processing_time = time.time() - start_time
         
