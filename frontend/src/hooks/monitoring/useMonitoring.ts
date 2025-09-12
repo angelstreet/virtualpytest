@@ -305,12 +305,15 @@ export const useMonitoring = ({
 
   // Process 1: Queue Feeder - Sequential frame processing with complete AI analysis
   useEffect(() => {
-    if (isInitialLoading) return;
+    // Start immediately, don't wait for initial loading to complete
 
     let isRunning = true;
     let frameSequence = 0;
 
     const queueFeederLoop = async () => {
+      // Wait a moment for autonomous base URL initialization
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
       console.log('[useMonitoring] 🔄 Starting sequential queue feeder process...');
       
       while (isRunning) {
@@ -357,7 +360,7 @@ export const useMonitoring = ({
     return () => {
       isRunning = false;
     };
-  }, [isInitialLoading, fetchLatestMonitoringData, analyzeFrameAsync, lastProcessedSequence]);
+  }, [fetchLatestMonitoringData, analyzeFrameAsync, lastProcessedSequence, initialFramesLoaded]);
 
   // Process 2: Display Consumer - Simple 1 FPS display from complete frames
   useEffect(() => {
