@@ -8,6 +8,7 @@ import { Host, Device } from '../../types/common/Host_Types';
 import { RestartOverlay } from './RestartOverlay';
 import { SubtitleOverlay } from './SubtitleOverlay';
 import { SubtitleSettings, SubtitleStyle } from './SubtitleSettings';
+import { VideoDescriptionPanel } from './VideoDescriptionPanel';
 
 interface RestartPlayerProps {
   host: Host;
@@ -30,7 +31,7 @@ export const RestartPlayer: React.FC<RestartPlayerProps> = ({ host, device, incl
     targetLanguage: 'en'
   });
   
-  const { videoUrl, isGenerating, isReady, error, processingTime, transcript, detectedLanguage, speechDetected } = useRestart({ 
+  const { videoUrl, isGenerating, isReady, error, processingTime, transcript, detectedLanguage, speechDetected, videoDescription, framesAnalyzed } = useRestart({ 
     host, 
     device, 
     includeAudioAnalysis 
@@ -199,6 +200,12 @@ export const RestartPlayer: React.FC<RestartPlayerProps> = ({ host, device, incl
         >
         </Box>
       )}
+
+      {/* Video Description Panel */}
+      <VideoDescriptionPanel
+        videoDescription={videoDescription}
+        framesAnalyzed={framesAnalyzed}
+      />
     </Box>
   );
 };

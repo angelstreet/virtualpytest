@@ -564,10 +564,67 @@ class FFmpegCaptureController(AVControllerInterface):
                     except Exception as e:
                         results['audio'] = {'success': False, 'error': str(e)}
                 
-                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-                    executor.submit(extract_audio).result()
+                def extract_video_descriptions():
+                    try:
+                        # Extract 30 frames (1 per second) from the video
+                        temp_frames_dir = tempfile.mkdtemp(prefix="video_frames_")
+                        frames_cmd = f"ffmpeg -i {local_video_path} -vf fps=1 -t 30 {temp_frames_dir}/frame_%03d.jpg -y"
+                        subprocess.run(frames_cmd, shell=True, check=True, capture_output=True)
+                        
+                        frame_files = sorted([f for f in os.listdir(temp_frames_dir) if f.endswith('.jpg')])
+                        frame_descriptions = []
+                        
+                        # Analyze each frame using existing AI system
+                        for i, frame_file in enumerate(frame_files[:30]):
+                            try:
+                                frame_path = os.path.join(temp_frames_dir, frame_file)
+                                
+                                # Use existing AI description system (same as useMonitoring)
+                                from shared.lib.utils.ai_utils import call_vision_ai
+                                description_result = call_vision_ai(
+                                    image_path=frame_path,
+                                    prompt="Describe what you see in this frame in 1-2 sentences"
+                                )
+                                
+                                if description_result and description_result.get('success'):
+                                    frame_descriptions.append(f"Second {i+1}: {description_result.get('response', '')}")
+                            except Exception as frame_error:
+                                print(f"Frame {i+1} analysis failed: {frame_error}")
+                                continue
+                        
+                        # Generate 10-line summary
+                        if frame_descriptions:
+                            summary_prompt = f"Based on these frame descriptions from a 30-second video, provide exactly 10 lines summarizing what happened:\n\n" + "\n".join(frame_descriptions)
+                            
+                            from shared.lib.utils.ai_utils import call_text_ai
+                            summary_result = call_text_ai(summary_prompt)
+                            
+                            results['video_description'] = {
+                                'success': True,
+                                'frame_descriptions': frame_descriptions,
+                                'video_summary': summary_result.get('response', '') if summary_result.get('success') else '',
+                                'frames_analyzed': len(frame_descriptions)
+                            }
+                        
+                        # Cleanup
+                        import shutil
+                        shutil.rmtree(temp_frames_dir, ignore_errors=True)
+                        
+                    except Exception as e:
+                        print(f"Video description analysis failed: {e}")
+                        results['video_description'] = {'success': False, 'error': str(e)}
+                
+                with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+                    futures = [
+                        executor.submit(extract_audio),
+                        executor.submit(extract_video_descriptions)
+                    ]
+                    for future in concurrent.futures.as_completed(futures):
+                        future.result()  # Wait for completion
                 
                 audio_result = results.get('audio', {})
+                video_desc_result = results.get('video_description', {})
+                
                 return {
                     'success': True,
                     'video_url': video_url,
@@ -575,7 +632,9 @@ class FFmpegCaptureController(AVControllerInterface):
                     'audio_analysis': audio_result,
                     'speech_detected': audio_result.get('successful_segments', 0) > 0,
                     'transcript': audio_result.get('combined_transcript', ''),
-                    'detected_language': audio_result.get('detected_language', 'unknown')
+                    'detected_language': audio_result.get('detected_language', 'unknown'),
+                    'video_description': video_desc_result.get('video_summary', ''),
+                    'frames_analyzed': video_desc_result.get('frames_analyzed', 0)
                 }
             
             return video_url

@@ -22,6 +22,8 @@ interface UseRestartReturn {
   transcript?: string;
   detectedLanguage?: string;
   speechDetected?: boolean;
+  videoDescription?: string;
+  framesAnalyzed?: number;
 }
 
 export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartParams): UseRestartReturn => {
@@ -33,6 +35,8 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
   const [transcript, setTranscript] = useState<string | undefined>(undefined);
   const [detectedLanguage, setDetectedLanguage] = useState<string | undefined>(undefined);
   const [speechDetected, setSpeechDetected] = useState<boolean | undefined>(undefined);
+  const [videoDescription, setVideoDescription] = useState<string | undefined>(undefined);
+  const [framesAnalyzed, setFramesAnalyzed] = useState<number | undefined>(undefined);
 
   // Generate video once on mount - use global cache to prevent duplicate requests
   useEffect(() => {
@@ -52,6 +56,8 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
             setTranscript(data.transcript);
             setDetectedLanguage(data.detected_language);
             setSpeechDetected(data.speech_detected);
+            setVideoDescription(data.video_description);
+            setFramesAnalyzed(data.frames_analyzed);
             setIsReady(true);
           } else {
             setError(data.error || 'Video generation failed');
@@ -115,6 +121,8 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
           setTranscript(data.transcript);
           setDetectedLanguage(data.detected_language);
           setSpeechDetected(data.speech_detected);
+          setVideoDescription(data.video_description);
+          setFramesAnalyzed(data.frames_analyzed);
           setIsReady(true);
           console.log(`[@hook:useRestart] Video ready in ${data.processing_time_seconds}s`);
         } else {
@@ -147,5 +155,7 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
     transcript,
     detectedLanguage,
     speechDetected,
+    videoDescription,
+    framesAnalyzed,
   };
 };
