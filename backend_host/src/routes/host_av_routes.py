@@ -563,17 +563,45 @@ def generate_restart_video():
         # Generate restart video with complete AI analysis (audio, subtitles, video descriptions)
         import time
         start_time = time.time()
-        result = av_controller.generateRestartVideoFast(duration_seconds=duration_seconds)
+        result = av_controller.generateRestartVideoFast(
+            duration_seconds=duration_seconds,
+            processing_time=0.0  # Will be updated after generation
+        )
         
         processing_time = time.time() - start_time
         
-        # If result is successful, regenerate with processing time for proper report
+        # Update result with actual processing time for report generation
         if result and result.get('success'):
-            # Regenerate with actual processing time for accurate report
-            result = av_controller.generateRestartVideoFast(
-                duration_seconds=duration_seconds, 
-                processing_time=processing_time
-            )
+            # Regenerate report with actual processing time
+            try:
+                from shared.lib.utils.report_utils import generate_and_upload_restart_report
+                from shared.lib.utils.host_utils import get_host_instance
+                
+                # Get host and device info
+                host = get_host_instance()
+                host_info = {'host_name': host.host_name}
+                device_info = {
+                    'device_name': av_controller.device_name,
+                    'device_model': getattr(av_controller, 'device_model', 'Unknown'),
+                    'device_id': device_id
+                }
+                
+                # Generate report with correct processing time
+                report_result = generate_and_upload_restart_report(
+                    host_info=host_info,
+                    device_info=device_info,
+                    video_url=result.get('video_url', ''),
+                    analysis_data=result.get('analysis_data', {}),
+                    processing_time=processing_time
+                )
+                
+                if report_result.get('success'):
+                    result['report_url'] = report_result['report_url']
+                    result['report_path'] = report_result['report_path']
+                    
+            except Exception as e:
+                print(f"[@route:host_av:generate_restart_video] Report generation error: {e}")
+                # Continue without report if generation fails
         
         # Remove from processing cache
         if request_key in generate_restart_video._processing_cache:
