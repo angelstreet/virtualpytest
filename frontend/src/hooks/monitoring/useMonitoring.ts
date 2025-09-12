@@ -88,8 +88,7 @@ export const useMonitoring = ({
   const [isHistoricalFrameLoaded, setIsHistoricalFrameLoaded] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [frameBuffer, setFrameBuffer] = useState<BufferedFrame[]>([]);
-  const [displayQueue, setDisplayQueue] = useState<FrameRef[]>([]);
-  const [isBuffering, setIsBuffering] = useState(true);
+  const [_displayQueue, setDisplayQueue] = useState<FrameRef[]>([]);
 
   // Initial loading buffer - reduced to max 1 second as requested
   useEffect(() => {
@@ -293,13 +292,23 @@ export const useMonitoring = ({
 
       setCurrentImageUrl(latestData.imageUrl);
 
-      // Add to buffer if not full
-      if (frameBuffer.length < 3) {
-        const aiPromise = analyzeFrame(latestData).then(frame => {
-          setDisplayQueue(prev => [...prev, frame]);
-        });
-        setFrameBuffer(prev => [...prev, { frame: { ...latestData, timestamp: latestData.timestamp, imageUrl: latestData.imageUrl, jsonUrl: latestData.jsonUrl }, aiPromise }]);
-      }
+      // Always add new frame, remove oldest if buffer full
+      const aiPromise = analyzeFrame(latestData).then(frame => {
+        setDisplayQueue(prev => [...prev, frame]);
+        setFrameBuffer(prev => prev.slice(1)); // Remove completed frame from buffer
+      });
+      
+      setFrameBuffer(prev => {
+        const newBuffer = [...prev, { 
+          frame: { 
+            timestamp: latestData.timestamp, 
+            imageUrl: latestData.imageUrl, 
+            jsonUrl: latestData.jsonUrl 
+          }, 
+          aiPromise 
+        }];
+        return newBuffer.slice(-3); // Keep only last 3 frames
+      });
     };
 
     // Display frames at 1 FPS
@@ -314,7 +323,6 @@ export const useMonitoring = ({
           return newFrames;
         });
         
-        setIsBuffering(rest.length === 0 && frameBuffer.length < 3);
         return rest;
       });
     }, 1000);
