@@ -1,5 +1,5 @@
-import { Box, Typography, CircularProgress, Alert, IconButton } from '@mui/material';
-import { Settings as SettingsIcon } from '@mui/icons-material';
+import { Box, Typography, CircularProgress, Alert, IconButton, LinearProgress } from '@mui/material';
+import { Settings as SettingsIcon, Description as DescriptionIcon, Subtitles as SubtitlesIcon, VolumeUp as AudioIcon, OpenInNew } from '@mui/icons-material';
 import React, { useEffect, useRef, useState } from 'react';
 
 import { useRestart } from '../../hooks/pages/useRestart';
@@ -31,7 +31,7 @@ export const RestartPlayer: React.FC<RestartPlayerProps> = ({ host, device, incl
     targetLanguage: 'en'
   });
   
-  const { videoUrl, isGenerating, isReady, error, processingTime, transcript, detectedLanguage, speechDetected, videoDescription, framesAnalyzed } = useRestart({ 
+  const { videoUrl, isGenerating, isReady, error, processingTime, audioAnalysis, subtitleAnalysis, videoDescription, analysisProgress, isAnalysisComplete } = useRestart({ 
     host, 
     device, 
     includeAudioAnalysis 
@@ -144,35 +144,105 @@ export const RestartPlayer: React.FC<RestartPlayerProps> = ({ host, device, incl
           }
         />
 
-        {/* Subtitle overlay */}
-        <SubtitleOverlay
-          transcript={transcript}
-          detectedLanguage={detectedLanguage}
-          speechDetected={speechDetected}
-          videoRef={videoRef}
-          videoDuration={30}
-          subtitleSettings={subtitleSettings}
-        />
+        {/* Subtitle overlay - only show if subtitle analysis is complete */}
+        {subtitleAnalysis && subtitleAnalysis.subtitles_detected && (
+          <SubtitleOverlay
+            transcript={subtitleAnalysis.extracted_text}
+            detectedLanguage={subtitleAnalysis.detected_language}
+            speechDetected={subtitleAnalysis.subtitles_detected}
+            videoRef={videoRef}
+            videoDuration={10}
+            subtitleSettings={subtitleSettings}
+          />
+        )}
       </Box>
 
-      {/* Subtitle Settings Button */}
-      {speechDetected && transcript && (
-        <IconButton
-          onClick={() => setSettingsOpen(true)}
-          sx={{
-            position: 'absolute',
-            top: 16,
-            right: 16,
-            zIndex: 1000030,
-            backgroundColor: 'rgba(0, 0, 0, 0.7)',
-            color: 'white',
-            '&:hover': {
-              backgroundColor: 'rgba(0, 0, 0, 0.9)',
-            },
-          }}
-        >
-          <SettingsIcon />
-        </IconButton>
+      {/* Analysis Progress Bar (top-right, like Heatmap) */}
+      {includeAudioAnalysis && !isAnalysisComplete && (
+        <Box sx={{ position: 'absolute', top: 16, right: 16, zIndex: 1000030, minWidth: 120 }}>
+          <LinearProgress 
+            variant="determinate" 
+            value={(() => {
+              const completed = Object.values(analysisProgress).filter(status => status === 'completed').length;
+              return (completed / 3) * 100;
+            })()}
+            sx={{ 
+              height: 4, 
+              borderRadius: 2,
+              backgroundColor: 'rgba(255,255,255,0.3)',
+              '& .MuiLinearProgress-bar': {
+                backgroundColor: '#00AA00'
+              }
+            }}
+          />
+          <Typography variant="caption" sx={{ color: 'white', fontSize: '0.7rem', display: 'block', textAlign: 'center', mt: 0.5 }}>
+            Analyzing... {Object.values(analysisProgress).filter(status => status === 'completed').length}/3
+          </Typography>
+        </Box>
+      )}
+
+      {/* Analysis Settings Icons (appear when complete, like Heatmap report icon) */}
+      {isAnalysisComplete && (
+        <Box sx={{ position: 'absolute', top: 16, right: 16, zIndex: 1000030, display: 'flex', gap: 1 }}>
+          {/* Audio Settings */}
+          {audioAnalysis && (
+            <IconButton
+              size="small"
+              sx={{
+                backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                color: '#ffffff',
+                '&:hover': { backgroundColor: 'rgba(0, 0, 0, 0.9)' },
+              }}
+              title="Audio Analysis"
+            >
+              <AudioIcon fontSize="small" />
+            </IconButton>
+          )}
+          
+          {/* Subtitle Settings */}
+          {subtitleAnalysis && (
+            <IconButton
+              onClick={() => setSettingsOpen(true)}
+              size="small"
+              sx={{
+                backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                color: '#ffffff',
+                '&:hover': { backgroundColor: 'rgba(0, 0, 0, 0.9)' },
+              }}
+              title="Subtitle Settings"
+            >
+              <SubtitlesIcon fontSize="small" />
+            </IconButton>
+          )}
+          
+          {/* Description Panel */}
+          {videoDescription && (
+            <IconButton
+              size="small"
+              sx={{
+                backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                color: '#ffffff',
+                '&:hover': { backgroundColor: 'rgba(0, 0, 0, 0.9)' },
+              }}
+              title="Video Description"
+            >
+              <DescriptionIcon fontSize="small" />
+            </IconButton>
+          )}
+          
+          {/* Report Link (future feature, like Heatmap) */}
+          <IconButton
+            size="small"
+            sx={{
+              backgroundColor: 'rgba(0, 0, 0, 0.7)',
+              color: '#ffffff',
+              '&:hover': { backgroundColor: 'rgba(0, 0, 0, 0.9)' },
+            }}
+            title="View Report"
+          >
+            <OpenInNew fontSize="small" />
+          </IconButton>
+        </Box>
       )}
 
       {/* Subtitle Settings Modal */}
@@ -181,7 +251,7 @@ export const RestartPlayer: React.FC<RestartPlayerProps> = ({ host, device, incl
         onClose={() => setSettingsOpen(false)}
         settings={subtitleSettings}
         onSettingsChange={setSubtitleSettings}
-        originalLanguage={detectedLanguage}
+        originalLanguage={subtitleAnalysis?.detected_language}
       />
 
       {/* Processing time indicator - top */}

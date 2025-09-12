@@ -19,11 +19,17 @@ interface UseRestartReturn {
   isReady: boolean;
   error: string | null;
   processingTime: number | null;
-  transcript?: string;
-  detectedLanguage?: string;
-  speechDetected?: boolean;
-  videoDescription?: string;
-  framesAnalyzed?: number;
+  // Analysis results (loaded progressively)
+  audioAnalysis: any | null;
+  subtitleAnalysis: any | null;
+  videoDescription: string | null;
+  // Analysis progress tracking
+  analysisProgress: {
+    audio: 'pending' | 'loading' | 'completed' | 'error';
+    subtitles: 'pending' | 'loading' | 'completed' | 'error';
+    description: 'pending' | 'loading' | 'completed' | 'error';
+  };
+  isAnalysisComplete: boolean;
 }
 
 export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartParams): UseRestartReturn => {
@@ -32,11 +38,22 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
   const [isReady, setIsReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [processingTime, setProcessingTime] = useState<number | null>(null);
-  const [transcript, setTranscript] = useState<string | undefined>(undefined);
-  const [detectedLanguage, setDetectedLanguage] = useState<string | undefined>(undefined);
-  const [speechDetected, setSpeechDetected] = useState<boolean | undefined>(undefined);
-  const [videoDescription, setVideoDescription] = useState<string | undefined>(undefined);
-  const [framesAnalyzed, setFramesAnalyzed] = useState<number | undefined>(undefined);
+  
+  // Analysis results (loaded progressively)
+  const [audioAnalysis, setAudioAnalysis] = useState<any | null>(null);
+  const [subtitleAnalysis, setSubtitleAnalysis] = useState<any | null>(null);
+  const [videoDescription, setVideoDescription] = useState<string | null>(null);
+  
+  // Analysis progress tracking
+  const [analysisProgress, setAnalysisProgress] = useState<{
+    audio: 'pending' | 'loading' | 'completed' | 'error';
+    subtitles: 'pending' | 'loading' | 'completed' | 'error';
+    description: 'pending' | 'loading' | 'completed' | 'error';
+  }>({
+    audio: 'pending',
+    subtitles: 'pending',
+    description: 'pending',
+  });
 
   // Generate video once on mount - use global cache to prevent duplicate requests
   useEffect(() => {
@@ -49,16 +66,16 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
       setIsGenerating(true);
       videoGenerationCache.get(cacheKey)!
         .then((data) => {
-          console.log(`[@hook:useRestart] Cached request completed for ${cacheKey}:`, data);
+          console.log(`[@hook:useRestart] Video ready for ${cacheKey}:`, data);
           if (data.success && data.video_url) {
             setVideoUrl(data.video_url);
             setProcessingTime(data.processing_time_seconds);
-            setTranscript(data.transcript);
-            setDetectedLanguage(data.detected_language);
-            setSpeechDetected(data.speech_detected);
-            setVideoDescription(data.video_description);
-            setFramesAnalyzed(data.frames_analyzed);
             setIsReady(true);
+            
+            // Start background analysis if requested
+            if (includeAudioAnalysis) {
+              startBackgroundAnalysis(data.video_url);
+            }
           } else {
             setError(data.error || 'Video generation failed');
           }
@@ -87,8 +104,8 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
           body: JSON.stringify({
             host: host,
             device_id: device.device_id || 'device1',
-            duration_seconds: 30,
-            include_audio_analysis: includeAudioAnalysis || false,
+            duration_seconds: 10,  // Fixed 10 seconds
+            include_audio_analysis: false,  // Fast return, no analysis
           }),
         });
 
@@ -118,13 +135,13 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
         if (data.success && data.video_url) {
           setVideoUrl(data.video_url);
           setProcessingTime(data.processing_time_seconds);
-          setTranscript(data.transcript);
-          setDetectedLanguage(data.detected_language);
-          setSpeechDetected(data.speech_detected);
-          setVideoDescription(data.video_description);
-          setFramesAnalyzed(data.frames_analyzed);
           setIsReady(true);
           console.log(`[@hook:useRestart] Video ready in ${data.processing_time_seconds}s`);
+          
+          // Start background analysis if requested
+          if (includeAudioAnalysis) {
+            startBackgroundAnalysis(data.video_url);
+          }
         } else {
           throw new Error(data.error || 'Video generation failed');
         }
@@ -146,16 +163,117 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
     };
   }, []); // No dependencies - generate once only
 
+  // Background analysis function (3 parallel calls)
+  const startBackgroundAnalysis = async (videoUrl: string) => {
+    console.log('[@hook:useRestart] Starting background analysis...');
+    
+    // Start all 3 analyses in parallel
+    const audioPromise = analyzeAudio(videoUrl);
+    const subtitlePromise = analyzeSubtitles(videoUrl);
+    const descriptionPromise = analyzeVideoDescription(videoUrl);
+    
+    // Handle results as they complete
+    audioPromise.then(result => {
+      setAudioAnalysis(result);
+      setAnalysisProgress(prev => ({ ...prev, audio: result ? 'completed' : 'error' }));
+    }).catch(() => {
+      setAnalysisProgress(prev => ({ ...prev, audio: 'error' }));
+    });
+    
+    subtitlePromise.then(result => {
+      setSubtitleAnalysis(result);
+      setAnalysisProgress(prev => ({ ...prev, subtitles: result ? 'completed' : 'error' }));
+    }).catch(() => {
+      setAnalysisProgress(prev => ({ ...prev, subtitles: 'error' }));
+    });
+    
+    descriptionPromise.then(result => {
+      setVideoDescription(result);
+      setAnalysisProgress(prev => ({ ...prev, description: result ? 'completed' : 'error' }));
+    }).catch(() => {
+      setAnalysisProgress(prev => ({ ...prev, description: 'error' }));
+    });
+    
+    // Set loading states
+    setAnalysisProgress({
+      audio: 'loading',
+      subtitles: 'loading', 
+      description: 'loading'
+    });
+  };
+
+  // Individual analysis functions
+  const analyzeAudio = async (videoUrl: string) => {
+    try {
+      const response = await fetch(buildServerUrl('/server/verification/audio/analyzeAudio'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          host: host,
+          device_id: device.device_id,
+          video_url: videoUrl
+        }),
+      });
+      const data = await response.json();
+      return data.success ? data : null;
+    } catch (error) {
+      console.error('Audio analysis failed:', error);
+      return null;
+    }
+  };
+
+  const analyzeSubtitles = async (videoUrl: string) => {
+    try {
+      const response = await fetch(buildServerUrl('/server/verification/video/detectSubtitlesAI'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          host: host,
+          device_id: device.device_id,
+          video_url: videoUrl
+        }),
+      });
+      const data = await response.json();
+      return data.success ? data : null;
+    } catch (error) {
+      console.error('Subtitle analysis failed:', error);
+      return null;
+    }
+  };
+
+  const analyzeVideoDescription = async (videoUrl: string) => {
+    try {
+      const response = await fetch(buildServerUrl('/server/verification/video/analyzeVideoDescription'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          host: host,
+          device_id: device.device_id,
+          video_url: videoUrl
+        }),
+      });
+      const data = await response.json();
+      return data.success ? data.video_summary : null;
+    } catch (error) {
+      console.error('Video description analysis failed:', error);
+      return null;
+    }
+  };
+
+  const isAnalysisComplete = analysisProgress.audio !== 'pending' && analysisProgress.audio !== 'loading' &&
+                            analysisProgress.subtitles !== 'pending' && analysisProgress.subtitles !== 'loading' &&
+                            analysisProgress.description !== 'pending' && analysisProgress.description !== 'loading';
+
   return {
     videoUrl,
     isGenerating,
     isReady,
     error,
     processingTime,
-    transcript,
-    detectedLanguage,
-    speechDetected,
+    audioAnalysis,
+    subtitleAnalysis,
     videoDescription,
-    framesAnalyzed,
+    analysisProgress,
+    isAnalysisComplete,
   };
 };
