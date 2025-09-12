@@ -501,19 +501,6 @@ def buildStreamUrlForDevice(host_info: dict, device_id: str) -> str:
         # For regular devices, return HLS stream URL
         return buildStreamUrl(host_info, device_id)
 
-def buildStreamUrlLight(host_url: str, device_model: str, video_stream_path: str) -> str:
-    """Build stream URL without full host serialization."""
-    if device_model == 'host_vnc':
-        return video_stream_path
-    else:
-        clean_path = video_stream_path.replace('/host', '').lstrip('/')
-        return f"{host_url}/{clean_path}/output.m3u8"
-
-def buildImageUrlLight(host_url: str, image_path: str) -> str:
-    """Build image URL without full host serialization."""
-    clean_path = image_path.lstrip('/')
-    return f"{host_url}/{clean_path}"
-
 def resolveCaptureFilePath(filename: str) -> str:
     """
     Resolve local file path for a capture filename

@@ -288,23 +288,12 @@ def get_stream_url():
         
         print(f"[@route:host_av:stream_url] Using AV controller: {type(av_controller).__name__}")
         
-        # Use lightweight URL building
-        from utils.build_url_utils import buildStreamUrlLight
+        # Use URL building utilities
+        from utils.build_url_utils import buildStreamUrlForDevice
         from utils.host_utils import get_host_instance as get_host
         
         host = get_host()
-        device_info = host.get_device_stream_info(device_id)
-        if not device_info:
-            return jsonify({
-                'success': False,
-                'error': f'Device {device_id} not found'
-            }), 404
-        
-        stream_url = buildStreamUrlLight(
-            host.get_host_url(),
-            device_info['device_model'],
-            device_info['video_stream_path']
-        )
+        stream_url = buildStreamUrlForDevice(host.to_dict(), device_id)
         
         print(f"[@route:host_av:stream_url] Built stream URL: {stream_url}")
         
@@ -367,13 +356,13 @@ def take_screenshot():
         time.sleep(0.5)
         print(f"[@route:host_av:take_screenshot] Waited 500ms for file to be fully written")
         
-        # Use lightweight URL building
-        from utils.build_url_utils import buildImageUrlLight, buildClientImageUrl
+        # Use URL building utilities
+        from utils.build_url_utils import buildCaptureUrlFromPath, buildClientImageUrl
         from utils.host_utils import get_host_instance as get_host
         
         try:
             host = get_host()
-            screenshot_url = buildImageUrlLight(host.get_host_url(), screenshot_path)
+            screenshot_url = buildCaptureUrlFromPath(host.to_dict(), screenshot_path, device_id)
             
             # Process URL for client consumption
             client_screenshot_url = buildClientImageUrl(screenshot_url)

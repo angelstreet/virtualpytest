@@ -169,19 +169,4 @@ class Host:
         if self.host_url:
             result['host_url'] = self.host_url
             
-        return result
-    
-    def get_device_stream_info(self, device_id: str) -> Dict[str, str]:
-        """Get device stream info without full serialization."""
-        device = self._devices.get(device_id)
-        if not device:
-            return None
-        return {
-            'device_id': device.device_id,
-            'device_model': device.device_model,
-            'video_stream_path': device.video_stream_path
-        }
-    
-    def get_host_url(self) -> str:
-        """Get host URL without full serialization."""
-        return self.host_url 
+        return result 
