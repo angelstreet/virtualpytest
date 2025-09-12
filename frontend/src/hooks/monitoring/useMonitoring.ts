@@ -96,18 +96,19 @@ export const useMonitoring = ({
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [, setDisplayQueue] = useState<QueuedFrame[]>([]);
   const [lastProcessedSequence, setLastProcessedSequence] = useState<string>('');
+  const [initialFramesLoaded, setInitialFramesLoaded] = useState(0);
 
-  // Initial loading buffer - reduced to max 1 second as requested
+  // Initial loading: Wait for 7 frames with complete AI analysis (5s AI + 2s safety buffer)
   useEffect(() => {
-    const timer = setTimeout(() => {
+    if (initialFramesLoaded >= 7) {
+      console.log('[useMonitoring] 🎯 Initial buffer complete: 7 frames loaded, starting display');
       setIsInitialLoading(false);
-    }, 1000); // 1 second maximum delay before showing first image
-    return () => clearTimeout(timer);
-  }, []);
+    }
+  }, [initialFramesLoaded]);
 
 
 
-  // Background AI analysis - updates frames asynchronously after they're queued
+  // Sequential AI analysis - completes frame analysis before queuing
   const analyzeFrameAsync = useCallback(async (queuedFrame: QueuedFrame): Promise<void> => {
     const startTime = performance.now();
     console.log('[useMonitoring] 🚀 Starting background AI analysis for:', queuedFrame.imageUrl);
@@ -193,40 +194,23 @@ export const useMonitoring = ({
 
     const aiTime = performance.now() - aiStartTime;
     const totalTime = performance.now() - startTime;
-    console.log(`[useMonitoring] ✅ Background AI analysis completed in ${totalTime.toFixed(0)}ms (JSON: ${jsonTime.toFixed(0)}ms, AI: ${aiTime.toFixed(0)}ms) for:`, queuedFrame.imageUrl);
+    console.log(`[useMonitoring] ✅ Sequential AI analysis completed in ${totalTime.toFixed(0)}ms (JSON: ${jsonTime.toFixed(0)}ms, AI: ${aiTime.toFixed(0)}ms) for:`, queuedFrame.imageUrl);
 
-    // Update the frame in both display queue and frames array
-    const updateQueuedFrame = (frame: QueuedFrame): QueuedFrame => {
-      if (frame.imageUrl === queuedFrame.imageUrl) {
-        return {
-          ...frame,
-          analysis: jsonAnalysis,
-          subtitleAnalysis,
-          languageMenuAnalysis,
-          aiDescription,
-        };
-      }
-      return frame;
-    };
+    // Directly update the frame object with analysis results
+    queuedFrame.analysis = jsonAnalysis;
+    queuedFrame.subtitleAnalysis = subtitleAnalysis;
+    queuedFrame.languageMenuAnalysis = languageMenuAnalysis;
+    queuedFrame.aiDescription = aiDescription;
 
-    const updateFrameRef = (frame: FrameRef): FrameRef => {
-      if (frame.imageUrl === queuedFrame.imageUrl) {
-        return {
-          ...frame,
-          analysis: jsonAnalysis,
-          subtitleAnalysis,
-          languageMenuAnalysis,
-          aiDescription,
-        };
-      }
-      return frame;
-    };
-
-    // Update display queue
-    setDisplayQueue(prev => prev.map(updateQueuedFrame));
-    
-    // Update frames array
-    setFrames(prev => prev.map(updateFrameRef));
+    // Check if this is part of initial buffer
+    const isFrameComplete = jsonAnalysis && subtitleAnalysis && languageMenuAnalysis && aiDescription;
+    if (isFrameComplete && initialFramesLoaded < 7) {
+      setInitialFramesLoaded(count => {
+        const newCount = count + 1;
+        console.log(`[useMonitoring] 📊 Initial frame ${newCount}/7 completed with full AI analysis`);
+        return newCount;
+      });
+    }
   }, [host, device?.device_id]);
 
   // State for autonomous base URL pattern (discovered via takeScreenshot API)
@@ -319,7 +303,7 @@ export const useMonitoring = ({
     }
   }, [baseUrlPattern, autonomousBaseUrlPattern, isInitializingBaseUrl, initializeAutonomousBaseUrl]);
 
-  // Process 1: Queue Feeder - Continuous background frame detection and queuing
+  // Process 1: Queue Feeder - Sequential frame processing with complete AI analysis
   useEffect(() => {
     if (isInitialLoading) return;
 
@@ -327,7 +311,7 @@ export const useMonitoring = ({
     let frameSequence = 0;
 
     const queueFeederLoop = async () => {
-      console.log('[useMonitoring] 🔄 Starting queue feeder process...');
+      console.log('[useMonitoring] 🔄 Starting sequential queue feeder process...');
       
       while (isRunning) {
         try {
@@ -335,7 +319,8 @@ export const useMonitoring = ({
           
           if (latestData && latestData.sequence !== lastProcessedSequence) {
             frameSequence++;
-            console.log(`[useMonitoring] 📦 New frame ${frameSequence}:`, latestData.imageUrl);
+            const timestamp = new Date().toISOString();
+            console.log(`[useMonitoring] 📦 [${timestamp}] Processing frame ${frameSequence}: seq=${latestData.sequence}, url=${latestData.imageUrl}`);
             
             const queuedFrame: QueuedFrame = {
               timestamp: latestData.timestamp,
@@ -344,18 +329,22 @@ export const useMonitoring = ({
               sequence: latestData.sequence,
             };
 
-            setDisplayQueue(prev => [...prev, queuedFrame].slice(-10));
+            // Wait for complete AI analysis before queuing
+            console.log(`[useMonitoring] 🤖 [${timestamp}] Starting AI analysis for frame ${frameSequence}...`);
+            await analyzeFrameAsync(queuedFrame);
+            
+            // Now queue the complete frame
+            setDisplayQueue(prev => {
+              const newQueue = [...prev, queuedFrame].slice(-10);
+              console.log(`[useMonitoring] ✅ [${timestamp}] Complete frame queued: seq=${latestData.sequence}, queue length=${newQueue.length}`);
+              return newQueue;
+            });
             setLastProcessedSequence(latestData.sequence);
             setCurrentImageUrl(latestData.imageUrl);
-
-            // Start AI analysis in background (non-blocking)
-            analyzeFrameAsync(queuedFrame).catch(error => {
-              console.warn('[useMonitoring] Background AI analysis failed:', error);
-            });
           }
           
-          // Check for new frames every 200ms (5 FPS polling rate)
-          await new Promise(resolve => setTimeout(resolve, 200));
+          // Check for new frames every 500ms (slower since we wait for AI completion)
+          await new Promise(resolve => setTimeout(resolve, 500));
         } catch (error) {
           console.error('[useMonitoring] Queue feeder error:', error);
           await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1s on error
@@ -370,16 +359,26 @@ export const useMonitoring = ({
     };
   }, [isInitialLoading, fetchLatestMonitoringData, analyzeFrameAsync, lastProcessedSequence]);
 
-  // Process 2: Display Consumer - Consistent 1 FPS display from queue
+  // Process 2: Display Consumer - Simple 1 FPS display from complete frames
   useEffect(() => {
     if (isInitialLoading) return;
 
     const displayInterval = setInterval(() => {
+      const timestamp = new Date().toISOString();
+      
       setDisplayQueue(prev => {
-        if (prev.length === 0) return prev;
+        console.log(`[useMonitoring] 📊 [${timestamp}] Display consumer: Queue length=${prev.length}`);
+        
+        if (prev.length === 0) {
+          console.log(`[useMonitoring] ⚠️ [${timestamp}] Queue empty - no frames to display`);
+          return prev;
+        }
 
-        const [nextFrame, ...rest] = prev;
-        console.log(`[useMonitoring] 🎬 Displaying frame:`, nextFrame.imageUrl);
+        // Take first frame (all frames in queue are complete)
+        const [nextFrame, ...remainingFrames] = prev;
+        
+        console.log(`[useMonitoring] 🎬 [${timestamp}] Displaying frame: seq=${nextFrame.sequence}, url=${nextFrame.imageUrl}`);
+        console.log(`[useMonitoring] 📊 [${timestamp}] Remaining queue: ${remainingFrames.length} frames`);
         
         // Convert QueuedFrame to FrameRef and add to frames array
         const frameRef: FrameRef = {
@@ -398,7 +397,7 @@ export const useMonitoring = ({
           return newFrames;
         });
 
-        return rest;
+        return remainingFrames;
       });
     }, 1000);
 
