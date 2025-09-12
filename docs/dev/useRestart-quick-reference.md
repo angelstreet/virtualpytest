@@ -162,11 +162,19 @@ if (videoUrl && isReady) {
 - **Description Analysis**: 20 seconds
 - **Cache TTL**: 30 seconds
 
-## Backend Endpoint
+## Backend Endpoints (Two-Phase)
 
+### Phase 1: Fast Generation
 - **URL**: `/server/av/generateRestartVideo`
 - **Method**: `POST`
-- **Payload**: `{ host, device_id, duration_seconds: 10, include_audio_analysis }`
+- **Payload**: `{ host, device_id, duration_seconds: 10 }`
+- **Response**: Video URL + basic analysis + video_id
+
+### Phase 2: Async Analysis  
+- **URL**: `/server/av/analyzeRestartVideo`
+- **Method**: `POST`
+- **Payload**: `{ host, device_id, video_id, screenshot_urls }`
+- **Response**: Complete AI analysis (subtitles + descriptions)
 
 ---
 

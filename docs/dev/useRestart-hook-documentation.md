@@ -2,7 +2,7 @@
 
 ## Overview
 
-The `useRestart` hook is an expert-level React hook that provides comprehensive video generation and AI analysis capabilities for the VirtualPyTest platform. It generates 10-second restart videos from HLS segments with optional audio transcription, subtitle detection, and frame analysis.
+The `useRestart` hook is an expert-level React hook that provides fast video generation with comprehensive AI analysis capabilities for the VirtualPyTest platform. It uses a two-phase architecture: immediate 10-second video generation followed by asynchronous AI analysis including audio transcription, subtitle detection, and frame-by-frame descriptions.
 
 ## Table of Contents
 

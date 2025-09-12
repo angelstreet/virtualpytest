@@ -72,13 +72,13 @@ test_scripts/
 ##### `get_recent_audio_segments(segment_count=3, segment_duration=None)`
 - **Purpose**: Retrieves recent audio segments from HLS capture
 - **UPDATED Process**:
-  1. Uses global `AVControllerInterface.HLS_SEGMENT_DURATION` configuration (currently 2 seconds)
+  1. Uses global `AVControllerInterface.HLS_SEGMENT_DURATION` configuration (currently 1 second)
   2. **FIXED**: Scans video capture folder for recent `.ts` HLS segment files (not MP4)
   3. **NEW: TS Merging**: If multiple TS files, merges them first into a temporary TS file (no impact on originals)
   4. Extracts audio using ffmpeg with optimized settings:
      - Input: `segment_*.ts` files (HLS segments with audio)
      - Format: WAV, 16kHz, mono
-     - Duration: Uses global HLS segment duration (matches host-side 2s segments)
+     - Duration: Uses global HLS segment duration (matches host-side 1s segments)
      - Quality: PCM 16-bit for speech recognition
   5. Creates temporary audio files for AI analysis
   6. Returns list of audio file paths

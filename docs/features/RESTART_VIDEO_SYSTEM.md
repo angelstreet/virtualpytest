@@ -2,30 +2,40 @@
 
 ## Overview
 
-The Restart Video System provides fast 10-second video generation with AI-powered analysis and overlay capabilities. The system **reuses existing infrastructure** including continuous screenshot capture, audio processing, and image-based AI analysis routes - **no new routes or legacy code**.
+The Restart Video System provides fast 10-second video generation with comprehensive AI-powered analysis including audio transcription, subtitle detection, and frame-by-frame video descriptions. The system uses a **two-phase approach**: fast video generation followed by asynchronous AI analysis to ensure immediate video playback while maintaining comprehensive analysis capabilities.
 
 ## Architecture
 
 ### Backend Components
 
-#### Video Generation (`backend_core/src/controllers/base_controller.py`)
-- **Fast Generation**: 10-second MP4 videos generated in 2-3 seconds
-- **Local Audio Processing**: Uses existing `AudioAIHelpers` directly (same as ZapController)
-- **Screenshot Collection**: Leverages existing continuous capture system
-- **R2 Storage**: Analysis data stored for frontend polling
+#### Two-Phase Architecture
 
-#### Analysis Pipeline (Using Existing Infrastructure)
-1. **Audio Analysis**: Local processing via `AudioAIHelpers.get_recent_audio_segments()` + `analyze_audio_segments_ai()`
-2. **Screenshot Collection**: Uses existing `/captures/capture_*.jpg` files from continuous capture
-3. **Frontend Analysis**: Uses existing image-based routes for subtitle/description analysis
+**Phase 1: Fast Video Generation** (`generateRestartVideoFast`)
+- **Immediate MP4 Creation**: 10-second videos generated in 2-3 seconds
+- **Timeline Synchronization**: Uses `HLS_SEGMENT_DURATION` global variable for consistent segment timing
+- **Optimized Screenshot Collection**: 1 FPS analysis (12 screenshots for 10s video) vs previous 3 FPS (45 screenshots)
+- **Audio Analysis**: Local processing via merged audio segments for better Whisper accuracy
+- **Fast Response**: Returns video URL + basic analysis immediately
+
+**Phase 2: Asynchronous AI Analysis** (`analyzeRestartVideoAsync`)
+- **Subtitle Detection**: AI-powered text extraction from synchronized screenshots
+- **Video Descriptions**: Frame-by-frame analysis with overall video summary
+- **Complete Analysis**: Comprehensive AI processing without blocking video playback
+
+#### Core Implementation (`backend_core/src/controllers/base_controller.py`)
+- **Global Configuration**: Uses `AVControllerInterface.HLS_SEGMENT_DURATION = 1` consistently
+- **Segment Synchronization**: Video segments and screenshots use same timeline
+- **Audio Segment Merging**: Combines 10-12 second audio for improved Whisper detection
+- **Dynamic Screenshot Count**: `max(5, int(duration_seconds * 1 FPS * 1.2 buffer))`
 
 ### Frontend Components
 
 #### Core Hook (`frontend/src/hooks/pages/useRestart.ts`)
-- **Fast Video Display**: Returns video URL immediately
-- **R2 Data Polling**: Loads audio analysis from backend-stored R2 data
-- **Existing Route Usage**: Uses `/server/verification/video/detectSubtitlesAI` and `/server/verification/video/analyzeImageAI` with screenshot URLs
-- **Progressive Analysis**: Audio from backend, visuals from frontend using existing routes
+- **Two-Phase Orchestration**: Calls fast generation then async analysis
+- **Immediate Video Display**: Shows video player as soon as MP4 is ready
+- **Backend Analysis Integration**: Receives complete AI analysis from backend
+- **No Direct R2 Access**: Frontend no longer polls R2 directly, uses backend APIs
+- **State Management**: Tracks video generation, analysis progress, and completion
 
 #### Main Player (`frontend/src/components/rec/RestartPlayer.tsx`)
 - **Video Display**: Standard HTML5 video player
@@ -33,11 +43,14 @@ The Restart Video System provides fast 10-second video generation with AI-powere
 - **Settings Button**: Appears when analysis completes
 - **Overlay Management**: Controls summary and subtitle overlays
 
-#### Settings Panel (`frontend/src/components/rec/RestartSettingsPanel.tsx`)
-- **Right Slide Panel**: 350px width, slides from right
-- **Video Summary Section**: Toggle per-second overlay + final summary display
-- **Subtitles Section**: Toggle subtitle overlay with language selection
-- **Audio Transcript**: Full transcript text display
+#### Enhanced Settings Panel (`frontend/src/components/rec/RestartSettingsPanel.tsx`)
+- **Compact Design**: Reduced font sizes, tighter margins, bordered sections
+- **Expandable Content**: All analysis results collapse/expand by default
+- **Integrated Checkboxes**: Checkboxes next to section titles (Video Summary, Subtitles, Audio Transcript)
+- **Language & Confidence Display**: Shows detected language and confidence (e.g., "English, 95% confidence")
+- **Dynamic Translation**: Real-time translation when target language differs from detected language
+- **Frame-by-Frame Analysis**: Individual frame descriptions plus conclusion summary
+- **Subtitle Text Display**: Shows original detected text with translation support
 
 #### Overlay Components
 
@@ -83,32 +96,63 @@ Settings Panel:
     └── [Full transcript text]
 ```
 
-## API Endpoints (Existing Routes Only)
+## API Endpoints (Two-Phase Architecture)
 
-### Video Generation
+### Phase 1: Fast Video Generation
 ```
 POST /server/av/generateRestartVideo
 Body: {
   host: Host,
   device_id: string,
-  duration_seconds: 10,
-  include_audio_analysis: true  // Enables backend audio processing
+  duration_seconds: 10
 }
 Response: {
   success: true,
   video_url: string,
+  analysis_data: {
+    audio_analysis: {
+      combined_transcript: string,
+      detected_language: string,
+      confidence: number
+    },
+    screenshot_urls: string[],
+    video_analysis: { pending: true },
+    subtitle_analysis: { pending: true },
+    video_id: string  // For async analysis
+  },
   processing_time_seconds: number
 }
 ```
 
-### Frontend Analysis (Using Existing Image-Based Routes)
+### Phase 2: Asynchronous AI Analysis
 ```
-POST /server/verification/video/detectSubtitlesAI
+POST /server/av/analyzeRestartVideo
 Body: {
   host: Host,
   device_id: string,
-  image_source_url: string,  // Screenshot URL from continuous capture
-  extract_text: true
+  video_id: string,
+  screenshot_urls: string[]  // From fast generation phase
+}
+Response: {
+  success: true,
+  analysis_data: {
+    video_id: string,
+    subtitle_analysis: {
+      success: boolean,
+      subtitles_detected: boolean,
+      extracted_text: string,
+      detected_language: string,
+      confidence: number
+    },
+    video_analysis: {
+      success: boolean,
+      frame_descriptions: string[],  // "Frame 1: ...", "Frame 2: ..."
+      video_summary: string,
+      frames_analyzed: number
+    }
+  },
+  processing_time_seconds: number
+}
 }
 
 POST /server/verification/video/analyzeImageAI  
@@ -189,19 +233,23 @@ interface AnalysisProgress {
 
 ## Performance Characteristics
 
-### Timing Benchmarks
-- **Video Generation**: 2-3 seconds (MP4 creation only)
-- **Audio Analysis**: 1-2 seconds (local processing, no HTTP)
-- **R2 Data Polling**: 1-2 seconds (backend stores data)
-- **Subtitle Detection**: 2-3 seconds (existing route with screenshot)
-- **Video Description**: 5-8 seconds (existing route with multiple screenshots)
-- **Total Time**: Video shows immediately, analysis completes in 5-8 seconds
+### Timing Benchmarks (Two-Phase)
+**Phase 1 (Fast Generation):**
+- **Video Generation**: 2-3 seconds (MP4 creation)
+- **Audio Analysis**: 1-2 seconds (merged segments, local processing)
+- **Screenshot Collection**: <1 second (optimized to 12 screenshots vs 45)
+- **Response Time**: Video player shows immediately
 
-### Resource Usage
-- **Storage**: Videos stored in R2, analysis data stored in R2
-- **Memory**: No temporary files - uses existing screenshots
-- **Network**: R2 polling + existing image-based analysis routes
-- **CPU**: Local audio processing (backend), image analysis (existing routes)
+**Phase 2 (Async Analysis):**
+- **Subtitle Detection**: 3-5 seconds (AI analysis on 5 screenshots)
+- **Video Description**: 8-12 seconds (AI analysis on 10 screenshots + summary)
+- **Total Analysis**: 10-15 seconds (runs in background)
+
+### Resource Optimization
+- **Screenshot Reduction**: 73% fewer screenshots (12 vs 45 for 10s video)
+- **Audio Merging**: Single 10-12s audio file vs multiple 1s segments
+- **Memory Efficiency**: No temporary files, uses existing continuous capture
+- **Network Optimization**: Backend handles all AI analysis, no frontend R2 polling
 
 ## Integration Points
 
@@ -228,20 +276,28 @@ interface AnalysisProgress {
 ## Implementation Approach
 
 ### Key Design Principles
-1. **No New Routes**: Uses only existing `/server/av/generateRestartVideo`, `/server/verification/video/detectSubtitlesAI`, and `/server/verification/video/analyzeImageAI`
+1. **Two-Phase Architecture**: Fast video generation + asynchronous AI analysis
 2. **No Legacy Code**: Clean implementation without backward compatibility or fallback mechanisms
-3. **Reuse Existing Infrastructure**: Leverages continuous screenshot capture, AudioAIHelpers, and R2 storage
-4. **Local Processing**: Audio analysis happens locally in backend (no HTTP overhead)
-5. **Progressive Loading**: Video shows immediately, analysis loads progressively
+3. **Global Configuration**: Uses `HLS_SEGMENT_DURATION` consistently across all components
+4. **Optimized Performance**: 1 FPS screenshot analysis, merged audio segments
+5. **Backend-Driven Analysis**: All AI processing handled by backend, frontend receives complete results
+6. **Timeline Synchronization**: Video segments and screenshots use same time period
 
-### Data Flow
+### Data Flow (Two-Phase)
 ```
-1. Frontend → /server/av/generateRestartVideo (include_audio_analysis: true)
-2. Backend → take_video() generates MP4 + starts background analysis
-3. Backend → AudioAIHelpers processes audio locally → stores in R2
-4. Backend → Collects screenshot URLs → stores in R2
-5. Frontend → Polls R2 for analysis data
-6. Frontend → Uses screenshot URLs with existing image routes for visual analysis
+Phase 1 - Fast Generation:
+1. Frontend → /server/av/generateRestartVideo
+2. Backend → generateRestartVideoFast() creates MP4 in 2-3s
+3. Backend → Collects synchronized screenshots (1 FPS)
+4. Backend → Processes merged audio segments locally
+5. Frontend ← Receives video URL + basic analysis immediately
+
+Phase 2 - Async Analysis:
+6. Frontend → /server/av/analyzeRestartVideo (video_id + screenshot_urls)
+7. Backend → analyzeRestartVideoAsync() performs AI analysis
+8. Backend → Subtitle detection on 5 screenshots
+9. Backend → Video description on 10 screenshots + summary
+10. Frontend ← Receives complete AI analysis results
 ```
 
 ### Why This Approach Works

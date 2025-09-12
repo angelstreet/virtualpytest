@@ -15,6 +15,8 @@ interface RestartSettingsPanelProps {
   onSummaryLanguageChange: (lang: string) => void;
   subtitleLanguage: string;
   onSubtitleLanguageChange: (lang: string) => void;
+  audioTranscriptLanguage: string;
+  onAudioTranscriptLanguageChange: (lang: string) => void;
   subtitleStyle: string;
   onSubtitleStyleChange: (style: string) => void;
   subtitleFontSize: string;
@@ -56,6 +58,8 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
   onSummaryLanguageChange,
   subtitleLanguage,
   onSubtitleLanguageChange,
+  audioTranscriptLanguage,
+  onAudioTranscriptLanguageChange,
   subtitleStyle,
   onSubtitleStyleChange,
   subtitleFontSize,
@@ -68,6 +72,23 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
   const [isTranscriptExpanded, setIsTranscriptExpanded] = useState(false);
   const [isVideoDescriptionExpanded, setIsVideoDescriptionExpanded] = useState(false);
   const [isSubtitleExpanded, setIsSubtitleExpanded] = useState(false);
+
+  // Language code to name mapping
+  const getLanguageName = (code: string): string => {
+    const languageNames: Record<string, string> = {
+      'en': 'English',
+      'es': 'Spanish', 
+      'fr': 'French',
+      'de': 'German',
+      'it': 'Italian',
+      'pt': 'Portuguese',
+      'ru': 'Russian',
+      'ja': 'Japanese',
+      'ko': 'Korean',
+      'zh': 'Chinese'
+    };
+    return languageNames[code.toLowerCase()] || code.toUpperCase();
+  };
 
   // Simple translation function (placeholder - in real app would use translation API)
   const translateText = (text: string, targetLang: string, originalLang: string = 'en'): string => {
@@ -334,7 +355,7 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
                   borderRadius: 1,
                   borderLeft: '3px solid #2196F3'
                 }}>
-                  <strong>Original ({subtitleData.detected_language || 'Unknown'}):</strong><br />
+                  <strong>Original ({getLanguageName(subtitleData.detected_language || 'Unknown')}):</strong><br />
                   {subtitleData.extracted_text || 'No subtitle text available'}
                 </Typography>
                 
@@ -348,7 +369,7 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
                     borderRadius: 1,
                     borderLeft: '3px solid #4CAF50'
                   }}>
-                    <strong>Translated ({subtitleLanguage.toUpperCase()}):</strong><br />
+                    <strong>Translated ({getLanguageName(subtitleLanguage)}):</strong><br />
                     {translateText(subtitleData.extracted_text, subtitleLanguage, subtitleData.detected_language || 'en')}
                   </Typography>
                 )}
@@ -378,16 +399,41 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
             >
               Audio Transcript
             </Typography>
-            <IconButton
-              onClick={() => setIsTranscriptExpanded(!isTranscriptExpanded)}
-              sx={{ color: '#ffffff', p: 0.25 }}
-              size="small"
-            >
-              {isTranscriptExpanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
-            </IconButton>
+            {audioAnalysis && audioAnalysis.speech_detected && (
+              <IconButton
+                onClick={() => setIsTranscriptExpanded(!isTranscriptExpanded)}
+                sx={{ color: '#ffffff', p: 0.25 }}
+                size="small"
+              >
+                {isTranscriptExpanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
+              </IconButton>
+            )}
           </Box>
+          
+          {/* Language Dropdown for Audio Transcript */}
+          <Select
+            value={audioTranscriptLanguage}
+            onChange={(e) => onAudioTranscriptLanguageChange(e.target.value)}
+            size="small"
+            sx={{ 
+              ml: 1, 
+              minHeight: 28,
+              fontSize: '0.75rem',
+              color: '#ffffff', 
+              '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.3)' },
+              '& .MuiSelect-select': { py: 0.5 }
+            }}
+          >
+            <MenuItem value="en" sx={{ fontSize: '0.75rem' }}>English</MenuItem>
+            <MenuItem value="es" sx={{ fontSize: '0.75rem' }}>Spanish</MenuItem>
+            <MenuItem value="fr" sx={{ fontSize: '0.75rem' }}>French</MenuItem>
+            <MenuItem value="de" sx={{ fontSize: '0.75rem' }}>German</MenuItem>
+            <MenuItem value="it" sx={{ fontSize: '0.75rem' }}>Italian</MenuItem>
+            <MenuItem value="pt" sx={{ fontSize: '0.75rem' }}>Portuguese</MenuItem>
+          </Select>
+          
           <Collapse in={isTranscriptExpanded}>
-            <Box>
+            <Box sx={{ mt: 1 }}>
               <Typography variant="body2" sx={{ 
                 p: 1.5, 
                 fontSize: '0.75rem',
@@ -396,11 +442,11 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
                 borderRadius: 1,
                 borderLeft: '3px solid #FF9800'
               }}>
-                <strong>Original ({audioAnalysis?.detected_language || 'Unknown'}, {Math.round((audioAnalysis?.confidence || 0) * 100)}% confidence):</strong><br />
+                <strong>Original ({getLanguageName(audioAnalysis?.detected_language || 'Unknown')}, {Math.round((audioAnalysis?.confidence || 0) * 100)}% confidence):</strong><br />
                 {audioTranscript || 'No transcript available'}
               </Typography>
               
-              {summaryLanguage !== (audioAnalysis?.detected_language?.toLowerCase() || 'en') && audioTranscript && (
+              {audioTranscriptLanguage !== (audioAnalysis?.detected_language?.toLowerCase() || 'en') && audioTranscript && (
                 <Typography variant="body2" sx={{ 
                   p: 1.5, 
                   mt: 1,
@@ -410,8 +456,8 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
                   borderRadius: 1,
                   borderLeft: '3px solid #4CAF50'
                 }}>
-                  <strong>Translated ({summaryLanguage.toUpperCase()}):</strong><br />
-                  {translateText(audioTranscript, summaryLanguage, audioAnalysis?.detected_language?.toLowerCase() || 'en')}
+                  <strong>Translated ({getLanguageName(audioTranscriptLanguage)}):</strong><br />
+                  {translateText(audioTranscript, audioTranscriptLanguage, audioAnalysis?.detected_language?.toLowerCase() || 'en')}
                 </Typography>
               )}
             </Box>

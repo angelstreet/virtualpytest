@@ -25,6 +25,7 @@ export const RestartPlayer: React.FC<RestartPlayerProps> = ({ host, device, incl
   const [showAudioTranscriptOverlay, setShowAudioTranscriptOverlay] = useState(false);
   const [summaryLanguage, setSummaryLanguage] = useState('en');
   const [subtitleLanguage, setSubtitleLanguage] = useState('en');
+  const [audioTranscriptLanguage, setAudioTranscriptLanguage] = useState('en');
   const [subtitleStyle, setSubtitleStyle] = useState('yellow');
   const [subtitleFontSize, setSubtitleFontSize] = useState('medium');
   
@@ -228,6 +229,8 @@ export const RestartPlayer: React.FC<RestartPlayerProps> = ({ host, device, incl
         onSummaryLanguageChange={setSummaryLanguage}
         subtitleLanguage={subtitleLanguage}
         onSubtitleLanguageChange={setSubtitleLanguage}
+        audioTranscriptLanguage={audioTranscriptLanguage}
+        onAudioTranscriptLanguageChange={setAudioTranscriptLanguage}
         subtitleStyle={subtitleStyle}
         onSubtitleStyleChange={setSubtitleStyle}
         subtitleFontSize={subtitleFontSize}
