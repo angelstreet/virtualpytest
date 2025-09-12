@@ -576,11 +576,12 @@ class FFmpegCaptureController(AVControllerInterface):
                             # Extract 10 frames (1 per second) from 10s video
                             temp_frames_dir = tempfile.mkdtemp(prefix="video_frames_")
                             frames_cmd = f"ffmpeg -i {local_video_path} -vf fps=1 -t 10 {temp_frames_dir}/frame_%03d.jpg -y"
-                        subprocess.run(frames_cmd, shell=True, check=True, capture_output=True)
+                            subprocess.run(frames_cmd, shell=True, check=True, capture_output=True)
                         
-                        frame_files = sorted([f for f in os.listdir(temp_frames_dir) if f.endswith('.jpg')])
-                        frame_descriptions = []
-                        
+                            
+                            frame_files = sorted([f for f in os.listdir(temp_frames_dir) if f.endswith('.jpg')])
+                            frame_descriptions = []
+                            
                             # Analyze each frame using existing AI system
                             for i, frame_file in enumerate(frame_files[:10]):
                                 try:
@@ -602,24 +603,24 @@ class FFmpegCaptureController(AVControllerInterface):
                             # Generate 10-line summary
                             if frame_descriptions:
                                 summary_prompt = f"Based on these frame descriptions from a 10-second video, provide exactly 10 lines summarizing what happened:\n\n" + "\n".join(frame_descriptions)
+                                
+                                from shared.lib.utils.ai_utils import call_text_ai
+                                summary_result = call_text_ai(summary_prompt)
+                                
+                                results['video_description'] = {
+                                    'success': True,
+                                    'frame_descriptions': frame_descriptions,
+                                    'video_summary': summary_result.get('response', '') if summary_result.get('success') else '',
+                                    'frames_analyzed': len(frame_descriptions)
+                                }
                             
-                            from shared.lib.utils.ai_utils import call_text_ai
-                            summary_result = call_text_ai(summary_prompt)
+                            # Cleanup
+                            import shutil
+                            shutil.rmtree(temp_frames_dir, ignore_errors=True)
                             
-                            results['video_description'] = {
-                                'success': True,
-                                'frame_descriptions': frame_descriptions,
-                                'video_summary': summary_result.get('response', '') if summary_result.get('success') else '',
-                                'frames_analyzed': len(frame_descriptions)
-                            }
-                        
-                        # Cleanup
-                        import shutil
-                        shutil.rmtree(temp_frames_dir, ignore_errors=True)
-                        
-                    except Exception as e:
-                        print(f"Video description analysis failed: {e}")
-                        results['video_description'] = {'success': False, 'error': str(e)}
+                        except Exception as e:
+                            print(f"Video description analysis failed: {e}")
+                            results['video_description'] = {'success': False, 'error': str(e)}
                 
                     def extract_subtitles():
                         try:
@@ -662,6 +663,7 @@ class FFmpegCaptureController(AVControllerInterface):
                             future.result()  # Wait for completion
                     
                     # Store results for report generation
+                    from datetime import datetime
                     analysis_data = {
                         'video_url': video_url,
                         'duration_seconds': duration_seconds,
