@@ -335,6 +335,8 @@ export const MonitoringPlayer: React.FC<MonitoringPlayerProps> = ({
               borderRadius: 1,
               border: '1px solid rgba(255, 255, 255, 0.2)',
               textAlign: 'center',
+              zIndex: 30, // Higher than MonitoringOverlay's z-index of 20
+              pointerEvents: 'none', // Don't interfere with clicks
             }}
           >
             <Typography
