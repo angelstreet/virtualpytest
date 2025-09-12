@@ -16,8 +16,11 @@ interface FrameRef {
   subtitleAnalysis?: SubtitleAnalysis | null;
   languageMenuAnalysis?: LanguageMenuAnalysis | null;
   aiDescription?: string | null;
-  aiAnalysisPerformed?: boolean; // Flag to track if autonomous AI analysis was done
-  aiAnalysisInProgress?: boolean; // Flag to track if AI analysis is currently running
+}
+
+interface BufferedFrame {
+  frame: FrameRef;
+  aiPromise: Promise<void>;
 }
 
 interface ErrorTrendData {
@@ -47,8 +50,6 @@ interface UseMonitoringReturn {
   handleSliderChange: (event: Event, newValue: number | number[]) => void;
   handleHistoricalFrameLoad: () => void;
 
-  // Autonomous AI analysis status
-  isPerformingAIAnalysis: boolean;
 
   // Subtitle trend analysis
   subtitleTrendAnalysis: SubtitleTrendAnalysis | null;
@@ -86,7 +87,9 @@ export const useMonitoring = ({
   );
   const [isHistoricalFrameLoaded, setIsHistoricalFrameLoaded] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
-  const [isPerformingAIAnalysis, setIsPerformingAIAnalysis] = useState(false);
+  const [frameBuffer, setFrameBuffer] = useState<BufferedFrame[]>([]);
+  const [displayQueue, setDisplayQueue] = useState<FrameRef[]>([]);
+  const [isBuffering, setIsBuffering] = useState(true);
 
   // Initial loading buffer - reduced to max 1 second as requested
   useEffect(() => {
@@ -98,149 +101,96 @@ export const useMonitoring = ({
 
 
 
-  // Autonomous AI analysis function - performs all 3 analyses sequentially
-  const performAutonomousAIAnalysis = useCallback(async (latestData: {imageUrl: string, jsonUrl: string, timestamp: string}): Promise<void> => {
-    setIsPerformingAIAnalysis(true);
-
+  // AI analysis for buffered frame
+  const analyzeFrame = useCallback(async (frameData: {imageUrl: string, jsonUrl: string, timestamp: string}): Promise<FrameRef> => {
+    // Load JSON analysis first
+    let jsonAnalysis = null;
+    let realTimestamp = frameData.timestamp;
+    
     try {
-      console.log('[useMonitoring] Starting autonomous AI analysis for frame:', latestData.imageUrl);
+      const jsonResponse = await fetch(frameData.jsonUrl);
+      if (jsonResponse.ok) {
+        jsonAnalysis = await jsonResponse.json();
+        realTimestamp = jsonAnalysis.timestamp || frameData.timestamp;
+      }
+    } catch (error) {
+      console.warn('[useMonitoring] Failed to load JSON:', error);
+    }
 
-      // Sequential analysis: Subtitles → Language Menu → Description
-      
-      // 1. Subtitle Detection
-      const subtitleResponse = await fetch(buildServerUrl('/server/verification/video/detectSubtitlesAI'), {
+    // Parallel AI analysis
+    const [subtitleResult, languageMenuResult, descriptionResult] = await Promise.allSettled([
+      fetch(buildServerUrl('/server/verification/video/detectSubtitlesAI'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           host: host,
           device_id: device?.device_id,
-          image_source_url: latestData.imageUrl,
+          image_source_url: frameData.imageUrl,
           extract_text: true,
         }),
-      });
+      }).then(r => r.ok ? r.json() : null),
 
-      let subtitleAnalysis: SubtitleAnalysis | null = null;
-      if (subtitleResponse.ok) {
-        const subtitleResult = await subtitleResponse.json();
-        if (subtitleResult.success) {
-          const responseData = subtitleResult.results?.[0] || {};
-          subtitleAnalysis = {
-            subtitles_detected: subtitleResult.subtitles_detected || false,
-            combined_extracted_text: subtitleResult.combined_extracted_text || responseData.extracted_text || '',
-            detected_language: subtitleResult.detected_language !== 'unknown' ? subtitleResult.detected_language : undefined,
-            confidence: responseData.confidence || (subtitleResult.subtitles_detected ? 0.9 : 0.1),
-            detection_message: subtitleResult.detection_message || '',
-          };
-        }
-      }
-
-      // 2. Language Menu Analysis
-      const languageMenuResponse = await fetch(buildServerUrl('/server/verification/video/analyzeLanguageMenu'), {
+      fetch(buildServerUrl('/server/verification/video/analyzeLanguageMenu'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           host: host,
           device_id: device?.device_id,
-          image_source_url: latestData.imageUrl,
+          image_source_url: frameData.imageUrl,
         }),
-      });
+      }).then(r => r.ok ? r.json() : null),
 
-      let languageMenuAnalysis: LanguageMenuAnalysis | null = null;
-      if (languageMenuResponse.ok) {
-        const languageMenuResult = await languageMenuResponse.json();
-        if (languageMenuResult.success) {
-          languageMenuAnalysis = {
-            menu_detected: languageMenuResult.menu_detected || false,
-            audio_languages: languageMenuResult.audio_languages || [],
-            subtitle_languages: languageMenuResult.subtitle_languages || [],
-            selected_audio: languageMenuResult.selected_audio ?? -1,
-            selected_subtitle: languageMenuResult.selected_subtitle ?? -1,
-          };
-        }
-      }
-
-      // 3. AI Image Description
-      const descriptionResponse = await fetch(buildServerUrl('/server/verification/video/analyzeImageAI'), {
+      fetch(buildServerUrl('/server/verification/video/analyzeImageAI'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           host: host,
           device_id: device?.device_id,
-          image_source_url: latestData.imageUrl,
+          image_source_url: frameData.imageUrl,
           query: 'Provide a short description of what you see in this image',
         }),
-      });
+      }).then(r => r.ok ? r.json() : null),
+    ]);
 
-      let aiDescription: string | null = null;
-      if (descriptionResponse.ok) {
-        const descriptionResult = await descriptionResponse.json();
-        if (descriptionResult.success && descriptionResult.response) {
-          aiDescription = descriptionResult.response;
-        }
-      }
-
-        // Load the JSON analysis to get the real timestamp from MCM metadata
-        let jsonAnalysis = null;
-        let realTimestamp = latestData.timestamp; // fallback
-        
-        try {
-          const jsonResponse = await fetch(latestData.jsonUrl);
-          if (jsonResponse.ok) {
-            jsonAnalysis = await jsonResponse.json();
-            realTimestamp = jsonAnalysis.timestamp || latestData.timestamp;
-          }
-        } catch (error) {
-          console.warn('[useMonitoring] Failed to load JSON for timestamp:', error);
-        }
-
-        // Add frame with all analysis results to buffer
-        setCurrentImageUrl(latestData.imageUrl);
-        
-        setFrames((prev) => {
-          // Check if we already have this timestamp to avoid duplicates
-          const existingFrame = prev.find(frame => frame.timestamp === realTimestamp);
-          if (existingFrame) {
-            console.log('[useMonitoring] Frame already exists, skipping:', realTimestamp);
-            return prev;
-          }
-
-          const newFrames = [...prev, { 
-            timestamp: realTimestamp, 
-            imageUrl: latestData.imageUrl, 
-            jsonUrl: latestData.jsonUrl,
-            analysis: jsonAnalysis,
-            subtitleAnalysis,
-            languageMenuAnalysis,
-            aiDescription,
-            aiAnalysisPerformed: true,
-            aiAnalysisInProgress: false,
-          }];
-          const updatedFrames = newFrames.slice(-100); // Always keep last 100 frames
-
-          // Update current index based on current playing state
-          setCurrentIndex((currentIdx) => {
-            // ONLY auto-follow when actively playing AND not user-selected
-            if (isPlaying && !userSelectedFrame) {
-              return updatedFrames.length - 1;
-            }
-            // ONLY move user if their selected frame was deleted from buffer
-            else if (userSelectedFrame && currentIdx >= updatedFrames.length) {
-              console.log('[useMonitoring] User selected frame was deleted, moving to latest but staying paused');
-              return updatedFrames.length - 1;
-            }
-            return currentIdx;
-          });
-
-          return updatedFrames;
-        });
-
-        console.log('[useMonitoring] Frame with AI analysis added:', realTimestamp);
-    } catch (error) {
-      console.error('[useMonitoring] Autonomous AI analysis failed:', error);
-    } finally {
-      setIsPerformingAIAnalysis(false);
+    // Process results
+    let subtitleAnalysis = null;
+    if (subtitleResult.status === 'fulfilled' && subtitleResult.value?.success) {
+      const data = subtitleResult.value.results?.[0] || {};
+      subtitleAnalysis = {
+        subtitles_detected: subtitleResult.value.subtitles_detected || false,
+        combined_extracted_text: subtitleResult.value.combined_extracted_text || data.extracted_text || '',
+        detected_language: subtitleResult.value.detected_language !== 'unknown' ? subtitleResult.value.detected_language : undefined,
+        confidence: data.confidence || (subtitleResult.value.subtitles_detected ? 0.9 : 0.1),
+        detection_message: subtitleResult.value.detection_message || '',
+      };
     }
-  }, [host, device?.device_id, isPlaying, userSelectedFrame]);
+
+    let languageMenuAnalysis = null;
+    if (languageMenuResult.status === 'fulfilled' && languageMenuResult.value?.success) {
+      languageMenuAnalysis = {
+        menu_detected: languageMenuResult.value.menu_detected || false,
+        audio_languages: languageMenuResult.value.audio_languages || [],
+        subtitle_languages: languageMenuResult.value.subtitle_languages || [],
+        selected_audio: languageMenuResult.value.selected_audio ?? -1,
+        selected_subtitle: languageMenuResult.value.selected_subtitle ?? -1,
+      };
+    }
+
+    let aiDescription = null;
+    if (descriptionResult.status === 'fulfilled' && descriptionResult.value?.success) {
+      aiDescription = descriptionResult.value.response;
+    }
+
+    return {
+      timestamp: realTimestamp,
+      imageUrl: frameData.imageUrl,
+      jsonUrl: frameData.jsonUrl,
+      analysis: jsonAnalysis,
+      subtitleAnalysis,
+      languageMenuAnalysis,
+      aiDescription,
+    };
+  }, [host, device?.device_id]);
 
   // State for autonomous base URL pattern (discovered via takeScreenshot API)
   const [autonomousBaseUrlPattern, setAutonomousBaseUrlPattern] = useState<string | null>(null);
@@ -332,49 +282,52 @@ export const useMonitoring = ({
     }
   }, [baseUrlPattern, autonomousBaseUrlPattern, isInitializingBaseUrl, initializeAutonomousBaseUrl]);
 
-  // Fetch latest monitoring data (only after initial loading)
+  // Buffer management and display
   useEffect(() => {
-    if (isInitialLoading) return; // Skip during initial loading
+    if (isInitialLoading) return;
 
-    const fetchLatestFrame = async () => {
+    const processFrames = async () => {
+      // Poll for new frames
       const latestData = await fetchLatestMonitoringData();
+      if (!latestData || latestData.imageUrl === currentImageUrl) return;
 
-      if (latestData) {
-        // Check if this is actually new data (different timestamp)
-        const isDifferentFrame = latestData.imageUrl !== currentImageUrl;
-        
-        if (isDifferentFrame) {
-          console.log('[useMonitoring] New frame detected, starting AI analysis first:', latestData.timestamp);
+      setCurrentImageUrl(latestData.imageUrl);
 
-          // WAIT for AI analysis BEFORE showing the image
-          await performAutonomousAIAnalysis(latestData);
-        } else {
-          console.log('[useMonitoring] Same frame, no update needed');
-        }
+      // Add to buffer if not full
+      if (frameBuffer.length < 3) {
+        const aiPromise = analyzeFrame(latestData).then(frame => {
+          setDisplayQueue(prev => [...prev, frame]);
+        });
+        setFrameBuffer(prev => [...prev, { frame: { ...latestData, timestamp: latestData.timestamp, imageUrl: latestData.imageUrl, jsonUrl: latestData.jsonUrl }, aiPromise }]);
       }
     };
 
-    // Fetch initial frame immediately
-    fetchLatestFrame();
+    // Display frames at 1 FPS
+    const displayInterval = setInterval(() => {
+      setDisplayQueue(prev => {
+        if (prev.length === 0) return prev;
+        const [nextFrame, ...rest] = prev;
+        
+        setFrames(current => {
+          const newFrames = [...current, nextFrame].slice(-100);
+          setCurrentIndex(newFrames.length - 1);
+          return newFrames;
+        });
+        
+        setIsBuffering(rest.length === 0 && frameBuffer.length < 3);
+        return rest;
+      });
+    }, 1000);
 
-    // Set up continuous polling - no delay since we wait for AI analysis
-    const startContinuousPolling = () => {
-      const poll = async () => {
-        await fetchLatestFrame();
-        // Immediately poll for next frame after current one completes
-        setTimeout(poll, 100); // Small delay to prevent overwhelming the server
-      };
-      poll();
+    // Poll for new frames
+    const pollInterval = setInterval(processFrames, 1000);
+    processFrames(); // Initial call
+
+    return () => {
+      clearInterval(displayInterval);
+      clearInterval(pollInterval);
     };
-    
-    startContinuousPolling();
-  }, [
-    fetchLatestMonitoringData,
-    isInitialLoading,
-    isPlaying,
-    userSelectedFrame,
-    currentImageUrl,
-  ]);
+  }, [isInitialLoading, fetchLatestMonitoringData, analyzeFrame, currentImageUrl, frameBuffer.length]);
 
   // Auto-play functionality
   useEffect(() => {
@@ -560,7 +513,7 @@ export const useMonitoring = ({
 
     // Get frames with subtitle data from autonomous analysis
     const framesWithSubtitles = frames.filter(
-      (frame) => frame.subtitleAnalysis !== undefined && frame.aiAnalysisPerformed === true,
+      (frame) => frame.subtitleAnalysis !== undefined,
     );
 
     if (framesWithSubtitles.length === 0) return null;
@@ -672,8 +625,6 @@ export const useMonitoring = ({
     handleSliderChange,
     handleHistoricalFrameLoad,
 
-    // Autonomous AI analysis status
-    isPerformingAIAnalysis,
 
     // Subtitle trend analysis
     subtitleTrendAnalysis,
