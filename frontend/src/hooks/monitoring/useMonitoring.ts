@@ -98,10 +98,10 @@ export const useMonitoring = ({
   const [lastProcessedSequence, setLastProcessedSequence] = useState<string>('');
   const [initialFramesLoaded, setInitialFramesLoaded] = useState(0);
 
-  // Initial loading: Wait for 7 frames with complete AI analysis (5s AI + 2s safety buffer)
+  // Initial loading: Wait for 4 frames with complete AI analysis (optimized for 0.5 FPS)
   useEffect(() => {
-    if (initialFramesLoaded >= 7) {
-      console.log('[useMonitoring] 🎯 Initial buffer complete: 7 frames loaded, starting display');
+    if (initialFramesLoaded >= 4) {
+      console.log('[useMonitoring] 🎯 Initial buffer complete: 4 frames loaded, starting display');
       setIsInitialLoading(false);
     }
   }, [initialFramesLoaded]);
@@ -127,9 +127,9 @@ export const useMonitoring = ({
     }
     const jsonTime = performance.now() - jsonStartTime;
 
-    // Parallel AI analysis
+    // Optimized AI analysis (removed Language Menu Analysis for speed)
     const aiStartTime = performance.now();
-    const [subtitleResult, languageMenuResult, descriptionResult] = await Promise.allSettled([
+    const [subtitleResult, descriptionResult] = await Promise.allSettled([
       fetch(buildServerUrl('/server/verification/video/detectSubtitlesAI'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -138,16 +138,6 @@ export const useMonitoring = ({
           device_id: device?.device_id,
           image_source_url: queuedFrame.imageUrl,
           extract_text: true,
-        }),
-      }).then(r => r.ok ? r.json() : null),
-
-      fetch(buildServerUrl('/server/verification/video/analyzeLanguageMenu'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          host: host,
-          device_id: device?.device_id,
-          image_source_url: queuedFrame.imageUrl,
         }),
       }).then(r => r.ok ? r.json() : null),
 
@@ -176,16 +166,8 @@ export const useMonitoring = ({
       };
     }
 
+    // Language menu analysis removed for performance optimization
     let languageMenuAnalysis = null;
-    if (languageMenuResult.status === 'fulfilled' && languageMenuResult.value?.success) {
-      languageMenuAnalysis = {
-        menu_detected: languageMenuResult.value.menu_detected || false,
-        audio_languages: languageMenuResult.value.audio_languages || [],
-        subtitle_languages: languageMenuResult.value.subtitle_languages || [],
-        selected_audio: languageMenuResult.value.selected_audio ?? -1,
-        selected_subtitle: languageMenuResult.value.selected_subtitle ?? -1,
-      };
-    }
 
     let aiDescription = null;
     if (descriptionResult.status === 'fulfilled' && descriptionResult.value?.success) {
@@ -202,12 +184,12 @@ export const useMonitoring = ({
     queuedFrame.languageMenuAnalysis = languageMenuAnalysis;
     queuedFrame.aiDescription = aiDescription;
 
-    // Check if this is part of initial buffer
-    const isFrameComplete = jsonAnalysis && subtitleAnalysis && languageMenuAnalysis && aiDescription;
-    if (isFrameComplete && initialFramesLoaded < 7) {
+    // Check if this is part of initial buffer (language menu analysis removed)
+    const isFrameComplete = jsonAnalysis && subtitleAnalysis && aiDescription;
+    if (isFrameComplete && initialFramesLoaded < 4) {
       setInitialFramesLoaded(count => {
         const newCount = count + 1;
-        console.log(`[useMonitoring] 📊 Initial frame ${newCount}/7 completed with full AI analysis`);
+        console.log(`[useMonitoring] 📊 Initial frame ${newCount}/4 completed with optimized AI analysis`);
         return newCount;
       });
     }
@@ -402,7 +384,7 @@ export const useMonitoring = ({
 
         return remainingFrames;
       });
-    }, 1000);
+    }, 2000); // 0.5 FPS (2-second intervals)
 
     return () => clearInterval(displayInterval);
   }, [isInitialLoading]);
