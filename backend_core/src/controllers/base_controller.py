@@ -418,7 +418,7 @@ class FFmpegCaptureController(AVControllerInterface):
             import tempfile
             
             if duration_seconds is None:
-                duration_seconds = 10.0
+                duration_seconds = 10.0  # Fixed 10 seconds for fast restart videos
                 
             print(f"{self.capture_source}[{self.capture_source}]: Compressing {duration_seconds}s HLS video to MP4")
             
@@ -546,55 +546,62 @@ class FFmpegCaptureController(AVControllerInterface):
             
             print(f"{self.capture_source}[{self.capture_source}]: Restart video available at: {video_url}")
             
-            # Parallel audio analysis if requested
-            if include_audio_analysis:
-                import concurrent.futures
+            # FAST RETURN: Video URL immediately available
+            if not include_audio_analysis:
+                return video_url
+            
+            # Background parallel analysis (3 analyses in parallel)
+            import concurrent.futures
+            import threading
+            
+            # Start background analysis in separate thread (non-blocking)
+            def background_analysis():
+                try:
+                    results = {}
+                    
+                    def extract_audio():
+                        try:
+                            from backend_core.src.controllers.verification.audio_ai_helpers import AudioAIHelpers
+                            audio_ai = AudioAIHelpers(self, f"RestartVideo-{self.device_name}")
+                            audio_files = audio_ai.extract_audio_from_segments(segment_files, segment_count=3)
+                            if audio_files:
+                                results['audio'] = audio_ai.analyze_audio_segments_ai(audio_files, upload_to_r2=True, early_stop=True)
+                            else:
+                                results['audio'] = {'success': False, 'message': 'No audio extracted'}
+                        except Exception as e:
+                            results['audio'] = {'success': False, 'error': str(e)}
                 
-                results = {}
-                
-                def extract_audio():
-                    try:
-                        from backend_core.src.controllers.verification.audio_ai_helpers import AudioAIHelpers
-                        audio_ai = AudioAIHelpers(self, f"RestartVideo-{self.device_name}")
-                        audio_files = audio_ai.extract_audio_from_segments(segment_files, segment_count=3)
-                        if audio_files:
-                            results['audio'] = audio_ai.analyze_audio_segments_ai(audio_files, upload_to_r2=True, early_stop=True)
-                        else:
-                            results['audio'] = {'success': False, 'message': 'No audio extracted'}
-                    except Exception as e:
-                        results['audio'] = {'success': False, 'error': str(e)}
-                
-                def extract_video_descriptions():
-                    try:
-                        # Extract 30 frames (1 per second) from the video
-                        temp_frames_dir = tempfile.mkdtemp(prefix="video_frames_")
-                        frames_cmd = f"ffmpeg -i {local_video_path} -vf fps=1 -t 30 {temp_frames_dir}/frame_%03d.jpg -y"
+                    def extract_video_descriptions():
+                        try:
+                            # Extract 10 frames (1 per second) from 10s video
+                            temp_frames_dir = tempfile.mkdtemp(prefix="video_frames_")
+                            frames_cmd = f"ffmpeg -i {local_video_path} -vf fps=1 -t 10 {temp_frames_dir}/frame_%03d.jpg -y"
                         subprocess.run(frames_cmd, shell=True, check=True, capture_output=True)
                         
                         frame_files = sorted([f for f in os.listdir(temp_frames_dir) if f.endswith('.jpg')])
                         frame_descriptions = []
                         
-                        # Analyze each frame using existing AI system
-                        for i, frame_file in enumerate(frame_files[:30]):
-                            try:
-                                frame_path = os.path.join(temp_frames_dir, frame_file)
-                                
-                                # Use existing AI description system (same as useMonitoring)
-                                from shared.lib.utils.ai_utils import call_vision_ai
-                                description_result = call_vision_ai(
-                                    image_path=frame_path,
-                                    prompt="Describe what you see in this frame in 1-2 sentences"
-                                )
-                                
-                                if description_result and description_result.get('success'):
-                                    frame_descriptions.append(f"Second {i+1}: {description_result.get('response', '')}")
-                            except Exception as frame_error:
-                                print(f"Frame {i+1} analysis failed: {frame_error}")
-                                continue
-                        
-                        # Generate 10-line summary
-                        if frame_descriptions:
-                            summary_prompt = f"Based on these frame descriptions from a 30-second video, provide exactly 10 lines summarizing what happened:\n\n" + "\n".join(frame_descriptions)
+                            # Analyze each frame using existing AI system
+                            for i, frame_file in enumerate(frame_files[:10]):
+                                try:
+                                    frame_path = os.path.join(temp_frames_dir, frame_file)
+                                    
+                                    # Use existing AI description system (same as useMonitoring)
+                                    from shared.lib.utils.ai_utils import call_vision_ai
+                                    description_result = call_vision_ai(
+                                        image_path=frame_path,
+                                        prompt="Describe what you see in this frame in 1-2 sentences"
+                                    )
+                                    
+                                    if description_result and description_result.get('success'):
+                                        frame_descriptions.append(f"Second {i+1}: {description_result.get('response', '')}")
+                                except Exception as frame_error:
+                                    print(f"Frame {i+1} analysis failed: {frame_error}")
+                                    continue
+                            
+                            # Generate 10-line summary
+                            if frame_descriptions:
+                                summary_prompt = f"Based on these frame descriptions from a 10-second video, provide exactly 10 lines summarizing what happened:\n\n" + "\n".join(frame_descriptions)
                             
                             from shared.lib.utils.ai_utils import call_text_ai
                             summary_result = call_text_ai(summary_prompt)
@@ -614,29 +621,74 @@ class FFmpegCaptureController(AVControllerInterface):
                         print(f"Video description analysis failed: {e}")
                         results['video_description'] = {'success': False, 'error': str(e)}
                 
-                with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
-                    futures = [
-                        executor.submit(extract_audio),
-                        executor.submit(extract_video_descriptions)
-                    ]
-                    for future in concurrent.futures.as_completed(futures):
-                        future.result()  # Wait for completion
-                
-                audio_result = results.get('audio', {})
-                video_desc_result = results.get('video_description', {})
-                
-                return {
-                    'success': True,
-                    'video_url': video_url,
-                    'duration_seconds': duration_seconds,
-                    'audio_analysis': audio_result,
-                    'speech_detected': audio_result.get('successful_segments', 0) > 0,
-                    'transcript': audio_result.get('combined_transcript', ''),
-                    'detected_language': audio_result.get('detected_language', 'unknown'),
-                    'video_description': video_desc_result.get('video_summary', ''),
-                    'frames_analyzed': video_desc_result.get('frames_analyzed', 0)
-                }
+                    def extract_subtitles():
+                        try:
+                            # Use existing subtitle detection system (same as useMonitoring)
+                            from shared.lib.utils.ai_utils import call_vision_ai
+                            
+                            # Analyze middle frame for subtitles (frame 5 of 10)
+                            middle_frame_path = os.path.join(temp_frames_dir, f"frame_005.jpg")
+                            if os.path.exists(middle_frame_path):
+                                subtitle_result = call_vision_ai(
+                                    image_path=middle_frame_path,
+                                    prompt="Are there subtitles visible in this image? If yes, extract the text. If no, respond with 'No subtitles detected'."
+                                )
+                                
+                                if subtitle_result and subtitle_result.get('success'):
+                                    subtitle_text = subtitle_result.get('response', '')
+                                    has_subtitles = 'no subtitles' not in subtitle_text.lower()
+                                    
+                                    results['subtitles'] = {
+                                        'success': True,
+                                        'subtitles_detected': has_subtitles,
+                                        'extracted_text': subtitle_text if has_subtitles else '',
+                                        'confidence': 0.9 if has_subtitles else 0.1
+                                    }
+                                else:
+                                    results['subtitles'] = {'success': False, 'error': 'Subtitle analysis failed'}
+                            else:
+                                results['subtitles'] = {'success': False, 'error': 'Middle frame not found'}
+                        except Exception as e:
+                            results['subtitles'] = {'success': False, 'error': str(e)}
+                    
+                    # Run 3 analyses in parallel
+                    with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+                        futures = [
+                            executor.submit(extract_audio),
+                            executor.submit(extract_video_descriptions),
+                            executor.submit(extract_subtitles)
+                        ]
+                        for future in concurrent.futures.as_completed(futures):
+                            future.result()  # Wait for completion
+                    
+                    # Store results for report generation
+                    analysis_data = {
+                        'video_url': video_url,
+                        'duration_seconds': duration_seconds,
+                        'timestamp': datetime.now().isoformat(),
+                        'host_name': getattr(self, 'host_name', 'unknown'),
+                        'device_id': getattr(self, 'device_name', 'unknown'),
+                        'audio_analysis': results.get('audio', {}),
+                        'video_description': results.get('video_description', {}),
+                        'subtitle_analysis': results.get('subtitles', {}),
+                    }
+                    
+                    # Store in R2 for report generation (like heatmap)
+                    try:
+                        from shared.lib.utils.r2_utils import upload_json_to_r2
+                        analysis_filename = f"restart_analysis_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+                        analysis_url = upload_json_to_r2(analysis_data, analysis_filename, 'restart-reports')
+                        print(f"Restart analysis stored: {analysis_url}")
+                    except Exception as e:
+                        print(f"Failed to store restart analysis: {e}")
+                    
+                except Exception as e:
+                    print(f"Background analysis failed: {e}")
             
+            # Start background analysis (non-blocking)
+            threading.Thread(target=background_analysis, daemon=True).start()
+            
+            # Return video URL immediately for fast display
             return video_url
                 
         except Exception as e:

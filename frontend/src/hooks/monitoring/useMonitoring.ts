@@ -179,21 +179,36 @@ export const useMonitoring = ({
         }
       }
 
+        // Load the JSON analysis to get the real timestamp from MCM metadata
+        let jsonAnalysis = null;
+        let realTimestamp = latestData.timestamp; // fallback
+        
+        try {
+          const jsonResponse = await fetch(latestData.jsonUrl);
+          if (jsonResponse.ok) {
+            jsonAnalysis = await jsonResponse.json();
+            realTimestamp = jsonAnalysis.timestamp || latestData.timestamp;
+          }
+        } catch (error) {
+          console.warn('[useMonitoring] Failed to load JSON for timestamp:', error);
+        }
+
         // Add frame with all analysis results to buffer
         setCurrentImageUrl(latestData.imageUrl);
         
         setFrames((prev) => {
           // Check if we already have this timestamp to avoid duplicates
-          const existingFrame = prev.find(frame => frame.timestamp === latestData.timestamp);
+          const existingFrame = prev.find(frame => frame.timestamp === realTimestamp);
           if (existingFrame) {
-            console.log('[useMonitoring] Frame already exists, skipping:', latestData.timestamp);
+            console.log('[useMonitoring] Frame already exists, skipping:', realTimestamp);
             return prev;
           }
 
           const newFrames = [...prev, { 
-            timestamp: latestData.timestamp, 
+            timestamp: realTimestamp, 
             imageUrl: latestData.imageUrl, 
             jsonUrl: latestData.jsonUrl,
+            analysis: jsonAnalysis,
             subtitleAnalysis,
             languageMenuAnalysis,
             aiDescription,
@@ -219,7 +234,7 @@ export const useMonitoring = ({
           return updatedFrames;
         });
 
-        console.log('[useMonitoring] Frame with AI analysis added:', latestData.timestamp);
+        console.log('[useMonitoring] Frame with AI analysis added:', realTimestamp);
     } catch (error) {
       console.error('[useMonitoring] Autonomous AI analysis failed:', error);
     } finally {

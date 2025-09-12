@@ -38,15 +38,23 @@ export const MonitoringOverlay: React.FC<MonitoringOverlayProps> = ({
   const subtitles = subtitleAnalysis;
   const languageMenu = languageMenuAnalysis;
 
-  // Format timestamp for display (YYYYMMDDHHMMSS -> HH:MM:SS)
+  // Format timestamp for display (ISO format -> HH:MM:SS)
   const formatTimestamp = (timestamp?: string): string => {
-    if (!timestamp || timestamp.length !== 14) return 'Unknown';
+    if (!timestamp) return 'Unknown';
     
-    const hour = timestamp.substring(8, 10);
-    const minute = timestamp.substring(10, 12);
-    const second = timestamp.substring(12, 14);
-    
-    return `${hour}:${minute}:${second}`;
+    try {
+      const date = new Date(timestamp);
+      if (isNaN(date.getTime())) return 'Unknown';
+      
+      return date.toLocaleTimeString('en-US', { 
+        hour12: false,
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      });
+    } catch (error) {
+      return 'Unknown';
+    }
   };
 
   // Always render overlay with empty state when no analysis

@@ -56,7 +56,6 @@ export const MonitoringPlayer: React.FC<MonitoringPlayerProps> = ({
     handlePlayPause,
     handleSliderChange,
     errorTrendData,
-    isPerformingAIAnalysis,
     currentSubtitleAnalysis,
     currentLanguageMenuAnalysis,
     currentAIDescription,
@@ -397,33 +396,6 @@ export const MonitoringPlayer: React.FC<MonitoringPlayerProps> = ({
               {isPlaying ? <Pause /> : <PlayArrow />}
             </IconButton>
 
-            {/* AI Analysis Status Indicator */}
-            {isPerformingAIAnalysis && (
-              <Box
-                sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 1,
-                  backgroundColor: 'rgba(0,150,255,0.2)',
-                  border: '1px solid rgba(0,150,255,0.3)',
-                  borderRadius: 1,
-                  px: 1,
-                  py: 0.5,
-                }}
-              >
-                <CircularProgress size={16} sx={{ color: '#ffffff' }} />
-                <Typography
-                  variant="caption"
-                  sx={{
-                    color: '#ffffff',
-                    fontSize: '0.7rem',
-                    textShadow: '1px 1px 2px rgba(0,0,0,0.8)',
-                  }}
-                >
-                  AI Analyzing...
-                </Typography>
-              </Box>
-            )}
           </Box>
 
           {/* Frame counter */}
@@ -445,7 +417,7 @@ export const MonitoringPlayer: React.FC<MonitoringPlayerProps> = ({
             sx={{
               position: 'absolute',
               bottom: 12,
-              left: '120px', // Space for play button + AI indicator
+              left: '80px', // Space for play button only
               right: '80px',
             }}
           >
