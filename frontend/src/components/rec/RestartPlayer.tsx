@@ -234,6 +234,8 @@ export const RestartPlayer: React.FC<RestartPlayerProps> = ({ host, device, incl
         onSubtitleFontSizeChange={setSubtitleFontSize}
         videoDescription={analysisResults.videoDescription || undefined}
         audioTranscript={analysisResults.audio?.combined_transcript}
+        audioAnalysis={analysisResults.audio || undefined}
+        subtitleData={analysisResults.subtitles || undefined}
       />
     </Box>
   );

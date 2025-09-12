@@ -26,6 +26,14 @@ interface RestartSettingsPanelProps {
     execution_time_ms: number;
   };
   audioTranscript?: string;
+  audioAnalysis?: {
+    success: boolean;
+    combined_transcript: string;
+    detected_language: string;
+    speech_detected: boolean;
+    confidence: number;
+    execution_time_ms: number;
+  };
   subtitleData?: {
     success: boolean;
     subtitles_detected: boolean;
@@ -54,6 +62,7 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
   onSubtitleFontSizeChange,
   videoDescription,
   audioTranscript,
+  audioAnalysis,
   subtitleData,
 }) => {
   const [isTranscriptExpanded, setIsTranscriptExpanded] = useState(false);
@@ -387,11 +396,11 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
                 borderRadius: 1,
                 borderLeft: '3px solid #FF9800'
               }}>
-                <strong>Original (English):</strong><br />
+                <strong>Original ({audioAnalysis?.detected_language || 'Unknown'}, {Math.round((audioAnalysis?.confidence || 0) * 100)}% confidence):</strong><br />
                 {audioTranscript || 'No transcript available'}
               </Typography>
               
-              {summaryLanguage !== 'en' && audioTranscript && (
+              {summaryLanguage !== (audioAnalysis?.detected_language?.toLowerCase() || 'en') && audioTranscript && (
                 <Typography variant="body2" sx={{ 
                   p: 1.5, 
                   mt: 1,
@@ -402,7 +411,7 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
                   borderLeft: '3px solid #4CAF50'
                 }}>
                   <strong>Translated ({summaryLanguage.toUpperCase()}):</strong><br />
-                  {translateText(audioTranscript, summaryLanguage, 'en')}
+                  {translateText(audioTranscript, summaryLanguage, audioAnalysis?.detected_language?.toLowerCase() || 'en')}
                 </Typography>
               )}
             </Box>
