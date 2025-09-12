@@ -292,15 +292,21 @@ def send_ping_to_server():
     """Send ping to server to maintain registration."""
     global client_registration_state
     
-    if not client_registration_state.get('registered'):
-        return
-    
     # Prevent duplicate pings within 5 seconds
     current_time = time.time()
     if current_time - client_registration_state.get('last_ping_time', 0) < 5:
         return
     
     client_registration_state['last_ping_time'] = current_time
+    
+    # If not registered, try to register first
+    if not client_registration_state.get('registered'):
+        print("🔄 [HOST] Not registered - attempting registration before ping...")
+        if register_host_with_server():
+            print("✅ [HOST] Registration successful, continuing with ping...")
+        else:
+            print("❌ [HOST] Registration failed, will retry next ping cycle")
+            return
     
     try:
         host = get_host()
@@ -346,8 +352,33 @@ def send_ping_to_server():
                 # Reset failure counter on success
                 client_registration_state['ping_failures'] = 0
                 print(f"📡 [HOST] Ping sent successfully at {time.strftime('%H:%M:%S')}")
+            elif response.status_code == 404:
+                # Check if server says we're not registered (server restart scenario)
+                try:
+                    response_data = response.json()
+                    if response_data.get('status') == 'not_registered':
+                        print("🔄 [HOST] Server reports host not registered - attempting immediate re-registration...")
+                        # Don't count as failure, just try to re-register immediately
+                        if register_host_with_server():
+                            print("✅ [HOST] Immediate re-registration successful!")
+                            client_registration_state['ping_failures'] = 0
+                            return
+                        else:
+                            print("❌ [HOST] Immediate re-registration failed")
+                except:
+                    pass  # Fall through to normal failure handling
+                
+                # Count as normal failure if not a "not_registered" response
+                client_registration_state['ping_failures'] += 1
+                failure_count = client_registration_state['ping_failures']
+                print(f"⚠️ [HOST] Ping failed ({failure_count}/3): {response.status_code}")
+                
+                # After 3 failures, try to reconnect
+                if failure_count >= 3:
+                    print("🔄 [HOST] 3 ping failures - attempting reconnection...")
+                    try_reconnect()
             else:
-                # Count failure
+                # Count failure for other status codes
                 client_registration_state['ping_failures'] += 1
                 failure_count = client_registration_state['ping_failures']
                 print(f"⚠️ [HOST] Ping failed ({failure_count}/3): {response.status_code}")
@@ -358,6 +389,18 @@ def send_ping_to_server():
                     try_reconnect()
                 
     except Exception as e:
+        # Check if this is a connection error that might indicate server restart
+        error_str = str(e).lower()
+        if any(keyword in error_str for keyword in ['connection refused', 'connection error', 'timeout']):
+            print(f"🔄 [HOST] Connection error detected (possible server restart): {str(e)}")
+            # Try immediate re-registration for connection errors
+            if register_host_with_server():
+                print("✅ [HOST] Immediate re-registration after connection error successful!")
+                client_registration_state['ping_failures'] = 0
+                return
+            else:
+                print("❌ [HOST] Immediate re-registration after connection error failed")
+        
         # Count failure for network errors too
         client_registration_state['ping_failures'] += 1
         failure_count = client_registration_state['ping_failures']
@@ -373,8 +416,8 @@ def try_reconnect():
     """Simple reconnection: try 10 times with 20s delay"""
     global client_registration_state
     
-    # Mark as unregistered to stop normal pings
-    client_registration_state['registered'] = False
+    # Don't disable pings - let the ping function handle re-registration
+    print("🔄 [HOST] Starting reconnection attempts...")
     
     for attempt in range(1, 11):  # 1 to 10
         print(f"🔍 [HOST] Reconnection attempt {attempt}/10")
@@ -387,7 +430,7 @@ def try_reconnect():
             print("⏳ [HOST] Waiting 20 seconds before next attempt...")
             time.sleep(20)
     
-    print("❌ [HOST] Failed to reconnect after 10 attempts")
+    print("❌ [HOST] Failed to reconnect after 10 attempts - ping will continue trying")
 
 
 def unregister_from_server():
