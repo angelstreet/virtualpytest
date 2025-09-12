@@ -70,6 +70,7 @@ export const MonitoringOverlay: React.FC<MonitoringOverlayProps> = ({
           zIndex: 20,
           p: 2,
           borderRadius: 1,
+          backgroundColor: 'rgba(0, 0, 0, 0.7)',
           pointerEvents: 'none', // Don't interfere with clicks
           minWidth: 200,
           ...sx,
