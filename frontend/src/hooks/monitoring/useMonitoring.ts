@@ -396,7 +396,10 @@ export const useMonitoring = ({
 
         setFrames(current => {
           const newFrames = [...current, frameRef].slice(-100);
-          setCurrentIndex(newFrames.length - 1);
+          // Only auto-advance to latest if user is not manually browsing
+          if (!userSelectedFrame && isPlaying) {
+            setCurrentIndex(newFrames.length - 1);
+          }
           return newFrames;
         });
 
@@ -405,20 +408,21 @@ export const useMonitoring = ({
     }, 2000); // 0.5 FPS (2-second intervals)
 
     return () => clearInterval(displayInterval);
-  }, [isInitialLoading]);
+  }, [isInitialLoading, userSelectedFrame, isPlaying]);
 
-  // Auto-play functionality
+  // Auto-play functionality - only advances when at the latest frame
   useEffect(() => {
     let interval: NodeJS.Timeout;
     if (isPlaying && frames.length > 1 && !userSelectedFrame) {
       interval = setInterval(() => {
         setCurrentIndex((prev) => {
-          const next = prev + 1;
-          if (next >= frames.length) {
-            // Stay on latest frame when we reach the end
+          // Only auto-advance if we're already at the latest frame
+          if (prev === frames.length - 1) {
+            // Stay at latest frame (will advance when new frames are added)
             return frames.length - 1;
           }
-          return next;
+          // If user is viewing historical frames, don't auto-advance
+          return prev;
         });
       }, 2000); // 2 seconds per frame
     }
@@ -655,15 +659,19 @@ export const useMonitoring = ({
   // Handlers
   const handlePlayPause = useCallback(() => {
     if (!isPlaying) {
-      // When starting play, reset to follow new images automatically
+      // When starting play, only reset to latest if user wants to follow live
+      // Don't force them to latest frame if they're browsing history
       setUserSelectedFrame(false);
-      setCurrentIndex(frames.length - 1);
+      // Only jump to latest if they're close to it (within 2 frames)
+      if (frames.length > 0 && currentIndex >= frames.length - 3) {
+        setCurrentIndex(frames.length - 1);
+      }
     } else {
       // When pausing, mark as user-selected to stop auto-following
       setUserSelectedFrame(true);
     }
     setIsPlaying(!isPlaying);
-  }, [isPlaying, frames.length]);
+  }, [isPlaying, frames.length, currentIndex]);
 
   const handleSliderChange = useCallback((_event: Event, newValue: number | number[]) => {
     const index = newValue as number;
