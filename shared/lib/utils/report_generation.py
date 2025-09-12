@@ -411,8 +411,8 @@ def generate_and_upload_restart_report(
     timestamp: str = None
 ) -> Dict[str, str]:
     """
-    Generate HTML report for restart video and upload to R2 storage.
-    Follows the same pattern as script reports but for restart video functionality.
+    Generate HTML report for restart video using dedicated restart video template.
+    Creates a clean video player interface with AI analysis results.
     
     Args:
         host_info: Dict with host_name
@@ -429,65 +429,33 @@ def generate_and_upload_restart_report(
         print(f"[@utils:report_utils:generate_and_upload_restart_report] Starting restart report generation...")
         
         from .cloudflare_utils import upload_restart_report
+        from .restart_video_template import create_restart_video_template
         from datetime import datetime
+        import json
         
         if not timestamp:
             timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
         
-        # Create restart video report data structure
-        report_data = {
-            'report_type': 'restart_video',
-            'script_name': 'Restart Video Analysis',
-            'device_info': device_info,
-            'host_info': host_info,
-            'execution_time': int(processing_time * 1000),  # Convert to milliseconds
-            'success': True,
-            'userinterface_name': 'restart_video',
-            'execution_timestamp': timestamp,
-            'total_steps': 1,
-            'successful_steps': 1,
-            'failed_steps': 0,
-            'total_verifications': 0,
-            'passed_verifications': 0,
-            'failed_verifications': 0,
-            'step_results': [{
-                'step_number': 1,
-                'success': True,
-                'message': 'Restart video generation and AI analysis',
-                'execution_time_ms': int(processing_time * 1000),
-                'start_time': datetime.now().strftime('%H:%M:%S'),
-                'end_time': datetime.now().strftime('%H:%M:%S'),
-                'from_node': 'Video Generation',
-                'to_node': 'Analysis Complete',
-                'actions': [{
-                    'command': 'generateRestartVideo',
-                    'params': {'duration_seconds': 10},
-                    'label': 'Generate 10-second restart video with AI analysis'
-                }],
-                'verifications': [],
-                'verification_results': [],
-                'restart_video_data': {
-                    'video_url': video_url,
-                    'analysis_data': analysis_data,
-                    'processing_time_seconds': processing_time
-                }
-            }],
-            'screenshot_paths': [],
-            'error_message': '',
-            'execution_summary': f'Generated restart video with comprehensive AI analysis in {processing_time:.1f}s',
-            'test_video_url': video_url,  # The restart video itself
-            'script_result_id': None,
-            'custom_data': {
-                'restart_video_url': video_url,
-                'audio_analysis': analysis_data.get('audio_analysis', {}),
-                'subtitle_analysis': analysis_data.get('subtitle_analysis', {}),
-                'video_analysis': analysis_data.get('video_analysis', {}),
-                'processing_time_seconds': processing_time
-            }
+        # Extract analysis results for template
+        audio_analysis = analysis_data.get('audio_analysis', {})
+        subtitle_analysis = analysis_data.get('subtitle_analysis', {})
+        video_analysis = analysis_data.get('video_analysis', {})
+        
+        # Prepare template data
+        template_data = {
+            'host_name': host_info.get('host_name', 'Unknown Host'),
+            'device_name': device_info.get('device_name', 'Unknown Device'),
+            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            'video_url': video_url,
+            'audio_transcript': audio_analysis.get('combined_transcript', 'No audio transcript available'),
+            'subtitle_text': subtitle_analysis.get('extracted_text', 'No subtitles detected'),
+            'video_summary': video_analysis.get('video_summary', 'Video analysis pending'),
+            'analysis_data_json': json.dumps(analysis_data, indent=2)
         }
         
-        # Generate HTML report using the same template as script reports
-        html_content = generate_validation_report(report_data)
+        # Generate HTML using dedicated restart video template
+        html_template = create_restart_video_template()
+        html_content = html_template.format(**template_data)
         
         # Upload report to R2 using timestamp-based structure
         upload_result = upload_restart_report(
