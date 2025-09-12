@@ -357,9 +357,17 @@ export const useMonitoring = ({
     // Fetch initial frame immediately
     fetchLatestFrame();
 
-    // Set up interval for continuous monitoring
-    const interval = setInterval(fetchLatestFrame, 3000); // Fetch every 3 seconds
-    return () => clearInterval(interval);
+    // Set up continuous polling - no delay since we wait for AI analysis
+    const startContinuousPolling = () => {
+      const poll = async () => {
+        await fetchLatestFrame();
+        // Immediately poll for next frame after current one completes
+        setTimeout(poll, 100); // Small delay to prevent overwhelming the server
+      };
+      poll();
+    };
+    
+    startContinuousPolling();
   }, [
     fetchLatestMonitoringData,
     isInitialLoading,

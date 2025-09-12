@@ -274,7 +274,7 @@ export const RestartPlayer: React.FC<RestartPlayerProps> = ({ host, device, incl
       {/* Video Description Panel */}
       <VideoDescriptionPanel
         videoDescription={videoDescription}
-        framesAnalyzed={framesAnalyzed}
+        framesAnalyzed={10}
       />
     </Box>
   );
