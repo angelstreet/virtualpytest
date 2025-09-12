@@ -76,11 +76,11 @@ def take_control():
         except Exception as e:
             print(f"[@route:take_control] Remote controller error: {e}")
         
-        # Check if at least one controller is available
-        if not av_available and not remote_available:
+        # Check if AV controller is available (remote is optional)
+        if not av_available:
             return jsonify({
                 'success': False,
-                'error': f'No working controllers found for device {device_id}. Need at least AV or remote controller.'
+                'error': f'AV controller not available for device {device_id}. Cannot stream video.'
             })
         
         # Controllers are ready
