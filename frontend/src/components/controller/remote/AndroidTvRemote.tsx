@@ -64,7 +64,7 @@ export const AndroidTvRemote = React.memo(
       if (streamContainerDimensions) {
         // Modal context: use the modal's stream container height
         // No disconnect button in modal, just reserve space for header (30px)
-        availableHeight = streamContainerDimensions.height - 30;
+        availableHeight = streamContainerDimensions.height - 20;
         console.log(
           `[@component:AndroidTvRemote] Using modal container height: ${streamContainerDimensions.height}, available: ${availableHeight}`,
         );

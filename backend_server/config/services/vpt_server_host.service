@@ -20,8 +20,5 @@ StandardError=journal
 Environment=HOST_NAME=sunri-pi1
 Environment=PATH=/usr/local/bin:/usr/bin:/bin
 
-# Security
-NoNewPrivileges=true
-
 [Install]
 WantedBy=multi-user.target
