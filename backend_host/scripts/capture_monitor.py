@@ -112,7 +112,7 @@ def main():
                 if issues:
                     logger.info(f"[{capture_folder}] Issues detected: {issues}")
                 
-                incident_manager.process_detection(capture_folder, capture_folder, detection_result, host_name)
+                incident_manager.process_detection(capture_folder, detection_result, host_name)
                 
                 # Mark frame as analyzed
                 json_file = frame_path.replace('.jpg', '.json')

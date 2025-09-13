@@ -91,10 +91,10 @@ class IncidentManager:
         
         return {'device_name': capture_folder, 'stream_path': None, 'capture_path': None}
     
-    def create_incident(self, device_id, capture_folder, issue_type, host_name, analysis_result=None):
+    def create_incident(self, capture_folder, issue_type, host_name, analysis_result=None):
         """Create new incident in DB using original working method"""
         try:
-            logger.info(f"[{device_id}] DB INSERT: Creating {issue_type} incident")
+            logger.info(f"[{capture_folder}] DB INSERT: Creating {issue_type} incident")
             
             # Get device info from .env by matching capture folder
             device_info = self.get_device_info_from_capture_folder(capture_folder)
@@ -137,30 +137,30 @@ class IncidentManager:
                 if last_3_filenames:
                     from datetime import datetime
                     current_time = datetime.now().isoformat()
-                    r2_urls = self.upload_freeze_frames_to_r2(last_3_filenames, last_3_thumbnails, device_id, current_time)
+                    r2_urls = self.upload_freeze_frames_to_r2(last_3_filenames, last_3_thumbnails, capture_folder, current_time)
                     if r2_urls:
                         enhanced_metadata['r2_images'] = r2_urls
             
             # Call database exactly as before
             result = create_alert_safe(
                 host_name=host_name,
-                device_id=device_id,
+                device_id=capture_folder,
                 incident_type=issue_type,
-                consecutive_count=1,  # Always start with 1
-                metadata=enhanced_metadata,  # NOW WITH RICH DATA AND IMAGES!
-                device_name=device_name  # Add device_name like metrics system
+                consecutive_count=1,
+                metadata=enhanced_metadata,
+                device_name=device_name
             )
             
             if result.get('success'):
                 alert_id = result.get('alert_id')
-                logger.info(f"[{device_id}] DB INSERT SUCCESS: Created alert {alert_id}")
+                logger.info(f"[{capture_folder}] DB INSERT SUCCESS: Created alert {alert_id}")
                 return alert_id
             else:
-                logger.error(f"[{device_id}] DB INSERT FAILED: {result.get('error')}")
+                logger.error(f"[{capture_folder}] DB INSERT FAILED: {result.get('error')}")
                 return None
             
         except Exception as e:
-            logger.error(f"[{device_id}] DB ERROR: Failed to create {issue_type} incident: {e}")
+            logger.error(f"[{capture_folder}] DB ERROR: Failed to create {issue_type} incident: {e}")
             return None
     
     def resolve_incident(self, device_id, incident_id, issue_type):
@@ -188,9 +188,9 @@ class IncidentManager:
             logger.error(f"[{device_id}] DB ERROR: Failed to resolve incident {incident_id}: {e}")
             return False
     
-    def process_detection(self, device_id, capture_folder, detection_result, host_name):
+    def process_detection(self, capture_folder, detection_result, host_name):
         """Process detection result and update state"""
-        device_state = self.get_device_state(device_id)
+        device_state = self.get_device_state(capture_folder)
         active_incidents = device_state['active_incidents']
         
         # Check each issue type
@@ -202,14 +202,14 @@ class IncidentManager:
             was_active = issue_type in active_incidents
             
             if is_detected and not was_active:
-                incident_id = self.create_incident(device_id, capture_folder, issue_type, host_name, detection_result)
+                incident_id = self.create_incident(capture_folder, issue_type, host_name, detection_result)
                 if incident_id:
                     active_incidents[issue_type] = incident_id
                     device_state['state'] = INCIDENT
                     
             elif not is_detected and was_active:
                 incident_id = active_incidents[issue_type]
-                self.resolve_incident(device_id, incident_id, issue_type)
+                self.resolve_incident(capture_folder, incident_id, issue_type)
                 del active_incidents[issue_type]
                 
                 if not active_incidents:
