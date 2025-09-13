@@ -1,4 +1,4 @@
-import { Box, FormControl, IconButton, InputLabel, MenuItem, Select, SelectChangeEvent, Tooltip } from '@mui/material';
+import { Box, FormControl, IconButton, InputLabel, MenuItem, Select, SelectChangeEvent, Tooltip, Typography } from '@mui/material';
 import { OpenInNew } from '@mui/icons-material';
 import React, { useState } from 'react';
 
@@ -71,15 +71,20 @@ const GrafanaDashboard: React.FC = () => {
           </Select>
         </FormControl>
         
-        <Tooltip title="Open Grafana in new tab">
-          <IconButton
-            onClick={() => window.open(`${grafanaBaseUrl}/`, '_blank')}
-            color="primary"
-            size="medium"
-          >
-            <OpenInNew />
-          </IconButton>
-        </Tooltip>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Typography variant="body2" color="textSecondary">
+            Grafana Dashboard
+          </Typography>
+          <Tooltip title="Open Grafana in new tab">
+            <IconButton
+              onClick={() => window.open(`${grafanaBaseUrl}/dashboard`, '_blank')}
+              color="primary"
+              size="medium"
+            >
+              <OpenInNew />
+            </IconButton>
+          </Tooltip>
+        </Box>
       </Box>
 
       {/* Dashboard iframe */}
