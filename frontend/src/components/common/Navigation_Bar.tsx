@@ -45,11 +45,6 @@ const NavigationBar: React.FC = () => {
 
   const monitoringItems = [
     {
-      label: 'System Monitoring',
-      path: '/monitoring/system',
-      icon: <MonitorIcon fontSize="small" />,
-    },
-    {
       label: 'Incidents',
       path: '/monitoring/incidents',
       icon: <IncidentIcon fontSize="small" />,
