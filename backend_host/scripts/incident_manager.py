@@ -66,10 +66,25 @@ class IncidentManager:
             }
         return self.device_states[device_id]
     
+    def get_device_name_from_device_id(self, device_id):
+        """Get friendly device name from device_id (same mapping as metrics system)"""
+        device_names = {
+            'device1': 'Samsung S21x',
+            'capture1': 'HDMI Capture 1', 
+            'capture3': 'Host Display',
+            'device2': 'Device 2',
+            'device3': 'Device 3',
+            'device4': 'Device 4'
+        }
+        return device_names.get(device_id, device_id)  # Fallback to device_id if not found
+    
     def create_incident(self, device_id, issue_type, host_name, analysis_result=None):
         """Create new incident in DB using original working method"""
         try:
             logger.info(f"[{device_id}] DB INSERT: Creating {issue_type} incident")
+            
+            # Get device_name from device_id (same mapping as metrics system)
+            device_name = self.get_device_name_from_device_id(device_id)
             
             # Use lazy import exactly as before
             _lazy_import_db()
@@ -119,7 +134,8 @@ class IncidentManager:
                 device_id=device_id,
                 incident_type=issue_type,
                 consecutive_count=1,  # Always start with 1
-                metadata=enhanced_metadata  # NOW WITH RICH DATA AND IMAGES!
+                metadata=enhanced_metadata,  # NOW WITH RICH DATA AND IMAGES!
+                device_name=device_name  # Add device_name like metrics system
             )
             
             if result.get('success'):

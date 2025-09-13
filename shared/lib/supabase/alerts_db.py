@@ -218,7 +218,8 @@ def create_alert(
     device_id: str,
     incident_type: str,
     consecutive_count: int = 3,
-    metadata: Optional[Dict] = None
+    metadata: Optional[Dict] = None,
+    device_name: Optional[str] = None
 ) -> Dict:
     """Create a new alert in the database."""
     try:
@@ -228,6 +229,7 @@ def create_alert(
             'id': alert_id,
             'host_name': host_name,
             'device_id': device_id,
+            'device_name': device_name,
             'incident_type': incident_type,
             'status': 'active',
             'consecutive_count': consecutive_count,
@@ -239,6 +241,7 @@ def create_alert(
         print(f"  - alert_id: {alert_id}")
         print(f"  - host_name: {host_name}")
         print(f"  - device_id: {device_id}")
+        print(f"  - device_name: {device_name}")
         print(f"  - incident_type: {incident_type}")
         print(f"  - consecutive_count: {consecutive_count}")
         
@@ -371,13 +374,15 @@ def create_alert_safe(
     device_id: str,
     incident_type: str,
     consecutive_count: int = 3,
-    metadata: Optional[Dict] = None
+    metadata: Optional[Dict] = None,
+    device_name: Optional[str] = None
 ) -> Dict:
     """Create a new alert safely - resolves any existing active alert first."""
     try:
         print(f"[@db:alerts:create_alert_safe] Creating alert safely:")
         print(f"  - host_name: {host_name}")
         print(f"  - device_id: {device_id}")
+        print(f"  - device_name: {device_name}")
         print(f"  - incident_type: {incident_type}")
         print(f"  - consecutive_count: {consecutive_count}")
         
@@ -403,7 +408,7 @@ def create_alert_safe(
                 # Continue anyway - we'll let the database constraint handle it
         
         # Step 3: Create new alert
-        return create_alert(host_name, device_id, incident_type, consecutive_count, metadata)
+        return create_alert(host_name, device_id, incident_type, consecutive_count, metadata, device_name)
         
     except Exception as e:
         print(f"[@db:alerts:create_alert_safe] Error: {str(e)}")
