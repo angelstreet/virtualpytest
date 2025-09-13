@@ -6,7 +6,6 @@ import { useRestart } from '../../hooks/pages/useRestart';
 import { Host, Device } from '../../types/common/Host_Types';
 
 import { RestartSettingsPanel } from './RestartSettingsPanel';
-import { RestartSummaryOverlay } from './RestartSummaryOverlay';
 import { RestartSubtitleOverlay } from './RestartSubtitleOverlay';
 
 // Pulsing animation for the loading indicator
@@ -124,7 +123,6 @@ export const RestartPlayer: React.FC<RestartPlayerProps> = ({ host, device, incl
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [showSummaryOverlay, setShowSummaryOverlay] = useState(false);
   const [showSubtitleOverlay, setShowSubtitleOverlay] = useState(false);
   const [showAudioTranscriptOverlay, setShowAudioTranscriptOverlay] = useState(false);
   const [summaryLanguage, setSummaryLanguage] = useState('en');
@@ -239,13 +237,6 @@ export const RestartPlayer: React.FC<RestartPlayerProps> = ({ host, device, incl
         }}
       >
 
-        {/* Summary overlay - top */}
-        {showSummaryOverlay && analysisResults.videoDescription && (
-          <RestartSummaryOverlay
-            videoRef={videoRef}
-            frameDescriptions={analysisResults.videoDescription.frame_descriptions}
-          />
-        )}
 
         {/* Subtitle overlay - bottom, covers original */}
         {showSubtitleOverlay && analysisResults.subtitles?.frame_subtitles && (
@@ -306,8 +297,6 @@ export const RestartPlayer: React.FC<RestartPlayerProps> = ({ host, device, incl
       <RestartSettingsPanel
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
-        showSummaryOverlay={showSummaryOverlay}
-        onToggleSummary={setShowSummaryOverlay}
         showSubtitleOverlay={showSubtitleOverlay}
         onToggleSubtitle={setShowSubtitleOverlay}
         showAudioTranscriptOverlay={showAudioTranscriptOverlay}

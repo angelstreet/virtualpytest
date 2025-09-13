@@ -6,14 +6,10 @@ import { buildServerUrl } from '../../utils/buildUrlUtils';
 interface RestartSettingsPanelProps {
   open: boolean;
   onClose: () => void;
-  showSummaryOverlay: boolean;
-  onToggleSummary: (show: boolean) => void;
   showSubtitleOverlay: boolean;
   onToggleSubtitle: (show: boolean) => void;
   showAudioTranscriptOverlay: boolean;
   onToggleAudioTranscript: (show: boolean) => void;
-  summaryLanguage: string;
-  onSummaryLanguageChange: (lang: string) => void;
   subtitleLanguage: string;
   onSubtitleLanguageChange: (lang: string) => void;
   audioTranscriptLanguage: string;
@@ -50,14 +46,10 @@ interface RestartSettingsPanelProps {
 export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
   open,
   onClose,
-  showSummaryOverlay,
-  onToggleSummary,
   showSubtitleOverlay,
   onToggleSubtitle,
   showAudioTranscriptOverlay,
   onToggleAudioTranscript,
-  summaryLanguage,
-  onSummaryLanguageChange,
   subtitleLanguage,
   onSubtitleLanguageChange,
   audioTranscriptLanguage,
@@ -72,7 +64,6 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
   subtitleData,
 }) => {
   const [isTranscriptExpanded, setIsTranscriptExpanded] = useState(false);
-  const [isVideoDescriptionExpanded, setIsVideoDescriptionExpanded] = useState(false);
   const [isSubtitleExpanded, setIsSubtitleExpanded] = useState(false);
   const [translatedTranscript, setTranslatedTranscript] = useState<string>('');
   const [translatedSubtitle, setTranslatedSubtitle] = useState<string>('');
@@ -228,12 +219,6 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
           borderBottom: '1px solid rgba(255,255,255,0.2)' 
         }}>
           <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.8 }}>
-            <Checkbox
-              checked={showSummaryOverlay}
-              onChange={(e) => onToggleSummary(e.target.checked)}
-              sx={{ color: '#ffffff', p: 0.5, mr: 0.5 }}
-              size="small"
-            />
             <Typography 
               variant="subtitle2" 
               sx={{ 
