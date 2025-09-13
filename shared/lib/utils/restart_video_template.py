@@ -90,152 +90,91 @@ def get_restart_video_css() -> str:
             transition: width 0.1s;
         }
 
-        .settings-panel {
+        .analysis-panel {
             width: 400px;
             background: rgba(0, 0, 0, 0.95);
             border-left: 1px solid rgba(255, 255, 255, 0.1);
-            padding: 24px;
+            padding: 20px;
             overflow-y: auto;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         }
 
-        .settings-header {
+        .full-analysis-section {
             margin-bottom: 24px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid rgba(255, 255, 255, 0.2);
         }
 
-        .settings-title {
-            font-size: 18px;
-            font-weight: 600;
-        }
-
-        .analysis-section {
-            margin-bottom: 24px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            padding-bottom: 24px;
-        }
-
-        .analysis-section:last-child {
-            border-bottom: none;
-            margin-bottom: 0;
-        }
-
-        .section-header {
-            display: flex;
-            align-items: center;
-            margin-bottom: 12px;
-            cursor: pointer;
-        }
-
-        .section-title {
+        .analysis-header {
             font-size: 14px;
             font-weight: 600;
-            margin-left: 8px;
-            flex: 1;
+            color: #4CAF50;
+            margin-bottom: 8px;
         }
-
-        .expand-icon {
-            font-size: 12px;
-            transition: transform 0.2s;
-        }
-
-        .expand-icon.expanded {
-            transform: rotate(90deg);
-        }
-
-        .checkbox {
-            width: 16px;
-            height: 16px;
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            border-radius: 2px;
-            background: transparent;
-            cursor: pointer;
-        }
-
-        .checkbox.checked {
-            background: #4CAF50;
-            border-color: #4CAF50;
-        }
-
 
         .analysis-content {
-            margin-left: 24px;
-            display: none;
-        }
-
-        .analysis-content.expanded {
-            display: block;
-        }
-
-        .analysis-text {
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 4px;
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 6px;
             padding: 12px;
             font-size: 12px;
-            line-height: 1.4;
-            margin-bottom: 8px;
-            border-left: 3px solid #2196F3;
+            line-height: 1.5;
+            color: rgba(255, 255, 255, 0.9);
+            max-height: 120px;
+            overflow-y: auto;
         }
 
-        .analysis-text.audio {
-            border-left-color: #FF9800;
+        .frame-by-frame-section {
+            margin-top: 20px;
         }
 
-        .analysis-text.subtitle {
-            border-left-color: #2196F3;
-        }
-
-        .analysis-text.translated {
-            border-left-color: #4CAF50;
-        }
-
-        .language-info {
-            font-size: 11px;
-            color: rgba(255, 255, 255, 0.7);
-            margin-bottom: 4px;
-        }
-
-        .frame-analysis-title {
-            font-size: 12px;
+        .frame-by-frame-title {
+            font-size: 16px;
             font-weight: 600;
             color: #fff;
-            margin: 16px 0 8px 0;
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
-            padding-top: 16px;
-        }
-
-        .frame-analysis-container {
-            max-height: 300px;
-            overflow-y: auto;
+            margin-bottom: 16px;
+            text-align: center;
         }
 
         .frame-item {
             background: rgba(255, 255, 255, 0.05);
-            border-radius: 4px;
-            padding: 8px;
-            margin-bottom: 6px;
-            font-size: 11px;
-            line-height: 1.4;
-            border-left: 3px solid #4CAF50;
-            cursor: pointer;
-            transition: background-color 0.2s;
-        }
-
-        .frame-item:hover {
-            background: rgba(255, 255, 255, 0.1);
+            border-radius: 6px;
+            padding: 12px;
+            margin-bottom: 12px;
+            border-left: 3px solid rgba(255, 255, 255, 0.3);
+            transition: all 0.3s ease;
         }
 
         .frame-item.active {
-            background: rgba(76, 175, 80, 0.2);
+            background: rgba(76, 175, 80, 0.15);
             border-left-color: #4CAF50;
+            box-shadow: 0 2px 8px rgba(76, 175, 80, 0.2);
         }
 
-        .frame-number {
+        .frame-header {
+            font-size: 13px;
             font-weight: 600;
             color: #4CAF50;
-            margin-bottom: 4px;
+            margin-bottom: 8px;
         }
 
-        .frame-description {
-            color: rgba(255, 255, 255, 0.9);
+        .frame-content {
+            font-size: 11px;
+            line-height: 1.4;
+        }
+
+        .frame-subtitles {
+            color: #2196F3;
+            margin-bottom: 6px;
+            font-style: italic;
+        }
+
+        .frame-summary {
+            color: rgba(255, 255, 255, 0.85);
+        }
+
+        .no-content {
+            color: rgba(255, 255, 255, 0.5);
+            font-style: italic;
         }
 
         .report-header {
@@ -331,6 +270,7 @@ def get_restart_video_js() -> str:
                 this.progressFill = document.getElementById('progress-fill');
                 
                 this.analysisData = window.ANALYSIS_DATA || {};
+                this.currentFrameIndex = 0;
                 
                 this.init();
             }
@@ -339,9 +279,7 @@ def get_restart_video_js() -> str:
                 console.log('RestartVideoReport initialized');
                 console.log('Analysis data:', this.analysisData);
                 this.setupVideoControls();
-                this.setupAnalysisToggles();
                 this.setupFrameAnalysis();
-                this.updateOverlays();
             }
             
             setupVideoControls() {
@@ -363,11 +301,12 @@ def get_restart_video_js() -> str:
                     this.progressFill.style.width = progress + '%';
                     this.timeDisplay.textContent = this.formatTime(current) + ' / ' + this.formatTime(duration);
                     
-                    this.updateOverlays();
-                    
                     // Update active frame based on current time
-                    const currentFrameIndex = Math.floor(current);
-                    this.updateActiveFrame(currentFrameIndex);
+                    const newFrameIndex = Math.floor(current);
+                    if (newFrameIndex !== this.currentFrameIndex) {
+                        this.currentFrameIndex = newFrameIndex;
+                        this.updateActiveFrame();
+                    }
                 });
                 
                 this.progressBar.addEventListener('click', (e) => {
@@ -377,129 +316,89 @@ def get_restart_video_js() -> str:
                 });
             }
             
-            setupAnalysisToggles() {
-                document.querySelectorAll('.section-header').forEach(header => {
-                    header.addEventListener('click', () => {
-                        const section = header.dataset.section;
-                        const content = document.getElementById(section + '-content');
-                        const icon = header.querySelector('.expand-icon');
-                        const checkbox = header.querySelector('.checkbox');
-                        
-                        if (content.classList.contains('expanded')) {
-                            content.classList.remove('expanded');
-                            icon.classList.remove('expanded');
-                            checkbox.classList.remove('checked');
-                            this.hideOverlay(section);
-                        } else {
-                            content.classList.add('expanded');
-                            icon.classList.add('expanded');
-                            checkbox.classList.add('checked');
-                            this.showOverlay(section);
-                        }
-                    });
-                });
-            }
-            
             setupFrameAnalysis() {
                 const frameContainer = document.getElementById('frame-analysis-container');
                 if (!frameContainer) return;
                 
-                // Get frame descriptions from analysis data
+                // Get analysis data
                 const frameDescriptions = this.analysisData.video_analysis?.frame_descriptions || [];
+                const subtitleAnalysis = this.analysisData.subtitle_analysis || {};
                 
                 if (frameDescriptions.length === 0) {
-                    frameContainer.innerHTML = '<div class="frame-item">No frame analysis available</div>';
+                    frameContainer.innerHTML = '<div class="frame-item"><div class="no-content">No frame analysis available</div></div>';
                     return;
                 }
                 
-                // Create frame items
+                // Create comprehensive frame items
                 frameDescriptions.forEach((description, index) => {
                     const frameItem = document.createElement('div');
                     frameItem.className = 'frame-item';
                     frameItem.dataset.frameIndex = index;
                     
+                    // Get subtitle for this frame (if available)
+                    const frameSubtitles = this.getFrameSubtitles(index, subtitleAnalysis);
+                    
                     frameItem.innerHTML = `
-                        <div class="frame-number">Frame ${index + 1}:</div>
-                        <div class="frame-description">${description}</div>
+                        <div class="frame-header">Frame ${index + 1}:</div>
+                        <div class="frame-content">
+                            <div class="frame-subtitles">
+                                Subtitles: ${frameSubtitles || '<span class="no-content">None detected</span>'}
+                            </div>
+                            <div class="frame-summary">
+                                Summary: ${description}
+                            </div>
+                        </div>
                     `;
                     
                     // Add click handler to seek to frame
                     frameItem.addEventListener('click', () => {
                         this.seekToFrame(index);
-                        this.updateActiveFrame(index);
                     });
                     
                     frameContainer.appendChild(frameItem);
                 });
+                
+                // Set initial active frame
+                this.updateActiveFrame();
+            }
+            
+            getFrameSubtitles(frameIndex, subtitleAnalysis) {
+                // For now, return the general subtitle text if available
+                // In a more advanced implementation, this could be frame-specific
+                if (subtitleAnalysis.extracted_text && subtitleAnalysis.extracted_text.trim()) {
+                    return subtitleAnalysis.extracted_text;
+                }
+                return null;
             }
             
             seekToFrame(frameIndex) {
-                // Assuming 1 second per frame for simplicity
-                // In real implementation, this would use actual frame timing
                 const targetTime = frameIndex;
                 if (this.video.duration && targetTime <= this.video.duration) {
                     this.video.currentTime = targetTime;
+                    this.currentFrameIndex = frameIndex;
+                    this.updateActiveFrame();
                 }
             }
             
-            updateActiveFrame(currentFrameIndex) {
+            updateActiveFrame() {
                 // Remove active class from all frames
                 document.querySelectorAll('.frame-item').forEach(item => {
                     item.classList.remove('active');
                 });
                 
                 // Add active class to current frame
-                const currentFrame = document.querySelector(`[data-frame-index="${currentFrameIndex}"]`);
+                const currentFrame = document.querySelector(`[data-frame-index="${this.currentFrameIndex}"]`);
                 if (currentFrame) {
                     currentFrame.classList.add('active');
                     
-                    // Scroll to active frame if needed
+                    // Scroll to active frame
                     const container = document.getElementById('frame-analysis-container');
                     if (container) {
-                        const containerRect = container.getBoundingClientRect();
-                        const frameRect = currentFrame.getBoundingClientRect();
-                        
-                        if (frameRect.top < containerRect.top || frameRect.bottom > containerRect.bottom) {
-                            currentFrame.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                        }
-                    }
-                }
-            }
-            
-            showOverlay(section) {
-                const overlay = document.getElementById(section + '-overlay');
-                if (overlay) {
-                    overlay.classList.remove('hidden');
-                }
-            }
-            
-            hideOverlay(section) {
-                const overlay = document.getElementById(section + '-overlay');
-                if (overlay) {
-                    overlay.classList.add('hidden');
-                }
-            }
-            
-            updateOverlays() {
-                // Update summary overlay based on video time
-                if (this.analysisData.video_analysis && this.analysisData.video_analysis.frame_descriptions) {
-                    const currentTime = this.video.currentTime;
-                    const frameIndex = Math.floor(currentTime);
-                    const descriptions = this.analysisData.video_analysis.frame_descriptions;
-                    
-                    if (frameIndex < descriptions.length) {
-                        const summaryOverlay = document.getElementById('summary-overlay');
-                        if (summaryOverlay && !summaryOverlay.classList.contains('hidden')) {
-                            summaryOverlay.textContent = descriptions[frameIndex];
-                        }
-                    }
-                }
-                
-                // Update subtitle overlay
-                if (this.analysisData.subtitle_analysis && this.analysisData.subtitle_analysis.extracted_text) {
-                    const subtitleOverlay = document.getElementById('subtitle-overlay');
-                    if (subtitleOverlay && !subtitleOverlay.classList.contains('hidden')) {
-                        subtitleOverlay.textContent = this.analysisData.subtitle_analysis.extracted_text;
+                        currentFrame.scrollIntoView({ 
+                            behavior: 'smooth', 
+                            block: 'center',
+                            inline: 'nearest'
+                        });
                     }
                 }
             }
@@ -582,49 +481,24 @@ def create_restart_video_template() -> str:
             </div>
         </div>
         
-        <!-- Settings Panel -->
-        <div class="settings-panel">
-            <div class="settings-header">
-                <div class="settings-title">Settings</div>
+        <!-- Analysis Panel -->
+        <div class="analysis-panel">
+            <!-- Full Video Analysis Section -->
+            <div class="full-analysis-section">
+                <div class="analysis-header">Video Summary (EN):</div>
+                <div class="analysis-content">{video_summary}</div>
             </div>
             
-            <!-- Video Summary Section -->
-            <div class="analysis-section">
-                <div class="section-header" data-section="summary">
-                    <div class="checkbox"></div>
-                    <div class="section-title">Video Summary</div>
-                    <div class="expand-icon">▶</div>
-                </div>
-                <div id="summary-content" class="analysis-content">
-                    <div class="analysis-text">{video_summary}</div>
-                    <div class="frame-analysis-title">Frame Analysis:</div>
-                    <div id="frame-analysis-container" class="frame-analysis-container">
-                        <!-- Frame descriptions will be populated by JavaScript -->
-                    </div>
-                </div>
+            <div class="full-analysis-section">
+                <div class="analysis-header">Audio Transcript (EN):</div>
+                <div class="analysis-content">{audio_transcript}</div>
             </div>
             
-            <!-- Subtitles Section -->
-            <div class="analysis-section">
-                <div class="section-header" data-section="subtitle">
-                    <div class="checkbox"></div>
-                    <div class="section-title">Subtitles</div>
-                    <div class="expand-icon">▶</div>
-                </div>
-                <div id="subtitle-content" class="analysis-content">
-                    <div id="subtitle-original" class="analysis-text subtitle">{subtitle_text}</div>
-                </div>
-            </div>
-            
-            <!-- Audio Transcript Section -->
-            <div class="analysis-section">
-                <div class="section-header" data-section="audio">
-                    <div class="checkbox"></div>
-                    <div class="section-title">Audio Transcript</div>
-                    <div class="expand-icon">▶</div>
-                </div>
-                <div id="audio-content" class="analysis-content">
-                    <div id="audio-original" class="analysis-text audio">{audio_transcript}</div>
+            <!-- Frame-by-Frame Analysis Section -->
+            <div class="frame-by-frame-section">
+                <div class="frame-by-frame-title">Frame Analysis</div>
+                <div id="frame-analysis-container">
+                    <!-- Frame items will be populated by JavaScript -->
                 </div>
             </div>
         </div>
