@@ -123,8 +123,8 @@ export const RestartPlayer: React.FC<RestartPlayerProps> = ({ host, device, incl
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [showSubtitleOverlay, setShowSubtitleOverlay] = useState(false);
-  const [showAudioTranscriptOverlay, setShowAudioTranscriptOverlay] = useState(false);
+  const [showSubtitleOverlay, setShowSubtitleOverlay] = useState(true);
+  const [showAudioTranscriptOverlay, setShowAudioTranscriptOverlay] = useState(true);
   const [summaryLanguage, setSummaryLanguage] = useState('en');
   const [subtitleLanguage, setSubtitleLanguage] = useState('en');
   const [audioTranscriptLanguage, setAudioTranscriptLanguage] = useState('en');
