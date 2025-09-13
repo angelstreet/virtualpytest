@@ -8,8 +8,18 @@ interface Dashboard {
 }
 
 const GrafanaDashboard: React.FC = () => {
-  // Hardcoded dashboards (excluding System Monitoring to avoid duplication)
+  // Available dashboards including System Monitoring
   const dashboards: Dashboard[] = [
+    {
+      title: 'Server Monitoring',
+      uid: 'system-monitoring',
+      slug: 'system-monitoring'
+    },
+    {
+      title: 'Host Monitoring',
+      uid: 'fe85e054-7760-4133-8118-3dfe663dee66',
+      slug: 'system-host-monitoring'
+    },
     {
       title: 'Script Results',
       uid: '2a3b060a-7820-4a6e-aa2a-adcbf5408bd3',
@@ -27,8 +37,8 @@ const GrafanaDashboard: React.FC = () => {
     }
   ];
 
-  // Default to Script Results
-  const [selectedDashboard, setSelectedDashboard] = useState<string>('2a3b060a-7820-4a6e-aa2a-adcbf5408bd3');
+  // Default to System Monitoring
+  const [selectedDashboard, setSelectedDashboard] = useState<string>('system-monitoring');
 
   // Get Grafana base URL from environment or use default
   const grafanaBaseUrl = (import.meta as any).env?.VITE_GRAFANA_URL || 'https://dev.virtualpytest.com/grafana';

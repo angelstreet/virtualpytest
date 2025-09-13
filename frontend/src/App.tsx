@@ -21,7 +21,6 @@ const DeviceManagement = React.lazy(() => import('./pages/DeviceManagement'));
 const Environment = React.lazy(() => import('./pages/Environment'));
 const Library = React.lazy(() => import('./pages/Library'));
 const Models = React.lazy(() => import('./pages/Models'));
-const SystemMonitoring = React.lazy(() => import('./pages/SystemMonitoring'));
 const GrafanaDashboard = React.lazy(() => import('./pages/GrafanaDashboard'));
 const RunTests = React.lazy(() => import('./pages/RunTests'));
 const RunCampaigns = React.lazy(() => import('./pages/RunCampaigns'));
@@ -171,7 +170,7 @@ const App: React.FC = () => {
                   <Route path="/test-execution/run-campaigns" element={<RunCampaigns />} />
 
                   {/* Monitoring Routes */}
-                  <Route path="/monitoring/system" element={<SystemMonitoring />} />
+                  <Route path="/monitoring/system" element={<GrafanaDashboard />} />
                   <Route path="/monitoring/incidents" element={<MonitoringIncidents />} />
                   <Route path="/monitoring/heatmap" element={<Heatmap />} />
                   <Route path="/monitoring/ai-queue" element={<AIQueueMonitor />} />
