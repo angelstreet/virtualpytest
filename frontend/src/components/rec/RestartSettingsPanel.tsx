@@ -221,6 +221,50 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
           </IconButton>
         </Box>
 
+        {/* Global Language Selector */}
+        <Box sx={{ 
+          pb: 1.5, 
+          mb: 1.5, 
+          borderBottom: '1px solid rgba(255,255,255,0.2)' 
+        }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Typography 
+              variant="subtitle2" 
+              sx={{ 
+                fontSize: '0.85rem', 
+                fontWeight: 600,
+                minWidth: 'fit-content'
+              }}
+            >
+              Language:
+            </Typography>
+            <Select
+              value={subtitleLanguage} // Using subtitleLanguage as the global language state
+              onChange={(e) => {
+                const newLang = e.target.value;
+                onSubtitleLanguageChange(newLang);
+                onAudioTranscriptLanguageChange(newLang);
+              }}
+              size="small"
+              sx={{ 
+                minWidth: 120, 
+                minHeight: 28,
+                fontSize: '0.75rem',
+                color: '#ffffff', 
+                '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.3)' },
+                '& .MuiSelect-select': { py: 0.5 }
+              }}
+            >
+              <MenuItem value="en" sx={{ fontSize: '0.75rem' }}>English</MenuItem>
+              <MenuItem value="es" sx={{ fontSize: '0.75rem' }}>Spanish</MenuItem>
+              <MenuItem value="fr" sx={{ fontSize: '0.75rem' }}>French</MenuItem>
+              <MenuItem value="de" sx={{ fontSize: '0.75rem' }}>German</MenuItem>
+              <MenuItem value="it" sx={{ fontSize: '0.75rem' }}>Italian</MenuItem>
+              <MenuItem value="pt" sx={{ fontSize: '0.75rem' }}>Portuguese</MenuItem>
+            </Select>
+          </Box>
+        </Box>
+
         <Box sx={{ 
           pb: 1.5, 
           mb: 1.5, 
@@ -339,24 +383,6 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
           
           <Box sx={{ display: 'flex', gap: 0.8, flexWrap: 'wrap' }}>
             <Select
-              value={subtitleLanguage}
-              onChange={(e) => onSubtitleLanguageChange(e.target.value)}
-              size="small"
-              sx={{ 
-                minWidth: 85, 
-                minHeight: 28,
-                fontSize: '0.75rem',
-                color: '#ffffff', 
-                '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.3)' },
-                '& .MuiSelect-select': { py: 0.5 }
-              }}
-            >
-              <MenuItem value="en" sx={{ fontSize: '0.75rem' }}>English</MenuItem>
-              <MenuItem value="es" sx={{ fontSize: '0.75rem' }}>Spanish</MenuItem>
-              <MenuItem value="fr" sx={{ fontSize: '0.75rem' }}>French</MenuItem>
-            </Select>
-            
-            <Select
               value={subtitleStyle}
               onChange={(e) => onSubtitleStyleChange(e.target.value)}
               size="small"
@@ -453,7 +479,6 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
               sx={{ 
                 fontSize: '0.85rem', 
                 fontWeight: 600,
-                flex: 1,
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
@@ -461,7 +486,7 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
               }}
               onClick={() => setIsTranscriptExpanded(!isTranscriptExpanded)}
             >
-              Audio Transcript
+              Audio
               {isTranslatingAudio && (
                 <CircularProgress 
                   size={12} 
@@ -483,27 +508,6 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
             )}
           </Box>
           
-          {/* Language Dropdown for Audio Transcript */}
-          <Select
-            value={audioTranscriptLanguage}
-            onChange={(e) => onAudioTranscriptLanguageChange(e.target.value)}
-            size="small"
-            sx={{ 
-              ml: 1, 
-              minHeight: 28,
-              fontSize: '0.75rem',
-              color: '#ffffff', 
-              '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.3)' },
-              '& .MuiSelect-select': { py: 0.5 }
-            }}
-          >
-            <MenuItem value="en" sx={{ fontSize: '0.75rem' }}>English</MenuItem>
-            <MenuItem value="es" sx={{ fontSize: '0.75rem' }}>Spanish</MenuItem>
-            <MenuItem value="fr" sx={{ fontSize: '0.75rem' }}>French</MenuItem>
-            <MenuItem value="de" sx={{ fontSize: '0.75rem' }}>German</MenuItem>
-            <MenuItem value="it" sx={{ fontSize: '0.75rem' }}>Italian</MenuItem>
-            <MenuItem value="pt" sx={{ fontSize: '0.75rem' }}>Portuguese</MenuItem>
-          </Select>
           
           <Collapse in={isTranscriptExpanded}>
             <Box sx={{ mt: 1 }}>
