@@ -66,30 +66,39 @@ class IncidentManager:
             }
         return self.device_states[device_id]
     
-    def get_device_name_from_device_id(self, device_id):
-        """Get device name from Host system (same way as metrics system)"""
-        try:
-            # Import here to avoid circular imports
-            from shared.lib.utils.host_utils import get_device_by_id
-            device = get_device_by_id(device_id)
-            
-            if device:
-                return device.device_name
-            else:
-                logger.warning(f"[{device_id}] Device not found in Host system, using device_id as fallback")
-                return device_id
-                
-        except Exception as e:
-            logger.error(f"[{device_id}] Error getting device name from Host system: {e}")
-            return device_id  # Fallback to device_id
+    def get_device_info_from_capture_folder(self, capture_folder):
+        """Get device info from .env by matching capture path"""
+        import os
+        capture_path = f"/var/www/html/stream/{capture_folder}"
+        
+        # Check HOST first
+        if os.getenv('HOST_VIDEO_CAPTURE_PATH') == capture_path:
+            host_name = os.getenv('HOST_NAME', 'unknown')
+            return {
+                'device_name': f"{host_name}_Host",
+                'stream_path': os.getenv('HOST_VIDEO_STREAM_PATH'),
+                'capture_path': os.getenv('HOST_VIDEO_CAPTURE_PATH')
+            }
+        
+        # Check DEVICE1-4
+        for i in range(1, 5):
+            if os.getenv(f'DEVICE{i}_VIDEO_CAPTURE_PATH') == capture_path:
+                return {
+                    'device_name': os.getenv(f'DEVICE{i}_NAME', f'device{i}'),
+                    'stream_path': os.getenv(f'DEVICE{i}_VIDEO_STREAM_PATH'),
+                    'capture_path': os.getenv(f'DEVICE{i}_VIDEO_CAPTURE_PATH')
+                }
+        
+        return {'device_name': capture_folder, 'stream_path': None, 'capture_path': None}
     
-    def create_incident(self, device_id, issue_type, host_name, analysis_result=None):
+    def create_incident(self, device_id, capture_folder, issue_type, host_name, analysis_result=None):
         """Create new incident in DB using original working method"""
         try:
             logger.info(f"[{device_id}] DB INSERT: Creating {issue_type} incident")
             
-            # Get device_name from device_id (same mapping as metrics system)
-            device_name = self.get_device_name_from_device_id(device_id)
+            # Get device info from .env by matching capture folder
+            device_info = self.get_device_info_from_capture_folder(capture_folder)
+            device_name = device_info['device_name']
             
             # Use lazy import exactly as before
             _lazy_import_db()
@@ -97,15 +106,14 @@ class IncidentManager:
                 logger.warning("Database module not available, skipping alert creation")
                 return None
             
-            # Prepare enhanced metadata with all details (SAME AS ORIGINAL)
-            # Convert booleans to JSON-serializable format
-            enhanced_metadata = {}
+            # Prepare enhanced metadata with all details
+            enhanced_metadata = {
+                'stream_path': device_info['stream_path'],
+                'capture_path': device_info['capture_path']
+            }
             if analysis_result:
                 for key, value in analysis_result.items():
-                    if isinstance(value, bool):
-                        enhanced_metadata[key] = value  # Booleans are actually JSON serializable
-                    else:
-                        enhanced_metadata[key] = value
+                    enhanced_metadata[key] = value
             
             # Add specific metadata based on incident type (SAME AS ORIGINAL)
             if analysis_result:
@@ -180,38 +188,32 @@ class IncidentManager:
             logger.error(f"[{device_id}] DB ERROR: Failed to resolve incident {incident_id}: {e}")
             return False
     
-    def process_detection(self, device_id, detection_result, host_name):
+    def process_detection(self, device_id, capture_folder, detection_result, host_name):
         """Process detection result and update state"""
         device_state = self.get_device_state(device_id)
         active_incidents = device_state['active_incidents']
         
-        # Check each issue type (SAME AS ORIGINAL)
+        # Check each issue type
         for issue_type in ['blackscreen', 'freeze', 'audio_loss']:
-            # Map detection result fields to incident types
             if issue_type == 'audio_loss':
-                is_detected = not detection_result.get('audio', True)  # audio_loss = NOT audio
+                is_detected = not detection_result.get('audio', True)
             else:
                 is_detected = detection_result.get(issue_type, False)
             was_active = issue_type in active_incidents
             
             if is_detected and not was_active:
-                # New incident
-                incident_id = self.create_incident(device_id, issue_type, host_name, detection_result)
+                incident_id = self.create_incident(device_id, capture_folder, issue_type, host_name, detection_result)
                 if incident_id:
                     active_incidents[issue_type] = incident_id
                     device_state['state'] = INCIDENT
                     
             elif not is_detected and was_active:
-                # Resolve incident
                 incident_id = active_incidents[issue_type]
                 self.resolve_incident(device_id, incident_id, issue_type)
                 del active_incidents[issue_type]
                 
-                # If no more active incidents, back to normal
                 if not active_incidents:
                     device_state['state'] = NORMAL
-        
-        logger.debug(f"[{device_id}] State: {device_state['state']}, Active: {list(active_incidents.keys())}")
 
     def upload_freeze_frames_to_r2(self, last_3_filenames, last_3_thumbnails, device_id, timestamp):
         """Upload freeze incident frames to R2 storage - EXACT COPY FROM ORIGINAL"""

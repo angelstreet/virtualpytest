@@ -32,13 +32,10 @@ def get_capture_directories():
             ]
     return [d for d in base_dirs if os.path.exists(d)]
 
-def get_device_id(capture_dir):
-    """Extract device ID from path"""
-    # /var/www/html/stream/capture1/captures -> device1
-    parent = os.path.basename(os.path.dirname(capture_dir))
-    if parent.startswith('capture'):
-        return f"device{parent[7:]}"
-    return "device-unknown"
+def get_capture_folder(capture_dir):
+    """Extract capture folder from path"""
+    # /var/www/html/stream/capture1/captures -> capture1
+    return os.path.basename(os.path.dirname(capture_dir))
 
 def find_latest_frame(capture_dir):
     """Find most recent unanalyzed frame"""
@@ -93,32 +90,29 @@ def main():
     
     logger.info(f"Monitoring {len(capture_dirs)} capture directories")
     for capture_dir in capture_dirs:
-        device_id = get_device_id(capture_dir)
-        logger.info(f"Monitoring: {capture_dir} -> {device_id}")
+        capture_folder = get_capture_folder(capture_dir)
+        logger.info(f"Monitoring: {capture_dir} -> {capture_folder}")
     
     while True:
         for capture_dir in capture_dirs:
-            device_id = get_device_id(capture_dir)
+            capture_folder = get_capture_folder(capture_dir)
             frame_path = find_latest_frame(capture_dir)
             
             if frame_path:
-                # Detect issues
                 detection_result = detect_issues(frame_path)
                 
-                # Log detection results (ONLY actual issues, not all fields)
                 issues = []
                 if detection_result.get('blackscreen', False):
                     issues.append('blackscreen')
                 if detection_result.get('freeze', False):
                     issues.append('freeze')
-                if not detection_result.get('audio', True):  # audio_loss = NOT audio
+                if not detection_result.get('audio', True):
                     issues.append('audio_loss')
                 
                 if issues:
-                    logger.info(f"[{device_id}] Issues detected: {issues}")
+                    logger.info(f"[{capture_folder}] Issues detected: {issues}")
                 
-                # Process with incident manager (pass full detection result for metadata)
-                incident_manager.process_detection(device_id, detection_result, host_name)
+                incident_manager.process_detection(capture_folder, capture_folder, detection_result, host_name)
                 
                 # Mark frame as analyzed
                 json_file = frame_path.replace('.jpg', '.json')
