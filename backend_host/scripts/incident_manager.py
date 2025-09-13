@@ -67,16 +67,21 @@ class IncidentManager:
         return self.device_states[device_id]
     
     def get_device_name_from_device_id(self, device_id):
-        """Get friendly device name from device_id (same mapping as metrics system)"""
-        device_names = {
-            'device1': 'Samsung S21x',
-            'capture1': 'HDMI Capture 1', 
-            'capture3': 'Host Display',
-            'device2': 'Device 2',
-            'device3': 'Device 3',
-            'device4': 'Device 4'
-        }
-        return device_names.get(device_id, device_id)  # Fallback to device_id if not found
+        """Get device name from Host system (same way as metrics system)"""
+        try:
+            # Import here to avoid circular imports
+            from shared.lib.utils.host_utils import get_device_by_id
+            device = get_device_by_id(device_id)
+            
+            if device:
+                return device.device_name
+            else:
+                logger.warning(f"[{device_id}] Device not found in Host system, using device_id as fallback")
+                return device_id
+                
+        except Exception as e:
+            logger.error(f"[{device_id}] Error getting device name from Host system: {e}")
+            return device_id  # Fallback to device_id
     
     def create_incident(self, device_id, issue_type, host_name, analysis_result=None):
         """Create new incident in DB using original working method"""
