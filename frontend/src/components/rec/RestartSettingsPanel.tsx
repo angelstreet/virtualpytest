@@ -1,4 +1,4 @@
-import { Box, Typography, IconButton, Slide, Paper, Checkbox, Select, MenuItem } from '@mui/material';
+import { Box, Typography, IconButton, Slide, Paper, Checkbox, Select, MenuItem, Collapse } from '@mui/material';
 import { Close as CloseIcon, ExpandMore as ExpandMoreIcon, ExpandLess as ExpandLessIcon } from '@mui/icons-material';
 import React, { useState, useEffect } from 'react';
 import { buildServerUrl } from '../../utils/buildUrlUtils';
@@ -10,6 +10,8 @@ interface RestartSettingsPanelProps {
   onToggleSubtitle: (show: boolean) => void;
   showAudioTranscriptOverlay: boolean;
   onToggleAudioTranscript: (show: boolean) => void;
+  summaryLanguage: string;
+  onSummaryLanguageChange: (lang: string) => void;
   subtitleLanguage: string;
   onSubtitleLanguageChange: (lang: string) => void;
   audioTranscriptLanguage: string;
@@ -50,6 +52,8 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
   onToggleSubtitle,
   showAudioTranscriptOverlay,
   onToggleAudioTranscript,
+  summaryLanguage: _summaryLanguage,
+  onSummaryLanguageChange: _onSummaryLanguageChange,
   subtitleLanguage,
   onSubtitleLanguageChange,
   audioTranscriptLanguage,
@@ -304,7 +308,7 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
                   </Box>
                 )}
               </Box>
-            </Collapse>
+            </Box>
           )}
         </Box>
 

@@ -1,4 +1,4 @@
-import { Box, Typography, CircularProgress, Alert, IconButton, LinearProgress, Tooltip, keyframes } from '@mui/material';
+import { Box, Typography, CircularProgress, Alert, IconButton, Tooltip, keyframes } from '@mui/material';
 import { Settings as SettingsIcon, Assessment as ReportIcon } from '@mui/icons-material';
 import React, { useEffect, useRef, useState } from 'react';
 
@@ -131,7 +131,7 @@ export const RestartPlayer: React.FC<RestartPlayerProps> = ({ host, device, incl
   const [subtitleStyle, setSubtitleStyle] = useState('yellow');
   const [subtitleFontSize, setSubtitleFontSize] = useState('medium');
   
-  const { videoUrl, isGenerating, isReady, error, analysisResults, analysisProgress, isAnalysisComplete, reportUrl } = useRestart({ 
+  const { videoUrl, isGenerating, isReady, error, analysisResults, isAnalysisComplete, reportUrl } = useRestart({ 
     host, 
     device, 
     includeAudioAnalysis 
