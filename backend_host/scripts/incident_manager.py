@@ -195,8 +195,8 @@ class IncidentManager:
     def upload_freeze_frames_to_r2(self, last_3_filenames, last_3_thumbnails, device_id, timestamp):
         """Upload freeze incident frames to R2 storage - EXACT COPY FROM ORIGINAL"""
         try:
-            # Import R2 utilities (from shared library)
-            from utils.cloudflare_utils import get_cloudflare_utils
+            # Import R2 utilities (from shared library) - EXACT COPY
+            from shared.lib.utils.cloudflare_utils import get_cloudflare_utils
             
             uploader = get_cloudflare_utils()
             if not uploader:

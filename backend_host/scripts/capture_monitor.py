@@ -25,11 +25,11 @@ logger = logging.getLogger(__name__)
 def get_capture_directories():
     """Find active capture directories"""
     base_dirs = [
-        "/var/www/html/stream/capture1/captures",
-        "/var/www/html/stream/capture2/captures", 
-        "/var/www/html/stream/capture3/captures",
-        "/var/www/html/stream/capture4/captures"
-    ]
+                "/var/www/html/stream/capture1/captures",
+                "/var/www/html/stream/capture2/captures", 
+                "/var/www/html/stream/capture3/captures",
+                "/var/www/html/stream/capture4/captures"
+            ]
     return [d for d in base_dirs if os.path.exists(d)]
 
 def get_device_id(capture_dir):
@@ -56,8 +56,35 @@ def find_latest_frame(capture_dir):
             return frame
     return None
 
+def cleanup_logs_on_startup():
+    """Clean up all monitoring log files on service restart for fresh debugging - EXACT COPY"""
+    try:
+        log_files = [
+            '/tmp/capture_monitor.log',  # This service's log
+            '/tmp/analysis.log',         # analyze_audio_video.py log
+            '/tmp/alerts.log'            # alert_system.py log
+        ]
+        
+        print(f"[@capture_monitor] Cleaning monitoring logs on service restart...")
+        
+        for log_file in log_files:
+            if os.path.exists(log_file):
+                # Truncate the file instead of deleting to avoid permission issues
+                with open(log_file, 'w') as f:
+                    f.write(f"=== LOG CLEANED ON MONITOR RESTART: {datetime.now().isoformat()} ===\n")
+                print(f"[@capture_monitor] ✓ Cleaned: {log_file}")
+            else:
+                print(f"[@capture_monitor] ○ Not found (will be created): {log_file}")
+                
+        print(f"[@capture_monitor] Log cleanup complete - fresh logs for debugging")
+                
+    except Exception as e:
+        print(f"[@capture_monitor] Warning: Could not clean log files: {e}")
+
 def main():
     """Main monitoring loop"""
+    cleanup_logs_on_startup()  # Clean logs on startup - EXACT COPY
+    
     logger.info("Starting simple incident monitor...")
     
     host_name = os.getenv('USER', 'unknown')
@@ -78,8 +105,15 @@ def main():
                 # Detect issues
                 detection_result = detect_issues(frame_path)
                 
-                # Log detection results
-                issues = [k for k, v in detection_result.items() if v]
+                # Log detection results (ONLY actual issues, not all fields)
+                issues = []
+                if detection_result.get('blackscreen', False):
+                    issues.append('blackscreen')
+                if detection_result.get('freeze', False):
+                    issues.append('freeze')
+                if not detection_result.get('audio', True):  # audio_loss = NOT audio
+                    issues.append('audio_loss')
+                
                 if issues:
                     logger.info(f"[{device_id}] Issues detected: {issues}")
                 
@@ -92,6 +126,6 @@ def main():
                     f.write('{"analyzed": true}')
         
         time.sleep(2)  # Check every 2 seconds
-
+        
 if __name__ == '__main__':
-    main()
+    main() 
