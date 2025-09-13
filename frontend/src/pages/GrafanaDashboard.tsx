@@ -73,7 +73,7 @@ const GrafanaDashboard: React.FC = () => {
         
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Typography variant="body2" color="textSecondary">
-            Grafana Dashboard
+            Grafana Dashboards
           </Typography>
           <Tooltip title="Open Grafana in new tab">
             <IconButton
