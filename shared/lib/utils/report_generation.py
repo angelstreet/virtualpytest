@@ -459,14 +459,12 @@ def generate_and_upload_restart_report(
         template_data = {
             'host_name': host_info.get('host_name', 'Unknown Host'),
             'device_name': device_info.get('device_name', 'Unknown Device'),
-            'timestamp': datetime.now().strftime('%d-%m-%Y %H:%M:%S'),  # Use DD-MM-YYYY format as requested
+            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
             'video_url': r2_video_url,  # Use R2 URL instead of local host URL
             'audio_transcript': audio_analysis.get('combined_transcript', 'No audio transcript available'),
             'subtitle_text': subtitle_analysis.get('extracted_text', 'No subtitles detected'),
             'video_summary': video_analysis.get('video_summary', 'Video analysis pending'),
-            'analysis_data_json': json.dumps(analysis_data),  # Remove indent to make it compact for JavaScript
-            'description': 'Restart Video Analysis',  # Add missing template variable
-            'mins': '2-3'  # Add missing template variable for AI analysis time
+            'analysis_data_json': json.dumps(analysis_data)  # Remove indent to make it compact for JavaScript
         }
         
         # Generate HTML using dedicated restart video template
