@@ -521,22 +521,12 @@ def generate_restart_video():
         
         if result and result.get('success'):
             # Extract only the video generation parts for the 4-call architecture
-            # Also store the full result for other endpoints to use
-            analysis_data = result.get('analysis_data', {})
-            video_id = analysis_data.get('video_id')
-            
-            # Store the full analysis data in a simple cache for other endpoints
-            if video_id and not hasattr(generate_restart_video, '_analysis_cache'):
-                generate_restart_video._analysis_cache = {}
-            if video_id:
-                generate_restart_video._analysis_cache[video_id] = result
-            
             return jsonify({
                 'success': True,
                 'video_url': result.get('video_url'),
-                'video_id': video_id,
-                'screenshot_urls': analysis_data.get('screenshot_urls', []),
-                'segment_count': analysis_data.get('segment_count', 0)
+                'video_id': result.get('analysis_data', {}).get('video_id'),
+                'screenshot_urls': result.get('analysis_data', {}).get('screenshot_urls', []),
+                'segment_count': result.get('analysis_data', {}).get('segment_count', 0)
             })
         else:
             return jsonify({'success': False, 'error': 'Video generation failed'}), 500
@@ -570,21 +560,6 @@ def analyze_restart_audio():
         device_id = data.get('device_id', 'device1')
         video_id = data.get('video_id')
         
-        if not video_id:
-            return jsonify({'success': False, 'error': 'video_id is required'}), 400
-        
-        # Try to get cached analysis data from video generation
-        if hasattr(generate_restart_video, '_analysis_cache') and video_id in generate_restart_video._analysis_cache:
-            cached_result = generate_restart_video._analysis_cache[video_id]
-            audio_analysis = cached_result.get('analysis_data', {}).get('audio_analysis', {})
-            
-            if audio_analysis:
-                return jsonify({
-                    'success': True,
-                    'audio_analysis': audio_analysis
-                })
-        
-        # Fallback to re-analysis if no cache
         av_controller = get_controller(device_id, 'av')
         if not av_controller:
             return jsonify({'success': False, 'error': f'No AV controller for {device_id}'}), 404
