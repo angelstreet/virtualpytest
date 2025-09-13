@@ -565,27 +565,33 @@ class FFmpegCaptureController(AVControllerInterface):
             local_paths = [convertHostUrlToLocalPath(url) if url.startswith(('http://', 'https://')) else url for url in screenshot_urls]
             
             video_controller = VideoVerificationController(self.device_name)
-            video_result = video_controller.analyze_images_ai_all_frames(local_paths, "Describe what you see in this image")
             
+            # Analyze each frame individually (same as original working code)
             frame_descriptions = []
-            if video_result.get('success') and video_result.get('results'):
-                for i, result in enumerate(video_result['results']):
-                    description = result.get('response', '').strip()
-                    if description:
-                        frame_descriptions.append(f"Frame {i+1}: {description}")
+            for i, local_path in enumerate(local_paths):
+                frame_query = "Describe what is happening in this frame from a video sequence. Be concise and specific about UI elements, actions, or content visible."
+                description = video_controller.analyze_image_with_ai(local_path, frame_query)
+                if description and description.strip():
+                    frame_descriptions.append(f"Frame {i+1}: {description.strip()}")
+                else:
+                    frame_descriptions.append(f"Frame {i+1}: No description available")
             
-            # Generate summary from descriptions
-            summary_prompt = f"Based on these frame descriptions, provide a brief summary of what happens in this video: {'; '.join(frame_descriptions)}"
-            summary_result = video_controller.analyze_images_ai_all_frames([local_paths[0]] if local_paths else [], summary_prompt)
-            video_summary = summary_result.get('results', [{}])[0].get('response', 'Video analysis completed') if summary_result.get('success') else 'Video analysis completed'
+            # Generate overall video summary
+            if frame_descriptions:
+                summary_query = f"Based on the {len(frame_descriptions)} frame descriptions, provide a concise summary of what happened in this video sequence."
+                video_summary = video_controller.analyze_image_with_ai(local_paths[0], summary_query) if local_paths else "No video description available"
+                if not video_summary or not video_summary.strip():
+                    video_summary = f"Video sequence showing {len(frame_descriptions)} frames of activity"
+            else:
+                video_summary = "No video description available"
             
             return {
                 'success': True,
                 'video_analysis': {
                     'success': True,
                     'frame_descriptions': frame_descriptions,
-                    'video_summary': video_summary,
-                    'frames_analyzed': len(frame_descriptions)
+                    'video_summary': video_summary.strip(),
+                    'frames_analyzed': len(local_paths)
                 }
             }
             

@@ -513,8 +513,23 @@ def generate_restart_video():
         if not av_controller:
             return jsonify({'success': False, 'error': f'No AV controller for {device_id}'}), 404
         
-        result = av_controller.generateRestartVideoOnly(duration_seconds)
-        return jsonify(result) if result else jsonify({'success': False, 'error': 'Video generation failed'}), 500
+        # Use the original working method but extract only what we need for 4-call architecture
+        result = av_controller.generateRestartVideoFast(
+            duration_seconds=duration_seconds,
+            processing_time=0.0
+        )
+        
+        if result and result.get('success'):
+            # Extract only the video generation parts for the 4-call architecture
+            return jsonify({
+                'success': True,
+                'video_url': result.get('video_url'),
+                'video_id': result.get('analysis_data', {}).get('video_id'),
+                'screenshot_urls': result.get('analysis_data', {}).get('screenshot_urls', []),
+                'segment_count': result.get('analysis_data', {}).get('segment_count', 0)
+            })
+        else:
+            return jsonify({'success': False, 'error': 'Video generation failed'}), 500
             
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
