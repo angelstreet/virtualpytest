@@ -15,14 +15,25 @@ project_root = os.path.dirname(backend_host_dir)          # project root
 
 sys.path.insert(0, project_root)
 
-# Load environment variables from .env
+# Load environment variables from BOTH .env files
 try:
     from dotenv import load_dotenv
-    env_root_path = os.path.join(backend_host_dir, 'src', '.env')
     
-    if os.path.exists(env_root_path):
-        load_dotenv(env_root_path)
-        print(f"[@incident_manager] Loaded environment from {env_root_path}")
+    # Load project root .env first (database, R2, etc.)
+    project_env_path = os.path.join(project_root, '.env')
+    if os.path.exists(project_env_path):
+        load_dotenv(project_env_path)
+        print(f"[@incident_manager] Loaded project environment from {project_env_path}")
+        print(f"[@incident_manager] SUPABASE_URL={os.getenv('NEXT_PUBLIC_SUPABASE_URL')}")
+        print(f"[@incident_manager] CLOUDFLARE_R2_ENDPOINT={os.getenv('CLOUDFLARE_R2_ENDPOINT')}")
+    else:
+        print(f"[@incident_manager] Warning: Project .env not found at {project_env_path}")
+    
+    # Load backend_host .env second (HOST/DEVICE config)
+    backend_env_path = os.path.join(backend_host_dir, 'src', '.env')
+    if os.path.exists(backend_env_path):
+        load_dotenv(backend_env_path)
+        print(f"[@incident_manager] Loaded backend_host environment from {backend_env_path}")
         # Debug: Show key environment variables
         print(f"[@incident_manager] HOST_NAME={os.getenv('HOST_NAME')}")
         print(f"[@incident_manager] HOST_VIDEO_CAPTURE_PATH={os.getenv('HOST_VIDEO_CAPTURE_PATH')}")
@@ -31,7 +42,8 @@ try:
         print(f"[@incident_manager] DEVICE1_VIDEO_CAPTURE_PATH={os.getenv('DEVICE1_VIDEO_CAPTURE_PATH')}")
         print(f"[@incident_manager] DEVICE1_VIDEO_STREAM_PATH={os.getenv('DEVICE1_VIDEO_STREAM_PATH')}")
     else:
-        print(f"[@incident_manager] Warning: .env not found at {env_root_path}")
+        print(f"[@incident_manager] Warning: Backend host .env not found at {backend_env_path}")
+        
 except ImportError:
     print("[@incident_manager] Warning: python-dotenv not available, skipping .env loading")
 
