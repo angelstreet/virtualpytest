@@ -15,6 +15,19 @@ project_root = os.path.dirname(backend_host_dir)          # project root
 
 sys.path.insert(0, project_root)
 
+# Load environment variables from .env
+try:
+    from dotenv import load_dotenv
+    env_root_path = os.path.join(project_root, '.env')
+    
+    if os.path.exists(env_root_path):
+        load_dotenv(env_root_path)
+        print(f"[@incident_manager] Loaded environment from {env_root_path}")
+    else:
+        print(f"[@incident_manager] Warning: .env not found at {env_root_path}")
+except ImportError:
+    print("[@incident_manager] Warning: python-dotenv not available, skipping .env loading")
+
 # Lazy import to reduce startup time
 create_alert_safe = None
 resolve_alert = None
