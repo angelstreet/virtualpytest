@@ -102,9 +102,10 @@ class IncidentManager:
             host_stream_path = os.getenv('HOST_VIDEO_STREAM_PATH')
             logger.info(f"[{capture_folder}] DEVICE MAPPING DEBUG: ✓ MATCHED HOST! host_name='{host_name}', stream_path='{host_stream_path}'")
             return {
+                'device_id': 'host',
                 'device_name': f"{host_name}_Host",
                 'stream_path': host_stream_path,
-                'capture_path': host_capture_path
+                'capture_path': capture_folder
             }
         else:
             logger.info(f"[{capture_folder}] DEVICE MAPPING DEBUG: ✗ HOST no match: '{host_capture_path}' != '{capture_path}'")
@@ -120,15 +121,16 @@ class IncidentManager:
             if device_capture_path == capture_path:
                 logger.info(f"[{capture_folder}] DEVICE MAPPING DEBUG: ✓ MATCHED DEVICE{i}! device_name='{device_name}', stream_path='{device_stream_path}'")
                 return {
+                    'device_id': f'device{i}',
                     'device_name': device_name,
                     'stream_path': device_stream_path,
-                    'capture_path': device_capture_path
+                    'capture_path': capture_folder
                 }
             else:
                 logger.info(f"[{capture_folder}] DEVICE MAPPING DEBUG: ✗ DEVICE{i} no match: '{device_capture_path}' != '{capture_path}'")
         
         logger.warning(f"[{capture_folder}] DEVICE MAPPING DEBUG: ✗ NO MATCHES FOUND! Falling back to capture_folder='{capture_folder}' as device_name")
-        return {'device_name': capture_folder, 'stream_path': None, 'capture_path': None}
+        return {'device_id': capture_folder, 'device_name': capture_folder, 'stream_path': None, 'capture_path': capture_folder}
     
     def create_incident(self, capture_folder, issue_type, host_name, analysis_result=None):
         """Create new incident in DB using original working method"""
@@ -137,7 +139,9 @@ class IncidentManager:
             
             # Get device info from .env by matching capture folder
             device_info = self.get_device_info_from_capture_folder(capture_folder)
+            device_id = device_info.get('device_id', capture_folder)  # Use logical device_id
             device_name = device_info['device_name']
+            capture_path = device_info.get('capture_path', capture_folder)  # Use capture folder name
             
             # Use lazy import exactly as before
             _lazy_import_db()
@@ -147,8 +151,8 @@ class IncidentManager:
             
             # Prepare enhanced metadata with all details
             enhanced_metadata = {
-                'stream_path': device_info['stream_path'],
-                'capture_path': device_info['capture_path']
+                'stream_path': device_info.get('stream_path'),
+                'capture_path': capture_path
             }
             if analysis_result:
                 for key, value in analysis_result.items():
@@ -183,7 +187,7 @@ class IncidentManager:
             # Call database exactly as before
             result = create_alert_safe(
                 host_name=host_name,
-                device_id=capture_folder,
+                device_id=device_id,  # Use logical device_id (device1, device2, host)
                 incident_type=issue_type,
                 consecutive_count=1,
                 metadata=enhanced_metadata,
