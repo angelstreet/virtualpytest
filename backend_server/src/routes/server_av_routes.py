@@ -545,7 +545,7 @@ def generate_restart_video():
             return jsonify({'success': False, 'error': 'Host required'}), 400
 
         response_data, status_code = proxy_to_host_with_params(
-            '/host/av/generateRestartVideoOnly',
+            '/host/av/generateRestartVideo',
             'POST',
             request_data,
             {'device_id': device_id}

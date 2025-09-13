@@ -501,6 +501,24 @@ def save_screenshot():
             'error': str(e)
         }), 500
 
+@host_av_bp.route('/generateRestartVideo', methods=['POST'])
+def generate_restart_video():
+    """Generate video only - fast response (new 4-call architecture)"""
+    try:
+        data = request.get_json() or {}
+        device_id = data.get('device_id', 'device1')
+        duration_seconds = data.get('duration_seconds', 10)
+        
+        av_controller = get_controller(device_id, 'av')
+        if not av_controller:
+            return jsonify({'success': False, 'error': f'No AV controller for {device_id}'}), 404
+        
+        result = av_controller.generateRestartVideoOnly(duration_seconds)
+        return jsonify(result) if result else jsonify({'success': False, 'error': 'Video generation failed'}), 500
+            
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @host_av_bp.route('/generateRestartVideoOnly', methods=['POST'])
 def generate_restart_video_only():
     """Generate video only - fast response"""
