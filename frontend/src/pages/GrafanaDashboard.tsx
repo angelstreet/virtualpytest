@@ -77,7 +77,7 @@ const GrafanaDashboard: React.FC = () => {
           </Typography>
           <Tooltip title="Open Grafana in new tab">
             <IconButton
-              onClick={() => window.open(`${grafanaBaseUrl}/dashboard`, '_blank')}
+              onClick={() => window.open(`${grafanaBaseUrl}/dashboards`, '_blank')}
               color="primary"
               size="medium"
             >
