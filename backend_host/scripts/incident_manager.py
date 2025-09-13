@@ -15,7 +15,23 @@ project_root = os.path.dirname(backend_host_dir)          # project root
 
 sys.path.insert(0, project_root)
 
-from shared.lib.utils.supabase_utils import get_supabase_client
+# Lazy import to reduce startup time
+create_alert_safe = None
+resolve_alert = None
+
+def _lazy_import_db():
+    """Lazy import database functions only when needed."""
+    global create_alert_safe, resolve_alert
+    if create_alert_safe is None:
+        try:
+            from shared.lib.supabase.alerts_db import create_alert_safe as _create_alert_safe, resolve_alert as _resolve_alert
+            create_alert_safe = _create_alert_safe
+            resolve_alert = _resolve_alert
+            logger.info("Database functions imported successfully")
+        except ImportError as e:
+            logger.warning(f"Could not import alerts_db module: {e}. Database operations will be skipped.")
+            create_alert_safe = False  # Mark as attempted
+            resolve_alert = False
 
 # Use same logger as capture_monitor
 logger = logging.getLogger('capture_monitor')
@@ -27,7 +43,6 @@ INCIDENT = 1
 class IncidentManager:
     def __init__(self):
         self.device_states = {}  # {device_id: {state: int, active_incidents: {type: incident_id}}}
-        self.db = get_supabase_client()
         
     def get_device_state(self, device_id):
         """Get current state for device"""
@@ -39,37 +54,61 @@ class IncidentManager:
         return self.device_states[device_id]
     
     def create_incident(self, device_id, issue_type, host_name):
-        """Create new incident in DB"""
+        """Create new incident in DB using original working method"""
         try:
-            result = self.db.table('alerts').insert({
-                'host_name': host_name,
-                'device_id': device_id,
-                'incident_type': issue_type,
-                'status': 'active',
-                'consecutive_count': 1,
-                'start_time': datetime.now().isoformat(),
-                'metadata': {}
-            }).execute()
+            logger.info(f"[{device_id}] DB INSERT: Creating {issue_type} incident")
             
-            if result.data:
-                incident_id = result.data[0]['id']
-                logger.info(f"[{device_id}] Created {issue_type} incident: {incident_id}")
-                return incident_id
+            # Use lazy import exactly as before
+            _lazy_import_db()
+            if not create_alert_safe or create_alert_safe is False:
+                logger.warning("Database module not available, skipping alert creation")
+                return None
+            
+            # Call database exactly as before
+            result = create_alert_safe(
+                host_name=host_name,
+                device_id=device_id,
+                incident_type=issue_type,
+                consecutive_count=1,  # Always start with 1
+                metadata={}
+            )
+            
+            if result.get('success'):
+                alert_id = result.get('alert_id')
+                logger.info(f"[{device_id}] DB INSERT SUCCESS: Created alert {alert_id}")
+                return alert_id
+            else:
+                logger.error(f"[{device_id}] DB INSERT FAILED: {result.get('error')}")
+                return None
+            
         except Exception as e:
-            logger.error(f"[{device_id}] DB error creating incident: {e}")
-        return None
+            logger.error(f"[{device_id}] DB ERROR: Failed to create {issue_type} incident: {e}")
+            return None
     
     def resolve_incident(self, device_id, incident_id, issue_type):
-        """Resolve incident in DB"""
+        """Resolve incident in DB using original working method"""
         try:
-            self.db.table('alerts').update({
-                'status': 'resolved',
-                'end_time': datetime.now().isoformat()
-            }).eq('id', incident_id).execute()
+            logger.info(f"[{device_id}] DB UPDATE: Resolving incident {incident_id}")
             
-            logger.info(f"[{device_id}] Resolved {issue_type} incident: {incident_id}")
+            # Use lazy import exactly as before
+            _lazy_import_db()
+            if not resolve_alert or resolve_alert is False:
+                logger.warning(f"[{device_id}] Database module not available, skipping alert resolution")
+                return False
+            
+            # Call database exactly as before
+            result = resolve_alert(incident_id)
+            
+            if result.get('success'):
+                logger.info(f"[{device_id}] DB UPDATE SUCCESS: Resolved alert {incident_id}")
+                return True
+            else:
+                logger.error(f"[{device_id}] DB UPDATE FAILED: {result.get('error')}")
+                return False
+            
         except Exception as e:
-            logger.error(f"[{device_id}] DB error resolving incident: {e}")
+            logger.error(f"[{device_id}] DB ERROR: Failed to resolve incident {incident_id}: {e}")
+            return False
     
     def process_detection(self, device_id, detection_result, host_name):
         """Process detection result and update state"""
