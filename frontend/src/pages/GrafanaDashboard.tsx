@@ -22,6 +22,11 @@ const GrafanaDashboard: React.FC = () => {
       slug: 'system-host-monitoring'
     },
     {
+      title: 'Device Alerts',
+      uid: 'device-alerts-dashboard',
+      slug: 'device-alerts-dashboard'
+    },
+    {
       title: 'Script Results',
       uid: '2a3b060a-7820-4a6e-aa2a-adcbf5408bd3',
       slug: 'script-results'

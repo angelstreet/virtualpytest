@@ -17,15 +17,26 @@ The Grafana Dashboard page provides a centralized interface for viewing all avai
 - Features: Global KPIs, success rates by interface, volume analysis, performance trends
 - Documentation: [Script Results Dashboard Guide](./script_results_dashboard.md)
 
-### 2. FullZap Results  
+### 2. Device Alerts
+- Purpose: Real-time device incident monitoring and alert management
+- UID: device-alerts-dashboard
+- Features: Active alerts tracking, incident analysis by device, blackscreen/freeze/audio monitoring, resolution metrics
+- Key Panels: Alert counts, device-specific incident analysis, active incidents table, time series trends
+
+### 3. Host Monitoring
+- Purpose: System performance monitoring for host servers
+- UID: fe85e054-7760-4133-8118-3dfe663dee66
+- Features: CPU, memory, disk usage, uptime tracking, availability metrics
+
+### 4. FullZap Results  
 - Purpose: FullZap test campaign results
 - UID: f0fa93e1-e6a3-4a46-a374-6666a925952c
 
-### 3. Navigation Execution
+### 5. Navigation Execution
 - Purpose: Navigation execution performance monitoring
 - UID: 467e4e29-d56b-44d9-b3e5-6e2fac687718
 
-### 4. Navigation Metrics
+### 6. Navigation Metrics
 - Purpose: Navigation metrics with nodes and edges
 - UID: 9369e579-7f7a-47ec-ae06-f3a49e530b4f
 
