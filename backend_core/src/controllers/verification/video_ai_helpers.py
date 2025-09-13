@@ -290,6 +290,153 @@ class VideoAIHelpers:
                 'analysis_type': 'ai_subtitle_detection'
             }
 
+    def detect_subtitles_ai_all_frames(self, image_paths: List[str], extract_text: bool = True) -> Dict[str, Any]:
+        """
+        AI-powered subtitle detection for ALL frames (restart video analysis).
+        Unlike detect_subtitles_ai_batch, this processes every frame without early termination.
+        
+        Args:
+            image_paths: List of image paths to analyze
+            extract_text: Whether to extract text using AI (always True for AI method)
+            
+        Returns:
+            Dictionary with detailed AI subtitle analysis results for all frames
+        """
+        try:
+            results = []
+            
+            print(f"VideoAI[{self.device_name}]: Analyzing subtitles with AI in ALL {len(image_paths)} frames")
+            
+            for i, image_path in enumerate(image_paths):
+                if not os.path.exists(image_path):
+                    results.append({
+                        'image_path': image_path,
+                        'success': False,
+                        'error': 'Image file not found',
+                        'frame_index': i
+                    })
+                    continue
+                
+                try:
+                    img = cv2.imread(image_path)
+                    if img is None:
+                        results.append({
+                            'image_path': image_path,
+                            'success': False,
+                            'error': 'Could not load image',
+                            'frame_index': i
+                        })
+                        continue
+                    
+                    height, width = img.shape[:2]
+                    
+                    # Use AI to analyze the full image for subtitles
+                    print(f"VideoAI[{self.device_name}]: Analyzing frame {i+1}/{len(image_paths)} with full image")
+                    extracted_text, detected_language, ai_confidence = self.analyze_subtitle_with_ai(img)
+                    
+                    has_subtitles = bool(extracted_text and extracted_text.strip())
+                    
+                    # Quick error detection using red pixel analysis (same as batch method)
+                    sampled_img = img[::4, ::4]  # Sample every 4th pixel for speed
+                    sampled_hsv = cv2.cvtColor(sampled_img, cv2.COLOR_BGR2HSV)
+                    
+                    # Red color ranges in HSV
+                    lower_red1 = np.array([0, 50, 50])
+                    upper_red1 = np.array([10, 255, 255])
+                    lower_red2 = np.array([170, 50, 50])
+                    upper_red2 = np.array([180, 255, 255])
+                    
+                    mask1 = cv2.inRange(sampled_hsv, lower_red1, upper_red1)
+                    mask2 = cv2.inRange(sampled_hsv, lower_red2, upper_red2)
+                    red_mask = mask1 + mask2
+                    
+                    red_pixels = np.sum(red_mask > 0)
+                    total_sampled_pixels = sampled_hsv.shape[0] * sampled_hsv.shape[1]
+                    red_percentage = float((red_pixels / total_sampled_pixels) * 100)
+                    
+                    # Higher threshold for error detection
+                    has_errors = bool(red_percentage > 8.0)
+                    
+                    # Use AI confidence or set default
+                    confidence = ai_confidence if has_subtitles else 0.1
+                    
+                    result = {
+                        'image_path': os.path.basename(image_path),
+                        'success': True,
+                        'has_subtitles': has_subtitles,
+                        'has_errors': has_errors,
+                        'subtitle_edges': 0,  # Not applicable for AI method
+                        'subtitle_threshold': 0.0,  # Not applicable for AI method
+                        'red_percentage': round(red_percentage, 2),
+                        'error_threshold': 8.0,
+                        'extracted_text': extracted_text,
+                        'detected_language': detected_language,
+                        'image_size': f"{width}x{height}",  # AI analyzes full image
+                        'confidence': confidence,
+                        'ai_powered': True,  # Flag to indicate AI analysis
+                        'frame_index': i
+                    }
+                    
+                    results.append(result)
+                    
+                    if has_subtitles and extracted_text:
+                        text_preview = extracted_text[:50] + "..." if len(extracted_text) > 50 else extracted_text
+                        print(f"VideoAI[{self.device_name}]: Frame {i+1}/{len(image_paths)} - subtitles=True, errors={has_errors}, text='{text_preview}', confidence={confidence}")
+                    else:
+                        print(f"VideoAI[{self.device_name}]: Frame {i+1}/{len(image_paths)} - No subtitles detected, errors={has_errors}, confidence={confidence}")
+                    
+                    # NO EARLY BREAK - process all frames
+                    
+                except Exception as e:
+                    results.append({
+                        'image_path': image_path,
+                        'success': False,
+                        'error': f'AI analysis error: {str(e)}',
+                        'frame_index': i
+                    })
+            
+            # Calculate overall result
+            successful_analyses = [r for r in results if r.get('success')]
+            subtitles_detected = any(r.get('has_subtitles', False) for r in successful_analyses)
+            errors_detected = any(r.get('has_errors', False) for r in successful_analyses)
+            
+            # Combine all extracted text and find the most confident language detection
+            all_extracted_text = " ".join([r.get('extracted_text', '') for r in successful_analyses if r.get('extracted_text')])
+            
+            # Get the language from the result with highest confidence and subtitles detected
+            detected_language = 'unknown'
+            max_confidence = 0.0
+            for result in successful_analyses:
+                if result.get('has_subtitles') and result.get('confidence', 0) > max_confidence:
+                    detected_language = result.get('detected_language', 'unknown')
+                    max_confidence = result.get('confidence', 0)
+            
+            overall_result = {
+                'success': len(successful_analyses) > 0,
+                'subtitles_detected': subtitles_detected,
+                'errors_detected': errors_detected,
+                'analyzed_images': len(results),
+                'successful_analyses': len(successful_analyses),
+                'extracted_text': all_extracted_text.strip(),
+                'detected_language': detected_language,
+                'confidence': max_confidence,
+                'results': results,
+                'analysis_type': 'ai_subtitle_detection_all_frames',
+                'timestamp': datetime.now().isoformat()
+            }
+            
+            print(f"VideoAI[{self.device_name}]: All-frame AI subtitle analysis complete - {len(successful_analyses)}/{len(image_paths)} frames analyzed, subtitles_detected={subtitles_detected}")
+            
+            return overall_result
+            
+        except Exception as e:
+            print(f"VideoAI[{self.device_name}]: AI all-frames subtitle detection error: {e}")
+            return {
+                'success': False,
+                'error': f'AI all-frames subtitle detection failed: {str(e)}',
+                'analysis_type': 'ai_subtitle_detection_all_frames'
+            }
+
     # =============================================================================
     # Full Image Analysis with AI
     # =============================================================================

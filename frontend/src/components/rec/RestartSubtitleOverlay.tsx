@@ -1,18 +1,39 @@
 import { Box, Typography } from '@mui/material';
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 
 interface RestartSubtitleOverlayProps {
-  subtitleText?: string;
+  videoRef?: React.RefObject<HTMLVideoElement>;
+  frameSubtitles?: string[];
   style: string;
   fontSize: string;
 }
 
 export const RestartSubtitleOverlay: React.FC<RestartSubtitleOverlayProps> = ({
-  subtitleText,
+  videoRef,
+  frameSubtitles,
   style,
   fontSize,
 }) => {
-  if (!subtitleText) return null;
+  const [currentSubtitle, setCurrentSubtitle] = useState<string>('');
+
+  useEffect(() => {
+    if (!videoRef?.current || !frameSubtitles?.length) return;
+
+    const video = videoRef.current;
+    
+    const updateSubtitle = () => {
+      const currentTime = Math.floor(video.currentTime);
+      const subtitle = frameSubtitles[currentTime] || '';
+      // Remove "Frame X: " prefix and show only the subtitle text
+      const cleanSubtitle = subtitle.replace(/^Frame \d+: /, '');
+      setCurrentSubtitle(cleanSubtitle === 'No subtitles detected' ? '' : cleanSubtitle);
+    };
+
+    video.addEventListener('timeupdate', updateSubtitle);
+    return () => video.removeEventListener('timeupdate', updateSubtitle);
+  }, [videoRef, frameSubtitles]);
+
+  if (!currentSubtitle) return null;
 
   // Style configurations
   const getSubtitleStyle = () => {
@@ -85,7 +106,7 @@ export const RestartSubtitleOverlay: React.FC<RestartSubtitleOverlayProps> = ({
           textShadow: subtitleStyle.textShadow,
         }}
       >
-        {subtitleText}
+        {currentSubtitle}
       </Typography>
     </Box>
   );

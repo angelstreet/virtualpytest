@@ -474,6 +474,49 @@ def upload_script_report(html_content: str, device_model: str, script_name: str,
             'error': str(e)
         }
 
+def upload_restart_video(local_video_path: str, timestamp: str) -> Dict:
+    """Upload restart video MP4 to R2 in the same folder as the report."""
+    try:
+        uploader = get_cloudflare_utils()
+        
+        # Create video path in same folder as report: restart-reports/{timestamp}/video.mp4
+        video_path = f"restart-reports/{timestamp}/video.mp4"
+        
+        # Upload video file with proper content type
+        file_mappings = [{
+            'local_path': local_video_path,
+            'remote_path': video_path,
+            'content_type': 'video/mp4'
+        }]
+        
+        upload_result = uploader.upload_files(file_mappings)
+        
+        # Convert to single file result
+        if upload_result['uploaded_files']:
+            result = {
+                'success': True,
+                'url': upload_result['uploaded_files'][0]['url'],
+                'remote_path': upload_result['uploaded_files'][0]['remote_path']
+            }
+            logger.info(f"Uploaded restart video: {video_path}")
+            return {
+                'success': True,
+                'video_path': video_path,
+                'video_url': result['url']
+            }
+        else:
+            return {
+                'success': False,
+                'error': upload_result['failed_uploads'][0]['error'] if upload_result['failed_uploads'] else 'Video upload failed'
+            }
+            
+    except Exception as e:
+        logger.error(f"Failed to upload restart video: {str(e)}")
+        return {
+            'success': False,
+            'error': str(e)
+        }
+
 def upload_restart_report(html_content: str, host_name: str, device_id: str, timestamp: str) -> Dict:
     """Upload restart video report HTML to R2 in the restart-reports folder."""
     try:

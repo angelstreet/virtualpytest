@@ -612,7 +612,7 @@ class FFmpegCaptureController(AVControllerInterface):
                     }
             
             # 2. Get screenshot URLs from the video recording period
-            def get_video_screenshots():
+            def get_video_screenshots(segment_count):
                 try:
                     capture_folder = f"{self.video_capture_path}/captures"
                     import glob, os
@@ -624,12 +624,11 @@ class FFmpegCaptureController(AVControllerInterface):
                     if not screenshots:
                         return []
                     
-                    # Calculate screenshot count based on HLS segment duration
-                    # Each segment is HLS_SEGMENT_DURATION seconds, so we need duration_seconds / segment_duration screenshots
-                    screenshots_per_second = 1.0 / self.HLS_SEGMENT_DURATION  # Screenshots per second based on segment duration
-                    screenshot_count = max(5, int(duration_seconds * screenshots_per_second))
+                    # Use the EXACT same segment count as video generation (passed as parameter)
+                    # No recalculation - use the actual count from video generation
+                    screenshot_count = max(5, segment_count)  # Use the SAME count as video segments
                     
-                    print(f"[RestartVideo] Video duration: {duration_seconds}s, estimated screenshots needed: {screenshot_count}")
+                    print(f"[RestartVideo] Video duration: {duration_seconds}s, video segments: {segment_count}, screenshots needed: {screenshot_count}")
                     
                     # Sort by modification time, get last N screenshots based on video duration
                     recent_screenshots = sorted(screenshots, key=os.path.getmtime)[-screenshot_count:]
@@ -665,7 +664,8 @@ class FFmpegCaptureController(AVControllerInterface):
             
             # Execute analysis synchronously
             audio_result = get_audio_transcript_locally()
-            screenshot_urls = get_video_screenshots()
+            actual_segment_count = len(segment_files)  # Get the ACTUAL count used for video generation
+            screenshot_urls = get_video_screenshots(actual_segment_count)  # Pass the actual count
             
             # Execute only fast analysis (audio + screenshot collection)
             # All AI analysis (subtitles + video descriptions) will be done async via analyzeRestartVideoAsync()
@@ -699,6 +699,7 @@ class FFmpegCaptureController(AVControllerInterface):
                     'message': 'Subtitle analysis will be performed asynchronously'
                 },
                 'video_id': video_id,  # For async analysis tracking
+                'segment_count': actual_segment_count,  # Pass actual segment count to async analysis
                 'analysis_complete': False,  # Fast analysis only
                 'timestamp': time.time(),
                 'created_at': datetime.now().isoformat()
@@ -724,7 +725,7 @@ class FFmpegCaptureController(AVControllerInterface):
             print(f"{self.capture_source}[{self.capture_source}]: Error generating fast restart video: {e}")
             return None
     
-    def analyzeRestartVideoAsync(self, video_id: str, screenshot_urls: List[str], duration_seconds: float = 10.0) -> Optional[Dict[str, Any]]:
+    def analyzeRestartVideoAsync(self, video_id: str, screenshot_urls: List[str], duration_seconds: float = 10.0, segment_count: int = None) -> Optional[Dict[str, Any]]:
         """
         Async AI analysis for restart video - subtitle detection + video descriptions.
         Called by frontend after player is shown.
@@ -749,15 +750,17 @@ class FFmpegCaptureController(AVControllerInterface):
             # Convert URLs to local paths ONCE for consistent analysis
             from shared.lib.utils.build_url_utils import convertHostUrlToLocalPath
             
-            # Calculate expected screenshot count based on video duration and HLS segment duration
-            # This ensures we analyze exactly the same period as the generated video
-            expected_screenshot_count = int(duration_seconds / self.HLS_SEGMENT_DURATION) if hasattr(self, 'HLS_SEGMENT_DURATION') else 10
-            actual_screenshot_count = min(len(screenshot_urls), expected_screenshot_count)
-            
-            print(f"[RestartVideoAsync] Video duration: {duration_seconds}s, expected screenshots: {expected_screenshot_count}, actual: {actual_screenshot_count}")
+            # Use the EXACT segment count from video generation (passed as parameter)
+            # If segment_count is provided, use it; otherwise fall back to screenshot count
+            if segment_count is not None:
+                expected_screenshot_count = segment_count
+                print(f"[RestartVideoAsync] Video duration: {duration_seconds}s, using segment count: {segment_count}, analyzing {len(screenshot_urls)} screenshots")
+            else:
+                expected_screenshot_count = len(screenshot_urls)
+                print(f"[RestartVideoAsync] Video duration: {duration_seconds}s, no segment count provided, analyzing ALL {len(screenshot_urls)} screenshots")
             
             local_screenshot_paths = []
-            for url in screenshot_urls[:actual_screenshot_count]:  # Use exact screenshot count matching video duration
+            for url in screenshot_urls:  # Use ALL screenshots provided (already synchronized with video segments)
                 if url.startswith(('http://', 'https://')):
                     local_path = convertHostUrlToLocalPath(url)
                     local_screenshot_paths.append(local_path)
@@ -780,11 +783,22 @@ class FFmpegCaptureController(AVControllerInterface):
                             'extracted_text': '',
                             'detected_language': 'unknown',
                             'confidence': 0.0,
-                            'frames_analyzed': 0
+                            'frames_analyzed': 0,
+                            'frame_subtitles': []
                         }
                     
                     print(f"[RestartVideoAsync] Starting subtitle analysis on {len(local_screenshot_paths)} screenshots")
-                    subtitle_result = video_controller.detect_subtitles_ai(local_screenshot_paths, extract_text=True)
+                    subtitle_result = video_controller.detect_subtitles_ai_all_frames(local_screenshot_paths, extract_text=True)
+                    
+                    # Extract frame-by-frame subtitle data
+                    frame_subtitles = []
+                    if subtitle_result.get('success') and subtitle_result.get('results'):
+                        for i, result in enumerate(subtitle_result.get('results', [])):
+                            frame_text = result.get('extracted_text', '').strip()
+                            if frame_text:
+                                frame_subtitles.append(f"Frame {i+1}: {frame_text}")
+                            else:
+                                frame_subtitles.append(f"Frame {i+1}: No subtitles detected")
                     
                     return {
                         'success': subtitle_result.get('success', False),
@@ -792,7 +806,8 @@ class FFmpegCaptureController(AVControllerInterface):
                         'extracted_text': subtitle_result.get('extracted_text', ''),
                         'detected_language': subtitle_result.get('detected_language', 'unknown'),
                         'confidence': subtitle_result.get('confidence', 0.0),
-                        'frames_analyzed': len(local_screenshot_paths)
+                        'frames_analyzed': len(local_screenshot_paths),
+                        'frame_subtitles': frame_subtitles
                     }
                     
                 except Exception as e:
@@ -804,6 +819,7 @@ class FFmpegCaptureController(AVControllerInterface):
                         'detected_language': 'unknown',
                         'confidence': 0.0,
                         'frames_analyzed': 0,
+                        'frame_subtitles': [],
                         'error': str(e)
                     }
             
@@ -870,7 +886,8 @@ class FFmpegCaptureController(AVControllerInterface):
                     'detected_language': subtitle_result.get('detected_language', 'unknown'),
                     'confidence': subtitle_result.get('confidence', 0.0),
                     'frames_analyzed': subtitle_result.get('frames_analyzed', 0),
-                    'frames_available': len(screenshot_urls)
+                    'frames_available': len(screenshot_urls),
+                    'frame_subtitles': subtitle_result.get('frame_subtitles', [])
                 },
                 'video_analysis': {
                     'success': video_description_result.get('success', False),

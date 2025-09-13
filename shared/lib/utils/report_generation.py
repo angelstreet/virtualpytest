@@ -408,7 +408,8 @@ def generate_and_upload_restart_report(
     video_url: str,
     analysis_data: Dict,
     processing_time: float,
-    timestamp: str = None
+    timestamp: str = None,
+    local_video_path: str = None
 ) -> Dict[str, str]:
     """
     Generate HTML report for restart video using dedicated restart video template.
@@ -417,10 +418,11 @@ def generate_and_upload_restart_report(
     Args:
         host_info: Dict with host_name
         device_info: Dict with device_name, device_model, device_id
-        video_url: URL to the generated restart video
+        video_url: URL to the generated restart video (local host URL)
         analysis_data: Dict containing audio, subtitle, and video analysis results
         processing_time: Processing time in seconds
         timestamp: Optional timestamp, will generate if not provided
+        local_video_path: Optional local path to video file for R2 upload
         
     Returns:
         Dict with 'report_url', 'report_path', and 'success' keys
@@ -428,7 +430,7 @@ def generate_and_upload_restart_report(
     try:
         print(f"[@utils:report_utils:generate_and_upload_restart_report] Starting restart report generation...")
         
-        from .cloudflare_utils import upload_restart_report
+        from .cloudflare_utils import upload_restart_report, upload_restart_video
         from .restart_video_template import create_restart_video_template
         from datetime import datetime
         import json
@@ -436,21 +438,33 @@ def generate_and_upload_restart_report(
         if not timestamp:
             timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
         
+        # Upload video to R2 if local path provided
+        r2_video_url = video_url  # Default to original URL
+        if local_video_path:
+            print(f"[@utils:report_utils:generate_and_upload_restart_report] Uploading video to R2...")
+            video_upload_result = upload_restart_video(local_video_path, timestamp)
+            if video_upload_result.get('success'):
+                r2_video_url = video_upload_result['video_url']
+                print(f"[@utils:report_utils:generate_and_upload_restart_report] Video uploaded to R2: {r2_video_url}")
+            else:
+                print(f"[@utils:report_utils:generate_and_upload_restart_report] Video upload failed: {video_upload_result.get('error')}")
+                # Continue with original URL as fallback
+        
         # Extract analysis results for template
         audio_analysis = analysis_data.get('audio_analysis', {})
         subtitle_analysis = analysis_data.get('subtitle_analysis', {})
         video_analysis = analysis_data.get('video_analysis', {})
         
-        # Prepare template data
+        # Prepare template data with R2 video URL
         template_data = {
             'host_name': host_info.get('host_name', 'Unknown Host'),
             'device_name': device_info.get('device_name', 'Unknown Device'),
             'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-            'video_url': video_url,
+            'video_url': r2_video_url,  # Use R2 URL instead of local host URL
             'audio_transcript': audio_analysis.get('combined_transcript', 'No audio transcript available'),
             'subtitle_text': subtitle_analysis.get('extracted_text', 'No subtitles detected'),
             'video_summary': video_analysis.get('video_summary', 'Video analysis pending'),
-            'analysis_data_json': json.dumps(analysis_data, indent=2)
+            'analysis_data_json': json.dumps(analysis_data)  # Remove indent to make it compact for JavaScript
         }
         
         # Generate HTML using dedicated restart video template

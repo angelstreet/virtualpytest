@@ -1,6 +1,7 @@
 import { Box, Typography, IconButton, Slide, Paper, Checkbox, Select, MenuItem, Collapse } from '@mui/material';
 import { Close as CloseIcon, ExpandMore as ExpandMoreIcon, ExpandLess as ExpandLessIcon } from '@mui/icons-material';
 import React, { useState, useEffect } from 'react';
+import { buildServerUrl } from '../../utils/buildUrlUtils';
 
 interface RestartSettingsPanelProps {
   open: boolean;
@@ -42,6 +43,7 @@ interface RestartSettingsPanelProps {
     extracted_text: string;
     detected_language?: string;
     execution_time_ms: number;
+    frame_subtitles?: string[];
   };
 }
 
@@ -95,7 +97,7 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
   // Translation cache to avoid re-translating same content
   const [translationCache, setTranslationCache] = useState<Record<string, string>>({});
 
-  // Dynamic translation function with caching
+  // Dynamic translation function with caching and backend API calls
   const translateText = async (text: string, targetLang: string, originalLang: string = 'en'): Promise<string> => {
     if (!text || targetLang === originalLang) return text;
     
@@ -107,28 +109,46 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
       return translationCache[cacheKey];
     }
     
-    // For now, use placeholder translations (can be replaced with real API)
-    const translations: Record<string, Record<string, string>> = {
-      'en': {
-        'es': text.replace(/Hello/gi, 'Hola').replace(/Thank you/gi, 'Gracias').replace(/Please/gi, 'Por favor'),
-        'fr': text.replace(/Hello/gi, 'Bonjour').replace(/Thank you/gi, 'Merci').replace(/Please/gi, 'S\'il vous plaît'),
-        'de': text.replace(/Hello/gi, 'Hallo').replace(/Thank you/gi, 'Danke').replace(/Please/gi, 'Bitte'),
-        'it': text.replace(/Hello/gi, 'Ciao').replace(/Thank you/gi, 'Grazie').replace(/Please/gi, 'Per favore'),
-        'pt': text.replace(/Hello/gi, 'Olá').replace(/Thank you/gi, 'Obrigado').replace(/Please/gi, 'Por favor'),
-        'ru': text.replace(/Hello/gi, 'Привет').replace(/Thank you/gi, 'Спасибо').replace(/Please/gi, 'Пожалуйста')
+    try {
+      console.log(`[@component:RestartSettingsPanel] Translating text from ${originalLang} to ${targetLang}`);
+      
+      // Call backend translation API
+      const response = await fetch(buildServerUrl('/server/translate/text'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: text,
+          source_language: originalLang,
+          target_language: targetLang
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Translation API failed: ${response.status} ${response.statusText}`);
       }
-    };
-    
-    // Get translated text without language prefix
-    const translatedText = translations[originalLang]?.[targetLang] || text;
-    
-    // Cache the result
-    setTranslationCache(prev => ({
-      ...prev,
-      [cacheKey]: translatedText
-    }));
-    
-    return translatedText;
+
+      const result = await response.json();
+      
+      if (result.success) {
+        const translatedText = result.translated_text || text;
+        
+        // Cache the result
+        setTranslationCache(prev => ({
+          ...prev,
+          [cacheKey]: translatedText
+        }));
+        
+        console.log(`[@component:RestartSettingsPanel] Translation successful: ${text.substring(0, 50)}... -> ${translatedText.substring(0, 50)}...`);
+        return translatedText;
+      } else {
+        throw new Error(result.error || 'Translation failed');
+      }
+      
+    } catch (error) {
+      console.error('[@component:RestartSettingsPanel] Translation error:', error);
+      // Return original text on error
+      return text;
+    }
   };
 
   // Effect to handle dynamic translation when language changes
@@ -420,6 +440,28 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
           {subtitleData && subtitleData.subtitles_detected && (
             <Collapse in={isSubtitleExpanded}>
               <Box sx={{ mt: 1 }}>
+                {/* Frame-by-frame subtitles */}
+                {subtitleData.frame_subtitles && subtitleData.frame_subtitles.length > 0 && (
+                  <Typography variant="body2" sx={{ 
+                    p: 1.5, 
+                    fontSize: '0.75rem',
+                    lineHeight: 1.4,
+                    backgroundColor: 'rgba(255,255,255,0.1)', 
+                    borderRadius: 1,
+                    borderLeft: '3px solid #2196F3',
+                    mb: 1
+                  }}>
+                    <strong>Frame-by-Frame Subtitles ({getLanguageName(subtitleData.detected_language || 'Unknown')}):</strong><br />
+                    {subtitleData.frame_subtitles.map((frameSubtitle, index) => (
+                      <span key={index}>
+                        {frameSubtitle}
+                        {index < subtitleData.frame_subtitles!.length - 1 && <br />}
+                      </span>
+                    ))}
+                  </Typography>
+                )}
+                
+                {/* Combined subtitle text */}
                 <Typography variant="body2" sx={{ 
                   p: 1.5, 
                   fontSize: '0.75rem',
@@ -428,7 +470,7 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
                   borderRadius: 1,
                   borderLeft: '3px solid #2196F3'
                 }}>
-                  <strong>Original ({getLanguageName(subtitleData.detected_language || 'Unknown')}):</strong><br />
+                  <strong>Combined Text ({getLanguageName(subtitleData.detected_language || 'Unknown')}):</strong><br />
                   {subtitleData.extracted_text || 'No subtitle text available'}
                 </Typography>
                 

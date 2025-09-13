@@ -629,6 +629,7 @@ def analyze_restart_video():
         video_id = data.get('video_id')
         screenshot_urls = data.get('screenshot_urls', [])
         duration_seconds = data.get('duration_seconds', 10)  # Default to 10 seconds for restart videos
+        segment_count = data.get('segment_count')  # Get segment count from request for proper synchronization
         
         if not video_id:
             return jsonify({
@@ -645,6 +646,7 @@ def analyze_restart_video():
         print(f"[@route:host_av:analyze_restart_video] Video ID: {video_id}")
         print(f"[@route:host_av:analyze_restart_video] Duration: {duration_seconds}s")
         print(f"[@route:host_av:analyze_restart_video] Screenshots: {len(screenshot_urls)} frames")
+        print(f"[@route:host_av:analyze_restart_video] Segment count: {segment_count}")
         
         # Get AV controller
         av_controller = get_controller(device_id, 'av')
@@ -671,7 +673,8 @@ def analyze_restart_video():
         result = av_controller.analyzeRestartVideoAsync(
             video_id=video_id, 
             screenshot_urls=screenshot_urls, 
-            duration_seconds=duration_seconds
+            duration_seconds=duration_seconds,
+            segment_count=segment_count  # Pass segment count for proper synchronization
         )
         
         processing_time = time.time() - start_time
@@ -704,13 +707,18 @@ def analyze_restart_video():
                     # Reconstruct video URL if not provided
                     video_url = f"{av_controller.video_stream_path}/restart_video.mp4"
                 
+                # Get local video path for R2 upload
+                import os
+                local_video_path = os.path.join(av_controller.video_capture_path, "restart_video.mp4")
+                
                 # Generate complete report with all analysis data
                 report_result = generate_and_upload_restart_report(
                     host_info=host_info,
                     device_info=device_info,
                     video_url=video_url,
                     analysis_data=result.get('analysis_data', {}),
-                    processing_time=processing_time
+                    processing_time=processing_time,
+                    local_video_path=local_video_path if os.path.exists(local_video_path) else None
                 )
                 
                 if report_result.get('success'):

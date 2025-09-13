@@ -144,9 +144,10 @@ export const RestartPlayer: React.FC<RestartPlayerProps> = ({ host, device, incl
         )}
 
         {/* Subtitle overlay - bottom, covers original */}
-        {showSubtitleOverlay && analysisResults.subtitles?.extracted_text && (
+        {showSubtitleOverlay && analysisResults.subtitles?.frame_subtitles && (
           <RestartSubtitleOverlay
-            subtitleText={analysisResults.subtitles.extracted_text}
+            videoRef={videoRef}
+            frameSubtitles={analysisResults.subtitles.frame_subtitles}
             style={subtitleStyle}
             fontSize={subtitleFontSize}
           />

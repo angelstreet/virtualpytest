@@ -292,10 +292,17 @@ def get_restart_video_js() -> str:
             }
             
             init() {
+                console.log('RestartVideoReport initialized');
+                console.log('Analysis data:', this.analysisData);
                 this.setupVideoControls();
                 this.setupAnalysisToggles();
                 this.setupLanguageSelects();
                 this.updateOverlays();
+                
+                // Initialize analysis text for all sections
+                ['audio', 'subtitle'].forEach(section => {
+                    this.updateAnalysisText(section);
+                });
             }
             
             setupVideoControls() {
@@ -388,26 +395,50 @@ def get_restart_video_js() -> str:
                         }
                     }
                 }
+                
+                // Update subtitle overlay
+                if (this.analysisData.subtitle_analysis && this.analysisData.subtitle_analysis.extracted_text) {
+                    const subtitleOverlay = document.getElementById('subtitle-overlay');
+                    if (subtitleOverlay && !subtitleOverlay.classList.contains('hidden')) {
+                        subtitleOverlay.textContent = this.analysisData.subtitle_analysis.extracted_text;
+                    }
+                }
             }
             
             updateAnalysisText(section) {
                 const data = this.analysisData[section + '_analysis'];
-                if (!data) return;
+                if (!data) {
+                    console.log(`No data found for section: ${section}`);
+                    return;
+                }
                 
                 const originalElement = document.getElementById(section + '-original');
                 const translatedElement = document.getElementById(section + '-translated');
                 
-                if (originalElement && data.extracted_text) {
+                // Get the text content based on section type
+                let textContent = '';
+                if (section === 'audio' && data.combined_transcript) {
+                    textContent = data.combined_transcript;
+                } else if (section === 'subtitle' && data.extracted_text) {
+                    textContent = data.extracted_text;
+                } else {
+                    textContent = data.extracted_text || data.combined_transcript || 'No content available';
+                }
+                
+                if (originalElement && textContent) {
+                    const language = data.detected_language || 'unknown';
+                    const confidence = data.confidence ? Math.round(data.confidence * 100) : 0;
+                    
                     originalElement.innerHTML = `
-                        <div class="language-info">Original (${this.getLanguageName(data.detected_language)}, ${Math.round(data.confidence * 100)}% confidence):</div>
-                        ${data.extracted_text || data.combined_transcript}
+                        <div class="language-info">Original (${this.getLanguageName(language)}, ${confidence}% confidence):</div>
+                        ${textContent}
                     `;
                 }
                 
                 if (translatedElement && this.currentLanguages[section] !== data.detected_language) {
                     translatedElement.innerHTML = `
                         <div class="language-info">Translated (${this.getLanguageName(this.currentLanguages[section])}):</div>
-                        ${this.translateText(data.extracted_text || data.combined_transcript, this.currentLanguages[section])}
+                        ${this.translateText(textContent, this.currentLanguages[section])}
                     `;
                     translatedElement.classList.remove('hidden');
                 } else if (translatedElement) {

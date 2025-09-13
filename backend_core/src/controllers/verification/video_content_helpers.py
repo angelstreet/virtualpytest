@@ -503,6 +503,100 @@ class VideoContentHelpers:
         
         return overall_result
 
+    def detect_subtitles_all_frames(self, image_paths: List[str], extract_text: bool = True) -> Dict[str, Any]:
+        """
+        Detect subtitles in ALL frames for restart video analysis.
+        Unlike detect_subtitles_batch, this processes every frame without early termination.
+        
+        Args:
+            image_paths: List of image paths to analyze
+            extract_text: Whether to extract text using OCR
+            
+        Returns:
+            Dictionary with subtitle analysis results for all frames
+        """
+        results = []
+        
+        print(f"VideoContent[{self.device_name}]: Analyzing subtitles in ALL {len(image_paths)} frames")
+        
+        for i, image_path in enumerate(image_paths):
+            if not os.path.exists(image_path):
+                results.append({
+                    'image_path': image_path,
+                    'success': False,
+                    'error': 'Image file not found',
+                    'frame_index': i
+                })
+                continue
+            
+            try:
+                img = cv2.imread(image_path)
+                if img is None:
+                    results.append({
+                        'image_path': image_path,
+                        'success': False,
+                        'error': 'Could not load image',
+                        'frame_index': i
+                    })
+                    continue
+                
+                # Analyze subtitle region
+                analysis = self.analyze_subtitle_region(img, extract_text)
+                analysis['image_path'] = os.path.basename(image_path)
+                analysis['success'] = True
+                analysis['frame_index'] = i
+                
+                results.append(analysis)
+                
+                text_preview = analysis.get('extracted_text', '')[:50]
+                if len(analysis.get('extracted_text', '')) > 50:
+                    text_preview += "..."
+                print(f"VideoContent[{self.device_name}]: Frame {i+1}/{len(image_paths)} - edges={analysis.get('subtitle_edges', 0)}, subtitles={analysis.get('has_subtitles', False)}, errors={analysis.get('has_errors', False)}, text='{text_preview}', confidence={analysis.get('confidence', 0)}")
+                
+                # NO EARLY BREAK - process all frames
+                
+            except Exception as e:
+                results.append({
+                    'image_path': image_path,
+                    'success': False,
+                    'error': f'Analysis error: {str(e)}',
+                    'frame_index': i
+                })
+        
+        # Calculate overall result
+        successful_analyses = [r for r in results if r.get('success')]
+        subtitles_detected = any(r.get('has_subtitles', False) for r in successful_analyses)
+        errors_detected = any(r.get('has_errors', False) for r in successful_analyses)
+        
+        # Combine all extracted text and find the most confident language detection
+        all_extracted_text = " ".join([r.get('extracted_text', '') for r in successful_analyses if r.get('extracted_text')])
+        
+        # Get the language from the result with highest confidence and subtitles detected
+        detected_language = 'unknown'
+        max_confidence = 0.0
+        for result in successful_analyses:
+            if result.get('has_subtitles') and result.get('confidence', 0) > max_confidence:
+                detected_language = result.get('detected_language', 'unknown')
+                max_confidence = result.get('confidence', 0)
+        
+        overall_result = {
+            'success': len(successful_analyses) > 0,
+            'subtitles_detected': subtitles_detected,
+            'errors_detected': errors_detected,
+            'analyzed_images': len(results),
+            'successful_analyses': len(successful_analyses),
+            'combined_extracted_text': all_extracted_text.strip(),
+            'detected_language': detected_language,
+            'confidence': max_confidence,
+            'results': results,
+            'analysis_type': 'subtitle_detection_all_frames',
+            'timestamp': datetime.now().isoformat()
+        }
+        
+        print(f"VideoContent[{self.device_name}]: All-frame subtitle analysis complete - {len(successful_analyses)}/{len(image_paths)} frames analyzed, subtitles_detected={subtitles_detected}")
+        
+        return overall_result
+
     # =============================================================================
     # Text Extraction and Language Detection
     # =============================================================================

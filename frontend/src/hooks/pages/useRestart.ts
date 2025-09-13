@@ -28,6 +28,7 @@ interface SubtitleAnalysis {
   extracted_text: string;
   detected_language?: string;
   execution_time_ms: number;
+  frame_subtitles?: string[];
 }
 
 interface VideoDescriptionAnalysis {
@@ -67,6 +68,7 @@ interface BackendAnalysisData {
     detected_language: string;
     confidence: number;
     frames_analyzed: number;
+    frame_subtitles?: string[];
   };
   video_analysis?: {
     success: boolean;
@@ -76,6 +78,7 @@ interface BackendAnalysisData {
   };
   screenshot_urls?: string[];
   video_id?: string;
+  segment_count?: number;
   analysis_complete?: boolean;
 }
 
@@ -228,6 +231,7 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
           extracted_text: subtitleData.extracted_text || '',
           detected_language: subtitleData.detected_language || 'unknown',
           execution_time_ms: 0,
+          frame_subtitles: subtitleData.frame_subtitles || [],
         }
       }));
       setAnalysisProgress(prev => ({ ...prev, subtitles: 'completed' }));
@@ -259,7 +263,7 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
     console.log('[@hook:useRestart] All analysis processing complete');
   }, []);
 
-  const triggerAsyncAnalysis = useCallback(async (videoId: string, screenshotUrls: string[]) => {
+  const triggerAsyncAnalysis = useCallback(async (videoId: string, screenshotUrls: string[], segmentCount?: number) => {
     console.log('[@hook:useRestart] Triggering async analysis for video ID:', videoId);
     
     try {
@@ -269,16 +273,24 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
         videoDescription: 'loading'
       }));
 
+      const requestBody: any = {
+        host,
+        device_id: device.device_id || 'device1',
+        video_id: videoId,
+        screenshot_urls: screenshotUrls,
+        duration_seconds: 10, // Restart videos are always 10 seconds
+      };
+
+      // Add segment count if provided (for proper synchronization)
+      if (segmentCount !== undefined) {
+        requestBody.segment_count = segmentCount;
+        console.log('[@hook:useRestart] Using segment count:', segmentCount);
+      }
+
       const response = await fetch(buildServerUrl('/server/av/analyzeRestartVideo'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          host,
-          device_id: device.device_id || 'device1',
-          video_id: videoId,
-          screenshot_urls: screenshotUrls,
-          duration_seconds: 10, // Restart videos are always 10 seconds
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       if (!response.ok) {
@@ -380,7 +392,11 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
         
         // Trigger async analysis if video_id and screenshot_urls are available
         if (data.analysis_data.video_id && data.analysis_data.screenshot_urls) {
-          triggerAsyncAnalysis(data.analysis_data.video_id, data.analysis_data.screenshot_urls);
+          triggerAsyncAnalysis(
+            data.analysis_data.video_id, 
+            data.analysis_data.screenshot_urls,
+            data.analysis_data.segment_count  // Pass segment count for proper synchronization
+          );
         }
       }
 

@@ -324,6 +324,32 @@ class VideoVerificationController(VerificationControllerInterface):
                 'analysis_type': 'ai_subtitle_detection'
             }
 
+    def detect_subtitles_ai_all_frames(self, image_paths: List[str] = None, extract_text: bool = True) -> Dict[str, Any]:
+        """AI-powered subtitle detection for ALL frames (restart video analysis)."""
+        try:
+            # Determine which images to analyze
+            if image_paths is None or len(image_paths) == 0:
+                if not self.is_connected:
+                    print(f"VideoVerify[{self.device_name}]: ERROR - Not connected for screenshot capture")
+                    return {'success': False, 'error': 'Not connected for screenshot capture'}
+                
+                # Use last available capture
+                screenshot = self.capture_screenshot()
+                if not screenshot:
+                    return {'success': False, 'error': 'Failed to capture screenshot'}
+                image_paths = [screenshot]
+            
+            print(f"VideoVerify[{self.device_name}]: Starting AI subtitle analysis for ALL {len(image_paths)} frames")
+            return self.ai_helpers.detect_subtitles_ai_all_frames(image_paths, extract_text)
+            
+        except Exception as e:
+            print(f"VideoVerify[{self.device_name}]: AI all-frames subtitle detection error: {e}")
+            return {
+                'success': False,
+                'error': f'AI all-frames subtitle detection failed: {str(e)}',
+                'analysis_type': 'ai_subtitle_detection_all_frames'
+            }
+
     def detect_macroblocks(self, image_paths: List[str] = None) -> Dict[str, Any]:
         """Detect macroblocks/image quality issues."""
         if not self.is_connected:
