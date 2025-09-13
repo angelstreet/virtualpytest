@@ -9,10 +9,13 @@ import logging
 from datetime import datetime
 
 # Add project paths
-project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
+current_dir = os.path.dirname(os.path.abspath(__file__))  # backend_host/scripts/
+backend_host_dir = os.path.dirname(current_dir)           # backend_host/
+project_root = os.path.dirname(backend_host_dir)          # project root
+
 sys.path.insert(0, project_root)
 
-from shared.lib.supabase.supabase_client import get_supabase_client
+from shared.lib.utils.supabase_utils import get_supabase_client
 
 # Use same logger as capture_monitor
 logger = logging.getLogger('capture_monitor')
