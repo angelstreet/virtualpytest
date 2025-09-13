@@ -1,4 +1,4 @@
-import { Box, Typography, CircularProgress, Alert, IconButton, LinearProgress, Tooltip } from '@mui/material';
+import { Box, Typography, CircularProgress, Alert, IconButton, LinearProgress, Tooltip, keyframes } from '@mui/material';
 import { Settings as SettingsIcon, Assessment as ReportIcon } from '@mui/icons-material';
 import React, { useEffect, useRef, useState } from 'react';
 
@@ -8,6 +8,110 @@ import { Host, Device } from '../../types/common/Host_Types';
 import { RestartSettingsPanel } from './RestartSettingsPanel';
 import { RestartSummaryOverlay } from './RestartSummaryOverlay';
 import { RestartSubtitleOverlay } from './RestartSubtitleOverlay';
+
+// Pulsing animation for the loading indicator
+const pulseAnimation = keyframes`
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+`;
+
+// AI Analysis Loader Component
+const AIAnalysisLoader: React.FC = () => {
+  const [elapsedTime, setElapsedTime] = useState(0);
+
+  useEffect(() => {
+    const startTime = Date.now();
+    const interval = setInterval(() => {
+      const elapsed = Math.floor((Date.now() - startTime) / 1000);
+      setElapsedTime(elapsed);
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  const formatTime = (seconds: number): string => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  return (
+    <Box
+      sx={{
+        position: 'absolute',
+        top: 16,
+        right: 16,
+        zIndex: 1000030,
+        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+        borderRadius: 2,
+        padding: 2,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: 1,
+        minWidth: 140,
+        border: '1px solid rgba(255, 255, 255, 0.2)',
+      }}
+    >
+      {/* Pulsing Circle and Timer */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <CircularProgress
+          size={20}
+          sx={{
+            color: 'white',
+            animation: `${pulseAnimation} 2s ease-in-out infinite`,
+          }}
+        />
+        <Typography
+          variant="body2"
+          sx={{
+            color: 'white',
+            fontFamily: 'monospace',
+            fontSize: '14px',
+            fontWeight: 600,
+          }}
+        >
+          {formatTime(elapsedTime)}
+        </Typography>
+      </Box>
+
+      {/* Status Text */}
+      <Typography
+        variant="caption"
+        sx={{
+          color: 'white',
+          fontSize: '11px',
+          textAlign: 'center',
+          lineHeight: 1.2,
+        }}
+      >
+        AI Analyzing
+      </Typography>
+
+      {/* Expected Duration */}
+      <Typography
+        variant="caption"
+        sx={{
+          color: 'rgba(255, 255, 255, 0.7)',
+          fontSize: '10px',
+          textAlign: 'center',
+        }}
+      >
+        (~2-3 minutes)
+      </Typography>
+    </Box>
+  );
+};
 
 interface RestartPlayerProps {
   host: Host;
@@ -154,31 +258,9 @@ export const RestartPlayer: React.FC<RestartPlayerProps> = ({ host, device, incl
         )}
       </Box>
 
-      {/* AI Analysis Progress Bar (shows after video appears, until analysis complete) */}
+      {/* AI Analysis Loading Indicator (shows after video appears, until analysis complete) */}
       {isReady && includeAudioAnalysis && !isAnalysisComplete && (
-        <Box sx={{ position: 'absolute', top: 16, right: 16, zIndex: 1000030, width: 100 }}>
-          <LinearProgress 
-            variant="determinate" 
-            value={(() => {
-              const completed = Object.values(analysisProgress).filter(status => status === 'completed').length;
-              const errors = Object.values(analysisProgress).filter(status => status === 'error').length;
-              return ((completed + errors) / 3) * 100;
-            })()}
-            sx={{ 
-              height: 6, 
-              borderRadius: 3,
-              backgroundColor: 'rgba(255,255,255,0.2)',
-              '& .MuiLinearProgress-bar': {
-                backgroundColor: (() => {
-                  const errors = Object.values(analysisProgress).filter(status => status === 'error').length;
-                  return errors > 0 ? '#FF6B6B' : '#00AA00'; // Red for errors, green for success
-                })(),
-                borderRadius: 3,
-                transition: 'transform 0.4s ease-in-out'
-              }
-            }}
-          />
-        </Box>
+        <AIAnalysisLoader />
       )}
 
       {/* Settings and Report Buttons (appears when everything is complete) */}
