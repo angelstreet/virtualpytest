@@ -18,18 +18,22 @@ sys.path.insert(0, project_root)
 # Load environment variables from .env
 try:
     from dotenv import load_dotenv
-    env_root_path = os.path.join(project_root, '.env')
+    env_root_path = os.path.join(backend_host_dir, 'src', '.env')
     
-    if load_dotenv(env_root_path):
-        logger.info(f"[@incident_manager] Successfully loaded environment from {env_root_path}")
-    elif os.path.exists(env_root_path):
-        logger.warning(f"[@incident_manager] Failed to load .env from {env_root_path} - file exists but loading returned False")
+    if os.path.exists(env_root_path):
+        load_dotenv(env_root_path)
+        print(f"[@incident_manager] Loaded environment from {env_root_path}")
+        # Debug: Show key environment variables
+        print(f"[@incident_manager] HOST_NAME={os.getenv('HOST_NAME')}")
+        print(f"[@incident_manager] HOST_VIDEO_CAPTURE_PATH={os.getenv('HOST_VIDEO_CAPTURE_PATH')}")
+        print(f"[@incident_manager] HOST_VIDEO_STREAM_PATH={os.getenv('HOST_VIDEO_STREAM_PATH')}")
+        print(f"[@incident_manager] DEVICE1_NAME={os.getenv('DEVICE1_NAME')}")
+        print(f"[@incident_manager] DEVICE1_VIDEO_CAPTURE_PATH={os.getenv('DEVICE1_VIDEO_CAPTURE_PATH')}")
+        print(f"[@incident_manager] DEVICE1_VIDEO_STREAM_PATH={os.getenv('DEVICE1_VIDEO_STREAM_PATH')}")
     else:
-        logger.warning(f"[@incident_manager] .env not found at {env_root_path}")
+        print(f"[@incident_manager] Warning: .env not found at {env_root_path}")
 except ImportError:
-    logger.warning("[@incident_manager] python-dotenv not available, skipping .env loading")
-except Exception as e:
-    logger.error(f"[@incident_manager] Error loading .env: {str(e)}")
+    print("[@incident_manager] Warning: python-dotenv not available, skipping .env loading")
 
 # Lazy import to reduce startup time
 create_alert_safe = None
@@ -74,37 +78,45 @@ class IncidentManager:
         import os
         capture_path = f"/var/www/html/stream/{capture_folder}"
         
-        logger.info(f"[{capture_folder}] Mapping capture_path: {capture_path}")
+        logger.info(f"[{capture_folder}] DEVICE MAPPING DEBUG: Starting lookup for capture_folder='{capture_folder}'")
+        logger.info(f"[{capture_folder}] DEVICE MAPPING DEBUG: Constructed capture_path='{capture_path}'")
         
         # Check HOST first
         host_capture_path = os.getenv('HOST_VIDEO_CAPTURE_PATH')
-        logger.info(f"[{capture_folder}] Checking HOST_VIDEO_CAPTURE_PATH: {host_capture_path}")
+        logger.info(f"[{capture_folder}] DEVICE MAPPING DEBUG: HOST_VIDEO_CAPTURE_PATH='{host_capture_path}'")
+        
         if host_capture_path == capture_path:
             host_name = os.getenv('HOST_NAME', 'unknown')
-            logger.info(f"[{capture_folder}] Matched HOST mapping for {host_name}")
+            host_stream_path = os.getenv('HOST_VIDEO_STREAM_PATH')
+            logger.info(f"[{capture_folder}] DEVICE MAPPING DEBUG: ✓ MATCHED HOST! host_name='{host_name}', stream_path='{host_stream_path}'")
             return {
                 'device_name': f"{host_name}_Host",
-                'stream_path': os.getenv('HOST_VIDEO_STREAM_PATH'),
-                'capture_path': os.getenv('HOST_VIDEO_CAPTURE_PATH')
+                'stream_path': host_stream_path,
+                'capture_path': host_capture_path
             }
+        else:
+            logger.info(f"[{capture_folder}] DEVICE MAPPING DEBUG: ✗ HOST no match: '{host_capture_path}' != '{capture_path}'")
         
         # Check DEVICE1-4
         for i in range(1, 5):
             device_capture_path = os.getenv(f'DEVICE{i}_VIDEO_CAPTURE_PATH')
-            logger.info(f"[{capture_folder}] Checking DEVICE{i}_VIDEO_CAPTURE_PATH: {device_capture_path}")
+            device_name = os.getenv(f'DEVICE{i}_NAME', f'device{i}')
+            device_stream_path = os.getenv(f'DEVICE{i}_VIDEO_STREAM_PATH')
+            
+            logger.info(f"[{capture_folder}] DEVICE MAPPING DEBUG: DEVICE{i}_VIDEO_CAPTURE_PATH='{device_capture_path}', NAME='{device_name}', STREAM='{device_stream_path}'")
+            
             if device_capture_path == capture_path:
-                device_name = os.getenv(f'DEVICE{i}_NAME', f'device{i}')
-                logger.info(f"[{capture_folder}] Matched DEVICE{i} mapping for {device_name}")
+                logger.info(f"[{capture_folder}] DEVICE MAPPING DEBUG: ✓ MATCHED DEVICE{i}! device_name='{device_name}', stream_path='{device_stream_path}'")
                 return {
                     'device_name': device_name,
-                    'stream_path': os.getenv(f'DEVICE{i}_VIDEO_STREAM_PATH'),
-                    'capture_path': os.getenv(f'DEVICE{i}_VIDEO_CAPTURE_PATH')
+                    'stream_path': device_stream_path,
+                    'capture_path': device_capture_path
                 }
+            else:
+                logger.info(f"[{capture_folder}] DEVICE MAPPING DEBUG: ✗ DEVICE{i} no match: '{device_capture_path}' != '{capture_path}'")
         
-        # Fail early instead of fallback
-        error_msg = f"No .env mapping found for capture_folder '{capture_folder}' with path '{capture_path}'. Check .env configuration."
-        logger.error(f"[{capture_folder}] Mapping failed: {error_msg}")
-        raise ValueError(error_msg)
+        logger.warning(f"[{capture_folder}] DEVICE MAPPING DEBUG: ✗ NO MATCHES FOUND! Falling back to capture_folder='{capture_folder}' as device_name")
+        return {'device_name': capture_folder, 'stream_path': None, 'capture_path': None}
     
     def create_incident(self, capture_folder, issue_type, host_name, analysis_result=None):
         """Create new incident in DB using original working method"""

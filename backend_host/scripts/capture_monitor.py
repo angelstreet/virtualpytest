@@ -56,10 +56,6 @@ def find_latest_frame(capture_dir):
 def cleanup_logs_on_startup():
     """Clean up all monitoring log files on service restart for fresh debugging - EXACT COPY"""
     try:
-        if os.getenv('SKIP_LOG_CLEANUP') == 'true':
-            print("[@capture_monitor] Skipping log cleanup as per SKIP_LOG_CLEANUP=true")
-            return
-            
         log_files = [
             '/tmp/capture_monitor.log',  # This service's log
             '/tmp/analysis.log',         # analyze_audio_video.py log
