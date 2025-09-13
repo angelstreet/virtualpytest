@@ -534,41 +534,92 @@ def save_screenshot():
 
 @server_av_bp.route('/generateRestartVideo', methods=['POST'])
 def generate_restart_video():
-    """Proxy generate restart video request to selected host with device_id"""
+    """Generate video only - fast response"""
     try:
-        print("[@route:server_av:generate_restart_video] Proxying restart video generation request")
-        
-        # Extract request data
         request_data = request.get_json() or {}
         host = request_data.get('host')
         device_id = request_data.get('device_id', 'device1')
-        duration_seconds = request_data.get('duration_seconds', 30)
-        include_audio_analysis = request_data.get('include_audio_analysis', False)
+        duration_seconds = request_data.get('duration_seconds', 10)
 
-        # Validate host
         if not host:
             return jsonify({'success': False, 'error': 'Host required'}), 400
 
-        print(f"[@route:server_av:generate_restart_video] Host: {host.get('host_name')}, Device: {device_id}, Duration: {duration_seconds}s, Audio: {include_audio_analysis}")
-
-        # Add device_id to query params for host route
-        query_params = {'device_id': device_id}
-
-        # Proxy to host with device_id
         response_data, status_code = proxy_to_host_with_params(
-            '/host/av/generateRestartVideo',
+            '/host/av/generateRestartVideoOnly',
             'POST',
             request_data,
-            query_params
+            {'device_id': device_id}
         )
-
         return jsonify(response_data), status_code
         
     except Exception as e:
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@server_av_bp.route('/analyzeRestartAudio', methods=['POST'])
+def analyze_restart_audio():
+    """Analyze audio transcript"""
+    try:
+        request_data = request.get_json() or {}
+        host = request_data.get('host')
+        device_id = request_data.get('device_id', 'device1')
+
+        if not host:
+            return jsonify({'success': False, 'error': 'Host required'}), 400
+
+        response_data, status_code = proxy_to_host_with_params(
+            '/host/av/analyzeRestartAudio',
+            'POST',
+            request_data,
+            {'device_id': device_id}
+        )
+        return jsonify(response_data), status_code
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@server_av_bp.route('/analyzeRestartSubtitles', methods=['POST'])
+def analyze_restart_subtitles():
+    """Analyze subtitles"""
+    try:
+        request_data = request.get_json() or {}
+        host = request_data.get('host')
+        device_id = request_data.get('device_id', 'device1')
+
+        if not host:
+            return jsonify({'success': False, 'error': 'Host required'}), 400
+
+        response_data, status_code = proxy_to_host_with_params(
+            '/host/av/analyzeRestartSubtitles',
+            'POST',
+            request_data,
+            {'device_id': device_id}
+        )
+        return jsonify(response_data), status_code
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@server_av_bp.route('/analyzeRestartSummary', methods=['POST'])
+def analyze_restart_summary():
+    """Analyze video summary"""
+    try:
+        request_data = request.get_json() or {}
+        host = request_data.get('host')
+        device_id = request_data.get('device_id', 'device1')
+
+        if not host:
+            return jsonify({'success': False, 'error': 'Host required'}), 400
+
+        response_data, status_code = proxy_to_host_with_params(
+            '/host/av/analyzeRestartSummary',
+            'POST',
+            request_data,
+            {'device_id': device_id}
+        )
+        return jsonify(response_data), status_code
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @server_av_bp.route('/analyzeRestartVideo', methods=['POST'])
 def analyze_restart_video():

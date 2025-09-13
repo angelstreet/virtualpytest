@@ -47,9 +47,10 @@ interface AnalysisResults {
 type AnalysisState = 'idle' | 'loading' | 'completed' | 'error';
 
 interface AnalysisProgress {
+  video: AnalysisState;
   audio: AnalysisState;
   subtitles: AnalysisState;
-  videoDescription: AnalysisState;
+  summary: AnalysisState;
 }
 
 interface BackendAnalysisData {
@@ -181,8 +182,8 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
   const [isGenerating, setIsGenerating] = useState(false);
   const [isReady, setIsReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [processingTime, setProcessingTime] = useState<number | null>(null);
-  const [reportUrl, setReportUrl] = useState<string | null>(null);
+  const [processingTime] = useState<number | null>(null);
+  const [reportUrl] = useState<string | null>(null);
   
   const [analysisResults, setAnalysisResults] = useState<AnalysisResults>({
     audio: null,
@@ -191,227 +192,138 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
   });
   
   const [analysisProgress, setAnalysisProgress] = useState<AnalysisProgress>({
+    video: 'idle',
     audio: 'idle',
     subtitles: 'idle',
-    videoDescription: 'idle',
+    summary: 'idle',
   });
 
   // =====================================================
   // CORE FUNCTIONS
   // =====================================================
 
-  const processBackendAnalysis = useCallback((analysisData: BackendAnalysisData) => {
-    console.log('[@hook:useRestart] Processing backend analysis data:', analysisData);
-    
-    // Process audio analysis from backend
-    if (analysisData.audio_analysis) {
-      const audioData = analysisData.audio_analysis;
-      setAnalysisResults(prev => ({
-        ...prev,
-        audio: {
-          success: audioData.success,
-          combined_transcript: audioData.combined_transcript || '',
-          detected_language: audioData.detected_language || 'unknown',
-          speech_detected: audioData.speech_detected || false,
-          confidence: audioData.confidence || 0,
-          execution_time_ms: 0, // Backend processing time not tracked
-        }
-      }));
-      setAnalysisProgress(prev => ({ ...prev, audio: 'completed' }));
-    }
-    
-    // Process subtitle analysis from backend
-    if (analysisData.subtitle_analysis) {
-      const subtitleData = analysisData.subtitle_analysis;
-      setAnalysisResults(prev => ({
-        ...prev,
-        subtitles: {
-          success: subtitleData.success,
-          subtitles_detected: subtitleData.subtitles_detected || false,
-          extracted_text: subtitleData.extracted_text || '',
-          detected_language: subtitleData.detected_language || 'unknown',
-          execution_time_ms: 0,
-          frame_subtitles: subtitleData.frame_subtitles || [],
-        }
-      }));
-      setAnalysisProgress(prev => ({ ...prev, subtitles: 'completed' }));
-    }
-    
-    // Process video description analysis from backend
-    if (analysisData.video_analysis) {
-      const videoData = analysisData.video_analysis;
-      setAnalysisResults(prev => ({
-        ...prev,
-        videoDescription: {
-          frame_descriptions: videoData.frame_descriptions || [],
-          video_summary: videoData.video_summary || '',
-          frames_analyzed: videoData.frames_analyzed || 0,
-          execution_time_ms: 0,
-        }
-      }));
-      setAnalysisProgress(prev => ({ ...prev, videoDescription: 'completed' }));
-    }
-    
-    // If no subtitle or video analysis provided, mark as completed anyway
-    if (!analysisData.subtitle_analysis) {
-      setAnalysisProgress(prev => ({ ...prev, subtitles: 'completed' }));
-    }
-    if (!analysisData.video_analysis) {
-      setAnalysisProgress(prev => ({ ...prev, videoDescription: 'completed' }));
-    }
-    
-    console.log('[@hook:useRestart] All analysis processing complete');
-  }, []);
-
-  const triggerAsyncAnalysis = useCallback(async (videoId: string, screenshotUrls: string[], segmentCount?: number) => {
-    console.log('[@hook:useRestart] Triggering async analysis for video ID:', videoId);
-    
-    try {
-      setAnalysisProgress(prev => ({
-        ...prev,
-        subtitles: 'loading',
-        videoDescription: 'loading'
-      }));
-
-      const requestBody: any = {
-        host,
-        device_id: device.device_id || 'device1',
-        video_id: videoId,
-        screenshot_urls: screenshotUrls,
-        duration_seconds: 10, // Restart videos are always 10 seconds
-      };
-
-      // Add segment count if provided (for proper synchronization)
-      if (segmentCount !== undefined) {
-        requestBody.segment_count = segmentCount;
-        console.log('[@hook:useRestart] Using segment count:', segmentCount);
-      }
-
-      const response = await fetch(buildServerUrl('/server/av/analyzeRestartVideo'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestBody),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Async analysis failed: ${response.status} ${response.statusText}`);
-      }
-
-      const asyncData = await response.json();
-      
-      if (asyncData.success && asyncData.analysis_data) {
-        console.log('[@hook:useRestart] Async analysis completed:', asyncData.analysis_data);
-        processBackendAnalysis(asyncData.analysis_data);
-        
-        // Capture report URL from async analysis response
-        if (asyncData.report_url) {
-          console.log('[@hook:useRestart] Report URL received:', asyncData.report_url);
-          setReportUrl(asyncData.report_url);
-        }
-      } else {
-        throw new Error(asyncData.error || 'Async analysis failed');
-      }
-
-    } catch (error) {
-      console.error('[@hook:useRestart] Async analysis error:', error);
-      // Mark as completed even on error to avoid infinite loading
-      setAnalysisProgress(prev => ({
-        ...prev,
-        subtitles: 'error',
-        videoDescription: 'error'
-      }));
-    }
-  }, [host, device.device_id, processBackendAnalysis]);
-
-  const generateVideoRequest = useCallback(async (): Promise<BackendResponse> => {
-    const response = await fetch(buildServerUrl('/server/av/generateRestartVideo'), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        host,
-        device_id: device.device_id || 'device1',
-        duration_seconds: 10,
-        include_audio_analysis: includeAudioAnalysis || false,
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Video generation failed: ${response.status} ${response.statusText}`);
-    }
-
-    const data: BackendResponse = await response.json();
-    
-    // Handle different response formats from backend
-    if (typeof data === 'object' && data.success === true) {
-      return data;
-    } else if (typeof data === 'string') {
-      // Legacy format: just video URL
-      return {
-        success: true,
-        video_url: data,
-        processing_time_seconds: 0
-      };
-    } else {
-      throw new Error(data.error || 'Video generation failed');
-    }
-  }, [host, device.device_id, includeAudioAnalysis]);
 
   const executeVideoGeneration = useCallback(async () => {
-    console.log(`[@hook:useRestart] Starting video generation for ${host.host_name}-${device.device_id}`);
+    console.log(`[@hook:useRestart] Starting 4-stage video generation for ${host.host_name}-${device.device_id}`);
     
     setIsGenerating(true);
     setError(null);
     setIsReady(false);
+    setAnalysisProgress({ video: 'loading', audio: 'idle', subtitles: 'idle', summary: 'idle' });
 
     try {
-      // Check cache first
-      const cachedPromise = videoCache.get(host, device);
-      let responsePromise: Promise<BackendResponse>;
+      // Stage 1: Generate video only (fast)
+      const videoResponse = await fetch(buildServerUrl('/server/av/generateRestartVideo'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          host,
+          device_id: device.device_id || 'device1',
+          duration_seconds: 10,
+        }),
+      });
 
-      if (cachedPromise) {
-        console.log('[@hook:useRestart] Using cached request');
-        responsePromise = cachedPromise;
-      } else {
-        console.log('[@hook:useRestart] Starting new request');
-        responsePromise = generateVideoRequest();
-        videoCache.set(host, device, responsePromise);
-      }
-
-      const data = await responsePromise;
+      if (!videoResponse.ok) throw new Error(`Video generation failed: ${videoResponse.status}`);
+      const videoData = await videoResponse.json();
       
-      console.log('[@hook:useRestart] Video generation completed:', data);
+      if (!videoData.success) throw new Error(videoData.error || 'Video generation failed');
 
-      // Set video data
-      setVideoUrl(data.video_url || null);
-      setProcessingTime(data.processing_time_seconds || null);
+      // Video ready - show immediately
+      setVideoUrl(videoData.video_url);
       setIsReady(true);
+      setIsGenerating(false);
+      setAnalysisProgress(prev => ({ ...prev, video: 'completed' }));
 
-      // Process analysis data if available
-      if (includeAudioAnalysis && data.analysis_data) {
-        processBackendAnalysis(data.analysis_data);
-        
-        // Trigger async analysis if video_id and screenshot_urls are available
-        if (data.analysis_data.video_id && data.analysis_data.screenshot_urls) {
-          triggerAsyncAnalysis(
-            data.analysis_data.video_id, 
-            data.analysis_data.screenshot_urls,
-            data.analysis_data.segment_count  // Pass segment count for proper synchronization
-          );
-        }
-      }
+      if (!includeAudioAnalysis) return;
+
+      // Stage 2-4: Run analysis in parallel
+      const analysisPromises = [
+        // Audio analysis
+        fetch(buildServerUrl('/server/av/analyzeRestartAudio'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            host,
+            device_id: device.device_id || 'device1',
+            video_id: videoData.video_id,
+          }),
+        }).then(async (res) => {
+          setAnalysisProgress(prev => ({ ...prev, audio: 'loading' }));
+          const data = await res.json();
+          if (data.success && data.audio_analysis) {
+            setAnalysisResults(prev => ({ ...prev, audio: {
+              success: data.audio_analysis.success,
+              combined_transcript: data.audio_analysis.combined_transcript || '',
+              detected_language: data.audio_analysis.detected_language || 'unknown',
+              speech_detected: data.audio_analysis.speech_detected || false,
+              confidence: data.audio_analysis.confidence || 0,
+              execution_time_ms: 0,
+            }}));
+          }
+          setAnalysisProgress(prev => ({ ...prev, audio: data.success ? 'completed' : 'error' }));
+        }),
+
+        // Subtitle analysis
+        fetch(buildServerUrl('/server/av/analyzeRestartSubtitles'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            host,
+            device_id: device.device_id || 'device1',
+            video_id: videoData.video_id,
+            screenshot_urls: videoData.screenshot_urls || [],
+          }),
+        }).then(async (res) => {
+          setAnalysisProgress(prev => ({ ...prev, subtitles: 'loading' }));
+          const data = await res.json();
+          if (data.success && data.subtitle_analysis) {
+            setAnalysisResults(prev => ({ ...prev, subtitles: {
+              success: data.subtitle_analysis.success,
+              subtitles_detected: data.subtitle_analysis.subtitles_detected || false,
+              extracted_text: data.subtitle_analysis.extracted_text || '',
+              detected_language: data.subtitle_analysis.detected_language || 'unknown',
+              execution_time_ms: 0,
+              frame_subtitles: data.subtitle_analysis.frame_subtitles || [],
+            }}));
+          }
+          setAnalysisProgress(prev => ({ ...prev, subtitles: data.success ? 'completed' : 'error' }));
+        }),
+
+        // Summary analysis
+        fetch(buildServerUrl('/server/av/analyzeRestartSummary'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            host,
+            device_id: device.device_id || 'device1',
+            video_id: videoData.video_id,
+            screenshot_urls: videoData.screenshot_urls || [],
+          }),
+        }).then(async (res) => {
+          setAnalysisProgress(prev => ({ ...prev, summary: 'loading' }));
+          const data = await res.json();
+          if (data.success && data.video_analysis) {
+            setAnalysisResults(prev => ({ ...prev, videoDescription: {
+              frame_descriptions: data.video_analysis.frame_descriptions || [],
+              video_summary: data.video_analysis.video_summary || '',
+              frames_analyzed: data.video_analysis.frames_analyzed || 0,
+              execution_time_ms: 0,
+            }}));
+          }
+          setAnalysisProgress(prev => ({ ...prev, summary: data.success ? 'completed' : 'error' }));
+        }),
+      ];
+
+      // Wait for all analysis to complete
+      await Promise.allSettled(analysisPromises);
 
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Video generation failed';
       console.error('[@hook:useRestart] Video generation error:', errorMessage);
       setError(errorMessage);
-    } finally {
       setIsGenerating(false);
-      // Clean up cache after a delay
-      setTimeout(() => {
-        videoCache.delete(host, device);
-      }, 5000);
     }
-  }, [host, device, includeAudioAnalysis, generateVideoRequest, processBackendAnalysis]);
+  }, [host, device, includeAudioAnalysis]);
 
   // =====================================================
   // EFFECTS
@@ -460,7 +372,7 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
     
     return analysisProgress.audio !== 'idle' && analysisProgress.audio !== 'loading' &&
            analysisProgress.subtitles !== 'idle' && analysisProgress.subtitles !== 'loading' &&
-           analysisProgress.videoDescription !== 'idle' && analysisProgress.videoDescription !== 'loading';
+           analysisProgress.summary !== 'idle' && analysisProgress.summary !== 'loading';
   }, [analysisProgress, includeAudioAnalysis]);
 
   // =====================================================

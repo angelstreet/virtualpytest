@@ -1,4 +1,4 @@
-import { Box, Typography, CircularProgress, Alert, IconButton, Tooltip, keyframes } from '@mui/material';
+import { Box, Typography, CircularProgress, Alert, IconButton, Tooltip } from '@mui/material';
 import { Settings as SettingsIcon, Assessment as ReportIcon } from '@mui/icons-material';
 import React, { useEffect, useRef, useState } from 'react';
 
@@ -8,40 +8,34 @@ import { Host, Device } from '../../types/common/Host_Types';
 import { RestartSettingsPanel } from './RestartSettingsPanel';
 import { RestartSubtitleOverlay } from './RestartSubtitleOverlay';
 
-// Pulsing animation for the loading indicator
-const pulseAnimation = keyframes`
-  0% {
-    transform: scale(1);
-    opacity: 1;
-  }
-  50% {
-    transform: scale(1.1);
-    opacity: 0.7;
-  }
-  100% {
-    transform: scale(1);
-    opacity: 1;
-  }
-`;
 
-// AI Analysis Loader Component
-const AIAnalysisLoader: React.FC = () => {
-  const [elapsedTime, setElapsedTime] = useState(0);
+// Analysis Progress Component
+interface AnalysisProgressProps {
+  progress: {
+    video: 'idle' | 'loading' | 'completed' | 'error';
+    audio: 'idle' | 'loading' | 'completed' | 'error';
+    subtitles: 'idle' | 'loading' | 'completed' | 'error';
+    summary: 'idle' | 'loading' | 'completed' | 'error';
+  };
+}
 
-  useEffect(() => {
-    const startTime = Date.now();
-    const interval = setInterval(() => {
-      const elapsed = Math.floor((Date.now() - startTime) / 1000);
-      setElapsedTime(elapsed);
-    }, 1000);
+const AnalysisProgress: React.FC<AnalysisProgressProps> = ({ progress }) => {
+  const getIcon = (state: string) => {
+    switch (state) {
+      case 'completed': return '✓';
+      case 'error': return '✗';
+      case 'loading': return <CircularProgress size={12} sx={{ color: 'white' }} />;
+      default: return '○';
+    }
+  };
 
-    return () => clearInterval(interval);
-  }, []);
-
-  const formatTime = (seconds: number): string => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  const getColor = (state: string) => {
+    switch (state) {
+      case 'completed': return '#4CAF50';
+      case 'error': return '#f44336';
+      case 'loading': return '#2196F3';
+      default: return 'rgba(255, 255, 255, 0.5)';
+    }
   };
 
   return (
@@ -53,61 +47,32 @@ const AIAnalysisLoader: React.FC = () => {
         zIndex: 1000030,
         backgroundColor: 'rgba(0, 0, 0, 0.8)',
         borderRadius: 2,
-        padding: 2,
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        gap: 1,
-        minWidth: 140,
+        padding: 1.5,
+        minWidth: 120,
         border: '1px solid rgba(255, 255, 255, 0.2)',
       }}
     >
-      {/* Pulsing Circle and Timer */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-        <CircularProgress
-          size={20}
-          sx={{
-            color: 'white',
-            animation: `${pulseAnimation} 2s ease-in-out infinite`,
-          }}
-        />
-        <Typography
-          variant="body2"
-          sx={{
-            color: 'white',
-            fontFamily: 'monospace',
-            fontSize: '14px',
-            fontWeight: 600,
-          }}
-        >
-          {formatTime(elapsedTime)}
-        </Typography>
-      </Box>
-
-      {/* Status Text */}
-      <Typography
-        variant="caption"
-        sx={{
-          color: 'white',
-          fontSize: '11px',
-          textAlign: 'center',
-          lineHeight: 1.2,
-        }}
-      >
-        AI Analyzing
-      </Typography>
-
-      {/* Expected Duration */}
-      <Typography
-        variant="caption"
-        sx={{
-          color: 'rgba(255, 255, 255, 0.7)',
-          fontSize: '10px',
-          textAlign: 'center',
-        }}
-      >
-        (~2-3 minutes)
-      </Typography>
+      {[
+        { key: 'audio', label: 'Audio' },
+        { key: 'subtitles', label: 'Subtitles' },
+        { key: 'summary', label: 'Summary' },
+      ].map(({ key, label }) => (
+        <Box key={key} sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+          <Box sx={{ width: 16, height: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            {getIcon(progress[key as keyof typeof progress])}
+          </Box>
+          <Typography
+            variant="caption"
+            sx={{
+              color: getColor(progress[key as keyof typeof progress]),
+              fontSize: '11px',
+              fontWeight: 500,
+            }}
+          >
+            {label}
+          </Typography>
+        </Box>
+      ))}
     </Box>
   );
 };
@@ -131,7 +96,7 @@ export const RestartPlayer: React.FC<RestartPlayerProps> = ({ host, device, incl
   const [subtitleStyle, setSubtitleStyle] = useState('yellow');
   const [subtitleFontSize, setSubtitleFontSize] = useState('medium');
   
-  const { videoUrl, isGenerating, isReady, error, analysisResults, isAnalysisComplete, reportUrl } = useRestart({ 
+  const { videoUrl, isGenerating, isReady, error, analysisResults, isAnalysisComplete, reportUrl, analysisProgress } = useRestart({ 
     host, 
     device, 
     includeAudioAnalysis 
@@ -249,9 +214,9 @@ export const RestartPlayer: React.FC<RestartPlayerProps> = ({ host, device, incl
         )}
       </Box>
 
-      {/* AI Analysis Loading Indicator (shows after video appears, until analysis complete) */}
+      {/* Analysis Progress Indicator (shows after video appears, until analysis complete) */}
       {isReady && includeAudioAnalysis && !isAnalysisComplete && (
-        <AIAnalysisLoader />
+        <AnalysisProgress progress={analysisProgress} />
       )}
 
       {/* Settings and Report Buttons (appears when everything is complete) */}

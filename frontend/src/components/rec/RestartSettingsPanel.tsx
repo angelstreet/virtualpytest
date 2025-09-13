@@ -67,8 +67,9 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
   audioAnalysis,
   subtitleData,
 }) => {
+  const [isVideoSummaryExpanded, setIsVideoSummaryExpanded] = useState(false);
   const [isTranscriptExpanded, setIsTranscriptExpanded] = useState(false);
-  const [isSubtitleExpanded, setIsSubtitleExpanded] = useState(false);
+  const [isFrameAnalysisExpanded, setIsFrameAnalysisExpanded] = useState(false);
   const [translatedTranscript, setTranslatedTranscript] = useState<string>('');
   const [translatedSubtitle, setTranslatedSubtitle] = useState<string>('');
   const [isTranslatingAudio, setIsTranslatingAudio] = useState(false);
@@ -265,6 +266,7 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
           </Box>
         </Box>
 
+        {/* 1. Video Summary Section */}
         <Box sx={{ 
           pb: 1.5, 
           mb: 1.5, 
@@ -279,78 +281,121 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
                 flex: 1,
                 cursor: 'pointer'
               }}
+              onClick={() => setIsVideoSummaryExpanded(!isVideoSummaryExpanded)}
             >
               Video Summary
             </Typography>
-            {videoDescription && (
+            {videoDescription && videoDescription.video_summary && (
               <IconButton
+                onClick={() => setIsVideoSummaryExpanded(!isVideoSummaryExpanded)}
                 sx={{ color: '#ffffff', p: 0.25 }}
                 size="small"
               >
-                <ExpandMoreIcon fontSize="small" />
+                {isVideoSummaryExpanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
               </IconButton>
             )}
           </Box>
           
-          {videoDescription && (
-            <Box>
+          {videoDescription && videoDescription.video_summary && (
+            <Collapse in={isVideoSummaryExpanded}>
               <Box sx={{ mt: 1 }}>
-                {/* Frame Descriptions */}
-                {videoDescription.frame_descriptions && videoDescription.frame_descriptions.length > 0 && (
-                  <Box sx={{ mb: 1.5 }}>
-                    {videoDescription.frame_descriptions.map((description, index) => {
-                      // Parse frame description to extract frame number and content
-                      const frameMatch = description.match(/^Frame (\d+):\s*(.+)$/);
-                      const frameNumber = frameMatch ? frameMatch[1] : (index + 1).toString();
-                      const frameContent = frameMatch ? frameMatch[2] : description;
-                      
-                      return (
-                        <Typography 
-                          key={index}
-                          variant="body2" 
-                          sx={{ 
-                            mb: 0.8,
-                            p: 1,
-                            fontSize: '0.7rem',
-                            backgroundColor: 'rgba(255,255,255,0.08)', 
-                            borderRadius: 0.5,
-                            lineHeight: 1.3,
-                            borderLeft: '2px solid #2196F3'
-                          }}
-                        >
-                          <strong>Frame {frameNumber}:</strong> {frameContent}
-                        </Typography>
-                      );
-                    })}
-                  </Box>
-                )}
-                
-                {/* Final Summary */}
-                {videoDescription.video_summary && (
-                  <Box>
-                    <Typography variant="body2" sx={{ 
-                      p: 1.5, 
-                      fontSize: '0.75rem',
-                      backgroundColor: 'rgba(255,255,255,0.15)', 
-                      borderRadius: 1,
-                      lineHeight: 1.3,
-                      borderLeft: '3px solid #4CAF50'
-                    }}>
-                      <strong>Summary:</strong> {videoDescription.video_summary}
-                    </Typography>
-                  </Box>
-                )}
+                <Typography variant="body2" sx={{ 
+                  p: 1.5, 
+                  fontSize: '0.75rem',
+                  backgroundColor: 'rgba(255,255,255,0.15)', 
+                  borderRadius: 1,
+                  lineHeight: 1.3,
+                  borderLeft: '3px solid #4CAF50'
+                }}>
+                  {videoDescription.video_summary}
+                </Typography>
               </Box>
-            </Box>
+            </Collapse>
           )}
         </Box>
 
-        {/* Subtitles */}
+        {/* 2. Audio Transcript Section */}
         <Box sx={{ 
           pb: 1.5, 
           mb: 1.5, 
           borderBottom: '1px solid rgba(255,255,255,0.2)' 
         }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.8 }}>
+            <Checkbox
+              checked={showAudioTranscriptOverlay}
+              onChange={(e) => onToggleAudioTranscript(e.target.checked)}
+              sx={{ color: '#ffffff', p: 0.5, mr: 0.5 }}
+              size="small"
+            />
+            <Typography 
+              variant="subtitle2" 
+              sx={{ 
+                fontSize: '0.85rem', 
+                fontWeight: 600,
+                flex: 1,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1
+              }}
+              onClick={() => setIsTranscriptExpanded(!isTranscriptExpanded)}
+            >
+              Audio Transcript
+              {isTranslatingAudio && (
+                <CircularProgress 
+                  size={12} 
+                  sx={{ 
+                    color: '#ffffff',
+                    ml: 0.5
+                  }} 
+                />
+              )}
+            </Typography>
+            {audioAnalysis && audioAnalysis.speech_detected && (
+              <IconButton
+                onClick={() => setIsTranscriptExpanded(!isTranscriptExpanded)}
+                sx={{ color: '#ffffff', p: 0.25 }}
+                size="small"
+              >
+                {isTranscriptExpanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
+              </IconButton>
+            )}
+          </Box>
+          
+          <Collapse in={isTranscriptExpanded}>
+            <Box sx={{ mt: 1 }}>
+              <Typography variant="body2" sx={{ 
+                p: 1.5, 
+                fontSize: '0.75rem',
+                lineHeight: 1.4,
+                backgroundColor: 'rgba(255,255,255,0.1)', 
+                borderRadius: 1,
+                borderLeft: '3px solid #FF9800'
+              }}>
+                <strong>Original ({getLanguageName(audioAnalysis?.detected_language || 'Unknown')}, {Math.round((audioAnalysis?.confidence || 0) * 100)}% confidence):</strong><br />
+                {audioTranscript || 'No transcript available'}
+              </Typography>
+              
+              {audioTranscriptLanguage !== (audioAnalysis?.detected_language?.toLowerCase() || 'en') && audioTranscript && (
+                <Typography variant="body2" sx={{ 
+                  p: 1.5, 
+                  mt: 1,
+                  fontSize: '0.75rem',
+                  lineHeight: 1.4,
+                  backgroundColor: 'rgba(255,255,255,0.15)', 
+                  borderRadius: 1,
+                  borderLeft: '3px solid #4CAF50'
+                }}>
+                  <strong>Translated ({getLanguageName(audioTranscriptLanguage)}):</strong><br />
+                  {translatedTranscript || 'Translating...'}
+                </Typography>
+              )}
+            </Box>
+          </Collapse>
+        </Box>
+
+        {/* 3. Frame Analysis Section */}
+        <Box>
           <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.8 }}>
             <Checkbox
               checked={showSubtitleOverlay}
@@ -366,22 +411,23 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
                 flex: 1,
                 cursor: 'pointer'
               }}
-              onClick={() => setIsSubtitleExpanded(!isSubtitleExpanded)}
+              onClick={() => setIsFrameAnalysisExpanded(!isFrameAnalysisExpanded)}
             >
-              Subtitles
+              Frame Analysis
             </Typography>
-            {subtitleData && subtitleData.subtitles_detected && (
+            {videoDescription && videoDescription.frame_descriptions && videoDescription.frame_descriptions.length > 0 && (
               <IconButton
-                onClick={() => setIsSubtitleExpanded(!isSubtitleExpanded)}
+                onClick={() => setIsFrameAnalysisExpanded(!isFrameAnalysisExpanded)}
                 sx={{ color: '#ffffff', p: 0.25 }}
                 size="small"
               >
-                {isSubtitleExpanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
+                {isFrameAnalysisExpanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
               </IconButton>
             )}
           </Box>
           
-          <Box sx={{ display: 'flex', gap: 0.8, flexWrap: 'wrap' }}>
+          {/* Style and Font Size Controls */}
+          <Box sx={{ display: 'flex', gap: 0.8, flexWrap: 'wrap', mb: 1 }}>
             <Select
               value={subtitleStyle}
               onChange={(e) => onSubtitleStyleChange(e.target.value)}
@@ -420,121 +466,80 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
             </Select>
           </Box>
           
-          {/* Subtitle Content */}
-          {subtitleData && subtitleData.subtitles_detected && (
-            <Collapse in={isSubtitleExpanded}>
-              <Box sx={{ mt: 1 }}>
-                {/* Frame-by-frame subtitles */}
-                {subtitleData.frame_subtitles && subtitleData.frame_subtitles.length > 0 && (
-                  <Typography variant="body2" sx={{ 
-                    p: 1.5, 
-                    fontSize: '0.75rem',
-                    lineHeight: 1.4,
-                    backgroundColor: 'rgba(255,255,255,0.1)', 
-                    borderRadius: 1,
-                    borderLeft: '3px solid #2196F3',
-                    mb: 1
-                  }}>
-                    <strong>Frame-by-Frame Subtitles ({getLanguageName(subtitleData.detected_language || 'Unknown')}):</strong><br />
-                    {subtitleData.frame_subtitles.map((frameSubtitle, index) => (
-                      <span key={index}>
-                        {frameSubtitle}
-                        {index < subtitleData.frame_subtitles!.length - 1 && <br />}
-                      </span>
-                    ))}
-                  </Typography>
-                )}
-                
-                
-                {subtitleLanguage !== (subtitleData.detected_language || 'en') && (
-                  <Typography variant="body2" sx={{ 
-                    p: 1.5, 
-                    mt: 1,
-                    fontSize: '0.75rem',
-                    lineHeight: 1.4,
-                    backgroundColor: 'rgba(255,255,255,0.15)', 
-                    borderRadius: 1,
-                    borderLeft: '3px solid #4CAF50'
-                  }}>
-                    <strong>Translated ({getLanguageName(subtitleLanguage)}):</strong><br />
-                    {translatedSubtitle || 'Translating...'}
-                  </Typography>
-                )}
-              </Box>
-            </Collapse>
-          )}
-        </Box>
-
-        {/* Audio Transcript */}
-        <Box>
-          <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.8 }}>
-            <Checkbox
-              checked={showAudioTranscriptOverlay}
-              onChange={(e) => onToggleAudioTranscript(e.target.checked)}
-              sx={{ color: '#ffffff', p: 0.5, mr: 0.5 }}
-              size="small"
-            />
-            <Typography 
-              variant="subtitle2" 
-              sx={{ 
-                fontSize: '0.85rem', 
-                fontWeight: 600,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 1
-              }}
-              onClick={() => setIsTranscriptExpanded(!isTranscriptExpanded)}
-            >
-              Audio
-              {isTranslatingAudio && (
-                <CircularProgress 
-                  size={12} 
-                  sx={{ 
-                    color: '#ffffff',
-                    ml: 0.5
-                  }} 
-                />
-              )}
-            </Typography>
-            {audioAnalysis && audioAnalysis.speech_detected && (
-              <IconButton
-                onClick={() => setIsTranscriptExpanded(!isTranscriptExpanded)}
-                sx={{ color: '#ffffff', p: 0.25 }}
-                size="small"
-              >
-                {isTranscriptExpanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
-              </IconButton>
-            )}
-          </Box>
-          
-          
-          <Collapse in={isTranscriptExpanded}>
+          {/* Frame Analysis Content */}
+          <Collapse in={isFrameAnalysisExpanded}>
             <Box sx={{ mt: 1 }}>
-              <Typography variant="body2" sx={{ 
-                p: 1.5, 
-                fontSize: '0.75rem',
-                lineHeight: 1.4,
-                backgroundColor: 'rgba(255,255,255,0.1)', 
-                borderRadius: 1,
-                borderLeft: '3px solid #FF9800'
-              }}>
-                <strong>Original ({getLanguageName(audioAnalysis?.detected_language || 'Unknown')}, {Math.round((audioAnalysis?.confidence || 0) * 100)}% confidence):</strong><br />
-                {audioTranscript || 'No transcript available'}
-              </Typography>
+              {/* Frame-by-frame analysis */}
+              {videoDescription && videoDescription.frame_descriptions && videoDescription.frame_descriptions.length > 0 && (
+                <Box sx={{ mb: 1.5 }}>
+                  {videoDescription.frame_descriptions.map((description, index) => {
+                    // Parse frame description to extract frame number and content
+                    const frameMatch = description.match(/^Frame (\d+):\s*(.+)$/);
+                    const frameNumber = frameMatch ? frameMatch[1] : (index + 1).toString();
+                    const frameContent = frameMatch ? frameMatch[2] : description;
+                    
+                    // Get corresponding subtitle for this frame
+                    const frameSubtitle = subtitleData?.frame_subtitles?.[index];
+                    const subtitleMatch = frameSubtitle?.match(/^Frame \d+:\s*(.+)$/);
+                    const subtitleContent = subtitleMatch ? subtitleMatch[1] : frameSubtitle;
+                    
+                    return (
+                      <Box 
+                        key={index}
+                        sx={{ 
+                          mb: 1,
+                          p: 1,
+                          backgroundColor: 'rgba(255,255,255,0.08)', 
+                          borderRadius: 0.5,
+                          borderLeft: '2px solid #2196F3'
+                        }}
+                      >
+                        <Typography variant="body2" sx={{ 
+                          fontSize: '0.7rem',
+                          fontWeight: 600,
+                          color: '#2196F3',
+                          mb: 0.5
+                        }}>
+                          Frame {frameNumber}:
+                        </Typography>
+                        
+                        {subtitleContent && subtitleContent !== 'No subtitles detected' && (
+                          <Typography variant="body2" sx={{ 
+                            fontSize: '0.65rem',
+                            color: '#FF9800',
+                            fontStyle: 'italic',
+                            mb: 0.5,
+                            lineHeight: 1.2
+                          }}>
+                            Subtitles: {subtitleContent}
+                          </Typography>
+                        )}
+                        
+                        <Typography variant="body2" sx={{ 
+                          fontSize: '0.65rem',
+                          lineHeight: 1.3,
+                          color: 'rgba(255,255,255,0.9)'
+                        }}>
+                          {frameContent}
+                        </Typography>
+                      </Box>
+                    );
+                  })}
+                </Box>
+              )}
               
-              {audioTranscriptLanguage !== (audioAnalysis?.detected_language?.toLowerCase() || 'en') && audioTranscript && (
+              {/* Translated subtitles if different language */}
+              {subtitleLanguage !== (subtitleData?.detected_language || 'en') && translatedSubtitle && (
                 <Typography variant="body2" sx={{ 
                   p: 1.5, 
-                  mt: 1,
                   fontSize: '0.75rem',
                   lineHeight: 1.4,
                   backgroundColor: 'rgba(255,255,255,0.15)', 
                   borderRadius: 1,
                   borderLeft: '3px solid #4CAF50'
                 }}>
-                  <strong>Translated ({getLanguageName(audioTranscriptLanguage)}):</strong><br />
-                  {translatedTranscript || 'Translating...'}
+                  <strong>Translated Subtitles ({getLanguageName(subtitleLanguage)}):</strong><br />
+                  {translatedSubtitle || 'Translating...'}
                 </Typography>
               )}
             </Box>

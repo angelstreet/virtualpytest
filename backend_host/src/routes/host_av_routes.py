@@ -501,121 +501,79 @@ def save_screenshot():
             'error': str(e)
         }), 500
 
-@host_av_bp.route('/generateRestartVideo', methods=['POST'])
-def generate_restart_video():
-    """Generate 30-second MP4 video from recent HLS segments for restart functionality"""
+@host_av_bp.route('/generateRestartVideoOnly', methods=['POST'])
+def generate_restart_video_only():
+    """Generate video only - fast response"""
     try:
-        # Get device_id from request (defaults to device1)
         data = request.get_json() or {}
         device_id = data.get('device_id', 'device1')
-        duration_seconds = data.get('duration_seconds', 30)
-        include_audio_analysis = data.get('include_audio_analysis', False)
+        duration_seconds = data.get('duration_seconds', 10)
         
-        # Simple deduplication - check if same request is already processing
-        import time
-        request_key = f"{device_id}_{duration_seconds}"
-        current_time = time.time()
-        
-        # Use a simple in-memory cache with 30-second expiry
-        if not hasattr(generate_restart_video, '_processing_cache'):
-            generate_restart_video._processing_cache = {}
-        
-        # Clean expired entries
-        generate_restart_video._processing_cache = {
-            k: v for k, v in generate_restart_video._processing_cache.items() 
-            if current_time - v < 30
-        }
-        
-        # Check if already processing
-        if request_key in generate_restart_video._processing_cache:
-            print(f"[@route:host_av:generate_restart_video] Duplicate request detected for {device_id}, ignoring")
-            return jsonify({
-                'success': False,
-                'error': 'Video generation already in progress for this device'
-            }), 429
-        
-        # Mark as processing
-        generate_restart_video._processing_cache[request_key] = current_time
-        print(f"[@route:host_av:generate_restart_video] Starting video generation for {device_id} (cache key: {request_key})")
-        
-        print(f"[@route:host_av:generate_restart_video] Generating {duration_seconds}s MP4 for device: {device_id}")
-        
-        # Get AV controller for the specified device
         av_controller = get_controller(device_id, 'av')
-        
         if not av_controller:
-            device = get_device_by_id(device_id)
-            if not device:
-                return jsonify({
-                    'success': False,
-                    'error': f'Device {device_id} not found'
-                }), 404
-            
-            return jsonify({
-                'success': False,
-                'error': f'No AV controller found for device {device_id}',
-                'available_capabilities': device.get_capabilities()
-            }), 404
+            return jsonify({'success': False, 'error': f'No AV controller for {device_id}'}), 404
         
-        print(f"[@route:host_av:generate_restart_video] Using AV controller: {type(av_controller).__name__}")
-        print(f"[@route:host_av:generate_restart_video] Controller details - Source: {getattr(av_controller, 'capture_source', 'unknown')}, Path: {getattr(av_controller, 'video_capture_path', 'unknown')}")
-        
-        # Generate restart video with complete AI analysis (audio, subtitles, video descriptions)
-        import time
-        start_time = time.time()
-        result = av_controller.generateRestartVideoFast(
-            duration_seconds=duration_seconds,
-            processing_time=0.0  # Will be updated after generation
-        )
-        
-        processing_time = time.time() - start_time
-        
-        # Phase 1: No report generation - just return video URL and basic analysis
-        # Report will be generated in Phase 2 after complete AI analysis
-        
-        # Remove from processing cache
-        if request_key in generate_restart_video._processing_cache:
-            del generate_restart_video._processing_cache[request_key]
-        
-        if result:
-            # Update processing time in the result
-            result.update({
-                'processing_time_seconds': round(processing_time, 2),
-                'device_id': device_id,
-                'message': f'Successfully generated {duration_seconds}-second restart video with complete AI analysis'
-            })
-            
-            # Update analysis data with actual processing time
-            if 'analysis_data' in result and result['analysis_data']:
-                if 'audio_analysis' in result['analysis_data']:
-                    result['analysis_data']['audio_analysis']['execution_time_ms'] = int(processing_time * 1000)
-            
-            # If report generation was successful, extract report URL for logging
-            if result.get('report_url'):
-                print(f"[@cloudflare_utils:upload_restart_report] INFO: Uploaded restart report: {result.get('report_path', 'unknown')}")
-            
-            return jsonify(result)
-        else:
-            return jsonify({
-                'success': False,
-                'error': 'Failed to generate restart video - no HLS segments available or processing failed'
-            }), 500
+        result = av_controller.generateRestartVideoOnly(duration_seconds)
+        return jsonify(result) if result else jsonify({'success': False, 'error': 'Video generation failed'}), 500
             
     except Exception as e:
-        print(f"[@route:host_av:generate_restart_video] Error: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@host_av_bp.route('/analyzeRestartAudio', methods=['POST'])
+def analyze_restart_audio():
+    """Analyze audio transcript"""
+    try:
+        data = request.get_json() or {}
+        device_id = data.get('device_id', 'device1')
+        video_id = data.get('video_id')
         
-        # Remove from processing cache on error
-        try:
-            request_key = f"{data.get('device_id', 'device1')}_{data.get('duration_seconds', 30)}"
-            if hasattr(generate_restart_video, '_processing_cache') and request_key in generate_restart_video._processing_cache:
-                del generate_restart_video._processing_cache[request_key]
-        except:
-            pass
+        av_controller = get_controller(device_id, 'av')
+        if not av_controller:
+            return jsonify({'success': False, 'error': f'No AV controller for {device_id}'}), 404
         
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
+        result = av_controller.analyzeRestartAudio(video_id)
+        return jsonify(result) if result else jsonify({'success': False, 'error': 'Audio analysis failed'}), 500
+            
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@host_av_bp.route('/analyzeRestartSubtitles', methods=['POST'])
+def analyze_restart_subtitles():
+    """Analyze subtitles"""
+    try:
+        data = request.get_json() or {}
+        device_id = data.get('device_id', 'device1')
+        video_id = data.get('video_id')
+        screenshot_urls = data.get('screenshot_urls', [])
+        
+        av_controller = get_controller(device_id, 'av')
+        if not av_controller:
+            return jsonify({'success': False, 'error': f'No AV controller for {device_id}'}), 404
+        
+        result = av_controller.analyzeRestartSubtitles(video_id, screenshot_urls)
+        return jsonify(result) if result else jsonify({'success': False, 'error': 'Subtitle analysis failed'}), 500
+            
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@host_av_bp.route('/analyzeRestartSummary', methods=['POST'])
+def analyze_restart_summary():
+    """Analyze video summary"""
+    try:
+        data = request.get_json() or {}
+        device_id = data.get('device_id', 'device1')
+        video_id = data.get('video_id')
+        screenshot_urls = data.get('screenshot_urls', [])
+        
+        av_controller = get_controller(device_id, 'av')
+        if not av_controller:
+            return jsonify({'success': False, 'error': f'No AV controller for {device_id}'}), 404
+        
+        result = av_controller.analyzeRestartSummary(video_id, screenshot_urls)
+        return jsonify(result) if result else jsonify({'success': False, 'error': 'Summary analysis failed'}), 500
+            
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @host_av_bp.route('/analyzeRestartVideo', methods=['POST'])
 def analyze_restart_video():

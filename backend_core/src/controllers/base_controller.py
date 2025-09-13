@@ -400,6 +400,199 @@ class FFmpegCaptureController(AVControllerInterface):
             print(f'{self.capture_source}[{self.capture_source}]: Error saving screenshot: {e}')
             return None
 
+    def generateRestartVideoOnly(self, duration_seconds: float = 10.0) -> Optional[Dict[str, Any]]:
+        """Generate video only - fast response"""
+        try:
+            import time, os, uuid
+            
+            # Video generation logic (extracted from generateRestartVideoFast)
+            m3u8_path = os.path.join(self.video_capture_path, "output.m3u8")
+            if not os.path.exists(m3u8_path):
+                return None
+            
+            # Get segments
+            import glob
+            segment_pattern = os.path.join(self.video_capture_path, "segment_*.ts")
+            all_segment_paths = sorted(glob.glob(segment_pattern), key=lambda path: os.path.getmtime(path))
+            
+            segments_needed = int(duration_seconds / self.HLS_SEGMENT_DURATION) + 2
+            segment_files = [(os.path.basename(p), p) for p in all_segment_paths[-segments_needed:]]
+            
+            if not segment_files:
+                return None
+            
+            # Compress to MP4
+            from shared.lib.utils.video_compression_utils import VideoCompressionUtils
+            compressor = VideoCompressionUtils()
+            
+            video_filename = "restart_video.mp4"
+            local_video_path = os.path.join(self.video_capture_path, video_filename)
+            
+            compression_result = compressor.compress_hls_to_mp4(
+                m3u8_path=m3u8_path,
+                segment_files=segment_files,
+                output_path=local_video_path,
+                compression_level="medium"
+            )
+            
+            if not compression_result['success']:
+                return None
+            
+            # Build URL
+            from shared.lib.utils.build_url_utils import buildHostImageUrl
+            from shared.lib.utils.host_utils import get_host_instance
+            
+            try:
+                host = get_host_instance()
+                video_url = buildHostImageUrl(host.to_dict(), local_video_path)
+            except:
+                video_url = self.video_stream_path + "/" + video_filename
+            
+            # Get screenshots for later analysis
+            capture_folder = f"{self.video_capture_path}/captures"
+            screenshots = sorted(glob.glob(os.path.join(capture_folder, "capture_*.jpg")), key=os.path.getmtime)
+            screenshot_count = max(5, len(segment_files))
+            recent_screenshots = screenshots[-screenshot_count:]
+            
+            screenshot_urls = []
+            try:
+                host = get_host_instance()
+                host_dict = host.to_dict()
+                for screenshot_path in recent_screenshots:
+                    screenshot_urls.append(buildHostImageUrl(host_dict, screenshot_path))
+            except:
+                for screenshot_path in recent_screenshots:
+                    filename = os.path.basename(screenshot_path)
+                    screenshot_urls.append(f"{self.video_stream_path}/captures/{filename}")
+            
+            video_id = f"restart_{int(time.time())}_{str(uuid.uuid4())[:8]}"
+            
+            return {
+                'success': True,
+                'video_url': video_url,
+                'video_id': video_id,
+                'screenshot_urls': screenshot_urls,
+                'segment_count': len(segment_files)
+            }
+            
+        except Exception as e:
+            print(f"Video generation error: {e}")
+            return None
+
+    def analyzeRestartAudio(self, video_id: str) -> Optional[Dict[str, Any]]:
+        """Analyze audio transcript"""
+        try:
+            from backend_core.src.controllers.verification.audio_ai_helpers import AudioAIHelpers
+            
+            # Get recent segments (same logic as video generation)
+            import glob, os
+            segment_pattern = os.path.join(self.video_capture_path, "segment_*.ts")
+            all_segment_paths = sorted(glob.glob(segment_pattern), key=lambda path: os.path.getmtime(path))
+            segments_needed = int(10.0 / self.HLS_SEGMENT_DURATION) + 2
+            segment_files = [(os.path.basename(p), p) for p in all_segment_paths[-segments_needed:]]
+            
+            audio_ai = AudioAIHelpers(self, f"RestartVideo-{self.device_name}")
+            audio_files = audio_ai.extract_audio_from_segments(segment_files, segment_count=len(segment_files))
+            
+            if not audio_files:
+                return {
+                    'success': True,
+                    'audio_analysis': {
+                        'success': True,
+                        'speech_detected': False,
+                        'combined_transcript': '',
+                        'detected_language': 'unknown',
+                        'confidence': 0.0
+                    }
+                }
+            
+            audio_analysis = audio_ai.analyze_audio_segments_ai(audio_files, upload_to_r2=True, early_stop=True)
+            
+            return {
+                'success': True,
+                'audio_analysis': {
+                    'success': audio_analysis.get('success', False),
+                    'speech_detected': audio_analysis.get('successful_segments', 0) > 0,
+                    'combined_transcript': audio_analysis.get('combined_transcript', ''),
+                    'detected_language': audio_analysis.get('detected_language', 'unknown'),
+                    'confidence': audio_analysis.get('confidence', 0.0)
+                }
+            }
+            
+        except Exception as e:
+            print(f"Audio analysis error: {e}")
+            return {'success': False, 'error': str(e)}
+
+    def analyzeRestartSubtitles(self, video_id: str, screenshot_urls: list) -> Optional[Dict[str, Any]]:
+        """Analyze subtitles"""
+        try:
+            from shared.lib.utils.build_url_utils import convertHostUrlToLocalPath
+            from backend_core.src.controllers.verification.video import VideoVerificationController
+            
+            local_paths = [convertHostUrlToLocalPath(url) if url.startswith(('http://', 'https://')) else url for url in screenshot_urls]
+            
+            video_controller = VideoVerificationController(self.device_name)
+            subtitle_result = video_controller.detect_subtitles_ai_all_frames(local_paths, extract_text=True)
+            
+            frame_subtitles = []
+            if subtitle_result.get('success') and subtitle_result.get('results'):
+                for i, result in enumerate(subtitle_result['results']):
+                    text = result.get('extracted_text', '').strip()
+                    frame_text = text if text and text != 'No subtitles detected' else 'No subtitles detected'
+                    frame_subtitles.append(f"Frame {i+1}: {frame_text}")
+            
+            return {
+                'success': True,
+                'subtitle_analysis': {
+                    'success': subtitle_result.get('success', False),
+                    'subtitles_detected': any('No subtitles detected' not in fs for fs in frame_subtitles),
+                    'extracted_text': ' '.join([fs.split(': ', 1)[1] for fs in frame_subtitles if 'No subtitles detected' not in fs]),
+                    'detected_language': subtitle_result.get('detected_language', 'unknown'),
+                    'frame_subtitles': frame_subtitles
+                }
+            }
+            
+        except Exception as e:
+            print(f"Subtitle analysis error: {e}")
+            return {'success': False, 'error': str(e)}
+
+    def analyzeRestartSummary(self, video_id: str, screenshot_urls: list) -> Optional[Dict[str, Any]]:
+        """Analyze video summary"""
+        try:
+            from shared.lib.utils.build_url_utils import convertHostUrlToLocalPath
+            from backend_core.src.controllers.verification.video import VideoVerificationController
+            
+            local_paths = [convertHostUrlToLocalPath(url) if url.startswith(('http://', 'https://')) else url for url in screenshot_urls]
+            
+            video_controller = VideoVerificationController(self.device_name)
+            video_result = video_controller.analyze_images_ai_all_frames(local_paths, "Describe what you see in this image")
+            
+            frame_descriptions = []
+            if video_result.get('success') and video_result.get('results'):
+                for i, result in enumerate(video_result['results']):
+                    description = result.get('response', '').strip()
+                    if description:
+                        frame_descriptions.append(f"Frame {i+1}: {description}")
+            
+            # Generate summary from descriptions
+            summary_prompt = f"Based on these frame descriptions, provide a brief summary of what happens in this video: {'; '.join(frame_descriptions)}"
+            summary_result = video_controller.analyze_images_ai_all_frames([local_paths[0]] if local_paths else [], summary_prompt)
+            video_summary = summary_result.get('results', [{}])[0].get('response', 'Video analysis completed') if summary_result.get('success') else 'Video analysis completed'
+            
+            return {
+                'success': True,
+                'video_analysis': {
+                    'success': True,
+                    'frame_descriptions': frame_descriptions,
+                    'video_summary': video_summary,
+                    'frames_analyzed': len(frame_descriptions)
+                }
+            }
+            
+        except Exception as e:
+            print(f"Summary analysis error: {e}")
+            return {'success': False, 'error': str(e)}
+
     def generateRestartVideoFast(self, duration_seconds: float = None, test_start_time: float = None, processing_time: float = None) -> Optional[Dict[str, Any]]:
         """
         Fast restart video generation - returns video URL + audio analysis only.
