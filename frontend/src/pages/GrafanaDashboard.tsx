@@ -1,4 +1,5 @@
-import { Box, FormControl, InputLabel, MenuItem, Select, SelectChangeEvent } from '@mui/material';
+import { Box, FormControl, IconButton, InputLabel, MenuItem, Select, SelectChangeEvent, Tooltip } from '@mui/material';
+import { OpenInNew } from '@mui/icons-material';
 import React, { useState } from 'react';
 
 interface Dashboard {
@@ -52,7 +53,7 @@ const GrafanaDashboard: React.FC = () => {
   return (
     <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
       {/* Dashboard Selector */}
-      <Box sx={{ p: 2, borderBottom: '1px solid #e0e0e0' }}>
+      <Box sx={{ p: 2, borderBottom: '1px solid #e0e0e0', display: 'flex', alignItems: 'center', gap: 2 }}>
         <FormControl sx={{ minWidth: 300 }}>
           <InputLabel id="dashboard-select-label">Select Dashboard</InputLabel>
           <Select
@@ -69,6 +70,16 @@ const GrafanaDashboard: React.FC = () => {
             ))}
           </Select>
         </FormControl>
+        
+        <Tooltip title="Open Grafana in new tab">
+          <IconButton
+            onClick={() => window.open(`${grafanaBaseUrl}/`, '_blank')}
+            color="primary"
+            size="medium"
+          >
+            <OpenInNew />
+          </IconButton>
+        </Tooltip>
       </Box>
 
       {/* Dashboard iframe */}
