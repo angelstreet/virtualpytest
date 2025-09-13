@@ -99,24 +99,12 @@ def get_restart_video_css() -> str:
         }
 
         .settings-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
             margin-bottom: 24px;
         }
 
         .settings-title {
             font-size: 18px;
             font-weight: 600;
-        }
-
-        .close-button {
-            background: none;
-            border: none;
-            color: #fff;
-            font-size: 20px;
-            cursor: pointer;
-            padding: 4px;
         }
 
         .analysis-section {
@@ -167,16 +155,6 @@ def get_restart_video_css() -> str:
             border-color: #4CAF50;
         }
 
-        .language-select {
-            background: rgba(255, 255, 255, 0.1);
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            border-radius: 4px;
-            color: #fff;
-            padding: 6px 8px;
-            font-size: 12px;
-            margin-left: 8px;
-            min-width: 80px;
-        }
 
         .analysis-content {
             margin-left: 24px;
@@ -215,6 +193,51 @@ def get_restart_video_css() -> str:
             margin-bottom: 4px;
         }
 
+        .frame-analysis-title {
+            font-size: 12px;
+            font-weight: 600;
+            color: #fff;
+            margin: 16px 0 8px 0;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            padding-top: 16px;
+        }
+
+        .frame-analysis-container {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .frame-item {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 4px;
+            padding: 8px;
+            margin-bottom: 6px;
+            font-size: 11px;
+            line-height: 1.4;
+            border-left: 3px solid #4CAF50;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .frame-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .frame-item.active {
+            background: rgba(76, 175, 80, 0.2);
+            border-left-color: #4CAF50;
+        }
+
+        .frame-number {
+            font-weight: 600;
+            color: #4CAF50;
+            margin-bottom: 4px;
+        }
+
+        .frame-description {
+            color: rgba(255, 255, 255, 0.9);
+        }
+
         .report-header {
             position: absolute;
             top: 20px;
@@ -234,6 +257,32 @@ def get_restart_video_css() -> str:
         .report-meta {
             font-size: 12px;
             color: rgba(255, 255, 255, 0.7);
+        }
+
+        .summary-area {
+            position: absolute;
+            top: 80px;
+            left: 20px;
+            right: 420px;
+            background: rgba(0, 0, 0, 0.8);
+            border-radius: 8px;
+            padding: 16px;
+            z-index: 10;
+            max-height: 120px;
+            overflow-y: auto;
+        }
+
+        .summary-title {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #fff;
+        }
+
+        .summary-content {
+            font-size: 12px;
+            line-height: 1.4;
+            color: rgba(255, 255, 255, 0.9);
         }
 
         .overlay {
@@ -282,11 +331,6 @@ def get_restart_video_js() -> str:
                 this.progressFill = document.getElementById('progress-fill');
                 
                 this.analysisData = window.ANALYSIS_DATA || {};
-                this.currentLanguages = {
-                    summary: 'en',
-                    subtitle: 'en',
-                    audio: 'en'
-                };
                 
                 this.init();
             }
@@ -296,13 +340,8 @@ def get_restart_video_js() -> str:
                 console.log('Analysis data:', this.analysisData);
                 this.setupVideoControls();
                 this.setupAnalysisToggles();
-                this.setupLanguageSelects();
+                this.setupFrameAnalysis();
                 this.updateOverlays();
-                
-                // Initialize analysis text for all sections
-                ['audio', 'subtitle'].forEach(section => {
-                    this.updateAnalysisText(section);
-                });
             }
             
             setupVideoControls() {
@@ -325,6 +364,10 @@ def get_restart_video_js() -> str:
                     this.timeDisplay.textContent = this.formatTime(current) + ' / ' + this.formatTime(duration);
                     
                     this.updateOverlays();
+                    
+                    // Update active frame based on current time
+                    const currentFrameIndex = Math.floor(current);
+                    this.updateActiveFrame(currentFrameIndex);
                 });
                 
                 this.progressBar.addEventListener('click', (e) => {
@@ -357,14 +400,70 @@ def get_restart_video_js() -> str:
                 });
             }
             
-            setupLanguageSelects() {
-                document.querySelectorAll('.language-select').forEach(select => {
-                    select.addEventListener('change', (e) => {
-                        const section = e.target.dataset.section;
-                        this.currentLanguages[section] = e.target.value;
-                        this.updateAnalysisText(section);
+            setupFrameAnalysis() {
+                const frameContainer = document.getElementById('frame-analysis-container');
+                if (!frameContainer) return;
+                
+                // Get frame descriptions from analysis data
+                const frameDescriptions = this.analysisData.video_analysis?.frame_descriptions || [];
+                
+                if (frameDescriptions.length === 0) {
+                    frameContainer.innerHTML = '<div class="frame-item">No frame analysis available</div>';
+                    return;
+                }
+                
+                // Create frame items
+                frameDescriptions.forEach((description, index) => {
+                    const frameItem = document.createElement('div');
+                    frameItem.className = 'frame-item';
+                    frameItem.dataset.frameIndex = index;
+                    
+                    frameItem.innerHTML = `
+                        <div class="frame-number">Frame ${index + 1}:</div>
+                        <div class="frame-description">${description}</div>
+                    `;
+                    
+                    // Add click handler to seek to frame
+                    frameItem.addEventListener('click', () => {
+                        this.seekToFrame(index);
+                        this.updateActiveFrame(index);
                     });
+                    
+                    frameContainer.appendChild(frameItem);
                 });
+            }
+            
+            seekToFrame(frameIndex) {
+                // Assuming 1 second per frame for simplicity
+                // In real implementation, this would use actual frame timing
+                const targetTime = frameIndex;
+                if (this.video.duration && targetTime <= this.video.duration) {
+                    this.video.currentTime = targetTime;
+                }
+            }
+            
+            updateActiveFrame(currentFrameIndex) {
+                // Remove active class from all frames
+                document.querySelectorAll('.frame-item').forEach(item => {
+                    item.classList.remove('active');
+                });
+                
+                // Add active class to current frame
+                const currentFrame = document.querySelector(`[data-frame-index="${currentFrameIndex}"]`);
+                if (currentFrame) {
+                    currentFrame.classList.add('active');
+                    
+                    // Scroll to active frame if needed
+                    const container = document.getElementById('frame-analysis-container');
+                    if (container) {
+                        const containerRect = container.getBoundingClientRect();
+                        const frameRect = currentFrame.getBoundingClientRect();
+                        
+                        if (frameRect.top < containerRect.top || frameRect.bottom > containerRect.bottom) {
+                            currentFrame.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }
+                    }
+                }
             }
             
             showOverlay(section) {
@@ -405,63 +504,6 @@ def get_restart_video_js() -> str:
                 }
             }
             
-            updateAnalysisText(section) {
-                const data = this.analysisData[section + '_analysis'];
-                if (!data) {
-                    console.log(`No data found for section: ${section}`);
-                    return;
-                }
-                
-                const originalElement = document.getElementById(section + '-original');
-                const translatedElement = document.getElementById(section + '-translated');
-                
-                // Get the text content based on section type
-                let textContent = '';
-                if (section === 'audio' && data.combined_transcript) {
-                    textContent = data.combined_transcript;
-                } else if (section === 'subtitle' && data.extracted_text) {
-                    textContent = data.extracted_text;
-                } else {
-                    textContent = data.extracted_text || data.combined_transcript || 'No content available';
-                }
-                
-                if (originalElement && textContent) {
-                    const language = data.detected_language || 'unknown';
-                    const confidence = data.confidence ? Math.round(data.confidence * 100) : 0;
-                    
-                    originalElement.innerHTML = `
-                        <div class="language-info">Original (${this.getLanguageName(language)}, ${confidence}% confidence):</div>
-                        ${textContent}
-                    `;
-                }
-                
-                if (translatedElement && this.currentLanguages[section] !== data.detected_language) {
-                    translatedElement.innerHTML = `
-                        <div class="language-info">Translated (${this.getLanguageName(this.currentLanguages[section])}):</div>
-                        ${this.translateText(textContent, this.currentLanguages[section])}
-                    `;
-                    translatedElement.classList.remove('hidden');
-                } else if (translatedElement) {
-                    translatedElement.classList.add('hidden');
-                }
-            }
-            
-            translateText(text, targetLang) {
-                // Placeholder translation - in real implementation would use translation API
-                return `[${targetLang.toUpperCase()}] ${text}`;
-            }
-            
-            getLanguageName(code) {
-                const names = {
-                    'en': 'English',
-                    'es': 'Spanish',
-                    'fr': 'French',
-                    'de': 'German',
-                    'it': 'Italian',
-                    'pt': 'Portuguese'
-                };
-                return names[code] || code.toUpperCase();
-            }
             
             formatTime(seconds) {
                 const mins = Math.floor(seconds / 60);
@@ -505,7 +547,13 @@ def create_restart_video_template() -> str:
             <!-- Report Header -->
             <div class="report-header">
                 <div class="report-title">Restart Video Analysis</div>
-                <div class="report-meta">{host_name} • {device_name} • {timestamp}</div>
+                <div class="report-meta">{host_name} - {device_name} {timestamp}</div>
+            </div>
+            
+            <!-- Summary Area -->
+            <div class="summary-area">
+                <div class="summary-title">Video Summary</div>
+                <div class="summary-content">{video_summary}</div>
             </div>
             
             <!-- Video Element -->
@@ -538,7 +586,6 @@ def create_restart_video_template() -> str:
         <div class="settings-panel">
             <div class="settings-header">
                 <div class="settings-title">Settings</div>
-                <button class="close-button">✕</button>
             </div>
             
             <!-- Video Summary Section -->
@@ -546,15 +593,14 @@ def create_restart_video_template() -> str:
                 <div class="section-header" data-section="summary">
                     <div class="checkbox"></div>
                     <div class="section-title">Video Summary</div>
-                    <select class="language-select" data-section="summary">
-                        <option value="en">English</option>
-                        <option value="es">Spanish</option>
-                        <option value="fr">French</option>
-                    </select>
                     <div class="expand-icon">▶</div>
                 </div>
                 <div id="summary-content" class="analysis-content">
                     <div class="analysis-text">{video_summary}</div>
+                    <div class="frame-analysis-title">Frame Analysis:</div>
+                    <div id="frame-analysis-container" class="frame-analysis-container">
+                        <!-- Frame descriptions will be populated by JavaScript -->
+                    </div>
                 </div>
             </div>
             
@@ -563,16 +609,10 @@ def create_restart_video_template() -> str:
                 <div class="section-header" data-section="subtitle">
                     <div class="checkbox"></div>
                     <div class="section-title">Subtitles</div>
-                    <select class="language-select" data-section="subtitle">
-                        <option value="en">English</option>
-                        <option value="es">Spanish</option>
-                        <option value="fr">French</option>
-                    </select>
                     <div class="expand-icon">▶</div>
                 </div>
                 <div id="subtitle-content" class="analysis-content">
                     <div id="subtitle-original" class="analysis-text subtitle">{subtitle_text}</div>
-                    <div id="subtitle-translated" class="analysis-text translated hidden"></div>
                 </div>
             </div>
             
@@ -581,16 +621,10 @@ def create_restart_video_template() -> str:
                 <div class="section-header" data-section="audio">
                     <div class="checkbox"></div>
                     <div class="section-title">Audio Transcript</div>
-                    <select class="language-select" data-section="audio">
-                        <option value="en">English</option>
-                        <option value="es">Spanish</option>
-                        <option value="fr">French</option>
-                    </select>
                     <div class="expand-icon">▶</div>
                 </div>
                 <div id="audio-content" class="analysis-content">
                     <div id="audio-original" class="analysis-text audio">{audio_transcript}</div>
-                    <div id="audio-translated" class="analysis-text translated hidden"></div>
                 </div>
             </div>
         </div>

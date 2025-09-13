@@ -760,12 +760,16 @@ class FFmpegCaptureController(AVControllerInterface):
                 print(f"[RestartVideoAsync] Video duration: {duration_seconds}s, no segment count provided, analyzing ALL {len(screenshot_urls)} screenshots")
             
             local_screenshot_paths = []
-            for url in screenshot_urls:  # Use ALL screenshots provided (already synchronized with video segments)
+            print(f"[RestartVideoAsync] Converting {len(screenshot_urls)} screenshot URLs to local paths:")
+            
+            for i, url in enumerate(screenshot_urls):  # Use ALL screenshots provided (already synchronized with video segments)
                 if url.startswith(('http://', 'https://')):
                     local_path = convertHostUrlToLocalPath(url)
                     local_screenshot_paths.append(local_path)
+                    print(f"[RestartVideoAsync] Frame {i+1}: {url} -> {local_path}")
                 else:
                     local_screenshot_paths.append(url)
+                    print(f"[RestartVideoAsync] Frame {i+1}: {url} (already local path)")
             
             print(f"[RestartVideoAsync] Converted {len(local_screenshot_paths)} screenshot URLs to local paths")
             

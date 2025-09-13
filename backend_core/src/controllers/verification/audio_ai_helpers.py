@@ -209,8 +209,6 @@ class AudioAIHelpers:
                 merged_ts = self._merge_ts_files(ts_paths)
                 
                 if merged_ts:
-                    print(f"AudioAI[{self.device_name}]: Merge successful (size: {os.path.getsize(merged_ts)} bytes)")
-            
                     # Extract audio from merged file
                     temp_dir = tempfile.mkdtemp(prefix="restart_audio_")
                     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S_%f')[:-3]
