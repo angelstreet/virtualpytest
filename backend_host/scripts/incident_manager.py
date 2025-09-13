@@ -66,7 +66,7 @@ class IncidentManager:
             }
         return self.device_states[device_id]
     
-    def create_incident(self, device_id, issue_type, host_name):
+    def create_incident(self, device_id, issue_type, host_name, analysis_result=None):
         """Create new incident in DB using original working method"""
         try:
             logger.info(f"[{device_id}] DB INSERT: Creating {issue_type} incident")
@@ -77,13 +77,42 @@ class IncidentManager:
                 logger.warning("Database module not available, skipping alert creation")
                 return None
             
+            # Prepare enhanced metadata with all details (SAME AS ORIGINAL)
+            enhanced_metadata = analysis_result.copy() if analysis_result else {}
+            
+            # Add specific metadata based on incident type (SAME AS ORIGINAL)
+            if analysis_result:
+                if issue_type == 'blackscreen':
+                    enhanced_metadata['blackscreen_percentage'] = analysis_result.get('blackscreen_percentage', 0)
+                elif issue_type == 'freeze':
+                    enhanced_metadata['freeze_diffs'] = analysis_result.get('freeze_diffs', [])
+                elif issue_type == 'macroblocks':
+                    enhanced_metadata['quality_score'] = analysis_result.get('quality_score', 0)
+                elif issue_type == 'audio_loss':
+                    enhanced_metadata['volume_percentage'] = analysis_result.get('volume_percentage', 0)
+                    enhanced_metadata['mean_volume_db'] = analysis_result.get('mean_volume_db', -100)
+                
+                # Add frame information for incidents (SAME AS ORIGINAL)
+                last_3_filenames = analysis_result.get('last_3_filenames', [])
+                last_3_thumbnails = analysis_result.get('last_3_thumbnails', [])
+                enhanced_metadata['last_3_filenames'] = last_3_filenames
+                enhanced_metadata['last_3_thumbnails'] = last_3_thumbnails
+                
+                # Upload frames to R2 for all incident types (SAME AS ORIGINAL)
+                if last_3_filenames:
+                    from datetime import datetime
+                    current_time = datetime.now().isoformat()
+                    r2_urls = self.upload_freeze_frames_to_r2(last_3_filenames, last_3_thumbnails, device_id, current_time)
+                    if r2_urls:
+                        enhanced_metadata['r2_images'] = r2_urls
+            
             # Call database exactly as before
             result = create_alert_safe(
                 host_name=host_name,
                 device_id=device_id,
                 incident_type=issue_type,
                 consecutive_count=1,  # Always start with 1
-                metadata={}
+                metadata=enhanced_metadata  # NOW WITH RICH DATA AND IMAGES!
             )
             
             if result.get('success'):
@@ -135,7 +164,7 @@ class IncidentManager:
             
             if is_detected and not was_active:
                 # New incident
-                incident_id = self.create_incident(device_id, issue_type, host_name)
+                incident_id = self.create_incident(device_id, issue_type, host_name, detection_result)
                 if incident_id:
                     active_incidents[issue_type] = incident_id
                     device_state['state'] = INCIDENT
@@ -151,3 +180,108 @@ class IncidentManager:
                     device_state['state'] = NORMAL
         
         logger.debug(f"[{device_id}] State: {device_state['state']}, Active: {list(active_incidents.keys())}")
+
+    def upload_freeze_frames_to_r2(self, last_3_filenames, last_3_thumbnails, device_id, timestamp):
+        """Upload freeze incident frames to R2 storage - EXACT COPY FROM ORIGINAL"""
+        try:
+            # Import R2 utilities (from shared library)
+            from utils.cloudflare_utils import get_cloudflare_utils
+            
+            uploader = get_cloudflare_utils()
+            if not uploader:
+                logger.warning("R2 uploader not available, skipping frame upload")
+                return None
+            
+            # Create R2 folder path for this incident: alerts/freeze/{device_id}/{timestamp}/
+            timestamp_str = timestamp.replace(':', '').replace('-', '').replace('T', '').replace('.', '')[:14]
+            base_r2_path = f"alerts/freeze/{device_id}/{timestamp_str}"
+            
+            r2_results = {
+                'original_urls': [],
+                'thumbnail_urls': [],
+                'original_r2_paths': [],
+                'thumbnail_r2_paths': [],
+                'timestamp': timestamp
+            }
+            
+            logger.info(f"[{device_id}] Uploading freeze frames to R2 at {timestamp}")
+            
+            # Upload original frames (last 3)
+            for i, filename in enumerate(last_3_filenames):
+                if not filename or not os.path.exists(filename):
+                    logger.warning(f"Original frame file not found: {filename}")
+                    continue
+                
+                # R2 path: alerts/freeze/device1/20250124123456/frame_0.jpg
+                r2_path = f"{base_r2_path}/frame_{i}.jpg"
+                
+                file_mappings = [{'local_path': filename, 'remote_path': r2_path}]
+                upload_result = uploader.upload_files(file_mappings)
+                
+                # Convert to single file result
+                if upload_result['uploaded_files']:
+                    upload_result = {
+                        'success': True,
+                        'url': upload_result['uploaded_files'][0]['url']
+                    }
+                else:
+                    upload_result = {'success': False}
+                if upload_result.get('success'):
+                    r2_results['original_urls'].append(upload_result['url'])
+                    r2_results['original_r2_paths'].append(r2_path)
+                    logger.info(f"[{device_id}] Uploaded original frame {i}: {r2_path}")
+                else:
+                    logger.error(f"[{device_id}] Failed to upload original frame {i}: {upload_result.get('error')}")
+            
+            # Upload thumbnail frames (last 3)
+            for i, thumbnail_filename in enumerate(last_3_thumbnails):
+                if not thumbnail_filename:
+                    continue
+                    
+                # Construct full path if needed
+                if not os.path.isabs(thumbnail_filename):
+                    # Assume thumbnails are in same directory as originals
+                    if last_3_filenames and i < len(last_3_filenames):
+                        original_dir = os.path.dirname(last_3_filenames[i])
+                        thumbnail_path = os.path.join(original_dir, thumbnail_filename)
+                    else:
+                        continue
+                else:
+                    thumbnail_path = thumbnail_filename
+                
+                if not os.path.exists(thumbnail_path):
+                    logger.warning(f"Thumbnail file not found: {thumbnail_path}")
+                    continue
+                
+                # R2 path: alerts/freeze/device1/20250124123456/thumb_0.jpg
+                r2_path = f"{base_r2_path}/thumb_{i}.jpg"
+                
+                file_mappings = [{'local_path': thumbnail_path, 'remote_path': r2_path}]
+                upload_result = uploader.upload_files(file_mappings)
+                
+                # Convert to single file result
+                if upload_result['uploaded_files']:
+                    upload_result = {
+                        'success': True,
+                        'url': upload_result['uploaded_files'][0]['url']
+                    }
+                else:
+                    upload_result = {'success': False}
+                if upload_result.get('success'):
+                    r2_results['thumbnail_urls'].append(upload_result['url'])
+                    r2_results['thumbnail_r2_paths'].append(r2_path)
+                    logger.info(f"Uploaded thumbnail {i}: {r2_path}")
+                else:
+                    logger.error(f"Failed to upload thumbnail {i}: {upload_result.get('error')}")
+            
+            # Return results if we uploaded at least some files
+            if r2_results['original_urls'] or r2_results['thumbnail_urls']:
+                logger.info(f"Successfully uploaded {len(r2_results['original_urls'])} originals and {len(r2_results['thumbnail_urls'])} thumbnails to R2")
+                return r2_results
+            else:
+                logger.warning("No files were successfully uploaded to R2")
+                return None
+                
+        except Exception as e:
+            logger.error(f"Error uploading freeze frames to R2: {e}")
+            return None

@@ -83,7 +83,7 @@ def main():
                 if issues:
                     logger.info(f"[{device_id}] Issues detected: {issues}")
                 
-                # Process with incident manager
+                # Process with incident manager (pass full detection result for metadata)
                 incident_manager.process_detection(device_id, detection_result, host_name)
                 
                 # Mark frame as analyzed
