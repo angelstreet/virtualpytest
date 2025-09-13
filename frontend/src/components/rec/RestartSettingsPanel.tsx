@@ -1,4 +1,4 @@
-import { Box, Typography, IconButton, Slide, Paper, Checkbox, Select, MenuItem, Collapse } from '@mui/material';
+import { Box, Typography, IconButton, Slide, Paper, Checkbox, Select, MenuItem } from '@mui/material';
 import { Close as CloseIcon, ExpandMore as ExpandMoreIcon, ExpandLess as ExpandLessIcon } from '@mui/icons-material';
 import React, { useState, useEffect } from 'react';
 import { buildServerUrl } from '../../utils/buildUrlUtils';
@@ -212,7 +212,6 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
           </IconButton>
         </Box>
 
-        {/* Video Summary */}
         <Box sx={{ 
           pb: 1.5, 
           mb: 1.5, 
@@ -227,40 +226,21 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
                 flex: 1,
                 cursor: 'pointer'
               }}
-              onClick={() => setIsVideoDescriptionExpanded(!isVideoDescriptionExpanded)}
             >
               Video Summary
             </Typography>
             {videoDescription && (
               <IconButton
-                onClick={() => setIsVideoDescriptionExpanded(!isVideoDescriptionExpanded)}
                 sx={{ color: '#ffffff', p: 0.25 }}
                 size="small"
               >
-                {isVideoDescriptionExpanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
+                <ExpandMoreIcon fontSize="small" />
               </IconButton>
             )}
           </Box>
-          <Select
-            value={summaryLanguage}
-            onChange={(e) => onSummaryLanguageChange(e.target.value)}
-            size="small"
-            sx={{ 
-              ml: 1, 
-              minHeight: 28,
-              fontSize: '0.75rem',
-              color: '#ffffff', 
-              '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.3)' },
-              '& .MuiSelect-select': { py: 0.5 }
-            }}
-          >
-            <MenuItem value="en" sx={{ fontSize: '0.75rem' }}>English</MenuItem>
-            <MenuItem value="es" sx={{ fontSize: '0.75rem' }}>Spanish</MenuItem>
-            <MenuItem value="fr" sx={{ fontSize: '0.75rem' }}>French</MenuItem>
-          </Select>
           
           {videoDescription && (
-            <Collapse in={isVideoDescriptionExpanded}>
+            <Box>
               <Box sx={{ mt: 1 }}>
                 {/* Frame Descriptions */}
                 {videoDescription.frame_descriptions && videoDescription.frame_descriptions.length > 0 && (
