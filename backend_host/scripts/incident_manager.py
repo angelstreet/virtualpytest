@@ -78,7 +78,14 @@ class IncidentManager:
                 return None
             
             # Prepare enhanced metadata with all details (SAME AS ORIGINAL)
-            enhanced_metadata = analysis_result.copy() if analysis_result else {}
+            # Convert booleans to JSON-serializable format
+            enhanced_metadata = {}
+            if analysis_result:
+                for key, value in analysis_result.items():
+                    if isinstance(value, bool):
+                        enhanced_metadata[key] = value  # Booleans are actually JSON serializable
+                    else:
+                        enhanced_metadata[key] = value
             
             # Add specific metadata based on incident type (SAME AS ORIGINAL)
             if analysis_result:
@@ -157,9 +164,13 @@ class IncidentManager:
         device_state = self.get_device_state(device_id)
         active_incidents = device_state['active_incidents']
         
-        # Check each issue type
+        # Check each issue type (SAME AS ORIGINAL)
         for issue_type in ['blackscreen', 'freeze', 'audio_loss']:
-            is_detected = detection_result.get(issue_type, False)
+            # Map detection result fields to incident types
+            if issue_type == 'audio_loss':
+                is_detected = not detection_result.get('audio', True)  # audio_loss = NOT audio
+            else:
+                is_detected = detection_result.get(issue_type, False)
             was_active = issue_type in active_incidents
             
             if is_detected and not was_active:
