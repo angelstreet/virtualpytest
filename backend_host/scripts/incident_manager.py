@@ -5,6 +5,7 @@ Single thread, minimal complexity
 """
 import os
 import sys
+import logging
 from datetime import datetime
 
 # Add project paths
@@ -12,6 +13,9 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..
 sys.path.insert(0, project_root)
 
 from shared.lib.supabase.supabase_client import get_supabase_client
+
+# Use same logger as capture_monitor
+logger = logging.getLogger('capture_monitor')
 
 # Simple states
 NORMAL = 0
@@ -46,10 +50,10 @@ class IncidentManager:
             
             if result.data:
                 incident_id = result.data[0]['id']
-                print(f"[{device_id}] Created {issue_type} incident: {incident_id}")
+                logger.info(f"[{device_id}] Created {issue_type} incident: {incident_id}")
                 return incident_id
         except Exception as e:
-            print(f"[{device_id}] DB error creating incident: {e}")
+            logger.error(f"[{device_id}] DB error creating incident: {e}")
         return None
     
     def resolve_incident(self, device_id, incident_id, issue_type):
@@ -60,9 +64,9 @@ class IncidentManager:
                 'end_time': datetime.now().isoformat()
             }).eq('id', incident_id).execute()
             
-            print(f"[{device_id}] Resolved {issue_type} incident: {incident_id}")
+            logger.info(f"[{device_id}] Resolved {issue_type} incident: {incident_id}")
         except Exception as e:
-            print(f"[{device_id}] DB error resolving incident: {e}")
+            logger.error(f"[{device_id}] DB error resolving incident: {e}")
     
     def process_detection(self, device_id, detection_result, host_name):
         """Process detection result and update state"""
@@ -91,4 +95,4 @@ class IncidentManager:
                 if not active_incidents:
                     device_state['state'] = NORMAL
         
-        print(f"[{device_id}] State: {device_state['state']}, Active: {list(active_incidents.keys())}")
+        logger.debug(f"[{device_id}] State: {device_state['state']}, Active: {list(active_incidents.keys())}")

@@ -6,8 +6,21 @@ Glues detector + incident_manager together
 import os
 import time
 import glob
+import logging
+from datetime import datetime
 from detector import detect_issues
 from incident_manager import IncidentManager
+
+# Setup logging to /tmp/capture_monitor.log
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s [%(levelname)s] %(message)s',
+    handlers=[
+        logging.FileHandler('/tmp/capture_monitor.log'),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
 
 def get_capture_directories():
     """Find active capture directories"""
@@ -45,13 +58,16 @@ def find_latest_frame(capture_dir):
 
 def main():
     """Main monitoring loop"""
-    print("Starting simple incident monitor...")
+    logger.info("Starting simple incident monitor...")
     
     host_name = os.getenv('USER', 'unknown')
     incident_manager = IncidentManager()
     capture_dirs = get_capture_directories()
     
-    print(f"Monitoring {len(capture_dirs)} capture directories")
+    logger.info(f"Monitoring {len(capture_dirs)} capture directories")
+    for capture_dir in capture_dirs:
+        device_id = get_device_id(capture_dir)
+        logger.info(f"Monitoring: {capture_dir} -> {device_id}")
     
     while True:
         for capture_dir in capture_dirs:
@@ -61,6 +77,11 @@ def main():
             if frame_path:
                 # Detect issues
                 detection_result = detect_issues(frame_path)
+                
+                # Log detection results
+                issues = [k for k, v in detection_result.items() if v]
+                if issues:
+                    logger.info(f"[{device_id}] Issues detected: {issues}")
                 
                 # Process with incident manager
                 incident_manager.process_detection(device_id, detection_result, host_name)
