@@ -321,6 +321,8 @@ def create_restart_video_template() -> str:
             setupAudioSection() {
                 const audioSection = document.getElementById('audio-section');
                 const audioTitle = document.getElementById('audio-title');
+                
+                // Use the EXACT same data structure as frontend: analysisResults.audio?.combined_transcript
                 const audioTranscript = this.analysisData.audio_analysis?.combined_transcript;
                 
                 if (audioTranscript && audioTranscript.trim()) {
