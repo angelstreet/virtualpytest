@@ -282,6 +282,7 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
             host,
             device_id: device.device_id || 'device1',
             video_id: videoData.video_id,
+            segment_files: videoData.analysis_data?.segment_files, // Pass segment files from video generation
           }),
           signal: abortControllerRef.current?.signal,
         });

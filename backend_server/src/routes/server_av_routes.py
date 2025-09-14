@@ -577,50 +577,6 @@ def analyze_restart_audio():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
-@server_av_bp.route('/analyzeRestartSubtitles', methods=['POST'])
-def analyze_restart_subtitles():
-    """Analyze subtitles"""
-    try:
-        request_data = request.get_json() or {}
-        host = request_data.get('host')
-        device_id = request_data.get('device_id', 'device1')
-
-        if not host:
-            return jsonify({'success': False, 'error': 'Host required'}), 400
-
-        response_data, status_code = proxy_to_host_with_params(
-            '/host/av/analyzeRestartSubtitles',
-            'POST',
-            request_data,
-            {'device_id': device_id}
-        )
-        return jsonify(response_data), status_code
-        
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-@server_av_bp.route('/analyzeRestartSummary', methods=['POST'])
-def analyze_restart_summary():
-    """Analyze video summary"""
-    try:
-        request_data = request.get_json() or {}
-        host = request_data.get('host')
-        device_id = request_data.get('device_id', 'device1')
-
-        if not host:
-            return jsonify({'success': False, 'error': 'Host required'}), 400
-
-        response_data, status_code = proxy_to_host_with_params(
-            '/host/av/analyzeRestartSummary',
-            'POST',
-            request_data,
-            {'device_id': device_id}
-        )
-        return jsonify(response_data), status_code
-        
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
-
 @server_av_bp.route('/generateRestartReport', methods=['POST'])
 def generate_restart_report():
     """Generate restart report"""
