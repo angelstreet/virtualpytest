@@ -54,7 +54,7 @@ interface AnalysisProgress {
   summary: AnalysisState;
   report: AnalysisState;
 }
-pip install tensorflow==2.4.0 spleeter==2.1.0 librosa==0.8.0 norbert==0.2.1 pandas==1.1.2 typer==0.3.2 httpx==0.16.1 numpy==1.18.5
+
 interface BackendAnalysisData {
   audio_analysis?: {
     success: boolean;
