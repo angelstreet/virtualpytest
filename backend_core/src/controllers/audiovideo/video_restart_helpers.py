@@ -406,12 +406,16 @@ class VideoRestartHelpers:
             
             start_number = int(match.group(1))
             
+            # Detect FPS based on capture source
+            fps = 5 if '/dev/video' in str(self.av_controller.__dict__.get('device_name', '')) else 2
+            screenshots_per_segment = int(self.HLS_SEGMENT_DURATION * fps)
+            
             # Get sequential screenshots aligned with segments
             aligned_screenshots = []
             screenshots_needed = len(segment_files)
             
             for i in range(screenshots_needed):
-                screenshot_number = start_number + i
+                screenshot_number = start_number + (i * screenshots_per_segment)
                 screenshot_patterns = [
                     f"capture_{screenshot_number}.jpg",
                     f"capture_{screenshot_number}_thumbnail.jpg"
