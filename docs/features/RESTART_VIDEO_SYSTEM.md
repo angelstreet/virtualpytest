@@ -221,10 +221,17 @@ interface AnalysisProgress {
 - **Quality**: Inherits from HLS stream quality
 
 ### Analysis Settings
-- **Audio Processing**: Local `AudioAIHelpers` with 3 recent segments
-- **Screenshot Analysis**: Uses existing continuous capture screenshots (every 2nd screenshot, up to 10)
-- **Subtitle Detection**: Middle screenshot from available screenshots
+- **Audio Processing**: Local `AudioAIHelpers` with merged segments
+- **Screenshot Analysis**: FPS-based alignment (5 FPS for HDMI, 2 FPS for VNC)
+- **Screenshot Offset**: 3-frame offset to account for segment timing differences
+- **Subtitle Detection**: Frame-aligned screenshots with proper timing
 - **AI Models**: Existing Whisper for audio, OpenRouter vision models for images
+
+### Translation Settings
+- **Cache Structure**: `{video_id: {language: translation_result}}`
+- **Batch Processing**: Single API call with structure preservation
+- **Performance**: ~2-5 seconds vs previous 24-72 seconds
+- **Frame Alignment**: Maintains frame numbers during translation
 
 ### UI Settings
 - **Progress Bar**: 100px width, 6px height, top-right
@@ -269,9 +276,11 @@ interface AnalysisProgress {
 - **R2 Storage**: Uses existing R2 infrastructure for data storage
 
 ### Translation System
-- Integrates with existing translation utilities
-- Supports multiple target languages
-- Maintains translation state per overlay type
+- **Frame-Aligned Translation**: Preserves frame-to-content mapping during translation
+- **Single API Call**: Batch translation for performance (20x faster than individual calls)
+- **Translation Caching**: Instant language switching after first translation
+- **No Fallbacks**: Shows "Translation not found" for missing translations
+- **Dual Content Support**: Translates both subtitles and descriptions simultaneously
 
 ## Implementation Approach
 
@@ -323,14 +332,17 @@ Phase 2 - Async Analysis:
 
 ### Common Issues
 1. **Video not appearing**: Check HLS segment availability and `/server/av/generateRestartVideo` response
-2. **Audio analysis not loading**: Check R2 data polling and `restart_analysis/{device_id}/{video}.json` file
-3. **Screenshot analysis failing**: Verify continuous capture is running and screenshots exist in `/captures/`
-4. **Overlays not showing**: Check that analysis completed and data structure matches expected format
+2. **Audio analysis not loading**: Check segment files are passed correctly from video generation
+3. **Screenshot analysis failing**: Verify FPS detection and 3-frame offset alignment
+4. **Translation misalignment**: Check frame-to-content mapping preservation
+5. **Slow translation**: Verify single batch API call is being used
+6. **Overlays not showing**: Check that analysis completed and data structure matches expected format
 
 ### Debug Information
 - Console logs prefixed with `[@hook:useRestart]` and `[@component:RestartPlayer]`
-- R2 polling logs show data loading progress
-- Network tab shows R2 requests and existing image analysis routes
+- Screenshot alignment logs: `Screenshot alignment - FPS:5, PerSegment:5, Start:1346091, Offset:3, Adjusted:1346088`
+- Translation cache logs: `Using cached translation for french` or `Cached batch translation for french`
+- Segment files logs: `Segment files available: 12` or `No segment files provided, falling back to globbing`
 - Backend logs show `[RestartVideo]` prefixed messages for audio processing
 
 ## Migration Notes
