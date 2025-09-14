@@ -35,6 +35,9 @@ class VideoRestartHelpers:
         
         # HLS configuration
         self.HLS_SEGMENT_DURATION = getattr(av_controller, 'HLS_SEGMENT_DURATION', 1)
+        
+        # Dubbing helpers (lazy initialization)
+        self._dubbing_helpers = None
     
     def generate_restart_video_only(self, duration_seconds: float = 10.0) -> Optional[Dict[str, Any]]:
         """Generate video only - fast response"""
@@ -516,3 +519,82 @@ class VideoRestartHelpers:
     def _get_video_screenshots(self, segment_files: List[Tuple[str, str]]) -> List[str]:
         """Get screenshot URLs aligned with video segments"""
         return self._get_aligned_screenshots(segment_files)
+    
+    @property
+    def dubbing_helpers(self):
+        """Lazy initialization of dubbing helpers"""
+        if self._dubbing_helpers is None:
+            from .audio_dubbing_helpers import AudioDubbingHelpers
+            self._dubbing_helpers = AudioDubbingHelpers(self.av_controller, self.device_name)
+        return self._dubbing_helpers
+    
+    def generate_dubbed_restart_video(self, video_id: str, target_language: str, existing_transcript: str) -> Optional[Dict[str, Any]]:
+        """Generate dubbed version of restart video using existing transcript."""
+        try:
+            print(f"RestartHelpers[{self.device_name}]: Starting dubbing to {target_language}")
+            
+            # Get original video file
+            video_filename = "restart_video.mp4"
+            video_file = os.path.join(self.video_capture_path, video_filename)
+            
+            if not os.path.exists(video_file):
+                print(f"RestartHelpers[{self.device_name}]: Video file not found")
+                return None
+            
+            # Extract audio from video
+            audio_file = video_file.replace('.mp4', '.wav')
+            subprocess.run(['ffmpeg', '-i', video_file, '-vn', '-acodec', 'pcm_s16le', 
+                          '-ar', '44100', '-ac', '2', audio_file, '-y'], 
+                          capture_output=True, check=True)
+            
+            # Separate audio tracks
+            separated = self.dubbing_helpers.separate_audio_tracks(audio_file)
+            if not separated:
+                return None
+            
+            # Translate existing transcript
+            from shared.lib.utils.translation_utils import translate_text
+            translation_result = translate_text(existing_transcript, 'en', target_language)
+            if not translation_result['success']:
+                print(f"RestartHelpers[{self.device_name}]: Translation failed")
+                return None
+            
+            # Generate dubbed speech
+            dubbed_voice = self.dubbing_helpers.generate_dubbed_speech(
+                translation_result['translated_text'], target_language)
+            if not dubbed_voice:
+                return None
+            
+            # Get video duration
+            import subprocess
+            result = subprocess.run(['ffprobe', '-v', 'quiet', '-show_entries', 
+                                   'format=duration', '-of', 'csv=p=0', video_file], 
+                                   capture_output=True, text=True)
+            duration = float(result.stdout.strip()) if result.stdout.strip() else 10.0
+            
+            # Mix audio
+            final_audio = self.dubbing_helpers.mix_dubbed_audio(
+                separated['background'], dubbed_voice, duration)
+            if not final_audio:
+                return None
+            
+            # Create dubbed video
+            dubbed_video = self.dubbing_helpers.create_dubbed_video(video_file, final_audio)
+            if not dubbed_video:
+                return None
+            
+            # Build URL
+            dubbed_filename = os.path.basename(dubbed_video)
+            dubbed_url = self._build_video_url(dubbed_filename)
+            
+            print(f"RestartHelpers[{self.device_name}]: Dubbing completed")
+            return {
+                'success': True,
+                'dubbed_video_url': dubbed_url,
+                'target_language': target_language,
+                'video_id': f"{video_id}_dubbed_{target_language}"
+            }
+            
+        except Exception as e:
+            print(f"RestartHelpers[{self.device_name}]: Dubbing error: {e}")
+            return None

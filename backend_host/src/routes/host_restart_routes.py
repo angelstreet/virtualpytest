@@ -492,3 +492,33 @@ def restart_stream():
             'success': False,
             'error': str(e)
         }), 500
+
+@host_restart_bp.route('/generateDubbedVideo', methods=['POST'])
+def generate_dubbed_video():
+    """Generate dubbed version of restart video"""
+    try:
+        data = request.get_json() or {}
+        device_id = data.get('device_id', 'device1')
+        video_id = data.get('video_id')
+        target_language = data.get('target_language', 'es')
+        existing_transcript = data.get('existing_transcript', '')
+        
+        if not existing_transcript:
+            return jsonify({'success': False, 'error': 'Transcript required for dubbing'}), 400
+        
+        av_controller = get_controller(device_id, 'av')
+        if not av_controller:
+            return jsonify({'success': False, 'error': f'No AV controller for {device_id}'}), 404
+        
+        print(f"Host[{device_id}]: Starting dubbing to {target_language}")
+        result = av_controller.generateDubbedRestartVideo(video_id, target_language, existing_transcript)
+        
+        if result and result.get('success'):
+            print(f"Host[{device_id}]: Dubbing completed")
+            return jsonify(result)
+        else:
+            return jsonify({'success': False, 'error': 'Dubbing generation failed'}), 500
+            
+    except Exception as e:
+        print(f"Host[{device_id}]: Dubbing error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500

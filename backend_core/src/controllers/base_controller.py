@@ -439,6 +439,10 @@ class FFmpegCaptureController(AVControllerInterface):
     def analyzeRestartComplete(self, video_id: str, screenshot_urls: list) -> Optional[Dict[str, Any]]:
         """Combined restart analysis: subtitles + summary in single optimized call"""
         return self.restart_helpers.analyze_restart_complete(video_id, screenshot_urls)
+    
+    def generateDubbedRestartVideo(self, video_id: str, target_language: str, existing_transcript: str) -> Optional[Dict[str, Any]]:
+        """Generate dubbed version of restart video"""
+        return self.restart_helpers.generate_dubbed_restart_video(video_id, target_language, existing_transcript)
 
     def generateRestartVideoFast(self, duration_seconds: float = None, test_start_time: float = None, processing_time: float = None) -> Optional[Dict[str, Any]]:
         """
