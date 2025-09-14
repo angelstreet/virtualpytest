@@ -400,7 +400,7 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
                             mb: 0.5,
                             lineHeight: 1.2
                           }}>
-                            Subtitles ({getLanguageName(subtitleData?.detected_language || 'Unknown')}): {subtitleContent}
+                            Subtitles ({(subtitleData?.detected_language || 'Unknown').toUpperCase()}): {subtitleContent}
                           </Typography>
                         )}
                         
