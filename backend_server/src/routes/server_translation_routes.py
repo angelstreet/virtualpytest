@@ -11,7 +11,7 @@ import os
 # Add shared lib to path
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', '..', 'shared'))
 
-from lib.utils.translation_utils import translate_text, batch_translate_segments, detect_language_from_text
+from lib.utils.translation_utils import translate_text, batch_translate_segments, detect_language_from_text, batch_translate_restart_content
 
 # Create blueprint
 server_translation_bp = Blueprint('server_translation', __name__, url_prefix='/server/translate')
@@ -56,6 +56,29 @@ def translate_batch_segments():
             }), 400
         
         result = batch_translate_segments(segments, source_language, target_language)
+        return jsonify(result)
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Batch translation error: {str(e)}'
+        }), 500
+
+@server_translation_bp.route('/restart-batch', methods=['POST'])
+def translate_restart_batch():
+    """Translate all restart video content in a single AI request"""
+    try:
+        data = request.get_json() or {}
+        content_blocks = data.get('content_blocks', {})
+        target_language = data.get('target_language', 'en')
+        
+        if not content_blocks:
+            return jsonify({
+                'success': False,
+                'error': 'No content blocks provided'
+            }), 400
+        
+        result = batch_translate_restart_content(content_blocks, target_language)
         return jsonify(result)
         
     except Exception as e:

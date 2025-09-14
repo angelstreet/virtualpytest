@@ -53,13 +53,8 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
   const [translatedFrameDescriptions, setTranslatedFrameDescriptions] = useState<string[]>([]);
   const [translatedFrameSubtitles, setTranslatedFrameSubtitles] = useState<string[]>([]);
   
-  // Translation loading states
+  // Translation loading state
   const [isTranslating, setIsTranslating] = useState(false);
-  const [translationProgress, setTranslationProgress] = useState({
-    videoSummary: false,
-    audioTranscript: false,
-    frameAnalysis: false,
-  });
 
   // Language code to name mapping
   const getLanguageName = (code: string): string => {
@@ -78,70 +73,11 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
     return languageNames[code.toLowerCase()] || code.toUpperCase();
   };
 
-  // Translation cache to avoid re-translating same content
-  const [translationCache, setTranslationCache] = useState<Record<string, string>>({});
+  // Translation cache removed - using single batch translation instead
 
-  // Dynamic translation function with caching and backend API calls
-  const translateText = async (text: string, targetLang: string, originalLang: string = 'en'): Promise<string> => {
-    if (!text || targetLang === originalLang) return text;
-    
-    // Create cache key
-    const cacheKey = `${originalLang}-${targetLang}-${text.substring(0, 50)}`;
-    
-    // Check cache first
-    if (translationCache[cacheKey]) {
-      return translationCache[cacheKey];
-    }
-    
-    try {
-      console.log(`[@component:RestartSettingsPanel] Translating text from ${originalLang} to ${targetLang}`);
-      
-      // Call backend translation API
-      const response = await fetch(buildServerUrl('/server/translate/text'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          text: text,
-          source_language: originalLang,
-          target_language: targetLang
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Translation API failed: ${response.status} ${response.statusText}`);
-      }
-
-      const result = await response.json();
-      
-      if (result.success) {
-        const translatedText = result.translated_text || text;
-        
-        // Cache the result
-        setTranslationCache(prev => ({
-          ...prev,
-          [cacheKey]: translatedText
-        }));
-        
-        console.log(`[@component:RestartSettingsPanel] Translation successful: ${text.substring(0, 50)}... -> ${translatedText.substring(0, 50)}...`);
-        return translatedText;
-      } else {
-        throw new Error(result.error || 'Translation failed');
-      }
-      
-    } catch (error) {
-      console.error('[@component:RestartSettingsPanel] Translation error:', error);
-      // Return original text on error
-      return text;
-    }
-  };
-
-  // Effect to handle dynamic translation when language changes
-  // Old translation logic removed - using unified translation system
-
-  // Effect to handle subtitle translation when language changes
-  // Unified translation effect - translates all content when language changes
+  // Single batch translation effect - translates all content in one AI request
   useEffect(() => {
-    const translateAllContent = async () => {
+    const translateAllContentBatch = async () => {
       if (language === 'en') {
         // Reset to original content for English
         setTranslatedTranscript('');
@@ -152,81 +88,99 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
       }
 
       setIsTranslating(true);
-      setTranslationProgress({ videoSummary: false, audioTranscript: false, frameAnalysis: false });
       
       try {
-        toast.showInfo('🌐 Starting translation...', { duration: 3000 });
+        toast.showInfo('🌐 Starting batch translation...', { duration: 3000 });
 
-        // Step 1: Translate video summary
-        if (videoDescription?.video_summary) {
-          const translatedSum = await translateText(
-            videoDescription.video_summary,
-            language,
-            'en' // Assume summary is in English
-          );
-          setTranslatedSummary(translatedSum);
-          setTranslationProgress(prev => ({ ...prev, videoSummary: true }));
-          toast.showSuccess('✅ Video summary translation complete', { duration: 2000 });
-        }
-
-        // Step 2: Translate audio transcript
-        if (audioTranscript && audioAnalysis?.detected_language) {
-          const translatedAudio = await translateText(
-            audioTranscript,
-            language,
-            audioAnalysis.detected_language.toLowerCase()
-          );
-          setTranslatedTranscript(translatedAudio);
-          setTranslationProgress(prev => ({ ...prev, audioTranscript: true }));
-          toast.showSuccess('✅ Audio transcript translation complete', { duration: 2000 });
-        }
-
-        // Step 3: Translate frame analysis (subtitles and descriptions)
-        if (videoDescription?.frame_descriptions?.length || subtitleData?.frame_subtitles?.length) {
-          const frameDescriptions = videoDescription?.frame_descriptions || [];
-          const frameSubtitles = subtitleData?.frame_subtitles || [];
-          
-          // Translate frame descriptions
-          const translatedDescriptions = await Promise.all(
-            frameDescriptions.map(async (desc) => {
-              // Extract just the description part after "Frame X: "
+        // Prepare all content for single batch translation
+        const contentBlocks = {
+          video_summary: {
+            text: videoDescription?.video_summary || '',
+            source_language: 'en'
+          },
+          audio_transcript: {
+            text: audioTranscript || '',
+            source_language: audioAnalysis?.detected_language?.toLowerCase() || 'en'
+          },
+          frame_descriptions: {
+            texts: videoDescription?.frame_descriptions?.map(desc => {
               const descText = desc.includes(': ') ? desc.split(': ').slice(1).join(': ') : desc;
-              if (descText === 'No description available') return desc;
-              
-              const translated = await translateText(descText, language, 'en');
-              return desc.replace(descText, translated);
-            })
-          );
-          
-          // Translate frame subtitles
-          const translatedSubtitles = await Promise.all(
-            frameSubtitles.map(async (sub) => {
-              // Extract just the subtitle text after "Frame X: "
+              return descText === 'No description available' ? '' : descText;
+            }).filter(text => text) || [],
+            source_language: 'en'
+          },
+          frame_subtitles: {
+            texts: subtitleData?.frame_subtitles?.map(sub => {
               const subText = sub.includes(': ') ? sub.split(': ').slice(1).join(': ') : sub;
-              if (subText === 'No subtitles detected') return sub;
-              
-              const translated = await translateText(subText, language, subtitleData?.detected_language || 'en');
-              return sub.replace(subText, translated);
-            })
-          );
-          
-          setTranslatedFrameDescriptions(translatedDescriptions);
-          setTranslatedFrameSubtitles(translatedSubtitles);
-          setTranslationProgress(prev => ({ ...prev, frameAnalysis: true }));
-          toast.showSuccess('✅ Frame analysis translation complete', { duration: 2000 });
+              return subText === 'No subtitles detected' ? '' : subText;
+            }).filter(text => text) || [],
+            source_language: subtitleData?.detected_language?.toLowerCase() || 'en'
+          }
+        };
+
+        // Single API call for all translations
+        const response = await fetch(buildServerUrl('/server/translate/restart-batch'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            content_blocks: contentBlocks,
+            target_language: language
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error(`Batch translation API failed: ${response.status} ${response.statusText}`);
         }
 
-        toast.showSuccess('🎉 All translations complete!', { duration: 3000 });
+        const data = await response.json();
+        
+        if (data.success && data.translations) {
+          // Apply all translations at once
+          if (data.translations.video_summary) {
+            setTranslatedSummary(data.translations.video_summary);
+          }
+          
+          if (data.translations.audio_transcript) {
+            setTranslatedTranscript(data.translations.audio_transcript);
+          }
+          
+          if (data.translations.frame_descriptions?.length > 0) {
+            // Reconstruct with frame prefixes
+            const translatedDescs = videoDescription?.frame_descriptions?.map((originalDesc, index) => {
+              const prefix = originalDesc.split(': ')[0];
+              const translatedText = data.translations.frame_descriptions[index] || 'No description available';
+              return `${prefix}: ${translatedText}`;
+            }) || [];
+            setTranslatedFrameDescriptions(translatedDescs);
+          }
+          
+          if (data.translations.frame_subtitles?.length > 0) {
+            // Reconstruct with frame prefixes
+            const translatedSubs = subtitleData?.frame_subtitles?.map((originalSub, index) => {
+              const prefix = originalSub.split(': ')[0];
+              const translatedText = data.translations.frame_subtitles[index] || 'No subtitles detected';
+              return `${prefix}: ${translatedText}`;
+            }) || [];
+            setTranslatedFrameSubtitles(translatedSubs);
+          }
+          
+          toast.showSuccess('✅ All translations complete!', { duration: 4000 });
+          
+        } else {
+          throw new Error(data.error || 'Batch translation failed');
+        }
+        
       } catch (error) {
-        console.error('Translation error:', error);
-        toast.showError('❌ Translation failed', { duration: 3000 });
+        console.error('Batch translation error:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        toast.showError(`❌ Translation failed: ${errorMessage}`, { duration: 5000 });
       } finally {
         setIsTranslating(false);
       }
     };
-
-    translateAllContent();
-  }, [language, audioTranscript, subtitleData, videoDescription, audioAnalysis, toast]);
+    
+    translateAllContentBatch();
+  }, [language, videoDescription, audioTranscript, subtitleData, audioAnalysis, toast]);
 
   return (
     <Slide direction="left" in={open} mountOnEnter unmountOnExit>

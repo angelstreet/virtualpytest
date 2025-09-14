@@ -24,7 +24,8 @@ def generate_restart_video():
             '/host/restart/generateVideo',
             'POST',
             request_data,
-            {'device_id': device_id}
+            {'device_id': device_id},
+            timeout=300  # 5 minutes for video generation
         )
         return jsonify(response_data), status_code
         
@@ -46,7 +47,8 @@ def analyze_restart_audio():
             '/host/restart/analyzeAudio',
             'POST',
             request_data,
-            {'device_id': device_id}
+            {'device_id': device_id},
+            timeout=90  # 90 seconds for audio analysis
         )
         return jsonify(response_data), status_code
         
@@ -68,7 +70,8 @@ def generate_restart_report():
             '/host/restart/generateReport',
             'POST',
             request_data,
-            {'device_id': device_id}
+            {'device_id': device_id},
+            timeout=180  # 3 minutes for report generation
         )
         return jsonify(response_data), status_code
         
@@ -91,7 +94,7 @@ def analyze_restart_complete():
             'POST',
             request_data,
             {'device_id': device_id},
-            timeout=60
+            timeout=180  # 3 minutes for combined analysis
         )
         return jsonify(response_data), status_code
         
@@ -138,7 +141,8 @@ def restart_stream():
             '/host/restart/restartStream',
             'POST',
             request_data,
-            query_params
+            query_params,
+            timeout=60  # 60 seconds for stream restart
         )
 
         return jsonify(response_data), status_code

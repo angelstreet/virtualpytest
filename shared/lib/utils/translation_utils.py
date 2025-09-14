@@ -200,6 +200,157 @@ def batch_translate_segments(segments: list, source_language: str, target_langua
             'target_language': target_language
         }
 
+def batch_translate_restart_content(content_blocks: Dict[str, Any], target_language: str) -> Dict[str, Any]:
+    """
+    Translate all restart video content in a single AI request.
+    
+    Args:
+        content_blocks: Dict containing all content to translate
+        target_language: Target language code
+        
+    Returns:
+        Dict with all translated content organized by type
+    """
+    try:
+        # Build structured prompt for single AI call
+        sections = []
+        section_map = {}
+        
+        # Video Summary Section
+        if content_blocks.get('video_summary', {}).get('text'):
+            sections.append(f"[VIDEO_SUMMARY]\n{content_blocks['video_summary']['text']}")
+            section_map['video_summary'] = len(sections) - 1
+        
+        # Audio Transcript Section  
+        if content_blocks.get('audio_transcript', {}).get('text'):
+            sections.append(f"[AUDIO_TRANSCRIPT]\n{content_blocks['audio_transcript']['text']}")
+            section_map['audio_transcript'] = len(sections) - 1
+        
+        # Frame Descriptions Section
+        if content_blocks.get('frame_descriptions', {}).get('texts'):
+            frame_texts = content_blocks['frame_descriptions']['texts']
+            descriptions_text = "\n".join([f"FRAME_{i+1}: {text}" for i, text in enumerate(frame_texts)])
+            sections.append(f"[FRAME_DESCRIPTIONS]\n{descriptions_text}")
+            section_map['frame_descriptions'] = len(sections) - 1
+        
+        # Frame Subtitles Section
+        if content_blocks.get('frame_subtitles', {}).get('texts'):
+            subtitle_texts = content_blocks['frame_subtitles']['texts']
+            subtitles_text = "\n".join([f"SUBTITLE_{i+1}: {text}" for i, text in enumerate(subtitle_texts)])
+            sections.append(f"[FRAME_SUBTITLES]\n{subtitles_text}")
+            section_map['frame_subtitles'] = len(sections) - 1
+        
+        if not sections:
+            return {'success': True, 'translations': {}, 'skipped': True}
+        
+        # Create single comprehensive prompt
+        language_names = {
+            'en': 'English', 'es': 'Spanish', 'fr': 'French', 'de': 'German',
+            'it': 'Italian', 'pt': 'Portuguese', 'ru': 'Russian', 'ja': 'Japanese',
+            'ko': 'Korean', 'zh': 'Chinese', 'ar': 'Arabic', 'hi': 'Hindi'
+        }
+        target_name = language_names.get(target_language, target_language)
+        
+        combined_content = "\n\n".join(sections)
+        
+        prompt = f"""Translate ALL sections below to {target_name}. Maintain the EXACT same structure and section headers.
+
+CRITICAL INSTRUCTIONS:
+1. Keep ALL section headers EXACTLY as shown: [VIDEO_SUMMARY], [AUDIO_TRANSCRIPT], [FRAME_DESCRIPTIONS], [FRAME_SUBTITLES]
+2. For FRAME_DESCRIPTIONS: Keep "FRAME_1:", "FRAME_2:" etc. prefixes
+3. For FRAME_SUBTITLES: Keep "SUBTITLE_1:", "SUBTITLE_2:" etc. prefixes  
+4. Translate ONLY the content after the colons, NOT the prefixes
+5. Preserve all line breaks and structure
+6. If text is already in {target_name}, keep it unchanged
+7. Do not add explanations or additional text
+
+Content to translate:
+
+{combined_content}
+
+Translated content:"""
+
+        # Single AI call for all content
+        result = call_text_ai(prompt, max_tokens=2000, temperature=0.1)
+        
+        if result['success']:
+            return _parse_batch_translation_response(result['content'], section_map, content_blocks)
+        else:
+            return {
+                'success': False,
+                'error': f'Batch translation failed: {result.get("error", "Unknown error")}',
+                'translations': {}
+            }
+            
+    except Exception as e:
+        return {
+            'success': False,
+            'error': f'Batch translation error: {str(e)}',
+            'translations': {}
+        }
+
+def _parse_batch_translation_response(response: str, section_map: Dict, original_content: Dict) -> Dict[str, Any]:
+    """Parse the structured AI response back into organized translations."""
+    try:
+        translations = {}
+        
+        # Split response by section headers
+        sections = response.split('[')
+        
+        for section in sections[1:]:  # Skip first empty split
+            if not section.strip():
+                continue
+                
+            # Extract section name and content
+            lines = section.strip().split('\n', 1)
+            if len(lines) < 2:
+                continue
+                
+            section_name = lines[0].replace(']', '').strip().lower()
+            section_content = lines[1].strip()
+            
+            # Parse based on section type
+            if section_name == 'video_summary':
+                translations['video_summary'] = section_content
+                
+            elif section_name == 'audio_transcript':
+                translations['audio_transcript'] = section_content
+                
+            elif section_name == 'frame_descriptions':
+                # Parse FRAME_1:, FRAME_2: format
+                frame_lines = section_content.split('\n')
+                frame_descriptions = []
+                for line in frame_lines:
+                    if ':' in line and line.strip():
+                        # Extract content after "FRAME_X: "
+                        content = line.split(':', 1)[1].strip()
+                        frame_descriptions.append(content)
+                translations['frame_descriptions'] = frame_descriptions
+                
+            elif section_name == 'frame_subtitles':
+                # Parse SUBTITLE_1:, SUBTITLE_2: format  
+                subtitle_lines = section_content.split('\n')
+                frame_subtitles = []
+                for line in subtitle_lines:
+                    if ':' in line and line.strip():
+                        # Extract content after "SUBTITLE_X: "
+                        content = line.split(':', 1)[1].strip()
+                        frame_subtitles.append(content)
+                translations['frame_subtitles'] = frame_subtitles
+        
+        return {
+            'success': True,
+            'translations': translations,
+            'original_content': original_content
+        }
+        
+    except Exception as e:
+        return {
+            'success': False,
+            'error': f'Response parsing error: {str(e)}',
+            'translations': {}
+        }
+
 def detect_language_from_text(text: str) -> Dict[str, Any]:
     """
     Detect language of text using AI.
