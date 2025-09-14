@@ -32,6 +32,9 @@ interface RestartSettingsPanelProps {
     execution_time_ms: number;
     frame_subtitles?: string[];
   };
+  generateDubbedVersion?: (language: string, transcript: string, videoId: string) => Promise<void>;
+  isDubbing?: boolean;
+  videoId?: string;
 }
 
 export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
@@ -43,6 +46,9 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
   audioTranscript,
   audioAnalysis,
   subtitleData,
+  generateDubbedVersion,
+  isDubbing,
+  videoId,
 }) => {
   const toast = useToast();
   const [isVideoSummaryExpanded, setIsVideoSummaryExpanded] = useState(false);
@@ -90,7 +96,7 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
       setIsTranslating(true);
       
       try {
-        toast.showInfo('🌐 Starting batch translation...', { duration: 3000 });
+        toast.showInfo('🌐 Starting translation...', { duration: 3000 });
 
         // Prepare all content for single batch translation
         const contentBlocks = {
@@ -165,6 +171,13 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
           }
           
           toast.showSuccess('✅ All translations complete!', { duration: 4000 });
+          
+          // Start dubbing after translation completes
+          if (generateDubbedVersion && audioTranscript && videoId) {
+            toast.showInfo('🎤 Starting dubbing...', { duration: 3000 });
+            await generateDubbedVersion(language, audioTranscript, videoId);
+            toast.showSuccess('🎬 Dubbing complete!', { duration: 4000 });
+          }
           
         } else {
           throw new Error(data.error || 'Batch translation failed');

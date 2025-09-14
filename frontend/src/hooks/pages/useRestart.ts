@@ -108,10 +108,17 @@ interface UseRestartReturn {
   analysisProgress: AnalysisProgress;
   isAnalysisComplete: boolean;
   
+  // Dubbing state
+  dubbedVideos: Record<string, string>;
+  isDubbing: boolean;
+  
   // Manual analysis triggers
   analyzeAudio: (videoUrl: string) => Promise<any>;
   analyzeSubtitles: (videoUrl: string) => Promise<any>;
   analyzeVideoDescription: (videoUrl: string) => Promise<any>;
+  
+  // Dubbing function
+  generateDubbedVersion: (language: string, transcript: string, videoId: string) => Promise<void>;
   
   // Utility functions
   regenerateVideo: () => Promise<void>;
@@ -186,6 +193,10 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
   const [error, setError] = useState<string | null>(null);
   const [processingTime] = useState<number | null>(null);
   const [reportUrl, setReportUrl] = useState<string | null>(null);
+  
+  // Dubbing state
+  const [dubbedVideos, setDubbedVideos] = useState<Record<string, string>>({});
+  const [isDubbing, setIsDubbing] = useState(false);
   
   // Request deduplication to prevent React StrictMode duplicate calls
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -489,6 +500,40 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
     return null;
   }, []);
 
+  const generateDubbedVersion = useCallback(async (language: string, transcript: string, videoId: string) => {
+    try {
+      setIsDubbing(true);
+      
+      const response = await fetch(buildServerUrl('/server/restart/generateDubbedVideo'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          host,
+          device_id: device.device_id,
+          video_id: videoId,
+          target_language: language,
+          existing_transcript: transcript
+        })
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        setDubbedVideos(prev => ({
+          ...prev,
+          [language]: result.dubbed_video_url
+        }));
+      } else {
+        throw new Error(result.error || 'Dubbing failed');
+      }
+    } catch (error) {
+      console.error('Dubbing failed:', error);
+      toast.showError('❌ Dubbing failed', { duration: 5000 });
+    } finally {
+      setIsDubbing(false);
+    }
+  }, [host, device, toast]);
+
   const regenerateVideo = useCallback(async () => {
     videoCache.delete(host, device);
     await executeVideoGeneration();
@@ -524,10 +569,17 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
     analysisProgress,
     isAnalysisComplete,
     
+    // Dubbing state
+    dubbedVideos,
+    isDubbing,
+    
     // Manual analysis triggers
     analyzeAudio,
     analyzeSubtitles,
     analyzeVideoDescription,
+    
+    // Dubbing function
+    generateDubbedVersion,
     
     // Utility functions
     regenerateVideo,

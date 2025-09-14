@@ -90,7 +90,18 @@ export const RestartPlayer: React.FC<RestartPlayerProps> = ({ host, device, incl
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [language, setLanguage] = useState('en');
   
-  const { videoUrl, isGenerating, isReady, error, analysisResults, isAnalysisComplete, reportUrl, analysisProgress } = useRestart({ 
+  const { 
+    videoUrl, 
+    isGenerating, 
+    isReady, 
+    error, 
+    analysisResults, 
+    isAnalysisComplete, 
+    reportUrl, 
+    analysisProgress,
+    generateDubbedVersion,
+    isDubbing
+  } = useRestart({ 
     host, 
     device, 
     includeAudioAnalysis 
@@ -257,6 +268,9 @@ export const RestartPlayer: React.FC<RestartPlayerProps> = ({ host, device, incl
         audioTranscript={analysisResults.audio?.combined_transcript}
         audioAnalysis={analysisResults.audio || undefined}
         subtitleData={analysisResults.subtitles || undefined}
+        generateDubbedVersion={generateDubbedVersion}
+        isDubbing={isDubbing}
+        videoId={analysisResults.audio ? `restart_${Date.now()}` : undefined}
       />
     </Box>
   );
