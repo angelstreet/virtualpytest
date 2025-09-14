@@ -578,7 +578,7 @@ Be specific about what you see on the device interface."""
 
     def analyze_image_complete(self, image_path: str, extract_text: bool = True, include_description: bool = True) -> Dict[str, Any]:
         """
-        Combined AI analysis: subtitles + description in single call.
+        Combined AI analysis: subtitles + description using existing working methods.
         
         Args:
             image_path: Path to image file
@@ -591,62 +591,38 @@ Be specific about what you see on the device interface."""
         try:
             print(f"VideoAI[{self.device_name}]: Combined analysis for: {image_path}")
             
-            # Single AI prompt for both analyses
-            prompt = f"""Analyze this image and provide both subtitle detection and description.
-
-RESPOND IN JSON FORMAT:
-{{
-  "subtitles_detected": boolean,
-  "extracted_text": "text if subtitles found, empty string if none",
-  "detected_language": "en/fr/es/de/etc or unknown",
-  "confidence": 0.0-1.0,
-  "image_description": "brief description of what you see"
-}}
-
-Instructions:
-1. Look for any text overlays, subtitles, or captions
-2. If text found, extract it and detect language
-3. Provide brief description of the image content
-4. Use confidence 0.9 if subtitles clearly visible, 0.1 if none"""
-
-            # Call AI with combined prompt
-            result = self._call_ai_with_image(image_path, prompt)
+            # Use existing working methods instead of reinventing the wheel
+            subtitle_result = None
+            description_result = None
             
-            if not result.get('success'):
-                return {'success': False, 'error': result.get('error', 'AI analysis failed')}
+            # 1. Subtitle analysis using existing working method
+            if extract_text:
+                subtitle_text, detected_lang, confidence = self.analyze_subtitle_with_ai(image_path)
+                subtitle_result = {
+                    'subtitles_detected': bool(subtitle_text and subtitle_text.strip() and subtitle_text != 'No subtitles detected'),
+                    'combined_extracted_text': subtitle_text or '',
+                    'detected_language': detected_lang or 'unknown',
+                    'confidence': confidence or 0.1,
+                    'detection_message': f"Subtitles {'found' if subtitle_text and subtitle_text != 'No subtitles detected' else 'not found'}"
+                }
             
-            # Parse JSON response
-            import json
-            try:
-                ai_data = json.loads(result['content'])
-            except:
-                # Fallback parsing if JSON is malformed
-                content = result['content']
-                ai_data = {
-                    'subtitles_detected': 'true' in content.lower(),
-                    'extracted_text': '',
-                    'detected_language': 'unknown',
-                    'confidence': 0.1,
-                    'image_description': content[:200]
+            # 2. Description analysis using existing working method
+            if include_description:
+                description_query = "Provide a short description of what you see in this image"
+                description_text = self.analyze_full_image_with_ai(image_path, description_query)
+                description_result = {
+                    'success': True,
+                    'response': description_text or 'No description available'
                 }
             
             # Format response to match useMonitoring expectations
             response = {
                 'success': True,
-                'subtitle_analysis': {
-                    'subtitles_detected': ai_data.get('subtitles_detected', False),
-                    'combined_extracted_text': ai_data.get('extracted_text', ''),
-                    'detected_language': ai_data.get('detected_language', 'unknown'),
-                    'confidence': ai_data.get('confidence', 0.1),
-                    'detection_message': f"Combined analysis: {'subtitles found' if ai_data.get('subtitles_detected') else 'no subtitles'}"
-                },
-                'description_analysis': {
-                    'success': True,
-                    'response': ai_data.get('image_description', 'No description available')
-                }
+                'subtitle_analysis': subtitle_result,
+                'description_analysis': description_result
             }
             
-            print(f"VideoAI[{self.device_name}]: Combined analysis complete - subtitles: {ai_data.get('subtitles_detected')}")
+            print(f"VideoAI[{self.device_name}]: Combined analysis complete - subtitles: {subtitle_result.get('subtitles_detected') if subtitle_result else False}")
             return response
             
         except Exception as e:
