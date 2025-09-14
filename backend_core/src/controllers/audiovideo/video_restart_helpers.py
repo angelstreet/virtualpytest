@@ -412,14 +412,19 @@ class VideoRestartHelpers:
             # Get FPS from controller
             fps = getattr(self.av_controller, 'screenshot_fps', 5)
             screenshots_per_segment = int(self.HLS_SEGMENT_DURATION * fps)
-            print(f"RestartHelpers[{self.device_name}]: Screenshot alignment - FPS:{fps}, PerSegment:{screenshots_per_segment}, Start:{start_number}")
+            
+            # Apply offset to account for segment/screenshot timing differences
+            segment_offset = 3  # Hardcoded offset - go back 3 screenshots
+            adjusted_start = start_number - segment_offset
+            
+            print(f"RestartHelpers[{self.device_name}]: Screenshot alignment - FPS:{fps}, PerSegment:{screenshots_per_segment}, Start:{start_number}, Offset:{segment_offset}, Adjusted:{adjusted_start}")
             
             # Get sequential screenshots aligned with segments
             aligned_screenshots = []
             screenshots_needed = len(segment_files)
             
             for i in range(screenshots_needed):
-                screenshot_number = start_number + (i * screenshots_per_segment)
+                screenshot_number = adjusted_start + (i * screenshots_per_segment)
                 screenshot_patterns = [
                     f"capture_{screenshot_number}.jpg",
                     f"capture_{screenshot_number}_thumbnail.jpg"
