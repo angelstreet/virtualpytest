@@ -512,7 +512,7 @@ class FFmpegCaptureController(AVControllerInterface):
                 'success': True,
                 'audio_analysis': {
                     'success': audio_analysis.get('success', False),
-                    'speech_detected': audio_analysis.get('successful_segments', 0) > 0,
+                    'speech_detected': audio_analysis.get('speech_detected', False),
                     'combined_transcript': audio_analysis.get('combined_transcript', ''),
                     'detected_language': audio_analysis.get('detected_language', 'unknown'),
                     'confidence': audio_analysis.get('confidence', 0.0)

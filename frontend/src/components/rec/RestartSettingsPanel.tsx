@@ -321,12 +321,6 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
           borderBottom: '1px solid rgba(255,255,255,0.2)' 
         }}>
           <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.8 }}>
-            <Checkbox
-              checked={showAudioTranscriptOverlay}
-              onChange={(e) => onToggleAudioTranscript(e.target.checked)}
-              sx={{ color: '#ffffff', p: 0.5, mr: 0.5 }}
-              size="small"
-            />
             <Typography 
               variant="subtitle2" 
               sx={{ 
@@ -397,12 +391,6 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
         {/* 3. Frame Analysis Section */}
         <Box>
           <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.8 }}>
-            <Checkbox
-              checked={showSubtitleOverlay}
-              onChange={(e) => onToggleSubtitle(e.target.checked)}
-              sx={{ color: '#ffffff', p: 0.5, mr: 0.5 }}
-              size="small"
-            />
             <Typography 
               variant="subtitle2" 
               sx={{ 
