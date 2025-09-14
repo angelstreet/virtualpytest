@@ -276,7 +276,12 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
         });
         
         const audioData = await audioResponse.json();
-        if (audioData.success && audioData.audio_analysis) {
+        
+        // Handle duplicate request (409) - treat as success since analysis is already running
+        if (audioResponse.status === 409 && audioData.code === 'DUPLICATE_REQUEST') {
+          console.log(`[@hook:useRestart] Step 2: Audio analysis already in progress, skipping`);
+          setAnalysisProgress(prev => ({ ...prev, audio: 'completed' }));
+        } else if (audioData.success && audioData.audio_analysis) {
           setAnalysisResults(prev => ({ ...prev, audio: {
             success: audioData.audio_analysis.success,
             combined_transcript: audioData.audio_analysis.combined_transcript || '',
@@ -285,9 +290,12 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
             confidence: audioData.audio_analysis.confidence || 0,
             execution_time_ms: 0,
           }}));
+          setAnalysisProgress(prev => ({ ...prev, audio: 'completed' }));
+          console.log(`[@hook:useRestart] Step 2: Audio analysis completed`);
+        } else {
+          setAnalysisProgress(prev => ({ ...prev, audio: 'error' }));
+          console.log(`[@hook:useRestart] Step 2: Audio analysis failed`);
         }
-        setAnalysisProgress(prev => ({ ...prev, audio: audioData.success ? 'completed' : 'error' }));
-        console.log(`[@hook:useRestart] Step 2: Audio analysis ${audioData.success ? 'completed' : 'failed'}`);
         
         // Step 3: Subtitle Analysis
         console.log(`[@hook:useRestart] Step 3: Starting subtitle analysis`);
@@ -306,7 +314,12 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
         });
         
         const subtitleData = await subtitleResponse.json();
-        if (subtitleData.success && subtitleData.subtitle_analysis) {
+        
+        // Handle duplicate request (409) - treat as success since analysis is already running
+        if (subtitleResponse.status === 409 && subtitleData.code === 'DUPLICATE_REQUEST') {
+          console.log(`[@hook:useRestart] Step 3: Subtitle analysis already in progress, skipping`);
+          setAnalysisProgress(prev => ({ ...prev, subtitles: 'completed' }));
+        } else if (subtitleData.success && subtitleData.subtitle_analysis) {
           setAnalysisResults(prev => ({ ...prev, subtitles: {
             success: subtitleData.subtitle_analysis.success,
             subtitles_detected: subtitleData.subtitle_analysis.subtitles_detected || false,
@@ -315,9 +328,12 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
             execution_time_ms: 0,
             frame_subtitles: subtitleData.subtitle_analysis.frame_subtitles || [],
           }}));
+          setAnalysisProgress(prev => ({ ...prev, subtitles: 'completed' }));
+          console.log(`[@hook:useRestart] Step 3: Subtitle analysis completed`);
+        } else {
+          setAnalysisProgress(prev => ({ ...prev, subtitles: 'error' }));
+          console.log(`[@hook:useRestart] Step 3: Subtitle analysis failed`);
         }
-        setAnalysisProgress(prev => ({ ...prev, subtitles: subtitleData.success ? 'completed' : 'error' }));
-        console.log(`[@hook:useRestart] Step 3: Subtitle analysis ${subtitleData.success ? 'completed' : 'failed'}`);
         
         // Step 4: Summary Analysis
         console.log(`[@hook:useRestart] Step 4: Starting summary analysis`);
@@ -336,16 +352,24 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
         });
         
         const summaryData = await summaryResponse.json();
-        if (summaryData.success && summaryData.video_analysis) {
+        
+        // Handle duplicate request (409) - treat as success since analysis is already running
+        if (summaryResponse.status === 409 && summaryData.code === 'DUPLICATE_REQUEST') {
+          console.log(`[@hook:useRestart] Step 4: Summary analysis already in progress, skipping`);
+          setAnalysisProgress(prev => ({ ...prev, summary: 'completed' }));
+        } else if (summaryData.success && summaryData.video_analysis) {
           setAnalysisResults(prev => ({ ...prev, videoDescription: {
             frame_descriptions: summaryData.video_analysis.frame_descriptions || [],
             video_summary: summaryData.video_analysis.video_summary || '',
             frames_analyzed: summaryData.video_analysis.frames_analyzed || 0,
             execution_time_ms: 0,
           }}));
+          setAnalysisProgress(prev => ({ ...prev, summary: 'completed' }));
+          console.log(`[@hook:useRestart] Step 4: Summary analysis completed`);
+        } else {
+          setAnalysisProgress(prev => ({ ...prev, summary: 'error' }));
+          console.log(`[@hook:useRestart] Step 4: Summary analysis failed`);
         }
-        setAnalysisProgress(prev => ({ ...prev, summary: summaryData.success ? 'completed' : 'error' }));
-        console.log(`[@hook:useRestart] Step 4: Summary analysis ${summaryData.success ? 'completed' : 'failed'}`);
         
         console.log(`[@hook:useRestart] All analysis steps completed`);
         

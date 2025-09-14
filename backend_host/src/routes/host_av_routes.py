@@ -12,9 +12,41 @@ These endpoints run on the host and use the host's own stored device object.
 from flask import Blueprint, request, jsonify, current_app, send_file
 from utils.host_utils import get_controller, get_device_by_id
 import os
+import threading
+import time
+from typing import Dict, Set
 
 # Create blueprint
 host_av_bp = Blueprint('host_av', __name__, url_prefix='/host/av')
+
+# Request deduplication tracking (prevents duplicate AI analysis calls)
+_active_requests: Dict[str, float] = {}  # request_key -> start_time
+_request_lock = threading.Lock()
+
+def _get_request_key(endpoint: str, device_id: str, video_id: str) -> str:
+    """Generate unique key for request deduplication"""
+    return f"{endpoint}:{device_id}:{video_id}"
+
+def _is_request_active(request_key: str) -> bool:
+    """Check if request is already being processed"""
+    with _request_lock:
+        if request_key in _active_requests:
+            # Check if request is stale (older than 60 seconds)
+            if time.time() - _active_requests[request_key] > 60:
+                del _active_requests[request_key]
+                return False
+            return True
+        return False
+
+def _mark_request_active(request_key: str):
+    """Mark request as active"""
+    with _request_lock:
+        _active_requests[request_key] = time.time()
+
+def _mark_request_complete(request_key: str):
+    """Mark request as complete"""
+    with _request_lock:
+        _active_requests.pop(request_key, None)
 
 @host_av_bp.route('/connect', methods=['POST'])
 def connect():
@@ -578,6 +610,18 @@ def analyze_restart_audio():
         if not video_id:
             return jsonify({'success': False, 'error': 'video_id is required'}), 400
         
+        # Deduplication check
+        request_key = _get_request_key('analyzeRestartAudio', device_id, video_id)
+        if _is_request_active(request_key):
+            print(f"[@route:analyzeRestartAudio] Duplicate request detected, returning 409")
+            return jsonify({
+                'success': False, 
+                'error': 'Audio analysis already in progress for this video',
+                'code': 'DUPLICATE_REQUEST'
+            }), 409
+        
+        _mark_request_active(request_key)
+        
         av_controller = get_controller(device_id, 'av')
         if not av_controller:
             return jsonify({'success': False, 'error': f'No AV controller for {device_id}'}), 404
@@ -599,6 +643,10 @@ def analyze_restart_audio():
     except Exception as e:
         print(f"[@route:analyzeRestartAudio] Error: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        # Always clean up request tracking
+        if 'request_key' in locals():
+            _mark_request_complete(request_key)
 
 @host_av_bp.route('/analyzeRestartSubtitles', methods=['POST'])
 def analyze_restart_subtitles():
@@ -629,6 +677,18 @@ def analyze_restart_subtitles():
         if not screenshot_urls:
             return jsonify({'success': False, 'error': 'screenshot_urls are required'}), 400
         
+        # Deduplication check
+        request_key = _get_request_key('analyzeRestartSubtitles', device_id, video_id)
+        if _is_request_active(request_key):
+            print(f"[@route:analyzeRestartSubtitles] Duplicate request detected, returning 409")
+            return jsonify({
+                'success': False, 
+                'error': 'Subtitle analysis already in progress for this video',
+                'code': 'DUPLICATE_REQUEST'
+            }), 409
+        
+        _mark_request_active(request_key)
+        
         av_controller = get_controller(device_id, 'av')
         if not av_controller:
             return jsonify({'success': False, 'error': f'No AV controller for {device_id}'}), 404
@@ -650,6 +710,10 @@ def analyze_restart_subtitles():
     except Exception as e:
         print(f"[@route:analyzeRestartSubtitles] Error: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        # Always clean up request tracking
+        if 'request_key' in locals():
+            _mark_request_complete(request_key)
 
 @host_av_bp.route('/analyzeRestartSummary', methods=['POST'])
 def analyze_restart_summary():
@@ -680,6 +744,18 @@ def analyze_restart_summary():
         if not screenshot_urls:
             return jsonify({'success': False, 'error': 'screenshot_urls are required'}), 400
         
+        # Deduplication check
+        request_key = _get_request_key('analyzeRestartSummary', device_id, video_id)
+        if _is_request_active(request_key):
+            print(f"[@route:analyzeRestartSummary] Duplicate request detected, returning 409")
+            return jsonify({
+                'success': False, 
+                'error': 'Summary analysis already in progress for this video',
+                'code': 'DUPLICATE_REQUEST'
+            }), 409
+        
+        _mark_request_active(request_key)
+        
         av_controller = get_controller(device_id, 'av')
         if not av_controller:
             return jsonify({'success': False, 'error': f'No AV controller for {device_id}'}), 404
@@ -701,6 +777,10 @@ def analyze_restart_summary():
     except Exception as e:
         print(f"[@route:analyzeRestartSummary] Error: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        # Always clean up request tracking
+        if 'request_key' in locals():
+            _mark_request_complete(request_key)
 
 @host_av_bp.route('/analyzeRestartVideo', methods=['POST'])
 def analyze_restart_video():
