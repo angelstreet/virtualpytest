@@ -51,6 +51,7 @@ interface AnalysisProgress {
   audio: AnalysisState;
   subtitles: AnalysisState;
   summary: AnalysisState;
+  report: AnalysisState;
 }
 
 interface BackendAnalysisData {
@@ -183,7 +184,7 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
   const [isReady, setIsReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [processingTime] = useState<number | null>(null);
-  const [reportUrl] = useState<string | null>(null);
+  const [reportUrl, setReportUrl] = useState<string | null>(null);
   
   // Request deduplication to prevent React StrictMode duplicate calls
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -200,6 +201,7 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
     audio: 'idle',
     subtitles: 'idle',
     summary: 'idle',
+    report: 'idle',
   });
 
   // =====================================================
@@ -228,7 +230,7 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
     setIsGenerating(true);
     setError(null);
     setIsReady(false);
-    setAnalysisProgress({ video: 'loading', audio: 'idle', subtitles: 'idle', summary: 'idle' });
+    setAnalysisProgress({ video: 'loading', audio: 'idle', subtitles: 'idle', summary: 'idle', report: 'idle' });
 
     try {
       // Stage 1: Generate video only (fast)
@@ -373,6 +375,44 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
         
         console.log(`[@hook:useRestart] All analysis steps completed`);
         
+        // Step 5: Generate Report
+        console.log(`[@hook:useRestart] Step 5: Starting report generation`);
+        setAnalysisProgress(prev => ({ ...prev, report: 'loading' }));
+        
+        const reportResponse = await fetch(buildServerUrl('/server/av/generateRestartReport'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            host,
+            device_id: device.device_id || 'device1',
+            video_id: videoData.video_id,
+            video_url: videoData.video_url,
+            analysis_data: {
+              audio_analysis: analysisResults.audio,
+              subtitle_analysis: analysisResults.subtitles,
+              video_analysis: analysisResults.videoDescription,
+            }
+          }),
+          signal: abortControllerRef.current?.signal,
+        });
+        
+        const reportData = await reportResponse.json();
+        
+        // Handle duplicate request (409) - treat as success since report is already being generated
+        if (reportResponse.status === 409 && reportData.code === 'DUPLICATE_REQUEST') {
+          console.log(`[@hook:useRestart] Step 5: Report generation already in progress, skipping`);
+          setAnalysisProgress(prev => ({ ...prev, report: 'completed' }));
+        } else if (reportData.success && reportData.report_url) {
+          setReportUrl(reportData.report_url);
+          setAnalysisProgress(prev => ({ ...prev, report: 'completed' }));
+          console.log(`[@hook:useRestart] Step 5: Report generation completed: ${reportData.report_url}`);
+        } else {
+          setAnalysisProgress(prev => ({ ...prev, report: 'error' }));
+          console.log(`[@hook:useRestart] Step 5: Report generation failed`);
+        }
+        
+        console.log(`[@hook:useRestart] All steps including report generation completed`);
+        
       } catch (analysisError) {
         // Handle AbortError separately (not a real error)
         if (analysisError instanceof Error && analysisError.name === 'AbortError') {
@@ -387,6 +427,7 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
           audio: prev.audio === 'loading' ? 'error' : prev.audio,
           subtitles: prev.subtitles === 'loading' ? 'error' : prev.subtitles,
           summary: prev.summary === 'loading' ? 'error' : prev.summary,
+          report: prev.report === 'loading' ? 'error' : prev.report,
         }));
       }
 
@@ -401,7 +442,7 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
       console.error('[@hook:useRestart] Video generation error:', errorMessage);
       setError(errorMessage);
       setIsGenerating(false);
-      setAnalysisProgress({ video: 'error', audio: 'idle', subtitles: 'idle', summary: 'idle' });
+      setAnalysisProgress({ video: 'error', audio: 'idle', subtitles: 'idle', summary: 'idle', report: 'idle' });
     } finally {
       // Clean up request tracking
       isRequestInProgress.current = false;
