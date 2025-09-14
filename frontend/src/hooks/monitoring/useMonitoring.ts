@@ -248,7 +248,7 @@ export const useMonitoring = ({
   const fetchLatestMonitoringData = useCallback(async (): Promise<{imageUrl: string, jsonUrl: string, timestamp: string, sequence: string} | null> => {
     try {
       // Get latest JSON file from the capture directory
-      const response = await fetch(buildServerUrl('/server/monitoring/latest-json'), {
+      const response = await fetch(buildServerUrl('/server/av/monitoring/latest-json'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

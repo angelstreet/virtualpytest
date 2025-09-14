@@ -406,6 +406,34 @@ def connect():
             'error': str(e)
         }), 500
 
+@server_av_bp.route('/monitoring/latest-json', methods=['POST'])
+def get_latest_monitoring_json():
+    """Get the latest available JSON analysis file from selected host"""
+    try:
+        request_data = request.get_json() or {}
+        host = request_data.get('host')
+        device_id = request_data.get('device_id', 'device1')
+
+        if not host:
+            return jsonify({'success': False, 'error': 'Host required'}), 400
+
+        query_params = {'device_id': device_id}
+
+        response_data, status_code = proxy_to_host_with_params(
+            '/host/monitoring/latest-json',
+            'POST',
+            request_data,
+            query_params
+        )
+        
+        return jsonify(response_data), status_code
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 @server_av_bp.route('/disconnect', methods=['POST'])
 def disconnect():
     """Proxy disconnect request to selected host with device_id"""
