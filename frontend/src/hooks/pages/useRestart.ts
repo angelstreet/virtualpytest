@@ -386,6 +386,7 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
+              host,
               device_id: device.device_id || 'device1',
               video_url: videoData.video_url,
               analysis_data: {
