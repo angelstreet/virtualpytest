@@ -114,17 +114,7 @@ export const RestartPlayer: React.FC<RestartPlayerProps> = ({ host, device, incl
     return dubbedVideos[language] || videoUrl; // Use dubbed if available, fallback to original
   }, [language, videoUrl, dubbedVideos]);
 
-  // Auto-generate dubbed video when language changes (if not already cached)
-  useEffect(() => {
-    if (language !== 'en' && 
-        !dubbedVideos[language] && 
-        analysisResults.audio?.combined_transcript && 
-        !isDubbing) {
-      const videoId = `restart_${Date.now()}`;
-      console.log(`[@component:RestartPlayer] Auto-generating dubbed video for ${language}`);
-      generateDubbedVersion(language, analysisResults.audio.combined_transcript, videoId);
-    }
-  }, [language, dubbedVideos, analysisResults.audio?.combined_transcript, isDubbing, generateDubbedVersion]);
+  // Dubbing is now handled by RestartSettingsPanel after translation completes
 
   // Debug video URL
   useEffect(() => {
