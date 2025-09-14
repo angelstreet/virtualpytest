@@ -38,6 +38,9 @@ class VideoRestartHelpers:
         
         # Dubbing helpers (lazy initialization)
         self._dubbing_helpers = None
+        
+        # Translation cache: {video_id: {language: translation_result}}
+        self._translation_cache = {}
     
     def generate_restart_video_only(self, duration_seconds: float = 10.0) -> Optional[Dict[str, Any]]:
         """Generate video only - fast response"""
@@ -533,36 +536,48 @@ class VideoRestartHelpers:
             self._dubbing_helpers = AudioDubbingHelpers(self.av_controller, self.device_name)
         return self._dubbing_helpers
     
-    def generate_dubbed_restart_video(self, video_id: str, target_language: str, existing_transcript: str) -> Optional[Dict[str, Any]]:
-        """Generate dubbed version of restart video using existing transcript."""
-        try:
-            print(f"RestartHelpers[{self.device_name}]: Starting dubbing to {target_language}")
-            
-            # Get original video file
-            video_filename = "restart_video.mp4"
-            video_file = os.path.join(self.video_capture_path, video_filename)
-            
-            if not os.path.exists(video_file):
-                print(f"RestartHelpers[{self.device_name}]: Video file not found")
-                return None
-            
-            # Extract audio from video
-            audio_file = video_file.replace('.mp4', '.wav')
-            subprocess.run(['ffmpeg', '-i', video_file, '-vn', '-acodec', 'pcm_s16le', 
-                          '-ar', '44100', '-ac', '2', audio_file, '-y'], 
-                          capture_output=True, check=True)
-            
-            # Separate audio tracks
-            separated = self.dubbing_helpers.separate_audio_tracks(audio_file)
-            if not separated:
-                return None
-            
-            # Translate existing transcript
-            from shared.lib.utils.translation_utils import translate_text
-            translation_result = translate_text(existing_transcript, 'en', target_language)
-            if not translation_result['success']:
-                print(f"RestartHelpers[{self.device_name}]: Translation failed")
-                return None
+     def generate_dubbed_restart_video(self, video_id: str, target_language: str, existing_transcript: str) -> Optional[Dict[str, Any]]:
+         """Generate dubbed version of restart video using existing transcript."""
+         try:
+             print(f"RestartHelpers[{self.device_name}]: Starting dubbing to {target_language}")
+             
+             # Check translation cache first
+             cache_key = video_id
+             if cache_key in self._translation_cache and target_language in self._translation_cache[cache_key]:
+                 print(f"RestartHelpers[{self.device_name}]: Using cached translation for {target_language}")
+                 translation_result = self._translation_cache[cache_key][target_language]
+             else:
+                 # Translate existing transcript
+                 from shared.lib.utils.translation_utils import translate_text
+                 translation_result = translate_text(existing_transcript, 'en', target_language)
+                 if not translation_result['success']:
+                     print(f"RestartHelpers[{self.device_name}]: Translation failed")
+                     return None
+                 
+                 # Cache the translation
+                 if cache_key not in self._translation_cache:
+                     self._translation_cache[cache_key] = {}
+                 self._translation_cache[cache_key][target_language] = translation_result
+                 print(f"RestartHelpers[{self.device_name}]: Cached translation for {target_language}")
+             
+             # Get original video file
+             video_filename = "restart_video.mp4"
+             video_file = os.path.join(self.video_capture_path, video_filename)
+             
+             if not os.path.exists(video_file):
+                 print(f"RestartHelpers[{self.device_name}]: Video file not found")
+                 return None
+             
+             # Extract audio from video
+             audio_file = video_file.replace('.mp4', '.wav')
+             subprocess.run(['ffmpeg', '-i', video_file, '-vn', '-acodec', 'pcm_s16le', 
+                           '-ar', '44100', '-ac', '2', audio_file, '-y'], 
+                           capture_output=True, check=True)
+             
+             # Separate audio tracks
+             separated = self.dubbing_helpers.separate_audio_tracks(audio_file)
+             if not separated:
+                 return None
             
             # Generate dubbed speech
             dubbed_voice = self.dubbing_helpers.generate_dubbed_speech(
