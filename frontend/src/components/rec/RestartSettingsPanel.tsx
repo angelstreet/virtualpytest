@@ -138,7 +138,7 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
       }
 
       try {
-        // Translate audio transcript
+        // Translate audio transcript (only the content, not the metadata)
         if (audioTranscript && audioAnalysis?.detected_language) {
           const translatedAudio = await translateText(
             audioTranscript,
@@ -297,7 +297,7 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
             >
               Audio Transcript
             </Typography>
-            {audioAnalysis && audioAnalysis.speech_detected && (
+            {(audioTranscript || (audioAnalysis && audioAnalysis.speech_detected)) && (
               <IconButton
                 onClick={() => setIsTranscriptExpanded(!isTranscriptExpanded)}
                 sx={{ color: '#ffffff', p: 0.25 }}
@@ -400,7 +400,7 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
                             mb: 0.5,
                             lineHeight: 1.2
                           }}>
-                            Subtitles: {subtitleContent}
+                            Subtitles ({getLanguageName(subtitleData?.detected_language || 'Unknown')}): {subtitleContent}
                           </Typography>
                         )}
                         

@@ -66,6 +66,8 @@ IMPORTANT INSTRUCTIONS:
 4. For subtitle text, keep it concise and readable
 5. If the text is already in {target_name}, return it unchanged
 6. Do not add any formatting or markdown
+7. Do not include language detection metadata, confidence percentages, or technical annotations
+8. Remove any text like "(ENGLISH, 95% confidence):" or similar metadata from your response
 
 Text to translate:
 {text}
@@ -83,6 +85,17 @@ Translation:"""
                 translated_text = translated_text[1:-1]
             if translated_text.startswith("'") and translated_text.endswith("'"):
                 translated_text = translated_text[1:-1]
+            
+            # Remove any confidence metadata that might have been included
+            import re
+            # Remove patterns like "Translated to Spanish(ENGLISH, 95% confidence):"
+            translated_text = re.sub(r'^Translated to \w+\([^)]+\):\s*', '', translated_text)
+            # Remove patterns like "(ENGLISH, 95% confidence):"
+            translated_text = re.sub(r'\([A-Z]+,\s*\d+%\s*confidence\):\s*', '', translated_text)
+            # Remove any remaining confidence metadata patterns
+            translated_text = re.sub(r'\(\w+,\s*\d+%\s*confidence\):\s*', '', translated_text)
+            
+            translated_text = translated_text.strip()
             
             return {
                 'success': True,
