@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Restart Video System provides fast 10-second video generation with comprehensive AI-powered analysis including audio transcription, subtitle detection, and frame-by-frame video descriptions. The system uses a **two-phase approach**: fast video generation followed by asynchronous AI analysis to ensure immediate video playback while maintaining comprehensive analysis capabilities.
+The Restart Video System provides fast 10-second video generation with comprehensive AI-powered analysis including audio transcription, subtitle detection, frame-by-frame video descriptions, and **dynamic audio dubbing**. The system uses a **two-phase approach**: fast video generation followed by asynchronous AI analysis to ensure immediate video playback while maintaining comprehensive analysis capabilities. Additionally, users can generate dubbed versions in multiple languages with background audio preservation.
 
 ## Architecture
 
@@ -21,6 +21,13 @@ The Restart Video System provides fast 10-second video generation with comprehen
 - **Subtitle Detection**: AI-powered text extraction from synchronized screenshots
 - **Video Descriptions**: Frame-by-frame analysis with overall video summary
 - **Complete Analysis**: Comprehensive AI processing without blocking video playback
+
+**Phase 3: Dynamic Audio Dubbing** (`generateDubbedRestartVideo`)
+- **Audio Separation**: Uses Spleeter to separate vocals from background audio
+- **Voice Translation**: Translates existing transcript to target language
+- **Speech Generation**: Creates dubbed voice using gTTS (Google Text-to-Speech)
+- **Audio Mixing**: Combines background audio with dubbed voice while preserving timing
+- **Video Reconstruction**: Replaces original audio track with dubbed version
 
 #### Core Implementation (`backend_core/src/controllers/base_controller.py`)
 - **Global Configuration**: Uses `AVControllerInterface.HLS_SEGMENT_DURATION = 1` consistently
@@ -49,6 +56,7 @@ The Restart Video System provides fast 10-second video generation with comprehen
 - **Integrated Checkboxes**: Checkboxes next to section titles (Video Summary, Subtitles, Audio Transcript)
 - **Language & Confidence Display**: Shows detected language and confidence (e.g., "English, 95% confidence")
 - **Dynamic Translation**: Real-time translation when target language differs from detected language
+- **Automatic Dubbing**: When non-English language selected, automatically chains translation → dubbing
 - **Frame-by-Frame Analysis**: Individual frame descriptions plus conclusion summary
 - **Subtitle Text Display**: Shows original detected text with translation support
 
@@ -82,7 +90,14 @@ Progress bar: [████░░░░░░] 33% → [████████
 Analysis complete → Settings button (⚙️) appears → Click → Panel slides from right
 ```
 
-### 4. Overlay Controls
+### 4. Dubbing Workflow
+```
+Select Language (French) → Toast: "🌐 Starting translation..." → 
+Toast: "🎤 Starting dubbing..." → Toast: "🎬 Dubbing complete!" → 
+Dubbed video available with preserved background audio
+```
+
+### 5. Overlay Controls
 ```
 Settings Panel:
 ├── Video Summary
@@ -96,7 +111,7 @@ Settings Panel:
     └── [Full transcript text]
 ```
 
-## API Endpoints (Two-Phase Architecture)
+## API Endpoints (Three-Phase Architecture)
 
 ### Phase 1: Fast Video Generation
 ```
@@ -153,6 +168,23 @@ Response: {
   },
   processing_time_seconds: number
 }
+```
+
+### Phase 3: Dynamic Audio Dubbing
+```
+POST /server/restart/generateDubbedVideo
+Body: {
+  host: Host,
+  device_id: string,
+  video_id: string,
+  target_language: string,  // 'es', 'fr', 'de', 'it', 'pt'
+  existing_transcript: string
+}
+Response: {
+  success: true,
+  dubbed_video_url: string,
+  target_language: string,
+  video_id: string  // "{original_video_id}_dubbed_{language}"
 }
 
 POST /server/verification/video/analyzeImageAI  
@@ -210,6 +242,12 @@ interface AnalysisProgress {
   subtitles: 'idle' | 'loading' | 'completed' | 'error';
   videoDescription: 'idle' | 'loading' | 'completed' | 'error';
 }
+
+interface DubbingState {
+  dubbedVideos: Record<string, string>;  // language -> video_url
+  isDubbing: boolean;
+  generateDubbedVersion: (language: string, transcript: string, videoId: string) => Promise<void>;
+}
 ```
 
 ## Configuration
@@ -226,6 +264,14 @@ interface AnalysisProgress {
 - **Screenshot Offset**: 3-frame offset to account for segment timing differences
 - **Subtitle Detection**: Frame-aligned screenshots with proper timing
 - **AI Models**: Existing Whisper for audio, OpenRouter vision models for images
+
+### Dubbing Settings
+- **Audio Separation**: Spleeter 2-stem model (vocals + accompaniment)
+- **Text-to-Speech**: gTTS (Google Text-to-Speech) - free, no API key required
+- **Supported Languages**: Spanish (es), French (fr), German (de), Italian (it), Portuguese (pt)
+- **Audio Processing**: pydub for mixing, FFmpeg for video reconstruction
+- **Translation Cache**: `{video_id: {language: translation_result}}` for instant re-dubbing
+- **Background Preservation**: Original background audio maintained during dubbing
 
 ### Translation Settings
 - **Cache Structure**: `{video_id: {language: translation_result}}`
@@ -252,11 +298,21 @@ interface AnalysisProgress {
 - **Video Description**: 8-12 seconds (AI analysis on 10 screenshots + summary)
 - **Total Analysis**: 10-15 seconds (runs in background)
 
+**Phase 3 (Dubbing - On Demand):**
+- **Audio Separation**: 3-5 seconds (Spleeter processing)
+- **Translation**: 0.5-1 seconds (cached after first use)
+- **Speech Generation**: 2-3 seconds (gTTS processing)
+- **Audio Mixing**: 1-2 seconds (pydub processing)
+- **Video Reconstruction**: 1-2 seconds (FFmpeg processing)
+- **Total Dubbing**: 6-12 seconds (triggered by language selection)
+
 ### Resource Optimization
 - **Screenshot Reduction**: 73% fewer screenshots (12 vs 45 for 10s video)
 - **Audio Merging**: Single 10-12s audio file vs multiple 1s segments
 - **Memory Efficiency**: No temporary files, uses existing continuous capture
 - **Network Optimization**: Backend handles all AI analysis, no frontend R2 polling
+- **Dubbing Efficiency**: Reuses extracted audio, caches translations, preserves background audio
+- **Model Caching**: Spleeter model loaded once and reused for all dubbing requests
 
 ## Integration Points
 
@@ -292,7 +348,7 @@ interface AnalysisProgress {
 5. **Backend-Driven Analysis**: All AI processing handled by backend, frontend receives complete results
 6. **Timeline Synchronization**: Video segments and screenshots use same time period
 
-### Data Flow (Two-Phase)
+### Data Flow (Three-Phase)
 ```
 Phase 1 - Fast Generation:
 1. Frontend → /server/av/generateRestartVideo
@@ -307,13 +363,25 @@ Phase 2 - Async Analysis:
 8. Backend → Subtitle detection on 5 screenshots
 9. Backend → Video description on 10 screenshots + summary
 10. Frontend ← Receives complete AI analysis results
+
+Phase 3 - Dubbing (On Language Selection):
+11. Frontend → Language selection triggers translation + dubbing
+12. Frontend → /server/restart/generateDubbedVideo (existing_transcript + target_language)
+13. Backend → Spleeter separates vocals from background audio
+14. Backend → Translates transcript to target language (cached)
+15. Backend → gTTS generates dubbed voice
+16. Backend → Mixes dubbed voice with background audio
+17. Backend → Creates new MP4 with dubbed audio track
+18. Frontend ← Receives dubbed video URL
 ```
 
 ### Why This Approach Works
 - **Fast**: Video available in 2-3 seconds, no waiting for analysis
-- **Efficient**: No temporary files, no new routes, minimal network overhead
+- **Efficient**: No temporary files, minimal network overhead, reuses existing infrastructure
 - **Reliable**: Uses proven existing systems (AudioAIHelpers, continuous capture, image analysis)
 - **Maintainable**: Single source of truth, no duplicate code paths
+- **Scalable**: Dubbing is on-demand, translation caching prevents duplicate work
+- **Quality**: Background audio preservation maintains original video atmosphere
 
 ## Future Enhancements
 
@@ -328,6 +396,14 @@ Phase 2 - Async Analysis:
 - Export capabilities (video + analysis)
 - Batch restart video generation
 
+### Dubbing Enhancements
+- Voice cloning for consistent speaker identity (ElevenLabs integration)
+- Emotion preservation in dubbed speech
+- Multi-speaker detection and separate dubbing
+- Real-time dubbing during live streams
+- Custom voice selection per language
+- Lip-sync adjustment for video content
+
 ## Troubleshooting
 
 ### Common Issues
@@ -337,6 +413,10 @@ Phase 2 - Async Analysis:
 4. **Translation misalignment**: Check frame-to-content mapping preservation
 5. **Slow translation**: Verify single batch API call is being used
 6. **Overlays not showing**: Check that analysis completed and data structure matches expected format
+7. **Dubbing not starting**: Verify transcript exists and dependencies installed (spleeter, pydub, gTTS)
+8. **Audio separation failing**: Check Spleeter model download and audio file format
+9. **TTS generation failing**: Verify internet connection for gTTS and language code support
+10. **Dubbed audio out of sync**: Check video duration detection and audio mixing timing
 
 ### Debug Information
 - Console logs prefixed with `[@hook:useRestart]` and `[@component:RestartPlayer]`
@@ -344,6 +424,8 @@ Phase 2 - Async Analysis:
 - Translation cache logs: `Using cached translation for french` or `Cached batch translation for french`
 - Segment files logs: `Segment files available: 12` or `No segment files provided, falling back to globbing`
 - Backend logs show `[RestartVideo]` prefixed messages for audio processing
+- Dubbing logs: `Starting dubbing to fr`, `Audio separated successfully`, `Speech generated for fr`, `Dubbing completed`
+- Error logs: `Dubbing error: cannot access local variable 'subprocess'` (indicates import conflicts)
 
 ## Migration Notes
 
@@ -358,3 +440,11 @@ Phase 2 - Async Analysis:
 - **Audio Processing**: Moved from HTTP routes to local `AudioAIHelpers` processing
 - **Screenshot Integration**: Leverages existing continuous capture instead of extracting frames
 - **No Legacy Code**: Clean implementation without backward compatibility layers
+
+### Dubbing Implementation
+- **New Dependencies**: Added spleeter, pydub, gTTS to requirements.txt
+- **New Components**: `AudioDubbingHelpers` class for audio separation and mixing
+- **Extended Helpers**: `VideoRestartHelpers.generate_dubbed_restart_video()` method
+- **Frontend Integration**: Extended `useRestart` hook and `RestartSettingsPanel` for dubbing
+- **Automatic Workflow**: Dubbing triggered automatically after translation completes
+- **Clean Architecture**: No fallback code, reuses existing audio extraction and translation systems

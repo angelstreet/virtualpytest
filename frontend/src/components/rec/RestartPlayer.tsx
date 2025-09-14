@@ -1,6 +1,6 @@
 import { Box, Typography, CircularProgress, Alert, IconButton, Tooltip } from '@mui/material';
 import { Settings as SettingsIcon, Assessment as ReportIcon } from '@mui/icons-material';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 
 import { useRestart } from '../../hooks/pages/useRestart';
 import { Host, Device } from '../../types/common/Host_Types';
@@ -99,6 +99,7 @@ export const RestartPlayer: React.FC<RestartPlayerProps> = ({ host, device, incl
     isAnalysisComplete, 
     reportUrl, 
     analysisProgress,
+    dubbedVideos,
     generateDubbedVersion,
     isDubbing
   } = useRestart({ 
@@ -107,15 +108,36 @@ export const RestartPlayer: React.FC<RestartPlayerProps> = ({ host, device, incl
     includeAudioAnalysis 
   });
 
+  // Smart video source selection - use dubbed video if available, otherwise original
+  const currentVideoUrl = useMemo(() => {
+    if (language === 'en') return videoUrl; // Always use original for English
+    return dubbedVideos[language] || videoUrl; // Use dubbed if available, fallback to original
+  }, [language, videoUrl, dubbedVideos]);
+
+  // Auto-generate dubbed video when language changes (if not already cached)
+  useEffect(() => {
+    if (language !== 'en' && 
+        !dubbedVideos[language] && 
+        analysisResults.audio?.combined_transcript && 
+        !isDubbing) {
+      const videoId = `restart_${Date.now()}`;
+      console.log(`[@component:RestartPlayer] Auto-generating dubbed video for ${language}`);
+      generateDubbedVersion(language, analysisResults.audio.combined_transcript, videoId);
+    }
+  }, [language, dubbedVideos, analysisResults.audio?.combined_transcript, isDubbing, generateDubbedVersion]);
+
   // Debug video URL
   useEffect(() => {
     console.log(`[@component:RestartPlayer] Video state:`, {
       videoUrl,
+      currentVideoUrl,
+      language,
+      dubbedVideos,
       isReady,
       isGenerating,
       error
     });
-  }, [videoUrl, isReady, isGenerating, error]);
+  }, [videoUrl, currentVideoUrl, language, dubbedVideos, isReady, isGenerating, error]);
 
   useEffect(() => {
     return () => {
@@ -183,10 +205,10 @@ export const RestartPlayer: React.FC<RestartPlayerProps> = ({ host, device, incl
       )}
 
       {/* Simple video player - ready state */}
-      {isReady && videoUrl && !isGenerating && (
+      {isReady && currentVideoUrl && !isGenerating && (
         <video
           ref={videoRef}
-          src={videoUrl}
+          src={currentVideoUrl}
           controls
           autoPlay
           muted={false}

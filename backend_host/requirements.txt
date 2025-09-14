@@ -58,6 +58,7 @@ openai-whisper>=20231117
 spleeter>=2.4.0
 pydub>=0.25.1
 gTTS>=2.4.0
+tensorflow>=2.8.0  # Required by Spleeter for audio separation
 # Device communication
 paramiko>=2.9.0  # SSH
 Appium-Python-Client>=3.1.0  # Mobile devices

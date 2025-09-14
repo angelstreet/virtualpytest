@@ -47,7 +47,7 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
   audioAnalysis,
   subtitleData,
   generateDubbedVersion,
-  isDubbing,
+  isDubbing: _isDubbing, // Renamed to indicate it's intentionally unused (dubbing handled by RestartPlayer)
   videoId,
 }) => {
   const toast = useToast();
@@ -61,6 +61,14 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
   
   // Translation loading state
   const [isTranslating, setIsTranslating] = useState(false);
+  
+  // Translation cache to avoid reprocessing
+  const [translationCache, setTranslationCache] = useState<Record<string, {
+    transcript: string;
+    summary: string;
+    frameDescriptions: string[];
+    frameSubtitles: string[];
+  }>>({});
 
   // Language code to name mapping
   const getLanguageName = (code: string): string => {
@@ -79,11 +87,9 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
     return languageNames[code.toLowerCase()] || code.toUpperCase();
   };
 
-  // Translation cache removed - using single batch translation instead
-
-  // Single batch translation effect - translates all content in one AI request
+  // Smart translation effect with caching - avoids reprocessing
   useEffect(() => {
-    const translateAllContentBatch = async () => {
+    const handleLanguageChange = async () => {
       if (language === 'en') {
         // Reset to original content for English
         setTranslatedTranscript('');
@@ -93,6 +99,18 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
         return;
       }
 
+      // Check cache first - if translation exists, use it immediately
+      if (translationCache[language]) {
+        console.log(`[@component:RestartSettingsPanel] Using cached translation for ${language}`);
+        const cached = translationCache[language];
+        setTranslatedTranscript(cached.transcript);
+        setTranslatedSummary(cached.summary);
+        setTranslatedFrameDescriptions(cached.frameDescriptions);
+        setTranslatedFrameSubtitles(cached.frameSubtitles);
+        return;
+      }
+
+      // Only make API call if not cached
       setIsTranslating(true);
       
       try {
@@ -141,38 +159,56 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
         const data = await response.json();
         
         if (data.success && data.translations) {
+          let newTranscript = '';
+          let newSummary = '';
+          let newFrameDescriptions: string[] = [];
+          let newFrameSubtitles: string[] = [];
+
           // Apply all translations at once
           if (data.translations.video_summary) {
-            setTranslatedSummary(data.translations.video_summary);
+            newSummary = data.translations.video_summary;
+            setTranslatedSummary(newSummary);
           }
           
           if (data.translations.audio_transcript) {
-            setTranslatedTranscript(data.translations.audio_transcript);
+            newTranscript = data.translations.audio_transcript;
+            setTranslatedTranscript(newTranscript);
           }
           
           if (data.translations.frame_descriptions?.length > 0) {
             // Reconstruct with frame prefixes
-            const translatedDescs = videoDescription?.frame_descriptions?.map((originalDesc, index) => {
+            newFrameDescriptions = videoDescription?.frame_descriptions?.map((originalDesc, index) => {
               const prefix = originalDesc.split(': ')[0];
               const translatedText = data.translations.frame_descriptions[index] || 'No description available';
               return `${prefix}: ${translatedText}`;
             }) || [];
-            setTranslatedFrameDescriptions(translatedDescs);
+            setTranslatedFrameDescriptions(newFrameDescriptions);
           }
           
           if (data.translations.frame_subtitles?.length > 0) {
             // Reconstruct with frame prefixes
-            const translatedSubs = subtitleData?.frame_subtitles?.map((originalSub, index) => {
+            newFrameSubtitles = subtitleData?.frame_subtitles?.map((originalSub, index) => {
               const prefix = originalSub.split(': ')[0];
               const translatedText = data.translations.frame_subtitles[index] || 'No subtitles detected';
               return `${prefix}: ${translatedText}`;
             }) || [];
-            setTranslatedFrameSubtitles(translatedSubs);
+            setTranslatedFrameSubtitles(newFrameSubtitles);
           }
+
+          // Cache the results for future use
+          setTranslationCache(prev => ({
+            ...prev,
+            [language]: {
+              transcript: newTranscript,
+              summary: newSummary,
+              frameDescriptions: newFrameDescriptions,
+              frameSubtitles: newFrameSubtitles,
+            }
+          }));
           
           toast.showSuccess('✅ All translations complete!', { duration: 4000 });
           
-          // Start dubbing after translation completes
+          // Start dubbing after translation completes (handled by RestartPlayer now)
           if (generateDubbedVersion && audioTranscript && videoId) {
             toast.showInfo('🎤 Starting dubbing...', { duration: 3000 });
             await generateDubbedVersion(language, audioTranscript, videoId);
@@ -192,8 +228,8 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
       }
     };
     
-    translateAllContentBatch();
-  }, [language, videoDescription, audioTranscript, subtitleData, audioAnalysis, toast]);
+    handleLanguageChange();
+  }, [language]); // Removed other dependencies to prevent unnecessary re-runs
 
   return (
     <Slide direction="left" in={open} mountOnEnter unmountOnExit>
