@@ -50,7 +50,10 @@ export function HLSVideoPlayer({
   const [requiresUserInteraction, setRequiresUserInteraction] = useState(false);
   const [useNativePlayer, setUseNativePlayer] = useState(false);
   const [isVideoReady, setIsVideoReady] = useState(false);
+  const [segmentFailureCount, setSegmentFailureCount] = useState(0);
+  const [ffmpegStuck, setFfmpegStuck] = useState(false);
   const maxRetries = 3;
+  const maxSegmentFailures = 10; // Stop after 10 consecutive segment failures
   const retryDelay = 2000;
   const lastInitTime = useRef<number>(0);
 
@@ -95,6 +98,8 @@ export function HLSVideoPlayer({
 
     setStreamLoaded(false);
     setStreamError(null);
+    setSegmentFailureCount(0);
+    setFfmpegStuck(false);
   }, []);
 
   const attemptPlay = useCallback(() => {
@@ -190,6 +195,8 @@ export function HLSVideoPlayer({
     setStreamError(null);
     setStreamLoaded(false);
     setRequiresUserInteraction(false);
+    setSegmentFailureCount(0);
+    setFfmpegStuck(false);
 
     // Check if this is an MP4 file (recorded video)
     if (streamUrl.includes('.mp4')) {
@@ -246,7 +253,14 @@ export function HLSVideoPlayer({
         setStreamLoaded(true);
         setStreamError(null); // Clear any existing errors
         setRetryCount(0);
+        setSegmentFailureCount(0); // Reset segment failure count on successful manifest parse
+        setFfmpegStuck(false); // Reset FFmpeg stuck state
         attemptPlay();
+      });
+
+      // Reset segment failure count on successful fragment loads
+      hls.on(HLS.Events.FRAG_LOADED, () => {
+        setSegmentFailureCount(0);
       });
 
       // Single latency correction mechanism - only when really needed
@@ -272,7 +286,7 @@ export function HLSVideoPlayer({
       };
 
       hls.on(HLS.Events.ERROR, (_event, data) => {
-        //console.warn('[@component:HLSVideoPlayer] HLS error:', data.type, data.details, data.fatal);
+        console.warn('[@component:HLSVideoPlayer] HLS error:', data.type, data.details, data.fatal, data);
 
         // Ignore buffer stall errors - they are temporary and self-recovering
         if (data.details === 'bufferStalledError') {
@@ -282,21 +296,50 @@ export function HLSVideoPlayer({
           return;
         }
 
+        // Check for segment loading failures (404 errors indicating FFmpeg stuck)
+        if (data.details === 'fragLoadError' && data.response?.code === 404) {
+          setSegmentFailureCount((prev) => {
+            const newCount = prev + 1;
+            console.warn(`[@component:HLSVideoPlayer] Segment 404 error (${newCount}/${maxSegmentFailures}):`, data.frag?.url);
+            
+            if (newCount >= maxSegmentFailures) {
+              console.error('[@component:HLSVideoPlayer] FFmpeg appears stuck - too many consecutive segment failures');
+              setFfmpegStuck(true);
+              setStreamError('FFmpeg appears stuck. Stream restart required.');
+              // Stop trying to recover - this requires external intervention
+              return newCount;
+            }
+            
+            return newCount;
+          });
+          
+          // Don't attempt recovery for segment failures - let them accumulate
+          return;
+        }
+
+        // Reset segment failure count on successful operations or different error types
+        if (data.details !== 'fragLoadError') {
+          setSegmentFailureCount(0);
+        }
+
         if (data.fatal) {
           console.error('[@component:HLSVideoPlayer] Fatal HLS error, trying native playback');
           setUseNativePlayer(true);
           setTimeout(() => tryNativePlayback(), 500);
         } else {
           if (data.details === 'fragParsingError' || data.details === 'fragLoadError') {
-            console.log('[@component:HLSVideoPlayer] Fragment error, attempting HLS recovery');
-            try {
-              hls.startLoad();
-            } catch (recoveryError) {
-              console.warn('[@component:HLSVideoPlayer] HLS recovery failed:', recoveryError);
-              setStreamError('Stream connection issues. Retrying...');
-              setTimeout(() => {
-                setRetryCount((prev) => prev + 1);
-              }, retryDelay);
+            // Only attempt recovery if not stuck and not a 404 error
+            if (!ffmpegStuck && !(data.details === 'fragLoadError' && data.response?.code === 404)) {
+              console.log('[@component:HLSVideoPlayer] Fragment error, attempting HLS recovery');
+              try {
+                hls.startLoad();
+              } catch (recoveryError) {
+                console.warn('[@component:HLSVideoPlayer] HLS recovery failed:', recoveryError);
+                setStreamError('Stream connection issues. Retrying...');
+                setTimeout(() => {
+                  setRetryCount((prev) => prev + 1);
+                }, retryDelay);
+              }
             }
           } else {
             setStreamError('Stream connection issues. Retrying...');
@@ -316,6 +359,12 @@ export function HLSVideoPlayer({
   }, [streamUrl, retryCount, useNativePlayer, currentStreamUrl, cleanupStream, tryNativePlayback]);
 
   const handleStreamError = useCallback(() => {
+    // Don't retry if FFmpeg is stuck - requires external intervention
+    if (ffmpegStuck) {
+      console.warn('[@component:HLSVideoPlayer] FFmpeg stuck, not retrying - requires stream restart');
+      return;
+    }
+
     if (retryCount >= maxRetries) {
       console.warn('[@component:HLSVideoPlayer] Max retries reached, switching to native playback');
       setUseNativePlayer(true);
@@ -335,18 +384,18 @@ export function HLSVideoPlayer({
       });
       initializeStream();
     }, retryDelay);
-  }, [retryCount, maxRetries, retryDelay, initializeStream, tryNativePlayback]);
+  }, [retryCount, maxRetries, retryDelay, initializeStream, tryNativePlayback, ffmpegStuck]);
 
   useEffect(() => {
-    // Don't retry if stream is already loaded and working
-    if (streamError && retryCount < maxRetries && !streamLoaded) {
+    // Don't retry if FFmpeg is stuck or if stream is already loaded and working
+    if (streamError && retryCount < maxRetries && !streamLoaded && !ffmpegStuck) {
       console.log(
         `[@component:HLSVideoPlayer] Stream error detected, current retry count: ${retryCount}/${maxRetries}`,
       );
       handleStreamError();
-    } else if (streamError && retryCount >= maxRetries) {
+    } else if (streamError && (retryCount >= maxRetries || ffmpegStuck)) {
       console.warn(
-        `[@component:HLSVideoPlayer] Max retries (${maxRetries}) reached, stopping retry attempts`,
+        `[@component:HLSVideoPlayer] ${ffmpegStuck ? 'FFmpeg stuck' : `Max retries (${maxRetries}) reached`}, stopping retry attempts`,
       );
     } else if (streamError && streamLoaded) {
       console.log(
@@ -354,7 +403,7 @@ export function HLSVideoPlayer({
       );
       setStreamError(null);
     }
-  }, [streamError, retryCount, maxRetries, streamLoaded, handleStreamError]);
+  }, [streamError, retryCount, maxRetries, streamLoaded, ffmpegStuck, handleStreamError]);
 
   useEffect(() => {
     if (useNativePlayer && streamUrl && isStreamActive) {
@@ -372,6 +421,8 @@ export function HLSVideoPlayer({
       setRetryCount(0);
       setStreamLoaded(false);
       setStreamError(null);
+      setSegmentFailureCount(0);
+      setFfmpegStuck(false);
 
       setTimeout(() => {
         initializeStream();
@@ -449,9 +500,15 @@ export function HLSVideoPlayer({
           <Typography variant="body2" sx={{ mb: 1 }}>
             {streamError}
           </Typography>
-          <Typography variant="caption" color="text.secondary">
-            Retry {retryCount}/{maxRetries}
-          </Typography>
+          {ffmpegStuck ? (
+            <Typography variant="caption" color="error.main">
+              Segment failures: {segmentFailureCount}/{maxSegmentFailures}
+            </Typography>
+          ) : (
+            <Typography variant="caption" color="text.secondary">
+              Retry {retryCount}/{maxRetries}
+            </Typography>
+          )}
         </Box>
       )}
 
