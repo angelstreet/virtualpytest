@@ -624,6 +624,14 @@ Be specific about what you see on the device interface."""
                     elif content.startswith('```'):
                         content = content.replace('```', '').strip()
                     
+                    # Check if JSON is complete (basic validation)
+                    if not content.strip().endswith('}'):
+                        print(f"VideoAI[{self.device_name}]: JSON appears truncated, attempting to fix...")
+                        # Try to close incomplete JSON
+                        open_braces = content.count('{') - content.count('}')
+                        if open_braces > 0:
+                            content += '}' * open_braces
+                    
                     ai_data = json.loads(content)
                     
                     # Extract and validate subtitle analysis
@@ -661,7 +669,7 @@ Be specific about what you see on the device interface."""
                     
                 except (json.JSONDecodeError, KeyError, ValueError) as e:
                     print(f"VideoAI[{self.device_name}]: Failed to parse combined AI response: {e}")
-                    print(f"VideoAI[{self.device_name}]: Raw AI content: {result['content'][:200]}...")
+                    print(f"VideoAI[{self.device_name}]: Raw AI content: {result['content']}")
                     
                     # Fallback to empty results
                     return {

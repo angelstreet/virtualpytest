@@ -288,6 +288,12 @@ class FFmpegCaptureController(AVControllerInterface):
         self.video_stream_path = video_stream_path
         self.video_capture_path = video_capture_path
         
+        # Screenshot FPS based on capture source type
+        if 'vnc' in capture_source.lower() or 'x11grab' in str(kwargs):
+            self.screenshot_fps = 2
+        else:
+            self.screenshot_fps = 5  # Default for HDMI/hardware
+        
         # Video capture state (timestamp-based, no FFmpeg)
         self.is_capturing_video = False
         self.capture_start_time = None
@@ -298,7 +304,7 @@ class FFmpegCaptureController(AVControllerInterface):
         self._restart_helpers = None
         self._monitoring_helpers = None
         
-        print(f"{capture_source}[{self.capture_source}]: Initialized - Stream: {self.video_stream_path}, Capture: {self.video_capture_path}")
+        print(f"{capture_source}[{self.capture_source}]: Initialized - Stream: {self.video_stream_path}, Capture: {self.video_capture_path}, FPS: {self.screenshot_fps}")
     
     @property
     def restart_helpers(self):

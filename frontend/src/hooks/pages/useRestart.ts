@@ -269,6 +269,7 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
 
       // Stage 2-4: Run analysis sequentially (no race conditions)
       console.log(`[@hook:useRestart] Starting sequential analysis for video_id: ${videoData.video_id}`);
+      console.log(`[@hook:useRestart] Segment files available:`, videoData.analysis_data?.segment_files?.length || 0);
       
       try {
         // Step 2: Audio Analysis
@@ -282,7 +283,7 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
             host,
             device_id: device.device_id || 'device1',
             video_id: videoData.video_id,
-            segment_files: videoData.analysis_data?.segment_files, // Pass segment files from video generation
+            segment_files: videoData.analysis_data?.segment_files || null, // Pass segment files from video generation
           }),
           signal: abortControllerRef.current?.signal,
         });

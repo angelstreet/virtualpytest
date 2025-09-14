@@ -406,8 +406,8 @@ class VideoRestartHelpers:
             
             start_number = int(match.group(1))
             
-            # Detect FPS based on capture source
-            fps = 5 if '/dev/video' in str(self.av_controller.__dict__.get('device_name', '')) else 2
+            # Get FPS from controller
+            fps = getattr(self.av_controller, 'screenshot_fps', 5)
             screenshots_per_segment = int(self.HLS_SEGMENT_DURATION * fps)
             print(f"RestartHelpers[{self.device_name}]: Screenshot alignment - FPS:{fps}, PerSegment:{screenshots_per_segment}, Start:{start_number}")
             
