@@ -348,23 +348,28 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
         
         // Step 4: Summary Analysis
         console.log(`[@hook:useRestart] Step 4: Starting summary analysis`);
+        console.log(`[@hook:useRestart] DEBUG: analysisResults =`, analysisResults);
         setAnalysisProgress(prev => ({ ...prev, summary: 'loading' }));
+        
+        const requestBody = {
+          host,
+          device_id: device.device_id || 'device1',
+          video_id: videoData.video_id,
+          screenshot_urls: videoData.screenshot_urls || [],
+          video_url: videoData.video_url, // Add video URL for report generation
+          // Include previous analysis results for complete report
+          analysis_data: {
+            audio_analysis: analysisResults.audio,
+            subtitle_analysis: analysisResults.subtitles,
+          }
+        };
+        
+        console.log(`[@hook:useRestart] DEBUG: Sending to summary endpoint:`, requestBody);
         
         const summaryResponse = await fetch(buildServerUrl('/server/av/analyzeRestartSummary'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            host,
-            device_id: device.device_id || 'device1',
-            video_id: videoData.video_id,
-            screenshot_urls: videoData.screenshot_urls || [],
-            video_url: videoData.video_url, // Add video URL for report generation
-            // Include previous analysis results for complete report
-            analysis_data: {
-              audio_analysis: analysisResults.audio,
-              subtitle_analysis: analysisResults.subtitles,
-            }
-          }),
+          body: JSON.stringify(requestBody),
           signal: abortControllerRef.current?.signal,
         });
         
