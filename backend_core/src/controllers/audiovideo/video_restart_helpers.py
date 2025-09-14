@@ -10,6 +10,7 @@ import time
 import uuid
 import glob
 import re
+import subprocess
 from datetime import datetime
 from typing import Dict, Any, Optional, List, Tuple
 
@@ -536,54 +537,52 @@ class VideoRestartHelpers:
             self._dubbing_helpers = AudioDubbingHelpers(self.av_controller, self.device_name)
         return self._dubbing_helpers
     
-     def generate_dubbed_restart_video(self, video_id: str, target_language: str, existing_transcript: str) -> Optional[Dict[str, Any]]:
-         """Generate dubbed version of restart video using existing transcript."""
-         try:
-             print(f"RestartHelpers[{self.device_name}]: Starting dubbing to {target_language}")
-             
-             # Check translation cache first
-             cache_key = video_id
-             if cache_key in self._translation_cache and target_language in self._translation_cache[cache_key]:
-                 print(f"RestartHelpers[{self.device_name}]: Using cached frame translations for {target_language}")
-                 frame_translations = self._translation_cache[cache_key][target_language]
-             else:
-                 # Get frame-specific analysis data for translation
-                 frame_translations = self._translate_frame_data(video_id, target_language, existing_transcript)
-                 if not frame_translations:
-                     print(f"RestartHelpers[{self.device_name}]: Frame translation failed")
-                     return None
-                 
-                 # Cache the frame translations
-                 if cache_key not in self._translation_cache:
-                     self._translation_cache[cache_key] = {}
-                 self._translation_cache[cache_key][target_language] = frame_translations
-                 print(f"RestartHelpers[{self.device_name}]: Cached frame translations for {target_language}")
-             
-             # Get original video file
-             video_filename = "restart_video.mp4"
-             video_file = os.path.join(self.video_capture_path, video_filename)
-             
-             if not os.path.exists(video_file):
-                 print(f"RestartHelpers[{self.device_name}]: Video file not found")
-                 return None
-             
-             # Extract audio from video
-             audio_file = video_file.replace('.mp4', '.wav')
-             subprocess.run(['ffmpeg', '-i', video_file, '-vn', '-acodec', 'pcm_s16le', 
-                           '-ar', '44100', '-ac', '2', audio_file, '-y'], 
-                           capture_output=True, check=True)
-             
-             # Separate audio tracks
-             separated = self.dubbing_helpers.separate_audio_tracks(audio_file)
-             if not separated:
-                 return None
+    def generate_dubbed_restart_video(self, video_id: str, target_language: str, existing_transcript: str) -> Optional[Dict[str, Any]]:
+        """Generate dubbed version of restart video using existing transcript."""
+        try:
+            print(f"RestartHelpers[{self.device_name}]: Starting dubbing to {target_language}")
             
-             # Use combined translated transcript for dubbing
-             combined_translated = ' '.join([frame.get('subtitle', '') for frame in frame_translations.get('frame_data', {}).values()])
-             
-             # Generate dubbed speech
-             dubbed_voice = self.dubbing_helpers.generate_dubbed_speech(
-                 combined_translated, target_language)
+            # Check translation cache first
+            cache_key = video_id
+            if cache_key in self._translation_cache and target_language in self._translation_cache[cache_key]:
+                print(f"RestartHelpers[{self.device_name}]: Using cached translation for {target_language}")
+                translation_result = self._translation_cache[cache_key][target_language]
+            else:
+                # Translate existing transcript
+                from shared.lib.utils.translation_utils import translate_text
+                translation_result = translate_text(existing_transcript, 'en', target_language)
+                if not translation_result['success']:
+                    print(f"RestartHelpers[{self.device_name}]: Translation failed")
+                    return None
+                
+                # Cache the translation
+                if cache_key not in self._translation_cache:
+                    self._translation_cache[cache_key] = {}
+                self._translation_cache[cache_key][target_language] = translation_result
+                print(f"RestartHelpers[{self.device_name}]: Cached translation for {target_language}")
+            
+            # Get original video file
+            video_filename = "restart_video.mp4"
+            video_file = os.path.join(self.video_capture_path, video_filename)
+            
+            if not os.path.exists(video_file):
+                print(f"RestartHelpers[{self.device_name}]: Video file not found")
+                return None
+            
+            # Extract audio from video
+            audio_file = video_file.replace('.mp4', '.wav')
+            subprocess.run(['ffmpeg', '-i', video_file, '-vn', '-acodec', 'pcm_s16le', 
+                          '-ar', '44100', '-ac', '2', audio_file, '-y'], 
+                          capture_output=True, check=True)
+            
+            # Separate audio tracks
+            separated = self.dubbing_helpers.separate_audio_tracks(audio_file)
+            if not separated:
+                return None
+            
+            # Generate dubbed speech
+            dubbed_voice = self.dubbing_helpers.generate_dubbed_speech(
+                translation_result['translated_text'], target_language)
             if not dubbed_voice:
                 return None
             
@@ -617,46 +616,6 @@ class VideoRestartHelpers:
                 'video_id': f"{video_id}_dubbed_{target_language}"
             }
             
-         except Exception as e:
-             print(f"RestartHelpers[{self.device_name}]: Dubbing error: {e}")
-             return None
-     
-     def _translate_frame_data(self, video_id: str, target_language: str, existing_transcript: str) -> Optional[Dict[str, Any]]:
-         """Translate frame-specific subtitle and description data."""
-         try:
-             # Get original frame analysis data (mock for now - should come from analysis results)
-             # This would normally be retrieved from the analysis results stored during video generation
-             frame_data = {}
-             
-             # For now, split existing transcript by sentences and map to frames
-             # In real implementation, this should use actual frame analysis data
-             sentences = existing_transcript.split('. ')
-             
-             from shared.lib.utils.translation_utils import translate_text
-             
-             for i, sentence in enumerate(sentences):
-                 if sentence.strip():
-                     frame_key = f"frame_{i+1}"
-                     
-                     # Translate subtitle
-                     subtitle_result = translate_text(sentence.strip(), 'en', target_language)
-                     subtitle_text = subtitle_result['translated_text'] if subtitle_result['success'] else "Translation not found"
-                     
-                     # Mock description translation (in real implementation, get from frame analysis)
-                     description_result = translate_text(f"Scene description for {sentence[:30]}...", 'en', target_language)
-                     description_text = description_result['translated_text'] if description_result['success'] else "Translation not found"
-                     
-                     frame_data[frame_key] = {
-                         'subtitle': subtitle_text,
-                         'description': description_text
-                     }
-             
-             return {
-                 'frame_data': frame_data,
-                 'language': target_language,
-                 'total_frames': len(frame_data)
-             }
-             
-         except Exception as e:
-             print(f"RestartHelpers[{self.device_name}]: Frame translation error: {e}")
-             return None
+        except Exception as e:
+            print(f"RestartHelpers[{self.device_name}]: Dubbing error: {e}")
+            return None
