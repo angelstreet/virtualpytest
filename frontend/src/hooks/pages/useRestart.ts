@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 
 import { Host, Device } from '../../types/common/Host_Types';
 import { buildServerUrl } from '../../utils/buildUrlUtils';
+import { useToast } from '../useToast';
 
 // =====================================================
 // TYPES & INTERFACES
@@ -190,6 +191,10 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
   const abortControllerRef = useRef<AbortController | null>(null);
   const isRequestInProgress = useRef(false);
   
+  // Toast notifications and timing
+  const toast = useToast();
+  const analysisStartTime = useRef<number | null>(null);
+  
   const [analysisResults, setAnalysisResults] = useState<AnalysisResults>({
     audio: null,
     subtitles: null,
@@ -257,6 +262,10 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
       setAnalysisProgress(prev => ({ ...prev, video: 'completed' }));
 
       if (!includeAudioAnalysis) return;
+
+      // Show toast notification and start timing for AI analysis
+      analysisStartTime.current = Date.now();
+      toast.showInfo('🤖 AI Analysis starting...', { duration: 3000 });
 
       // Stage 2-4: Run analysis sequentially (no race conditions)
       console.log(`[@hook:useRestart] Starting sequential analysis for video_id: ${videoData.video_id}`);
@@ -413,6 +422,14 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
         
         console.log(`[@hook:useRestart] All steps including report generation completed`);
         
+        // Show completion toast with timing
+        if (analysisStartTime.current) {
+          const analysisTime = Math.round((Date.now() - analysisStartTime.current) / 1000);
+          toast.showSuccess(`✅ AI Analysis complete in ${analysisTime}s`, { duration: 4000 });
+        } else {
+          toast.showSuccess('✅ AI Analysis complete', { duration: 4000 });
+        }
+        
       } catch (analysisError) {
         // Handle AbortError separately (not a real error)
         if (analysisError instanceof Error && analysisError.name === 'AbortError') {
@@ -421,6 +438,15 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
         }
         
         console.error(`[@hook:useRestart] Analysis error:`, analysisError);
+        
+        // Show error toast with timing if available
+        if (analysisStartTime.current) {
+          const analysisTime = Math.round((Date.now() - analysisStartTime.current) / 1000);
+          toast.showError(`❌ AI Analysis failed after ${analysisTime}s`, { duration: 5000 });
+        } else {
+          toast.showError('❌ AI Analysis failed', { duration: 5000 });
+        }
+        
         // Don't fail the entire process if analysis fails - video is still playable
         setAnalysisProgress(prev => ({
           ...prev,
@@ -440,6 +466,7 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
       
       const errorMessage = err instanceof Error ? err.message : 'Video generation failed';
       console.error('[@hook:useRestart] Video generation error:', errorMessage);
+      toast.showError(`❌ ${errorMessage}`, { duration: 5000 });
       setError(errorMessage);
       setIsGenerating(false);
       setAnalysisProgress({ video: 'error', audio: 'idle', subtitles: 'idle', summary: 'idle', report: 'idle' });
