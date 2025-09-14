@@ -100,8 +100,8 @@ def get_restart_video_css() -> str:
         }
 
         .full-analysis-section {
-            margin-bottom: 24px;
-            padding-bottom: 20px;
+            margin-bottom: 16;
+            padding-bottom: 16;
             border-bottom: 2px solid rgba(255, 255, 255, 0.2);
         }
 
@@ -109,7 +109,7 @@ def get_restart_video_css() -> str:
             font-size: 14px;
             font-weight: 600;
             color: #4CAF50;
-            margin-bottom: 8px;
+            margin-bottom: 4px;
             cursor: pointer;
             display: flex;
             align-items: center;
@@ -156,7 +156,7 @@ def get_restart_video_css() -> str:
             font-size: 16px;
             font-weight: 600;
             color: #fff;
-            margin-bottom: 16px;
+            margin-bottom: 12px;
             text-align: center;
             cursor: pointer;
             display: flex;
@@ -191,7 +191,7 @@ def get_restart_video_css() -> str:
             font-size: 13px;
             font-weight: 600;
             color: #4CAF50;
-            margin-bottom: 8px;
+            margin-bottom: 4px;
         }
 
         .frame-content {
@@ -201,7 +201,7 @@ def get_restart_video_css() -> str:
 
         .frame-subtitles {
             color: #2196F3;
-            margin-bottom: 6px;
+            margin-bottom: 4px;
             font-style: italic;
         }
 

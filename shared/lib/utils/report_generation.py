@@ -469,7 +469,7 @@ def generate_and_upload_restart_report(
             'device_name': device_info.get('device_name', 'Unknown Device'),
             'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
             'video_url': r2_video_url,  # Use R2 URL instead of local host URL
-            'audio_transcript': audio_analysis.get('combined_transcript', 'No audio transcript available'),
+            'audio_transcript': audio_analysis.get('combined_transcript') or 'No audio transcript available',
             'subtitle_text': subtitle_analysis.get('extracted_text', 'No subtitles detected'),
             'video_summary': video_analysis.get('video_summary', 'Video analysis pending'),
             'analysis_data_json': json.dumps(analysis_data) if analysis_data else '{}'
