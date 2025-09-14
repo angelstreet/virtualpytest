@@ -346,8 +346,9 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
                 borderLeft: '3px solid #FF9800'
               }}>
                 <strong>
-                  {language === 'en' ? 'Original' : `Translated to ${getLanguageName(language)}`} 
-                  ({getLanguageName(audioAnalysis?.detected_language || 'Unknown')}, {Math.round((audioAnalysis?.confidence || 0) * 100)}% confidence):
+                  {language === 'en' 
+                    ? `Original (${getLanguageName(audioAnalysis?.detected_language || 'Unknown')})` 
+                    : `Translated to ${getLanguageName(language)}`}:
                 </strong><br />
                 {language === 'en' ? (audioTranscript || 'No transcript available') : (translatedTranscript || audioTranscript || 'Translating...')}
               </Typography>
@@ -430,7 +431,11 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
                             mb: 0.5,
                             lineHeight: 1.2
                           }}>
-                            Subtitles ({(subtitleData?.detected_language || 'Unknown').toUpperCase()}): {subtitleContent}
+                            Subtitles ({
+                              language !== 'en' && translatedFrameSubtitles.length > 0 
+                                ? `Translated to ${getLanguageName(language)}`
+                                : (subtitleData?.detected_language || 'Unknown').toUpperCase()
+                            }): {subtitleContent}
                           </Typography>
                         )}
                         

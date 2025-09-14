@@ -409,6 +409,7 @@ class VideoRestartHelpers:
             # Detect FPS based on capture source
             fps = 5 if '/dev/video' in str(self.av_controller.__dict__.get('device_name', '')) else 2
             screenshots_per_segment = int(self.HLS_SEGMENT_DURATION * fps)
+            print(f"RestartHelpers[{self.device_name}]: Screenshot alignment - FPS:{fps}, PerSegment:{screenshots_per_segment}, Start:{start_number}")
             
             # Get sequential screenshots aligned with segments
             aligned_screenshots = []
@@ -450,6 +451,7 @@ class VideoRestartHelpers:
                     screenshot_url = f"{self.video_stream_path}/captures/{filename}"
                     screenshot_urls.append(screenshot_url)
             
+            print(f"RestartHelpers[{self.device_name}]: Found {len(screenshot_urls)} aligned screenshots: {[os.path.basename(url.split('/')[-1]) for url in screenshot_urls]}")
             return screenshot_urls
             
         except Exception as e:

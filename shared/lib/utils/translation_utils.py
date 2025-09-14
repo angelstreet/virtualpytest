@@ -66,8 +66,9 @@ IMPORTANT INSTRUCTIONS:
 4. For subtitle text, keep it concise and readable
 5. If the text is already in {target_name}, return it unchanged
 6. Do not add any formatting or markdown
-7. Do not include language detection metadata, confidence percentages, or technical annotations
-8. Remove any text like "(ENGLISH, 95% confidence):" or similar metadata from your response
+7. Do NOT include language detection metadata, confidence percentages, or phrases like "Translated to X"
+8. Do NOT include technical annotations or metadata prefixes
+9. Provide ONLY the clean translated content
 
 Text to translate:
 {text}
@@ -94,6 +95,10 @@ Translation:"""
             translated_text = re.sub(r'\([A-Z]+,\s*\d+%\s*confidence\):\s*', '', translated_text)
             # Remove any remaining confidence metadata patterns
             translated_text = re.sub(r'\(\w+,\s*\d+%\s*confidence\):\s*', '', translated_text)
+            # Remove patterns like "Translated to Spanish" at the beginning
+            translated_text = re.sub(r'^Translated to \w+:\s*', '', translated_text)
+            # Remove any language detection metadata
+            translated_text = re.sub(r'\([A-Z]+\):\s*', '', translated_text)
             
             translated_text = translated_text.strip()
             
@@ -263,6 +268,8 @@ CRITICAL INSTRUCTIONS:
 5. Preserve all line breaks and structure
 6. If text is already in {target_name}, keep it unchanged
 7. Do not add explanations or additional text
+8. Do NOT include language detection metadata, confidence percentages, or phrases like "Translated to X"
+9. Provide ONLY the translated content without any prefixes or metadata
 
 Content to translate:
 
@@ -289,6 +296,23 @@ Translated content:"""
             'translations': {}
         }
 
+def _clean_translated_text(text: str) -> str:
+    """Clean translated text from AI metadata and formatting."""
+    import re
+    
+    # Remove patterns like "Translated to Spanish(ENGLISH, 95% confidence):"
+    text = re.sub(r'^Translated to \w+\([^)]+\):\s*', '', text)
+    # Remove patterns like "(ENGLISH, 95% confidence):"
+    text = re.sub(r'\([A-Z]+,\s*\d+%\s*confidence\):\s*', '', text)
+    # Remove any remaining confidence metadata patterns
+    text = re.sub(r'\(\w+,\s*\d+%\s*confidence\):\s*', '', text)
+    # Remove patterns like "Translated to Spanish" at the beginning
+    text = re.sub(r'^Translated to \w+:\s*', '', text)
+    # Remove any language detection metadata
+    text = re.sub(r'\([A-Z]+\):\s*', '', text)
+    
+    return text.strip()
+
 def _parse_batch_translation_response(response: str, section_map: Dict, original_content: Dict) -> Dict[str, Any]:
     """Parse the structured AI response back into organized translations."""
     try:
@@ -311,10 +335,10 @@ def _parse_batch_translation_response(response: str, section_map: Dict, original
             
             # Parse based on section type
             if section_name == 'video_summary':
-                translations['video_summary'] = section_content
+                translations['video_summary'] = _clean_translated_text(section_content)
                 
             elif section_name == 'audio_transcript':
-                translations['audio_transcript'] = section_content
+                translations['audio_transcript'] = _clean_translated_text(section_content)
                 
             elif section_name == 'frame_descriptions':
                 # Parse FRAME_1:, FRAME_2: format
@@ -324,7 +348,7 @@ def _parse_batch_translation_response(response: str, section_map: Dict, original
                     if ':' in line and line.strip():
                         # Extract content after "FRAME_X: "
                         content = line.split(':', 1)[1].strip()
-                        frame_descriptions.append(content)
+                        frame_descriptions.append(_clean_translated_text(content))
                 translations['frame_descriptions'] = frame_descriptions
                 
             elif section_name == 'frame_subtitles':
@@ -335,7 +359,7 @@ def _parse_batch_translation_response(response: str, section_map: Dict, original
                     if ':' in line and line.strip():
                         # Extract content after "SUBTITLE_X: "
                         content = line.split(':', 1)[1].strip()
-                        frame_subtitles.append(content)
+                        frame_subtitles.append(_clean_translated_text(content))
                 translations['frame_subtitles'] = frame_subtitles
         
         return {
