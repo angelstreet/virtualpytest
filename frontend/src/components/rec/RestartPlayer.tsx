@@ -195,28 +195,13 @@ export const RestartPlayer: React.FC<RestartPlayerProps> = ({ host, device, incl
         />
       )}
 
-      {/* Restart overlay */}
-      <Box
-        sx={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          width: '100%',
-          height: '100%',
-          zIndex: 1000000,
-          pointerEvents: 'none',
-        }}
-      >
-
-
-        {/* Subtitle overlay - bottom, covers original */}
-        {analysisResults.subtitles?.frame_subtitles && (
-          <RestartSubtitleOverlay
-            videoRef={videoRef}
-            frameSubtitles={analysisResults.subtitles.frame_subtitles}
-          />
-        )}
-      </Box>
+      {/* Subtitle overlay */}
+      {analysisResults.subtitles?.frame_subtitles && (
+        <RestartSubtitleOverlay
+          videoRef={videoRef}
+          frameSubtitles={analysisResults.subtitles.frame_subtitles}
+        />
+      )}
 
       {/* Analysis Progress Indicator (shows after video appears, until analysis complete) */}
       {isReady && includeAudioAnalysis && !isAnalysisComplete && (

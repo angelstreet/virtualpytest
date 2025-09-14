@@ -626,7 +626,7 @@ class FFmpegCaptureController(AVControllerInterface):
                 if combined_result and combined_result.get('success'):
                     # Extract subtitle data
                     subtitle_data = combined_result.get('subtitle_analysis', {})
-                    text = subtitle_data.get('extracted_text', '').strip()
+                    text = subtitle_data.get('combined_extracted_text', '').strip()
                     frame_text = text if text and text != 'No subtitles detected' else 'No subtitles detected'
                     frame_subtitles.append(f"Frame {i+1}: {frame_text}")
                     
@@ -636,8 +636,8 @@ class FFmpegCaptureController(AVControllerInterface):
                     
                     # Extract description data
                     description_data = combined_result.get('description_analysis', {})
-                    description = description_data.get('description', '').strip()
-                    if description:
+                    description = description_data.get('response', '').strip()
+                    if description and description != 'No description available':
                         frame_descriptions.append(f"Frame {i+1}: {description}")
                     else:
                         frame_descriptions.append(f"Frame {i+1}: No description available")
