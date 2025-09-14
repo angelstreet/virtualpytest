@@ -822,27 +822,82 @@ class FFmpegCaptureController(AVControllerInterface):
                         'error': str(e)
                     }
             
-            # 2. Get screenshot URLs from the video recording period
+            # 2. Get screenshot URLs aligned with video segments
             def get_video_screenshots(segment_count):
                 try:
                     capture_folder = f"{self.video_capture_path}/captures"
-                    import glob, os
+                    import glob, os, re
                     
-                    # Find screenshots from the video recording period (dynamic based on video duration)
-                    pattern = os.path.join(capture_folder, "capture_*.jpg")
-                    screenshots = glob.glob(pattern)
-                    
-                    if not screenshots:
+                    # Get timestamp-aligned screenshots based on first segment
+                    if not segment_files:
+                        print(f"[RestartVideo] No segment files available for alignment")
                         return []
                     
-                    # Use the EXACT same segment count as video generation (passed as parameter)
-                    # No recalculation - use the actual count from video generation
-                    screenshot_count = max(5, segment_count)  # Use the SAME count as video segments
+                    # Get file timestamp of first segment used in video
+                    first_segment_path = segment_files[0][1]
+                    first_segment_mtime = os.path.getmtime(first_segment_path)
                     
-                    print(f"[RestartVideo] Video duration: {duration_seconds}s, video segments: {segment_count}, screenshots needed: {screenshot_count}")
+                    print(f"[RestartVideo] First segment: {os.path.basename(first_segment_path)}, timestamp: {first_segment_mtime}")
                     
-                    # Sort by modification time, get last N screenshots based on video duration
-                    recent_screenshots = sorted(screenshots, key=os.path.getmtime)[-screenshot_count:]
+                    # Find all available screenshots
+                    pattern = os.path.join(capture_folder, "capture_*.jpg")
+                    all_screenshots = glob.glob(pattern)
+                    
+                    if not all_screenshots:
+                        print(f"[RestartVideo] No screenshots found in {capture_folder}")
+                        return []
+                    
+                    # Find screenshot closest to first segment timestamp
+                    closest_screenshot = None
+                    min_time_diff = float('inf')
+                    for screenshot_path in all_screenshots:
+                        screenshot_mtime = os.path.getmtime(screenshot_path)
+                        time_diff = abs(screenshot_mtime - first_segment_mtime)
+                        if time_diff < min_time_diff:
+                            min_time_diff = time_diff
+                            closest_screenshot = screenshot_path
+                    
+                    if not closest_screenshot:
+                        print(f"[RestartVideo] No matching screenshot found for segment timestamp")
+                        return []
+                    
+                    # Extract number from closest screenshot filename
+                    closest_filename = os.path.basename(closest_screenshot)
+                    match = re.search(r'capture_(\d+)', closest_filename)
+                    if not match:
+                        print(f"[RestartVideo] Could not extract number from screenshot: {closest_filename}")
+                        return []
+                    
+                    start_number = int(match.group(1))
+                    print(f"[RestartVideo] Starting from screenshot number: {start_number} (file: {closest_filename})")
+                    
+                    # Get sequential screenshots aligned with segments
+                    aligned_screenshots = []
+                    screenshots_needed = len(segment_files)  # One screenshot per segment
+                    
+                    for i in range(screenshots_needed):
+                        screenshot_number = start_number + i
+                        # Look for screenshot with this number (handle both .jpg and _thumbnail.jpg)
+                        screenshot_patterns = [
+                            f"capture_{screenshot_number}.jpg",
+                            f"capture_{screenshot_number}_thumbnail.jpg"
+                        ]
+                        
+                        found_screenshot = None
+                        for pattern_name in screenshot_patterns:
+                            screenshot_path = os.path.join(capture_folder, pattern_name)
+                            if os.path.exists(screenshot_path):
+                                found_screenshot = screenshot_path
+                                break
+                        
+                        if found_screenshot:
+                            aligned_screenshots.append(found_screenshot)
+                            print(f"[RestartVideo] Aligned screenshot {i+1}: {os.path.basename(found_screenshot)}")
+                        else:
+                            print(f"[RestartVideo] Missing screenshot for number {screenshot_number}")
+                    
+                    print(f"[RestartVideo] Found {len(aligned_screenshots)}/{screenshots_needed} aligned screenshots")
+                    recent_screenshots = aligned_screenshots
                     
                     # Convert to proper host URLs for frontend using buildHostImageUrl
                     from shared.lib.utils.build_url_utils import buildHostImageUrl
