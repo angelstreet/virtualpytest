@@ -235,31 +235,6 @@ def get_restart_video_css() -> str:
             color: rgba(255, 255, 255, 0.7);
         }
 
-        .summary-area {
-            position: absolute;
-            top: 80px;
-            left: 20px;
-            right: 420px;
-            background: rgba(0, 0, 0, 0.8);
-            border-radius: 8px;
-            padding: 16px;
-            z-index: 10;
-            max-height: 120px;
-            overflow-y: auto;
-        }
-
-        .summary-title {
-            font-size: 14px;
-            font-weight: 600;
-            margin-bottom: 8px;
-            color: #fff;
-        }
-
-        .summary-content {
-            font-size: 12px;
-            line-height: 1.4;
-            color: rgba(255, 255, 255, 0.9);
-        }
 
         .overlay {
             position: absolute;
@@ -502,11 +477,6 @@ def create_restart_video_template() -> str:
                 <div class="report-meta">{host_name} - {device_name} {timestamp}</div>
             </div>
             
-            <!-- Summary Area -->
-            <div class="summary-area">
-                <div class="summary-title">Video Summary</div>
-                <div class="summary-content">{video_summary}</div>
-            </div>
             
             <!-- Video Element -->
             <video id="restart-video" class="video-element" preload="metadata">
