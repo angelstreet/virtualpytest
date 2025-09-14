@@ -738,6 +738,8 @@ def analyze_restart_summary():
         device_id = data.get('device_id', 'device1')
         video_id = data.get('video_id')
         screenshot_urls = data.get('screenshot_urls', [])
+        video_url = data.get('video_url')  # For report generation
+        previous_analysis_data = data.get('analysis_data', {})  # Previous analysis results
         
         if not video_id:
             return jsonify({'success': False, 'error': 'video_id is required'}), 400
@@ -765,6 +767,59 @@ def analyze_restart_summary():
             
         if result and result.get('success'):
             print(f"[@route:analyzeRestartSummary] Summary analysis completed successfully")
+            
+            # Generate report after summary analysis is complete
+            try:
+                from shared.lib.utils.report_generation import generate_and_upload_restart_report
+                from utils.host_utils import get_host_instance
+                import os
+                import time
+                
+                # Get host and device info
+                host = get_host_instance()
+                host_info = {'host_name': host.host_name}
+                device_info = {
+                    'device_name': av_controller.device_name,
+                    'device_model': getattr(av_controller, 'device_model', 'Unknown'),
+                    'device_id': device_id
+                }
+                
+                # Use video URL from request if provided, otherwise reconstruct
+                if not video_url:
+                    video_url = f"{av_controller.video_stream_path}/restart_video.mp4"
+                
+                # Get local video path for R2 upload
+                local_video_path = os.path.join(av_controller.video_capture_path, "restart_video.mp4")
+                
+                # Prepare complete analysis data including previous results and current summary
+                analysis_data = {
+                    'audio_analysis': previous_analysis_data.get('audio_analysis', {}),
+                    'subtitle_analysis': previous_analysis_data.get('subtitle_analysis', {}),
+                    'video_analysis': result.get('video_analysis', {}),
+                }
+                
+                # Generate complete report
+                report_result = generate_and_upload_restart_report(
+                    host_info=host_info,
+                    device_info=device_info,
+                    video_url=video_url,
+                    analysis_data=analysis_data,
+                    processing_time=0.0,  # Will be calculated by the report function
+                    local_video_path=local_video_path if os.path.exists(local_video_path) else None
+                )
+                
+                if report_result.get('success'):
+                    result['report_url'] = report_result['report_url']
+                    result['report_path'] = report_result['report_path']
+                    print(f"[@route:analyzeRestartSummary] Report generation completed: {report_result['report_url']}")
+                else:
+                    print(f"[@route:analyzeRestartSummary] Report generation failed: {report_result.get('error')}")
+                    # Continue without report if generation fails
+                    
+            except Exception as e:
+                print(f"[@route:analyzeRestartSummary] Report generation error: {e}")
+                # Continue without report if generation fails
+            
             return jsonify(result)
         else:
             error_msg = result.get('error', 'Summary analysis failed') if result else 'Summary analysis failed'
@@ -776,105 +831,6 @@ def analyze_restart_summary():
         return jsonify({'success': False, 'error': str(e)}), 408
     except Exception as e:
         print(f"[@route:analyzeRestartSummary] Error: {str(e)}")
-        return jsonify({'success': False, 'error': str(e)}), 500
-    finally:
-        # Always clean up request tracking
-        if 'request_key' in locals():
-            _mark_request_complete(request_key)
-
-@host_av_bp.route('/generateRestartReport', methods=['POST'])
-def generate_restart_report():
-    """Generate final report after all AI analysis is complete"""
-    import signal
-    from contextlib import contextmanager
-    
-    @contextmanager
-    def timeout(duration):
-        def timeout_handler(signum, frame):
-            raise TimeoutError(f"Report generation timed out after {duration} seconds")
-        signal.signal(signal.SIGALRM, timeout_handler)
-        signal.alarm(duration)
-        try:
-            yield
-        finally:
-            signal.alarm(0)
-    
-    try:
-        print(f"[@route:generateRestartReport] Starting report generation")
-        data = request.get_json() or {}
-        device_id = data.get('device_id', 'device1')
-        video_id = data.get('video_id')
-        video_url = data.get('video_url')
-        analysis_data = data.get('analysis_data', {})
-        
-        if not video_id:
-            return jsonify({'success': False, 'error': 'video_id is required'}), 400
-        if not video_url:
-            return jsonify({'success': False, 'error': 'video_url is required'}), 400
-        
-        # Deduplication check
-        request_key = _get_request_key('generateRestartReport', device_id, video_id)
-        if _is_request_active(request_key):
-            print(f"[@route:generateRestartReport] Duplicate request detected, returning 409")
-            return jsonify({
-                'success': False, 
-                'error': 'Report generation already in progress for this video',
-                'code': 'DUPLICATE_REQUEST'
-            }), 409
-        
-        _mark_request_active(request_key)
-        
-        av_controller = get_controller(device_id, 'av')
-        if not av_controller:
-            _mark_request_complete(request_key)
-            return jsonify({'success': False, 'error': f'No AV controller for {device_id}'}), 404
-        
-        with timeout(30):  # 30s max for report generation
-            # Import report generation utilities
-            from shared.lib.utils.report_generation import generate_and_upload_restart_report
-            from utils.host_utils import get_host_instance
-            import os
-            import time
-            
-            # Get host and device info
-            host = get_host_instance()
-            host_info = {'host_name': host.host_name}
-            device_info = {
-                'device_name': av_controller.device_name,
-                'device_model': getattr(av_controller, 'device_model', 'Unknown'),
-                'device_id': device_id
-            }
-            
-            # Get local video path for R2 upload
-            local_video_path = os.path.join(av_controller.video_capture_path, "restart_video.mp4")
-            
-            # Generate complete report with all analysis data
-            report_result = generate_and_upload_restart_report(
-                host_info=host_info,
-                device_info=device_info,
-                video_url=video_url,
-                analysis_data=analysis_data,
-                processing_time=0.0,  # Will be calculated by the report function
-                local_video_path=local_video_path if os.path.exists(local_video_path) else None
-            )
-            
-            if report_result.get('success'):
-                print(f"[@route:generateRestartReport] Report generation completed successfully: {report_result['report_url']}")
-                return jsonify({
-                    'success': True,
-                    'report_url': report_result['report_url'],
-                    'report_path': report_result['report_path']
-                })
-            else:
-                error_msg = report_result.get('error', 'Report generation failed')
-                print(f"[@route:generateRestartReport] Report generation failed: {error_msg}")
-                return jsonify({'success': False, 'error': error_msg}), 500
-            
-    except TimeoutError as e:
-        print(f"[@route:generateRestartReport] Timeout: {str(e)}")
-        return jsonify({'success': False, 'error': str(e)}), 408
-    except Exception as e:
-        print(f"[@route:generateRestartReport] Error: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
     finally:
         # Always clean up request tracking

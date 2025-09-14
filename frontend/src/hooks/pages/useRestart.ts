@@ -358,6 +358,12 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
             device_id: device.device_id || 'device1',
             video_id: videoData.video_id,
             screenshot_urls: videoData.screenshot_urls || [],
+            video_url: videoData.video_url, // Add video URL for report generation
+            // Include previous analysis results for complete report
+            analysis_data: {
+              audio_analysis: analysisResults.audio,
+              subtitle_analysis: analysisResults.subtitles,
+            }
           }),
           signal: abortControllerRef.current?.signal,
         });
@@ -367,7 +373,7 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
         // Handle duplicate request (409) - treat as success since analysis is already running
         if (summaryResponse.status === 409 && summaryData.code === 'DUPLICATE_REQUEST') {
           console.log(`[@hook:useRestart] Step 4: Summary analysis already in progress, skipping`);
-          setAnalysisProgress(prev => ({ ...prev, summary: 'completed' }));
+          setAnalysisProgress(prev => ({ ...prev, summary: 'completed', report: 'completed' }));
         } else if (summaryData.success && summaryData.video_analysis) {
           setAnalysisResults(prev => ({ ...prev, videoDescription: {
             frame_descriptions: summaryData.video_analysis.frame_descriptions || [],
@@ -377,50 +383,22 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
           }}));
           setAnalysisProgress(prev => ({ ...prev, summary: 'completed' }));
           console.log(`[@hook:useRestart] Step 4: Summary analysis completed`);
+          
+          // Check if report was generated as part of summary analysis
+          if (summaryData.report_url) {
+            setReportUrl(summaryData.report_url);
+            setAnalysisProgress(prev => ({ ...prev, report: 'completed' }));
+            console.log(`[@hook:useRestart] Report generation completed: ${summaryData.report_url}`);
+          } else {
+            setAnalysisProgress(prev => ({ ...prev, report: 'error' }));
+            console.log(`[@hook:useRestart] Report generation failed or not included`);
+          }
         } else {
-          setAnalysisProgress(prev => ({ ...prev, summary: 'error' }));
+          setAnalysisProgress(prev => ({ ...prev, summary: 'error', report: 'error' }));
           console.log(`[@hook:useRestart] Step 4: Summary analysis failed`);
         }
         
-        console.log(`[@hook:useRestart] All analysis steps completed`);
-        
-        // Step 5: Generate Report
-        console.log(`[@hook:useRestart] Step 5: Starting report generation`);
-        setAnalysisProgress(prev => ({ ...prev, report: 'loading' }));
-        
-        const reportResponse = await fetch(buildServerUrl('/server/av/generateRestartReport'), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            host,
-            device_id: device.device_id || 'device1',
-            video_id: videoData.video_id,
-            video_url: videoData.video_url,
-            analysis_data: {
-              audio_analysis: analysisResults.audio,
-              subtitle_analysis: analysisResults.subtitles,
-              video_analysis: analysisResults.videoDescription,
-            }
-          }),
-          signal: abortControllerRef.current?.signal,
-        });
-        
-        const reportData = await reportResponse.json();
-        
-        // Handle duplicate request (409) - treat as success since report is already being generated
-        if (reportResponse.status === 409 && reportData.code === 'DUPLICATE_REQUEST') {
-          console.log(`[@hook:useRestart] Step 5: Report generation already in progress, skipping`);
-          setAnalysisProgress(prev => ({ ...prev, report: 'completed' }));
-        } else if (reportData.success && reportData.report_url) {
-          setReportUrl(reportData.report_url);
-          setAnalysisProgress(prev => ({ ...prev, report: 'completed' }));
-          console.log(`[@hook:useRestart] Step 5: Report generation completed: ${reportData.report_url}`);
-        } else {
-          setAnalysisProgress(prev => ({ ...prev, report: 'error' }));
-          console.log(`[@hook:useRestart] Step 5: Report generation failed`);
-        }
-        
-        console.log(`[@hook:useRestart] All steps including report generation completed`);
+        console.log(`[@hook:useRestart] All analysis steps including report generation completed`);
         
         // Show completion toast with timing
         if (analysisStartTime.current) {
