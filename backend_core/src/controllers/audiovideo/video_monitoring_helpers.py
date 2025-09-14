@@ -28,9 +28,35 @@ class VideoMonitoringHelpers:
         self.device_name = device_name
         self.capture_source = getattr(av_controller, 'capture_source', 'AV')
         
-        # Get paths from controller
+        # Get paths from controller - for monitoring we need the capture path
         self.video_stream_path = getattr(av_controller, 'video_stream_path', '')
         self.video_capture_path = getattr(av_controller, 'video_capture_path', '')
+        
+        # For monitoring, we need to get the actual captures folder from the image controller
+        # The AV controller might not have the right path, so we'll get it dynamically
+    
+    def _get_capture_folder(self) -> Optional[str]:
+        """Get the capture folder path from the image controller"""
+        try:
+            # Import here to avoid circular imports
+            from utils.host_utils import get_controller
+            
+            # Get the device_id from the AV controller if available
+            device_id = getattr(self.av_controller, 'device_name', 'device1')
+            
+            # Get the image controller which has the captures_path
+            image_controller = get_controller(device_id, 'verification_image')
+            if image_controller and hasattr(image_controller, 'captures_path'):
+                return image_controller.captures_path
+            
+            # Fallback to AV controller path + captures
+            if self.video_capture_path:
+                return os.path.join(self.video_capture_path, 'captures')
+            
+            return None
+        except Exception as e:
+            print(f"MonitoringHelpers[{self.device_name}]: Error getting capture folder: {e}")
+            return None
     
     def list_captures(self, limit: int = 180) -> Dict[str, Any]:
         """
@@ -45,10 +71,10 @@ class VideoMonitoringHelpers:
         try:
             print(f"MonitoringHelpers[{self.device_name}]: Listing captures, limit: {limit}")
             
-            # Get capture folder from controller
-            capture_folder = os.path.join(self.video_capture_path, 'captures')
+            # Get capture folder - need to get it from image controller
+            capture_folder = self._get_capture_folder()
             
-            if not os.path.exists(capture_folder):
+            if not capture_folder or not os.path.exists(capture_folder):
                 return {
                     'success': False,
                     'error': f'Capture folder not found: {capture_folder}',
@@ -106,10 +132,10 @@ class VideoMonitoringHelpers:
         try:
             print(f"MonitoringHelpers[{self.device_name}]: Getting latest JSON for monitoring")
             
-            # Get capture folder from controller
-            capture_folder = os.path.join(self.video_capture_path, 'captures')
+            # Get capture folder - need to get it from image controller
+            capture_folder = self._get_capture_folder()
             
-            if not os.path.exists(capture_folder):
+            if not capture_folder or not os.path.exists(capture_folder):
                 return {
                     'success': False,
                     'error': f'Capture folder not found: {capture_folder}'
@@ -172,9 +198,9 @@ class VideoMonitoringHelpers:
             Dictionary with capture statistics
         """
         try:
-            capture_folder = os.path.join(self.video_capture_path, 'captures')
+            capture_folder = self._get_capture_folder()
             
-            if not os.path.exists(capture_folder):
+            if not capture_folder or not os.path.exists(capture_folder):
                 return {
                     'success': False,
                     'error': f'Capture folder not found: {capture_folder}'
@@ -231,9 +257,9 @@ class VideoMonitoringHelpers:
             Dictionary with cleanup results
         """
         try:
-            capture_folder = os.path.join(self.video_capture_path, 'captures')
+            capture_folder = self._get_capture_folder()
             
-            if not os.path.exists(capture_folder):
+            if not capture_folder or not os.path.exists(capture_folder):
                 return {
                     'success': False,
                     'error': f'Capture folder not found: {capture_folder}'
@@ -289,7 +315,7 @@ class VideoMonitoringHelpers:
             Dictionary with health status information
         """
         try:
-            capture_folder = os.path.join(self.video_capture_path, 'captures')
+            capture_folder = self._get_capture_folder()
             
             if not os.path.exists(capture_folder):
                 return {

@@ -239,7 +239,7 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
 
     try {
       // Stage 1: Generate video only (fast)
-      const videoResponse = await fetch(buildServerUrl('/server/av/generateRestartVideo'), {
+      const videoResponse = await fetch(buildServerUrl('/server/restart/generateRestartVideo'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -275,7 +275,7 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
         console.log(`[@hook:useRestart] Step 2: Starting audio analysis`);
         setAnalysisProgress(prev => ({ ...prev, audio: 'loading' }));
         
-        const audioResponse = await fetch(buildServerUrl('/server/av/analyzeRestartAudio'), {
+        const audioResponse = await fetch(buildServerUrl('/server/restart/analyzeRestartAudio'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -313,7 +313,7 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
         console.log(`[@hook:useRestart] Step 3: Starting combined subtitle + summary analysis`);
         setAnalysisProgress(prev => ({ ...prev, subtitles: 'loading', summary: 'loading' }));
         
-        const combinedResponse = await fetch(buildServerUrl('/server/av/analyzeRestartComplete'), {
+        const combinedResponse = await fetch(buildServerUrl('/server/restart/analyzeRestartComplete'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -357,7 +357,7 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
           console.log(`[@hook:useRestart] Step 4: Starting report generation`);
           setAnalysisProgress(prev => ({ ...prev, report: 'loading' }));
           
-          const reportResponse = await fetch(buildServerUrl('/server/av/generateRestartReport'), {
+          const reportResponse = await fetch(buildServerUrl('/server/restart/generateRestartReport'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

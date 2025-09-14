@@ -7,7 +7,7 @@ Server-side monitoring proxy endpoints that forward requests to host monitoring 
 from flask import Blueprint, request, jsonify
 from shared.lib.utils.route_utils import proxy_to_host_with_params
 
-server_monitoring_bp = Blueprint('server_monitoring', __name__, url_prefix='/server/av')
+server_monitoring_bp = Blueprint('server_monitoring', __name__, url_prefix='/server/monitoring')
 
 @server_monitoring_bp.route('/listCaptures', methods=['POST'])
 def list_captures():
@@ -31,7 +31,7 @@ def list_captures():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
-@server_monitoring_bp.route('/monitoring/latest-json', methods=['POST'])
+@server_monitoring_bp.route('/latest-json', methods=['POST'])
 def get_latest_monitoring_json():
     """Get the latest available JSON analysis file from selected host"""
     try:
