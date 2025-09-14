@@ -587,7 +587,6 @@ class VideoRestartHelpers:
                 return None
             
             # Get video duration
-            import subprocess
             result = subprocess.run(['ffprobe', '-v', 'quiet', '-show_entries', 
                                    'format=duration', '-of', 'csv=p=0', video_file], 
                                    capture_output=True, text=True)
