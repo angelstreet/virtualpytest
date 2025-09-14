@@ -130,14 +130,14 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
             texts: videoDescription?.frame_descriptions?.map(desc => {
               const descText = desc.includes(': ') ? desc.split(': ').slice(1).join(': ') : desc;
               return descText === 'No description available' ? '' : descText;
-            }).filter(text => text) || [],
+            }) || [],
             source_language: 'en'
           },
           frame_subtitles: {
             texts: subtitleData?.frame_subtitles?.map(sub => {
               const subText = sub.includes(': ') ? sub.split(': ').slice(1).join(': ') : sub;
               return subText === 'No subtitles detected' ? '' : subText;
-            }).filter(text => text) || [],
+            }) || [],
             source_language: subtitleData?.detected_language?.toLowerCase() || 'en'
           }
         };
@@ -175,23 +175,33 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
             setTranslatedTranscript(newTranscript);
           }
           
-          if (data.translations.frame_descriptions?.length > 0) {
-            // Reconstruct with frame prefixes
-            newFrameDescriptions = videoDescription?.frame_descriptions?.map((originalDesc, index) => {
+          if (data.translations.frame_descriptions && videoDescription?.frame_descriptions) {
+            // Reconstruct with frame prefixes, maintaining exact 1:1 mapping
+            newFrameDescriptions = videoDescription.frame_descriptions.map((originalDesc, index) => {
               const prefix = originalDesc.split(': ')[0];
-              const translatedText = data.translations.frame_descriptions[index] || 'No description available';
-              return `${prefix}: ${translatedText}`;
-            }) || [];
+              const originalText = originalDesc.includes(': ') ? originalDesc.split(': ').slice(1).join(': ') : originalDesc;
+              
+              // Use translated text if available and not empty, otherwise keep original
+              const translatedText = data.translations.frame_descriptions[index];
+              const finalText = (translatedText && translatedText.trim()) ? translatedText : originalText;
+              
+              return `${prefix}: ${finalText}`;
+            });
             setTranslatedFrameDescriptions(newFrameDescriptions);
           }
           
-          if (data.translations.frame_subtitles?.length > 0) {
-            // Reconstruct with frame prefixes
-            newFrameSubtitles = subtitleData?.frame_subtitles?.map((originalSub, index) => {
+          if (data.translations.frame_subtitles && subtitleData?.frame_subtitles) {
+            // Reconstruct with frame prefixes, maintaining exact 1:1 mapping
+            newFrameSubtitles = subtitleData.frame_subtitles.map((originalSub, index) => {
               const prefix = originalSub.split(': ')[0];
-              const translatedText = data.translations.frame_subtitles[index] || 'No subtitles detected';
-              return `${prefix}: ${translatedText}`;
-            }) || [];
+              const originalText = originalSub.includes(': ') ? originalSub.split(': ').slice(1).join(': ') : originalSub;
+              
+              // Use translated text if available and not empty, otherwise keep original
+              const translatedText = data.translations.frame_subtitles[index];
+              const finalText = (translatedText && translatedText.trim()) ? translatedText : originalText;
+              
+              return `${prefix}: ${finalText}`;
+            });
             setTranslatedFrameSubtitles(newFrameSubtitles);
           }
 
