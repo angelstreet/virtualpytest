@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 
 import { Host, Device } from '../../types/common/Host_Types';
 import { buildServerUrl } from '../../utils/buildUrlUtils';
@@ -185,6 +185,10 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
   const [processingTime] = useState<number | null>(null);
   const [reportUrl] = useState<string | null>(null);
   
+  // Request deduplication to prevent React StrictMode duplicate calls
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const isRequestInProgress = useRef(false);
+  
   const [analysisResults, setAnalysisResults] = useState<AnalysisResults>({
     audio: null,
     subtitles: null,
@@ -204,6 +208,21 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
 
 
   const executeVideoGeneration = useCallback(async () => {
+    // Prevent duplicate calls (React StrictMode protection)
+    if (isRequestInProgress.current) {
+      console.log(`[@hook:useRestart] Request already in progress, ignoring duplicate call`);
+      return;
+    }
+
+    // Abort any existing request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
+    // Create new AbortController for this request
+    abortControllerRef.current = new AbortController();
+    isRequestInProgress.current = true;
+
     console.log(`[@hook:useRestart] Starting 4-stage video generation for ${host.host_name}-${device.device_id}`);
     
     setIsGenerating(true);
@@ -221,6 +240,7 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
           device_id: device.device_id || 'device1',
           duration_seconds: 10,
         }),
+        signal: abortControllerRef.current?.signal, // Add abort signal
       });
 
       if (!videoResponse.ok) throw new Error(`Video generation failed: ${videoResponse.status}`);
@@ -252,6 +272,7 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
             device_id: device.device_id || 'device1',
             video_id: videoData.video_id,
           }),
+          signal: abortControllerRef.current?.signal,
         });
         
         const audioData = await audioResponse.json();
@@ -281,6 +302,7 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
             video_id: videoData.video_id,
             screenshot_urls: videoData.screenshot_urls || [],
           }),
+          signal: abortControllerRef.current?.signal,
         });
         
         const subtitleData = await subtitleResponse.json();
@@ -310,6 +332,7 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
             video_id: videoData.video_id,
             screenshot_urls: videoData.screenshot_urls || [],
           }),
+          signal: abortControllerRef.current?.signal,
         });
         
         const summaryData = await summaryResponse.json();
@@ -327,6 +350,12 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
         console.log(`[@hook:useRestart] All analysis steps completed`);
         
       } catch (analysisError) {
+        // Handle AbortError separately (not a real error)
+        if (analysisError instanceof Error && analysisError.name === 'AbortError') {
+          console.log(`[@hook:useRestart] Analysis aborted (duplicate call prevention)`);
+          return;
+        }
+        
         console.error(`[@hook:useRestart] Analysis error:`, analysisError);
         // Don't fail the entire process if analysis fails - video is still playable
         setAnalysisProgress(prev => ({
@@ -338,11 +367,21 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
       }
 
     } catch (err) {
+      // Handle AbortError separately (not a real error)
+      if (err instanceof Error && err.name === 'AbortError') {
+        console.log(`[@hook:useRestart] Request aborted (duplicate call prevention)`);
+        return;
+      }
+      
       const errorMessage = err instanceof Error ? err.message : 'Video generation failed';
       console.error('[@hook:useRestart] Video generation error:', errorMessage);
       setError(errorMessage);
       setIsGenerating(false);
       setAnalysisProgress({ video: 'error', audio: 'idle', subtitles: 'idle', summary: 'idle' });
+    } finally {
+      // Clean up request tracking
+      isRequestInProgress.current = false;
+      abortControllerRef.current = null;
     }
   }, [host, device, includeAudioAnalysis]);
 
@@ -353,6 +392,16 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
   useEffect(() => {
     executeVideoGeneration();
   }, [executeVideoGeneration]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      isRequestInProgress.current = false;
+    };
+  }, []);
 
   // =====================================================
   // ANALYSIS FUNCTIONS
