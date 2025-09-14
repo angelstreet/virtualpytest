@@ -450,10 +450,18 @@ def generate_and_upload_restart_report(
                 print(f"[@utils:report_utils:generate_and_upload_restart_report] Video upload failed: {video_upload_result.get('error')}")
                 # Continue with original URL as fallback
         
-        # Extract analysis results for template
-        audio_analysis = analysis_data.get('audio_analysis', {})
-        subtitle_analysis = analysis_data.get('subtitle_analysis', {})
-        video_analysis = analysis_data.get('video_analysis', {})
+        # Extract analysis results for template with defensive checks
+        audio_analysis = analysis_data.get('audio_analysis') or {}
+        subtitle_analysis = analysis_data.get('subtitle_analysis') or {}
+        video_analysis = analysis_data.get('video_analysis') or {}
+        
+        # Ensure all analysis results are dicts, not None
+        if not isinstance(audio_analysis, dict):
+            audio_analysis = {}
+        if not isinstance(subtitle_analysis, dict):
+            subtitle_analysis = {}
+        if not isinstance(video_analysis, dict):
+            video_analysis = {}
         
         # Prepare template data with R2 video URL
         template_data = {
@@ -464,7 +472,7 @@ def generate_and_upload_restart_report(
             'audio_transcript': audio_analysis.get('combined_transcript', 'No audio transcript available'),
             'subtitle_text': subtitle_analysis.get('extracted_text', 'No subtitles detected'),
             'video_summary': video_analysis.get('video_summary', 'Video analysis pending'),
-            'analysis_data_json': json.dumps(analysis_data)  # Remove indent to make it compact for JavaScript
+            'analysis_data_json': json.dumps(analysis_data) if analysis_data else '{}'
         }
         
         # Generate HTML using dedicated restart video template
