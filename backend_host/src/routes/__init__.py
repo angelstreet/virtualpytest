@@ -9,6 +9,8 @@ from . import (
     host_verification_routes,
     host_power_routes,
     host_av_routes,
+    host_restart_routes,
+    host_monitoring_routes,
     host_remote_routes,
     host_desktop_bash_routes,
     host_desktop_pyautogui_routes,
@@ -18,5 +20,6 @@ from . import (
     host_verification_text_routes,
     host_verification_audio_routes,
     host_verification_adb_routes,
-    host_verification_image_routes
+    host_verification_image_routes,
+    host_verification_video_routes
 ) 

@@ -29,6 +29,8 @@ from . import server_testcase_routes
 from . import server_userinterface_routes
 from . import server_mcp_routes
 from . import server_av_routes
+from . import server_restart_routes
+from . import server_monitoring_routes
 from . import server_execution_results_routes
 from . import server_script_routes
 from . import server_script_results_routes
