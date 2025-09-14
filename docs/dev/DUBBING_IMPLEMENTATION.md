@@ -28,8 +28,8 @@ graph TD
 
 ### Required Python Packages
 ```bash
-# Audio separation
-pip install spleeter pydub
+# Audio separation (modern AI model)
+pip install demucs pydub
 
 # Text-to-Speech (free, no API key needed)
 pip install gTTS

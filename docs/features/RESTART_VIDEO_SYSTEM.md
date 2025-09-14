@@ -23,7 +23,7 @@ The Restart Video System provides fast 10-second video generation with comprehen
 - **Complete Analysis**: Comprehensive AI processing without blocking video playback
 
 **Phase 3: Dynamic Audio Dubbing** (`generateDubbedRestartVideo`)
-- **Audio Separation**: Uses Spleeter to separate vocals from background audio
+- **Audio Separation**: Uses Demucs to separate vocals from background audio (modern AI model)
 - **Voice Translation**: Translates existing transcript to target language
 - **Speech Generation**: Creates dubbed voice using gTTS (Google Text-to-Speech)
 - **Audio Mixing**: Combines background audio with dubbed voice while preserving timing
@@ -266,12 +266,12 @@ interface DubbingState {
 - **AI Models**: Existing Whisper for audio, OpenRouter vision models for images
 
 ### Dubbing Settings
-- **Audio Separation**: Spleeter 2-stem model (vocals + accompaniment)
+- **Audio Separation**: Demucs htdemucs model (vocals + no_vocals) - state-of-the-art AI separation
 - **Text-to-Speech**: gTTS (Google Text-to-Speech) - free, no API key required
 - **Supported Languages**: Spanish (es), French (fr), German (de), Italian (it), Portuguese (pt)
 - **Audio Processing**: pydub for mixing, FFmpeg for video reconstruction
 - **Translation Cache**: `{video_id: {language: translation_result}}` for instant re-dubbing
-- **Background Preservation**: Original background audio maintained during dubbing
+- **Background Preservation**: Superior background audio quality with Demucs
 
 ### Translation Settings
 - **Cache Structure**: `{video_id: {language: translation_result}}`
@@ -299,12 +299,12 @@ interface DubbingState {
 - **Total Analysis**: 10-15 seconds (runs in background)
 
 **Phase 3 (Dubbing - On Demand):**
-- **Audio Separation**: 3-5 seconds (Spleeter processing)
+- **Audio Separation**: 5-8 seconds (Demucs processing - higher quality)
 - **Translation**: 0.5-1 seconds (cached after first use)
 - **Speech Generation**: 2-3 seconds (gTTS processing)
 - **Audio Mixing**: 1-2 seconds (pydub processing)
 - **Video Reconstruction**: 1-2 seconds (FFmpeg processing)
-- **Total Dubbing**: 6-12 seconds (triggered by language selection)
+- **Total Dubbing**: 8-15 seconds (triggered by language selection)
 
 ### Resource Optimization
 - **Screenshot Reduction**: 73% fewer screenshots (12 vs 45 for 10s video)
@@ -312,7 +312,7 @@ interface DubbingState {
 - **Memory Efficiency**: No temporary files, uses existing continuous capture
 - **Network Optimization**: Backend handles all AI analysis, no frontend R2 polling
 - **Dubbing Efficiency**: Reuses extracted audio, caches translations, preserves background audio
-- **Model Caching**: Spleeter model loaded once and reused for all dubbing requests
+- **Model Caching**: Demucs model downloaded once and cached for subsequent uses
 
 ## Integration Points
 
@@ -367,7 +367,7 @@ Phase 2 - Async Analysis:
 Phase 3 - Dubbing (On Language Selection):
 11. Frontend → Language selection triggers translation + dubbing
 12. Frontend → /server/restart/generateDubbedVideo (existing_transcript + target_language)
-13. Backend → Spleeter separates vocals from background audio
+13. Backend → Demucs separates vocals from background audio
 14. Backend → Translates transcript to target language (cached)
 15. Backend → gTTS generates dubbed voice
 16. Backend → Mixes dubbed voice with background audio
@@ -413,8 +413,8 @@ Phase 3 - Dubbing (On Language Selection):
 4. **Translation misalignment**: Check frame-to-content mapping preservation
 5. **Slow translation**: Verify single batch API call is being used
 6. **Overlays not showing**: Check that analysis completed and data structure matches expected format
-7. **Dubbing not starting**: Verify transcript exists and dependencies installed (spleeter, pydub, gTTS)
-8. **Audio separation failing**: Check Spleeter model download and audio file format
+7. **Dubbing not starting**: Verify transcript exists and dependencies installed (demucs, pydub, gTTS)
+8. **Audio separation failing**: Check Demucs model download and audio file format
 9. **TTS generation failing**: Verify internet connection for gTTS and language code support
 10. **Dubbed audio out of sync**: Check video duration detection and audio mixing timing
 
@@ -442,9 +442,10 @@ Phase 3 - Dubbing (On Language Selection):
 - **No Legacy Code**: Clean implementation without backward compatibility layers
 
 ### Dubbing Implementation
-- **New Dependencies**: Added spleeter, pydub, gTTS to requirements.txt
+- **New Dependencies**: Added demucs, pydub, gTTS to requirements.txt (removed tensorflow/spleeter)
 - **New Components**: `AudioDubbingHelpers` class for audio separation and mixing
 - **Extended Helpers**: `VideoRestartHelpers.generate_dubbed_restart_video()` method
 - **Frontend Integration**: Extended `useRestart` hook and `RestartSettingsPanel` for dubbing
 - **Automatic Workflow**: Dubbing triggered automatically after translation completes
+- **Modern AI**: Uses Demucs for superior audio separation quality vs legacy Spleeter
 - **Clean Architecture**: No fallback code, reuses existing audio extraction and translation systems

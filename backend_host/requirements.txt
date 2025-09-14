@@ -55,10 +55,9 @@ openai-whisper>=20231117
 #python3 -c "import whisper; whisper.load_model('tiny')"
 
 # Audio dubbing dependencies
-spleeter>=2.4.0
+demucs>=4.0.0  # Modern audio separation (replaces Spleeter)
 pydub>=0.25.1
 gTTS>=2.4.0
-tensorflow>=2.8.0  # Required by Spleeter for audio separation
 # Device communication
 paramiko>=2.9.0  # SSH
 Appium-Python-Client>=3.1.0  # Mobile devices

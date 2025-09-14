@@ -14,26 +14,42 @@ class AudioDubbingHelpers:
     def __init__(self, av_controller, device_name: str = "DubbingHelper"):
         self.av_controller = av_controller
         self.device_name = device_name
-        self._spleeter_separator = None
+        # Demucs doesn't need persistent separator object
         
     def separate_audio_tracks(self, audio_file: str) -> Dict[str, str]:
-        """Separate audio into vocals and background using Spleeter."""
+        """Separate audio into vocals and background using Demucs."""
         try:
-            from spleeter.separator import Separator
+            import subprocess
+            import tempfile
             
-            if not self._spleeter_separator:
-                print(f"Dubbing[{self.device_name}]: Loading Spleeter model...")
-                self._spleeter_separator = Separator("spleeter:2stems")
+            print(f"Dubbing[{self.device_name}]: Loading Demucs model...")
             
+            # Create output directory
             output_dir = tempfile.mkdtemp()
-            self._spleeter_separator.separate_to_file(audio_file, output_dir)
             
+            # Run Demucs separation
+            cmd = [
+                'python', '-m', 'demucs.separate',
+                '--two-stems', 'vocals',  # Separate into vocals and no_vocals
+                '--out', output_dir,
+                audio_file
+            ]
+            
+            result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+            
+            # Demucs creates: output_dir/htdemucs/{filename}/vocals.wav and no_vocals.wav
             base_name = os.path.splitext(os.path.basename(audio_file))[0]
-            vocals_path = os.path.join(output_dir, base_name, 'vocals.wav')
-            background_path = os.path.join(output_dir, base_name, 'accompaniment.wav')
+            demucs_dir = os.path.join(output_dir, 'htdemucs', base_name)
             
-            print(f"Dubbing[{self.device_name}]: Audio separated successfully")
-            return {'vocals': vocals_path, 'background': background_path}
+            vocals_path = os.path.join(demucs_dir, 'vocals.wav')
+            background_path = os.path.join(demucs_dir, 'no_vocals.wav')
+            
+            if os.path.exists(vocals_path) and os.path.exists(background_path):
+                print(f"Dubbing[{self.device_name}]: Audio separated successfully")
+                return {'vocals': vocals_path, 'background': background_path}
+            else:
+                print(f"Dubbing[{self.device_name}]: Output files not found")
+                return {}
             
         except Exception as e:
             print(f"Dubbing[{self.device_name}]: Separation failed: {e}")
