@@ -1,20 +1,13 @@
 """
-Restart Video Report Template - Fixed Version
+Restart Video Report Template
 
-The key fix is in the getFrameSubtitles() JavaScript function which now properly
-extracts frame-specific subtitle data instead of returning the same text for all frames.
+Dedicated HTML template for restart video reports that focuses on video playback
+and AI analysis results, similar to the frontend restart video player UI.
 """
 
-def create_restart_video_template() -> str:
-    """Create the complete HTML template for restart video reports"""
-    
-    return """<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Restart Video Report - {device_name}</title>
-    <style>
+def get_restart_video_css() -> str:
+    """CSS styling for restart video report"""
+    return """
         * {
             margin: 0;
             padding: 0;
@@ -106,63 +99,48 @@ def create_restart_video_template() -> str:
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         }
 
-        .collapsible-section {
-            margin-bottom: 16px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 6px;
-            background: rgba(255, 255, 255, 0.03);
+        .full-analysis-section {
+            margin-bottom: 24px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid rgba(255, 255, 255, 0.2);
         }
 
-        .section-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 10px 12px;
-            cursor: pointer;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            transition: background-color 0.2s;
-        }
-
-        .section-header:hover {
-            background: rgba(255, 255, 255, 0.05);
-        }
-
-        .section-title {
-            font-size: 13px;
+        .analysis-header {
+            font-size: 14px;
             font-weight: 600;
             color: #4CAF50;
+            margin-bottom: 8px;
         }
 
-        .collapse-icon {
+        .analysis-content {
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 6px;
+            padding: 12px;
             font-size: 12px;
-            color: rgba(255, 255, 255, 0.6);
-            transition: transform 0.2s;
-        }
-
-        .collapse-icon.collapsed {
-            transform: rotate(-90deg);
-        }
-
-        .section-content {
-            padding: 10px 12px;
-            font-size: 11px;
-            line-height: 1.4;
+            line-height: 1.5;
             color: rgba(255, 255, 255, 0.9);
-            max-height: 100px;
+            max-height: 120px;
             overflow-y: auto;
-            transition: all 0.3s ease;
         }
 
-        .section-content.collapsed {
-            display: none;
+        .frame-by-frame-section {
+            margin-top: 20px;
+        }
+
+        .frame-by-frame-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #fff;
+            margin-bottom: 16px;
+            text-align: center;
         }
 
         .frame-item {
             background: rgba(255, 255, 255, 0.05);
-            border-radius: 4px;
-            padding: 8px;
-            margin-bottom: 8px;
-            border-left: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 6px;
+            padding: 12px;
+            margin-bottom: 12px;
+            border-left: 3px solid rgba(255, 255, 255, 0.3);
             transition: all 0.3s ease;
             cursor: pointer;
         }
@@ -170,24 +148,24 @@ def create_restart_video_template() -> str:
         .frame-item.active {
             background: rgba(76, 175, 80, 0.15);
             border-left-color: #4CAF50;
-            box-shadow: 0 1px 4px rgba(76, 175, 80, 0.2);
+            box-shadow: 0 2px 8px rgba(76, 175, 80, 0.2);
         }
 
         .frame-header {
-            font-size: 11px;
+            font-size: 13px;
             font-weight: 600;
             color: #4CAF50;
-            margin-bottom: 4px;
+            margin-bottom: 8px;
         }
 
         .frame-content {
-            font-size: 10px;
-            line-height: 1.3;
+            font-size: 11px;
+            line-height: 1.4;
         }
 
         .frame-subtitles {
             color: #2196F3;
-            margin-bottom: 3px;
+            margin-bottom: 6px;
             font-style: italic;
         }
 
@@ -221,81 +199,69 @@ def create_restart_video_template() -> str:
             color: rgba(255, 255, 255, 0.7);
         }
 
+        .summary-area {
+            position: absolute;
+            top: 80px;
+            left: 20px;
+            right: 420px;
+            background: rgba(0, 0, 0, 0.8);
+            border-radius: 8px;
+            padding: 16px;
+            z-index: 10;
+            max-height: 120px;
+            overflow-y: auto;
+        }
+
+        .summary-title {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #fff;
+        }
+
+        .summary-content {
+            font-size: 12px;
+            line-height: 1.4;
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        .overlay {
+            position: absolute;
+            left: 0;
+            right: 400px;
+            z-index: 5;
+            pointer-events: none;
+        }
+
+        .summary-overlay {
+            top: 80px;
+            text-align: center;
+            padding: 8px 16px;
+            background: rgba(0, 0, 0, 0.8);
+            border-radius: 4px;
+            font-size: 14px;
+            margin: 0 20px;
+        }
+
+        .subtitle-overlay {
+            bottom: 80px;
+            text-align: center;
+            padding: 8px 16px;
+            background: rgba(0, 0, 0, 0.9);
+            border-radius: 4px;
+            font-size: 16px;
+            font-weight: 600;
+            margin: 0 20px;
+        }
+
         .hidden {
             display: none !important;
         }
-    </style>
-</head>
-<body>
-    <div class="video-container">
-        <!-- Video Player Section -->
-        <div class="video-player">
-            <!-- Report Header -->
-            <div class="report-header">
-                <div class="report-title">Restart Video Analysis</div>
-                <div class="report-meta">{host_name} - {device_name} {timestamp}</div>
-            </div>
-            
-            <!-- Video Element -->
-            <video id="restart-video" class="video-element" preload="metadata">
-                <source src="{video_url}" type="video/mp4">
-                Your browser does not support the video tag.
-            </video>
-            
-            <!-- Video Controls -->
-            <div class="video-controls">
-                <button id="play-button" class="play-button">▶</button>
-                <div id="time-display" class="time-display">0:00 / 0:00</div>
-                <div id="progress-bar" class="progress-bar">
-                    <div id="progress-fill" class="progress-fill"></div>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Analysis Panel -->
-        <div class="analysis-panel">
-            <!-- Video Summary Section -->
-            <div class="collapsible-section">
-                <div class="section-header" onclick="toggleSection('video-summary')">
-                    <div class="section-title">Video Summary (EN)</div>
-                    <div class="collapse-icon">▼</div>
-                </div>
-                <div id="video-summary" class="section-content">
-                    {video_summary}
-                </div>
-            </div>
-            
-            <!-- Audio Transcript Section -->
-            <div id="audio-section" class="collapsible-section" style="display: none;">
-                <div class="section-header" onclick="toggleSection('audio-transcript')">
-                    <div id="audio-title" class="section-title">Audio Transcript</div>
-                    <div class="collapse-icon">▼</div>
-                </div>
-                <div id="audio-transcript" class="section-content">
-                    {audio_transcript}
-                </div>
-            </div>
-            
-            <!-- Frame Analysis Section -->
-            <div class="collapsible-section">
-                <div class="section-header" onclick="toggleSection('frame-analysis')">
-                    <div class="section-title">Frame Analysis</div>
-                    <div class="collapse-icon">▼</div>
-                </div>
-                <div id="frame-analysis" class="section-content">
-                    <div id="frame-analysis-container">
-                        <!-- Frame items will be populated by JavaScript -->
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    <script>
-        // Analysis data for JavaScript
-        window.ANALYSIS_DATA = {analysis_data_json};
-    </script>
-    <script>
+    """
+
+def get_restart_video_js() -> str:
+    """JavaScript for restart video report functionality"""
+    return """
         class RestartVideoReport {
             constructor() {
                 this.video = document.getElementById('restart-video');
@@ -314,26 +280,7 @@ def create_restart_video_template() -> str:
                 console.log('RestartVideoReport initialized');
                 console.log('Analysis data:', this.analysisData);
                 this.setupVideoControls();
-                this.setupAudioSection();
                 this.setupFrameAnalysis();
-            }
-            
-            setupAudioSection() {
-                const audioSection = document.getElementById('audio-section');
-                const audioTitle = document.getElementById('audio-title');
-                
-                // Use the EXACT same data structure as frontend: analysisResults.audio?.combined_transcript
-                const audioTranscript = this.analysisData.audio_analysis?.combined_transcript;
-                
-                if (audioTranscript && audioTranscript.trim()) {
-                    // Show section with language if transcript exists
-                    const language = this.analysisData.audio_analysis?.detected_language || 'EN';
-                    audioTitle.textContent = `Audio Transcript (${language.toUpperCase()})`;
-                    audioSection.style.display = 'block';
-                } else {
-                    // Hide section if no transcript
-                    audioSection.style.display = 'none';
-                }
             }
             
             setupVideoControls() {
@@ -389,7 +336,7 @@ def create_restart_video_template() -> str:
                     frameItem.className = 'frame-item';
                     frameItem.dataset.frameIndex = index;
                     
-                    // Get subtitle for this frame (FIXED VERSION)
+                    // Get subtitle for this frame (if available)
                     const frameSubtitles = this.getFrameSubtitles(index, subtitleAnalysis);
                     
                     frameItem.innerHTML = `
@@ -417,21 +364,11 @@ def create_restart_video_template() -> str:
             }
             
             getFrameSubtitles(frameIndex, subtitleAnalysis) {
-                // FIXED: Extract frame-specific subtitle from frame_subtitles array
-                if (subtitleAnalysis.frame_subtitles && subtitleAnalysis.frame_subtitles.length > 0) {
-                    // Look for the specific frame in the frame_subtitles array
-                    const frameSubtitle = subtitleAnalysis.frame_subtitles[frameIndex];
-                    
-                    if (frameSubtitle) {
-                        // Extract text after "Frame X: " prefix
-                        const match = frameSubtitle.match(/^Frame \\d+:\\s*(.+)$/);
-                        if (match && match[1] && match[1] !== 'No subtitles detected') {
-                            return match[1];
-                        }
-                    }
+                // For now, return the general subtitle text if available
+                // In a more advanced implementation, this could be frame-specific
+                if (subtitleAnalysis.extracted_text && subtitleAnalysis.extracted_text.trim()) {
+                    return subtitleAnalysis.extracted_text;
                 }
-                
-                // Fallback: if no frame-specific data, return null
                 return null;
             }
             
@@ -467,6 +404,7 @@ def create_restart_video_template() -> str:
                 }
             }
             
+            
             formatTime(seconds) {
                 const mins = Math.floor(seconds / 60);
                 const secs = Math.floor(seconds % 60);
@@ -474,27 +412,109 @@ def create_restart_video_template() -> str:
             }
         }
         
-        // Global toggle function for collapsible sections
-        function toggleSection(sectionId) {
-            const content = document.getElementById(sectionId);
-            const header = content.previousElementSibling;
-            const icon = header.querySelector('.collapse-icon');
-            
-            if (content.classList.contains('collapsed')) {
-                content.classList.remove('collapsed');
-                icon.classList.remove('collapsed');
-                icon.textContent = '▼';
-            } else {
-                content.classList.add('collapsed');
-                icon.classList.add('collapsed');
-                icon.textContent = '▶';
-            }
-        }
-        
         // Initialize when DOM is loaded
         document.addEventListener('DOMContentLoaded', () => {
             new RestartVideoReport();
         });
+    """
+
+def create_restart_video_template() -> str:
+    """Create the complete HTML template for restart video reports"""
+    
+    # Escape braces in CSS and JS content to avoid format() conflicts
+    css_content = get_restart_video_css().replace('{', '{{').replace('}', '}}')
+    js_content = get_restart_video_js().replace('{', '{{').replace('}', '}}')
+    
+    # Build the template using string replacement instead of format() to avoid brace conflicts
+    template_parts = []
+    
+    template_parts.append("""<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Restart Video Report - {device_name}</title>
+    <style>""")
+    
+    template_parts.append(css_content)
+    
+    template_parts.append("""    </style>
+</head>
+<body>
+    <div class="video-container">
+        <!-- Video Player Section -->
+        <div class="video-player">
+            <!-- Report Header -->
+            <div class="report-header">
+                <div class="report-title">Restart Video Analysis</div>
+                <div class="report-meta">{host_name} - {device_name} {timestamp}</div>
+            </div>
+            
+            <!-- Summary Area -->
+            <div class="summary-area">
+                <div class="summary-title">Video Summary</div>
+                <div class="summary-content">{video_summary}</div>
+            </div>
+            
+            <!-- Video Element -->
+            <video id="restart-video" class="video-element" preload="metadata">
+                <source src="{video_url}" type="video/mp4">
+                Your browser does not support the video tag.
+            </video>
+            
+            <!-- Video Controls -->
+            <div class="video-controls">
+                <button id="play-button" class="play-button">▶</button>
+                <div id="time-display" class="time-display">0:00 / 0:00</div>
+                <div id="progress-bar" class="progress-bar">
+                    <div id="progress-fill" class="progress-fill"></div>
+                </div>
+            </div>
+            
+            <!-- Video Summary Overlay -->
+            <div id="summary-overlay" class="overlay summary-overlay hidden">
+                Frame description will appear here
+            </div>
+            
+            <!-- Subtitle Overlay -->
+            <div id="subtitle-overlay" class="overlay subtitle-overlay hidden">
+                Subtitle text will appear here
+            </div>
+        </div>
+        
+        <!-- Analysis Panel -->
+        <div class="analysis-panel">
+            <!-- Full Video Analysis Section -->
+            <div class="full-analysis-section">
+                <div class="analysis-header">Video Summary (EN):</div>
+                <div class="analysis-content">{video_summary}</div>
+            </div>
+            
+            <div class="full-analysis-section">
+                <div class="analysis-header">Audio Transcript (EN):</div>
+                <div class="analysis-content">{audio_transcript}</div>
+            </div>
+            
+            <!-- Frame-by-Frame Analysis Section -->
+            <div class="frame-by-frame-section">
+                <div class="frame-by-frame-title">Frame Analysis</div>
+                <div id="frame-analysis-container">
+                    <!-- Frame items will be populated by JavaScript -->
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Analysis data for JavaScript
+        window.ANALYSIS_DATA = {analysis_data_json};
     </script>
+    <script>""")
+    
+    template_parts.append(js_content)
+    
+    template_parts.append("""    </script>
 </body>
-</html>"""
+</html>""")
+    
+    return ''.join(template_parts)
