@@ -542,24 +542,28 @@ class VideoRestartHelpers:
         try:
             print(f"RestartHelpers[{self.device_name}]: Starting dubbing to {target_language}")
             
-            # Check translation cache first
-            cache_key = video_id
-            if cache_key in self._translation_cache and target_language in self._translation_cache[cache_key]:
-                print(f"RestartHelpers[{self.device_name}]: Using cached translation for {target_language}")
-                translation_result = self._translation_cache[cache_key][target_language]
-            else:
-                # Translate existing transcript
-                from shared.lib.utils.translation_utils import translate_text
-                translation_result = translate_text(existing_transcript, 'en', target_language)
-                if not translation_result['success']:
-                    print(f"RestartHelpers[{self.device_name}]: Translation failed")
-                    return None
-                
-                # Cache the translation
-                if cache_key not in self._translation_cache:
-                    self._translation_cache[cache_key] = {}
-                self._translation_cache[cache_key][target_language] = translation_result
-                print(f"RestartHelpers[{self.device_name}]: Cached translation for {target_language}")
+             # Check translation cache first
+             cache_key = video_id
+             if cache_key in self._translation_cache and target_language in self._translation_cache[cache_key]:
+                 print(f"RestartHelpers[{self.device_name}]: Using cached translation for {target_language}")
+                 translation_result = self._translation_cache[cache_key][target_language]
+             else:
+                 # Batch translate with frame structure preservation
+                 from shared.lib.utils.translation_utils import translate_text
+                 
+                 # Create structured batch input for single API call
+                 batch_input = f"FRAME_STRUCTURE_TRANSLATION:\n{existing_transcript}\n\nPlease translate this maintaining any frame markers or structure."
+                 
+                 translation_result = translate_text(batch_input, 'en', target_language)
+                 if not translation_result['success']:
+                     print(f"RestartHelpers[{self.device_name}]: Translation failed")
+                     return None
+                 
+                 # Cache the translation
+                 if cache_key not in self._translation_cache:
+                     self._translation_cache[cache_key] = {}
+                 self._translation_cache[cache_key][target_language] = translation_result
+                 print(f"RestartHelpers[{self.device_name}]: Cached batch translation for {target_language}")
             
             # Get original video file
             video_filename = "restart_video.mp4"
