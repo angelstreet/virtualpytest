@@ -1,7 +1,8 @@
-import { Box, Typography, IconButton, Slide, Paper, Select, MenuItem, Collapse } from '@mui/material';
+import { Box, Typography, IconButton, Slide, Paper, Select, MenuItem, Collapse, CircularProgress } from '@mui/material';
 import { Close as CloseIcon, ExpandMore as ExpandMoreIcon, ExpandLess as ExpandLessIcon } from '@mui/icons-material';
 import React, { useState, useEffect } from 'react';
 import { buildServerUrl } from '../../utils/buildUrlUtils';
+import { useToast } from '../../hooks/useToast';
 
 interface RestartSettingsPanelProps {
   open: boolean;
@@ -43,11 +44,22 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
   audioAnalysis,
   subtitleData,
 }) => {
+  const toast = useToast();
   const [isVideoSummaryExpanded, setIsVideoSummaryExpanded] = useState(false);
   const [isTranscriptExpanded, setIsTranscriptExpanded] = useState(false);
   const [isFrameAnalysisExpanded, setIsFrameAnalysisExpanded] = useState(false);
   const [translatedTranscript, setTranslatedTranscript] = useState<string>('');
   const [translatedSummary, setTranslatedSummary] = useState<string>('');
+  const [translatedFrameDescriptions, setTranslatedFrameDescriptions] = useState<string[]>([]);
+  const [translatedFrameSubtitles, setTranslatedFrameSubtitles] = useState<string[]>([]);
+  
+  // Translation loading states
+  const [isTranslating, setIsTranslating] = useState(false);
+  const [translationProgress, setTranslationProgress] = useState({
+    videoSummary: false,
+    audioTranscript: false,
+    frameAnalysis: false,
+  });
 
   // Language code to name mapping
   const getLanguageName = (code: string): string => {
@@ -134,21 +146,18 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
         // Reset to original content for English
         setTranslatedTranscript('');
         setTranslatedSummary('');
+        setTranslatedFrameDescriptions([]);
+        setTranslatedFrameSubtitles([]);
         return;
       }
 
+      setIsTranslating(true);
+      setTranslationProgress({ videoSummary: false, audioTranscript: false, frameAnalysis: false });
+      
       try {
-        // Translate audio transcript (only the content, not the metadata)
-        if (audioTranscript && audioAnalysis?.detected_language) {
-          const translatedAudio = await translateText(
-            audioTranscript,
-            language,
-            audioAnalysis.detected_language.toLowerCase()
-          );
-          setTranslatedTranscript(translatedAudio);
-        }
+        toast.showInfo('🌐 Starting translation...', { duration: 3000 });
 
-        // Translate video summary
+        // Step 1: Translate video summary
         if (videoDescription?.video_summary) {
           const translatedSum = await translateText(
             videoDescription.video_summary,
@@ -156,14 +165,68 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
             'en' // Assume summary is in English
           );
           setTranslatedSummary(translatedSum);
+          setTranslationProgress(prev => ({ ...prev, videoSummary: true }));
+          toast.showSuccess('✅ Video summary translation complete', { duration: 2000 });
         }
+
+        // Step 2: Translate audio transcript
+        if (audioTranscript && audioAnalysis?.detected_language) {
+          const translatedAudio = await translateText(
+            audioTranscript,
+            language,
+            audioAnalysis.detected_language.toLowerCase()
+          );
+          setTranslatedTranscript(translatedAudio);
+          setTranslationProgress(prev => ({ ...prev, audioTranscript: true }));
+          toast.showSuccess('✅ Audio transcript translation complete', { duration: 2000 });
+        }
+
+        // Step 3: Translate frame analysis (subtitles and descriptions)
+        if (videoDescription?.frame_descriptions?.length || subtitleData?.frame_subtitles?.length) {
+          const frameDescriptions = videoDescription?.frame_descriptions || [];
+          const frameSubtitles = subtitleData?.frame_subtitles || [];
+          
+          // Translate frame descriptions
+          const translatedDescriptions = await Promise.all(
+            frameDescriptions.map(async (desc) => {
+              // Extract just the description part after "Frame X: "
+              const descText = desc.includes(': ') ? desc.split(': ').slice(1).join(': ') : desc;
+              if (descText === 'No description available') return desc;
+              
+              const translated = await translateText(descText, language, 'en');
+              return desc.replace(descText, translated);
+            })
+          );
+          
+          // Translate frame subtitles
+          const translatedSubtitles = await Promise.all(
+            frameSubtitles.map(async (sub) => {
+              // Extract just the subtitle text after "Frame X: "
+              const subText = sub.includes(': ') ? sub.split(': ').slice(1).join(': ') : sub;
+              if (subText === 'No subtitles detected') return sub;
+              
+              const translated = await translateText(subText, language, subtitleData?.detected_language || 'en');
+              return sub.replace(subText, translated);
+            })
+          );
+          
+          setTranslatedFrameDescriptions(translatedDescriptions);
+          setTranslatedFrameSubtitles(translatedSubtitles);
+          setTranslationProgress(prev => ({ ...prev, frameAnalysis: true }));
+          toast.showSuccess('✅ Frame analysis translation complete', { duration: 2000 });
+        }
+
+        toast.showSuccess('🎉 All translations complete!', { duration: 3000 });
       } catch (error) {
         console.error('Translation error:', error);
+        toast.showError('❌ Translation failed', { duration: 3000 });
+      } finally {
+        setIsTranslating(false);
       }
     };
 
     translateAllContent();
-  }, [language, audioTranscript, subtitleData, videoDescription, audioAnalysis]);
+  }, [language, audioTranscript, subtitleData, videoDescription, audioAnalysis, toast]);
 
   return (
     <Slide direction="left" in={open} mountOnEnter unmountOnExit>
@@ -210,6 +273,7 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
               value={language}
               onChange={(e) => onLanguageChange(e.target.value)}
               size="small"
+              disabled={isTranslating}
               sx={{ 
                 minWidth: 120, 
                 minHeight: 28,
@@ -226,6 +290,15 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
               <MenuItem value="it" sx={{ fontSize: '0.75rem' }}>Italian</MenuItem>
               <MenuItem value="pt" sx={{ fontSize: '0.75rem' }}>Portuguese</MenuItem>
             </Select>
+            {isTranslating && (
+              <CircularProgress 
+                size={16} 
+                sx={{ 
+                  color: '#ffffff',
+                  ml: 1
+                }} 
+              />
+            )}
           </Box>
         </Box>
 
@@ -362,15 +435,18 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
               {videoDescription && videoDescription.frame_descriptions && videoDescription.frame_descriptions.length > 0 && (
                 <Box sx={{ mb: 1.5 }}>
                   {videoDescription.frame_descriptions.map((description, index) => {
+                    // Use translated content if available, otherwise use original
+                    const displayDescription = translatedFrameDescriptions[index] || description;
+                    const displaySubtitle = translatedFrameSubtitles[index] || subtitleData?.frame_subtitles?.[index];
+                    
                     // Parse frame description to extract frame number and content
-                    const frameMatch = description.match(/^Frame (\d+):\s*(.+)$/);
+                    const frameMatch = displayDescription.match(/^Frame (\d+):\s*(.+)$/);
                     const frameNumber = frameMatch ? frameMatch[1] : (index + 1).toString();
-                    const frameContent = frameMatch ? frameMatch[2] : description;
+                    const frameContent = frameMatch ? frameMatch[2] : displayDescription;
                     
                     // Get corresponding subtitle for this frame
-                    const frameSubtitle = subtitleData?.frame_subtitles?.[index];
-                    const subtitleMatch = frameSubtitle?.match(/^Frame \d+:\s*(.+)$/);
-                    const subtitleContent = subtitleMatch ? subtitleMatch[1] : frameSubtitle;
+                    const subtitleMatch = displaySubtitle?.match(/^Frame \d+:\s*(.+)$/);
+                    const subtitleContent = subtitleMatch ? subtitleMatch[1] : displaySubtitle;
                     
                     return (
                       <Box 

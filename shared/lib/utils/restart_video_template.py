@@ -110,6 +110,26 @@ def get_restart_video_css() -> str:
             font-weight: 600;
             color: #4CAF50;
             margin-bottom: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 4px 0;
+        }
+
+        .analysis-header:hover {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 4px;
+            padding: 4px 8px;
+        }
+
+        .expand-icon {
+            font-size: 16px;
+            transition: transform 0.3s ease;
+        }
+
+        .expand-icon.expanded {
+            transform: rotate(180deg);
         }
 
         .analysis-content {
@@ -121,6 +141,11 @@ def get_restart_video_css() -> str:
             color: rgba(255, 255, 255, 0.9);
             max-height: 120px;
             overflow-y: auto;
+            transition: all 0.3s ease;
+        }
+
+        .analysis-content.collapsed {
+            display: none;
         }
 
         .frame-by-frame-section {
@@ -133,6 +158,17 @@ def get_restart_video_css() -> str:
             color: #fff;
             margin-bottom: 16px;
             text-align: center;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .frame-by-frame-title:hover {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 4px;
+            padding: 4px 8px;
         }
 
         .frame-item {
@@ -233,15 +269,6 @@ def get_restart_video_css() -> str:
             pointer-events: none;
         }
 
-        .summary-overlay {
-            top: 80px;
-            text-align: center;
-            padding: 8px 16px;
-            background: rgba(0, 0, 0, 0.8);
-            border-radius: 4px;
-            font-size: 14px;
-            margin: 0 20px;
-        }
 
         .subtitle-overlay {
             bottom: 80px;
@@ -346,7 +373,7 @@ def get_restart_video_js() -> str:
                                 Subtitles: ${frameSubtitles || '<span class="no-content">None detected</span>'}
                             </div>
                             <div class="frame-summary">
-                                Summary: ${description}
+                                ${description}
                             </div>
                         </div>
                     `;
@@ -364,10 +391,15 @@ def get_restart_video_js() -> str:
             }
             
             getFrameSubtitles(frameIndex, subtitleAnalysis) {
-                // For now, return the general subtitle text if available
-                // In a more advanced implementation, this could be frame-specific
-                if (subtitleAnalysis.extracted_text && subtitleAnalysis.extracted_text.trim()) {
-                    return subtitleAnalysis.extracted_text;
+                // Get frame-specific subtitles from frame_subtitles array
+                const frameSubtitles = subtitleAnalysis.frame_subtitles || [];
+                if (frameSubtitles.length > frameIndex) {
+                    const frameSubtitle = frameSubtitles[frameIndex];
+                    // Extract subtitle text after "Frame X: " prefix
+                    if (frameSubtitle && frameSubtitle.includes(': ')) {
+                        const subtitleText = frameSubtitle.split(': ').slice(1).join(': ');
+                        return subtitleText !== 'No subtitles detected' ? subtitleText : null;
+                    }
                 }
                 return null;
             }
@@ -409,6 +441,26 @@ def get_restart_video_js() -> str:
                 const mins = Math.floor(seconds / 60);
                 const secs = Math.floor(seconds % 60);
                 return `${mins}:${secs.toString().padStart(2, '0')}`;
+            }
+        }
+        
+        // Toggle section visibility
+        function toggleSection(sectionId) {
+            const content = document.getElementById(sectionId + '-content') || document.getElementById(sectionId + '-container');
+            const icon = document.getElementById(sectionId + '-icon');
+            
+            if (content && icon) {
+                const isCollapsed = content.classList.contains('collapsed');
+                
+                if (isCollapsed) {
+                    content.classList.remove('collapsed');
+                    icon.classList.add('expanded');
+                    icon.textContent = '▲';
+                } else {
+                    content.classList.add('collapsed');
+                    icon.classList.remove('expanded');
+                    icon.textContent = '▼';
+                }
             }
         }
         
@@ -471,10 +523,6 @@ def create_restart_video_template() -> str:
                 </div>
             </div>
             
-            <!-- Video Summary Overlay -->
-            <div id="summary-overlay" class="overlay summary-overlay hidden">
-                Frame description will appear here
-            </div>
             
             <!-- Subtitle Overlay -->
             <div id="subtitle-overlay" class="overlay subtitle-overlay hidden">
@@ -486,18 +534,27 @@ def create_restart_video_template() -> str:
         <div class="analysis-panel">
             <!-- Full Video Analysis Section -->
             <div class="full-analysis-section">
-                <div class="analysis-header">Video Summary (EN):</div>
-                <div class="analysis-content">{video_summary}</div>
+                <div class="analysis-header" onclick="toggleSection('video-summary')">
+                    <span>Video Summary (EN):</span>
+                    <span class="expand-icon" id="video-summary-icon">▼</span>
+                </div>
+                <div class="analysis-content" id="video-summary-content">{video_summary}</div>
             </div>
             
             <div class="full-analysis-section">
-                <div class="analysis-header">Audio Transcript (EN):</div>
-                <div class="analysis-content">{audio_transcript}</div>
+                <div class="analysis-header" onclick="toggleSection('audio-transcript')">
+                    <span>Audio Transcript (EN):</span>
+                    <span class="expand-icon" id="audio-transcript-icon">▼</span>
+                </div>
+                <div class="analysis-content" id="audio-transcript-content">{audio_transcript}</div>
             </div>
             
             <!-- Frame-by-Frame Analysis Section -->
             <div class="frame-by-frame-section">
-                <div class="frame-by-frame-title">Frame Analysis</div>
+                <div class="frame-by-frame-title" onclick="toggleSection('frame-analysis')">
+                    <span>Frame Analysis</span>
+                    <span class="expand-icon" id="frame-analysis-icon">▼</span>
+                </div>
                 <div id="frame-analysis-container">
                     <!-- Frame items will be populated by JavaScript -->
                 </div>
