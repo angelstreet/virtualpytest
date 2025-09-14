@@ -446,3 +446,49 @@ def analyze_restart_video():
             
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
+
+@host_restart_bp.route('/restartStream', methods=['POST'])
+def restart_stream():
+    """Restart stream service using new architecture"""
+    try:
+        data = request.get_json() or {}
+        device_id = data.get('device_id', 'device1')
+        
+        av_controller = get_controller(device_id, 'av')
+        
+        if not av_controller:
+            device = get_device_by_id(device_id)
+            if not device:
+                return jsonify({
+                    'success': False,
+                    'error': f'Device {device_id} not found'
+                }), 404
+            
+            return jsonify({
+                'success': False,
+                'error': f'No AV controller found for device {device_id}',
+                'available_capabilities': device.get_capabilities()
+            }), 404
+        
+        restart_result = av_controller.restart_stream()
+        
+        if restart_result:
+            status = av_controller.get_status()
+            return jsonify({
+                'success': True,
+                'restarted': True,
+                'status': status,
+                'device_id': device_id,
+                'message': 'Stream service restarted successfully'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'Failed to restart stream service'
+            }), 500
+            
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500

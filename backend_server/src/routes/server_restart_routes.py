@@ -135,7 +135,7 @@ def restart_stream():
         query_params = {'device_id': device_id}
 
         response_data, status_code = proxy_to_host_with_params(
-            '/host/av/restartStream',
+            '/host/restart/restartStream',
             'POST',
             request_data,
             query_params
