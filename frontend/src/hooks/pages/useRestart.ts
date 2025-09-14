@@ -236,10 +236,15 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
 
       if (!includeAudioAnalysis) return;
 
-      // Stage 2-4: Run analysis in parallel
-      const analysisPromises = [
-        // Audio analysis
-        fetch(buildServerUrl('/server/av/analyzeRestartAudio'), {
+      // Stage 2-4: Run analysis sequentially (no race conditions)
+      console.log(`[@hook:useRestart] Starting sequential analysis for video_id: ${videoData.video_id}`);
+      
+      try {
+        // Step 2: Audio Analysis
+        console.log(`[@hook:useRestart] Step 2: Starting audio analysis`);
+        setAnalysisProgress(prev => ({ ...prev, audio: 'loading' }));
+        
+        const audioResponse = await fetch(buildServerUrl('/server/av/analyzeRestartAudio'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -247,50 +252,27 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
             device_id: device.device_id || 'device1',
             video_id: videoData.video_id,
           }),
-        }).then(async (res) => {
-          setAnalysisProgress(prev => ({ ...prev, audio: 'loading' }));
-          const data = await res.json();
-          if (data.success && data.audio_analysis) {
-            setAnalysisResults(prev => ({ ...prev, audio: {
-              success: data.audio_analysis.success,
-              combined_transcript: data.audio_analysis.combined_transcript || '',
-              detected_language: data.audio_analysis.detected_language || 'unknown',
-              speech_detected: data.audio_analysis.speech_detected || false,
-              confidence: data.audio_analysis.confidence || 0,
-              execution_time_ms: 0,
-            }}));
-          }
-          setAnalysisProgress(prev => ({ ...prev, audio: data.success ? 'completed' : 'error' }));
-        }),
-
-        // Subtitle analysis
-        fetch(buildServerUrl('/server/av/analyzeRestartSubtitles'), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            host,
-            device_id: device.device_id || 'device1',
-            video_id: videoData.video_id,
-            screenshot_urls: videoData.screenshot_urls || [],
-          }),
-        }).then(async (res) => {
-          setAnalysisProgress(prev => ({ ...prev, subtitles: 'loading' }));
-          const data = await res.json();
-          if (data.success && data.subtitle_analysis) {
-            setAnalysisResults(prev => ({ ...prev, subtitles: {
-              success: data.subtitle_analysis.success,
-              subtitles_detected: data.subtitle_analysis.subtitles_detected || false,
-              extracted_text: data.subtitle_analysis.extracted_text || '',
-              detected_language: data.subtitle_analysis.detected_language || 'unknown',
-              execution_time_ms: 0,
-              frame_subtitles: data.subtitle_analysis.frame_subtitles || [],
-            }}));
-          }
-          setAnalysisProgress(prev => ({ ...prev, subtitles: data.success ? 'completed' : 'error' }));
-        }),
-
-        // Summary analysis
-        fetch(buildServerUrl('/server/av/analyzeRestartSummary'), {
+        });
+        
+        const audioData = await audioResponse.json();
+        if (audioData.success && audioData.audio_analysis) {
+          setAnalysisResults(prev => ({ ...prev, audio: {
+            success: audioData.audio_analysis.success,
+            combined_transcript: audioData.audio_analysis.combined_transcript || '',
+            detected_language: audioData.audio_analysis.detected_language || 'unknown',
+            speech_detected: audioData.audio_analysis.speech_detected || false,
+            confidence: audioData.audio_analysis.confidence || 0,
+            execution_time_ms: 0,
+          }}));
+        }
+        setAnalysisProgress(prev => ({ ...prev, audio: audioData.success ? 'completed' : 'error' }));
+        console.log(`[@hook:useRestart] Step 2: Audio analysis ${audioData.success ? 'completed' : 'failed'}`);
+        
+        // Step 3: Subtitle Analysis
+        console.log(`[@hook:useRestart] Step 3: Starting subtitle analysis`);
+        setAnalysisProgress(prev => ({ ...prev, subtitles: 'loading' }));
+        
+        const subtitleResponse = await fetch(buildServerUrl('/server/av/analyzeRestartSubtitles'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -299,29 +281,68 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
             video_id: videoData.video_id,
             screenshot_urls: videoData.screenshot_urls || [],
           }),
-        }).then(async (res) => {
-          setAnalysisProgress(prev => ({ ...prev, summary: 'loading' }));
-          const data = await res.json();
-          if (data.success && data.video_analysis) {
-            setAnalysisResults(prev => ({ ...prev, videoDescription: {
-              frame_descriptions: data.video_analysis.frame_descriptions || [],
-              video_summary: data.video_analysis.video_summary || '',
-              frames_analyzed: data.video_analysis.frames_analyzed || 0,
-              execution_time_ms: 0,
-            }}));
-          }
-          setAnalysisProgress(prev => ({ ...prev, summary: data.success ? 'completed' : 'error' }));
-        }),
-      ];
-
-      // Wait for all analysis to complete
-      await Promise.allSettled(analysisPromises);
+        });
+        
+        const subtitleData = await subtitleResponse.json();
+        if (subtitleData.success && subtitleData.subtitle_analysis) {
+          setAnalysisResults(prev => ({ ...prev, subtitles: {
+            success: subtitleData.subtitle_analysis.success,
+            subtitles_detected: subtitleData.subtitle_analysis.subtitles_detected || false,
+            extracted_text: subtitleData.subtitle_analysis.extracted_text || '',
+            detected_language: subtitleData.subtitle_analysis.detected_language || 'unknown',
+            execution_time_ms: 0,
+            frame_subtitles: subtitleData.subtitle_analysis.frame_subtitles || [],
+          }}));
+        }
+        setAnalysisProgress(prev => ({ ...prev, subtitles: subtitleData.success ? 'completed' : 'error' }));
+        console.log(`[@hook:useRestart] Step 3: Subtitle analysis ${subtitleData.success ? 'completed' : 'failed'}`);
+        
+        // Step 4: Summary Analysis
+        console.log(`[@hook:useRestart] Step 4: Starting summary analysis`);
+        setAnalysisProgress(prev => ({ ...prev, summary: 'loading' }));
+        
+        const summaryResponse = await fetch(buildServerUrl('/server/av/analyzeRestartSummary'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            host,
+            device_id: device.device_id || 'device1',
+            video_id: videoData.video_id,
+            screenshot_urls: videoData.screenshot_urls || [],
+          }),
+        });
+        
+        const summaryData = await summaryResponse.json();
+        if (summaryData.success && summaryData.video_analysis) {
+          setAnalysisResults(prev => ({ ...prev, videoDescription: {
+            frame_descriptions: summaryData.video_analysis.frame_descriptions || [],
+            video_summary: summaryData.video_analysis.video_summary || '',
+            frames_analyzed: summaryData.video_analysis.frames_analyzed || 0,
+            execution_time_ms: 0,
+          }}));
+        }
+        setAnalysisProgress(prev => ({ ...prev, summary: summaryData.success ? 'completed' : 'error' }));
+        console.log(`[@hook:useRestart] Step 4: Summary analysis ${summaryData.success ? 'completed' : 'failed'}`);
+        
+        console.log(`[@hook:useRestart] All analysis steps completed`);
+        
+      } catch (analysisError) {
+        console.error(`[@hook:useRestart] Analysis error:`, analysisError);
+        // Don't fail the entire process if analysis fails - video is still playable
+        setAnalysisProgress(prev => ({
+          ...prev,
+          audio: prev.audio === 'loading' ? 'error' : prev.audio,
+          subtitles: prev.subtitles === 'loading' ? 'error' : prev.subtitles,
+          summary: prev.summary === 'loading' ? 'error' : prev.summary,
+        }));
+      }
 
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Video generation failed';
       console.error('[@hook:useRestart] Video generation error:', errorMessage);
       setError(errorMessage);
       setIsGenerating(false);
+      setAnalysisProgress({ video: 'error', audio: 'idle', subtitles: 'idle', summary: 'idle' });
     }
   }, [host, device, includeAudioAnalysis]);
 

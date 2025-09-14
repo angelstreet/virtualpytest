@@ -555,57 +555,151 @@ def generate_restart_video_only():
 @host_av_bp.route('/analyzeRestartAudio', methods=['POST'])
 def analyze_restart_audio():
     """Analyze audio transcript"""
+    import signal
+    from contextlib import contextmanager
+    
+    @contextmanager
+    def timeout(duration):
+        def timeout_handler(signum, frame):
+            raise TimeoutError(f"Audio analysis timed out after {duration} seconds")
+        signal.signal(signal.SIGALRM, timeout_handler)
+        signal.alarm(duration)
+        try:
+            yield
+        finally:
+            signal.alarm(0)
+    
     try:
+        print(f"[@route:analyzeRestartAudio] Starting audio analysis")
         data = request.get_json() or {}
         device_id = data.get('device_id', 'device1')
         video_id = data.get('video_id')
+        
+        if not video_id:
+            return jsonify({'success': False, 'error': 'video_id is required'}), 400
         
         av_controller = get_controller(device_id, 'av')
         if not av_controller:
             return jsonify({'success': False, 'error': f'No AV controller for {device_id}'}), 404
         
-        result = av_controller.analyzeRestartAudio(video_id)
-        return jsonify(result) if result else jsonify({'success': False, 'error': 'Audio analysis failed'}), 500
+        with timeout(25):  # 25s max (under Flask 30s limit)
+            result = av_controller.analyzeRestartAudio(video_id)
             
+        if result and result.get('success'):
+            print(f"[@route:analyzeRestartAudio] Audio analysis completed successfully")
+            return jsonify(result)
+        else:
+            error_msg = result.get('error', 'Audio analysis failed') if result else 'Audio analysis failed'
+            print(f"[@route:analyzeRestartAudio] Audio analysis failed: {error_msg}")
+            return jsonify({'success': False, 'error': error_msg}), 500
+            
+    except TimeoutError as e:
+        print(f"[@route:analyzeRestartAudio] Timeout: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 408
     except Exception as e:
+        print(f"[@route:analyzeRestartAudio] Error: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @host_av_bp.route('/analyzeRestartSubtitles', methods=['POST'])
 def analyze_restart_subtitles():
     """Analyze subtitles"""
+    import signal
+    from contextlib import contextmanager
+    
+    @contextmanager
+    def timeout(duration):
+        def timeout_handler(signum, frame):
+            raise TimeoutError(f"Subtitle analysis timed out after {duration} seconds")
+        signal.signal(signal.SIGALRM, timeout_handler)
+        signal.alarm(duration)
+        try:
+            yield
+        finally:
+            signal.alarm(0)
+    
     try:
+        print(f"[@route:analyzeRestartSubtitles] Starting subtitle analysis")
         data = request.get_json() or {}
         device_id = data.get('device_id', 'device1')
         video_id = data.get('video_id')
         screenshot_urls = data.get('screenshot_urls', [])
         
+        if not video_id:
+            return jsonify({'success': False, 'error': 'video_id is required'}), 400
+        if not screenshot_urls:
+            return jsonify({'success': False, 'error': 'screenshot_urls are required'}), 400
+        
         av_controller = get_controller(device_id, 'av')
         if not av_controller:
             return jsonify({'success': False, 'error': f'No AV controller for {device_id}'}), 404
         
-        result = av_controller.analyzeRestartSubtitles(video_id, screenshot_urls)
-        return jsonify(result) if result else jsonify({'success': False, 'error': 'Subtitle analysis failed'}), 500
+        with timeout(25):  # 25s max (under Flask 30s limit)
+            result = av_controller.analyzeRestartSubtitles(video_id, screenshot_urls)
             
+        if result and result.get('success'):
+            print(f"[@route:analyzeRestartSubtitles] Subtitle analysis completed successfully")
+            return jsonify(result)
+        else:
+            error_msg = result.get('error', 'Subtitle analysis failed') if result else 'Subtitle analysis failed'
+            print(f"[@route:analyzeRestartSubtitles] Subtitle analysis failed: {error_msg}")
+            return jsonify({'success': False, 'error': error_msg}), 500
+            
+    except TimeoutError as e:
+        print(f"[@route:analyzeRestartSubtitles] Timeout: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 408
     except Exception as e:
+        print(f"[@route:analyzeRestartSubtitles] Error: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @host_av_bp.route('/analyzeRestartSummary', methods=['POST'])
 def analyze_restart_summary():
     """Analyze video summary"""
+    import signal
+    from contextlib import contextmanager
+    
+    @contextmanager
+    def timeout(duration):
+        def timeout_handler(signum, frame):
+            raise TimeoutError(f"Summary analysis timed out after {duration} seconds")
+        signal.signal(signal.SIGALRM, timeout_handler)
+        signal.alarm(duration)
+        try:
+            yield
+        finally:
+            signal.alarm(0)
+    
     try:
+        print(f"[@route:analyzeRestartSummary] Starting summary analysis")
         data = request.get_json() or {}
         device_id = data.get('device_id', 'device1')
         video_id = data.get('video_id')
         screenshot_urls = data.get('screenshot_urls', [])
         
+        if not video_id:
+            return jsonify({'success': False, 'error': 'video_id is required'}), 400
+        if not screenshot_urls:
+            return jsonify({'success': False, 'error': 'screenshot_urls are required'}), 400
+        
         av_controller = get_controller(device_id, 'av')
         if not av_controller:
             return jsonify({'success': False, 'error': f'No AV controller for {device_id}'}), 404
         
-        result = av_controller.analyzeRestartSummary(video_id, screenshot_urls)
-        return jsonify(result) if result else jsonify({'success': False, 'error': 'Summary analysis failed'}), 500
+        with timeout(25):  # 25s max (under Flask 30s limit)
+            result = av_controller.analyzeRestartSummary(video_id, screenshot_urls)
             
+        if result and result.get('success'):
+            print(f"[@route:analyzeRestartSummary] Summary analysis completed successfully")
+            return jsonify(result)
+        else:
+            error_msg = result.get('error', 'Summary analysis failed') if result else 'Summary analysis failed'
+            print(f"[@route:analyzeRestartSummary] Summary analysis failed: {error_msg}")
+            return jsonify({'success': False, 'error': error_msg}), 500
+            
+    except TimeoutError as e:
+        print(f"[@route:analyzeRestartSummary] Timeout: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 408
     except Exception as e:
+        print(f"[@route:analyzeRestartSummary] Error: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @host_av_bp.route('/analyzeRestartVideo', methods=['POST'])
