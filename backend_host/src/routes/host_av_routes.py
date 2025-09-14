@@ -837,6 +837,68 @@ def analyze_restart_summary():
         if 'request_key' in locals():
             _mark_request_complete(request_key)
 
+@host_av_bp.route('/generateRestartReport', methods=['POST'])
+def generate_restart_report():
+    """Generate report with all analysis data collected from frontend"""
+    try:
+        print(f"[@route:generateRestartReport] Starting report generation")
+        data = request.get_json() or {}
+        device_id = data.get('device_id', 'device1')
+        video_url = data.get('video_url')
+        analysis_data = data.get('analysis_data', {})
+        
+        if not video_url:
+            return jsonify({'success': False, 'error': 'video_url is required'}), 400
+        if not analysis_data:
+            return jsonify({'success': False, 'error': 'analysis_data is required'}), 400
+        
+        av_controller = get_controller(device_id, 'av')
+        if not av_controller:
+            return jsonify({'success': False, 'error': f'No AV controller for {device_id}'}), 404
+        
+        # Import report generation utilities
+        from shared.lib.utils.report_generation import generate_and_upload_restart_report
+        from utils.host_utils import get_host_instance
+        import os
+        
+        # Get host and device info
+        host = get_host_instance()
+        host_info = {'host_name': host.host_name}
+        device_info = {
+            'device_name': av_controller.device_name,
+            'device_model': getattr(av_controller, 'device_model', 'Unknown'),
+            'device_id': device_id
+        }
+        
+        # Get local video path for R2 upload
+        local_video_path = os.path.join(av_controller.video_capture_path, "restart_video.mp4")
+        
+        # Generate report with complete analysis data from frontend
+        report_result = generate_and_upload_restart_report(
+            host_info=host_info,
+            device_info=device_info,
+            video_url=video_url,
+            analysis_data=analysis_data,
+            processing_time=0.0,
+            local_video_path=local_video_path if os.path.exists(local_video_path) else None
+        )
+        
+        if report_result.get('success'):
+            print(f"[@route:generateRestartReport] Report generated successfully: {report_result['report_url']}")
+            return jsonify({
+                'success': True,
+                'report_url': report_result['report_url'],
+                'report_path': report_result['report_path']
+            })
+        else:
+            error_msg = report_result.get('error', 'Report generation failed')
+            print(f"[@route:generateRestartReport] Report generation failed: {error_msg}")
+            return jsonify({'success': False, 'error': error_msg}), 500
+            
+    except Exception as e:
+        print(f"[@route:generateRestartReport] Error: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @host_av_bp.route('/analyzeRestartVideo', methods=['POST'])
 def analyze_restart_video():
     """Async AI analysis for restart video - subtitle detection + video descriptions"""

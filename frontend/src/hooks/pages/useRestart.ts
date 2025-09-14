@@ -348,28 +348,17 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
         
         // Step 4: Summary Analysis
         console.log(`[@hook:useRestart] Step 4: Starting summary analysis`);
-        console.log(`[@hook:useRestart] DEBUG: analysisResults =`, analysisResults);
         setAnalysisProgress(prev => ({ ...prev, summary: 'loading' }));
-        
-        const requestBody = {
-          host,
-          device_id: device.device_id || 'device1',
-          video_id: videoData.video_id,
-          screenshot_urls: videoData.screenshot_urls || [],
-          video_url: videoData.video_url, // Add video URL for report generation
-          // Include previous analysis results for complete report
-          analysis_data: {
-            audio_analysis: analysisResults.audio,
-            subtitle_analysis: analysisResults.subtitles,
-          }
-        };
-        
-        console.log(`[@hook:useRestart] DEBUG: Sending to summary endpoint:`, requestBody);
         
         const summaryResponse = await fetch(buildServerUrl('/server/av/analyzeRestartSummary'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(requestBody),
+          body: JSON.stringify({
+            host,
+            device_id: device.device_id || 'device1',
+            video_id: videoData.video_id,
+            screenshot_urls: videoData.screenshot_urls || [],
+          }),
           signal: abortControllerRef.current?.signal,
         });
         
@@ -389,14 +378,34 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
           setAnalysisProgress(prev => ({ ...prev, summary: 'completed' }));
           console.log(`[@hook:useRestart] Step 4: Summary analysis completed`);
           
-          // Check if report was generated as part of summary analysis
-          if (summaryData.report_url) {
-            setReportUrl(summaryData.report_url);
+          // Step 5: Generate Report with all collected analysis data
+          console.log(`[@hook:useRestart] Step 5: Starting report generation`);
+          setAnalysisProgress(prev => ({ ...prev, report: 'loading' }));
+          
+          const reportResponse = await fetch(buildServerUrl('/server/av/generateRestartReport'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              device_id: device.device_id || 'device1',
+              video_url: videoData.video_url,
+              analysis_data: {
+                audio_analysis: analysisResults.audio,
+                subtitle_analysis: analysisResults.subtitles,
+                video_analysis: analysisResults.videoDescription,
+              }
+            }),
+            signal: abortControllerRef.current?.signal,
+          });
+          
+          const reportData = await reportResponse.json();
+          
+          if (reportData.success && reportData.report_url) {
+            setReportUrl(reportData.report_url);
             setAnalysisProgress(prev => ({ ...prev, report: 'completed' }));
-            console.log(`[@hook:useRestart] Report generation completed: ${summaryData.report_url}`);
+            console.log(`[@hook:useRestart] Step 5: Report generation completed: ${reportData.report_url}`);
           } else {
             setAnalysisProgress(prev => ({ ...prev, report: 'error' }));
-            console.log(`[@hook:useRestart] Report generation failed or not included`);
+            console.log(`[@hook:useRestart] Step 5: Report generation failed: ${reportData.error || 'Unknown error'}`);
           }
         } else {
           setAnalysisProgress(prev => ({ ...prev, summary: 'error', report: 'error' }));

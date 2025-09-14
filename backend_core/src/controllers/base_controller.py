@@ -465,6 +465,11 @@ class FFmpegCaptureController(AVControllerInterface):
                     filename = os.path.basename(screenshot_path)
                     screenshot_urls.append(f"{self.video_stream_path}/captures/{filename}")
             
+            # Log screenshots that will be used for AI analysis
+            print(f"[generateRestartVideo] Screenshots for AI analysis ({len(screenshot_urls)} frames):")
+            for i, url in enumerate(screenshot_urls, 1):
+                print(f"[generateRestartVideo] {i}. {url}")
+            
             video_id = f"restart_{int(time.time())}_{str(uuid.uuid4())[:8]}"
             
             return {
