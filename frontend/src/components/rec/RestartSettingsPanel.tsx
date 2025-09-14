@@ -1,4 +1,4 @@
-import { Box, Typography, IconButton, Slide, Paper, Checkbox, Select, MenuItem, Collapse, CircularProgress } from '@mui/material';
+import { Box, Typography, IconButton, Slide, Paper, Select, MenuItem, Collapse } from '@mui/material';
 import { Close as CloseIcon, ExpandMore as ExpandMoreIcon, ExpandLess as ExpandLessIcon } from '@mui/icons-material';
 import React, { useState, useEffect } from 'react';
 import { buildServerUrl } from '../../utils/buildUrlUtils';
@@ -6,20 +6,8 @@ import { buildServerUrl } from '../../utils/buildUrlUtils';
 interface RestartSettingsPanelProps {
   open: boolean;
   onClose: () => void;
-  showSubtitleOverlay: boolean;
-  onToggleSubtitle: (show: boolean) => void;
-  showAudioTranscriptOverlay: boolean;
-  onToggleAudioTranscript: (show: boolean) => void;
-  summaryLanguage: string;
-  onSummaryLanguageChange: (lang: string) => void;
-  subtitleLanguage: string;
-  onSubtitleLanguageChange: (lang: string) => void;
-  audioTranscriptLanguage: string;
-  onAudioTranscriptLanguageChange: (lang: string) => void;
-  subtitleStyle: string;
-  onSubtitleStyleChange: (style: string) => void;
-  subtitleFontSize: string;
-  onSubtitleFontSizeChange: (size: string) => void;
+  language: string;
+  onLanguageChange: (lang: string) => void;
   videoDescription?: {
     frame_descriptions: string[];
     video_summary: string;
@@ -48,20 +36,8 @@ interface RestartSettingsPanelProps {
 export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
   open,
   onClose,
-  showSubtitleOverlay,
-  onToggleSubtitle,
-  showAudioTranscriptOverlay,
-  onToggleAudioTranscript,
-  summaryLanguage: _summaryLanguage,
-  onSummaryLanguageChange: _onSummaryLanguageChange,
-  subtitleLanguage,
-  onSubtitleLanguageChange,
-  audioTranscriptLanguage,
-  onAudioTranscriptLanguageChange,
-  subtitleStyle,
-  onSubtitleStyleChange,
-  subtitleFontSize,
-  onSubtitleFontSizeChange,
+  language,
+  onLanguageChange,
   videoDescription,
   audioTranscript,
   audioAnalysis,
@@ -71,8 +47,7 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
   const [isTranscriptExpanded, setIsTranscriptExpanded] = useState(false);
   const [isFrameAnalysisExpanded, setIsFrameAnalysisExpanded] = useState(false);
   const [translatedTranscript, setTranslatedTranscript] = useState<string>('');
-  const [translatedSubtitle, setTranslatedSubtitle] = useState<string>('');
-  const [isTranslatingAudio, setIsTranslatingAudio] = useState(false);
+  const [translatedSummary, setTranslatedSummary] = useState<string>('');
 
   // Language code to name mapping
   const getLanguageName = (code: string): string => {
@@ -149,54 +124,46 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
   };
 
   // Effect to handle dynamic translation when language changes
-  useEffect(() => {
-    const handleTranslation = async () => {
-      if (audioTranscript && audioTranscriptLanguage !== (audioAnalysis?.detected_language?.toLowerCase() || 'en')) {
-        try {
-          setIsTranslatingAudio(true);
-          const translated = await translateText(
-            audioTranscript, 
-            audioTranscriptLanguage, 
-            audioAnalysis?.detected_language?.toLowerCase() || 'en'
-          );
-          setTranslatedTranscript(translated);
-        } catch (error) {
-          console.error('Translation error:', error);
-          setTranslatedTranscript(audioTranscript); // Fallback to original
-        } finally {
-          setIsTranslatingAudio(false);
-        }
-      } else {
-        setTranslatedTranscript('');
-        setIsTranslatingAudio(false);
-      }
-    };
-
-    handleTranslation();
-  }, [audioTranscript, audioTranscriptLanguage, audioAnalysis?.detected_language]);
+  // Old translation logic removed - using unified translation system
 
   // Effect to handle subtitle translation when language changes
+  // Unified translation effect - translates all content when language changes
   useEffect(() => {
-    const handleSubtitleTranslation = async () => {
-      if (subtitleData?.extracted_text && subtitleLanguage !== (subtitleData?.detected_language?.toLowerCase() || 'en')) {
-        try {
-          const translated = await translateText(
-            subtitleData.extracted_text, 
-            subtitleLanguage, 
-            subtitleData.detected_language?.toLowerCase() || 'en'
+    const translateAllContent = async () => {
+      if (language === 'en') {
+        // Reset to original content for English
+        setTranslatedTranscript('');
+        setTranslatedSummary('');
+        return;
+      }
+
+      try {
+        // Translate audio transcript
+        if (audioTranscript && audioAnalysis?.detected_language) {
+          const translatedAudio = await translateText(
+            audioTranscript,
+            language,
+            audioAnalysis.detected_language.toLowerCase()
           );
-          setTranslatedSubtitle(translated);
-        } catch (error) {
-          console.error('Subtitle translation error:', error);
-          setTranslatedSubtitle(subtitleData.extracted_text); // Fallback to original
+          setTranslatedTranscript(translatedAudio);
         }
-      } else {
-        setTranslatedSubtitle('');
+
+        // Translate video summary
+        if (videoDescription?.video_summary) {
+          const translatedSum = await translateText(
+            videoDescription.video_summary,
+            language,
+            'en' // Assume summary is in English
+          );
+          setTranslatedSummary(translatedSum);
+        }
+      } catch (error) {
+        console.error('Translation error:', error);
       }
     };
 
-    handleSubtitleTranslation();
-  }, [subtitleData?.extracted_text, subtitleLanguage, subtitleData?.detected_language]);
+    translateAllContent();
+  }, [language, audioTranscript, subtitleData, videoDescription, audioAnalysis]);
 
   return (
     <Slide direction="left" in={open} mountOnEnter unmountOnExit>
@@ -240,12 +207,8 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
               Language:
             </Typography>
             <Select
-              value={subtitleLanguage} // Using subtitleLanguage as the global language state
-              onChange={(e) => {
-                const newLang = e.target.value;
-                onSubtitleLanguageChange(newLang);
-                onAudioTranscriptLanguageChange(newLang);
-              }}
+              value={language}
+              onChange={(e) => onLanguageChange(e.target.value)}
               size="small"
               sx={{ 
                 minWidth: 120, 
@@ -307,7 +270,8 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
                   lineHeight: 1.3,
                   borderLeft: '3px solid #4CAF50'
                 }}>
-                  {videoDescription.video_summary}
+                  <strong>{language === 'en' ? 'Original Summary:' : `Translated Summary (${getLanguageName(language)}):`}</strong><br />
+                  {language === 'en' ? videoDescription.video_summary : (translatedSummary || videoDescription.video_summary || 'Translating...')}
                 </Typography>
               </Box>
             </Collapse>
@@ -327,23 +291,11 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
                 fontSize: '0.85rem', 
                 fontWeight: 600,
                 flex: 1,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 1
+                cursor: 'pointer'
               }}
               onClick={() => setIsTranscriptExpanded(!isTranscriptExpanded)}
             >
               Audio Transcript
-              {isTranslatingAudio && (
-                <CircularProgress 
-                  size={12} 
-                  sx={{ 
-                    color: '#ffffff',
-                    ml: 0.5
-                  }} 
-                />
-              )}
             </Typography>
             {audioAnalysis && audioAnalysis.speech_detected && (
               <IconButton
@@ -366,24 +318,12 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
                 borderRadius: 1,
                 borderLeft: '3px solid #FF9800'
               }}>
-                <strong>Original ({getLanguageName(audioAnalysis?.detected_language || 'Unknown')}, {Math.round((audioAnalysis?.confidence || 0) * 100)}% confidence):</strong><br />
-                {audioTranscript || 'No transcript available'}
+                <strong>
+                  {language === 'en' ? 'Original' : `Translated to ${getLanguageName(language)}`} 
+                  ({getLanguageName(audioAnalysis?.detected_language || 'Unknown')}, {Math.round((audioAnalysis?.confidence || 0) * 100)}% confidence):
+                </strong><br />
+                {language === 'en' ? (audioTranscript || 'No transcript available') : (translatedTranscript || audioTranscript || 'Translating...')}
               </Typography>
-              
-              {audioTranscriptLanguage !== (audioAnalysis?.detected_language?.toLowerCase() || 'en') && audioTranscript && (
-                <Typography variant="body2" sx={{ 
-                  p: 1.5, 
-                  mt: 1,
-                  fontSize: '0.75rem',
-                  lineHeight: 1.4,
-                  backgroundColor: 'rgba(255,255,255,0.15)', 
-                  borderRadius: 1,
-                  borderLeft: '3px solid #4CAF50'
-                }}>
-                  <strong>Translated ({getLanguageName(audioTranscriptLanguage)}):</strong><br />
-                  {translatedTranscript || 'Translating...'}
-                </Typography>
-              )}
             </Box>
           </Collapse>
         </Box>
@@ -414,45 +354,6 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
             )}
           </Box>
           
-          {/* Style and Font Size Controls */}
-          <Box sx={{ display: 'flex', gap: 0.8, flexWrap: 'wrap', mb: 1 }}>
-            <Select
-              value={subtitleStyle}
-              onChange={(e) => onSubtitleStyleChange(e.target.value)}
-              size="small"
-              sx={{ 
-                minWidth: 100, 
-                minHeight: 28,
-                fontSize: '0.75rem',
-                color: '#ffffff', 
-                '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.3)' },
-                '& .MuiSelect-select': { py: 0.5 }
-              }}
-            >
-              <MenuItem value="yellow" sx={{ fontSize: '0.75rem' }}>Yellow</MenuItem>
-              <MenuItem value="white" sx={{ fontSize: '0.75rem' }}>White</MenuItem>
-              <MenuItem value="white-border" sx={{ fontSize: '0.75rem' }}>White Border</MenuItem>
-              <MenuItem value="black-bg" sx={{ fontSize: '0.75rem' }}>Black Background</MenuItem>
-            </Select>
-            
-            <Select
-              value={subtitleFontSize}
-              onChange={(e) => onSubtitleFontSizeChange(e.target.value)}
-              size="small"
-              sx={{ 
-                minWidth: 70, 
-                minHeight: 28,
-                fontSize: '0.75rem',
-                color: '#ffffff', 
-                '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.3)' },
-                '& .MuiSelect-select': { py: 0.5 }
-              }}
-            >
-              <MenuItem value="small" sx={{ fontSize: '0.75rem' }}>Small</MenuItem>
-              <MenuItem value="medium" sx={{ fontSize: '0.75rem' }}>Medium</MenuItem>
-              <MenuItem value="large" sx={{ fontSize: '0.75rem' }}>Large</MenuItem>
-            </Select>
-          </Box>
           
           {/* Frame Analysis Content */}
           <Collapse in={isFrameAnalysisExpanded}>
@@ -516,20 +417,6 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
                 </Box>
               )}
               
-              {/* Translated subtitles if different language */}
-              {subtitleLanguage !== (subtitleData?.detected_language || 'en') && translatedSubtitle && (
-                <Typography variant="body2" sx={{ 
-                  p: 1.5, 
-                  fontSize: '0.75rem',
-                  lineHeight: 1.4,
-                  backgroundColor: 'rgba(255,255,255,0.15)', 
-                  borderRadius: 1,
-                  borderLeft: '3px solid #4CAF50'
-                }}>
-                  <strong>Translated Subtitles ({getLanguageName(subtitleLanguage)}):</strong><br />
-                  {translatedSubtitle || 'Translating...'}
-                </Typography>
-              )}
             </Box>
           </Collapse>
         </Box>

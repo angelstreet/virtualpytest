@@ -88,19 +88,23 @@ export const RestartPlayer: React.FC<RestartPlayerProps> = ({ host, device, incl
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [showSubtitleOverlay, setShowSubtitleOverlay] = useState(true);
-  const [showAudioTranscriptOverlay, setShowAudioTranscriptOverlay] = useState(true);
-  const [summaryLanguage, setSummaryLanguage] = useState('en');
-  const [subtitleLanguage, setSubtitleLanguage] = useState('en');
-  const [audioTranscriptLanguage, setAudioTranscriptLanguage] = useState('en');
-  const [subtitleStyle, setSubtitleStyle] = useState('yellow');
-  const [subtitleFontSize, setSubtitleFontSize] = useState('medium');
+  const [language, setLanguage] = useState('en');
   
   const { videoUrl, isGenerating, isReady, error, analysisResults, isAnalysisComplete, reportUrl, analysisProgress } = useRestart({ 
     host, 
     device, 
     includeAudioAnalysis 
   });
+
+  // Debug video URL
+  useEffect(() => {
+    console.log(`[@component:RestartPlayer] Video state:`, {
+      videoUrl,
+      isReady,
+      isGenerating,
+      error
+    });
+  }, [videoUrl, isReady, isGenerating, error]);
 
   useEffect(() => {
     return () => {
@@ -169,14 +173,16 @@ export const RestartPlayer: React.FC<RestartPlayerProps> = ({ host, device, incl
 
       {/* Simple video player - ready state */}
       {isReady && videoUrl && !isGenerating && (
-        <Box
-          component="video"
+        <video
           ref={videoRef}
           src={videoUrl}
           controls
           autoPlay
           muted={false}
-          sx={{
+          onLoadStart={() => console.log('[@component:RestartPlayer] Video load started')}
+          onLoadedData={() => console.log('[@component:RestartPlayer] Video loaded data')}
+          onError={(e) => console.error('[@component:RestartPlayer] Video error:', e)}
+          style={{
             position: 'absolute',
             top: 0,
             left: 0,
@@ -204,12 +210,10 @@ export const RestartPlayer: React.FC<RestartPlayerProps> = ({ host, device, incl
 
 
         {/* Subtitle overlay - bottom, covers original */}
-        {showSubtitleOverlay && analysisResults.subtitles?.frame_subtitles && (
+        {analysisResults.subtitles?.frame_subtitles && (
           <RestartSubtitleOverlay
             videoRef={videoRef}
             frameSubtitles={analysisResults.subtitles.frame_subtitles}
-            style={subtitleStyle}
-            fontSize={subtitleFontSize}
           />
         )}
       </Box>
@@ -262,20 +266,8 @@ export const RestartPlayer: React.FC<RestartPlayerProps> = ({ host, device, incl
       <RestartSettingsPanel
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
-        showSubtitleOverlay={showSubtitleOverlay}
-        onToggleSubtitle={setShowSubtitleOverlay}
-        showAudioTranscriptOverlay={showAudioTranscriptOverlay}
-        onToggleAudioTranscript={setShowAudioTranscriptOverlay}
-        summaryLanguage={summaryLanguage}
-        onSummaryLanguageChange={setSummaryLanguage}
-        subtitleLanguage={subtitleLanguage}
-        onSubtitleLanguageChange={setSubtitleLanguage}
-        audioTranscriptLanguage={audioTranscriptLanguage}
-        onAudioTranscriptLanguageChange={setAudioTranscriptLanguage}
-        subtitleStyle={subtitleStyle}
-        onSubtitleStyleChange={setSubtitleStyle}
-        subtitleFontSize={subtitleFontSize}
-        onSubtitleFontSizeChange={setSubtitleFontSize}
+        language={language}
+        onLanguageChange={setLanguage}
         videoDescription={analysisResults.videoDescription || undefined}
         audioTranscript={analysisResults.audio?.combined_transcript}
         audioAnalysis={analysisResults.audio || undefined}
