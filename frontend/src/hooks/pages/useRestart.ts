@@ -364,7 +364,7 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
               device_id: device.device_id || 'device1',
               video_url: videoData.video_url,
               analysis_data: {
-                audio_analysis: analysisResults.audio,
+                audio_analysis: audioData.audio_analysis,
                 subtitle_analysis: combinedData.subtitle_analysis,
                 video_analysis: combinedData.video_analysis,
               }
