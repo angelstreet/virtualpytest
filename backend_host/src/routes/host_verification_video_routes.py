@@ -380,6 +380,57 @@ def analyze_image_ai():
             'error': f'AI image analysis error: {str(e)}'
         }), 500
 
+@host_verification_video_bp.route('/analyzeImageComplete', methods=['POST'])
+def analyze_image_complete():
+    """Combined AI analysis: subtitles + description in single call"""
+    try:
+        print("[@route:host_verification_video:analyzeImageComplete] Processing combined AI analysis request")
+        
+        # Get request data
+        data = request.get_json() or {}
+        device_id = data.get('device_id', 'device1')
+        image_source_url = data.get('image_source_url')
+        extract_text = data.get('extract_text', True)
+        include_description = data.get('include_description', True)
+        
+        print(f"[@route:host_verification_video:analyzeImageComplete] Image: {image_source_url}")
+        print(f"[@route:host_verification_video:analyzeImageComplete] Extract text: {extract_text}, Include description: {include_description}")
+        
+        if not image_source_url:
+            return jsonify({'success': False, 'error': 'image_source_url is required'}), 400
+        
+        # Convert URL to local path if needed
+        final_image_path = image_source_url
+        if image_source_url.startswith(('http://', 'https://')):
+            from shared.lib.utils.build_url_utils import convertHostUrlToLocalPath
+            final_image_path = convertHostUrlToLocalPath(image_source_url)
+        
+        # Get video verification controller
+        video_controller, device, error_response = get_verification_controller(device_id, 'verification_video')
+        if error_response:
+            return error_response
+        
+        # Execute combined AI analysis
+        start_time = time.time()
+        result = video_controller.analyze_image_complete(final_image_path, extract_text, include_description)
+        execution_time = int((time.time() - start_time) * 1000)
+        
+        # Add execution time to result
+        result['execution_time_ms'] = execution_time
+        
+        print(f"[@route:host_verification_video:analyzeImageComplete] Result: success={result.get('success')}, time={execution_time}ms")
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        print(f"[@route:host_verification_video:analyzeImageComplete] Error: {str(e)}")
+        import traceback
+        print(f"[@route:host_verification_video:analyzeImageComplete] Traceback: {traceback.format_exc()}")
+        return jsonify({
+            'success': False,
+            'error': f'Combined AI analysis error: {str(e)}'
+        }), 500
+
 @host_verification_video_bp.route('/analyzeLanguageMenu', methods=['POST'])
 def analyze_language_menu():
     """Analyze image for language/subtitle menu options using AI"""

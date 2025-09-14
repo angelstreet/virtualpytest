@@ -436,6 +436,24 @@ def video_analyze_image_ai():
         print(f"[@route:server_verification_common:video_analyze_image_ai] Error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
+@server_verification_common_bp.route('/video/analyzeImageComplete', methods=['POST'])
+def video_analyze_image_complete():
+    """Combined AI analysis: subtitles + description in single call"""
+    try:
+        print("[@route:server_verification_common:video_analyze_image_complete] Proxying combined AI analysis request")
+        
+        # Get request data
+        request_data = request.get_json() or {}
+        
+        # Proxy to host combined analysis endpoint
+        response_data, status_code = proxy_to_host('/host/verification/video/analyzeImageComplete', 'POST', request_data, timeout=60)
+        
+        return jsonify(response_data), status_code
+        
+    except Exception as e:
+        print(f"[@route:server_verification_common:video_analyze_image_complete] Error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @server_verification_common_bp.route('/video/analyzeLanguageMenu', methods=['POST'])
 def video_analyze_language_menu():
     """Proxy AI language menu analysis request to host"""

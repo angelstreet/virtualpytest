@@ -442,6 +442,10 @@ class VideoVerificationController(VerificationControllerInterface):
     def analyze_image_ai(self, image_path: str, user_query: str) -> Dict[str, Any]:
         """Wrapper method for analyze_image_with_ai to match route expectations."""
         return self.ai_helpers.analyze_image_ai_wrapper(image_path, user_query)
+    
+    def analyze_image_complete(self, image_path: str, extract_text: bool = True, include_description: bool = True) -> Dict[str, Any]:
+        """Combined AI analysis: subtitles + description in single call."""
+        return self.ai_helpers.analyze_image_complete(image_path, extract_text, include_description)
 
     def analyze_language_menu_ai(self, image_path: str) -> Dict[str, Any]:
         """AI-powered language/subtitle menu analysis using OpenRouter."""

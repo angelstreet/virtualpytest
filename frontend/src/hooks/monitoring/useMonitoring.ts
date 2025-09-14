@@ -148,47 +148,36 @@ export const useMonitoring = ({
     const startTime = performance.now();
     console.log('[useMonitoring] 🤖 Background AI analysis for:', queuedFrame.imageUrl);
 
-    // AI analysis in background (for caching)
-    const [subtitleResult, descriptionResult] = await Promise.allSettled([
-      fetch(buildServerUrl('/server/verification/video/detectSubtitlesAI'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          host: host,
-          device_id: device?.device_id,
-          image_source_url: queuedFrame.imageUrl,
-          extract_text: true,
-        }),
-      }).then(r => r.ok ? r.json() : null),
+    // Combined AI analysis in background (single call for both subtitle + description)
+    const combinedResult = await fetch(buildServerUrl('/server/verification/video/analyzeImageComplete'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        host: host,
+        device_id: device?.device_id,
+        image_source_url: queuedFrame.imageUrl,
+        extract_text: true,
+        include_description: true,
+      }),
+    }).then(r => r.ok ? r.json() : null).catch(() => null);
 
-      fetch(buildServerUrl('/server/verification/video/analyzeImageAI'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          host: host,
-          device_id: device?.device_id,
-          image_source_url: queuedFrame.imageUrl,
-          query: 'Provide a short description of what you see in this image',
-        }),
-      }).then(r => r.ok ? r.json() : null),
-    ]);
-
-    // Process AI results
+    // Process combined AI results
     let subtitleAnalysis = null;
-    if (subtitleResult.status === 'fulfilled' && subtitleResult.value?.success) {
-      const data = subtitleResult.value.results?.[0] || {};
+    let aiDescription = null;
+    
+    if (combinedResult?.success && combinedResult.subtitle_analysis) {
+      const data = combinedResult.subtitle_analysis;
       subtitleAnalysis = {
-        subtitles_detected: subtitleResult.value.subtitles_detected || false,
-        combined_extracted_text: subtitleResult.value.combined_extracted_text || data.extracted_text || '',
-        detected_language: subtitleResult.value.detected_language !== 'unknown' ? subtitleResult.value.detected_language : undefined,
-        confidence: data.confidence || (subtitleResult.value.subtitles_detected ? 0.9 : 0.1),
-        detection_message: subtitleResult.value.detection_message || '',
+        subtitles_detected: data.subtitles_detected || false,
+        combined_extracted_text: data.combined_extracted_text || '',
+        detected_language: data.detected_language !== 'unknown' ? data.detected_language : undefined,
+        confidence: data.confidence || (data.subtitles_detected ? 0.9 : 0.1),
+        detection_message: data.detection_message || '',
       };
     }
 
-    let aiDescription = null;
-    if (descriptionResult.status === 'fulfilled' && descriptionResult.value?.success) {
-      aiDescription = descriptionResult.value.response;
+    if (combinedResult?.success && combinedResult.description_analysis?.success) {
+      aiDescription = combinedResult.description_analysis.response;
     }
 
     const totalTime = performance.now() - startTime;
