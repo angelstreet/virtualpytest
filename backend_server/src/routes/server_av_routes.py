@@ -643,6 +643,29 @@ def generate_restart_report():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
+@server_av_bp.route('/analyzeRestartComplete', methods=['POST'])
+def analyze_restart_complete():
+    """Combined restart analysis: subtitles + summary in single call"""
+    try:
+        request_data = request.get_json() or {}
+        host = request_data.get('host')
+        device_id = request_data.get('device_id', 'device1')
+
+        if not host:
+            return jsonify({'success': False, 'error': 'Host required'}), 400
+
+        response_data, status_code = proxy_to_host_with_params(
+            '/host/av/analyzeRestartComplete',
+            'POST',
+            request_data,
+            {'device_id': device_id},
+            timeout=60  # 1 minute timeout for combined analysis
+        )
+        return jsonify(response_data), status_code
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @server_av_bp.route('/analyzeRestartVideo', methods=['POST'])
 def analyze_restart_video():
     """Proxy async AI analysis request to selected host with device_id"""

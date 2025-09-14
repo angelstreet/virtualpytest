@@ -308,11 +308,11 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
           console.log(`[@hook:useRestart] Step 2: Audio analysis failed`);
         }
         
-        // Step 3: Subtitle Analysis
-        console.log(`[@hook:useRestart] Step 3: Starting subtitle analysis`);
-        setAnalysisProgress(prev => ({ ...prev, subtitles: 'loading' }));
+        // Step 3: Combined Subtitle + Summary Analysis (OPTIMIZED)
+        console.log(`[@hook:useRestart] Step 3: Starting combined subtitle + summary analysis`);
+        setAnalysisProgress(prev => ({ ...prev, subtitles: 'loading', summary: 'loading' }));
         
-        const subtitleResponse = await fetch(buildServerUrl('/server/av/analyzeRestartSubtitles'), {
+        const combinedResponse = await fetch(buildServerUrl('/server/av/analyzeRestartComplete'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -324,62 +324,36 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
           signal: abortControllerRef.current?.signal,
         });
         
-        const subtitleData = await subtitleResponse.json();
+        const combinedData = await combinedResponse.json();
         
         // Handle duplicate request (409) - treat as success since analysis is already running
-        if (subtitleResponse.status === 409 && subtitleData.code === 'DUPLICATE_REQUEST') {
-          console.log(`[@hook:useRestart] Step 3: Subtitle analysis already in progress, skipping`);
-          setAnalysisProgress(prev => ({ ...prev, subtitles: 'completed' }));
-        } else if (subtitleData.success && subtitleData.subtitle_analysis) {
-          setAnalysisResults(prev => ({ ...prev, subtitles: {
-            success: subtitleData.subtitle_analysis.success,
-            subtitles_detected: subtitleData.subtitle_analysis.subtitles_detected || false,
-            extracted_text: subtitleData.subtitle_analysis.extracted_text || '',
-            detected_language: subtitleData.subtitle_analysis.detected_language || 'unknown',
-            execution_time_ms: 0,
-            frame_subtitles: subtitleData.subtitle_analysis.frame_subtitles || [],
-          }}));
-          setAnalysisProgress(prev => ({ ...prev, subtitles: 'completed' }));
-          console.log(`[@hook:useRestart] Step 3: Subtitle analysis completed`);
-        } else {
-          setAnalysisProgress(prev => ({ ...prev, subtitles: 'error' }));
-          console.log(`[@hook:useRestart] Step 3: Subtitle analysis failed`);
-        }
-        
-        // Step 4: Summary Analysis
-        console.log(`[@hook:useRestart] Step 4: Starting summary analysis`);
-        setAnalysisProgress(prev => ({ ...prev, summary: 'loading' }));
-        
-        const summaryResponse = await fetch(buildServerUrl('/server/av/analyzeRestartSummary'), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            host,
-            device_id: device.device_id || 'device1',
-            video_id: videoData.video_id,
-            screenshot_urls: videoData.screenshot_urls || [],
-          }),
-          signal: abortControllerRef.current?.signal,
-        });
-        
-        const summaryData = await summaryResponse.json();
-        
-        // Handle duplicate request (409) - treat as success since analysis is already running
-        if (summaryResponse.status === 409 && summaryData.code === 'DUPLICATE_REQUEST') {
-          console.log(`[@hook:useRestart] Step 4: Summary analysis already in progress, skipping`);
-          setAnalysisProgress(prev => ({ ...prev, summary: 'completed', report: 'completed' }));
-        } else if (summaryData.success && summaryData.video_analysis) {
-          setAnalysisResults(prev => ({ ...prev, videoDescription: {
-            frame_descriptions: summaryData.video_analysis.frame_descriptions || [],
-            video_summary: summaryData.video_analysis.video_summary || '',
-            frames_analyzed: summaryData.video_analysis.frames_analyzed || 0,
-            execution_time_ms: 0,
-          }}));
-          setAnalysisProgress(prev => ({ ...prev, summary: 'completed' }));
-          console.log(`[@hook:useRestart] Step 4: Summary analysis completed`);
+        if (combinedResponse.status === 409 && combinedData.code === 'DUPLICATE_REQUEST') {
+          console.log(`[@hook:useRestart] Step 3: Combined analysis already in progress, skipping`);
+          setAnalysisProgress(prev => ({ ...prev, subtitles: 'completed', summary: 'completed' }));
+        } else if (combinedData.success && combinedData.subtitle_analysis && combinedData.video_analysis) {
+          // Update both subtitle and video description results from single response
+          setAnalysisResults(prev => ({ 
+            ...prev, 
+            subtitles: {
+              success: combinedData.subtitle_analysis.success,
+              subtitles_detected: combinedData.subtitle_analysis.subtitles_detected || false,
+              extracted_text: combinedData.subtitle_analysis.extracted_text || '',
+              detected_language: combinedData.subtitle_analysis.detected_language || 'unknown',
+              execution_time_ms: 0,
+              frame_subtitles: combinedData.subtitle_analysis.frame_subtitles || [],
+            },
+            videoDescription: {
+              frame_descriptions: combinedData.video_analysis.frame_descriptions || [],
+              video_summary: combinedData.video_analysis.video_summary || '',
+              frames_analyzed: combinedData.video_analysis.frames_analyzed || 0,
+              execution_time_ms: 0,
+            }
+          }));
+          setAnalysisProgress(prev => ({ ...prev, subtitles: 'completed', summary: 'completed' }));
+          console.log(`[@hook:useRestart] Step 3: Combined analysis completed (subtitles + summary)`);
           
-          // Step 5: Generate Report with all collected analysis data
-          console.log(`[@hook:useRestart] Step 5: Starting report generation`);
+          // Step 4: Generate Report with all collected analysis data
+          console.log(`[@hook:useRestart] Step 4: Starting report generation`);
           setAnalysisProgress(prev => ({ ...prev, report: 'loading' }));
           
           const reportResponse = await fetch(buildServerUrl('/server/av/generateRestartReport'), {
@@ -391,8 +365,8 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
               video_url: videoData.video_url,
               analysis_data: {
                 audio_analysis: analysisResults.audio,
-                subtitle_analysis: analysisResults.subtitles,
-                video_analysis: analysisResults.videoDescription,
+                subtitle_analysis: combinedData.subtitle_analysis,
+                video_analysis: combinedData.video_analysis,
               }
             }),
             signal: abortControllerRef.current?.signal,
@@ -403,14 +377,14 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
           if (reportData.success && reportData.report_url) {
             setReportUrl(reportData.report_url);
             setAnalysisProgress(prev => ({ ...prev, report: 'completed' }));
-            console.log(`[@hook:useRestart] Step 5: Report generation completed: ${reportData.report_url}`);
+            console.log(`[@hook:useRestart] Step 4: Report generation completed: ${reportData.report_url}`);
           } else {
             setAnalysisProgress(prev => ({ ...prev, report: 'error' }));
-            console.log(`[@hook:useRestart] Step 5: Report generation failed: ${reportData.error || 'Unknown error'}`);
+            console.log(`[@hook:useRestart] Step 4: Report generation failed: ${reportData.error || 'Unknown error'}`);
           }
         } else {
-          setAnalysisProgress(prev => ({ ...prev, summary: 'error', report: 'error' }));
-          console.log(`[@hook:useRestart] Step 4: Summary analysis failed`);
+          setAnalysisProgress(prev => ({ ...prev, subtitles: 'error', summary: 'error', report: 'error' }));
+          console.log(`[@hook:useRestart] Step 3: Combined analysis failed`);
         }
         
         console.log(`[@hook:useRestart] All analysis steps including report generation completed`);

@@ -837,6 +837,72 @@ def analyze_restart_summary():
         if 'request_key' in locals():
             _mark_request_complete(request_key)
 
+@host_av_bp.route('/analyzeRestartComplete', methods=['POST'])
+def analyze_restart_complete():
+    """Combined restart analysis: subtitles + summary in single call"""
+    import signal
+    from contextlib import contextmanager
+    
+    @contextmanager
+    def timeout(duration):
+        def timeout_handler(signum, frame):
+            raise TimeoutError(f"Combined analysis timed out after {duration} seconds")
+        signal.signal(signal.SIGALRM, timeout_handler)
+        signal.alarm(duration)
+        try:
+            yield
+        finally:
+            signal.alarm(0)
+    
+    try:
+        print(f"[@route:analyzeRestartComplete] Starting combined analysis")
+        data = request.get_json() or {}
+        device_id = data.get('device_id', 'device1')
+        video_id = data.get('video_id')
+        screenshot_urls = data.get('screenshot_urls', [])
+        
+        if not video_id:
+            return jsonify({'success': False, 'error': 'video_id is required'}), 400
+        if not screenshot_urls:
+            return jsonify({'success': False, 'error': 'screenshot_urls are required'}), 400
+        
+        # Deduplication check
+        request_key = _get_request_key('analyzeRestartComplete', device_id, video_id)
+        if _is_request_active(request_key):
+            print(f"[@route:analyzeRestartComplete] Duplicate request detected, returning 409")
+            return jsonify({
+                'success': False, 
+                'error': 'Combined analysis already in progress for this video',
+                'code': 'DUPLICATE_REQUEST'
+            }), 409
+        
+        _mark_request_active(request_key)
+        
+        av_controller = get_controller(device_id, 'av')
+        if not av_controller:
+            return jsonify({'success': False, 'error': f'No AV controller for {device_id}'}), 404
+        
+        with timeout(45):  # 45s max for combined analysis (longer than individual calls)
+            result = av_controller.analyzeRestartComplete(video_id, screenshot_urls)
+            
+        if result and result.get('success'):
+            print(f"[@route:analyzeRestartComplete] Combined analysis completed successfully")
+            return jsonify(result), 200
+        else:
+            error_msg = result.get('error', 'Combined analysis failed') if result else 'Combined analysis failed'
+            print(f"[@route:analyzeRestartComplete] Combined analysis failed: {error_msg}")
+            return jsonify({'success': False, 'error': error_msg}), 500
+            
+    except TimeoutError as e:
+        print(f"[@route:analyzeRestartComplete] Timeout: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 408
+    except Exception as e:
+        print(f"[@route:analyzeRestartComplete] Error: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        if 'request_key' in locals():
+            _mark_request_complete(request_key)
+
 @host_av_bp.route('/generateRestartReport', methods=['POST'])
 def generate_restart_report():
     """Generate report with all analysis data collected from frontend"""

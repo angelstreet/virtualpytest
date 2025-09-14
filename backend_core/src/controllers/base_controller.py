@@ -604,6 +604,83 @@ class FFmpegCaptureController(AVControllerInterface):
             print(f"Summary analysis error: {e}")
             return {'success': False, 'error': str(e)}
 
+    def analyzeRestartComplete(self, video_id: str, screenshot_urls: list) -> Optional[Dict[str, Any]]:
+        """Combined restart analysis: subtitles + summary in single optimized call"""
+        try:
+            from shared.lib.utils.build_url_utils import convertHostUrlToLocalPath
+            from backend_core.src.controllers.verification.video import VideoVerificationController
+            
+            local_paths = [convertHostUrlToLocalPath(url) if url.startswith(('http://', 'https://')) else url for url in screenshot_urls]
+            
+            video_controller = VideoVerificationController(self.device_name)
+            
+            # Use the optimized combined analysis for each frame
+            frame_subtitles = []
+            frame_descriptions = []
+            detected_language = 'unknown'
+            
+            for i, local_path in enumerate(local_paths):
+                # Single AI call for both subtitle + description analysis
+                combined_result = video_controller.analyze_image_complete(local_path, extract_text=True, include_description=True)
+                
+                if combined_result and combined_result.get('success'):
+                    # Extract subtitle data
+                    subtitle_data = combined_result.get('subtitle_analysis', {})
+                    text = subtitle_data.get('extracted_text', '').strip()
+                    frame_text = text if text and text != 'No subtitles detected' else 'No subtitles detected'
+                    frame_subtitles.append(f"Frame {i+1}: {frame_text}")
+                    
+                    # Update detected language from first successful detection
+                    if detected_language == 'unknown' and subtitle_data.get('detected_language'):
+                        detected_language = subtitle_data.get('detected_language')
+                    
+                    # Extract description data
+                    description_data = combined_result.get('description_analysis', {})
+                    description = description_data.get('description', '').strip()
+                    if description:
+                        frame_descriptions.append(f"Frame {i+1}: {description}")
+                    else:
+                        frame_descriptions.append(f"Frame {i+1}: No description available")
+                else:
+                    frame_subtitles.append(f"Frame {i+1}: No subtitles detected")
+                    frame_descriptions.append(f"Frame {i+1}: No description available")
+            
+            # Generate video summary from frame descriptions
+            if frame_descriptions:
+                summary_query = f"Based on the {len(frame_descriptions)} frame descriptions, provide a concise summary of what happened in this video sequence."
+                video_summary = video_controller.analyze_image_with_ai(local_paths[0], summary_query) if local_paths else "No video description available"
+                if not video_summary or not video_summary.strip():
+                    video_summary = f"Video sequence showing {len(frame_descriptions)} frames of activity"
+            else:
+                video_summary = "No video description available"
+            
+            # Combine subtitle analysis results
+            subtitle_analysis = {
+                'success': True,
+                'subtitles_detected': any('No subtitles detected' not in fs for fs in frame_subtitles),
+                'extracted_text': ' '.join([fs.split(': ', 1)[1] for fs in frame_subtitles if 'No subtitles detected' not in fs]),
+                'detected_language': detected_language,
+                'frame_subtitles': frame_subtitles
+            }
+            
+            # Combine video analysis results
+            video_analysis = {
+                'success': True,
+                'frame_descriptions': frame_descriptions,
+                'video_summary': video_summary.strip(),
+                'frames_analyzed': len(local_paths)
+            }
+            
+            return {
+                'success': True,
+                'subtitle_analysis': subtitle_analysis,
+                'video_analysis': video_analysis
+            }
+            
+        except Exception as e:
+            print(f"Combined restart analysis error: {e}")
+            return {'success': False, 'error': str(e)}
+
     def generateRestartVideoFast(self, duration_seconds: float = None, test_start_time: float = None, processing_time: float = None) -> Optional[Dict[str, Any]]:
         """
         Fast restart video generation - returns video URL + audio analysis only.
