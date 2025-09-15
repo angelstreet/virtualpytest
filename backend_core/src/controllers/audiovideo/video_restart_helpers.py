@@ -976,20 +976,20 @@ class VideoRestartHelpers:
             subprocess.run(final_cmd, capture_output=True, text=True, check=True)
             
             # Build URL for adjusted video
-                adjusted_video_url = self._build_video_url(output_filename)
+            adjusted_video_url = self._build_video_url(output_filename)
             
             # Generate new video ID
-                video_id = f"restart_{int(time.time())}_{language}_timing_{target_timing_ms:+d}ms"
-                
+            video_id = f"restart_{int(time.time())}_{language}_timing_{target_timing_ms:+d}ms"
+            
             print(f"RestartHelpers[{self.device_name}]: Cached component timing adjustment completed: {output_filename}")
-                return {
-                    'success': True,
-                    'adjusted_video_url': adjusted_video_url,
-                    'timing_offset_ms': target_timing_ms,
-                    'language': language,
-                    'video_id': video_id,
-                    'original_video_url': video_url
-                }
+            return {
+                'success': True,
+                'adjusted_video_url': adjusted_video_url,
+                'timing_offset_ms': target_timing_ms,
+                'language': language,
+                'video_id': video_id,
+                'original_video_url': video_url
+            }
             
         except Exception as e:
             print(f"RestartHelpers[{self.device_name}]: Cached component timing failed: {e}")
