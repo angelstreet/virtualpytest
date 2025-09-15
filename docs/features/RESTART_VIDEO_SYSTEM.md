@@ -689,10 +689,10 @@ Phase 3 - Dubbing (On Language Selection):
 - **Background Caching**: Demucs separation cached after first use for all languages
 
 ### Audio Timing Implementation
-- **Backend Method**: `VideoRestartHelpers.adjust_video_audio_timing()` with cached component optimization
-- **Cached Component Architecture**: Reuses separated audio components (silent video + background + vocals)
+- **Backend Method**: `VideoRestartHelpers.adjust_video_audio_timing()` with component reuse optimization
+- **Component Reuse Architecture**: Reuses same base components across all languages
 - **Primary Method**: 
-  - **Step 1**: Apply timing to vocals only (`adelay`/`atrim` on vocal track)
+  - **Step 1**: Apply timing to appropriate vocals only (positive: silence prepend, negative: `atrim` from start)
   - **Step 2**: Mix background + timed vocals (pydub overlay)
   - **Step 3**: Combine silent video + mixed audio (FFmpeg assembly)
 - **Fallback Method**: Traditional FFmpeg filters on full video when cached components unavailable
@@ -700,12 +700,17 @@ Phase 3 - Dubbing (On Language Selection):
   - **Frontend Tracks Components**: Frontend maintains `componentCache` with paths to separated video components
   - **API Integration**: Frontend passes component paths to backend in timing/dubbing requests
   - **Auto-Creation**: Backend creates components only when frontend doesn't provide paths
-  - **Cross-Operation Reuse**: Same components reused for timing adjustments and dubbing across languages
+  - **Universal Component Reuse**: Same base components (silent video + background) used for all languages
+  - **Language-Specific Vocals**: Uses original vocals for English, dubbed vocals for other languages
   - **No Backend File Cache**: Backend never checks file existence - relies on frontend component tracking
   - **Clean Architecture**: Frontend handles caching, backend handles processing
-- **Timing Caching**: Vocal timing variations cached (e.g., `restart_original_vocals_syncp100.wav`)
+- **Timing Methods**:
+  - **Positive Timing (+ms)**: Prepends silence using FFmpeg `anullsrc` + `concat` (clean, no echo)
+  - **Negative Timing (-ms)**: Trims from start using FFmpeg `atrim` (clean, precise)
+  - **No adelay Filter**: Eliminates phase/echo issues from stereo channel misalignment
 - **Performance**: 1.5-3 seconds first generation, <0.1 seconds for cached versions
-- **No Double Audio**: Clean separation ensures single vocal track in final mix
+- **No Double Audio**: Clean separation + proper timing methods ensure single vocal track
+- **Cross-Language Support**: Same components work for original English and all dubbed languages
 - **Frontend Integration**: Simple dropdown UI in `RestartSettingsPanel` with OK button and loading states
 - **Smart Detection**: Automatically applies to dubbed or original video based on current language selection
 - **API Endpoint**: `/server/restart/adjustAudioTiming` for timing adjustment requests
