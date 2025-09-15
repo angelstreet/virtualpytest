@@ -16,9 +16,15 @@ def generate_restart_video():
         request_data = request.get_json() or {}
         host = request_data.get('host')
         device_id = request_data.get('device_id', 'device1')
+        duration_seconds = request_data.get('duration_seconds', 10)
+
+        print(f"[SERVER] 🎬 [@server_restart_routes:generateRestartVideo] Received request for host: {host}, device: {device_id}, duration: {duration_seconds}s")
 
         if not host:
+            print(f"[SERVER] ❌ [@server_restart_routes:generateRestartVideo] Missing host parameter")
             return jsonify({'success': False, 'error': 'Host required'}), 400
+
+        print(f"[SERVER] 🔄 [@server_restart_routes:generateRestartVideo] Proxying to host {host} endpoint: /host/restart/generateVideo")
 
         response_data, status_code = proxy_to_host_with_params(
             '/host/restart/generateVideo',
@@ -27,9 +33,18 @@ def generate_restart_video():
             {'device_id': device_id},
             timeout=300  # 5 minutes for video generation
         )
+        
+        print(f"[SERVER] 📊 [@server_restart_routes:generateRestartVideo] Host response: status={status_code}, success={response_data.get('success', 'unknown')}")
+        
+        if response_data.get('success'):
+            print(f"[SERVER] ✅ [@server_restart_routes:generateRestartVideo] Video generation successful")
+        else:
+            print(f"[SERVER] ❌ [@server_restart_routes:generateRestartVideo] Video generation failed: {response_data.get('error', 'unknown error')}")
+        
         return jsonify(response_data), status_code
         
     except Exception as e:
+        print(f"[SERVER] 💥 [@server_restart_routes:generateRestartVideo] Exception: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @server_restart_bp.route('/analyzeRestartAudio', methods=['POST'])
