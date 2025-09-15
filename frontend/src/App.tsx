@@ -36,6 +36,7 @@ const NavigationEditor = React.lazy(() => import('./pages/NavigationEditor'));
 const RemoteTestPage = React.lazy(() => import('./pages/RemoteTestPage'));
 const Notifications = React.lazy(() => import('./pages/NotificationsMock'));
 const AIQueueMonitor = React.lazy(() => import('./pages/AIQueueMonitor'));
+const HLSDebugPage = React.lazy(() => import('./pages/HLSDebugPage'));
 
 // 404 Not Found component
 const NotFound: React.FC = () => {
@@ -210,6 +211,9 @@ const App: React.FC = () => {
 
                   {/* Remote Testing Route */}
                   <Route path="/remote-test" element={<RemoteTestPage />} />
+
+                  {/* Debug Routes */}
+                  <Route path="/debug/hls" element={<HLSDebugPage />} />
 
                   {/* Catch-all route for 404 */}
                   <Route path="*" element={<NotFound />} />
