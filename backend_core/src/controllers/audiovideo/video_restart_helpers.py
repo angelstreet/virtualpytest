@@ -599,7 +599,7 @@ class VideoRestartHelpers:
             video_file = os.path.join(self.video_capture_path, video_filename)
             
             if not os.path.exists(video_file):
-                print(f"RestartHelpers[{self.device_name}]: Video file not found")
+                print(f"RestartHelpers[{self.device_name}]: Video file not found: {video_filename}")
                 return None
             
             # Extract audio from video to web directory
