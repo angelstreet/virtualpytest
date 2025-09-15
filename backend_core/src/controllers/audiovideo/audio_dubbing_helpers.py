@@ -16,7 +16,7 @@ class AudioDubbingHelpers:
         self.device_name = device_name.replace(" ", "_")  # Clean device name for filenames
         self.temp_dir = "/tmp"
         
-    def get_file_paths(self, language: str) -> Dict[str, str]:
+    def get_file_paths(self, language: str, original_video_dir: str = "/tmp") -> Dict[str, str]:
         """Fixed filenames - always the same, always overwritten"""
         
         return {
@@ -25,7 +25,7 @@ class AudioDubbingHelpers:
             'vocals': f"/tmp/restart_{language}_vocals.wav",
             'dubbed_voice': f"/tmp/restart_{language}_dubbed_voice.wav",
             'mixed_audio': f"/tmp/restart_{language}_mixed_audio.wav",
-            'final_video': f"/tmp/restart_{language}_final_video.mp4",
+            'final_video': f"{original_video_dir}/restart_video_{language}_dubbed.mp4",
             'demucs_output': f"/tmp/restart_{language}_demucs"
         }
         
@@ -130,17 +130,18 @@ class AudioDubbingHelpers:
             return None
     
     def create_dubbed_video(self, original_video: str, language: str) -> Optional[str]:
-        """Combine original video with dubbed audio track using fixed filename."""
+        """Combine original video with dubbed audio track directly in web directory."""
         try:
-            paths = self.get_file_paths(language)
+            original_dir = os.path.dirname(original_video)
+            paths = self.get_file_paths(language, original_dir)
             
             subprocess.run([
                 'ffmpeg', '-i', original_video, '-i', paths['mixed_audio'],
                 '-c:v', 'copy', '-c:a', 'aac', '-map', '0:v:0', '-map', '1:a:0',
-                '-shortest', paths['final_video'], '-y'  # Fixed output filename
+                '-shortest', paths['final_video'], '-y'
             ], capture_output=True, check=True)
             
-            print(f"Dubbing[{self.device_name}]: Dubbed video created")
+            print(f"Dubbing[{self.device_name}]: Dubbed video created in web directory")
             return paths['final_video']
             
         except Exception as e:
