@@ -253,6 +253,49 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
   // CORE FUNCTIONS
   // =====================================================
 
+  const generateReportInBackground = useCallback(async (reportKey: string, videoData: any, audioData: any, combinedData: any) => {
+    try {
+      console.log(`[@hook:useRestart] 📊 Starting report generation for ${reportKey}`);
+      setAnalysisProgress(prev => ({ ...prev, report: 'loading' }));
+      toast.showInfo('📊 Generating report...', { duration: 3000 });
+      
+      const reportResponse = await fetch(buildServerUrl('/server/restart/generateRestartReport'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          host,
+          device_id: device.device_id || 'device1',
+          video_url: videoData.video_url,
+          analysis_data: {
+            audio_analysis: audioData.audio_analysis,
+            subtitle_analysis: combinedData.subtitle_analysis,
+            video_analysis: combinedData.video_analysis,
+          }
+        })
+      });
+      
+      const reportData = await reportResponse.json();
+      
+      if (reportData.success && reportData.report_url) {
+        setReportUrl(reportData.report_url);
+        setAnalysisProgress(prev => ({ ...prev, report: 'completed' }));
+        console.log(`[@hook:useRestart] ✅ Report generation completed: ${reportData.report_url}`);
+        toast.showSuccess('📊 Report ready!', { duration: 4000 });
+      } else {
+        setAnalysisProgress(prev => ({ ...prev, report: 'error' }));
+        console.log(`[@hook:useRestart] ❌ Report generation failed: ${reportData.error || 'Unknown error'}`);
+        toast.showError('❌ Report generation failed', { duration: 5000 });
+      }
+    } catch (reportError) {
+      setAnalysisProgress(prev => ({ ...prev, report: 'error' }));
+      console.error(`[@hook:useRestart] ❌ Report generation error:`, reportError);
+      toast.showError('❌ Report generation failed', { duration: 5000 });
+    } finally {
+      // Clear report generation flags
+      isReportGenerationInProgress.current = false;
+      currentReportVideoId.current = null;
+    }
+  }, [host, device, toast]);
 
   const executeVideoGeneration = useCallback(async () => {
     // Prevent duplicate calls (React StrictMode protection)
@@ -414,7 +457,10 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
           setAnalysisProgress(prev => ({ ...prev, subtitles: 'completed', summary: 'completed' }));
           console.log(`[@hook:useRestart] Step 3: Combined analysis completed (subtitles + summary)`);
           
-          // Step 4: Generate Report with all collected analysis data (with deduplication)
+          // Show success toast for analysis completion - user can now see results!
+          toast.showSuccess('✅ Analysis complete! Results available in settings.', { duration: 4000 });
+          
+          // Step 4: Generate Report in background (non-blocking)
           const reportKey = videoData.video_id;
           
           // Deduplication protection - prevent duplicate report generation
@@ -427,54 +473,14 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
           isReportGenerationInProgress.current = true;
           currentReportVideoId.current = reportKey;
           
-          try {
-            console.log(`[@hook:useRestart] Step 4: Starting report generation for ${reportKey}`);
-            setAnalysisProgress(prev => ({ ...prev, report: 'loading' }));
-            
-            const reportResponse = await fetch(buildServerUrl('/server/restart/generateRestartReport'), {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                host,
-                device_id: device.device_id || 'device1',
-                video_url: videoData.video_url,
-                analysis_data: {
-                  audio_analysis: audioData.audio_analysis,
-                  subtitle_analysis: combinedData.subtitle_analysis,
-                  video_analysis: combinedData.video_analysis,
-                }
-            })
-          });
-            
-            const reportData = await reportResponse.json();
-            
-            if (reportData.success && reportData.report_url) {
-              setReportUrl(reportData.report_url);
-              setAnalysisProgress(prev => ({ ...prev, report: 'completed' }));
-              console.log(`[@hook:useRestart] Step 4: Report generation completed: ${reportData.report_url}`);
-            } else {
-              setAnalysisProgress(prev => ({ ...prev, report: 'error' }));
-              console.log(`[@hook:useRestart] Step 4: Report generation failed: ${reportData.error || 'Unknown error'}`);
-            }
-          } finally {
-            // Clear deduplication flags
-            isReportGenerationInProgress.current = false;
-            currentReportVideoId.current = null;
-          }
+          // Start report generation in background (don't await)
+          generateReportInBackground(reportKey, videoData, audioData, combinedData);
         } else {
           setAnalysisProgress(prev => ({ ...prev, subtitles: 'error', summary: 'error', report: 'error' }));
           console.log(`[@hook:useRestart] Step 3: Combined analysis failed`);
         }
         
-        console.log(`[@hook:useRestart] All analysis steps including report generation completed`);
-        
-        // Show completion toast with timing
-        if (analysisStartTime.current) {
-          const analysisTime = Math.round((Date.now() - analysisStartTime.current) / 1000);
-          toast.showSuccess(`✅ AI Analysis complete in ${analysisTime}s`, { duration: 4000 });
-        } else {
-          toast.showSuccess('✅ AI Analysis complete', { duration: 4000 });
-        }
+        console.log(`[@hook:useRestart] Core analysis steps completed - report generating in background`);
         
       } catch (analysisError) {
         // Handle AbortError separately (not a real error)

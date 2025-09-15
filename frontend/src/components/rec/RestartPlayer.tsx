@@ -1,6 +1,6 @@
 import { Box, Typography, CircularProgress, Alert, IconButton, Tooltip } from '@mui/material';
 import { Settings as SettingsIcon, Assessment as ReportIcon } from '@mui/icons-material';
-import React, { useEffect, useRef, useState, useMemo, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 
 import { useRestart } from '../../hooks/pages/useRestart';
 import { Host, Device } from '../../types/common/Host_Types';
@@ -89,11 +89,6 @@ export const RestartPlayer: React.FC<RestartPlayerProps> = ({ host, device, incl
   const videoRef = useRef<HTMLVideoElement>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   
-  // Video retry mechanism state
-  const [videoRetryCount, setVideoRetryCount] = useState(0);
-  const [isVideoLoading, setIsVideoLoading] = useState(false);
-  const [videoLoadError, setVideoLoadError] = useState<string | null>(null);
-  const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   const restartHookData = useRestart({ 
     host, 
@@ -112,7 +107,6 @@ export const RestartPlayer: React.FC<RestartPlayerProps> = ({ host, device, incl
     analysisProgress,
     dubbedVideos,
     currentLanguage,
-    translateToLanguage,
     translationResults
   } = restartHookData;
 

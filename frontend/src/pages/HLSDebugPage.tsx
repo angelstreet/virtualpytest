@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState, useCallback } from 'react';
+import { useRef, useEffect, useState, useCallback } from 'react';
 import { Box, Typography, Button, TextField, Paper, Grid, Chip } from '@mui/material';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import StopIcon from '@mui/icons-material/Stop';
@@ -10,7 +10,7 @@ import RefreshIcon from '@mui/icons-material/Refresh';
  * Dedicated page for testing and debugging HLS streaming with improved configuration
  * and comprehensive logging.
  */
-export function HLSDebugPage() {
+const HLSDebugPage: React.FC = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<any>(null);
   const [streamUrl, setStreamUrl] = useState('https://dev.virtualpytest.com/host/stream/capture1/playlist.m3u8');
@@ -139,7 +139,7 @@ export function HLSDebugPage() {
       addDebugLog('HLS instance created with improved configuration');
 
       // Event handlers with detailed logging
-      hls.on(HLS.Events.MANIFEST_PARSED, (event, data) => {
+      hls.on(HLS.Events.MANIFEST_PARSED, (_, data) => {
         addDebugLog(`Manifest parsed - Levels: ${data.levels.length}, Audio tracks: ${data.audioTracks.length}`);
         setStreamLoaded(true);
         setStreamError(null);
@@ -147,16 +147,16 @@ export function HLSDebugPage() {
         setFfmpegStuck(false);
       });
 
-      hls.on(HLS.Events.LEVEL_LOADED, (event, data) => {
+      hls.on(HLS.Events.LEVEL_LOADED, (_, data) => {
         addDebugLog(`Level loaded - Level: ${data.level}, Segments: ${data.details.fragments.length}, Live: ${data.details.live}`);
       });
 
-      hls.on(HLS.Events.FRAG_LOADED, (event, data) => {
+      hls.on(HLS.Events.FRAG_LOADED, (_, data) => {
         addDebugLog(`Fragment loaded - URL: ${data.frag.url}, Duration: ${data.frag.duration}s`);
         setSegmentFailureCount(0); // Reset on successful load
         
         // Update stats
-        setHlsStats(prev => ({
+        setHlsStats((prev: any) => ({
           ...prev,
           lastFragmentUrl: data.frag.url,
           lastFragmentDuration: data.frag.duration,
@@ -164,11 +164,11 @@ export function HLSDebugPage() {
         }));
       });
 
-      hls.on(HLS.Events.FRAG_PARSING_DATA, (event, data) => {
+      hls.on(HLS.Events.FRAG_PARSING_USERDATA, (_, data: any) => {
         addDebugLog(`Fragment parsing - Type: ${data.type}, Start: ${data.startPTS}, End: ${data.endPTS}`);
       });
 
-      hls.on(HLS.Events.ERROR, (event, data) => {
+      hls.on(HLS.Events.ERROR, (_, data) => {
         const errorMsg = `HLS Error - Type: ${data.type}, Details: ${data.details}, Fatal: ${data.fatal}`;
         addDebugLog(errorMsg);
 
@@ -288,7 +288,7 @@ export function HLSDebugPage() {
         const hls = hlsRef.current;
         const video = videoRef.current;
         
-        setHlsStats(prev => ({
+        setHlsStats((prev: any) => ({
           ...prev,
           currentTime: video.currentTime,
           duration: video.duration,
@@ -484,4 +484,6 @@ export function HLSDebugPage() {
       </Grid>
     </Box>
   );
-}
+};
+
+export default HLSDebugPage;
