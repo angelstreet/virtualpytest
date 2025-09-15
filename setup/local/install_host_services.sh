@@ -119,8 +119,8 @@ After=network.target
 [Service]
 Type=simple
 User=$USER
-WorkingDirectory=/home/$USER/noVNC
-ExecStart=/usr/bin/websockify --web . 6080 localhost:5901
+WorkingDirectory=/usr/share/novnc
+ExecStart=/usr/bin/websockify --web /usr/share/novnc 6080 localhost:5901
 Restart=on-failure
 
 [Install]
@@ -156,6 +156,55 @@ else
     echo "⚠️  Environment setup already exists, skipping copy"
 fi
 
+# VNC Server Setup
+echo ""
+echo "🖥️ Setting up VNC server with default configuration..."
+
+# Create VNC directory
+mkdir -p ~/.vnc
+
+# Set default VNC password (admin1234)
+echo "admin1234" | vncpasswd -f > ~/.vnc/passwd
+chmod 600 ~/.vnc/passwd
+
+# Create xstartup file for VNC session
+cat > ~/.vnc/xstartup << 'EOF'
+#!/bin/bash
+xrdb $HOME/.Xresources 2>/dev/null || true
+fluxbox &
+EOF
+chmod +x ~/.vnc/xstartup
+
+# Create VNC config file
+cat > ~/.vnc/config << 'EOF'
+session=fluxbox
+geometry=1280x720
+localhost=no
+alwaysshared
+EOF
+
+echo "✅ VNC server configured with default password: admin1234"
+
+# Test VNC setup
+echo "🧪 Testing VNC configuration..."
+if [ -f ~/.vnc/passwd ]; then
+    echo "✅ VNC password file created"
+else
+    echo "❌ VNC password file missing"
+fi
+
+if [ -f ~/.vnc/xstartup ]; then
+    echo "✅ VNC startup script created"
+else
+    echo "❌ VNC startup script missing"
+fi
+
+if [ -f ~/.vnc/config ]; then
+    echo "✅ VNC config file created"
+else
+    echo "❌ VNC config file missing"
+fi
+
 
 
 echo ""
@@ -182,7 +231,18 @@ echo ""
 echo "🔧 Available services (matching backend_host/config/services/):"
 echo "   - monitor.service                   # Capture analysis & alerts"
 echo "   - stream.service                    # Video/audio capture + rename + cleanup"
-echo "   - vncserver.service                 # VNC server"
-echo "   - novnc.service                     # noVNC web interface"
+echo "   - vncserver.service                 # VNC server (display :1, port 5901)"
+echo "   - novnc.service                     # noVNC web interface (port 6080)"
+echo ""
+echo "🖥️ VNC Access Information:"
+echo "   - VNC Server: localhost:5901 (display :1)"
+echo "   - Default Password: admin1234"
+echo "   - Web Interface: http://localhost:6080"
+echo "   - Resolution: 1280x720"
+echo ""
+echo "🚀 Quick VNC Test:"
+echo "   vncserver :1                        # Start VNC server manually"
+echo "   xrandr -display :1 -s 1280x720     # Set display resolution"
+echo "   vncserver -kill :1                  # Stop VNC server"
 echo ""
 echo "💡 Note: rename and cleanup are handled internally by stream.service" 

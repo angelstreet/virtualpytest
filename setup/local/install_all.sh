@@ -14,14 +14,14 @@ for arg in "$@"; do
             INSTALL_GRAFANA=false
             shift
             ;;
-)
+        --grafana)
             INSTALL_GRAFANA=true
             shift
             ;;
         -h|--help)
-            echo "Usage: $0 [--no-grafana]"
+            echo "Usage: $0 [--no-grafana] [--grafana]"
             echo "  --no-grafana      Skip Grafana installation (monitoring disabled)"
-            echo "      Install Grafana (default behavior)"
+            echo "  --grafana         Install Grafana (default behavior)"
             echo "  -h, --help        Show this help message"
             exit 0
             ;;

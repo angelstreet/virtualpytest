@@ -440,7 +440,7 @@ interface TimingCache {
 ## Frontend Caching System
 
 ### Cache Architecture
-The frontend implements a comprehensive three-tier caching system that eliminates redundant backend calls and provides instant content switching:
+The frontend implements a comprehensive four-tier caching system that eliminates redundant backend calls and provides instant content switching:
 
 #### 1. Translation Cache
 ```typescript
@@ -474,7 +474,31 @@ dubbedVideos: Record<string, string> = {
   - First time: `"🎉 Dubbing for Spanish completed! (cached for future use)"`
   - Cached: `"✅ Dubbed video for Spanish (cached)"`
 
-#### 3. Audio Timing Cache
+#### 3. Component Cache
+```typescript
+componentCache: Record<string, {
+  silent_video: string;
+  background_audio: string;
+  original_vocals: string;
+  dubbed_vocals: Record<string, string>;
+}> = {
+  "restart_original_video.mp4": {
+    silent_video: "/path/to/restart_video_no_audio.mp4",
+    background_audio: "/path/to/restart_original_background.wav", 
+    original_vocals: "/path/to/restart_original_vocals.wav",
+    dubbed_vocals: {
+      "es": "/path/to/restart_es_dubbed_voice_edge.wav",
+      "fr": "/path/to/restart_fr_dubbed_voice_edge.wav"
+    }
+  }
+}
+```
+- **Purpose**: Tracks separated video components to optimize backend processing
+- **Backend Integration**: Passes component paths to backend, eliminating redundant separation
+- **Auto-Population**: Updated when backend creates new components during first timing/dubbing
+- **Cross-Operation Reuse**: Same components used for timing adjustments and dubbing
+
+#### 4. Audio Timing Cache
 ```typescript
 timingCache: Record<string, Record<number, string>> = {
   "en": { 
@@ -672,10 +696,13 @@ Phase 3 - Dubbing (On Language Selection):
   - **Step 2**: Mix background + timed vocals (pydub overlay)
   - **Step 3**: Combine silent video + mixed audio (FFmpeg assembly)
 - **Fallback Method**: Traditional FFmpeg filters on full video when cached components unavailable
-- **Component Caching**: 
-  - `restart_video_no_audio.mp4` (silent video - cached once)
-  - `restart_original_background.wav` (background audio - cached once)
-  - `restart_original_vocals.wav` / `restart_{lang}_dubbed_voice_edge.wav` (vocals - cached per language)
+- **Frontend-Driven Component Caching**: 
+  - **Frontend Tracks Components**: Frontend maintains `componentCache` with paths to separated video components
+  - **API Integration**: Frontend passes component paths to backend in timing/dubbing requests
+  - **Auto-Creation**: Backend creates components only when frontend doesn't provide paths
+  - **Cross-Operation Reuse**: Same components reused for timing adjustments and dubbing across languages
+  - **No Backend File Cache**: Backend never checks file existence - relies on frontend component tracking
+  - **Clean Architecture**: Frontend handles caching, backend handles processing
 - **Timing Caching**: Vocal timing variations cached (e.g., `restart_original_vocals_syncp100.wav`)
 - **Performance**: 1.5-3 seconds first generation, <0.1 seconds for cached versions
 - **No Double Audio**: Clean separation ensures single vocal track in final mix

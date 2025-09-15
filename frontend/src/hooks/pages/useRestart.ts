@@ -121,6 +121,14 @@ interface UseRestartReturn {
   isDubbing: boolean;
   dubbingCache: Record<string, boolean>;
   
+  // Component cache state
+  componentCache: Record<string, {
+    silent_video: string;
+    background_audio: string;
+    original_vocals: string;
+    dubbed_vocals: Record<string, string>;
+  }>;
+  
   // Translation state
   translationResults: Record<string, TranslationResults>;
   isTranslating: boolean;
@@ -240,9 +248,24 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
   // Dubbing cache - tracks which languages have been processed
   const [dubbingCache, setDubbingCache] = useState<Record<string, boolean>>({});
   
+  // Component paths cache - tracks separated video components for each video
+  const [componentCache, setComponentCache] = useState<Record<string, {
+    silent_video: string;
+    background_audio: string;
+    original_vocals: string;
+    dubbed_vocals: Record<string, string>;
+  }>>({});
+  
   // Translation deduplication protection
   const isTranslationInProgress = useRef(false);
   const currentTranslationLanguage = useRef<string | null>(null);
+  
+  // Helper function to get video key for caching
+  const getVideoKey = useCallback((videoUrl: string): string => {
+    // Extract base video name without timing suffix
+    const filename = videoUrl.split('/').pop() || '';
+    return filename.replace(/(_sync[pm]\d+)(\.[^.]+)$/, '$2');
+  }, []);
   
   // Audio timing deduplication protection
   const isTimingAdjustmentInProgress = useRef(false);
@@ -998,16 +1021,39 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
       // Get the original video URL (without timing suffix) for backend processing
       const originalVideoUrl = baseVideoUrl.replace(/(_sync[pm]\d+)(\.[^.]+)$/, '$2');
       
+      // Get component paths from cache if available
+      const videoKey = getVideoKey(baseVideoUrl);
+      const cachedComponents = componentCache[videoKey];
+      
+      const requestBody: any = {
+        host,
+        device_id: device.device_id,
+        video_url: originalVideoUrl,
+        timing_offset_ms: offsetMs,
+        language: currentLanguage
+      };
+      
+      // Add component paths if we have them cached
+      if (cachedComponents) {
+        requestBody.silent_video_path = cachedComponents.silent_video;
+        requestBody.background_audio_path = cachedComponents.background_audio;
+        
+        // Use appropriate vocals (original or dubbed)
+        if (currentLanguage === 'en' || currentLanguage === 'original') {
+          requestBody.vocals_path = cachedComponents.original_vocals;
+        } else if (cachedComponents.dubbed_vocals[currentLanguage]) {
+          requestBody.vocals_path = cachedComponents.dubbed_vocals[currentLanguage];
+        }
+        
+        console.log('[@hook:useRestart] 🎯 Using cached components for timing adjustment');
+      } else {
+        console.log('[@hook:useRestart] 🔧 No cached components - backend will create them');
+      }
+      
       const response = await fetch(buildServerUrl('/server/restart/adjustAudioTiming'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          host,
-          device_id: device.device_id,
-          video_url: originalVideoUrl,
-          timing_offset_ms: offsetMs,
-          language: currentLanguage
-        })
+        body: JSON.stringify(requestBody)
       });
       
       const result = await response.json();
@@ -1028,6 +1074,21 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
             [offsetMs]: result.adjusted_video_url
           }
         }));
+        
+        // If backend created components and we don't have them cached, cache them now
+        if (!cachedComponents && result.components_created) {
+          const videoKey = getVideoKey(originalVideoUrl);
+          setComponentCache(prev => ({
+            ...prev,
+            [videoKey]: {
+              silent_video: result.silent_video_path || `/var/www/html/stream/capture1/restart_video_no_audio.mp4`,
+              background_audio: result.background_audio_path || `/var/www/html/stream/capture1/restart_original_background.wav`,
+              original_vocals: result.original_vocals_path || `/var/www/html/stream/capture1/restart_original_vocals.wav`,
+              dubbed_vocals: prev[videoKey]?.dubbed_vocals || {}
+            }
+          }));
+          console.log(`[@hook:useRestart] 💾 Cached new components for video: ${videoKey}`);
+        }
         
         setAudioTimingOffset(offsetMs);
         console.log(`[@hook:useRestart] ✅ Audio timing adjustment completed: ${offsetMs > 0 ? '+' : ''}${offsetMs}ms (cached for future use)`);
@@ -1086,6 +1147,9 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
     dubbedAudioUrls,
     isDubbing,
     dubbingCache,
+    
+    // Component cache state
+    componentCache,
     
     // Translation state
     translationResults,

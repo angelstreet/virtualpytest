@@ -660,6 +660,11 @@ def adjust_audio_timing():
         timing_offset_ms = data.get('timing_offset_ms', 0)
         language = data.get('language', 'original')
         
+        # Optional component paths from frontend
+        silent_video_path = data.get('silent_video_path')
+        background_audio_path = data.get('background_audio_path')
+        vocals_path = data.get('vocals_path')
+        
         if not video_url:
             return jsonify({'success': False, 'error': 'video_url is required'}), 400
         
@@ -672,7 +677,8 @@ def adjust_audio_timing():
             return jsonify({'success': False, 'error': f'No AV controller for {device_id}'}), 404
         
         print(f"Host[{device_id}]: Adjusting audio timing by {timing_offset_ms:+d}ms for {language}")
-        result = av_controller.adjustVideoAudioTiming(video_url, timing_offset_ms, language)
+        result = av_controller.adjustVideoAudioTiming(video_url, timing_offset_ms, language, 
+                                                    silent_video_path, background_audio_path, vocals_path)
         
         if result and result.get('success'):
             print(f"Host[{device_id}]: Audio timing adjustment completed")

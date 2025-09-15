@@ -460,9 +460,12 @@ class FFmpegCaptureController(AVControllerInterface):
         """Step 4: Create final dubbed video"""
         return self.restart_helpers.create_dubbed_video(video_id, target_language, voice_choice)
     
-    def adjustVideoAudioTiming(self, video_url: str, timing_offset_ms: int, language: str = "original") -> Optional[Dict[str, Any]]:
+    def adjustVideoAudioTiming(self, video_url: str, timing_offset_ms: int, language: str = "original",
+                              silent_video_path: str = None, background_audio_path: str = None, 
+                              vocals_path: str = None) -> Optional[Dict[str, Any]]:
         """Adjust audio timing for existing restart video"""
-        return self.restart_helpers.adjust_video_audio_timing(video_url, timing_offset_ms, language)
+        return self.restart_helpers.adjust_video_audio_timing(video_url, timing_offset_ms, language,
+                                                             silent_video_path, background_audio_path, vocals_path)
 
     def generateRestartVideoFast(self, duration_seconds: float = None, test_start_time: float = None, processing_time: float = None) -> Optional[Dict[str, Any]]:
         """

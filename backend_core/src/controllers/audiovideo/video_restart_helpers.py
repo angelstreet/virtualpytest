@@ -721,7 +721,9 @@ class VideoRestartHelpers:
                 'duration_seconds': 0.0
             }
     
-    def adjust_video_audio_timing(self, video_url: str, timing_offset_ms: int, language: str = "original") -> Optional[Dict[str, Any]]:
+    def adjust_video_audio_timing(self, video_url: str, timing_offset_ms: int, language: str = "original", 
+                                 silent_video_path: str = None, background_audio_path: str = None, 
+                                 vocals_path: str = None) -> Optional[Dict[str, Any]]:
         """
         Adjust audio timing for existing restart video using FFmpeg with smart caching.
         
@@ -820,9 +822,10 @@ class VideoRestartHelpers:
             
             print(f"RestartHelpers[{self.device_name}]: Generating timing-adjusted video using cached components")
             
-            # Use cached separated components for timing adjustment
-            return self._adjust_timing_with_cached_components(
-                original_dir, base_name, original_ext, target_timing_ms, language, output_path, output_filename, video_url
+            # Use component-based timing adjustment
+            return self._adjust_timing_with_components(
+                original_dir, base_name, original_ext, target_timing_ms, language, output_path, output_filename, video_url,
+                silent_video_path, background_audio_path, vocals_path
             )
             
         except subprocess.CalledProcessError as e:
@@ -832,46 +835,68 @@ class VideoRestartHelpers:
             print(f"RestartHelpers[{self.device_name}]: Audio timing adjustment error: {e}")
             return None
     
-    def _adjust_timing_with_cached_components(self, original_dir: str, base_name: str, original_ext: str, 
-                                           target_timing_ms: int, language: str, output_path: str, 
-                                           output_filename: str, video_url: str) -> Optional[Dict[str, Any]]:
+    def _adjust_timing_with_components(self, original_dir: str, base_name: str, original_ext: str, 
+                                     target_timing_ms: int, language: str, output_path: str, 
+                                     output_filename: str, video_url: str,
+                                     silent_video_path: str = None, background_audio_path: str = None, 
+                                     vocals_path: str = None) -> Optional[Dict[str, Any]]:
         """
-        Adjust timing using cached separated components (background + vocals).
-        Reuses existing silent video and background audio, only processes vocals.
+        Adjust timing using provided component paths or create them if missing.
+        Frontend provides component paths if available, backend creates them if not.
         """
         try:
-            # Define cached component paths
-            silent_video_path = os.path.join(original_dir, "restart_video_no_audio.mp4")
-            background_audio_path = os.path.join(original_dir, "restart_original_background.wav")
+            print(f"RestartHelpers[{self.device_name}]: 🎬 SYNC_PROCESS_START: timing={target_timing_ms:+d}ms language={language}")
             
-            # Determine vocal source based on language
-            if language == "original" or language == "en":
-                vocal_source_path = os.path.join(original_dir, "restart_original_vocals.wav")
-            else:
-                vocal_source_path = os.path.join(original_dir, f"restart_{language}_dubbed_voice_edge.wav")
-            
-            # Check if cached components exist, create them if missing
-            components_missing = []
-            if not os.path.exists(silent_video_path):
-                components_missing.append("silent_video")
-            if not os.path.exists(background_audio_path):
-                components_missing.append("background_audio")
-            if not os.path.exists(vocal_source_path):
-                components_missing.append("vocals")
-            
-            if components_missing:
-                print(f"RestartHelpers[{self.device_name}]: Missing cached components: {components_missing}")
-                print(f"RestartHelpers[{self.device_name}]: Creating cached components from source video...")
+            # Use provided component paths or create them
+            if silent_video_path and background_audio_path and vocals_path:
+                print(f"RestartHelpers[{self.device_name}]: 🎯 FRONTEND_PROVIDED: Using provided component paths")
+                print(f"RestartHelpers[{self.device_name}]:   - Silent video: {silent_video_path}")
+                print(f"RestartHelpers[{self.device_name}]:   - Background audio: {background_audio_path}")
+                print(f"RestartHelpers[{self.device_name}]:   - Vocals: {vocals_path}")
                 
-                # Create cached components from source video
-                success = self._create_cached_components(original_dir, base_name, original_ext, language)
+                # Determine vocal source based on language
+                if language == "original" or language == "en":
+                    vocal_source_path = vocals_path  # Use provided original vocals
+                else:
+                    # For dubbed languages, check if dubbed vocals exist
+                    dubbed_vocals_path = os.path.join(original_dir, f"restart_{language}_dubbed_voice_edge.wav")
+                    if os.path.exists(dubbed_vocals_path):
+                        vocal_source_path = dubbed_vocals_path
+                        print(f"RestartHelpers[{self.device_name}]:   - Using dubbed vocals: {dubbed_vocals_path}")
+                    else:
+                        print(f"RestartHelpers[{self.device_name}]:   ❌ Dubbed vocals missing: {dubbed_vocals_path}")
+                        return self._fallback_timing_adjustment(original_dir, base_name, original_ext, target_timing_ms, output_path, output_filename, video_url, language)
+            else:
+                print(f"RestartHelpers[{self.device_name}]: 🔧 CREATING_COMPONENTS: Frontend didn't provide paths, creating from source")
+                
+                # Define standard component paths
+                silent_video_path = os.path.join(original_dir, "restart_video_no_audio.mp4")
+                background_audio_path = os.path.join(original_dir, "restart_original_background.wav")
+                original_vocals_path = os.path.join(original_dir, "restart_original_vocals.wav")
+                
+                # Create components from source video
+                source_video_path = os.path.join(original_dir, f"{base_name}{original_ext}")
+                success = self._create_components_from_source(source_video_path, original_dir)
                 if not success:
-                    print(f"RestartHelpers[{self.device_name}]: Failed to create cached components, falling back to full video processing")
+                    print(f"RestartHelpers[{self.device_name}]: ❌ COMPONENT_CREATION_FAILED: Falling back to full video processing")
                     return self._fallback_timing_adjustment(original_dir, base_name, original_ext, target_timing_ms, output_path, output_filename, video_url, language)
                 
-                print(f"RestartHelpers[{self.device_name}]: Cached components created successfully")
-            else:
-                print(f"RestartHelpers[{self.device_name}]: All cached components found, proceeding with timing adjustment")
+                print(f"RestartHelpers[{self.device_name}]: ✅ COMPONENTS_CREATED")
+                print(f"RestartHelpers[{self.device_name}]:   - Silent video: {silent_video_path}")
+                print(f"RestartHelpers[{self.device_name}]:   - Background audio: {background_audio_path}")
+                print(f"RestartHelpers[{self.device_name}]:   - Original vocals: {original_vocals_path}")
+                
+                # Determine vocal source based on language
+                if language == "original" or language == "en":
+                    vocal_source_path = original_vocals_path
+                else:
+                    dubbed_vocals_path = os.path.join(original_dir, f"restart_{language}_dubbed_voice_edge.wav")
+                    if os.path.exists(dubbed_vocals_path):
+                        vocal_source_path = dubbed_vocals_path
+                        print(f"RestartHelpers[{self.device_name}]:   - Using dubbed vocals: {dubbed_vocals_path}")
+                    else:
+                        print(f"RestartHelpers[{self.device_name}]:   ❌ Dubbed vocals missing: {dubbed_vocals_path}")
+                        return self._fallback_timing_adjustment(original_dir, base_name, original_ext, target_timing_ms, output_path, output_filename, video_url, language)
             
             # Generate timing-adjusted vocal filename
             if target_timing_ms > 0:
@@ -951,20 +976,20 @@ class VideoRestartHelpers:
             subprocess.run(final_cmd, capture_output=True, text=True, check=True)
             
             # Build URL for adjusted video
-            adjusted_video_url = self._build_video_url(output_filename)
+                adjusted_video_url = self._build_video_url(output_filename)
             
             # Generate new video ID
-            video_id = f"restart_{int(time.time())}_{language}_timing_{target_timing_ms:+d}ms"
-            
+                video_id = f"restart_{int(time.time())}_{language}_timing_{target_timing_ms:+d}ms"
+                
             print(f"RestartHelpers[{self.device_name}]: Cached component timing adjustment completed: {output_filename}")
-            return {
-                'success': True,
-                'adjusted_video_url': adjusted_video_url,
-                'timing_offset_ms': target_timing_ms,
-                'language': language,
-                'video_id': video_id,
-                'original_video_url': video_url
-            }
+                return {
+                    'success': True,
+                    'adjusted_video_url': adjusted_video_url,
+                    'timing_offset_ms': target_timing_ms,
+                    'language': language,
+                    'video_id': video_id,
+                    'original_video_url': video_url
+                }
             
         except Exception as e:
             print(f"RestartHelpers[{self.device_name}]: Cached component timing failed: {e}")
@@ -1023,14 +1048,12 @@ class VideoRestartHelpers:
             print(f"RestartHelpers[{self.device_name}]: Fallback timing adjustment failed: {e}")
             return None
     
-    def _create_cached_components(self, original_dir: str, base_name: str, original_ext: str, language: str) -> bool:
+    def _create_components_from_source(self, source_video_path: str, original_dir: str) -> bool:
         """
         Create cached separated components (silent video + background + vocals) from source video.
         This enables the cached component timing adjustment method.
         """
         try:
-            # Determine source video path
-            source_video_path = os.path.join(original_dir, f"{base_name}{original_ext}")
             if not os.path.exists(source_video_path):
                 print(f"RestartHelpers[{self.device_name}]: Source video not found: {source_video_path}")
                 return False

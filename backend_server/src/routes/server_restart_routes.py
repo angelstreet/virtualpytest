@@ -363,6 +363,11 @@ def adjust_audio_timing():
         video_url = request_data.get('video_url')
         timing_offset_ms = request_data.get('timing_offset_ms', 0)
         language = request_data.get('language', 'original')
+        
+        # Optional component paths from frontend
+        silent_video_path = request_data.get('silent_video_path')
+        background_audio_path = request_data.get('background_audio_path')
+        vocals_path = request_data.get('vocals_path')
 
         print(f"[SERVER] 🎵 [@server_restart_routes:adjustAudioTiming] Starting timing adjustment: {timing_offset_ms:+d}ms for {language}")
 
@@ -375,11 +380,27 @@ def adjust_audio_timing():
 
         print(f"[SERVER] 🔄 [@server_restart_routes:adjustAudioTiming] Proxying to host {host.get('host_name', 'unknown')} endpoint: /host/restart/adjustAudioTiming")
 
+        # Include component paths in proxy data
+        proxy_params = {
+            'device_id': device_id, 
+            'video_url': video_url, 
+            'timing_offset_ms': timing_offset_ms, 
+            'language': language
+        }
+        
+        # Add component paths if provided
+        if silent_video_path:
+            proxy_params['silent_video_path'] = silent_video_path
+        if background_audio_path:
+            proxy_params['background_audio_path'] = background_audio_path
+        if vocals_path:
+            proxy_params['vocals_path'] = vocals_path
+        
         response_data, status_code = proxy_to_host_with_params(
             '/host/restart/adjustAudioTiming',
             'POST',
             request_data,
-            {'device_id': device_id, 'video_url': video_url, 'timing_offset_ms': timing_offset_ms, 'language': language},
+            proxy_params,
             timeout=60  # 1 minute for timing adjustment
         )
         
