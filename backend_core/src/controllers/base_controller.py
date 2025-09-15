@@ -440,9 +440,25 @@ class FFmpegCaptureController(AVControllerInterface):
         """Combined restart analysis: subtitles + summary in single optimized call"""
         return self.restart_helpers.analyze_restart_complete(video_id, screenshot_urls)
     
-    def generateDubbedRestartVideo(self, video_id: str, target_language: str, existing_transcript: str) -> Optional[Dict[str, Any]]:
-        """Generate dubbed version of restart video"""
-        return self.restart_helpers.generate_dubbed_restart_video(video_id, target_language, existing_transcript)
+    # =============================================================================
+    # 4-Step Dubbing Process Methods
+    # =============================================================================
+    
+    def prepareDubbingAudio(self, video_id: str) -> Optional[Dict[str, Any]]:
+        """Step 1: Prepare audio for dubbing (extract + separate)"""
+        return self.restart_helpers.prepare_dubbing_audio(video_id)
+    
+    def generateGttsSpeech(self, video_id: str, target_language: str, existing_transcript: str) -> Optional[Dict[str, Any]]:
+        """Step 2: Generate gTTS speech"""
+        return self.restart_helpers.generate_gtts_speech(video_id, target_language, existing_transcript)
+    
+    def generateEdgeSpeech(self, video_id: str, target_language: str, existing_transcript: str) -> Optional[Dict[str, Any]]:
+        """Step 3: Generate Edge-TTS speech"""
+        return self.restart_helpers.generate_edge_speech(video_id, target_language, existing_transcript)
+    
+    def createDubbedVideo(self, video_id: str, target_language: str, voice_choice: str = 'gtts') -> Optional[Dict[str, Any]]:
+        """Step 4: Create final dubbed video"""
+        return self.restart_helpers.create_dubbed_video(video_id, target_language, voice_choice)
     
     def adjustVideoAudioTiming(self, video_url: str, timing_offset_ms: int, language: str = "original") -> Optional[Dict[str, Any]]:
         """Adjust audio timing for existing restart video"""

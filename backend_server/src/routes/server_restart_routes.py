@@ -168,54 +168,6 @@ def restart_stream():
             'error': str(e)
         }), 500
 
-@server_restart_bp.route('/generateDubbedVideo', methods=['POST'])
-def generate_dubbed_video():
-    """Generate dubbed version of restart video"""
-    import time
-    dubbing_start_time = time.time()
-    
-    try:
-        request_data = request.get_json() or {}
-        host = request_data.get('host')
-        device_id = request_data.get('device_id', 'device1')
-        video_id = request_data.get('video_id')
-        target_language = request_data.get('target_language', 'es')
-        existing_transcript = request_data.get('existing_transcript', '')
-
-        print(f"[SERVER] 🎤 [@server_restart_routes:generateDubbedVideo] Starting dubbing for {target_language}, video_id: {video_id}")
-
-        if not host:
-            return jsonify({'success': False, 'error': 'Host required'}), 400
-        if not existing_transcript:
-            return jsonify({'success': False, 'error': 'Transcript required for dubbing'}), 400
-
-        print(f"[SERVER] 🔄 [@server_restart_routes:generateDubbedVideo] Proxying to host {host.get('host_name', 'unknown')} endpoint: /host/restart/generateDubbedVideo")
-
-        response_data, status_code = proxy_to_host_with_params(
-            '/host/restart/generateDubbedVideo',
-            'POST',
-            request_data,
-            {'device_id': device_id, 'video_id': video_id, 'target_language': target_language, 'existing_transcript': existing_transcript},
-            timeout=300  # 5 minutes for dubbing
-        )
-        
-        dubbing_duration = time.time() - dubbing_start_time
-        
-        if response_data.get('success'):
-            print(f"[SERVER] ✅ [@server_restart_routes:generateDubbedVideo] Dubbing for {target_language} completed in {dubbing_duration:.1f}s")
-        else:
-            print(f"[SERVER] ❌ [@server_restart_routes:generateDubbedVideo] Dubbing failed after {dubbing_duration:.1f}s: {response_data.get('error', 'unknown error')}")
-        
-        return jsonify(response_data), status_code
-
-    except Exception as e:
-        dubbing_duration = time.time() - dubbing_start_time
-        print(f"[SERVER] ❌ [@server_restart_routes:generateDubbedVideo] EXCEPTION after {dubbing_duration:.1f}s: {str(e)}")
-        return jsonify({
-            'success': False,
-            'error': f'Dubbing generation failed: {str(e)}'
-        }), 500
-
 # =============================================================================
 # 4-Step Dubbing Process Routes
 # =============================================================================

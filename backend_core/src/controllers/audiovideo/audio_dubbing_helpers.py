@@ -76,66 +76,6 @@ class AudioDubbingHelpers:
             print(f"Dubbing[{self.device_name}]: Separation failed: {e}")
             return {}
     
-    def generate_dubbed_speech(self, text: str, language: str, original_video_dir: str) -> Dict[str, Optional[str]]:
-        """Generate speech from text using both gTTS and Edge-TTS."""
-        paths = self.get_file_paths(language, original_video_dir)
-        results = {'gtts': None, 'edge': None}
-        
-        # Generate gTTS audio
-        try:
-            from gtts import gTTS
-            
-            gtts_lang_map = {'es': 'es', 'fr': 'fr', 'de': 'de', 'it': 'it', 'pt': 'pt'}
-            gtts_lang = gtts_lang_map.get(language, 'en')
-            
-            tts = gTTS(text=text, lang=gtts_lang, slow=False)
-            temp_mp3 = f"/tmp/{self.device_name}_{language}_gtts_temp.mp3"
-            tts.save(temp_mp3)
-            
-            # Convert to WAV and MP3
-            subprocess.run(['ffmpeg', '-i', temp_mp3, '-ar', '44100', '-ac', '2', paths['dubbed_voice_gtts'], '-y'], 
-                          capture_output=True, check=True)
-            subprocess.run(['ffmpeg', '-i', temp_mp3, paths['dubbed_voice_gtts_mp3'], '-y'], 
-                          capture_output=True, check=True)
-            os.remove(temp_mp3)
-            
-            results['gtts'] = paths['dubbed_voice_gtts']
-            print(f"Dubbing[{self.device_name}]: gTTS speech generated for {language}")
-            
-        except Exception as e:
-            print(f"Dubbing[{self.device_name}]: gTTS generation failed: {e}")
-        
-        # Generate Edge-TTS audio
-        try:
-            import edge_tts
-            import asyncio
-            
-            edge_lang_map = {
-                'es': 'es-ES-ElviraNeural', 'fr': 'fr-FR-DeniseNeural', 
-                'de': 'de-DE-KatjaNeural', 'it': 'it-IT-ElsaNeural', 
-                'pt': 'pt-BR-FranciscaNeural'
-            }
-            edge_voice = edge_lang_map.get(language, 'en-US-JennyNeural')
-            
-            async def generate_edge_audio():
-                communicate = edge_tts.Communicate(text, edge_voice)
-                temp_mp3 = f"/tmp/{self.device_name}_{language}_edge_temp.mp3"
-                await communicate.save(temp_mp3)
-                
-                # Convert to WAV and copy MP3
-                subprocess.run(['ffmpeg', '-i', temp_mp3, '-ar', '44100', '-ac', '2', paths['dubbed_voice_edge'], '-y'], 
-                              capture_output=True, check=True)
-                subprocess.run(['cp', temp_mp3, paths['dubbed_voice_edge_mp3']], check=True)
-                os.remove(temp_mp3)
-            
-            asyncio.run(generate_edge_audio())
-            results['edge'] = paths['dubbed_voice_edge']
-            print(f"Dubbing[{self.device_name}]: Edge-TTS speech generated for {language}")
-            
-        except Exception as e:
-            print(f"Dubbing[{self.device_name}]: Edge-TTS generation failed: {e}")
-        
-        return results
     
     # =============================================================================
     # 4-Step Dubbing Process Methods

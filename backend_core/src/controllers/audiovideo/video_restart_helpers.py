@@ -566,102 +566,6 @@ class VideoRestartHelpers:
             self._dubbing_helpers = AudioDubbingHelpers(self.av_controller, self.device_name)
         return self._dubbing_helpers
     
-    def generate_dubbed_restart_video(self, video_id: str, target_language: str, existing_transcript: str) -> Optional[Dict[str, Any]]:
-        """Generate dubbed version of restart video using existing transcript."""
-        try:
-            print(f"RestartHelpers[{self.device_name}]: Starting dubbing to {target_language}")
-            
-            # Check translation cache first
-            cache_key = video_id
-            if cache_key in self._translation_cache and target_language in self._translation_cache[cache_key]:
-                print(f"RestartHelpers[{self.device_name}]: Using cached translation for {target_language}")
-                translation_result = self._translation_cache[cache_key][target_language]
-            else:
-                # Batch translate with frame structure preservation
-                from shared.lib.utils.translation_utils import translate_text
-                
-                # Create structured batch input for single API call
-                batch_input = f"FRAME_STRUCTURE_TRANSLATION:\n{existing_transcript}\n\nPlease translate this maintaining any frame markers or structure."
-                
-                translation_result = translate_text(batch_input, 'en', target_language)
-                if not translation_result['success']:
-                    print(f"RestartHelpers[{self.device_name}]: Translation failed")
-                    return None
-                
-                # Cache the translation
-                if cache_key not in self._translation_cache:
-                    self._translation_cache[cache_key] = {}
-                self._translation_cache[cache_key][target_language] = translation_result
-                print(f"RestartHelpers[{self.device_name}]: Cached batch translation for {target_language}")
-            
-            # Get original video file
-            video_filename = "restart_original_video.mp4"
-            video_file = os.path.join(self.video_capture_path, video_filename)
-            
-            if not os.path.exists(video_file):
-                print(f"RestartHelpers[{self.device_name}]: Video file not found: {video_filename}")
-                return None
-            
-            # Extract audio from video to web directory
-            original_video_dir = os.path.dirname(video_file)
-            paths = self.dubbing_helpers.get_file_paths(target_language, original_video_dir)
-            audio_file = paths['original_audio']
-            subprocess.run(['ffmpeg', '-i', video_file, '-vn', '-acodec', 'pcm_s16le', 
-                          '-ar', '44100', '-ac', '2', audio_file, '-y'], 
-                          capture_output=True, check=True)
-            
-            # Separate audio tracks
-            separated = self.dubbing_helpers.separate_audio_tracks(audio_file, target_language, original_video_dir)
-            if not separated:
-                return None
-            
-            # Clean translated text (remove AI prompt artifacts)
-            clean_text = self._clean_translated_text(translation_result['translated_text'])
-            
-            # Generate dubbed speech (both gTTS and Edge-TTS)
-            dubbed_voices = self.dubbing_helpers.generate_dubbed_speech(
-                clean_text, target_language, original_video_dir)
-            if not dubbed_voices.get('gtts'):
-                return None
-            
-            # Get video duration
-            result = subprocess.run(['ffprobe', '-v', 'quiet', '-show_entries', 
-                                   'format=duration', '-of', 'csv=p=0', video_file], 
-                                   capture_output=True, text=True)
-            duration = float(result.stdout.strip()) if result.stdout.strip() else 10.0
-            
-            # Mix audio
-            final_audio = self.dubbing_helpers.mix_dubbed_audio(target_language, duration, original_video_dir)
-            if not final_audio:
-                return None
-            
-            # Create dubbed video
-            dubbed_video = self.dubbing_helpers.create_dubbed_video(video_file, target_language)
-            if not dubbed_video:
-                return None
-            
-            # Build URL
-            dubbed_filename = os.path.basename(dubbed_video)
-            dubbed_url = self._build_video_url(dubbed_filename)
-            
-            # Build URLs for both audio files
-            paths = self.dubbing_helpers.get_file_paths(target_language, original_video_dir)
-            gtts_mp3_url = self._build_video_url(os.path.basename(paths['dubbed_voice_gtts_mp3']))
-            edge_mp3_url = self._build_video_url(os.path.basename(paths['dubbed_voice_edge_mp3']))
-            
-            print(f"RestartHelpers[{self.device_name}]: Dubbing completed")
-            return {
-                'success': True,
-                'gtts_audio_url': gtts_mp3_url,
-                'edge_audio_url': edge_mp3_url,
-                'dubbed_video_url': dubbed_url,
-                'target_language': target_language,
-                'video_id': f"{video_id}_dubbed_{target_language}"
-            }
-            
-        except Exception as e:
-            print(f"RestartHelpers[{self.device_name}]: Dubbing error: {e}")
-            return None
     
     def _clean_translated_text(self, translated_text: str) -> str:
         """Clean translated text by removing AI prompt artifacts."""
@@ -727,8 +631,8 @@ class VideoRestartHelpers:
                 translation_result = self._translation_cache[cache_key][target_language]
             else:
                 from shared.lib.utils.translation_utils import translate_text
-                batch_input = f"FRAME_STRUCTURE_TRANSLATION:\n{existing_transcript}\n\nPlease translate this maintaining any frame markers or structure."
-                translation_result = translate_text(batch_input, 'en', target_language)
+                # For audio dubbing, translate the clean transcript directly (no frame structure)
+                translation_result = translate_text(existing_transcript, 'en', target_language)
                 
                 if not translation_result['success']:
                     return {
@@ -742,10 +646,10 @@ class VideoRestartHelpers:
                     self._translation_cache[cache_key] = {}
                 self._translation_cache[cache_key][target_language] = translation_result
             
-            # Clean translated text
-            clean_text = self._clean_translated_text(translation_result['translated_text'])
+            # Use translated text directly (already clean for audio dubbing)
+            translated_text = translation_result['translated_text']
             
-            return self.dubbing_helpers.generate_gtts_speech_step(clean_text, target_language, self.video_capture_path)
+            return self.dubbing_helpers.generate_gtts_speech_step(translated_text, target_language, self.video_capture_path)
             
         except Exception as e:
             print(f"RestartHelpers[{self.device_name}]: gTTS generation error: {e}")
@@ -764,8 +668,8 @@ class VideoRestartHelpers:
                 translation_result = self._translation_cache[cache_key][target_language]
             else:
                 from shared.lib.utils.translation_utils import translate_text
-                batch_input = f"FRAME_STRUCTURE_TRANSLATION:\n{existing_transcript}\n\nPlease translate this maintaining any frame markers or structure."
-                translation_result = translate_text(batch_input, 'en', target_language)
+                # For audio dubbing, translate the clean transcript directly (no frame structure)
+                translation_result = translate_text(existing_transcript, 'en', target_language)
                 
                 if not translation_result['success']:
                     return {
@@ -779,10 +683,10 @@ class VideoRestartHelpers:
                     self._translation_cache[cache_key] = {}
                 self._translation_cache[cache_key][target_language] = translation_result
             
-            # Clean translated text
-            clean_text = self._clean_translated_text(translation_result['translated_text'])
+            # Use translated text directly (already clean for audio dubbing)
+            translated_text = translation_result['translated_text']
             
-            return self.dubbing_helpers.generate_edge_speech_step(clean_text, target_language, self.video_capture_path)
+            return self.dubbing_helpers.generate_edge_speech_step(translated_text, target_language, self.video_capture_path)
             
         except Exception as e:
             print(f"RestartHelpers[{self.device_name}]: Edge-TTS generation error: {e}")
