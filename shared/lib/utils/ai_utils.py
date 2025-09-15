@@ -17,7 +17,7 @@ from typing import Dict, Any, Optional, Union
 # =============================================================================
 
 AI_MODELS = {
-    'text': 'moonshotai/kimi-k2:free',
+    'text': 'qwen/qwen-2.5-vl-7b-instruct', # Kimi not working for now, using Qwen instead moonshotai/kimi-k2:free
     'vision': 'qwen/qwen-2.5-vl-7b-instruct',
 }
 
