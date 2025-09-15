@@ -10,10 +10,10 @@ set -e
 CURRENT_USER=$(whoami)
 TARGET_USER="$CURRENT_USER"
 
-for arg in "$@"; do
-    case $arg in
+while [[ $# -gt 0 ]]; do
+    case $1 in
         --user=*)
-            TARGET_USER="${arg#*=}"
+            TARGET_USER="${1#*=}"
             shift
             ;;
         --user)
@@ -27,7 +27,7 @@ for arg in "$@"; do
             exit 0
             ;;
         *)
-            echo "❌ Unknown parameter: $arg"
+            echo "❌ Unknown parameter: $1"
             echo "Use --help for usage information"
             exit 1
             ;;

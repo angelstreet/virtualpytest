@@ -912,10 +912,10 @@ class VideoRestartHelpers:
                 print(f"RestartHelpers[{self.device_name}]: Applying timing to vocals: {target_timing_ms:+d}ms")
                 
                 if target_timing_ms > 0:
-                    # Positive offset: delay vocals
+                    # Positive offset: delay vocals (both channels for stereo)
                     vocal_cmd = [
                         'ffmpeg', '-i', vocal_source_path,
-                        '-af', f'adelay={target_timing_ms}',
+                        '-af', f'adelay={target_timing_ms}:{target_timing_ms}',
                         '-c:a', 'pcm_s16le',
                         timed_vocal_path, '-y'
                     ]
