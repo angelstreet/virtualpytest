@@ -278,7 +278,17 @@ Content to translate:
 Translated content:"""
 
         # Single AI call for all content
+        print(f"[TRANSLATION] Making batch translation call for language: {target_language}")
+        print(f"[TRANSLATION] Sections to translate: {list(section_map.keys())}")
+        print(f"[TRANSLATION] Total prompt length: {len(prompt)} characters")
+        
         result = call_text_ai(prompt, max_tokens=2000, temperature=0.1)
+        
+        print(f"[TRANSLATION] AI call result: success={result['success']}")
+        if not result['success']:
+            print(f"[TRANSLATION] AI error: {result.get('error', 'Unknown error')}")
+            if 'response_body' in result:
+                print(f"[TRANSLATION] OpenRouter response body: {result['response_body']}")
         
         if result['success']:
             return _parse_batch_translation_response(result['content'], section_map, content_blocks)
@@ -286,7 +296,8 @@ Translated content:"""
             return {
                 'success': False,
                 'error': f'Batch translation failed: {result.get("error", "Unknown error")}',
-                'translations': {}
+                'translations': {},
+                'openrouter_response': result.get('response_body', 'No response body available')
             }
             
     except Exception as e:

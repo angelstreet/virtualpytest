@@ -72,16 +72,28 @@ def translate_restart_batch():
         content_blocks = data.get('content_blocks', {})
         target_language = data.get('target_language', 'en')
         
+        print(f"[SERVER_TRANSLATION] Batch translation request for language: {target_language}")
+        print(f"[SERVER_TRANSLATION] Content blocks keys: {list(content_blocks.keys())}")
+        
         if not content_blocks:
+            print("[SERVER_TRANSLATION] ERROR: No content blocks provided")
             return jsonify({
                 'success': False,
                 'error': 'No content blocks provided'
             }), 400
         
         result = batch_translate_restart_content(content_blocks, target_language)
+        
+        print(f"[SERVER_TRANSLATION] Translation result: success={result.get('success', False)}")
+        if not result.get('success', False):
+            print(f"[SERVER_TRANSLATION] Translation error: {result.get('error', 'Unknown error')}")
+            if 'openrouter_response' in result:
+                print(f"[SERVER_TRANSLATION] OpenRouter response: {result['openrouter_response']}")
+        
         return jsonify(result)
         
     except Exception as e:
+        print(f"[SERVER_TRANSLATION] EXCEPTION: {str(e)}")
         return jsonify({
             'success': False,
             'error': f'Batch translation error: {str(e)}'

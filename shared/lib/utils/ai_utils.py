@@ -36,7 +36,10 @@ def call_text_ai(prompt: str, max_tokens: int = 200, temperature: float = 0.1) -
     try:
         api_key = get_api_key()
         if not api_key:
+            print("[AI_UTILS] ERROR: No API key found")
             return {'success': False, 'error': 'No API key', 'content': ''}
+        
+        print(f"[AI_UTILS] Making OpenRouter API call - Model: {AI_MODELS['text']}, Max tokens: {max_tokens}")
         
         response = requests.post(
             API_BASE_URL,
@@ -55,14 +58,28 @@ def call_text_ai(prompt: str, max_tokens: int = 200, temperature: float = 0.1) -
             timeout=30
         )
         
+        print(f"[AI_UTILS] OpenRouter Response Status: {response.status_code}")
+        print(f"[AI_UTILS] OpenRouter Response Headers: {dict(response.headers)}")
+        
         if response.status_code == 200:
             result = response.json()
             content = result['choices'][0]['message']['content']
+            print(f"[AI_UTILS] SUCCESS: Received {len(content)} characters")
             return {'success': True, 'content': content}
         else:
-            return {'success': False, 'error': f'API error: {response.status_code}', 'content': ''}
+            # Log full response for debugging
+            try:
+                error_body = response.json()
+                print(f"[AI_UTILS] ERROR BODY: {error_body}")
+            except:
+                error_body = response.text
+                print(f"[AI_UTILS] ERROR TEXT: {error_body}")
+            
+            print(f"[AI_UTILS] FAILED: Status {response.status_code}")
+            return {'success': False, 'error': f'API error: {response.status_code}', 'content': '', 'response_body': error_body}
             
     except Exception as e:
+        print(f"[AI_UTILS] EXCEPTION: {str(e)}")
         return {'success': False, 'error': str(e), 'content': ''}
 
 def call_vision_ai(prompt: str, image_input: Union[str, bytes], max_tokens: int = 300, temperature: float = 0.0) -> Dict[str, Any]:
