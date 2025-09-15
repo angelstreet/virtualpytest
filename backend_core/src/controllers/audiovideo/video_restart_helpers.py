@@ -573,8 +573,9 @@ class VideoRestartHelpers:
                 print(f"RestartHelpers[{self.device_name}]: Video file not found")
                 return None
             
-            # Extract audio from video
-            audio_file = video_file.replace('.mp4', '.wav')
+            # Extract audio from video to fixed location
+            paths = self.dubbing_helpers.get_file_paths(target_language)
+            audio_file = paths['original_audio']
             subprocess.run(['ffmpeg', '-i', video_file, '-vn', '-acodec', 'pcm_s16le', 
                           '-ar', '44100', '-ac', '2', audio_file, '-y'], 
                           capture_output=True, check=True)

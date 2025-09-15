@@ -18,16 +18,15 @@ class AudioDubbingHelpers:
         
     def get_file_paths(self, language: str) -> Dict[str, str]:
         """Fixed filenames - always the same, always overwritten"""
-        prefix = f"{self.device_name}_{language}"
         
         return {
-            'original_audio': f"/tmp/{self.device_name}_original_audio.wav",
-            'background': f"/tmp/{prefix}_background.wav", 
-            'vocals': f"/tmp/{prefix}_vocals.wav",
-            'dubbed_voice': f"/tmp/{prefix}_dubbed_voice.wav",
-            'mixed_audio': f"/tmp/{prefix}_mixed_audio.wav",
-            'final_video': f"/tmp/{prefix}_final_video.mp4",
-            'demucs_output': f"/tmp/{prefix}_demucs"
+            'original_audio': f"/tmp/restart_original_audio.wav",
+            'background': f"/tmp/restart_{language}_background.wav", 
+            'vocals': f"/tmp/restart_{language}_vocals.wav",
+            'dubbed_voice': f"/tmp/restart_{language}_dubbed_voice.wav",
+            'mixed_audio': f"/tmp/restart_{language}_mixed_audio.wav",
+            'final_video': f"/tmp/restart_{language}_final_video.mp4",
+            'demucs_output': f"/tmp/restart_{language}_demucs"
         }
         
     def separate_audio_tracks(self, audio_file: str, language: str) -> Dict[str, str]:
