@@ -264,6 +264,7 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
     // Mark request as in progress (no abort controller needed with proper deduplication)
     isRequestInProgress.current = true;
 
+    const videoGenerationStartTime = Date.now();
     console.log(`[@hook:useRestart] Starting 4-stage video generation for ${host.host_name}-${device.device_id}`);
     
     setIsGenerating(true);
@@ -289,14 +290,22 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
       if (!videoData.success) throw new Error(videoData.error || 'Video generation failed');
 
       // Video ready - show immediately (FAST LAUNCH)
+      const videoGenerationDuration = ((Date.now() - videoGenerationStartTime) / 1000).toFixed(1);
       console.log(`[@hook:useRestart] ✅ Video ready! Launching player immediately: ${videoData.video_url}`);
+      console.log(`[@hook:useRestart] 🎬 Video generated in ${videoGenerationDuration}s`);
+      
       setVideoUrl(videoData.video_url);
       setIsReady(true);
-      setIsGenerating(false);
       setAnalysisProgress(prev => ({ ...prev, video: 'completed' }));
       
-      // Show success toast for video generation
-      toast.showSuccess('🎬 Video ready! Starting analysis...', { duration: 3000 });
+      // Show success toast with generation time
+      toast.showSuccess(`🎬 Video generated in ${videoGenerationDuration}s`, { duration: 4000 });
+      
+      // Keep "generating" state visible for 1.5 seconds so user sees the process
+      setTimeout(() => {
+        console.log(`[@hook:useRestart] 🎬 Switching from "generating" to "ready" state`);
+        setIsGenerating(false);
+      }, 1500);
 
       if (!includeAudioAnalysis) {
         console.log(`[@hook:useRestart] ✅ Analysis disabled - video player ready for immediate use`);

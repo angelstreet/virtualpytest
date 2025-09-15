@@ -112,7 +112,8 @@ export const RestartPlayer: React.FC<RestartPlayerProps> = ({ host, device, incl
     analysisProgress,
     dubbedVideos,
     currentLanguage,
-    translateToLanguage
+    translateToLanguage,
+    translationResults
   } = restartHookData;
 
   // Smart video source selection - use dubbed video if available, otherwise original
@@ -121,9 +122,18 @@ export const RestartPlayer: React.FC<RestartPlayerProps> = ({ host, device, incl
     return dubbedVideos[currentLanguage] || videoUrl; // Use dubbed if available, fallback to original
   }, [currentLanguage, videoUrl, dubbedVideos]);
 
+  // Smart subtitle selection - use translated subtitles if available, otherwise original
+  const currentSubtitles = useMemo(() => {
+    if (currentLanguage === 'en') {
+      return analysisResults.subtitles?.frame_subtitles; // Use original for English
+    }
+    // Use translated subtitles if available, fallback to original
+    return translationResults[currentLanguage]?.frameSubtitles || analysisResults.subtitles?.frame_subtitles;
+  }, [currentLanguage, translationResults, analysisResults.subtitles?.frame_subtitles]);
+
   // Dubbing is now handled by RestartSettingsPanel after translation completes
 
-  // Debug video URL
+  // Debug video URL and subtitles
   useEffect(() => {
     console.log(`[@component:RestartPlayer] Video state:`, {
       videoUrl,
@@ -135,6 +145,17 @@ export const RestartPlayer: React.FC<RestartPlayerProps> = ({ host, device, incl
       error
     });
   }, [videoUrl, currentVideoUrl, currentLanguage, dubbedVideos, isReady, isGenerating, error]);
+
+  // Debug subtitle selection
+  useEffect(() => {
+    console.log(`[@component:RestartPlayer] Subtitle state:`, {
+      currentLanguage,
+      hasOriginalSubtitles: !!analysisResults.subtitles?.frame_subtitles,
+      hasTranslatedSubtitles: !!translationResults[currentLanguage]?.frameSubtitles,
+      usingSubtitles: currentSubtitles ? 'translated' : 'original',
+      subtitleCount: currentSubtitles?.length || 0
+    });
+  }, [currentLanguage, analysisResults.subtitles?.frame_subtitles, translationResults, currentSubtitles]);
 
   useEffect(() => {
     return () => {
@@ -228,10 +249,10 @@ export const RestartPlayer: React.FC<RestartPlayerProps> = ({ host, device, incl
       )}
 
       {/* Subtitle overlay */}
-      {analysisResults.subtitles?.frame_subtitles && (
+      {currentSubtitles && (
         <RestartSubtitleOverlay
           videoRef={videoRef}
-          frameSubtitles={analysisResults.subtitles.frame_subtitles}
+          frameSubtitles={currentSubtitles}
         />
       )}
 
