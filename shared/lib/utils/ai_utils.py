@@ -18,14 +18,8 @@ from typing import Dict, Any, Optional, Union
 
 AI_MODELS = {
     'text': 'moonshotai/kimi-k2:free',
-    'vision': 'qwen/qwen-2.5-vl-7b-instruct',  # Updated version
+    'vision': 'qwen/qwen-2.5-vl-7b-instruct',
 }
-
-# Fallback models for rate limiting
-FALLBACK_TEXT_MODELS = [
-    'moonshotai/kimi-k2:free',           # Primary
-    'qwen/qwen-2.5-7b-instruct',    # Fallback
-]
 
 API_BASE_URL = 'https://openrouter.ai/api/v1/chat/completions'
 
@@ -46,7 +40,7 @@ def call_text_ai(prompt: str, max_tokens: int = 200, temperature: float = 0.1) -
             return {'success': False, 'error': 'No API key', 'content': ''}
         
         # Try Kimi first
-        print(f"[AI_UTILS] Making OpenRouter API call - Model: {FALLBACK_TEXT_MODELS[0]}, Max tokens: {max_tokens}")
+        print(f"[AI_UTILS] Making OpenRouter API call - Model: {AI_MODELS['text']}, Max tokens: {max_tokens}")
         
         response = requests.post(
             API_BASE_URL,
@@ -57,7 +51,7 @@ def call_text_ai(prompt: str, max_tokens: int = 200, temperature: float = 0.1) -
                 'X-Title': 'VirtualPyTest'
             },
             json={
-                'model': FALLBACK_TEXT_MODELS[0],
+                'model': AI_MODELS['text'],
                 'messages': [{'role': 'user', 'content': prompt}],
                 'max_tokens': max_tokens,
                 'temperature': temperature
@@ -73,8 +67,8 @@ def call_text_ai(prompt: str, max_tokens: int = 200, temperature: float = 0.1) -
             print(f"[AI_UTILS] SUCCESS: Received {len(content)} characters")
             return {'success': True, 'content': content}
         elif response.status_code == 429:
-            # Try Qwen2 on rate limit
-            print(f"[AI_UTILS] Kimi rate limited, trying Qwen2...")
+            # Try Qwen vision model on rate limit
+            print(f"[AI_UTILS] Kimi rate limited, trying Qwen...")
             
             response = requests.post(
                 API_BASE_URL,
@@ -85,7 +79,7 @@ def call_text_ai(prompt: str, max_tokens: int = 200, temperature: float = 0.1) -
                     'X-Title': 'VirtualPyTest'
                 },
                 json={
-                    'model': FALLBACK_TEXT_MODELS[1],
+                    'model': AI_MODELS['vision'],
                     'messages': [{'role': 'user', 'content': prompt}],
                     'max_tokens': max_tokens,
                     'temperature': temperature
@@ -93,12 +87,12 @@ def call_text_ai(prompt: str, max_tokens: int = 200, temperature: float = 0.1) -
                 timeout=30
             )
             
-            print(f"[AI_UTILS] Qwen2 Response Status: {response.status_code}")
+            print(f"[AI_UTILS] Qwen Response Status: {response.status_code}")
             
             if response.status_code == 200:
                 result = response.json()
                 content = result['choices'][0]['message']['content']
-                print(f"[AI_UTILS] SUCCESS with Qwen2: Received {len(content)} characters")
+                print(f"[AI_UTILS] SUCCESS with Qwen: Received {len(content)} characters")
                 return {'success': True, 'content': content}
         
         # Log error for any failure
