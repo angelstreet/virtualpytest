@@ -119,6 +119,7 @@ interface UseRestartReturn {
   dubbedVideos: Record<string, string>;
   dubbedAudioUrls: Record<string, { gtts: string; edge: string }>;
   isDubbing: boolean;
+  dubbingCache: Record<string, boolean>;
   
   // Translation state
   translationResults: Record<string, TranslationResults>;
@@ -235,6 +236,9 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
   
   // Timing cache - stores all processed timing variations per language
   const [timingCache, setTimingCache] = useState<Record<string, Record<number, string>>>({});
+  
+  // Dubbing cache - tracks which languages have been processed
+  const [dubbingCache, setDubbingCache] = useState<Record<string, boolean>>({});
   
   // Translation deduplication protection
   const isTranslationInProgress = useRef(false);
@@ -602,6 +606,13 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
   const generateDubbedVersion = useCallback(async (language: string, transcript: string, videoId: string) => {
     const dubbingStartTime = Date.now();
     try {
+      // Check if dubbing already exists for this language
+      if (dubbedVideos[language] && dubbingCache[language]) {
+        console.log(`[@hook:useRestart] 🎤 Using cached dubbed video for ${language}`);
+        toast.showSuccess(`✅ Dubbed video for ${language} (cached)`, { duration: 2000 });
+        return;
+      }
+
       console.log(`[@hook:useRestart] 🎤 Starting 4-step dubbing generation for ${language}...`);
       setIsDubbing(true);
       
@@ -686,7 +697,7 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
       }
       
       const dubbingDuration = ((Date.now() - dubbingStartTime) / 1000).toFixed(1);
-      toast.showSuccess(`🎉 Dubbing for ${language} completed in ${dubbingDuration}s!`, { duration: 5000 });
+      toast.showSuccess(`🎉 Dubbing for ${language} completed in ${dubbingDuration}s! (cached for future use)`, { duration: 5000 });
       console.log(`[@hook:useRestart] ✅ All 4 steps completed for ${language} in ${dubbingDuration}s`);
       
       // Store final video URL
@@ -706,13 +717,19 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
         }));
       }
       
+      // Mark this language as cached for future instant access
+      setDubbingCache(prev => ({
+        ...prev,
+        [language]: true
+      }));
+      
     } catch (error) {
       console.error(`[@hook:useRestart] Dubbing failed for ${language}:`, error);
       toast.showError(`❌ Dubbing for ${language} failed: ${error instanceof Error ? error.message : String(error)}`, { duration: 8000 });
     } finally {
       setIsDubbing(false);
     }
-  }, [host, device, toast]);
+  }, [host, device, dubbedVideos, dubbingCache, toast]);
 
   const translateToLanguage = useCallback(async (language: string) => {
     const translationStartTime = Date.now();
@@ -720,19 +737,22 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
       setCurrentLanguage(language);
       
       if (language === 'en') {
-        // Reset to original content for English
+        // Reset to original content for English - instant switch
+        console.log(`[@hook:useRestart] 🌐 Switching to original English content`);
+        toast.showSuccess(`✅ Switched to English (original)`, { duration: 2000 });
+        return;
+      }
+
+      // Check cache first - if translation exists, use it immediately
+      if (translationResults[language]) {
+        console.log(`[@hook:useRestart] 🌐 Using cached translation for ${language}`);
+        toast.showSuccess(`✅ Switched to ${language} (cached)`, { duration: 2000 });
         return;
       }
 
       // Deduplication protection - prevent duplicate translation requests
       if (isTranslationInProgress.current && currentTranslationLanguage.current === language) {
         console.log(`[@hook:useRestart] Translation already in progress for ${language}, ignoring duplicate request`);
-        return;
-      }
-
-      // Check cache first - if translation exists, use it immediately
-      if (translationResults[language]) {
-        console.log(`[@hook:useRestart] Using cached translation for ${language}`);
         return;
       }
 
@@ -842,7 +862,7 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
         
         const translationDuration = ((Date.now() - translationStartTime) / 1000).toFixed(1);
         console.log(`[@hook:useRestart] ✅ Translation to ${language} completed in ${translationDuration}s`);
-        toast.showSuccess(`✅ Translation to ${language} complete! (${translationDuration}s)`, { duration: 4000 });
+        toast.showSuccess(`✅ Translation to ${language} complete! (${translationDuration}s, cached for future use)`, { duration: 4000 });
         
         // Auto-trigger dubbing after successful translation (if audio transcript available)
         if (analysisResults.audio?.combined_transcript && analysisResults.videoDescription) {
@@ -1065,6 +1085,7 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
     dubbedVideos,
     dubbedAudioUrls,
     isDubbing,
+    dubbingCache,
     
     // Translation state
     translationResults,
