@@ -190,8 +190,6 @@ class IRRemoteController(RemoteControllerInterface):
         Returns:
             bool: True if command sent successfully
         """
-        import tempfile
-        
         try:
             # Get raw IR code from config
             raw_code = self.ir_config_data.get(key)
@@ -202,10 +200,12 @@ class IRRemoteController(RemoteControllerInterface):
             print(f"Remote[{self.device_type.upper()}]: Sending IR code for {key}")
             print(f"Remote[{self.device_type.upper()}]: Raw IR code: {raw_code[:100]}...")  # Debug: show first 100 chars
             
-            # Create temporary file
-            with tempfile.NamedTemporaryFile(mode='w', delete=False) as temp_file:
+            # Use fixed temporary file path
+            temp_path = "/tmp/ircode.txt"
+            
+            # Write IR code to fixed temp file
+            with open(temp_path, 'w') as temp_file:
                 temp_file.write(raw_code)
-                temp_path = temp_file.name
             
             print(f"Remote[{self.device_type.upper()}]: Running command: sudo ir-ctl --device {self.ir_path} --send {temp_path}")
             
@@ -237,12 +237,6 @@ class IRRemoteController(RemoteControllerInterface):
         except Exception as e:
             print(f"Remote[{self.device_type.upper()}]: Unexpected error sending IR code: {e}")
             return False
-        finally:
-            if 'temp_path' in locals():
-                try:
-                    os.unlink(temp_path)
-                except Exception as e:
-                    print(f"Remote[{self.device_type.upper()}]: Failed to delete temp file: {e}")
     
     def get_status(self) -> Dict[str, Any]:
         """Get controller status information."""

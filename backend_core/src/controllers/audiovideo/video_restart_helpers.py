@@ -580,7 +580,7 @@ class VideoRestartHelpers:
                           capture_output=True, check=True)
             
             # Separate audio tracks
-            separated = self.dubbing_helpers.separate_audio_tracks(audio_file)
+            separated = self.dubbing_helpers.separate_audio_tracks(audio_file, target_language)
             if not separated:
                 return None
             
@@ -597,13 +597,12 @@ class VideoRestartHelpers:
             duration = float(result.stdout.strip()) if result.stdout.strip() else 10.0
             
             # Mix audio
-            final_audio = self.dubbing_helpers.mix_dubbed_audio(
-                separated['background'], dubbed_voice, duration)
+            final_audio = self.dubbing_helpers.mix_dubbed_audio(target_language, duration)
             if not final_audio:
                 return None
             
             # Create dubbed video
-            dubbed_video = self.dubbing_helpers.create_dubbed_video(video_file, final_audio)
+            dubbed_video = self.dubbing_helpers.create_dubbed_video(video_file, target_language)
             if not dubbed_video:
                 return None
             

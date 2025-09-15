@@ -13,40 +13,54 @@ class AudioDubbingHelpers:
     
     def __init__(self, av_controller, device_name: str = "DubbingHelper"):
         self.av_controller = av_controller
-        self.device_name = device_name
-        # Demucs doesn't need persistent separator object
+        self.device_name = device_name.replace(" ", "_")  # Clean device name for filenames
+        self.temp_dir = "/tmp"
         
-    def separate_audio_tracks(self, audio_file: str) -> Dict[str, str]:
-        """Separate audio into vocals and background using Demucs."""
+    def get_file_paths(self, language: str) -> Dict[str, str]:
+        """Fixed filenames - always the same, always overwritten"""
+        prefix = f"{self.device_name}_{language}"
+        
+        return {
+            'original_audio': f"/tmp/{self.device_name}_original_audio.wav",
+            'background': f"/tmp/{prefix}_background.wav", 
+            'vocals': f"/tmp/{prefix}_vocals.wav",
+            'dubbed_voice': f"/tmp/{prefix}_dubbed_voice.wav",
+            'mixed_audio': f"/tmp/{prefix}_mixed_audio.wav",
+            'final_video': f"/tmp/{prefix}_final_video.mp4",
+            'demucs_output': f"/tmp/{prefix}_demucs"
+        }
+        
+    def separate_audio_tracks(self, audio_file: str, language: str) -> Dict[str, str]:
+        """Separate audio into vocals and background using Demucs with fixed filenames."""
         try:
             import subprocess
-            import tempfile
+            import shutil
             
             print(f"Dubbing[{self.device_name}]: Loading Demucs model...")
             
-            # Create output directory
-            output_dir = tempfile.mkdtemp()
+            paths = self.get_file_paths(language)
             
-            # Run Demucs separation
+            # Run Demucs separation to fixed output directory
             cmd = [
                 'python', '-m', 'demucs.separate',
                 '--two-stems', 'vocals',  # Separate into vocals and no_vocals
-                '--out', output_dir,
+                '--out', paths['demucs_output'],
                 audio_file
             ]
             
-            result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+            subprocess.run(cmd, capture_output=True, text=True, check=True)
             
-            # Demucs creates: output_dir/htdemucs/{filename}/vocals.wav and no_vocals.wav
+            # Demucs creates: demucs_output/htdemucs/{filename}/vocals.wav and no_vocals.wav
             base_name = os.path.splitext(os.path.basename(audio_file))[0]
-            demucs_dir = os.path.join(output_dir, 'htdemucs', base_name)
+            demucs_vocals = os.path.join(paths['demucs_output'], 'htdemucs', base_name, 'vocals.wav')
+            demucs_background = os.path.join(paths['demucs_output'], 'htdemucs', base_name, 'no_vocals.wav')
             
-            vocals_path = os.path.join(demucs_dir, 'vocals.wav')
-            background_path = os.path.join(demucs_dir, 'no_vocals.wav')
-            
-            if os.path.exists(vocals_path) and os.path.exists(background_path):
+            # Copy to fixed locations (overwrite if exists)
+            if os.path.exists(demucs_vocals) and os.path.exists(demucs_background):
+                shutil.copy2(demucs_vocals, paths['vocals'])
+                shutil.copy2(demucs_background, paths['background'])
                 print(f"Dubbing[{self.device_name}]: Audio separated successfully")
-                return {'vocals': vocals_path, 'background': background_path}
+                return {'vocals': paths['vocals'], 'background': paths['background']}
             else:
                 print(f"Dubbing[{self.device_name}]: Output files not found")
                 return {}
@@ -56,37 +70,40 @@ class AudioDubbingHelpers:
             return {}
     
     def generate_dubbed_speech(self, text: str, language: str) -> Optional[str]:
-        """Generate speech from text using gTTS."""
+        """Generate speech from text using gTTS with fixed filename."""
         try:
             from gtts import gTTS
+            
+            paths = self.get_file_paths(language)
             
             gtts_lang_map = {'es': 'es', 'fr': 'fr', 'de': 'de', 'it': 'it', 'pt': 'pt'}
             gtts_lang = gtts_lang_map.get(language, 'en')
             
             tts = gTTS(text=text, lang=gtts_lang, slow=False)
-            output_file = tempfile.mktemp(suffix='.mp3')
-            tts.save(output_file)
+            temp_mp3 = f"/tmp/{self.device_name}_{language}_temp.mp3"
+            tts.save(temp_mp3)
             
-            # Convert to WAV
-            wav_file = output_file.replace('.mp3', '.wav')
-            subprocess.run(['ffmpeg', '-i', output_file, '-ar', '44100', '-ac', '2', wav_file, '-y'], 
+            # Convert to WAV with fixed filename
+            subprocess.run(['ffmpeg', '-i', temp_mp3, '-ar', '44100', '-ac', '2', paths['dubbed_voice'], '-y'], 
                           capture_output=True, check=True)
-            os.remove(output_file)
+            os.remove(temp_mp3)
             
             print(f"Dubbing[{self.device_name}]: Speech generated for {language}")
-            return wav_file
+            return paths['dubbed_voice']
             
         except Exception as e:
             print(f"Dubbing[{self.device_name}]: Speech generation failed: {e}")
             return None
     
-    def mix_dubbed_audio(self, background_file: str, dubbed_voice_file: str, original_duration: float) -> Optional[str]:
-        """Mix background audio with dubbed voice."""
+    def mix_dubbed_audio(self, language: str, original_duration: float) -> Optional[str]:
+        """Mix background audio with dubbed voice using fixed filenames."""
         try:
             from pydub import AudioSegment
             
-            background = AudioSegment.from_file(background_file)
-            dubbed_voice = AudioSegment.from_file(dubbed_voice_file)
+            paths = self.get_file_paths(language)
+            
+            background = AudioSegment.from_file(paths['background'])
+            dubbed_voice = AudioSegment.from_file(paths['dubbed_voice'])
             
             # Adjust durations
             target_ms = int(original_duration * 1000)
@@ -103,29 +120,29 @@ class AudioDubbingHelpers:
             dubbed_voice = dubbed_voice + 5   # Boost voice
             mixed = background.overlay(dubbed_voice)
             
-            output_file = tempfile.mktemp(suffix='.wav')
-            mixed.export(output_file, format="wav")
+            # Export to fixed filename (auto-overwrite)
+            mixed.export(paths['mixed_audio'], format="wav")
             
             print(f"Dubbing[{self.device_name}]: Audio mixed successfully")
-            return output_file
+            return paths['mixed_audio']
             
         except Exception as e:
             print(f"Dubbing[{self.device_name}]: Audio mixing failed: {e}")
             return None
     
-    def create_dubbed_video(self, video_file: str, dubbed_audio_file: str) -> Optional[str]:
-        """Combine original video with dubbed audio track."""
+    def create_dubbed_video(self, original_video: str, language: str) -> Optional[str]:
+        """Combine original video with dubbed audio track using fixed filename."""
         try:
-            output_file = video_file.replace('.mp4', '_dubbed.mp4')
+            paths = self.get_file_paths(language)
             
             subprocess.run([
-                'ffmpeg', '-i', video_file, '-i', dubbed_audio_file,
+                'ffmpeg', '-i', original_video, '-i', paths['mixed_audio'],
                 '-c:v', 'copy', '-c:a', 'aac', '-map', '0:v:0', '-map', '1:a:0',
-                '-shortest', output_file, '-y'
+                '-shortest', paths['final_video'], '-y'  # Fixed output filename
             ], capture_output=True, check=True)
             
             print(f"Dubbing[{self.device_name}]: Dubbed video created")
-            return output_file
+            return paths['final_video']
             
         except Exception as e:
             print(f"Dubbing[{self.device_name}]: Video creation failed: {e}")
