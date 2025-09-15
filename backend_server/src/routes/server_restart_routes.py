@@ -63,7 +63,7 @@ def analyze_restart_audio():
             'POST',
             request_data,
             {'device_id': device_id},
-            timeout=90  # 90 seconds for audio analysis
+            timeout=300  # 5 minutes for audio analysis (AI processing can be slow)
         )
         return jsonify(response_data), status_code
         
@@ -86,7 +86,7 @@ def generate_restart_report():
             'POST',
             request_data,
             {'device_id': device_id},
-            timeout=180  # 3 minutes for report generation
+            timeout=300  # 5 minutes for report generation
         )
         return jsonify(response_data), status_code
         
@@ -109,7 +109,7 @@ def analyze_restart_complete():
             'POST',
             request_data,
             {'device_id': device_id},
-            timeout=180  # 3 minutes for combined analysis
+            timeout=600  # 10 minutes for combined analysis (AI processing can be slow)
         )
         return jsonify(response_data), status_code
         
