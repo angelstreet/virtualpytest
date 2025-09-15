@@ -26,7 +26,7 @@ AI_BATCH_CONFIG = {
     'batch_size': 6,            # Number of images per batch (reduced from 10)
     'max_batch_size': 6,        # Maximum allowed batch size (reduced from 10)
     'timeout_seconds': 300,     # 5 minutes timeout per batch
-    'max_tokens': 800,          # Max tokens per AI response
+    'max_tokens': 2000,          # Max tokens per AI response
     'temperature': 0.0          # AI temperature setting
 }
 
