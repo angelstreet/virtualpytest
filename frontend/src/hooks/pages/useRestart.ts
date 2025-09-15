@@ -128,6 +128,7 @@ interface UseRestartReturn {
   // Audio timing state
   audioTimingOffset: number;
   isApplyingTiming: boolean;
+  timingCache: Record<string, Record<number, string>>;
   
   // Manual analysis triggers
   analyzeAudio: (videoUrl: string) => Promise<any>;
@@ -231,6 +232,9 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
   // Audio timing state
   const [audioTimingOffset, setAudioTimingOffset] = useState(0);
   const [isApplyingTiming, setIsApplyingTiming] = useState(false);
+  
+  // Timing cache - stores all processed timing variations per language
+  const [timingCache, setTimingCache] = useState<Record<string, Record<number, string>>>({});
   
   // Translation deduplication protection
   const isTranslationInProgress = useRef(false);
@@ -877,20 +881,85 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
   }, [analysisResults, toast, generateDubbedVersion]);
 
   const applyAudioTiming = useCallback(async (offsetMs: number) => {
-    if (offsetMs === 0) return; // No change needed
+    if (offsetMs === audioTimingOffset) return; // No change needed
     
     // Determine if we're working with dubbed or original video
     const isDubbed = currentLanguage !== 'en' && dubbedVideos[currentLanguage];
-    const targetVideoUrl = isDubbed ? dubbedVideos[currentLanguage] : videoUrl;
+    const baseVideoUrl = isDubbed ? dubbedVideos[currentLanguage] : videoUrl;
     
-    if (!targetVideoUrl) {
+    if (!baseVideoUrl) {
       console.error('[@hook:useRestart] No video available for timing adjustment');
       toast.showError('❌ No video available for timing adjustment');
       return;
     }
     
+    // Check if this timing is already cached
+    const languageCache = timingCache[currentLanguage] || {};
+    const cachedVideoUrl = languageCache[offsetMs];
+    
+    if (cachedVideoUrl) {
+      // Use cached video - instant switch
+      console.log(`[@hook:useRestart] 🎵 Using cached video for ${offsetMs > 0 ? '+' : ''}${offsetMs}ms timing (${currentLanguage})`);
+      setIsApplyingTiming(true);
+      
+      try {
+        // Update the appropriate video URL from cache
+        if (isDubbed) {
+          setDubbedVideos(prev => ({ ...prev, [currentLanguage]: cachedVideoUrl }));
+        } else {
+          setVideoUrl(cachedVideoUrl);
+        }
+        setAudioTimingOffset(offsetMs);
+        console.log(`[@hook:useRestart] ✅ Instant timing switch to ${offsetMs > 0 ? '+' : ''}${offsetMs}ms`);
+        toast.showSuccess(`✅ Audio timing: ${offsetMs > 0 ? '+' : ''}${offsetMs}ms (cached)`);
+      } catch (error) {
+        console.error('[@hook:useRestart] Cached timing switch failed:', error);
+        toast.showError('❌ Timing switch failed');
+      } finally {
+        setIsApplyingTiming(false);
+      }
+      return;
+    }
+    
+    // Handle 0ms timing reset by selecting original video (no backend call needed)
+    if (offsetMs === 0) {
+      console.log(`[@hook:useRestart] 🎵 Resetting audio timing to 0ms for ${currentLanguage}`);
+      setIsApplyingTiming(true);
+      
+      try {
+        // Build original video URL (remove any timing suffix)
+        const originalVideoUrl = baseVideoUrl.replace(/(_sync[pm]\d+)(\.[^.]+)$/, '$2');
+        
+        // Update the appropriate video URL to original
+        if (isDubbed) {
+          setDubbedVideos(prev => ({ ...prev, [currentLanguage]: originalVideoUrl }));
+        } else {
+          setVideoUrl(originalVideoUrl);
+        }
+        
+        // Cache the 0ms video
+        setTimingCache(prev => ({
+          ...prev,
+          [currentLanguage]: {
+            ...prev[currentLanguage],
+            0: originalVideoUrl
+          }
+        }));
+        
+        setAudioTimingOffset(0);
+        console.log(`[@hook:useRestart] ✅ Audio timing reset to 0ms`);
+        toast.showSuccess(`✅ Audio timing reset to 0ms`);
+      } catch (error) {
+        console.error('[@hook:useRestart] Audio timing reset failed:', error);
+        toast.showError('❌ Audio timing reset failed');
+      } finally {
+        setIsApplyingTiming(false);
+      }
+      return;
+    }
+    
     // Create unique key for this timing adjustment request (Pattern 3: Complex key-based deduplication)
-    const timingKey = `${targetVideoUrl}-${offsetMs}-${currentLanguage}`;
+    const timingKey = `${baseVideoUrl}-${offsetMs}-${currentLanguage}`;
     
     // Deduplication protection - prevent duplicate timing adjustment requests
     if (isTimingAdjustmentInProgress.current && currentTimingAdjustmentKey.current === timingKey) {
@@ -903,8 +972,11 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
     currentTimingAdjustmentKey.current = timingKey;
     
     try {
-      console.log(`[@hook:useRestart] 🎵 Starting audio timing adjustment: ${offsetMs > 0 ? '+' : ''}${offsetMs}ms for ${currentLanguage}`);
+      console.log(`[@hook:useRestart] 🎵 Processing new audio timing: ${offsetMs > 0 ? '+' : ''}${offsetMs}ms for ${currentLanguage}`);
       setIsApplyingTiming(true);
+      
+      // Get the original video URL (without timing suffix) for backend processing
+      const originalVideoUrl = baseVideoUrl.replace(/(_sync[pm]\d+)(\.[^.]+)$/, '$2');
       
       const response = await fetch(buildServerUrl('/server/restart/adjustAudioTiming'), {
         method: 'POST',
@@ -912,7 +984,7 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
         body: JSON.stringify({
           host,
           device_id: device.device_id,
-          video_url: targetVideoUrl,
+          video_url: originalVideoUrl,
           timing_offset_ms: offsetMs,
           language: currentLanguage
         })
@@ -927,9 +999,19 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
         } else {
           setVideoUrl(result.adjusted_video_url);
         }
+        
+        // Cache the new timing-adjusted video
+        setTimingCache(prev => ({
+          ...prev,
+          [currentLanguage]: {
+            ...prev[currentLanguage],
+            [offsetMs]: result.adjusted_video_url
+          }
+        }));
+        
         setAudioTimingOffset(offsetMs);
-        console.log(`[@hook:useRestart] ✅ Audio timing adjustment completed: ${offsetMs > 0 ? '+' : ''}${offsetMs}ms`);
-        toast.showSuccess(`✅ Audio timing adjusted by ${offsetMs > 0 ? '+' : ''}${offsetMs}ms`);
+        console.log(`[@hook:useRestart] ✅ Audio timing adjustment completed: ${offsetMs > 0 ? '+' : ''}${offsetMs}ms (cached for future use)`);
+        toast.showSuccess(`✅ Audio timing: ${offsetMs > 0 ? '+' : ''}${offsetMs}ms (processed & cached)`);
       } else {
         throw new Error(result.error);
       }
@@ -942,7 +1024,7 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
       isTimingAdjustmentInProgress.current = false;
       currentTimingAdjustmentKey.current = null;
     }
-  }, [host, device, videoUrl, dubbedVideos, currentLanguage, toast]);
+  }, [host, device, videoUrl, dubbedVideos, currentLanguage, audioTimingOffset, timingCache, toast]);
 
   const regenerateVideo = useCallback(async () => {
     videoCache.delete(host, device);
@@ -1003,6 +1085,7 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
     // Audio timing
     audioTimingOffset,
     isApplyingTiming,
+    timingCache,
     applyAudioTiming,
     
     // Utility functions
