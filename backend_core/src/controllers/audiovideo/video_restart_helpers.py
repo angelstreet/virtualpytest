@@ -1074,7 +1074,7 @@ class VideoRestartHelpers:
             
             print(f"RestartHelpers[{self.device_name}]: Creating cached components from: {source_video_path}")
             
-            # Define output paths
+            # Define output paths (always use original components - same for all languages)
             silent_video_path = os.path.join(original_dir, "restart_video_no_audio.mp4")
             audio_extract_path = os.path.join(original_dir, "restart_extracted_audio.wav")
             background_audio_path = os.path.join(original_dir, "restart_original_background.wav")
