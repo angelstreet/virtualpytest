@@ -24,7 +24,7 @@ AI_MODELS = {
 # Fallback models for rate limiting
 FALLBACK_TEXT_MODELS = [
     'moonshotai/kimi-k2:free',           # Primary
-    'qwen/qwen-2.5-7b-instruct:free',    # Fallback
+    'qwen/qwen-2.5-7b-instruct',    # Fallback
 ]
 
 API_BASE_URL = 'https://openrouter.ai/api/v1/chat/completions'
