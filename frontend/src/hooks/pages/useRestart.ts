@@ -178,6 +178,7 @@ class VideoGenerationCache {
 // Global cache instance
 const videoCache = new VideoGenerationCache();
 
+
 // =====================================================
 // MAIN HOOK IMPLEMENTATION
 // =====================================================
@@ -201,6 +202,7 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
   // Request deduplication to prevent React StrictMode duplicate calls
   const abortControllerRef = useRef<AbortController | null>(null);
   const isRequestInProgress = useRef(false);
+  const hasExecutedOnMount = useRef(false);
   
   // Toast notifications and timing
   const toast = useToast();
@@ -461,9 +463,12 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
   // EFFECTS
   // =====================================================
 
-  // Auto-execute on mount only (not on dependency changes)
+  // Auto-execute on mount only (React StrictMode protection)
   useEffect(() => {
-    executeVideoGeneration();
+    if (!hasExecutedOnMount.current) {
+      hasExecutedOnMount.current = true;
+      executeVideoGeneration();
+    }
   }, []); // Empty dependency array - only run on mount
 
   // Cleanup on unmount
