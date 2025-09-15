@@ -447,6 +447,10 @@ class VideoVerificationController(VerificationControllerInterface):
         """Combined AI analysis: subtitles + description in single call."""
         return self.ai_helpers.analyze_image_complete(image_path, extract_text, include_description)
 
+    def analyze_image_batch_complete(self, image_paths: list, extract_text: bool = True, include_description: bool = True) -> Dict[str, Any]:
+        """Batch AI analysis: subtitles + description for multiple images in single call."""
+        return self.ai_helpers.analyze_image_batch_complete(image_paths, extract_text, include_description)
+
     def analyze_language_menu_ai(self, image_path: str) -> Dict[str, Any]:
         """AI-powered language/subtitle menu analysis using OpenRouter."""
         return self.ai_helpers.analyze_language_menu_ai(image_path)
