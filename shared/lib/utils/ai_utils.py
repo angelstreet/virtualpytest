@@ -56,7 +56,7 @@ def call_text_ai(prompt: str, max_tokens: int = 200, temperature: float = 0.1) -
                 'max_tokens': max_tokens,
                 'temperature': temperature
             },
-            timeout=30
+            timeout=60
         )
         
         print(f"[AI_UTILS] OpenRouter Response Status: {response.status_code}")
@@ -84,7 +84,7 @@ def call_text_ai(prompt: str, max_tokens: int = 200, temperature: float = 0.1) -
                     'max_tokens': max_tokens,
                     'temperature': temperature
                 },
-                timeout=30
+                timeout=60
             )
             
             print(f"[AI_UTILS] Qwen Response Status: {response.status_code}")
@@ -112,6 +112,9 @@ def call_text_ai(prompt: str, max_tokens: int = 200, temperature: float = 0.1) -
 
 def call_vision_ai(prompt: str, image_input: Union[str, bytes], max_tokens: int = 300, temperature: float = 0.0) -> Dict[str, Any]:
     """Simple vision AI call."""
+    import time
+    start_time = time.time()
+    
     try:
         api_key = get_api_key()
         if not api_key:
@@ -121,6 +124,14 @@ def call_vision_ai(prompt: str, image_input: Union[str, bytes], max_tokens: int 
         image_b64 = _process_image_input(image_input)
         if not image_b64:
             return {'success': False, 'error': 'Failed to process image', 'content': ''}
+        
+        # Get image info for logging
+        image_size_kb = len(image_b64) * 3 / 4 / 1024  # Approximate size in KB
+        image_path = image_input if isinstance(image_input, str) else "bytes_input"
+        
+        # Log request details in one line for easy re-execution
+        prompt_oneline = prompt.replace('\n', '\\n').replace('"', '\\"')
+        print(f"[AI_UTILS] 🚀 VISION_REQUEST_START: time={start_time:.3f} image='{image_path}' size={image_size_kb:.1f}KB model='{AI_MODELS['vision']}' max_tokens={max_tokens} temp={temperature} prompt=\"{prompt_oneline}\"")
         
         response = requests.post(
             API_BASE_URL,
@@ -142,21 +153,30 @@ def call_vision_ai(prompt: str, image_input: Union[str, bytes], max_tokens: int 
                 'max_tokens': max_tokens,
                 'temperature': temperature
             },
-            timeout=60
+            timeout=120
         )
+        
+        duration = time.time() - start_time
         
         if response.status_code == 200:
             result = response.json()
             content = result['choices'][0]['message']['content']
             
             if content is None or content.strip() == '':
+                print(f"[AI_UTILS] ❌ VISION_REQUEST_EMPTY: duration={duration:.2f}s status=200 image='{image_path}' error='Empty content from AI'")
                 return {'success': False, 'error': 'Empty content from AI', 'content': ''}
             
+            content_preview = content.strip()[:100].replace('\n', '\\n')
+            print(f"[AI_UTILS] ✅ VISION_REQUEST_SUCCESS: duration={duration:.2f}s status=200 image='{image_path}' content_length={len(content)} preview=\"{content_preview}...\"")
             return {'success': True, 'content': content.strip()}
         else:
+            print(f"[AI_UTILS] ❌ VISION_REQUEST_ERROR: duration={duration:.2f}s status={response.status_code} image='{image_path}' error='API error: {response.status_code}'")
             return {'success': False, 'error': f'API error: {response.status_code}', 'content': ''}
             
     except Exception as e:
+        duration = time.time() - start_time
+        image_path = image_input if isinstance(image_input, str) else "bytes_input"
+        print(f"[AI_UTILS] 💥 VISION_REQUEST_EXCEPTION: duration={duration:.2f}s image='{image_path}' error='{str(e)}'")
         return {'success': False, 'error': str(e), 'content': ''}
 
 # =============================================================================
