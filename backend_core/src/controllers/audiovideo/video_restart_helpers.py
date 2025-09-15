@@ -573,21 +573,22 @@ class VideoRestartHelpers:
                 print(f"RestartHelpers[{self.device_name}]: Video file not found")
                 return None
             
-            # Extract audio from video to fixed location
-            paths = self.dubbing_helpers.get_file_paths(target_language)
+            # Extract audio from video to web directory
+            original_video_dir = os.path.dirname(video_file)
+            paths = self.dubbing_helpers.get_file_paths(target_language, original_video_dir)
             audio_file = paths['original_audio']
             subprocess.run(['ffmpeg', '-i', video_file, '-vn', '-acodec', 'pcm_s16le', 
                           '-ar', '44100', '-ac', '2', audio_file, '-y'], 
                           capture_output=True, check=True)
             
             # Separate audio tracks
-            separated = self.dubbing_helpers.separate_audio_tracks(audio_file, target_language)
+            separated = self.dubbing_helpers.separate_audio_tracks(audio_file, target_language, original_video_dir)
             if not separated:
                 return None
             
             # Generate dubbed speech
             dubbed_voice = self.dubbing_helpers.generate_dubbed_speech(
-                translation_result['translated_text'], target_language)
+                translation_result['translated_text'], target_language, original_video_dir)
             if not dubbed_voice:
                 return None
             
@@ -598,7 +599,7 @@ class VideoRestartHelpers:
             duration = float(result.stdout.strip()) if result.stdout.strip() else 10.0
             
             # Mix audio
-            final_audio = self.dubbing_helpers.mix_dubbed_audio(target_language, duration)
+            final_audio = self.dubbing_helpers.mix_dubbed_audio(target_language, duration, original_video_dir)
             if not final_audio:
                 return None
             

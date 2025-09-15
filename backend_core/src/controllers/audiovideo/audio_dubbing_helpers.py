@@ -17,19 +17,19 @@ class AudioDubbingHelpers:
         self.temp_dir = "/tmp"
         
     def get_file_paths(self, language: str, original_video_dir: str = "/tmp") -> Dict[str, str]:
-        """Fixed filenames - always the same, always overwritten"""
+        """Fixed filenames - all in web directory for debugging access"""
         
         return {
-            'original_audio': f"/tmp/restart_original_audio.wav",
-            'background': f"/tmp/restart_{language}_background.wav", 
-            'vocals': f"/tmp/restart_{language}_vocals.wav",
-            'dubbed_voice': f"/tmp/restart_{language}_dubbed_voice.wav",
-            'mixed_audio': f"/tmp/restart_{language}_mixed_audio.wav",
+            'original_audio': f"{original_video_dir}/restart_original_audio.wav",
+            'background': f"{original_video_dir}/restart_{language}_background.wav", 
+            'vocals': f"{original_video_dir}/restart_{language}_vocals.wav",
+            'dubbed_voice': f"{original_video_dir}/restart_{language}_dubbed_voice.wav",
+            'mixed_audio': f"{original_video_dir}/restart_{language}_mixed_audio.wav",
             'final_video': f"{original_video_dir}/restart_video_{language}_dubbed.mp4",
             'demucs_output': f"/tmp/restart_{language}_demucs"
         }
         
-    def separate_audio_tracks(self, audio_file: str, language: str) -> Dict[str, str]:
+    def separate_audio_tracks(self, audio_file: str, language: str, original_video_dir: str) -> Dict[str, str]:
         """Separate audio into vocals and background using Demucs with fixed filenames."""
         try:
             import subprocess
@@ -37,7 +37,7 @@ class AudioDubbingHelpers:
             
             print(f"Dubbing[{self.device_name}]: Loading Demucs model...")
             
-            paths = self.get_file_paths(language)
+            paths = self.get_file_paths(language, original_video_dir)
             
             # Run Demucs separation to fixed output directory
             cmd = [
@@ -68,12 +68,12 @@ class AudioDubbingHelpers:
             print(f"Dubbing[{self.device_name}]: Separation failed: {e}")
             return {}
     
-    def generate_dubbed_speech(self, text: str, language: str) -> Optional[str]:
+    def generate_dubbed_speech(self, text: str, language: str, original_video_dir: str) -> Optional[str]:
         """Generate speech from text using gTTS with fixed filename."""
         try:
             from gtts import gTTS
             
-            paths = self.get_file_paths(language)
+            paths = self.get_file_paths(language, original_video_dir)
             
             gtts_lang_map = {'es': 'es', 'fr': 'fr', 'de': 'de', 'it': 'it', 'pt': 'pt'}
             gtts_lang = gtts_lang_map.get(language, 'en')
@@ -94,12 +94,12 @@ class AudioDubbingHelpers:
             print(f"Dubbing[{self.device_name}]: Speech generation failed: {e}")
             return None
     
-    def mix_dubbed_audio(self, language: str, original_duration: float) -> Optional[str]:
+    def mix_dubbed_audio(self, language: str, original_duration: float, original_video_dir: str) -> Optional[str]:
         """Mix background audio with dubbed voice using fixed filenames."""
         try:
             from pydub import AudioSegment
             
-            paths = self.get_file_paths(language)
+            paths = self.get_file_paths(language, original_video_dir)
             
             background = AudioSegment.from_file(paths['background'])
             dubbed_voice = AudioSegment.from_file(paths['dubbed_voice'])
