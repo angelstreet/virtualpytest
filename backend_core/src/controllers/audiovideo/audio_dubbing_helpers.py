@@ -9,7 +9,7 @@ from typing import Dict, Any, Optional
 
 
 class AudioDubbingHelpers:
-    """Helper class for audio dubbing functionality."""
+    """Audio dubbing helpers with 4-step process for timeout avoidance."""
     
     def __init__(self, av_controller, device_name: str = "DubbingHelper"):
         self.av_controller = av_controller
@@ -136,6 +136,248 @@ class AudioDubbingHelpers:
             print(f"Dubbing[{self.device_name}]: Edge-TTS generation failed: {e}")
         
         return results
+    
+    # =============================================================================
+    # 4-Step Dubbing Process Methods
+    # =============================================================================
+    
+    def prepare_dubbing_audio_step(self, video_file: str, original_video_dir: str) -> Dict[str, Any]:
+        """Step 1: Extract and separate audio (heavy operation ~20-35s)"""
+        import time
+        start_time = time.time()
+        
+        try:
+            # Extract audio from video
+            paths = self.get_file_paths('temp', original_video_dir)  # Use temp language for paths
+            audio_file = paths['original_audio']
+            
+            print(f"Dubbing[{self.device_name}]: Step 1 - Extracting audio from video...")
+            subprocess.run(['ffmpeg', '-i', video_file, '-vn', '-acodec', 'pcm_s16le', 
+                          '-ar', '44100', '-ac', '2', audio_file, '-y'], 
+                          capture_output=True, check=True)
+            
+            # Separate audio tracks (the heavy operation)
+            print(f"Dubbing[{self.device_name}]: Step 1 - Separating audio tracks...")
+            separated = self.separate_audio_tracks(audio_file, 'temp', original_video_dir)
+            
+            if not separated:
+                return {
+                    'success': False,
+                    'error': 'Audio separation failed',
+                    'duration_seconds': time.time() - start_time
+                }
+            
+            duration = time.time() - start_time
+            print(f"Dubbing[{self.device_name}]: Step 1 completed in {duration:.1f}s")
+            
+            return {
+                'success': True,
+                'step': 'audio_prepared',
+                'duration_seconds': round(duration, 1),
+                'message': f'Audio prepared in {duration:.1f}s (vocals + background separated)',
+                'vocals_path': separated.get('vocals'),
+                'background_path': separated.get('background')
+            }
+            
+        except Exception as e:
+            duration = time.time() - start_time
+            print(f"Dubbing[{self.device_name}]: Step 1 failed after {duration:.1f}s: {e}")
+            return {
+                'success': False,
+                'error': f'Audio preparation failed: {str(e)}',
+                'duration_seconds': round(duration, 1)
+            }
+    
+    def generate_gtts_speech_step(self, text: str, language: str, original_video_dir: str) -> Dict[str, Any]:
+        """Step 2: Generate gTTS speech (~3-5s)"""
+        import time
+        start_time = time.time()
+        
+        try:
+            from gtts import gTTS
+            
+            paths = self.get_file_paths(language, original_video_dir)
+            
+            print(f"Dubbing[{self.device_name}]: Step 2 - Generating gTTS speech for {language}...")
+            
+            gtts_lang_map = {'es': 'es', 'fr': 'fr', 'de': 'de', 'it': 'it', 'pt': 'pt'}
+            gtts_lang = gtts_lang_map.get(language, 'en')
+            
+            tts = gTTS(text=text, lang=gtts_lang, slow=False)
+            temp_mp3 = f"/tmp/{self.device_name}_{language}_gtts_temp.mp3"
+            tts.save(temp_mp3)
+            
+            # Convert to WAV and MP3
+            subprocess.run(['ffmpeg', '-i', temp_mp3, '-ar', '44100', '-ac', '2', paths['dubbed_voice_gtts'], '-y'], 
+                          capture_output=True, check=True)
+            subprocess.run(['ffmpeg', '-i', temp_mp3, paths['dubbed_voice_gtts_mp3'], '-y'], 
+                          capture_output=True, check=True)
+            os.remove(temp_mp3)
+            
+            duration = time.time() - start_time
+            print(f"Dubbing[{self.device_name}]: Step 2 completed in {duration:.1f}s")
+            
+            # Build URLs for preview
+            from shared.lib.utils.build_url_utils import buildHostImageUrl
+            from shared.lib.utils.host_utils import get_host_instance
+            
+            try:
+                host = get_host_instance()
+                gtts_mp3_url = buildHostImageUrl(host.to_dict(), paths['dubbed_voice_gtts_mp3'])
+            except:
+                # Fallback URL construction
+                gtts_mp3_url = f"/host/stream/{os.path.basename(paths['dubbed_voice_gtts_mp3'])}"
+            
+            return {
+                'success': True,
+                'step': 'gtts_generated',
+                'duration_seconds': round(duration, 1),
+                'message': f'gTTS voice ready in {duration:.1f}s',
+                'gtts_audio_url': gtts_mp3_url,
+                'gtts_wav_path': paths['dubbed_voice_gtts']
+            }
+            
+        except Exception as e:
+            duration = time.time() - start_time
+            print(f"Dubbing[{self.device_name}]: Step 2 failed after {duration:.1f}s: {e}")
+            return {
+                'success': False,
+                'error': f'gTTS generation failed: {str(e)}',
+                'duration_seconds': round(duration, 1)
+            }
+    
+    def generate_edge_speech_step(self, text: str, language: str, original_video_dir: str) -> Dict[str, Any]:
+        """Step 3: Generate Edge-TTS speech (~3-5s)"""
+        import time
+        start_time = time.time()
+        
+        try:
+            import edge_tts
+            import asyncio
+            
+            paths = self.get_file_paths(language, original_video_dir)
+            
+            print(f"Dubbing[{self.device_name}]: Step 3 - Generating Edge-TTS speech for {language}...")
+            
+            edge_lang_map = {
+                'es': 'es-ES-ElviraNeural', 'fr': 'fr-FR-DeniseNeural', 
+                'de': 'de-DE-KatjaNeural', 'it': 'it-IT-ElsaNeural', 
+                'pt': 'pt-BR-FranciscaNeural'
+            }
+            edge_voice = edge_lang_map.get(language, 'en-US-JennyNeural')
+            
+            async def generate_edge_audio():
+                communicate = edge_tts.Communicate(text, edge_voice)
+                temp_mp3 = f"/tmp/{self.device_name}_{language}_edge_temp.mp3"
+                await communicate.save(temp_mp3)
+                
+                # Convert to WAV and copy MP3
+                subprocess.run(['ffmpeg', '-i', temp_mp3, '-ar', '44100', '-ac', '2', paths['dubbed_voice_edge'], '-y'], 
+                              capture_output=True, check=True)
+                subprocess.run(['cp', temp_mp3, paths['dubbed_voice_edge_mp3']], check=True)
+                os.remove(temp_mp3)
+            
+            asyncio.run(generate_edge_audio())
+            
+            duration = time.time() - start_time
+            print(f"Dubbing[{self.device_name}]: Step 3 completed in {duration:.1f}s")
+            
+            # Build URLs for preview
+            from shared.lib.utils.build_url_utils import buildHostImageUrl
+            from shared.lib.utils.host_utils import get_host_instance
+            
+            try:
+                host = get_host_instance()
+                edge_mp3_url = buildHostImageUrl(host.to_dict(), paths['dubbed_voice_edge_mp3'])
+            except:
+                # Fallback URL construction
+                edge_mp3_url = f"/host/stream/{os.path.basename(paths['dubbed_voice_edge_mp3'])}"
+            
+            return {
+                'success': True,
+                'step': 'edge_generated',
+                'duration_seconds': round(duration, 1),
+                'message': f'Edge-TTS voice ready in {duration:.1f}s',
+                'edge_audio_url': edge_mp3_url,
+                'edge_wav_path': paths['dubbed_voice_edge']
+            }
+            
+        except Exception as e:
+            duration = time.time() - start_time
+            print(f"Dubbing[{self.device_name}]: Step 3 failed after {duration:.1f}s: {e}")
+            return {
+                'success': False,
+                'error': f'Edge-TTS generation failed: {str(e)}',
+                'duration_seconds': round(duration, 1)
+            }
+    
+    def create_dubbed_video_step(self, video_file: str, language: str, voice_choice: str = 'gtts') -> Dict[str, Any]:
+        """Step 4: Create final dubbed video (~5-8s)"""
+        import time
+        start_time = time.time()
+        
+        try:
+            original_video_dir = os.path.dirname(video_file)
+            paths = self.get_file_paths(language, original_video_dir)
+            
+            print(f"Dubbing[{self.device_name}]: Step 4 - Creating dubbed video with {voice_choice} voice...")
+            
+            # Get video duration
+            result = subprocess.run(['ffprobe', '-v', 'quiet', '-show_entries', 
+                                   'format=duration', '-of', 'csv=p=0', video_file], 
+                                   capture_output=True, text=True)
+            duration_seconds = float(result.stdout.strip()) if result.stdout.strip() else 10.0
+            
+            # Mix audio with chosen voice
+            use_gtts = voice_choice.lower() == 'gtts'
+            final_audio = self.mix_dubbed_audio(language, duration_seconds, original_video_dir, use_gtts)
+            if not final_audio:
+                return {
+                    'success': False,
+                    'error': 'Audio mixing failed',
+                    'duration_seconds': time.time() - start_time
+                }
+            
+            # Create dubbed video
+            dubbed_video = self.create_dubbed_video(video_file, language)
+            if not dubbed_video:
+                return {
+                    'success': False,
+                    'error': 'Video creation failed',
+                    'duration_seconds': time.time() - start_time
+                }
+            
+            duration = time.time() - start_time
+            print(f"Dubbing[{self.device_name}]: Step 4 completed in {duration:.1f}s")
+            
+            # Build URL for final video
+            from shared.lib.utils.build_url_utils import buildHostImageUrl
+            from shared.lib.utils.host_utils import get_host_instance
+            
+            try:
+                host = get_host_instance()
+                dubbed_video_url = buildHostImageUrl(host.to_dict(), dubbed_video)
+            except:
+                # Fallback URL construction
+                dubbed_video_url = f"/host/stream/{os.path.basename(dubbed_video)}"
+            
+            return {
+                'success': True,
+                'step': 'video_created',
+                'duration_seconds': round(duration, 1),
+                'message': f'Dubbed video ready in {duration:.1f}s',
+                'dubbed_video_url': dubbed_video_url,
+                'voice_used': voice_choice
+            }
+            
+        except Exception as e:
+            duration = time.time() - start_time
+            print(f"Dubbing[{self.device_name}]: Step 4 failed after {duration:.1f}s: {e}")
+            return {
+                'success': False,
+                'error': f'Video creation failed: {str(e)}',
+                'duration_seconds': round(duration, 1)
+            }
     
     def mix_dubbed_audio(self, language: str, original_duration: float, original_video_dir: str, use_gtts: bool = True) -> Optional[str]:
         """Mix background audio with dubbed voice using fixed filenames."""

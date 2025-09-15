@@ -563,6 +563,122 @@ def generate_dubbed_video():
         print(f"Host[{device_id}]: Dubbing error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
+# =============================================================================
+# 4-Step Dubbing Process Routes
+# =============================================================================
+
+@host_restart_bp.route('/prepareDubbingAudio', methods=['POST'])
+def prepare_dubbing_audio():
+    """Step 1: Prepare audio for dubbing (extract + separate) ~20-35s"""
+    try:
+        data = request.get_json() or {}
+        device_id = data.get('device_id', 'device1')
+        video_id = data.get('video_id')
+        
+        av_controller = get_controller(device_id, 'av')
+        if not av_controller:
+            return jsonify({'success': False, 'error': f'No AV controller for {device_id}'}), 404
+        
+        print(f"Host[{device_id}]: Step 1 - Preparing audio for dubbing...")
+        result = av_controller.prepareDubbingAudio(video_id)
+        
+        if result and result.get('success'):
+            print(f"Host[{device_id}]: Step 1 completed in {result.get('duration_seconds', 0)}s")
+            return jsonify(result)
+        else:
+            return jsonify(result or {'success': False, 'error': 'Audio preparation failed'}), 500
+            
+    except Exception as e:
+        print(f"Host[{device_id}]: Audio preparation error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@host_restart_bp.route('/generateGttsSpeech', methods=['POST'])
+def generate_gtts_speech():
+    """Step 2: Generate gTTS speech ~3-5s"""
+    try:
+        data = request.get_json() or {}
+        device_id = data.get('device_id', 'device1')
+        video_id = data.get('video_id')
+        target_language = data.get('target_language', 'es')
+        existing_transcript = data.get('existing_transcript', '')
+        
+        if not existing_transcript:
+            return jsonify({'success': False, 'error': 'Transcript required for speech generation'}), 400
+        
+        av_controller = get_controller(device_id, 'av')
+        if not av_controller:
+            return jsonify({'success': False, 'error': f'No AV controller for {device_id}'}), 404
+        
+        print(f"Host[{device_id}]: Step 2 - Generating gTTS speech for {target_language}...")
+        result = av_controller.generateGttsSpeech(video_id, target_language, existing_transcript)
+        
+        if result and result.get('success'):
+            print(f"Host[{device_id}]: Step 2 completed in {result.get('duration_seconds', 0)}s")
+            return jsonify(result)
+        else:
+            return jsonify(result or {'success': False, 'error': 'gTTS generation failed'}), 500
+            
+    except Exception as e:
+        print(f"Host[{device_id}]: gTTS generation error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@host_restart_bp.route('/generateEdgeSpeech', methods=['POST'])
+def generate_edge_speech():
+    """Step 3: Generate Edge-TTS speech ~3-5s"""
+    try:
+        data = request.get_json() or {}
+        device_id = data.get('device_id', 'device1')
+        video_id = data.get('video_id')
+        target_language = data.get('target_language', 'es')
+        existing_transcript = data.get('existing_transcript', '')
+        
+        if not existing_transcript:
+            return jsonify({'success': False, 'error': 'Transcript required for speech generation'}), 400
+        
+        av_controller = get_controller(device_id, 'av')
+        if not av_controller:
+            return jsonify({'success': False, 'error': f'No AV controller for {device_id}'}), 404
+        
+        print(f"Host[{device_id}]: Step 3 - Generating Edge-TTS speech for {target_language}...")
+        result = av_controller.generateEdgeSpeech(video_id, target_language, existing_transcript)
+        
+        if result and result.get('success'):
+            print(f"Host[{device_id}]: Step 3 completed in {result.get('duration_seconds', 0)}s")
+            return jsonify(result)
+        else:
+            return jsonify(result or {'success': False, 'error': 'Edge-TTS generation failed'}), 500
+            
+    except Exception as e:
+        print(f"Host[{device_id}]: Edge-TTS generation error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@host_restart_bp.route('/createDubbedVideo', methods=['POST'])
+def create_dubbed_video():
+    """Step 4: Create final dubbed video ~5-8s"""
+    try:
+        data = request.get_json() or {}
+        device_id = data.get('device_id', 'device1')
+        video_id = data.get('video_id')
+        target_language = data.get('target_language', 'es')
+        voice_choice = data.get('voice_choice', 'gtts')  # 'gtts' or 'edge'
+        
+        av_controller = get_controller(device_id, 'av')
+        if not av_controller:
+            return jsonify({'success': False, 'error': f'No AV controller for {device_id}'}), 404
+        
+        print(f"Host[{device_id}]: Step 4 - Creating dubbed video with {voice_choice} voice...")
+        result = av_controller.createDubbedVideo(video_id, target_language, voice_choice)
+        
+        if result and result.get('success'):
+            print(f"Host[{device_id}]: Step 4 completed in {result.get('duration_seconds', 0)}s")
+            return jsonify(result)
+        else:
+            return jsonify(result or {'success': False, 'error': 'Video creation failed'}), 500
+            
+    except Exception as e:
+        print(f"Host[{device_id}]: Video creation error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @host_restart_bp.route('/adjustAudioTiming', methods=['POST'])
 def adjust_audio_timing():
     """Adjust audio timing for existing restart video."""
