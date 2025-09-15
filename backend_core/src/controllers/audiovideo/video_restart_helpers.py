@@ -818,21 +818,6 @@ class VideoRestartHelpers:
             
             output_path = os.path.join(original_dir, output_filename)
             
-            # Check if target already exists (cached)
-            if os.path.exists(output_path):
-                print(f"RestartHelpers[{self.device_name}]: Using cached timing-adjusted video: {output_filename}")
-                adjusted_video_url = self._build_video_url(output_filename)
-                video_id = f"restart_{int(time.time())}_{language}_timing_{target_timing_ms:+d}ms"
-                
-                return {
-                    'success': True,
-                    'adjusted_video_url': adjusted_video_url,
-                    'timing_offset_ms': target_timing_ms,
-                    'language': language,
-                    'video_id': video_id,
-                    'original_video_url': video_url
-                }
-            
             print(f"RestartHelpers[{self.device_name}]: Generating timing-adjusted video using cached components")
             
             # Use cached separated components for timing adjustment
