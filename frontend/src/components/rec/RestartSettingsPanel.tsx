@@ -1,74 +1,40 @@
 import { Box, Typography, IconButton, Slide, Paper, Select, MenuItem, Collapse, CircularProgress } from '@mui/material';
 import { Close as CloseIcon, ExpandMore as ExpandMoreIcon, ExpandLess as ExpandLessIcon } from '@mui/icons-material';
-import React, { useState, useEffect } from 'react';
-import { buildServerUrl } from '../../utils/buildUrlUtils';
-import { useToast } from '../../hooks/useToast';
+import React, { useState } from 'react';
 
 interface RestartSettingsPanelProps {
   open: boolean;
   onClose: () => void;
-  language: string;
-  onLanguageChange: (lang: string) => void;
-  videoDescription?: {
-    frame_descriptions: string[];
-    video_summary: string;
-    frames_analyzed: number;
-    execution_time_ms: number;
+  // All data and functions now come from useRestart hook
+  restartHookData: {
+    analysisResults: any;
+    translationResults: Record<string, any>;
+    isTranslating: boolean;
+    currentLanguage: string;
+    translateToLanguage: (language: string) => Promise<void>;
+    generateDubbedVersion?: (language: string, transcript: string, videoId: string) => Promise<void>;
+    isDubbing?: boolean;
+    videoId?: string;
   };
-  audioTranscript?: string;
-  audioAnalysis?: {
-    success: boolean;
-    combined_transcript: string;
-    detected_language: string;
-    speech_detected: boolean;
-    confidence: number;
-    execution_time_ms: number;
-  };
-  subtitleData?: {
-    success: boolean;
-    subtitles_detected: boolean;
-    extracted_text: string;
-    detected_language?: string;
-    execution_time_ms: number;
-    frame_subtitles?: string[];
-  };
-  generateDubbedVersion?: (language: string, transcript: string, videoId: string) => Promise<void>;
-  isDubbing?: boolean;
-  videoId?: string;
 }
 
 export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
   open,
   onClose,
-  language,
-  onLanguageChange,
-  videoDescription,
-  audioTranscript,
-  audioAnalysis,
-  subtitleData,
-  generateDubbedVersion,
-  isDubbing: _isDubbing, // Renamed to indicate it's intentionally unused (dubbing handled by RestartPlayer)
-  videoId,
+  restartHookData,
 }) => {
-  const toast = useToast();
+  // Extract data from hook
+  const {
+    analysisResults,
+    translationResults,
+    isTranslating,
+    currentLanguage,
+    translateToLanguage,
+  } = restartHookData;
+  // UI state only
   const [isVideoSummaryExpanded, setIsVideoSummaryExpanded] = useState(false);
   const [isTranscriptExpanded, setIsTranscriptExpanded] = useState(false);
   const [isFrameAnalysisExpanded, setIsFrameAnalysisExpanded] = useState(false);
-  const [translatedTranscript, setTranslatedTranscript] = useState<string>('');
-  const [translatedSummary, setTranslatedSummary] = useState<string>('');
-  const [translatedFrameDescriptions, setTranslatedFrameDescriptions] = useState<string[]>([]);
-  const [translatedFrameSubtitles, setTranslatedFrameSubtitles] = useState<string[]>([]);
-  
-  // Translation loading state
-  const [isTranslating, setIsTranslating] = useState(false);
-  
-  // Translation cache to avoid reprocessing
-  const [translationCache, setTranslationCache] = useState<Record<string, {
-    transcript: string;
-    summary: string;
-    frameDescriptions: string[];
-    frameSubtitles: string[];
-  }>>({});
 
   // Language code to name mapping
   const getLanguageName = (code: string): string => {
@@ -87,159 +53,8 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
     return languageNames[code.toLowerCase()] || code.toUpperCase();
   };
 
-  // Smart translation effect with caching - avoids reprocessing
-  useEffect(() => {
-    const handleLanguageChange = async () => {
-      if (language === 'en') {
-        // Reset to original content for English
-        setTranslatedTranscript('');
-        setTranslatedSummary('');
-        setTranslatedFrameDescriptions([]);
-        setTranslatedFrameSubtitles([]);
-        return;
-      }
-
-      // Check cache first - if translation exists, use it immediately
-      if (translationCache[language]) {
-        console.log(`[@component:RestartSettingsPanel] Using cached translation for ${language}`);
-        const cached = translationCache[language];
-        setTranslatedTranscript(cached.transcript);
-        setTranslatedSummary(cached.summary);
-        setTranslatedFrameDescriptions(cached.frameDescriptions);
-        setTranslatedFrameSubtitles(cached.frameSubtitles);
-        return;
-      }
-
-      // Only make API call if not cached
-      setIsTranslating(true);
-      
-      try {
-        toast.showInfo('🌐 Starting translation...', { duration: 3000 });
-
-        // Prepare all content for single batch translation
-        const contentBlocks = {
-          video_summary: {
-            text: videoDescription?.video_summary || '',
-            source_language: 'en'
-          },
-          audio_transcript: {
-            text: audioTranscript || '',
-            source_language: audioAnalysis?.detected_language?.toLowerCase() || 'en'
-          },
-          frame_descriptions: {
-            texts: videoDescription?.frame_descriptions?.map(desc => {
-              const descText = desc.includes(': ') ? desc.split(': ').slice(1).join(': ') : desc;
-              return descText === 'No description available' ? '' : descText;
-            }) || [],
-            source_language: 'en'
-          },
-          frame_subtitles: {
-            texts: subtitleData?.frame_subtitles?.map(sub => {
-              const subText = sub.includes(': ') ? sub.split(': ').slice(1).join(': ') : sub;
-              return subText === 'No subtitles detected' ? '' : subText;
-            }) || [],
-            source_language: subtitleData?.detected_language?.toLowerCase() || 'en'
-          }
-        };
-
-        // Single API call for all translations
-        const response = await fetch(buildServerUrl('/server/translate/restart-batch'), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            content_blocks: contentBlocks,
-            target_language: language
-          })
-        });
-
-        if (!response.ok) {
-          throw new Error(`Batch translation API failed: ${response.status} ${response.statusText}`);
-        }
-
-        const data = await response.json();
-        
-        if (data.success && data.translations) {
-          let newTranscript = '';
-          let newSummary = '';
-          let newFrameDescriptions: string[] = [];
-          let newFrameSubtitles: string[] = [];
-
-          // Apply all translations at once
-          if (data.translations.video_summary) {
-            newSummary = data.translations.video_summary;
-            setTranslatedSummary(newSummary);
-          }
-          
-          if (data.translations.audio_transcript) {
-            newTranscript = data.translations.audio_transcript;
-            setTranslatedTranscript(newTranscript);
-          }
-          
-          if (data.translations.frame_descriptions && videoDescription?.frame_descriptions) {
-            // Reconstruct with frame prefixes, maintaining exact 1:1 mapping
-            newFrameDescriptions = videoDescription.frame_descriptions.map((originalDesc, index) => {
-              const prefix = originalDesc.split(': ')[0];
-              const originalText = originalDesc.includes(': ') ? originalDesc.split(': ').slice(1).join(': ') : originalDesc;
-              
-              // Use translated text if available and not empty, otherwise keep original
-              const translatedText = data.translations.frame_descriptions[index];
-              const finalText = (translatedText && translatedText.trim()) ? translatedText : originalText;
-              
-              return `${prefix}: ${finalText}`;
-            });
-            setTranslatedFrameDescriptions(newFrameDescriptions);
-          }
-          
-          if (data.translations.frame_subtitles && subtitleData?.frame_subtitles) {
-            // Reconstruct with frame prefixes, maintaining exact 1:1 mapping
-            newFrameSubtitles = subtitleData.frame_subtitles.map((originalSub, index) => {
-              const prefix = originalSub.split(': ')[0];
-              const originalText = originalSub.includes(': ') ? originalSub.split(': ').slice(1).join(': ') : originalSub;
-              
-              // Use translated text if available and not empty, otherwise keep original
-              const translatedText = data.translations.frame_subtitles[index];
-              const finalText = (translatedText && translatedText.trim()) ? translatedText : originalText;
-              
-              return `${prefix}: ${finalText}`;
-            });
-            setTranslatedFrameSubtitles(newFrameSubtitles);
-          }
-
-          // Cache the results for future use
-          setTranslationCache(prev => ({
-            ...prev,
-            [language]: {
-              transcript: newTranscript,
-              summary: newSummary,
-              frameDescriptions: newFrameDescriptions,
-              frameSubtitles: newFrameSubtitles,
-            }
-          }));
-          
-          toast.showSuccess('✅ All translations complete!', { duration: 4000 });
-          
-          // Start dubbing after translation completes (handled by RestartPlayer now)
-          if (generateDubbedVersion && audioTranscript && videoId) {
-            toast.showInfo('🎤 Starting dubbing...', { duration: 3000 });
-            await generateDubbedVersion(language, audioTranscript, videoId);
-            toast.showSuccess('🎬 Dubbing complete!', { duration: 4000 });
-          }
-          
-        } else {
-          throw new Error(data.error || 'Batch translation failed');
-        }
-        
-      } catch (error) {
-        console.error('Batch translation error:', error);
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        toast.showError(`❌ Translation failed: ${errorMessage}`, { duration: 5000 });
-      } finally {
-        setIsTranslating(false);
-      }
-    };
-    
-    handleLanguageChange();
-  }, [language]); // Removed other dependencies to prevent unnecessary re-runs
+  // Get current translation data
+  const currentTranslation = translationResults[currentLanguage] || null;
 
   return (
     <Slide direction="left" in={open} mountOnEnter unmountOnExit>
@@ -283,8 +98,8 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
               Language:
             </Typography>
             <Select
-              value={language}
-              onChange={(e) => onLanguageChange(e.target.value)}
+              value={currentLanguage}
+              onChange={(e) => translateToLanguage(e.target.value)}
               size="small"
               disabled={isTranslating}
               sx={{ 
@@ -334,7 +149,7 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
             >
               Video Summary
             </Typography>
-            {videoDescription && videoDescription.video_summary && (
+            {analysisResults.videoDescription?.video_summary && (
               <IconButton
                 onClick={() => setIsVideoSummaryExpanded(!isVideoSummaryExpanded)}
                 sx={{ color: '#ffffff', p: 0.25 }}
@@ -345,7 +160,7 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
             )}
           </Box>
           
-          {videoDescription && videoDescription.video_summary && (
+          {analysisResults.videoDescription?.video_summary && (
             <Collapse in={isVideoSummaryExpanded}>
               <Box sx={{ mt: 1 }}>
                 <Typography variant="body2" sx={{ 
@@ -356,8 +171,8 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
                   lineHeight: 1.3,
                   borderLeft: '3px solid #4CAF50'
                 }}>
-                  <strong>{language === 'en' ? 'Original Summary:' : `Translated Summary (${getLanguageName(language)}):`}</strong><br />
-                  {language === 'en' ? videoDescription.video_summary : (translatedSummary || videoDescription.video_summary || 'Translating...')}
+                  <strong>{currentLanguage === 'en' ? 'Original Summary:' : `Translated Summary (${getLanguageName(currentLanguage)}):`}</strong><br />
+                  {currentLanguage === 'en' ? analysisResults.videoDescription.video_summary : (currentTranslation?.summary || analysisResults.videoDescription.video_summary || 'Translating...')}
                 </Typography>
               </Box>
             </Collapse>
@@ -383,7 +198,7 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
             >
               Audio Transcript
             </Typography>
-            {(audioTranscript || (audioAnalysis && audioAnalysis.speech_detected)) && (
+            {(analysisResults.audio?.combined_transcript || (analysisResults.audio && analysisResults.audio.speech_detected)) && (
               <IconButton
                 onClick={() => setIsTranscriptExpanded(!isTranscriptExpanded)}
                 sx={{ color: '#ffffff', p: 0.25 }}
@@ -405,11 +220,11 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
                 borderLeft: '3px solid #FF9800'
               }}>
                 <strong>
-                  {language === 'en' 
-                    ? `Original (${getLanguageName(audioAnalysis?.detected_language || 'Unknown')})` 
-                    : `Translated to ${getLanguageName(language)}`}:
+                  {currentLanguage === 'en' 
+                    ? `Original (${getLanguageName(analysisResults.audio?.detected_language || 'Unknown')})` 
+                    : `Translated to ${getLanguageName(currentLanguage)}`}:
                 </strong><br />
-                {language === 'en' ? (audioTranscript || 'No transcript available') : (translatedTranscript || audioTranscript || 'Translating...')}
+                {currentLanguage === 'en' ? (analysisResults.audio?.combined_transcript || 'No transcript available') : (currentTranslation?.transcript || analysisResults.audio?.combined_transcript || 'Translating...')}
               </Typography>
             </Box>
           </Collapse>
@@ -430,7 +245,7 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
             >
               Frame Analysis
             </Typography>
-            {videoDescription && videoDescription.frame_descriptions && videoDescription.frame_descriptions.length > 0 && (
+            {analysisResults.videoDescription?.frame_descriptions && analysisResults.videoDescription.frame_descriptions.length > 0 && (
               <IconButton
                 onClick={() => setIsFrameAnalysisExpanded(!isFrameAnalysisExpanded)}
                 sx={{ color: '#ffffff', p: 0.25 }}
@@ -446,12 +261,12 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
           <Collapse in={isFrameAnalysisExpanded}>
             <Box sx={{ mt: 1 }}>
               {/* Frame-by-frame analysis */}
-              {videoDescription && videoDescription.frame_descriptions && videoDescription.frame_descriptions.length > 0 && (
+              {analysisResults.videoDescription?.frame_descriptions && analysisResults.videoDescription.frame_descriptions.length > 0 && (
                 <Box sx={{ mb: 1.5 }}>
-                  {videoDescription.frame_descriptions.map((description, index) => {
+                  {analysisResults.videoDescription.frame_descriptions.map((description: string, index: number) => {
                     // Use translated content if available, otherwise use original
-                    const displayDescription = translatedFrameDescriptions[index] || description;
-                    const displaySubtitle = translatedFrameSubtitles[index] || subtitleData?.frame_subtitles?.[index];
+                    const displayDescription = currentTranslation?.frameDescriptions[index] || description;
+                    const displaySubtitle = currentTranslation?.frameSubtitles[index] || analysisResults.subtitles?.frame_subtitles?.[index];
                     
                     // Parse frame description to extract frame number and content
                     const frameMatch = displayDescription.match(/^Frame (\d+):\s*(.+)$/);
@@ -491,9 +306,9 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
                             lineHeight: 1.2
                           }}>
                             Subtitles ({
-                              language !== 'en' && translatedFrameSubtitles.length > 0 
-                                ? `Translated to ${getLanguageName(language)}`
-                                : (subtitleData?.detected_language || 'Unknown').toUpperCase()
+                              currentLanguage !== 'en' && currentTranslation?.frameSubtitles.length > 0 
+                                ? `Translated to ${getLanguageName(currentLanguage)}`
+                                : (analysisResults.subtitles?.detected_language || 'Unknown').toUpperCase()
                             }): {subtitleContent}
                           </Typography>
                         )}

@@ -94,6 +94,13 @@ interface BackendResponse {
   error?: string;
 }
 
+interface TranslationResults {
+  transcript: string;
+  summary: string;
+  frameDescriptions: string[];
+  frameSubtitles: string[];
+}
+
 interface UseRestartReturn {
   // Core video state
   videoUrl: string | null;
@@ -112,10 +119,18 @@ interface UseRestartReturn {
   dubbedVideos: Record<string, string>;
   isDubbing: boolean;
   
+  // Translation state
+  translationResults: Record<string, TranslationResults>;
+  isTranslating: boolean;
+  currentLanguage: string;
+  
   // Manual analysis triggers
   analyzeAudio: (videoUrl: string) => Promise<any>;
   analyzeSubtitles: (videoUrl: string) => Promise<any>;
   analyzeVideoDescription: (videoUrl: string) => Promise<any>;
+  
+  // Translation function
+  translateToLanguage: (language: string) => Promise<void>;
   
   // Dubbing function
   generateDubbedVersion: (language: string, transcript: string, videoId: string) => Promise<void>;
@@ -198,6 +213,15 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
   // Dubbing state
   const [dubbedVideos, setDubbedVideos] = useState<Record<string, string>>({});
   const [isDubbing, setIsDubbing] = useState(false);
+  
+  // Translation state
+  const [translationResults, setTranslationResults] = useState<Record<string, TranslationResults>>({});
+  const [isTranslating, setIsTranslating] = useState(false);
+  const [currentLanguage, setCurrentLanguage] = useState('en');
+  
+  // Translation deduplication protection
+  const isTranslationInProgress = useRef(false);
+  const currentTranslationLanguage = useRef<string | null>(null);
   
   // Request deduplication to prevent React StrictMode duplicate calls
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -506,6 +530,148 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
     return null;
   }, []);
 
+  const translateToLanguage = useCallback(async (language: string) => {
+    try {
+      setCurrentLanguage(language);
+      
+      if (language === 'en') {
+        // Reset to original content for English
+        return;
+      }
+
+      // Deduplication protection - prevent duplicate translation requests
+      if (isTranslationInProgress.current && currentTranslationLanguage.current === language) {
+        console.log(`[@hook:useRestart] Translation already in progress for ${language}, ignoring duplicate request`);
+        return;
+      }
+
+      // Check cache first - if translation exists, use it immediately
+      if (translationResults[language]) {
+        console.log(`[@hook:useRestart] Using cached translation for ${language}`);
+        return;
+      }
+
+      // Mark translation as in progress
+      isTranslationInProgress.current = true;
+      currentTranslationLanguage.current = language;
+      setIsTranslating(true);
+      
+      toast.showInfo('🌐 Starting translation...', { duration: 3000 });
+
+      // Prepare all content for single batch translation
+      const contentBlocks = {
+        video_summary: {
+          text: analysisResults.videoDescription?.video_summary || '',
+          source_language: 'en'
+        },
+        audio_transcript: {
+          text: analysisResults.audio?.combined_transcript || '',
+          source_language: analysisResults.audio?.detected_language?.toLowerCase() || 'en'
+        },
+        frame_descriptions: {
+          texts: analysisResults.videoDescription?.frame_descriptions?.map(desc => {
+            const descText = desc.includes(': ') ? desc.split(': ').slice(1).join(': ') : desc;
+            return descText === 'No description available' ? '' : descText;
+          }) || [],
+          source_language: 'en'
+        },
+        frame_subtitles: {
+          texts: analysisResults.subtitles?.frame_subtitles?.map(sub => {
+            const subText = sub.includes(': ') ? sub.split(': ').slice(1).join(': ') : sub;
+            return subText === 'No subtitles detected' ? '' : subText;
+          }) || [],
+          source_language: analysisResults.subtitles?.detected_language?.toLowerCase() || 'en'
+        }
+      };
+
+      // Single API call for all translations
+      const response = await fetch(buildServerUrl('/server/translate/restart-batch'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content_blocks: contentBlocks,
+          target_language: language
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Batch translation API failed: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      
+      if (data.success && data.translations) {
+        let newTranscript = '';
+        let newSummary = '';
+        let newFrameDescriptions: string[] = [];
+        let newFrameSubtitles: string[] = [];
+
+        // Apply all translations at once
+        if (data.translations.video_summary) {
+          newSummary = data.translations.video_summary;
+        }
+        
+        if (data.translations.audio_transcript) {
+          newTranscript = data.translations.audio_transcript;
+        }
+        
+        if (data.translations.frame_descriptions && analysisResults.videoDescription?.frame_descriptions) {
+          // Reconstruct with frame prefixes, maintaining exact 1:1 mapping
+          newFrameDescriptions = analysisResults.videoDescription.frame_descriptions.map((originalDesc, index) => {
+            const prefix = originalDesc.split(': ')[0];
+            const originalText = originalDesc.includes(': ') ? originalDesc.split(': ').slice(1).join(': ') : originalDesc;
+            
+            // Use translated text if available and not empty, otherwise keep original
+            const translatedText = data.translations.frame_descriptions[index];
+            const finalText = (translatedText && translatedText.trim()) ? translatedText : originalText;
+            
+            return `${prefix}: ${finalText}`;
+          });
+        }
+        
+        if (data.translations.frame_subtitles && analysisResults.subtitles?.frame_subtitles) {
+          // Reconstruct with frame prefixes, maintaining exact 1:1 mapping
+          newFrameSubtitles = analysisResults.subtitles.frame_subtitles.map((originalSub, index) => {
+            const prefix = originalSub.split(': ')[0];
+            const originalText = originalSub.includes(': ') ? originalSub.split(': ').slice(1).join(': ') : originalSub;
+            
+            // Use translated text if available and not empty, otherwise keep original
+            const translatedText = data.translations.frame_subtitles[index];
+            const finalText = (translatedText && translatedText.trim()) ? translatedText : originalText;
+            
+            return `${prefix}: ${finalText}`;
+          });
+        }
+
+        // Cache the results for future use
+        setTranslationResults(prev => ({
+          ...prev,
+          [language]: {
+            transcript: newTranscript,
+            summary: newSummary,
+            frameDescriptions: newFrameDescriptions,
+            frameSubtitles: newFrameSubtitles,
+          }
+        }));
+        
+        toast.showSuccess('✅ All translations complete!', { duration: 4000 });
+        
+      } else {
+        throw new Error(data.error || 'Batch translation failed');
+      }
+      
+    } catch (error) {
+      console.error('[@hook:useRestart] Batch translation error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      toast.showError(`❌ Translation failed: ${errorMessage}`, { duration: 5000 });
+    } finally {
+      setIsTranslating(false);
+      // Clear deduplication flags
+      isTranslationInProgress.current = false;
+      currentTranslationLanguage.current = null;
+    }
+  }, [analysisResults, toast]);
+
   const generateDubbedVersion = useCallback(async (language: string, transcript: string, videoId: string) => {
     try {
       setIsDubbing(true);
@@ -579,10 +745,18 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
     dubbedVideos,
     isDubbing,
     
+    // Translation state
+    translationResults,
+    isTranslating,
+    currentLanguage,
+    
     // Manual analysis triggers
     analyzeAudio,
     analyzeSubtitles,
     analyzeVideoDescription,
+    
+    // Translation function
+    translateToLanguage,
     
     // Dubbing function
     generateDubbedVersion,

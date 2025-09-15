@@ -88,13 +88,18 @@ export const RestartPlayer: React.FC<RestartPlayerProps> = ({ host, device, incl
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [language, setLanguage] = useState('en');
   
   // Video retry mechanism state
   const [videoRetryCount, setVideoRetryCount] = useState(0);
   const [isVideoLoading, setIsVideoLoading] = useState(false);
   const [videoLoadError, setVideoLoadError] = useState<string | null>(null);
   const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
+  const restartHookData = useRestart({ 
+    host, 
+    device, 
+    includeAudioAnalysis 
+  });
   
   const { 
     videoUrl, 
@@ -106,19 +111,15 @@ export const RestartPlayer: React.FC<RestartPlayerProps> = ({ host, device, incl
     reportUrl, 
     analysisProgress,
     dubbedVideos,
-    generateDubbedVersion,
-    isDubbing
-  } = useRestart({ 
-    host, 
-    device, 
-    includeAudioAnalysis 
-  });
+    currentLanguage,
+    translateToLanguage
+  } = restartHookData;
 
   // Smart video source selection - use dubbed video if available, otherwise original
   const currentVideoUrl = useMemo(() => {
-    if (language === 'en') return videoUrl; // Always use original for English
-    return dubbedVideos[language] || videoUrl; // Use dubbed if available, fallback to original
-  }, [language, videoUrl, dubbedVideos]);
+    if (currentLanguage === 'en') return videoUrl; // Always use original for English
+    return dubbedVideos[currentLanguage] || videoUrl; // Use dubbed if available, fallback to original
+  }, [currentLanguage, videoUrl, dubbedVideos]);
 
   // Dubbing is now handled by RestartSettingsPanel after translation completes
 
@@ -127,13 +128,13 @@ export const RestartPlayer: React.FC<RestartPlayerProps> = ({ host, device, incl
     console.log(`[@component:RestartPlayer] Video state:`, {
       videoUrl,
       currentVideoUrl,
-      language,
+      currentLanguage,
       dubbedVideos,
       isReady,
       isGenerating,
       error
     });
-  }, [videoUrl, currentVideoUrl, language, dubbedVideos, isReady, isGenerating, error]);
+  }, [videoUrl, currentVideoUrl, currentLanguage, dubbedVideos, isReady, isGenerating, error]);
 
   useEffect(() => {
     return () => {
@@ -280,15 +281,7 @@ export const RestartPlayer: React.FC<RestartPlayerProps> = ({ host, device, incl
       <RestartSettingsPanel
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
-        language={language}
-        onLanguageChange={setLanguage}
-        videoDescription={analysisResults.videoDescription || undefined}
-        audioTranscript={analysisResults.audio?.combined_transcript}
-        audioAnalysis={analysisResults.audio || undefined}
-        subtitleData={analysisResults.subtitles || undefined}
-        generateDubbedVersion={generateDubbedVersion}
-        isDubbing={isDubbing}
-        videoId={analysisResults.audio ? `restart_${Date.now()}` : undefined}
+        restartHookData={restartHookData}
       />
     </Box>
   );

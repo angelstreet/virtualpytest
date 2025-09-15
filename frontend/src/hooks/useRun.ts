@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 import { buildServerUrl } from '../utils/buildUrlUtils';
 interface ScriptParameter {
@@ -31,6 +31,10 @@ export const useRun = ({ selectedScript, selectedDevice, selectedHost, deviceMod
   const [scriptAnalysis, setScriptAnalysis] = useState<ScriptAnalysis | null>(null);
   const [parameterValues, setParameterValues] = useState<Record<string, string>>({});
   const [analyzingScript, setAnalyzingScript] = useState<boolean>(false);
+  
+  // Deduplication protection for script analysis
+  const isAnalysisInProgress = useRef(false);
+  const currentAnalysisKey = useRef<string | null>(null);
 
   // Get userinterface name based on device model
   const getUserinterfaceName = (model: string): string => {
@@ -74,6 +78,19 @@ export const useRun = ({ selectedScript, selectedDevice, selectedHost, deviceMod
         setParameterValues({});
         return;
       }
+
+      // Create analysis key for deduplication
+      const analysisKey = `${selectedScript}-${selectedDevice}-${selectedHost}-${deviceModel}`;
+      
+      // Deduplication protection - prevent duplicate analysis requests
+      if (isAnalysisInProgress.current && currentAnalysisKey.current === analysisKey) {
+        console.log(`[useRun] Script analysis already in progress for ${analysisKey}, ignoring duplicate request`);
+        return;
+      }
+
+      // Mark analysis as in progress
+      isAnalysisInProgress.current = true;
+      currentAnalysisKey.current = analysisKey;
 
       // Skip analysis for AI test cases - they have predefined parameters
       if (selectedScript.startsWith('ai_testcase_')) {
@@ -149,6 +166,9 @@ export const useRun = ({ selectedScript, selectedDevice, selectedHost, deviceMod
         setParameterValues({});
       } finally {
         setAnalyzingScript(false);
+        // Clear deduplication flags
+        isAnalysisInProgress.current = false;
+        currentAnalysisKey.current = null;
       }
     };
 
