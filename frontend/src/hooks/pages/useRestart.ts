@@ -390,7 +390,6 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
             video_id: videoData.video_id,
             segment_files: segmentFiles.length > 0 ? segmentFiles : null, // Pass segment files from video generation
           }),
-          signal: AbortSignal.timeout(300000) // 5 minutes timeout to match server
         });
         
         const audioData = await audioResponse.json();
@@ -428,7 +427,6 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
             video_id: videoData.video_id,
             screenshot_urls: videoData.screenshot_urls || [],
           }),
-          signal: AbortSignal.timeout(600000) // 10 minutes timeout to match server
         });
         
         const combinedData = await combinedResponse.json();
