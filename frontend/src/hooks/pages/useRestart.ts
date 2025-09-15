@@ -224,7 +224,6 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
   const currentTranslationLanguage = useRef<string | null>(null);
   
   // Request deduplication to prevent React StrictMode duplicate calls
-  const abortControllerRef = useRef<AbortController | null>(null);
   const isRequestInProgress = useRef(false);
   const hasExecutedOnMount = useRef(false);
   
@@ -262,13 +261,7 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
       return;
     }
 
-    // Abort any existing request
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-
-    // Create new AbortController for this request
-    abortControllerRef.current = new AbortController();
+    // Mark request as in progress (no abort controller needed with proper deduplication)
     isRequestInProgress.current = true;
 
     console.log(`[@hook:useRestart] Starting 4-stage video generation for ${host.host_name}-${device.device_id}`);
@@ -287,8 +280,7 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
           host,
           device_id: device.device_id || 'device1',
           duration_seconds: 10,
-        }),
-        signal: abortControllerRef.current?.signal, // Add abort signal
+        })
       });
 
       if (!videoResponse.ok) throw new Error(`Video generation failed: ${videoResponse.status}`);
@@ -337,8 +329,7 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
             device_id: device.device_id || 'device1',
             video_id: videoData.video_id,
             segment_files: videoData.analysis_data?.segment_files || null, // Pass segment files from video generation
-          }),
-          signal: abortControllerRef.current?.signal,
+          })
         });
         
         const audioData = await audioResponse.json();
@@ -375,8 +366,7 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
             device_id: device.device_id || 'device1',
             video_id: videoData.video_id,
             screenshot_urls: videoData.screenshot_urls || [],
-          }),
-          signal: abortControllerRef.current?.signal,
+          })
         });
         
         const combinedData = await combinedResponse.json();
