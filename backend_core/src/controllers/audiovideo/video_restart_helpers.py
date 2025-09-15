@@ -912,10 +912,13 @@ class VideoRestartHelpers:
                 print(f"RestartHelpers[{self.device_name}]: Applying timing to vocals: {target_timing_ms:+d}ms")
                 
                 if target_timing_ms > 0:
-                    # Positive offset: delay vocals (both channels for stereo)
+                    # Positive offset: prepend silence (clean approach like negative trim)
+                    delay_seconds = target_timing_ms / 1000.0
                     vocal_cmd = [
-                        'ffmpeg', '-i', vocal_source_path,
-                        '-af', f'adelay={target_timing_ms}:{target_timing_ms}',
+                        'ffmpeg', '-f', 'lavfi', '-i', f'anullsrc=duration={delay_seconds}:sample_rate=44100:channel_layout=stereo',
+                        '-i', vocal_source_path,
+                        '-filter_complex', '[0:a][1:a]concat=n=2:v=0:a=1[out]',
+                        '-map', '[out]',
                         '-c:a', 'pcm_s16le',
                         timed_vocal_path, '-y'
                     ]
