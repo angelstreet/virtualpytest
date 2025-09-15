@@ -36,7 +36,7 @@ class VideoCompressionUtils:
             m3u8_path: Path to M3U8 playlist file
             segment_files: List of (segment_name, segment_path) tuples
             output_path: Output MP4 path (auto-generated if None)
-            compression_level: "fast", "medium", "high" compression
+            compression_level: "fast", "medium", "high", "pi_optimized" compression
             
         Returns:
             Dict with success status, output path, and compression stats
@@ -81,12 +81,19 @@ class VideoCompressionUtils:
                     '-preset', settings['preset'],
                     '-crf', str(settings['crf']),
                     '-maxrate', settings['maxrate'],
-                    '-bufsize', settings['bufsize'],
+                    '-bufsize', settings['bufsize']
+                ]
+                
+                # Add fps filter for Pi optimization
+                if 'fps' in settings:
+                    cmd.extend(['-vf', f'fps={settings["fps"]}'])
+                
+                cmd.extend([
                     '-c:a', 'aac',
                     '-b:a', '64k',
                     '-movflags', '+faststart',  # Optimize for streaming
                     output_path
-                ]
+                ])
                 
                 logger.info(f"Compressing {len(segment_files)} HLS segments to MP4...")
                 logger.info(f"Command: {' '.join(cmd)}")
@@ -159,6 +166,13 @@ class VideoCompressionUtils:
                 'crf': 20,
                 'maxrate': '600k',
                 'bufsize': '1200k'
+            },
+            'pi_optimized': {
+                'preset': 'ultrafast',
+                'crf': 30,
+                'maxrate': '500k',
+                'bufsize': '1000k',
+                'fps': 15  # Special setting for Pi optimization
             }
         }
         return settings.get(level, settings['medium'])
