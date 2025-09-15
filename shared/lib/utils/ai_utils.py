@@ -153,7 +153,7 @@ def call_vision_ai(prompt: str, image_input: Union[str, bytes], max_tokens: int 
                 'max_tokens': max_tokens,
                 'temperature': temperature
             },
-            timeout=120
+            timeout=300
         )
         
         duration = time.time() - start_time
@@ -177,6 +177,82 @@ def call_vision_ai(prompt: str, image_input: Union[str, bytes], max_tokens: int 
         duration = time.time() - start_time
         image_path = image_input if isinstance(image_input, str) else "bytes_input"
         print(f"[AI_UTILS] 💥 VISION_REQUEST_EXCEPTION: duration={duration:.2f}s image='{image_path}' error='{str(e)}'")
+        return {'success': False, 'error': str(e), 'content': ''}
+
+def call_vision_ai_batch(prompt: str, image_paths: list, max_tokens: int = 800, temperature: float = 0.0) -> Dict[str, Any]:
+    """Simple batch vision AI call for up to 4 images."""
+    import time
+    start_time = time.time()
+    
+    try:
+        api_key = get_api_key()
+        if not api_key:
+            return {'success': False, 'error': 'No API key', 'content': ''}
+        
+        if len(image_paths) > 4:
+            return {'success': False, 'error': 'Maximum 4 images per batch', 'content': ''}
+        
+        # Process all images
+        image_contents = []
+        total_size_kb = 0
+        
+        for image_path in image_paths:
+            image_b64 = _process_image_input(image_path)
+            if not image_b64:
+                return {'success': False, 'error': f'Failed to process image: {image_path}', 'content': ''}
+            
+            image_contents.append({'type': 'image_url', 'image_url': {'url': f'data:image/jpeg;base64,{image_b64}'}})
+            total_size_kb += len(image_b64) * 3 / 4 / 1024
+        
+        # Build message content: prompt + all images
+        message_content = [{'type': 'text', 'text': prompt}] + image_contents
+        
+        # Log batch request
+        prompt_oneline = prompt.replace('\n', '\\n').replace('"', '\\"')
+        print(f"[AI_UTILS] 🚀 BATCH_VISION_REQUEST_START: time={start_time:.3f} images={len(image_paths)} total_size={total_size_kb:.1f}KB model='{AI_MODELS['vision']}' max_tokens={max_tokens} temp={temperature}")
+        print(f"[AI_UTILS] 📁 BATCH_IMAGES: {image_paths}")
+        print(f"[AI_UTILS] 📝 BATCH_PROMPT: \"{prompt_oneline}\"")
+        
+        response = requests.post(
+            API_BASE_URL,
+            headers={
+                'Authorization': f'Bearer {api_key}',
+                'Content-Type': 'application/json',
+                'HTTP-Referer': 'https://virtualpytest.com',
+                'X-Title': 'VirtualPyTest'
+            },
+            json={
+                'model': AI_MODELS['vision'],
+                'messages': [{
+                    'role': 'user',
+                    'content': message_content
+                }],
+                'max_tokens': max_tokens,
+                'temperature': temperature
+            },
+            timeout=300  # 5 minutes
+        )
+        
+        duration = time.time() - start_time
+        
+        if response.status_code == 200:
+            result = response.json()
+            content = result['choices'][0]['message']['content']
+            
+            if content is None or content.strip() == '':
+                print(f"[AI_UTILS] ❌ BATCH_VISION_REQUEST_EMPTY: duration={duration:.2f}s status=200 images={len(image_paths)} error='Empty content from AI'")
+                return {'success': False, 'error': 'Empty content from AI', 'content': ''}
+            
+            content_preview = content.strip()[:150].replace('\n', '\\n')
+            print(f"[AI_UTILS] ✅ BATCH_VISION_REQUEST_SUCCESS: duration={duration:.2f}s status=200 images={len(image_paths)} content_length={len(content)} preview=\"{content_preview}...\"")
+            return {'success': True, 'content': content.strip()}
+        else:
+            print(f"[AI_UTILS] ❌ BATCH_VISION_REQUEST_ERROR: duration={duration:.2f}s status={response.status_code} images={len(image_paths)} error='API error: {response.status_code}'")
+            return {'success': False, 'error': f'API error: {response.status_code}', 'content': ''}
+            
+    except Exception as e:
+        duration = time.time() - start_time
+        print(f"[AI_UTILS] 💥 BATCH_VISION_REQUEST_EXCEPTION: duration={duration:.2f}s images={len(image_paths)} error='{str(e)}'")
         return {'success': False, 'error': str(e), 'content': ''}
 
 # =============================================================================

@@ -714,6 +714,183 @@ Be specific about what you see on the device interface."""
                 'description_analysis': None
             }
 
+    def analyze_image_batch_complete(self, image_paths: list, extract_text: bool = True, include_description: bool = True) -> Dict[str, Any]:
+        """
+        Batch AI analysis: subtitles + description for multiple images in single call.
+        
+        Args:
+            image_paths: List of paths to image files (max 4)
+            extract_text: Whether to extract subtitle text
+            include_description: Whether to include image description
+            
+        Returns:
+            Dictionary with batch analysis results
+        """
+        try:
+            print(f"VideoAI[{self.device_name}]: Batch analysis for {len(image_paths)} images")
+            
+            if len(image_paths) > 4:
+                print(f"VideoAI[{self.device_name}]: Too many images in batch ({len(image_paths)}), max is 4")
+                return {'success': False, 'error': 'Maximum 4 images per batch'}
+            
+            # Use centralized batch AI utilities
+            from shared.lib.utils.ai_utils import call_vision_ai_batch
+            
+            # Batch prompt for multiple images
+            prompt = f"""Analyze these {len(image_paths)} images and provide both subtitle detection and description for each. 
+Respond with JSON array where each element corresponds to one image:
+[
+  {{
+    "image_index": 1,
+    "subtitle_analysis": {{
+      "subtitles_detected": true/false,
+      "extracted_text": "subtitle text or empty string",
+      "detected_language": "language name or unknown",
+      "confidence": 0.0-1.0
+    }},
+    "description_analysis": {{
+      "success": true,
+      "response": "concise description of what you see in this image"
+    }}
+  }},
+  ... (repeat for each image)
+]"""
+            
+            print(f"VideoAI[{self.device_name}]: Batch AI call for {len(image_paths)} images")
+            result = call_vision_ai_batch(prompt, image_paths, max_tokens=800, temperature=0.0)
+            
+            if result['success']:
+                try:
+                    import json
+                    # Parse AI response
+                    content = result['content'].strip()
+                    
+                    # Handle markdown code blocks
+                    if content.startswith('```json'):
+                        content = content.replace('```json', '').replace('```', '').strip()
+                    elif content.startswith('```'):
+                        content = content.replace('```', '').strip()
+                    
+                    ai_data = json.loads(content)
+                    
+                    # Process each frame result
+                    frame_results = []
+                    for i, frame_data in enumerate(ai_data):
+                        if isinstance(frame_data, dict):
+                            # Extract and validate subtitle analysis
+                            subtitle_analysis = frame_data.get('subtitle_analysis', {})
+                            subtitle_result = {
+                                'subtitles_detected': bool(subtitle_analysis.get('subtitles_detected', False)),
+                                'combined_extracted_text': subtitle_analysis.get('extracted_text', ''),
+                                'detected_language': subtitle_analysis.get('detected_language', 'unknown'),
+                                'confidence': float(subtitle_analysis.get('confidence', 0.1)),
+                                'detection_message': f"Subtitles {'found' if subtitle_analysis.get('subtitles_detected') else 'not found'}"
+                            }
+                            
+                            # Extract and validate description analysis
+                            description_analysis = frame_data.get('description_analysis', {})
+                            description_result = {
+                                'success': bool(description_analysis.get('success', True)),
+                                'response': description_analysis.get('response', 'No description available')
+                            }
+                            
+                            frame_results.append({
+                                'success': True,
+                                'subtitle_analysis': subtitle_result,
+                                'description_analysis': description_result
+                            })
+                            
+                            # Log results for this frame
+                            if subtitle_result['subtitles_detected']:
+                                text_preview = subtitle_result['combined_extracted_text'][:50] + "..." if len(subtitle_result['combined_extracted_text']) > 50 else subtitle_result['combined_extracted_text']
+                                print(f"VideoAI[{self.device_name}]: Frame {i+1} subtitle: '{text_preview}' -> Language: {subtitle_result['detected_language']}")
+                            
+                            print(f"VideoAI[{self.device_name}]: Frame {i+1} description: '{description_result['response'][:50]}{'...' if len(description_result['response']) > 50 else ''}'")
+                        else:
+                            # Fallback for malformed frame data
+                            frame_results.append({
+                                'success': False,
+                                'subtitle_analysis': {
+                                    'subtitles_detected': False,
+                                    'combined_extracted_text': '',
+                                    'detected_language': 'unknown',
+                                    'confidence': 0.0,
+                                    'detection_message': 'Parsing failed'
+                                },
+                                'description_analysis': {
+                                    'success': False,
+                                    'response': 'Description analysis failed'
+                                }
+                            })
+                    
+                    print(f"VideoAI[{self.device_name}]: Batch analysis complete - processed {len(frame_results)} frames")
+                    return {
+                        'success': True,
+                        'frame_results': frame_results
+                    }
+                    
+                except (json.JSONDecodeError, KeyError, ValueError) as e:
+                    print(f"VideoAI[{self.device_name}]: Failed to parse batch AI response: {e}")
+                    print(f"VideoAI[{self.device_name}]: Raw AI content: {result['content']}")
+                    
+                    # Fallback to empty results for all frames
+                    frame_results = []
+                    for i in range(len(image_paths)):
+                        frame_results.append({
+                            'success': False,
+                            'subtitle_analysis': {
+                                'subtitles_detected': False,
+                                'combined_extracted_text': '',
+                                'detected_language': 'unknown',
+                                'confidence': 0.0,
+                                'detection_message': 'AI parsing failed'
+                            },
+                            'description_analysis': {
+                                'success': False,
+                                'response': 'Description analysis failed'
+                            }
+                        })
+                    
+                    return {
+                        'success': False,
+                        'frame_results': frame_results,
+                        'error': f'JSON parsing error: {str(e)}'
+                    }
+            else:
+                print(f"VideoAI[{self.device_name}]: Batch AI call failed: {result.get('error', 'Unknown error')}")
+                
+                # Fallback to empty results for all frames
+                frame_results = []
+                for i in range(len(image_paths)):
+                    frame_results.append({
+                        'success': False,
+                        'subtitle_analysis': {
+                            'subtitles_detected': False,
+                            'combined_extracted_text': '',
+                            'detected_language': 'unknown',
+                            'confidence': 0.0,
+                            'detection_message': 'AI call failed'
+                        },
+                        'description_analysis': {
+                            'success': False,
+                            'response': 'AI call failed'
+                        }
+                    })
+                
+                return {
+                    'success': False,
+                    'frame_results': frame_results,
+                    'error': result.get('error', 'AI call failed')
+                }
+            
+        except Exception as e:
+            print(f"VideoAI[{self.device_name}]: Batch analysis error: {e}")
+            return {
+                'success': False,
+                'error': str(e),
+                'frame_results': []
+            }
+
     # =============================================================================
     # Language/Subtitle Menu Analysis
     # =============================================================================

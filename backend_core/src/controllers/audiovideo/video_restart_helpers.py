@@ -162,31 +162,49 @@ class VideoRestartHelpers:
             frame_descriptions = []
             detected_language = 'unknown'
             
-            for i, local_path in enumerate(local_paths):
-                # Single AI call for both subtitle + description analysis
-                combined_result = video_controller.analyze_image_complete(local_path, extract_text=True, include_description=True)
+            # Process images in batches of 4 for efficiency
+            batch_size = 4
+            for batch_start in range(0, len(local_paths), batch_size):
+                batch_end = min(batch_start + batch_size, len(local_paths))
+                batch_paths = local_paths[batch_start:batch_end]
+                batch_indices = list(range(batch_start, batch_end))
                 
-                if combined_result and combined_result.get('success'):
-                    # Extract subtitle data
-                    subtitle_data = combined_result.get('subtitle_analysis', {})
-                    text = subtitle_data.get('combined_extracted_text', '').strip()
-                    frame_text = text if text and text != 'No subtitles detected' else 'No subtitles detected'
-                    frame_subtitles.append(f"Frame {i+1}: {frame_text}")
+                print(f"RestartHelpers[{self.device_name}]: Processing batch {batch_start//batch_size + 1}: frames {batch_start+1}-{batch_end}")
+                
+                # Batch AI call for multiple images
+                batch_result = video_controller.analyze_image_batch_complete(batch_paths, extract_text=True, include_description=True)
+                
+                if batch_result and batch_result.get('success'):
+                    # Process each frame result from the batch
+                    frame_results = batch_result.get('frame_results', [])
                     
-                    # Update detected language from first successful detection
-                    if detected_language == 'unknown' and subtitle_data.get('detected_language'):
-                        detected_language = subtitle_data.get('detected_language')
-                    
-                    # Extract description data
-                    description_data = combined_result.get('description_analysis', {})
-                    description = description_data.get('response', '').strip()
-                    if description and description != 'No description available':
-                        frame_descriptions.append(f"Frame {i+1}: {description}")
-                    else:
-                        frame_descriptions.append(f"Frame {i+1}: No description available")
+                    for idx, (i, frame_result) in enumerate(zip(batch_indices, frame_results)):
+                        if frame_result and frame_result.get('success'):
+                            # Extract subtitle data
+                            subtitle_data = frame_result.get('subtitle_analysis', {})
+                            text = subtitle_data.get('combined_extracted_text', '').strip()
+                            frame_text = text if text and text != 'No subtitles detected' else 'No subtitles detected'
+                            frame_subtitles.append(f"Frame {i+1}: {frame_text}")
+                            
+                            # Update detected language from first successful detection
+                            if detected_language == 'unknown' and subtitle_data.get('detected_language'):
+                                detected_language = subtitle_data.get('detected_language')
+                            
+                            # Extract description data
+                            description_data = frame_result.get('description_analysis', {})
+                            description = description_data.get('response', '').strip()
+                            if description and description != 'No description available':
+                                frame_descriptions.append(f"Frame {i+1}: {description}")
+                            else:
+                                frame_descriptions.append(f"Frame {i+1}: No description available")
+                        else:
+                            frame_subtitles.append(f"Frame {i+1}: No subtitles detected")
+                            frame_descriptions.append(f"Frame {i+1}: No description available")
                 else:
-                    frame_subtitles.append(f"Frame {i+1}: No subtitles detected")
-                    frame_descriptions.append(f"Frame {i+1}: No description available")
+                    # Batch failed - add empty results for all frames in batch
+                    for i in batch_indices:
+                        frame_subtitles.append(f"Frame {i+1}: No subtitles detected")
+                        frame_descriptions.append(f"Frame {i+1}: No description available")
             
             # Generate video summary from frame descriptions
             if frame_descriptions:
