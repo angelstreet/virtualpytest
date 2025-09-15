@@ -426,9 +426,8 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
                   subtitle_analysis: combinedData.subtitle_analysis,
                   video_analysis: combinedData.video_analysis,
                 }
-              }),
-              signal: abortControllerRef.current?.signal,
-            });
+            })
+          });
             
             const reportData = await reportResponse.json();
             
@@ -503,7 +502,6 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
     } finally {
       // Clean up request tracking
       isRequestInProgress.current = false;
-      abortControllerRef.current = null;
     }
   }, [host, device, includeAudioAnalysis]);
 
@@ -522,9 +520,6 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
       isRequestInProgress.current = false;
     };
   }, []);
