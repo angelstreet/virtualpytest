@@ -236,6 +236,10 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
   const isTranslationInProgress = useRef(false);
   const currentTranslationLanguage = useRef<string | null>(null);
   
+  // Audio timing deduplication protection
+  const isTimingAdjustmentInProgress = useRef(false);
+  const currentTimingAdjustmentKey = useRef<string | null>(null);
+  
   // Request deduplication to prevent React StrictMode duplicate calls
   const isRequestInProgress = useRef(false);
   const hasExecutedOnMount = useRef(false);
@@ -557,6 +561,8 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
   useEffect(() => {
     return () => {
       isRequestInProgress.current = false;
+      isTimingAdjustmentInProgress.current = false;
+      currentTimingAdjustmentKey.current = null;
     };
   }, []);
 
@@ -804,16 +810,32 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
   const applyAudioTiming = useCallback(async (offsetMs: number) => {
     if (offsetMs === 0) return; // No change needed
     
+    // Determine if we're working with dubbed or original video
+    const isDubbed = currentLanguage !== 'en' && dubbedVideos[currentLanguage];
+    const targetVideoUrl = isDubbed ? dubbedVideos[currentLanguage] : videoUrl;
+    
+    if (!targetVideoUrl) {
+      console.error('[@hook:useRestart] No video available for timing adjustment');
+      toast.showError('❌ No video available for timing adjustment');
+      return;
+    }
+    
+    // Create unique key for this timing adjustment request (Pattern 3: Complex key-based deduplication)
+    const timingKey = `${targetVideoUrl}-${offsetMs}-${currentLanguage}`;
+    
+    // Deduplication protection - prevent duplicate timing adjustment requests
+    if (isTimingAdjustmentInProgress.current && currentTimingAdjustmentKey.current === timingKey) {
+      console.log(`[@hook:useRestart] Audio timing adjustment already in progress for ${timingKey}, ignoring duplicate request`);
+      return;
+    }
+    
+    // Mark timing adjustment as in progress
+    isTimingAdjustmentInProgress.current = true;
+    currentTimingAdjustmentKey.current = timingKey;
+    
     try {
+      console.log(`[@hook:useRestart] 🎵 Starting audio timing adjustment: ${offsetMs > 0 ? '+' : ''}${offsetMs}ms for ${currentLanguage}`);
       setIsApplyingTiming(true);
-      
-      // Determine if we're working with dubbed or original video
-      const isDubbed = currentLanguage !== 'en' && dubbedVideos[currentLanguage];
-      const targetVideoUrl = isDubbed ? dubbedVideos[currentLanguage] : videoUrl;
-      
-      if (!targetVideoUrl) {
-        throw new Error('No video available for timing adjustment');
-      }
       
       const response = await fetch(buildServerUrl('/server/restart/adjustAudioTiming'), {
         method: 'POST',
@@ -837,15 +859,19 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
           setVideoUrl(result.adjusted_video_url);
         }
         setAudioTimingOffset(offsetMs);
+        console.log(`[@hook:useRestart] ✅ Audio timing adjustment completed: ${offsetMs > 0 ? '+' : ''}${offsetMs}ms`);
         toast.showSuccess(`✅ Audio timing adjusted by ${offsetMs > 0 ? '+' : ''}${offsetMs}ms`);
       } else {
         throw new Error(result.error);
       }
     } catch (error) {
-      console.error('Audio timing adjustment failed:', error);
+      console.error('[@hook:useRestart] Audio timing adjustment failed:', error);
       toast.showError('❌ Audio timing adjustment failed');
     } finally {
       setIsApplyingTiming(false);
+      // Clear deduplication flags
+      isTimingAdjustmentInProgress.current = false;
+      currentTimingAdjustmentKey.current = null;
     }
   }, [host, device, videoUrl, dubbedVideos, currentLanguage, toast]);
 

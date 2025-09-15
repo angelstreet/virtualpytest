@@ -717,13 +717,19 @@ class VideoRestartHelpers:
                 print(f"RestartHelpers[{self.device_name}]: Video file not found: {video_file}")
                 return None
             
-            # Generate output filename
+            # Generate output filename respecting original name and adding sync suffix
             original_dir = os.path.dirname(video_file)
-            if language == "original":
-                output_filename = f"restart_timing_{timing_offset_ms:+d}ms_video.mp4"
-            else:
-                output_filename = f"restart_{language}_timing_{timing_offset_ms:+d}ms_video.mp4"
+            original_filename = os.path.basename(video_file)
+            original_name, original_ext = os.path.splitext(original_filename)
             
+            # Create sync suffix: _syncp100 for +100ms, _syncm100 for -100ms
+            if timing_offset_ms > 0:
+                sync_suffix = f"_syncp{timing_offset_ms}"
+            else:
+                sync_suffix = f"_syncm{abs(timing_offset_ms)}"
+            
+            # Respect original filename and add sync suffix
+            output_filename = f"{original_name}{sync_suffix}{original_ext}"
             output_path = os.path.join(original_dir, output_filename)
             
             # Check if already exists (cached)
@@ -780,7 +786,7 @@ class VideoRestartHelpers:
             # Generate new video ID
             video_id = f"restart_{int(time.time())}_{language}_timing_{timing_offset_ms:+d}ms"
             
-            print(f"RestartHelpers[{self.device_name}]: Audio timing adjustment completed: {output_filename}")
+            print(f"RestartHelpers[{self.device_name}]: Audio timing adjustment completed: {original_filename} → {output_filename}")
             return {
                 'success': True,
                 'adjusted_video_url': adjusted_video_url,

@@ -519,3 +519,15 @@ Phase 3 - Dubbing (On Language Selection):
 - **File Management**: Fixed naming convention with automatic overwriting
 - **Clean Architecture**: No fallback code, reuses existing audio extraction and translation systems
 - **Background Caching**: Demucs separation cached after first use for all languages
+
+### Audio Timing Implementation
+- **Backend Method**: `VideoRestartHelpers.adjust_video_audio_timing()` using FFmpeg directly
+- **FFmpeg Filters**: `adelay` for positive offsets (+110ms, +200ms, +300ms), `atrim` for negative offsets (-110ms, -200ms, -300ms)
+- **Caching System**: Timing-adjusted videos cached with descriptive filenames for instant switching
+- **Frontend Integration**: Simple dropdown UI in `RestartSettingsPanel` with OK button and loading states
+- **Smart Detection**: Automatically applies to dubbed or original video based on current language selection
+- **API Endpoint**: `/server/restart/adjustAudioTiming` for timing adjustment requests
+- **File Naming**: Respects original filename + sync suffix (e.g., `restart_original_video_syncp100.mp4`, `restart_es_dubbed_video_syncm200.mp4`)
+- **Performance**: 1-3 seconds first generation, <0.1 seconds for cached versions
+- **Error Handling**: Graceful fallback with toast notifications for success/failure states
+- **React Protection**: StrictMode deduplication using complex key-based pattern (video URL + offset + language)
