@@ -598,48 +598,113 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
   const generateDubbedVersion = useCallback(async (language: string, transcript: string, videoId: string) => {
     const dubbingStartTime = Date.now();
     try {
-      console.log(`[@hook:useRestart] 🎤 Starting dubbing generation for ${language}...`);
+      console.log(`[@hook:useRestart] 🎤 Starting 4-step dubbing generation for ${language}...`);
       setIsDubbing(true);
       
-      const response = await fetch(buildServerUrl('/server/restart/generateDubbedVideo'), {
+      const basePayload = {
+        host,
+        device_id: device.device_id,
+        video_id: videoId,
+        target_language: language,
+        existing_transcript: transcript
+      };
+      
+      // Step 1: Prepare audio (extract + separate) ~20-35s
+      toast.showInfo(`🎵 Step 1/4: Preparing audio for ${language}...`, { duration: 5000 });
+      console.log(`[@hook:useRestart] Step 1: Preparing audio for ${language}...`);
+      
+      const step1Response = await fetch(buildServerUrl('/server/restart/prepareDubbingAudio'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(basePayload)
+      });
+      
+      const step1Result = await step1Response.json();
+      if (!step1Result.success) {
+        throw new Error(`Step 1 failed: ${step1Result.error}`);
+      }
+      
+      toast.showSuccess(`✅ Step 1/4: Audio prepared in ${step1Result.duration_seconds}s`, { duration: 3000 });
+      console.log(`[@hook:useRestart] ✅ Step 1 completed in ${step1Result.duration_seconds}s`);
+      
+      // Step 2: Generate gTTS speech ~3-5s
+      toast.showInfo(`🗣️ Step 2/4: Generating gTTS voice for ${language}...`, { duration: 5000 });
+      console.log(`[@hook:useRestart] Step 2: Generating gTTS speech for ${language}...`);
+      
+      const step2Response = await fetch(buildServerUrl('/server/restart/generateGttsSpeech'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(basePayload)
+      });
+      
+      const step2Result = await step2Response.json();
+      if (!step2Result.success) {
+        throw new Error(`Step 2 failed: ${step2Result.error}`);
+      }
+      
+      toast.showSuccess(`✅ Step 2/4: gTTS voice ready in ${step2Result.duration_seconds}s`, { duration: 3000 });
+      console.log(`[@hook:useRestart] ✅ Step 2 completed in ${step2Result.duration_seconds}s`);
+      
+      // Step 3: Generate Edge-TTS speech ~3-5s
+      toast.showInfo(`🤖 Step 3/4: Generating Edge-TTS voice for ${language}...`, { duration: 5000 });
+      console.log(`[@hook:useRestart] Step 3: Generating Edge-TTS speech for ${language}...`);
+      
+      const step3Response = await fetch(buildServerUrl('/server/restart/generateEdgeSpeech'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(basePayload)
+      });
+      
+      const step3Result = await step3Response.json();
+      if (!step3Result.success) {
+        throw new Error(`Step 3 failed: ${step3Result.error}`);
+      }
+      
+      toast.showSuccess(`✅ Step 3/4: Edge-TTS voice ready in ${step3Result.duration_seconds}s`, { duration: 3000 });
+      console.log(`[@hook:useRestart] ✅ Step 3 completed in ${step3Result.duration_seconds}s`);
+      
+      // Step 4: Create final dubbed video ~5-8s (using Edge-TTS by default)
+      toast.showInfo(`🎬 Step 4/4: Creating final dubbed video for ${language}...`, { duration: 5000 });
+      console.log(`[@hook:useRestart] Step 4: Creating final dubbed video for ${language}...`);
+      
+      const step4Response = await fetch(buildServerUrl('/server/restart/createDubbedVideo'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          host,
-          device_id: device.device_id,
-          video_id: videoId,
-          target_language: language,
-          existing_transcript: transcript
+          ...basePayload,
+          voice_choice: 'edge' // Use Edge-TTS by default
         })
       });
       
-      const result = await response.json();
-      
-      if (result.success) {
-        const dubbingDuration = ((Date.now() - dubbingStartTime) / 1000).toFixed(1);
-        console.log(`[@hook:useRestart] ✅ Dubbing for ${language} completed in ${dubbingDuration}s`);
-        
-        setDubbedVideos(prev => ({
-          ...prev,
-          [language]: result.dubbed_video_url
-        }));
-        
-        // Store audio URLs for comparison
-        if (result.gtts_audio_url && result.edge_audio_url) {
-          setDubbedAudioUrls(prev => ({
-            ...prev,
-            [language]: {
-              gtts: result.gtts_audio_url,
-              edge: result.edge_audio_url
-            }
-          }));
-        }
-      } else {
-        throw new Error(result.error || 'Dubbing failed');
+      const step4Result = await step4Response.json();
+      if (!step4Result.success) {
+        throw new Error(`Step 4 failed: ${step4Result.error}`);
       }
+      
+      const dubbingDuration = ((Date.now() - dubbingStartTime) / 1000).toFixed(1);
+      toast.showSuccess(`🎉 Dubbing for ${language} completed in ${dubbingDuration}s!`, { duration: 5000 });
+      console.log(`[@hook:useRestart] ✅ All 4 steps completed for ${language} in ${dubbingDuration}s`);
+      
+      // Store final video URL
+      setDubbedVideos(prev => ({
+        ...prev,
+        [language]: step4Result.dubbed_video_url
+      }));
+      
+      // Store both MP3 URLs for comparison (from step 4 result)
+      if (step4Result.gtts_audio_url && step4Result.edge_audio_url) {
+        setDubbedAudioUrls(prev => ({
+          ...prev,
+          [language]: {
+            gtts: step4Result.gtts_audio_url,
+            edge: step4Result.edge_audio_url
+          }
+        }));
+      }
+      
     } catch (error) {
-      console.error('Dubbing failed:', error);
-      toast.showError('❌ Dubbing failed', { duration: 5000 });
+      console.error(`[@hook:useRestart] Dubbing failed for ${language}:`, error);
+      toast.showError(`❌ Dubbing for ${language} failed: ${error instanceof Error ? error.message : String(error)}`, { duration: 8000 });
     } finally {
       setIsDubbing(false);
     }
