@@ -287,6 +287,10 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
             audio_analysis: audioData.audio_analysis,
             subtitle_analysis: combinedData.subtitle_analysis,
             video_analysis: combinedData.video_analysis,
+            dubbing_analysis: {
+              success: Object.keys(dubbedAudioUrls).length > 0,
+              dubbed_audio_urls: dubbedAudioUrls
+            }
           }
         })
       });

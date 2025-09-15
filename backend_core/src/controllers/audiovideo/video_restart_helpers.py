@@ -646,8 +646,8 @@ class VideoRestartHelpers:
                     self._translation_cache[cache_key] = {}
                 self._translation_cache[cache_key][target_language] = translation_result
             
-            # Use translated text directly (already clean for audio dubbing)
-            translated_text = translation_result['translated_text']
+            # Clean translated text before TTS (remove AI prompt artifacts)
+            translated_text = self._clean_translated_text(translation_result['translated_text'])
             
             return self.dubbing_helpers.generate_gtts_speech_step(translated_text, target_language, self.video_capture_path)
             
@@ -683,8 +683,8 @@ class VideoRestartHelpers:
                     self._translation_cache[cache_key] = {}
                 self._translation_cache[cache_key][target_language] = translation_result
             
-            # Use translated text directly (already clean for audio dubbing)
-            translated_text = translation_result['translated_text']
+            # Clean translated text before TTS (remove AI prompt artifacts)
+            translated_text = self._clean_translated_text(translation_result['translated_text'])
             
             return self.dubbing_helpers.generate_edge_speech_step(translated_text, target_language, self.video_capture_path)
             
@@ -696,7 +696,7 @@ class VideoRestartHelpers:
                 'duration_seconds': 0.0
             }
     
-    def create_dubbed_video(self, video_id: str, target_language: str, voice_choice: str = 'gtts') -> Optional[Dict[str, Any]]:
+    def create_dubbed_video(self, video_id: str, target_language: str, voice_choice: str = 'edge') -> Optional[Dict[str, Any]]:
         """Step 4: Create final dubbed video"""
         try:
             video_filename = "restart_original_video.mp4"

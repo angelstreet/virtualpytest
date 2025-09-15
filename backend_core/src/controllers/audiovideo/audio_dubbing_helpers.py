@@ -251,7 +251,7 @@ class AudioDubbingHelpers:
                 'duration_seconds': round(duration, 1)
             }
     
-    def create_dubbed_video_step(self, video_file: str, language: str, voice_choice: str = 'gtts') -> Dict[str, Any]:
+    def create_dubbed_video_step(self, video_file: str, language: str, voice_choice: str = 'edge') -> Dict[str, Any]:
         """Step 4: Create final dubbed video (~5-8s)"""
         import time
         start_time = time.time()
@@ -290,16 +290,21 @@ class AudioDubbingHelpers:
             duration = time.time() - start_time
             print(f"Dubbing[{self.device_name}]: Step 4 completed in {duration:.1f}s")
             
-            # Build URL for final video
+            # Build URLs for final video and both MP3 files
             from shared.lib.utils.build_url_utils import buildHostImageUrl
             from shared.lib.utils.host_utils import get_host_instance
             
             try:
                 host = get_host_instance()
-                dubbed_video_url = buildHostImageUrl(host.to_dict(), dubbed_video)
+                host_dict = host.to_dict()
+                dubbed_video_url = buildHostImageUrl(host_dict, dubbed_video)
+                gtts_audio_url = buildHostImageUrl(host_dict, paths['dubbed_voice_gtts_mp3'])
+                edge_audio_url = buildHostImageUrl(host_dict, paths['dubbed_voice_edge_mp3'])
             except:
                 # Fallback URL construction
                 dubbed_video_url = f"/host/stream/{os.path.basename(dubbed_video)}"
+                gtts_audio_url = f"/host/stream/{os.path.basename(paths['dubbed_voice_gtts_mp3'])}"
+                edge_audio_url = f"/host/stream/{os.path.basename(paths['dubbed_voice_edge_mp3'])}"
             
             return {
                 'success': True,
@@ -307,6 +312,8 @@ class AudioDubbingHelpers:
                 'duration_seconds': round(duration, 1),
                 'message': f'Dubbed video ready in {duration:.1f}s',
                 'dubbed_video_url': dubbed_video_url,
+                'gtts_audio_url': gtts_audio_url,
+                'edge_audio_url': edge_audio_url,
                 'voice_used': voice_choice
             }
             
@@ -319,7 +326,7 @@ class AudioDubbingHelpers:
                 'duration_seconds': round(duration, 1)
             }
     
-    def mix_dubbed_audio(self, language: str, original_duration: float, original_video_dir: str, use_gtts: bool = True) -> Optional[str]:
+    def mix_dubbed_audio(self, language: str, original_duration: float, original_video_dir: str, use_gtts: bool = False) -> Optional[str]:
         """Mix background audio with dubbed voice using fixed filenames."""
         try:
             from pydub import AudioSegment
@@ -327,7 +334,7 @@ class AudioDubbingHelpers:
             paths = self.get_file_paths(language, original_video_dir)
             
             background = AudioSegment.from_file(paths['background'])
-            # Use gTTS for video (keep current behavior)
+            # Use Edge-TTS for video (default behavior)
             dubbed_voice_file = paths['dubbed_voice_gtts'] if use_gtts else paths['dubbed_voice_edge']
             dubbed_voice = AudioSegment.from_file(dubbed_voice_file)
             
