@@ -237,6 +237,7 @@ def batch_translate_restart_content(content_blocks: Dict[str, Any], target_langu
             descriptions_text = "\n".join([f"FRAME_{i+1}: {text}" for i, text in enumerate(frame_texts)])
             sections.append(f"[FRAME_DESCRIPTIONS]\n{descriptions_text}")
             section_map['frame_descriptions'] = len(sections) - 1
+            print(f"[TRANSLATION] 📝 FRAME_DESCRIPTIONS: {len(frame_texts)} frames to translate")
         
         # Frame Subtitles Section
         if content_blocks.get('frame_subtitles', {}).get('texts'):
@@ -244,6 +245,7 @@ def batch_translate_restart_content(content_blocks: Dict[str, Any], target_langu
             subtitles_text = "\n".join([f"SUBTITLE_{i+1}: {text}" for i, text in enumerate(subtitle_texts)])
             sections.append(f"[FRAME_SUBTITLES]\n{subtitles_text}")
             section_map['frame_subtitles'] = len(sections) - 1
+            print(f"[TRANSLATION] 📝 FRAME_SUBTITLES: {len(subtitle_texts)} subtitles to translate")
         
         if not sections:
             return {'success': True, 'translations': {}, 'skipped': True}
@@ -326,8 +328,13 @@ def _clean_translated_text(text: str) -> str:
 
 def _parse_batch_translation_response(response: str, section_map: Dict, original_content: Dict) -> Dict[str, Any]:
     """Parse the structured AI response back into organized translations."""
+    from datetime import datetime
+    
     try:
         translations = {}
+        parsing_timestamp = datetime.now().strftime('%H:%M:%S')
+        
+        print(f"[TRANSLATION] 🔍 [{parsing_timestamp}] Parsing batch translation response...")
         
         # Split response by section headers
         sections = response.split('[')
@@ -347,31 +354,57 @@ def _parse_batch_translation_response(response: str, section_map: Dict, original
             # Parse based on section type
             if section_name == 'video_summary':
                 translations['video_summary'] = _clean_translated_text(section_content)
+                print(f"[TRANSLATION] ✅ [{parsing_timestamp}] VIDEO_SUMMARY translated ({len(section_content)} chars)")
                 
             elif section_name == 'audio_transcript':
                 translations['audio_transcript'] = _clean_translated_text(section_content)
+                print(f"[TRANSLATION] ✅ [{parsing_timestamp}] AUDIO_TRANSCRIPT translated ({len(section_content)} chars)")
                 
             elif section_name == 'frame_descriptions':
                 # Parse FRAME_1:, FRAME_2: format
                 frame_lines = section_content.split('\n')
                 frame_descriptions = []
-                for line in frame_lines:
+                successful_frames = 0
+                for i, line in enumerate(frame_lines):
                     if ':' in line and line.strip():
                         # Extract content after "FRAME_X: "
                         content = line.split(':', 1)[1].strip()
                         frame_descriptions.append(_clean_translated_text(content))
+                        successful_frames += 1
+                    elif line.strip():  # Non-empty line without colon
+                        print(f"[TRANSLATION] ⚠️ [{parsing_timestamp}] FRAME_DESCRIPTIONS line {i+1} malformed: '{line[:50]}...'")
+                
                 translations['frame_descriptions'] = frame_descriptions
+                original_count = len(original_content.get('frame_descriptions', {}).get('texts', []))
+                print(f"[TRANSLATION] ✅ [{parsing_timestamp}] FRAME_DESCRIPTIONS: {successful_frames}/{original_count} frames translated")
                 
             elif section_name == 'frame_subtitles':
                 # Parse SUBTITLE_1:, SUBTITLE_2: format  
                 subtitle_lines = section_content.split('\n')
                 frame_subtitles = []
-                for line in subtitle_lines:
+                successful_subtitles = 0
+                for i, line in enumerate(subtitle_lines):
                     if ':' in line and line.strip():
                         # Extract content after "SUBTITLE_X: "
                         content = line.split(':', 1)[1].strip()
                         frame_subtitles.append(_clean_translated_text(content))
+                        successful_subtitles += 1
+                    elif line.strip():  # Non-empty line without colon
+                        print(f"[TRANSLATION] ⚠️ [{parsing_timestamp}] FRAME_SUBTITLES line {i+1} malformed: '{line[:50]}...'")
+                
                 translations['frame_subtitles'] = frame_subtitles
+                original_count = len(original_content.get('frame_subtitles', {}).get('texts', []))
+                print(f"[TRANSLATION] ✅ [{parsing_timestamp}] FRAME_SUBTITLES: {successful_subtitles}/{original_count} subtitles translated")
+        
+        # Summary of what was translated
+        translated_sections = list(translations.keys())
+        expected_sections = list(section_map.keys())
+        missing_sections = [s for s in expected_sections if s not in translated_sections]
+        
+        if missing_sections:
+            print(f"[TRANSLATION] ⚠️ [{parsing_timestamp}] Missing sections: {missing_sections}")
+        
+        print(f"[TRANSLATION] 📊 [{parsing_timestamp}] Translation summary: {len(translated_sections)}/{len(expected_sections)} sections completed")
         
         return {
             'success': True,
