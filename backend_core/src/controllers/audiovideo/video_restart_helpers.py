@@ -850,18 +850,28 @@ class VideoRestartHelpers:
             else:
                 vocal_source_path = os.path.join(original_dir, f"restart_{language}_dubbed_voice_edge.wav")
             
-            # Check if cached components exist
+            # Check if cached components exist, create them if missing
+            components_missing = []
             if not os.path.exists(silent_video_path):
-                print(f"RestartHelpers[{self.device_name}]: Silent video not found, falling back to full video processing")
-                return self._fallback_timing_adjustment(original_dir, base_name, original_ext, target_timing_ms, output_path, output_filename, video_url, language)
-            
+                components_missing.append("silent_video")
             if not os.path.exists(background_audio_path):
-                print(f"RestartHelpers[{self.device_name}]: Background audio not found, falling back to full video processing")
-                return self._fallback_timing_adjustment(original_dir, base_name, original_ext, target_timing_ms, output_path, output_filename, video_url, language)
-            
+                components_missing.append("background_audio")
             if not os.path.exists(vocal_source_path):
-                print(f"RestartHelpers[{self.device_name}]: Vocal source not found: {vocal_source_path}, falling back to full video processing")
-                return self._fallback_timing_adjustment(original_dir, base_name, original_ext, target_timing_ms, output_path, output_filename, video_url, language)
+                components_missing.append("vocals")
+            
+            if components_missing:
+                print(f"RestartHelpers[{self.device_name}]: Missing cached components: {components_missing}")
+                print(f"RestartHelpers[{self.device_name}]: Creating cached components from source video...")
+                
+                # Create cached components from source video
+                success = self._create_cached_components(original_dir, base_name, original_ext, language)
+                if not success:
+                    print(f"RestartHelpers[{self.device_name}]: Failed to create cached components, falling back to full video processing")
+                    return self._fallback_timing_adjustment(original_dir, base_name, original_ext, target_timing_ms, output_path, output_filename, video_url, language)
+                
+                print(f"RestartHelpers[{self.device_name}]: Cached components created successfully")
+            else:
+                print(f"RestartHelpers[{self.device_name}]: All cached components found, proceeding with timing adjustment")
             
             # Generate timing-adjusted vocal filename
             if target_timing_ms > 0:
@@ -1012,6 +1022,108 @@ class VideoRestartHelpers:
         except Exception as e:
             print(f"RestartHelpers[{self.device_name}]: Fallback timing adjustment failed: {e}")
             return None
+    
+    def _create_cached_components(self, original_dir: str, base_name: str, original_ext: str, language: str) -> bool:
+        """
+        Create cached separated components (silent video + background + vocals) from source video.
+        This enables the cached component timing adjustment method.
+        """
+        try:
+            # Determine source video path
+            source_video_path = os.path.join(original_dir, f"{base_name}{original_ext}")
+            if not os.path.exists(source_video_path):
+                print(f"RestartHelpers[{self.device_name}]: Source video not found: {source_video_path}")
+                return False
+            
+            print(f"RestartHelpers[{self.device_name}]: Creating cached components from: {source_video_path}")
+            
+            # Define output paths
+            silent_video_path = os.path.join(original_dir, "restart_video_no_audio.mp4")
+            audio_extract_path = os.path.join(original_dir, "restart_extracted_audio.wav")
+            background_audio_path = os.path.join(original_dir, "restart_original_background.wav")
+            vocals_path = os.path.join(original_dir, "restart_original_vocals.wav")
+            
+            # Step 1: Extract silent video (no audio track)
+            if not os.path.exists(silent_video_path):
+                print(f"RestartHelpers[{self.device_name}]: Extracting silent video...")
+                silent_cmd = [
+                    'ffmpeg', '-i', source_video_path,
+                    '-c:v', 'copy',  # Copy video unchanged
+                    '-an',           # Remove audio track
+                    silent_video_path, '-y'
+                ]
+                subprocess.run(silent_cmd, capture_output=True, text=True, check=True)
+                print(f"RestartHelpers[{self.device_name}]: Silent video created: {silent_video_path}")
+            
+            # Step 2: Extract audio from video
+            if not os.path.exists(audio_extract_path):
+                print(f"RestartHelpers[{self.device_name}]: Extracting audio from video...")
+                audio_cmd = [
+                    'ffmpeg', '-i', source_video_path,
+                    '-vn',           # Remove video track
+                    '-c:a', 'pcm_s16le',  # PCM format for Demucs
+                    audio_extract_path, '-y'
+                ]
+                subprocess.run(audio_cmd, capture_output=True, text=True, check=True)
+                print(f"RestartHelpers[{self.device_name}]: Audio extracted: {audio_extract_path}")
+            
+            # Step 3: Separate audio using Demucs (background + vocals)
+            if not os.path.exists(background_audio_path) or not os.path.exists(vocals_path):
+                print(f"RestartHelpers[{self.device_name}]: Separating audio with Demucs...")
+                
+                # Use Demucs to separate audio
+                demucs_output_dir = os.path.join(original_dir, "demucs_separation")
+                demucs_cmd = [
+                    'python', '-m', 'demucs.separate',
+                    '--two-stems', 'vocals',  # Separate into vocals and no_vocals (background)
+                    '--out', demucs_output_dir,
+                    audio_extract_path
+                ]
+                
+                subprocess.run(demucs_cmd, capture_output=True, text=True, check=True)
+                
+                # Find the separated files (Demucs creates subdirectories)
+                audio_filename = os.path.splitext(os.path.basename(audio_extract_path))[0]
+                demucs_vocals_path = os.path.join(demucs_output_dir, "htdemucs", audio_filename, "vocals.wav")
+                demucs_background_path = os.path.join(demucs_output_dir, "htdemucs", audio_filename, "no_vocals.wav")
+                
+                # Copy separated files to standard locations
+                if os.path.exists(demucs_vocals_path):
+                    import shutil
+                    shutil.copy2(demucs_vocals_path, vocals_path)
+                    print(f"RestartHelpers[{self.device_name}]: Vocals separated: {vocals_path}")
+                
+                if os.path.exists(demucs_background_path):
+                    import shutil
+                    shutil.copy2(demucs_background_path, background_audio_path)
+                    print(f"RestartHelpers[{self.device_name}]: Background separated: {background_audio_path}")
+                
+                # Clean up temporary Demucs output
+                import shutil
+                if os.path.exists(demucs_output_dir):
+                    shutil.rmtree(demucs_output_dir)
+                
+                # Clean up temporary extracted audio
+                if os.path.exists(audio_extract_path):
+                    os.remove(audio_extract_path)
+            
+            # Verify all components were created
+            components_created = [
+                os.path.exists(silent_video_path),
+                os.path.exists(background_audio_path),
+                os.path.exists(vocals_path)
+            ]
+            
+            if all(components_created):
+                print(f"RestartHelpers[{self.device_name}]: All cached components created successfully")
+                return True
+            else:
+                print(f"RestartHelpers[{self.device_name}]: Failed to create some cached components")
+                return False
+                
+        except Exception as e:
+            print(f"RestartHelpers[{self.device_name}]: Error creating cached components: {e}")
+            return False
     
     def _parse_timing_filename(self, filename: str) -> tuple[str, int]:
         """
