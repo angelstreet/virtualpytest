@@ -833,33 +833,127 @@ class VideoRestartHelpers:
                     'original_video_url': video_url
                 }
             
-            print(f"RestartHelpers[{self.device_name}]: Generating timing-adjusted video with FFmpeg")
+            print(f"RestartHelpers[{self.device_name}]: Generating timing-adjusted video using cached components")
             
-            # Determine source file for FFmpeg (always use original for absolute timing)
-            original_video_path = os.path.join(original_dir, f"{base_name}{original_ext}")
+            # Use cached separated components for timing adjustment
+            return self._adjust_timing_with_cached_components(
+                original_dir, base_name, original_ext, target_timing_ms, language, output_path, output_filename, video_url
+            )
             
-            # Build FFmpeg command based on target timing (absolute from original)
+        except subprocess.CalledProcessError as e:
+            print(f"RestartHelpers[{self.device_name}]: FFmpeg timing adjustment failed: {e.stderr}")
+            return None
+        except Exception as e:
+            print(f"RestartHelpers[{self.device_name}]: Audio timing adjustment error: {e}")
+            return None
+    
+    def _adjust_timing_with_cached_components(self, original_dir: str, base_name: str, original_ext: str, 
+                                           target_timing_ms: int, language: str, output_path: str, 
+                                           output_filename: str, video_url: str) -> Optional[Dict[str, Any]]:
+        """
+        Adjust timing using cached separated components (background + vocals).
+        Reuses existing silent video and background audio, only processes vocals.
+        """
+        try:
+            # Define cached component paths
+            silent_video_path = os.path.join(original_dir, "restart_video_no_audio.mp4")
+            background_audio_path = os.path.join(original_dir, "restart_original_background.wav")
+            
+            # Determine vocal source based on language
+            if language == "original" or language == "en":
+                vocal_source_path = os.path.join(original_dir, "restart_original_vocals.wav")
+            else:
+                vocal_source_path = os.path.join(original_dir, f"restart_{language}_dubbed_voice_edge.wav")
+            
+            # Check if cached components exist
+            if not os.path.exists(silent_video_path):
+                print(f"RestartHelpers[{self.device_name}]: Silent video not found, falling back to full video processing")
+                return self._fallback_timing_adjustment(original_dir, base_name, original_ext, target_timing_ms, output_path, output_filename, video_url, language)
+            
+            if not os.path.exists(background_audio_path):
+                print(f"RestartHelpers[{self.device_name}]: Background audio not found, falling back to full video processing")
+                return self._fallback_timing_adjustment(original_dir, base_name, original_ext, target_timing_ms, output_path, output_filename, video_url, language)
+            
+            if not os.path.exists(vocal_source_path):
+                print(f"RestartHelpers[{self.device_name}]: Vocal source not found: {vocal_source_path}, falling back to full video processing")
+                return self._fallback_timing_adjustment(original_dir, base_name, original_ext, target_timing_ms, output_path, output_filename, video_url, language)
+            
+            # Generate timing-adjusted vocal filename
             if target_timing_ms > 0:
-                # Positive offset: delay audio
-                audio_filter = f"adelay={target_timing_ms}"
-                source_file = original_video_path
-            elif target_timing_ms < 0:
-                # Negative offset: advance audio (trim from start)
-                trim_seconds = abs(target_timing_ms) / 1000.0
-                audio_filter = f"atrim=start={trim_seconds}"
-                source_file = original_video_path
-            # Note: 0ms case is handled earlier with immediate return
+                sync_suffix = f"_syncp{target_timing_ms}"
+            else:
+                sync_suffix = f"_syncm{abs(target_timing_ms)}"
             
-            # Apply timing adjustment using FFmpeg (always from original)
-            cmd = [
-                'ffmpeg', '-i', source_file,
-                '-af', audio_filter,
-                '-c:v', 'copy',  # Copy video stream unchanged
-                '-c:a', 'aac',   # Re-encode audio with adjustment
+            vocal_base_name = os.path.splitext(os.path.basename(vocal_source_path))[0]
+            timed_vocal_path = os.path.join(original_dir, f"{vocal_base_name}{sync_suffix}.wav")
+            
+            # Step 1: Apply timing to vocals only (if not cached)
+            if not os.path.exists(timed_vocal_path):
+                print(f"RestartHelpers[{self.device_name}]: Applying timing to vocals: {target_timing_ms:+d}ms")
+                
+                if target_timing_ms > 0:
+                    # Positive offset: delay vocals
+                    vocal_cmd = [
+                        'ffmpeg', '-i', vocal_source_path,
+                        '-af', f'adelay={target_timing_ms}',
+                        '-c:a', 'pcm_s16le',
+                        timed_vocal_path, '-y'
+                    ]
+                else:
+                    # Negative offset: trim vocals from start
+                    trim_seconds = abs(target_timing_ms) / 1000.0
+                    vocal_cmd = [
+                        'ffmpeg', '-i', vocal_source_path,
+                        '-af', f'atrim=start={trim_seconds}',
+                        '-c:a', 'pcm_s16le',
+                        timed_vocal_path, '-y'
+                    ]
+                
+                subprocess.run(vocal_cmd, capture_output=True, text=True, check=True)
+                print(f"RestartHelpers[{self.device_name}]: Vocal timing adjustment completed")
+            else:
+                print(f"RestartHelpers[{self.device_name}]: Using cached timed vocals")
+            
+            # Step 2: Mix background + timed vocals
+            mixed_audio_path = os.path.join(original_dir, f"restart_mixed_audio{sync_suffix}.wav")
+            
+            if not os.path.exists(mixed_audio_path):
+                print(f"RestartHelpers[{self.device_name}]: Mixing background + timed vocals")
+                
+                # Use pydub for audio mixing (same as dubbing system)
+                from pydub import AudioSegment
+                
+                background = AudioSegment.from_file(background_audio_path)
+                timed_vocals = AudioSegment.from_file(timed_vocal_path)
+                
+                # Ensure both audio segments have the same length
+                max_length = max(len(background), len(timed_vocals))
+                if len(background) < max_length:
+                    silence = AudioSegment.silent(duration=max_length - len(background))
+                    background = background + silence
+                if len(timed_vocals) < max_length:
+                    silence = AudioSegment.silent(duration=max_length - len(timed_vocals))
+                    timed_vocals = timed_vocals + silence
+                
+                # Mix audio (background at 100%, vocals at 100%)
+                mixed = background.overlay(timed_vocals)
+                mixed.export(mixed_audio_path, format="wav")
+                print(f"RestartHelpers[{self.device_name}]: Audio mixing completed")
+            else:
+                print(f"RestartHelpers[{self.device_name}]: Using cached mixed audio")
+            
+            # Step 3: Combine silent video + mixed audio
+            print(f"RestartHelpers[{self.device_name}]: Combining silent video with mixed audio")
+            
+            final_cmd = [
+                'ffmpeg', '-i', silent_video_path, '-i', mixed_audio_path,
+                '-c:v', 'copy',  # Copy video unchanged
+                '-c:a', 'aac',   # Encode mixed audio
+                '-shortest',     # Match shortest stream duration
                 output_path, '-y'
             ]
             
-            result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+            subprocess.run(final_cmd, capture_output=True, text=True, check=True)
             
             # Build URL for adjusted video
             adjusted_video_url = self._build_video_url(output_filename)
@@ -867,7 +961,7 @@ class VideoRestartHelpers:
             # Generate new video ID
             video_id = f"restart_{int(time.time())}_{language}_timing_{target_timing_ms:+d}ms"
             
-            print(f"RestartHelpers[{self.device_name}]: Audio timing adjustment completed: {os.path.basename(source_file)} → {output_filename}")
+            print(f"RestartHelpers[{self.device_name}]: Cached component timing adjustment completed: {output_filename}")
             return {
                 'success': True,
                 'adjusted_video_url': adjusted_video_url,
@@ -877,11 +971,61 @@ class VideoRestartHelpers:
                 'original_video_url': video_url
             }
             
-        except subprocess.CalledProcessError as e:
-            print(f"RestartHelpers[{self.device_name}]: FFmpeg timing adjustment failed: {e.stderr}")
-            return None
         except Exception as e:
-            print(f"RestartHelpers[{self.device_name}]: Audio timing adjustment error: {e}")
+            print(f"RestartHelpers[{self.device_name}]: Cached component timing failed: {e}")
+            print(f"RestartHelpers[{self.device_name}]: Falling back to full video processing")
+            return self._fallback_timing_adjustment(original_dir, base_name, original_ext, target_timing_ms, output_path, output_filename, video_url, language)
+    
+    def _fallback_timing_adjustment(self, original_dir: str, base_name: str, original_ext: str,
+                                  target_timing_ms: int, output_path: str, output_filename: str, 
+                                  video_url: str, language: str) -> Optional[Dict[str, Any]]:
+        """
+        Fallback to original timing adjustment method when cached components are not available.
+        """
+        try:
+            print(f"RestartHelpers[{self.device_name}]: Using fallback timing adjustment method")
+            
+            # Determine source file
+            original_video_path = os.path.join(original_dir, f"{base_name}{original_ext}")
+            
+            # Build FFmpeg command based on target timing
+            if target_timing_ms > 0:
+                # Positive offset: delay audio
+                audio_filter = f"adelay={target_timing_ms}"
+            else:
+                # Negative offset: advance audio (trim from start)
+                trim_seconds = abs(target_timing_ms) / 1000.0
+                audio_filter = f"atrim=start={trim_seconds}"
+            
+            # Apply timing adjustment using FFmpeg
+            cmd = [
+                'ffmpeg', '-i', original_video_path,
+                '-af', audio_filter,
+                '-c:v', 'copy',  # Copy video stream unchanged
+                '-c:a', 'aac',   # Re-encode audio with adjustment
+                output_path, '-y'
+            ]
+            
+            subprocess.run(cmd, capture_output=True, text=True, check=True)
+            
+            # Build URL for adjusted video
+            adjusted_video_url = self._build_video_url(output_filename)
+            
+            # Generate new video ID
+            video_id = f"restart_{int(time.time())}_{language}_timing_{target_timing_ms:+d}ms"
+            
+            print(f"RestartHelpers[{self.device_name}]: Fallback timing adjustment completed: {output_filename}")
+            return {
+                'success': True,
+                'adjusted_video_url': adjusted_video_url,
+                'timing_offset_ms': target_timing_ms,
+                'language': language,
+                'video_id': video_id,
+                'original_video_url': video_url
+            }
+            
+        except Exception as e:
+            print(f"RestartHelpers[{self.device_name}]: Fallback timing adjustment failed: {e}")
             return None
     
     def _parse_timing_filename(self, filename: str) -> tuple[str, int]:

@@ -387,10 +387,15 @@ interface TimingCache {
 - **Translation Switching**: <100ms (instant switch between cached translations)
 
 **Phase 4 (Audio Timing - On Demand):**
-- **FFmpeg Processing**: 1-3 seconds (audio filter application)
+- **Cached Component Method** (Primary):
+  - **Vocal Timing**: 0.5-1 second (FFmpeg audio filter on vocals only)
+  - **Audio Mixing**: 0.5-1 second (pydub background + timed vocals)
+  - **Video Assembly**: 0.5-1 second (FFmpeg silent video + mixed audio)
+  - **Total**: 1.5-3 seconds (reuses cached silent video + background)
+- **Fallback Method** (When cached components unavailable):
+  - **FFmpeg Processing**: 1-3 seconds (full video audio filter)
 - **Caching Check**: <0.1 seconds (instant if already cached)
-- **URL Generation**: <0.1 seconds (build adjusted video URL)
-- **Total Timing Adjustment**: 1-3 seconds (first time), <0.1 seconds (cached)
+- **Total Timing Adjustment**: 1.5-3 seconds (first time), <0.1 seconds (cached)
 
 ### Resource Optimization
 - **Screenshot Reduction**: 73% fewer screenshots (12 vs 45 for 10s video)
@@ -660,13 +665,23 @@ Phase 3 - Dubbing (On Language Selection):
 - **Background Caching**: Demucs separation cached after first use for all languages
 
 ### Audio Timing Implementation
-- **Backend Method**: `VideoRestartHelpers.adjust_video_audio_timing()` using FFmpeg directly
-- **FFmpeg Filters**: `adelay` for positive offsets (+110ms, +200ms, +300ms), `atrim` for negative offsets (-110ms, -200ms, -300ms)
-- **Caching System**: Timing-adjusted videos cached with descriptive filenames for instant switching
+- **Backend Method**: `VideoRestartHelpers.adjust_video_audio_timing()` with cached component optimization
+- **Cached Component Architecture**: Reuses separated audio components (silent video + background + vocals)
+- **Primary Method**: 
+  - **Step 1**: Apply timing to vocals only (`adelay`/`atrim` on vocal track)
+  - **Step 2**: Mix background + timed vocals (pydub overlay)
+  - **Step 3**: Combine silent video + mixed audio (FFmpeg assembly)
+- **Fallback Method**: Traditional FFmpeg filters on full video when cached components unavailable
+- **Component Caching**: 
+  - `restart_video_no_audio.mp4` (silent video - cached once)
+  - `restart_original_background.wav` (background audio - cached once)
+  - `restart_original_vocals.wav` / `restart_{lang}_dubbed_voice_edge.wav` (vocals - cached per language)
+- **Timing Caching**: Vocal timing variations cached (e.g., `restart_original_vocals_syncp100.wav`)
+- **Performance**: 1.5-3 seconds first generation, <0.1 seconds for cached versions
+- **No Double Audio**: Clean separation ensures single vocal track in final mix
 - **Frontend Integration**: Simple dropdown UI in `RestartSettingsPanel` with OK button and loading states
 - **Smart Detection**: Automatically applies to dubbed or original video based on current language selection
 - **API Endpoint**: `/server/restart/adjustAudioTiming` for timing adjustment requests
 - **File Naming**: Respects original filename + sync suffix (e.g., `restart_original_video_syncp100.mp4`, `restart_es_dubbed_video_syncm200.mp4`)
-- **Performance**: 1-3 seconds first generation, <0.1 seconds for cached versions
 - **Error Handling**: Graceful fallback with toast notifications for success/failure states
 - **React Protection**: StrictMode deduplication using complex key-based pattern (video URL + offset + language)
