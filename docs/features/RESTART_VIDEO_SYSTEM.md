@@ -49,6 +49,9 @@ The Restart Video System provides fast 10-second video generation with comprehen
 - **Backend Analysis Integration**: Receives complete AI analysis from backend
 - **No Direct R2 Access**: Frontend no longer polls R2 directly, uses backend APIs
 - **State Management**: Tracks video generation, analysis progress, and completion
+- **Comprehensive Frontend Caching**: Intelligent caching for translations, dubbing, and timing adjustments
+- **Instant Content Switching**: Cached content switches instantly without backend calls
+- **Cache-Aware UI**: Different toast messages for cached vs newly processed content
 
 #### Main Player (`frontend/src/components/rec/RestartPlayer.tsx`)
 - **Video Display**: Standard HTML5 video player
@@ -99,15 +102,29 @@ Analysis complete → Settings button (⚙️) appears → Click → Panel slide
 
 ### 4. Dubbing Workflow
 ```
+First Time:
 Select Language (French) → Toast: "🌐 Starting translation..." → 
-Toast: "🎤 Starting dubbing..." → Toast: "🎬 Dubbing complete!" → 
+Toast: "🎤 Starting dubbing..." → Toast: "🎬 Dubbing complete! (cached for future use)" → 
 Dubbed video available with preserved background audio
+
+Subsequent Times:
+Select Language (French) → Toast: "✅ Switched to French (cached)" → 
+Instant language switch with dubbed video
 ```
 
 ### 5. Audio Timing Adjustment
 ```
+First Time:
 Settings Panel → Audio Timing Section → Select offset (+110ms) → Click OK → 
-Toast: "✅ Audio timing adjusted by +110ms" → Video player updates with adjusted audio
+Toast: "✅ Audio timing: +110ms (processed & cached)" → Video player updates with adjusted audio
+
+Subsequent Times:
+Settings Panel → Audio Timing Section → Select offset (+110ms) → Click OK → 
+Toast: "✅ Audio timing: +110ms (cached)" → Instant timing switch
+
+Reset to Original:
+Settings Panel → Audio Timing Section → Select 0ms → Click OK → 
+Toast: "✅ Audio timing reset to 0ms" → Instant switch to original timing
 ```
 
 ### 6. Overlay Controls
@@ -285,7 +302,12 @@ interface DubbingState {
   dubbedVideos: Record<string, string>;  // language -> video_url
   dubbedAudioUrls: Record<string, { gtts: string; edge: string }>;  // language -> audio comparison URLs
   isDubbing: boolean;
+  dubbingCache: Record<string, boolean>;  // language -> is_cached
   generateDubbedVersion: (language: string, transcript: string, videoId: string) => Promise<void>;
+}
+
+interface TimingCache {
+  timingCache: Record<string, Record<number, string>>;  // language -> { offset_ms -> video_url }
 }
 ```
 
@@ -317,10 +339,12 @@ interface DubbingState {
 - **File Naming**: `restart_original_*` for source files, `restart_{lang}_*` for dubbed versions
 
 ### Translation Settings
-- **Cache Structure**: `{video_id: {language: translation_result}}`
+- **Cache Structure**: `{language: translation_result}` - frontend session cache
 - **Batch Processing**: Single API call with structure preservation
-- **Performance**: ~2-5 seconds vs previous 24-72 seconds
+- **Performance**: ~2-5 seconds first time, instant for cached languages
 - **Frame Alignment**: Maintains frame numbers during translation
+- **Instant Switching**: Cached translations switch immediately without backend calls
+- **Cache Persistence**: Translations persist throughout session for instant access
 
 ### Batch Processing Settings
 - **Batch Size**: 6 images per batch (optimized from 10 for AI model reliability)
@@ -351,13 +375,16 @@ interface DubbingState {
 - **Total Analysis**: 10-15 seconds (runs in background)
 
 **Phase 3 (Dubbing - On Demand):**
-- **Audio Separation**: 5-8 seconds (Demucs processing - cached after first use)
-- **Translation**: 0.5-1 seconds (cached after first use, with AI fallback on rate limits)
-- **Dual TTS Generation**: 3-5 seconds (both gTTS and Edge-TTS)
-- **Audio Mixing**: 1-2 seconds (pydub processing with 100% background volume)
-- **Video Reconstruction**: 1-2 seconds (FFmpeg processing)
-- **Audio Comparison Files**: MP3 generation for quality testing
-- **Total Dubbing**: 10-18 seconds (triggered by language selection)
+- **First Time Processing**:
+  - **Audio Separation**: 5-8 seconds (Demucs processing - cached after first use)
+  - **Translation**: 0.5-1 seconds (cached after first use, with AI fallback on rate limits)
+  - **Dual TTS Generation**: 3-5 seconds (both gTTS and Edge-TTS)
+  - **Audio Mixing**: 1-2 seconds (pydub processing with 100% background volume)
+  - **Video Reconstruction**: 1-2 seconds (FFmpeg processing)
+  - **Audio Comparison Files**: MP3 generation for quality testing
+  - **Total Dubbing**: 10-18 seconds (triggered by language selection)
+- **Cached Access**: <100ms (instant switch to previously dubbed language)
+- **Translation Switching**: <100ms (instant switch between cached translations)
 
 **Phase 4 (Audio Timing - On Demand):**
 - **FFmpeg Processing**: 1-3 seconds (audio filter application)
@@ -374,6 +401,9 @@ interface DubbingState {
 - **Dubbing Efficiency**: Reuses extracted audio, caches translations and background separation
 - **Model Caching**: Demucs model downloaded once and cached for subsequent uses
 - **AI Fallback**: Automatic model switching on rate limits (Kimi → Qwen)
+- **Frontend Caching**: 90%+ reduction in backend calls for repeat operations
+- **Instant Switching**: Cached content (translations, dubbing, timing) switches in <100ms
+- **Session Persistence**: All caches persist throughout user session for optimal UX
 
 ## Integration Points
 
@@ -395,9 +425,116 @@ interface DubbingState {
 ### Translation System
 - **Frame-Aligned Translation**: Preserves frame-to-content mapping during translation
 - **Single API Call**: Batch translation for performance (20x faster than individual calls)
-- **Translation Caching**: Instant language switching after first translation
+- **Frontend Translation Caching**: Instant language switching after first translation
+- **Session Persistence**: Cached translations persist throughout session
+- **Smart Cache Lookup**: Always checks cache before backend calls
+- **Instant English Switch**: Original English content always available instantly
 - **No Fallbacks**: Shows "Translation not found" for missing translations
 - **Dual Content Support**: Translates both subtitles and descriptions simultaneously
+
+## Frontend Caching System
+
+### Cache Architecture
+The frontend implements a comprehensive three-tier caching system that eliminates redundant backend calls and provides instant content switching:
+
+#### 1. Translation Cache
+```typescript
+translationResults: Record<string, TranslationResults> = {
+  "es": { transcript: "...", summary: "...", frameDescriptions: [...], frameSubtitles: [...] },
+  "fr": { transcript: "...", summary: "...", frameDescriptions: [...], frameSubtitles: [...] }
+}
+```
+- **Purpose**: Stores translated content for instant language switching
+- **Behavior**: First translation takes 2-5s, subsequent switches are instant (<100ms)
+- **Toast Messages**: 
+  - First time: `"✅ Translation to Spanish complete! (3.2s, cached for future use)"`
+  - Cached: `"✅ Switched to Spanish (cached)"`
+  - English: `"✅ Switched to English (original)"` (always instant)
+
+#### 2. Dubbing Cache
+```typescript
+dubbingCache: Record<string, boolean> = {
+  "es": true,  // Spanish dubbing completed and cached
+  "fr": true   // French dubbing completed and cached
+}
+
+dubbedVideos: Record<string, string> = {
+  "es": "restart_es_dubbed_video.mp4",
+  "fr": "restart_fr_dubbed_video.mp4"
+}
+```
+- **Purpose**: Tracks completed dubbing operations for instant video switching
+- **Behavior**: First dubbing takes 10-18s, subsequent access is instant
+- **Toast Messages**:
+  - First time: `"🎉 Dubbing for Spanish completed! (cached for future use)"`
+  - Cached: `"✅ Dubbed video for Spanish (cached)"`
+
+#### 3. Audio Timing Cache
+```typescript
+timingCache: Record<string, Record<number, string>> = {
+  "en": { 
+    0: "restart_original_video.mp4", 
+    -200: "restart_original_video_syncm200.mp4",
+    100: "restart_original_video_syncp100.mp4"
+  },
+  "es": { 
+    0: "restart_es_dubbed_video.mp4", 
+    -200: "restart_es_dubbed_video_syncm200.mp4" 
+  }
+}
+```
+- **Purpose**: Stores timing-adjusted videos per language for instant switching
+- **Behavior**: First timing adjustment takes 1-3s, subsequent switches are instant
+- **Special Handling**: 0ms timing handled entirely in frontend (no backend call)
+- **Toast Messages**:
+  - First time: `"✅ Audio timing: -200ms (processed & cached)"`
+  - Cached: `"✅ Audio timing: -200ms (cached)"`
+  - Reset: `"✅ Audio timing reset to 0ms"` (always instant)
+
+### Cache Behavior Patterns
+
+#### Cache-First Lookup
+All operations follow this pattern:
+1. **Check Cache**: Look for existing content in appropriate cache
+2. **Instant Return**: If cached, switch immediately with "cached" toast
+3. **Backend Call**: If not cached, process via backend and cache result
+4. **Cache Update**: Store result for future instant access
+
+#### Session Persistence
+- **Lifetime**: All caches persist throughout user session
+- **Memory Efficient**: Only stores URLs and text data, not large files
+- **Language Aware**: Separate caches per language for optimal organization
+
+#### Performance Impact
+- **Backend Load Reduction**: 90%+ fewer backend calls for repeat operations
+- **User Experience**: Sub-100ms switching for all cached content
+- **Network Efficiency**: Eliminates redundant processing and data transfer
+
+### Cache Integration Examples
+
+#### Language Switching Flow
+```typescript
+// First time Spanish selection
+translateToLanguage("es") → Backend processing (3s) → Cache storage → Success toast
+
+// Subsequent Spanish selections  
+translateToLanguage("es") → Cache hit → Instant switch → Cached toast
+
+// English selection (always instant)
+translateToLanguage("en") → No cache needed → Instant switch → Original toast
+```
+
+#### Timing Adjustment Flow
+```typescript
+// First time -200ms adjustment
+applyAudioTiming(-200) → Backend processing (2s) → Cache storage → Success toast
+
+// Subsequent -200ms adjustments
+applyAudioTiming(-200) → Cache hit → Instant switch → Cached toast
+
+// 0ms reset (always instant)
+applyAudioTiming(0) → Frontend URL manipulation → Instant switch → Reset toast
+```
 
 ## Implementation Approach
 
@@ -408,6 +545,8 @@ interface DubbingState {
 4. **Optimized Performance**: 1 FPS screenshot analysis, merged audio segments
 5. **Backend-Driven Analysis**: All AI processing handled by backend, frontend receives complete results
 6. **Timeline Synchronization**: Video segments and screenshots use same time period
+7. **Comprehensive Frontend Caching**: Intelligent caching system for instant content switching
+8. **Cache-First Architecture**: Always check cache before making backend calls
 
 ### Data Flow (Three-Phase)
 ```
