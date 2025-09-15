@@ -557,7 +557,47 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
     return null;
   }, []);
 
+  const generateDubbedVersion = useCallback(async (language: string, transcript: string, videoId: string) => {
+    const dubbingStartTime = Date.now();
+    try {
+      console.log(`[@hook:useRestart] 🎤 Starting dubbing generation for ${language}...`);
+      setIsDubbing(true);
+      
+      const response = await fetch(buildServerUrl('/server/restart/generateDubbedVideo'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          host,
+          device_id: device.device_id,
+          video_id: videoId,
+          target_language: language,
+          existing_transcript: transcript
+        })
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        const dubbingDuration = ((Date.now() - dubbingStartTime) / 1000).toFixed(1);
+        console.log(`[@hook:useRestart] ✅ Dubbing for ${language} completed in ${dubbingDuration}s`);
+        
+        setDubbedVideos(prev => ({
+          ...prev,
+          [language]: result.dubbed_video_url
+        }));
+      } else {
+        throw new Error(result.error || 'Dubbing failed');
+      }
+    } catch (error) {
+      console.error('Dubbing failed:', error);
+      toast.showError('❌ Dubbing failed', { duration: 5000 });
+    } finally {
+      setIsDubbing(false);
+    }
+  }, [host, device, toast]);
+
   const translateToLanguage = useCallback(async (language: string) => {
+    const translationStartTime = Date.now();
     try {
       setCurrentLanguage(language);
       
@@ -583,7 +623,8 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
       currentTranslationLanguage.current = language;
       setIsTranslating(true);
       
-      toast.showInfo('🌐 Starting translation...', { duration: 3000 });
+      console.log(`[@hook:useRestart] 🌐 Starting translation to ${language}...`);
+      toast.showInfo(`🌐 Starting translation to ${language}...`, { duration: 3000 });
 
       // Prepare all content for single batch translation
       const contentBlocks = {
@@ -681,7 +722,29 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
           }
         }));
         
-        toast.showSuccess('✅ All translations complete!', { duration: 4000 });
+        const translationDuration = ((Date.now() - translationStartTime) / 1000).toFixed(1);
+        console.log(`[@hook:useRestart] ✅ Translation to ${language} completed in ${translationDuration}s`);
+        toast.showSuccess(`✅ Translation to ${language} complete! (${translationDuration}s)`, { duration: 4000 });
+        
+        // Auto-trigger dubbing after successful translation (if audio transcript available)
+        if (analysisResults.audio?.combined_transcript && analysisResults.videoDescription) {
+          const videoId = `restart_${Date.now()}`;
+          const dubbingAutoStartTime = Date.now();
+          console.log(`[@hook:useRestart] Auto-triggering dubbing for language: ${language}`);
+          toast.showInfo(`🎤 Starting dubbing for ${language}...`, { duration: 3000 });
+          
+          try {
+            await generateDubbedVersion(language, analysisResults.audio.combined_transcript, videoId);
+            const totalDubbingDuration = ((Date.now() - dubbingAutoStartTime) / 1000).toFixed(1);
+            console.log(`[@hook:useRestart] 🎬 Complete dubbing workflow for ${language} finished in ${totalDubbingDuration}s`);
+            toast.showSuccess(`🎬 Dubbing for ${language} complete! (${totalDubbingDuration}s)`, { duration: 4000 });
+          } catch (dubbingError) {
+            console.error('[@hook:useRestart] Auto-dubbing failed:', dubbingError);
+            toast.showError(`❌ Dubbing for ${language} failed`, { duration: 5000 });
+          }
+        } else {
+          console.warn('[@hook:useRestart] Cannot auto-trigger dubbing - missing audio transcript or video data');
+        }
         
       } else {
         throw new Error(data.error || 'Batch translation failed');
@@ -697,41 +760,7 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
       isTranslationInProgress.current = false;
       currentTranslationLanguage.current = null;
     }
-  }, [analysisResults, toast]);
-
-  const generateDubbedVersion = useCallback(async (language: string, transcript: string, videoId: string) => {
-    try {
-      setIsDubbing(true);
-      
-      const response = await fetch(buildServerUrl('/server/restart/generateDubbedVideo'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          host,
-          device_id: device.device_id,
-          video_id: videoId,
-          target_language: language,
-          existing_transcript: transcript
-        })
-      });
-      
-      const result = await response.json();
-      
-      if (result.success) {
-        setDubbedVideos(prev => ({
-          ...prev,
-          [language]: result.dubbed_video_url
-        }));
-      } else {
-        throw new Error(result.error || 'Dubbing failed');
-      }
-    } catch (error) {
-      console.error('Dubbing failed:', error);
-      toast.showError('❌ Dubbing failed', { duration: 5000 });
-    } finally {
-      setIsDubbing(false);
-    }
-  }, [host, device, toast]);
+  }, [analysisResults, toast, generateDubbedVersion]);
 
   const regenerateVideo = useCallback(async () => {
     videoCache.delete(host, device);

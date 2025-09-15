@@ -67,12 +67,15 @@ def translate_batch_segments():
 @server_translation_bp.route('/restart-batch', methods=['POST'])
 def translate_restart_batch():
     """Translate all restart video content in a single AI request"""
+    import time
+    translation_start_time = time.time()
+    
     try:
         data = request.get_json() or {}
         content_blocks = data.get('content_blocks', {})
         target_language = data.get('target_language', 'en')
         
-        print(f"[SERVER_TRANSLATION] Batch translation request for language: {target_language}")
+        print(f"[SERVER_TRANSLATION] 🌐 Starting batch translation to {target_language}...")
         print(f"[SERVER_TRANSLATION] Content blocks keys: {list(content_blocks.keys())}")
         
         if not content_blocks:
@@ -84,8 +87,13 @@ def translate_restart_batch():
         
         result = batch_translate_restart_content(content_blocks, target_language)
         
+        translation_duration = time.time() - translation_start_time
         print(f"[SERVER_TRANSLATION] Translation result: success={result.get('success', False)}")
-        if not result.get('success', False):
+        
+        if result.get('success', False):
+            print(f"[SERVER_TRANSLATION] ✅ Batch translation to {target_language} completed in {translation_duration:.1f}s")
+        else:
+            print(f"[SERVER_TRANSLATION] ❌ Translation failed after {translation_duration:.1f}s")
             print(f"[SERVER_TRANSLATION] Translation error: {result.get('error', 'Unknown error')}")
             if 'openrouter_response' in result:
                 print(f"[SERVER_TRANSLATION] OpenRouter response: {result['openrouter_response']}")
@@ -93,7 +101,8 @@ def translate_restart_batch():
         return jsonify(result)
         
     except Exception as e:
-        print(f"[SERVER_TRANSLATION] EXCEPTION: {str(e)}")
+        translation_duration = time.time() - translation_start_time
+        print(f"[SERVER_TRANSLATION] ❌ EXCEPTION after {translation_duration:.1f}s: {str(e)}")
         return jsonify({
             'success': False,
             'error': f'Batch translation error: {str(e)}'
