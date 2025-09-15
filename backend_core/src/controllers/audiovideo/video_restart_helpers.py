@@ -723,7 +723,7 @@ class VideoRestartHelpers:
     
     def adjust_video_audio_timing(self, video_url: str, timing_offset_ms: int, language: str = "original") -> Optional[Dict[str, Any]]:
         """
-        Adjust audio timing for existing restart video using FFmpeg.
+        Adjust audio timing for existing restart video using FFmpeg with smart caching.
         
         Args:
             video_url: URL or path to existing video
@@ -747,31 +747,44 @@ class VideoRestartHelpers:
                 print(f"RestartHelpers[{self.device_name}]: Video file not found: {video_file}")
                 return None
             
-            # Generate output filename respecting original name and adding sync suffix
+            # Parse current filename to extract base name and current timing offset
             original_dir = os.path.dirname(video_file)
             original_filename = os.path.basename(video_file)
             original_name, original_ext = os.path.splitext(original_filename)
             
-            # Create sync suffix: _syncp100 for +100ms, _syncm100 for -100ms
-            if timing_offset_ms > 0:
-                sync_suffix = f"_syncp{timing_offset_ms}"
-            else:
-                sync_suffix = f"_syncm{abs(timing_offset_ms)}"
+            # Extract base name and current timing from filename
+            base_name, current_timing_ms = self._parse_timing_filename(original_name)
             
-            # Respect original filename and add sync suffix
-            output_filename = f"{original_name}{sync_suffix}{original_ext}"
+            # Calculate target timing (absolute timing relative to original)
+            target_timing_ms = current_timing_ms + timing_offset_ms
+            
+            print(f"RestartHelpers[{self.device_name}]: Current timing: {current_timing_ms:+d}ms, Requested: {timing_offset_ms:+d}ms, Target: {target_timing_ms:+d}ms")
+            
+            # Generate output filename based on target timing (absolute from original)
+            if target_timing_ms == 0:
+                # Target is original video - use base name
+                output_filename = f"{base_name}{original_ext}"
+                print(f"RestartHelpers[{self.device_name}]: Target timing is 0ms - using original video")
+            else:
+                # Create sync suffix for target timing
+                if target_timing_ms > 0:
+                    sync_suffix = f"_syncp{target_timing_ms}"
+                else:
+                    sync_suffix = f"_syncm{abs(target_timing_ms)}"
+                output_filename = f"{base_name}{sync_suffix}{original_ext}"
+            
             output_path = os.path.join(original_dir, output_filename)
             
-            # Check if already exists (cached)
+            # Check if target already exists (cached)
             if os.path.exists(output_path):
                 print(f"RestartHelpers[{self.device_name}]: Using cached timing-adjusted video: {output_filename}")
                 adjusted_video_url = self._build_video_url(output_filename)
-                video_id = f"restart_{int(time.time())}_{language}_timing_{timing_offset_ms:+d}ms"
+                video_id = f"restart_{int(time.time())}_{language}_timing_{target_timing_ms:+d}ms"
                 
                 return {
                     'success': True,
                     'adjusted_video_url': adjusted_video_url,
-                    'timing_offset_ms': timing_offset_ms,
+                    'timing_offset_ms': target_timing_ms,
                     'language': language,
                     'video_id': video_id,
                     'original_video_url': video_url
@@ -779,29 +792,39 @@ class VideoRestartHelpers:
             
             print(f"RestartHelpers[{self.device_name}]: Generating timing-adjusted video with FFmpeg")
             
-            # Build FFmpeg command based on offset direction
-            if timing_offset_ms > 0:
+            # Determine source file for FFmpeg (always use original for absolute timing)
+            original_video_path = os.path.join(original_dir, f"{base_name}{original_ext}")
+            
+            # Build FFmpeg command based on target timing (absolute from original)
+            if target_timing_ms > 0:
                 # Positive offset: delay audio
-                audio_filter = f"adelay={timing_offset_ms}"
-            elif timing_offset_ms < 0:
+                audio_filter = f"adelay={target_timing_ms}"
+                source_file = original_video_path
+            elif target_timing_ms < 0:
                 # Negative offset: advance audio (trim from start)
-                trim_seconds = abs(timing_offset_ms) / 1000.0
+                trim_seconds = abs(target_timing_ms) / 1000.0
                 audio_filter = f"atrim=start={trim_seconds}"
+                source_file = original_video_path
             else:
-                # No offset: return original
-                print(f"RestartHelpers[{self.device_name}]: No timing adjustment needed (0ms)")
+                # Target timing is 0ms: copy original file if different, or return current
+                if output_path != video_file:
+                    print(f"RestartHelpers[{self.device_name}]: Copying original video (target timing = 0ms)")
+                    import shutil
+                    shutil.copy2(original_video_path, output_path)
+                
+                adjusted_video_url = self._build_video_url(output_filename)
                 return {
                     'success': True,
-                    'adjusted_video_url': video_url,
+                    'adjusted_video_url': adjusted_video_url,
                     'timing_offset_ms': 0,
                     'language': language,
                     'video_id': f"restart_{int(time.time())}_{language}_original",
                     'original_video_url': video_url
                 }
             
-            # Apply timing adjustment using FFmpeg
+            # Apply timing adjustment using FFmpeg (always from original)
             cmd = [
-                'ffmpeg', '-i', video_file,
+                'ffmpeg', '-i', source_file,
                 '-af', audio_filter,
                 '-c:v', 'copy',  # Copy video stream unchanged
                 '-c:a', 'aac',   # Re-encode audio with adjustment
@@ -814,13 +837,13 @@ class VideoRestartHelpers:
             adjusted_video_url = self._build_video_url(output_filename)
             
             # Generate new video ID
-            video_id = f"restart_{int(time.time())}_{language}_timing_{timing_offset_ms:+d}ms"
+            video_id = f"restart_{int(time.time())}_{language}_timing_{target_timing_ms:+d}ms"
             
-            print(f"RestartHelpers[{self.device_name}]: Audio timing adjustment completed: {original_filename} → {output_filename}")
+            print(f"RestartHelpers[{self.device_name}]: Audio timing adjustment completed: {os.path.basename(source_file)} → {output_filename}")
             return {
                 'success': True,
                 'adjusted_video_url': adjusted_video_url,
-                'timing_offset_ms': timing_offset_ms,
+                'timing_offset_ms': target_timing_ms,
                 'language': language,
                 'video_id': video_id,
                 'original_video_url': video_url
@@ -832,3 +855,39 @@ class VideoRestartHelpers:
         except Exception as e:
             print(f"RestartHelpers[{self.device_name}]: Audio timing adjustment error: {e}")
             return None
+    
+    def _parse_timing_filename(self, filename: str) -> tuple[str, int]:
+        """
+        Parse filename to extract base name and current timing offset.
+        
+        Each file represents absolute timing relative to original:
+        - "restart_fr_dubbed_video" → ("restart_fr_dubbed_video", 0)
+        - "restart_fr_dubbed_video_syncp200" → ("restart_fr_dubbed_video", 200)
+        - "restart_fr_dubbed_video_syncm100" → ("restart_fr_dubbed_video", -100)
+        
+        Args:
+            filename: Filename without extension
+            
+        Returns:
+            Tuple of (base_name, current_timing_ms)
+        """
+        import re
+        
+        # Look for single timing suffix (should only be one per file)
+        timing_pattern = r'_sync([pm])(\d+)$'
+        match = re.search(timing_pattern, filename)
+        
+        if not match:
+            # No timing suffix found - this is the original file
+            return filename, 0
+        
+        # Extract timing from the single suffix
+        sign, value = match.groups()
+        timing_ms = int(value)
+        if sign == 'm':  # negative
+            timing_ms = -timing_ms
+        
+        # Extract base name by removing the timing suffix
+        base_name = re.sub(timing_pattern, '', filename)
+        
+        return base_name, timing_ms
