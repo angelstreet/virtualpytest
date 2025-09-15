@@ -170,6 +170,12 @@ export function HLSVideoPlayer({
   }, [streamUrl, attemptPlay]);
 
   const initializeStream = useCallback(async () => {
+    // Don't initialize if FFmpeg is stuck - requires external intervention
+    if (ffmpegStuck) {
+      console.warn('[@component:HLSVideoPlayer] FFmpeg is stuck, refusing to initialize stream');
+      return;
+    }
+
     const now = Date.now();
     if (now - lastInitTime.current < 1000) {
       console.log(
@@ -299,6 +305,11 @@ export function HLSVideoPlayer({
         // Check for segment loading failures (404 errors indicating FFmpeg stuck)
         if (data.details === 'fragLoadError' && data.response?.code === 404) {
           setSegmentFailureCount((prev) => {
+            // Don't increment if already at max - prevents counter from going beyond threshold
+            if (prev >= maxSegmentFailures) {
+              return prev;
+            }
+            
             const newCount = prev + 1;
             console.warn(`[@component:HLSVideoPlayer] Segment 404 error (${newCount}/${maxSegmentFailures}):`, data.frag?.url);
             
@@ -306,7 +317,19 @@ export function HLSVideoPlayer({
               console.error('[@component:HLSVideoPlayer] FFmpeg appears stuck - too many consecutive segment failures');
               setFfmpegStuck(true);
               setStreamError('FFmpeg appears stuck. Stream restart required.');
-              // Stop trying to recover - this requires external intervention
+              
+              // Immediately cleanup HLS instance to stop further attempts
+              setTimeout(() => {
+                if (hlsRef.current) {
+                  try {
+                    hlsRef.current.destroy();
+                    hlsRef.current = null;
+                  } catch (error) {
+                    console.warn('[@component:HLSVideoPlayer] Error destroying HLS on FFmpeg stuck:', error);
+                  }
+                }
+              }, 100);
+              
               return newCount;
             }
             
@@ -356,7 +379,7 @@ export function HLSVideoPlayer({
         setRetryCount((prev) => prev + 1);
       }, retryDelay);
     }
-  }, [streamUrl, retryCount, useNativePlayer, currentStreamUrl, cleanupStream, tryNativePlayback]);
+  }, [streamUrl, retryCount, useNativePlayer, currentStreamUrl, cleanupStream, tryNativePlayback, ffmpegStuck]);
 
   const handleStreamError = useCallback(() => {
     // Don't retry if FFmpeg is stuck - requires external intervention
@@ -414,6 +437,12 @@ export function HLSVideoPlayer({
   // Removed visibility change handler since URL never changes - no need to re-initialize
 
   useEffect(() => {
+    // Don't initialize if FFmpeg is stuck
+    if (ffmpegStuck) {
+      console.warn('[@component:HLSVideoPlayer] FFmpeg is stuck, skipping initialization');
+      return;
+    }
+
     // Only initialize once when we first get a URL and stream becomes active
     if (streamUrl && isStreamActive && videoRef.current && !currentStreamUrl) {
       console.log('[@component:HLSVideoPlayer] Initializing stream for the first time:', streamUrl);
@@ -437,7 +466,7 @@ export function HLSVideoPlayer({
         cleanupStream();
       }
     };
-  }, [streamUrl, isStreamActive, currentStreamUrl]); // Only run when these values change
+  }, [streamUrl, isStreamActive, currentStreamUrl, ffmpegStuck]); // Added ffmpegStuck dependency
 
   // Simplified video ready check - no polling needed
   useEffect(() => {
