@@ -162,17 +162,27 @@ class VideoRestartHelpers:
             frame_descriptions = []
             detected_language = 'unknown'
             
-            # Process images in batches of 4 for efficiency
-            batch_size = 4
+            # Process images in batches of 10 for efficiency
+            batch_size = 10
             for batch_start in range(0, len(local_paths), batch_size):
                 batch_end = min(batch_start + batch_size, len(local_paths))
                 batch_paths = local_paths[batch_start:batch_end]
                 batch_indices = list(range(batch_start, batch_end))
                 
-                print(f"RestartHelpers[{self.device_name}]: Processing batch {batch_start//batch_size + 1}: frames {batch_start+1}-{batch_end}")
+                import time
+                batch_start_time = time.time()
+                batch_num = batch_start//batch_size + 1
+                
+                print(f"RestartHelpers[{self.device_name}]: 🚀 BATCH_{batch_num}_START: time={batch_start_time:.3f} frames={batch_start+1}-{batch_end} images={len(batch_paths)}")
                 
                 # Batch AI call for multiple images
                 batch_result = video_controller.analyze_image_batch_complete(batch_paths, extract_text=True, include_description=True)
+                
+                batch_duration = time.time() - batch_start_time
+                if batch_result and batch_result.get('success'):
+                    print(f"RestartHelpers[{self.device_name}]: ✅ BATCH_{batch_num}_SUCCESS: duration={batch_duration:.2f}s frames={batch_start+1}-{batch_end} processed={len(batch_result.get('frame_results', []))}")
+                else:
+                    print(f"RestartHelpers[{self.device_name}]: ❌ BATCH_{batch_num}_FAILED: duration={batch_duration:.2f}s frames={batch_start+1}-{batch_end} error={batch_result.get('error', 'unknown')}")
                 
                 if batch_result and batch_result.get('success'):
                     # Process each frame result from the batch
