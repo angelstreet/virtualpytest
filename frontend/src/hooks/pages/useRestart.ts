@@ -414,6 +414,11 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
         } else {
           setAnalysisProgress(prev => ({ ...prev, audio: 'error' }));
           console.log(`[@hook:useRestart] Step 2: Audio analysis failed`);
+          
+          // Show failure toast for audio analysis
+          const analysisTime = analysisStartTime.current ? Math.round((Date.now() - analysisStartTime.current) / 1000) : 0;
+          toast.showError(`❌ Audio analysis failed after ${analysisTime}s`, { duration: 5000 });
+          return; // Stop further analysis if audio fails
         }
         
         // Step 3: Combined Subtitle + Summary Analysis (OPTIMIZED)
@@ -459,8 +464,9 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
           setAnalysisProgress(prev => ({ ...prev, subtitles: 'completed', summary: 'completed' }));
           console.log(`[@hook:useRestart] Step 3: Combined analysis completed (subtitles + summary)`);
           
-          // Show success toast for analysis completion - user can now see results!
-          toast.showSuccess('✅ Analysis complete! Results available in settings.', { duration: 4000 });
+          // Show success toast for analysis completion with duration
+          const analysisTime = analysisStartTime.current ? Math.round((Date.now() - analysisStartTime.current) / 1000) : 0;
+          toast.showSuccess(`✅ Analysis complete in ${analysisTime}s! Results available in settings.`, { duration: 4000 });
           
           // Step 4: Generate Report in background (non-blocking)
           const reportKey = videoData.video_id;
@@ -480,6 +486,10 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
         } else {
           setAnalysisProgress(prev => ({ ...prev, subtitles: 'error', summary: 'error', report: 'error' }));
           console.log(`[@hook:useRestart] Step 3: Combined analysis failed`);
+          
+          // Show failure toast with duration
+          const analysisTime = analysisStartTime.current ? Math.round((Date.now() - analysisStartTime.current) / 1000) : 0;
+          toast.showError(`❌ Analysis failed after ${analysisTime}s`, { duration: 5000 });
         }
         
         console.log(`[@hook:useRestart] Core analysis steps completed - report generating in background`);
