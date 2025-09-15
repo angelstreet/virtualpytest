@@ -171,7 +171,7 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
                   lineHeight: 1.3,
                   borderLeft: '3px solid #4CAF50'
                 }}>
-                  <strong>{currentLanguage === 'en' ? 'Original Summary:' : `Translated Summary (${getLanguageName(currentLanguage)}):`}</strong><br />
+                  <strong>{currentLanguage === 'en' ? 'Original Summary:' : `Translated to ${getLanguageName(currentLanguage)}:`}</strong><br />
                   {currentLanguage === 'en' ? analysisResults.videoDescription.video_summary : (currentTranslation?.summary || analysisResults.videoDescription.video_summary || 'Translating...')}
                 </Typography>
               </Box>
@@ -263,6 +263,30 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
               {/* Frame-by-frame analysis */}
               {analysisResults.videoDescription?.frame_descriptions && analysisResults.videoDescription.frame_descriptions.length > 0 && (
                 <Box sx={{ mb: 1.5 }}>
+                  {/* Subtitle Language Header (shown once at top) */}
+                  {analysisResults.subtitles?.frame_subtitles && analysisResults.subtitles.frame_subtitles.some((sub: string) => {
+                    const subtitleMatch = sub?.match(/^Frame \d+:\s*(.+)$/);
+                    const subtitleContent = subtitleMatch ? subtitleMatch[1] : sub;
+                    return subtitleContent && subtitleContent !== 'No subtitles detected';
+                  }) && (
+                    <Typography variant="body2" sx={{ 
+                      fontSize: '0.7rem',
+                      color: '#FF9800',
+                      fontWeight: 600,
+                      mb: 1,
+                      p: 1,
+                      backgroundColor: 'rgba(255, 152, 0, 0.1)',
+                      borderRadius: 0.5,
+                      borderLeft: '3px solid #FF9800'
+                    }}>
+                      Subtitles ({
+                        currentLanguage !== 'en' && currentTranslation?.frameSubtitles.length > 0 
+                          ? `Translated to ${getLanguageName(currentLanguage)}`
+                          : (analysisResults.subtitles?.detected_language || 'Unknown').toUpperCase()
+                      }):
+                    </Typography>
+                  )}
+                  
                   {analysisResults.videoDescription.frame_descriptions.map((description: string, index: number) => {
                     // Use translated content if available, otherwise use original
                     const displayDescription = currentTranslation?.frameDescriptions[index] || description;
@@ -305,11 +329,7 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
                             mb: 0.5,
                             lineHeight: 1.2
                           }}>
-                            Subtitles ({
-                              currentLanguage !== 'en' && currentTranslation?.frameSubtitles.length > 0 
-                                ? `Translated to ${getLanguageName(currentLanguage)}`
-                                : (analysisResults.subtitles?.detected_language || 'Unknown').toUpperCase()
-                            }): {subtitleContent}
+                            {subtitleContent}
                           </Typography>
                         )}
                         

@@ -67,7 +67,7 @@ class VideoRestartHelpers:
             from shared.lib.utils.video_compression_utils import VideoCompressionUtils
             compressor = VideoCompressionUtils()
             
-            video_filename = "restart_video.mp4"
+            video_filename = "restart_original_video.mp4"
             local_video_path = os.path.join(self.video_capture_path, video_filename)
             
             compression_result = compressor.compress_hls_to_mp4(
@@ -162,8 +162,9 @@ class VideoRestartHelpers:
             frame_descriptions = []
             detected_language = 'unknown'
             
-            # Process images in batches of 10 for efficiency
-            batch_size = 10
+            # Process images in batches using global config
+            from shared.lib.utils.ai_utils import AI_BATCH_CONFIG
+            batch_size = AI_BATCH_CONFIG['batch_size']
             for batch_start in range(0, len(local_paths), batch_size):
                 batch_end = min(batch_start + batch_size, len(local_paths))
                 batch_paths = local_paths[batch_start:batch_end]
@@ -285,7 +286,7 @@ class VideoRestartHelpers:
             from shared.lib.utils.video_compression_utils import VideoCompressionUtils
             compressor = VideoCompressionUtils()
             
-            video_filename = "restart_video.mp4"
+            video_filename = "restart_original_video.mp4"
             local_video_path = os.path.join(self.video_capture_path, video_filename)
             
             compression_result = compressor.compress_hls_to_mp4(
@@ -594,7 +595,7 @@ class VideoRestartHelpers:
                 print(f"RestartHelpers[{self.device_name}]: Cached batch translation for {target_language}")
             
             # Get original video file
-            video_filename = "restart_video.mp4"
+            video_filename = "restart_original_video.mp4"
             video_file = os.path.join(self.video_capture_path, video_filename)
             
             if not os.path.exists(video_file):
@@ -614,9 +615,12 @@ class VideoRestartHelpers:
             if not separated:
                 return None
             
+            # Clean translated text (remove AI prompt artifacts)
+            clean_text = self._clean_translated_text(translation_result['translated_text'])
+            
             # Generate dubbed speech
             dubbed_voice = self.dubbing_helpers.generate_dubbed_speech(
-                translation_result['translated_text'], target_language, original_video_dir)
+                clean_text, target_language, original_video_dir)
             if not dubbed_voice:
                 return None
             
@@ -651,3 +655,31 @@ class VideoRestartHelpers:
         except Exception as e:
             print(f"RestartHelpers[{self.device_name}]: Dubbing error: {e}")
             return None
+    
+    def _clean_translated_text(self, translated_text: str) -> str:
+        """Clean translated text by removing AI prompt artifacts."""
+        if not translated_text:
+            return ""
+        
+        # Remove common AI prompt prefixes
+        prefixes_to_remove = [
+            "FRAME_STRUCTURE_TRANSLATION:",
+            "FRAME_STRUCTURE_TRANSLATION",
+            "Translated content:",
+            "Translation:",
+            "Here is the translation:",
+            "The translation is:",
+        ]
+        
+        cleaned_text = translated_text.strip()
+        
+        # Remove prefixes
+        for prefix in prefixes_to_remove:
+            if cleaned_text.startswith(prefix):
+                cleaned_text = cleaned_text[len(prefix):].strip()
+                break
+        
+        # Remove any leading/trailing quotes or formatting
+        cleaned_text = cleaned_text.strip('"\'`')
+        
+        return cleaned_text

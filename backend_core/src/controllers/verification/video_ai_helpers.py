@@ -729,9 +729,13 @@ Be specific about what you see on the device interface."""
         try:
             print(f"VideoAI[{self.device_name}]: Batch analysis for {len(image_paths)} images")
             
-            if len(image_paths) > 4:
-                print(f"VideoAI[{self.device_name}]: Too many images in batch ({len(image_paths)}), max is 4")
-                return {'success': False, 'error': 'Maximum 4 images per batch'}
+            # Use global batch config
+            from shared.lib.utils.ai_utils import AI_BATCH_CONFIG
+            max_batch_size = AI_BATCH_CONFIG['max_batch_size']
+            
+            if len(image_paths) > max_batch_size:
+                print(f"VideoAI[{self.device_name}]: Too many images in batch ({len(image_paths)}), max is {max_batch_size}")
+                return {'success': False, 'error': f'Maximum {max_batch_size} images per batch'}
             
             # Use centralized batch AI utilities
             from shared.lib.utils.ai_utils import call_vision_ai_batch
@@ -757,7 +761,7 @@ Respond with JSON array where each element corresponds to one image:
 ]"""
             
             print(f"VideoAI[{self.device_name}]: Batch AI call for {len(image_paths)} images")
-            result = call_vision_ai_batch(prompt, image_paths, max_tokens=800, temperature=0.0)
+            result = call_vision_ai_batch(prompt, image_paths)
             
             if result['success']:
                 try:

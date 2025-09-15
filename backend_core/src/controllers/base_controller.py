@@ -483,7 +483,7 @@ class FFmpegCaptureController(AVControllerInterface):
                 return None
             
             # Compress segments to MP4
-            video_filename = "restart_video.mp4"
+            video_filename = "restart_original_video.mp4"
             local_video_path = os.path.join(self.video_capture_path, video_filename)
             
             success = self._compress_segments_to_mp4(segment_files, local_video_path, duration_seconds)

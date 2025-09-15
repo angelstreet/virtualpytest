@@ -21,6 +21,15 @@ AI_MODELS = {
     'vision': 'qwen/qwen-2.5-vl-7b-instruct',
 }
 
+# AI Batch Processing Configuration
+AI_BATCH_CONFIG = {
+    'batch_size': 10,           # Number of images per batch
+    'max_batch_size': 10,       # Maximum allowed batch size
+    'timeout_seconds': 300,     # 5 minutes timeout per batch
+    'max_tokens': 800,          # Max tokens per AI response
+    'temperature': 0.0          # AI temperature setting
+}
+
 API_BASE_URL = 'https://openrouter.ai/api/v1/chat/completions'
 
 # =============================================================================
@@ -179,18 +188,24 @@ def call_vision_ai(prompt: str, image_input: Union[str, bytes], max_tokens: int 
         print(f"[AI_UTILS] 💥 VISION_REQUEST_EXCEPTION: duration={duration:.2f}s image='{image_path}' error='{str(e)}'")
         return {'success': False, 'error': str(e), 'content': ''}
 
-def call_vision_ai_batch(prompt: str, image_paths: list, max_tokens: int = 800, temperature: float = 0.0) -> Dict[str, Any]:
-    """Simple batch vision AI call for up to 4 images."""
+def call_vision_ai_batch(prompt: str, image_paths: list, max_tokens: int = None, temperature: float = None) -> Dict[str, Any]:
+    """Simple batch vision AI call using global AI_BATCH_CONFIG."""
     import time
     start_time = time.time()
+    
+    # Use global config values if not provided
+    max_tokens = max_tokens or AI_BATCH_CONFIG['max_tokens']
+    temperature = temperature if temperature is not None else AI_BATCH_CONFIG['temperature']
+    timeout = AI_BATCH_CONFIG['timeout_seconds']
+    max_batch_size = AI_BATCH_CONFIG['max_batch_size']
     
     try:
         api_key = get_api_key()
         if not api_key:
             return {'success': False, 'error': 'No API key', 'content': ''}
         
-        if len(image_paths) > 4:
-            return {'success': False, 'error': 'Maximum 4 images per batch', 'content': ''}
+        if len(image_paths) > max_batch_size:
+            return {'success': False, 'error': f'Maximum {max_batch_size} images per batch', 'content': ''}
         
         # Process all images
         image_contents = []
@@ -230,7 +245,7 @@ def call_vision_ai_batch(prompt: str, image_paths: list, max_tokens: int = 800, 
                 'max_tokens': max_tokens,
                 'temperature': temperature
             },
-            timeout=300  # 5 minutes
+            timeout=timeout
         )
         
         duration = time.time() - start_time

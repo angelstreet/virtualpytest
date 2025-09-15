@@ -17,27 +17,32 @@ class AudioDubbingHelpers:
         self.temp_dir = "/tmp"
         
     def get_file_paths(self, language: str, original_video_dir: str = "/tmp") -> Dict[str, str]:
-        """Fixed filenames - all in web directory for debugging access"""
+        """Fixed filenames - background cached, language-specific for others"""
         
         return {
             'original_audio': f"{original_video_dir}/restart_original_audio.wav",
-            'background': f"{original_video_dir}/restart_{language}_background.wav", 
-            'vocals': f"{original_video_dir}/restart_{language}_vocals.wav",
+            'background': f"{original_video_dir}/restart_original_background.wav",  # ✅ Consistent naming
+            'vocals': f"{original_video_dir}/restart_original_vocals.wav",  # ✅ Consistent naming  
             'dubbed_voice': f"{original_video_dir}/restart_{language}_dubbed_voice.wav",
             'mixed_audio': f"{original_video_dir}/restart_{language}_mixed_audio.wav",
-            'final_video': f"{original_video_dir}/restart_video_{language}_dubbed.mp4",
-            'demucs_output': f"/tmp/restart_{language}_demucs"
+            'final_video': f"{original_video_dir}/restart_{language}_dubbed_video.mp4",
+            'demucs_output': f"/tmp/restart_demucs"  # ✅ Cached - no language suffix
         }
         
     def separate_audio_tracks(self, audio_file: str, language: str, original_video_dir: str) -> Dict[str, str]:
-        """Separate audio into vocals and background using Demucs with fixed filenames."""
+        """Separate audio into vocals and background using Demucs - cached after first run."""
         try:
             import subprocess
             import shutil
             
-            print(f"Dubbing[{self.device_name}]: Loading Demucs model...")
-            
             paths = self.get_file_paths(language, original_video_dir)
+            
+            # Check if background already exists (cached from previous separation)
+            if os.path.exists(paths['background']) and os.path.exists(paths['vocals']):
+                print(f"Dubbing[{self.device_name}]: Using cached background/vocals separation")
+                return {'vocals': paths['vocals'], 'background': paths['background']}
+            
+            print(f"Dubbing[{self.device_name}]: Loading Demucs model for first-time separation...")
             
             # Run Demucs separation to fixed output directory
             cmd = [
@@ -54,11 +59,11 @@ class AudioDubbingHelpers:
             demucs_vocals = os.path.join(paths['demucs_output'], 'htdemucs', base_name, 'vocals.wav')
             demucs_background = os.path.join(paths['demucs_output'], 'htdemucs', base_name, 'no_vocals.wav')
             
-            # Copy to fixed locations (overwrite if exists)
+            # Copy to cached locations (will be reused for all languages)
             if os.path.exists(demucs_vocals) and os.path.exists(demucs_background):
                 shutil.copy2(demucs_vocals, paths['vocals'])
                 shutil.copy2(demucs_background, paths['background'])
-                print(f"Dubbing[{self.device_name}]: Audio separated successfully")
+                print(f"Dubbing[{self.device_name}]: Audio separated and cached for reuse")
                 return {'vocals': paths['vocals'], 'background': paths['background']}
             else:
                 print(f"Dubbing[{self.device_name}]: Output files not found")
