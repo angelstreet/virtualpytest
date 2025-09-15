@@ -10,6 +10,7 @@ import requests
 import json
 import tempfile
 import cv2
+from datetime import datetime
 from typing import Dict, Any, Optional, Union
 
 # =============================================================================
@@ -31,6 +32,14 @@ AI_BATCH_CONFIG = {
 }
 
 API_BASE_URL = 'https://openrouter.ai/api/v1/chat/completions'
+
+# =============================================================================
+# Helper Functions
+# =============================================================================
+
+def _format_timestamp(timestamp: float) -> str:
+    """Convert Unix timestamp to readable HH:mm:ss format."""
+    return datetime.fromtimestamp(timestamp).strftime('%H:%M:%S')
 
 # =============================================================================
 # Simple API Calls
@@ -140,7 +149,8 @@ def call_vision_ai(prompt: str, image_input: Union[str, bytes], max_tokens: int 
         
         # Log request details in one line for easy re-execution
         prompt_oneline = prompt.replace('\n', '\\n').replace('"', '\\"')
-        print(f"[AI_UTILS] 🚀 VISION_REQUEST_START: time={start_time:.3f} image='{image_path}' size={image_size_kb:.1f}KB model='{AI_MODELS['vision']}' max_tokens={max_tokens} temp={temperature} prompt=\"{prompt_oneline}\"")
+        readable_time = _format_timestamp(start_time)
+        print(f"[AI_UTILS] 🚀 VISION_REQUEST_START: time={readable_time} image='{image_path}' size={image_size_kb:.1f}KB model='{AI_MODELS['vision']}' max_tokens={max_tokens} temp={temperature} prompt=\"{prompt_oneline}\"")
         
         response = requests.post(
             API_BASE_URL,
@@ -224,7 +234,8 @@ def call_vision_ai_batch(prompt: str, image_paths: list, max_tokens: int = None,
         
         # Log batch request
         prompt_oneline = prompt.replace('\n', '\\n').replace('"', '\\"')
-        print(f"[AI_UTILS] 🚀 BATCH_VISION_REQUEST_START: time={start_time:.3f} images={len(image_paths)} total_size={total_size_kb:.1f}KB model='{AI_MODELS['vision']}' max_tokens={max_tokens} temp={temperature}")
+        readable_time = _format_timestamp(start_time)
+        print(f"[AI_UTILS] 🚀 BATCH_VISION_REQUEST_START: time={readable_time} images={len(image_paths)} total_size={total_size_kb:.1f}KB model='{AI_MODELS['vision']}' max_tokens={max_tokens} temp={temperature}")
         print(f"[AI_UTILS] 📁 BATCH_IMAGES: {image_paths}")
         print(f"[AI_UTILS] 📝 BATCH_PROMPT: \"{prompt_oneline}\"")
         

@@ -171,10 +171,12 @@ class VideoRestartHelpers:
                 batch_indices = list(range(batch_start, batch_end))
                 
                 import time
+                from datetime import datetime
                 batch_start_time = time.time()
                 batch_num = batch_start//batch_size + 1
+                readable_time = datetime.fromtimestamp(batch_start_time).strftime('%H:%M:%S')
                 
-                print(f"RestartHelpers[{self.device_name}]: 🚀 BATCH_{batch_num}_START: time={batch_start_time:.3f} frames={batch_start+1}-{batch_end} images={len(batch_paths)}")
+                print(f"RestartHelpers[{self.device_name}]: 🚀 BATCH_{batch_num}_START: time={readable_time} frames={batch_start+1}-{batch_end} images={len(batch_paths)}")
                 
                 # Batch AI call for multiple images
                 batch_result = video_controller.analyze_image_batch_complete(batch_paths, extract_text=True, include_description=True)
