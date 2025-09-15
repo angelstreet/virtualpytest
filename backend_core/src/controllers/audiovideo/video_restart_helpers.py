@@ -985,7 +985,9 @@ class VideoRestartHelpers:
             video_id = f"restart_{int(time.time())}_{language}_timing_{target_timing_ms:+d}ms"
             
             print(f"RestartHelpers[{self.device_name}]: Cached component timing adjustment completed: {output_filename}")
-            return {
+            
+            # Include component paths in response for frontend caching
+            response = {
                 'success': True,
                 'adjusted_video_url': adjusted_video_url,
                 'timing_offset_ms': target_timing_ms,
@@ -993,6 +995,15 @@ class VideoRestartHelpers:
                 'video_id': video_id,
                 'original_video_url': video_url
             }
+            
+            # Add component paths if we created them (not provided by frontend)
+            if not (silent_video_path and background_audio_path and vocals_path):
+                response['components_created'] = True
+                response['silent_video_path'] = silent_video_path
+                response['background_audio_path'] = background_audio_path
+                response['original_vocals_path'] = vocal_source_path if language == "original" or language == "en" else original_vocals_path
+            
+            return response
             
         except Exception as e:
             print(f"RestartHelpers[{self.device_name}]: Cached component timing failed: {e}")
