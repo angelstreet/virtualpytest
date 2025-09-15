@@ -21,6 +21,12 @@ AI_MODELS = {
     'vision': 'qwen/qwen-2.5-vl-7b-instruct',  # Updated version
 }
 
+# Fallback models for rate limiting
+FALLBACK_TEXT_MODELS = [
+    'moonshotai/kimi-k2:free',           # Primary
+    'qwen/qwen-2.5-7b-instruct:free',    # Fallback
+]
+
 API_BASE_URL = 'https://openrouter.ai/api/v1/chat/completions'
 
 # =============================================================================
@@ -32,14 +38,15 @@ def get_api_key() -> Optional[str]:
     return os.getenv('OPENROUTER_API_KEY')
 
 def call_text_ai(prompt: str, max_tokens: int = 200, temperature: float = 0.1) -> Dict[str, Any]:
-    """Simple text AI call."""
+    """Simple text AI call with model fallback on 429."""
     try:
         api_key = get_api_key()
         if not api_key:
             print("[AI_UTILS] ERROR: No API key found")
             return {'success': False, 'error': 'No API key', 'content': ''}
         
-        print(f"[AI_UTILS] Making OpenRouter API call - Model: {AI_MODELS['text']}, Max tokens: {max_tokens}")
+        # Try Kimi first
+        print(f"[AI_UTILS] Making OpenRouter API call - Model: {FALLBACK_TEXT_MODELS[0]}, Max tokens: {max_tokens}")
         
         response = requests.post(
             API_BASE_URL,
@@ -50,7 +57,7 @@ def call_text_ai(prompt: str, max_tokens: int = 200, temperature: float = 0.1) -
                 'X-Title': 'VirtualPyTest'
             },
             json={
-                'model': AI_MODELS['text'],
+                'model': FALLBACK_TEXT_MODELS[0],
                 'messages': [{'role': 'user', 'content': prompt}],
                 'max_tokens': max_tokens,
                 'temperature': temperature
@@ -59,24 +66,51 @@ def call_text_ai(prompt: str, max_tokens: int = 200, temperature: float = 0.1) -
         )
         
         print(f"[AI_UTILS] OpenRouter Response Status: {response.status_code}")
-        print(f"[AI_UTILS] OpenRouter Response Headers: {dict(response.headers)}")
         
         if response.status_code == 200:
             result = response.json()
             content = result['choices'][0]['message']['content']
             print(f"[AI_UTILS] SUCCESS: Received {len(content)} characters")
             return {'success': True, 'content': content}
-        else:
-            # Log full response for debugging
-            try:
-                error_body = response.json()
-                print(f"[AI_UTILS] ERROR BODY: {error_body}")
-            except:
-                error_body = response.text
-                print(f"[AI_UTILS] ERROR TEXT: {error_body}")
+        elif response.status_code == 429:
+            # Try Qwen2 on rate limit
+            print(f"[AI_UTILS] Kimi rate limited, trying Qwen2...")
             
-            print(f"[AI_UTILS] FAILED: Status {response.status_code}")
-            return {'success': False, 'error': f'API error: {response.status_code}', 'content': '', 'response_body': error_body}
+            response = requests.post(
+                API_BASE_URL,
+                headers={
+                    'Authorization': f'Bearer {api_key}',
+                    'Content-Type': 'application/json',
+                    'HTTP-Referer': 'https://virtualpytest.com',
+                    'X-Title': 'VirtualPyTest'
+                },
+                json={
+                    'model': FALLBACK_TEXT_MODELS[1],
+                    'messages': [{'role': 'user', 'content': prompt}],
+                    'max_tokens': max_tokens,
+                    'temperature': temperature
+                },
+                timeout=30
+            )
+            
+            print(f"[AI_UTILS] Qwen2 Response Status: {response.status_code}")
+            
+            if response.status_code == 200:
+                result = response.json()
+                content = result['choices'][0]['message']['content']
+                print(f"[AI_UTILS] SUCCESS with Qwen2: Received {len(content)} characters")
+                return {'success': True, 'content': content}
+        
+        # Log error for any failure
+        try:
+            error_body = response.json()
+            print(f"[AI_UTILS] ERROR BODY: {error_body}")
+        except:
+            error_body = response.text
+            print(f"[AI_UTILS] ERROR TEXT: {error_body}")
+        
+        print(f"[AI_UTILS] FAILED: Status {response.status_code}")
+        return {'success': False, 'error': f'API error: {response.status_code}', 'content': '', 'response_body': error_body}
             
     except Exception as e:
         print(f"[AI_UTILS] EXCEPTION: {str(e)}")
