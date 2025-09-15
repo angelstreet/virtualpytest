@@ -667,7 +667,7 @@ def adjust_audio_timing():
             return jsonify({'success': False, 'error': 'timing_offset_ms cannot be 0'}), 400
         
         # Get AV controller
-        av_controller = get_controller(device_id)
+        av_controller = get_controller(device_id, 'av')
         if not av_controller:
             return jsonify({'success': False, 'error': f'No AV controller for {device_id}'}), 404
         

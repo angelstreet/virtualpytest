@@ -47,21 +47,21 @@ class AudioDubbingHelpers:
             
             print(f"Dubbing[{self.device_name}]: Loading Demucs model for first-time separation...")
             
-            # Run Demucs separation to fixed output directory with faster mdx_extra model
+            # Run Demucs separation to fixed output directory
             cmd = [
                 'python', '-m', 'demucs.separate',
                 '--two-stems', 'vocals',  # Separate into vocals and no_vocals
-                '--model', 'mdx_extra',  # Use faster model (3x speed improvement)
+                '--name', 'htdemucs_6s',  # Use lighter model for faster processing
                 '--out', paths['demucs_output'],
                 audio_file
             ]
             
             subprocess.run(cmd, capture_output=True, text=True, check=True)
             
-            # Demucs creates: demucs_output/mdx_extra/{filename}/vocals.wav and no_vocals.wav
+            # Demucs creates: demucs_output/htdemucs_6s/{filename}/vocals.wav and no_vocals.wav
             base_name = os.path.splitext(os.path.basename(audio_file))[0]
-            demucs_vocals = os.path.join(paths['demucs_output'], 'mdx_extra', base_name, 'vocals.wav')
-            demucs_background = os.path.join(paths['demucs_output'], 'mdx_extra', base_name, 'no_vocals.wav')
+            demucs_vocals = os.path.join(paths['demucs_output'], 'htdemucs_6s', base_name, 'vocals.wav')
+            demucs_background = os.path.join(paths['demucs_output'], 'htdemucs_6s', base_name, 'no_vocals.wav')
             
             # Copy to cached locations (will be reused for all languages)
             if os.path.exists(demucs_vocals) and os.path.exists(demucs_background):
