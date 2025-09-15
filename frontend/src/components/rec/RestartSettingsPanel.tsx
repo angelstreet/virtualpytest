@@ -420,13 +420,13 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
                 '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.3)' }
               }}
             >
+              <MenuItem value={-300}>-300ms</MenuItem>
+              <MenuItem value={-200}>-200ms</MenuItem>
+              <MenuItem value={-100}>-100ms</MenuItem>
               <MenuItem value={0}>0ms</MenuItem>
               <MenuItem value={100}>+100ms</MenuItem>
               <MenuItem value={200}>+200ms</MenuItem>
               <MenuItem value={300}>+300ms</MenuItem>
-              <MenuItem value={-100}>-100ms</MenuItem>
-              <MenuItem value={-200}>-200ms</MenuItem>
-              <MenuItem value={-300}>-300ms</MenuItem>
             </Select>
             
             <Button

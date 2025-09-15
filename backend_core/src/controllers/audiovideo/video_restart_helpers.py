@@ -760,18 +760,61 @@ class VideoRestartHelpers:
             
             print(f"RestartHelpers[{self.device_name}]: Current timing: {current_timing_ms:+d}ms, Requested: {timing_offset_ms:+d}ms, Target: {target_timing_ms:+d}ms")
             
-            # Generate output filename based on target timing (absolute from original)
+            # Special handling for 0ms - always return original video without processing
             if target_timing_ms == 0:
-                # Target is original video - use base name
-                output_filename = f"{base_name}{original_ext}"
-                print(f"RestartHelpers[{self.device_name}]: Target timing is 0ms - using original video")
-            else:
-                # Create sync suffix for target timing
-                if target_timing_ms > 0:
-                    sync_suffix = f"_syncp{target_timing_ms}"
+                # Check what original video exists (could be any language)
+                original_base_filename = f"{base_name}{original_ext}"  # restart_original_video.mp4
+                original_base_path = os.path.join(original_dir, original_base_filename)
+                
+                # Check for dubbed video for this language
+                dubbed_filename = f"restart_{language}_dubbed_video{original_ext}"  # restart_fr_dubbed_video.mp4
+                dubbed_path = os.path.join(original_dir, dubbed_filename)
+                
+                # Priority: Use dubbed video if it exists for this language, otherwise use original
+                if os.path.exists(dubbed_path):
+                    output_filename = dubbed_filename
+                    output_path = dubbed_path
+                    print(f"RestartHelpers[{self.device_name}]: Target timing is 0ms - using original {language} dubbed video")
+                elif os.path.exists(original_base_path):
+                    output_filename = original_base_filename
+                    output_path = original_base_path
+                    print(f"RestartHelpers[{self.device_name}]: Target timing is 0ms - using original base video (first generated)")
                 else:
-                    sync_suffix = f"_syncm{abs(target_timing_ms)}"
-                output_filename = f"{base_name}{sync_suffix}{original_ext}"
+                    print(f"RestartHelpers[{self.device_name}]: 0ms video not found - neither {dubbed_filename} nor {original_base_filename} exist")
+                    return {
+                        'success': False,
+                        'error': f'No original video found for {language}',
+                        'timing_offset_ms': 0
+                    }
+                
+                # Return immediately - no processing needed for 0ms
+                adjusted_video_url = self._build_video_url(output_filename)
+                print(f"RestartHelpers[{self.device_name}]: 0ms video found: {output_filename}")
+                return {
+                    'success': True,
+                    'adjusted_video_url': adjusted_video_url,
+                    'timing_offset_ms': 0,
+                    'language': language,
+                    'video_id': f"restart_{int(time.time())}_{language}_original",
+                    'original_video_url': video_url
+                }
+            
+            # For non-zero timing: generate sync-adjusted filename
+            if target_timing_ms > 0:
+                sync_suffix = f"_syncp{target_timing_ms}"
+            else:
+                sync_suffix = f"_syncm{abs(target_timing_ms)}"
+            
+            # Check what base video to use for sync adjustment
+            dubbed_filename = f"restart_{language}_dubbed_video{original_ext}"
+            dubbed_path = os.path.join(original_dir, dubbed_filename)
+            
+            if os.path.exists(dubbed_path):
+                # Use dubbed video as base for sync adjustment
+                output_filename = f"restart_{language}_dubbed_video{sync_suffix}{original_ext}"  # restart_fr_dubbed_video_syncp200.mp4
+            else:
+                # Use original base video for sync adjustment
+                output_filename = f"{base_name}{sync_suffix}{original_ext}"  # restart_original_video_syncp200.mp4
             
             output_path = os.path.join(original_dir, output_filename)
             
@@ -805,22 +848,7 @@ class VideoRestartHelpers:
                 trim_seconds = abs(target_timing_ms) / 1000.0
                 audio_filter = f"atrim=start={trim_seconds}"
                 source_file = original_video_path
-            else:
-                # Target timing is 0ms: copy original file if different, or return current
-                if output_path != video_file:
-                    print(f"RestartHelpers[{self.device_name}]: Copying original video (target timing = 0ms)")
-                    import shutil
-                    shutil.copy2(original_video_path, output_path)
-                
-                adjusted_video_url = self._build_video_url(output_filename)
-                return {
-                    'success': True,
-                    'adjusted_video_url': adjusted_video_url,
-                    'timing_offset_ms': 0,
-                    'language': language,
-                    'video_id': f"restart_{int(time.time())}_{language}_original",
-                    'original_video_url': video_url
-                }
+            # Note: 0ms case is handled earlier with immediate return
             
             # Apply timing adjustment using FFmpeg (always from original)
             cmd = [
