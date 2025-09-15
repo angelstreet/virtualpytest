@@ -201,7 +201,7 @@ export const RestartPlayer: React.FC<RestartPlayerProps> = ({ host, device, incl
         </Box>
       )}
 
-      {/* Simple video player - ready state */}
+      {/* Simple video player - ready state (FAST LAUNCH) */}
       {isReady && currentVideoUrl && !isGenerating && (
         <video
           ref={videoRef}
@@ -209,8 +209,10 @@ export const RestartPlayer: React.FC<RestartPlayerProps> = ({ host, device, incl
           controls
           autoPlay
           muted={false}
-          onLoadStart={() => console.log('[@component:RestartPlayer] Video load started')}
-          onLoadedData={() => console.log('[@component:RestartPlayer] Video loaded data')}
+          preload="auto"
+          onLoadStart={() => console.log('[@component:RestartPlayer] 🎬 Video load started - FAST!')}
+          onLoadedData={() => console.log('[@component:RestartPlayer] 🎬 Video loaded data - READY!')}
+          onCanPlay={() => console.log('[@component:RestartPlayer] 🎬 Video can play - SMOOTH!')}
           onError={(e) => console.error('[@component:RestartPlayer] Video error:', e)}
           style={{
             position: 'absolute',

@@ -228,6 +228,10 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
   const isRequestInProgress = useRef(false);
   const hasExecutedOnMount = useRef(false);
   
+  // Report generation deduplication protection
+  const isReportGenerationInProgress = useRef(false);
+  const currentReportVideoId = useRef<string | null>(null);
+  
   // Toast notifications and timing
   const toast = useToast();
   const analysisStartTime = useRef<number | null>(null);
@@ -292,16 +296,28 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
       
       if (!videoData.success) throw new Error(videoData.error || 'Video generation failed');
 
-      // Video ready - show immediately
+      // Video ready - show immediately (FAST LAUNCH)
+      console.log(`[@hook:useRestart] ✅ Video ready! Launching player immediately: ${videoData.video_url}`);
       setVideoUrl(videoData.video_url);
       setIsReady(true);
       setIsGenerating(false);
       setAnalysisProgress(prev => ({ ...prev, video: 'completed' }));
+      
+      // Show success toast for video generation
+      toast.showSuccess('🎬 Video ready! Starting analysis...', { duration: 3000 });
 
-      if (!includeAudioAnalysis) return;
+      if (!includeAudioAnalysis) {
+        console.log(`[@hook:useRestart] ✅ Analysis disabled - video player ready for immediate use`);
+        return;
+      }
 
       // Show toast notification and start timing for AI analysis
       analysisStartTime.current = Date.now();
+      
+      // Small delay to ensure video player renders smoothly before starting heavy analysis
+      console.log(`[@hook:useRestart] 🎬 Allowing video player to render before starting analysis...`);
+      await new Promise(resolve => setTimeout(resolve, 100)); // 100ms delay
+      
       toast.showInfo('🤖 AI Analysis starting...', { duration: 3000 });
 
       // Stage 2-4: Run analysis sequentially (no race conditions)
@@ -391,35 +407,53 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
           setAnalysisProgress(prev => ({ ...prev, subtitles: 'completed', summary: 'completed' }));
           console.log(`[@hook:useRestart] Step 3: Combined analysis completed (subtitles + summary)`);
           
-          // Step 4: Generate Report with all collected analysis data
-          console.log(`[@hook:useRestart] Step 4: Starting report generation`);
-          setAnalysisProgress(prev => ({ ...prev, report: 'loading' }));
+          // Step 4: Generate Report with all collected analysis data (with deduplication)
+          const reportKey = videoData.video_id;
           
-          const reportResponse = await fetch(buildServerUrl('/server/restart/generateRestartReport'), {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              host,
-              device_id: device.device_id || 'device1',
-              video_url: videoData.video_url,
-              analysis_data: {
-                audio_analysis: audioData.audio_analysis,
-                subtitle_analysis: combinedData.subtitle_analysis,
-                video_analysis: combinedData.video_analysis,
-              }
-            }),
-            signal: abortControllerRef.current?.signal,
-          });
+          // Deduplication protection - prevent duplicate report generation
+          if (isReportGenerationInProgress.current && currentReportVideoId.current === reportKey) {
+            console.log(`[@hook:useRestart] Step 4: Report generation already in progress for ${reportKey}, ignoring duplicate request`);
+            return;
+          }
           
-          const reportData = await reportResponse.json();
+          // Mark report generation as in progress
+          isReportGenerationInProgress.current = true;
+          currentReportVideoId.current = reportKey;
           
-          if (reportData.success && reportData.report_url) {
-            setReportUrl(reportData.report_url);
-            setAnalysisProgress(prev => ({ ...prev, report: 'completed' }));
-            console.log(`[@hook:useRestart] Step 4: Report generation completed: ${reportData.report_url}`);
-          } else {
-            setAnalysisProgress(prev => ({ ...prev, report: 'error' }));
-            console.log(`[@hook:useRestart] Step 4: Report generation failed: ${reportData.error || 'Unknown error'}`);
+          try {
+            console.log(`[@hook:useRestart] Step 4: Starting report generation for ${reportKey}`);
+            setAnalysisProgress(prev => ({ ...prev, report: 'loading' }));
+            
+            const reportResponse = await fetch(buildServerUrl('/server/restart/generateRestartReport'), {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                host,
+                device_id: device.device_id || 'device1',
+                video_url: videoData.video_url,
+                analysis_data: {
+                  audio_analysis: audioData.audio_analysis,
+                  subtitle_analysis: combinedData.subtitle_analysis,
+                  video_analysis: combinedData.video_analysis,
+                }
+              }),
+              signal: abortControllerRef.current?.signal,
+            });
+            
+            const reportData = await reportResponse.json();
+            
+            if (reportData.success && reportData.report_url) {
+              setReportUrl(reportData.report_url);
+              setAnalysisProgress(prev => ({ ...prev, report: 'completed' }));
+              console.log(`[@hook:useRestart] Step 4: Report generation completed: ${reportData.report_url}`);
+            } else {
+              setAnalysisProgress(prev => ({ ...prev, report: 'error' }));
+              console.log(`[@hook:useRestart] Step 4: Report generation failed: ${reportData.error || 'Unknown error'}`);
+            }
+          } finally {
+            // Clear deduplication flags
+            isReportGenerationInProgress.current = false;
+            currentReportVideoId.current = null;
           }
         } else {
           setAnalysisProgress(prev => ({ ...prev, subtitles: 'error', summary: 'error', report: 'error' }));
