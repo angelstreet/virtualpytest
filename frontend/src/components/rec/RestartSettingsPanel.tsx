@@ -1,5 +1,5 @@
-import { Box, Typography, IconButton, Slide, Paper, Select, MenuItem, Collapse, CircularProgress } from '@mui/material';
-import { Close as CloseIcon, ExpandMore as ExpandMoreIcon, ExpandLess as ExpandLessIcon } from '@mui/icons-material';
+import { Box, Typography, IconButton, Slide, Paper, Select, MenuItem, Collapse, CircularProgress, Button } from '@mui/material';
+import { Close as CloseIcon, ExpandMore as ExpandMoreIcon, ExpandLess as ExpandLessIcon, VolumeUp as AudioIcon } from '@mui/icons-material';
 import React, { useState } from 'react';
 
 interface RestartSettingsPanelProps {
@@ -16,6 +16,9 @@ interface RestartSettingsPanelProps {
     dubbedAudioUrls: Record<string, { gtts: string; edge: string }>;
     isDubbing?: boolean;
     videoId?: string;
+    audioTimingOffset: number;
+    isApplyingTiming: boolean;
+    applyAudioTiming: (offsetMs: number) => Promise<void>;
   };
 }
 
@@ -32,11 +35,15 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
     currentLanguage,
     translateToLanguage,
     dubbedAudioUrls,
+    audioTimingOffset,
+    isApplyingTiming,
+    applyAudioTiming,
   } = restartHookData;
   // UI state only
   const [isVideoSummaryExpanded, setIsVideoSummaryExpanded] = useState(false);
   const [isTranscriptExpanded, setIsTranscriptExpanded] = useState(false);
   const [isFrameAnalysisExpanded, setIsFrameAnalysisExpanded] = useState(false);
+  const [selectedTiming, setSelectedTiming] = useState(0);
 
   // Language code to name mapping
   const getLanguageName = (code: string): string => {
@@ -389,6 +396,65 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
               
             </Box>
           </Collapse>
+        </Box>
+
+        {/* 4. Audio Timing Section */}
+        <Box sx={{ mt: 2, pt: 1.5, borderTop: '1px solid rgba(255,255,255,0.2)' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+            <AudioIcon sx={{ fontSize: '1rem', mr: 1, color: '#FF5722' }} />
+            <Typography variant="subtitle2" sx={{ fontSize: '0.85rem', fontWeight: 600 }}>
+              Audio Timing
+            </Typography>
+          </Box>
+          
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Select
+              value={selectedTiming}
+              onChange={(e) => setSelectedTiming(Number(e.target.value))}
+              size="small"
+              disabled={isApplyingTiming}
+              sx={{ 
+                minWidth: 100, 
+                fontSize: '0.75rem',
+                color: '#ffffff',
+                '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.3)' }
+              }}
+            >
+              <MenuItem value={0}>0ms</MenuItem>
+              <MenuItem value={110}>+110ms</MenuItem>
+              <MenuItem value={200}>+200ms</MenuItem>
+              <MenuItem value={300}>+300ms</MenuItem>
+              <MenuItem value={-110}>-110ms</MenuItem>
+              <MenuItem value={-200}>-200ms</MenuItem>
+              <MenuItem value={-300}>-300ms</MenuItem>
+            </Select>
+            
+            <Button
+              onClick={() => applyAudioTiming(selectedTiming)}
+              disabled={isApplyingTiming || selectedTiming === audioTimingOffset}
+              size="small"
+              variant="outlined"
+              sx={{ 
+                fontSize: '0.7rem', 
+                minWidth: 50,
+                color: '#ffffff',
+                borderColor: 'rgba(255,255,255,0.3)'
+              }}
+            >
+              {isApplyingTiming ? <CircularProgress size={14} /> : 'OK'}
+            </Button>
+          </Box>
+          
+          {audioTimingOffset !== 0 && (
+            <Typography variant="caption" sx={{ 
+              fontSize: '0.65rem', 
+              color: '#FF5722', 
+              mt: 0.5, 
+              display: 'block' 
+            }}>
+              Current: {audioTimingOffset > 0 ? '+' : ''}{audioTimingOffset}ms
+            </Typography>
+          )}
         </Box>
       </Paper>
     </Slide>

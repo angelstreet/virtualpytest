@@ -29,6 +29,12 @@ The Restart Video System provides fast 10-second video generation with comprehen
 - **Audio Mixing**: Combines background audio with dubbed voice while preserving timing
 - **Video Reconstruction**: Replaces original audio track with dubbed version
 
+**Phase 4: Audio Timing Adjustment** (`adjustVideoAudioTiming`)
+- **Timing Control**: Adjust audio timing by ±110ms, ±200ms, ±300ms using FFmpeg
+- **Smart Detection**: Automatically applies to dubbed or original video based on current language
+- **Caching System**: Timing-adjusted videos cached for instant switching
+- **FFmpeg Processing**: Uses `adelay` filter for delays, `atrim` filter for advances
+
 #### Core Implementation (`backend_core/src/controllers/base_controller.py`)
 - **Global Configuration**: Uses `AVControllerInterface.HLS_SEGMENT_DURATION = 1` consistently
 - **Segment Synchronization**: Video segments and screenshots use same timeline
@@ -59,6 +65,7 @@ The Restart Video System provides fast 10-second video generation with comprehen
 - **Automatic Dubbing**: When non-English language selected, automatically chains translation → dubbing
 - **Frame-by-Frame Analysis**: Individual frame descriptions plus conclusion summary
 - **Subtitle Text Display**: Shows original detected text with translation support
+- **Audio Timing Control**: Simple dropdown (0ms, ±110ms, ±200ms, ±300ms) with OK button for instant adjustment
 
 #### Overlay Components
 
@@ -97,7 +104,13 @@ Toast: "🎤 Starting dubbing..." → Toast: "🎬 Dubbing complete!" →
 Dubbed video available with preserved background audio
 ```
 
-### 5. Overlay Controls
+### 5. Audio Timing Adjustment
+```
+Settings Panel → Audio Timing Section → Select offset (+110ms) → Click OK → 
+Toast: "✅ Audio timing adjusted by +110ms" → Video player updates with adjusted audio
+```
+
+### 6. Overlay Controls
 ```
 Settings Panel:
 ├── Video Summary
@@ -107,11 +120,14 @@ Settings Panel:
 ├── Subtitles  
 │   ├── ☐ Show Subtitle Overlay (bottom overlay)
 │   └── Language: [Spanish ▼]
-└── Audio Transcript
-    └── [Full transcript text]
+├── Audio Transcript
+│   └── [Full transcript text]
+└── Audio Timing
+    ├── Offset: [+110ms ▼]
+    └── [OK Button]
 ```
 
-## API Endpoints (Three-Phase Architecture)
+## API Endpoints (Four-Phase Architecture)
 
 ### Phase 1: Fast Video Generation
 ```
@@ -183,9 +199,31 @@ Body: {
 Response: {
   success: true,
   dubbed_video_url: string,
+  gtts_audio_url: string,    // MP3 for gTTS comparison
+  edge_audio_url: string,    // MP3 for Edge-TTS comparison
   target_language: string,
-  video_id: string  // "{original_video_id}_dubbed_{language}"
+  video_id: string
 }
+
+### Phase 4: Audio Timing Adjustment
+```
+POST /server/restart/adjustAudioTiming
+Body: {
+  host: Host,
+  device_id: string,
+  video_url: string,        // URL of video to adjust (original or dubbed)
+  timing_offset_ms: number, // ±110, ±200, ±300 milliseconds
+  language: string          // "original" or language code ("es", "fr", etc.)
+}
+Response: {
+  success: true,
+  adjusted_video_url: string,
+  timing_offset_ms: number,
+  language: string,
+  video_id: string,
+  original_video_url: string
+}
+```
 
 POST /server/verification/video/analyzeImageAI  
 Body: {
@@ -245,6 +283,7 @@ interface AnalysisProgress {
 
 interface DubbingState {
   dubbedVideos: Record<string, string>;  // language -> video_url
+  dubbedAudioUrls: Record<string, { gtts: string; edge: string }>;  // language -> audio comparison URLs
   isDubbing: boolean;
   generateDubbedVersion: (language: string, transcript: string, videoId: string) => Promise<void>;
 }
@@ -264,20 +303,31 @@ interface DubbingState {
 - **Screenshot Offset**: 3-frame offset to account for segment timing differences
 - **Subtitle Detection**: Frame-aligned screenshots with proper timing
 - **AI Models**: Existing Whisper for audio, OpenRouter vision models for images
+- **Batch Processing**: 6 images per batch (optimized from 10 for reliability)
+- **Batch Fallback**: Automatic retry with smaller batches on AI model limits
 
 ### Dubbing Settings
 - **Audio Separation**: Demucs htdemucs model (vocals + no_vocals) - state-of-the-art AI separation
-- **Text-to-Speech**: gTTS (Google Text-to-Speech) - free, no API key required
+- **Text-to-Speech**: Dual engine support - gTTS (Google) and Edge-TTS (Microsoft) for quality comparison
 - **Supported Languages**: Spanish (es), French (fr), German (de), Italian (it), Portuguese (pt)
 - **Audio Processing**: pydub for mixing, FFmpeg for video reconstruction
 - **Translation Cache**: `{video_id: {language: translation_result}}` for instant re-dubbing
-- **Background Preservation**: Superior background audio quality with Demucs
+- **Background Preservation**: 100% background audio volume with +5dB voice boost
+- **Audio Comparison**: Both TTS engines generate MP3 files for quality testing
+- **File Naming**: `restart_original_*` for source files, `restart_{lang}_*` for dubbed versions
 
 ### Translation Settings
 - **Cache Structure**: `{video_id: {language: translation_result}}`
 - **Batch Processing**: Single API call with structure preservation
 - **Performance**: ~2-5 seconds vs previous 24-72 seconds
 - **Frame Alignment**: Maintains frame numbers during translation
+
+### Batch Processing Settings
+- **Batch Size**: 6 images per batch (optimized from 10 for AI model reliability)
+- **AI Model Limits**: Prevents "Empty content from AI" errors with large batches
+- **Failure Handling**: Shows error toasts with duration timing
+- **AI Fallback**: Automatic model switching (Kimi → Qwen) on rate limits
+- **Toast Notifications**: Success and failure states show processing duration
 
 ### UI Settings
 - **Progress Bar**: 100px width, 6px height, top-right
@@ -294,25 +344,36 @@ interface DubbingState {
 - **Response Time**: Video player shows immediately
 
 **Phase 2 (Async Analysis):**
-- **Subtitle Detection**: 3-5 seconds (AI analysis on 5 screenshots)
-- **Video Description**: 8-12 seconds (AI analysis on 10 screenshots + summary)
+- **Batch Processing**: 6 images per batch (optimized for AI model limits)
+- **Subtitle Detection**: 3-5 seconds (AI analysis with batch processing)
+- **Video Description**: 8-12 seconds (AI analysis with batch processing + summary)
+- **Failure Handling**: Shows error toast with duration on batch failures
 - **Total Analysis**: 10-15 seconds (runs in background)
 
 **Phase 3 (Dubbing - On Demand):**
-- **Audio Separation**: 5-8 seconds (Demucs processing - higher quality)
-- **Translation**: 0.5-1 seconds (cached after first use)
-- **Speech Generation**: 2-3 seconds (gTTS processing)
-- **Audio Mixing**: 1-2 seconds (pydub processing)
+- **Audio Separation**: 5-8 seconds (Demucs processing - cached after first use)
+- **Translation**: 0.5-1 seconds (cached after first use, with AI fallback on rate limits)
+- **Dual TTS Generation**: 3-5 seconds (both gTTS and Edge-TTS)
+- **Audio Mixing**: 1-2 seconds (pydub processing with 100% background volume)
 - **Video Reconstruction**: 1-2 seconds (FFmpeg processing)
-- **Total Dubbing**: 8-15 seconds (triggered by language selection)
+- **Audio Comparison Files**: MP3 generation for quality testing
+- **Total Dubbing**: 10-18 seconds (triggered by language selection)
+
+**Phase 4 (Audio Timing - On Demand):**
+- **FFmpeg Processing**: 1-3 seconds (audio filter application)
+- **Caching Check**: <0.1 seconds (instant if already cached)
+- **URL Generation**: <0.1 seconds (build adjusted video URL)
+- **Total Timing Adjustment**: 1-3 seconds (first time), <0.1 seconds (cached)
 
 ### Resource Optimization
 - **Screenshot Reduction**: 73% fewer screenshots (12 vs 45 for 10s video)
 - **Audio Merging**: Single 10-12s audio file vs multiple 1s segments
-- **Memory Efficiency**: No temporary files, uses existing continuous capture
+- **Memory Efficiency**: Fixed filename overwriting eliminates cleanup needs
 - **Network Optimization**: Backend handles all AI analysis, no frontend R2 polling
-- **Dubbing Efficiency**: Reuses extracted audio, caches translations, preserves background audio
+- **Batch Optimization**: 6 images per batch prevents AI model overload
+- **Dubbing Efficiency**: Reuses extracted audio, caches translations and background separation
 - **Model Caching**: Demucs model downloaded once and cached for subsequent uses
+- **AI Fallback**: Automatic model switching on rate limits (Kimi → Qwen)
 
 ## Integration Points
 
@@ -410,13 +471,15 @@ Phase 3 - Dubbing (On Language Selection):
 1. **Video not appearing**: Check HLS segment availability and `/server/av/generateRestartVideo` response
 2. **Audio analysis not loading**: Check segment files are passed correctly from video generation
 3. **Screenshot analysis failing**: Verify FPS detection and 3-frame offset alignment
-4. **Translation misalignment**: Check frame-to-content mapping preservation
-5. **Slow translation**: Verify single batch API call is being used
-6. **Overlays not showing**: Check that analysis completed and data structure matches expected format
-7. **Dubbing not starting**: Verify transcript exists and dependencies installed (demucs, pydub, gTTS)
-8. **Audio separation failing**: Check Demucs model download and audio file format
-9. **TTS generation failing**: Verify internet connection for gTTS and language code support
-10. **Dubbed audio out of sync**: Check video duration detection and audio mixing timing
+4. **Batch analysis failing**: AI model limits hit with large batches - reduced to 6 images per batch
+5. **Translation misalignment**: Check frame-to-content mapping preservation
+6. **AI rate limiting**: Automatic fallback from Kimi to Qwen on 429 errors
+7. **Overlays not showing**: Check that analysis completed and data structure matches expected format
+8. **Dubbing not starting**: Verify transcript exists and dependencies installed (demucs, pydub, gTTS, edge-tts)
+9. **Audio separation failing**: Check Demucs model download and audio file format
+10. **TTS generation failing**: Verify internet connection for gTTS/Edge-TTS and language code support
+11. **Video file not found**: Ensure `restart_original_video.mp4` exists (new naming convention)
+12. **Dubbed audio out of sync**: Check video duration detection and audio mixing timing
 
 ### Debug Information
 - Console logs prefixed with `[@hook:useRestart]` and `[@component:RestartPlayer]`
@@ -424,8 +487,11 @@ Phase 3 - Dubbing (On Language Selection):
 - Translation cache logs: `Using cached translation for french` or `Cached batch translation for french`
 - Segment files logs: `Segment files available: 12` or `No segment files provided, falling back to globbing`
 - Backend logs show `[RestartVideo]` prefixed messages for audio processing
-- Dubbing logs: `Starting dubbing to fr`, `Audio separated successfully`, `Speech generated for fr`, `Dubbing completed`
-- Error logs: `Dubbing error: cannot access local variable 'subprocess'` (indicates import conflicts)
+- Batch processing logs: `BATCH_1_START: frames=1-6 images=6` or `BATCH_1_FAILED: Empty content from AI`
+- AI fallback logs: `Kimi rate limited, trying Qwen...` or `SUCCESS with Qwen: Received 161 characters`
+- Dubbing logs: `Starting dubbing to fr`, `Using cached background/vocals separation`, `gTTS speech generated`, `Edge-TTS speech generated`
+- Toast notifications: Success shows duration `✅ Analysis complete in 15s!`, failures show `❌ Analysis failed after 12s`
+- Error logs: `Video file not found: restart_original_video.mp4` (indicates naming alignment needed)
 
 ## Migration Notes
 
@@ -442,10 +508,14 @@ Phase 3 - Dubbing (On Language Selection):
 - **No Legacy Code**: Clean implementation without backward compatibility layers
 
 ### Dubbing Implementation
-- **New Dependencies**: Added demucs, pydub, gTTS to requirements.txt (removed tensorflow/spleeter)
-- **New Components**: `AudioDubbingHelpers` class for audio separation and mixing
-- **Extended Helpers**: `VideoRestartHelpers.generate_dubbed_restart_video()` method
-- **Frontend Integration**: Extended `useRestart` hook and `RestartSettingsPanel` for dubbing
+- **New Dependencies**: Added demucs, pydub, gTTS, edge-tts to requirements.txt (removed tensorflow/spleeter)
+- **New Components**: `AudioDubbingHelpers` class for dual TTS audio separation and mixing
+- **Extended Helpers**: `VideoRestartHelpers.generate_dubbed_restart_video()` method with caching
+- **Frontend Integration**: Extended `useRestart` hook and `RestartSettingsPanel` for dubbing with audio comparison
 - **Automatic Workflow**: Dubbing triggered automatically after translation completes
 - **Modern AI**: Uses Demucs for superior audio separation quality vs legacy Spleeter
+- **Dual TTS**: Generates both gTTS and Edge-TTS versions for quality comparison
+- **Audio Comparison**: Hyperlinks in UI (dub_gTTS, dub_edge) for direct audio testing
+- **File Management**: Fixed naming convention with automatic overwriting
 - **Clean Architecture**: No fallback code, reuses existing audio extraction and translation systems
+- **Background Caching**: Demucs separation cached after first use for all languages

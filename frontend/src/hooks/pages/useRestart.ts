@@ -125,6 +125,10 @@ interface UseRestartReturn {
   isTranslating: boolean;
   currentLanguage: string;
   
+  // Audio timing state
+  audioTimingOffset: number;
+  isApplyingTiming: boolean;
+  
   // Manual analysis triggers
   analyzeAudio: (videoUrl: string) => Promise<any>;
   analyzeSubtitles: (videoUrl: string) => Promise<any>;
@@ -135,6 +139,9 @@ interface UseRestartReturn {
   
   // Dubbing function
   generateDubbedVersion: (language: string, transcript: string, videoId: string) => Promise<void>;
+  
+  // Audio timing function
+  applyAudioTiming: (offsetMs: number) => Promise<void>;
   
   // Utility functions
   regenerateVideo: () => Promise<void>;
@@ -220,6 +227,10 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
   const [translationResults, setTranslationResults] = useState<Record<string, TranslationResults>>({});
   const [isTranslating, setIsTranslating] = useState(false);
   const [currentLanguage, setCurrentLanguage] = useState('en');
+  
+  // Audio timing state
+  const [audioTimingOffset, setAudioTimingOffset] = useState(0);
+  const [isApplyingTiming, setIsApplyingTiming] = useState(false);
   
   // Translation deduplication protection
   const isTranslationInProgress = useRef(false);
@@ -414,11 +425,6 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
         } else {
           setAnalysisProgress(prev => ({ ...prev, audio: 'error' }));
           console.log(`[@hook:useRestart] Step 2: Audio analysis failed`);
-          
-          // Show failure toast for audio analysis
-          const analysisTime = analysisStartTime.current ? Math.round((Date.now() - analysisStartTime.current) / 1000) : 0;
-          toast.showError(`❌ Audio analysis failed after ${analysisTime}s`, { duration: 5000 });
-          return; // Stop further analysis if audio fails
         }
         
         // Step 3: Combined Subtitle + Summary Analysis (OPTIMIZED)
@@ -464,9 +470,8 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
           setAnalysisProgress(prev => ({ ...prev, subtitles: 'completed', summary: 'completed' }));
           console.log(`[@hook:useRestart] Step 3: Combined analysis completed (subtitles + summary)`);
           
-          // Show success toast for analysis completion with duration
-          const analysisTime = analysisStartTime.current ? Math.round((Date.now() - analysisStartTime.current) / 1000) : 0;
-          toast.showSuccess(`✅ Analysis complete in ${analysisTime}s! Results available in settings.`, { duration: 4000 });
+          // Show success toast for analysis completion - user can now see results!
+          toast.showSuccess('✅ Analysis complete! Results available in settings.', { duration: 4000 });
           
           // Step 4: Generate Report in background (non-blocking)
           const reportKey = videoData.video_id;
@@ -486,10 +491,6 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
         } else {
           setAnalysisProgress(prev => ({ ...prev, subtitles: 'error', summary: 'error', report: 'error' }));
           console.log(`[@hook:useRestart] Step 3: Combined analysis failed`);
-          
-          // Show failure toast with duration
-          const analysisTime = analysisStartTime.current ? Math.round((Date.now() - analysisStartTime.current) / 1000) : 0;
-          toast.showError(`❌ Analysis failed after ${analysisTime}s`, { duration: 5000 });
         }
         
         console.log(`[@hook:useRestart] Core analysis steps completed - report generating in background`);
@@ -800,6 +801,54 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
     }
   }, [analysisResults, toast, generateDubbedVersion]);
 
+  const applyAudioTiming = useCallback(async (offsetMs: number) => {
+    if (offsetMs === 0) return; // No change needed
+    
+    try {
+      setIsApplyingTiming(true);
+      
+      // Determine if we're working with dubbed or original video
+      const isDubbed = currentLanguage !== 'en' && dubbedVideos[currentLanguage];
+      const targetVideoUrl = isDubbed ? dubbedVideos[currentLanguage] : videoUrl;
+      
+      if (!targetVideoUrl) {
+        throw new Error('No video available for timing adjustment');
+      }
+      
+      const response = await fetch(buildServerUrl('/server/restart/adjustAudioTiming'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          host,
+          device_id: device.device_id,
+          video_url: targetVideoUrl,
+          timing_offset_ms: offsetMs,
+          language: currentLanguage
+        })
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        // Update the appropriate video URL
+        if (isDubbed) {
+          setDubbedVideos(prev => ({ ...prev, [currentLanguage]: result.adjusted_video_url }));
+        } else {
+          setVideoUrl(result.adjusted_video_url);
+        }
+        setAudioTimingOffset(offsetMs);
+        toast.showSuccess(`✅ Audio timing adjusted by ${offsetMs > 0 ? '+' : ''}${offsetMs}ms`);
+      } else {
+        throw new Error(result.error);
+      }
+    } catch (error) {
+      console.error('Audio timing adjustment failed:', error);
+      toast.showError('❌ Audio timing adjustment failed');
+    } finally {
+      setIsApplyingTiming(false);
+    }
+  }, [host, device, videoUrl, dubbedVideos, currentLanguage, toast]);
+
   const regenerateVideo = useCallback(async () => {
     videoCache.delete(host, device);
     await executeVideoGeneration();
@@ -855,6 +904,11 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
     
     // Dubbing function
     generateDubbedVersion,
+    
+    // Audio timing
+    audioTimingOffset,
+    isApplyingTiming,
+    applyAudioTiming,
     
     // Utility functions
     regenerateVideo,

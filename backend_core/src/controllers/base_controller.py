@@ -443,6 +443,10 @@ class FFmpegCaptureController(AVControllerInterface):
     def generateDubbedRestartVideo(self, video_id: str, target_language: str, existing_transcript: str) -> Optional[Dict[str, Any]]:
         """Generate dubbed version of restart video"""
         return self.restart_helpers.generate_dubbed_restart_video(video_id, target_language, existing_transcript)
+    
+    def adjustVideoAudioTiming(self, video_url: str, timing_offset_ms: int, language: str = "original") -> Optional[Dict[str, Any]]:
+        """Adjust audio timing for existing restart video"""
+        return self.restart_helpers.adjust_video_audio_timing(video_url, timing_offset_ms, language)
 
     def generateRestartVideoFast(self, duration_seconds: float = None, test_start_time: float = None, processing_time: float = None) -> Optional[Dict[str, Any]]:
         """

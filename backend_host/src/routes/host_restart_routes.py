@@ -562,3 +562,37 @@ def generate_dubbed_video():
     except Exception as e:
         print(f"Host[{device_id}]: Dubbing error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
+
+@host_restart_bp.route('/adjustAudioTiming', methods=['POST'])
+def adjust_audio_timing():
+    """Adjust audio timing for existing restart video."""
+    try:
+        data = request.get_json()
+        device_id = data.get('device_id', 'device1')
+        video_url = data.get('video_url')
+        timing_offset_ms = data.get('timing_offset_ms', 0)
+        language = data.get('language', 'original')
+        
+        if not video_url:
+            return jsonify({'success': False, 'error': 'video_url is required'}), 400
+        
+        if timing_offset_ms == 0:
+            return jsonify({'success': False, 'error': 'timing_offset_ms cannot be 0'}), 400
+        
+        # Get AV controller
+        av_controller = get_controller(device_id)
+        if not av_controller:
+            return jsonify({'success': False, 'error': f'No AV controller for {device_id}'}), 404
+        
+        print(f"Host[{device_id}]: Adjusting audio timing by {timing_offset_ms:+d}ms for {language}")
+        result = av_controller.adjustVideoAudioTiming(video_url, timing_offset_ms, language)
+        
+        if result and result.get('success'):
+            print(f"Host[{device_id}]: Audio timing adjustment completed")
+            return jsonify(result)
+        else:
+            return jsonify({'success': False, 'error': 'Audio timing adjustment failed'}), 500
+            
+    except Exception as e:
+        print(f"Host[{device_id}]: Audio timing adjustment error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500

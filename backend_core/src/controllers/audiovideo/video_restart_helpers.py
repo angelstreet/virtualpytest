@@ -690,3 +690,109 @@ class VideoRestartHelpers:
         cleaned_text = cleaned_text.strip('"\'`')
         
         return cleaned_text
+    
+    def adjust_video_audio_timing(self, video_url: str, timing_offset_ms: int, language: str = "original") -> Optional[Dict[str, Any]]:
+        """
+        Adjust audio timing for existing restart video using FFmpeg.
+        
+        Args:
+            video_url: URL or path to existing video
+            timing_offset_ms: Timing offset in milliseconds (+delay, -advance)
+            language: Language identifier ("original" or language code like "es", "fr")
+            
+        Returns:
+            Dictionary with adjusted video information
+        """
+        try:
+            print(f"RestartHelpers[{self.device_name}]: Adjusting audio timing by {timing_offset_ms:+d}ms for {language}")
+            
+            # Convert URL to local path if needed
+            from shared.lib.utils.build_url_utils import convertHostUrlToLocalPath
+            if video_url.startswith(('http://', 'https://')):
+                video_file = convertHostUrlToLocalPath(video_url)
+            else:
+                video_file = video_url
+            
+            if not os.path.exists(video_file):
+                print(f"RestartHelpers[{self.device_name}]: Video file not found: {video_file}")
+                return None
+            
+            # Generate output filename
+            original_dir = os.path.dirname(video_file)
+            if language == "original":
+                output_filename = f"restart_timing_{timing_offset_ms:+d}ms_video.mp4"
+            else:
+                output_filename = f"restart_{language}_timing_{timing_offset_ms:+d}ms_video.mp4"
+            
+            output_path = os.path.join(original_dir, output_filename)
+            
+            # Check if already exists (cached)
+            if os.path.exists(output_path):
+                print(f"RestartHelpers[{self.device_name}]: Using cached timing-adjusted video: {output_filename}")
+                adjusted_video_url = self._build_video_url(output_filename)
+                video_id = f"restart_{int(time.time())}_{language}_timing_{timing_offset_ms:+d}ms"
+                
+                return {
+                    'success': True,
+                    'adjusted_video_url': adjusted_video_url,
+                    'timing_offset_ms': timing_offset_ms,
+                    'language': language,
+                    'video_id': video_id,
+                    'original_video_url': video_url
+                }
+            
+            print(f"RestartHelpers[{self.device_name}]: Generating timing-adjusted video with FFmpeg")
+            
+            # Build FFmpeg command based on offset direction
+            if timing_offset_ms > 0:
+                # Positive offset: delay audio
+                audio_filter = f"adelay={timing_offset_ms}"
+            elif timing_offset_ms < 0:
+                # Negative offset: advance audio (trim from start)
+                trim_seconds = abs(timing_offset_ms) / 1000.0
+                audio_filter = f"atrim=start={trim_seconds}"
+            else:
+                # No offset: return original
+                print(f"RestartHelpers[{self.device_name}]: No timing adjustment needed (0ms)")
+                return {
+                    'success': True,
+                    'adjusted_video_url': video_url,
+                    'timing_offset_ms': 0,
+                    'language': language,
+                    'video_id': f"restart_{int(time.time())}_{language}_original",
+                    'original_video_url': video_url
+                }
+            
+            # Apply timing adjustment using FFmpeg
+            cmd = [
+                'ffmpeg', '-i', video_file,
+                '-af', audio_filter,
+                '-c:v', 'copy',  # Copy video stream unchanged
+                '-c:a', 'aac',   # Re-encode audio with adjustment
+                output_path, '-y'
+            ]
+            
+            result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+            
+            # Build URL for adjusted video
+            adjusted_video_url = self._build_video_url(output_filename)
+            
+            # Generate new video ID
+            video_id = f"restart_{int(time.time())}_{language}_timing_{timing_offset_ms:+d}ms"
+            
+            print(f"RestartHelpers[{self.device_name}]: Audio timing adjustment completed: {output_filename}")
+            return {
+                'success': True,
+                'adjusted_video_url': adjusted_video_url,
+                'timing_offset_ms': timing_offset_ms,
+                'language': language,
+                'video_id': video_id,
+                'original_video_url': video_url
+            }
+            
+        except subprocess.CalledProcessError as e:
+            print(f"RestartHelpers[{self.device_name}]: FFmpeg timing adjustment failed: {e.stderr}")
+            return None
+        except Exception as e:
+            print(f"RestartHelpers[{self.device_name}]: Audio timing adjustment error: {e}")
+            return None
