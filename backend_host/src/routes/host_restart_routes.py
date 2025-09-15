@@ -82,18 +82,31 @@ def generate_restart_video():
             screenshot_count = len(result.get('analysis_data', {}).get('screenshot_urls', []))
             segment_count = result.get('analysis_data', {}).get('segment_count', 0)
             
+            segment_files = result.get('analysis_data', {}).get('segment_files', [])
+            segment_files_count = len(segment_files) if segment_files else 0
+            
             print(f"[HOST] ✅ [@host_restart_routes:generateVideo] Video generation SUCCESS!")
             print(f"[HOST] 📹 [@host_restart_routes:generateVideo] Video URL: {video_url}")
             print(f"[HOST] 🆔 [@host_restart_routes:generateVideo] Video ID: {video_id}")
             print(f"[HOST] 📸 [@host_restart_routes:generateVideo] Screenshots: {screenshot_count}")
             print(f"[HOST] 🎞️ [@host_restart_routes:generateVideo] Segments: {segment_count}")
+            print(f"[HOST] 📂 [@host_restart_routes:generateVideo] Segment files: {segment_files_count} files")
+            if segment_files_count > 0:
+                print(f"[HOST] 📋 [@host_restart_routes:generateVideo] First segment: {segment_files[0] if segment_files else 'None'}")
+                print(f"[HOST] 📋 [@host_restart_routes:generateVideo] Last segment: {segment_files[-1] if segment_files else 'None'}")
             
             return jsonify({
                 'success': True,
                 'video_url': video_url,
                 'video_id': video_id,
                 'screenshot_urls': result.get('analysis_data', {}).get('screenshot_urls', []),
-                'segment_count': segment_count
+                'segment_count': segment_count,
+                'analysis_data': {
+                    'video_id': video_id,
+                    'screenshot_urls': result.get('analysis_data', {}).get('screenshot_urls', []),
+                    'segment_files': segment_files,
+                    'segment_count': segment_count
+                }
             })
         else:
             error_msg = 'Video generation failed - no result or success=False'

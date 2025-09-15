@@ -314,11 +314,19 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
 
       // Stage 2-4: Run analysis sequentially (no race conditions)
       console.log(`[@hook:useRestart] Starting sequential analysis for video_id: ${videoData.video_id}`);
-      console.log(`[@hook:useRestart] Segment files available:`, videoData.analysis_data?.segment_files?.length || 0);
+      const segmentFiles = videoData.analysis_data?.segment_files || [];
+      console.log(`[@hook:useRestart] Segment files available:`, segmentFiles.length);
+      if (segmentFiles.length > 0) {
+        console.log(`[@hook:useRestart] First segment file:`, segmentFiles[0]);
+        console.log(`[@hook:useRestart] Last segment file:`, segmentFiles[segmentFiles.length - 1]);
+      } else {
+        console.warn(`[@hook:useRestart] ⚠️  No segment files received - audio analysis will fall back to globbing`);
+      }
       
       try {
         // Step 2: Audio Analysis
         console.log(`[@hook:useRestart] Step 2: Starting audio analysis`);
+        console.log(`[@hook:useRestart] Step 2: Passing ${segmentFiles.length} segment files to audio analysis`);
         setAnalysisProgress(prev => ({ ...prev, audio: 'loading' }));
         
         const audioResponse = await fetch(buildServerUrl('/server/restart/analyzeRestartAudio'), {
@@ -328,7 +336,7 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
             host,
             device_id: device.device_id || 'device1',
             video_id: videoData.video_id,
-            segment_files: videoData.analysis_data?.segment_files || null, // Pass segment files from video generation
+            segment_files: segmentFiles.length > 0 ? segmentFiles : null, // Pass segment files from video generation
           })
         });
         
