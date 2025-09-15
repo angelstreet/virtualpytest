@@ -117,6 +117,7 @@ interface UseRestartReturn {
   
   // Dubbing state
   dubbedVideos: Record<string, string>;
+  dubbedAudioUrls: Record<string, { gtts: string; edge: string }>;
   isDubbing: boolean;
   
   // Translation state
@@ -212,6 +213,7 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
   
   // Dubbing state
   const [dubbedVideos, setDubbedVideos] = useState<Record<string, string>>({});
+  const [dubbedAudioUrls, setDubbedAudioUrls] = useState<Record<string, { gtts: string; edge: string }>>({});
   const [isDubbing, setIsDubbing] = useState(false);
   
   // Translation state
@@ -600,6 +602,17 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
           ...prev,
           [language]: result.dubbed_video_url
         }));
+        
+        // Store audio URLs for comparison
+        if (result.gtts_audio_url && result.edge_audio_url) {
+          setDubbedAudioUrls(prev => ({
+            ...prev,
+            [language]: {
+              gtts: result.gtts_audio_url,
+              edge: result.edge_audio_url
+            }
+          }));
+        }
       } else {
         throw new Error(result.error || 'Dubbing failed');
       }
@@ -814,6 +827,7 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
     
     // Dubbing state
     dubbedVideos,
+    dubbedAudioUrls,
     isDubbing,
     
     // Translation state

@@ -13,6 +13,7 @@ interface RestartSettingsPanelProps {
     currentLanguage: string;
     translateToLanguage: (language: string) => Promise<void>;
     generateDubbedVersion?: (language: string, transcript: string, videoId: string) => Promise<void>;
+    dubbedAudioUrls: Record<string, { gtts: string; edge: string }>;
     isDubbing?: boolean;
     videoId?: string;
   };
@@ -30,6 +31,7 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
     isTranslating,
     currentLanguage,
     translateToLanguage,
+    dubbedAudioUrls,
   } = restartHookData;
   // UI state only
   const [isVideoSummaryExpanded, setIsVideoSummaryExpanded] = useState(false);
@@ -225,6 +227,45 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
                     : `Translated to ${getLanguageName(currentLanguage)}`}:
                 </strong><br />
                 {currentLanguage === 'en' ? (analysisResults.audio?.combined_transcript || 'No transcript available') : (currentTranslation?.transcript || analysisResults.audio?.combined_transcript || 'Translating...')}
+                
+                {/* Audio comparison links */}
+                {currentLanguage !== 'en' && dubbedAudioUrls[currentLanguage] && (
+                  <Box sx={{ mt: 1.5, pt: 1.5, borderTop: '1px solid rgba(255,255,255,0.2)' }}>
+                    <Typography variant="caption" sx={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.7)' }}>
+                      Audio Comparison:
+                    </Typography>
+                    <Box sx={{ mt: 0.5, display: 'flex', gap: 1 }}>
+                      <Typography 
+                        component="a" 
+                        href={dubbedAudioUrls[currentLanguage].gtts}
+                        target="_blank"
+                        sx={{ 
+                          fontSize: '0.7rem', 
+                          color: '#4FC3F7', 
+                          textDecoration: 'underline',
+                          cursor: 'pointer',
+                          '&:hover': { color: '#29B6F6' }
+                        }}
+                      >
+                        dub_gTTS
+                      </Typography>
+                      <Typography 
+                        component="a" 
+                        href={dubbedAudioUrls[currentLanguage].edge}
+                        target="_blank"
+                        sx={{ 
+                          fontSize: '0.7rem', 
+                          color: '#4FC3F7', 
+                          textDecoration: 'underline',
+                          cursor: 'pointer',
+                          '&:hover': { color: '#29B6F6' }
+                        }}
+                      >
+                        dub_edge
+                      </Typography>
+                    </Box>
+                  </Box>
+                )}
               </Typography>
             </Box>
           </Collapse>

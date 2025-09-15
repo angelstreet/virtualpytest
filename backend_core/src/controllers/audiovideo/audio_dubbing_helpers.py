@@ -23,7 +23,10 @@ class AudioDubbingHelpers:
             'original_audio': f"{original_video_dir}/restart_original_audio.wav",
             'background': f"{original_video_dir}/restart_original_background.wav",  # ✅ Consistent naming
             'vocals': f"{original_video_dir}/restart_original_vocals.wav",  # ✅ Consistent naming  
-            'dubbed_voice': f"{original_video_dir}/restart_{language}_dubbed_voice.wav",
+            'dubbed_voice_gtts': f"{original_video_dir}/restart_{language}_dubbed_voice_gtts.wav",
+            'dubbed_voice_edge': f"{original_video_dir}/restart_{language}_dubbed_voice_edge.wav",
+            'dubbed_voice_gtts_mp3': f"{original_video_dir}/restart_{language}_dubbed_voice_gtts.mp3",
+            'dubbed_voice_edge_mp3': f"{original_video_dir}/restart_{language}_dubbed_voice_edge.mp3",
             'mixed_audio': f"{original_video_dir}/restart_{language}_mixed_audio.wav",
             'final_video': f"{original_video_dir}/restart_{language}_dubbed_video.mp4",
             'demucs_output': f"/tmp/restart_demucs"  # ✅ Cached - no language suffix
@@ -73,33 +76,68 @@ class AudioDubbingHelpers:
             print(f"Dubbing[{self.device_name}]: Separation failed: {e}")
             return {}
     
-    def generate_dubbed_speech(self, text: str, language: str, original_video_dir: str) -> Optional[str]:
-        """Generate speech from text using gTTS with fixed filename."""
+    def generate_dubbed_speech(self, text: str, language: str, original_video_dir: str) -> Dict[str, Optional[str]]:
+        """Generate speech from text using both gTTS and Edge-TTS."""
+        paths = self.get_file_paths(language, original_video_dir)
+        results = {'gtts': None, 'edge': None}
+        
+        # Generate gTTS audio
         try:
             from gtts import gTTS
-            
-            paths = self.get_file_paths(language, original_video_dir)
             
             gtts_lang_map = {'es': 'es', 'fr': 'fr', 'de': 'de', 'it': 'it', 'pt': 'pt'}
             gtts_lang = gtts_lang_map.get(language, 'en')
             
             tts = gTTS(text=text, lang=gtts_lang, slow=False)
-            temp_mp3 = f"/tmp/{self.device_name}_{language}_temp.mp3"
+            temp_mp3 = f"/tmp/{self.device_name}_{language}_gtts_temp.mp3"
             tts.save(temp_mp3)
             
-            # Convert to WAV with fixed filename
-            subprocess.run(['ffmpeg', '-i', temp_mp3, '-ar', '44100', '-ac', '2', paths['dubbed_voice'], '-y'], 
+            # Convert to WAV and MP3
+            subprocess.run(['ffmpeg', '-i', temp_mp3, '-ar', '44100', '-ac', '2', paths['dubbed_voice_gtts'], '-y'], 
+                          capture_output=True, check=True)
+            subprocess.run(['ffmpeg', '-i', temp_mp3, paths['dubbed_voice_gtts_mp3'], '-y'], 
                           capture_output=True, check=True)
             os.remove(temp_mp3)
             
-            print(f"Dubbing[{self.device_name}]: Speech generated for {language}")
-            return paths['dubbed_voice']
+            results['gtts'] = paths['dubbed_voice_gtts']
+            print(f"Dubbing[{self.device_name}]: gTTS speech generated for {language}")
             
         except Exception as e:
-            print(f"Dubbing[{self.device_name}]: Speech generation failed: {e}")
-            return None
+            print(f"Dubbing[{self.device_name}]: gTTS generation failed: {e}")
+        
+        # Generate Edge-TTS audio
+        try:
+            import edge_tts
+            import asyncio
+            
+            edge_lang_map = {
+                'es': 'es-ES-ElviraNeural', 'fr': 'fr-FR-DeniseNeural', 
+                'de': 'de-DE-KatjaNeural', 'it': 'it-IT-ElsaNeural', 
+                'pt': 'pt-BR-FranciscaNeural'
+            }
+            edge_voice = edge_lang_map.get(language, 'en-US-JennyNeural')
+            
+            async def generate_edge_audio():
+                communicate = edge_tts.Communicate(text, edge_voice)
+                temp_mp3 = f"/tmp/{self.device_name}_{language}_edge_temp.mp3"
+                await communicate.save(temp_mp3)
+                
+                # Convert to WAV and copy MP3
+                subprocess.run(['ffmpeg', '-i', temp_mp3, '-ar', '44100', '-ac', '2', paths['dubbed_voice_edge'], '-y'], 
+                              capture_output=True, check=True)
+                subprocess.run(['cp', temp_mp3, paths['dubbed_voice_edge_mp3']], check=True)
+                os.remove(temp_mp3)
+            
+            asyncio.run(generate_edge_audio())
+            results['edge'] = paths['dubbed_voice_edge']
+            print(f"Dubbing[{self.device_name}]: Edge-TTS speech generated for {language}")
+            
+        except Exception as e:
+            print(f"Dubbing[{self.device_name}]: Edge-TTS generation failed: {e}")
+        
+        return results
     
-    def mix_dubbed_audio(self, language: str, original_duration: float, original_video_dir: str) -> Optional[str]:
+    def mix_dubbed_audio(self, language: str, original_duration: float, original_video_dir: str, use_gtts: bool = True) -> Optional[str]:
         """Mix background audio with dubbed voice using fixed filenames."""
         try:
             from pydub import AudioSegment
@@ -107,7 +145,9 @@ class AudioDubbingHelpers:
             paths = self.get_file_paths(language, original_video_dir)
             
             background = AudioSegment.from_file(paths['background'])
-            dubbed_voice = AudioSegment.from_file(paths['dubbed_voice'])
+            # Use gTTS for video (keep current behavior)
+            dubbed_voice_file = paths['dubbed_voice_gtts'] if use_gtts else paths['dubbed_voice_edge']
+            dubbed_voice = AudioSegment.from_file(dubbed_voice_file)
             
             # Adjust durations
             target_ms = int(original_duration * 1000)
@@ -119,15 +159,14 @@ class AudioDubbingHelpers:
                 silence = AudioSegment.silent(duration=target_ms - len(dubbed_voice))
                 dubbed_voice = dubbed_voice + silence
             
-            # Mix with volume adjustment
-            background = background - 10  # Lower background
-            dubbed_voice = dubbed_voice + 5   # Boost voice
+            # Mix with volume adjustment - keep background at 100%
+            # background = background  # Keep original volume (100%)
             mixed = background.overlay(dubbed_voice)
             
             # Export to fixed filename (auto-overwrite)
             mixed.export(paths['mixed_audio'], format="wav")
             
-            print(f"Dubbing[{self.device_name}]: Audio mixed successfully")
+            print(f"Dubbing[{self.device_name}]: Audio mixed successfully using {'gTTS' if use_gtts else 'Edge-TTS'}")
             return paths['mixed_audio']
             
         except Exception as e:

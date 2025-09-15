@@ -618,10 +618,10 @@ class VideoRestartHelpers:
             # Clean translated text (remove AI prompt artifacts)
             clean_text = self._clean_translated_text(translation_result['translated_text'])
             
-            # Generate dubbed speech
-            dubbed_voice = self.dubbing_helpers.generate_dubbed_speech(
+            # Generate dubbed speech (both gTTS and Edge-TTS)
+            dubbed_voices = self.dubbing_helpers.generate_dubbed_speech(
                 clean_text, target_language, original_video_dir)
-            if not dubbed_voice:
+            if not dubbed_voices.get('gtts'):
                 return None
             
             # Get video duration
@@ -644,9 +644,16 @@ class VideoRestartHelpers:
             dubbed_filename = os.path.basename(dubbed_video)
             dubbed_url = self._build_video_url(dubbed_filename)
             
+            # Build URLs for both audio files
+            paths = self.dubbing_helpers.get_file_paths(target_language, original_video_dir)
+            gtts_mp3_url = self._build_video_url(os.path.basename(paths['dubbed_voice_gtts_mp3']))
+            edge_mp3_url = self._build_video_url(os.path.basename(paths['dubbed_voice_edge_mp3']))
+            
             print(f"RestartHelpers[{self.device_name}]: Dubbing completed")
             return {
                 'success': True,
+                'gtts_audio_url': gtts_mp3_url,
+                'edge_audio_url': edge_mp3_url,
                 'dubbed_video_url': dubbed_url,
                 'target_language': target_language,
                 'video_id': f"{video_id}_dubbed_{target_language}"
