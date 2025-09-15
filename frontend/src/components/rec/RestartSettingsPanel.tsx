@@ -421,10 +421,10 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
               }}
             >
               <MenuItem value={0}>0ms</MenuItem>
-              <MenuItem value={110}>+110ms</MenuItem>
+              <MenuItem value={100}>+100ms</MenuItem>
               <MenuItem value={200}>+200ms</MenuItem>
               <MenuItem value={300}>+300ms</MenuItem>
-              <MenuItem value={-110}>-110ms</MenuItem>
+              <MenuItem value={-100}>-100ms</MenuItem>
               <MenuItem value={-200}>-200ms</MenuItem>
               <MenuItem value={-300}>-300ms</MenuItem>
             </Select>
