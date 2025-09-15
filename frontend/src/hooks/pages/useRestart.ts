@@ -461,9 +461,10 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
   // EFFECTS
   // =====================================================
 
+  // Auto-execute on mount only (not on dependency changes)
   useEffect(() => {
     executeVideoGeneration();
-  }, [executeVideoGeneration]);
+  }, []); // Empty dependency array - only run on mount
 
   // Cleanup on unmount
   useEffect(() => {
