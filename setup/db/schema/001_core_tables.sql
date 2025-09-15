@@ -37,8 +37,11 @@ CREATE TABLE device (
     model text,
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now(),
-    controller_configs jsonb COMMENT ON COLUMN device.controller_configs IS 'controller config'
+    controller_configs jsonb
 );
+
+-- Add comment for controller_configs column
+COMMENT ON COLUMN device.controller_configs IS 'controller config';
 
 -- controllers table removed - does not exist in current database
 
