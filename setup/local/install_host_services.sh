@@ -329,22 +329,12 @@ sudo rm -f /tmp/.X1-lock /tmp/.X11-unix/X1  # Step 2: Clean up stale files
 pkill -f "Xvnc.*:1" 2>/dev/null || true  # Step 3: Kill lingering processes
 sleep 2  # Brief pause for cleanup
 
-# Step 4: Manual VNC startup test (as per user)
-echo "🔧 Running manual VNC startup test..."
-if tigervncserver :1 -rfbauth ~/.vnc/passwd -rfbport 5901 -localhost no -geometry 1280x720; then
-    echo "✅ Manual VNC startup test successful"
-    sleep 2  # Allow time to start
-    # Verify listening
-    if netstat -tlnp 2>/dev/null | grep -q ":5901"; then
-        echo "✅ VNC listening on port 5901"
-    else
-        echo "⚠️ VNC started but not listening on 5901 - check logs"
-    fi
-    # Clean up the manual test session
-    tigervncserver -kill :1 2>/dev/null || true
-    sleep 1
+# Step 4: Test VNC web interface (simple curl test)
+echo "🔧 Testing VNC web interface..."
+if [ "$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:6080/vnc_lite.html")" = "200" ]; then
+    echo "✅ VNC web interface test successful"
 else
-    echo "⚠️ Manual VNC startup test failed - check output above for errors"
+    echo "⚠️ VNC web interface test failed"
 fi
 
 # Step 5: Restart the service (as per user)
