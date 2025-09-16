@@ -47,6 +47,28 @@ def generate_restart_video():
         print(f"[SERVER] 💥 [@server_restart_routes:generateRestartVideo] Exception: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
+@server_restart_bp.route('/analysisStatus/<video_id>', methods=['GET'])
+def get_analysis_status(video_id):
+    """Get analysis status for polling"""
+    try:
+        device_id = request.args.get('device_id', 'device1')
+        host = request.args.get('host')
+        
+        if not host:
+            return jsonify({'success': False, 'error': 'Host required'}), 400
+        
+        response_data, status_code = proxy_to_host_with_params(
+            f'/host/restart/analysisStatus/{video_id}',
+            'GET',
+            {},
+            {'device_id': device_id}
+        )
+        
+        return jsonify(response_data), status_code
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @server_restart_bp.route('/analyzeRestartAudio', methods=['POST'])
 def analyze_restart_audio():
     """Analyze audio transcript"""

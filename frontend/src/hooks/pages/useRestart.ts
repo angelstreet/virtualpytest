@@ -117,7 +117,7 @@ interface UseRestartReturn {
   
   // Dubbing state
   dubbedVideos: Record<string, string>;
-  dubbedAudioUrls: Record<string, { gtts: string; edge: string }>;
+  dubbedAudioUrls: Record<string, string>;
   isDubbing: boolean;
   dubbingCache: Record<string, boolean>;
   
@@ -226,11 +226,11 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
   const [isReady, setIsReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [processingTime] = useState<number | null>(null);
-  const [reportUrl, setReportUrl] = useState<string | null>(null);
+  const [reportUrl] = useState<string | null>(null);
   
   // Dubbing state
   const [dubbedVideos, setDubbedVideos] = useState<Record<string, string>>({});
-  const [dubbedAudioUrls, setDubbedAudioUrls] = useState<Record<string, { gtts: string; edge: string }>>({});
+  const [dubbedAudioUrls, setDubbedAudioUrls] = useState<Record<string, string>>({});
   const [isDubbing, setIsDubbing] = useState(false);
   
   // Translation state
@@ -275,13 +275,9 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
   const isRequestInProgress = useRef(false);
   const hasExecutedOnMount = useRef(false);
   
-  // Report generation deduplication protection
-  const isReportGenerationInProgress = useRef(false);
-  const currentReportVideoId = useRef<string | null>(null);
   
-  // Toast notifications and timing
+  // Toast notifications
   const toast = useToast();
-  const analysisStartTime = useRef<number | null>(null);
   
   const [analysisResults, setAnalysisResults] = useState<AnalysisResults>({
     audio: null,
@@ -298,56 +294,50 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
   });
 
   // =====================================================
+  // POLLING FUNCTIONS
+  // =====================================================
+  
+  const startPolling = useCallback((videoId: string) => {
+    const pollInterval = setInterval(async () => {
+      try {
+        const response = await fetch(buildServerUrl(`/server/restart/analysisStatus/${videoId}?device_id=${device.device_id}&host=${encodeURIComponent(JSON.stringify(host))}`));
+        const data = await response.json();
+        
+        if (data.success && data.status) {
+          const status = data.status;
+          
+          // Update visual analysis when complete
+          if (status.visual === 'completed' && analysisProgress.subtitles !== 'completed') {
+            setAnalysisResults(prev => ({
+              ...prev,
+              subtitles: status.subtitle_analysis,
+              videoDescription: status.video_analysis
+            }));
+            setAnalysisProgress(prev => ({ ...prev, subtitles: 'completed', summary: 'completed' }));
+            toast.showSuccess('✅ Analysis complete! Results available in settings.');
+          }
+          
+          // Stop polling when visual analysis is done
+          if (status.visual === 'completed') {
+            clearInterval(pollInterval);
+            if (status.heavy === 'completed') {
+              toast.showSuccess('🎬 All processing complete! Dubbing and timing now instant.');
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Polling error:', error);
+      }
+    }, 2000);
+    
+    // Cleanup after 2 minutes
+    setTimeout(() => clearInterval(pollInterval), 120000);
+  }, [host, device, analysisProgress, toast]);
+
+  // =====================================================
   // CORE FUNCTIONS
   // =====================================================
 
-  const generateReportInBackground = useCallback(async (reportKey: string, videoData: any, audioData: any, combinedData: any) => {
-    try {
-      console.log(`[@hook:useRestart] 📊 Starting report generation for ${reportKey}`);
-      setAnalysisProgress(prev => ({ ...prev, report: 'loading' }));
-      toast.showInfo('📊 Generating report...', { duration: 3000 });
-      
-      const reportResponse = await fetch(buildServerUrl('/server/restart/generateRestartReport'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          host,
-          device_id: device.device_id || 'device1',
-          video_url: videoData.video_url,
-          analysis_data: {
-            audio_analysis: audioData.audio_analysis,
-            subtitle_analysis: combinedData.subtitle_analysis,
-            video_analysis: combinedData.video_analysis,
-            dubbing_analysis: {
-              success: Object.keys(dubbedAudioUrls).length > 0,
-              dubbed_audio_urls: dubbedAudioUrls
-            }
-          }
-        })
-      });
-      
-      const reportData = await reportResponse.json();
-      
-      if (reportData.success && reportData.report_url) {
-        setReportUrl(reportData.report_url);
-        setAnalysisProgress(prev => ({ ...prev, report: 'completed' }));
-        console.log(`[@hook:useRestart] ✅ Report generation completed: ${reportData.report_url}`);
-        toast.showSuccess('📊 Report ready!', { duration: 4000 });
-      } else {
-        setAnalysisProgress(prev => ({ ...prev, report: 'error' }));
-        console.log(`[@hook:useRestart] ❌ Report generation failed: ${reportData.error || 'Unknown error'}`);
-        toast.showError('❌ Report generation failed', { duration: 5000 });
-      }
-    } catch (reportError) {
-      setAnalysisProgress(prev => ({ ...prev, report: 'error' }));
-      console.error(`[@hook:useRestart] ❌ Report generation error:`, reportError);
-      toast.showError('❌ Report generation failed', { duration: 5000 });
-    } finally {
-      // Clear report generation flags
-      isReportGenerationInProgress.current = false;
-      currentReportVideoId.current = null;
-    }
-  }, [host, device, toast]);
 
   const executeVideoGeneration = useCallback(async () => {
     // Prevent duplicate calls (React StrictMode protection)
@@ -396,6 +386,11 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
       // Show success toast with generation time
       toast.showSuccess(`🎬 Video generated in ${videoGenerationDuration}s`, { duration: 4000 });
       
+      // Start polling for background processing
+      if (includeAudioAnalysis && videoData.video_id) {
+        startPolling(videoData.video_id);
+      }
+      
       // Keep "generating" state visible for 1.5 seconds so user sees the process
       setTimeout(() => {
         console.log(`[@hook:useRestart] 🎬 Switching from "generating" to "ready" state`);
@@ -405,160 +400,6 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
       if (!includeAudioAnalysis) {
         console.log(`[@hook:useRestart] ✅ Analysis disabled - video player ready for immediate use`);
         return;
-      }
-
-      // Show toast notification and start timing for AI analysis
-      analysisStartTime.current = Date.now();
-      
-      // Small delay to ensure video player renders smoothly before starting heavy analysis
-      console.log(`[@hook:useRestart] 🎬 Allowing video player to render before starting analysis...`);
-      await new Promise(resolve => setTimeout(resolve, 100)); // 100ms delay
-      
-      toast.showInfo('🤖 AI Analysis starting...', { duration: 3000 });
-
-      // Stage 2-4: Run analysis sequentially (no race conditions)
-      console.log(`[@hook:useRestart] Starting sequential analysis for video_id: ${videoData.video_id}`);
-      const segmentFiles = videoData.analysis_data?.segment_files || [];
-      console.log(`[@hook:useRestart] Segment files available:`, segmentFiles.length);
-      if (segmentFiles.length > 0) {
-        console.log(`[@hook:useRestart] First segment file:`, segmentFiles[0]);
-        console.log(`[@hook:useRestart] Last segment file:`, segmentFiles[segmentFiles.length - 1]);
-      } else {
-        console.warn(`[@hook:useRestart] ⚠️  No segment files received - audio analysis will fall back to globbing`);
-      }
-      
-      try {
-        // Step 2: Audio Analysis
-        console.log(`[@hook:useRestart] Step 2: Starting audio analysis`);
-        console.log(`[@hook:useRestart] Step 2: Passing ${segmentFiles.length} segment files to audio analysis`);
-        setAnalysisProgress(prev => ({ ...prev, audio: 'loading' }));
-        
-        const audioResponse = await fetch(buildServerUrl('/server/restart/analyzeRestartAudio'), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            host,
-            device_id: device.device_id || 'device1',
-            video_id: videoData.video_id,
-            segment_files: segmentFiles.length > 0 ? segmentFiles : null, // Pass segment files from video generation
-          }),
-        });
-        
-        const audioData = await audioResponse.json();
-        
-        // Handle duplicate request (409) - treat as success since analysis is already running
-        if (audioResponse.status === 409 && audioData.code === 'DUPLICATE_REQUEST') {
-          console.log(`[@hook:useRestart] Step 2: Audio analysis already in progress, skipping`);
-          setAnalysisProgress(prev => ({ ...prev, audio: 'completed' }));
-        } else if (audioData.success && audioData.audio_analysis) {
-          setAnalysisResults(prev => ({ ...prev, audio: {
-            success: audioData.audio_analysis.success,
-            combined_transcript: audioData.audio_analysis.combined_transcript || '',
-            detected_language: audioData.audio_analysis.detected_language || 'unknown',
-            speech_detected: audioData.audio_analysis.speech_detected || false,
-            confidence: audioData.audio_analysis.confidence || 0,
-            execution_time_ms: 0,
-          }}));
-          setAnalysisProgress(prev => ({ ...prev, audio: 'completed' }));
-          console.log(`[@hook:useRestart] Step 2: Audio analysis completed`);
-        } else {
-          setAnalysisProgress(prev => ({ ...prev, audio: 'error' }));
-          console.log(`[@hook:useRestart] Step 2: Audio analysis failed`);
-        }
-        
-        // Step 3: Combined Subtitle + Summary Analysis (OPTIMIZED)
-        console.log(`[@hook:useRestart] Step 3: Starting combined subtitle + summary analysis`);
-        setAnalysisProgress(prev => ({ ...prev, subtitles: 'loading', summary: 'loading' }));
-        
-        const combinedResponse = await fetch(buildServerUrl('/server/restart/analyzeRestartComplete'), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            host,
-            device_id: device.device_id || 'device1',
-            video_id: videoData.video_id,
-            screenshot_urls: videoData.screenshot_urls || [],
-          }),
-        });
-        
-        const combinedData = await combinedResponse.json();
-        
-        // Handle duplicate request (409) - treat as success since analysis is already running
-        if (combinedResponse.status === 409 && combinedData.code === 'DUPLICATE_REQUEST') {
-          console.log(`[@hook:useRestart] Step 3: Combined analysis already in progress, skipping`);
-          setAnalysisProgress(prev => ({ ...prev, subtitles: 'completed', summary: 'completed' }));
-        } else if (combinedData.success && combinedData.subtitle_analysis && combinedData.video_analysis) {
-          // Update both subtitle and video description results from single response
-          setAnalysisResults(prev => ({ 
-            ...prev, 
-            subtitles: {
-              success: combinedData.subtitle_analysis.success,
-              subtitles_detected: combinedData.subtitle_analysis.subtitles_detected || false,
-              extracted_text: combinedData.subtitle_analysis.extracted_text || '',
-              detected_language: combinedData.subtitle_analysis.detected_language || 'unknown',
-              execution_time_ms: 0,
-              frame_subtitles: combinedData.subtitle_analysis.frame_subtitles || [],
-            },
-            videoDescription: {
-              frame_descriptions: combinedData.video_analysis.frame_descriptions || [],
-              video_summary: combinedData.video_analysis.video_summary || '',
-              frames_analyzed: combinedData.video_analysis.frames_analyzed || 0,
-              execution_time_ms: 0,
-            }
-          }));
-          setAnalysisProgress(prev => ({ ...prev, subtitles: 'completed', summary: 'completed' }));
-          console.log(`[@hook:useRestart] Step 3: Combined analysis completed (subtitles + summary)`);
-          
-          // Show success toast for analysis completion - user can now see results!
-          toast.showSuccess('✅ Analysis complete! Results available in settings.', { duration: 4000 });
-          
-          // Step 4: Generate Report in background (non-blocking)
-          const reportKey = videoData.video_id;
-          
-          // Deduplication protection - prevent duplicate report generation
-          if (isReportGenerationInProgress.current && currentReportVideoId.current === reportKey) {
-            console.log(`[@hook:useRestart] Step 4: Report generation already in progress for ${reportKey}, ignoring duplicate request`);
-            return;
-          }
-          
-          // Mark report generation as in progress
-          isReportGenerationInProgress.current = true;
-          currentReportVideoId.current = reportKey;
-          
-          // Start report generation in background (don't await)
-          generateReportInBackground(reportKey, videoData, audioData, combinedData);
-        } else {
-          setAnalysisProgress(prev => ({ ...prev, subtitles: 'error', summary: 'error', report: 'error' }));
-          console.log(`[@hook:useRestart] Step 3: Combined analysis failed`);
-        }
-        
-        console.log(`[@hook:useRestart] Core analysis steps completed - report generating in background`);
-        
-      } catch (analysisError) {
-        // Handle AbortError separately (not a real error)
-        if (analysisError instanceof Error && analysisError.name === 'AbortError') {
-          console.log(`[@hook:useRestart] Analysis aborted (duplicate call prevention)`);
-          return;
-        }
-        
-        console.error(`[@hook:useRestart] Analysis error:`, analysisError);
-        
-        // Show error toast with timing if available
-        if (analysisStartTime.current) {
-          const analysisTime = Math.round((Date.now() - analysisStartTime.current) / 1000);
-          toast.showError(`❌ AI Analysis failed after ${analysisTime}s`, { duration: 5000 });
-        } else {
-          toast.showError('❌ AI Analysis failed', { duration: 5000 });
-        }
-        
-        // Don't fail the entire process if analysis fails - video is still playable
-        setAnalysisProgress(prev => ({
-          ...prev,
-          audio: prev.audio === 'loading' ? 'error' : prev.audio,
-          subtitles: prev.subtitles === 'loading' ? 'error' : prev.subtitles,
-          summary: prev.summary === 'loading' ? 'error' : prev.summary,
-          report: prev.report === 'loading' ? 'error' : prev.report,
-        }));
       }
 
     } catch (err) {
@@ -729,14 +570,11 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
         [language]: step4Result.dubbed_video_url
       }));
       
-      // Store both MP3 URLs for comparison (from step 4 result)
-      if (step4Result.gtts_audio_url && step4Result.edge_audio_url) {
+      // Store Edge MP3 URL only
+      if (step4Result.edge_audio_url) {
         setDubbedAudioUrls(prev => ({
           ...prev,
-          [language]: {
-            gtts: step4Result.gtts_audio_url,
-            edge: step4Result.edge_audio_url
-          }
+          [language]: step4Result.edge_audio_url
         }));
       }
       

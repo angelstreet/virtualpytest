@@ -411,6 +411,20 @@ def generate_restart_report():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
+@host_restart_bp.route('/analysisStatus/<video_id>', methods=['GET'])
+def get_analysis_status(video_id):
+    """Get analysis status for polling"""
+    try:
+        device_id = request.args.get('device_id', 'device1')
+        av_controller = get_controller(device_id, 'av')
+        if not av_controller:
+            return jsonify({'success': False, 'error': f'No AV controller for {device_id}'}), 404
+        
+        status = av_controller.restart_helpers.get_status(video_id)
+        return jsonify({'success': True, 'status': status})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @host_restart_bp.route('/analyzeVideo', methods=['POST'])
 def analyze_restart_video():
     """Async AI analysis for restart video - subtitle detection + video descriptions"""

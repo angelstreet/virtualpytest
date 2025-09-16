@@ -11,6 +11,8 @@ import uuid
 import glob
 import re
 import subprocess
+import threading
+import json
 from datetime import datetime
 from typing import Dict, Any, Optional, List, Tuple
 
@@ -42,6 +44,10 @@ class VideoRestartHelpers:
         
         # Translation cache: {video_id: {language: {frame_data: {...}}}}
         self._translation_cache = {}
+        
+        # Status cache directory
+        self._status_dir = os.path.join(self.video_capture_path, "status")
+        os.makedirs(self._status_dir, exist_ok=True)
     
     def generate_restart_video_only(self, duration_seconds: float = 10.0) -> Optional[Dict[str, Any]]:
         """Generate video only - fast response"""
@@ -346,6 +352,9 @@ class VideoRestartHelpers:
             }
             
             print(f"RestartHelpers[{self.device_name}]: Fast generation complete - Video ID: {video_id}")
+            
+            # Start background processing
+            threading.Thread(target=self._bg_process, args=(video_id, segment_files, screenshot_urls, audio_result), daemon=True).start()
             
             return {
                 'success': True,
@@ -1197,3 +1206,82 @@ class VideoRestartHelpers:
         base_name = re.sub(timing_pattern, '', filename)
         
         return base_name, timing_ms
+    
+    # =============================================================================
+    # Background Processing Methods
+    # =============================================================================
+    
+    def _bg_process(self, video_id: str, segment_files: List[tuple], screenshot_urls: List[str], audio_result: Dict) -> None:
+        """Start 3 parallel threads"""
+        self._save_status(video_id, {'audio': 'loading', 'visual': 'loading', 'heavy': 'loading'})
+        
+        threading.Thread(target=self._t1_audio, args=(video_id, audio_result), daemon=True).start()
+        threading.Thread(target=self._t2_visual, args=(video_id, screenshot_urls), daemon=True).start()
+        threading.Thread(target=self._t3_heavy, args=(video_id, audio_result.get('combined_transcript', '')), daemon=True).start()
+    
+    def _t1_audio(self, video_id: str, audio_result: Dict) -> None:
+        """Thread 1: Audio already done"""
+        self._save_status(video_id, {'audio': 'completed', 'audio_data': audio_result})
+    
+    def _t2_visual(self, video_id: str, screenshot_urls: List[str]) -> None:
+        """Thread 2: Visual analysis"""
+        try:
+            result = self.analyze_restart_complete(video_id, screenshot_urls)
+            self._save_status(video_id, {'visual': 'completed', 'subtitle_analysis': result.get('subtitle_analysis'), 'video_analysis': result.get('video_analysis')})
+        except Exception as e:
+            self._save_status(video_id, {'visual': 'error', 'visual_error': str(e)})
+    
+    def _t3_heavy(self, video_id: str, transcript: str) -> None:
+        """Thread 3: Heavy sequential processing"""
+        try:
+            # Audio prep
+            self._save_status(video_id, {'heavy': 'audio_prep'})
+            if not self.prepare_dubbing_audio(video_id).get('success'):
+                raise Exception("Audio prep failed")
+            
+            # Batch dubbing
+            self._save_status(video_id, {'heavy': 'dubbing'})
+            dubbed = {}
+            for lang in ['es', 'fr', 'de', 'it', 'pt']:
+                if self.generate_edge_speech(video_id, lang, transcript).get('success'):
+                    result = self.create_dubbed_video(video_id, lang, 'edge')
+                    if result.get('success'):
+                        dubbed[lang] = result.get('dubbed_video_url')
+            
+            # Batch timing
+            self._save_status(video_id, {'heavy': 'timing'})
+            original_video = os.path.join(self.video_capture_path, "restart_original_video.mp4")
+            for offset in [300, 200, 100, -100, -200, -300]:
+                self.adjust_video_audio_timing(original_video, offset, "original")
+                for lang, url in dubbed.items():
+                    self.adjust_video_audio_timing(url, offset, lang)
+            
+            self._save_status(video_id, {'heavy': 'completed', 'dubbed_videos': dubbed})
+        except Exception as e:
+            self._save_status(video_id, {'heavy': 'error', 'heavy_error': str(e)})
+    
+    def _save_status(self, video_id: str, update: Dict) -> None:
+        """Save status for polling"""
+        file_path = os.path.join(self._status_dir, f"{video_id}.json")
+        status = {}
+        if os.path.exists(file_path):
+            try:
+                with open(file_path, 'r') as f:
+                    status = json.load(f)
+            except:
+                pass
+        status.update(update)
+        status['updated'] = time.time()
+        with open(file_path, 'w') as f:
+            json.dump(status, f)
+    
+    def get_status(self, video_id: str) -> Dict:
+        """Get status for polling"""
+        file_path = os.path.join(self._status_dir, f"{video_id}.json")
+        if os.path.exists(file_path):
+            try:
+                with open(file_path, 'r') as f:
+                    return json.load(f)
+            except:
+                pass
+        return {'error': 'not_found'}
