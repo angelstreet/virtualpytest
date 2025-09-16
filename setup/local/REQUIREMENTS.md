@@ -35,7 +35,9 @@ sudo apt-get install -y tesseract-ocr tesseract-ocr-eng tesseract-ocr-fra tesser
 
 #### **🖥️ VNC & Remote Desktop (for backend_host)**
 ```bash
-sudo apt-get install -y tigervnc-standalone-server xvfb fluxbox
+# Clean installation - removes conflicting VNC packages first
+sudo apt-get remove -y realvnc-vnc-server realvnc-vnc-viewer vnc4server tightvncserver 2>/dev/null || true
+sudo apt-get install -y tigervnc-standalone-server xvfb fluxbox novnc websockify
 ```
 
 #### **🌐 Web Browser (for browser automation)**
@@ -68,11 +70,15 @@ sudo apt-get install -y lsof net-tools psmisc
 ## 🚀 **Quick Install (One Command)**
 
 ```bash
+# Clean VNC installation (remove conflicts first)
+sudo apt-get remove -y realvnc-vnc-server realvnc-vnc-viewer vnc4server tightvncserver 2>/dev/null || true
+
+# Install all requirements
 sudo apt-get update && sudo apt-get install -y \
     build-essential git curl wget software-properties-common \
     ffmpeg imagemagick \
     tesseract-ocr tesseract-ocr-eng tesseract-ocr-fra tesseract-ocr-deu tesseract-ocr-ita \
-    tigervnc-standalone-server xvfb fluxbox \
+    tigervnc-standalone-server xvfb fluxbox novnc websockify \
     epiphany-browser chromium-browser \
     inotify-tools lsof net-tools psmisc
 ```
@@ -87,8 +93,8 @@ ffmpeg -version
 # Check OCR
 tesseract --version
 
-# Check VNC
-vncserver -help
+# Check VNC (should show TigerVNC)
+vncserver -help | head -1
 
 # Check file monitoring
 which inotifywait

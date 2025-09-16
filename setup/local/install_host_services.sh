@@ -104,9 +104,13 @@ After=network.target
 [Service]
 Type=forking
 User=$USER
-ExecStart=/usr/bin/vncserver :1 -rfbauth /home/$USER/.vnc/passwd -rfbport 5901 -localhost no
+ExecStartPre=/bin/bash -c 'if [ -f /tmp/.X1-lock ]; then rm -f /tmp/.X1-lock; fi'
+ExecStartPre=/bin/bash -c 'if [ -S /tmp/.X11-unix/X1 ]; then rm -f /tmp/.X11-unix/X1; fi'
+ExecStart=/usr/bin/vncserver :1 -rfbauth /home/$USER/.vnc/passwd -rfbport 5901 -localhost no -geometry 1280x720
 ExecStop=/usr/bin/vncserver -kill :1
+PIDFile=/home/$USER/.vnc/%H:1.pid
 Restart=on-failure
+RestartSec=5
 
 [Install]
 WantedBy=multi-user.target
@@ -191,6 +195,13 @@ echo "🖥️ Setting up VNC server with default configuration..."
 
 # Make sure we continue even if VNC setup fails
 set +e  # Disable exit on error for VNC setup
+
+# Clean up any existing VNC sessions for display :1
+echo "🧹 Cleaning up existing VNC sessions..."
+pkill -f "Xvnc.*:1" 2>/dev/null || true
+vncserver -kill :1 2>/dev/null || true
+rm -f /tmp/.X1-lock 2>/dev/null || true
+rm -f /tmp/.X11-unix/X1 2>/dev/null || true
 
 # Create VNC directory
 mkdir -p ~/.vnc
@@ -285,5 +296,17 @@ echo "🚀 Quick VNC Test:"
 echo "   vncserver :1                        # Start VNC server manually"
 echo "   xrandr -display :1 -s 1280x720     # Set display resolution"
 echo "   vncserver -kill :1                  # Stop VNC server"
+echo ""
+echo "🔧 VNC Troubleshooting:"
+echo "   sudo systemctl status vncserver     # Check service status"
+echo "   sudo journalctl -u vncserver -f    # View service logs"
+echo "   sudo systemctl restart vncserver   # Restart VNC service"
+echo "   ps aux | grep vnc                  # Check running VNC processes"
+echo ""
+echo "⚠️  Common VNC Issues:"
+echo "   - If VNC shows 'inactive (dead)': Check for conflicting VNC installations"
+echo "   - Multiple VNC packages: Remove conflicting packages (realvnc-vnc-server vs tigervnc)"
+echo "   - Display lock files: Service automatically cleans /tmp/.X1-lock and /tmp/.X11-unix/X1"
+echo "   - Permission issues: Ensure ~/.vnc/passwd has 600 permissions"
 echo ""
 echo "💡 Note: rename and cleanup are handled internally by stream.service" 

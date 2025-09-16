@@ -137,6 +137,7 @@ echo "🖥️ Fresh VNC Configuration:"
 echo "   - VNC Server: localhost:5901 (display :1)"
 echo "   - Default Password: admin1234"
 echo "   - Web Interface: http://localhost:6080"
+echo "   - Remote Access: Use device IP addresses shown in Network Information section"
 
 echo ""
 echo "🚀 Launch VirtualPyTest:"
@@ -151,6 +152,7 @@ echo ""
 echo "🔧 Individual fresh installs:"
 echo "   ./setup/local/install_db.sh --force-clean       - Fresh database only"
 echo "   ./setup/local/install_host_services.sh          - Fresh host services setup"
+echo "   ./setup/local/cleanup_vnc.sh                    - Clean VNC conflicts (TigerVNC only)"
 
 echo ""
 echo "=================================================================="
@@ -178,6 +180,43 @@ for service_info in "${services[@]}"; do
         echo "   ❌ $display_name: Not enabled"
     fi
 done
+
+echo ""
+echo "🌐 Network Information:"
+# Get device IP addresses
+if command -v ip >/dev/null 2>&1; then
+    # Use ip command (preferred on modern systems)
+    DEVICE_IPS=$(ip route get 1.1.1.1 2>/dev/null | grep -oP 'src \K\S+' 2>/dev/null || echo "")
+    if [ -n "$DEVICE_IPS" ]; then
+        echo "   📍 Primary IP: $DEVICE_IPS"
+    fi
+    
+    # Show all network interfaces with IPs
+    echo "   🔗 All Network Interfaces:"
+    ip -4 addr show 2>/dev/null | grep -E "^\d+:|inet " | while read -r line; do
+        if [[ $line =~ ^[0-9]+: ]]; then
+            INTERFACE=$(echo "$line" | cut -d: -f2 | tr -d ' ')
+            echo -n "      $INTERFACE: "
+        elif [[ $line =~ inet ]]; then
+            IP=$(echo "$line" | awk '{print $2}' | cut -d/ -f1)
+            echo "$IP"
+        fi
+    done 2>/dev/null || echo "      Unable to detect network interfaces"
+elif command -v ifconfig >/dev/null 2>&1; then
+    # Fallback to ifconfig
+    echo "   🔗 Network Interfaces (ifconfig):"
+    ifconfig 2>/dev/null | grep -E "^[a-zA-Z0-9]+:" -A 1 | grep -E "inet |^[a-zA-Z0-9]+:" | while read -r line; do
+        if [[ $line =~ ^[a-zA-Z0-9]+: ]]; then
+            INTERFACE=$(echo "$line" | cut -d: -f1)
+            echo -n "      $INTERFACE: "
+        elif [[ $line =~ inet ]]; then
+            IP=$(echo "$line" | awk '{print $2}' | sed 's/addr://')
+            echo "$IP"
+        fi
+    done 2>/dev/null || echo "      Unable to detect network interfaces"
+else
+    echo "   ⚠️ Network detection tools not available (ip/ifconfig)"
+fi
 
 echo ""
 echo "🚀 Ready to Launch:"
