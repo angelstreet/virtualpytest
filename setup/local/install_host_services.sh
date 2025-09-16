@@ -28,20 +28,17 @@ echo "📦 Installing backend_host dependencies..."
 # Activate virtual environment for service file generation
 source venv/bin/activate
 
-# Create service configuration
-echo "⚙️ Creating service configuration from examples..."
+# Ensure backend_host .env configuration exists
+echo "⚙️ Setting up backend_host environment configuration..."
 
-# Create backend_host config directory
-mkdir -p backend_host/config
-
-# Copy configuration from examples
-if [ ! -f "backend_host/config/host_config.json" ]; then
-    echo "📋 Copying default host configuration..."
-    cp backend_host/examples/config/host_config.example.json backend_host/config/host_config.json
-    echo "✅ Configuration copied to backend_host/config/host_config.json"
+# Ensure .env file exists for backend_host (already done by install_host.sh, but verify)
+if [ ! -f "backend_host/src/.env" ]; then
+    echo "📋 Creating backend_host .env from template..."
+    cp backend_host/src/env.example backend_host/src/.env
+    echo "✅ Configuration copied to backend_host/src/.env"
     echo "⚠️  Please edit this file to match your hardware setup"
 else
-    echo "⚠️  Configuration file already exists, skipping copy"
+    echo "✅ backend_host .env already exists"
 fi
 
 # Create systemd service files
@@ -138,23 +135,8 @@ sudo cp /tmp/vncserver.service /etc/systemd/system/
 sudo cp /tmp/novnc.service /etc/systemd/system/
 sudo systemctl daemon-reload
 
-# Copy management scripts from examples
-echo "🛠️ Copying service management scripts..."
-if [ ! -f "backend_host/manage_services.sh" ]; then
-    cp backend_host/examples/scripts/manage_services.example.sh backend_host/manage_services.sh
-    chmod +x backend_host/manage_services.sh
-    echo "✅ Service manager copied to backend_host/manage_services.sh"
-else
-    echo "⚠️  Service manager already exists, skipping copy"
-fi
-
-if [ ! -f "backend_host/setup_host_environment.sh" ]; then
-    cp backend_host/examples/scripts/setup_host_environment.example.sh backend_host/setup_host_environment.sh
-    chmod +x backend_host/setup_host_environment.sh
-    echo "✅ Environment setup copied to backend_host/setup_host_environment.sh"
-else
-    echo "⚠️  Environment setup already exists, skipping copy"
-fi
+# Note: Service management scripts would be copied from examples if they existed
+echo "ℹ️  Service management scripts can be created manually if needed"
 
 # VNC Server Setup
 echo ""
@@ -211,22 +193,17 @@ echo ""
 echo "✅ backend_host services installation completed!"
 echo ""
 echo "📋 Configuration files created:"
-echo "   backend_host/config/host_config.json       # Device configuration"
-echo "   backend_host/manage_services.sh            # Service management"
-echo "   backend_host/setup_host_environment.sh     # Environment setup"
+echo "   backend_host/src/.env                      # Device and hardware configuration"
 echo ""
 echo "📋 Next steps (in order):"
 echo "1. Configure your devices FIRST:"
-echo "   nano backend_host/config/host_config.json"
+echo "   nano backend_host/src/.env"
 echo ""
-echo "2. Setup host environment:"
-echo "   ./backend_host/setup_host_environment.sh"
-echo ""
-echo "3. Manage services:"
-echo "   ./backend_host/manage_services.sh enable    # Enable auto-start"
-echo "   ./backend_host/manage_services.sh start     # Start all services"
-echo "   ./backend_host/manage_services.sh status    # Check status"
-echo "   ./backend_host/manage_services.sh logs      # View logs"
+echo "2. Manage services using systemctl:"
+echo "   sudo systemctl enable <service_name>       # Enable auto-start"
+echo "   sudo systemctl start <service_name>        # Start service"
+echo "   sudo systemctl status <service_name>       # Check status"
+echo "   sudo journalctl -u <service_name> -f       # View logs"
 echo ""
 echo "🔧 Available services (matching backend_host/config/services/):"
 echo "   - monitor.service                   # Capture analysis & alerts"
