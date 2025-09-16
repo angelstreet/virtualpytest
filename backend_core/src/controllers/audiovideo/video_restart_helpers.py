@@ -1215,9 +1215,12 @@ class VideoRestartHelpers:
     def _t2_visual(self, video_id: str, screenshot_urls: List[str]) -> None:
         """Thread 2: Visual analysis"""
         try:
+            print(f"RestartHelpers[{self.device_name}]: Starting visual analysis for {video_id}")
             result = self.analyze_restart_complete(video_id, screenshot_urls)
+            print(f"RestartHelpers[{self.device_name}]: Visual analysis completed for {video_id}")
             self._save_status(video_id, {'visual': 'completed', 'subtitle_analysis': result.get('subtitle_analysis'), 'video_analysis': result.get('video_analysis')})
         except Exception as e:
+            print(f"RestartHelpers[{self.device_name}]: Visual analysis failed for {video_id}: {e}")
             self._save_status(video_id, {'visual': 'error', 'visual_error': str(e)})
     
     def _t3_heavy(self, video_id: str) -> None:

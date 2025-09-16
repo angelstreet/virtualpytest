@@ -324,6 +324,7 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
           
           // Update visual analysis when complete
           if (status.visual === 'completed' && !notifiedRef.current.visual) {
+            console.log('[@hook:useRestart] 🎯 Visual analysis completed, updating UI and generating report');
             setAnalysisResults(prev => ({
               ...prev,
               subtitles: status.subtitle_analysis,
@@ -334,6 +335,7 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
             notifiedRef.current.visual = true;
             
             // Generate report when visual analysis is complete
+            console.log('[@hook:useRestart] 📊 Triggering report generation');
             generateReport(status);
           }
           
