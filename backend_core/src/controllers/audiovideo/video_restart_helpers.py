@@ -666,26 +666,10 @@ class VideoRestartHelpers:
             else:
                 # For audio dubbing, translate the clean transcript directly (no frame structure)
                 # Use the same Google Translate approach as batch translation (which works)
-                try:
-                    from googletrans import Translator
-                    translator = Translator()
-                    # Auto-detect source language instead of assuming English
-                    lang_map = {'English':'en','French':'fr','Spanish':'es','German':'de','Italian':'it','Portuguese':'pt','Russian':'ru','Japanese':'ja','Korean':'ko','Chinese':'zh','Arabic':'ar','Hindi':'hi'}
-                    target_code = lang_map.get(target_language, target_language)
-                    google_result = translator.translate(existing_transcript, dest=target_code)
-                    detected_source = google_result.src or 'auto'
-                    translation_result = {
-                        'success': True,
-                        'translated_text': google_result.text,
-                        'source_language': detected_source,
-                        'target_language': target_language,
-                        'method': 'google_direct'
-                    }
-                    print(f"RestartHelpers[{self.device_name}]: Google Translate completed for audio transcript (detected: {detected_source} → {target_language})")
-                except Exception as google_error:
-                    print(f"RestartHelpers[{self.device_name}]: Google Translate failed: {google_error}, using AI fallback")
-                    from shared.lib.utils.translation_utils import translate_text
-                    translation_result = translate_text(existing_transcript, 'en', target_language, method='ai')
+                # Use AI translation for audio transcript (more accurate than Google Translate)
+                from shared.lib.utils.translation_utils import translate_text
+                translation_result = translate_text(existing_transcript, detected_language, target_language, method='ai')
+                print(f"RestartHelpers[{self.device_name}]: AI translation completed for audio transcript ({detected_language} → {target_language})")
                 
                 if not translation_result['success']:
                     return {
@@ -758,26 +742,10 @@ class VideoRestartHelpers:
             else:
                 # For audio dubbing, translate the clean transcript directly (no frame structure)
                 # Use the same Google Translate approach as batch translation (which works)
-                try:
-                    from googletrans import Translator
-                    translator = Translator()
-                    # Auto-detect source language instead of assuming English
-                    lang_map = {'English':'en','French':'fr','Spanish':'es','German':'de','Italian':'it','Portuguese':'pt','Russian':'ru','Japanese':'ja','Korean':'ko','Chinese':'zh','Arabic':'ar','Hindi':'hi'}
-                    target_code = lang_map.get(target_language, target_language)
-                    google_result = translator.translate(existing_transcript, dest=target_code)
-                    detected_source = google_result.src or 'auto'
-                    translation_result = {
-                        'success': True,
-                        'translated_text': google_result.text,
-                        'source_language': detected_source,
-                        'target_language': target_language,
-                        'method': 'google_direct'
-                    }
-                    print(f"RestartHelpers[{self.device_name}]: Google Translate completed for audio transcript (detected: {detected_source} → {target_language})")
-                except Exception as google_error:
-                    print(f"RestartHelpers[{self.device_name}]: Google Translate failed: {google_error}, using AI fallback")
-                    from shared.lib.utils.translation_utils import translate_text
-                    translation_result = translate_text(existing_transcript, 'en', target_language, method='ai')
+                # Use AI translation for audio transcript (more accurate than Google Translate)
+                from shared.lib.utils.translation_utils import translate_text
+                translation_result = translate_text(existing_transcript, detected_language, target_language, method='ai')
+                print(f"RestartHelpers[{self.device_name}]: AI translation completed for audio transcript ({detected_language} → {target_language})")
                 
                 if not translation_result['success']:
                     return {
