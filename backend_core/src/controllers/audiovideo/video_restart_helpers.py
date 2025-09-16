@@ -504,15 +504,36 @@ class VideoRestartHelpers:
             return []
     
     def _get_audio_transcript_locally(self, segment_files: List[Tuple[str, str]], duration_seconds: float) -> Dict[str, Any]:
-        """Get audio transcript locally using the same segments as video generation"""
+        """Get audio transcript locally by extracting from the already-created MP4 video (no double merging)"""
         try:
             from backend_core.src.controllers.verification.audio_ai_helpers import AudioAIHelpers
+            import subprocess
+            import tempfile
             
             audio_ai = AudioAIHelpers(self.av_controller, f"RestartVideo-{self.device_name}")
             
-            print(f"RestartHelpers[{self.device_name}]: Using SAME {len(segment_files)} segments for audio as video ({duration_seconds}s)")
+            print(f"RestartHelpers[{self.device_name}]: Extracting audio from existing MP4 video (avoiding double merge)")
             
-            audio_files = audio_ai.extract_audio_from_segments(segment_files, segment_count=len(segment_files))
+            # Extract audio directly from the already-created MP4 video
+            video_file = os.path.join(self.video_capture_path, "restart_original_video.mp4")
+            
+            if not os.path.exists(video_file):
+                print(f"RestartHelpers[{self.device_name}]: MP4 video not found, falling back to segment merging")
+                audio_files = audio_ai.extract_audio_from_segments(segment_files, segment_count=len(segment_files))
+            else:
+                # Extract audio from MP4 (much faster than merging TS segments again)
+                with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as temp_audio:
+                    temp_audio_path = temp_audio.name
+                
+                print(f"RestartHelpers[{self.device_name}]: Extracting audio from MP4: {video_file}")
+                subprocess.run([
+                    'ffmpeg', '-i', video_file, 
+                    '-vn', '-acodec', 'pcm_s16le', 
+                    '-ar', '44100', '-ac', '2', 
+                    temp_audio_path, '-y'
+                ], capture_output=True, check=True)
+                
+                audio_files = [temp_audio_path]
             
             if not audio_files:
                 return {
@@ -526,6 +547,14 @@ class VideoRestartHelpers:
             
             # Analyze with AI
             audio_analysis = audio_ai.analyze_audio_segments_ai(audio_files, upload_to_r2=True, early_stop=True)
+            
+            # Clean up temporary audio file if we created one
+            if os.path.exists(video_file) and len(audio_files) == 1:
+                try:
+                    os.unlink(audio_files[0])
+                    print(f"RestartHelpers[{self.device_name}]: Cleaned up temporary audio file")
+                except Exception as cleanup_error:
+                    print(f"RestartHelpers[{self.device_name}]: Warning - could not clean up temp audio: {cleanup_error}")
             
             if not audio_analysis.get('success'):
                 return {
