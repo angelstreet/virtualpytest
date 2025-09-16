@@ -311,13 +311,20 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
         if (data.success && data.status) {
           const status = data.status;
           
+          // Update progress states based on status
+          setAnalysisProgress(prev => ({
+            ...prev,
+            audio: status.audio === 'completed' ? 'completed' : status.audio === 'error' ? 'error' : 'loading',
+            subtitles: status.visual === 'completed' ? 'completed' : status.visual === 'error' ? 'error' : 'loading',
+            summary: status.visual === 'completed' ? 'completed' : status.visual === 'error' ? 'error' : 'loading'
+          }));
+          
           // Update audio analysis when complete
           if (status.audio === 'completed' && !notifiedRef.current.audio) {
             setAnalysisResults(prev => ({
               ...prev,
               audioTranscript: status.audio_data
             }));
-            setAnalysisProgress(prev => ({ ...prev, audio: 'completed' }));
             toast.showSuccess('🎤 Audio analysis complete!');
             notifiedRef.current.audio = true;
           }
@@ -330,7 +337,6 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
               subtitles: status.subtitle_analysis,
               videoDescription: status.video_analysis
             }));
-            setAnalysisProgress(prev => ({ ...prev, subtitles: 'completed', summary: 'completed' }));
             toast.showSuccess('✅ Analysis complete! Subtitles and summary ready.');
             notifiedRef.current.visual = true;
             
@@ -450,6 +456,13 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
       if (includeAudioAnalysis && videoData.video_id) {
         // Reset notification flags for new video
         notifiedRef.current = { audio: false, visual: false };
+        // Set initial loading states for animations
+        setAnalysisProgress(prev => ({ 
+          ...prev, 
+          audio: 'loading', 
+          subtitles: 'loading', 
+          summary: 'loading' 
+        }));
         startPolling(videoData.video_id);
       }
       
