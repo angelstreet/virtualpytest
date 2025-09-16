@@ -402,7 +402,6 @@ echo "   Login: admin / admin123"
 
 # Run main installation
 main
-EOF
 
 # Make the script executable
 chmod +x "$PROJECT_ROOT/setup/local/install_grafana.sh"
