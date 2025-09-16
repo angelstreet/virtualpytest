@@ -109,6 +109,103 @@ install_browsers() {
     install_packages epiphany-browser || true
 }
 
+# Function to install Android development tools
+install_android_tools() {
+    echo "📱 Installing Android development tools (ADB)..."
+    
+    # Check if ADB is already available
+    if command -v adb &> /dev/null; then
+        echo "ℹ️ ADB already installed: $(adb version 2>&1 | head -n1)"
+        return 0
+    fi
+    
+    # Try installing from Ubuntu repository first (easiest method)
+    echo "📦 Attempting to install ADB from Ubuntu repository..."
+    if sudo apt-get install -y android-tools-adb android-tools-fastboot 2>/dev/null; then
+        echo "✅ ADB installed from Ubuntu repository"
+        return 0
+    fi
+    
+    echo "⚠️ Ubuntu repository installation failed, installing Android SDK Platform Tools..."
+    
+    # Create Android SDK directory
+    local android_home="$HOME/android-sdk"
+    local platform_tools_dir="$android_home/platform-tools"
+    
+    mkdir -p "$android_home"
+    
+    # Download Android SDK Platform Tools
+    echo "📥 Downloading Android SDK Platform Tools..."
+    local platform_tools_url="https://dl.google.com/android/repository/platform-tools-latest-linux.zip"
+    local temp_zip="/tmp/platform-tools.zip"
+    
+    if ! wget -O "$temp_zip" "$platform_tools_url"; then
+        echo "❌ Failed to download Android SDK Platform Tools"
+        return 1
+    fi
+    
+    # Extract platform tools
+    echo "📂 Extracting Android SDK Platform Tools..."
+    if ! unzip -q "$temp_zip" -d "$android_home"; then
+        echo "❌ Failed to extract Android SDK Platform Tools"
+        rm -f "$temp_zip"
+        return 1
+    fi
+    
+    rm -f "$temp_zip"
+    
+    # Add to PATH in multiple shell profiles
+    echo "🔧 Configuring PATH for ADB..."
+    
+    local path_export="export PATH=\"$platform_tools_dir:\$PATH\""
+    local android_home_export="export ANDROID_HOME=\"$android_home\""
+    
+    # Add to .bashrc
+    if [ -f "$HOME/.bashrc" ]; then
+        if ! grep -q "android-sdk/platform-tools" "$HOME/.bashrc"; then
+            echo "" >> "$HOME/.bashrc"
+            echo "# Android SDK Platform Tools" >> "$HOME/.bashrc"
+            echo "$android_home_export" >> "$HOME/.bashrc"
+            echo "$path_export" >> "$HOME/.bashrc"
+        fi
+    fi
+    
+    # Add to .profile (for login shells)
+    if [ -f "$HOME/.profile" ]; then
+        if ! grep -q "android-sdk/platform-tools" "$HOME/.profile"; then
+            echo "" >> "$HOME/.profile"
+            echo "# Android SDK Platform Tools" >> "$HOME/.profile"
+            echo "$android_home_export" >> "$HOME/.profile"
+            echo "$path_export" >> "$HOME/.profile"
+        fi
+    fi
+    
+    # Add to .zshrc if it exists (for zsh users)
+    if [ -f "$HOME/.zshrc" ]; then
+        if ! grep -q "android-sdk/platform-tools" "$HOME/.zshrc"; then
+            echo "" >> "$HOME/.zshrc"
+            echo "# Android SDK Platform Tools" >> "$HOME/.zshrc"
+            echo "$android_home_export" >> "$HOME/.zshrc"
+            echo "$path_export" >> "$HOME/.zshrc"
+        fi
+    fi
+    
+    # Export for current session
+    export ANDROID_HOME="$android_home"
+    export PATH="$platform_tools_dir:$PATH"
+    
+    # Verify installation
+    if command -v adb &> /dev/null; then
+        echo "✅ ADB installed successfully: $(adb version 2>&1 | head -n1)"
+        echo "📍 Location: $platform_tools_dir/adb"
+        echo "🔄 Note: You may need to restart your terminal or run 'source ~/.bashrc' to use ADB"
+        return 0
+    else
+        echo "❌ ADB installation verification failed"
+        return 1
+    fi
+}
+
 # Function to verify installations
 verify_installation() {
     echo "🔍 Verifying installations..."
@@ -149,6 +246,13 @@ verify_installation() {
         else
             echo "❌ Not found"
         fi
+        
+        echo -n "ADB (Android Debug Bridge): "
+        if command -v adb &> /dev/null; then
+            echo "✅ $(adb version 2>&1 | head -n1)"
+        else
+            echo "❌ Not found"
+        fi
     fi
 }
 
@@ -164,6 +268,7 @@ main() {
         echo "  - OCR tools (tesseract)"
         echo "  - VNC tools (for remote desktop)"
         echo "  - Web browsers (for automation)"
+        echo "  - Android tools (ADB for device control)"
     fi
     echo ""
     
@@ -186,6 +291,7 @@ main() {
         install_ocr
         install_vnc
         install_browsers
+        install_android_tools
     fi
     
     echo ""

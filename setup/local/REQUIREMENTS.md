@@ -61,7 +61,7 @@ sudo apt-get install -y lsof net-tools psmisc
 - **USB capture cards** (compatible with V4L2)
 
 ### **For Mobile Device Testing:**
-- **ADB (Android Debug Bridge)** - For Android devices
+- **ADB (Android Debug Bridge)** - For Android devices (✅ **NOW INSTALLED AUTOMATICALLY**)
 - **USB drivers** - For device connectivity
 - **Appium Server** - Installed via Python requirements
 
