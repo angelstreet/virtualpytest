@@ -18,9 +18,9 @@ from typing import Dict, Any, Optional, Union
 # =============================================================================
 
 AI_MODELS = {
-    'text': 'moonshotai/kimi-k2:free', # Kimi not working for now, using Qwen instead moonshotai/kimi-k2:free
-    'vision': 'google/gemini-2.0-flash-exp',# google/gemini-2.0-flash-exp or qwen/qwen2.5-vl-3b-instruct or qwen/qwen-2.5-vl-7b-instruct
-    'translation': 'google/gemma-2-2b', # or microsoft/phi-3-mini-4k-instruct
+    'text': 'microsoft/phi-3-mini-128k-instruct', # Kimi not working for now,moonshotai/kimi-k2:free
+    'vision': 'qwen/qwen2.5-vl-3b-instruct ',# qwen/qwen2.5-vl-3b-instruct or qwen/qwen-2.5-vl-7b-instruct
+    'translation': 'microsoft/phi-3-mini-128k-instruct', # or microsoft/phi-3-mini-4k-instruct
 }
 
 # AI Batch Processing Configuration

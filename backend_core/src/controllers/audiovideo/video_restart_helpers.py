@@ -545,16 +545,8 @@ class VideoRestartHelpers:
                     'segments_analyzed': 0
                 }
             
-            # Analyze with AI
+            # Analyze with AI (AudioAIHelpers handles cleanup automatically)
             audio_analysis = audio_ai.analyze_audio_segments_ai(audio_files, upload_to_r2=True, early_stop=True)
-            
-            # Clean up temporary audio file if we created one
-            if os.path.exists(video_file) and len(audio_files) == 1:
-                try:
-                    os.unlink(audio_files[0])
-                    print(f"RestartHelpers[{self.device_name}]: Cleaned up temporary audio file")
-                except Exception as cleanup_error:
-                    print(f"RestartHelpers[{self.device_name}]: Warning - could not clean up temp audio: {cleanup_error}")
             
             if not audio_analysis.get('success'):
                 return {
