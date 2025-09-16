@@ -35,8 +35,6 @@ sudo apt-get install -y tesseract-ocr tesseract-ocr-eng tesseract-ocr-fra tesser
 
 #### **🖥️ VNC & Remote Desktop (for backend_host)**
 ```bash
-# Clean installation - removes conflicting VNC packages first
-sudo apt-get remove -y realvnc-vnc-server realvnc-vnc-viewer vnc4server tightvncserver 2>/dev/null || true
 sudo apt-get install -y tigervnc-standalone-server xvfb fluxbox novnc websockify
 ```
 
@@ -70,10 +68,6 @@ sudo apt-get install -y lsof net-tools psmisc
 ## 🚀 **Quick Install (One Command)**
 
 ```bash
-# Clean VNC installation (remove conflicts first)
-sudo apt-get remove -y realvnc-vnc-server realvnc-vnc-viewer vnc4server tightvncserver 2>/dev/null || true
-
-# Install all requirements
 sudo apt-get update && sudo apt-get install -y \
     build-essential git curl wget software-properties-common \
     ffmpeg imagemagick \
@@ -94,7 +88,7 @@ ffmpeg -version
 tesseract --version
 
 # Check VNC (should show TigerVNC)
-vncserver -help | head -1
+tigervncserver -help | head -1
 
 # Check file monitoring
 which inotifywait

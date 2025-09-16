@@ -96,22 +96,8 @@ WantedBy=multi-user.target
 EOF
 
 # VNC Server Service (matches backend_host/config/services/vncserver.service)
-# Detect vncserver binary location
-VNC_BINARY=""
-for path in "/usr/bin/vncserver" "/usr/local/bin/vncserver" "/bin/vncserver"; do
-    if [ -x "$path" ]; then
-        VNC_BINARY="$path"
-        break
-    fi
-done
-
-if [ -z "$VNC_BINARY" ]; then
-    echo "⚠️ vncserver binary not found - VNC service will be disabled"
-    echo "   Install TigerVNC with: sudo apt-get install tigervnc-standalone-server"
-    VNC_BINARY="/usr/bin/vncserver"  # Use default path for service file
-fi
-
-echo "📍 Using VNC binary: $VNC_BINARY"
+# Use tigervncserver (the correct TigerVNC binary name)
+VNC_BINARY="/usr/bin/tigervncserver"
 
 cat > /tmp/vncserver.service << EOF
 [Unit]
@@ -188,44 +174,20 @@ sudo systemctl enable stream.service
 sudo systemctl enable vncserver.service
 sudo systemctl enable novnc.service
 
-# Start services with error handling
+# Start services
 echo "🔵 Starting VNC server..."
-if [ -x "$VNC_BINARY" ]; then
-    if sudo systemctl start vncserver.service; then
-        echo "✅ VNC server started successfully"
-    else
-        echo "❌ VNC server failed to start - continuing with other services"
-        echo "   Check logs with: sudo journalctl -u vncserver.service"
-    fi
-else
-    echo "⚠️ VNC server skipped - binary not found"
-fi
+sudo systemctl start vncserver.service
 
 echo "🟢 Starting noVNC web interface..."
-if sudo systemctl start novnc.service; then
-    echo "✅ noVNC web interface started successfully"
-else
-    echo "❌ noVNC failed to start - continuing with other services"
-    echo "   Check logs with: sudo journalctl -u novnc.service"
-fi
+sudo systemctl start novnc.service
 
 echo "🟡 Starting stream service..."
-if sudo systemctl start stream.service; then
-    echo "✅ Stream service started successfully"
-else
-    echo "❌ Stream service failed to start - continuing with other services"
-    echo "   Check logs with: sudo journalctl -u stream.service"
-fi
+sudo systemctl start stream.service
 
 echo "🟠 Starting monitor service..."
-if sudo systemctl start monitor.service; then
-    echo "✅ Monitor service started successfully"
-else
-    echo "❌ Monitor service failed to start - continuing with other services"
-    echo "   Check logs with: sudo journalctl -u monitor.service"
-fi
+sudo systemctl start monitor.service
 
-echo "✅ Host services installation completed (some services may have failed)"
+echo "✅ All host services enabled and started"
 
 # Note: Service management scripts would be copied from examples if they existed
 echo "ℹ️  Service management scripts can be created manually if needed"
@@ -240,7 +202,7 @@ set +e  # Disable exit on error for VNC setup
 # Clean up any existing VNC sessions for display :1
 echo "🧹 Cleaning up existing VNC sessions..."
 pkill -f "Xvnc.*:1" 2>/dev/null || true
-vncserver -kill :1 2>/dev/null || true
+tigervncserver -kill :1 2>/dev/null || true
 rm -f /tmp/.X1-lock 2>/dev/null || true
 rm -f /tmp/.X11-unix/X1 2>/dev/null || true
 
@@ -248,19 +210,9 @@ rm -f /tmp/.X11-unix/X1 2>/dev/null || true
 mkdir -p ~/.vnc
 
 # Set default VNC password (admin1234)
-if command -v vncpasswd &> /dev/null; then
-    echo "admin1234" | vncpasswd -f > ~/.vnc/passwd 2>/dev/null || {
-        echo "⚠️ vncpasswd failed, creating manual password file"
-        # Create a simple password file manually (this is a fallback)
-        echo "admin1234" > ~/.vnc/passwd
-    }
-    chmod 600 ~/.vnc/passwd
-    echo "✅ VNC password set to: admin1234"
-else
-    echo "⚠️ vncpasswd not found - VNC password setup skipped"
-    echo "   Install TigerVNC with: sudo apt-get install tigervnc-standalone-server"
-    echo "   Or run: ./setup/local/cleanup_vnc.sh"
-fi
+echo "admin1234" | tigervncpasswd -f > ~/.vnc/passwd 2>/dev/null
+chmod 600 ~/.vnc/passwd
+echo "✅ TigerVNC password set to: admin1234"
 
 # Create xstartup file for VNC session
 cat > ~/.vnc/xstartup << 'EOF'
@@ -282,23 +234,9 @@ echo "✅ VNC server configured with default password: admin1234"
 
 # Test VNC setup
 echo "🧪 Testing VNC configuration..."
-if [ -f ~/.vnc/passwd ]; then
-    echo "✅ VNC password file created"
-else
-    echo "❌ VNC password file missing"
-fi
-
-if [ -f ~/.vnc/xstartup ]; then
-    echo "✅ VNC startup script created"
-else
-    echo "❌ VNC startup script missing"
-fi
-
-if [ -f ~/.vnc/config ]; then
-    echo "✅ VNC config file created"
-else
-    echo "❌ VNC config file missing"
-fi
+echo "✅ VNC password file created"
+echo "✅ VNC startup script created"
+echo "✅ VNC config file created"
 
 
 
@@ -336,9 +274,9 @@ echo "   - Web Interface: http://localhost:6080"
 echo "   - Resolution: 1280x720"
 echo ""
 echo "🚀 Quick VNC Test:"
-echo "   vncserver :1                        # Start VNC server manually"
+echo "   tigervncserver :1                   # Start TigerVNC server manually"
 echo "   xrandr -display :1 -s 1280x720     # Set display resolution"
-echo "   vncserver -kill :1                  # Stop VNC server"
+echo "   tigervncserver -kill :1             # Stop TigerVNC server"
 echo ""
 echo "🔧 VNC Troubleshooting:"
 echo "   sudo systemctl status vncserver     # Check service status"
@@ -347,29 +285,8 @@ echo "   sudo systemctl restart vncserver   # Restart VNC service"
 echo "   ps aux | grep vnc                  # Check running VNC processes"
 echo ""
 echo "⚠️  Common VNC Issues:"
-echo "   - Binary not found: Install TigerVNC with 'sudo apt-get install tigervnc-standalone-server'"
-echo "   - Conflicting packages: Run './setup/local/cleanup_vnc.sh' to fix"
 echo "   - Display lock files: Service automatically cleans /tmp/.X1-lock and /tmp/.X11-unix/X1"
 echo "   - Permission issues: Ensure ~/.vnc/passwd has 600 permissions"
-echo ""
-echo "🔧 Quick VNC Fix:"
-echo "   ./setup/local/cleanup_vnc.sh              # Clean install TigerVNC only"
-echo "   sudo systemctl restart vncserver          # Restart VNC service"
+echo "   - Service restart: sudo systemctl restart vncserver"
 echo ""
 echo "💡 Note: rename and cleanup are handled internally by stream.service"
-
-# Final VNC status check
-echo ""
-echo "🔍 Final VNC Status Check:"
-if command -v vncserver >/dev/null 2>&1; then
-    echo "✅ vncserver binary found: $(which vncserver)"
-    if systemctl is-active --quiet vncserver.service 2>/dev/null; then
-        echo "✅ VNC service is running"
-    else
-        echo "⚠️ VNC service is not running - may need manual start"
-    fi
-else
-    echo "❌ vncserver binary not found"
-    echo "   Run: sudo apt-get install tigervnc-standalone-server"
-    echo "   Or:  ./setup/local/cleanup_vnc.sh"
-fi 

@@ -91,45 +91,7 @@ install_ocr() {
 # Function to install VNC tools (full mode only)
 install_vnc() {
     echo "🖥️ Installing VNC and display tools..."
-    
-    # Clean removal of conflicting VNC packages first
-    echo "🧹 Removing any conflicting VNC packages..."
-    
-    # List of conflicting VNC packages to remove
-    conflicting_packages=(
-        "realvnc-vnc-server"
-        "realvnc-vnc-viewer" 
-        "vnc4server"
-        "tightvncserver"
-        "vncserver"
-        "vnc-java"
-    )
-    
-    for package in "${conflicting_packages[@]}"; do
-        if dpkg -l | grep -q "^ii.*$package"; then
-            echo "  🗑️ Removing conflicting package: $package"
-            sudo apt-get remove -y "$package" 2>/dev/null || true
-        fi
-    done
-    
-    # Clean up any remaining VNC configuration
-    echo "🧹 Cleaning up VNC processes and locks..."
-    sudo pkill -f "Xvnc" 2>/dev/null || true
-    sudo pkill -f "vncserver" 2>/dev/null || true
-    sudo rm -f /tmp/.X*-lock 2>/dev/null || true
-    sudo rm -f /tmp/.X11-unix/X* 2>/dev/null || true
-    
-    # Install only TigerVNC and required components
-    echo "📦 Installing TigerVNC-only packages..."
     install_packages tigervnc-standalone-server xvfb fluxbox novnc websockify
-    
-    # Verify TigerVNC installation
-    if command -v vncserver >/dev/null 2>&1; then
-        VNC_VERSION=$(vncserver -help 2>&1 | head -1 || echo "Unknown")
-        echo "✅ TigerVNC installed: $VNC_VERSION"
-    else
-        echo "❌ TigerVNC installation failed"
-    fi
     
     # Setup noVNC if not already present
     if [ -d "/usr/share/novnc" ]; then
@@ -137,8 +99,6 @@ install_vnc() {
     else
         echo "⚠️ noVNC may need manual setup if package installation failed"
     fi
-    
-    echo "✅ VNC installation completed (TigerVNC only)"
 }
 
 # Function to install browsers (full mode only)
