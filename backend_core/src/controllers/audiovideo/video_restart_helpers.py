@@ -733,11 +733,10 @@ class VideoRestartHelpers:
                 print(f"RestartHelpers[{self.device_name}]: Using cached translation for {target_language}")
             else:
                 # For audio dubbing, translate the clean transcript directly (no frame structure)
-                # Use the same Google Translate approach as batch translation (which works)
-                # Use AI translation for audio transcript (more accurate than Google Translate)
+                # Use Google Translate with auto-detection (fast and simple)
                 from shared.lib.utils.translation_utils import translate_text
-                translation_result = translate_text(existing_transcript, detected_language, target_language, method='ai')
-                print(f"RestartHelpers[{self.device_name}]: AI translation completed for audio transcript ({detected_language} → {target_language})")
+                translation_result = translate_text(existing_transcript, 'auto', target_language, method='google')
+                print(f"RestartHelpers[{self.device_name}]: Google Translate completed for audio transcript (auto-detected → {target_language})")
                 
                 if not translation_result['success']:
                     return {
