@@ -60,9 +60,19 @@ const Dashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  
+  // Request deduplication to prevent duplicate calls
+  const [isRequestInProgress, setIsRequestInProgress] = useState(false);
 
   const fetchDashboardData = useCallback(async () => {
+    // Prevent duplicate calls
+    if (isRequestInProgress) {
+      console.log('[@Dashboard] Request already in progress, skipping duplicate call');
+      return;
+    }
+    
     try {
+      setIsRequestInProgress(true);
       setLoading(true);
       const [campaignsResponse, testCasesResponse, treesResponse] = await Promise.all([
         fetch(buildServerUrl('/server/campaigns/getAllCampaigns')),
@@ -123,8 +133,9 @@ const Dashboard: React.FC = () => {
       console.error('Failed to fetch dashboard data:', err);
     } finally {
       setLoading(false);
+      setIsRequestInProgress(false);
     }
-  }, []);
+  }, [isRequestInProgress]);
 
   useEffect(() => {
     fetchDashboardData();

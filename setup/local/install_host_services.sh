@@ -174,20 +174,36 @@ sudo systemctl enable stream.service
 sudo systemctl enable vncserver.service
 sudo systemctl enable novnc.service
 
-# Start services
+# Start services (with error handling to continue on failures)
 echo "🔵 Starting VNC server..."
-sudo systemctl start vncserver.service
+if sudo systemctl start vncserver.service; then
+    echo "✅ VNC server started successfully"
+else
+    echo "⚠️ VNC server failed to start - check 'sudo systemctl status vncserver' for details"
+fi
 
 echo "🟢 Starting noVNC web interface..."
-sudo systemctl start novnc.service
+if sudo systemctl start novnc.service; then
+    echo "✅ noVNC web interface started successfully"
+else
+    echo "⚠️ noVNC web interface failed to start - check 'sudo systemctl status novnc' for details"
+fi
 
 echo "🟡 Starting stream service..."
-sudo systemctl start stream.service
+if sudo systemctl start stream.service; then
+    echo "✅ Stream service started successfully"
+else
+    echo "⚠️ Stream service failed to start - check 'sudo systemctl status stream' for details"
+fi
 
 echo "🟠 Starting monitor service..."
-sudo systemctl start monitor.service
+if sudo systemctl start monitor.service; then
+    echo "✅ Monitor service started successfully"
+else
+    echo "⚠️ Monitor service failed to start - check 'sudo systemctl status monitor' for details"
+fi
 
-echo "✅ All host services enabled and started"
+echo "✅ Host services installation completed (check individual service status above)"
 
 # Note: Service management scripts would be copied from examples if they existed
 echo "ℹ️  Service management scripts can be created manually if needed"

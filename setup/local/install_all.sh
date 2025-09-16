@@ -109,15 +109,30 @@ echo "4️⃣ Installing backend_host (fresh services)..."
 
 echo ""
 echo "4️⃣b Installing and starting host services (VNC, stream, monitor)..."
-./setup/local/install_host_services.sh
+# Continue even if host services fail (e.g., VNC installation issues)
+if ./setup/local/install_host_services.sh; then
+    echo "✅ Host services installation completed successfully"
+else
+    echo "⚠️ Host services installation completed with some issues (VNC may need manual setup)"
+fi
 
 echo ""
 echo "5️⃣ Installing frontend (smart update)..."
-./setup/local/install_frontend.sh --smart-update
+# Continue even if frontend installation fails
+if ./setup/local/install_frontend.sh --smart-update; then
+    echo "✅ Frontend installation completed successfully"
+else
+    echo "⚠️ Frontend installation completed with issues"
+fi
 
 echo ""
 echo "6️⃣ Installing Grafana for monitoring (smart update)..."
-./setup/local/install_grafana.sh --smart-update
+# Continue even if Grafana installation fails
+if ./setup/local/install_grafana.sh --smart-update; then
+    echo "✅ Grafana installation completed successfully"
+else
+    echo "⚠️ Grafana installation completed with issues"
+fi
 
 echo ""
 echo "🎉 Fresh VirtualPyTest installation completed successfully!"
@@ -138,6 +153,13 @@ echo "   - VNC Server: localhost:5901 (display :1)"
 echo "   - Default Password: admin1234"
 echo "   - Web Interface: http://localhost:6080"
 echo "   - Remote Access: Use device IP addresses shown in Network Information section"
+echo ""
+echo "🔧 VNC Troubleshooting (if VNC failed to start):"
+echo "   sudo systemctl status vncserver     # Check service status"
+echo "   sudo journalctl -u vncserver -f    # View service logs"
+echo "   sudo systemctl restart vncserver   # Restart VNC service"
+echo "   tigervncserver :1                  # Start manually for testing"
+echo "   tigervncserver -kill :1            # Stop manual session"
 
 echo ""
 echo "🚀 Launch VirtualPyTest:"
