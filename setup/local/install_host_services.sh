@@ -322,37 +322,36 @@ echo "✅ VNC startup script created"
 echo "✅ VNC config file created"
 echo "✅ XFCE4 session files created"
 
-# Proactive VNC cleanup (we know these steps are required)
-echo "🧹 Proactive VNC cleanup before testing..."
-sudo systemctl stop vncserver 2>/dev/null || true
-pkill -f "Xvnc.*:1" 2>/dev/null || true
-sudo rm -f /tmp/.X1-lock /tmp/.X11-unix/X1 2>/dev/null || true
-sleep 2
-echo "✅ VNC cleanup completed"
+# Proactive VNC cleanup (enhanced with user's manual fix steps)
+echo "🧹 Enhanced proactive VNC cleanup before testing (including manual fix steps)..."
+sudo systemctl stop vncserver 2>/dev/null || true  # Step 1: Stop the service
+sudo rm -f /tmp/.X1-lock /tmp/.X11-unix/X1  # Step 2: Clean up stale files
+pkill -f "Xvnc.*:1" 2>/dev/null || true  # Step 3: Kill lingering processes
+sleep 2  # Brief pause for cleanup
 
-# Test VNC server startup
-echo "🔧 Testing VNC server startup..."
-if tigervncserver :1 -rfbauth ~/.vnc/passwd -rfbport 5901 -localhost no -geometry 1280x720 >/dev/null 2>&1; then
-    echo "✅ VNC server test successful"
-    # Check if it's actually listening on port 5901
-    sleep 2
+# Step 4: Manual VNC startup test (as per user)
+echo "🔧 Running manual VNC startup test..."
+if tigervncserver :1 -rfbauth ~/.vnc/passwd -rfbport 5901 -localhost no -geometry 1280x720; then
+    echo "✅ Manual VNC startup test successful"
+    sleep 2  # Allow time to start
+    # Verify listening
     if netstat -tlnp 2>/dev/null | grep -q ":5901"; then
-        echo "✅ VNC server listening on port 5901"
+        echo "✅ VNC listening on port 5901"
     else
-        echo "⚠️ VNC server started but not listening on port 5901"
+        echo "⚠️ VNC started but not listening on 5901 - check logs"
     fi
-    # Kill test session before starting service
-    tigervncserver -kill :1 >/dev/null 2>&1
+    # Clean up the manual test session
+    tigervncserver -kill :1 2>/dev/null || true
     sleep 1
 else
-    echo "⚠️ VNC server test failed - check configuration manually"
+    echo "⚠️ Manual VNC startup test failed - check output above for errors"
 fi
 
-# Final cleanup before starting systemd services
-echo "🧹 Final cleanup before systemd service start..."
-pkill -f "Xvnc.*:1" 2>/dev/null || true
-sudo rm -f /tmp/.X1-lock /tmp/.X11-unix/X1 2>/dev/null || true
-sleep 2
+# Step 5: Restart the service (as per user)
+echo "🔄 Restarting VNC service..."
+sudo systemctl start vncserver || echo "⚠️ Service start failed - check 'sudo systemctl status vncserver'"
+
+echo "✅ Enhanced VNC cleanup and test completed"
 
 # Re-enable exit on error
 set -e
