@@ -164,6 +164,43 @@ sudo chmod +x /usr/local/bin/run_ffmpeg_and_rename.sh
 sudo chmod +x /usr/local/bin/clean_captures.sh
 echo "✅ Scripts installed to /usr/local/bin/"
 
+# Install and configure nginx for local development
+echo ""
+echo "🌐 Installing and configuring nginx for local development..."
+
+# Install nginx if not present
+if ! command -v nginx &> /dev/null; then
+    echo "📦 Installing nginx..."
+    if command -v apt-get &> /dev/null; then
+        sudo apt-get update
+        sudo apt-get install -y nginx
+    elif command -v yum &> /dev/null; then
+        sudo yum install -y nginx
+    else
+        echo "⚠️ Could not install nginx automatically. Please install manually."
+    fi
+else
+    echo "✅ nginx already installed"
+fi
+
+# Install local nginx configuration
+echo "📋 Installing local nginx configuration..."
+sudo cp backend_server/config/nginx/local.conf /etc/nginx/sites-available/virtualpytest-local
+sudo rm -f /etc/nginx/sites-enabled/default
+sudo rm -f /etc/nginx/sites-enabled/virtualpytest*
+sudo ln -sf /etc/nginx/sites-available/virtualpytest-local /etc/nginx/sites-enabled/virtualpytest-local
+
+# Test nginx configuration
+if sudo nginx -t; then
+    echo "✅ nginx configuration is valid"
+    # Restart nginx to apply new configuration
+    sudo systemctl restart nginx
+    sudo systemctl enable nginx
+    echo "✅ nginx configured for local development"
+else
+    echo "⚠️ nginx configuration has errors - check 'sudo nginx -t' for details"
+fi
+
 # Enable and start all services
 echo ""
 echo "🚀 Enabling and starting all host services..."
