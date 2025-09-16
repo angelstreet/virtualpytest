@@ -199,13 +199,127 @@ def buildServerUrl(endpoint: str) -> str:
         Complete URL to the server endpoint for host use
     """
     import os
+    import re
+    
     # Host uses SERVER_URL environment variable to reach server
     server_url = os.getenv('SERVER_URL', 'http://localhost:5109')
+    
+    # Auto-detect local installation and force HTTP instead of HTTPS
+    # This prevents SSL connection errors for local development/testing
+    if _is_local_installation(server_url):
+        original_url = server_url
+        server_url = _convert_to_http_for_local(server_url)
+        if original_url != server_url:
+            print(f"🔄 [URL] Auto-converted local HTTPS to HTTP: {original_url} -> {server_url}")
     
     # Clean endpoint
     clean_endpoint = endpoint.lstrip('/')
     
     return f"{server_url}/{clean_endpoint}"
+
+def _is_local_installation(server_url: str) -> bool:
+    """
+    Detect if this is a local installation that should use HTTP instead of HTTPS.
+    
+    Args:
+        server_url: The server URL to check
+        
+    Returns:
+        True if this appears to be a local installation
+    """
+    import re
+    
+    if not server_url:
+        return True
+    
+    # Convert to lowercase for checking
+    url_lower = server_url.lower()
+    
+    # Local indicators
+    local_patterns = [
+        'localhost',
+        '127.0.0.1',
+        '0.0.0.0',
+        # Private IP ranges (RFC 1918)
+        r'192\.168\.\d+\.\d+',
+        r'10\.\d+\.\d+\.\d+', 
+        r'172\.(1[6-9]|2[0-9]|3[0-1])\.\d+\.\d+',
+        # Link-local addresses
+        r'169\.254\.\d+\.\d+',
+        # Docker/container common addresses
+        r'172\.17\.\d+\.\d+',
+        r'172\.18\.\d+\.\d+',
+    ]
+    
+    # Check for local patterns
+    for pattern in local_patterns:
+        if re.search(pattern, url_lower):
+            return True
+    
+    # Check for development/local domains
+    local_domains = [
+        '.local',
+        '.localhost',
+        '.dev',
+        '.test',
+        'virtualpytest-local',
+    ]
+    
+    for domain in local_domains:
+        if domain in url_lower:
+            return True
+    
+    return False
+
+def _convert_to_http_for_local(server_url: str) -> str:
+    """
+    Convert HTTPS URLs to HTTP for local installations.
+    
+    Args:
+        server_url: The server URL to convert
+        
+    Returns:
+        HTTP version of the URL for local use
+    """
+    import re
+    
+    if not server_url:
+        return 'http://localhost:5109'
+    
+    # If already HTTP, return as-is
+    if server_url.startswith('http://'):
+        return server_url
+    
+    # Convert HTTPS to HTTP
+    if server_url.startswith('https://'):
+        http_url = server_url.replace('https://', 'http://', 1)
+        
+        # For local installations, also check if we need to adjust the port
+        # HTTPS typically uses 443, but local HTTP servers often use different ports
+        if ':443' in http_url or http_url.endswith(':443'):
+            # Replace 443 with common local server port
+            http_url = http_url.replace(':443', ':5109')
+        elif not re.search(r':\d+', http_url.split('//')[1]):
+            # No port specified, add default local server port
+            # Extract the domain part and add port
+            parts = http_url.split('/')
+            if len(parts) >= 3:
+                domain_part = parts[2]
+                if ':' not in domain_part:
+                    parts[2] = f"{domain_part}:5109"
+                    http_url = '/'.join(parts)
+        
+        return http_url
+    
+    # If no protocol specified, assume HTTP for local
+    if not server_url.startswith(('http://', 'https://')):
+        # Add http:// prefix and ensure port is specified
+        if ':' not in server_url:
+            return f"http://{server_url}:5109"
+        else:
+            return f"http://{server_url}"
+    
+    return server_url
 
 # =====================================================
 # MULTI-DEVICE HELPER FUNCTIONS
