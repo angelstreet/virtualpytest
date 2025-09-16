@@ -813,7 +813,9 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
           toast.showInfo(`🎤 Starting dubbing for ${language}...`, { duration: 3000 });
           
           try {
-            await generateDubbedVersion(language, analysisResults.audio.combined_transcript, videoId);
+            // Use translated transcript if available, fallback to original
+            const transcriptToUse = translationResults[language]?.audioTranscript || analysisResults.audio.combined_transcript;
+            await generateDubbedVersion(language, transcriptToUse, videoId);
             const totalDubbingDuration = ((Date.now() - dubbingAutoStartTime) / 1000).toFixed(1);
             console.log(`[@hook:useRestart] 🎬 Complete dubbing workflow for ${language} finished in ${totalDubbingDuration}s`);
             toast.showSuccess(`🎬 Dubbing for ${language} complete! (${totalDubbingDuration}s)`, { duration: 4000 });

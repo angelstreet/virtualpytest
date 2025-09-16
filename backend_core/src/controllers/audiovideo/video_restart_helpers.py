@@ -726,33 +726,10 @@ class VideoRestartHelpers:
             
             print(f"RestartHelpers[{self.device_name}]: Starting fast dubbing for {target_language}")
             
-            # Get translation (cached if available)
-            cache_key = video_id
-            if cache_key in self._translation_cache and target_language in self._translation_cache[cache_key]:
-                translation_result = self._translation_cache[cache_key][target_language]
-                print(f"RestartHelpers[{self.device_name}]: Using cached translation for {target_language}")
-            else:
-                # For audio dubbing, translate the clean transcript directly (no frame structure)
-                # Use Google Translate with auto-detection (fast and simple)
-                from shared.lib.utils.translation_utils import translate_text
-                translation_result = translate_text(existing_transcript, 'auto', target_language, method='google')
-                print(f"RestartHelpers[{self.device_name}]: Google Translate completed for audio transcript (auto-detected → {target_language})")
-                
-                if not translation_result['success']:
-                    return {
-                        'success': False,
-                        'error': 'Translation failed',
-                        'duration_seconds': 0.0
-                    }
-                
-                # Cache the translation
-                if cache_key not in self._translation_cache:
-                    self._translation_cache[cache_key] = {}
-                self._translation_cache[cache_key][target_language] = translation_result
-                print(f"RestartHelpers[{self.device_name}]: Translation completed and cached for {target_language}")
-            
-            # Clean translated text before TTS (remove AI prompt artifacts)
-            translated_text = self._clean_translated_text(translation_result['translated_text'])
+            # existing_transcript should already be translated by frontend
+            # Clean the text before TTS (remove AI prompt artifacts)
+            translated_text = self._clean_translated_text(existing_transcript)
+            print(f"RestartHelpers[{self.device_name}]: Using provided translated transcript for {target_language}")
             
             # Call fast dubbing method (combines Edge-TTS generation + video muting)
             return self.dubbing_helpers.create_dubbed_video_fast_step(
