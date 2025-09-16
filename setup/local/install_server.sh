@@ -34,37 +34,24 @@ check_postgresql() {
 install_postgresql() {
     echo "🐘 Installing PostgreSQL..."
     
-    # Detect OS and install accordingly
-    if [[ "$OSTYPE" == "linux-gnu"* ]]; then
-        # Linux (including Raspberry Pi)
-        if command -v apt-get &> /dev/null; then
-            sudo apt-get update
-            sudo apt-get install -y postgresql postgresql-contrib
-        elif command -v yum &> /dev/null; then
-            sudo yum install -y postgresql postgresql-server postgresql-contrib
-            sudo postgresql-setup initdb
-        elif command -v pacman &> /dev/null; then
-            sudo pacman -S postgresql
-            sudo -u postgres initdb -D /var/lib/postgres/data
-        fi
-        
-        # Start and enable PostgreSQL
-        sudo systemctl start postgresql
-        sudo systemctl enable postgresql
-        
-    elif [[ "$OSTYPE" == "darwin"* ]]; then
-        # macOS
-        if command -v brew &> /dev/null; then
-            brew install postgresql
-            brew services start postgresql
-        else
-            echo "❌ Homebrew not found. Please install PostgreSQL manually."
-            exit 1
-        fi
+    # Install on Linux
+    if command -v apt-get &> /dev/null; then
+        sudo apt-get update
+        sudo apt-get install -y postgresql postgresql-contrib
+    elif command -v yum &> /dev/null; then
+        sudo yum install -y postgresql postgresql-server postgresql-contrib
+        sudo postgresql-setup initdb
+    elif command -v pacman &> /dev/null; then
+        sudo pacman -S postgresql
+        sudo -u postgres initdb -D /var/lib/postgres/data
     else
-        echo "❌ Unsupported OS. Please install PostgreSQL manually."
+        echo "❌ Unsupported Linux distribution. Please install PostgreSQL manually."
         exit 1
     fi
+    
+    # Start and enable PostgreSQL
+    sudo systemctl start postgresql
+    sudo systemctl enable postgresql
     
     echo "✅ PostgreSQL installed successfully"
 }

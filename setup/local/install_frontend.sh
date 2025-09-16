@@ -25,19 +25,9 @@ fi
 echo "📦 Checking Node.js installation..."
 if ! command -v node &> /dev/null; then
     echo "🔧 Installing Node.js 18..."
-    if [[ "$OSTYPE" == "darwin"* ]]; then
-        # macOS
-        if command -v brew &> /dev/null; then
-            brew install node@18
-        else
-            echo "❌ Please install Node.js manually: https://nodejs.org/"
-            exit 1
-        fi
-    else
-        # Linux
-        curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
-        sudo apt-get install -y nodejs
-    fi
+    # Install on Linux
+    curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+    sudo apt-get install -y nodejs
     echo "✅ Node.js installed successfully"
 else
     echo "✅ Node.js is already installed ($(node --version))"

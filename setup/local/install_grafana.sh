@@ -21,53 +21,18 @@ if [ ! -f "README.md" ] || [ ! -d "backend_server" ]; then
     exit 1
 fi
 
-# Detect OS
-OS=""
-if [[ "$OSTYPE" == "linux-gnu"* ]]; then
-    OS="linux"
-elif [[ "$OSTYPE" == "darwin"* ]]; then
-    OS="macos"
-else
-    echo "❌ Unsupported operating system: $OSTYPE"
-    echo "This script supports Linux and macOS only"
+# Check if running on Linux
+if [[ "$OSTYPE" != "linux-gnu"* ]]; then
+    echo "❌ This script only supports Linux"
+    echo "Detected OS: $OSTYPE"
     exit 1
 fi
 
-echo "🖥️ Detected OS: $OS"
+echo "🖥️ Detected OS: Linux"
 
-# Function to install Grafana on macOS
-install_grafana_macos() {
-    echo "🍺 Installing Grafana on macOS..."
-    
-    # Check if Homebrew is installed
-    if ! command -v brew &> /dev/null; then
-        echo "❌ Homebrew is required but not installed"
-        echo "Please install Homebrew first: https://brew.sh/"
-        exit 1
-    fi
-    
-    # Install Grafana
-    if brew list grafana &> /dev/null; then
-        echo "✅ Grafana is already installed"
-    else
-        echo "📦 Installing Grafana via Homebrew..."
-        brew install grafana
-    fi
-    
-    # Get Grafana paths
-    GRAFANA_HOME="/usr/local/var/lib/grafana"
-    GRAFANA_LOGS="/usr/local/var/log/grafana"
-    GRAFANA_CONF="/usr/local/etc/grafana/grafana.ini"
-    GRAFANA_BIN="/usr/local/bin/grafana-server"
-    
-    # Create directories if they don't exist
-    mkdir -p "$GRAFANA_HOME"
-    mkdir -p "$GRAFANA_LOGS"
-    mkdir -p "$(dirname "$GRAFANA_CONF")"
-}
 
 # Function to install Grafana on Linux
-install_grafana_linux() {
+install_grafana() {
     echo "🐧 Installing Grafana on Linux..."
     
     # Check if running as root or with sudo
@@ -136,24 +101,16 @@ setup_postgresql() {
     if ! command -v psql &> /dev/null; then
         echo "❌ PostgreSQL is not installed"
         echo "Please install PostgreSQL first:"
-        if [[ "$OS" == "macos" ]]; then
-            echo "  brew install postgresql"
-        else
-            echo "  sudo apt-get install postgresql postgresql-contrib  # Ubuntu/Debian"
-            echo "  sudo yum install postgresql-server postgresql-contrib  # RHEL/CentOS"
-        fi
+        echo "  sudo apt-get install postgresql postgresql-contrib  # Ubuntu/Debian"
+        echo "  sudo yum install postgresql-server postgresql-contrib  # RHEL/CentOS"
         exit 1
     fi
     
     # Check if PostgreSQL is running
     if ! pg_isready &> /dev/null; then
         echo "🚀 Starting PostgreSQL..."
-        if [[ "$OS" == "macos" ]]; then
-            brew services start postgresql
-        else
-            sudo systemctl start postgresql
-            sudo systemctl enable postgresql
-        fi
+        sudo systemctl start postgresql
+        sudo systemctl enable postgresql
         
         # Wait for PostgreSQL to start
         sleep 3
@@ -170,19 +127,11 @@ setup_postgresql() {
     echo "📊 Creating Grafana metrics database..."
     
     # Create database and user (handle existing gracefully)
-    if [[ "$OS" == "macos" ]]; then
-        # On macOS, usually no password required for local connections
-        psql postgres -c "CREATE DATABASE grafana_metrics;" 2>/dev/null || echo "Database grafana_metrics already exists"
-        psql postgres -c "CREATE USER grafana_user WITH PASSWORD 'grafana_pass';" 2>/dev/null || echo "User grafana_user already exists"
-        psql postgres -c "GRANT ALL PRIVILEGES ON DATABASE grafana_metrics TO grafana_user;" 2>/dev/null || true
-        psql postgres -c "ALTER USER grafana_user CREATEDB;" 2>/dev/null || true
-    else
-        # On Linux, use sudo to run as postgres user
-        sudo -u postgres psql -c "CREATE DATABASE grafana_metrics;" 2>/dev/null || echo "Database grafana_metrics already exists"
-        sudo -u postgres psql -c "CREATE USER grafana_user WITH PASSWORD 'grafana_pass';" 2>/dev/null || echo "User grafana_user already exists"
-        sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE grafana_metrics TO grafana_user;" 2>/dev/null || true
-        sudo -u postgres psql -c "ALTER USER grafana_user CREATEDB;" 2>/dev/null || true
-    fi
+    # On Linux, use sudo to run as postgres user
+    sudo -u postgres psql -c "CREATE DATABASE grafana_metrics;" 2>/dev/null || echo "Database grafana_metrics already exists"
+    sudo -u postgres psql -c "CREATE USER grafana_user WITH PASSWORD 'grafana_pass';" 2>/dev/null || echo "User grafana_user already exists"
+    sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE grafana_metrics TO grafana_user;" 2>/dev/null || true
+    sudo -u postgres psql -c "ALTER USER grafana_user CREATEDB;" 2>/dev/null || true
     
     # Test the connection
     if PGPASSWORD=grafana_pass psql -h localhost -U grafana_user -d grafana_metrics -c "SELECT version();" &> /dev/null; then
@@ -197,91 +146,105 @@ setup_postgresql() {
 setup_grafana_config() {
     echo "⚙️ Setting up local Grafana configuration..."
     
-    # Create Grafana directories
-    if [[ "$OS" == "linux" ]]; then
-        # On Linux, use system directories
-        sudo mkdir -p /var/lib/grafana
-        sudo mkdir -p /var/log/grafana
-        sudo mkdir -p /etc/grafana
-        
-        # Copy the pre-configured database with all dashboards
-        echo "📊 Copying Grafana database with dashboards..."
-        echo "🔍 Looking for: $PROJECT_ROOT/grafana/data/grafana.db"
-        if [ -f "$PROJECT_ROOT/grafana/data/grafana.db" ]; then
-            sudo cp "$PROJECT_ROOT/grafana/data/grafana.db" /var/lib/grafana/
-        else
-            echo "❌ File not found at: $PROJECT_ROOT/grafana/data/grafana.db"
-            echo "📁 Current PROJECT_ROOT: $PROJECT_ROOT"
-            echo "📁 Contents of grafana/data/:"
-            ls -la "$PROJECT_ROOT/grafana/data/" || echo "Directory doesn't exist"
-            exit 1
-        fi
-        
-        # Copy the configuration file
-        echo "⚙️ Copying Grafana configuration..."
-        sudo cp "$PROJECT_ROOT/grafana/config/grafana.ini" /etc/grafana/
-        
-        # Set up provisioning directories and copy local datasource configuration
-        echo "📋 Setting up Grafana provisioning for local databases..."
-        sudo mkdir -p /etc/grafana/provisioning/datasources
-        sudo mkdir -p /etc/grafana/provisioning/dashboards
-        sudo mkdir -p /etc/grafana/dashboards/virtualpytest
-        
-        # Copy provisioning configuration files
-        sudo cp "$PROJECT_ROOT/backend_server/config/grafana/provisioning/datasources/local.yml" /etc/grafana/provisioning/datasources/
-        sudo cp "$PROJECT_ROOT/backend_server/config/grafana/provisioning/dashboards/dashboards.yml" /etc/grafana/provisioning/dashboards/
-        
-        # Update configuration for local use (change port to 3001 to avoid conflicts)
-        sudo sed -i 's/http_port = 3000/http_port = 3001/' /etc/grafana/grafana.ini
-        sudo sed -i 's/domain = dev.virtualpytest.com/domain = localhost/' /etc/grafana/grafana.ini
-        sudo sed -i 's|root_url = https://dev.virtualpytest.com/grafana/|root_url = http://localhost:3001/|' /etc/grafana/grafana.ini
-        sudo sed -i 's/serve_from_sub_path = true/serve_from_sub_path = false/' /etc/grafana/grafana.ini
-        
-        # Set proper permissions
-        sudo chown -R grafana:grafana /var/lib/grafana
-        sudo chown -R grafana:grafana /var/log/grafana
-        sudo chown -R grafana:grafana /etc/grafana/
-        
+    # Create Grafana directories (Linux system directories)
+    sudo mkdir -p /var/lib/grafana
+    sudo mkdir -p /var/log/grafana
+    sudo mkdir -p /etc/grafana
+    
+    # Copy the pre-configured database with all dashboards
+    echo "📊 Copying Grafana database with dashboards..."
+    echo "🔍 Looking for: $PROJECT_ROOT/grafana/data/grafana.db"
+    if [ -f "$PROJECT_ROOT/grafana/data/grafana.db" ]; then
+        sudo cp "$PROJECT_ROOT/grafana/data/grafana.db" /var/lib/grafana/
     else
-        # On macOS, use local directories
-        mkdir -p "$GRAFANA_HOME"
-        mkdir -p "$GRAFANA_LOGS"
-        mkdir -p "$(dirname "$GRAFANA_CONF")"
-        
-        # Copy the pre-configured database with all dashboards (if it exists)
-        if [ -f "$PROJECT_ROOT/grafana/data/grafana.db" ]; then
-            echo "📊 Copying Grafana database with dashboards..."
-            cp "$PROJECT_ROOT/grafana/data/grafana.db" "$GRAFANA_HOME/"
-        else
-            echo "⚠️ Pre-configured Grafana database not found, Grafana will create a fresh one"
-            echo "📊 Creating empty Grafana database directory..."
-            # Grafana will create its own database on first startup
-        fi
-        
-        # Copy and modify configuration for local use
-        echo "⚙️ Copying Grafana configuration..."
-        cp "$PROJECT_ROOT/grafana/config/grafana.ini" "$GRAFANA_CONF"
-        
-        # Set up provisioning directories and copy local datasource configuration
-        echo "📋 Setting up Grafana provisioning for local databases..."
-        mkdir -p "$(dirname "$GRAFANA_CONF")/provisioning/datasources"
-        mkdir -p "$(dirname "$GRAFANA_CONF")/provisioning/dashboards"
-        mkdir -p "$GRAFANA_HOME/dashboards/virtualpytest"
-        
-        # Copy provisioning configuration files
-        cp "$PROJECT_ROOT/backend_server/config/grafana/provisioning/datasources/local.yml" "$(dirname "$GRAFANA_CONF")/provisioning/datasources/"
-        cp "$PROJECT_ROOT/backend_server/config/grafana/provisioning/dashboards/dashboards.yml" "$(dirname "$GRAFANA_CONF")/provisioning/dashboards/"
-        
-        # Update provisioning path for macOS
-        sed -i '' "s|provisioning = /etc/grafana/provisioning|provisioning = $(dirname "$GRAFANA_CONF")/provisioning|" "$GRAFANA_CONF"
-        sed -i '' "s|path: /etc/grafana/dashboards/virtualpytest|path: $GRAFANA_HOME/dashboards/virtualpytest|" "$(dirname "$GRAFANA_CONF")/provisioning/dashboards/dashboards.yml"
-        
-        # Update configuration for local use (change port to 3001 to avoid conflicts)
-        sed -i '' 's/http_port = 3000/http_port = 3001/' "$GRAFANA_CONF"
-        sed -i '' 's/domain = dev.virtualpytest.com/domain = localhost/' "$GRAFANA_CONF"
-        sed -i '' 's|root_url = https://dev.virtualpytest.com/grafana/|root_url = http://localhost:3001/|' "$GRAFANA_CONF"
-        sed -i '' 's/serve_from_sub_path = true/serve_from_sub_path = false/' "$GRAFANA_CONF"
+        echo "❌ File not found at: $PROJECT_ROOT/grafana/data/grafana.db"
+        echo "📁 Current PROJECT_ROOT: $PROJECT_ROOT"
+        echo "📁 Contents of grafana/data/:"
+        ls -la "$PROJECT_ROOT/grafana/data/" || echo "Directory doesn't exist"
+        exit 1
     fi
+    
+    # Copy the configuration file
+    echo "⚙️ Copying Grafana configuration..."
+    sudo cp "$PROJECT_ROOT/grafana/config/grafana.ini" /etc/grafana/
+    
+    # Set up provisioning directories and copy local datasource configuration
+    echo "📋 Setting up Grafana provisioning for local databases..."
+    sudo mkdir -p /etc/grafana/provisioning/datasources
+    sudo mkdir -p /etc/grafana/provisioning/dashboards
+    sudo mkdir -p /etc/grafana/dashboards/virtualpytest
+    
+    # Create provisioning configuration files directly
+    echo "📋 Creating local datasource configuration..."
+    sudo tee /etc/grafana/provisioning/datasources/local.yml > /dev/null << 'EOF'
+# Local Grafana datasource configuration for VirtualPyTest
+# This file automatically configures Grafana to use local PostgreSQL databases
+apiVersion: 1
+
+datasources:
+  # VirtualPyTest Application Database - DEFAULT datasource
+  - name: VirtualPyTest Local
+    type: postgres
+    access: proxy
+    url: postgres://virtualpytest_user:virtualpytest_pass@localhost:5432/virtualpytest
+    jsonData:
+      sslmode: disable  # Local connection, no SSL needed
+      postgresVersion: 1300
+      timescaledb: false
+      maxOpenConns: 10
+      maxIdleConns: 5
+      connMaxLifetime: 14400
+    # Set as DEFAULT datasource
+    isDefault: true
+    # Allow editing for development
+    editable: true
+    
+  # VirtualPyTest Metrics Database - for storing custom metrics
+  - name: VirtualPyTest Metrics
+    type: postgres
+    access: proxy
+    url: postgres://grafana_user:grafana_pass@localhost:5432/grafana_metrics
+    jsonData:
+      sslmode: disable  # Local connection, no SSL needed
+      postgresVersion: 1300
+      timescaledb: false
+      maxOpenConns: 5
+      maxIdleConns: 2
+      connMaxLifetime: 14400
+    # Not default, but available for metrics storage
+    isDefault: false
+    # Allow editing for development
+    editable: true
+EOF
+
+    echo "📋 Creating dashboard provisioning configuration..."
+    sudo tee /etc/grafana/provisioning/dashboards/dashboards.yml > /dev/null << 'EOF'
+# Local Grafana dashboard provisioning configuration
+apiVersion: 1
+
+providers:
+  # VirtualPyTest dashboards
+  - name: 'VirtualPyTest'
+    orgId: 1
+    folder: 'VirtualPyTest'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 10
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/dashboards/virtualpytest
+EOF
+    
+    # Update configuration for local use (change port to 3001 to avoid conflicts)
+    sudo sed -i 's/http_port = 3000/http_port = 3001/' /etc/grafana/grafana.ini
+    sudo sed -i 's/domain = dev.virtualpytest.com/domain = localhost/' /etc/grafana/grafana.ini
+    sudo sed -i 's|root_url = https://dev.virtualpytest.com/grafana/|root_url = http://localhost:3001/|' /etc/grafana/grafana.ini
+    sudo sed -i 's/serve_from_sub_path = true/serve_from_sub_path = false/' /etc/grafana/grafana.ini
+    
+    # Set proper permissions
+    sudo chown -R grafana:grafana /var/lib/grafana
+    sudo chown -R grafana:grafana /var/log/grafana
+    sudo chown -R grafana:grafana /etc/grafana/
     
     echo "✅ Grafana configuration setup completed successfully"
 }
@@ -316,12 +279,8 @@ if ! command -v grafana-server &> /dev/null; then
     exit 1
 fi
 
-# Check if Grafana is configured
-if [[ "$OSTYPE" == "darwin"* ]]; then
-    GRAFANA_CONF="/usr/local/etc/grafana/grafana.ini"
-else
-    GRAFANA_CONF="/etc/grafana/grafana.ini"
-fi
+# Check if Grafana is configured (Linux only)
+GRAFANA_CONF="/etc/grafana/grafana.ini"
 
 if [ ! -f "$GRAFANA_CONF" ]; then
     echo "❌ Grafana configuration not found at $GRAFANA_CONF"
@@ -332,11 +291,7 @@ fi
 # Check if PostgreSQL is running (for metrics storage)
 if ! pg_isready &> /dev/null; then
     echo "🐘 Starting PostgreSQL..."
-    if [[ "$OSTYPE" == "darwin"* ]]; then
-        brew services start postgresql
-    else
-        sudo systemctl start postgresql
-    fi
+    sudo systemctl start postgresql
     sleep 3
 fi
 
@@ -355,20 +310,11 @@ echo "📊 Grafana will be available at: http://localhost:3001"
 echo "🔑 Login: admin / admin123"
 echo "💡 Press Ctrl+C to stop"
 
-# Start Grafana server using system configuration
-if [[ "$OSTYPE" == "darwin"* ]]; then
-    # On macOS, start with Homebrew paths
-    grafana-server \
-        --config="$GRAFANA_CONF" \
-        --homepath="/usr/local/share/grafana" \
-        web
-else
-    # On Linux, start with system paths
-    grafana-server \
-        --config="$GRAFANA_CONF" \
-        --homepath="/usr/share/grafana" \
-        web
-fi
+# Start Grafana server using system configuration (Linux)
+grafana-server \
+    --config="$GRAFANA_CONF" \
+    --homepath="/usr/share/grafana" \
+    web
 EOF
 
     # Make launch script executable
@@ -381,12 +327,8 @@ EOF
 main() {
     echo "🎯 Starting Grafana installation for VirtualPyTest..."
     
-    # Install Grafana based on OS
-    if [[ "$OS" == "macos" ]]; then
-        install_grafana_macos
-    else
-        install_grafana_linux
-    fi
+    # Install Grafana on Linux
+    install_grafana
     
     # Setup PostgreSQL for metrics
     setup_postgresql
@@ -395,51 +337,25 @@ main() {
     setup_grafana_config
     create_launch_script
     
-    # Enable and start Grafana service (Linux only)
-    if [[ "$OS" == "linux" ]]; then
-        echo ""
-        echo "📁 Setting up Grafana with our custom configuration..."
-        
-        # Copy our custom configuration to Grafana's default location
-        echo "📋 Installing custom Grafana configuration..."
-        sudo cp grafana/config/grafana.ini /etc/grafana/grafana.ini
-        
-        # Copy our database to Grafana's default data directory
-        echo "📊 Installing custom Grafana database..."
-        sudo mkdir -p /var/lib/grafana
-        sudo cp grafana/data/grafana.db /var/lib/grafana/grafana.db
-        
-        # Set proper ownership for Grafana user
-        sudo chown -R grafana:grafana /var/lib/grafana
-        sudo chown -R grafana:grafana /var/log/grafana
-        sudo chown grafana:grafana /etc/grafana/grafana.ini
-        
-        # Set proper permissions
-        sudo chmod 755 /var/lib/grafana
-        sudo chmod 644 /var/lib/grafana/grafana.db
-        sudo chmod 640 /etc/grafana/grafana.ini
-        
-        echo "🚀 Enabling and starting Grafana service..."
-        sudo systemctl enable grafana-server
-        sudo systemctl start grafana-server
-        
-        # Wait for Grafana to start
-        echo "⏳ Waiting for Grafana to start..."
-        sleep 10
-        
-        # Check if Grafana is running
-        if systemctl is-active --quiet grafana-server; then
-            echo "✅ Grafana service is running"
-        else
-            echo "⚠️ Grafana service may not be running properly"
-            echo "🔍 Checking Grafana status..."
-            sudo systemctl status grafana-server --no-pager || true
-            echo "📋 Recent Grafana logs:"
-            sudo journalctl -u grafana-server --no-pager -n 10 || true
-        fi
+    # Enable and start Grafana service
+    echo ""
+    echo "🚀 Enabling and starting Grafana service..."
+    sudo systemctl enable grafana-server
+    sudo systemctl start grafana-server
+    
+    # Wait for Grafana to start
+    echo "⏳ Waiting for Grafana to start..."
+    sleep 10
+    
+    # Check if Grafana is running
+    if systemctl is-active --quiet grafana-server; then
+        echo "✅ Grafana service is running"
     else
-        echo ""
-        echo "ℹ️ On macOS, use ./setup/local/launch_grafana.sh to start Grafana manually"
+        echo "⚠️ Grafana service may not be running properly"
+        echo "🔍 Checking Grafana status..."
+        sudo systemctl status grafana-server --no-pager || true
+        echo "📋 Recent Grafana logs:"
+        sudo journalctl -u grafana-server --no-pager -n 10 || true
     fi
     
     echo ""
