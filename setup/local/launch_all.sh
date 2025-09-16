@@ -275,7 +275,7 @@ echo -e "${NC}🌐 URLs:${NC}"
 echo -e "${NC}   Frontend: http://localhost:5073${NC}"
 echo -e "${NC}   backend_server: http://localhost:5109${NC}"
 echo -e "${NC}   backend_host: http://localhost:6109${NC}"
-echo -e "${NC}   Grafana (built-in): http://localhost:5109/grafana/${NC}"
+echo -e "${NC}   Grafana : http://localhost:3000/${NC}"
 if [ "$INCLUDE_DISCARD" = true ]; then
     echo -e "${NC}   backend_discard: AI analysis service (port ${DISCARD_PORT:-6209})${NC}"
 fi
