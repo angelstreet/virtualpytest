@@ -1,43 +1,14 @@
 #!/bin/bash
 
-# VirtualPyTest - Install All Local Dependencies
-# This script installs all dependencies for local development
-# Usage: ./install_all.sh [--no-grafana]
+# VirtualPyTest - Fresh Installation
+# This script performs a complete fresh installation of VirtualPyTest
+# Usage: ./install_all.sh (no parameters - always fresh install)
 
 set -e
 
-# Parse command line arguments
-INSTALL_GRAFANA=true  # Default to true
-for arg in "$@"; do
-    case $arg in
-        --no-grafana)
-            INSTALL_GRAFANA=false
-            shift
-            ;;
-        --grafana)
-            INSTALL_GRAFANA=true
-            shift
-            ;;
-        -h|--help)
-            echo "Usage: $0 [--no-grafana] [--grafana]"
-            echo "  --no-grafana      Skip Grafana installation (monitoring disabled)"
-            echo "  --grafana         Install Grafana (default behavior)"
-            echo "  -h, --help        Show this help message"
-            exit 0
-            ;;
-        *)
-            echo "❌ Unknown parameter: $arg"
-            echo "Use --help for usage information"
-            exit 1
-            ;;
-    esac
-done
-
-if [ "$INSTALL_GRAFANA" = true ]; then
-    echo "🔧 Setting up VirtualPyTest for local development (with Grafana)..."
-else
-    echo "🔧 Setting up VirtualPyTest for local development (without Grafana)..."
-fi
+echo "🔥 VirtualPyTest Fresh Installation"
+echo "🗑️  This will clean and reinstall core components for a fresh system..."
+echo ""
 
 # Get to project root directory (from setup/local to project root)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -121,72 +92,54 @@ else
 fi
 
 echo ""
-echo "1️⃣ Installing database..."
-./setup/local/install_db.sh
+echo "1️⃣ Installing database (fresh)..."
+./setup/local/install_db.sh --force-clean
 
 echo ""
-echo "2️⃣ Installing shared library..."
-./setup/local/install_shared.sh
+echo "2️⃣ Installing shared library (smart update)..."
+./setup/local/install_shared.sh --smart-update
 
 echo ""
-echo "3️⃣ Installing backend_server..."
-./setup/local/install_server.sh
+echo "3️⃣ Installing backend_server (smart update)..."
+./setup/local/install_server.sh --smart-update
 
 echo ""
-echo "4️⃣ Installing backend_host..."
-./setup/local/install_host.sh
+echo "4️⃣ Installing backend_host (fresh services)..."
+./setup/local/install_host.sh --force-clean
 
 echo ""
-echo "5️⃣ Installing frontend..."
-./setup/local/install_frontend.sh
-
-if [ "$INSTALL_GRAFANA" = true ]; then
-    echo ""
-    echo "6️⃣ Installing Grafana for monitoring..."
-    ./setup/local/install_grafana.sh
-fi
+echo "5️⃣ Installing frontend (smart update)..."
+./setup/local/install_frontend.sh --smart-update
 
 echo ""
-echo "🎉 All components installed successfully!"
-echo "🐍 Virtual environment created at: $(pwd)/venv"
+echo "6️⃣ Installing Grafana for monitoring (smart update)..."
+./setup/local/install_grafana.sh --smart-update
+
+echo ""
+echo "🎉 Fresh VirtualPyTest installation completed successfully!"
+echo "🐍 Virtual environment: $(pwd)/venv"
 echo "🔌 To activate manually: source venv/bin/activate"
 echo ""
-echo "📝 IMPORTANT: Edit your .env files before launching (already created from templates):"
+echo "📝 IMPORTANT: Edit your .env files before launching:"
 echo "   📁 .env - Main configuration (database, API keys)"
 echo "   📁 backend_host/src/.env - Hardware/device settings"
 echo "   📁 frontend/.env - Web interface settings"
 echo ""
-echo "🔐 Permission Setup:"
-echo "   ✅ System permissions configured for www-data and directories"
-echo "   ⚠️ If you skipped permission setup, run manually:"
-echo "      sudo ./setup/local/setup_permissions.sh --user $(whoami)"
-echo ""
-echo "🗄️ Database Configuration:"
-echo "   📁 Local database config: config/database/local.env"
+echo "🗄️ Fresh Database Configuration:"
 echo "   🚀 Application DB: postgresql://virtualpytest_user:virtualpytest_pass@localhost:5432/virtualpytest"
 echo "   📊 Grafana DB: postgresql://grafana_user:grafana_pass@localhost:5432/grafana_metrics"
 echo ""
-echo "🚀 You can now run services locally:"
-if [ "$INSTALL_GRAFANA" = true ]; then
-    echo "   ./setup/local/launch_all.sh  - Start all services (recommended)"
-    echo "   ./setup/local/launch_grafana.sh            - Start Grafana monitoring only"
-else
-    echo "   ./setup/local/launch_all.sh                - Start all services (no monitoring)"
-fi
-echo "   ./setup/local/launch_server.sh              - Start backend_server only"
-echo "   ./setup/local/launch_host.sh                - Start backend_host only"  
-echo "   ./setup/local/launch_frontend.sh            - Start frontend only"
+echo "🖥️ Fresh VNC Configuration:"
+echo "   - VNC Server: localhost:5901 (display :1)"
+echo "   - Default Password: admin1234"
+echo "   - Web Interface: http://localhost:6080"
 echo ""
-echo "🔧 Individual component installation:"
-echo "   ./setup/local/install_db.sh          - Install local database only"
-echo "   ./setup/local/install_shared.sh      - Install shared library only"
-echo "   ./setup/local/install_server.sh      - Install backend_server only"
-echo "   ./setup/local/install_host.sh        - Install backend_host only"
-echo "   ./setup/local/install_frontend.sh    - Install frontend only"
-echo "   ./setup/local/install_grafana.sh     - Install Grafana monitoring only"
+echo "🚀 Launch VirtualPyTest:"
+echo "   ./setup/local/launch_all.sh        - Start all services"
+echo "   ./setup/local/launch_server.sh     - Start backend_server only"
+echo "   ./setup/local/launch_host.sh       - Start backend_host only"  
+echo "   ./setup/local/launch_frontend.sh   - Start frontend only"
 echo ""
-echo "🏠 Host services setup (for Raspberry Pi):"
-echo "   ./setup/local/install_host_services.sh - Full host services setup"
-echo ""
-echo "🐳 Or use Docker deployment:"
-echo "   ./setup/docker/launch_all.sh      - Start all services with Docker" 
+echo "🔧 Individual fresh installs:"
+echo "   ./setup/local/install_db.sh --force-clean       - Fresh database only"
+echo "   ./setup/local/install_host_services.sh          - Fresh host services setup" 

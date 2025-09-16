@@ -3,10 +3,19 @@
 # VirtualPyTest - Install Local Database
 # This script creates a complete VirtualPyTest database using the migration files
 # It sets up both the application database and Grafana metrics database
+# Usage: ./install_db.sh [--force-clean]
 
 set -e
 
-echo "🗄️ Installing VirtualPyTest local database..."
+# Parse command line arguments
+FORCE_CLEAN=false
+if [[ "$1" == "--force-clean" ]]; then
+    FORCE_CLEAN=true
+    echo "🗄️ Installing VirtualPyTest database (FORCE CLEAN)..."
+    echo "🗑️ This will drop existing databases and recreate them..."
+else
+    echo "🗄️ Installing VirtualPyTest local database..."
+fi
 
 # Get to project root directory (from setup/local to project root)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -74,6 +83,19 @@ install_postgresql() {
 setup_virtualpytest_database() {
     echo "🚀 Setting up VirtualPyTest application database..."
     
+    # Drop existing database if force clean
+    if [ "$FORCE_CLEAN" = true ]; then
+        echo "🗑️ Dropping existing VirtualPyTest database..."
+        sudo -u postgres psql << 'EOF' || true
+-- Drop database and user if they exist
+DROP DATABASE IF EXISTS virtualpytest;
+DROP USER IF EXISTS virtualpytest_user;
+
+-- Exit
+\q
+EOF
+    fi
+    
     # Create database and user for VirtualPyTest application
     sudo -u postgres psql << 'EOF'
 -- Create database for VirtualPyTest application
@@ -103,6 +125,19 @@ EOF
 # Function to setup Grafana metrics database
 setup_grafana_database() {
     echo "📊 Setting up Grafana metrics database..."
+    
+    # Drop existing database if force clean
+    if [ "$FORCE_CLEAN" = true ]; then
+        echo "🗑️ Dropping existing Grafana database..."
+        sudo -u postgres psql << 'EOF' || true
+-- Drop database and user if they exist
+DROP DATABASE IF EXISTS grafana_metrics;
+DROP USER IF EXISTS grafana_user;
+
+-- Exit
+\q
+EOF
+    fi
     
     # Create database and user for Grafana metrics
     sudo -u postgres psql << 'EOF'
@@ -249,31 +284,44 @@ else
     echo "✅ PostgreSQL already installed"
 fi
 
-# Setup VirtualPyTest application database
-echo "🔍 Checking VirtualPyTest database setup..."
-if ! PGPASSWORD=virtualpytest_pass psql -h localhost -U virtualpytest_user -d virtualpytest -c "SELECT 1;" &> /dev/null; then
-    echo "🚀 Setting up VirtualPyTest database..."
+# Setup databases - always setup if force clean, otherwise check if they exist
+if [ "$FORCE_CLEAN" = true ]; then
+    echo "🚀 Setting up VirtualPyTest database (FORCE CLEAN)..."
     setup_virtualpytest_database
-else
-    echo "✅ VirtualPyTest database already configured"
-fi
-
-# Setup Grafana database
-echo "🔍 Checking Grafana database setup..."
-if ! PGPASSWORD=grafana_pass psql -h localhost -U grafana_user -d grafana_metrics -c "SELECT 1;" &> /dev/null; then
-    echo "📊 Setting up Grafana database..."
+    echo "📊 Setting up Grafana database (FORCE CLEAN)..."
     setup_grafana_database
 else
-    echo "✅ Grafana database already configured"
+    # Setup VirtualPyTest application database
+    echo "🔍 Checking VirtualPyTest database setup..."
+    if ! PGPASSWORD=virtualpytest_pass psql -h localhost -U virtualpytest_user -d virtualpytest -c "SELECT 1;" &> /dev/null; then
+        echo "🚀 Setting up VirtualPyTest database..."
+        setup_virtualpytest_database
+    else
+        echo "✅ VirtualPyTest database already configured"
+    fi
+
+    # Setup Grafana database
+    echo "🔍 Checking Grafana database setup..."
+    if ! PGPASSWORD=grafana_pass psql -h localhost -U grafana_user -d grafana_metrics -c "SELECT 1;" &> /dev/null; then
+        echo "📊 Setting up Grafana database..."
+        setup_grafana_database
+    else
+        echo "✅ Grafana database already configured"
+    fi
 fi
 
-# Run migrations
+# Run migrations - always run if force clean, otherwise check if they're needed
 echo "🔍 Checking if migrations need to be run..."
-if ! PGPASSWORD=virtualpytest_pass psql -h localhost -U virtualpytest_user -d virtualpytest -c "SELECT 1 FROM teams LIMIT 1;" &> /dev/null; then
-    echo "📋 Running database migrations..."
+if [ "$FORCE_CLEAN" = true ]; then
+    echo "📋 Running database migrations (FORCE CLEAN)..."
     run_migrations
 else
-    echo "✅ Database migrations already applied"
+    if ! PGPASSWORD=virtualpytest_pass psql -h localhost -U virtualpytest_user -d virtualpytest -c "SELECT 1 FROM teams LIMIT 1;" &> /dev/null; then
+        echo "📋 Running database migrations..."
+        run_migrations
+    else
+        echo "✅ Database migrations already applied"
+    fi
 fi
 
 # Verify database setup
