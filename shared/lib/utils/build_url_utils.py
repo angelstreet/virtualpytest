@@ -610,6 +610,14 @@ def buildStreamUrlForDevice(host_info: dict, device_id: str) -> str:
         vnc_stream_url = device.get('video_stream_path')
         if not vnc_stream_url:
             raise ValueError(f"VNC device {device_id} has no video_stream_path configured")
+        
+        # Replace localhost with actual host IP for network accessibility
+        if 'localhost' in vnc_stream_url and host_info:
+            host_ip = host_info.get('host_ip') or host_info.get('host_name')
+            if host_ip:
+                vnc_stream_url = vnc_stream_url.replace('localhost', host_ip)
+                print(f"[@build_url_utils:buildStreamUrlForDevice] Replaced localhost with {host_ip}: {vnc_stream_url}")
+        
         return vnc_stream_url
     else:
         # For regular devices, return HLS stream URL

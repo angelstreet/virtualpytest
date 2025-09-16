@@ -30,10 +30,17 @@ const processStreamUrl = (url: string): string => {
     return url;
   }
 
-  // Handle HTTP URLs - use proxy to convert to HTTPS
+  // Handle HTTP URLs - skip proxy for network-accessible URLs
   if (url.startsWith('http:')) {
+    // Skip proxy for direct network access (non-localhost URLs)
+    if (!url.includes('localhost') && !url.includes('127.0.0.1')) {
+      console.log(`[@hook:useStream] Using direct HTTP URL (no proxy needed): ${url}`);
+      return url;
+    }
+    
+    // Use proxy only for localhost URLs that need HTTPS conversion
     const proxyUrl = `/server/av/proxy-stream?url=${encodeURIComponent(url)}`;
-    console.log(`[@hook:useStream] Generated proxy URL for stream: ${proxyUrl}`);
+    console.log(`[@hook:useStream] Generated proxy URL for localhost stream: ${proxyUrl}`);
     return proxyUrl;
   }
   return url;
