@@ -230,6 +230,24 @@ echo "admin1234" | tigervncpasswd -f > ~/.vnc/passwd 2>/dev/null
 chmod 600 ~/.vnc/passwd
 echo "✅ TigerVNC password set to: admin1234"
 
+# Create XFCE4 desktop session files (fixes black screen issue)
+echo "🖥️ Creating XFCE4 session desktop files..."
+sudo mkdir -p /usr/share/xsessions
+sudo tee /usr/share/xsessions/xfce4.desktop > /dev/null << 'EOF'
+[Desktop Entry]
+Name=Xfce Session
+Comment=Use this session to run Xfce as your desktop environment
+Exec=startxfce4
+Icon=
+Type=Application
+DesktopNames=XFCE
+EOF
+
+# Also create it in wayland-sessions for compatibility
+sudo mkdir -p /usr/share/wayland-sessions
+sudo cp /usr/share/xsessions/xfce4.desktop /usr/share/wayland-sessions/
+echo "✅ XFCE4 session desktop files created"
+
 # Create xstartup file for VNC session (using proven working configuration)
 cat > ~/.vnc/xstartup << 'EOF'
 #!/bin/sh
@@ -237,11 +255,16 @@ cat > ~/.vnc/xstartup << 'EOF'
 # Load X resources if available
 xrdb "$HOME/.Xresources" 2>/dev/null || true
 
-# Fix to make GNOME work
-export XKL_XMODMAP_DISABLE=1
+# Set background color (prevents black screen)
+xsetroot -solid grey
 
-# Start XFCE4 with proper D-Bus session for better compatibility
-exec dbus-launch --exit-with-session startxfce4
+# Fix locale and D-Bus issues
+export XKL_XMODMAP_DISABLE=1
+export LANG=en_GB.UTF-8
+export LC_ALL=en_GB.UTF-8
+
+# Start XFCE4 directly with proper session
+exec /usr/bin/startxfce4
 EOF
 chmod +x ~/.vnc/xstartup
 
@@ -260,6 +283,24 @@ echo "🧪 Testing VNC configuration..."
 echo "✅ VNC password file created"
 echo "✅ VNC startup script created"
 echo "✅ VNC config file created"
+echo "✅ XFCE4 session files created"
+
+# Test VNC server startup
+echo "🔧 Testing VNC server startup..."
+if tigervncserver :1 -rfbauth ~/.vnc/passwd -rfbport 5901 -localhost no -geometry 1280x720 >/dev/null 2>&1; then
+    echo "✅ VNC server test successful"
+    # Check if it's actually listening on port 5901
+    sleep 2
+    if netstat -tlnp 2>/dev/null | grep -q ":5901"; then
+        echo "✅ VNC server listening on port 5901"
+    else
+        echo "⚠️ VNC server started but not listening on port 5901"
+    fi
+    # Kill test session
+    tigervncserver -kill :1 >/dev/null 2>&1
+else
+    echo "⚠️ VNC server test failed - check configuration"
+fi
 
 
 
