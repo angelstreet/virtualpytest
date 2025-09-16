@@ -19,7 +19,7 @@ from typing import Dict, Any, Optional, Union
 
 AI_MODELS = {
     'text': 'microsoft/phi-3-mini-128k-instruct', # Kimi not working for now,moonshotai/kimi-k2:free
-    'vision': 'qwen/qwen2.5-vl-3b-instruct:free,
+    'vision': 'qwen/qwen2.5-vl-3b-instruct:free',
     'translation': 'microsoft/phi-3-mini-128k-instruct', # or microsoft/phi-3-mini-4k-instruct
 }
 
