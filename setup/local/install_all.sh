@@ -223,7 +223,16 @@ services=("postgresql:PostgreSQL" "grafana-server:Grafana" "vncserver:VNC" "novn
 for service_info in "${services[@]}"; do
     IFS=':' read -r service_name display_name <<< "$service_info"
     if systemctl is-active --quiet "$service_name" 2>/dev/null; then
-        echo "   ✅ $display_name: Running"
+        # Special validation for VNC - check if actually listening on port 5901
+        if [ "$service_name" = "vncserver" ]; then
+            if netstat -tlnp 2>/dev/null | grep -q ":5901"; then
+                echo "   ✅ $display_name: Running (port 5901 active)"
+            else
+                echo "   ⚠️ $display_name: Service active but port 5901 not listening"
+            fi
+        else
+            echo "   ✅ $display_name: Running"
+        fi
     elif systemctl is-enabled --quiet "$service_name" 2>/dev/null; then
         echo "   🟡 $display_name: Enabled (not running)"
     else

@@ -285,7 +285,7 @@ echo "✅ VNC startup script created"
 echo "✅ VNC config file created"
 echo "✅ XFCE4 session files created"
 
-# Test VNC server startup
+# Test VNC server startup and fix service if needed
 echo "🔧 Testing VNC server startup..."
 if tigervncserver :1 -rfbauth ~/.vnc/passwd -rfbport 5901 -localhost no -geometry 1280x720 >/dev/null 2>&1; then
     echo "✅ VNC server test successful"
@@ -296,11 +296,19 @@ if tigervncserver :1 -rfbauth ~/.vnc/passwd -rfbport 5901 -localhost no -geometr
     else
         echo "⚠️ VNC server started but not listening on port 5901"
     fi
-    # Kill test session
+    # Kill test session before starting service
     tigervncserver -kill :1 >/dev/null 2>&1
+    sleep 1
 else
     echo "⚠️ VNC server test failed - check configuration"
 fi
+
+# Ensure clean state before starting services
+echo "🧹 Final cleanup before service start..."
+sudo systemctl stop vncserver 2>/dev/null || true
+pkill -f "Xvnc.*:1" 2>/dev/null || true
+sudo rm -f /tmp/.X1-lock /tmp/.X11-unix/X1 2>/dev/null || true
+sleep 2
 
 
 
