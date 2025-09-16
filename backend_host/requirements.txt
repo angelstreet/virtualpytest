@@ -65,7 +65,7 @@ gTTS>=2.4.0          # Google Text-to-Speech (current baseline)
 edge-tts>=6.1.0      # Microsoft Edge TTS (upgrade test)
 
 # Translation engines - Speed optimization
-googletrans==4.0.0rc1  # Google Translate API (10-20x faster than AI translation)
+googletrans>=4.0.2  # Google Translate API (10-20x faster than AI translation)
 # Device communication
 paramiko>=2.9.0  # SSH
 Appium-Python-Client>=3.1.0  # Mobile devices
