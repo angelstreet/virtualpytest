@@ -108,7 +108,11 @@ def translate_text_local_google(text: str, source_language: str, target_language
         
         # Translate using Google Translate
         translator = Translator()
-        result = translator.translate(text, src=source_language, dest=target_language)
+        # Use auto-detection if source_language is 'auto' or not specified
+        if source_language == 'auto' or not source_language:
+            result = translator.translate(text, dest=target_language)
+        else:
+            result = translator.translate(text, src=source_language, dest=target_language)
         
         return {
             'success': True,
@@ -129,6 +133,10 @@ def translate_text_local_google(text: str, source_language: str, target_language
         }
 
 def translate_text(text: str, source_language: str, target_language: str, method: str = 'google') -> Dict[str, Any]:
+    # Map language names to codes
+    lang_map = {'English':'en','French':'fr','Spanish':'es','German':'de','Italian':'it','Portuguese':'pt','Russian':'ru','Japanese':'ja','Korean':'ko','Chinese':'zh','Arabic':'ar','Hindi':'hi'}
+    source_code = lang_map.get(source_language, source_language)
+    target_code = lang_map.get(target_language, target_language)
     """
     Translate text using various methods with fallback support.
     
@@ -147,7 +155,7 @@ def translate_text(text: str, source_language: str, target_language: str, method
     if method == 'auto':
         # Try Google Translate first (fast, high quality)
         if GOOGLE_TRANSLATE_AVAILABLE:
-            result = translate_text_local_google(text, source_language, target_language)
+            result = translate_text_local_google(text, source_code, target_code)
             if result['success']:
                 return result
         
@@ -164,7 +172,7 @@ def translate_text(text: str, source_language: str, target_language: str, method
     if method == 'argos':
         return translate_text_local_argos(text, source_language, target_language)
     elif method == 'google':
-        return translate_text_local_google(text, source_language, target_language)
+        return translate_text_local_google(text, source_code, target_code)
     elif method == 'ai':
         # Original AI implementation
         pass
@@ -447,7 +455,13 @@ Translated content:"""
         if GOOGLE_TRANSLATE_AVAILABLE:
             try:
                 translator = Translator()
-                translated_content = translator.translate(combined_content, src='en', dest=target_language).text
+                # Auto-detect source language instead of assuming English
+                lang_map = {'English':'en','French':'fr','Spanish':'es','German':'de','Italian':'it','Portuguese':'pt','Russian':'ru','Japanese':'ja','Korean':'ko','Chinese':'zh','Arabic':'ar','Hindi':'hi'}
+                target_code = lang_map.get(target_language, target_language)
+                translate_result = translator.translate(combined_content, dest=target_code)
+                translated_content = translate_result.text
+                detected_source = translate_result.src or 'auto'
+                print(f"[TRANSLATION] ⚡ Detected source language: {detected_source} → {target_language}")
                 result = {'success': True, 'content': translated_content}
                 print(f"[TRANSLATION] ⚡ Google Translate completed successfully")
             except Exception as e:
