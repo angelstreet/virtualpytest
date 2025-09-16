@@ -52,7 +52,7 @@ const CampaignEditor: React.FC = () => {
     try {
       setLoading(true);
       // Use correct campaigns endpoint
-      const response = await fetch(`/server/campaigns/deleteCampaign/${campaignId}`, {
+      const response = await fetch(buildServerUrl(`/server/campaigns/deleteCampaign/${campaignId}`), {
         method: 'DELETE',
       });
 

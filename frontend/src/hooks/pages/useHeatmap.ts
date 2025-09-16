@@ -191,7 +191,7 @@ export const useHeatmap = () => {
    */
   const checkGenerationStatus = useCallback(async (jobId: string): Promise<HeatmapGeneration> => {
     try {
-      const response = await fetch(`/server/heatmap/status/${jobId}`);
+      const response = await fetch(buildServerUrl(`/server/heatmap/status/${jobId}`));
 
       if (!response.ok) {
         throw new Error(`Status check failed: ${response.status} ${response.statusText}`);
@@ -237,7 +237,7 @@ export const useHeatmap = () => {
         `[@hook:useHeatmap:cancelGeneration] Cancelling job: ${currentGeneration.job_id}`,
       );
 
-      const response = await fetch(`/server/heatmap/cancel/${currentGeneration.job_id}`, {
+      const response = await fetch(buildServerUrl(`/server/heatmap/cancel/${currentGeneration.job_id}`), {
         method: 'POST',
       });
 

@@ -192,7 +192,7 @@ const DeviceManagement: React.FC = () => {
     try {
       setError(null);
 
-      const response = await fetch(`/server/devices/updateDevice/${deviceId}`, {
+      const response = await fetch(buildServerUrl(`/server/devices/updateDevice/${deviceId}`), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -227,7 +227,7 @@ const DeviceManagement: React.FC = () => {
     try {
       setError(null);
 
-      const response = await fetch(`/server/devices/deleteDevice/${id}`, {
+      const response = await fetch(buildServerUrl(`/server/devices/deleteDevice/${id}`), {
         method: 'DELETE',
       });
 
@@ -263,7 +263,7 @@ const DeviceManagement: React.FC = () => {
       console.log('[@component:DeviceManagement] Loading device for editing:', device.id);
 
       // Load the device's current configuration
-      const response = await fetch(`/server/devices/getDevice/${device.id}`);
+      const response = await fetch(buildServerUrl(`/server/devices/getDevice/${device.id}`));
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || `Failed to load device: ${response.status}`);
@@ -304,7 +304,7 @@ const DeviceManagement: React.FC = () => {
       setSubmitting(true);
       setError(null);
 
-      const response = await fetch(`/server/devices/updateDevice/${editingId}`, {
+      const response = await fetch(buildServerUrl(`/server/devices/updateDevice/${editingId}`), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

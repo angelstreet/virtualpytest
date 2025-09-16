@@ -65,6 +65,7 @@ export const useVerificationEditor = ({
     referencesLoading,
     getModelReferences,
     addReferenceToCache,
+    reloadReferences,
   } = useDeviceData();
 
   // Use the pure verification hook for core functionality
@@ -196,7 +197,7 @@ export const useVerificationEditor = ({
         console.log(
           '[@hook:useVerificationEditor] Using processImage endpoint with processing options',
         );
-        captureResponse = await fetch(`/server/verification/image/processImage`, {
+        captureResponse = await fetch(buildServerUrl(`/server/verification/image/processImage`), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -214,7 +215,7 @@ export const useVerificationEditor = ({
         });
       } else {
         console.log('[@hook:useVerificationEditor] Using standard cropImage endpoint');
-        captureResponse = await fetch(`/server/verification/image/cropImage`, {
+        captureResponse = await fetch(buildServerUrl(`/server/verification/image/cropImage`), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -356,6 +357,16 @@ export const useVerificationEditor = ({
             console.log('[@hook:useVerificationEditor] Added text reference to cache for immediate use');
           }
 
+          // Reload references from server to ensure complete sync
+          if (reloadReferences) {
+            try {
+              await reloadReferences();
+              console.log('[@hook:useVerificationEditor] Successfully reloaded references after text save');
+            } catch (reloadError) {
+              console.warn('[@hook:useVerificationEditor] Failed to reload references after text save:', reloadError);
+            }
+          }
+
           // Clear success state after 3 seconds (increased from 2)
           setTimeout(() => {
             setSaveSuccess(false);
@@ -372,7 +383,7 @@ export const useVerificationEditor = ({
 
         if (imageProcessingOptions.autocrop || imageProcessingOptions.removeBackground) {
           console.log('[@hook:useVerificationEditor] Capturing with processing options for save');
-          captureResponse = await fetch(`/server/verification/image/processImage`, {
+          captureResponse = await fetch(buildServerUrl(`/server/verification/image/processImage`), {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -390,7 +401,7 @@ export const useVerificationEditor = ({
           });
         } else {
           console.log('[@hook:useVerificationEditor] Capturing without processing for save');
-          captureResponse = await fetch(`/server/verification/image/cropImage`, {
+          captureResponse = await fetch(buildServerUrl(`/server/verification/image/cropImage`), {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -457,6 +468,16 @@ export const useVerificationEditor = ({
             console.log('[@hook:useVerificationEditor] Added reference to cache for immediate use');
           }
 
+          // Reload references from server to ensure complete sync
+          if (reloadReferences) {
+            try {
+              await reloadReferences();
+              console.log('[@hook:useVerificationEditor] Successfully reloaded references after image save');
+            } catch (reloadError) {
+              console.warn('[@hook:useVerificationEditor] Failed to reload references after image save:', reloadError);
+            }
+          }
+
           // Clear success state after 3 seconds (increased from 2)
           setTimeout(() => {
             setSaveSuccess(false);
@@ -484,6 +505,8 @@ export const useVerificationEditor = ({
     imageProcessingOptions,
     deviceModel,
     detectedTextData,
+    addReferenceToCache,
+    reloadReferences,
   ]);
 
   // Handle auto-detect text
@@ -508,7 +531,7 @@ export const useVerificationEditor = ({
       const sourceFilename = captureSourcePath.split('/').pop() || '';
       console.log('[@hook:useVerificationEditor] Extracted source filename:', sourceFilename);
 
-      const response = await fetch(`/server/verification/text/detectText`, {
+      const response = await fetch(buildServerUrl(`/server/verification/text/detectText`), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

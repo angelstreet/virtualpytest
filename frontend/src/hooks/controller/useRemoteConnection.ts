@@ -12,6 +12,7 @@ import { useDeviceControl } from '../useDeviceControl';
 import { useHostManager } from '../useHostManager';
 
 import { REMOTE_CONFIGS } from './useRemoteConfigs';
+import { buildServerUrl } from '../../utils/buildUrlUtils';
 
 // Simplified connection form - no SSH fields needed with abstract controller
 const initialConnectionForm: ConnectionForm = {
@@ -145,7 +146,7 @@ export function useRemoteConnection(remoteType: RemoteType) {
       console.log('[@hook:useRemoteConnection] Taking screenshot using server route...');
 
       // Use direct server route call instead of proxy
-      const response = await fetch(`/server/remote/takeScreenshot`, {
+      const response = await fetch(buildServerUrl(`/server/remote/takeScreenshot`), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -183,7 +184,7 @@ export function useRemoteConnection(remoteType: RemoteType) {
       );
 
       // Use direct server route call instead of proxy
-      const response = await fetch(`/server/remote/screenshotAndDump`, {
+      const response = await fetch(buildServerUrl(`/server/remote/screenshotAndDump`), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -225,7 +226,7 @@ export function useRemoteConnection(remoteType: RemoteType) {
       console.log('[@hook:useRemoteConnection] Getting installed apps using server route...');
 
       // Use direct server route call instead of proxy
-      const response = await fetch(`/server/remote/getApps`, {
+      const response = await fetch(buildServerUrl(`/server/remote/getApps`), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -263,7 +264,7 @@ export function useRemoteConnection(remoteType: RemoteType) {
         );
 
         // Use the unified executeCommand route
-        const response = await fetch(`/server/remote/executeCommand`, {
+        const response = await fetch(buildServerUrl(`/server/remote/executeCommand`), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -312,7 +313,7 @@ export function useRemoteConnection(remoteType: RemoteType) {
 
         // Handle special Android mobile commands
         if (remoteType === 'android-mobile' && command === 'LAUNCH_APP') {
-          const response = await fetch(`/server/remote/executeCommand`, {
+          const response = await fetch(buildServerUrl(`/server/remote/executeCommand`), {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -335,7 +336,7 @@ export function useRemoteConnection(remoteType: RemoteType) {
         }
 
         // For regular key press commands
-        const response = await fetch(`/server/remote/executeCommand`, {
+        const response = await fetch(buildServerUrl(`/server/remote/executeCommand`), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

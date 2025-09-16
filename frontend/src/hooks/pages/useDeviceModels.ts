@@ -67,7 +67,7 @@ class DeviceModelServerService {
   async getDeviceModel(id: string): Promise<Model> {
     try {
       console.log(`[@hook:useDeviceModels:getDeviceModel] Fetching device model: ${id}`);
-      const response = await fetch(`/server/devicemodel/getDeviceModel/${id}`, {
+      const response = await fetch(buildServerUrl(`/server/devicemodel/getDeviceModel/${id}`), {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -135,7 +135,7 @@ class DeviceModelServerService {
   ): Promise<Model> {
     try {
       console.log(`[@hook:useDeviceModels:updateDeviceModel] Updating device model: ${id}`, model);
-      const response = await fetch(`/server/devicemodel/updateDeviceModel/${id}`, {
+      const response = await fetch(buildServerUrl(`/server/devicemodel/updateDeviceModel/${id}`), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -169,7 +169,7 @@ class DeviceModelServerService {
   async deleteDeviceModel(id: string): Promise<void> {
     try {
       console.log(`[@hook:useDeviceModels:deleteDeviceModel] Deleting device model: ${id}`);
-      const response = await fetch(`/server/devicemodel/deleteDeviceModel/${id}`, {
+      const response = await fetch(buildServerUrl(`/server/devicemodel/deleteDeviceModel/${id}`), {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',

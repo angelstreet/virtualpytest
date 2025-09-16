@@ -10,6 +10,7 @@ import { ValidationResults, ValidationPreviewData } from '../../types/features/V
 import { useHostManager } from '../useHostManager';
 import { useScript } from '../script/useScript';
 import { useNavigation } from '../../contexts/navigation/NavigationContext';
+import { buildServerUrl } from '../../utils/buildUrlUtils';
 
 // Simplified shared state store for validation
 const validationStore: Record<
@@ -217,7 +218,7 @@ export const useValidation = (treeId: string, providedHost?: any, providedDevice
     updateValidationState(treeId, { isLoadingPreview: true });
 
     try {
-      const response = await fetch(`/server/validation/preview/${treeId}`);
+      const response = await fetch(buildServerUrl(`/server/validation/preview/${treeId}`));
       const result = await response.json();
 
       if (result.success) {

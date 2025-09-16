@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useState } from 'react';
 
+import { buildServerUrl } from '../../utils/buildUrlUtils';
+
 // Types for nested tree operations
 export interface NavigationTree {
   id: string;
@@ -111,7 +113,7 @@ export const NavigationConfigProvider: React.FC<{ children: React.ReactNode }> =
   const loadTreeMetadata = async (treeId: string): Promise<NavigationTree> => {
     setIsLoading(true);
     try {
-      const response = await fetch(`/server/navigationTrees/${treeId}`);
+      const response = await fetch(buildServerUrl(`/server/navigationTrees/${treeId}`));
       const result = await response.json();
       
       if (result.success) {
@@ -132,7 +134,7 @@ export const NavigationConfigProvider: React.FC<{ children: React.ReactNode }> =
   const loadTreeData = async (treeId: string): Promise<any> => {
     setIsLoading(true);
     try {
-      const response = await fetch(`/server/navigationTrees/${treeId}/full`);
+      const response = await fetch(buildServerUrl(`/server/navigationTrees/${treeId}/full`));
       const result = await response.json();
       
       if (result.success) {
@@ -150,7 +152,7 @@ export const NavigationConfigProvider: React.FC<{ children: React.ReactNode }> =
   };
 
   const loadTreeNodes = async (treeId: string, page = 0, limit = 100): Promise<NavigationNode[]> => {
-    const response = await fetch(`/server/navigationTrees/${treeId}/nodes?page=${page}&limit=${limit}`);
+    const response = await fetch(buildServerUrl(`/server/navigationTrees/${treeId}/nodes?page=${page}&limit=${limit}`));
     const result = await response.json();
     
     if (result.success) {
@@ -161,7 +163,7 @@ export const NavigationConfigProvider: React.FC<{ children: React.ReactNode }> =
   };
 
   const loadTreeEdges = async (treeId: string, nodeIds?: string[]): Promise<NavigationEdge[]> => {
-    const url = new URL(`/server/navigationTrees/${treeId}/edges`, window.location.origin);
+    const url = new URL(buildServerUrl(`/server/navigationTrees/${treeId}/edges`), window.location.origin);
     if (nodeIds) {
       nodeIds.forEach(id => url.searchParams.append('node_ids', id));
     }
@@ -177,7 +179,7 @@ export const NavigationConfigProvider: React.FC<{ children: React.ReactNode }> =
   };
 
   const saveNode = async (treeId: string, node: NavigationNode): Promise<void> => {
-    const response = await fetch(`/server/navigationTrees/${treeId}/nodes`, {
+    const response = await fetch(buildServerUrl(`/server/navigationTrees/${treeId}/nodes`), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(node)
@@ -190,7 +192,7 @@ export const NavigationConfigProvider: React.FC<{ children: React.ReactNode }> =
   };
 
   const saveEdge = async (treeId: string, edge: NavigationEdge): Promise<any> => {
-    const response = await fetch(`/server/navigationTrees/${treeId}/edges`, {
+    const response = await fetch(buildServerUrl(`/server/navigationTrees/${treeId}/edges`), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(edge)
@@ -207,7 +209,7 @@ export const NavigationConfigProvider: React.FC<{ children: React.ReactNode }> =
 
   // Nested tree operations
   const loadNodeSubTrees = async (treeId: string, nodeId: string): Promise<NavigationTree[]> => {
-    const response = await fetch(`/server/navigationTrees/getNodeSubTrees/${treeId}/${nodeId}`);
+    const response = await fetch(buildServerUrl(`/server/navigationTrees/getNodeSubTrees/${treeId}/${nodeId}`));
     const result = await response.json();
     
     if (result.success) {
@@ -218,7 +220,7 @@ export const NavigationConfigProvider: React.FC<{ children: React.ReactNode }> =
   };
 
   const createSubTree = async (parentTreeId: string, parentNodeId: string, treeData: any): Promise<NavigationTree> => {
-    const response = await fetch(`/server/navigationTrees/${parentTreeId}/nodes/${parentNodeId}/subtrees`, {
+    const response = await fetch(buildServerUrl(`/server/navigationTrees/${parentTreeId}/nodes/${parentNodeId}/subtrees`), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(treeData)
@@ -235,7 +237,7 @@ export const NavigationConfigProvider: React.FC<{ children: React.ReactNode }> =
 
 
   const moveSubtree = async (subtreeId: string, newParentTreeId: string, newParentNodeId: string): Promise<void> => {
-    const response = await fetch(`/server/navigationTrees/${subtreeId}/move`, {
+    const response = await fetch(buildServerUrl(`/server/navigationTrees/${subtreeId}/move`), {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -259,7 +261,7 @@ export const NavigationConfigProvider: React.FC<{ children: React.ReactNode }> =
     };
     if (viewport) payload.viewport = viewport;
     
-    const response = await fetch(`/server/navigationTrees/${treeId}/batch`, {
+    const response = await fetch(buildServerUrl(`/server/navigationTrees/${treeId}/batch`), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)

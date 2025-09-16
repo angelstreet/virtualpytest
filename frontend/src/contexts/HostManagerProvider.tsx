@@ -64,7 +64,7 @@ export const HostManagerProvider: React.FC<HostManagerProviderProps> = ({
   // Host loading logic
   const loadHosts = useCallback(async (): Promise<{ hosts: Host[]; error: string | null }> => {
     try {
-      const fullUrl = '/server/system/getAllHosts';
+      const fullUrl = buildServerUrl('/server/system/getAllHosts');
       const response = await fetch(fullUrl);
 
       if (!response.ok) {

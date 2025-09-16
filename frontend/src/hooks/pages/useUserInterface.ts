@@ -99,7 +99,7 @@ export const useUserInterface = () => {
             `[@hook:useUserInterface:getUserInterface] Fetching user interface ${id} from server`,
           );
 
-          const response = await fetch(`/server/userinterface/getUserInterface/${id}`);
+          const response = await fetch(buildServerUrl(`/server/userinterface/getUserInterface/${id}`));
           if (!response.ok) {
             if (response.status === 404) {
               throw new Error('User interface not found');
@@ -147,7 +147,7 @@ export const useUserInterface = () => {
               `[@hook:useUserInterface:getUserInterfaceByName] Fetching user interface by name: ${name}`,
             );
 
-            const response = await fetch(`/server/userinterface/getUserInterfaceByName/${name}`);
+            const response = await fetch(buildServerUrl(`/server/userinterface/getUserInterfaceByName/${name}`));
             if (!response.ok) {
               if (response.status === 404) {
                 throw new Error('User interface not found');
@@ -239,7 +239,7 @@ export const useUserInterface = () => {
             payload,
           );
 
-          const response = await fetch(`/server/userinterface/updateUserInterface/${id}`, {
+          const response = await fetch(buildServerUrl(`/server/userinterface/updateUserInterface/${id}`), {
             method: 'PUT',
             headers: {
               'Content-Type': 'application/json',
@@ -284,7 +284,7 @@ export const useUserInterface = () => {
         try {
           console.log(`[@hook:useUserInterface:deleteUserInterface] Deleting user interface ${id}`);
 
-          const response = await fetch(`/server/userinterface/deleteUserInterface/${id}`, {
+          const response = await fetch(buildServerUrl(`/server/userinterface/deleteUserInterface/${id}`), {
             method: 'DELETE',
           });
 
@@ -327,7 +327,7 @@ export const useUserInterface = () => {
           );
 
           const response = await fetch(
-            `/server/navigation/config/createEmpty/${encodeURIComponent(userInterface.name)}`,
+            buildServerUrl(`/server/navigation/config/createEmpty/${encodeURIComponent(userInterface.name)}`),
             {
               method: 'POST',
               headers: {

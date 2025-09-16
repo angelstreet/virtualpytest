@@ -74,6 +74,7 @@ interface DeviceDataActions {
   setControlState: (host: Host | null, deviceId: string | null, isActive: boolean) => void;
   clearData: () => void;
   reloadData: () => Promise<void>;
+  reloadReferences: () => Promise<void>;
 
   // Reference cache management
   addReferenceToCache: (deviceModel: string, reference: {
@@ -688,6 +689,11 @@ export const DeviceDataProvider: React.FC<DeviceDataProviderProps> = ({ children
     await fetchAllData(true);
   }, [fetchAllData]);
 
+  const reloadReferences = useCallback(async () => {
+    console.log('[DeviceDataContext] Reloading references after save...');
+    await fetchReferences(true); // Force reload from server
+  }, [fetchReferences]);
+
   // ========================================
   // REFERENCE CACHE MANAGEMENT
   // ========================================
@@ -850,6 +856,7 @@ export const DeviceDataProvider: React.FC<DeviceDataProviderProps> = ({ children
       setControlState,
       clearData,
       reloadData,
+      reloadReferences,
 
       // Reference cache management
       addReferenceToCache,
@@ -875,6 +882,7 @@ export const DeviceDataProvider: React.FC<DeviceDataProviderProps> = ({ children
       setControlState,
       clearData,
       reloadData,
+      reloadReferences,
       addReferenceToCache,
       getDevicePosition,
       setDevicePosition,

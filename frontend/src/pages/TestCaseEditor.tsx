@@ -71,7 +71,7 @@ const TestCaseEditor: React.FC = () => {
     try {
       setLoading(true);
       // Use correct testcases endpoint
-      const response = await fetch(`/server/testcases/deleteTestCase/${testCase.test_id}`, {
+      const response = await fetch(buildServerUrl(`/server/testcases/deleteTestCase/${testCase.test_id}`), {
         method: 'DELETE',
       });
 

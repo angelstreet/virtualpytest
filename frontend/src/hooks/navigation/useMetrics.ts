@@ -17,6 +17,7 @@ import {
   getLowConfidenceItems,
   generateNotificationData,
 } from '../../utils/metricsCalculations';
+import { buildServerUrl } from '../../utils/buildUrlUtils';
 
 export interface UseMetricsProps {
   treeId?: string | null;
@@ -48,7 +49,7 @@ export const useMetrics = (props?: UseMetricsProps) => {
     try {
       console.log(`[@useMetrics] Fetching metrics for tree: ${targetTreeId}`);
       
-      const response = await fetch(`/server/metrics/tree/${targetTreeId}`, {
+      const response = await fetch(buildServerUrl(`/server/metrics/tree/${targetTreeId}`), {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',

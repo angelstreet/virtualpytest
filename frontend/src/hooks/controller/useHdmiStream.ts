@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 
 import { Host } from '../../types/common/Host_Types';
 import { DragArea, HdmiStreamState, HdmiStreamActions } from '../../types/controller/Hdmi_Types';
+import { buildServerUrl } from '../../utils/buildUrlUtils';
 
 interface UseHdmiStreamProps {
   host: Host;
@@ -178,7 +179,7 @@ export function useHdmiStream({
         (imageProcessingOptions.autocrop || imageProcessingOptions.removeBackground)
       ) {
         console.log('[@hook:useHdmiStream] Using process-area endpoint with processing options');
-        captureResponse = await fetch(`/server/av/capture-area-process`, {
+        captureResponse = await fetch(buildServerUrl(`/server/av/capture-area-process`), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -196,7 +197,7 @@ export function useHdmiStream({
         });
       } else {
         console.log('[@hook:useHdmiStream] Using standard capture endpoint');
-        captureResponse = await fetch(`/server/av/capture-area`, {
+        captureResponse = await fetch(buildServerUrl(`/server/av/capture-area`), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -261,7 +262,7 @@ export function useHdmiStream({
   // Handle take screenshot
   const handleTakeScreenshot = useCallback(async () => {
     try {
-      const response = await fetch(`/server/av/takeScreenshot`, {
+      const response = await fetch(buildServerUrl(`/server/av/takeScreenshot`), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -294,7 +295,7 @@ export function useHdmiStream({
     try {
       console.log('[@hook:useHdmiStream] Starting text auto-detection in area:', selectedArea);
 
-      const response = await fetch(`/server/av/text-detect`, {
+      const response = await fetch(buildServerUrl(`/server/av/text-detect`), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

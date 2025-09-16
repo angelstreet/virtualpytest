@@ -66,7 +66,7 @@ const Models: React.FC = () => {
     try {
       setError(null);
 
-      const response = await fetch(`/server/devicemodel/deleteDeviceModel/${id}`, {
+      const response = await fetch(buildServerUrl(`/server/devicemodel/deleteDeviceModel/${id}`), {
         method: 'DELETE',
       });
 
