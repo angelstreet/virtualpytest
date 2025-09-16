@@ -230,17 +230,24 @@ echo "admin1234" | tigervncpasswd -f > ~/.vnc/passwd 2>/dev/null
 chmod 600 ~/.vnc/passwd
 echo "✅ TigerVNC password set to: admin1234"
 
-# Create xstartup file for VNC session
+# Create xstartup file for VNC session (using proven working configuration)
 cat > ~/.vnc/xstartup << 'EOF'
-#!/bin/bash
-xrdb $HOME/.Xresources 2>/dev/null || true
-fluxbox &
+#!/bin/sh
+
+# Load X resources if available
+xrdb "$HOME/.Xresources" 2>/dev/null || true
+
+# Fix to make GNOME work
+export XKL_XMODMAP_DISABLE=1
+
+# Start XFCE4 with proper D-Bus session for better compatibility
+exec dbus-launch --exit-with-session startxfce4
 EOF
 chmod +x ~/.vnc/xstartup
 
 # Create VNC config file
 cat > ~/.vnc/config << 'EOF'
-session=fluxbox
+session=xfce4
 geometry=1280x720
 localhost=no
 alwaysshared

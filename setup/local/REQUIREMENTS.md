@@ -35,7 +35,7 @@ sudo apt-get install -y tesseract-ocr tesseract-ocr-eng tesseract-ocr-fra tesser
 
 #### **🖥️ VNC & Remote Desktop (for backend_host)**
 ```bash
-sudo apt-get install -y tigervnc-standalone-server xvfb fluxbox novnc websockify
+sudo apt-get install -y tigervnc-standalone-server xvfb xfce4 xfce4-goodies novnc websockify
 ```
 
 #### **🌐 Web Browser (for browser automation)**

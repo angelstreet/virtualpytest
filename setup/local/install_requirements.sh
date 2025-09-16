@@ -91,7 +91,7 @@ install_ocr() {
 # Function to install VNC tools (full mode only)
 install_vnc() {
     echo "🖥️ Installing VNC and display tools..."
-    install_packages tigervnc-standalone-server xvfb fluxbox novnc websockify
+    install_packages tigervnc-standalone-server xvfb xfce4 xfce4-goodies novnc websockify
     
     # Setup noVNC if not already present
     if [ -d "/usr/share/novnc" ]; then
