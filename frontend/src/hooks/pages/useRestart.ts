@@ -762,11 +762,12 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
         }
       };
 
-      // Single API call for all translations
+      // Single API call for all translations (proxied through host)
       const response = await fetch(buildServerUrl('/server/translate/restart-batch'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          host,
           content_blocks: contentBlocks,
           target_language: language
         })

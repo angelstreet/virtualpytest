@@ -67,7 +67,7 @@ except ImportError as e:
 def register_host_routes(app):
     """Register all host routes - Hardware interface endpoints"""
     from routes import (
-        host_control_routes, 
+        host_control_routes,
         host_web_routes,
         host_aiagent_routes,
         host_ai_generation_routes,
@@ -76,6 +76,7 @@ def register_host_routes(app):
         host_power_routes,
         host_av_routes,
         host_restart_routes,
+        host_translation_routes,
         host_monitoring_routes,
         host_remote_routes,
         host_desktop_bash_routes,
@@ -101,6 +102,7 @@ def register_host_routes(app):
         (host_power_routes.host_power_bp, 'Power control'),
         (host_av_routes.host_av_bp, 'Audio/Video operations'),
         (host_restart_routes.host_restart_bp, 'Restart video system'),
+        (host_translation_routes.host_translation_bp, 'Translation services'),
         (host_monitoring_routes.host_monitoring_bp, 'Monitoring system'),
         (host_remote_routes.host_remote_bp, 'Remote device control'),
         (host_desktop_bash_routes.host_desktop_bash_bp, 'Bash desktop control'),

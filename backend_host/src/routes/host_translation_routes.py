@@ -1,0 +1,125 @@
+"""
+Host Translation Routes - Handle Google Translate processing on Host machines
+"""
+
+from flask import Blueprint, request, jsonify
+import sys
+import os
+
+# Add shared library to path
+sys.path.append(os.path.join(os.path.dirname(__file__), '../../../../shared'))
+
+from lib.utils.translation_utils import batch_translate_restart_content, translate_text
+
+# Create blueprint
+host_translation_bp = Blueprint('host_translation', __name__)
+
+@host_translation_bp.route('/host/translate/restart-batch', methods=['POST'])
+def translate_restart_batch():
+    """
+    Handle batch translation of restart video content on Host.
+    Processes all content types (video summary, audio transcript, frame descriptions, subtitles).
+    """
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({
+                'success': False,
+                'error': 'No JSON data provided'
+            }), 400
+        
+        content_blocks = data.get('content_blocks')
+        target_language = data.get('target_language')
+        
+        if not content_blocks or not target_language:
+            return jsonify({
+                'success': False,
+                'error': 'Missing content_blocks or target_language'
+            }), 400
+        
+        print(f"[HOST_TRANSLATION] 🌐 Processing batch translation to {target_language}")
+        print(f"[HOST_TRANSLATION] Content sections: {list(content_blocks.keys())}")
+        
+        # Process translation on Host (uses async Google Translate)
+        result = batch_translate_restart_content(content_blocks, target_language)
+        
+        if result['success']:
+            print(f"[HOST_TRANSLATION] ✅ Batch translation completed successfully")
+            return jsonify(result)
+        else:
+            print(f"[HOST_TRANSLATION] ❌ Batch translation failed: {result.get('error')}")
+            return jsonify(result), 500
+            
+    except Exception as e:
+        print(f"[HOST_TRANSLATION] 💥 Exception in batch translation: {e}")
+        return jsonify({
+            'success': False,
+            'error': f'Host translation error: {str(e)}'
+        }), 500
+
+@host_translation_bp.route('/host/translate/text', methods=['POST'])
+def translate_text_endpoint():
+    """
+    Handle individual text translation on Host.
+    """
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({
+                'success': False,
+                'error': 'No JSON data provided'
+            }), 400
+        
+        text = data.get('text')
+        source_language = data.get('source_language', 'auto')
+        target_language = data.get('target_language')
+        method = data.get('method', 'google')
+        
+        if not text or not target_language:
+            return jsonify({
+                'success': False,
+                'error': 'Missing text or target_language'
+            }), 400
+        
+        print(f"[HOST_TRANSLATION] 🌐 Translating text: {source_language} → {target_language} (method: {method})")
+        
+        # Process translation on Host (uses async Google Translate)
+        result = translate_text(text, source_language, target_language, method)
+        
+        if result['success']:
+            print(f"[HOST_TRANSLATION] ✅ Text translation completed")
+            return jsonify(result)
+        else:
+            print(f"[HOST_TRANSLATION] ❌ Text translation failed: {result.get('error')}")
+            return jsonify(result), 500
+            
+    except Exception as e:
+        print(f"[HOST_TRANSLATION] 💥 Exception in text translation: {e}")
+        return jsonify({
+            'success': False,
+            'error': f'Host translation error: {str(e)}'
+        }), 500
+
+@host_translation_bp.route('/host/translate/health', methods=['GET'])
+def translation_health():
+    """
+    Health check for translation services on Host.
+    """
+    try:
+        # Test Google Translate availability
+        from shared.lib.utils.translation_utils import GOOGLE_TRANSLATE_AVAILABLE
+        
+        return jsonify({
+            'success': True,
+            'google_translate_available': GOOGLE_TRANSLATE_AVAILABLE,
+            'status': 'healthy'
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Translation health check failed: {str(e)}',
+            'status': 'unhealthy'
+        }), 500

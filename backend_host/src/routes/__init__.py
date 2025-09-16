@@ -10,6 +10,7 @@ from . import (
     host_power_routes,
     host_av_routes,
     host_restart_routes,
+    host_translation_routes,
     host_monitoring_routes,
     host_remote_routes,
     host_desktop_bash_routes,

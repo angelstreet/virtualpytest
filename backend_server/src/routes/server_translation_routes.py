@@ -1,43 +1,70 @@
 """
 Server Translation Routes
 
-Routes for AI-powered text translation using the shared translation utilities.
+Routes for AI-powered text translation - proxies requests to Host for processing.
 """
 
 from flask import Blueprint, request, jsonify
+import requests
 import sys
 import os
 
 # Add shared lib to path
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', '..', 'shared'))
 
-from lib.utils.translation_utils import translate_text, batch_translate_segments, detect_language_from_text, batch_translate_restart_content
+from lib.utils.translation_utils import detect_language_from_text
+from lib.utils.host_utils import get_host_url
 
 # Create blueprint
 server_translation_bp = Blueprint('server_translation', __name__, url_prefix='/server/translate')
 
 @server_translation_bp.route('/text', methods=['POST'])
 def translate_single_text():
-    """Translate a single text string"""
+    """Translate a single text string - proxy to Host"""
     try:
         data = request.get_json() or {}
-        text = data.get('text', '')
-        source_language = data.get('source_language', 'en')
-        target_language = data.get('target_language', 'en')
         
-        if not text.strip():
+        if not data:
             return jsonify({
                 'success': False,
-                'error': 'Empty text provided'
+                'error': 'No JSON data provided'
             }), 400
         
-        result = translate_text(text, source_language, target_language)
-        return jsonify(result)
+        # Get host URL from request data
+        host_data = data.get('host', {})
+        if not host_data:
+            return jsonify({
+                'success': False,
+                'error': 'Host information required'
+            }), 400
+        
+        host_url = get_host_url(host_data)
+        
+        print(f"[SERVER_TRANSLATION] 🌐 Proxying text translation to host: {host_url}")
+        
+        # Proxy request to host
+        response = requests.post(
+            f"{host_url}/host/translate/text",
+            json=data,
+            timeout=30
+        )
+        
+        if response.status_code == 200:
+            result = response.json()
+            print(f"[SERVER_TRANSLATION] ✅ Text translation completed via host")
+            return jsonify(result)
+        else:
+            print(f"[SERVER_TRANSLATION] ❌ Host translation failed: {response.status_code}")
+            return jsonify({
+                'success': False,
+                'error': f'Host translation failed: {response.status_code}'
+            }), response.status_code
         
     except Exception as e:
+        print(f"[SERVER_TRANSLATION] 💥 Exception in text translation proxy: {e}")
         return jsonify({
             'success': False,
-            'error': f'Translation error: {str(e)}'
+            'error': f'Translation proxy error: {str(e)}'
         }), 500
 
 @server_translation_bp.route('/batch', methods=['POST'])
@@ -66,7 +93,7 @@ def translate_batch_segments():
 
 @server_translation_bp.route('/restart-batch', methods=['POST'])
 def translate_restart_batch():
-    """Translate all restart video content in a single AI request"""
+    """Translate all restart video content - proxy to Host for processing"""
     import time
     translation_start_time = time.time()
     
@@ -85,27 +112,54 @@ def translate_restart_batch():
                 'error': 'No content blocks provided'
             }), 400
         
-        result = batch_translate_restart_content(content_blocks, target_language)
+        # Get host URL from request data (should be provided by frontend)
+        host_data = data.get('host', {})
+        if not host_data:
+            return jsonify({
+                'success': False,
+                'error': 'Host information required for translation'
+            }), 400
+        
+        host_url = get_host_url(host_data)
+        
+        print(f"[SERVER_TRANSLATION] 🌐 Proxying batch translation to host: {host_url}")
+        
+        # Proxy request to host
+        response = requests.post(
+            f"{host_url}/host/translate/restart-batch",
+            json={
+                'content_blocks': content_blocks,
+                'target_language': target_language
+            },
+            timeout=60  # Longer timeout for batch processing
+        )
         
         translation_duration = time.time() - translation_start_time
-        print(f"[SERVER_TRANSLATION] Translation result: success={result.get('success', False)}")
         
-        if result.get('success', False):
-            print(f"[SERVER_TRANSLATION] ✅ Batch translation to {target_language} completed in {translation_duration:.1f}s")
+        if response.status_code == 200:
+            result = response.json()
+            print(f"[SERVER_TRANSLATION] Translation result: success={result.get('success', False)}")
+            
+            if result.get('success', False):
+                print(f"[SERVER_TRANSLATION] ✅ Batch translation to {target_language} completed in {translation_duration:.1f}s")
+            else:
+                print(f"[SERVER_TRANSLATION] ❌ Translation failed after {translation_duration:.1f}s")
+                print(f"[SERVER_TRANSLATION] Translation error: {result.get('error', 'Unknown error')}")
+            
+            return jsonify(result)
         else:
-            print(f"[SERVER_TRANSLATION] ❌ Translation failed after {translation_duration:.1f}s")
-            print(f"[SERVER_TRANSLATION] Translation error: {result.get('error', 'Unknown error')}")
-            if 'openrouter_response' in result:
-                print(f"[SERVER_TRANSLATION] OpenRouter response: {result['openrouter_response']}")
-        
-        return jsonify(result)
+            print(f"[SERVER_TRANSLATION] ❌ Host translation failed: {response.status_code}")
+            return jsonify({
+                'success': False,
+                'error': f'Host translation failed: {response.status_code}'
+            }), response.status_code
         
     except Exception as e:
         translation_duration = time.time() - translation_start_time
         print(f"[SERVER_TRANSLATION] ❌ EXCEPTION after {translation_duration:.1f}s: {str(e)}")
         return jsonify({
             'success': False,
-            'error': f'Batch translation error: {str(e)}'
+            'error': f'Translation proxy error: {str(e)}'
         }), 500
 
 @server_translation_bp.route('/detect', methods=['POST'])
