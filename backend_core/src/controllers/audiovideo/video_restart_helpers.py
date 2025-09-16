@@ -1221,44 +1221,17 @@ class VideoRestartHelpers:
             self._save_status(video_id, {'visual': 'error', 'visual_error': str(e)})
     
     def _t3_heavy(self, video_id: str) -> None:
-        """Thread 3: Heavy sequential processing"""
+        """Thread 3: Audio preparation only (dubbing/sync on-demand)"""
         try:
-            # Wait for audio transcript from Thread 1
-            transcript = ''
-            for _ in range(30):  # Wait up to 30s
-                status = self.get_status(video_id)
-                if status.get('audio') == 'completed':
-                    transcript = status.get('audio_data', {}).get('combined_transcript', '')
-                    break
-                time.sleep(1)
-            
-            if not transcript:
-                self._save_status(video_id, {'heavy': 'error', 'heavy_error': 'No transcript available'})
-                return
-            
-            # Audio prep
+            # Audio prep - prepare for future dubbing operations
             self._save_status(video_id, {'heavy': 'audio_prep'})
-            if not self.prepare_dubbing_audio(video_id).get('success'):
+            result = self.prepare_dubbing_audio(video_id)
+            
+            if result.get('success'):
+                self._save_status(video_id, {'heavy': 'completed', 'message': 'Audio prepared for dubbing'})
+            else:
                 raise Exception("Audio prep failed")
-            
-            # Batch dubbing
-            self._save_status(video_id, {'heavy': 'dubbing'})
-            dubbed = {}
-            for lang in ['es', 'fr', 'de', 'it', 'pt']:
-                if self.generate_edge_speech(video_id, lang, transcript).get('success'):
-                    result = self.create_dubbed_video(video_id, lang, 'edge')
-                    if result.get('success'):
-                        dubbed[lang] = result.get('dubbed_video_url')
-            
-            # Batch timing
-            self._save_status(video_id, {'heavy': 'timing'})
-            original_video = os.path.join(self.video_capture_path, "restart_original_video.mp4")
-            for offset in [300, 200, 100, -100, -200, -300]:
-                self.adjust_video_audio_timing(original_video, offset, "original")
-                for lang, url in dubbed.items():
-                    self.adjust_video_audio_timing(url, offset, lang)
-            
-            self._save_status(video_id, {'heavy': 'completed', 'dubbed_videos': dubbed})
+                
         except Exception as e:
             self._save_status(video_id, {'heavy': 'error', 'heavy_error': str(e)})
     

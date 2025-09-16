@@ -262,15 +262,11 @@ class Device:
         actual_capabilities['web'] = theoretical_capabilities['web']
         actual_capabilities['ai'] = theoretical_capabilities['ai']
         
-        print(f"[@device:to_dict] Device {self.device_name} ({self.device_model}) theoretical capabilities: {theoretical_capabilities}")
-        print(f"[@device:to_dict] Device {self.device_name} ({self.device_model}) actual capabilities: {actual_capabilities}")
         
         # Collect available verification types and action types from controllers
         device_verification_types = self.get_available_verification_types()
         device_action_types = self.get_available_action_types()
         
-        print(f"[@device:to_dict] Device {self.device_name} verification types: {len(device_verification_types)} controller types")
-        print(f"[@device:to_dict] Device {self.device_name} action types: {len(device_action_types)} action categories")
         
         # Base device information
         device_dict = {

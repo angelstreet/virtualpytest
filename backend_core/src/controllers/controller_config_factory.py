@@ -345,7 +345,6 @@ def get_device_capabilities(device_model: str) -> dict:
         'verification': list(set(verification_types))  # Remove duplicates
     }
     
-    print(f"[@controller_factory:get_device_capabilities] Device {device_model} capabilities: {capabilities}")
     return capabilities
 
 def _get_av_params(implementation: str, device_config: dict) -> dict:

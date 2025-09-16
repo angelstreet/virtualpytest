@@ -341,7 +341,7 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
           if (status.visual === 'completed') {
             clearInterval(pollInterval);
             if (status.heavy === 'completed') {
-              toast.showSuccess('🎬 All processing complete! Dubbing and timing now instant.');
+              toast.showSuccess('🎬 Audio prepared! Dubbing and sync now available.');
             }
           }
         }
