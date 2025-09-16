@@ -73,7 +73,7 @@ install_dev_tools() {
 # Function to install system monitoring tools
 install_system_tools() {
     echo "🔍 Installing system monitoring tools..."
-    install_packages lsof net-tools psmisc inotify-tools
+    install_packages lsof net-tools psmisc inotify-tools ufw
 }
 
 # Function to install multimedia tools (full mode only)
@@ -220,6 +220,13 @@ verify_installation() {
     
     echo -n "Curl: "
     if command -v curl &> /dev/null; then
+        echo "✅ Available"
+    else
+        echo "❌ Not found"
+    fi
+    
+    echo -n "UFW (Firewall): "
+    if command -v ufw &> /dev/null; then
         echo "✅ Available"
     else
         echo "❌ Not found"

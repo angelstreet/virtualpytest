@@ -26,14 +26,22 @@ if [ ! -d "venv" ]; then
     exit 1
 fi
 
-# Kill any process using port 6409
-echo "🔍 Checking for processes using port 6409..."
-if lsof -ti:6409 > /dev/null 2>&1; then
-    echo "🛑 Killing processes on port 6409..."
-    lsof -ti:6409 | xargs kill -9 2>/dev/null || true
-    sleep 1
-fi
-echo "✅ Port 6409 is available"
+# Source port checking functions
+source "$PROJECT_ROOT/setup/local/check_and_open_port.sh"
+
+# Get HOST_PORT from backend_host .env file
+HOST_ENV_FILE="$PROJECT_ROOT/backend_host/src/.env"
+HOST_PORT=$(get_port_from_env "$HOST_ENV_FILE" "HOST_PORT" "6109")
+
+echo "📋 Backend Host Configuration:"
+echo "   Port: $HOST_PORT (from $HOST_ENV_FILE)"
+echo "   Service: backend_host"
+
+# Check port availability and kill conflicting processes
+check_port_availability "$HOST_PORT" "backend_host"
+
+# Check and open port in UFW if needed
+check_and_open_port "$HOST_PORT" "backend_host" "tcp"
 
 # Detect Python executable
 PYTHON_CMD=""
@@ -97,7 +105,7 @@ HOST_PID=$!
 echo $HOST_PID > /tmp/backend_host.pid
 
 echo "Started backend_host with PID: $HOST_PID"
-echo "🌐 backend_host: http://localhost:6109"
+echo "🌐 backend_host: http://localhost:$HOST_PORT"
 echo "💡 Logs will appear with [HOST] prefix below"
 echo "=================================================================================="
 

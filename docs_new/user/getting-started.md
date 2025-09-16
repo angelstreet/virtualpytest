@@ -16,6 +16,14 @@ This includes:
 
 *Setting up these services takes ~15 minutes and is required for full functionality.*
 
+### 🌩️ **Cloud Database Option**
+
+By default, VirtualPyTest uses a local PostgreSQL database for Grafana metrics. If you prefer cloud-hosted database benefits, you can migrate to Supabase:
+
+**👉 [Grafana Cloud Database Migration Guide](grafana_cloud.md)**
+
+*This migration is optional and can be done after initial installation.*
+
 ---
 
 ## 🚀 **TL;DR - Quick Start**
@@ -129,6 +137,7 @@ Grafana provides detailed analytics:
 - **📖 [Features Guide](features.md)** - See all VirtualPyTest capabilities
 - **🧪 [Running Tests](running-tests.md)** - Create your own test scripts  
 - **📊 [Monitoring Guide](monitoring.md)** - Master Grafana dashboards
+- **🌩️ [Cloud Database Migration](grafana_cloud.md)** - Move Grafana to Supabase cloud
 
 ---
 

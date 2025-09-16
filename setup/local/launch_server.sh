@@ -26,14 +26,22 @@ if [ ! -d "venv" ]; then
     exit 1
 fi
 
-# Kill any process using port 5109
-echo "🔍 Checking for processes using port 5109..."
-if lsof -ti:5109 > /dev/null 2>&1; then
-    echo "🛑 Killing processes on port 5109..."
-    lsof -ti:5109 | xargs kill -9 2>/dev/null || true
-    sleep 1
-fi
-echo "✅ Port 5109 is available"
+# Source port checking functions
+source "$PROJECT_ROOT/setup/local/check_and_open_port.sh"
+
+# Get SERVER_PORT from environment (check .env file or use default)
+SERVER_ENV_FILE="$PROJECT_ROOT/.env"
+SERVER_PORT=$(get_port_from_env "$SERVER_ENV_FILE" "SERVER_PORT" "5109")
+
+echo "📋 Backend Server Configuration:"
+echo "   Port: $SERVER_PORT (from $SERVER_ENV_FILE)"
+echo "   Service: backend_server"
+
+# Check port availability and kill conflicting processes
+check_port_availability "$SERVER_PORT" "backend_server"
+
+# Check and open port in UFW if needed
+check_and_open_port "$SERVER_PORT" "backend_server" "tcp"
 
 # Detect Python executable
 PYTHON_CMD=""
@@ -97,7 +105,7 @@ SERVER_PID=$!
 echo $SERVER_PID > /tmp/backend_server.pid
 
 echo "Started backend_server with PID: $SERVER_PID"
-echo "🌐 backend_server: http://localhost:5109"
+echo "🌐 backend_server: http://localhost:$SERVER_PORT"
 echo "💡 Logs will appear with [SERVER] prefix below"
 echo "=================================================================================="
 
