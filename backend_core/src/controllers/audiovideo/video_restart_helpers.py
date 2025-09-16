@@ -301,7 +301,7 @@ class VideoRestartHelpers:
                 m3u8_path=m3u8_path,
                 segment_files=segment_files,
                 output_path=local_video_path,
-                compression_level="medium"
+                compression_level="low"
             )
             
             if not compression_result['success']:
