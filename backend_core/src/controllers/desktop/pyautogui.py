@@ -9,27 +9,13 @@ from typing import Dict, Any, List, Optional
 import time
 from ..base_controller import DesktopControllerInterface
 
-try:
-    import os
-    import sys
-    
-    # Set DISPLAY for VNC environment if not already set
-    if sys.platform.startswith('linux') and 'DISPLAY' not in os.environ:
-        print(f"[@controller:PyAutoGUIDesktop] Setting DISPLAY to :1 for VNC environment")
-        os.environ['DISPLAY'] = ':1'
-    
-    import pyautogui
-    # Configure PyAutoGUI safety features
-    pyautogui.FAILSAFE = True  # Move mouse to corner to abort
-    pyautogui.PAUSE = 0.1      # Short pause between actions
-    PYAUTOGUI_AVAILABLE = True
-    print(f"[@controller:PyAutoGUIDesktop] PyAutoGUI initialized successfully with DISPLAY={os.environ.get('DISPLAY')}")
-except ImportError:
-    PYAUTOGUI_AVAILABLE = False
-    print(f"[@controller:PyAutoGUIDesktop] WARNING: PyAutoGUI module not available. Please install pyautogui")
-except Exception as e:
-    print(f"[@controller:PyAutoGUIDesktop] WARNING: PyAutoGUI initialization failed: {e}")
-    PYAUTOGUI_AVAILABLE = False
+# Import basic modules at module level
+import os
+import sys
+
+# Global flag to track availability - will be set during first controller instantiation
+PYAUTOGUI_AVAILABLE = None
+pyautogui = None
 
 
 class PyAutoGUIDesktopController(DesktopControllerInterface):
@@ -38,6 +24,9 @@ class PyAutoGUIDesktopController(DesktopControllerInterface):
     def __init__(self, **kwargs):
         """Initialize the PyAutoGUI desktop controller."""
         super().__init__("PyAutoGUI Desktop", "pyautogui")
+        
+        # Initialize PyAutoGUI on first controller instantiation
+        self._initialize_pyautogui()
         
         # Command execution state
         self.last_command_output = ""
@@ -48,6 +37,36 @@ class PyAutoGUIDesktopController(DesktopControllerInterface):
             print(f"[@controller:PyAutoGUIDesktop] WARNING: PyAutoGUI module not available. Please install pyautogui")
         else:
             print(f"[@controller:PyAutoGUIDesktop] Initialized for cross-platform GUI automation")
+    
+    def _initialize_pyautogui(self):
+        """Initialize PyAutoGUI module - only called once per controller instantiation."""
+        global PYAUTOGUI_AVAILABLE, pyautogui
+        
+        # Skip if already initialized
+        if PYAUTOGUI_AVAILABLE is not None:
+            return
+        
+        try:
+            # Set DISPLAY for VNC environment if not already set
+            if sys.platform.startswith('linux') and 'DISPLAY' not in os.environ:
+                print(f"[@controller:PyAutoGUIDesktop] Setting DISPLAY to :1 for VNC environment")
+                os.environ['DISPLAY'] = ':1'
+            
+            import pyautogui as _pyautogui
+            # Configure PyAutoGUI safety features
+            _pyautogui.FAILSAFE = True  # Move mouse to corner to abort
+            _pyautogui.PAUSE = 0.1      # Short pause between actions
+            
+            # Set global variables
+            pyautogui = _pyautogui
+            PYAUTOGUI_AVAILABLE = True
+            print(f"[@controller:PyAutoGUIDesktop] PyAutoGUI initialized successfully with DISPLAY={os.environ.get('DISPLAY')}")
+        except ImportError:
+            PYAUTOGUI_AVAILABLE = False
+            print(f"[@controller:PyAutoGUIDesktop] WARNING: PyAutoGUI module not available. Please install pyautogui")
+        except Exception as e:
+            print(f"[@controller:PyAutoGUIDesktop] WARNING: PyAutoGUI initialization failed: {e}")
+            PYAUTOGUI_AVAILABLE = False
     
     def connect(self) -> bool:
         """Connect to PyAutoGUI service (always true for local execution)."""
