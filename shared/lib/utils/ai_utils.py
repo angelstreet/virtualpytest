@@ -18,8 +18,9 @@ from typing import Dict, Any, Optional, Union
 # =============================================================================
 
 AI_MODELS = {
-    'text': 'qwen/qwen-2.5-vl-7b-instruct', # Kimi not working for now, using Qwen instead moonshotai/kimi-k2:free
+    'text': 'moonshotai/kimi-k2:free', # Kimi not working for now, using Qwen instead moonshotai/kimi-k2:free
     'vision': 'qwen/qwen-2.5-vl-7b-instruct',
+    'translation': 'google/gemma-2-2b', # or microsoft/phi-3-mini-4k-instruct
 }
 
 # AI Batch Processing Configuration

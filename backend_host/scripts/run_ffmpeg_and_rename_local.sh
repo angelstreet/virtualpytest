@@ -114,7 +114,7 @@ start_grabber() {
       -f alsa -thread_queue_size 512 -async 1 -i \"$audio_device\" \
       -filter_complex \"[0:v]split=3[stream][capture][thumb];[stream]scale=640:360[streamout];[capture]fps=5[captureout];[thumb]fps=5,scale=320:180[thumbout]\" \
       -map \"[streamout]\" -map 1:a \
-      -c:v libx264 -preset ultrafast -tune zerolatency -crf 30 -maxrate 400k -bufsize 800k -force_key_frames \"expr:gte(t,n_forced*0.5)\" \
+      -c:v libx264 -preset ultrafast -tune zerolatency -crf 28 -maxrate 400k -bufsize 800k -force_key_frames \"expr:gte(t,n_forced*0.5)\" \
       -pix_fmt yuv420p -profile:v baseline -level 3.0 -fps_mode passthrough \
       -c:a aac -b:a 32k -ar 48000 -ac 2 \
       -f hls -hls_time 1 -hls_list_size 600 -hls_flags delete_segments+omit_endlist+split_by_time -lhls 1 \
