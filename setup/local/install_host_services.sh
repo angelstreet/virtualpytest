@@ -45,7 +45,7 @@ fi
 echo "🖥️ Creating systemd service files..."
 
 # Capture Monitor Service (matches backend_host/config/services/monitor.service)
-cat > /tmp/monitor.service << 'EOF'
+cat > /tmp/monitor.service << EOF
 [Unit]
 Description=VirtualPyTest Capture Monitor Service
 After=network.target
@@ -55,14 +55,19 @@ Wants=network.target
 Type=simple
 User=$USER
 Group=$USER
-WorkingDirectory=$(pwd)
+WorkingDirectory=$(pwd)/backend_host/scripts
+Environment=HOST_NAME=$USER
 Environment=PYTHONPATH=$(pwd)/shared/lib:$(pwd)/backend_core/src
 Environment=PATH=$(pwd)/venv/bin:/usr/bin:/usr/local/bin
-ExecStart=$(pwd)/venv/bin/python backend_host/scripts/capture_monitor.py
+ExecStart=$(pwd)/venv/bin/python $(pwd)/backend_host/scripts/capture_monitor.py
+TimeoutStopSec=10
 Restart=always
 RestartSec=10
-StandardOutput=append:/tmp/capture_monitor_service.log
-StandardError=append:/tmp/capture_monitor_service.log
+StandardOutput=journal
+StandardError=journal
+
+# Security
+NoNewPrivileges=true
 
 [Install]
 WantedBy=multi-user.target

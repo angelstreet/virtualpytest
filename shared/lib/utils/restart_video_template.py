@@ -246,14 +246,26 @@ def get_restart_video_css() -> str:
 
 
         .subtitle-overlay {
+            position: absolute;
             bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%);
             text-align: center;
-            padding: 8px 16px;
-            background: rgba(0, 0, 0, 0.9);
-            border-radius: 4px;
-            font-size: 16px;
-            font-weight: 600;
-            margin: 0 20px;
+            padding: 12px 20px;
+            background: rgba(0, 0, 0, 0.8);
+            border-radius: 6px;
+            font-size: 18px;
+            font-weight: 500;
+            color: #ffff00;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+            max-width: 90%;
+            z-index: 15;
+            transition: opacity 0.3s ease;
+        }
+
+        .subtitle-overlay.hidden {
+            opacity: 0;
+            pointer-events: none;
         }
 
         .hidden {
@@ -271,9 +283,11 @@ def get_restart_video_js() -> str:
                 this.timeDisplay = document.getElementById('time-display');
                 this.progressBar = document.getElementById('progress-bar');
                 this.progressFill = document.getElementById('progress-fill');
+                this.subtitleOverlay = document.getElementById('subtitle-overlay');
                 
                 this.analysisData = window.ANALYSIS_DATA || {};
                 this.currentFrameIndex = 0;
+                this.frameSubtitles = this.extractFrameSubtitles();
                 
                 this.init();
             }
@@ -281,8 +295,41 @@ def get_restart_video_js() -> str:
             init() {
                 console.log('RestartVideoReport initialized');
                 console.log('Analysis data:', this.analysisData);
+                console.log('Frame subtitles:', this.frameSubtitles);
                 this.setupVideoControls();
                 this.setupFrameAnalysis();
+                this.setupSubtitleOverlay();
+            }
+            
+            extractFrameSubtitles() {
+                // Extract frame subtitles from analysis data
+                const subtitleAnalysis = this.analysisData.subtitle_analysis || {};
+                const frameSubtitles = subtitleAnalysis.frame_subtitles || [];
+                
+                // Process subtitles to remove frame prefixes and filter out empty ones
+                const processedSubtitles = {};
+                frameSubtitles.forEach((subtitle, index) => {
+                    if (subtitle && typeof subtitle === 'string') {
+                        // Remove "Frame X: " prefix
+                        const cleanSubtitle = subtitle.replace(/^Frame \\d+:\\s*/, '');
+                        // Only store if not empty and not "No subtitles detected"
+                        if (cleanSubtitle && cleanSubtitle !== 'No subtitles detected') {
+                            processedSubtitles[index] = cleanSubtitle;
+                        }
+                    }
+                });
+                
+                return processedSubtitles;
+            }
+            
+            setupSubtitleOverlay() {
+                if (!this.subtitleOverlay) {
+                    console.warn('Subtitle overlay element not found');
+                    return;
+                }
+                
+                // Initially hide subtitle overlay
+                this.subtitleOverlay.classList.add('hidden');
             }
             
             setupVideoControls() {
@@ -309,6 +356,7 @@ def get_restart_video_js() -> str:
                     if (newFrameIndex !== this.currentFrameIndex) {
                         this.currentFrameIndex = newFrameIndex;
                         this.updateActiveFrame();
+                        this.updateSubtitleOverlay();
                     }
                 });
                 
@@ -385,6 +433,7 @@ def get_restart_video_js() -> str:
                     this.video.currentTime = targetTime;
                     this.currentFrameIndex = frameIndex;
                     this.updateActiveFrame();
+                    this.updateSubtitleOverlay();
                 }
             }
             
@@ -408,6 +457,22 @@ def get_restart_video_js() -> str:
                             inline: 'nearest'
                         });
                     }
+                }
+            }
+            
+            updateSubtitleOverlay() {
+                if (!this.subtitleOverlay) return;
+                
+                // Get subtitle for current frame
+                const currentSubtitle = this.frameSubtitles[this.currentFrameIndex];
+                
+                if (currentSubtitle && currentSubtitle.trim()) {
+                    // Show subtitle
+                    this.subtitleOverlay.textContent = currentSubtitle;
+                    this.subtitleOverlay.classList.remove('hidden');
+                } else {
+                    // Hide subtitle
+                    this.subtitleOverlay.classList.add('hidden');
                 }
             }
             
@@ -495,8 +560,8 @@ def create_restart_video_template() -> str:
             
             
             <!-- Subtitle Overlay -->
-            <div id="subtitle-overlay" class="overlay subtitle-overlay hidden">
-                Subtitle text will appear here
+            <div id="subtitle-overlay" class="subtitle-overlay hidden">
+                <!-- Subtitle text will be dynamically updated by JavaScript -->
             </div>
         </div>
         

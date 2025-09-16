@@ -323,7 +323,7 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
           if (status.audio === 'completed' && !notifiedRef.current.audio) {
             setAnalysisResults(prev => ({
               ...prev,
-              audioTranscript: status.audio_data
+              audio: status.audio_data
             }));
             toast.showSuccess('🎤 Audio analysis complete!');
             notifiedRef.current.audio = true;
@@ -365,6 +365,15 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
   const generateReport = useCallback(async (status: any) => {
     try {
       console.log('[@hook:useRestart] 📊 Starting report generation');
+      console.log('[@hook:useRestart] 📊 Video URL:', videoUrl);
+      console.log('[@hook:useRestart] 📊 Status data:', status);
+      
+      if (!videoUrl) {
+        console.error('[@hook:useRestart] ❌ No video URL available for report');
+        toast.showError('❌ No video available for report generation');
+        return;
+      }
+      
       setAnalysisProgress(prev => ({ ...prev, report: 'loading' }));
       toast.showInfo('📊 Generating report...', { duration: 3000 });
       
@@ -384,6 +393,11 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
       });
 
       const reportData = await reportResponse.json();
+      
+      if (!reportResponse.ok) {
+        console.error('[@hook:useRestart] ❌ Report API error:', reportResponse.status, reportData);
+        throw new Error(`Report API error ${reportResponse.status}: ${reportData.error || 'Unknown error'}`);
+      }
       
       if (reportData.success && reportData.report_url) {
         setReportUrl(reportData.report_url);
