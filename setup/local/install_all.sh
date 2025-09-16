@@ -138,6 +138,31 @@ echo "   - VNC Server: localhost:5901 (display :1)"
 echo "   - Default Password: admin1234"
 echo "   - Web Interface: http://localhost:6080"
 echo ""
+echo "🌐 ============== VirtualPyTest Access URLs =============="
+echo ""
+echo "📱 Frontend:        http://localhost:3000"
+echo "🖥️  Backend Server:  http://localhost:5109" 
+echo "🤖 Backend Host:     http://localhost:6109"
+echo "📊 Grafana:          http://localhost:3001"
+echo "🖥️  VNC Web:         http://localhost:6080"
+echo ""
+echo "🔧 ============== Service Status =============="
+echo ""
+
+# Quick service status check
+services=("postgresql:PostgreSQL" "grafana-server:Grafana" "vncserver:VNC" "novnc:noVNC" "stream:Stream" "monitor:Monitor")
+for service_info in "${services[@]}"; do
+    IFS=':' read -r service_name display_name <<< "$service_info"
+    if systemctl is-active --quiet "$service_name" 2>/dev/null; then
+        echo "✅ $display_name: Running"
+    elif systemctl is-enabled --quiet "$service_name" 2>/dev/null; then
+        echo "🟡 $display_name: Enabled (not running)"
+    else
+        echo "❌ $display_name: Not enabled"
+    fi
+done
+
+echo ""
 echo "🚀 Launch VirtualPyTest:"
 echo "   ./setup/local/launch_all.sh        - Start all services"
 echo "   ./setup/local/launch_server.sh     - Start backend_server only"
