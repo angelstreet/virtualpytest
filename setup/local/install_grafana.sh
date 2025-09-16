@@ -221,6 +221,16 @@ setup_grafana_config() {
         echo "⚙️ Copying Grafana configuration..."
         sudo cp "$PROJECT_ROOT/grafana/config/grafana.ini" /etc/grafana/
         
+        # Set up provisioning directories and copy local datasource configuration
+        echo "📋 Setting up Grafana provisioning for local databases..."
+        sudo mkdir -p /etc/grafana/provisioning/datasources
+        sudo mkdir -p /etc/grafana/provisioning/dashboards
+        sudo mkdir -p /etc/grafana/dashboards/virtualpytest
+        
+        # Copy provisioning configuration files
+        sudo cp "$PROJECT_ROOT/backend_server/config/grafana/provisioning/datasources/local.yml" /etc/grafana/provisioning/datasources/
+        sudo cp "$PROJECT_ROOT/backend_server/config/grafana/provisioning/dashboards/dashboards.yml" /etc/grafana/provisioning/dashboards/
+        
         # Update configuration for local use (change port to 3001 to avoid conflicts)
         sudo sed -i 's/http_port = 3000/http_port = 3001/' /etc/grafana/grafana.ini
         sudo sed -i 's/domain = dev.virtualpytest.com/domain = localhost/' /etc/grafana/grafana.ini
@@ -230,7 +240,7 @@ setup_grafana_config() {
         # Set proper permissions
         sudo chown -R grafana:grafana /var/lib/grafana
         sudo chown -R grafana:grafana /var/log/grafana
-        sudo chown grafana:grafana /etc/grafana/grafana.ini
+        sudo chown -R grafana:grafana /etc/grafana/
         
     else
         # On macOS, use local directories
@@ -251,6 +261,20 @@ setup_grafana_config() {
         # Copy and modify configuration for local use
         echo "⚙️ Copying Grafana configuration..."
         cp "$PROJECT_ROOT/grafana/config/grafana.ini" "$GRAFANA_CONF"
+        
+        # Set up provisioning directories and copy local datasource configuration
+        echo "📋 Setting up Grafana provisioning for local databases..."
+        mkdir -p "$(dirname "$GRAFANA_CONF")/provisioning/datasources"
+        mkdir -p "$(dirname "$GRAFANA_CONF")/provisioning/dashboards"
+        mkdir -p "$GRAFANA_HOME/dashboards/virtualpytest"
+        
+        # Copy provisioning configuration files
+        cp "$PROJECT_ROOT/backend_server/config/grafana/provisioning/datasources/local.yml" "$(dirname "$GRAFANA_CONF")/provisioning/datasources/"
+        cp "$PROJECT_ROOT/backend_server/config/grafana/provisioning/dashboards/dashboards.yml" "$(dirname "$GRAFANA_CONF")/provisioning/dashboards/"
+        
+        # Update provisioning path for macOS
+        sed -i '' "s|provisioning = /etc/grafana/provisioning|provisioning = $(dirname "$GRAFANA_CONF")/provisioning|" "$GRAFANA_CONF"
+        sed -i '' "s|path: /etc/grafana/dashboards/virtualpytest|path: $GRAFANA_HOME/dashboards/virtualpytest|" "$(dirname "$GRAFANA_CONF")/provisioning/dashboards/dashboards.yml"
         
         # Update configuration for local use (change port to 3001 to avoid conflicts)
         sed -i '' 's/http_port = 3000/http_port = 3001/' "$GRAFANA_CONF"

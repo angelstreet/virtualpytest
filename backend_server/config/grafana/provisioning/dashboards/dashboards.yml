@@ -1,0 +1,14 @@
+# Local Grafana dashboard provisioning configuration
+apiVersion: 1
+
+providers:
+  # VirtualPyTest dashboards
+  - name: 'VirtualPyTest'
+    orgId: 1
+    folder: 'VirtualPyTest'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 10
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/dashboards/virtualpytest

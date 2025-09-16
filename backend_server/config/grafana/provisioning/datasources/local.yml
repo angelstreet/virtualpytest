@@ -1,0 +1,38 @@
+# Local Grafana datasource configuration for VirtualPyTest
+# This file automatically configures Grafana to use local PostgreSQL databases
+apiVersion: 1
+
+datasources:
+  # VirtualPyTest Application Database - DEFAULT datasource
+  - name: VirtualPyTest Local
+    type: postgres
+    access: proxy
+    url: postgres://virtualpytest_user:virtualpytest_pass@localhost:5432/virtualpytest
+    jsonData:
+      sslmode: disable  # Local connection, no SSL needed
+      postgresVersion: 1300
+      timescaledb: false
+      maxOpenConns: 10
+      maxIdleConns: 5
+      connMaxLifetime: 14400
+    # Set as DEFAULT datasource
+    isDefault: true
+    # Allow editing for development
+    editable: true
+    
+  # VirtualPyTest Metrics Database - for storing custom metrics
+  - name: VirtualPyTest Metrics
+    type: postgres
+    access: proxy
+    url: postgres://grafana_user:grafana_pass@localhost:5432/grafana_metrics
+    jsonData:
+      sslmode: disable  # Local connection, no SSL needed
+      postgresVersion: 1300
+      timescaledb: false
+      maxOpenConns: 5
+      maxIdleConns: 2
+      connMaxLifetime: 14400
+    # Not default, but available for metrics storage
+    isDefault: false
+    # Allow editing for development
+    editable: true
