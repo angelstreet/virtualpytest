@@ -183,12 +183,33 @@ else
     echo "✅ nginx already installed"
 fi
 
-# Install local nginx configuration
-echo "📋 Installing local nginx configuration..."
-sudo cp backend_server/config/nginx/local.conf /etc/nginx/sites-available/virtualpytest-local
+# Detect host IP for nginx configuration
+echo "📋 Detecting host IP address for nginx configuration..."
+HOST_IP=""
+if command -v ip >/dev/null 2>&1; then
+    # Use ip command (preferred on modern systems)
+    HOST_IP=$(ip route get 1.1.1.1 2>/dev/null | grep -oP 'src \K\S+' 2>/dev/null || echo "")
+elif command -v ifconfig >/dev/null 2>&1; then
+    # Fallback to ifconfig
+    HOST_IP=$(ifconfig 2>/dev/null | grep -E "inet " | grep -v "127.0.0.1" | head -1 | awk '{print $2}' | sed 's/addr://')
+fi
+
+if [ -z "$HOST_IP" ]; then
+    echo "⚠️ Could not detect host IP, using localhost only"
+    HOST_IP="localhost"
+else
+    echo "✅ Detected host IP: $HOST_IP"
+fi
+
+# Install local nginx configuration with dynamic IP replacement
+echo "📋 Installing local nginx configuration with host IP: $HOST_IP..."
+# Create temporary config with replaced HOST_IP
+sed "s/HOST_IP/$HOST_IP/g" backend_server/config/nginx/local.conf > /tmp/virtualpytest-local.conf
+sudo cp /tmp/virtualpytest-local.conf /etc/nginx/sites-available/virtualpytest-local
 sudo rm -f /etc/nginx/sites-enabled/default
 sudo rm -f /etc/nginx/sites-enabled/virtualpytest*
 sudo ln -sf /etc/nginx/sites-available/virtualpytest-local /etc/nginx/sites-enabled/virtualpytest-local
+rm -f /tmp/virtualpytest-local.conf
 
 # Test nginx configuration
 if sudo nginx -t; then
@@ -241,6 +262,7 @@ else
 fi
 
 echo "✅ Host services installation completed (check individual service status above)"
+echo "🌐 nginx configured with host IP: $HOST_IP"
 
 # Note: Service management scripts would be copied from examples if they existed
 echo "ℹ️  Service management scripts can be created manually if needed"
@@ -371,9 +393,10 @@ echo "   - vncserver.service                 # VNC server (display :1, port 5901
 echo "   - novnc.service                     # noVNC web interface (port 6080)"
 echo ""
 echo "🖥️ VNC Access Information:"
-echo "   - VNC Server: localhost:5901 (display :1)"
+echo "   - VNC Server: $HOST_IP:5901 (display :1)"
 echo "   - Default Password: admin1234"
-echo "   - Web Interface: http://localhost:6080"
+echo "   - Web Interface: http://$HOST_IP:6080"
+echo "   - nginx Proxy: http://$HOST_IP/vnc/"
 echo "   - Resolution: 1280x720"
 echo ""
 echo "🚀 Quick VNC Test:"

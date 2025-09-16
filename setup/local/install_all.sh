@@ -209,12 +209,24 @@ echo "=================================================================="
 echo "🎉 VirtualPyTest Installation Complete!"
 echo "=================================================================="
 echo ""
+# Get the detected host IP (same logic as in install_host_services.sh)
+DETECTED_HOST_IP=""
+if command -v ip >/dev/null 2>&1; then
+    DETECTED_HOST_IP=$(ip route get 1.1.1.1 2>/dev/null | grep -oP 'src \K\S+' 2>/dev/null || echo "")
+elif command -v ifconfig >/dev/null 2>&1; then
+    DETECTED_HOST_IP=$(ifconfig 2>/dev/null | grep -E "inet " | grep -v "127.0.0.1" | head -1 | awk '{print $2}' | sed 's/addr://')
+fi
+
+if [ -z "$DETECTED_HOST_IP" ]; then
+    DETECTED_HOST_IP="localhost"
+fi
+
 echo "🌐 Access URLs (via nginx proxy):"
-echo "   📱 Frontend:        http://localhost/"
-echo "   🖥️  Backend Server:  http://localhost/server/"
-echo "   🤖 Backend Host:     http://localhost/host/"
-echo "   📊 Grafana:          http://localhost/grafana/"
-echo "   🖥️  VNC Web:         http://localhost/vnc/"
+echo "   📱 Frontend:        http://$DETECTED_HOST_IP/"
+echo "   🖥️  Backend Server:  http://$DETECTED_HOST_IP/server/"
+echo "   🤖 Backend Host:     http://$DETECTED_HOST_IP/host/"
+echo "   📊 Grafana:          http://$DETECTED_HOST_IP/grafana/"
+echo "   🖥️  VNC Web:         http://$DETECTED_HOST_IP/vnc/"
 echo ""
 echo "🔧 Direct Service URLs (for debugging):"
 echo "   📱 Frontend:        http://localhost:3000"
@@ -286,23 +298,9 @@ fi
 
 echo ""
 echo "🖥️ VNC Server Access:"
-# Get device IP addresses for VNC access
-if command -v ip >/dev/null 2>&1; then
-    DEVICE_IPS=$(ip route get 1.1.1.1 2>/dev/null | grep -oP 'src \K\S+' 2>/dev/null || echo "")
-    if [ -n "$DEVICE_IPS" ]; then
-        echo "   🔗 VNC Server: $DEVICE_IPS:5901 (display :1)"
-        echo "   🌐 VNC Web: http://$DEVICE_IPS:6080/vnc_lite.html?password=admin1234"
-        echo "   🌐 VNC Web (nginx): http://$DEVICE_IPS/vnc/"
-    fi
-elif command -v ifconfig >/dev/null 2>&1; then
-    # Fallback to ifconfig for primary IP
-    PRIMARY_IP=$(ifconfig 2>/dev/null | grep -E "inet " | grep -v "127.0.0.1" | head -1 | awk '{print $2}' | sed 's/addr://')
-    if [ -n "$PRIMARY_IP" ]; then
-        echo "   🔗 VNC Server: $PRIMARY_IP:5901 (display :1)"
-        echo "   🌐 VNC Web: http://$PRIMARY_IP:6080/vnc_lite.html?password=admin1234"
-        echo "   🌐 VNC Web (nginx): http://$PRIMARY_IP/vnc/"
-    fi
-fi
+echo "   🔗 VNC Server: $DETECTED_HOST_IP:5901 (display :1)"
+echo "   🌐 VNC Web: http://$DETECTED_HOST_IP:6080/vnc_lite.html?password=admin1234"
+echo "   🌐 VNC Web (nginx): http://$DETECTED_HOST_IP/vnc/"
 echo "   🔑 VNC Password: admin1234"
 echo "   📱 VNC Client: Connect to [IP]:5901 with password admin1234"
 
