@@ -376,6 +376,13 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
             }));
             toast.showSuccess('🎤 Audio analysis complete!');
             notifiedRef.current.audio = true;
+            
+            // If visual analysis already completed but audio just finished, 
+            // we may need to regenerate the report with complete data
+            if (status.visual === 'completed' && status.audio_data) {
+              console.log('[@hook:useRestart] 🔄 Audio completed after visual - updating report with complete data');
+              generateReportWithVideoUrl(status, currentVideoUrl);
+            }
           }
           
           // Update visual analysis when complete
@@ -394,9 +401,21 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
             generateReportWithVideoUrl(status, currentVideoUrl);
           }
           
-          // Stop polling when visual analysis is done
-          if (status.visual === 'completed') {
+          // Stop polling when both audio and visual analysis are done
+          const audioComplete = status.audio === 'completed' || status.audio === 'error';
+          const visualComplete = status.visual === 'completed' || status.visual === 'error';
+          
+          if (audioComplete && visualComplete) {
+            console.log('[@hook:useRestart] 🎯 Both audio and visual analysis completed, stopping polling');
             clearInterval(pollInterval);
+            
+            // Show completion message based on what completed
+            if (status.audio === 'completed' && status.visual === 'completed') {
+              toast.showSuccess('✅ Complete analysis finished! Audio, subtitles, and summary ready.');
+            } else if (status.visual === 'completed') {
+              toast.showSuccess('✅ Visual analysis complete! Subtitles and summary ready.');
+            }
+            
             if (status.heavy === 'completed') {
               toast.showSuccess('🎬 Audio prepared! Dubbing and sync now available.');
             }
