@@ -738,7 +738,6 @@ class VideoRestartHelpers:
             Dictionary with adjusted video information
         """
         try:
-            print(f"RestartHelpers[{self.device_name}]: Adjusting audio timing by {timing_offset_ms:+d}ms for {language}")
             
             # Convert URL to local path if needed
             from shared.lib.utils.build_url_utils import convertHostUrlToLocalPath
@@ -793,7 +792,6 @@ class VideoRestartHelpers:
                 
                 # Return immediately - no processing needed for 0ms
                 adjusted_video_url = self._build_video_url(output_filename)
-                print(f"RestartHelpers[{self.device_name}]: 0ms video found: {output_filename}")
                 return {
                     'success': True,
                     'adjusted_video_url': adjusted_video_url,
@@ -822,7 +820,6 @@ class VideoRestartHelpers:
             
             output_path = os.path.join(original_dir, output_filename)
             
-            print(f"RestartHelpers[{self.device_name}]: Generating timing-adjusted video using cached components")
             
             # Use component-based timing adjustment
             return self._adjust_timing_with_components(
@@ -847,7 +844,6 @@ class VideoRestartHelpers:
         Frontend provides component paths if available, backend creates them if not.
         """
         try:
-            print(f"RestartHelpers[{self.device_name}]: 🎬 SYNC_PROCESS_START: timing={target_timing_ms:+d}ms language={language}")
             
             # Use provided component paths or create them
             if silent_video_path and background_audio_path and vocals_path:
@@ -883,10 +879,6 @@ class VideoRestartHelpers:
                     print(f"RestartHelpers[{self.device_name}]: ❌ COMPONENT_CREATION_FAILED: Falling back to full video processing")
                     return self._fallback_timing_adjustment(original_dir, base_name, original_ext, target_timing_ms, output_path, output_filename, video_url, language)
                 
-                print(f"RestartHelpers[{self.device_name}]: ✅ COMPONENTS_CREATED")
-                print(f"RestartHelpers[{self.device_name}]:   - Silent video: {silent_video_path}")
-                print(f"RestartHelpers[{self.device_name}]:   - Background audio: {background_audio_path}")
-                print(f"RestartHelpers[{self.device_name}]:   - Original vocals: {original_vocals_path}")
                 
                 # Determine vocal source based on language
                 if language == "original" or language == "en":

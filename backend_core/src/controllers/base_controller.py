@@ -284,6 +284,10 @@ class FFmpegCaptureController(AVControllerInterface):
         """
         super().__init__(device_name, capture_source)
         
+        # Store real device name and device_id if provided
+        self.real_device_name = kwargs.get('real_device_name', device_name)
+        self.device_id = kwargs.get('device_id', 'unknown')
+        
         # Stream and capture paths
         self.video_stream_path = video_stream_path
         self.video_capture_path = video_capture_path
@@ -311,7 +315,7 @@ class FFmpegCaptureController(AVControllerInterface):
         """Lazy initialization of restart helpers"""
         if self._restart_helpers is None:
             from .audiovideo.video_restart_helpers import VideoRestartHelpers
-            self._restart_helpers = VideoRestartHelpers(self, self.device_name)
+            self._restart_helpers = VideoRestartHelpers(self, self.real_device_name)
         return self._restart_helpers
     
     @property
@@ -319,7 +323,7 @@ class FFmpegCaptureController(AVControllerInterface):
         """Lazy initialization of monitoring helpers"""
         if self._monitoring_helpers is None:
             from .audiovideo.video_monitoring_helpers import VideoMonitoringHelpers
-            self._monitoring_helpers = VideoMonitoringHelpers(self, self.device_name)
+            self._monitoring_helpers = VideoMonitoringHelpers(self, self.real_device_name)
         return self._monitoring_helpers
 
     def take_screenshot(self, filename: str = None) -> Optional[str]:

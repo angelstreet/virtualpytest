@@ -350,24 +350,33 @@ def get_device_capabilities(device_model: str) -> dict:
 
 def _get_av_params(implementation: str, device_config: dict) -> dict:
     """Get parameters for AV controllers."""
+    # Add the real device name and device_id to all AV controllers
+    base_params = {
+        'real_device_name': device_config.get('device_name', 'Unknown Device'),
+        'device_id': device_config.get('device_id', 'unknown')
+    }
+    
     if implementation == 'hdmi_stream':
         return {
+            **base_params,
             'video_stream_path': device_config.get('video_stream_path', '/host/stream/capture1'),
             'video_capture_path': device_config.get('video_capture_path', '/var/www/html/stream/capture1')
         }
     elif implementation == 'camera_stream':
         return {
+            **base_params,
             'video_stream_path': device_config.get('video_stream_path', '/host/camera/stream'),
             'video_capture_path': device_config.get('video_capture_path', '/var/www/html/camera/captures')
         }
     elif implementation == 'vnc_stream':
         return {
+            **base_params,
             'video_stream_path': device_config.get('video_stream_path', '/host/vnc/stream'),
             'video_capture_path': device_config.get('video_capture_path', '/var/www/html/stream/capture3'),
             'vnc_password': device_config.get('vnc_password'),
             'web_browser_path': device_config.get('web_browser_path', '/usr/bin/chromium')
         }
-    return {}
+    return base_params
 
 def _get_remote_params(implementation: str, device_config: dict) -> dict:
     """Get parameters for Remote controllers."""
