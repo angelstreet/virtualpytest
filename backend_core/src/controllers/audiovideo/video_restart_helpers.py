@@ -313,9 +313,6 @@ class VideoRestartHelpers:
             # Build video URL
             video_url = self._build_video_url(video_filename)
             
-            # Get audio transcript
-            audio_result = self._get_audio_transcript_locally(segment_files, duration_seconds)
-            
             # Get screenshot URLs aligned with video segments
             screenshot_urls = self._get_video_screenshots(segment_files)
             
@@ -324,13 +321,9 @@ class VideoRestartHelpers:
             
             analysis_data = {
                 'audio_analysis': {
-                    'success': audio_result.get('success', False),
-                    'speech_detected': audio_result.get('speech_detected', False),
-                    'combined_transcript': audio_result.get('combined_transcript', ''),
-                    'detected_language': audio_result.get('detected_language', 'unknown'),
-                    'confidence': audio_result.get('confidence', 0.0),
-                    'segments_analyzed': audio_result.get('segments_analyzed', 0),
-                    'execution_time_ms': 0
+                    'success': False,
+                    'pending': True,
+                    'message': 'Audio analysis will be performed asynchronously'
                 },
                 'screenshot_urls': screenshot_urls,
                 'video_analysis': {
@@ -354,7 +347,7 @@ class VideoRestartHelpers:
             print(f"RestartHelpers[{self.device_name}]: Fast generation complete - Video ID: {video_id}")
             
             # Start background processing
-            threading.Thread(target=self._bg_process, args=(video_id, segment_files, screenshot_urls, audio_result), daemon=True).start()
+            threading.Thread(target=self._bg_process, args=(video_id, segment_files, screenshot_urls, duration_seconds), daemon=True).start()
             
             return {
                 'success': True,
@@ -1211,17 +1204,21 @@ class VideoRestartHelpers:
     # Background Processing Methods
     # =============================================================================
     
-    def _bg_process(self, video_id: str, segment_files: List[tuple], screenshot_urls: List[str], audio_result: Dict) -> None:
+    def _bg_process(self, video_id: str, segment_files: List[tuple], screenshot_urls: List[str], duration_seconds: float) -> None:
         """Start 3 parallel threads"""
         self._save_status(video_id, {'audio': 'loading', 'visual': 'loading', 'heavy': 'loading'})
         
-        threading.Thread(target=self._t1_audio, args=(video_id, audio_result), daemon=True).start()
+        threading.Thread(target=self._t1_audio, args=(video_id, segment_files, duration_seconds), daemon=True).start()
         threading.Thread(target=self._t2_visual, args=(video_id, screenshot_urls), daemon=True).start()
-        threading.Thread(target=self._t3_heavy, args=(video_id, audio_result.get('combined_transcript', '')), daemon=True).start()
+        threading.Thread(target=self._t3_heavy, args=(video_id,), daemon=True).start()
     
-    def _t1_audio(self, video_id: str, audio_result: Dict) -> None:
-        """Thread 1: Audio already done"""
-        self._save_status(video_id, {'audio': 'completed', 'audio_data': audio_result})
+    def _t1_audio(self, video_id: str, segment_files: List[tuple], duration_seconds: float) -> None:
+        """Thread 1: Audio analysis"""
+        try:
+            audio_result = self._get_audio_transcript_locally(segment_files, duration_seconds)
+            self._save_status(video_id, {'audio': 'completed', 'audio_data': audio_result})
+        except Exception as e:
+            self._save_status(video_id, {'audio': 'error', 'audio_error': str(e)})
     
     def _t2_visual(self, video_id: str, screenshot_urls: List[str]) -> None:
         """Thread 2: Visual analysis"""
@@ -1231,9 +1228,22 @@ class VideoRestartHelpers:
         except Exception as e:
             self._save_status(video_id, {'visual': 'error', 'visual_error': str(e)})
     
-    def _t3_heavy(self, video_id: str, transcript: str) -> None:
+    def _t3_heavy(self, video_id: str) -> None:
         """Thread 3: Heavy sequential processing"""
         try:
+            # Wait for audio transcript from Thread 1
+            transcript = ''
+            for _ in range(30):  # Wait up to 30s
+                status = self.get_status(video_id)
+                if status.get('audio') == 'completed':
+                    transcript = status.get('audio_data', {}).get('combined_transcript', '')
+                    break
+                time.sleep(1)
+            
+            if not transcript:
+                self._save_status(video_id, {'heavy': 'error', 'heavy_error': 'No transcript available'})
+                return
+            
             # Audio prep
             self._save_status(video_id, {'heavy': 'audio_prep'})
             if not self.prepare_dubbing_audio(video_id).get('success'):

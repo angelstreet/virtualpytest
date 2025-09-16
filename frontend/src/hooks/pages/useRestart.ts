@@ -310,6 +310,16 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
         if (data.success && data.status) {
           const status = data.status;
           
+          // Update audio analysis when complete
+          if (status.audio === 'completed' && analysisProgress.audio !== 'completed') {
+            setAnalysisResults(prev => ({
+              ...prev,
+              audioTranscript: status.audio_data
+            }));
+            setAnalysisProgress(prev => ({ ...prev, audio: 'completed' }));
+            toast.showSuccess('🎤 Audio analysis complete!');
+          }
+          
           // Update visual analysis when complete
           if (status.visual === 'completed' && analysisProgress.subtitles !== 'completed') {
             setAnalysisResults(prev => ({
@@ -318,7 +328,7 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
               videoDescription: status.video_analysis
             }));
             setAnalysisProgress(prev => ({ ...prev, subtitles: 'completed', summary: 'completed' }));
-            toast.showSuccess('✅ Analysis complete! Results available in settings.');
+            toast.showSuccess('✅ Visual analysis complete! Results available in settings.');
           }
           
           // Stop polling when visual analysis is done
