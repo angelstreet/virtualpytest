@@ -117,7 +117,7 @@ interface UseRestartReturn {
   
   // Dubbing state
   dubbedVideos: Record<string, string>;
-  dubbedAudioUrls: Record<string, { edge: string }>;
+  dubbedAudioUrls: Record<string, { gtts: string; edge: string }>;
   isDubbing: boolean;
   dubbingCache: Record<string, boolean>;
   
@@ -230,7 +230,7 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
   
   // Dubbing state
   const [dubbedVideos, setDubbedVideos] = useState<Record<string, string>>({});
-  const [dubbedAudioUrls, setDubbedAudioUrls] = useState<Record<string, { edge: string }>>({});
+  const [dubbedAudioUrls, setDubbedAudioUrls] = useState<Record<string, { gtts: string; edge: string }>>({});
   const [isDubbing, setIsDubbing] = useState(false);
   
   // Translation state
@@ -619,12 +619,16 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
       };
       
       // NEW: Single fast dubbing call (combines Edge-TTS + video muting)
-      toast.showInfo(`⚡ Fast dubbing for ${language} (no background audio separation)...`, { duration: 5000 });
+      toast.showInfo(`⚡ Fast dubbing for ${language}...`, { duration: 5000 });
       console.log(`[@hook:useRestart] ⚡ Fast dubbing: Edge-TTS + video muting for ${language}...`);
+      console.log(`[@hook:useRestart] 🔍 CALLING FAST ENDPOINT: /server/restart/createDubbedVideoFast`);
       
-      const fastResponse = await fetch(buildServerUrl('/server/restart/createDubbedVideoFast'), {
+      const fastResponse = await fetch(buildServerUrl('/server/restart/createDubbedVideoFast') + `?v=${Date.now()}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache'
+        },
         body: JSON.stringify(basePayload)
       });
       
@@ -643,11 +647,12 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
         [language]: fastResult.dubbed_video_url
       }));
       
-      // Store Edge-TTS audio URL only
+      // Store Edge-TTS audio URL and placeholder for GTTS
       if (fastResult.edge_audio_url) {
         setDubbedAudioUrls(prev => ({
           ...prev,
           [language]: {
+            gtts: fastResult.gtts_audio_url || '', // Use backend GTTS URL if available, otherwise empty
             edge: fastResult.edge_audio_url
           }
         }));
@@ -940,11 +945,11 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
       
       // Show appropriate start toast based on cache status
       if (cachedComponents) {
-        console.log('[@hook:useRestart] 🎯 Using cached components for timing adjustment');
-        toast.showInfo(`🎵 Adjusting audio timing: ${offsetMs > 0 ? '+' : ''}${offsetMs}ms (cached components, ~5-8s)`, { duration: 4000 });
+        console.log('[@hook:useRestart] 🎯 Using cached components');
+        toast.showInfo(`🎵 Adjusting audio timing: ${offsetMs > 0 ? '+' : ''}${offsetMs}ms`, { duration: 4000 });
       } else {
         console.log('[@hook:useRestart] 🔧 No cached components - backend will create them');
-        toast.showInfo(`🎵 Adjusting audio timing: ${offsetMs > 0 ? '+' : ''}${offsetMs}ms (creating components, can take up to 60s)`, { duration: 8000 });
+        toast.showInfo(`🎵 Adjusting audio timing: ${offsetMs > 0 ? '+' : ''}${offsetMs}ms`, { duration: 8000 });
       }
       
       const requestBody: any = {

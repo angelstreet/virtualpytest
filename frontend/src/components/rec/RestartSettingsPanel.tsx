@@ -238,10 +238,6 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
                 {/* Audio preview link */}
                 {currentLanguage !== 'en' && dubbedAudioUrls[currentLanguage] && (
                   <Box sx={{ mt: 1.5, pt: 1.5, borderTop: '1px solid rgba(255,255,255,0.2)' }}>
-                    <Typography variant="caption" sx={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.7)' }}>
-                      Audio Preview:
-                    </Typography>
-                    <Box sx={{ mt: 0.5 }}>
                       <Typography 
                         component="a" 
                         href={dubbedAudioUrls[currentLanguage].edge}
@@ -254,9 +250,8 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
                           '&:hover': { color: '#29B6F6' }
                         }}
                       >
-                        dub_edge-tts
+                        audio.mp3
                       </Typography>
-                    </Box>
                   </Box>
                 )}
               </Typography>

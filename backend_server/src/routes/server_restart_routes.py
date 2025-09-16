@@ -207,7 +207,7 @@ def prepare_dubbing_audio():
         device_id = request_data.get('device_id', 'device1')
         video_id = request_data.get('video_id')
 
-        print(f"[SERVER] 🎵 [@server_restart_routes:prepareDubbingAudio] Step 1 starting for video_id: {video_id}")
+        print(f"[SERVER] 🎵 [@server_restart_routes:prepareDubbingAudio] 🔍 OLD ENDPOINT CALLED - Step 1 starting for video_id: {video_id}")
 
         if not host:
             return jsonify({'success': False, 'error': 'Host required'}), 400
@@ -342,7 +342,7 @@ def create_dubbed_video_fast():
         target_language = request_data.get('target_language', 'es')
         existing_transcript = request_data.get('existing_transcript', '')
 
-        print(f"[SERVER] ⚡ [@server_restart_routes:createDubbedVideoFast] Fast dubbing starting for {target_language}")
+        print(f"[SERVER] ⚡ [@server_restart_routes:createDubbedVideoFast] 🔍 FAST ENDPOINT CALLED - Fast dubbing starting for {target_language}")
 
         if not host:
             return jsonify({'success': False, 'error': 'Host required'}), 400
