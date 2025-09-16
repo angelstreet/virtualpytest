@@ -237,55 +237,10 @@ def prepare_dubbing_audio():
             'error': f'Audio preparation failed: {str(e)}'
         }), 500
 
-@server_restart_bp.route('/generateGttsSpeech', methods=['POST'])
-def generate_gtts_speech():
-    """Step 2: Generate gTTS speech ~3-5s"""
-    import time
-    step_start_time = time.time()
-    
-    try:
-        request_data = request.get_json() or {}
-        host = request_data.get('host')
-        device_id = request_data.get('device_id', 'device1')
-        video_id = request_data.get('video_id')
-        target_language = request_data.get('target_language', 'es')
-        existing_transcript = request_data.get('existing_transcript', '')
-
-        print(f"[SERVER] 🗣️ [@server_restart_routes:generateGttsSpeech] Step 2 starting for {target_language}")
-
-        if not host:
-            return jsonify({'success': False, 'error': 'Host required'}), 400
-        if not existing_transcript:
-            return jsonify({'success': False, 'error': 'Transcript required for speech generation'}), 400
-
-        response_data, status_code = proxy_to_host_with_params(
-            '/host/restart/generateGttsSpeech',
-            'POST',
-            request_data,
-            {'device_id': device_id, 'video_id': video_id, 'target_language': target_language, 'existing_transcript': existing_transcript},
-            timeout=60  # 1 minute for gTTS generation
-        )
-        
-        step_duration = time.time() - step_start_time
-        
-        if response_data.get('success'):
-            print(f"[SERVER] ✅ [@server_restart_routes:generateGttsSpeech] Step 2 completed in {step_duration:.1f}s")
-        else:
-            print(f"[SERVER] ❌ [@server_restart_routes:generateGttsSpeech] Step 2 failed after {step_duration:.1f}s: {response_data.get('error', 'unknown error')}")
-        
-        return jsonify(response_data), status_code
-
-    except Exception as e:
-        step_duration = time.time() - step_start_time
-        print(f"[SERVER] ❌ [@server_restart_routes:generateGttsSpeech] EXCEPTION after {step_duration:.1f}s: {str(e)}")
-        return jsonify({
-            'success': False,
-            'error': f'gTTS generation failed: {str(e)}'
-        }), 500
 
 @server_restart_bp.route('/generateEdgeSpeech', methods=['POST'])
 def generate_edge_speech():
-    """Step 3: Generate Edge-TTS speech ~3-5s"""
+    """Step 2: Generate Edge-TTS speech ~3-5s"""
     import time
     step_start_time = time.time()
     
@@ -297,7 +252,7 @@ def generate_edge_speech():
         target_language = request_data.get('target_language', 'es')
         existing_transcript = request_data.get('existing_transcript', '')
 
-        print(f"[SERVER] 🤖 [@server_restart_routes:generateEdgeSpeech] Step 3 starting for {target_language}")
+        print(f"[SERVER] 🤖 [@server_restart_routes:generateEdgeSpeech] Step 2 starting for {target_language}")
 
         if not host:
             return jsonify({'success': False, 'error': 'Host required'}), 400
@@ -315,9 +270,9 @@ def generate_edge_speech():
         step_duration = time.time() - step_start_time
         
         if response_data.get('success'):
-            print(f"[SERVER] ✅ [@server_restart_routes:generateEdgeSpeech] Step 3 completed in {step_duration:.1f}s")
+            print(f"[SERVER] ✅ [@server_restart_routes:generateEdgeSpeech] Step 2 completed in {step_duration:.1f}s")
         else:
-            print(f"[SERVER] ❌ [@server_restart_routes:generateEdgeSpeech] Step 3 failed after {step_duration:.1f}s: {response_data.get('error', 'unknown error')}")
+            print(f"[SERVER] ❌ [@server_restart_routes:generateEdgeSpeech] Step 2 failed after {step_duration:.1f}s: {response_data.get('error', 'unknown error')}")
         
         return jsonify(response_data), status_code
 
@@ -331,7 +286,7 @@ def generate_edge_speech():
 
 @server_restart_bp.route('/createDubbedVideo', methods=['POST'])
 def create_dubbed_video():
-    """Step 4: Create final dubbed video ~5-8s"""
+    """Step 3: Create final dubbed video ~5-8s"""
     import time
     step_start_time = time.time()
     
@@ -341,9 +296,9 @@ def create_dubbed_video():
         device_id = request_data.get('device_id', 'device1')
         video_id = request_data.get('video_id')
         target_language = request_data.get('target_language', 'es')
-        voice_choice = request_data.get('voice_choice', 'gtts')
+        voice_choice = request_data.get('voice_choice', 'edge')
 
-        print(f"[SERVER] 🎬 [@server_restart_routes:createDubbedVideo] Step 4 starting with {voice_choice} voice")
+        print(f"[SERVER] 🎬 [@server_restart_routes:createDubbedVideo] Step 3 starting with {voice_choice} voice")
 
         if not host:
             return jsonify({'success': False, 'error': 'Host required'}), 400
@@ -359,9 +314,9 @@ def create_dubbed_video():
         step_duration = time.time() - step_start_time
         
         if response_data.get('success'):
-            print(f"[SERVER] ✅ [@server_restart_routes:createDubbedVideo] Step 4 completed in {step_duration:.1f}s")
+            print(f"[SERVER] ✅ [@server_restart_routes:createDubbedVideo] Step 3 completed in {step_duration:.1f}s")
         else:
-            print(f"[SERVER] ❌ [@server_restart_routes:createDubbedVideo] Step 4 failed after {step_duration:.1f}s: {response_data.get('error', 'unknown error')}")
+            print(f"[SERVER] ❌ [@server_restart_routes:createDubbedVideo] Step 3 failed after {step_duration:.1f}s: {response_data.get('error', 'unknown error')}")
         
         return jsonify(response_data), status_code
 

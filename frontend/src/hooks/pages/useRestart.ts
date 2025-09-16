@@ -117,7 +117,7 @@ interface UseRestartReturn {
   
   // Dubbing state
   dubbedVideos: Record<string, string>;
-  dubbedAudioUrls: Record<string, { gtts: string; edge: string }>;
+  dubbedAudioUrls: Record<string, { edge: string }>;
   isDubbing: boolean;
   dubbingCache: Record<string, boolean>;
   
@@ -230,7 +230,7 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
   
   // Dubbing state
   const [dubbedVideos, setDubbedVideos] = useState<Record<string, string>>({});
-  const [dubbedAudioUrls, setDubbedAudioUrls] = useState<Record<string, { gtts: string; edge: string }>>({});
+  const [dubbedAudioUrls, setDubbedAudioUrls] = useState<Record<string, { edge: string }>>({});
   const [isDubbing, setIsDubbing] = useState(false);
   
   // Translation state
@@ -582,7 +582,7 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
         return;
       }
 
-      console.log(`[@hook:useRestart] 🎤 Starting 4-step dubbing generation for ${language}...`);
+      console.log(`[@hook:useRestart] 🎤 Starting 3-step dubbing generation for ${language}...`);
       setIsDubbing(true);
       
       const basePayload = {
@@ -594,7 +594,7 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
       };
       
       // Step 1: Prepare audio (extract + separate) ~20-35s
-      toast.showInfo(`🎵 Step 1/4: Preparing audio for ${language}...`, { duration: 5000 });
+      toast.showInfo(`🎵 Step 1/3: Preparing audio for ${language}...`, { duration: 5000 });
       console.log(`[@hook:useRestart] Step 1: Preparing audio for ${language}...`);
       
       const step1Response = await fetch(buildServerUrl('/server/restart/prepareDubbingAudio'), {
@@ -608,14 +608,14 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
         throw new Error(`Step 1 failed: ${step1Result.error}`);
       }
       
-      toast.showSuccess(`✅ Step 1/4: Audio prepared in ${step1Result.duration_seconds}s`, { duration: 3000 });
+      toast.showSuccess(`✅ Step 1/3: Audio prepared in ${step1Result.duration_seconds}s`, { duration: 3000 });
       console.log(`[@hook:useRestart] ✅ Step 1 completed in ${step1Result.duration_seconds}s`);
       
-      // Step 2: Generate gTTS speech ~3-5s
-      toast.showInfo(`🗣️ Step 2/4: Generating gTTS voice for ${language}...`, { duration: 5000 });
-      console.log(`[@hook:useRestart] Step 2: Generating gTTS speech for ${language}...`);
+      // Step 2: Generate Edge-TTS speech ~3-5s
+      toast.showInfo(`🤖 Step 2/3: Generating Edge-TTS voice for ${language}...`, { duration: 5000 });
+      console.log(`[@hook:useRestart] Step 2: Generating Edge-TTS speech for ${language}...`);
       
-      const step2Response = await fetch(buildServerUrl('/server/restart/generateGttsSpeech'), {
+      const step2Response = await fetch(buildServerUrl('/server/restart/generateEdgeSpeech'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(basePayload)
@@ -626,17 +626,20 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
         throw new Error(`Step 2 failed: ${step2Result.error}`);
       }
       
-      toast.showSuccess(`✅ Step 2/4: gTTS voice ready in ${step2Result.duration_seconds}s`, { duration: 3000 });
+      toast.showSuccess(`✅ Step 2/3: Edge-TTS voice ready in ${step2Result.duration_seconds}s`, { duration: 3000 });
       console.log(`[@hook:useRestart] ✅ Step 2 completed in ${step2Result.duration_seconds}s`);
       
-      // Step 3: Generate Edge-TTS speech ~3-5s
-      toast.showInfo(`🤖 Step 3/4: Generating Edge-TTS voice for ${language}...`, { duration: 5000 });
-      console.log(`[@hook:useRestart] Step 3: Generating Edge-TTS speech for ${language}...`);
+      // Step 3: Create final dubbed video ~5-8s (using Edge-TTS)
+      toast.showInfo(`🎬 Step 3/3: Creating final dubbed video for ${language}...`, { duration: 5000 });
+      console.log(`[@hook:useRestart] Step 3: Creating final dubbed video for ${language}...`);
       
-      const step3Response = await fetch(buildServerUrl('/server/restart/generateEdgeSpeech'), {
+      const step3Response = await fetch(buildServerUrl('/server/restart/createDubbedVideo'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(basePayload)
+        body: JSON.stringify({
+          ...basePayload,
+          voice_choice: 'edge' // Use Edge-TTS only
+        })
       });
       
       const step3Result = await step3Response.json();
@@ -644,44 +647,22 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
         throw new Error(`Step 3 failed: ${step3Result.error}`);
       }
       
-      toast.showSuccess(`✅ Step 3/4: Edge-TTS voice ready in ${step3Result.duration_seconds}s`, { duration: 3000 });
-      console.log(`[@hook:useRestart] ✅ Step 3 completed in ${step3Result.duration_seconds}s`);
-      
-      // Step 4: Create final dubbed video ~5-8s (using Edge-TTS by default)
-      toast.showInfo(`🎬 Step 4/4: Creating final dubbed video for ${language}...`, { duration: 5000 });
-      console.log(`[@hook:useRestart] Step 4: Creating final dubbed video for ${language}...`);
-      
-      const step4Response = await fetch(buildServerUrl('/server/restart/createDubbedVideo'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...basePayload,
-          voice_choice: 'edge' // Use Edge-TTS by default
-        })
-      });
-      
-      const step4Result = await step4Response.json();
-      if (!step4Result.success) {
-        throw new Error(`Step 4 failed: ${step4Result.error}`);
-      }
-      
       const dubbingDuration = ((Date.now() - dubbingStartTime) / 1000).toFixed(1);
       toast.showSuccess(`🎉 Dubbing for ${language} completed in ${dubbingDuration}s! (cached for future use)`, { duration: 5000 });
-      console.log(`[@hook:useRestart] ✅ All 4 steps completed for ${language} in ${dubbingDuration}s`);
+      console.log(`[@hook:useRestart] ✅ All 3 steps completed for ${language} in ${dubbingDuration}s`);
       
       // Store final video URL
       setDubbedVideos(prev => ({
         ...prev,
-        [language]: step4Result.dubbed_video_url
+        [language]: step3Result.dubbed_video_url
       }));
       
-      // Store both gTTS and Edge-TTS audio URLs
-      if (step2Result.gtts_audio_url && step3Result.edge_audio_url) {
+      // Store Edge-TTS audio URL only
+      if (step2Result.edge_audio_url) {
         setDubbedAudioUrls(prev => ({
           ...prev,
           [language]: {
-            gtts: step2Result.gtts_audio_url,
-            edge: step3Result.edge_audio_url
+            edge: step2Result.edge_audio_url
           }
         }));
       }
@@ -971,6 +952,15 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
       const videoKey = getVideoKey(baseVideoUrl);
       const cachedComponents = componentCache[videoKey];
       
+      // Show appropriate start toast based on cache status
+      if (cachedComponents) {
+        console.log('[@hook:useRestart] 🎯 Using cached components for timing adjustment');
+        toast.showInfo(`🎵 Adjusting audio timing: ${offsetMs > 0 ? '+' : ''}${offsetMs}ms (cached components, ~5-8s)`, { duration: 4000 });
+      } else {
+        console.log('[@hook:useRestart] 🔧 No cached components - backend will create them');
+        toast.showInfo(`🎵 Adjusting audio timing: ${offsetMs > 0 ? '+' : ''}${offsetMs}ms (creating components, can take up to 60s)`, { duration: 8000 });
+      }
+      
       const requestBody: any = {
         host,
         device_id: device.device_id,
@@ -990,10 +980,6 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
         } else if (cachedComponents.dubbed_vocals[currentLanguage]) {
           requestBody.vocals_path = cachedComponents.dubbed_vocals[currentLanguage];
         }
-        
-        console.log('[@hook:useRestart] 🎯 Using cached components for timing adjustment');
-      } else {
-        console.log('[@hook:useRestart] 🔧 No cached components - backend will create them');
       }
       
       const response = await fetch(buildServerUrl('/server/restart/adjustAudioTiming'), {
@@ -1038,7 +1024,7 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
         
         setAudioTimingOffset(offsetMs);
         console.log(`[@hook:useRestart] ✅ Audio timing adjustment completed: ${offsetMs > 0 ? '+' : ''}${offsetMs}ms (cached for future use)`);
-        toast.showSuccess(`✅ Audio timing: ${offsetMs > 0 ? '+' : ''}${offsetMs}ms`);
+        toast.showSuccess(`✅ Audio timing adjusted: ${offsetMs > 0 ? '+' : ''}${offsetMs}ms (cached for future use)`);
       } else {
         throw new Error(result.error);
       }

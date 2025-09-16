@@ -626,45 +626,9 @@ class VideoRestartHelpers:
                 'duration_seconds': 0.0
             }
     
-    def generate_gtts_speech(self, video_id: str, target_language: str, existing_transcript: str) -> Optional[Dict[str, Any]]:
-        """Step 2: Generate gTTS speech"""
-        try:
-            # Get translation (cached if available)
-            cache_key = video_id
-            if cache_key in self._translation_cache and target_language in self._translation_cache[cache_key]:
-                translation_result = self._translation_cache[cache_key][target_language]
-            else:
-                from shared.lib.utils.translation_utils import translate_text
-                # For audio dubbing, translate the clean transcript directly (no frame structure)
-                translation_result = translate_text(existing_transcript, 'en', target_language)
-                
-                if not translation_result['success']:
-                    return {
-                        'success': False,
-                        'error': 'Translation failed',
-                        'duration_seconds': 0.0
-                    }
-                
-                # Cache the translation
-                if cache_key not in self._translation_cache:
-                    self._translation_cache[cache_key] = {}
-                self._translation_cache[cache_key][target_language] = translation_result
-            
-            # Clean translated text before TTS (remove AI prompt artifacts)
-            translated_text = self._clean_translated_text(translation_result['translated_text'])
-            
-            return self.dubbing_helpers.generate_gtts_speech_step(translated_text, target_language, self.video_capture_path)
-            
-        except Exception as e:
-            print(f"RestartHelpers[{self.device_name}]: gTTS generation error: {e}")
-            return {
-                'success': False,
-                'error': f'gTTS generation failed: {str(e)}',
-                'duration_seconds': 0.0
-            }
     
     def generate_edge_speech(self, video_id: str, target_language: str, existing_transcript: str) -> Optional[Dict[str, Any]]:
-        """Step 3: Generate Edge-TTS speech"""
+        """Step 2: Generate Edge-TTS speech"""
         try:
             # Get translation (cached if available)
             cache_key = video_id
@@ -701,7 +665,7 @@ class VideoRestartHelpers:
             }
     
     def create_dubbed_video(self, video_id: str, target_language: str, voice_choice: str = 'edge') -> Optional[Dict[str, Any]]:
-        """Step 4: Create final dubbed video"""
+        """Step 3: Create final dubbed video"""
         try:
             video_filename = "restart_original_video.mp4"
             video_file = os.path.join(self.video_capture_path, video_filename)

@@ -235,27 +235,13 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
                 </strong><br />
                 {currentLanguage === 'en' ? (analysisResults.audio?.combined_transcript || 'No transcript available') : (currentTranslation?.transcript || analysisResults.audio?.combined_transcript || 'Translating...')}
                 
-                {/* Audio comparison links */}
+                {/* Audio preview link */}
                 {currentLanguage !== 'en' && dubbedAudioUrls[currentLanguage] && (
                   <Box sx={{ mt: 1.5, pt: 1.5, borderTop: '1px solid rgba(255,255,255,0.2)' }}>
                     <Typography variant="caption" sx={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.7)' }}>
-                      Audio Comparison:
+                      Audio Preview:
                     </Typography>
-                    <Box sx={{ mt: 0.5, display: 'flex', gap: 1 }}>
-                      <Typography 
-                        component="a" 
-                        href={dubbedAudioUrls[currentLanguage].gtts}
-                        target="_blank"
-                        sx={{ 
-                          fontSize: '0.7rem', 
-                          color: '#4FC3F7', 
-                          textDecoration: 'underline',
-                          cursor: 'pointer',
-                          '&:hover': { color: '#29B6F6' }
-                        }}
-                      >
-                        dub_gTTS
-                      </Typography>
+                    <Box sx={{ mt: 0.5 }}>
                       <Typography 
                         component="a" 
                         href={dubbedAudioUrls[currentLanguage].edge}
@@ -268,7 +254,7 @@ export const RestartSettingsPanel: React.FC<RestartSettingsPanelProps> = ({
                           '&:hover': { color: '#29B6F6' }
                         }}
                       >
-                        dub_edge
+                        dub_edge-tts
                       </Typography>
                     </Box>
                   </Box>
