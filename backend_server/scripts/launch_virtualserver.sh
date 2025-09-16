@@ -97,7 +97,7 @@ echo "==========================================================================
 echo -e "${NC}✅ All services started! Watching for logs...${NC}"
 echo -e "${NC}💡 You should see logs with colored prefixes appearing above${NC}"
 echo -e "${NC}🌐 URLs:${NC}"
-echo -e "${NC}   Frontend: http://localhost:3000${NC}"
+echo -e "${NC}   Frontend: http://localhost:5073${NC}"
 echo -e "${NC}   backend_server: http://localhost:5109${NC}"
 echo "=================================================================================="
 
