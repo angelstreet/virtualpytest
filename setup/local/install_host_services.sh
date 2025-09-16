@@ -322,7 +322,15 @@ echo "✅ VNC startup script created"
 echo "✅ VNC config file created"
 echo "✅ XFCE4 session files created"
 
-# Test VNC server startup and fix service if needed
+# Proactive VNC cleanup (we know these steps are required)
+echo "🧹 Proactive VNC cleanup before testing..."
+sudo systemctl stop vncserver 2>/dev/null || true
+pkill -f "Xvnc.*:1" 2>/dev/null || true
+sudo rm -f /tmp/.X1-lock /tmp/.X11-unix/X1 2>/dev/null || true
+sleep 2
+echo "✅ VNC cleanup completed"
+
+# Test VNC server startup
 echo "🔧 Testing VNC server startup..."
 if tigervncserver :1 -rfbauth ~/.vnc/passwd -rfbport 5901 -localhost no -geometry 1280x720 >/dev/null 2>&1; then
     echo "✅ VNC server test successful"
@@ -337,12 +345,11 @@ if tigervncserver :1 -rfbauth ~/.vnc/passwd -rfbport 5901 -localhost no -geometr
     tigervncserver -kill :1 >/dev/null 2>&1
     sleep 1
 else
-    echo "⚠️ VNC server test failed - check configuration"
+    echo "⚠️ VNC server test failed - check configuration manually"
 fi
 
-# Ensure clean state before starting services
-echo "🧹 Final cleanup before service start..."
-sudo systemctl stop vncserver 2>/dev/null || true
+# Final cleanup before starting systemd services
+echo "🧹 Final cleanup before systemd service start..."
 pkill -f "Xvnc.*:1" 2>/dev/null || true
 sudo rm -f /tmp/.X1-lock /tmp/.X11-unix/X1 2>/dev/null || true
 sleep 2
