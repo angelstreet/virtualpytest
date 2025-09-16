@@ -636,6 +636,36 @@ def create_dubbed_video():
         print(f"Host[{device_id}]: Video creation error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
+@host_restart_bp.route('/createDubbedVideoFast', methods=['POST'])
+def create_dubbed_video_fast():
+    """NEW: Fast 2-step dubbed video creation without Demucs ~5-8s"""
+    try:
+        data = request.get_json() or {}
+        device_id = data.get('device_id', 'device1')
+        video_id = data.get('video_id')
+        target_language = data.get('target_language', 'es')
+        existing_transcript = data.get('existing_transcript', '')
+        
+        if not existing_transcript:
+            return jsonify({'success': False, 'error': 'Transcript required for fast dubbing'}), 400
+        
+        av_controller = get_controller(device_id, 'av')
+        if not av_controller:
+            return jsonify({'success': False, 'error': f'No AV controller for {device_id}'}), 404
+        
+        print(f"Host[{device_id}]: Fast dubbing - Creating dubbed video for {target_language}...")
+        result = av_controller.createDubbedVideoFast(video_id, target_language, existing_transcript)
+        
+        if result and result.get('success'):
+            print(f"Host[{device_id}]: Fast dubbing completed in {result.get('duration_seconds', 0)}s")
+            return jsonify(result)
+        else:
+            return jsonify(result or {'success': False, 'error': 'Fast dubbing failed'}), 500
+            
+    except Exception as e:
+        print(f"Host[{device_id}]: Fast dubbing error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @host_restart_bp.route('/adjustAudioTiming', methods=['POST'])
 def adjust_audio_timing():
     """Adjust audio timing for existing restart video."""

@@ -328,6 +328,52 @@ def create_dubbed_video():
             'error': f'Video creation failed: {str(e)}'
         }), 500
 
+@server_restart_bp.route('/createDubbedVideoFast', methods=['POST'])
+def create_dubbed_video_fast():
+    """NEW: Fast 2-step dubbed video creation without Demucs ~5-8s"""
+    import time
+    step_start_time = time.time()
+    
+    try:
+        request_data = request.get_json() or {}
+        host = request_data.get('host')
+        device_id = request_data.get('device_id', 'device1')
+        video_id = request_data.get('video_id')
+        target_language = request_data.get('target_language', 'es')
+        existing_transcript = request_data.get('existing_transcript', '')
+
+        print(f"[SERVER] ⚡ [@server_restart_routes:createDubbedVideoFast] Fast dubbing starting for {target_language}")
+
+        if not host:
+            return jsonify({'success': False, 'error': 'Host required'}), 400
+        if not existing_transcript:
+            return jsonify({'success': False, 'error': 'Transcript required for fast dubbing'}), 400
+
+        response_data, status_code = proxy_to_host_with_params(
+            '/host/restart/createDubbedVideoFast',
+            'POST',
+            request_data,
+            {'device_id': device_id, 'video_id': video_id, 'target_language': target_language, 'existing_transcript': existing_transcript},
+            timeout=30  # 30 seconds for fast dubbing
+        )
+        
+        step_duration = time.time() - step_start_time
+        
+        if response_data.get('success'):
+            print(f"[SERVER] ✅ [@server_restart_routes:createDubbedVideoFast] Fast dubbing completed in {step_duration:.1f}s")
+        else:
+            print(f"[SERVER] ❌ [@server_restart_routes:createDubbedVideoFast] Fast dubbing failed after {step_duration:.1f}s: {response_data.get('error', 'unknown error')}")
+        
+        return jsonify(response_data), status_code
+
+    except Exception as e:
+        step_duration = time.time() - step_start_time
+        print(f"[SERVER] ❌ [@server_restart_routes:createDubbedVideoFast] EXCEPTION after {step_duration:.1f}s: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': f'Fast dubbing failed: {str(e)}'
+        }), 500
+
 @server_restart_bp.route('/adjustAudioTiming', methods=['POST'])
 def adjust_audio_timing():
     """Adjust audio timing for existing restart video"""

@@ -607,7 +607,7 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
         return;
       }
 
-      console.log(`[@hook:useRestart] 🎤 Starting 3-step dubbing generation for ${language}...`);
+      console.log(`[@hook:useRestart] ⚡ Starting fast 2-step dubbing generation for ${language}...`);
       setIsDubbing(true);
       
       const basePayload = {
@@ -618,76 +618,37 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
         existing_transcript: transcript
       };
       
-      // Step 1: Prepare audio (extract + separate) ~20-35s
-      toast.showInfo(`🎵 Step 1/3: Preparing audio for ${language}...`, { duration: 5000 });
-      console.log(`[@hook:useRestart] Step 1: Preparing audio for ${language}...`);
+      // NEW: Single fast dubbing call (combines Edge-TTS + video muting)
+      toast.showInfo(`⚡ Fast dubbing for ${language} (no background audio separation)...`, { duration: 5000 });
+      console.log(`[@hook:useRestart] ⚡ Fast dubbing: Edge-TTS + video muting for ${language}...`);
       
-      const step1Response = await fetch(buildServerUrl('/server/restart/prepareDubbingAudio'), {
+      const fastResponse = await fetch(buildServerUrl('/server/restart/createDubbedVideoFast'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(basePayload)
       });
       
-      const step1Result = await step1Response.json();
-      if (!step1Result.success) {
-        throw new Error(`Step 1 failed: ${step1Result.error}`);
-      }
-      
-      toast.showSuccess(`✅ Step 1/3: Audio prepared in ${step1Result.duration_seconds}s`, { duration: 3000 });
-      console.log(`[@hook:useRestart] ✅ Step 1 completed in ${step1Result.duration_seconds}s`);
-      
-      // Step 2: Generate Edge-TTS speech ~3-5s
-      toast.showInfo(`🤖 Step 2/3: Generating Edge-TTS voice for ${language}...`, { duration: 5000 });
-      console.log(`[@hook:useRestart] Step 2: Generating Edge-TTS speech for ${language}...`);
-      
-      const step2Response = await fetch(buildServerUrl('/server/restart/generateEdgeSpeech'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(basePayload)
-      });
-      
-      const step2Result = await step2Response.json();
-      if (!step2Result.success) {
-        throw new Error(`Step 2 failed: ${step2Result.error}`);
-      }
-      
-      toast.showSuccess(`✅ Step 2/3: Edge-TTS voice ready in ${step2Result.duration_seconds}s`, { duration: 3000 });
-      console.log(`[@hook:useRestart] ✅ Step 2 completed in ${step2Result.duration_seconds}s`);
-      
-      // Step 3: Create final dubbed video ~5-8s (using Edge-TTS)
-      toast.showInfo(`🎬 Step 3/3: Creating final dubbed video for ${language}...`, { duration: 5000 });
-      console.log(`[@hook:useRestart] Step 3: Creating final dubbed video for ${language}...`);
-      
-      const step3Response = await fetch(buildServerUrl('/server/restart/createDubbedVideo'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...basePayload,
-          voice_choice: 'edge' // Use Edge-TTS only
-        })
-      });
-      
-      const step3Result = await step3Response.json();
-      if (!step3Result.success) {
-        throw new Error(`Step 3 failed: ${step3Result.error}`);
+      const fastResult = await fastResponse.json();
+      if (!fastResult.success) {
+        throw new Error(`Fast dubbing failed: ${fastResult.error}`);
       }
       
       const dubbingDuration = ((Date.now() - dubbingStartTime) / 1000).toFixed(1);
-      toast.showSuccess(`🎉 Dubbing for ${language} completed in ${dubbingDuration}s! (cached for future use)`, { duration: 5000 });
-      console.log(`[@hook:useRestart] ✅ All 3 steps completed for ${language} in ${dubbingDuration}s`);
+      toast.showSuccess(`🎉 Fast dubbing for ${language} completed in ${dubbingDuration}s! (cached for future use)`, { duration: 5000 });
+      console.log(`[@hook:useRestart] ✅ Fast dubbing completed for ${language} in ${dubbingDuration}s`);
       
       // Store final video URL
       setDubbedVideos(prev => ({
         ...prev,
-        [language]: step3Result.dubbed_video_url
+        [language]: fastResult.dubbed_video_url
       }));
       
       // Store Edge-TTS audio URL only
-      if (step2Result.edge_audio_url) {
+      if (fastResult.edge_audio_url) {
         setDubbedAudioUrls(prev => ({
           ...prev,
           [language]: {
-            edge: step2Result.edge_audio_url
+            edge: fastResult.edge_audio_url
           }
         }));
       }

@@ -298,3 +298,61 @@ class AudioDubbingHelpers:
             print(f"Dubbing[{self.device_name}]: Video creation failed: {e}")
             return None
     
+    def create_dubbed_video_fast_step(self, text: str, language: str, video_file: str, original_video_dir: str) -> Dict[str, Any]:
+        """NEW: Fast 2-step dubbing without Demucs separation (~5-8s total)"""
+        import time
+        start_time = time.time()
+        
+        try:
+            print(f"Dubbing[{self.device_name}]: Fast dubbing - generating Edge-TTS + muting video for {language}...")
+            
+            # Step 1: Generate Edge-TTS audio (reuse existing method)
+            edge_result = self.generate_edge_speech_step(text, language, original_video_dir)
+            if not edge_result.get('success'):
+                return edge_result
+            
+            # Step 2: Mute original video + overlay Edge-TTS audio
+            paths = self.get_file_paths(language, original_video_dir)
+            
+            print(f"Dubbing[{self.device_name}]: Fast dubbing - muting video and overlaying Edge-TTS audio...")
+            
+            # Simple FFmpeg: mute video + add new audio (no background mixing)
+            subprocess.run([
+                'ffmpeg', '-i', video_file, '-i', paths['dubbed_voice_edge'],
+                '-c:v', 'copy',      # Copy video unchanged
+                '-c:a', 'aac',       # Encode new audio
+                '-map', '0:v:0',     # Video from input 0 (original video)
+                '-map', '1:a:0',     # Audio from input 1 (Edge-TTS audio)
+                '-shortest',         # Match shortest stream duration
+                paths['final_video'], '-y'
+            ], capture_output=True, check=True)
+            
+            duration = time.time() - start_time
+            print(f"Dubbing[{self.device_name}]: Fast dubbing completed in {duration:.1f}s")
+            
+            # Build URLs for final video and audio preview
+            from shared.lib.utils.build_url_utils import buildHostImageUrl
+            from shared.lib.utils.host_utils import get_host_instance
+            
+            try:
+                host = get_host_instance()
+                host_dict = host.to_dict()
+                dubbed_video_url = buildHostImageUrl(host_dict, paths['final_video'])
+                edge_audio_url = buildHostImageUrl(host_dict, paths['dubbed_voice_edge_mp3'])
+            except:
+                # Fallback URL construction
+                dubbed_video_url = f"/host/stream/{os.path.basename(paths['final_video'])}"
+                edge_audio_url = f"/host/stream/{os.path.basename(paths['dubbed_voice_edge_mp3'])}"
+            
+            return {
+                'success': True,
+                'dubbed_video_url': dubbed_video_url,
+                'edge_audio_url': edge_audio_url,
+                'duration_seconds': round(duration, 1),
+                'method': 'fast_mute_overlay'
+            }
+            
+        except Exception as e:
+            print(f"Dubbing[{self.device_name}]: Fast dubbing failed: {e}")
+            return {'success': False, 'error': str(e)}
+    
