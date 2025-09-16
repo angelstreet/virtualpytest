@@ -42,7 +42,7 @@ class VideoMonitoringHelpers:
             from utils.host_utils import get_controller
             
             # Get the device_id from the AV controller if available
-            device_id = getattr(self.av_controller, 'device_name', 'device1')
+            device_id = getattr(self.av_controller, 'device_id', 'device1')
             
             # Get the image controller which has the captures_path
             image_controller = get_controller(device_id, 'verification_image')
@@ -390,11 +390,14 @@ class VideoMonitoringHelpers:
             host = get_host()
             host_dict = host.to_dict()
             
+            # Get the device_id from the AV controller
+            device_id = getattr(self.av_controller, 'device_id', 'device1')
+            
             captures = []
             for capture in capture_files:
                 try:
                     # Build URL from file path using same mechanism as screenshots
-                    capture_url = buildCaptureUrlFromPath(host_dict, capture['filepath'], self.av_controller.device_name)
+                    capture_url = buildCaptureUrlFromPath(host_dict, capture['filepath'], device_id)
                     
                     # Process URL for client consumption
                     client_capture_url = buildClientImageUrl(capture_url)
@@ -424,8 +427,11 @@ class VideoMonitoringHelpers:
             host = get_host()
             host_dict = host.to_dict()
             
+            # Get the device_id from the AV controller
+            device_id = getattr(self.av_controller, 'device_id', 'device1')
+            
             # Build URL using existing pattern, then fix extension
-            json_url = buildCaptureUrlFromPath(host_dict, json_filepath, self.av_controller.device_name)
+            json_url = buildCaptureUrlFromPath(host_dict, json_filepath, device_id)
             json_url = json_url.replace('.jpg', '.json')  # Fix the extension
             
             # Process URL for client consumption  

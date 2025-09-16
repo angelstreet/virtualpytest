@@ -226,7 +226,7 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
   const [isReady, setIsReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [processingTime] = useState<number | null>(null);
-  const [reportUrl] = useState<string | null>(null);
+  const [reportUrl, setReportUrl] = useState<string | null>(null);
   
   // Dubbing state
   const [dubbedVideos, setDubbedVideos] = useState<Record<string, string>>({});
@@ -278,6 +278,7 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
   
   // Toast notifications
   const toast = useToast();
+  const notifiedRef = useRef({ audio: false, visual: false });
   
   const [analysisResults, setAnalysisResults] = useState<AnalysisResults>({
     audio: null,
@@ -311,24 +312,29 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
           const status = data.status;
           
           // Update audio analysis when complete
-          if (status.audio === 'completed' && analysisProgress.audio !== 'completed') {
+          if (status.audio === 'completed' && !notifiedRef.current.audio) {
             setAnalysisResults(prev => ({
               ...prev,
               audioTranscript: status.audio_data
             }));
             setAnalysisProgress(prev => ({ ...prev, audio: 'completed' }));
             toast.showSuccess('🎤 Audio analysis complete!');
+            notifiedRef.current.audio = true;
           }
           
           // Update visual analysis when complete
-          if (status.visual === 'completed' && analysisProgress.subtitles !== 'completed') {
+          if (status.visual === 'completed' && !notifiedRef.current.visual) {
             setAnalysisResults(prev => ({
               ...prev,
               subtitles: status.subtitle_analysis,
               videoDescription: status.video_analysis
             }));
             setAnalysisProgress(prev => ({ ...prev, subtitles: 'completed', summary: 'completed' }));
-            toast.showSuccess('✅ Visual analysis complete! Results available in settings.');
+            toast.showSuccess('✅ Analysis complete! Subtitles and summary ready.');
+            notifiedRef.current.visual = true;
+            
+            // Generate report when visual analysis is complete
+            generateReport(status);
           }
           
           // Stop polling when visual analysis is done
@@ -347,6 +353,44 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
     // Cleanup after 2 minutes
     setTimeout(() => clearInterval(pollInterval), 120000);
   }, [host, device, analysisProgress, toast]);
+
+  const generateReport = useCallback(async (status: any) => {
+    try {
+      console.log('[@hook:useRestart] 📊 Starting report generation');
+      setAnalysisProgress(prev => ({ ...prev, report: 'loading' }));
+      toast.showInfo('📊 Generating report...', { duration: 3000 });
+      
+      const reportResponse = await fetch(buildServerUrl('/server/restart/generateRestartReport'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          host,
+          device_id: device.device_id || 'device1',
+          video_url: videoUrl,
+          analysis_data: {
+            audio_analysis: status.audio_data,
+            subtitle_analysis: status.subtitle_analysis,
+            video_analysis: status.video_analysis
+          }
+        })
+      });
+
+      const reportData = await reportResponse.json();
+      
+      if (reportData.success && reportData.report_url) {
+        setReportUrl(reportData.report_url);
+        setAnalysisProgress(prev => ({ ...prev, report: 'completed' }));
+        toast.showSuccess('📊 Report generated successfully!', { duration: 4000 });
+        console.log('[@hook:useRestart] ✅ Report generation completed');
+      } else {
+        throw new Error(reportData.error || 'Report generation failed');
+      }
+    } catch (error) {
+      console.error('[@hook:useRestart] ❌ Report generation failed:', error);
+      setAnalysisProgress(prev => ({ ...prev, report: 'error' }));
+      toast.showError('❌ Report generation failed');
+    }
+  }, [host, device, videoUrl, toast]);
 
   // =====================================================
   // CORE FUNCTIONS
@@ -402,6 +446,8 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
       
       // Start polling for background processing
       if (includeAudioAnalysis && videoData.video_id) {
+        // Reset notification flags for new video
+        notifiedRef.current = { audio: false, visual: false };
         startPolling(videoData.video_id);
       }
       
