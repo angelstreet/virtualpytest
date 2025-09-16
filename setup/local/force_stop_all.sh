@@ -97,7 +97,7 @@ echo "==========================================================================
 # Clear all VirtualPyTest ports
 kill_port_processes "5109" "backend_server"
 kill_port_processes "6409" "backend_host"  
-kill_port_processes "3000" "frontend"
+kill_port_processes "5073" "frontend"
 kill_port_processes "6209" "backend_discard"
 kill_port_processes "3001" "grafana"
 
@@ -135,7 +135,7 @@ fi
 
 # Check port status
 echo -e "\n${YELLOW}📊 Port Status:${NC}"
-for port in 5109 6409 3000 6209 3001; do
+for port in 5109 6409 5073 6209 3001; do
     if lsof -ti:$port > /dev/null 2>&1; then
         echo -e "${RED}❌ Port $port: still in use${NC}"
     else

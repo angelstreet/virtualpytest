@@ -200,10 +200,10 @@ if lsof -ti:6409 > /dev/null 2>&1; then
     sleep 1
 fi
 
-# Port 3000 (Frontend)
-if lsof -ti:3000 > /dev/null 2>&1; then
-    echo "🛑 Killing processes on port 3000..."
-    lsof -ti:3000 | xargs kill -9 2>/dev/null || true
+# Port 5073 (Frontend)
+if lsof -ti:5073 > /dev/null 2>&1; then
+    echo "🛑 Killing processes on port 5073..."
+    lsof -ti:5073 | xargs kill -9 2>/dev/null || true
     sleep 1
 fi
 
@@ -272,7 +272,7 @@ echo "==========================================================================
 echo -e "${NC}✅ All processes started! Watching for logs...${NC}"
 echo -e "${NC}💡 You should see logs with colored prefixes appearing below${NC}"
 echo -e "${NC}🌐 URLs:${NC}"
-echo -e "${NC}   Frontend: http://localhost:3000${NC}"
+echo -e "${NC}   Frontend: http://localhost:5073${NC}"
 echo -e "${NC}   backend_server: http://localhost:5109${NC}"
 echo -e "${NC}   backend_host: http://localhost:6109${NC}"
 echo -e "${NC}   Grafana (built-in): http://localhost:5109/grafana/${NC}"
