@@ -86,32 +86,16 @@ setup_virtualpytest_database() {
     # Drop existing database if force clean
     if [ "$FORCE_CLEAN" = true ]; then
         echo "🗑️ Dropping existing VirtualPyTest database..."
-        sudo -u postgres psql << 'EOF' || true
--- Drop database and user if they exist
-DROP DATABASE IF EXISTS virtualpytest;
-DROP USER IF EXISTS virtualpytest_user;
-
--- Exit
-\q
-EOF
+        sudo -u postgres env LC_ALL=C.UTF-8 LANG=C.UTF-8 psql -c "DROP DATABASE IF EXISTS virtualpytest;" 2>/dev/null || true
+        sudo -u postgres env LC_ALL=C.UTF-8 LANG=C.UTF-8 psql -c "DROP USER IF EXISTS virtualpytest_user;" 2>/dev/null || true
     fi
     
     # Create database and user for VirtualPyTest application
-    sudo -u postgres psql << 'EOF'
--- Create database for VirtualPyTest application
-CREATE DATABASE virtualpytest;
-
--- Create user for VirtualPyTest
-CREATE USER virtualpytest_user WITH PASSWORD 'virtualpytest_pass';
-
--- Grant privileges
-GRANT ALL PRIVILEGES ON DATABASE virtualpytest TO virtualpytest_user;
-ALTER USER virtualpytest_user CREATEDB;
-ALTER USER virtualpytest_user SUPERUSER;
-
--- Exit
-\q
-EOF
+    sudo -u postgres env LC_ALL=C.UTF-8 LANG=C.UTF-8 psql -c "CREATE DATABASE virtualpytest;"
+    sudo -u postgres env LC_ALL=C.UTF-8 LANG=C.UTF-8 psql -c "CREATE USER virtualpytest_user WITH PASSWORD 'virtualpytest_pass';"
+    sudo -u postgres env LC_ALL=C.UTF-8 LANG=C.UTF-8 psql -c "GRANT ALL PRIVILEGES ON DATABASE virtualpytest TO virtualpytest_user;"
+    sudo -u postgres env LC_ALL=C.UTF-8 LANG=C.UTF-8 psql -c "ALTER USER virtualpytest_user CREATEDB;"
+    sudo -u postgres env LC_ALL=C.UTF-8 LANG=C.UTF-8 psql -c "ALTER USER virtualpytest_user SUPERUSER;"
 
     # Test the connection
     if PGPASSWORD=virtualpytest_pass psql -h localhost -U virtualpytest_user -d virtualpytest -c "SELECT version();" &> /dev/null; then
@@ -129,31 +113,15 @@ setup_grafana_database() {
     # Drop existing database if force clean
     if [ "$FORCE_CLEAN" = true ]; then
         echo "🗑️ Dropping existing Grafana database..."
-        sudo -u postgres psql << 'EOF' || true
--- Drop database and user if they exist
-DROP DATABASE IF EXISTS grafana_metrics;
-DROP USER IF EXISTS grafana_user;
-
--- Exit
-\q
-EOF
+        sudo -u postgres env LC_ALL=C.UTF-8 LANG=C.UTF-8 psql -c "DROP DATABASE IF EXISTS grafana_metrics;" 2>/dev/null || true
+        sudo -u postgres env LC_ALL=C.UTF-8 LANG=C.UTF-8 psql -c "DROP USER IF EXISTS grafana_user;" 2>/dev/null || true
     fi
     
     # Create database and user for Grafana metrics
-    sudo -u postgres psql << 'EOF'
--- Create database for Grafana metrics
-CREATE DATABASE grafana_metrics;
-
--- Create user for Grafana
-CREATE USER grafana_user WITH PASSWORD 'grafana_pass';
-
--- Grant privileges
-GRANT ALL PRIVILEGES ON DATABASE grafana_metrics TO grafana_user;
-ALTER USER grafana_user CREATEDB;
-
--- Exit
-\q
-EOF
+    sudo -u postgres env LC_ALL=C.UTF-8 LANG=C.UTF-8 psql -c "CREATE DATABASE grafana_metrics;"
+    sudo -u postgres env LC_ALL=C.UTF-8 LANG=C.UTF-8 psql -c "CREATE USER grafana_user WITH PASSWORD 'grafana_pass';"
+    sudo -u postgres env LC_ALL=C.UTF-8 LANG=C.UTF-8 psql -c "GRANT ALL PRIVILEGES ON DATABASE grafana_metrics TO grafana_user;"
+    sudo -u postgres env LC_ALL=C.UTF-8 LANG=C.UTF-8 psql -c "ALTER USER grafana_user CREATEDB;"
 
     # Test the connection
     if PGPASSWORD=grafana_pass psql -h localhost -U grafana_user -d grafana_metrics -c "SELECT version();" &> /dev/null; then
