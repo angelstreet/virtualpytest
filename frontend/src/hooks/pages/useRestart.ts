@@ -603,7 +603,7 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
       // Check if dubbing already exists for this language
       if (dubbedVideos[language] && dubbingCache[language]) {
         console.log(`[@hook:useRestart] 🎤 Using cached dubbed video for ${language}`);
-        toast.showSuccess(`✅ Dubbed video for ${language} (cached)`, { duration: 2000 });
+        toast.showSuccess(`✅ Dubbed video for ${language}`, { duration: 2000 });
         return;
       }
 
@@ -638,7 +638,7 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
       }
       
       const dubbingDuration = ((Date.now() - dubbingStartTime) / 1000).toFixed(1);
-      toast.showSuccess(`🎉 Fast dubbing for ${language} completed in ${dubbingDuration}s! (cached for future use)`, { duration: 5000 });
+      toast.showSuccess(`🎉 Fast dubbing for ${language} completed in ${dubbingDuration}s!`, { duration: 5000 });
       console.log(`[@hook:useRestart] ✅ Fast dubbing completed for ${language} in ${dubbingDuration}s`);
       
       // Store final video URL
@@ -680,14 +680,14 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
       if (language === 'en') {
         // Reset to original content for English - instant switch
         console.log(`[@hook:useRestart] 🌐 Switching to original English content`);
-        toast.showSuccess(`✅ Switched to English (original)`, { duration: 2000 });
+        toast.showSuccess(`✅ Switched to English`, { duration: 2000 });
         return;
       }
 
       // Check cache first - if translation exists, use it immediately
       if (translationResults[language]) {
         console.log(`[@hook:useRestart] 🌐 Using cached translation for ${language}`);
-        toast.showSuccess(`✅ Switched to ${language} (cached)`, { duration: 2000 });
+        toast.showSuccess(`✅ Switched to ${language}`, { duration: 2000 });
         return;
       }
 
@@ -803,7 +803,7 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
         
         const translationDuration = ((Date.now() - translationStartTime) / 1000).toFixed(1);
         console.log(`[@hook:useRestart] ✅ Translation to ${language} completed in ${translationDuration}s`);
-        toast.showSuccess(`✅ Translation to ${language} complete! (${translationDuration}s, cached for future use)`, { duration: 4000 });
+        toast.showSuccess(`✅ Translation to ${language} complete! (${translationDuration}s`, { duration: 4000 });
         
         // Auto-trigger dubbing after successful translation (if audio transcript available)
         if (analysisResults.audio?.combined_transcript && analysisResults.videoDescription) {
@@ -872,7 +872,7 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
         }
         setAudioTimingOffset(offsetMs);
         console.log(`[@hook:useRestart] ✅ Instant timing switch to ${offsetMs > 0 ? '+' : ''}${offsetMs}ms`);
-        toast.showSuccess(`✅ Audio timing: ${offsetMs > 0 ? '+' : ''}${offsetMs}ms (cached)`);
+        toast.showSuccess(`✅ Audio timing: ${offsetMs > 0 ? '+' : ''}${offsetMs}ms`);
       } catch (error) {
         console.error('[@hook:useRestart] Cached timing switch failed:', error);
         toast.showError('❌ Timing switch failed');
@@ -1015,7 +1015,7 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
         
         setAudioTimingOffset(offsetMs);
         console.log(`[@hook:useRestart] ✅ Audio timing adjustment completed: ${offsetMs > 0 ? '+' : ''}${offsetMs}ms (cached for future use)`);
-        toast.showSuccess(`✅ Audio timing adjusted: ${offsetMs > 0 ? '+' : ''}${offsetMs}ms (cached for future use)`);
+        toast.showSuccess(`✅ Audio timing adjusted: ${offsetMs > 0 ? '+' : ''}${offsetMs}ms`);
       } else {
         throw new Error(result.error);
       }
