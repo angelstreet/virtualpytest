@@ -129,9 +129,7 @@ const Dashboard: React.FC = () => {
   useEffect(() => {
     fetchDashboardData();
     // Hosts are automatically updated via HostManagerContext
-    // Set up auto-refresh for dashboard data every 30 seconds
-    const interval = setInterval(fetchDashboardData, 30000);
-    return () => clearInterval(interval);
+    // Load data once on mount only - no polling needed
   }, [fetchDashboardData]);
 
   const handleViewModeChange = (_event: React.MouseEvent<HTMLElement>, newViewMode: ViewMode) => {
