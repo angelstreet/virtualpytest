@@ -204,14 +204,17 @@ setup_grafana_config() {
         sudo mkdir -p /var/log/grafana
         sudo mkdir -p /etc/grafana
         
-        # Copy the pre-configured database with all dashboards (if it exists)
+        # Copy the pre-configured database with all dashboards
+        echo "📊 Copying Grafana database with dashboards..."
+        echo "🔍 Looking for: $PROJECT_ROOT/grafana/data/grafana.db"
         if [ -f "$PROJECT_ROOT/grafana/data/grafana.db" ]; then
-            echo "📊 Copying Grafana database with dashboards..."
             sudo cp "$PROJECT_ROOT/grafana/data/grafana.db" /var/lib/grafana/
         else
-            echo "⚠️ Pre-configured Grafana database not found, Grafana will create a fresh one"
-            echo "📊 Creating empty Grafana database directory..."
-            # Grafana will create its own database on first startup
+            echo "❌ File not found at: $PROJECT_ROOT/grafana/data/grafana.db"
+            echo "📁 Current PROJECT_ROOT: $PROJECT_ROOT"
+            echo "📁 Contents of grafana/data/:"
+            ls -la "$PROJECT_ROOT/grafana/data/" || echo "Directory doesn't exist"
+            exit 1
         fi
         
         # Copy the configuration file
