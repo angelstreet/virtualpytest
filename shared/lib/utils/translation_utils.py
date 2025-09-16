@@ -73,9 +73,9 @@ def translate_text_local_argos(text: str, source_language: str, target_language:
             'target_language': target_language
         }
 
-def translate_text_local_google(text: str, source_language: str, target_language: str) -> Dict[str, Any]:
+async def translate_text_local_google(text: str, source_language: str, target_language: str) -> Dict[str, Any]:
     """
-    Fast translation using Google Translate library (~0.1-0.3s)
+    Fast translation using Google Translate library with async support (~0.05-0.15s)
     """
     try:
         if not GOOGLE_TRANSLATE_AVAILABLE:
@@ -106,13 +106,13 @@ def translate_text_local_google(text: str, source_language: str, target_language
                 'skipped': True
             }
         
-        # Translate using Google Translate
+        # Translate using Google Translate with async/await
         translator = Translator()
         # Use auto-detection if source_language is 'auto' or not specified
         if source_language == 'auto' or not source_language:
-            result = translator.translate(text, dest=target_language)
+            result = await translator.translate(text, dest=target_language)
         else:
-            result = translator.translate(text, src=source_language, dest=target_language)
+            result = await translator.translate(text, src=source_language, dest=target_language)
         
         return {
             'success': True,
@@ -120,7 +120,7 @@ def translate_text_local_google(text: str, source_language: str, target_language
             'source_language': source_language,
             'target_language': target_language,
             'original_text': text,
-            'method': 'google_local'
+            'method': 'google_local_async'
         }
         
     except Exception as e:
@@ -155,7 +155,8 @@ def translate_text(text: str, source_language: str, target_language: str, method
     if method == 'auto':
         # Try Google Translate first (fast, high quality)
         if GOOGLE_TRANSLATE_AVAILABLE:
-            result = translate_text_local_google(text, source_code, target_code)
+            import asyncio
+            result = asyncio.run(translate_text_local_google(text, source_code, target_code))
             if result['success']:
                 return result
         
@@ -172,7 +173,8 @@ def translate_text(text: str, source_language: str, target_language: str, method
     if method == 'argos':
         return translate_text_local_argos(text, source_language, target_language)
     elif method == 'google':
-        return translate_text_local_google(text, source_code, target_code)
+        import asyncio
+        return asyncio.run(translate_text_local_google(text, source_code, target_code))
     elif method == 'ai':
         # Original AI implementation
         pass
@@ -451,14 +453,21 @@ Translated content:"""
         print(f"[TRANSLATION] Sections to translate: {list(section_map.keys())}")
         print(f"[TRANSLATION] Total content length: {len(combined_content)} characters")
         
-        # Use Google Translate instead of AI for speed
+        # Use Google Translate instead of AI for speed (with async support)
         if GOOGLE_TRANSLATE_AVAILABLE:
             try:
-                translator = Translator()
-                # Auto-detect source language instead of assuming English
-                lang_map = {'English':'en','French':'fr','Spanish':'es','German':'de','Italian':'it','Portuguese':'pt','Russian':'ru','Japanese':'ja','Korean':'ko','Chinese':'zh','Arabic':'ar','Hindi':'hi'}
-                target_code = lang_map.get(target_language, target_language)
-                translate_result = translator.translate(combined_content, dest=target_code)
+                import asyncio
+                
+                async def async_google_translate():
+                    translator = Translator()
+                    # Auto-detect source language instead of assuming English
+                    lang_map = {'English':'en','French':'fr','Spanish':'es','German':'de','Italian':'it','Portuguese':'pt','Russian':'ru','Japanese':'ja','Korean':'ko','Chinese':'zh','Arabic':'ar','Hindi':'hi'}
+                    target_code = lang_map.get(target_language, target_language)
+                    translate_result = await translator.translate(combined_content, dest=target_code)
+                    return translate_result
+                
+                # Run async translation
+                translate_result = asyncio.run(async_google_translate())
                 translated_content = translate_result.text
                 detected_source = translate_result.src or 'auto'
                 print(f"[TRANSLATION] ⚡ Detected source language: {detected_source} → {target_language}")
