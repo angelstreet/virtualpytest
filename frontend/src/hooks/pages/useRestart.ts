@@ -297,6 +297,55 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
   // =====================================================
   // POLLING FUNCTIONS
   // =====================================================
+
+  const generateReport = useCallback(async (status: any) => {
+    try {
+      console.log('[@hook:useRestart] 📊 Starting report generation');
+      
+      if (!videoUrl) {
+        console.error('[@hook:useRestart] ❌ No video URL available for report');
+        toast.showError('❌ No video available for report generation');
+        return;
+      }
+      
+      setAnalysisProgress(prev => ({ ...prev, report: 'loading' }));
+      toast.showInfo('📊 Generating report...', { duration: 3000 });
+      
+      const reportResponse = await fetch(buildServerUrl('/server/restart/generateRestartReport'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          host,
+          device_id: device.device_id || 'device1',
+          video_url: videoUrl,
+          analysis_data: {
+            audio_analysis: status.audio_data,
+            subtitle_analysis: status.subtitle_analysis,
+            video_analysis: status.video_analysis
+          }
+        })
+      });
+
+      const reportData = await reportResponse.json();
+      
+      if (!reportResponse.ok) {
+        throw new Error(`Report API error ${reportResponse.status}: ${reportData.error || 'Unknown error'}`);
+      }
+      
+      if (reportData.success && reportData.report_url) {
+        setReportUrl(reportData.report_url);
+        setAnalysisProgress(prev => ({ ...prev, report: 'completed' }));
+        toast.showSuccess('📊 Report generated successfully!', { duration: 4000 });
+        console.log('[@hook:useRestart] ✅ Report generation completed');
+      } else {
+        throw new Error(reportData.error || 'Report generation failed');
+      }
+    } catch (error) {
+      console.error('[@hook:useRestart] ❌ Report generation failed:', error);
+      setAnalysisProgress(prev => ({ ...prev, report: 'error' }));
+      toast.showError('❌ Report generation failed');
+    }
+  }, [host, device, videoUrl, toast]);
   
   const startPolling = useCallback((videoId: string) => {
     const pollInterval = setInterval(async () => {
@@ -360,60 +409,7 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
     
     // Cleanup after 2 minutes
     setTimeout(() => clearInterval(pollInterval), 120000);
-  }, [host, device, analysisProgress, toast]);
-
-  const generateReport = useCallback(async (status: any) => {
-    try {
-      console.log('[@hook:useRestart] 📊 Starting report generation');
-      console.log('[@hook:useRestart] 📊 Video URL:', videoUrl);
-      console.log('[@hook:useRestart] 📊 Host object:', host);
-      console.log('[@hook:useRestart] 📊 Status data:', status);
-      
-      if (!videoUrl) {
-        console.error('[@hook:useRestart] ❌ No video URL available for report');
-        toast.showError('❌ No video available for report generation');
-        return;
-      }
-      
-      setAnalysisProgress(prev => ({ ...prev, report: 'loading' }));
-      toast.showInfo('📊 Generating report...', { duration: 3000 });
-      
-      const reportResponse = await fetch(buildServerUrl('/server/restart/generateRestartReport'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          host,
-          device_id: device.device_id || 'device1',
-          video_url: videoUrl,
-          analysis_data: {
-            audio_analysis: status.audio_data,
-            subtitle_analysis: status.subtitle_analysis,
-            video_analysis: status.video_analysis
-          }
-        })
-      });
-
-      const reportData = await reportResponse.json();
-      
-      if (!reportResponse.ok) {
-        console.error('[@hook:useRestart] ❌ Report API error:', reportResponse.status, reportData);
-        throw new Error(`Report API error ${reportResponse.status}: ${reportData.error || 'Unknown error'}`);
-      }
-      
-      if (reportData.success && reportData.report_url) {
-        setReportUrl(reportData.report_url);
-        setAnalysisProgress(prev => ({ ...prev, report: 'completed' }));
-        toast.showSuccess('📊 Report generated successfully!', { duration: 4000 });
-        console.log('[@hook:useRestart] ✅ Report generation completed');
-      } else {
-        throw new Error(reportData.error || 'Report generation failed');
-      }
-    } catch (error) {
-      console.error('[@hook:useRestart] ❌ Report generation failed:', error);
-      setAnalysisProgress(prev => ({ ...prev, report: 'error' }));
-      toast.showError('❌ Report generation failed');
-    }
-  }, [host, device, videoUrl, toast]);
+  }, [host, device, toast, generateReport]);
 
   // =====================================================
   // CORE FUNCTIONS

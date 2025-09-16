@@ -130,7 +130,7 @@ const Dashboard: React.FC = () => {
     fetchDashboardData();
     // Hosts are automatically updated via HostManagerContext
     // Load data once on mount only - no polling needed
-  }, [fetchDashboardData]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleViewModeChange = (_event: React.MouseEvent<HTMLElement>, newViewMode: ViewMode) => {
     if (newViewMode !== null) {
