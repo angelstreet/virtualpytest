@@ -39,6 +39,16 @@ server_navigation_trees_bp = Blueprint('server_navigation_trees', __name__, url_
 @server_navigation_trees_bp.route('/navigationTrees', methods=['GET'])
 def get_all_navigation_trees():
     """Get all navigation trees metadata for a team."""
+    # Log caller information to identify source
+    user_agent = request.headers.get('User-Agent', 'Unknown')
+    referer = request.headers.get('Referer', 'Unknown')
+    x_requested_with = request.headers.get('X-Requested-With', 'Unknown')
+    print(f"[@server_navigation_trees_routes:navigationTrees] 🔍 CALLER INFO:")
+    print(f"  - User-Agent: {user_agent}")
+    print(f"  - Referer: {referer}")
+    print(f"  - X-Requested-With: {x_requested_with}")
+    print(f"  - Remote Address: {request.remote_addr}")
+    
     try:
         team_id = get_team_id()
         trees = get_all_trees(team_id)

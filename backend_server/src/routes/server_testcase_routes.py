@@ -39,6 +39,16 @@ def get_user_id():
 @server_testcase_bp.route('/getAllTestCases', methods=['GET'])
 def get_all_test_cases_route():
     """Get all test cases for a team"""
+    # Log caller information to identify source
+    user_agent = request.headers.get('User-Agent', 'Unknown')
+    referer = request.headers.get('Referer', 'Unknown')
+    x_requested_with = request.headers.get('X-Requested-With', 'Unknown')
+    print(f"[@server_testcase_routes:getAllTestCases] 🔍 CALLER INFO:")
+    print(f"  - User-Agent: {user_agent}")
+    print(f"  - Referer: {referer}")
+    print(f"  - X-Requested-With: {x_requested_with}")
+    print(f"  - Remote Address: {request.remote_addr}")
+    
     error = check_supabase()
     if error:
         return error

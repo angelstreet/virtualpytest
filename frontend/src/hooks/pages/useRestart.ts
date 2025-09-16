@@ -298,11 +298,11 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
   // POLLING FUNCTIONS
   // =====================================================
 
-  const generateReport = useCallback(async (status: any) => {
+  const generateReportWithVideoUrl = useCallback(async (status: any, currentVideoUrl: string) => {
     try {
       console.log('[@hook:useRestart] 📊 Starting report generation');
       
-      if (!videoUrl) {
+      if (!currentVideoUrl) {
         console.error('[@hook:useRestart] ❌ No video URL available for report');
         toast.showError('❌ No video available for report generation');
         return;
@@ -317,7 +317,7 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
         body: JSON.stringify({
           host,
           device_id: device.device_id || 'device1',
-          video_url: videoUrl,
+          video_url: currentVideoUrl,
           analysis_data: {
             audio_analysis: status.audio_data,
             subtitle_analysis: status.subtitle_analysis,
@@ -345,9 +345,9 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
       setAnalysisProgress(prev => ({ ...prev, report: 'error' }));
       toast.showError('❌ Report generation failed');
     }
-  }, [host, device, videoUrl, toast]);
+  }, [host, device, toast]);
   
-  const startPolling = useCallback((videoId: string) => {
+  const startPolling = useCallback((videoId: string, currentVideoUrl: string) => {
     const pollInterval = setInterval(async () => {
       try {
         const response = await fetch(buildServerUrl(`/server/restart/analysisStatus/${videoId}`), {
@@ -391,7 +391,7 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
             
             // Generate report when visual analysis is complete
             console.log('[@hook:useRestart] 📊 Triggering report generation');
-            generateReport(status);
+            generateReportWithVideoUrl(status, currentVideoUrl);
           }
           
           // Stop polling when visual analysis is done
@@ -409,7 +409,7 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
     
     // Cleanup after 2 minutes
     setTimeout(() => clearInterval(pollInterval), 120000);
-  }, [host, device, toast, generateReport]);
+  }, [host, device, toast, generateReportWithVideoUrl]);
 
   // =====================================================
   // CORE FUNCTIONS
@@ -474,7 +474,7 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
           subtitles: 'loading', 
           summary: 'loading' 
         }));
-        startPolling(videoData.video_id);
+        startPolling(videoData.video_id, videoData.video_url);
       }
       
       // Keep "generating" state visible for 1.5 seconds so user sees the process
