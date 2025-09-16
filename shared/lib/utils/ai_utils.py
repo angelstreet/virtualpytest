@@ -19,7 +19,7 @@ from typing import Dict, Any, Optional, Union
 
 AI_MODELS = {
     'text': 'moonshotai/kimi-k2:free', # Kimi not working for now, using Qwen instead moonshotai/kimi-k2:free
-    'vision': 'qwen/qwen-2.5-vl-7b-instruct',
+    'vision': 'google/gemini-2.0-flash-exp',# google/gemini-2.0-flash-exp or qwen/qwen2.5-vl-3b-instruct
     'translation': 'google/gemma-2-2b', # or microsoft/phi-3-mini-4k-instruct
 }
 
