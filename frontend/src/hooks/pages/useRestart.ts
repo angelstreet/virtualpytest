@@ -302,10 +302,35 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
   // POLLING FUNCTIONS
   // =====================================================
 
-  const generateReportWithVideoUrl = useCallback(async (status: any, currentVideoUrl: string) => {
+  // Helper function to check if we have complete data for report generation
+  const hasCompleteAnalysisData = useCallback((status: any) => {
+    const hasAudioData = status.audio === 'completed' && status.audio_data;
+    const hasVisualData = status.visual === 'completed' && status.subtitle_analysis && status.video_analysis;
+    
+    console.log(`[@hook:useRestart] 🔍 Analysis completeness check:`, {
+      audio: hasAudioData ? '✅' : '❌',
+      visual: hasVisualData ? '✅' : '❌',
+      audioStatus: status.audio,
+      visualStatus: status.visual,
+      hasAudioData: !!status.audio_data,
+      hasSubtitleAnalysis: !!status.subtitle_analysis,
+      hasVideoAnalysis: !!status.video_analysis
+    });
+    
+    return hasAudioData && hasVisualData;
+  }, []);
+
+  const generateReportWithVideoUrl = useCallback(async (status: any, currentVideoUrl: string, forceRegenerate = false) => {
     try {
+      // Check if we have complete analysis data before proceeding
+      if (!hasCompleteAnalysisData(status)) {
+        console.log('[@hook:useRestart] 📊 Incomplete analysis data - skipping report generation until both audio and visual are complete');
+        return;
+      }
+
       // Deduplication protection - prevent duplicate report generation
-      if (isReportGenerationInProgress.current || reportGeneratedRef.current) {
+      // Allow regeneration if forceRegenerate is true (when audio completes after visual)
+      if (isReportGenerationInProgress.current || (reportGeneratedRef.current && !forceRegenerate)) {
         console.log('[@hook:useRestart] 📊 Report generation already in progress or completed, skipping duplicate request');
         return;
       }
@@ -313,7 +338,8 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
       // Mark report generation as in progress
       isReportGenerationInProgress.current = true;
       
-      console.log('[@hook:useRestart] 📊 Starting report generation');
+      const isRegeneration = reportGeneratedRef.current && forceRegenerate;
+      console.log(`[@hook:useRestart] 📊 ${isRegeneration ? 'Regenerating' : 'Starting'} report generation${isRegeneration ? ' with complete audio data' : ''}`);
       
       if (!currentVideoUrl) {
         console.error('[@hook:useRestart] ❌ No video URL available for report');
@@ -323,7 +349,8 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
       }
       
       setAnalysisProgress(prev => ({ ...prev, report: 'loading' }));
-      toast.showInfo('📊 Generating report...', { duration: 3000 });
+      const loadingMessage = isRegeneration ? '📊 Updating report with audio data...' : '📊 Generating report...';
+      toast.showInfo(loadingMessage, { duration: 3000 });
       
       const reportResponse = await fetch(buildServerUrl('/server/restart/generateRestartReport'), {
         method: 'POST',
@@ -349,8 +376,9 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
       if (reportData.success && reportData.report_url) {
         setReportUrl(reportData.report_url);
         setAnalysisProgress(prev => ({ ...prev, report: 'completed' }));
-        toast.showSuccess('📊 Report generated successfully!', { duration: 4000 });
-        console.log('[@hook:useRestart] ✅ Report generation completed');
+        const successMessage = isRegeneration ? '📊 Report updated with complete audio data!' : '📊 Report generated successfully!';
+        toast.showSuccess(successMessage, { duration: 4000 });
+        console.log(`[@hook:useRestart] ✅ Report ${isRegeneration ? 'regeneration' : 'generation'} completed`);
         
         // Mark report as successfully generated
         reportGeneratedRef.current = true;
@@ -365,7 +393,7 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
       // Clear the in-progress flag
       isReportGenerationInProgress.current = false;
     }
-  }, [host, device, toast]);
+  }, [host, device, toast, hasCompleteAnalysisData]);
   
   const startPolling = useCallback((videoId: string, currentVideoUrl: string) => {
     const pollInterval = setInterval(async () => {
@@ -397,28 +425,31 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
             toast.showSuccess('🎤 Audio analysis complete!');
             notifiedRef.current.audio = true;
             
-            // If visual analysis already completed but audio just finished, 
-            // we may need to regenerate the report with complete data (only if report not already generated)
-            if (status.visual === 'completed' && status.audio_data && !reportGeneratedRef.current) {
-              console.log('[@hook:useRestart] 🔄 Audio completed after visual - updating report with complete data');
-              generateReportWithVideoUrl(status, currentVideoUrl);
+            // Check if we now have complete data for report generation
+            if (hasCompleteAnalysisData(status)) {
+              console.log('[@hook:useRestart] 🔄 Audio completed - now have complete data, generating report');
+              generateReportWithVideoUrl(status, currentVideoUrl, true); // Force regeneration if needed
             }
           }
           
           // Update visual analysis when complete
           if (status.visual === 'completed' && !notifiedRef.current.visual) {
-            console.log('[@hook:useRestart] 🎯 Visual analysis completed, updating UI and generating report');
+            console.log('[@hook:useRestart] 🎯 Visual analysis completed, updating UI');
             setAnalysisResults(prev => ({
               ...prev,
               subtitles: status.subtitle_analysis,
               videoDescription: status.video_analysis
             }));
-            toast.showSuccess('✅ Analysis complete! Subtitles and summary ready.');
+            toast.showSuccess('✅ Visual analysis complete! Subtitles and summary ready.');
             notifiedRef.current.visual = true;
             
-            // Generate report when visual analysis is complete
-            console.log('[@hook:useRestart] 📊 Triggering report generation');
-            generateReportWithVideoUrl(status, currentVideoUrl);
+            // Check if we now have complete data for report generation
+            if (hasCompleteAnalysisData(status)) {
+              console.log('[@hook:useRestart] 📊 Visual completed - now have complete data, generating report');
+              generateReportWithVideoUrl(status, currentVideoUrl);
+            } else {
+              console.log('[@hook:useRestart] 📊 Visual completed but waiting for audio analysis to finish before generating report');
+            }
           }
           
           // Stop polling when both audio and visual analysis are done
@@ -448,7 +479,7 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
     
     // Cleanup after 2 minutes
     setTimeout(() => clearInterval(pollInterval), 120000);
-  }, [host, device, toast, generateReportWithVideoUrl]);
+  }, [host, device, toast, generateReportWithVideoUrl, hasCompleteAnalysisData]);
 
   // =====================================================
   // CORE FUNCTIONS
@@ -814,10 +845,14 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
           
           try {
             // Ensure we have translated transcript for dubbing
-            const translatedTranscript = translationResults[language]?.transcript;
-            if (!translatedTranscript) {
+            const languageResults = translationResults[language] as TranslationResults | undefined;
+            if (!languageResults) {
+              throw new Error(`No translation results available for ${language}. Translation must complete before dubbing.`);
+            }
+            if (!languageResults.transcript) {
               throw new Error(`No translated transcript available for ${language}. Translation must complete before dubbing.`);
             }
+            const translatedTranscript = languageResults.transcript;
             await generateDubbedVersion(language, translatedTranscript, videoId);
             const totalDubbingDuration = ((Date.now() - dubbingAutoStartTime) / 1000).toFixed(1);
             console.log(`[@hook:useRestart] 🎬 Complete dubbing workflow for ${language} finished in ${totalDubbingDuration}s`);
