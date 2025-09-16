@@ -529,7 +529,7 @@ class VideoRestartHelpers:
                 subprocess.run([
                     'ffmpeg', '-i', video_file, 
                     '-vn', '-acodec', 'pcm_s16le', 
-                    '-ar', '44100', '-ac', '2', 
+                    '-ar', '16000', '-ac', '1',  # 16kHz mono for faster Whisper processing
                     temp_audio_path, '-y'
                 ], capture_output=True, check=True)
                 

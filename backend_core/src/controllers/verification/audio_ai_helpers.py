@@ -497,12 +497,22 @@ class AudioAIHelpers:
                 self._whisper_model = whisper.load_model("tiny")  # ~39MB, fastest
                 print(f"AudioAI[{self.device_name}]: Whisper model loaded successfully")
             
-            # Transcribe with Whisper
+            # Transcribe with Whisper (optimized for maximum speed)
             result = self._whisper_model.transcribe(
                 audio_file,
-                language='en',  # Assume English for speed (can be removed for auto-detect)
-                fp16=False,     # Better compatibility
-                verbose=False   # Reduce output noise
+                fp16=False,             # Better compatibility on CPU
+                verbose=False,          # Reduce output noise
+                beam_size=1,            # Fastest beam search (default: 5)
+                best_of=1,              # Single candidate (default: 5)
+                temperature=0,          # Deterministic output (fastest)
+                compression_ratio_threshold=2.4,  # Skip low-quality audio faster
+                logprob_threshold=-1.0, # Skip uncertain segments faster
+                no_speech_threshold=0.6, # Skip silence faster
+                condition_on_previous_text=False,  # Don't use context (faster)
+                initial_prompt=None,    # No prompt processing (faster)
+                word_timestamps=False,  # Skip word-level timestamps (faster)
+                prepend_punctuations="\"'"¿([{-",
+                append_punctuations="\"'.。,，!！?？:：")]}、"  # Minimal punctuation processing
             )
             
             # Extract results
