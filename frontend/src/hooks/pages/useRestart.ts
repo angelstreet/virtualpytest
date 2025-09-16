@@ -117,7 +117,7 @@ interface UseRestartReturn {
   
   // Dubbing state
   dubbedVideos: Record<string, string>;
-  dubbedAudioUrls: Record<string, string>;
+  dubbedAudioUrls: Record<string, { gtts: string; edge: string }>;
   isDubbing: boolean;
   dubbingCache: Record<string, boolean>;
   
@@ -230,7 +230,7 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
   
   // Dubbing state
   const [dubbedVideos, setDubbedVideos] = useState<Record<string, string>>({});
-  const [dubbedAudioUrls, setDubbedAudioUrls] = useState<Record<string, string>>({});
+  const [dubbedAudioUrls, setDubbedAudioUrls] = useState<Record<string, { gtts: string; edge: string }>>({});
   const [isDubbing, setIsDubbing] = useState(false);
   
   // Translation state
@@ -675,11 +675,14 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
         [language]: step4Result.dubbed_video_url
       }));
       
-      // Store Edge MP3 URL only
-      if (step4Result.edge_audio_url) {
+      // Store both gTTS and Edge-TTS audio URLs
+      if (step2Result.gtts_audio_url && step3Result.edge_audio_url) {
         setDubbedAudioUrls(prev => ({
           ...prev,
-          [language]: step4Result.edge_audio_url
+          [language]: {
+            gtts: step2Result.gtts_audio_url,
+            edge: step3Result.edge_audio_url
+          }
         }));
       }
       
