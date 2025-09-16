@@ -511,9 +511,7 @@ class AudioAIHelpers:
                 condition_on_previous_text=False,  # Don't use context (faster)
                 initial_prompt=None,    # No prompt processing (faster)
                 word_timestamps=False,  # Skip word-level timestamps (faster)
-                prepend_punctuations="\"'"¿([{-",
-                append_punctuations="\"'.。,，!！?？:：")]}、"  # Minimal punctuation processing
-            )
+             )
             
             # Extract results
             transcript = result.get('text', '').strip()
