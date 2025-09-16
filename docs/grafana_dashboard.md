@@ -54,11 +54,12 @@ The Grafana Dashboard page provides a centralized interface for viewing all avai
 ## New Monitoring Features
 
 ### 🔄 Reboot Detection
-Advanced reboot monitoring across all dashboards using uptime analysis:
-- **Smart Detection**: Identifies actual reboot events by analyzing uptime drops >1 hour
-- **Duplicate Filtering**: 10-minute gap requirement prevents false positives
-- **Time Range Aware**: Counts adjust based on selected time period
-- **Multi-Host Support**: Tracks reboots per host independently
+Advanced reboot monitoring across all dashboards using sophisticated uptime analysis:
+- **Smart Detection**: Identifies actual reboot events by analyzing significant uptime drops (>1 hour/3600 seconds)
+- **Duplicate Filtering**: 10-minute gap requirement prevents counting consecutive readings from same reboot
+- **Time Range Aware**: Counts adjust dynamically based on selected time period
+- **Multi-Host Support**: Tracks reboots per host independently using PARTITION BY
+- **False Positive Prevention**: Uses LAG() window functions to distinguish actual reboots from normal uptime growth
 
 #### Server Dashboard Panels:
 - **Reboots (Selected Period)**: Single stat showing total reboot count
@@ -84,6 +85,43 @@ Real-time and historical CPU temperature tracking with thermal thresholds:
 
 ## Technical Details
 
+### Reboot Detection Query Structure
+The reboot detection uses a multi-stage SQL query with CTEs (Common Table Expressions):
+
+```sql
+WITH uptime_analysis AS (
+  -- Stage 1: Get uptime data with LAG for comparison
+  SELECT timestamp, uptime_seconds,
+         LAG(uptime_seconds) OVER (ORDER BY timestamp) as prev_uptime
+  FROM system_metrics WHERE host_name = 'server'
+),
+reboot_candidates AS (
+  -- Stage 2: Find significant uptime drops (>1 hour)
+  SELECT timestamp FROM uptime_analysis
+  WHERE prev_uptime IS NOT NULL 
+    AND prev_uptime > uptime_seconds  -- Uptime decreased
+    AND (prev_uptime - uptime_seconds) > 3600  -- Significant drop
+),
+reboot_events AS (
+  -- Stage 3: Add time gap analysis
+  SELECT timestamp, LAG(timestamp) OVER (ORDER BY timestamp) as prev_reboot_time
+  FROM reboot_candidates
+),
+filtered_reboots AS (
+  -- Stage 4: Filter duplicates (10-minute gap requirement)
+  SELECT timestamp FROM reboot_events
+  WHERE prev_reboot_time IS NULL 
+     OR timestamp > prev_reboot_time + INTERVAL '10 minutes'
+)
+SELECT COUNT(*) FROM filtered_reboots;
+```
+
+### Key Query Features:
+- **LAG() Functions**: Compare current vs previous readings
+- **Significant Drop Logic**: `(prev_uptime - uptime_seconds) > 3600`
+- **Time Gap Filtering**: Prevents counting consecutive readings from same reboot
+- **Time Range Variables**: Uses `$__timeFrom()` and `$__timeTo()` for dynamic periods
+
 ### URL Format
 {grafanaBaseUrl}/d/{slug}/{slug}?orgId=1&refresh=30s&theme=light&kiosk
 
@@ -101,3 +139,28 @@ Real-time and historical CPU temperature tracking with thermal thresholds:
 3. View in embedded iframe
 4. Switch dashboards as needed
 5. Use time picker to adjust monitoring period for reboot and temperature analysis
+
+## Troubleshooting
+
+### Reboot Detection Issues
+If reboot counts seem incorrect:
+
+#### **Problem**: Showing too many reboots (e.g., 41 instead of 2)
+**Cause**: Using old broken query logic
+**Solution**: Ensure query uses correct logic:
+- ✅ `prev_uptime > uptime_seconds` (NOT `uptime_seconds < prev_uptime`)
+- ✅ `(prev_uptime - uptime_seconds) > 3600` (significant drop filter)
+- ✅ LAG-based duplicate filtering with 10-minute gaps
+
+#### **Problem**: No reboot data showing
+**Possible Causes**:
+- No `cpu_temperature_celsius` data in database
+- Time range too narrow
+- Host name filter excluding data
+
+#### **Problem**: Temperature panels showing "No data"
+**Solution**: Verify `cpu_temperature_celsius` column exists and has data:
+```sql
+SELECT COUNT(*) FROM system_metrics 
+WHERE cpu_temperature_celsius IS NOT NULL;
+```

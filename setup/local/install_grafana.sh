@@ -204,9 +204,15 @@ setup_grafana_config() {
         sudo mkdir -p /var/log/grafana
         sudo mkdir -p /etc/grafana
         
-        # Copy the pre-configured database with all dashboards
-        echo "📊 Copying Grafana database with dashboards..."
-        sudo cp "$PROJECT_ROOT/grafana/data/grafana.db" /var/lib/grafana/
+        # Copy the pre-configured database with all dashboards (if it exists)
+        if [ -f "$PROJECT_ROOT/grafana/data/grafana.db" ]; then
+            echo "📊 Copying Grafana database with dashboards..."
+            sudo cp "$PROJECT_ROOT/grafana/data/grafana.db" /var/lib/grafana/
+        else
+            echo "⚠️ Pre-configured Grafana database not found, Grafana will create a fresh one"
+            echo "📊 Creating empty Grafana database directory..."
+            # Grafana will create its own database on first startup
+        fi
         
         # Copy the configuration file
         echo "⚙️ Copying Grafana configuration..."
@@ -229,9 +235,15 @@ setup_grafana_config() {
         mkdir -p "$GRAFANA_LOGS"
         mkdir -p "$(dirname "$GRAFANA_CONF")"
         
-        # Copy the pre-configured database with all dashboards
-        echo "📊 Copying Grafana database with dashboards..."
-        cp "$PROJECT_ROOT/grafana/data/grafana.db" "$GRAFANA_HOME/"
+        # Copy the pre-configured database with all dashboards (if it exists)
+        if [ -f "$PROJECT_ROOT/grafana/data/grafana.db" ]; then
+            echo "📊 Copying Grafana database with dashboards..."
+            cp "$PROJECT_ROOT/grafana/data/grafana.db" "$GRAFANA_HOME/"
+        else
+            echo "⚠️ Pre-configured Grafana database not found, Grafana will create a fresh one"
+            echo "📊 Creating empty Grafana database directory..."
+            # Grafana will create its own database on first startup
+        fi
         
         # Copy and modify configuration for local use
         echo "⚙️ Copying Grafana configuration..."
@@ -244,7 +256,7 @@ setup_grafana_config() {
         sed -i '' 's/serve_from_sub_path = true/serve_from_sub_path = false/' "$GRAFANA_CONF"
     fi
     
-    echo "✅ Grafana configuration and database copied successfully"
+    echo "✅ Grafana configuration setup completed successfully"
 }
 
 
