@@ -354,8 +354,6 @@ pkill -f "Xvnc.*:1" 2>/dev/null || true
 sudo rm -f /tmp/.X1-lock /tmp/.X11-unix/X1 2>/dev/null || true
 sleep 2
 
-
-
 # Re-enable exit on error
 set -e
 
