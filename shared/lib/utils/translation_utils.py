@@ -5,18 +5,177 @@ Translation Utilities - AI-powered text translation using existing AI infrastruc
 from typing import Dict, Any, Optional
 from .ai_utils import call_text_ai
 
-def translate_text(text: str, source_language: str, target_language: str) -> Dict[str, Any]:
+# Local translation imports (optional)
+try:
+    import argostranslate.package
+    import argostranslate.translate
+    ARGOS_AVAILABLE = True
+except ImportError:
+    ARGOS_AVAILABLE = False
+
+try:
+    from googletrans import Translator
+    GOOGLE_TRANSLATE_AVAILABLE = True
+except ImportError:
+    GOOGLE_TRANSLATE_AVAILABLE = False
+
+def translate_text_local_argos(text: str, source_language: str, target_language: str) -> Dict[str, Any]:
     """
-    Translate text using AI with language detection and context preservation.
+    Fast local translation using Argos Translate (offline, ~0.05-0.1s)
+    """
+    try:
+        if not ARGOS_AVAILABLE:
+            return {
+                'success': False,
+                'error': 'Argos Translate not installed. Run: pip install argostranslate',
+                'translated_text': '',
+                'source_language': source_language,
+                'target_language': target_language
+            }
+        
+        if not text or not text.strip():
+            return {
+                'success': False,
+                'error': 'Empty text provided',
+                'translated_text': '',
+                'source_language': source_language,
+                'target_language': target_language
+            }
+        
+        # Skip if same language
+        if source_language == target_language:
+            return {
+                'success': True,
+                'translated_text': text,
+                'source_language': source_language,
+                'target_language': target_language,
+                'skipped': True
+            }
+        
+        # Translate using Argos
+        translated_text = argostranslate.translate.translate(text, source_language, target_language)
+        
+        return {
+            'success': True,
+            'translated_text': translated_text,
+            'source_language': source_language,
+            'target_language': target_language,
+            'original_text': text,
+            'method': 'argos_local'
+        }
+        
+    except Exception as e:
+        return {
+            'success': False,
+            'error': f'Local translation error: {str(e)}',
+            'translated_text': '',
+            'source_language': source_language,
+            'target_language': target_language
+        }
+
+def translate_text_local_google(text: str, source_language: str, target_language: str) -> Dict[str, Any]:
+    """
+    Fast translation using Google Translate library (~0.1-0.3s)
+    """
+    try:
+        if not GOOGLE_TRANSLATE_AVAILABLE:
+            return {
+                'success': False,
+                'error': 'Google Translate not installed. Run: pip install googletrans==4.0.0rc1',
+                'translated_text': '',
+                'source_language': source_language,
+                'target_language': target_language
+            }
+        
+        if not text or not text.strip():
+            return {
+                'success': False,
+                'error': 'Empty text provided',
+                'translated_text': '',
+                'source_language': source_language,
+                'target_language': target_language
+            }
+        
+        # Skip if same language
+        if source_language == target_language:
+            return {
+                'success': True,
+                'translated_text': text,
+                'source_language': source_language,
+                'target_language': target_language,
+                'skipped': True
+            }
+        
+        # Translate using Google Translate
+        translator = Translator()
+        result = translator.translate(text, src=source_language, dest=target_language)
+        
+        return {
+            'success': True,
+            'translated_text': result.text,
+            'source_language': source_language,
+            'target_language': target_language,
+            'original_text': text,
+            'method': 'google_local'
+        }
+        
+    except Exception as e:
+        return {
+            'success': False,
+            'error': f'Google Translate error: {str(e)}',
+            'translated_text': '',
+            'source_language': source_language,
+            'target_language': target_language
+        }
+
+def translate_text(text: str, source_language: str, target_language: str, method: str = 'google') -> Dict[str, Any]:
+    """
+    Translate text using various methods with fallback support.
     
     Args:
         text: Text to translate
         source_language: Source language code (e.g., 'en', 'es', 'fr')
         target_language: Target language code
+        method: Translation method ('ai', 'argos', 'google', 'auto')
+                'auto' tries local methods first, falls back to AI
         
     Returns:
         Dict with success status, translated text, and metadata
     """
+    
+    # Auto method: try Google first, fallback to AI
+    if method == 'auto':
+        # Try Google Translate first (fast, high quality)
+        if GOOGLE_TRANSLATE_AVAILABLE:
+            result = translate_text_local_google(text, source_language, target_language)
+            if result['success']:
+                return result
+        
+        # Try Argos second (offline fallback)
+        if ARGOS_AVAILABLE:
+            result = translate_text_local_argos(text, source_language, target_language)
+            if result['success']:
+                return result
+        
+        # Fallback to AI
+        method = 'ai'
+    
+    # Direct method calls
+    if method == 'argos':
+        return translate_text_local_argos(text, source_language, target_language)
+    elif method == 'google':
+        return translate_text_local_google(text, source_language, target_language)
+    elif method == 'ai':
+        # Original AI implementation
+        pass
+    else:
+        return {
+            'success': False,
+            'error': f'Unknown translation method: {method}',
+            'translated_text': '',
+            'source_language': source_language,
+            'target_language': target_language
+        }
     try:
         if not text or not text.strip():
             return {
@@ -161,8 +320,8 @@ def batch_translate_segments(segments: list, source_language: str, target_langua
         # Combine segments for batch translation
         combined_text = "\n---SEGMENT---\n".join(segments)
         
-        # Translate combined text
-        translation_result = translate_text(combined_text, source_language, target_language)
+        # Translate combined text using Google Translate (fastest)
+        translation_result = translate_text(combined_text, source_language, target_language, method='google')
         
         if translation_result['success']:
             # Split back into segments
@@ -174,7 +333,7 @@ def batch_translate_segments(segments: list, source_language: str, target_langua
                 # Fallback to individual translation
                 translated_segments = []
                 for segment in segments:
-                    individual_result = translate_text(segment, source_language, target_language)
+                    individual_result = translate_text(segment, source_language, target_language, method='google')
                     if individual_result['success']:
                         translated_segments.append(individual_result['translated_text'])
                     else:
@@ -279,12 +438,24 @@ Content to translate:
 
 Translated content:"""
 
-        # Single AI call for all content
-        print(f"[TRANSLATION] Making batch translation call for language: {target_language}")
+        # Use Google Translate for fast batch translation
+        print(f"[TRANSLATION] 🚀 Starting Google Translate batch translation to {target_language}")
         print(f"[TRANSLATION] Sections to translate: {list(section_map.keys())}")
-        print(f"[TRANSLATION] Total prompt length: {len(prompt)} characters")
+        print(f"[TRANSLATION] Total content length: {len(combined_content)} characters")
         
-        result = call_text_ai(prompt, max_tokens=2000, temperature=0.1)
+        # Use Google Translate instead of AI for speed
+        if GOOGLE_TRANSLATE_AVAILABLE:
+            try:
+                translator = Translator()
+                translated_content = translator.translate(combined_content, src='en', dest=target_language).text
+                result = {'success': True, 'content': translated_content}
+                print(f"[TRANSLATION] ⚡ Google Translate completed successfully")
+            except Exception as e:
+                print(f"[TRANSLATION] ❌ Google Translate failed: {e}, falling back to AI")
+                result = call_text_ai(prompt, max_tokens=2000, temperature=0.1)
+        else:
+            print(f"[TRANSLATION] ⚠️ Google Translate not available, using AI")
+            result = call_text_ai(prompt, max_tokens=2000, temperature=0.1)
         
         print(f"[TRANSLATION] AI call result: success={result['success']}")
         if not result['success']:

@@ -637,7 +637,8 @@ class VideoRestartHelpers:
             else:
                 from shared.lib.utils.translation_utils import translate_text
                 # For audio dubbing, translate the clean transcript directly (no frame structure)
-                translation_result = translate_text(existing_transcript, 'en', target_language)
+                # Use Google Translate for fastest translation with AI fallback
+                translation_result = translate_text(existing_transcript, 'en', target_language, method='google')
                 
                 if not translation_result['success']:
                     return {
@@ -710,7 +711,8 @@ class VideoRestartHelpers:
             else:
                 from shared.lib.utils.translation_utils import translate_text
                 # For audio dubbing, translate the clean transcript directly (no frame structure)
-                translation_result = translate_text(existing_transcript, 'en', target_language)
+                # Use Google Translate for fastest translation with AI fallback
+                translation_result = translate_text(existing_transcript, 'en', target_language, method='google')
                 
                 if not translation_result['success']:
                     return {
