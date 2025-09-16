@@ -280,6 +280,10 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
   const toast = useToast();
   const notifiedRef = useRef({ audio: false, visual: false });
   
+  // Report generation deduplication protection
+  const isReportGenerationInProgress = useRef(false);
+  const reportGeneratedRef = useRef(false);
+  
   const [analysisResults, setAnalysisResults] = useState<AnalysisResults>({
     audio: null,
     subtitles: null,
@@ -300,11 +304,21 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
 
   const generateReportWithVideoUrl = useCallback(async (status: any, currentVideoUrl: string) => {
     try {
+      // Deduplication protection - prevent duplicate report generation
+      if (isReportGenerationInProgress.current || reportGeneratedRef.current) {
+        console.log('[@hook:useRestart] 📊 Report generation already in progress or completed, skipping duplicate request');
+        return;
+      }
+      
+      // Mark report generation as in progress
+      isReportGenerationInProgress.current = true;
+      
       console.log('[@hook:useRestart] 📊 Starting report generation');
       
       if (!currentVideoUrl) {
         console.error('[@hook:useRestart] ❌ No video URL available for report');
         toast.showError('❌ No video available for report generation');
+        isReportGenerationInProgress.current = false;
         return;
       }
       
@@ -337,6 +351,9 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
         setAnalysisProgress(prev => ({ ...prev, report: 'completed' }));
         toast.showSuccess('📊 Report generated successfully!', { duration: 4000 });
         console.log('[@hook:useRestart] ✅ Report generation completed');
+        
+        // Mark report as successfully generated
+        reportGeneratedRef.current = true;
       } else {
         throw new Error(reportData.error || 'Report generation failed');
       }
@@ -344,6 +361,9 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
       console.error('[@hook:useRestart] ❌ Report generation failed:', error);
       setAnalysisProgress(prev => ({ ...prev, report: 'error' }));
       toast.showError('❌ Report generation failed');
+    } finally {
+      // Clear the in-progress flag
+      isReportGenerationInProgress.current = false;
     }
   }, [host, device, toast]);
   
@@ -378,8 +398,8 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
             notifiedRef.current.audio = true;
             
             // If visual analysis already completed but audio just finished, 
-            // we may need to regenerate the report with complete data
-            if (status.visual === 'completed' && status.audio_data) {
+            // we may need to regenerate the report with complete data (only if report not already generated)
+            if (status.visual === 'completed' && status.audio_data && !reportGeneratedRef.current) {
               console.log('[@hook:useRestart] 🔄 Audio completed after visual - updating report with complete data');
               generateReportWithVideoUrl(status, currentVideoUrl);
             }
@@ -486,6 +506,9 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
       if (includeAudioAnalysis && videoData.video_id) {
         // Reset notification flags for new video
         notifiedRef.current = { audio: false, visual: false };
+        // Reset report generation flags for new video
+        isReportGenerationInProgress.current = false;
+        reportGeneratedRef.current = false;
         // Set initial loading states for animations
         setAnalysisProgress(prev => ({ 
           ...prev, 
@@ -544,6 +567,8 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
       isRequestInProgress.current = false;
       isTimingAdjustmentInProgress.current = false;
       currentTimingAdjustmentKey.current = null;
+      isReportGenerationInProgress.current = false;
+      reportGeneratedRef.current = false;
     };
   }, []);
 
