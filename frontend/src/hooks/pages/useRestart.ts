@@ -300,7 +300,11 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
   const startPolling = useCallback((videoId: string) => {
     const pollInterval = setInterval(async () => {
       try {
-        const response = await fetch(buildServerUrl(`/server/restart/analysisStatus/${videoId}?device_id=${device.device_id}&host=${encodeURIComponent(JSON.stringify(host))}`));
+        const response = await fetch(buildServerUrl(`/server/restart/analysisStatus/${videoId}`), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ device_id: device.device_id, host })
+        });
         const data = await response.json();
         
         if (data.success && data.status) {

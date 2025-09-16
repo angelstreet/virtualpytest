@@ -371,6 +371,28 @@ main() {
     setup_grafana_config
     create_launch_script
     
+    # Enable and start Grafana service (Linux only)
+    if [[ "$OS" == "linux" ]]; then
+        echo ""
+        echo "🚀 Enabling and starting Grafana service..."
+        sudo systemctl enable grafana-server
+        sudo systemctl start grafana-server
+        
+        # Wait for Grafana to start
+        echo "⏳ Waiting for Grafana to start..."
+        sleep 5
+        
+        # Check if Grafana is running
+        if systemctl is-active --quiet grafana-server; then
+            echo "✅ Grafana service is running"
+        else
+            echo "⚠️ Grafana service may not be running properly"
+        fi
+    else
+        echo ""
+        echo "ℹ️ On macOS, use ./setup/local/launch_grafana.sh to start Grafana manually"
+    fi
+    
     echo ""
     echo "🎉 Grafana installation completed successfully!"
     echo ""

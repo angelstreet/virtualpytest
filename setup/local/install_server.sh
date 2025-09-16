@@ -209,6 +209,40 @@ fi
 
 cd ../..
 
+# Create VPT Server Host systemd service (but don't enable/start it)
+echo "🔧 Creating VPT Server Host systemd service..."
+cat > /tmp/vpt_server_host.service << EOF
+[Unit]
+Description=VirtualPyTest Server Host Service - Launch VirtualPyTest System
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=$USER
+Group=$USER
+WorkingDirectory=$(pwd)/scripts
+ExecStartPre=/usr/bin/git pull
+ExecStart=/bin/bash $(pwd)/scripts/launch_virtualpytest.sh
+TimeoutStopSec=10
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+# Environment
+Environment=HOST_NAME=$USER-server
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# Install the service file (but don't enable or start it)
+sudo cp /tmp/vpt_server_host.service /etc/systemd/system/
+sudo systemctl daemon-reload
+echo "✅ VPT Server Host service created (not enabled)"
+
 echo ""
 echo "✅ backend_server installation completed!"
 echo ""
@@ -220,4 +254,10 @@ echo "🔧 Grafana Configuration:"
 echo "   • Local PostgreSQL database created for metrics storage"
 echo "   • Supabase connection configured as read-only"
 echo "   • Access Grafana at: http://localhost:3001 (when server is running)"
+echo ""
+echo "🔧 VPT Server Host Service (Optional):"
+echo "   • Service created: vpt_server_host.service"
+echo "   • To enable auto-start: sudo systemctl enable vpt_server_host"
+echo "   • To start now: sudo systemctl start vpt_server_host"
+echo "   • To check status: sudo systemctl status vpt_server_host"
 echo "" 

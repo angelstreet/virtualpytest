@@ -5,8 +5,9 @@
 # VNC displays: :1, :99, etc. no audio for now then pulseaudio
 # input_fps = device capability, output stays fixed at 5 FPS for hardware, 2 FPS for VNC
 declare -A GRABBERS=(
-  ["0"]="/dev/video0|plughw:2,0|/var/www/html/stream/capture1|25"
-  ["2"]=":1|null|/var/www/html/stream/capture3|2"
+  ["0"]=":1|null|/var/www/html/stream/capture1|2"
+  ["1"]="/dev/video0|plughw:2,0|/var/www/html/stream/capture2|10"
+ 
 )
 
 # Simple log reset function - truncates log if over 30MB

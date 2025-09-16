@@ -108,6 +108,10 @@ echo "4️⃣ Installing backend_host (fresh services)..."
 ./setup/local/install_host.sh --force-clean
 
 echo ""
+echo "4️⃣b Installing and starting host services (VNC, stream, monitor)..."
+./setup/local/install_host_services.sh
+
+echo ""
 echo "5️⃣ Installing frontend (smart update)..."
 ./setup/local/install_frontend.sh --smart-update
 
