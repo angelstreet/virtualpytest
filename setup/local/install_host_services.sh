@@ -79,8 +79,8 @@ Wants=network.target
 Type=simple
 User=$USER
 Group=$USER
-WorkingDirectory=$(pwd)/backend_host/scripts
-ExecStart=/bin/bash run_ffmpeg_and_rename_local.sh
+WorkingDirectory=/usr/local/bin
+ExecStart=/bin/bash /usr/local/bin/run_ffmpeg_and_rename.sh
 Restart=always
 RestartSec=15
 StandardOutput=append:/tmp/ffmpeg_service.log
@@ -134,6 +134,48 @@ sudo cp /tmp/stream.service /etc/systemd/system/
 sudo cp /tmp/vncserver.service /etc/systemd/system/
 sudo cp /tmp/novnc.service /etc/systemd/system/
 sudo systemctl daemon-reload
+
+# Create required directories
+echo "📁 Creating stream directories..."
+sudo mkdir -p /var/www/html/stream/capture1/captures
+sudo mkdir -p /var/www/html/stream/capture2/captures
+sudo mkdir -p /var/www/html/stream/capture3/captures
+sudo mkdir -p /var/www/html/stream/capture4/captures
+sudo chown -R $USER:$USER /var/www/html/stream
+echo "✅ Stream directories created"
+
+# Copy required scripts to system locations
+echo "📋 Installing system scripts..."
+sudo cp backend_host/scripts/run_ffmpeg_and_rename_local.sh /usr/local/bin/run_ffmpeg_and_rename.sh
+sudo cp backend_host/scripts/clean_captures.sh /usr/local/bin/clean_captures.sh
+sudo chmod +x /usr/local/bin/run_ffmpeg_and_rename.sh
+sudo chmod +x /usr/local/bin/clean_captures.sh
+echo "✅ Scripts installed to /usr/local/bin/"
+
+# Enable and start all services
+echo ""
+echo "🚀 Enabling and starting all host services..."
+
+# Enable services for auto-start
+sudo systemctl enable monitor.service
+sudo systemctl enable stream.service  
+sudo systemctl enable vncserver.service
+sudo systemctl enable novnc.service
+
+# Start services
+echo "🔵 Starting VNC server..."
+sudo systemctl start vncserver.service
+
+echo "🟢 Starting noVNC web interface..."
+sudo systemctl start novnc.service
+
+echo "🟡 Starting stream service..."
+sudo systemctl start stream.service
+
+echo "🟠 Starting monitor service..."
+sudo systemctl start monitor.service
+
+echo "✅ All host services enabled and started"
 
 # Note: Service management scripts would be copied from examples if they existed
 echo "ℹ️  Service management scripts can be created manually if needed"

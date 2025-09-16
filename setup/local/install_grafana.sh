@@ -380,13 +380,17 @@ main() {
         
         # Wait for Grafana to start
         echo "⏳ Waiting for Grafana to start..."
-        sleep 5
+        sleep 10
         
         # Check if Grafana is running
         if systemctl is-active --quiet grafana-server; then
             echo "✅ Grafana service is running"
         else
             echo "⚠️ Grafana service may not be running properly"
+            echo "🔍 Checking Grafana status..."
+            sudo systemctl status grafana-server --no-pager || true
+            echo "📋 Recent Grafana logs:"
+            sudo journalctl -u grafana-server --no-pager -n 10 || true
         fi
     else
         echo ""
