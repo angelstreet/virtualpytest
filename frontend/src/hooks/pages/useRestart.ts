@@ -366,6 +366,7 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
     try {
       console.log('[@hook:useRestart] 📊 Starting report generation');
       console.log('[@hook:useRestart] 📊 Video URL:', videoUrl);
+      console.log('[@hook:useRestart] 📊 Host object:', host);
       console.log('[@hook:useRestart] 📊 Status data:', status);
       
       if (!videoUrl) {
@@ -1019,7 +1020,7 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
         
         setAudioTimingOffset(offsetMs);
         console.log(`[@hook:useRestart] ✅ Audio timing adjustment completed: ${offsetMs > 0 ? '+' : ''}${offsetMs}ms (cached for future use)`);
-        toast.showSuccess(`✅ Audio timing: ${offsetMs > 0 ? '+' : ''}${offsetMs}ms (processed & cached)`);
+        toast.showSuccess(`✅ Audio timing: ${offsetMs > 0 ? '+' : ''}${offsetMs}ms`);
       } else {
         throw new Error(result.error);
       }

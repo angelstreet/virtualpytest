@@ -374,6 +374,27 @@ main() {
     # Enable and start Grafana service (Linux only)
     if [[ "$OS" == "linux" ]]; then
         echo ""
+        echo "📁 Setting up Grafana with our custom configuration..."
+        
+        # Copy our custom configuration to Grafana's default location
+        echo "📋 Installing custom Grafana configuration..."
+        sudo cp grafana/config/grafana.ini /etc/grafana/grafana.ini
+        
+        # Copy our database to Grafana's default data directory
+        echo "📊 Installing custom Grafana database..."
+        sudo mkdir -p /var/lib/grafana
+        sudo cp grafana/data/grafana.db /var/lib/grafana/grafana.db
+        
+        # Set proper ownership for Grafana user
+        sudo chown -R grafana:grafana /var/lib/grafana
+        sudo chown -R grafana:grafana /var/log/grafana
+        sudo chown grafana:grafana /etc/grafana/grafana.ini
+        
+        # Set proper permissions
+        sudo chmod 755 /var/lib/grafana
+        sudo chmod 644 /var/lib/grafana/grafana.db
+        sudo chmod 640 /etc/grafana/grafana.ini
+        
         echo "🚀 Enabling and starting Grafana service..."
         sudo systemctl enable grafana-server
         sudo systemctl start grafana-server
