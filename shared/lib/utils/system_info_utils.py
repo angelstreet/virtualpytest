@@ -168,10 +168,34 @@ def calculate_process_working_uptime(capture_folder: str, process_type: str) -> 
         return 0
 
 
+def get_cpu_temperature():
+    """Get CPU temperature for Raspberry Pi with fallback to thermal zones"""
+    try:
+        # Method 1: vcgencmd (Raspberry Pi specific)
+        result = subprocess.run(['vcgencmd', 'measure_temp'], 
+                              capture_output=True, text=True)
+        if result.returncode == 0:
+            temp_str = result.stdout.strip()  # "temp=42.8'C"
+            temp_value = float(temp_str.split('=')[1].replace("'C", ""))
+            return temp_value
+    except Exception:
+        pass
+    
+    try:
+        # Method 2: thermal zone (more universal Linux)
+        with open('/sys/class/thermal/thermal_zone0/temp', 'r') as f:
+            temp_millidegrees = int(f.read().strip())
+            return temp_millidegrees / 1000.0
+    except Exception:
+        pass
+    
+    return None  # Temperature not available
+
+
 def get_host_system_stats():
     """Get basic system statistics for host registration"""
     try:
-        return {
+        stats = {
             'cpu_percent': psutil.cpu_percent(interval=1),
             'memory_percent': psutil.virtual_memory().percent,
             'disk_percent': psutil.disk_usage('/').percent,
@@ -180,6 +204,13 @@ def get_host_system_stats():
             'architecture': platform.machine(),
             'python_version': platform.python_version()
         }
+        
+        # Add CPU temperature if available
+        cpu_temp = get_cpu_temperature()
+        if cpu_temp is not None:
+            stats['cpu_temperature_celsius'] = round(cpu_temp, 1)
+        
+        return stats
     except Exception as e:
         print(f"⚠️ Error getting system stats: {e}")
         return {
@@ -210,7 +241,7 @@ def get_enhanced_system_stats():
         # Monitor status check  
         monitor_status = check_monitor_status()
         
-        return {
+        stats = {
             'cpu_percent': round(psutil.cpu_percent(interval=1), 2),
             'memory_percent': round(memory.percent, 2),
             'memory_used_gb': round(memory.used / (1024**3), 2),
@@ -224,6 +255,13 @@ def get_enhanced_system_stats():
             'ffmpeg_status': ffmpeg_status,
             'monitor_status': monitor_status
         }
+        
+        # Add CPU temperature if available
+        cpu_temp = get_cpu_temperature()
+        if cpu_temp is not None:
+            stats['cpu_temperature_celsius'] = round(cpu_temp, 1)
+        
+        return stats
     except Exception as e:
         print(f"⚠️ Error getting enhanced system stats: {e}")
         return {

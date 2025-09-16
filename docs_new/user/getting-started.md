@@ -2,6 +2,22 @@
 
 **Simple installation guide for QA teams and engineers.**
 
+## 📋 **Requirements**
+
+Before installing VirtualPyTest, you'll need to set up external services for database, storage, queuing, and AI functionality.
+
+**👉 [Complete Requirements Setup Guide](requirements.md)**
+
+This includes:
+- **Supabase** - Database and authentication
+- **Cloudflare R2** - Cloud storage for videos/screenshots  
+- **Upstash Redis** - Queue management
+- **OpenRouter** - AI analysis services
+
+*Setting up these services takes ~15 minutes and is required for full functionality.*
+
+---
+
 ## 🚀 **TL;DR - Quick Start**
 
 ```bash

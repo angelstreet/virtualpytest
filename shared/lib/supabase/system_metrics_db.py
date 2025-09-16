@@ -194,7 +194,8 @@ def store_system_metrics(host_name: str, metrics_data: Dict[str, Any]) -> bool:
             'platform': metrics_data.get('platform', 'unknown'),
             'architecture': metrics_data.get('architecture', 'unknown'),
             'ffmpeg_status': metrics_data.get('ffmpeg_status', {}),
-            'monitor_status': metrics_data.get('monitor_status', {})
+            'monitor_status': metrics_data.get('monitor_status', {}),
+            'cpu_temperature_celsius': metrics_data.get('cpu_temperature_celsius')
         }
         
         result = supabase.table('system_metrics').insert(insert_data).execute()
@@ -238,6 +239,7 @@ def store_device_metrics(host_name: str, device_data: Dict[str, Any], system_sta
             'uptime_seconds': system_stats.get('uptime_seconds', 0),
             'platform': system_stats.get('platform', 'unknown'),
             'architecture': system_stats.get('architecture', 'unknown'),
+            'cpu_temperature_celsius': system_stats.get('cpu_temperature_celsius'),
             'ffmpeg_status': device_data.get('ffmpeg_status', 'unknown'),
             'ffmpeg_uptime_seconds': device_data.get('ffmpeg_uptime_seconds', 0),
             'ffmpeg_last_activity': device_data.get('ffmpeg_last_activity'),

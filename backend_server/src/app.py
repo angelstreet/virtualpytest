@@ -299,7 +299,8 @@ def start_server(app):
                     server_stats = get_host_system_stats()
                     
                     # Debug: Show actual metrics values
-                    print(f"[@backend_server:debug] 🔍 Raw server stats: CPU={server_stats.get('cpu_percent', 'N/A')}%, RAM={server_stats.get('memory_percent', 'N/A')}%, Disk={server_stats.get('disk_percent', 'N/A')}%")
+                    temp_str = f", Temp={server_stats.get('cpu_temperature_celsius', 'N/A')}°C" if 'cpu_temperature_celsius' in server_stats else ""
+                    print(f"[@backend_server:debug] 🔍 Raw server stats: CPU={server_stats.get('cpu_percent', 'N/A')}%, RAM={server_stats.get('memory_percent', 'N/A')}%, Disk={server_stats.get('disk_percent', 'N/A')}%{temp_str}")
                     
                     # Store server metrics in system_metrics table
                     store_system_metrics('server', server_stats)

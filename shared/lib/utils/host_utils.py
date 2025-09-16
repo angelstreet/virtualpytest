@@ -315,7 +315,8 @@ def send_ping_to_server():
         host_system_stats = get_host_system_stats()
         
         # Debug: Show host's own system stats
-        print(f"[@host:debug] 🔍 Host system stats: CPU={host_system_stats.get('cpu_percent', 'N/A')}%, RAM={host_system_stats.get('memory_percent', 'N/A')}%, Disk={host_system_stats.get('disk_percent', 'N/A')}%")
+        temp_str = f", Temp={host_system_stats.get('cpu_temperature_celsius', 'N/A')}°C" if 'cpu_temperature_celsius' in host_system_stats else ""
+        print(f"[@host:debug] 🔍 Host system stats: CPU={host_system_stats.get('cpu_percent', 'N/A')}%, RAM={host_system_stats.get('memory_percent', 'N/A')}%, Disk={host_system_stats.get('disk_percent', 'N/A')}%{temp_str}")
         
         # Store host system metrics directly (same function as server uses)
         from shared.lib.supabase.system_metrics_db import store_system_metrics
