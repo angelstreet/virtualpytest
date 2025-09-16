@@ -142,12 +142,24 @@ echo "ℹ️  Service management scripts can be created manually if needed"
 echo ""
 echo "🖥️ Setting up VNC server with default configuration..."
 
+# Make sure we continue even if VNC setup fails
+set +e  # Disable exit on error for VNC setup
+
 # Create VNC directory
 mkdir -p ~/.vnc
 
 # Set default VNC password (admin1234)
-echo "admin1234" | vncpasswd -f > ~/.vnc/passwd
-chmod 600 ~/.vnc/passwd
+if command -v vncpasswd &> /dev/null; then
+    echo "admin1234" | vncpasswd -f > ~/.vnc/passwd 2>/dev/null || {
+        echo "⚠️ vncpasswd failed, creating manual password file"
+        # Create a simple password file manually (this is a fallback)
+        echo "admin1234" > ~/.vnc/passwd
+    }
+    chmod 600 ~/.vnc/passwd
+else
+    echo "⚠️ vncpasswd not found, VNC password setup skipped"
+    echo "   You may need to install tigervnc-standalone-server"
+fi
 
 # Create xstartup file for VNC session
 cat > ~/.vnc/xstartup << 'EOF'
@@ -189,6 +201,11 @@ fi
 
 
 
+# Re-enable exit on error
+set -e
+
+echo ""
+echo "🔄 Finishing installation..."
 echo ""
 echo "✅ backend_host services installation completed!"
 echo ""
