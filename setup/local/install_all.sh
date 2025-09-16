@@ -109,7 +109,11 @@ echo "4️⃣ Installing backend_host (fresh services)..."
 
 echo ""
 echo "4️⃣b Installing and starting host services (VNC, stream, monitor)..."
-./setup/local/install_host_services.sh
+# Continue even if host services fail
+./setup/local/install_host_services.sh || {
+    echo "⚠️ Host services installation had issues - continuing with installation"
+    echo "   You can fix VNC issues later with: ./setup/local/cleanup_vnc.sh"
+}
 
 echo ""
 echo "5️⃣ Installing frontend (smart update)..."
@@ -176,6 +180,12 @@ for service_info in "${services[@]}"; do
         echo "   ✅ $display_name: Running"
     elif systemctl is-enabled --quiet "$service_name" 2>/dev/null; then
         echo "   🟡 $display_name: Enabled (not running)"
+        # Special handling for VNC service
+        if [ "$service_name" = "vncserver" ]; then
+            if ! command -v vncserver >/dev/null 2>&1; then
+                echo "      ⚠️ vncserver binary not found - run: ./setup/local/cleanup_vnc.sh"
+            fi
+        fi
     else
         echo "   ❌ $display_name: Not enabled"
     fi
