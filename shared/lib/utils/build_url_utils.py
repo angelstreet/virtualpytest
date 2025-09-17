@@ -698,9 +698,16 @@ def convertHostUrlToLocalPath(host_url: str) -> str:
         parsed_url = urlparse(host_url)
         url_path = parsed_url.path
         
-        # Validate URL format - must contain /host/ (support both /host/ and /pi2/host/ patterns)
+        # Handle URLs that are missing /host/ prefix (common issue with server port URLs)
         if '/host/' not in url_path:
-            raise ValueError(f"Invalid host URL format - expected /host/ in path: {host_url}")
+            # Check if this looks like a direct nginx path (starts with /stream/, /captures/, etc.)
+            if url_path.startswith(('/stream/', '/captures/', '/resources/')):
+                # This is a direct nginx path, just convert to local path
+                relative_path = url_path.lstrip('/')
+                local_path = f"/var/www/html/{relative_path}"
+                return local_path
+            else:
+                raise ValueError(f"Invalid host URL format - expected /host/ in path or direct nginx path: {host_url}")
         
         # Find and remove everything up to and including '/host/' to get the relative path
         host_index = url_path.find('/host/')
