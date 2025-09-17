@@ -447,9 +447,9 @@ export const AITestCaseGenerator: React.FC<AITestCaseGeneratorProps> = ({
                           // Map interface names to their actual supported models
                           const interfaceModelMap: Record<string, string[]> = {
                             'horizon_android_mobile': ['android_mobile'],
-                            'horizon_android_tv': ['android_tv'],
-                            'horizon_tv': ['fire_tv', 'stb'], // Fire TV and STB for horizon_tv
-                            'perseus_360_web': ['web']
+                            'horizon_android_tv': ['android_tv','fire_tv','apple_tv'],
+                            'horizon_tv': [ 'stb'], // Fire TV and STB for horizon_tv
+                            'perseus_360_web': ['web'],
                           };
                           return interfaceModelMap[interfaceName] || [];
                         };

@@ -52,6 +52,15 @@ DEVICE_CONTROLLER_MAP = {
         'network': [],
         'ai': ['ai_agent']
     },
+    'appletv': {
+        'av': ['hdmi_stream'], 
+        'remote': ['ir_remote'],
+        'desktop': [],
+        'web': [],
+        'power': ['tapo'],  # Add tapo power controller for Apple TV
+        'network': [],
+        'ai': ['ai_agent']
+    },
     'tizen': {
         'av': ['camera_stream'], 
         'remote': ['ir_remote'],

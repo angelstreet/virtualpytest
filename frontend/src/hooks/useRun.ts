@@ -47,6 +47,8 @@ export const useRun = ({ selectedScript, selectedDevice, selectedHost, deviceMod
       return 'perseus_360_web';
     } else if (modelLower.includes('stb')) {
       return 'horizon_tv';
+    } else if (modelLower.includes('appletv')) {
+      return 'horizon_appletv';
     } else {
       return 'horizon_android_mobile'; // default
     }

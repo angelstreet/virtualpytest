@@ -6,6 +6,7 @@
 // Export all remote configurations
 export * from './androidMobileRemote';
 export * from './androidTvRemote';
+export * from './appleTvRemote';
 export * from './appiumRemote';
 export * from './bluetoothRemote';
 export * from './infraredRemote';
