@@ -688,39 +688,6 @@ def resolveImageFilePath(image_path: str) -> str:
     
     return image_path
 
-def buildClientImageUrl(image_path: str) -> str:
-    """
-    Build client-safe image URL with HTTP-to-HTTPS proxy handling.
-    Centralizes all URL processing logic from frontend components.
-    
-    Args:
-        image_path: Raw image path/URL from backend
-        
-    Returns:
-        Processed URL ready for frontend consumption
-        
-    Example:
-        buildClientImageUrl('http://host:444/image.jpg')
-        -> '/server/av/proxy-image?url=http%3A//host%3A444/image.jpg'
-    """
-    if not image_path:
-        return ''
-    
-    # Handle data URLs (base64) - return as is
-    if image_path.startswith('data:'):
-        return image_path
-    
-    # Handle HTTPS URLs - return as is (no proxy needed)
-    if image_path.startswith('https:'):
-        return image_path
-    
-    # Handle HTTP URLs - use proxy to convert to HTTPS
-    if image_path.startswith('http:'):
-        from urllib.parse import quote
-        return f'/server/av/proxy-image?url={quote(image_path)}'
-    
-    # For relative paths or other formats, use directly
-    return image_path
 
 def convertHostUrlToLocalPath(host_url: str) -> str:
     """

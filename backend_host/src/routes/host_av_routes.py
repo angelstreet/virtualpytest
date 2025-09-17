@@ -251,13 +251,13 @@ def take_screenshot():
         
         time.sleep(0.5)
         
-        from utils.build_url_utils import buildCaptureUrlFromPath, buildClientImageUrl
+        from utils.build_url_utils import buildCaptureUrlFromPath
         from utils.host_utils import get_host_instance as get_host
         
         try:
             host = get_host()
             screenshot_url = buildCaptureUrlFromPath(host.to_dict(), screenshot_path, device_id)
-            client_screenshot_url = buildClientImageUrl(screenshot_url)
+            client_screenshot_url = screenshot_url
             
             return jsonify({
                 'success': True,
@@ -336,9 +336,8 @@ def save_screenshot():
             
             r2_url = upload_result.get('url')
             
-            from utils.build_url_utils import buildClientImageUrl
-            client_r2_url = buildClientImageUrl(r2_url)
-            client_local_path = buildClientImageUrl(local_screenshot_path)
+            client_r2_url = r2_url
+            client_local_path = local_screenshot_path
             
             return jsonify({
                 'success': True,

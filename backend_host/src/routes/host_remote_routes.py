@@ -47,9 +47,7 @@ def take_screenshot():
         success, screenshot_data, error = remote_controller.take_screenshot()
         
         if success:
-            # Process screenshot data URL for client consumption
-            from utils.build_url_utils import buildClientImageUrl
-            processed_screenshot = buildClientImageUrl(screenshot_data) if screenshot_data else screenshot_data
+            processed_screenshot = screenshot_data
             
             return jsonify({
                 'success': True,

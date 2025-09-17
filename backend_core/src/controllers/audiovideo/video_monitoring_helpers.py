@@ -384,7 +384,7 @@ class VideoMonitoringHelpers:
     def _build_capture_urls(self, capture_files: List[Dict]) -> List[Dict]:
         """Build URLs for capture files using existing URL building utilities"""
         try:
-            from utils.build_url_utils import buildCaptureUrlFromPath, buildClientImageUrl
+            from utils.build_url_utils import buildCaptureUrlFromPath
             from utils.host_utils import get_host_instance as get_host
             
             host = get_host()
@@ -399,8 +399,7 @@ class VideoMonitoringHelpers:
                     # Build URL from file path using same mechanism as screenshots
                     capture_url = buildCaptureUrlFromPath(host_dict, capture['filepath'], device_id)
                     
-                    # Process URL for client consumption
-                    client_capture_url = buildClientImageUrl(capture_url)
+                    client_capture_url = capture_url
                     
                     captures.append({
                         'filename': capture['filename'],
@@ -421,7 +420,7 @@ class VideoMonitoringHelpers:
     def _build_json_url(self, json_filepath: str) -> str:
         """Build URL for JSON file using existing URL building utilities"""
         try:
-            from utils.build_url_utils import buildCaptureUrlFromPath, buildClientImageUrl
+            from utils.build_url_utils import buildCaptureUrlFromPath
             from utils.host_utils import get_host_instance as get_host
             
             host = get_host()
@@ -434,8 +433,7 @@ class VideoMonitoringHelpers:
             json_url = buildCaptureUrlFromPath(host_dict, json_filepath, device_id)
             json_url = json_url.replace('.jpg', '.json')  # Fix the extension
             
-            # Process URL for client consumption  
-            client_json_url = buildClientImageUrl(json_url)
+            client_json_url = json_url
             
             return client_json_url
             
