@@ -128,12 +128,47 @@ export const buildVerificationResultUrl = (host: any, resultsPath: string): stri
  * Supports device-specific stream paths for multi-device hosts
  */
 export const buildStreamUrl = (host: any, deviceId?: string): string => {
+  console.log('[buildStreamUrl] Starting stream URL construction', {
+    hostName: host?.host_name,
+    hostUrl: host?.host_url,
+    hostIp: host?.host_ip,
+    hostPort: host?.host_port,
+    deviceId,
+    devicesCount: host?.devices?.length || 0
+  });
+
   if (!deviceId) {
+    console.error('[buildStreamUrl] deviceId is required but not provided');
     throw new Error('deviceId is required for buildStreamUrl');
   }
-  // Get device-specific stream path
-  const streamPath = getDeviceStreamUrlPath(host, deviceId);
-  return internalBuildHostUrl(host, `host${streamPath}/output.m3u8`);
+
+  try {
+    // Get device-specific stream path
+    const streamPath = getDeviceStreamUrlPath(host, deviceId);
+    console.log('[buildStreamUrl] Device stream path resolved', {
+      deviceId,
+      streamPath
+    });
+
+    const fullEndpoint = `host${streamPath}/output.m3u8`;
+    const finalUrl = internalBuildHostUrl(host, fullEndpoint);
+    
+    console.log('[buildStreamUrl] Stream URL constructed successfully', {
+      deviceId,
+      streamPath,
+      fullEndpoint,
+      finalUrl
+    });
+
+    return finalUrl;
+  } catch (error) {
+    console.error('[buildStreamUrl] Failed to construct stream URL', {
+      deviceId,
+      hostName: host?.host_name,
+      error: error instanceof Error ? error.message : error
+    });
+    throw error;
+  }
 };
 
 /**
