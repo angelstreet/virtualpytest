@@ -114,13 +114,15 @@ const RecHostStreamModalContent: React.FC<{
     aiPlan,
     isPlanFeasible,
     errorMessage: aiError,
+    executionLog,
+    currentStep,
     setTaskInput,
     executeTask: executeAITask,
     clearLog: clearAILog,
   } = useAIAgent({
     host,
     device: device!,
-    enabled: aiAgentMode && isControlActive,
+    enabled: true, // Always enabled so polling works
   });
 
   // Stable stream container dimensions to prevent re-renders
@@ -953,9 +955,10 @@ const RecHostStreamModalContent: React.FC<{
                     variant="contained"
                     size="small"
                     onClick={executeAITask}
-                    disabled={!taskInput.trim() || isAIExecuting}
+                    disabled={!taskInput.trim() || isAIExecuting || !isControlActive}
+                    startIcon={isAIExecuting ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : undefined}
                     sx={{
-                      backgroundColor: '#2196f3',
+                      backgroundColor: isAIExecuting ? '#1976d2' : '#2196f3',
                       color: '#ffffff',
                       minWidth: '80px',
                       '&:hover': {
@@ -967,13 +970,86 @@ const RecHostStreamModalContent: React.FC<{
                       },
                     }}
                   >
-                    {isAIExecuting ? (
-                      <CircularProgress size={16} sx={{ color: '#888' }} />
-                    ) : (
-                      'Execute'
-                    )}
+                    {isAIExecuting ? 'Executing...' : 'Execute'}
                   </Button>
                 </Box>
+
+                {/* Progress Display - Show when executing */}
+                {isAIExecuting && (
+                  <Box
+                    sx={{
+                      mt: 1,
+                      p: 1,
+                      backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                      borderRadius: 1,
+                      border: '1px solid #444',
+                    }}
+                  >
+                    <Typography variant="caption" sx={{ color: '#aaa', display: 'block', mb: 0.5 }}>
+                      Progress:
+                    </Typography>
+                    
+                    {/* Current Step */}
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                      <CircularProgress size={12} sx={{ color: '#2196f3' }} />
+                      <Typography variant="body2" sx={{ color: '#2196f3' }}>
+                        {currentStep || 'Processing...'}
+                      </Typography>
+                    </Box>
+
+                    {/* Previous Steps (completed) */}
+                    {executionLog.map((entry, index) => {
+                      if (entry.action_type === 'step_success') {
+                        const stepData = entry.value;
+                        return (
+                          <Box key={index} sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                            <Box sx={{ width: 12, height: 12, borderRadius: '50%', backgroundColor: '#4caf50' }} />
+                            <Typography variant="body2" sx={{ color: '#4caf50' }}>
+                              ✅ Step {stepData.step} completed ({stepData.duration.toFixed(1)}s)
+                            </Typography>
+                          </Box>
+                        );
+                      } else if (entry.action_type === 'step_failed') {
+                        const stepData = entry.value;
+                        return (
+                          <Box key={index} sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                            <Box sx={{ width: 12, height: 12, borderRadius: '50%', backgroundColor: '#f44336' }} />
+                            <Typography variant="body2" sx={{ color: '#f44336' }}>
+                              ❌ Step {stepData.step} failed ({stepData.duration.toFixed(1)}s)
+                            </Typography>
+                          </Box>
+                        );
+                      }
+                      return null;
+                    })}
+
+                    {/* Next Steps (upcoming) */}
+                    {aiPlan && aiPlan.plan && (
+                      <>
+                        {aiPlan.plan.map((step: any, index: number) => {
+                          const stepNumber = step.step || index + 1;
+                          const isCompleted = executionLog.some(entry => 
+                            (entry.action_type === 'step_success' || entry.action_type === 'step_failed') && 
+                            entry.value.step === stepNumber
+                          );
+                          const isCurrentStep = currentStep && currentStep.includes(`Step ${stepNumber}`);
+                          
+                          if (!isCompleted && !isCurrentStep) {
+                            return (
+                              <Box key={index} sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                                <Box sx={{ width: 12, height: 12, borderRadius: '50%', backgroundColor: '#666', border: '1px solid #888' }} />
+                                <Typography variant="body2" sx={{ color: '#888' }}>
+                                  ⏳ Step {stepNumber}: {step.description}
+                                </Typography>
+                              </Box>
+                            );
+                          }
+                          return null;
+                        })}
+                      </>
+                    )}
+                  </Box>
+                )}
 
                 {/* AI Plan Display */}
                 {aiPlan && (
