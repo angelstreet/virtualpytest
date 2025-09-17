@@ -632,21 +632,12 @@ If task is not possible:
 
 RESPOND WITH JSON ONLY. ANALYSIS FIELD IS REQUIRED:"""
             
-            # Call AI with 30s timeout and fail fast (no Hugging Face fallback)
-            print(f"AI[{self.device_name}]: Making AI call with 30s timeout")
+            # Call AI with timeout handled by AI utils (no signal handling needed)
+            print(f"AI[{self.device_name}]: Making AI call with built-in timeout")
             print(f"AI[{self.device_name}]: FULL PROMPT BEING SENT:")
             print("=" * 80)
             print(prompt)
             print("=" * 80)
-            
-            import signal
-            
-            def timeout_handler(signum, frame):
-                raise TimeoutError("AI generation timed out after 30 seconds")
-            
-            # Set up timeout
-            signal.signal(signal.SIGALRM, timeout_handler)
-            signal.alarm(30)  # 30 second timeout
             
             try:
                 result = call_text_ai(
@@ -654,13 +645,6 @@ RESPOND WITH JSON ONLY. ANALYSIS FIELD IS REQUIRED:"""
                     max_tokens=1000,
                     temperature=0.0
                 )
-            except TimeoutError as e:
-                error_msg = "AI generation timed out after 30 seconds"
-                print(f"AI[{self.device_name}]: {error_msg}")
-                return {
-                    'success': False,
-                    'error': error_msg
-                }
             except Exception as e:
                 error_msg = f"AI generation failed with exception: {str(e)}"
                 print(f"AI[{self.device_name}]: {error_msg}")
@@ -668,8 +652,6 @@ RESPOND WITH JSON ONLY. ANALYSIS FIELD IS REQUIRED:"""
                     'success': False,
                     'error': error_msg
                 }
-            finally:
-                signal.alarm(0)  # Cancel the alarm
             
             # Check if AI call succeeded
             if not result['success']:
