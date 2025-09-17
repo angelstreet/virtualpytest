@@ -570,11 +570,22 @@ Rules:
 - "click X" → click_element, element_id="X"
 - "press X" → press_key, key="X"
 
-JSON only:
-{{"feasible": true, "plan": [{{"step": 1, "command": "execute_navigation", "params": {{"target_node": "home"}}, "description": "Navigate"}}]}}"""
+CRITICAL: You MUST include an "analysis" field explaining your reasoning.
+
+Example response format:
+{{"analysis": "Task requires navigating to live content. Since 'live' node is available, I'll navigate there directly.", "feasible": true, "plan": [{{"step": 1, "command": "execute_navigation", "params": {{"target_node": "live"}}, "description": "Navigate to live content"}}]}}
+
+If task is not possible:
+{{"analysis": "Task cannot be completed because the requested node does not exist in the navigation tree.", "feasible": false, "plan": []}}
+
+RESPOND WITH JSON ONLY. ANALYSIS FIELD IS REQUIRED:"""
             
             # Call centralized AI utilities with automatic provider fallback
             print(f"AI[{self.device_name}]: Making AI call with automatic provider fallback")
+            print(f"AI[{self.device_name}]: FULL PROMPT BEING SENT:")
+            print("=" * 80)
+            print(prompt)
+            print("=" * 80)
             
             result = call_text_ai(
                 prompt=prompt,
