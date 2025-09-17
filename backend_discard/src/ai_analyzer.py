@@ -45,20 +45,14 @@ class SimpleAIAnalyzer:
     """Simple AI analyzer using centralized AI service"""
     
     def __init__(self):
-        # Check if centralized AI service is available
+        # Check if AI utilities are available
         try:
-            from shared.lib.ai import get_ai_service
-            self.ai_service = get_ai_service()
-            
-            # Check if any providers are available
-            available_providers = self.ai_service.get_available_providers()
-            if not any(available_providers.values()):
-                raise ValueError("No AI providers available - missing API keys")
-            
-            print(f"[@ai_analyzer] Initialized with centralized AI service")
-            print(f"[@ai_analyzer] Available providers: {[k for k, v in available_providers.items() if v]}")
+            from shared.lib.utils.ai_utils import call_text_ai, call_vision_ai
+            self.call_text_ai = call_text_ai
+            self.call_vision_ai = call_vision_ai
+            print(f"[@ai_analyzer] Initialized with centralized AI utilities")
         except ImportError:
-            raise ValueError("Centralized AI service not available")
+            raise ValueError("AI utilities not available")
         
         # Initialize Supabase client for database access
         try:
@@ -236,9 +230,9 @@ Respond ONLY in this JSON format:
             return AnalysisResult(success=False, error=str(e))
     
     def _call_text_ai(self, prompt: str) -> AnalysisResult:
-        """Call text AI model using centralized AI service"""
+        """Call text AI model using centralized AI utilities"""
         try:
-            result = self.ai_service.call_ai(prompt, task_type='text', max_tokens=200, temperature=0.1)
+            result = self.call_text_ai(prompt, max_tokens=200, temperature=0.1)
             
             if result['success']:
                 print(f"[@ai_analyzer] Text AI success with provider: {result.get('provider_used', 'unknown')}")
@@ -275,9 +269,9 @@ Respond ONLY in this JSON format:
             return AnalysisResult(success=False, error=str(e))
     
     def _call_vision_ai(self, prompt: str, image_b64: str) -> AnalysisResult:
-        """Call vision AI model using centralized AI service"""
+        """Call vision AI model using centralized AI utilities"""
         try:
-            result = self.ai_service.call_ai(prompt, task_type='vision', image=image_b64, max_tokens=200, temperature=0.1)
+            result = self.call_vision_ai(prompt, image_b64, max_tokens=200, temperature=0.1)
             
             if result['success']:
                 print(f"[@ai_analyzer] Vision AI success with provider: {result.get('provider_used', 'unknown')}")

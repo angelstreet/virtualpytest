@@ -1,8 +1,8 @@
 """
-AI Utilities - Clean Interface to Centralized AI Service
+AI Utilities - Centralized AI Configuration and Interface
 
-All AI calls now go through the centralized AIService.
-No hardcoded models - everything configured in config/ai_config.py
+All AI calls with OpenRouter (primary) and Hugging Face (fallback).
+No hardcoded models - everything configured here.
 """
 
 import os
@@ -10,15 +10,48 @@ import base64
 import json
 import tempfile
 import cv2
+import requests
 from datetime import datetime
 from typing import Dict, Any, Optional, Union
 
-# Import centralized AI service
-from shared.lib.ai import get_ai_service
+# =============================================================================
+# AI Configuration - Centralized Models and Providers
+# =============================================================================
 
-# =============================================================================
-# Configuration - Only for batch processing
-# =============================================================================
+AI_CONFIG = {
+    'providers': {
+        'openrouter': {
+            'api_key_env': 'OPENROUTER_API_KEY',
+            'base_url': 'https://openrouter.ai/api/v1/chat/completions',
+            'headers': {
+                'HTTP-Referer': 'https://virtualpytest.com',
+                'X-Title': 'VirtualPyTest'
+            },
+            'models': {
+                'text': 'microsoft/phi-3-mini-128k-instruct',
+                'vision': 'qwen/qwen-2.5-vl-7b-instruct',
+                'translation': 'microsoft/phi-3-mini-128k-instruct'
+            }
+        },
+        'huggingface': {
+            'api_key_env': 'HUGGINGFACE_API_KEY',
+            'base_url': 'https://api-inference.huggingface.co/models',
+            'headers': {},
+            'models': {
+                'text': 'microsoft/DialoGPT-medium',
+                'vision': 'Salesforce/blip-image-captioning-base', 
+                'translation': 'Helsinki-NLP/opus-mt-en-de'
+            }
+        }
+    },
+    'defaults': {
+        'primary_provider': 'openrouter',
+        'fallback_provider': 'huggingface',
+        'timeout': 60,
+        'max_tokens': 1000,
+        'temperature': 0.0
+    }
+}
 
 AI_BATCH_CONFIG = {
     'batch_size': 4,
@@ -41,29 +74,167 @@ def _format_timestamp(timestamp: float) -> str:
 # =============================================================================
 
 def call_text_ai(prompt: str, max_tokens: int = 200, temperature: float = 0.1) -> Dict[str, Any]:
-    """Simple text AI call using centralized service."""
-    ai_service = get_ai_service()
-    result = ai_service.call_ai(prompt, task_type='text', max_tokens=max_tokens, temperature=temperature)
-    print(f"[AI_UTILS] Text AI result: success={result['success']}, provider={result.get('provider_used', 'unknown')}")
-    return result
+    """Simple text AI call with OpenRouter (primary) and Hugging Face (fallback)."""
+    return _call_ai(prompt, task_type='text', max_tokens=max_tokens, temperature=temperature)
 
 def call_vision_ai(prompt: str, image_input: Union[str, bytes], max_tokens: int = 300, temperature: float = 0.0) -> Dict[str, Any]:
-    """Simple vision AI call using centralized service."""
-    ai_service = get_ai_service()
-    result = ai_service.call_ai(prompt, task_type='vision', image=image_input, max_tokens=max_tokens, temperature=temperature)
-    print(f"[AI_UTILS] Vision AI result: success={result['success']}, provider={result.get('provider_used', 'unknown')}")
-    return result
+    """Simple vision AI call with OpenRouter (primary) and Hugging Face (fallback)."""
+    return _call_ai(prompt, task_type='vision', image=image_input, max_tokens=max_tokens, temperature=temperature)
+
+def _call_ai(prompt: str, task_type: str = 'text', image: Union[str, bytes] = None, 
+             max_tokens: int = None, temperature: float = None) -> Dict[str, Any]:
+    """
+    Centralized AI call with automatic provider fallback.
+    Always tries OpenRouter first, then Hugging Face if it fails.
+    """
+    # Set defaults
+    max_tokens = max_tokens or AI_CONFIG['defaults']['max_tokens']
+    temperature = temperature or AI_CONFIG['defaults']['temperature']
+    
+    # Try OpenRouter first
+    try:
+        model = AI_CONFIG['providers']['openrouter']['models'].get(task_type)
+        if model:
+            print(f"[AI_UTILS] Trying OpenRouter with model {model}")
+            result = _openrouter_call(prompt, model, image, max_tokens, temperature)
+            if result['success']:
+                result['provider_used'] = 'openrouter'
+                print(f"[AI_UTILS] OpenRouter success")
+                return result
+    except Exception as e:
+        print(f"[AI_UTILS] OpenRouter failed: {e}")
+    
+    # Try Hugging Face fallback
+    try:
+        model = AI_CONFIG['providers']['huggingface']['models'].get(task_type)
+        if model:
+            print(f"[AI_UTILS] Trying Hugging Face fallback with model {model}")
+            result = _huggingface_call(prompt, model, image, max_tokens, temperature)
+            if result['success']:
+                result['provider_used'] = 'huggingface'
+                print(f"[AI_UTILS] Hugging Face success")
+                return result
+    except Exception as e:
+        print(f"[AI_UTILS] Hugging Face failed: {e}")
+    
+    return {'success': False, 'error': 'Both OpenRouter and Hugging Face failed', 'content': '', 'provider_used': 'none'}
+
+def _openrouter_call(prompt: str, model: str, image: Union[str, bytes] = None, 
+                    max_tokens: int = 1000, temperature: float = 0.0) -> Dict[str, Any]:
+    """OpenRouter API call"""
+    try:
+        # Get API key
+        api_key = os.getenv(AI_CONFIG['providers']['openrouter']['api_key_env'])
+        if not api_key:
+            return {'success': False, 'error': 'OpenRouter API key not found', 'content': ''}
+        
+        # Prepare headers
+        headers = {
+            'Authorization': f'Bearer {api_key}',
+            'Content-Type': 'application/json',
+            **AI_CONFIG['providers']['openrouter']['headers']
+        }
+        
+        # Prepare message content
+        if image:
+            # Vision request
+            image_b64 = _process_image_input(image)
+            if not image_b64:
+                return {'success': False, 'error': 'Failed to process image', 'content': ''}
+            
+            content = [
+                {'type': 'text', 'text': prompt},
+                {'type': 'image_url', 'image_url': {'url': f'data:image/jpeg;base64,{image_b64}'}}
+            ]
+        else:
+            # Text request
+            content = prompt
+        
+        # Make API call
+        response = requests.post(
+            AI_CONFIG['providers']['openrouter']['base_url'],
+            headers=headers,
+            json={
+                'model': model,
+                'messages': [{'role': 'user', 'content': content}],
+                'max_tokens': max_tokens,
+                'temperature': temperature
+            },
+            timeout=AI_CONFIG['defaults']['timeout']
+        )
+        
+        if response.status_code == 200:
+            result = response.json()
+            content = result['choices'][0]['message']['content']
+            return {'success': True, 'content': content}
+        else:
+            error_text = response.text[:500] if response.text else f"HTTP {response.status_code}"
+            return {'success': False, 'error': f'OpenRouter error: {error_text}', 'content': ''}
+            
+    except Exception as e:
+        return {'success': False, 'error': f'OpenRouter exception: {str(e)}', 'content': ''}
+
+def _huggingface_call(prompt: str, model: str, image: Union[str, bytes] = None,
+                     max_tokens: int = 1000, temperature: float = 0.0) -> Dict[str, Any]:
+    """Hugging Face API call"""
+    try:
+        # Get API key
+        api_key = os.getenv(AI_CONFIG['providers']['huggingface']['api_key_env'])
+        if not api_key:
+            return {'success': False, 'error': 'Hugging Face API key not found', 'content': ''}
+        
+        # Prepare headers
+        headers = {
+            'Authorization': f'Bearer {api_key}',
+            'Content-Type': 'application/json'
+        }
+        
+        # Build URL
+        url = f"{AI_CONFIG['providers']['huggingface']['base_url']}/{model}"
+        
+        # Prepare payload
+        if image:
+            # Vision task
+            image_b64 = _process_image_input(image)
+            if not image_b64:
+                return {'success': False, 'error': 'Failed to process image', 'content': ''}
+            
+            payload = {'inputs': image_b64}
+        else:
+            # Text task
+            payload = {'inputs': prompt}
+        
+        # Make API call
+        response = requests.post(url, headers=headers, json=payload, timeout=AI_CONFIG['defaults']['timeout'])
+        
+        if response.status_code == 200:
+            result = response.json()
+            
+            # Handle different response formats
+            if isinstance(result, list) and len(result) > 0:
+                if 'generated_text' in result[0]:
+                    content = result[0]['generated_text']
+                else:
+                    content = str(result[0])
+            else:
+                content = str(result)
+            
+            return {'success': True, 'content': content}
+        else:
+            error_text = response.text[:500] if response.text else f"HTTP {response.status_code}"
+            return {'success': False, 'error': f'Hugging Face error: {error_text}', 'content': ''}
+            
+    except Exception as e:
+        return {'success': False, 'error': f'Hugging Face exception: {str(e)}', 'content': ''}
 
 def call_vision_ai_batch(prompt: str, image_paths: list, max_tokens: int = None, temperature: float = None) -> Dict[str, Any]:
-    """Simple batch vision AI call using centralized service."""
-    print(f"[AI_UTILS] Batch processing {len(image_paths)} images using centralized AI service")
-    
-    ai_service = get_ai_service()
+    """Simple batch vision AI call."""
+    print(f"[AI_UTILS] Batch processing {len(image_paths)} images")
     
     # Process first image with batch context (can be enhanced for true batch processing later)
     if image_paths:
         batch_prompt = f"{prompt}\n\nNote: This is part of a batch analysis of {len(image_paths)} images."
-        result = ai_service.call_ai(
+        result = _call_ai(
             batch_prompt, 
             task_type='vision', 
             image=image_paths[0], 
