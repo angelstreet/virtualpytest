@@ -583,12 +583,34 @@ JSON only:
                 
                 # Parse JSON response
                 try:
-                    # Clean up markdown code blocks (same as other AI utilities)
+                    # Clean up markdown code blocks and extract only JSON
                     json_content = content.strip()
+                    
+                    # Remove markdown code blocks
                     if json_content.startswith('```json'):
-                        json_content = json_content.replace('```json', '').replace('```', '').strip()
+                        json_content = json_content.replace('```json', '', 1).strip()
                     elif json_content.startswith('```'):
-                        json_content = json_content.replace('```', '').strip()
+                        json_content = json_content.replace('```', '', 1).strip()
+                    
+                    # Remove trailing markdown blocks and extra content
+                    if '```' in json_content:
+                        json_content = json_content.split('```')[0].strip()
+                    
+                    # Find the JSON object boundaries
+                    if json_content.startswith('{'):
+                        # Find the matching closing brace
+                        brace_count = 0
+                        json_end = 0
+                        for i, char in enumerate(json_content):
+                            if char == '{':
+                                brace_count += 1
+                            elif char == '}':
+                                brace_count -= 1
+                                if brace_count == 0:
+                                    json_end = i + 1
+                                    break
+                        if json_end > 0:
+                            json_content = json_content[:json_end]
                     
                     ai_plan = json.loads(json_content)
                     print(f"AI[{self.device_name}]: AI plan generated successfully")

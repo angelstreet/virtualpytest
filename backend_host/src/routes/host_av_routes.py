@@ -200,11 +200,11 @@ def get_stream_url():
                 'available_capabilities': device.get_capabilities()
             }), 404
         
-        from utils.build_url_utils import buildStreamUrlForDevice
+        from utils.build_url_utils import buildStreamUrl
         from utils.host_utils import get_host_instance as get_host
         
         host = get_host()
-        stream_url = buildStreamUrlForDevice(host.to_dict(), device_id)
+        stream_url = buildStreamUrl(host.to_dict(), device_id)
         
         return jsonify({
             'success': True,

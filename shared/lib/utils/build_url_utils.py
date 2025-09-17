@@ -609,14 +609,25 @@ def buildStreamUrlForDevice(host_info: dict, device_id: str) -> str:
         buildStreamUrlForDevice(host_info, 'host_vnc')
         -> 'https://host:444/host/vnc/stream'
     """
+    print(f"[@build_url_utils:buildStreamUrlForDevice] Starting stream URL construction for device: {device_id}")
+    print(f"[@build_url_utils:buildStreamUrlForDevice] Host info: {host_info.get('host_name', 'unknown')} - {host_info.get('host_url', 'no_url')}")
+    
     # Check if this is a VNC device
     device = get_device_by_id(host_info, device_id)
+    print(f"[@build_url_utils:buildStreamUrlForDevice] Device found: {device is not None}")
+    if device:
+        print(f"[@build_url_utils:buildStreamUrlForDevice] Device model: {device.get('device_model', 'unknown')}")
+    
     if device and device.get('device_model') == 'host_vnc':
+        print(f"[@build_url_utils:buildStreamUrlForDevice] Processing VNC device: {device_id}")
         # For VNC devices, return the video_stream_path directly
         # The VNC controller should handle password injection
         vnc_stream_url = device.get('video_stream_path')
         if not vnc_stream_url:
+            print(f"[@build_url_utils:buildStreamUrlForDevice] ERROR: VNC device {device_id} has no video_stream_path")
             raise ValueError(f"VNC device {device_id} has no video_stream_path configured")
+        
+        print(f"[@build_url_utils:buildStreamUrlForDevice] VNC stream path: {vnc_stream_url}")
         
         # Replace localhost with actual host IP for network accessibility
         if 'localhost' in vnc_stream_url and host_info:
@@ -625,10 +636,14 @@ def buildStreamUrlForDevice(host_info: dict, device_id: str) -> str:
                 vnc_stream_url = vnc_stream_url.replace('localhost', host_ip)
                 print(f"[@build_url_utils:buildStreamUrlForDevice] Replaced localhost with {host_ip}: {vnc_stream_url}")
         
+        print(f"[@build_url_utils:buildStreamUrlForDevice] Final VNC URL: {vnc_stream_url}")
         return vnc_stream_url
     else:
+        print(f"[@build_url_utils:buildStreamUrlForDevice] Processing regular device, calling buildStreamUrl")
         # For regular devices, return HLS stream URL
-        return buildStreamUrl(host_info, device_id)
+        stream_url = buildStreamUrl(host_info, device_id)
+        print(f"[@build_url_utils:buildStreamUrlForDevice] Final stream URL: {stream_url}")
+        return stream_url
 
 def resolveCaptureFilePath(filename: str) -> str:
     """
