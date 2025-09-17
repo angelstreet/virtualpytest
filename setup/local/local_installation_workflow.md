@@ -126,7 +126,7 @@ VirtualPyTest is a comprehensive test automation platform for connected devices 
 - **Frontend** → http://localhost:3000
 - **Backend Server** → http://localhost:5109
 - **Backend Host** → Device control ready
-- **Grafana** → http://localhost:3001
+- **Grafana** → http://localhost:3000
 - **PostgreSQL** → Database ready
 
 ## 🔧 **Configuration Files Created**
@@ -255,7 +255,7 @@ After successful installation, you should see:
 ✅ **Services:** All components start without errors  
 ✅ **Web Interface:** Accessible at http://localhost:3000  
 ✅ **API:** Backend responds at http://localhost:5109  
-✅ **Monitoring:** Grafana dashboard at http://localhost:3001  
+✅ **Monitoring:** Grafana dashboard at http://localhost:3000  
 ✅ **Configuration:** All .env files created with examples  
 
 ## 🚀 **Next Steps**

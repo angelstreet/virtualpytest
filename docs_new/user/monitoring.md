@@ -21,7 +21,7 @@
 http://localhost:5109/grafana
 
 # Direct Grafana access
-http://localhost:3001
+http://localhost:3000
 ```
 
 **Default Login**:

@@ -50,7 +50,7 @@ docker-compose -f setup/docker/docker-compose.standalone.yml down
 - **Web Interface:** http://localhost:3000
 - **API Server:** http://localhost:5109
 - **Device Controller:** http://localhost:6109
-- **Grafana Monitoring:** http://localhost:3001
+- **Grafana Monitoring:** http://localhost:3000
 
 ### **Configuration:**
 No external configuration needed - everything runs locally with default settings.
@@ -406,6 +406,6 @@ docker-compose -f setup/docker/docker-compose.[setup].yml logs -f
 - **Frontend:** http://localhost:3000 (standalone only)
 - **API:** http://localhost:5109
 - **Device Controller:** http://localhost:6109
-- **Grafana:** http://localhost:3001
+- **Grafana:** http://localhost:3000
 
 Choose the setup that matches your deployment needs! 🚀

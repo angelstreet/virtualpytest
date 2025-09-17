@@ -131,6 +131,16 @@ export default defineConfig({
     fs: {
       strict: false,
     },
+    // Configure CORS headers for cross-origin requests (including Grafana embedding)
+    cors: {
+      origin: true, // Allow all origins in development
+      credentials: true, // Allow cookies to be sent with requests
+    },
+    // Add headers to support embedding in iframes
+    headers: {
+      'X-Frame-Options': 'SAMEORIGIN',
+      'Content-Security-Policy': "frame-ancestors 'self' http://localhost:3000 https://localhost:3000",
+    },
   },
   // Configure build for proper SPA handling
   build: {

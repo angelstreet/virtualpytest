@@ -238,8 +238,30 @@ EOF
     # Update configuration for local use (change port to 3001 to avoid conflicts)
     sudo sed -i 's/http_port = 3000/http_port = 3001/' /etc/grafana/grafana.ini
     sudo sed -i 's/domain = dev.virtualpytest.com/domain = localhost/' /etc/grafana/grafana.ini
-    sudo sed -i 's|root_url = https://dev.virtualpytest.com/grafana/|root_url = http://localhost:3001/|' /etc/grafana/grafana.ini
+    sudo sed -i 's|root_url = https://dev.virtualpytest.com/grafana/|root_url = http://localhost:3000/|' /etc/grafana/grafana.ini
     sudo sed -i 's/serve_from_sub_path = true/serve_from_sub_path = false/' /etc/grafana/grafana.ini
+    
+    # Configure security settings for local development with cross-origin support
+    echo "🔒 Configuring security settings for local development..."
+    
+    # Disable secure cookies for HTTP (local development)
+    sudo sed -i 's/cookie_secure = true/cookie_secure = false/' /etc/grafana/grafana.ini
+    
+    # Set SameSite to None for cross-origin embedding (required for iframe embedding)
+    sudo sed -i 's/cookie_samesite = lax/cookie_samesite = none/' /etc/grafana/grafana.ini
+    
+    # Ensure embedding is allowed (should already be true, but make sure)
+    sudo sed -i 's/;allow_embedding = false/allow_embedding = true/' /etc/grafana/grafana.ini
+    sudo sed -i 's/allow_embedding = false/allow_embedding = true/' /etc/grafana/grafana.ini
+    
+    # Add CSRF trusted origins for local development
+    # This allows requests from Vite dev server and common local IPs
+    sudo sed -i 's/;csrf_trusted_origins = example.com/csrf_trusted_origins = localhost:5073 127.0.0.1:5073 192.168.1.34:5073 0.0.0.0:5073/' /etc/grafana/grafana.ini
+    
+    # If the line doesn't exist, add it
+    if ! grep -q "csrf_trusted_origins" /etc/grafana/grafana.ini; then
+        sudo sed -i '/\[security\]/a csrf_trusted_origins = localhost:5073 127.0.0.1:5073 192.168.1.34:5073 0.0.0.0:5073' /etc/grafana/grafana.ini
+    fi
     
     # Set proper permissions
     sudo chown -R grafana:grafana /var/lib/grafana
@@ -306,7 +328,7 @@ fi
 export SUPABASE_DB_URI="${SUPABASE_DB_URI:-postgres://user:pass@localhost:5432/postgres}"
 
 echo "🚀 Starting Grafana server..."
-echo "📊 Grafana will be available at: http://localhost:3001"
+echo "📊 Grafana will be available at: http://localhost:3000"
 echo "🔑 Login: admin / admin123"
 echo "💡 Press Ctrl+C to stop"
 
@@ -372,7 +394,7 @@ main() {
     echo "   ./setup/local/launch_grafana.sh"
     echo ""
 echo "🌐 Access Grafana at:"
-echo "   URL: http://localhost:3001"
+echo "   URL: http://localhost:3000"
 echo "   Login: admin / admin123"
     echo ""
     echo "📊 Configuration files:"
@@ -385,6 +407,9 @@ echo "   Login: admin / admin123"
     echo "   2. Configure SUPABASE_DB_URI environment variable (optional)"
     echo "   3. Import existing dashboards from backend_server/config/grafana/dashboards/"
     echo "   4. Create custom dashboards for your local metrics"
+    echo ""
+    echo "🔧 If you have CORS issues with Vite frontend:"
+    echo "   Run: ./setup/local/fix_grafana_cors.sh"
 }
 
 # Run main installation

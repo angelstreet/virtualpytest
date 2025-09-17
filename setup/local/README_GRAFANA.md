@@ -30,7 +30,7 @@ This document explains how to install and use Grafana for local development and 
 
 ## 📊 Access Grafana
 
-- **URL**: http://localhost:3001
+- **URL**: http://localhost:3000
 - **Username**: admin
 - **Password**: admin123
 
@@ -94,7 +94,7 @@ VirtualPyTest Local Development
 ```
 
 ### 2. Dashboard Development
-1. Access Grafana at http://localhost:3001
+1. Access Grafana at http://localhost:3000
 2. Create/edit dashboards in the "Local" folder
 3. Export dashboards to `./grafana/dashboards/` for version control
 4. Test with local metrics database
@@ -198,7 +198,7 @@ export GRAFANA_ADMIN_PASSWORD="admin123"
 1. **Install**: Run `./setup/local/install_grafana.sh`
 2. **Configure**: Set environment variables if needed
 3. **Start**: Run `./setup/local/launch_all.sh --with-grafana`
-4. **Access**: Open http://localhost:3001 (admin/admin123)
+4. **Access**: Open http://localhost:3000 (admin/admin123)
 5. **Develop**: Create custom dashboards and metrics
 6. **Deploy**: Export dashboards to production when ready
 

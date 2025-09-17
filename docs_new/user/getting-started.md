@@ -98,7 +98,7 @@ The web interface has these main sections:
 - **🔧 Devices**: Configure your hardware (TVs, phones, etc.)
 - **📈 Monitoring**: Real-time system health
 
-### Monitoring Dashboard (http://localhost:3001)
+### Monitoring Dashboard (http://localhost:3000)
 
 Grafana provides detailed analytics:
 

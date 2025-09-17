@@ -202,7 +202,7 @@ sudo systemctl stop grafana-server
    Look for successful database connection messages.
 
 2. **Access Grafana dashboard**:
-   - Open http://localhost:3001
+   - Open http://localhost:3000
    - Login with admin/admin (or your configured credentials)
    - Verify dashboards load without errors
 
