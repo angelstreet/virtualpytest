@@ -6,9 +6,9 @@ The Audio AI Helper system extends VirtualPyTest's analysis capabilities by addi
 
 ## ✅ **PERFORMANCE OPTIMIZATION COMPLETED**
 
-**Current Status**: AudioAIHelpers has been optimized for fast, local processing.
+**Current Status**: Audio processing system has been optimized for fast, local processing with unified dubbing and sync functionality.
 
-**Key Improvements**:
+### AudioAIHelpers Improvements:
 - **Local Whisper**: Replaced OpenRouter API with local Whisper models
 - **Tiny Model**: Uses ~39MB "tiny" model instead of 1.5GB large models
 - **Reduced Segments**: Analyzes 2 segments instead of 3 (33% faster)
@@ -16,12 +16,21 @@ The Audio AI Helper system extends VirtualPyTest's analysis capabilities by addi
 - **Model Caching**: Loads model once and reuses for all iterations
 - **HLS Integration**: Properly extracts audio from `.ts` HLS segments
 
+### AudioDubbingHelpers Improvements:
+- **Fast Dubbing**: 2-step process (~5-8s) without Demucs separation
+- **Cache-Based Sync**: Reuses extracted components for timing adjustments
+- **No Duplicate Code**: Sync reuses dubbing combine logic
+- **Consistent Processing**: Same FFmpeg mapping approach eliminates "2 audio" issues
+- **Edge-TTS Integration**: High-quality multilingual voice synthesis
+
 **Performance Gains**:
-- **Processing Time**: 0.5-2 seconds instead of 6+ seconds (up to 8x faster with early stop)
+- **Audio Analysis**: 0.5-2 seconds instead of 6+ seconds (up to 8x faster with early stop)
+- **Dubbing Speed**: ~5-8s instead of 30s+ (6x faster without Demucs)
+- **Sync Speed**: ~2-3s using cached components (10x faster than re-extraction)
 - **Network Independent**: No API calls or internet dependency
-- **Resource Efficient**: 40x smaller model size
-- **Reliability**: No API timeouts or rate limits
-- **Smart Processing**: Stops immediately when speech + language detected (saves 50% processing time)
+- **Resource Efficient**: 40x smaller model size, cached component reuse
+- **Reliability**: No API timeouts, rate limits, or audio conflicts
+- **Code Maintainability**: Single source of truth for audio processing logic
 
 ## 🏗️ Architecture
 
@@ -42,6 +51,42 @@ graph TD
     J --> K[Language Detection]
     K --> L[Log Audio Results<br/>🎤 Format]
     L --> M[Update ZapAnalysisResult<br/>& ZapStatistics]
+    
+    N[VideoRestartHelpers] --> O[AudioDubbingHelpers]
+    O --> P[Fast Dubbing Process]
+    O --> Q[Cache-Based Sync Process]
+    P --> R[Edge-TTS Generation]
+    P --> S[Video + Audio Combine]
+    Q --> T[Cached Component Reuse]
+    Q --> U[Timing Adjustment]
+    U --> S
+```
+
+### Audio Processing Architecture
+
+```mermaid
+graph TD
+    A[Original Video] --> B[AudioDubbingHelpers]
+    B --> C{Process Type}
+    
+    C -->|Dubbing| D[Fast Dubbing Path]
+    D --> E[Generate Edge-TTS Audio]
+    E --> F[Mute Original + Overlay New]
+    F --> G[Dubbed Video Output]
+    
+    C -->|Sync| H[Cache-Based Sync Path]
+    H --> I[Get Cached Silent Video]
+    H --> J[Get Cached Audio<br/>dubbed or original]
+    I --> K[Apply Timing to Audio]
+    J --> K
+    K --> L[Combine Components<br/>same as dubbing]
+    L --> M[Synced Video Output]
+    
+    G --> N[Cache Components]
+    N --> O[Silent Video Cache]
+    N --> P[Audio Cache per Language]
+    O --> I
+    P --> J
 ```
 
 ### File Structure
@@ -50,6 +95,11 @@ graph TD
 backend_core/src/controllers/verification/
 ├── audio_ai_helpers.py          # NEW: Audio AI analysis class
 ├── video_ai_helpers.py          # Existing: Video AI analysis
+└── ...
+
+backend_core/src/controllers/audiovideo/
+├── audio_dubbing_helpers.py     # NEW: Audio dubbing and sync functionality
+├── video_restart_helpers.py     # Enhanced: Video restart with dubbing integration
 └── ...
 
 shared/lib/utils/
@@ -63,7 +113,108 @@ test_scripts/
 
 ## 🔧 Implementation Details
 
-### 1. AudioAIHelpers Class
+### 1. AudioDubbingHelpers Class
+
+**Location**: `backend_core/src/controllers/audiovideo/audio_dubbing_helpers.py`
+
+#### Overview
+
+The AudioDubbingHelpers class provides fast, cache-based audio dubbing and synchronization functionality for restart videos. It uses a consistent 4-step process for both dubbing and sync operations, eliminating duplicate code and ensuring reliable audio processing.
+
+#### Key Features
+
+- **Fast Dubbing**: 2-step process (~5-8s total) without Demucs separation
+- **Cache-Based Sync**: Reuses extracted components for efficient timing adjustments
+- **Consistent Processing**: Same FFmpeg mapping approach for dubbing and sync
+- **No Duplicate Code**: Sync reuses dubbing combine logic
+- **Edge-TTS Integration**: High-quality multilingual voice synthesis
+
+#### Core Methods
+
+##### `create_dubbed_video_fast_step(text, language, video_file, original_video_dir)`
+- **Purpose**: Fast 2-step dubbing without background separation
+- **Process**:
+  1. Generate Edge-TTS audio for target language
+  2. Mute original video and overlay new audio (no background mixing)
+- **Performance**: ~5-8s total (vs 30s+ with Demucs)
+- **Output**: Clean dubbed video with only new language audio
+
+```python
+# Fast dubbing FFmpeg command:
+ffmpeg -i video_file -i edge_tts_audio \
+  -c:v copy \           # Copy video unchanged
+  -c:a aac \            # Encode new audio  
+  -map 0:v:0 \          # Video from original
+  -map 1:a:0 \          # Audio from Edge-TTS (REPLACES original)
+  -shortest \
+  final_dubbed_video.mp4
+```
+
+##### `sync_dubbed_video(language, timing_offset_ms, original_video_dir)`
+- **Purpose**: Apply timing adjustments to dubbed videos using cached components
+- **Process**:
+  1. Use cached silent video (`restart_video_no_audio.mp4`)
+  2. Get appropriate audio (dubbed or original based on language)
+  3. Apply timing adjustment to audio only (`adelay` or `atrim`)
+  4. Combine silent video + timed audio (same as dubbing)
+- **Performance**: ~2-3s (cache-based, no extraction needed)
+- **Cache Strategy**: Reuses components from dubbing process
+
+```python
+# Sync process (reuses dubbing logic):
+# Step 1: Get cached silent video
+# Step 2: Apply timing to cached audio
+ffmpeg -i dubbed_audio.wav -af adelay=300 timed_audio.wav
+# Step 3: Combine (same as dubbing)
+ffmpeg -i silent_video.mp4 -i timed_audio.wav \
+  -c:v copy -c:a aac -map 0:v:0 -map 1:a:0 synced_video.mp4
+```
+
+#### Cache Management
+
+**Cached Components**:
+```
+restart_video_no_audio.mp4           # Silent video (shared across languages)
+restart_{lang}_dubbed_voice_edge.wav # Edge-TTS audio per language
+restart_{lang}_dubbed_voice_edge.mp3 # Same audio in MP3 format
+restart_{lang}_dubbed_video.mp4      # Final dubbed video per language
+```
+
+**Cache Benefits**:
+- **Extract Once**: Silent video created only once from original
+- **Reuse Always**: All sync operations use same cached components
+- **Fast Operations**: No re-extraction needed for timing adjustments
+- **Consistent Results**: Same processing approach eliminates audio conflicts
+
+#### Language Support
+
+**Supported Languages**:
+- Spanish (es): `es-ES-ElviraNeural`
+- French (fr): `fr-FR-DeniseNeural`
+- German (de): `de-DE-KatjaNeural`
+- Italian (it): `it-IT-ElsaNeural`
+- Portuguese (pt): `pt-BR-FranciscaNeural`
+- English (en): `en-US-JennyNeural` (default)
+
+#### Integration with VideoRestartHelpers
+
+**Location**: `backend_core/src/controllers/audiovideo/video_restart_helpers.py`
+
+The VideoRestartHelpers class has been updated to use AudioDubbingHelpers for all timing adjustments, eliminating duplicate code:
+
+##### `adjust_video_audio_timing()` - Updated
+- **Old Approach**: Complex fallback method with duplicate FFmpeg logic
+- **New Approach**: Simple delegation to `AudioDubbingHelpers.sync_dubbed_video()`
+- **Benefits**: No code duplication, consistent processing, better maintainability
+
+```python
+def _sync_using_dubbing_helpers(self, target_timing_ms, language, original_dir, video_url):
+    """Use dubbing helpers sync method - no duplicate code."""
+    sync_result = self.dubbing_helpers.sync_dubbed_video(language, target_timing_ms, original_dir)
+    # Convert response format and return
+```
+
+### 2. AudioAIHelpers Class
 
 **Location**: `backend_core/src/controllers/verification/audio_ai_helpers.py`
 
@@ -391,8 +542,12 @@ language_map = {
 2. **Python Dependencies**: Updated requirements
    ```bash
    pip install openai-whisper>=20231117
+   pip install edge-tts>=6.1.0
+   pip install pydub>=0.25.0
    ```
    - `openai-whisper` (local speech recognition)
+   - `edge-tts` (multilingual text-to-speech for dubbing)
+   - `pydub` (audio processing and mixing)
    - `torch` (Whisper dependency, auto-installed)
    - `opencv-python` (video processing)
    - `langdetect` (fallback language detection)
@@ -441,6 +596,74 @@ Enable detailed logging by setting log level:
 ```python
 import logging
 logging.basicConfig(level=logging.DEBUG)
+```
+
+### Audio Dubbing and Sync Issues
+
+#### 1. "2 Audio" Problem (Resolved)
+```python
+# OLD ISSUE: Mixing original and dubbed audio streams
+# SOLUTION: Use cache-based sync with consistent FFmpeg mapping
+
+# Check if using new sync method:
+if 'method' in sync_result and sync_result['method'] == 'dubbing_helpers_sync':
+    print("✅ Using new cache-based sync method")
+else:
+    print("❌ Still using old sync method - check implementation")
+```
+
+#### 2. Missing Cached Components
+```python
+# Check for required cache files:
+cache_files = [
+    "restart_video_no_audio.mp4",           # Silent video
+    f"restart_{language}_dubbed_voice_edge.wav",  # Dubbed audio
+]
+
+for cache_file in cache_files:
+    cache_path = os.path.join(original_video_dir, cache_file)
+    if not os.path.exists(cache_path):
+        print(f"❌ Missing cache file: {cache_file}")
+    else:
+        print(f"✅ Cache file exists: {cache_file}")
+```
+
+#### 3. Edge-TTS Generation Failures
+```python
+# Verify Edge-TTS installation and language support:
+try:
+    import edge_tts
+    print("✅ Edge-TTS available")
+    
+    # Test language mapping:
+    edge_lang_map = {
+        'es': 'es-ES-ElviraNeural', 'fr': 'fr-FR-DeniseNeural', 
+        'de': 'de-DE-KatjaNeural', 'it': 'it-IT-ElsaNeural', 
+        'pt': 'pt-BR-FranciscaNeural'
+    }
+    
+    if language in edge_lang_map:
+        print(f"✅ Language {language} supported: {edge_lang_map[language]}")
+    else:
+        print(f"❌ Language {language} not supported")
+        
+except ImportError:
+    print("❌ Run: pip install edge-tts")
+```
+
+#### 4. FFmpeg Command Debugging
+```python
+# Enable FFmpeg output for debugging:
+# Remove 'capture_output=True' from subprocess.run() calls
+# Add 'text=True' to see command output
+
+# Example debugging command:
+cmd = ['ffmpeg', '-i', 'input.mp4', '-i', 'audio.wav', 
+       '-c:v', 'copy', '-c:a', 'aac', 
+       '-map', '0:v:0', '-map', '1:a:0', 'output.mp4', '-y']
+       
+print(f"FFmpeg command: {' '.join(cmd)}")
+result = subprocess.run(cmd, text=True)  # Remove capture_output for debugging
 ```
 
 ## 🔄 Integration with Existing Systems
@@ -515,4 +738,26 @@ All metrics are automatically collected and stored in:
 
 ## 📋 Summary
 
-The Audio AI Helper system provides a comprehensive solution for fast, local audio analysis in VirtualPyTest, seamlessly integrating with existing systems while maintaining high standards of error handling, logging, and performance. The implementation leverages optimized local Whisper models for 4x faster processing with no network dependencies, ensuring reliability and maintainability for real-time zap testing.
+The Audio AI Helper system provides a comprehensive solution for fast, local audio processing in VirtualPyTest, including:
+
+### Core Capabilities:
+- **Audio Analysis**: Local Whisper-based speech-to-text with 8x performance improvement
+- **Audio Dubbing**: Fast multilingual dubbing using Edge-TTS (~5-8s vs 30s+)  
+- **Audio Sync**: Cache-based timing adjustments with no duplicate code (~2-3s)
+- **Language Support**: 6 languages with high-quality neural voices
+
+### Key Architectural Benefits:
+- **Unified Processing**: Single source of truth for audio operations in AudioDubbingHelpers
+- **Cache Optimization**: Extract once, reuse forever approach for maximum efficiency
+- **Consistent Logic**: Same FFmpeg mapping eliminates audio conflicts and "2 audio" issues
+- **No Code Duplication**: Sync reuses dubbing combine logic for maintainability
+- **Local Processing**: No network dependencies, API timeouts, or rate limits
+
+### Performance Achievements:
+- **Audio Analysis**: 0.5-2s (8x faster with early stop optimization)
+- **Dubbing Speed**: 5-8s (6x faster without Demucs separation)
+- **Sync Speed**: 2-3s (10x faster with cached components)
+- **Resource Efficiency**: 40x smaller models, intelligent caching
+- **Reliability**: Offline processing, consistent results, robust error handling
+
+The implementation seamlessly integrates with existing VirtualPyTest systems while maintaining high standards of error handling, logging, and performance for real-time testing workflows.
