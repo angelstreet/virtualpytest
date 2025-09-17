@@ -488,8 +488,9 @@ class AIAgentController(BaseController):
             # Extract available navigation nodes from the loaded tree
             available_nodes = []
             if navigation_tree and 'nodes' in navigation_tree:
-                available_nodes = [node.get('node_id', node.get('id', 'unknown')) 
-                                 for node in navigation_tree['nodes']]
+                # Extract only labels for AI (short and token-efficient)
+                available_nodes = [node.get('label') for node in navigation_tree['nodes'] 
+                                 if node.get('label')]
                 print(f"AI[{self.device_name}]: Extracted {len(available_nodes)} navigation nodes: {available_nodes}")
             
             # Prepare context for AI
