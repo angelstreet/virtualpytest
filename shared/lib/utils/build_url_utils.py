@@ -10,6 +10,22 @@ Supports multi-device hosts with device-specific paths.
 # CORE URL BUILDING FUNCTION (No Dependencies)
 # =====================================================
 
+def _get_nginx_host_url(host_info: dict) -> str:
+    """
+    Get host URL for nginx static file serving (strips Flask server port)
+    
+    Args:
+        host_info: Host information from registry
+        
+    Returns:
+        Host URL without port for nginx serving (port 80)
+    """
+    host_url = host_info.get('host_url', '')
+    if ':' in host_url:
+        import re
+        host_url = re.sub(r':\d+$', '', host_url)
+    return host_url
+
 def buildHostUrl(host_info: dict, endpoint: str) -> str:
     """
     Core URL builder - Build URLs for host API endpoints using provided host data
@@ -44,7 +60,7 @@ def buildHostUrl(host_info: dict, endpoint: str) -> str:
 
 def buildCaptureUrl(host_info: dict, filename: str, device_id: str) -> str:
     """
-    Build URL for live screenshot captures
+    Build URL for live screenshot captures (served by nginx, not Flask)
     
     Args:
         host_info: Host information from registry
@@ -56,16 +72,19 @@ def buildCaptureUrl(host_info: dict, filename: str, device_id: str) -> str:
         
     Example:
         buildCaptureUrl(host_info, 'capture_0001.jpg', 'device1')
-        -> 'https://host:444/host/stream/capture1/captures/capture_0001.jpg'
+        -> 'https://host/host/stream/capture1/captures/capture_0001.jpg'
     """
     # Get device-specific capture path
     capture_path = _get_device_capture_path(host_info, device_id)
     
-    return buildHostUrl(host_info, f'host{capture_path}/{filename}')
+    # For static files (images), use nginx (port 80) not Flask server port
+    host_url = _get_nginx_host_url(host_info)
+    
+    return f"{host_url}/host{capture_path}/{filename}"
 
 def buildCroppedImageUrl(host_info: dict, filename: str, device_id: str) -> str:
     """
-    Build URL for cropped images
+    Build URL for cropped images (served by nginx, not Flask)
     
     Args:
         host_info: Host information from registry
@@ -77,16 +96,19 @@ def buildCroppedImageUrl(host_info: dict, filename: str, device_id: str) -> str:
         
     Example:
         buildCroppedImageUrl(host_info, 'cropped_button_20250117134500.jpg', 'device1')
-        -> 'https://host:444/host/stream/capture1/captures/cropped/cropped_button_20250117134500.jpg'
+        -> 'https://host/host/stream/capture1/captures/cropped/cropped_button_20250117134500.jpg'
     """
     # Get device-specific capture path
     capture_path = _get_device_capture_path(host_info, device_id)
     
-    return buildHostUrl(host_info, f'host{capture_path}/cropped/{filename}')
+    # For static files (images), use nginx (port 80) not Flask server port
+    host_url = _get_nginx_host_url(host_info)
+    
+    return f"{host_url}/host{capture_path}/cropped/{filename}"
 
 def buildReferenceImageUrl(host_info: dict, device_model: str, filename: str) -> str:
     """
-    Build URL for reference images
+    Build URL for reference images (served by nginx, not Flask)
     
     Args:
         host_info: Host information from registry
@@ -98,13 +120,16 @@ def buildReferenceImageUrl(host_info: dict, device_model: str, filename: str) ->
         
     Example:
         buildReferenceImageUrl(host_info, 'android_mobile', 'login_button.jpg')
-        -> 'https://host:444/host/stream/resources/android_mobile/login_button.jpg'
+        -> 'https://host/host/stream/resources/android_mobile/login_button.jpg'
     """
-    return buildHostUrl(host_info, f'host/stream/resources/{device_model}/{filename}')
+    # For static files (images), use nginx (port 80) not Flask server port
+    host_url = _get_nginx_host_url(host_info)
+    
+    return f"{host_url}/host/stream/resources/{device_model}/{filename}"
 
 def buildVerificationResultUrl(host_info: dict, filename: str, device_id: str) -> str:
     """
-    Build URL for verification result images
+    Build URL for verification result images (served by nginx, not Flask)
     
     Args:
         host_info: Host information from registry
@@ -116,12 +141,15 @@ def buildVerificationResultUrl(host_info: dict, filename: str, device_id: str) -
         
     Example:
         buildVerificationResultUrl(host_info, 'source_image_0.png', 'device1')
-        -> 'https://host:444/host/stream/capture1/verification_results/source_image_0.png'
+        -> 'https://host/host/stream/capture1/verification_results/source_image_0.png'
     """
     # Get device-specific capture path
     capture_path = _get_device_capture_path(host_info, device_id)
     
-    return buildHostUrl(host_info, f'host{capture_path}/verification_results/{filename}')
+    # For static files (images), use nginx (port 80) not Flask server port
+    host_url = _get_nginx_host_url(host_info)
+    
+    return f"{host_url}/host{capture_path}/verification_results/{filename}"
 
 def buildStreamUrl(host_info: dict, device_id: str) -> str:
     """
@@ -164,15 +192,14 @@ def buildStreamUrl(host_info: dict, device_id: str) -> str:
         # For local IPs, strip port (nginx serves streams)
         host_url = host_info.get('host_url', '')
         if '192.168.' in host_url or '10.' in host_url or '127.0.0.1' in host_url:
-            import re
-            host_url = re.sub(r':\d+$', '', host_url)
+            host_url = _get_nginx_host_url(host_info)
             return f"{host_url}/host{stream_path}/output.m3u8"
         
         return buildHostUrl(host_info, f'host{stream_path}/output.m3u8')
 
 def buildHostImageUrl(host_info: dict, image_path: str) -> str:
     """
-    Build URL for any image stored on the host (nginx-served)
+    Build URL for any image stored on the host (nginx-served, not Flask)
     
     Args:
         host_info: Host information from registry
@@ -183,7 +210,7 @@ def buildHostImageUrl(host_info: dict, image_path: str) -> str:
         
     Example:
         buildHostImageUrl(host_info, '/stream/captures/screenshot.jpg')
-        -> 'https://host:444/host/stream/captures/screenshot.jpg'
+        -> 'https://host/host/stream/captures/screenshot.jpg'
     """
     # Handle absolute paths by converting to relative
     if image_path.startswith('/var/www/html/'):
@@ -192,7 +219,10 @@ def buildHostImageUrl(host_info: dict, image_path: str) -> str:
     # Ensure path doesn't start with /
     clean_path = image_path.lstrip('/')
     
-    return buildHostUrl(host_info, f'host/{clean_path}')
+    # For static files (images), use nginx (port 80) not Flask server port
+    host_url = _get_nginx_host_url(host_info)
+    
+    return f"{host_url}/host/{clean_path}"
 
 def buildCloudImageUrl(bucket_name: str, image_path: str, base_url: str) -> str:
     """
