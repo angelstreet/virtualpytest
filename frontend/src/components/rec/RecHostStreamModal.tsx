@@ -287,7 +287,9 @@ const RecHostStreamModalContent: React.FC<{
       if (newMode) {
         setMonitoringMode(false);
         setRestartMode(false);
-        // Clear any previous AI results when toggling
+        // Don't clear AI log when enabling - let user see previous results
+      } else {
+        // Only clear when disabling AI agent mode
         clearAILog();
       }
 
