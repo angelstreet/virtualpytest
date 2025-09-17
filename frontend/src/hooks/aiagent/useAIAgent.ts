@@ -227,54 +227,21 @@ export const useAIAgent = ({ host, device, enabled = true }: UseAIAgentProps): U
                 setCurrentStep(statusResult.current_step || 'Processing...');
                 setExecutionLog(newLog);
 
-                // Check for new log entries and show toast notifications
                 if (newLog.length > prevLogLength) {
                   const newEntries = newLog.slice(prevLogLength);
-                  console.log('[useAIAgent] Processing new log entries:', newEntries);
                   for (const entry of newEntries) {
-                    console.log('[useAIAgent] Processing entry:', entry.action_type, entry);
-                    if (entry.action_type === 'plan_ready') {
+                    if (entry.action_type === 'step_success') {
                       const stepData = entry.value;
-                      console.log('[useAIAgent] Showing plan ready toast');
-                      toast.showInfo(`📋 Plan ready: ${stepData.total_steps} steps`, { duration: 2000 });
-                    } else if (entry.action_type === 'step_start') {
-                      const stepData = entry.value;
-                      console.log('[useAIAgent] Showing step start toast');
-                      toast.showInfo(`⚡ Step ${stepData.step}/${stepData.total_steps}`, { duration: 2000 });
-                    } else if (entry.action_type === 'step_success') {
-                      const stepData = entry.value;
-                      console.log('[useAIAgent] Showing step success toast');
-                      toast.showSuccess(`✅ Step ${stepData.step} done in ${stepData.duration.toFixed(1)}s`, { duration: 2000 });
+                      toast.showSuccess(`✅ Step ${stepData.step} completed (${stepData.duration.toFixed(1)}s)`, { duration: 2000 });
                     } else if (entry.action_type === 'step_failed') {
                       const stepData = entry.value;
-                      console.log('[useAIAgent] Showing step failed toast');
-                      toast.showError(`❌ Step ${stepData.step} failed in ${stepData.duration.toFixed(1)}s`, { duration: 2000 });
+                      toast.showError(`❌ Step ${stepData.step} failed (${stepData.duration.toFixed(1)}s)`, { duration: 2000 });
                     } else if (entry.action_type === 'task_completed') {
                       const taskData = entry.value;
-                      console.log('[useAIAgent] Showing task completed toast');
-                      
-                      // Show completion toast with summary
-                      if (executionSummary) {
-                        toast.showSuccess(
-                          `🎉 Task completed in ${taskData.duration.toFixed(1)}s • ${executionSummary.completedSteps}/${executionSummary.totalSteps} steps • Avg: ${executionSummary.averageStepDuration.toFixed(1)}s/step`, 
-                          { duration: AI_CONSTANTS.TOAST_DURATION.SUCCESS }
-                        );
-                      } else {
-                        toast.showSuccess(`🎉 Task completed in ${taskData.duration.toFixed(1)}s`, { duration: AI_CONSTANTS.TOAST_DURATION.SUCCESS });
-                      }
+                      toast.showSuccess(`🎉 Task completed in ${taskData.duration.toFixed(1)}s`, { duration: AI_CONSTANTS.TOAST_DURATION.SUCCESS });
                     } else if (entry.action_type === 'task_failed') {
                       const taskData = entry.value;
-                      console.log('[useAIAgent] Showing task failed toast');
-                      
-                      // Show failure toast with summary
-                      if (executionSummary) {
-                        toast.showError(
-                          `⚠️ Task failed in ${taskData.duration.toFixed(1)}s • ${executionSummary.completedSteps}/${executionSummary.totalSteps} completed • ${executionSummary.failedSteps} failed`, 
-                          { duration: AI_CONSTANTS.TOAST_DURATION.ERROR }
-                        );
-                      } else {
-                        toast.showError(`⚠️ Task failed in ${taskData.duration.toFixed(1)}s`, { duration: AI_CONSTANTS.TOAST_DURATION.ERROR });
-                      }
+                      toast.showError(`⚠️ Task failed in ${taskData.duration.toFixed(1)}s`, { duration: AI_CONSTANTS.TOAST_DURATION.ERROR });
                     }
                   }
                 }

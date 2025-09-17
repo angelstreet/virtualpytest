@@ -8,7 +8,7 @@ import {
   VolumeUp as VolumeUpIcon,
   Refresh as RefreshIcon,
 } from '@mui/icons-material';
-import { Box, IconButton, Typography, Button, CircularProgress, TextField, LinearProgress } from '@mui/material';
+import { Box, IconButton, Typography, Button, CircularProgress, TextField } from '@mui/material';
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 
 import { DEFAULT_DEVICE_RESOLUTION } from '../../config/deviceResolutions';
@@ -87,7 +87,7 @@ const RecHostStreamModalContent: React.FC<{
   }, [setAnyModalOpen]);
 
   // Hooks - now only run when modal is actually open
-  const { showError, showWarning, showSuccess, showInfo } = useToast();
+  const { showError, showWarning } = useToast();
 
   // Get baseUrlPatterns and VNC scaling for monitoring
   const { baseUrlPatterns, calculateVncScaling } = useRec();
@@ -117,7 +117,6 @@ const RecHostStreamModalContent: React.FC<{
     executionLog,
     currentStep,
     progressPercentage,
-    executionSummary,
     setTaskInput,
     executeTask: executeAITask,
     clearLog: clearAILog,
@@ -914,16 +913,13 @@ const RecHostStreamModalContent: React.FC<{
                 >
                   <AIIcon />
                   AI Agent
-                  {/* Show cross icon when plan is not feasible */}
+                  {(isAIExecuting || progressPercentage > 0) && (
+                    <Typography variant="caption" sx={{ color: '#2196f3', ml: 1 }}>
+                      Progress: {progressPercentage}%
+                    </Typography>
+                  )}
                   {aiPlan && !isPlanFeasible && (
-                    <Box
-                      sx={{
-                        color: '#f44336',
-                        display: 'flex',
-                        alignItems: 'center',
-                        ml: 1,
-                      }}
-                    >
+                    <Box sx={{ color: '#f44336', display: 'flex', alignItems: 'center', ml: 1 }}>
                       ✕
                     </Box>
                   )}
@@ -989,95 +985,6 @@ const RecHostStreamModalContent: React.FC<{
                   </Button>
                 </Box>
 
-                {/* Progress Display - Show when executing */}
-                {(isAIExecuting || currentStep) && (
-                  <Box
-                    sx={{
-                      mt: 1,
-                      p: 1,
-                      backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                      borderRadius: 1,
-                      border: '1px solid #444',
-                    }}
-                  >
-                    <Typography variant="caption" sx={{ color: '#aaa', display: 'block', mb: 0.5 }}>
-                      Progress: {progressPercentage}%
-                    </Typography>
-                    
-                    {/* Progress Bar */}
-                    <LinearProgress 
-                      variant="determinate" 
-                      value={progressPercentage} 
-                      sx={{ 
-                        mb: 1, 
-                        backgroundColor: '#333',
-                        '& .MuiLinearProgress-bar': {
-                          backgroundColor: progressPercentage === 100 ? '#4caf50' : '#2196f3'
-                        }
-                      }}
-                    />
-                    
-                    {/* Current Step */}
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-                      <CircularProgress size={12} sx={{ color: '#2196f3' }} />
-                      <Typography variant="body2" sx={{ color: '#2196f3' }}>
-                        {currentStep || 'Processing...'}
-                      </Typography>
-                    </Box>
-
-                    {/* Previous Steps (completed) */}
-                    {executionLog.map((entry, index) => {
-                      if (entry.action_type === 'step_success') {
-                        const stepData = entry.value;
-                        return (
-                          <Box key={index} sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-                            <Box sx={{ width: 12, height: 12, borderRadius: '50%', backgroundColor: '#4caf50' }} />
-                            <Typography variant="body2" sx={{ color: '#4caf50' }}>
-                              ✅ Step {stepData.step} completed ({stepData.duration.toFixed(1)}s)
-                            </Typography>
-                          </Box>
-                        );
-                      } else if (entry.action_type === 'step_failed') {
-                        const stepData = entry.value;
-                        return (
-                          <Box key={index} sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-                            <Box sx={{ width: 12, height: 12, borderRadius: '50%', backgroundColor: '#f44336' }} />
-                            <Typography variant="body2" sx={{ color: '#f44336' }}>
-                              ❌ Step {stepData.step} failed ({stepData.duration.toFixed(1)}s)
-                            </Typography>
-                          </Box>
-                        );
-                      }
-                      return null;
-                    })}
-
-                    {/* Next Steps (upcoming) */}
-                    {aiPlan && aiPlan.plan && (
-                      <>
-                        {aiPlan.plan.map((step: any, index: number) => {
-                          const stepNumber = step.step || index + 1;
-                          const isCompleted = executionLog.some(entry => 
-                            (entry.action_type === 'step_success' || entry.action_type === 'step_failed') && 
-                            entry.value.step === stepNumber
-                          );
-                          const isCurrentStep = currentStep && currentStep.includes(`Step ${stepNumber}`);
-                          
-                          if (!isCompleted && !isCurrentStep) {
-                            return (
-                              <Box key={index} sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-                                <Box sx={{ width: 12, height: 12, borderRadius: '50%', backgroundColor: '#666', border: '1px solid #888' }} />
-                                <Typography variant="body2" sx={{ color: '#888' }}>
-                                  ⏳ Step {stepNumber}: {step.description}
-                                </Typography>
-                              </Box>
-                            );
-                          }
-                          return null;
-                        })}
-                      </>
-                    )}
-                  </Box>
-                )}
 
                 {/* AI Plan Display */}
                 {aiPlan && (
@@ -1125,39 +1032,66 @@ const RecHostStreamModalContent: React.FC<{
                           {aiPlan.analysis}
                         </Typography>
 
-                        {/* Plan Steps */}
                         {aiPlan.plan && aiPlan.plan.length > 0 && (
                           <Box sx={{ mt: 2 }}>
-                            <Typography
-                              variant="caption"
-                              sx={{ color: '#aaa', mb: 1, display: 'block' }}
-                            >
+                            <Typography variant="caption" sx={{ color: '#aaa', mb: 1, display: 'block' }}>
                               Steps ({aiPlan.plan.length}):
                             </Typography>
-                            {aiPlan.plan.map((step: any, index: number) => (
-                              <Box
-                                key={index}
-                                sx={{
-                                  mb: 1,
-                                  p: 1,
-                                  backgroundColor: 'rgba(255,255,255,0.05)',
-                                  borderRadius: 0.5,
-                                }}
-                              >
-                                <Typography
-                                  variant="caption"
-                                  sx={{ color: '#fff', fontWeight: 'bold' }}
+                            {aiPlan.plan.map((step: any, index: number) => {
+                              const stepNumber = step.step || index + 1;
+                              const completedEntry = executionLog.find(entry => 
+                                entry.action_type === 'step_success' && entry.value.step === stepNumber
+                              );
+                              const failedEntry = executionLog.find(entry => 
+                                entry.action_type === 'step_failed' && entry.value.step === stepNumber
+                              );
+                              const isCurrent = currentStep && currentStep.includes(`Step ${stepNumber}`);
+                              
+                              let statusIcon, bgColor, borderColor;
+                              if (completedEntry) {
+                                statusIcon = <Box sx={{ width: 12, height: 12, borderRadius: '50%', backgroundColor: '#4caf50' }} />;
+                                bgColor = 'rgba(76,175,80,0.1)';
+                                borderColor = 'rgba(76,175,80,0.3)';
+                              } else if (failedEntry) {
+                                statusIcon = <Box sx={{ width: 12, height: 12, borderRadius: '50%', backgroundColor: '#f44336' }} />;
+                                bgColor = 'rgba(244,67,54,0.1)';
+                                borderColor = 'rgba(244,67,54,0.3)';
+                              } else if (isCurrent) {
+                                statusIcon = <CircularProgress size={12} sx={{ color: '#2196f3' }} />;
+                                bgColor = 'rgba(33,150,243,0.1)';
+                                borderColor = 'rgba(33,150,243,0.3)';
+                              } else {
+                                statusIcon = <Box sx={{ width: 12, height: 12, borderRadius: '50%', backgroundColor: '#666', border: '1px solid #888' }} />;
+                                bgColor = 'rgba(255,255,255,0.05)';
+                                borderColor = 'transparent';
+                              }
+                              
+                              const duration = completedEntry?.value.duration || failedEntry?.value.duration;
+                              
+                              return (
+                                <Box
+                                  key={index}
+                                  sx={{
+                                    mb: 1,
+                                    p: 1,
+                                    backgroundColor: bgColor,
+                                    borderRadius: 0.5,
+                                    border: `1px solid ${borderColor}`,
+                                  }}
                                 >
-                                  {step.step}. {step.description}
-                                </Typography>
-                                <Typography
-                                  variant="caption"
-                                  sx={{ color: '#aaa', display: 'block', mt: 0.5 }}
-                                >
-                                  {step.command} {step.params && `| ${JSON.stringify(step.params)}`}
-                                </Typography>
-                              </Box>
-                            ))}
+                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                                    {statusIcon}
+                                    <Typography variant="caption" sx={{ color: '#fff', fontWeight: 'bold' }}>
+                                      {step.step}. {step.description}
+                                      {duration && ` (${duration.toFixed(1)}s)`}
+                                    </Typography>
+                                  </Box>
+                                  <Typography variant="caption" sx={{ color: '#aaa', display: 'block', ml: 2 }}>
+                                    {step.command} {step.params && `| ${JSON.stringify(step.params)}`}
+                                  </Typography>
+                                </Box>
+                              );
+                            })}
                           </Box>
                         )}
 
