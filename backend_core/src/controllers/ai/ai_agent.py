@@ -34,7 +34,7 @@ class AIAgentController(BaseController):
     
     def _get_navigation_tree(self, userinterface_name: str) -> Dict[str, Any]:
         """
-        Get navigation tree using singleton pattern - load only when needed and cache it.
+        Get navigation tree using unified hierarchy loading - load only when needed and cache it.
         
         Args:
             userinterface_name: Name of the userinterface (e.g., 'horizon_android_mobile')
@@ -47,25 +47,36 @@ class AIAgentController(BaseController):
             print(f"AI[{self.device_name}]: Using cached navigation tree for: {userinterface_name}")
             return self._navigation_trees_cache[userinterface_name]
         
-        # Load tree lazily
+        # Load tree lazily with unified hierarchy support
         try:
             # Lazy import inside method to avoid circular import
-            from shared.lib.utils.navigation_utils import load_navigation_tree
+            from shared.lib.utils.navigation_utils import load_navigation_tree_with_hierarchy
+            from shared.lib.utils.navigation_exceptions import NavigationTreeError, UnifiedCacheError
             
-            print(f"AI[{self.device_name}]: Loading navigation tree for: {userinterface_name}")
-            tree_result = load_navigation_tree(userinterface_name, "ai_agent")
+            print(f"AI[{self.device_name}]: Loading unified navigation tree hierarchy for: {userinterface_name}")
+            tree_result = load_navigation_tree_with_hierarchy(userinterface_name, "ai_agent")
             
             if tree_result.get('success'):
-                # Cache the tree
-                self._navigation_trees_cache[userinterface_name] = tree_result.get('tree')
-                print(f"AI[{self.device_name}]: Successfully loaded and cached navigation tree for: {userinterface_name}")
-                return tree_result.get('tree')
+                # Cache the root tree data
+                root_tree = tree_result.get('root_tree', {})
+                self._navigation_trees_cache[userinterface_name] = root_tree.get('tree')
+                print(f"AI[{self.device_name}]: Successfully loaded and cached unified navigation tree for: {userinterface_name}")
+                print(f"AI[{self.device_name}]: Unified cache populated with {tree_result.get('unified_graph_nodes', 0)} nodes, {tree_result.get('unified_graph_edges', 0)} edges")
+                return root_tree.get('tree')
             else:
-                print(f"AI[{self.device_name}]: Failed to load navigation tree for: {userinterface_name}: {tree_result.get('error')}")
+                print(f"AI[{self.device_name}]: Failed to load unified navigation tree for: {userinterface_name}: {tree_result.get('error')}")
                 return None
                 
+        except ImportError as e:
+            print(f"AI[{self.device_name}]: Import error for {userinterface_name}: {e}")
+            return None
         except Exception as e:
-            print(f"AI[{self.device_name}]: Error loading navigation tree for {userinterface_name}: {e}")
+            # Check if it's a navigation-specific error
+            error_str = str(e)
+            if "NavigationTreeError" in error_str or "UnifiedCacheError" in error_str:
+                print(f"AI[{self.device_name}]: Navigation system error for {userinterface_name}: {e}")
+            else:
+                print(f"AI[{self.device_name}]: Error loading unified navigation tree for {userinterface_name}: {e}")
             return None
     
 
@@ -91,7 +102,6 @@ class AIAgentController(BaseController):
                 select_device
             )
             from shared.lib.utils.action_utils import execute_navigation_with_verifications
-            from shared.lib.utils.navigation_utils import load_navigation_tree
             
             # Setup script environment (same as validation.py)
             setup_result = setup_script_environment("ai_agent")
@@ -108,12 +118,24 @@ class AIAgentController(BaseController):
             
             selected_device = device_result['device']
             
-            # Load navigation tree (same as validation.py)
-            tree_result = load_navigation_tree(userinterface_name, "ai_agent")
-            if not tree_result['success']:
-                return {'success': False, 'error': f"Tree loading failed: {tree_result['error']}"}
+            # Load navigation tree with unified hierarchy support
+            from shared.lib.utils.navigation_utils import load_navigation_tree_with_hierarchy
+            from shared.lib.utils.navigation_exceptions import NavigationTreeError, UnifiedCacheError
             
-            tree_id = tree_result['tree_id']
+            try:
+                tree_result = load_navigation_tree_with_hierarchy(userinterface_name, "ai_agent")
+                if not tree_result['success']:
+                    return {'success': False, 'error': f"Unified tree loading failed: {tree_result['error']}"}
+                
+                tree_id = tree_result['tree_id']
+                print(f"AI[{self.device_name}]: Unified cache populated with {tree_result.get('unified_graph_nodes', 0)} nodes, {tree_result.get('unified_graph_edges', 0)} edges")
+                
+            except Exception as e:
+                error_str = str(e)
+                if "NavigationTreeError" in error_str or "UnifiedCacheError" in error_str:
+                    return {'success': False, 'error': f"Navigation system error: {error_str}"}
+                else:
+                    return {'success': False, 'error': f"Tree loading error: {error_str}"}
             
             # Get navigation sequence using pathfinding (same as validation.py)
             from backend_core.src.services.navigation.navigation_pathfinding import find_shortest_path
