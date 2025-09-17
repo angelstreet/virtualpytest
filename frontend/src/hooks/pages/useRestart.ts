@@ -753,7 +753,7 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
         },
         audio_transcript: {
           text: analysisResults.audio?.combined_transcript || '',
-          source_language: analysisResults.audio?.detected_language?.toLowerCase() || 'en'
+          source_language: analysisResults.audio?.detected_language || 'en'
         },
         frame_descriptions: {
           texts: analysisResults.videoDescription?.frame_descriptions?.map(desc => {

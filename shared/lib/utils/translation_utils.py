@@ -133,8 +133,21 @@ async def translate_text_local_google(text: str, source_language: str, target_la
         }
 
 def translate_text(text: str, source_language: str, target_language: str, method: str = 'google') -> Dict[str, Any]:
-    # Map language names to codes
-    lang_map = {'English':'en','French':'fr','Spanish':'es','German':'de','Italian':'it','Portuguese':'pt','Russian':'ru','Japanese':'ja','Korean':'ko','Chinese':'zh','Arabic':'ar','Hindi':'hi'}
+    # Map language names to codes (support both capitalized and lowercase)
+    lang_map = {
+        'English':'en', 'english':'en',
+        'French':'fr', 'french':'fr', 
+        'Spanish':'es', 'spanish':'es',
+        'German':'de', 'german':'de',
+        'Italian':'it', 'italian':'it',
+        'Portuguese':'pt', 'portuguese':'pt',
+        'Russian':'ru', 'russian':'ru',
+        'Japanese':'ja', 'japanese':'ja',
+        'Korean':'ko', 'korean':'ko',
+        'Chinese':'zh', 'chinese':'zh',
+        'Arabic':'ar', 'arabic':'ar',
+        'Hindi':'hi', 'hindi':'hi'
+    }
     source_code = lang_map.get(source_language, source_language)
     target_code = lang_map.get(target_language, target_language)
     """
@@ -460,8 +473,21 @@ Translated content:"""
                 
                 async def async_google_translate():
                     translator = Translator()
-                    # Auto-detect source language instead of assuming English
-                    lang_map = {'English':'en','French':'fr','Spanish':'es','German':'de','Italian':'it','Portuguese':'pt','Russian':'ru','Japanese':'ja','Korean':'ko','Chinese':'zh','Arabic':'ar','Hindi':'hi'}
+                    # Auto-detect source language instead of assuming English (support both capitalized and lowercase)
+                    lang_map = {
+                        'English':'en', 'english':'en',
+                        'French':'fr', 'french':'fr', 
+                        'Spanish':'es', 'spanish':'es',
+                        'German':'de', 'german':'de',
+                        'Italian':'it', 'italian':'it',
+                        'Portuguese':'pt', 'portuguese':'pt',
+                        'Russian':'ru', 'russian':'ru',
+                        'Japanese':'ja', 'japanese':'ja',
+                        'Korean':'ko', 'korean':'ko',
+                        'Chinese':'zh', 'chinese':'zh',
+                        'Arabic':'ar', 'arabic':'ar',
+                        'Hindi':'hi', 'hindi':'hi'
+                    }
                     target_code = lang_map.get(target_language, target_language)
                     translate_result = await translator.translate(combined_content, dest=target_code)
                     return translate_result
