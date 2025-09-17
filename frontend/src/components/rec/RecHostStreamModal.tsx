@@ -120,6 +120,7 @@ const RecHostStreamModalContent: React.FC<{
     setTaskInput,
     executeTask: executeAITask,
     clearLog: clearAILog,
+    clearCache: clearAICache,
   } = useAIAgent({
     host,
     device: device!,
@@ -340,6 +341,9 @@ const RecHostStreamModalContent: React.FC<{
   const handleClose = useCallback(async () => {
     console.log('[@component:RecHostStreamModal] Closing modal');
 
+    // Clear AI cache on modal close
+    clearAICache();
+
     // Reset state (useDeviceControl handles cleanup automatically)
     setShowRemote(false);
     setShowWeb(false);
@@ -347,7 +351,7 @@ const RecHostStreamModalContent: React.FC<{
     setAiAgentMode(false);
     setRestartMode(false);
     onClose();
-  }, [onClose]);
+  }, [onClose, clearAICache]);
 
   // Handle escape key
   useEffect(() => {

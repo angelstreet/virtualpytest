@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useRef } from 'react';
+import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 
 import { Host, Device } from '../../types/common/Host_Types';
 import { 
@@ -39,6 +39,10 @@ interface UseAIAgentReturn {
   executeTask: () => Promise<void>;
   stopExecution: () => Promise<void>;
   clearLog: () => void;
+
+  // Cache management
+  clearCache: () => void;
+  currentNodePosition: string | null;
 }
 
 export const useAIAgent = ({ host, device, enabled = true }: UseAIAgentProps): UseAIAgentReturn => {
@@ -56,9 +60,16 @@ export const useAIAgent = ({ host, device, enabled = true }: UseAIAgentProps): U
   const [aiPlan, setAiPlan] = useState<AIPlan | null>(null);
   const [isPlanFeasible, setIsPlanFeasible] = useState<boolean>(true);
 
+  // Session-based navigation cache
+  const [navigationCache, setNavigationCache] = useState<Map<string, any>>(new Map());
+  const [currentNodePosition, setCurrentNodePosition] = useState<string | null>(null);
+
   // Request deduplication
   const isRequestInProgress = useRef(false);
   const currentTaskId = useRef<string | null>(null);
+
+  // Cache key for this device session
+  const cacheKey = useMemo(() => `${host.host_name}-${device?.device_id}`, [host.host_name, device?.device_id]);
 
   // Progress percentage calculation
   const progressPercentage = useMemo(() => {
@@ -123,6 +134,24 @@ export const useAIAgent = ({ host, device, enabled = true }: UseAIAgentProps): U
     return error; // Return original error for other cases
   }, []);
 
+  // Cache management functions
+  const getCachedData = useCallback((key: string) => {
+    return navigationCache.get(`${cacheKey}-${key}`);
+  }, [navigationCache, cacheKey]);
+
+  const setCachedData = useCallback((key: string, value: any) => {
+    setNavigationCache(prev => {
+      const newCache = new Map(prev);
+      newCache.set(`${cacheKey}-${key}`, value);
+      return newCache;
+    });
+  }, [cacheKey]);
+
+  const clearCache = useCallback(() => {
+    setNavigationCache(new Map());
+    setCurrentNodePosition(null);
+  }, []);
+
   const executeTask = useCallback(async () => {
     if (!enabled || !taskInput.trim() || isExecuting) return;
     
@@ -163,6 +192,8 @@ export const useAIAgent = ({ host, device, enabled = true }: UseAIAgentProps): U
           host: host,
           device_id: device?.device_id,
           task_description: taskInput.trim(),
+          current_node_position: currentNodePosition || getCachedData('position'),
+          cached_navigation_tree: getCachedData('tree'),
         }),
       });
 
@@ -297,6 +328,15 @@ export const useAIAgent = ({ host, device, enabled = true }: UseAIAgentProps): U
                     setTaskResult({ success: true, message: 'Task Completed' });
                   }
 
+                  // Cache final navigation state
+                  if (statusResult.final_node_position) {
+                    setCurrentNodePosition(statusResult.final_node_position);
+                    setCachedData('position', statusResult.final_node_position);
+                  }
+                  if (statusResult.navigation_tree_cache) {
+                    setCachedData('tree', statusResult.navigation_tree_cache);
+                  }
+
                   // Task completed, stop polling
                   setIsExecuting(false);
                   return;
@@ -393,6 +433,16 @@ export const useAIAgent = ({ host, device, enabled = true }: UseAIAgentProps): U
     setIsPlanFeasible(true);
   }, []);
 
+  // Clear cache when device changes
+  useEffect(() => {
+    if (device?.device_id) {
+      const newCacheKey = `${host.host_name}-${device.device_id}`;
+      if (newCacheKey !== cacheKey) {
+        clearCache();
+      }
+    }
+  }, [host.host_name, device?.device_id, cacheKey, clearCache]);
+
   return {
     // State
     isExecuting,
@@ -413,5 +463,9 @@ export const useAIAgent = ({ host, device, enabled = true }: UseAIAgentProps): U
     executeTask,
     stopExecution,
     clearLog,
+
+    // Cache management
+    clearCache,
+    currentNodePosition,
   };
 };
