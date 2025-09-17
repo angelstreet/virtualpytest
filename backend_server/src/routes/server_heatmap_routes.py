@@ -26,6 +26,7 @@ from shared.lib.utils.heatmap_utils import (
 )
 
 from shared.lib.utils.app_utils import check_supabase, get_team_id
+from shared.lib.utils.build_url_utils import buildHostImageUrl
 
 # Create blueprint
 server_heatmap_bp = Blueprint('server_heatmap', __name__, url_prefix='/server/heatmap')
@@ -101,9 +102,7 @@ async def query_host_analysis(session, host_device, timeframe_minutes):
                         if '/' in filename:
                             filename = os.path.basename(filename)
                         
-                        # Build image URL with correct device-to-capture directory mapping
-                        host_url = host_data.get('host_url', '').rstrip('/')
-                        
+                        # Build image URL with correct device-to-capture directory mapping using buildHostImageUrl
                         # Map device IDs to their actual capture directories
                         if device_id == 'host':
                             # VNC host device uses capture3 directory (not capture)
@@ -115,7 +114,8 @@ async def query_host_analysis(session, host_device, timeframe_minutes):
                             # Fallback: extract number from device_id
                             capture_dir = f'capture{device_id.replace("device", "")}'
                         
-                        image_url = f"{host_url}/host/stream/{capture_dir}/captures/{filename}"
+                        # Use buildHostImageUrl to properly handle nginx port stripping for static files
+                        image_url = buildHostImageUrl(host_data, f"stream/{capture_dir}/captures/{filename}")
                         
                         try:
                             async with session.get(image_url, timeout=aiohttp.ClientTimeout(total=10)) as img_response:
@@ -216,9 +216,7 @@ def process_host_results(host_results):
                         if '/' in filename:
                             filename = os.path.basename(filename)
                         
-                        # Build image URL with correct device-to-capture directory mapping
-                        host_url = host_data.get('host_url', '').rstrip('/')
-                        
+                        # Build image URL with correct device-to-capture directory mapping using buildHostImageUrl
                         # Map device IDs to their actual capture directories
                         if device_id == 'host':
                             # VNC host device uses capture3 directory (not capture)
@@ -230,7 +228,8 @@ def process_host_results(host_results):
                             # Fallback: extract number from device_id
                             capture_dir = f'capture{device_id.replace("device", "")}'
                         
-                        image_url = f"{host_url}/host/stream/{capture_dir}/captures/{filename}"
+                        # Use buildHostImageUrl to properly handle nginx port stripping for static files
+                        image_url = buildHostImageUrl(host_data, f"stream/{capture_dir}/captures/{filename}")
                         
                         # Frontend data (without image bytes)
                         frontend_device_data = {
