@@ -79,7 +79,7 @@ export const useAIAgent = ({ host, device, enabled = true }: UseAIAgentProps): U
       setIsPlanFeasible(true);
 
       // Show task start notification
-      showInfo(`🤖 AI Agent: Starting task "${taskInput.trim()}"`);
+      showInfo(`🤖 Starting AI task`, { duration: 3000 });
 
       console.log('[useAIAgent] Executing task:', taskInput);
 
@@ -152,15 +152,24 @@ export const useAIAgent = ({ host, device, enabled = true }: UseAIAgentProps): U
                 if (newLog.length > prevLogLength) {
                   const newEntries = newLog.slice(prevLogLength);
                   for (const entry of newEntries) {
-                    if (entry.action_type === 'steps_found') {
+                    if (entry.action_type === 'plan_ready') {
                       const stepData = entry.value;
-                      showInfo(`🤖 AI found ${stepData.total_steps} steps to execute (${stepData.action_steps} actions, ${stepData.verification_steps} verifications)`);
-                    } else if (entry.action_type === 'actions_started') {
-                      showInfo(`🚀 Starting execution of ${entry.value.count} actions`);
+                      showInfo(`📋 Plan ready: ${stepData.total_steps} steps`, { duration: 2000 });
+                    } else if (entry.action_type === 'step_start') {
+                      const stepData = entry.value;
+                      showInfo(`⚡ Step ${stepData.step}/${stepData.total_steps}: ${stepData.description}`, { duration: 2000 });
+                    } else if (entry.action_type === 'step_success') {
+                      const stepData = entry.value;
+                      showSuccess(`✅ Step ${stepData.step} completed in ${stepData.duration.toFixed(1)}s`, { duration: 2000 });
+                    } else if (entry.action_type === 'step_failed') {
+                      const stepData = entry.value;
+                      showError(`❌ Step ${stepData.step} failed in ${stepData.duration.toFixed(1)}s`, { duration: 2000 });
                     } else if (entry.action_type === 'task_completed') {
-                      showSuccess(`🎉 AI task completed successfully! ${entry.value.executed}/${entry.value.total} steps executed`);
-                    } else if (entry.action_type === 'task_partial') {
-                      showError(`⚠️ AI task partially completed: ${entry.value.executed}/${entry.value.total} steps executed`);
+                      const taskData = entry.value;
+                      showSuccess(`🎉 Task completed in ${taskData.duration.toFixed(1)}s`, { duration: 4000 });
+                    } else if (entry.action_type === 'task_failed') {
+                      const taskData = entry.value;
+                      showError(`⚠️ Task failed in ${taskData.duration.toFixed(1)}s`, { duration: 4000 });
                     }
                   }
                 }

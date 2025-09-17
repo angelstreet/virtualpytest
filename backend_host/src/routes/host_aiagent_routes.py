@@ -195,29 +195,62 @@ def execute_task():
         # Get userinterface_name from request or use default
         userinterface_name = data.get('userinterface_name', 'horizon_android_mobile')
         
-        # Execute task using AI controller with real device capabilities and model
-        result = ai_controller.execute_task(
-            task_description, 
-            available_actions, 
-            available_verifications,
-            device_model=device_model,
-            userinterface_name=userinterface_name
-        )
+        # Check if this is async execution (has task_id)
+        task_id = data.get('task_id')
         
-        # Determine appropriate status code based on execution result
-        success = result.get('success', False)
-        status_code = 200 if success else 400
-        
-        return jsonify({
-            'success': success,
-            'message': result.get('message', ''),
-            'error': result.get('error'),
-            'execution_log': result.get('execution_log', []),
-            'current_step': result.get('current_step', ''),
-            'suggested_action': result.get('suggested_action'),
-            'suggested_verification': result.get('suggested_verification'),
-            'device_id': device_id
-        }), status_code
+        if task_id:
+            print(f"[@route:host_aiagent:execute_task] ASYNC: Starting background AI execution for task {task_id}")
+            
+            # Execute async with background thread
+            import threading
+            def execute_async():
+                try:
+                    result = ai_controller.execute_task(
+                        task_description, 
+                        available_actions, 
+                        available_verifications,
+                        device_model=device_model,
+                        userinterface_name=userinterface_name
+                    )
+                    print(f"[@route:host_aiagent:execute_task] ASYNC: AI task completed for {task_id}")
+                    
+                except Exception as e:
+                    print(f"[@route:host_aiagent:execute_task] ASYNC: Error in AI execution: {e}")
+            
+            # Start async execution
+            threading.Thread(target=execute_async, daemon=True).start()
+            
+            return jsonify({
+                'success': True,
+                'message': 'AI task execution started',
+                'task_id': task_id,
+                'device_id': device_id
+            }), 202
+        else:
+            # Synchronous execution (fallback for compatibility)
+            print(f"[@route:host_aiagent:execute_task] SYNC: Direct AI execution (no task_id)")
+            result = ai_controller.execute_task(
+                task_description, 
+                available_actions, 
+                available_verifications,
+                device_model=device_model,
+                userinterface_name=userinterface_name
+            )
+            
+            # Determine appropriate status code based on execution result
+            success = result.get('success', False)
+            status_code = 200 if success else 400
+            
+            return jsonify({
+                'success': success,
+                'message': result.get('message', ''),
+                'error': result.get('error'),
+                'execution_log': result.get('execution_log', []),
+                'current_step': result.get('current_step', ''),
+                'suggested_action': result.get('suggested_action'),
+                'suggested_verification': result.get('suggested_verification'),
+                'device_id': device_id
+            }), status_code
         
     except Exception as e:
         print(f"[@route:host_aiagent:execute_task] Error: {str(e)}")

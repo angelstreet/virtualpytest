@@ -30,6 +30,10 @@ class AIAgentController(BaseController):
         self.current_step = ""
         self.execution_log = []
         
+        # Timing tracking
+        self.task_start_time = None
+        self.step_start_times = {}
+        
         print(f"AI[{self.device_name}]: Initialized with device_id: {self.device_id}")
     
     def _get_navigation_tree(self, userinterface_name: str) -> Dict[str, Any]:
@@ -415,6 +419,8 @@ class AIAgentController(BaseController):
             self.is_executing = True
             self.current_step = "Generating AI plan"
             self.execution_log = []
+            self.task_start_time = time.time()
+            self.step_start_times = {}
             
             # Load navigation tree only when needed
             navigation_tree = self._get_navigation_tree(userinterface_name)
@@ -660,13 +666,13 @@ JSON only:
         print(f"🤖 AI Agent: Found {total_steps} steps to execute ({len(action_steps)} actions, {len(verification_steps)} verifications)")
         
         # Add to execution log for frontend
-        self._add_to_log("ai_plan", "steps_found", {
+        self._add_to_log("ai_plan", "plan_ready", {
             'total_steps': total_steps,
             'action_steps': len(action_steps),
             'verification_steps': len(verification_steps),
             'actions': [{'command': step.get('command'), 'description': step.get('description', '')} for step in action_steps],
             'verifications': [{'command': step.get('command'), 'description': step.get('description', '')} for step in verification_steps]
-        }, f"AI found {total_steps} steps to execute")
+        }, f"Plan ready: {total_steps} steps to execute")
         
         # Setup execution environment
         from shared.lib.utils.script_execution_utils import setup_script_environment, select_device
@@ -685,16 +691,24 @@ JSON only:
         
         # Execute actions
         executed_actions = 0
-        if action_steps:
-            print(f"🚀 AI Agent: Starting execution of {len(action_steps)} actions")
-            self._add_to_log("execution", "actions_started", {'count': len(action_steps)}, f"Starting execution of {len(action_steps)} actions")
         
         for i, step in enumerate(action_steps):
+            step_num = i + 1
             command = step.get('command')
             description = step.get('description', command)
-            print(f"⚡ AI Agent: Executing step {i+1}/{len(action_steps)}: {description}")
             
-            # Handle navigation specially
+            # Step start
+            step_start_time = time.time()
+            self.step_start_times[step_num] = step_start_time
+            print(f"⚡ AI Agent: Step {step_num}/{len(action_steps)}: {description}")
+            self._add_to_log("execution", "step_start", {
+                'step': step_num, 
+                'total_steps': len(action_steps),
+                'command': command, 
+                'description': description
+            }, f"Step {step_num}/{len(action_steps)}: {description}")
+            
+            # Execute step
             if command == 'execute_navigation':
                 target_node = step.get('params', {}).get('target_node')
                 result = self._execute_navigation(target_node, userinterface_name)
@@ -702,14 +716,26 @@ JSON only:
                 action = self._convert_step_to_action(step)
                 result = execute_action_directly(host, device, action)
             
+            # Step end with timing
+            step_duration = time.time() - step_start_time
+            
             if result.get('success'):
                 executed_actions += 1
-                print(f"✅ AI Agent: Step {i+1} completed successfully")
-                self._add_to_log("execution", "action_success", {'step': i+1, 'command': command}, f"Step {i+1} completed: {description}")
+                print(f"✅ AI Agent: Step {step_num} completed in {step_duration:.1f}s")
+                self._add_to_log("execution", "step_success", {
+                    'step': step_num, 
+                    'command': command, 
+                    'duration': step_duration
+                }, f"Step {step_num} completed in {step_duration:.1f}s")
             else:
                 error_msg = result.get('error', 'Unknown error')
-                print(f"❌ AI Agent: Step {i+1} failed: {error_msg}")
-                self._add_to_log("execution", "action_failed", {'step': i+1, 'command': command, 'error': error_msg}, f"Step {i+1} failed: {error_msg}")
+                print(f"❌ AI Agent: Step {step_num} failed in {step_duration:.1f}s: {error_msg}")
+                self._add_to_log("execution", "step_failed", {
+                    'step': step_num, 
+                    'command': command, 
+                    'error': error_msg, 
+                    'duration': step_duration
+                }, f"Step {step_num} failed in {step_duration:.1f}s")
         
         # Execute verifications (simplified)
         executed_verifications = 0
@@ -722,13 +748,23 @@ JSON only:
         total_steps = len(action_steps) + len(verification_steps)
         overall_success = executed_actions == len(action_steps) and executed_verifications == len(verification_steps)
         
-        # Final status update
+        # Final status update with total duration
+        total_duration = time.time() - self.task_start_time if self.task_start_time else 0
+        
         if overall_success:
-            print(f"🎉 AI Agent: Task completed successfully! {total_executed}/{total_steps} steps executed")
-            self._add_to_log("execution", "task_completed", {'executed': total_executed, 'total': total_steps}, f"Task completed successfully: {total_executed}/{total_steps} steps")
+            print(f"🎉 AI Agent: Task completed in {total_duration:.1f}s")
+            self._add_to_log("execution", "task_completed", {
+                'executed': total_executed, 
+                'total': total_steps, 
+                'duration': total_duration
+            }, f"Task completed in {total_duration:.1f}s")
         else:
-            print(f"⚠️ AI Agent: Task partially completed: {total_executed}/{total_steps} steps executed")
-            self._add_to_log("execution", "task_partial", {'executed': total_executed, 'total': total_steps}, f"Task partially completed: {total_executed}/{total_steps} steps")
+            print(f"⚠️ AI Agent: Task failed in {total_duration:.1f}s ({total_executed}/{total_steps} steps)")
+            self._add_to_log("execution", "task_failed", {
+                'executed': total_executed, 
+                'total': total_steps, 
+                'duration': total_duration
+            }, f"Task failed in {total_duration:.1f}s")
         
         return {
             'success': overall_success,

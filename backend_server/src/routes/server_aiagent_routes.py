@@ -12,12 +12,19 @@ server_aiagent_bp = Blueprint('server_aiagent', __name__, url_prefix='/server/ai
 
 @server_aiagent_bp.route('/executeTask', methods=['POST'])
 def execute_task():
-    """Proxy AI task execution request to selected host"""
+    """Proxy AI task execution request to selected host with async support"""
     try:
         print("[@route:server_aiagent:execute_task] Proxying AI task execution request")
         
         # Get request data
         request_data = request.get_json() or {}
+        
+        # Generate task_id for async execution (same pattern as scripts)
+        import uuid
+        task_id = str(uuid.uuid4())
+        request_data['task_id'] = task_id
+        
+        print(f"[@route:server_aiagent:execute_task] Generated task_id: {task_id}")
         
         # Proxy to host
         response_data, status_code = proxy_to_host('/host/aiagent/executeTask', 'POST', request_data)
