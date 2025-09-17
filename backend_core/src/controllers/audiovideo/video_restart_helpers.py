@@ -637,7 +637,7 @@ class VideoRestartHelpers:
                     'duration_seconds': 0.0
                 }
             
-            return self.dubbing_helpers.prepare_dubbing_audio_step(video_file, self.video_capture_path)
+            return self.dubbing_helpers.prepare_dubbing_audio(video_file, self.video_capture_path)
             
         except Exception as e:
             print(f"RestartHelpers[{self.device_name}]: Audio preparation error: {e}")
@@ -678,7 +678,7 @@ class VideoRestartHelpers:
             # Clean translated text before TTS (remove AI prompt artifacts)
             translated_text = self._clean_translated_text(translation_result['translated_text'])
             
-            return self.dubbing_helpers.generate_edge_speech_step(translated_text, target_language, self.video_capture_path)
+            return self.dubbing_helpers.generate_edge_speech(translated_text, target_language, self.video_capture_path)
             
         except Exception as e:
             print(f"RestartHelpers[{self.device_name}]: Edge-TTS generation error: {e}")
@@ -701,7 +701,7 @@ class VideoRestartHelpers:
                     'duration_seconds': 0.0
                 }
             
-            return self.dubbing_helpers.create_dubbed_video_step(video_file, target_language, voice_choice)
+            return self.dubbing_helpers.create_dubbed_video(video_file, target_language, voice_choice)
             
         except Exception as e:
             print(f"RestartHelpers[{self.device_name}]: Video creation error: {e}")
@@ -712,7 +712,7 @@ class VideoRestartHelpers:
             }
     
     def create_dubbed_video_fast(self, video_id: str, target_language: str, existing_transcript: str) -> Optional[Dict[str, Any]]:
-        """NEW: Fast 2-step dubbing process without Demucs"""
+        """NEW: Fast 2-step dubbing process"""
         try:
             video_filename = "restart_original_video.mp4"
             video_file = os.path.join(self.video_capture_path, video_filename)
@@ -731,16 +731,16 @@ class VideoRestartHelpers:
             translated_text = self._clean_translated_text(existing_transcript)
             print(f"RestartHelpers[{self.device_name}]: Using provided translated transcript for {target_language}")
             
-            # Call fast dubbing method (combines Edge-TTS generation + video muting)
-            return self.dubbing_helpers.create_dubbed_video_fast_step(
+            # Call complete dubbing method (combines Edge-TTS generation + video creation)
+            return self.dubbing_helpers.create_dubbed_video_complete(
                 translated_text, target_language, video_file, self.video_capture_path
             )
             
         except Exception as e:
-            print(f"RestartHelpers[{self.device_name}]: Fast dubbing error: {e}")
+            print(f"RestartHelpers[{self.device_name}]: Complete dubbing error: {e}")
             return {
                 'success': False,
-                'error': f'Fast dubbing failed: {str(e)}',
+                'error': f'Complete dubbing failed: {str(e)}',
                 'duration_seconds': 0.0
             }
     
@@ -861,169 +861,10 @@ class VideoRestartHelpers:
                                      silent_video_path: str = None, background_audio_path: str = None, 
                                      vocals_path: str = None) -> Optional[Dict[str, Any]]:
         """
-        Adjust timing using provided component paths or create them if missing.
-        Frontend provides component paths if available, backend creates them if not.
+        Simple timing adjustment.
         """
-        try:
-            
-            # Use provided component paths or create them
-            if silent_video_path and background_audio_path and vocals_path:
-                print(f"RestartHelpers[{self.device_name}]: 🎯 FRONTEND_PROVIDED: Using provided component paths")
-                print(f"RestartHelpers[{self.device_name}]:   - Silent video: {silent_video_path}")
-                print(f"RestartHelpers[{self.device_name}]:   - Background audio: {background_audio_path}")
-                print(f"RestartHelpers[{self.device_name}]:   - Vocals: {vocals_path}")
-                
-                # Determine vocal source based on language
-                if language == "original" or language == "en":
-                    vocal_source_path = vocals_path  # Use provided original vocals
-                else:
-                    # For dubbed languages, check if dubbed vocals exist
-                    dubbed_vocals_path = os.path.join(original_dir, f"restart_{language}_dubbed_voice_edge.wav")
-                    if os.path.exists(dubbed_vocals_path):
-                        vocal_source_path = dubbed_vocals_path
-                        print(f"RestartHelpers[{self.device_name}]:   - Using dubbed vocals: {dubbed_vocals_path}")
-                    else:
-                        print(f"RestartHelpers[{self.device_name}]:   ❌ Dubbed vocals missing: {dubbed_vocals_path}")
-                        return self._fallback_timing_adjustment(original_dir, base_name, original_ext, target_timing_ms, output_path, output_filename, video_url, language)
-            else:
-                print(f"RestartHelpers[{self.device_name}]: 🔧 CREATING_COMPONENTS: Frontend didn't provide paths, creating from source")
-                
-                # Define standard component paths
-                silent_video_path = os.path.join(original_dir, "restart_video_no_audio.mp4")
-                background_audio_path = os.path.join(original_dir, "restart_original_background.wav")
-                original_vocals_path = os.path.join(original_dir, "restart_original_vocals.wav")
-                
-                # Create components from source video
-                source_video_path = os.path.join(original_dir, f"{base_name}{original_ext}")
-                success = self._create_components_from_source(source_video_path, original_dir)
-                if not success:
-                    print(f"RestartHelpers[{self.device_name}]: ❌ COMPONENT_CREATION_FAILED: Falling back to full video processing")
-                    return self._fallback_timing_adjustment(original_dir, base_name, original_ext, target_timing_ms, output_path, output_filename, video_url, language)
-                
-                
-                # Determine vocal source based on language
-                if language == "original" or language == "en":
-                    vocal_source_path = original_vocals_path
-                else:
-                    dubbed_vocals_path = os.path.join(original_dir, f"restart_{language}_dubbed_voice_edge.wav")
-                    if os.path.exists(dubbed_vocals_path):
-                        vocal_source_path = dubbed_vocals_path
-                        print(f"RestartHelpers[{self.device_name}]:   - Using dubbed vocals: {dubbed_vocals_path}")
-                    else:
-                        print(f"RestartHelpers[{self.device_name}]:   ❌ Dubbed vocals missing: {dubbed_vocals_path}")
-                        return self._fallback_timing_adjustment(original_dir, base_name, original_ext, target_timing_ms, output_path, output_filename, video_url, language)
-            
-            # Generate timing-adjusted vocal filename
-            if target_timing_ms > 0:
-                sync_suffix = f"_syncp{target_timing_ms}"
-            else:
-                sync_suffix = f"_syncm{abs(target_timing_ms)}"
-            
-            vocal_base_name = os.path.splitext(os.path.basename(vocal_source_path))[0]
-            timed_vocal_path = os.path.join(original_dir, f"{vocal_base_name}{sync_suffix}.wav")
-            
-            # Step 1: Apply timing to vocals only (if not cached)
-            if not os.path.exists(timed_vocal_path):
-                print(f"RestartHelpers[{self.device_name}]: Applying timing to vocals: {target_timing_ms:+d}ms")
-                
-                if target_timing_ms > 0:
-                    # Positive offset: prepend silence (clean approach like negative trim)
-                    delay_seconds = target_timing_ms / 1000.0
-                    vocal_cmd = [
-                        'ffmpeg', '-f', 'lavfi', '-i', f'anullsrc=duration={delay_seconds}:sample_rate=44100:channel_layout=stereo',
-                        '-i', vocal_source_path,
-                        '-filter_complex', '[0:a][1:a]concat=n=2:v=0:a=1[out]',
-                        '-map', '[out]',
-                        '-c:a', 'pcm_s16le',
-                        timed_vocal_path, '-y'
-                    ]
-                else:
-                    # Negative offset: trim vocals from start
-                    trim_seconds = abs(target_timing_ms) / 1000.0
-                    vocal_cmd = [
-                        'ffmpeg', '-i', vocal_source_path,
-                        '-af', f'atrim=start={trim_seconds}',
-                        '-c:a', 'pcm_s16le',
-                        timed_vocal_path, '-y'
-                    ]
-                
-                subprocess.run(vocal_cmd, capture_output=True, text=True, check=True)
-                print(f"RestartHelpers[{self.device_name}]: Vocal timing adjustment completed")
-            else:
-                print(f"RestartHelpers[{self.device_name}]: Using cached timed vocals")
-            
-            # Step 2: Mix background + timed vocals
-            mixed_audio_path = os.path.join(original_dir, f"restart_mixed_audio{sync_suffix}.wav")
-            
-            if not os.path.exists(mixed_audio_path):
-                print(f"RestartHelpers[{self.device_name}]: Mixing background + timed vocals")
-                
-                # Use pydub for audio mixing (same as dubbing system)
-                from pydub import AudioSegment
-                
-                background = AudioSegment.from_file(background_audio_path)
-                timed_vocals = AudioSegment.from_file(timed_vocal_path)
-                
-                # Ensure both audio segments have the same length
-                max_length = max(len(background), len(timed_vocals))
-                if len(background) < max_length:
-                    silence = AudioSegment.silent(duration=max_length - len(background))
-                    background = background + silence
-                if len(timed_vocals) < max_length:
-                    silence = AudioSegment.silent(duration=max_length - len(timed_vocals))
-                    timed_vocals = timed_vocals + silence
-                
-                # Mix audio (background at 100%, vocals at 100%)
-                mixed = background.overlay(timed_vocals)
-                mixed.export(mixed_audio_path, format="wav")
-                print(f"RestartHelpers[{self.device_name}]: Audio mixing completed")
-            else:
-                print(f"RestartHelpers[{self.device_name}]: Using cached mixed audio")
-            
-            # Step 3: Combine silent video + mixed audio
-            print(f"RestartHelpers[{self.device_name}]: Combining silent video with mixed audio")
-            
-            final_cmd = [
-                'ffmpeg', '-i', silent_video_path, '-i', mixed_audio_path,
-                '-c:v', 'copy',  # Copy video unchanged
-                '-c:a', 'aac',   # Encode mixed audio
-                '-shortest',     # Match shortest stream duration
-                output_path, '-y'
-            ]
-            
-            subprocess.run(final_cmd, capture_output=True, text=True, check=True)
-            
-            # Build URL for adjusted video
-            adjusted_video_url = self._build_video_url(output_filename)
-            
-            # Generate new video ID
-            video_id = f"restart_{int(time.time())}_{language}_timing_{target_timing_ms:+d}ms"
-            
-            print(f"RestartHelpers[{self.device_name}]: Cached component timing adjustment completed: {output_filename}")
-            
-            # Include component paths in response for frontend caching
-            response = {
-                'success': True,
-                'adjusted_video_url': adjusted_video_url,
-                'timing_offset_ms': target_timing_ms,
-                'language': language,
-                'video_id': video_id,
-                'original_video_url': video_url
-            }
-            
-            # Add component paths if we created them (not provided by frontend)
-            if not (silent_video_path and background_audio_path and vocals_path):
-                response['components_created'] = True
-                response['silent_video_path'] = silent_video_path
-                response['background_audio_path'] = background_audio_path
-                response['original_vocals_path'] = vocal_source_path if language == "original" or language == "en" else original_vocals_path
-            
-            return response
-            
-        except Exception as e:
-            print(f"RestartHelpers[{self.device_name}]: Cached component timing failed: {e}")
-            print(f"RestartHelpers[{self.device_name}]: Using dubbing helpers sync method")
-            return self._sync_using_dubbing_helpers(target_timing_ms, language, original_dir, video_url)
+        print(f"RestartHelpers[{self.device_name}]: Using simplified sync - delegating to dubbing helpers")
+        return self._sync_using_dubbing_helpers(target_timing_ms, language, original_dir, video_url)
     
     def _sync_using_dubbing_helpers(self, target_timing_ms: int, language: str, original_dir: str, video_url: str) -> Optional[Dict[str, Any]]:
         """
@@ -1060,23 +901,19 @@ class VideoRestartHelpers:
     
     def _create_components_from_source(self, source_video_path: str, original_dir: str) -> bool:
         """
-        Create cached separated components (silent video + background + vocals) from source video.
-        This enables the cached component timing adjustment method.
+        Create only silent video, no audio separation.
+        All audio processing is handled by AudioDubbingHelpers.
         """
         try:
             if not os.path.exists(source_video_path):
                 print(f"RestartHelpers[{self.device_name}]: Source video not found: {source_video_path}")
                 return False
             
-            print(f"RestartHelpers[{self.device_name}]: Creating cached components from: {source_video_path}")
+            print(f"RestartHelpers[{self.device_name}]: Creating silent video component from: {source_video_path}")
             
-            # Define output paths (always use original components - same for all languages)
+            # Only create silent video - no audio processing
             silent_video_path = os.path.join(original_dir, "restart_video_no_audio.mp4")
-            audio_extract_path = os.path.join(original_dir, "restart_extracted_audio.wav")
-            background_audio_path = os.path.join(original_dir, "restart_original_background.wav")
-            vocals_path = os.path.join(original_dir, "restart_original_vocals.wav")
             
-            # Step 1: Extract silent video (no audio track)
             if not os.path.exists(silent_video_path):
                 print(f"RestartHelpers[{self.device_name}]: Extracting silent video...")
                 silent_cmd = [
@@ -1087,38 +924,13 @@ class VideoRestartHelpers:
                 ]
                 subprocess.run(silent_cmd, capture_output=True, text=True, check=True)
                 print(f"RestartHelpers[{self.device_name}]: Silent video created: {silent_video_path}")
-            
-            # Step 2: Extract audio from video
-            if not os.path.exists(audio_extract_path):
-                print(f"RestartHelpers[{self.device_name}]: Extracting audio from video...")
-                audio_cmd = [
-                    'ffmpeg', '-i', source_video_path,
-                    '-vn',           # Remove video track
-                    '-c:a', 'pcm_s16le',  # PCM format for Demucs
-                    audio_extract_path, '-y'
-                ]
-                subprocess.run(audio_cmd, capture_output=True, text=True, check=True)
-                print(f"RestartHelpers[{self.device_name}]: Audio extracted: {audio_extract_path}")
-            
-            # Step 3: Separate audio using Demucs (background + vocals) - DISABLED
-            if not os.path.exists(background_audio_path) or not os.path.exists(vocals_path):
-                print(f"RestartHelpers[{self.device_name}]: Audio separation disabled - skipping Demucs")
-                print(f"RestartHelpers[{self.device_name}]: Use fast dubbing method for new content")
-                
-                # Clean up temporary extracted audio
-                if os.path.exists(audio_extract_path):
-                    os.remove(audio_extract_path)
-            
-            # Verify components - only silent video is required now
-            if os.path.exists(silent_video_path):
-                print(f"RestartHelpers[{self.device_name}]: Silent video component created successfully")
-                return True
             else:
-                print(f"RestartHelpers[{self.device_name}]: Failed to create silent video component")
-                return False
+                print(f"RestartHelpers[{self.device_name}]: Silent video already exists")
+            
+            return True
                 
         except Exception as e:
-            print(f"RestartHelpers[{self.device_name}]: Error creating cached components: {e}")
+            print(f"RestartHelpers[{self.device_name}]: Error creating silent video: {e}")
             return False
     
     def _parse_timing_filename(self, filename: str) -> tuple[str, int]:

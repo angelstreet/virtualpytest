@@ -330,7 +330,7 @@ def create_dubbed_video():
 
 @server_restart_bp.route('/createDubbedVideoFast', methods=['POST'])
 def create_dubbed_video_fast():
-    """NEW: Fast 2-step dubbed video creation without Demucs ~5-8s"""
+    """NEW: Fast 2-step dubbed video creation ~5-8s"""
     import time
     step_start_time = time.time()
     

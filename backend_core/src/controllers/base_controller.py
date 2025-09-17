@@ -462,7 +462,7 @@ class FFmpegCaptureController(AVControllerInterface):
         return self.restart_helpers.create_dubbed_video(video_id, target_language, voice_choice)
     
     def createDubbedVideoFast(self, video_id: str, target_language: str, existing_transcript: str) -> Optional[Dict[str, Any]]:
-        """NEW: Fast 2-step dubbed video creation without Demucs"""
+        """NEW: Fast 2-step dubbed video creation"""
         return self.restart_helpers.create_dubbed_video_fast(video_id, target_language, existing_transcript)
     
     def adjustVideoAudioTiming(self, video_url: str, timing_offset_ms: int, language: str = "original",

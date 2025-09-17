@@ -17,7 +17,7 @@ The Audio AI Helper system extends VirtualPyTest's analysis capabilities by addi
 - **HLS Integration**: Properly extracts audio from `.ts` HLS segments
 
 ### AudioDubbingHelpers Improvements:
-- **Fast Dubbing**: 2-step process (~5-8s) without Demucs separation
+- **Simple Dubbing**: 2-step process (~5-8s) with direct audio replacement
 - **Cache-Based Sync**: Reuses extracted components for timing adjustments
 - **No Duplicate Code**: Sync reuses dubbing combine logic
 - **Consistent Processing**: Same FFmpeg mapping approach eliminates "2 audio" issues
@@ -25,7 +25,7 @@ The Audio AI Helper system extends VirtualPyTest's analysis capabilities by addi
 
 **Performance Gains**:
 - **Audio Analysis**: 0.5-2 seconds instead of 6+ seconds (up to 8x faster with early stop)
-- **Dubbing Speed**: ~5-8s instead of 30s+ (6x faster without Demucs)
+- **Dubbing Speed**: ~5-8s with direct audio replacement
 - **Sync Speed**: ~2-3s using cached components (10x faster than re-extraction)
 - **Network Independent**: No API calls or internet dependency
 - **Resource Efficient**: 40x smaller model size, cached component reuse
@@ -119,11 +119,11 @@ test_scripts/
 
 #### Overview
 
-The AudioDubbingHelpers class provides fast, cache-based audio dubbing and synchronization functionality for restart videos. It uses a consistent 4-step process for both dubbing and sync operations, eliminating duplicate code and ensuring reliable audio processing.
+The AudioDubbingHelpers class provides simple, cache-based audio dubbing and synchronization functionality for restart videos. It uses a consistent process for both dubbing and sync operations, eliminating duplicate code and ensuring reliable audio processing.
 
 #### Key Features
 
-- **Fast Dubbing**: 2-step process (~5-8s total) without Demucs separation
+- **Simple Dubbing**: 2-step process (~5-8s total) with direct audio replacement
 - **Cache-Based Sync**: Reuses extracted components for efficient timing adjustments
 - **Consistent Processing**: Same FFmpeg mapping approach for dubbing and sync
 - **No Duplicate Code**: Sync reuses dubbing combine logic
@@ -131,16 +131,16 @@ The AudioDubbingHelpers class provides fast, cache-based audio dubbing and synch
 
 #### Core Methods
 
-##### `create_dubbed_video_fast_step(text, language, video_file, original_video_dir)`
-- **Purpose**: Fast 2-step dubbing without background separation
+##### `create_dubbed_video_complete(text, language, video_file, original_video_dir)`
+- **Purpose**: Complete 2-step dubbing with direct audio replacement
 - **Process**:
   1. Generate Edge-TTS audio for target language
-  2. Mute original video and overlay new audio (no background mixing)
-- **Performance**: ~5-8s total (vs 30s+ with Demucs)
+  2. Replace original audio with new dubbed audio
+- **Performance**: ~5-8s total
 - **Output**: Clean dubbed video with only new language audio
 
 ```python
-# Fast dubbing FFmpeg command:
+# Simple dubbing FFmpeg command:
 ffmpeg -i video_file -i edge_tts_audio \
   -c:v copy \           # Copy video unchanged
   -c:a aac \            # Encode new audio  
