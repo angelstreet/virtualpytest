@@ -543,27 +543,22 @@ If not feasible:
 
 JSON ONLY - NO OTHER TEXT"""
             else:
-                # Build MINIMAL context - only show command names, not descriptions
-                action_commands = [action.get('command', action) if isinstance(action, dict) else action for action in available_actions]
-                verification_commands = [verif if isinstance(verif, str) else verif.get('verification_type', 'unknown') for verif in available_verifications]
+                # Use navigation-specific commands instead of device-specific actions
+                navigation_commands = ['execute_navigation', 'click_element', 'press_key', 'wait']
                 
-                # Build ultra-focused navigation context
+                # Build navigation context with ALL nodes
                 navigation_context = ""
                 if available_nodes:
-                    # Only show first 5 nodes to keep prompt small
-                    key_nodes = available_nodes[:5]
-                    if len(available_nodes) > 5:
-                        nodes_display = f"{', '.join(key_nodes)} (+{len(available_nodes)-5} more)"
-                    else:
-                        nodes_display = ', '.join(key_nodes)
-                    navigation_context = f"Navigation Nodes: {nodes_display}"
+                    navigation_context = f"Nodes: {available_nodes}"
                 
-                prompt = f"""Task: "{task_description}"
+                prompt = f"""You are controlling a TV application on a device (STB/mobile/PC).
+Your task is to navigate through the app using available commands provided.
+
+Task: "{task_description}"
 Device: {device_model}
 {navigation_context}
 
-Actions: {', '.join(action_commands[:8])}
-Verifications: {', '.join(verification_commands[:5])}
+Commands: {navigation_commands}
 
 Rules:
 - "go to node X" → execute_navigation, target_node="X"
