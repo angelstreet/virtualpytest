@@ -1034,8 +1034,14 @@ class VideoRestartHelpers:
         try:
             print(f"RestartHelpers[{self.device_name}]: Using fallback timing adjustment method")
             
-            # Determine source file
-            original_video_path = os.path.join(original_dir, f"{base_name}{original_ext}")
+            # Determine source file - use the current video being adjusted, not always original
+            from shared.lib.utils.build_url_utils import convertHostUrlToLocalPath
+            if video_url.startswith(('http://', 'https://')):
+                source_video_path = convertHostUrlToLocalPath(video_url)
+            else:
+                source_video_path = video_url
+            
+            print(f"RestartHelpers[{self.device_name}]: Using source video: {source_video_path}")
             
             # Build FFmpeg command based on target timing
             if target_timing_ms > 0:
@@ -1048,7 +1054,7 @@ class VideoRestartHelpers:
             
             # Apply timing adjustment using FFmpeg
             cmd = [
-                'ffmpeg', '-i', original_video_path,
+                'ffmpeg', '-i', source_video_path,
                 '-af', audio_filter,
                 '-c:v', 'copy',  # Copy video stream unchanged
                 '-c:a', 'aac',   # Re-encode audio with adjustment
