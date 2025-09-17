@@ -767,7 +767,7 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
             const subText = sub.includes(': ') ? sub.split(': ').slice(1).join(': ') : sub;
             return subText === 'No subtitles detected' ? '' : subText;
           }) || [],
-          source_language: analysisResults.subtitles?.detected_language?.toLowerCase() || 'en'
+          source_language: analysisResults.subtitles?.detected_language || 'en'
         }
       };
 
