@@ -208,12 +208,12 @@ SERVER_PORT="5109"
 echo "🔧 Configuring firewall for backend_server ports:"
 echo "   - Backend Server API: $SERVER_PORT"
 echo "   - PostgreSQL: 5432"
-echo "   - Grafana: 3001"
+echo "   - Grafana: 3000"
 
 # Configure UFW for backend_server ports
 check_and_open_port "$SERVER_PORT" "backend_server API" "tcp"
-check_and_open_port "5432" "PostgreSQL database" "tcp"
-check_and_open_port "3001" "Grafana dashboard" "tcp"
+heck_and_open_port "5432" "PostgreSQL database" "tcp"
+check_and_open_port "3000" "Grafana dashboard" "tcp"
 
 # Create VPT Server Host systemd service (but don't enable/start it)
 echo "🔧 Creating VPT Server Host systemd service..."

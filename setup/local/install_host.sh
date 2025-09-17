@@ -65,7 +65,7 @@ echo "🔥 Configuring firewall for backend_host..."
 # Source port checking functions
 source "$PROJECT_ROOT/setup/local/check_and_open_port.sh"
 
-# Get HOST_PORT from backend_host .env file
+# Get HOST_PORT from backend_host .env file (default 6109)
 HOST_ENV_FILE="$PROJECT_ROOT/backend_host/src/.env"
 HOST_PORT=$(get_port_from_env "$HOST_ENV_FILE" "HOST_PORT" "6109")
 
