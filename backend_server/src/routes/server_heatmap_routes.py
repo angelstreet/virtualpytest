@@ -28,6 +28,57 @@ from shared.lib.utils.heatmap_utils import (
 from shared.lib.utils.app_utils import check_supabase, get_team_id
 from shared.lib.utils.build_url_utils import buildHostImageUrl
 
+def get_device_capture_dir(host_data: dict, device_id: str) -> str:
+    """
+    Extract capture directory from host device configuration.
+    Fails early if configuration is missing or invalid.
+    
+    Args:
+        host_data: Host information containing devices
+        device_id: Device ID to look up
+        
+    Returns:
+        Capture directory name (e.g., 'capture1', 'capture2')
+        
+    Raises:
+        ValueError: If device not found or video paths not configured
+    """
+    if not host_data:
+        raise ValueError(f"Host data is required to resolve capture directory for device {device_id}")
+    
+    devices = host_data.get('devices', [])
+    if not devices:
+        raise ValueError(f"No devices configured in host data for device {device_id}")
+    
+    for device in devices:
+        if device.get('device_id') == device_id:
+            # Try video_capture_path first
+            capture_path = device.get('video_capture_path')
+            if capture_path:
+                # Extract directory from path like '/var/www/html/stream/capture2' -> 'capture2'
+                capture_dir = capture_path.split('/')[-1]
+                if capture_dir.startswith('capture'):
+                    return capture_dir
+                else:
+                    raise ValueError(f"Invalid video_capture_path format for device {device_id}: {capture_path}")
+            
+            # Try video_stream_path as alternative
+            stream_path = device.get('video_stream_path')
+            if stream_path:
+                # Extract directory from path like '/host/stream/capture2' -> 'capture2'
+                parts = stream_path.split('/')
+                for part in reversed(parts):
+                    if part.startswith('capture'):
+                        return part
+                raise ValueError(f"No capture directory found in video_stream_path for device {device_id}: {stream_path}")
+            
+            # Device found but no video paths configured
+            raise ValueError(f"Device {device_id} has no video_capture_path or video_stream_path configured. Check .env file.")
+    
+    # Device not found in host configuration
+    available_devices = [d.get('device_id', 'unknown') for d in devices]
+    raise ValueError(f"Device {device_id} not found in host configuration. Available devices: {available_devices}")
+
 # Create blueprint
 server_heatmap_bp = Blueprint('server_heatmap', __name__, url_prefix='/server/heatmap')
 
@@ -103,16 +154,8 @@ async def query_host_analysis(session, host_device, timeframe_minutes):
                             filename = os.path.basename(filename)
                         
                         # Build image URL with correct device-to-capture directory mapping using buildHostImageUrl
-                        # Map device IDs to their actual capture directories
-                        if device_id == 'host':
-                            # VNC host device uses capture3 directory (not capture)
-                            capture_dir = 'capture3'
-                        elif device_id == 'device1':
-                            # Mobile device uses capture1 directory
-                            capture_dir = 'capture1'
-                        else:
-                            # Fallback: extract number from device_id
-                            capture_dir = f'capture{device_id.replace("device", "")}'
+                        # Extract capture directory from host device configuration
+                        capture_dir = get_device_capture_dir(host_data, device_id)
                         
                         # Use buildHostImageUrl to properly handle nginx port stripping for static files
                         image_path = f"stream/{capture_dir}/captures/{filename}"
@@ -219,16 +262,8 @@ def process_host_results(host_results):
                             filename = os.path.basename(filename)
                         
                         # Build image URL with correct device-to-capture directory mapping using buildHostImageUrl
-                        # Map device IDs to their actual capture directories
-                        if device_id == 'host':
-                            # VNC host device uses capture3 directory (not capture)
-                            capture_dir = 'capture3'
-                        elif device_id == 'device1':
-                            # Mobile device uses capture1 directory
-                            capture_dir = 'capture1'
-                        else:
-                            # Fallback: extract number from device_id
-                            capture_dir = f'capture{device_id.replace("device", "")}'
+                        # Extract capture directory from host device configuration
+                        capture_dir = get_device_capture_dir(host_data, device_id)
                         
                         # Use buildHostImageUrl to properly handle nginx port stripping for static files
                         image_path = f"stream/{capture_dir}/captures/{filename}"
