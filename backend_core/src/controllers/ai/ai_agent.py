@@ -678,9 +678,17 @@ JSON only:
         # Execute actions
         executed_actions = 0
         for i, step in enumerate(action_steps):
-            print(f"AI[{self.device_name}]: Executing action {i+1}/{len(action_steps)}: {step.get('command')}")
-            action = self._convert_step_to_action(step)
-            result = execute_action_directly(host, device, action)
+             command = step.get('command')
+            print(f"AI[{self.device_name}]: Executing action {i+1}/{len(action_steps)}: {command}")
+            
+            # Handle navigation specially
+            if command == 'execute_navigation':
+                target_node = step.get('params', {}).get('target_node')
+                result = self._execute_navigation(target_node, userinterface_name)
+            else:
+                action = self._convert_step_to_action(step)
+                result = execute_action_directly(host, device, action)
+            
             if result.get('success'):
                 executed_actions += 1
                 print(f"AI[{self.device_name}]: Action {i+1} completed successfully")
