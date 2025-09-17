@@ -321,8 +321,8 @@ class AudioDubbingHelpers:
                 print(f"Dubbing[{self.device_name}]: Applying {timing_offset_ms:+d}ms timing to audio...")
                 
                 if timing_offset_ms > 0:
-                    # Positive offset: delay audio
-                    audio_filter = f"adelay={timing_offset_ms},aformat=channel_layouts=stereo"
+                    # Positive offset: trim and delay audio with channel sync
+                    audio_filter = f"atrim=0:5,adelay={timing_offset_ms}|{timing_offset_ms}"
                 else:
                     # Negative offset: advance audio (trim from start)
                     trim_seconds = abs(timing_offset_ms) / 1000.0
