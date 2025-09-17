@@ -644,9 +644,7 @@ JSON only:
             }
     
     def _execute(self, plan: Dict[str, Any], navigation_tree: Dict = None, userinterface_name: str = "horizon_android_mobile") -> Dict[str, Any]:
-        """
-        Execute AI plan using system infrastructure.
-        """
+        """Execute AI plan using system infrastructure."""
         if not plan.get('feasible', True):
             return {'success': False, 'error': 'Plan marked as not feasible', 'executed_steps': 0, 'total_steps': 0}
         
@@ -654,11 +652,21 @@ JSON only:
         if not plan_steps:
             return {'success': True, 'executed_steps': 0, 'total_steps': 0, 'message': 'No steps to execute'}
         
-        print(f"AI[{self.device_name}]: Executing plan with {len(plan_steps)} steps")
-        
         # Classify steps
         action_steps, verification_steps = self._classify_ai_steps(plan_steps)
-        print(f"AI[{self.device_name}]: Found {len(action_steps)} action steps and {len(verification_steps)} verification steps")
+        
+        # User-friendly status update
+        total_steps = len(action_steps) + len(verification_steps)
+        print(f"🤖 AI Agent: Found {total_steps} steps to execute ({len(action_steps)} actions, {len(verification_steps)} verifications)")
+        
+        # Add to execution log for frontend
+        self._add_to_log("ai_plan", "steps_found", {
+            'total_steps': total_steps,
+            'action_steps': len(action_steps),
+            'verification_steps': len(verification_steps),
+            'actions': [{'command': step.get('command'), 'description': step.get('description', '')} for step in action_steps],
+            'verifications': [{'command': step.get('command'), 'description': step.get('description', '')} for step in verification_steps]
+        }, f"AI found {total_steps} steps to execute")
         
         # Setup execution environment
         from shared.lib.utils.script_execution_utils import setup_script_environment, select_device
@@ -677,9 +685,14 @@ JSON only:
         
         # Execute actions
         executed_actions = 0
+        if action_steps:
+            print(f"🚀 AI Agent: Starting execution of {len(action_steps)} actions")
+            self._add_to_log("execution", "actions_started", {'count': len(action_steps)}, f"Starting execution of {len(action_steps)} actions")
+        
         for i, step in enumerate(action_steps):
-             command = step.get('command')
-            print(f"AI[{self.device_name}]: Executing action {i+1}/{len(action_steps)}: {command}")
+            command = step.get('command')
+            description = step.get('description', command)
+            print(f"⚡ AI Agent: Executing step {i+1}/{len(action_steps)}: {description}")
             
             # Handle navigation specially
             if command == 'execute_navigation':
@@ -691,9 +704,12 @@ JSON only:
             
             if result.get('success'):
                 executed_actions += 1
-                print(f"AI[{self.device_name}]: Action {i+1} completed successfully")
+                print(f"✅ AI Agent: Step {i+1} completed successfully")
+                self._add_to_log("execution", "action_success", {'step': i+1, 'command': command}, f"Step {i+1} completed: {description}")
             else:
-                print(f"AI[{self.device_name}]: Action {i+1} failed: {result.get('error', 'Unknown error')}")
+                error_msg = result.get('error', 'Unknown error')
+                print(f"❌ AI Agent: Step {i+1} failed: {error_msg}")
+                self._add_to_log("execution", "action_failed", {'step': i+1, 'command': command, 'error': error_msg}, f"Step {i+1} failed: {error_msg}")
         
         # Execute verifications (simplified)
         executed_verifications = 0
@@ -705,6 +721,14 @@ JSON only:
         total_executed = executed_actions + executed_verifications
         total_steps = len(action_steps) + len(verification_steps)
         overall_success = executed_actions == len(action_steps) and executed_verifications == len(verification_steps)
+        
+        # Final status update
+        if overall_success:
+            print(f"🎉 AI Agent: Task completed successfully! {total_executed}/{total_steps} steps executed")
+            self._add_to_log("execution", "task_completed", {'executed': total_executed, 'total': total_steps}, f"Task completed successfully: {total_executed}/{total_steps} steps")
+        else:
+            print(f"⚠️ AI Agent: Task partially completed: {total_executed}/{total_steps} steps executed")
+            self._add_to_log("execution", "task_partial", {'executed': total_executed, 'total': total_steps}, f"Task partially completed: {total_executed}/{total_steps} steps")
         
         return {
             'success': overall_success,

@@ -3,6 +3,7 @@ import { useState, useCallback } from 'react';
 import { Host, Device } from '../../types/common/Host_Types';
 
 import { buildServerUrl } from '../../utils/buildUrlUtils';
+import { useToast } from '../useToast';
 interface ExecutionLogEntry {
   timestamp: string;
   type: string;
@@ -44,6 +45,9 @@ export const useAIAgent = ({ host, device, enabled = true }: UseAIAgentProps): U
   const [taskInput, setTaskInput] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [taskResult, setTaskResult] = useState<{ success: boolean; message: string } | null>(null);
+  
+  // Toast notifications
+  const { showSuccess, showError, showInfo } = useToast();
 
   // AI plan response
   const [aiPlan, setAiPlan] = useState<any>(null);
@@ -73,6 +77,9 @@ export const useAIAgent = ({ host, device, enabled = true }: UseAIAgentProps): U
       setExecutionLog([]);
       setAiPlan(null);
       setIsPlanFeasible(true);
+
+      // Show task start notification
+      showInfo(`🤖 AI Agent: Starting task "${taskInput.trim()}"`);
 
       console.log('[useAIAgent] Executing task:', taskInput);
 
@@ -136,8 +143,27 @@ export const useAIAgent = ({ host, device, enabled = true }: UseAIAgentProps): U
 
               if (statusResult.success) {
                 // Update current step and execution log with latest data
+                const prevLogLength = executionLog.length;
+                const newLog = statusResult.execution_log || [];
                 setCurrentStep(statusResult.current_step || 'Processing...');
-                setExecutionLog(statusResult.execution_log || []);
+                setExecutionLog(newLog);
+
+                // Check for new log entries and show toast notifications
+                if (newLog.length > prevLogLength) {
+                  const newEntries = newLog.slice(prevLogLength);
+                  for (const entry of newEntries) {
+                    if (entry.action_type === 'steps_found') {
+                      const stepData = entry.value;
+                      showInfo(`🤖 AI found ${stepData.total_steps} steps to execute (${stepData.action_steps} actions, ${stepData.verification_steps} verifications)`);
+                    } else if (entry.action_type === 'actions_started') {
+                      showInfo(`🚀 Starting execution of ${entry.value.count} actions`);
+                    } else if (entry.action_type === 'task_completed') {
+                      showSuccess(`🎉 AI task completed successfully! ${entry.value.executed}/${entry.value.total} steps executed`);
+                    } else if (entry.action_type === 'task_partial') {
+                      showError(`⚠️ AI task partially completed: ${entry.value.executed}/${entry.value.total} steps executed`);
+                    }
+                  }
+                }
 
                 // Check if execution is still running
                 if (!statusResult.is_executing) {
