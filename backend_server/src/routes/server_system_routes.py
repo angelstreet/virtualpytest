@@ -79,6 +79,15 @@ def register_host():
             print(f"[@route:register_host] Processing device: {device_name} ({device_model})")
             print(f"[@route:register_host] Device capabilities: {device_capabilities}")
             
+            # DEBUG: Check if video paths are being sent by host
+            video_stream_path = device.get('video_stream_path')
+            video_capture_path = device.get('video_capture_path')
+            video = device.get('video')
+            print(f"[@route:register_host] Video paths from host:")
+            print(f"   video_stream_path: {video_stream_path}")
+            print(f"   video_capture_path: {video_capture_path}")
+            print(f"   video: {video}")
+            
             # Check for device-level verification and action types
             device_verification_types = device.get('device_verification_types', {})
             device_action_types = device.get('device_action_types', {})
@@ -88,7 +97,7 @@ def register_host():
             if device_action_types:
                 print(f"[@route:register_host] Device {device_name} has {len(device_action_types)} action categories")
             
-            # Add device with processed info
+            # Add device with processed info - INCLUDE VIDEO PATHS FOR HEATMAP
             device_with_controllers = {
                 'device_id': device.get('device_id'),
                 'device_name': device_name,
@@ -96,6 +105,9 @@ def register_host():
                 'device_ip': device.get('device_ip'),
                 'device_port': device.get('device_port'),
                 'ir_type': device.get('ir_type'),  # Include IR type for remote configuration
+                'video_stream_path': device.get('video_stream_path'),  # CRITICAL: Include for heatmap
+                'video_capture_path': device.get('video_capture_path'),  # CRITICAL: Include for heatmap  
+                'video': device.get('video'),  # Include video device path
                 'device_capabilities': device_capabilities,
                 'device_verification_types': device_verification_types,
                 'device_action_types': device_action_types
