@@ -1,16 +1,16 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo, useRef } from 'react';
 
 import { Host, Device } from '../../types/common/Host_Types';
+import { 
+  AIExecutionLogEntry, 
+  AIPlan, 
+  AITaskExecution, 
+  AIExecutionSummary,
+  AI_CONSTANTS 
+} from '../../types/aiagent/AIAgent_Types';
 
 import { buildServerUrl } from '../../utils/buildUrlUtils';
 import { useToast } from '../useToast';
-interface ExecutionLogEntry {
-  timestamp: string;
-  type: string;
-  action_type: string;
-  value: any;
-  description: string;
-}
 
 interface UseAIAgentProps {
   host: Host;
@@ -22,14 +22,18 @@ interface UseAIAgentReturn {
   // State
   isExecuting: boolean;
   currentStep: string;
-  executionLog: ExecutionLogEntry[];
+  executionLog: AIExecutionLogEntry[];
   taskInput: string;
   errorMessage: string | null;
   taskResult: { success: boolean; message: string } | null;
 
   // AI plan from backend
-  aiPlan: any;
+  aiPlan: AIPlan | null;
   isPlanFeasible: boolean;
+
+  // Progress tracking
+  progressPercentage: number;
+  executionSummary: AIExecutionSummary | null;
 
   // Actions
   setTaskInput: (input: string) => void;
@@ -41,7 +45,7 @@ interface UseAIAgentReturn {
 export const useAIAgent = ({ host, device, enabled = true }: UseAIAgentProps): UseAIAgentReturn => {
   const [isExecuting, setIsExecuting] = useState(false);
   const [currentStep, setCurrentStep] = useState('');
-  const [executionLog, setExecutionLog] = useState<ExecutionLogEntry[]>([]);
+  const [executionLog, setExecutionLog] = useState<AIExecutionLogEntry[]>([]);
   const [taskInput, setTaskInput] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [taskResult, setTaskResult] = useState<{ success: boolean; message: string } | null>(null);
@@ -50,8 +54,62 @@ export const useAIAgent = ({ host, device, enabled = true }: UseAIAgentProps): U
   const toast = useToast();
 
   // AI plan response
-  const [aiPlan, setAiPlan] = useState<any>(null);
+  const [aiPlan, setAiPlan] = useState<AIPlan | null>(null);
   const [isPlanFeasible, setIsPlanFeasible] = useState<boolean>(true);
+
+  // Request deduplication
+  const isRequestInProgress = useRef(false);
+  const currentTaskId = useRef<string | null>(null);
+
+  // Progress percentage calculation
+  const progressPercentage = useMemo(() => {
+    if (!aiPlan?.plan || aiPlan.plan.length === 0) return 0;
+    
+    const completedSteps = executionLog.filter(entry => 
+      entry.action_type === 'step_success' || entry.action_type === 'step_failed'
+    ).length;
+    
+    return Math.round((completedSteps / aiPlan.plan.length) * 100);
+  }, [executionLog, aiPlan]);
+
+  // Execution summary calculation
+  const executionSummary = useMemo((): AIExecutionSummary | null => {
+    if (!aiPlan?.plan || executionLog.length === 0) return null;
+
+    const completedSteps = executionLog.filter(entry => entry.action_type === 'step_success');
+    const failedSteps = executionLog.filter(entry => entry.action_type === 'step_failed');
+    const taskCompleted = executionLog.some(entry => entry.action_type === 'task_completed');
+    const taskFailed = executionLog.some(entry => entry.action_type === 'task_failed');
+
+    if (!taskCompleted && !taskFailed) return null;
+
+    // Calculate total duration and average step duration
+    const stepDurations = executionLog
+      .filter(entry => entry.action_type === 'step_success' || entry.action_type === 'step_failed')
+      .map(entry => entry.value?.duration || 0);
+    
+    const totalDuration = executionLog.find(entry => 
+      entry.action_type === 'task_completed' || entry.action_type === 'task_failed'
+    )?.value?.duration || 0;
+
+    const averageStepDuration = stepDurations.length > 0 
+      ? stepDurations.reduce((sum, duration) => sum + duration, 0) / stepDurations.length 
+      : 0;
+
+    const success = taskCompleted && failedSteps.length === 0;
+    
+    return {
+      totalSteps: aiPlan.plan.length,
+      completedSteps: completedSteps.length,
+      failedSteps: failedSteps.length,
+      totalDuration,
+      averageStepDuration,
+      success,
+      message: success 
+        ? `All ${completedSteps.length} steps completed successfully`
+        : `${completedSteps.length}/${aiPlan.plan.length} steps completed, ${failedSteps.length} failed`
+    };
+  }, [executionLog, aiPlan]);
 
   // Helper function to enhance error messages for specific error types
   const enhanceErrorMessage = useCallback((error: string) => {
@@ -69,12 +127,25 @@ export const useAIAgent = ({ host, device, enabled = true }: UseAIAgentProps): U
   const executeTask = useCallback(async () => {
     if (!enabled || !taskInput.trim() || isExecuting) return;
 
+    // Request deduplication - prevent duplicate calls
+    const taskId = `${host.host_name}-${device.device_id}-${taskInput.trim()}-${Date.now()}`;
+    if (isRequestInProgress.current && currentTaskId.current === taskId) {
+      console.log('[useAIAgent] Task already in progress, ignoring duplicate request');
+      return;
+    }
+
+    // Mark request as in progress
+    isRequestInProgress.current = true;
+    currentTaskId.current = taskId;
+
     try {
+      console.log('[useAIAgent] 🚀 Starting task execution - setting isExecuting to true');
       setIsExecuting(true);
       setErrorMessage(null);
       setTaskResult(null);
       setCurrentStep('Asking AI for execution plan...');
       setExecutionLog([]);
+      console.log('[useAIAgent] 🗑️ Clearing previous AI plan');
       setAiPlan(null);
       setIsPlanFeasible(true);
 
@@ -99,20 +170,25 @@ export const useAIAgent = ({ host, device, enabled = true }: UseAIAgentProps): U
       console.log('[useAIAgent] Task execution result:', result);
 
       if (response.ok && result.success) {
+        console.log('[useAIAgent] ✅ Task execution started successfully');
         // Update initial state from the response
         setCurrentStep(result.current_step || 'Plan generated');
         setExecutionLog(result.execution_log || []);
 
         // Extract AI plan from execution_log
         const executionLog = result.execution_log || [];
+        console.log('[useAIAgent] 🔍 Looking for AI plan in execution log:', executionLog);
         const planEntry = executionLog.find(
-          (entry: ExecutionLogEntry) =>
+          (entry: AIExecutionLogEntry) =>
             entry.action_type === 'plan_generated' && entry.type === 'ai_plan',
         );
 
         if (planEntry && planEntry.value) {
+          console.log('[useAIAgent] 📋 Found AI plan, setting it:', planEntry.value);
           setAiPlan(planEntry.value);
           setIsPlanFeasible(planEntry.value.feasible !== false);
+        } else {
+          console.log('[useAIAgent] ⚠️ No AI plan found in execution log');
         }
 
         // Start polling for status updates (following useValidation pattern)
@@ -142,9 +218,12 @@ export const useAIAgent = ({ host, device, enabled = true }: UseAIAgentProps): U
               console.log('[useAIAgent] Status poll result:', statusResult);
 
               if (statusResult.success) {
+                console.log('[useAIAgent] 📊 Status poll success:', statusResult);
                 // Update current step and execution log with latest data
                 const prevLogLength = executionLog.length;
                 const newLog = statusResult.execution_log || [];
+                console.log('[useAIAgent] 📝 Updating current step:', statusResult.current_step);
+                console.log('[useAIAgent] 📋 Updating execution log, new entries:', newLog.length - prevLogLength);
                 setCurrentStep(statusResult.current_step || 'Processing...');
                 setExecutionLog(newLog);
 
@@ -173,23 +252,45 @@ export const useAIAgent = ({ host, device, enabled = true }: UseAIAgentProps): U
                     } else if (entry.action_type === 'task_completed') {
                       const taskData = entry.value;
                       console.log('[useAIAgent] Showing task completed toast');
-                      toast.showSuccess(`🎉 Task completed in ${taskData.duration.toFixed(1)}s`, { duration: 4000 });
+                      
+                      // Show completion toast with summary
+                      if (executionSummary) {
+                        toast.showSuccess(
+                          `🎉 Task completed in ${taskData.duration.toFixed(1)}s • ${executionSummary.completedSteps}/${executionSummary.totalSteps} steps • Avg: ${executionSummary.averageStepDuration.toFixed(1)}s/step`, 
+                          { duration: AI_CONSTANTS.TOAST_DURATION.SUCCESS }
+                        );
+                      } else {
+                        toast.showSuccess(`🎉 Task completed in ${taskData.duration.toFixed(1)}s`, { duration: AI_CONSTANTS.TOAST_DURATION.SUCCESS });
+                      }
                     } else if (entry.action_type === 'task_failed') {
                       const taskData = entry.value;
                       console.log('[useAIAgent] Showing task failed toast');
-                      toast.showError(`⚠️ Task failed in ${taskData.duration.toFixed(1)}s`, { duration: 4000 });
+                      
+                      // Show failure toast with summary
+                      if (executionSummary) {
+                        toast.showError(
+                          `⚠️ Task failed in ${taskData.duration.toFixed(1)}s • ${executionSummary.completedSteps}/${executionSummary.totalSteps} completed • ${executionSummary.failedSteps} failed`, 
+                          { duration: AI_CONSTANTS.TOAST_DURATION.ERROR }
+                        );
+                      } else {
+                        toast.showError(`⚠️ Task failed in ${taskData.duration.toFixed(1)}s`, { duration: AI_CONSTANTS.TOAST_DURATION.ERROR });
+                      }
                     }
                   }
                 }
 
-                // Check if execution is still running
-                if (!statusResult.is_executing) {
-                  console.log('[useAIAgent] Task execution completed');
+                // Check if execution is truly completed (not just async started)
+                const hasTaskCompletion = statusResult.execution_log?.some((entry: AIExecutionLogEntry) => 
+                  entry.action_type === 'task_completed' || entry.action_type === 'task_failed'
+                );
+
+                if (!statusResult.is_executing && hasTaskCompletion) {
+                  console.log('[useAIAgent] 🏁 Task execution truly completed - setting isExecuting to false');
 
                   // Extract final AI plan if not already set
                   if (!aiPlan && statusResult.execution_log) {
                     const finalPlanEntry = statusResult.execution_log.find(
-                      (entry: ExecutionLogEntry) =>
+                      (entry: AIExecutionLogEntry) =>
                         entry.action_type === 'plan_generated' && entry.type === 'ai_plan',
                     );
 
@@ -201,7 +302,7 @@ export const useAIAgent = ({ host, device, enabled = true }: UseAIAgentProps): U
 
                   // Extract task result from execution log
                   const summaryEntry = statusResult.execution_log.find(
-                    (entry: ExecutionLogEntry) => entry.action_type === 'result_summary' && entry.type === 'summary',
+                    (entry: AIExecutionLogEntry) => entry.action_type === 'result_summary' && entry.type === 'summary',
                   );
 
                   if (summaryEntry && summaryEntry.value) {
@@ -217,6 +318,8 @@ export const useAIAgent = ({ host, device, enabled = true }: UseAIAgentProps): U
                   // Task completed, stop polling
                   setIsExecuting(false);
                   return;
+                } else if (!statusResult.is_executing) {
+                  console.log('[useAIAgent] ⏳ Backend says not executing but no completion markers - continuing to poll');
                 }
                 // Continue polling if still executing
               } else {
@@ -251,10 +354,16 @@ export const useAIAgent = ({ host, device, enabled = true }: UseAIAgentProps): U
       }
     } catch (error) {
       console.error('[useAIAgent] Task execution error:', error);
-      setErrorMessage(enhanceErrorMessage('Network error during task execution'));
+      const errorMsg = enhanceErrorMessage('Network error during task execution');
+      setErrorMessage(errorMsg);
       setCurrentStep('Error');
       setIsPlanFeasible(false);
       setIsExecuting(false);
+      toast.showError(`❌ AI task failed: ${errorMsg}`, { duration: AI_CONSTANTS.TOAST_DURATION.ERROR });
+    } finally {
+      // Clear deduplication flags
+      isRequestInProgress.current = false;
+      currentTaskId.current = null;
     }
   }, [enabled, taskInput, isExecuting, host, device?.device_id, aiPlan, enhanceErrorMessage]);
 
@@ -312,6 +421,10 @@ export const useAIAgent = ({ host, device, enabled = true }: UseAIAgentProps): U
     taskResult,
     aiPlan,
     isPlanFeasible,
+
+    // Progress tracking
+    progressPercentage,
+    executionSummary,
 
     // Actions
     setTaskInput,

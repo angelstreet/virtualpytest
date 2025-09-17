@@ -8,7 +8,7 @@ import {
   VolumeUp as VolumeUpIcon,
   Refresh as RefreshIcon,
 } from '@mui/icons-material';
-import { Box, IconButton, Typography, Button, CircularProgress, TextField } from '@mui/material';
+import { Box, IconButton, Typography, Button, CircularProgress, TextField, LinearProgress } from '@mui/material';
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 
 import { DEFAULT_DEVICE_RESOLUTION } from '../../config/deviceResolutions';
@@ -116,6 +116,8 @@ const RecHostStreamModalContent: React.FC<{
     errorMessage: aiError,
     executionLog,
     currentStep,
+    progressPercentage,
+    executionSummary,
     setTaskInput,
     executeTask: executeAITask,
     clearLog: clearAILog,
@@ -124,6 +126,17 @@ const RecHostStreamModalContent: React.FC<{
     device: device!,
     enabled: true, // Always enabled so polling works
   });
+
+  // Debug logging for AI agent state
+  useEffect(() => {
+    console.log('[RecHostStreamModal] AI Agent State:', {
+      isAIExecuting,
+      currentStep,
+      progressPercentage,
+      aiPlan: aiPlan ? 'Present' : 'None',
+      executionLogLength: executionLog.length
+    });
+  }, [isAIExecuting, currentStep, progressPercentage, aiPlan, executionLog.length]);
 
   // Stable stream container dimensions to prevent re-renders
   const streamContainerDimensions = useMemo(() => {
@@ -975,7 +988,7 @@ const RecHostStreamModalContent: React.FC<{
                 </Box>
 
                 {/* Progress Display - Show when executing */}
-                {isAIExecuting && (
+                {(isAIExecuting || currentStep) && (
                   <Box
                     sx={{
                       mt: 1,
@@ -986,8 +999,21 @@ const RecHostStreamModalContent: React.FC<{
                     }}
                   >
                     <Typography variant="caption" sx={{ color: '#aaa', display: 'block', mb: 0.5 }}>
-                      Progress:
+                      Progress: {progressPercentage}%
                     </Typography>
+                    
+                    {/* Progress Bar */}
+                    <LinearProgress 
+                      variant="determinate" 
+                      value={progressPercentage} 
+                      sx={{ 
+                        mb: 1, 
+                        backgroundColor: '#333',
+                        '& .MuiLinearProgress-bar': {
+                          backgroundColor: progressPercentage === 100 ? '#4caf50' : '#2196f3'
+                        }
+                      }}
+                    />
                     
                     {/* Current Step */}
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
