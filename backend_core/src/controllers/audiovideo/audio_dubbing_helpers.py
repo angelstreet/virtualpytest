@@ -322,7 +322,7 @@ class AudioDubbingHelpers:
                 
                 if timing_offset_ms > 0:
                     # Positive offset: delay audio
-                    audio_filter = f"adelay={timing_offset_ms}"
+                    audio_filter = f"adelay={timing_offset_ms},aformat=channel_layouts=stereo"
                 else:
                     # Negative offset: advance audio (trim from start)
                     trim_seconds = abs(timing_offset_ms) / 1000.0
