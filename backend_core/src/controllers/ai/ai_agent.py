@@ -10,7 +10,7 @@ import os
 import requests
 from typing import Dict, Any, List
 from ..base_controller import BaseController
-from shared.lib.ai import get_ai_service
+from shared.lib.utils.ai_utils import call_text_ai
 
 
 class AIAgentController(BaseController):
@@ -454,17 +454,8 @@ class AIAgentController(BaseController):
             navigation_tree: Navigation tree data (if available)
         """
         try:
-            # Use centralized AI service with automatic provider fallback
-            ai_service = get_ai_service()
-            
-            # Check if any providers are available
-            available_providers = ai_service.get_available_providers()
-            if not any(available_providers.values()):
-                print(f"AI[{self.device_name}]: No AI providers available - missing API keys")
-                return {
-                    'success': False,
-                    'error': 'AI service not available - no API keys configured'
-                }
+            # Use centralized AI utilities with automatic provider fallback
+            print(f"AI[{self.device_name}]: Using centralized AI utilities")
             
             # Prepare context for AI
             context = {
@@ -632,12 +623,11 @@ If coordinates needed but not provided:
 
 JSON ONLY - NO OTHER TEXT"""
             
-            # Call centralized AI service with automatic provider fallback
+            # Call centralized AI utilities with automatic provider fallback
             print(f"AI[{self.device_name}]: Making AI call with automatic provider fallback")
             
-            result = ai_service.call_ai(
+            result = call_text_ai(
                 prompt=prompt,
-                task_type='text',
                 max_tokens=1000,
                 temperature=0.0
             )
