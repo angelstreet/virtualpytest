@@ -31,11 +31,8 @@ class AudioDubbingHelpers:
         }
         
     def separate_audio_tracks(self, audio_file: str, language: str, original_video_dir: str) -> Dict[str, str]:
-        """Separate audio into vocals and background using Demucs - cached after first run."""
+        """Separate audio into vocals and background - Demucs disabled, use cached files if available."""
         try:
-            import subprocess
-            import shutil
-            
             paths = self.get_file_paths(language, original_video_dir)
             
             # Check if background already exists (cached from previous separation)
@@ -43,35 +40,12 @@ class AudioDubbingHelpers:
                 print(f"Dubbing[{self.device_name}]: Using cached background/vocals separation")
                 return {'vocals': paths['vocals'], 'background': paths['background']}
             
-            print(f"Dubbing[{self.device_name}]: Loading Demucs model for first-time separation...")
-            
-            # Run Demucs separation to fixed output directory
-            cmd = [
-                'python', '-m', 'demucs.separate',
-                '--two-stems', 'vocals',  # Separate into vocals and no_vocals
-                '--out', paths['demucs_output'],
-                audio_file
-            ]
-            
-            subprocess.run(cmd, capture_output=True, text=True, check=True)
-            
-            # Demucs creates: demucs_output/htdemucs/{filename}/vocals.wav and no_vocals.wav
-            base_name = os.path.splitext(os.path.basename(audio_file))[0]
-            demucs_vocals = os.path.join(paths['demucs_output'], 'htdemucs', base_name, 'vocals.wav')
-            demucs_background = os.path.join(paths['demucs_output'], 'htdemucs', base_name, 'no_vocals.wav')
-            
-            # Copy to cached locations (will be reused for all languages)
-            if os.path.exists(demucs_vocals) and os.path.exists(demucs_background):
-                shutil.copy2(demucs_vocals, paths['vocals'])
-                shutil.copy2(demucs_background, paths['background'])
-                print(f"Dubbing[{self.device_name}]: Audio separated and cached for reuse")
-                return {'vocals': paths['vocals'], 'background': paths['background']}
-            else:
-                print(f"Dubbing[{self.device_name}]: Output files not found")
-                return {}
+            print(f"Dubbing[{self.device_name}]: Demucs disabled - skipping audio separation")
+            print(f"Dubbing[{self.device_name}]: Use fast dubbing method instead for new content")
+            return {}
             
         except Exception as e:
-            print(f"Dubbing[{self.device_name}]: Separation failed: {e}")
+            print(f"Dubbing[{self.device_name}]: Separation check failed: {e}")
             return {}
     
     
@@ -80,41 +54,31 @@ class AudioDubbingHelpers:
     # =============================================================================
     
     def prepare_dubbing_audio_step(self, video_file: str, original_video_dir: str) -> Dict[str, Any]:
-        """Step 1: Extract and separate audio (heavy operation ~20-35s)"""
+        """Step 1: Audio extraction only - fast method without separation (~2-3s)"""
         import time
         start_time = time.time()
         
         try:
-            # Extract audio from video
-            paths = self.get_file_paths('temp', original_video_dir)  # Use temp language for paths
+            # Extract audio from video (only step needed for fast dubbing)
+            paths = self.get_file_paths('temp', original_video_dir)
             audio_file = paths['original_audio']
             
-            print(f"Dubbing[{self.device_name}]: Step 1 - Extracting audio from video...")
+            print(f"Dubbing[{self.device_name}]: Step 1 - Extracting audio from video (fast method)...")
             subprocess.run(['ffmpeg', '-i', video_file, '-vn', '-acodec', 'pcm_s16le', 
                           '-ar', '44100', '-ac', '2', audio_file, '-y'], 
                           capture_output=True, check=True)
             
-            # Separate audio tracks (the heavy operation)
-            print(f"Dubbing[{self.device_name}]: Step 1 - Separating audio tracks...")
-            separated = self.separate_audio_tracks(audio_file, 'temp', original_video_dir)
-            
-            if not separated:
-                return {
-                    'success': False,
-                    'error': 'Audio separation failed',
-                    'duration_seconds': time.time() - start_time
-                }
+            print(f"Dubbing[{self.device_name}]: Audio separation skipped - using fast dubbing method")
             
             duration = time.time() - start_time
-            print(f"Dubbing[{self.device_name}]: Step 1 completed in {duration:.1f}s")
+            print(f"Dubbing[{self.device_name}]: Step 1 completed in {duration:.1f}s (fast method)")
             
             return {
                 'success': True,
-                'step': 'audio_prepared',
+                'step': 'audio_prepared_fast',
                 'duration_seconds': round(duration, 1),
-                'message': f'Audio prepared in {duration:.1f}s (vocals + background separated)',
-                'vocals_path': separated.get('vocals'),
-                'background_path': separated.get('background')
+                'message': f'Audio extracted in {duration:.1f}s (fast method - no separation)',
+                'method': 'fast'
             }
             
         except Exception as e:
@@ -122,7 +86,7 @@ class AudioDubbingHelpers:
             print(f"Dubbing[{self.device_name}]: Step 1 failed after {duration:.1f}s: {e}")
             return {
                 'success': False,
-                'error': f'Audio preparation failed: {str(e)}',
+                'error': f'Audio extraction failed: {str(e)}',
                 'duration_seconds': round(duration, 1)
             }
     
@@ -185,118 +149,57 @@ class AudioDubbingHelpers:
             return {'success': False, 'error': str(e)}
     
     def create_dubbed_video_step(self, video_file: str, language: str, voice_choice: str = 'edge') -> Dict[str, Any]:
-        """Step 4: Create final dubbed video (~5-8s)"""
+        """Step 4: Create final dubbed video using fast method (~3-5s)"""
         import time
         start_time = time.time()
         
         try:
             original_video_dir = os.path.dirname(video_file)
+            
+            print(f"Dubbing[{self.device_name}]: Step 4 - Creating dubbed video with fast method...")
+            
+            # Use the fast dubbing method directly (mute original + overlay Edge-TTS)
             paths = self.get_file_paths(language, original_video_dir)
             
-            print(f"Dubbing[{self.device_name}]: Step 4 - Creating dubbed video with {voice_choice} voice...")
-            
-            # Get video duration
-            result = subprocess.run(['ffprobe', '-v', 'quiet', '-show_entries', 
-                                   'format=duration', '-of', 'csv=p=0', video_file], 
-                                   capture_output=True, text=True)
-            duration_seconds = float(result.stdout.strip()) if result.stdout.strip() else 10.0
-            
-            # Mix audio with Edge voice
-            final_audio = self.mix_dubbed_audio(language, duration_seconds, original_video_dir)
-            if not final_audio:
-                return {
-                    'success': False,
-                    'error': 'Audio mixing failed',
-                    'duration_seconds': time.time() - start_time
-                }
-            
-            # Create dubbed video
-            dubbed_video = self.create_dubbed_video(video_file, language)
-            if not dubbed_video:
-                return {
-                    'success': False,
-                    'error': 'Video creation failed',
-                    'duration_seconds': time.time() - start_time
-                }
+            # Simple FFmpeg: mute video + add new audio (no background mixing)
+            subprocess.run([
+                'ffmpeg', '-i', video_file, '-i', paths['dubbed_voice_edge'],
+                '-c:v', 'copy',      # Copy video unchanged
+                '-c:a', 'aac',       # Encode new audio
+                '-map', '0:v:0',     # Video from input 0 (original video)
+                '-map', '1:a:0',     # Audio from input 1 (Edge-TTS audio)
+                '-shortest',         # Match shortest stream duration
+                paths['final_video'], '-y'
+            ], capture_output=True, check=True)
             
             duration = time.time() - start_time
-            print(f"Dubbing[{self.device_name}]: Step 4 completed in {duration:.1f}s")
+            print(f"Dubbing[{self.device_name}]: Step 4 completed in {duration:.1f}s (fast method)")
             
-            # Build URLs for final video and both MP3 files
+            # Build URLs for final video and audio preview
             from shared.lib.utils.build_url_utils import buildHostImageUrl
             from shared.lib.utils.host_utils import get_host_instance
             
             try:
                 host = get_host_instance()
                 host_dict = host.to_dict()
-                dubbed_video_url = buildHostImageUrl(host_dict, dubbed_video)
+                dubbed_video_url = buildHostImageUrl(host_dict, paths['final_video'])
                 edge_audio_url = buildHostImageUrl(host_dict, paths['dubbed_voice_edge_mp3'])
             except:
                 # Fallback URL construction
-                dubbed_video_url = f"/host/stream/{os.path.basename(dubbed_video)}"
+                dubbed_video_url = f"/host/stream/{os.path.basename(paths['final_video'])}"
                 edge_audio_url = f"/host/stream/{os.path.basename(paths['dubbed_voice_edge_mp3'])}"
             
             return {
                 'success': True,
                 'dubbed_video_url': dubbed_video_url,
-                'edge_audio_url': edge_audio_url
+                'edge_audio_url': edge_audio_url,
+                'duration_seconds': round(duration, 1),
+                'method': 'fast_mute_overlay'
             }
             
         except Exception as e:
             return {'success': False, 'error': str(e)}
     
-    def mix_dubbed_audio(self, language: str, original_duration: float, original_video_dir: str) -> Optional[str]:
-        """Mix background audio with dubbed voice using fixed filenames."""
-        try:
-            from pydub import AudioSegment
-            
-            paths = self.get_file_paths(language, original_video_dir)
-            
-            background = AudioSegment.from_file(paths['background'])
-            dubbed_voice = AudioSegment.from_file(paths['dubbed_voice_edge'])
-            
-            # Adjust durations
-            target_ms = int(original_duration * 1000)
-            if len(background) > target_ms:
-                background = background[:target_ms]
-            if len(dubbed_voice) > target_ms:
-                dubbed_voice = dubbed_voice[:target_ms]
-            elif len(dubbed_voice) < target_ms:
-                silence = AudioSegment.silent(duration=target_ms - len(dubbed_voice))
-                dubbed_voice = dubbed_voice + silence
-            
-            # Mix with volume adjustment - keep background at 100%
-            # background = background  # Keep original volume (100%)
-            mixed = background.overlay(dubbed_voice)
-            
-            # Export to fixed filename (auto-overwrite)
-            mixed.export(paths['mixed_audio'], format="wav")
-            
-            print(f"Dubbing[{self.device_name}]: Audio mixed successfully using Edge-TTS")
-            return paths['mixed_audio']
-            
-        except Exception as e:
-            print(f"Dubbing[{self.device_name}]: Audio mixing failed: {e}")
-            return None
-    
-    def create_dubbed_video(self, original_video: str, language: str) -> Optional[str]:
-        """Combine original video with dubbed audio track directly in web directory."""
-        try:
-            original_dir = os.path.dirname(original_video)
-            paths = self.get_file_paths(language, original_dir)
-            
-            subprocess.run([
-                'ffmpeg', '-i', original_video, '-i', paths['mixed_audio'],
-                '-c:v', 'copy', '-c:a', 'aac', '-map', '0:v:0', '-map', '1:a:0',
-                '-shortest', paths['final_video'], '-y'
-            ], capture_output=True, check=True)
-            
-            print(f"Dubbing[{self.device_name}]: Dubbed video created in web directory")
-            return paths['final_video']
-            
-        except Exception as e:
-            print(f"Dubbing[{self.device_name}]: Video creation failed: {e}")
-            return None
     
     def create_dubbed_video_fast_step(self, text: str, language: str, video_file: str, original_video_dir: str) -> Dict[str, Any]:
         """NEW: Fast 2-step dubbing without Demucs separation (~5-8s total)"""

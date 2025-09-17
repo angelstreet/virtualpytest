@@ -1119,58 +1119,21 @@ class VideoRestartHelpers:
                 subprocess.run(audio_cmd, capture_output=True, text=True, check=True)
                 print(f"RestartHelpers[{self.device_name}]: Audio extracted: {audio_extract_path}")
             
-            # Step 3: Separate audio using Demucs (background + vocals)
+            # Step 3: Separate audio using Demucs (background + vocals) - DISABLED
             if not os.path.exists(background_audio_path) or not os.path.exists(vocals_path):
-                print(f"RestartHelpers[{self.device_name}]: Separating audio with Demucs...")
-                
-                # Use Demucs to separate audio
-                demucs_output_dir = os.path.join(original_dir, "demucs_separation")
-                demucs_cmd = [
-                    'python', '-m', 'demucs.separate',
-                    '--two-stems', 'vocals',  # Separate into vocals and no_vocals (background)
-                    '--out', demucs_output_dir,
-                    audio_extract_path
-                ]
-                
-                subprocess.run(demucs_cmd, capture_output=True, text=True, check=True)
-                
-                # Find the separated files (Demucs creates subdirectories)
-                audio_filename = os.path.splitext(os.path.basename(audio_extract_path))[0]
-                demucs_vocals_path = os.path.join(demucs_output_dir, "htdemucs", audio_filename, "vocals.wav")
-                demucs_background_path = os.path.join(demucs_output_dir, "htdemucs", audio_filename, "no_vocals.wav")
-                
-                # Copy separated files to standard locations
-                if os.path.exists(demucs_vocals_path):
-                    import shutil
-                    shutil.copy2(demucs_vocals_path, vocals_path)
-                    print(f"RestartHelpers[{self.device_name}]: Vocals separated: {vocals_path}")
-                
-                if os.path.exists(demucs_background_path):
-                    import shutil
-                    shutil.copy2(demucs_background_path, background_audio_path)
-                    print(f"RestartHelpers[{self.device_name}]: Background separated: {background_audio_path}")
-                
-                # Clean up temporary Demucs output
-                import shutil
-                if os.path.exists(demucs_output_dir):
-                    shutil.rmtree(demucs_output_dir)
+                print(f"RestartHelpers[{self.device_name}]: Audio separation disabled - skipping Demucs")
+                print(f"RestartHelpers[{self.device_name}]: Use fast dubbing method for new content")
                 
                 # Clean up temporary extracted audio
                 if os.path.exists(audio_extract_path):
                     os.remove(audio_extract_path)
             
-            # Verify all components were created
-            components_created = [
-                os.path.exists(silent_video_path),
-                os.path.exists(background_audio_path),
-                os.path.exists(vocals_path)
-            ]
-            
-            if all(components_created):
-                print(f"RestartHelpers[{self.device_name}]: All cached components created successfully")
+            # Verify components - only silent video is required now
+            if os.path.exists(silent_video_path):
+                print(f"RestartHelpers[{self.device_name}]: Silent video component created successfully")
                 return True
             else:
-                print(f"RestartHelpers[{self.device_name}]: Failed to create some cached components")
+                print(f"RestartHelpers[{self.device_name}]: Failed to create silent video component")
                 return False
                 
         except Exception as e:
