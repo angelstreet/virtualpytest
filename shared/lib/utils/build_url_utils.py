@@ -125,30 +125,50 @@ def buildVerificationResultUrl(host_info: dict, filename: str, device_id: str) -
 
 def buildStreamUrl(host_info: dict, device_id: str) -> str:
     """
-    Build URL for HLS stream
+    Build stream URL for any device (HLS for video devices, direct URL for VNC)
     
     Args:
         host_info: Host information from registry
         device_id: Device ID for multi-device hosts (required)
         
     Returns:
-        Complete URL to HLS stream
+        Complete URL to stream for the device (HLS for video, raw URL for VNC)
         
-    Example:
+    Examples:
         buildStreamUrl(host_info, 'device1')
         -> 'https://host:444/host/stream/capture1/output.m3u8'
+        
+        buildStreamUrl(host_info, 'host_vnc')
+        -> 'https://host:444/host/vnc/stream'
     """
-    # Get device-specific stream path
-    stream_path = _get_device_stream_path(host_info, device_id)
-    
-    # For local IPs, strip port (nginx serves streams)
-    host_url = host_info.get('host_url', '')
-    if '192.168.' in host_url or '10.' in host_url or '127.0.0.1' in host_url:
-        import re
-        host_url = re.sub(r':\d+$', '', host_url)
-        return f"{host_url}/host{stream_path}/output.m3u8"
-    
-    return buildHostUrl(host_info, f'host{stream_path}/output.m3u8')
+    # Check if this is a VNC device
+    device = get_device_by_id(host_info, device_id)
+    if device and device.get('device_model') == 'host_vnc':
+        # For VNC devices, return the video_stream_path directly
+        vnc_stream_url = device.get('video_stream_path')
+        if not vnc_stream_url:
+            raise ValueError(f"VNC device {device_id} has no video_stream_path configured")
+        
+        # Replace localhost with actual host IP for network accessibility
+        if 'localhost' in vnc_stream_url and host_info:
+            host_ip = host_info.get('host_ip') or host_info.get('host_name')
+            if host_ip:
+                vnc_stream_url = vnc_stream_url.replace('localhost', host_ip)
+        
+        return vnc_stream_url
+    else:
+        # For regular devices, return HLS stream URL
+        # Get device-specific stream path
+        stream_path = _get_device_stream_path(host_info, device_id)
+        
+        # For local IPs, strip port (nginx serves streams)
+        host_url = host_info.get('host_url', '')
+        if '192.168.' in host_url or '10.' in host_url or '127.0.0.1' in host_url:
+            import re
+            host_url = re.sub(r':\d+$', '', host_url)
+            return f"{host_url}/host{stream_path}/output.m3u8"
+        
+        return buildHostUrl(host_info, f'host{stream_path}/output.m3u8')
 
 def buildHostImageUrl(host_info: dict, image_path: str) -> str:
     """
@@ -591,59 +611,6 @@ def buildCaptureUrlFromPath(host_info: dict, capture_path: str, device_id: str) 
     # Use existing buildCaptureUrl function
     return buildCaptureUrl(host_info, filename, device_id)
 
-def buildStreamUrlForDevice(host_info: dict, device_id: str) -> str:
-    """
-    Build stream URL for a specific device
-    
-    Args:
-        host_info: Host information from registry
-        device_id: Device ID (required)
-        
-    Returns:
-        Complete URL to stream for the device (HLS for video, raw URL for VNC)
-        
-    Example:
-        buildStreamUrlForDevice(host_info, 'device1')
-        -> 'https://host:444/host/stream/capture1/output.m3u8'
-        
-        buildStreamUrlForDevice(host_info, 'host_vnc')
-        -> 'https://host:444/host/vnc/stream'
-    """
-    print(f"[@build_url_utils:buildStreamUrlForDevice] Starting stream URL construction for device: {device_id}")
-    print(f"[@build_url_utils:buildStreamUrlForDevice] Host info: {host_info.get('host_name', 'unknown')} - {host_info.get('host_url', 'no_url')}")
-    
-    # Check if this is a VNC device
-    device = get_device_by_id(host_info, device_id)
-    print(f"[@build_url_utils:buildStreamUrlForDevice] Device found: {device is not None}")
-    if device:
-        print(f"[@build_url_utils:buildStreamUrlForDevice] Device model: {device.get('device_model', 'unknown')}")
-    
-    if device and device.get('device_model') == 'host_vnc':
-        print(f"[@build_url_utils:buildStreamUrlForDevice] Processing VNC device: {device_id}")
-        # For VNC devices, return the video_stream_path directly
-        # The VNC controller should handle password injection
-        vnc_stream_url = device.get('video_stream_path')
-        if not vnc_stream_url:
-            print(f"[@build_url_utils:buildStreamUrlForDevice] ERROR: VNC device {device_id} has no video_stream_path")
-            raise ValueError(f"VNC device {device_id} has no video_stream_path configured")
-        
-        print(f"[@build_url_utils:buildStreamUrlForDevice] VNC stream path: {vnc_stream_url}")
-        
-        # Replace localhost with actual host IP for network accessibility
-        if 'localhost' in vnc_stream_url and host_info:
-            host_ip = host_info.get('host_ip') or host_info.get('host_name')
-            if host_ip:
-                vnc_stream_url = vnc_stream_url.replace('localhost', host_ip)
-                print(f"[@build_url_utils:buildStreamUrlForDevice] Replaced localhost with {host_ip}: {vnc_stream_url}")
-        
-        print(f"[@build_url_utils:buildStreamUrlForDevice] Final VNC URL: {vnc_stream_url}")
-        return vnc_stream_url
-    else:
-        print(f"[@build_url_utils:buildStreamUrlForDevice] Processing regular device, calling buildStreamUrl")
-        # For regular devices, return HLS stream URL
-        stream_url = buildStreamUrl(host_info, device_id)
-        print(f"[@build_url_utils:buildStreamUrlForDevice] Final stream URL: {stream_url}")
-        return stream_url
 
 def resolveCaptureFilePath(filename: str) -> str:
     """
