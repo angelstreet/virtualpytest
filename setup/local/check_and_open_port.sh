@@ -16,25 +16,45 @@ check_and_open_port() {
     
     echo "🔍 Checking port $port for $service_name..."
     
-    # Check if UFW is installed
-    if ! command -v ufw &> /dev/null; then
-        echo "⚠️ UFW not installed. Port $port may be blocked by firewall."
+    # Check if UFW is installed - try common locations
+    # Try to find UFW in common locations
+    UFW_CMD=""
+    if command -v ufw &> /dev/null; then
+        UFW_CMD="ufw"
+    elif [ -x "/usr/sbin/ufw" ]; then
+        UFW_CMD="/usr/sbin/ufw"
+    elif [ -x "/sbin/ufw" ]; then
+        UFW_CMD="/sbin/ufw"
+    fi
+    
+    if [ -z "$UFW_CMD" ]; then
+        echo "⚠️ UFW not found. Port $port may be blocked by firewall."
         echo "   Install UFW: sudo apt-get install ufw"
         return 0
     fi
     
+    echo "✅ UFW found at: $UFW_CMD"
+    
     # Check if UFW is active
     local ufw_status
-    ufw_status=$(sudo ufw status 2>/dev/null | head -n1)
+    ufw_status=$(sudo $UFW_CMD status 2>/dev/null | head -n1)
+    
+    if [ -z "$ufw_status" ]; then
+        echo "⚠️ Cannot determine UFW status (permission issue?). Port $port may be blocked."
+        echo "   Check UFW status manually: sudo $UFW_CMD status"
+        return 0
+    fi
     
     if [[ "$ufw_status" == *"inactive"* ]]; then
         echo "ℹ️ UFW is inactive. Port $port should be accessible."
         return 0
     fi
     
+    echo "📋 UFW is active: $ufw_status"
+    
     # Check if port is already allowed in UFW
     local port_allowed
-    port_allowed=$(sudo ufw status numbered 2>/dev/null | grep -E "^\\[.*\\].*$port($protocol|/tcp|/udp)" || true)
+    port_allowed=$(sudo $UFW_CMD status numbered 2>/dev/null | grep -E "^\\[.*\\].*$port($protocol|/tcp|/udp)" || true)
     
     if [ -n "$port_allowed" ]; then
         echo "✅ Port $port/$protocol is already allowed in UFW for $service_name"
@@ -60,15 +80,15 @@ check_and_open_port() {
     
     # Open the port
     echo "🔓 Opening port $port/$protocol for $service_name..."
-    if sudo ufw allow "$port/$protocol" 2>/dev/null; then
+    if sudo $UFW_CMD allow "$port/$protocol" 2>/dev/null; then
         echo "✅ Port $port/$protocol opened successfully"
         
         # Show updated UFW status
         echo "📋 Updated UFW status:"
-        sudo ufw status numbered | grep -E "(Status:|$port)" || true
+        sudo $UFW_CMD status numbered | grep -E "(Status:|$port)" || true
     else
         echo "❌ Failed to open port $port/$protocol"
-        echo "   You may need to open it manually: sudo ufw allow $port/$protocol"
+        echo "   You may need to open it manually: sudo $UFW_CMD allow $port/$protocol"
         return 1
     fi
     

@@ -12,8 +12,9 @@ import os
 # Add shared lib to path
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', '..', 'shared'))
 
+from shared.lib.utils.route_utils import proxy_to_host_with_params
 from lib.utils.translation_utils import detect_language_from_text
-from lib.utils.host_utils import get_host_url
+from lib.utils.build_url_utils import buildHostUrl
 
 # Create blueprint
 server_translation_bp = Blueprint('server_translation', __name__, url_prefix='/server/translate')
@@ -38,7 +39,7 @@ def translate_single_text():
                 'error': 'Host information required'
             }), 400
         
-        host_url = get_host_url(host_data)
+        host_url = buildHostUrl(host_data, '')
         
         print(f"[SERVER_TRANSLATION] 🌐 Proxying text translation to host: {host_url}")
         
@@ -120,7 +121,7 @@ def translate_restart_batch():
                 'error': 'Host information required for translation'
             }), 400
         
-        host_url = get_host_url(host_data)
+        host_url = buildHostUrl(host_data, '')
         
         print(f"[SERVER_TRANSLATION] 🌐 Proxying batch translation to host: {host_url}")
         
