@@ -74,50 +74,45 @@ def _format_timestamp(timestamp: float) -> str:
 # =============================================================================
 
 def call_text_ai(prompt: str, max_tokens: int = 200, temperature: float = 0.1) -> Dict[str, Any]:
-    """Simple text AI call with OpenRouter (primary) and Hugging Face (fallback)."""
+    """Simple text AI call with OpenRouter only (no fallback)."""
     return _call_ai(prompt, task_type='text', max_tokens=max_tokens, temperature=temperature)
 
 def call_vision_ai(prompt: str, image_input: Union[str, bytes], max_tokens: int = 300, temperature: float = 0.0) -> Dict[str, Any]:
-    """Simple vision AI call with OpenRouter (primary) and Hugging Face (fallback)."""
+    """Simple vision AI call with OpenRouter only (no fallback)."""
     return _call_ai(prompt, task_type='vision', image=image_input, max_tokens=max_tokens, temperature=temperature)
 
 def _call_ai(prompt: str, task_type: str = 'text', image: Union[str, bytes] = None, 
              max_tokens: int = None, temperature: float = None) -> Dict[str, Any]:
     """
-    Centralized AI call with automatic provider fallback.
-    Always tries OpenRouter first, then Hugging Face if it fails.
+    Centralized AI call using OpenRouter only (no Hugging Face fallback).
+    Fails fast if OpenRouter is not available.
     """
     # Set defaults
     max_tokens = max_tokens or AI_CONFIG['defaults']['max_tokens']
     temperature = temperature or AI_CONFIG['defaults']['temperature']
     
-    # Try OpenRouter first
+    # Try OpenRouter only
     try:
         model = AI_CONFIG['providers']['openrouter']['models'].get(task_type)
-        if model:
-            print(f"[AI_UTILS] Trying OpenRouter with model {model}")
-            result = _openrouter_call(prompt, model, image, max_tokens, temperature)
-            if result['success']:
-                result['provider_used'] = 'openrouter'
-                print(f"[AI_UTILS] OpenRouter success")
-                return result
+        if not model:
+            return {'success': False, 'error': f'No OpenRouter model configured for task type: {task_type}', 'content': '', 'provider_used': 'none'}
+        
+        print(f"[AI_UTILS] Trying OpenRouter with model {model}")
+        result = _openrouter_call(prompt, model, image, max_tokens, temperature)
+        if result['success']:
+            result['provider_used'] = 'openrouter'
+            print(f"[AI_UTILS] OpenRouter success")
+            return result
+        else:
+            # OpenRouter failed, return detailed error
+            error_msg = result.get('error', 'OpenRouter call failed')
+            print(f"[AI_UTILS] OpenRouter failed: {error_msg}")
+            return {'success': False, 'error': f'OpenRouter failed: {error_msg}', 'content': '', 'provider_used': 'openrouter'}
+            
     except Exception as e:
-        print(f"[AI_UTILS] OpenRouter failed: {e}")
-    
-    # Try Hugging Face fallback
-    try:
-        model = AI_CONFIG['providers']['huggingface']['models'].get(task_type)
-        if model:
-            print(f"[AI_UTILS] Trying Hugging Face fallback with model {model}")
-            result = _huggingface_call(prompt, model, image, max_tokens, temperature)
-            if result['success']:
-                result['provider_used'] = 'huggingface'
-                print(f"[AI_UTILS] Hugging Face success")
-                return result
-    except Exception as e:
-        print(f"[AI_UTILS] Hugging Face failed: {e}")
-    
-    return {'success': False, 'error': 'Both OpenRouter and Hugging Face failed', 'content': '', 'provider_used': 'none'}
+        error_msg = f'OpenRouter exception: {str(e)}'
+        print(f"[AI_UTILS] {error_msg}")
+        return {'success': False, 'error': error_msg, 'content': '', 'provider_used': 'openrouter'}
 
 def _openrouter_call(prompt: str, model: str, image: Union[str, bytes] = None, 
                     max_tokens: int = 1000, temperature: float = 0.0) -> Dict[str, Any]:

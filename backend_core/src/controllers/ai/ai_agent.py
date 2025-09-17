@@ -632,8 +632,8 @@ If task is not possible:
 
 RESPOND WITH JSON ONLY. ANALYSIS FIELD IS REQUIRED:"""
             
-            # Call OpenRouter directly with timeout (no Hugging Face fallback)
-            print(f"AI[{self.device_name}]: Making AI call with 30s timeout (OpenRouter only)")
+            # Call AI with 30s timeout and fail fast (no Hugging Face fallback)
+            print(f"AI[{self.device_name}]: Making AI call with 30s timeout")
             print(f"AI[{self.device_name}]: FULL PROMPT BEING SENT:")
             print("=" * 80)
             print(prompt)
@@ -649,8 +649,11 @@ RESPOND WITH JSON ONLY. ANALYSIS FIELD IS REQUIRED:"""
             signal.alarm(30)  # 30 second timeout
             
             try:
-                # Call OpenRouter directly (no fallback)
-                result = self._call_openrouter_only(prompt, max_tokens=1000, temperature=0.0)
+                result = call_text_ai(
+                    prompt=prompt,
+                    max_tokens=1000,
+                    temperature=0.0
+                )
             except TimeoutError as e:
                 error_msg = "AI generation timed out after 30 seconds"
                 print(f"AI[{self.device_name}]: {error_msg}")
@@ -668,64 +671,72 @@ RESPOND WITH JSON ONLY. ANALYSIS FIELD IS REQUIRED:"""
             finally:
                 signal.alarm(0)  # Cancel the alarm
             
-            if result['success']:
-                content = result['content']
-                provider_used = result.get('provider_used', 'unknown')
-                print(f"AI[{self.device_name}]: AI call successful using {provider_used}")
-                
-                # Parse JSON response
-                try:
-                    # Clean up markdown code blocks and extract only JSON
-                    json_content = content.strip()
-                    
-                    # Remove markdown code blocks
-                    if json_content.startswith('```json'):
-                        json_content = json_content.replace('```json', '', 1).strip()
-                    elif json_content.startswith('```'):
-                        json_content = json_content.replace('```', '', 1).strip()
-                    
-                    # Remove trailing markdown blocks and extra content
-                    if '```' in json_content:
-                        json_content = json_content.split('```')[0].strip()
-                    
-                    # Find the JSON object boundaries
-                    if json_content.startswith('{'):
-                        # Find the matching closing brace
-                        brace_count = 0
-                        json_end = 0
-                        for i, char in enumerate(json_content):
-                            if char == '{':
-                                brace_count += 1
-                            elif char == '}':
-                                brace_count -= 1
-                                if brace_count == 0:
-                                    json_end = i + 1
-                                    break
-                        if json_end > 0:
-                            json_content = json_content[:json_end]
-                    
-                    ai_plan = json.loads(json_content)
-                    print(f"AI[{self.device_name}]: AI plan generated successfully")
-                    return {
-                        'success': True,
-                        'plan': ai_plan
-                    }
-                    
-                except json.JSONDecodeError as e:
-                    print(f"AI[{self.device_name}]: Failed to parse AI JSON: {e}")
-                    print(f"AI[{self.device_name}]: Raw AI response: {content[:200]}...")
-                    print(f"AI[{self.device_name}]: Cleaned content: {json_content[:200] if 'json_content' in locals() else 'N/A'}...")
-                    return {
-                        'success': False,
-                        'error': f'AI returned invalid JSON: {str(e)}'
-                    }
-            else:
-                error_msg = result.get('error', 'Unknown error')
+            # Check if AI call succeeded
+            if not result['success']:
+                error_msg = result.get('error', 'Unknown AI error')
                 provider_used = result.get('provider_used', 'none')
-                print(f"AI[{self.device_name}]: AI call failed with {provider_used}: {error_msg}")
+                
+                # Detailed error logging and early failure
+                detailed_error = f"AI generation failed - Provider: {provider_used}, Error: {error_msg}"
+                print(f"AI[{self.device_name}]: {detailed_error}")
+                
+                # Fail fast - no retries, no fallbacks
                 return {
                     'success': False,
-                    'error': f'AI service error: {error_msg}'
+                    'error': detailed_error
+                }
+            
+            # AI call succeeded, parse response
+            content = result['content']
+            provider_used = result.get('provider_used', 'unknown')
+            print(f"AI[{self.device_name}]: AI call successful using {provider_used}")
+            
+            # Parse JSON response
+            try:
+                # Clean up markdown code blocks and extract only JSON
+                json_content = content.strip()
+                
+                # Remove markdown code blocks
+                if json_content.startswith('```json'):
+                    json_content = json_content.replace('```json', '', 1).strip()
+                elif json_content.startswith('```'):
+                    json_content = json_content.replace('```', '', 1).strip()
+                
+                # Remove trailing markdown blocks and extra content
+                if '```' in json_content:
+                    json_content = json_content.split('```')[0].strip()
+                
+                # Find the JSON object boundaries
+                if json_content.startswith('{'):
+                    # Find the matching closing brace
+                    brace_count = 0
+                    json_end = 0
+                    for i, char in enumerate(json_content):
+                        if char == '{':
+                            brace_count += 1
+                        elif char == '}':
+                            brace_count -= 1
+                            if brace_count == 0:
+                                json_end = i + 1
+                                break
+                    if json_end > 0:
+                        json_content = json_content[:json_end]
+                
+                ai_plan = json.loads(json_content)
+                print(f"AI[{self.device_name}]: AI plan generated successfully")
+                return {
+                    'success': True,
+                    'plan': ai_plan
+                }
+                
+            except json.JSONDecodeError as e:
+                json_error = f"AI returned invalid JSON - Parse error: {str(e)}, Raw response: {content[:200]}..."
+                print(f"AI[{self.device_name}]: {json_error}")
+                
+                # Fail fast on JSON parsing errors
+                return {
+                    'success': False,
+                    'error': json_error
                 }
                 
         except Exception as e:
