@@ -279,26 +279,36 @@ class AudioDubbingHelpers:
                 ], capture_output=True, check=True)
                 print(f"Dubbing[{self.device_name}]: Silent video cached")
             
-            # Step 2: Get audio to sync
-            if language == 'original':
-                # For original language, extract from original video if not cached
-                audio_to_sync = paths['original_audio']
-                if not os.path.exists(audio_to_sync):
-                    original_video = os.path.join(original_video_dir, "restart_original_video.mp4")
-                    if os.path.exists(original_video):
-                        print(f"Dubbing[{self.device_name}]: Extracting original audio...")
-                        subprocess.run([
-                            'ffmpeg', '-i', original_video,
-                            '-vn', '-acodec', 'pcm_s16le', '-ar', '44100', '-ac', '2',
-                            audio_to_sync, '-y'
-                        ], capture_output=True, check=True)
-                    else:
-                        return {'success': False, 'error': 'Original video not found for audio extraction'}
+            # Step 2: Smart audio selection (priority: dubbed > original > extract)
+            dubbed_audio_path = paths['dubbed_voice_edge']
+            original_audio_path = paths['original_audio']
+            
+            # Option 1: Use cached dubbed audio (from previous dubbing)
+            if os.path.exists(dubbed_audio_path):
+                audio_to_sync = dubbed_audio_path
+                print(f"Dubbing[{self.device_name}]: Using cached dubbed audio: {dubbed_audio_path}")
+            
+            # Option 2: Use cached original audio (from previous extraction)
+            elif os.path.exists(original_audio_path):
+                audio_to_sync = original_audio_path
+                print(f"Dubbing[{self.device_name}]: Using cached original audio: {original_audio_path}")
+            
+            # Option 3: No cache - extract from video
             else:
-                # For dubbed languages, use cached dubbed audio
-                audio_to_sync = paths['dubbed_voice_edge']
-                if not os.path.exists(audio_to_sync):
-                    return {'success': False, 'error': f'Dubbed audio not found: {audio_to_sync}'}
+                # Find source video to extract from
+                source_video = self._find_source_video(original_video_dir, language)
+                if not source_video:
+                    return {'success': False, 'error': 'No source video found for audio extraction'}
+                
+                print(f"Dubbing[{self.device_name}]: No cached audio found, extracting from {source_video}...")
+                subprocess.run([
+                    'ffmpeg', '-i', source_video,
+                    '-vn', '-acodec', 'pcm_s16le', '-ar', '44100', '-ac', '2',
+                    original_audio_path, '-y'
+                ], capture_output=True, check=True)
+                
+                audio_to_sync = original_audio_path
+                print(f"Dubbing[{self.device_name}]: Audio extracted and cached: {original_audio_path}")
             
             # Step 3: Apply timing to audio
             sync_suffix = f"_sync{timing_offset_ms:+d}" if timing_offset_ms != 0 else ""

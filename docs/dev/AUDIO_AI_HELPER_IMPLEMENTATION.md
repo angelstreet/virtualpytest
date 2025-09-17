@@ -203,7 +203,7 @@ restart_{lang}_dubbed_video.mp4      # Final dubbed video per language
 The VideoRestartHelpers class has been updated to use AudioDubbingHelpers for all timing adjustments, eliminating duplicate code:
 
 ##### `adjust_video_audio_timing()` - Updated
-- **Old Approach**: Complex fallback method with duplicate FFmpeg logic
+- **Old Approach**: Complex method with duplicate FFmpeg logic
 - **New Approach**: Simple delegation to `AudioDubbingHelpers.sync_dubbed_video()`
 - **Benefits**: No code duplication, consistent processing, better maintainability
 
@@ -742,7 +742,7 @@ The Audio AI Helper system provides a comprehensive solution for fast, local aud
 
 ### Core Capabilities:
 - **Audio Analysis**: Local Whisper-based speech-to-text with 8x performance improvement
-- **Audio Dubbing**: Fast multilingual dubbing using Edge-TTS (~5-8s vs 30s+)  
+- **Audio Dubbing**: Simple multilingual dubbing using Edge-TTS (~5-8s)  
 - **Audio Sync**: Cache-based timing adjustments with no duplicate code (~2-3s)
 - **Language Support**: 6 languages with high-quality neural voices
 
@@ -755,7 +755,7 @@ The Audio AI Helper system provides a comprehensive solution for fast, local aud
 
 ### Performance Achievements:
 - **Audio Analysis**: 0.5-2s (8x faster with early stop optimization)
-- **Dubbing Speed**: 5-8s (6x faster without Demucs separation)
+- **Dubbing Speed**: 5-8s with direct audio replacement
 - **Sync Speed**: 2-3s (10x faster with cached components)
 - **Resource Efficiency**: 40x smaller models, intelligent caching
 - **Reliability**: Offline processing, consistent results, robust error handling
