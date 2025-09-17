@@ -61,12 +61,17 @@ class AIAgentController(BaseController):
             tree_result = load_navigation_tree_with_hierarchy(userinterface_name, "ai_agent")
             
             if tree_result.get('success'):
-                # Cache the root tree data
+                # Cache the full root tree data (including nodes and edges)
                 root_tree = tree_result.get('root_tree', {})
-                self._navigation_trees_cache[userinterface_name] = root_tree.get('tree')
+                # Store the tree structure but also include access to tree_id for unified cache access
+                cached_tree = root_tree.get('tree', {})
+                cached_tree['_tree_id'] = tree_result.get('tree_id')  # Add tree_id for unified cache access
+                cached_tree['_full_root_tree'] = root_tree  # Keep reference to full data
+                
+                self._navigation_trees_cache[userinterface_name] = cached_tree
                 print(f"AI[{self.device_name}]: Successfully loaded and cached unified navigation tree for: {userinterface_name}")
                 print(f"AI[{self.device_name}]: Unified cache populated with {tree_result.get('unified_graph_nodes', 0)} nodes, {tree_result.get('unified_graph_edges', 0)} edges")
-                return root_tree.get('tree')
+                return cached_tree
             else:
                 print(f"AI[{self.device_name}]: Failed to load unified navigation tree for: {userinterface_name}: {tree_result.get('error')}")
                 return None
@@ -487,25 +492,50 @@ class AIAgentController(BaseController):
             
             # Extract available navigation nodes from the loaded tree
             available_nodes = []
-            print(f"🐛 DEBUG: Navigation tree exists: {navigation_tree is not None}")
             if navigation_tree:
-                print(f"🐛 DEBUG: Navigation tree keys: {list(navigation_tree.keys()) if isinstance(navigation_tree, dict) else 'not a dict'}")
-                if 'nodes' in navigation_tree:
-                    nodes = navigation_tree['nodes']
-                    print(f"🐛 DEBUG: Found {len(nodes)} nodes in tree")
-                    if nodes:
-                        first_node = nodes[0]
-                        print(f"🐛 DEBUG: First node structure: {first_node}")
-                        print(f"🐛 DEBUG: First node keys: {list(first_node.keys()) if isinstance(first_node, dict) else 'not a dict'}")
+                # The navigation_tree is the root_tree['tree'] structure, but nodes are in root_tree['nodes']
+                # We need to get the nodes from the cached tree result instead
+                try:
+                    # Get nodes from the unified cache or from the tree result
+                    from shared.lib.utils.navigation_cache import get_cached_unified_graph
                     
-                    # Extract only labels for AI (short and token-efficient)
-                    available_nodes = [node.get('label') for node in nodes if node.get('label')]
-                    print(f"🐛 DEBUG: Node extraction fix active - extracted {len(available_nodes)} nodes")
-                    print(f"AI[{self.device_name}]: Extracted {len(available_nodes)} navigation nodes: {available_nodes}")
-                else:
-                    print(f"🐛 DEBUG: No 'nodes' key in navigation_tree")
-            else:
-                print(f"🐛 DEBUG: navigation_tree is None or empty")
+                    # Try to get nodes from unified cache first (preferred method)
+                    team_id = "7fdeb4bb-3639-4ec3-959f-b54769a219ce"
+                    tree_id = navigation_tree.get('_tree_id') or navigation_tree.get('id')
+                    
+                    if tree_id:
+                        unified_graph = get_cached_unified_graph(tree_id, team_id)
+                        if unified_graph and unified_graph.nodes:
+                            # Extract node labels from unified graph
+                            for node_id in unified_graph.nodes:
+                                node_data = unified_graph.nodes[node_id]
+                                label = node_data.get('label')
+                                if label:
+                                    available_nodes.append(label)
+                            
+                            print(f"AI[{self.device_name}]: Extracted {len(available_nodes)} navigation nodes from unified cache")
+                        
+                except Exception as e:
+                    print(f"AI[{self.device_name}]: Warning - could not extract nodes from unified cache: {e}")
+                    
+                # Fallback 1: check if nodes are in the full root tree data
+                if not available_nodes and '_full_root_tree' in navigation_tree:
+                    full_root_tree = navigation_tree['_full_root_tree']
+                    if 'nodes' in full_root_tree:
+                        nodes = full_root_tree['nodes']
+                        available_nodes = [node.get('label') for node in nodes if node.get('label')]
+                        print(f"AI[{self.device_name}]: Extracted {len(available_nodes)} navigation nodes from full root tree")
+                
+                # Fallback 2: check if nodes are in metadata
+                if not available_nodes and 'metadata' in navigation_tree:
+                    metadata = navigation_tree['metadata']
+                    if 'nodes' in metadata:
+                        nodes = metadata['nodes']
+                        available_nodes = [node.get('label') for node in nodes if node.get('label')]
+                        print(f"AI[{self.device_name}]: Extracted {len(available_nodes)} navigation nodes from metadata")
+                        
+            if not available_nodes:
+                print(f"AI[{self.device_name}]: Warning - no navigation nodes found, AI will work with limited context")
             
             # Prepare context for AI
             context = {
@@ -563,12 +593,11 @@ JSON ONLY - NO OTHER TEXT"""
                 
                 # Build navigation context with ALL nodes
                 navigation_context = ""
-                print(f"🐛 DEBUG: Building navigation context with {len(available_nodes)} nodes")
                 if available_nodes:
                     navigation_context = f"Nodes: {available_nodes}"
-                    print(f"🐛 DEBUG: Navigation context built: {navigation_context}")
+                    print(f"AI[{self.device_name}]: Navigation context includes {len(available_nodes)} nodes")
                 else:
-                    print(f"🐛 DEBUG: No available_nodes, navigation_context will be empty")
+                    print(f"AI[{self.device_name}]: Navigation context is empty - no nodes available")
                 
                 prompt = f"""You are controlling a TV application on a device (STB/mobile/PC).
 Your task is to navigate through the app using available commands provided.
