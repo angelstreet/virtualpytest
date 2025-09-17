@@ -144,7 +144,7 @@ export const useAIAgent = ({ host, device, enabled = true }: UseAIAgentProps): U
     try {
       console.log('[useAIAgent] 🚀 Starting task execution - setting isExecuting to true');
       setIsExecuting(true);
-      setCurrentStep('Asking AI for execution plan...');
+      setCurrentStep('Starting AI...');
 
       // Show task start notification
       toast.showInfo(`🤖 Starting AI task`, { duration: 3000 });
@@ -168,8 +168,6 @@ export const useAIAgent = ({ host, device, enabled = true }: UseAIAgentProps): U
 
       if (response.ok && result.success) {
         console.log('[useAIAgent] ✅ Task execution started successfully');
-        // Update initial state from the response
-        setCurrentStep(result.current_step || 'Plan generated');
         const initialLog = result.execution_log || [];
         setExecutionLog(initialLog);
 
@@ -184,8 +182,10 @@ export const useAIAgent = ({ host, device, enabled = true }: UseAIAgentProps): U
           console.log('[useAIAgent] 📋 Found AI plan, setting it immediately:', planEntry.value);
           setAiPlan(planEntry.value);
           setIsPlanFeasible(planEntry.value.feasible !== false);
+          setCurrentStep('Plan ready');
         } else {
-          console.log('[useAIAgent] ⚠️ No AI plan found in initial execution log');
+          console.log('[useAIAgent] ⚠️ No AI plan found in initial execution log - will wait for polling');
+          setCurrentStep('Generating plan...');
         }
 
         // Start polling for status updates (following useValidation pattern)
@@ -216,10 +216,7 @@ export const useAIAgent = ({ host, device, enabled = true }: UseAIAgentProps): U
 
               if (statusResult.success) {
                 console.log('[useAIAgent] 📊 Status poll success:', statusResult);
-                // Update current step and execution log with latest data
                 const newLog = statusResult.execution_log || [];
-                console.log('[useAIAgent] 📝 Updating current step:', statusResult.current_step);
-                setCurrentStep(statusResult.current_step || 'Processing...');
                 setExecutionLog(newLog);
 
                 // Extract AI plan if not already set
@@ -232,7 +229,13 @@ export const useAIAgent = ({ host, device, enabled = true }: UseAIAgentProps): U
                     console.log('[useAIAgent] 📋 Found AI plan in status update:', planEntry.value);
                     setAiPlan(planEntry.value);
                     setIsPlanFeasible(planEntry.value.feasible !== false);
+                    setCurrentStep('Plan ready');
                   }
+                }
+
+                // Only update current step if we have a plan (execution started)
+                if (aiPlan || (newLog.length > 0 && newLog.some((e: AIExecutionLogEntry) => e.action_type === 'plan_generated'))) {
+                  setCurrentStep(statusResult.current_step || 'Processing...');
                 }
 
                 const prevLogLength = executionLog.length;
@@ -240,10 +243,7 @@ export const useAIAgent = ({ host, device, enabled = true }: UseAIAgentProps): U
                 if (newLog.length > prevLogLength) {
                   const newEntries = newLog.slice(prevLogLength);
                   for (const entry of newEntries) {
-                    if (entry.action_type === 'plan_ready') {
-                      const stepData = entry.value;
-                      toast.showInfo(`📋 Plan ready: ${stepData.total_steps} steps`, { duration: 2000 });
-                    } else if (entry.action_type === 'step_success') {
+                    if (entry.action_type === 'step_success') {
                       const stepData = entry.value;
                       toast.showSuccess(`✅ Step ${stepData.step} completed (${stepData.duration.toFixed(1)}s)`, { duration: 2000 });
                     } else if (entry.action_type === 'step_failed') {

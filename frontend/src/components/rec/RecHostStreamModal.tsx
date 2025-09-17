@@ -1002,9 +1002,10 @@ const RecHostStreamModalContent: React.FC<{
                   >
                     {/* Show current step when executing but no plan yet */}
                     {isAIExecuting && !aiPlan && (
-                      <Box sx={{ p: 1 }}>
+                      <Box sx={{ p: 2, textAlign: 'center' }}>
+                        <CircularProgress size={20} sx={{ color: '#2196f3', mb: 1 }} />
                         <Typography variant="body2" sx={{ color: '#2196f3' }}>
-                          {currentStep || 'Generating plan...'}
+                          {currentStep || 'Starting AI...'}
                         </Typography>
                       </Box>
                     )}
@@ -1033,18 +1034,14 @@ const RecHostStreamModalContent: React.FC<{
                     {/* Show Plan when feasible */}
                     {aiPlan && isPlanFeasible && (
                       <>
-                        <Typography variant="subtitle2" sx={{ color: '#4caf50', mb: 1 }}>
-                          AI Execution Plan:
-                        </Typography>
-
                         {/* Analysis */}
-                        <Typography variant="body2" sx={{ color: '#cccccc', mb: 1 }}>
+                        <Typography variant="body2" sx={{ color: '#cccccc', mb: 0.5 }}>
                           {aiPlan.analysis}
                         </Typography>
 
                         {aiPlan.plan && aiPlan.plan.length > 0 && (
                           <Box sx={{ mt: 2 }}>
-                            <Typography variant="caption" sx={{ color: '#aaa', mb: 1, display: 'block' }}>
+                            <Typography variant="caption" sx={{ color: '#aaa', mb: 0, display: 'block' }}>
                               Steps ({aiPlan.plan.length}):
                             </Typography>
                             {aiPlan.plan.map((step: any, index: number) => {
