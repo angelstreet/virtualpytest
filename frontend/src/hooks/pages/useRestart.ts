@@ -711,6 +711,13 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
       if (language === 'en') {
         // Reset to original content for English - instant switch
         console.log(`[@hook:useRestart] 🌐 Switching to original English content`);
+        
+        // Auto-play original video when switching back to English
+        if (videoUrl) {
+          console.log(`[@hook:useRestart] 🎬 Auto-playing original video: ${videoUrl}`);
+          setVideoUrl(videoUrl); // Trigger video player update
+        }
+        
         toast.showSuccess(`✅ Switched to English`, { duration: 2000 });
         return;
       }
@@ -718,6 +725,13 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
       // Check cache first - if translation exists, use it immediately
       if (translationResults[language]) {
         console.log(`[@hook:useRestart] 🌐 Using cached translation for ${language}`);
+        
+        // Auto-play dubbed video if available when switching to cached language
+        if (dubbedVideos[language]) {
+          console.log(`[@hook:useRestart] 🎬 Auto-playing dubbed video for ${language}: ${dubbedVideos[language]}`);
+          setVideoUrl(dubbedVideos[language]); // Trigger video player update
+        }
+        
         toast.showSuccess(`✅ Switched to ${language}`, { duration: 2000 });
         return;
       }
