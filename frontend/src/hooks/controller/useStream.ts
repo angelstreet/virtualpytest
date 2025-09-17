@@ -15,36 +15,6 @@ interface UseStreamReturn {
   refetchStreamUrl: () => void; // Add manual refetch function
 }
 
-/**
- * Process stream URL with conditional HTTP to HTTPS proxy (same pattern as images)
- */
-const processStreamUrl = (url: string): string => {
-  if (!url) return url;
-  // Handle data URLs - return as is (unlikely for streams but consistent)
-  if (url.startsWith('data:')) {
-    return url;
-  }
-
-  // Handle HTTPS URLs - return as is (no proxy needed)
-  if (url.startsWith('https:')) {
-    return url;
-  }
-
-  // Handle HTTP URLs - skip proxy for network-accessible URLs
-  if (url.startsWith('http:')) {
-    // Skip proxy for direct network access (non-localhost URLs)
-    if (!url.includes('localhost') && !url.includes('127.0.0.1')) {
-      console.log(`[@hook:useStream] Using direct HTTP URL (no proxy needed): ${url}`);
-      return url;
-    }
-    
-    // Use proxy only for localhost URLs that need HTTPS conversion
-    const proxyUrl = `/server/av/proxy-stream?url=${encodeURIComponent(url)}`;
-    console.log(`[@hook:useStream] Generated proxy URL for localhost stream: ${proxyUrl}`);
-    return proxyUrl;
-  }
-  return url;
-};
 
 /**
  * Hook for fetching stream URLs from hosts
@@ -109,8 +79,7 @@ export const useStream = ({ host, device_id }: UseStreamProps): UseStreamReturn 
         if (result.success && result.stream_url) {
           console.log(`[@hook:useStream] Stream URL received: ${result.stream_url}`);
 
-          // Process stream URL for HTTP-to-HTTPS conversion
-          const processedUrl = processStreamUrl(result.stream_url);
+          const processedUrl = result.stream_url;
           console.log(
             `[@hook:useStream] Stream URL processed: ${result.stream_url} -> ${processedUrl}`,
           );

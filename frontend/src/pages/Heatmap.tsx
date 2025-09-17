@@ -66,29 +66,6 @@ const Heatmap: React.FC = () => {
   const [freezeModalOpen, setFreezeModalOpen] = useState(false);
   const [freezeModalImage, setFreezeModalImage] = useState<HeatmapImage | null>(null);
 
-  // Process image URLs with HTTP to HTTPS proxy logic (same pattern as other components)
-  const processImageUrl = (url: string): string => {
-    if (!url) return '';
-
-    // Handle data URLs (base64) - return as is
-    if (url.startsWith('data:')) {
-      return url;
-    }
-
-    // Handle HTTP URLs - use proxy to convert to HTTPS
-    if (url.startsWith('http:')) {
-      const encodedUrl = encodeURIComponent(url);
-      return `/server/av/proxy-image?url=${encodedUrl}`;
-    }
-
-    // Handle HTTPS URLs - return as is (no proxy needed)
-    if (url.startsWith('https:')) {
-      return url;
-    }
-
-    // For relative paths or other formats, use directly
-    return url;
-  };
 
   // Tooltip handlers
   const handleMouseEnter = (event: React.MouseEvent<HTMLDivElement>, index: number) => {
@@ -177,9 +154,7 @@ const Heatmap: React.FC = () => {
     const baseUrl = originalImageUrl.substring(0, lastSlashIndex + 1);
     const frameUrl = `${baseUrl}${cleanFilename}`;
 
-    // Use processImageUrl to handle HTTP-to-HTTPS proxy logic
-    // This ensures the same URL processing as other components
-    return processImageUrl(frameUrl);
+    return frameUrl;
   };
 
   // Refs
