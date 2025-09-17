@@ -479,6 +479,13 @@ class AIAgentController(BaseController):
             # Use centralized AI utilities with automatic provider fallback
             print(f"AI[{self.device_name}]: Using centralized AI utilities")
             
+            # Extract available navigation nodes from the loaded tree
+            available_nodes = []
+            if navigation_tree and 'nodes' in navigation_tree:
+                available_nodes = [node.get('node_id', node.get('id', 'unknown')) 
+                                 for node in navigation_tree['nodes']]
+                print(f"AI[{self.device_name}]: Extracted {len(available_nodes)} navigation nodes: {available_nodes}")
+            
             # Prepare context for AI
             context = {
                 "task": task_description,
@@ -488,7 +495,8 @@ class AIAgentController(BaseController):
                     verif.get('verification_type', verif) if isinstance(verif, dict) else verif 
                     for verif in available_verifications
                 ],
-                "has_navigation_tree": navigation_tree is not None
+                "has_navigation_tree": navigation_tree is not None,
+                "available_nodes": available_nodes
             }
             
             # Create MCP-aware prompt for AI
@@ -529,121 +537,35 @@ If not feasible:
 
 JSON ONLY - NO OTHER TEXT"""
             else:
-                # Build simple action list - let AI figure out what to use
-                action_context = "\n".join([
-                    f"- {action.get('command', action) if isinstance(action, dict) else action} (params: {action.get('params', {}) if isinstance(action, dict) else '{}'}): {action.get('description', 'No description') if isinstance(action, dict) else 'Available action'}"
-                    for action in available_actions
-                ])
+                # Build MINIMAL context - only show command names, not descriptions
+                action_commands = [action.get('command', action) if isinstance(action, dict) else action for action in available_actions]
+                verification_commands = [verif if isinstance(verif, str) else verif.get('verification_type', 'unknown') for verif in available_verifications]
                 
-                # Add navigation context if tree is available
+                # Build ultra-focused navigation context
                 navigation_context = ""
-                if navigation_tree:
-                    navigation_context = """
-- execute_navigation (params: {"target_node": "node_name"}): Navigate to a specific node in the navigation tree"""
+                if available_nodes:
+                    # Only show first 5 nodes to keep prompt small
+                    key_nodes = available_nodes[:5]
+                    if len(available_nodes) > 5:
+                        nodes_display = f"{', '.join(key_nodes)} (+{len(available_nodes)-5} more)"
+                    else:
+                        nodes_display = ', '.join(key_nodes)
+                    navigation_context = f"Navigation Nodes: {nodes_display}"
                 
-                prompt = f"""You are a device automation AI for {device_model}. Analyze if this task is feasible with available actions.
-
-Task: "{task_description}"
+                prompt = f"""Task: "{task_description}"
 Device: {device_model}
-Navigation Tree Available: {context['has_navigation_tree']}
+{navigation_context}
 
-Available Actions:
-{action_context}{navigation_context}
+Actions: {', '.join(action_commands[:8])}
+Verifications: {', '.join(verification_commands[:5])}
 
-FEASIBILITY FOCUS: Determine if this task CAN be completed with available actions. Be optimistic - if there's a reasonable way to accomplish the task, mark it as feasible.
+Rules:
+- "go to node X" → execute_navigation, target_node="X"
+- "click X" → click_element, element_id="X"
+- "press X" → press_key, key="X"
 
-CRITICAL COMMAND DISTINCTIONS:
-
-NAVIGATION COMMANDS (use execute_navigation):
-- "goto X", "go to X", "navigate to X", "navigate X" = NAVIGATE to location/screen X in the app
-- Examples: "goto home", "go to home", "navigate to settings", "navigate home"
-- These move between screens/pages within the application using the navigation tree
-
-INTERACTION COMMANDS (use click_element):
-- "click X", "tap X", "select X" = INTERACT with UI element X
-- Examples: "click home_button", "tap settings", "select menu"
-- These interact with visible UI elements on the current screen
-
-SYSTEM COMMANDS (use press_key):
-- "go back", "go home" (without "to") = SYSTEM-level actions
-- "go back" = Android back button → press_key with key="BACK"
-- "go home" = Android home screen → press_key with key="HOME"
-- "press up", "press down" = Directional keys → press_key with key="UP"/"DOWN"
-
-IMPORTANT EXAMPLES:
-- "goto home" → execute_navigation with target_node="home" (navigate within app)
-- "go to home" → execute_navigation with target_node="home" (navigate within app)  
-- "navigate to settings" → execute_navigation with target_node="settings" (navigate within app)
-- "go home" → press_key with key="HOME" (Android home screen)
-- "go back" → press_key with key="BACK" (Android back button)
-- "click home_replay" → click_element with element_id="home_replay" (interact with element)
-- "press up arrow" → press_key with key="UP" (directional navigation)
-
-The available actions are TEMPLATES - you fill in the parameter values based on what the task asks for.
-
-CRITICAL: Respond with ONLY valid JSON. No other text.
-
-Required JSON format for navigation:
-{{
-  "analysis": "brief analysis of the task and chosen approach",
-  "feasible": true,
-  "plan": [
-    {{
-      "step": 1,
-      "type": "action",
-      "command": "execute_navigation",
-      "params": {{"target_node": "home"}},
-      "description": "Navigate to the home location within the app"
-    }}
-  ]
-}}
-
-Required JSON format for interaction:
-{{
-  "analysis": "brief analysis of the task and chosen approach",
-  "feasible": true,
-  "plan": [
-    {{
-      "step": 1,
-      "type": "action",
-      "command": "click_element",
-      "params": {{"element_id": "home_replay"}},
-      "description": "Click on the home_replay element"
-    }}
-  ]
-}}
-
-Required JSON format for system commands:
-{{
-  "analysis": "brief analysis of the task and chosen approach",
-  "feasible": true,
-  "plan": [
-    {{
-      "step": 1,
-      "type": "action",
-      "command": "press_key",
-      "params": {{"key": "HOME"}},
-      "description": "Press Android home button to go to home screen"
-    }}
-  ]
-}}
-
-For tasks that cannot be completed with available actions, return:
-{{
-  "analysis": "explanation of why task cannot be completed",
-  "feasible": false,
-  "plan": []
-}}
-
-If coordinates needed but not provided:
-{{
-  "analysis": "task requires coordinates",
-  "feasible": false,
-  "plan": [],
-  "needs_input": "Please provide x,y coordinates"
-}}
-
-JSON ONLY - NO OTHER TEXT"""
+JSON only:
+{{"feasible": true, "plan": [{{"step": 1, "command": "execute_navigation", "params": {{"target_node": "home"}}, "description": "Navigate"}}]}}"""
             
             # Call centralized AI utilities with automatic provider fallback
             print(f"AI[{self.device_name}]: Making AI call with automatic provider fallback")

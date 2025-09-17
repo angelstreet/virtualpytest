@@ -52,105 +52,143 @@ def execute_task():
         device_model = device.device_model
         print(f"[@route:host_aiagent:execute_task] Device model: {device_model}")
         
-        # Get real available actions from device capabilities (same as DeviceDataContext)
-        device_action_types = device.get_available_action_types()
-        available_actions = []
-        
-        # Enhanced action flattening with better AI context
-        for category, actions in device_action_types.items():
-            if isinstance(actions, list):
-                for action in actions:
-                    # Build enhanced action description for AI
-                    base_command = action.get('command', '')
-                    base_params = action.get('params', {})
-                    original_description = action.get('description', '')
-                    action_id = action.get('id', '')
-                    # Create AI-friendly action name and description
-                    ai_action_name = base_command
-                    ai_description = original_description
-                    
-                    # Enhance specific actions with common user task mappings
-                    if base_command == 'press_key' and base_params.get('key') == 'BACK':
-                        ai_action_name = "go_back_button"
-                        ai_description = "Go back to previous screen (use for: 'go back', 'navigate back', 'return to previous page')"
+        # Get model-specific commands for AI generation (same as test case generation)
+        try:
+            from backend_core.src.controllers.ai_descriptions import get_commands_for_device_model
+            enhanced_data = get_commands_for_device_model(device_model)
+            
+            if 'error' in enhanced_data:
+                print(f"[@route:host_aiagent:execute_task] WARNING: Device model not supported: {enhanced_data['error']}")
+                # Fallback to generic device actions
+                device_action_types = device.get_available_action_types()
+                available_actions = []
+            else:
+                # Use model-specific commands (preferred path)
+                available_actions = enhanced_data.get('actions', [])
+                available_verifications = enhanced_data.get('verifications', [])
+                print(f"[@route:host_aiagent:execute_task] Model {device_model}: Loaded {len(available_actions)} actions, {len(available_verifications)} verifications")
+                
+                # Convert to AI agent format
+                formatted_actions = []
+                for action in available_actions:
+                    formatted_actions.append({
+                        'command': action.get('command', ''),
+                        'ai_name': action.get('command', ''),
+                        'description': action.get('ai_description', action.get('description', '')),
+                        'action_type': action.get('category', 'unknown'),
+                        'params': action.get('params', {}),
+                        'category': action.get('category', 'unknown')
+                    })
+                
+                available_actions = formatted_actions
+                
+        except Exception as e:
+            print(f"[@route:host_aiagent:execute_task] ERROR: Failed to get model-specific commands: {e}")
+            # Fallback to generic device actions
+            device_action_types = device.get_available_action_types()
+            available_actions = []
+            
+            # Enhanced action flattening with better AI context
+            for category, actions in device_action_types.items():
+                if isinstance(actions, list):
+                    for action in actions:
+                        # Build enhanced action description for AI
+                        base_command = action.get('command', '')
+                        base_params = action.get('params', {})
+                        original_description = action.get('description', '')
+                        action_id = action.get('id', '')
+                        # Create AI-friendly action name and description
+                        ai_action_name = base_command
+                        ai_description = original_description
                         
-                    elif base_command == 'press_key' and base_params.get('key') == 'HOME':
-                        ai_action_name = "go_home_button"
-                        ai_description = "Go to home screen (use for: 'go home', 'navigate to home', 'return to home')"
+                        # Enhance specific actions with common user task mappings
+                        if base_command == 'press_key' and base_params.get('key') == 'BACK':
+                            ai_action_name = "go_back_button"
+                            ai_description = "Go back to previous screen (use for: 'go back', 'navigate back', 'return to previous page')"
+                            
+                        elif base_command == 'press_key' and base_params.get('key') == 'HOME':
+                            ai_action_name = "go_home_button"
+                            ai_description = "Go to home screen (use for: 'go home', 'navigate to home', 'return to home')"
+                            
+                        elif base_command == 'input_text':
+                            ai_action_name = "type_text"
+                            ai_description = "Type text into current input field (use for: 'enter text', 'type', 'input', 'write')"
+                            
+                        elif base_command == 'click_element':
+                            ai_action_name = "click_ui_element"
+                            ai_description = "Click on UI element by text/ID (use for: 'click [element]', 'tap [element]', 'select [item]')"
+                            
+                        elif base_command == 'tap_coordinates':
+                            ai_action_name = "tap_screen_coordinates"
+                            ai_description = "Tap at specific screen coordinates (use for: 'tap at position', 'click coordinates')"
+                            
+                        elif base_command == 'launch_app':
+                            ai_action_name = "open_application"
+                            ai_description = "Launch/open an Android application (use for: 'open app', 'start app', 'launch')"
+                            
+                        elif base_command == 'close_app':
+                            ai_action_name = "close_application"
+                            ai_description = "Close/stop an Android application (use for: 'close app', 'stop app', 'exit app')"
                         
-                    elif base_command == 'input_text':
-                        ai_action_name = "type_text"
-                        ai_description = "Type text into current input field (use for: 'enter text', 'type', 'input', 'write')"
-                        
-                    elif base_command == 'click_element':
-                        ai_action_name = "click_ui_element"
-                        ai_description = "Click on UI element by text/ID (use for: 'click [element]', 'tap [element]', 'select [item]')"
-                        
-                    elif base_command == 'tap_coordinates':
-                        ai_action_name = "tap_screen_coordinates"
-                        ai_description = "Tap at specific screen coordinates (use for: 'tap at position', 'click coordinates')"
-                        
-                    elif base_command == 'launch_app':
-                        ai_action_name = "open_application"
-                        ai_description = "Launch/open an Android application (use for: 'open app', 'start app', 'launch')"
-                        
-                    elif base_command == 'close_app':
-                        ai_action_name = "close_application"
-                        ai_description = "Close/stop an Android application (use for: 'close app', 'stop app', 'exit app')"
-                    
-                    # Build comprehensive action context for AI
-                    ai_action = {
-                        'command': base_command,
-                        'ai_name': ai_action_name,
-                        'description': ai_description,
-                        'action_type': action.get('action_type', category),
-                        'params': base_params,
-                        'category': category,
-                        'full_context': {
-                            'original_id': action_id,
-                            'original_command': base_command,
-                            'requires_input': action.get('requiresInput', False),
-                            'input_example': action.get('inputPlaceholder', ''),
-                            'common_use_cases': []
+                        # Build comprehensive action context for AI
+                        ai_action = {
+                            'command': base_command,
+                            'ai_name': ai_action_name,
+                            'description': ai_description,
+                            'action_type': action.get('action_type', category),
+                            'params': base_params,
+                            'category': category,
+                            'full_context': {
+                                'original_id': action_id,
+                                'original_command': base_command,
+                                'requires_input': action.get('requiresInput', False),
+                                'input_example': action.get('inputPlaceholder', ''),
+                                'common_use_cases': []
+                            }
                         }
-                    }
-                    
-                    # Add common use cases for better AI understanding
-                    if 'back' in ai_action_name.lower():
-                        ai_action['full_context']['common_use_cases'] = [
-                            "go back", "navigate back", "previous screen", "return", "back button"
-                        ]
-                    elif 'home' in ai_action_name.lower():
-                        ai_action['full_context']['common_use_cases'] = [
-                            "go home", "home screen", "main screen", "home button"
-                        ]
-                    elif 'text' in ai_action_name.lower():
-                        ai_action['full_context']['common_use_cases'] = [
-                            "type text", "enter text", "input text", "write", "fill field"
-                        ]
-                    elif 'click' in ai_action_name.lower():
-                        ai_action['full_context']['common_use_cases'] = [
-                            "click [element]", "tap [element]", "select [item]", "press [element]"
-                        ]
-                    
-                    available_actions.append(ai_action)
+                        
+                        # Add common use cases for better AI understanding
+                        if 'back' in ai_action_name.lower():
+                            ai_action['full_context']['common_use_cases'] = [
+                                "go back", "navigate back", "previous screen", "return", "back button"
+                            ]
+                        elif 'home' in ai_action_name.lower():
+                            ai_action['full_context']['common_use_cases'] = [
+                                "go home", "home screen", "main screen", "home button"
+                            ]
+                        elif 'text' in ai_action_name.lower():
+                            ai_action['full_context']['common_use_cases'] = [
+                                "type text", "enter text", "input text", "write", "fill field"
+                            ]
+                        elif 'click' in ai_action_name.lower():
+                            ai_action['full_context']['common_use_cases'] = [
+                                "click [element]", "tap [element]", "select [item]", "press [element]"
+                            ]
+                        
+                        available_actions.append(ai_action)
         
         print(f"[@route:host_aiagent:execute_task] Available actions: {len(available_actions)} actions from device capabilities")
         
-        # Get real available verifications from device capabilities (same as DeviceDataContext)
-        device_verification_types = device.get_available_verification_types()
+        # Handle verifications - use model-specific if available, otherwise fallback
         available_verifications = []
-        
-        # Flatten all verification categories into a single list for AI
-        for category, verifications in device_verification_types.items():
-            if isinstance(verifications, list):
-                for verification in verifications:
-                    available_verifications.append({
-                        'verification_type': verification.get('verification_type', ''),
-                        'description': verification.get('description', f"{verification.get('verification_type', '')} verification"),
-                        'params': verification.get('params', {}),
-                        'category': category
-                    })
+        if 'enhanced_data' in locals() and 'error' not in enhanced_data:
+            # Use model-specific verifications
+            available_verifications = enhanced_data.get('verifications', [])
+            print(f"[@route:host_aiagent:execute_task] Using model-specific verifications: {len(available_verifications)}")
+        else:
+            # Fallback to generic device verifications
+            device_verification_types = device.get_available_verification_types()
+            
+            # Flatten all verification categories into a single list for AI
+            for category, verifications in device_verification_types.items():
+                if isinstance(verifications, list):
+                    for verification in verifications:
+                        available_verifications.append({
+                            'verification_type': verification.get('verification_type', ''),
+                            'description': verification.get('description', f"{verification.get('verification_type', '')} verification"),
+                            'params': verification.get('params', {}),
+                            'category': category
+                        })
         
         print(f"[@route:host_aiagent:execute_task] Available verifications: {len(available_verifications)} verifications from device capabilities")
         
