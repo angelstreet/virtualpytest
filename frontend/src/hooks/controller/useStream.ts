@@ -63,15 +63,16 @@ export const useStream = ({ host, device_id }: UseStreamProps): UseStreamReturn 
           `[@hook:useStream] Fetching stream URL for host: ${host.host_name}, device: ${device_id}`,
         );
 
-        const response = await fetch(buildServerUrl('/server/av/getStreamUrl'), {
-          method: 'POST',
+        const params = new URLSearchParams({
+          host: JSON.stringify(host),
+          device_id: device_id,
+        });
+        
+        const response = await fetch(`${buildServerUrl('/server/av/getStreamUrl')}?${params}`, {
+          method: 'GET',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({
-            host: host,
-            device_id: device_id,
-          }),
         });
 
         const result = await response.json();
