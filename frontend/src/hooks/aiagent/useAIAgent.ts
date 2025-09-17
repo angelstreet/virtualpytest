@@ -4,7 +4,6 @@ import { Host, Device } from '../../types/common/Host_Types';
 import { 
   AIExecutionLogEntry, 
   AIPlan, 
-  AITaskExecution, 
   AIExecutionSummary,
   AI_CONSTANTS 
 } from '../../types/aiagent/AIAgent_Types';
@@ -127,13 +126,9 @@ export const useAIAgent = ({ host, device, enabled = true }: UseAIAgentProps): U
   const executeTask = useCallback(async () => {
     if (!enabled || !taskInput.trim() || isExecuting) return;
     
-    // Clear previous state completely
-    setExecutionLog([]);
-    setAiPlan(null);
-    setIsPlanFeasible(true);
+    // Clear previous state but keep plan if it exists for this task
     setErrorMessage(null);
     setTaskResult(null);
-    setCurrentStep('');
 
     // Request deduplication - prevent duplicate calls
     const taskId = `${host.host_name}-${device.device_id}-${taskInput.trim()}-${Date.now()}`;
@@ -175,22 +170,22 @@ export const useAIAgent = ({ host, device, enabled = true }: UseAIAgentProps): U
         console.log('[useAIAgent] ✅ Task execution started successfully');
         // Update initial state from the response
         setCurrentStep(result.current_step || 'Plan generated');
-        setExecutionLog(result.execution_log || []);
+        const initialLog = result.execution_log || [];
+        setExecutionLog(initialLog);
 
-        // Extract AI plan from execution_log
-        const executionLog = result.execution_log || [];
-        console.log('[useAIAgent] 🔍 Looking for AI plan in execution log:', executionLog);
-        const planEntry = executionLog.find(
+        // Extract AI plan from execution_log immediately
+        console.log('[useAIAgent] 🔍 Looking for AI plan in execution log:', initialLog);
+        const planEntry = initialLog.find(
           (entry: AIExecutionLogEntry) =>
             entry.action_type === 'plan_generated' && entry.type === 'ai_plan',
         );
 
         if (planEntry && planEntry.value) {
-          console.log('[useAIAgent] 📋 Found AI plan, setting it:', planEntry.value);
+          console.log('[useAIAgent] 📋 Found AI plan, setting it immediately:', planEntry.value);
           setAiPlan(planEntry.value);
           setIsPlanFeasible(planEntry.value.feasible !== false);
         } else {
-          console.log('[useAIAgent] ⚠️ No AI plan found in execution log');
+          console.log('[useAIAgent] ⚠️ No AI plan found in initial execution log');
         }
 
         // Start polling for status updates (following useValidation pattern)
@@ -222,12 +217,25 @@ export const useAIAgent = ({ host, device, enabled = true }: UseAIAgentProps): U
               if (statusResult.success) {
                 console.log('[useAIAgent] 📊 Status poll success:', statusResult);
                 // Update current step and execution log with latest data
-                const prevLogLength = executionLog.length;
                 const newLog = statusResult.execution_log || [];
                 console.log('[useAIAgent] 📝 Updating current step:', statusResult.current_step);
-                console.log('[useAIAgent] 📋 Updating execution log, new entries:', newLog.length - prevLogLength);
                 setCurrentStep(statusResult.current_step || 'Processing...');
                 setExecutionLog(newLog);
+
+                // Extract AI plan if not already set
+                if (!aiPlan && newLog.length > 0) {
+                  const planEntry = newLog.find(
+                    (entry: AIExecutionLogEntry) =>
+                      entry.action_type === 'plan_generated' && entry.type === 'ai_plan',
+                  );
+                  if (planEntry && planEntry.value) {
+                    console.log('[useAIAgent] 📋 Found AI plan in status update:', planEntry.value);
+                    setAiPlan(planEntry.value);
+                    setIsPlanFeasible(planEntry.value.feasible !== false);
+                  }
+                }
+
+                const prevLogLength = executionLog.length;
 
                 if (newLog.length > prevLogLength) {
                   const newEntries = newLog.slice(prevLogLength);
@@ -274,16 +282,15 @@ export const useAIAgent = ({ host, device, enabled = true }: UseAIAgentProps): U
 
                   // Extract task result from execution log
                   const summaryEntry = statusResult.execution_log.find(
-                    (entry: AIExecutionLogEntry) => entry.action_type === 'result_summary' && entry.type === 'summary',
+                    (entry: AIExecutionLogEntry) => entry.action_type === 'task_completed' || entry.action_type === 'task_failed',
                   );
 
-                  if (summaryEntry && summaryEntry.value) {
-                    const summary = summaryEntry.value;
-                    const success = summary.success === true;
+                  if (summaryEntry) {
+                    const success = summaryEntry.action_type === 'task_completed';
                     const message = success ? 'Task Completed' : 'Task Failed';
                     setTaskResult({ success, message });
                   } else {
-                    // Fallback if no summary found
+                    // Fallback if no completion found
                     setTaskResult({ success: true, message: 'Task Completed' });
                   }
 

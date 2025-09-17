@@ -132,8 +132,9 @@ const RecHostStreamModalContent: React.FC<{
       isAIExecuting,
       currentStep,
       progressPercentage,
-      aiPlan: aiPlan ? 'Present' : 'None',
-      executionLogLength: executionLog.length
+      aiPlan: aiPlan ? { feasible: aiPlan.feasible, planLength: aiPlan.plan?.length } : 'None',
+      executionLogLength: executionLog.length,
+      executionLogTypes: executionLog.map(e => e.action_type)
     });
   }, [isAIExecuting, currentStep, progressPercentage, aiPlan, executionLog.length]);
 
