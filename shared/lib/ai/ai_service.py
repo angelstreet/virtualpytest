@@ -18,7 +18,7 @@ from typing import Dict, Any, Optional, Union
 # Import config from project root
 import sys
 sys.path.append(os.path.join(os.path.dirname(__file__), '../../..'))
-from config.ai_config import AI_CONFIG
+from shared.config.ai_config import AI_CONFIG
 
 
 class AIService:
