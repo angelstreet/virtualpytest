@@ -21,7 +21,7 @@ from typing import Dict, Any, Optional
 from shared.lib.utils.app_utils import get_team_id, get_user_id
 from shared.lib.utils.build_url_utils import buildHostUrl
 from shared.lib.utils.host_utils import get_host_manager
-from shared.lib.utils.lock_utils import lock_device, unlock_device, get_all_locked_devices, get_device_lock_info
+from shared.lib.utils.lock_utils import lock_device, unlock_device, get_all_locked_devices, get_device_lock_info, get_client_ip
 from backend_core.src.controllers.controller_config_factory import create_controller_configs_from_device_info
 
 # Create blueprint
@@ -50,7 +50,10 @@ def take_control():
         
         session_id = session['session_id']
         
-        print(f"🎮 [CONTROL] Taking control of host: {host_name}, device: {device_id} (session: {session_id})")
+        # Extract client IP address
+        client_ip = get_client_ip()
+        
+        print(f"🎮 [CONTROL] Taking control of host: {host_name}, device: {device_id} (session: {session_id}, IP: {client_ip})")
         
         # Check if host is registered
         host_manager = get_host_manager()
@@ -63,7 +66,7 @@ def take_control():
             }), 404
         
         # Use lock utils for device locking (still lock by host_name for coordination)
-        success = lock_device(host_name, session_id)
+        success = lock_device(host_name, session_id, client_ip)
         
         if success:
             # Forward take-control request to the specific host with device_id
@@ -137,7 +140,8 @@ def take_control():
                     'error': f'Host {host_name} is already locked by another session',
                     'errorType': 'device_locked',
                     'locked_by': lock_info.get('lockedBy'),
-                    'locked_at': lock_info.get('lockedAt')
+                    'locked_at': lock_info.get('lockedAt'),
+                    'locked_ip': lock_info.get('lockedIp')
                 }), 423  # HTTP 423 Locked
             else:
                 return jsonify({

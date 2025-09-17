@@ -8,6 +8,27 @@ Manages device locks for multi-user access control.
 import time
 import threading
 from typing import Dict, Any, Optional
+from flask import request
+
+def get_client_ip() -> Optional[str]:
+    """Extract client IP address from Flask request, considering proxy headers"""
+    try:
+        # Check for X-Forwarded-For header (from nginx proxy)
+        if request.headers.get('X-Forwarded-For'):
+            # X-Forwarded-For can contain multiple IPs, take the first one (original client)
+            forwarded_ips = request.headers.get('X-Forwarded-For').split(',')
+            client_ip = forwarded_ips[0].strip()
+            return client_ip
+        
+        # Check for X-Real-IP header (from nginx proxy)
+        if request.headers.get('X-Real-IP'):
+            return request.headers.get('X-Real-IP')
+        
+        # Fall back to direct remote address
+        return request.remote_addr
+    except Exception as e:
+        print(f"⚠️ [LockManager] Error extracting client IP: {e}")
+        return None
 
 class DeviceLockManager:
     """Simple device locking manager"""
@@ -17,30 +38,45 @@ class DeviceLockManager:
         self._locks: Dict[str, Dict[str, Any]] = {}
         self._lock = threading.RLock()
     
-    def lock_device(self, host_name: str, session_id: str) -> bool:
+    def lock_device(self, host_name: str, session_id: str, client_ip: Optional[str] = None) -> bool:
         """Lock a device"""
         with self._lock:
             try:
                 # Check if already locked
                 if host_name in self._locks:
                     locked_by = self._locks[host_name].get('locked_by', 'unknown')
+                    locked_ip = self._locks[host_name].get('locked_ip')
                     
                     # Allow same session to reclaim its own lock
                     if locked_by == session_id:
                         print(f"🔄 [LockManager] Device {host_name} already locked by same session {session_id} - reclaiming lock")
                         self._locks[host_name]['locked_at'] = time.time()
+                        if client_ip:
+                            self._locks[host_name]['locked_ip'] = client_ip
                         return True
+                    
+                    # Allow same IP to take control even with different session
+                    elif client_ip and locked_ip and client_ip == locked_ip:
+                        print(f"🔄 [LockManager] Device {host_name} locked by different session ({locked_by}) but same IP ({client_ip}) - allowing takeover")
+                        self._locks[host_name]['locked_by'] = session_id
+                        self._locks[host_name]['locked_at'] = time.time()
+                        self._locks[host_name]['locked_ip'] = client_ip
+                        return True
+                    
                     else:
-                        print(f"❌ [LockManager] Device {host_name} already locked by different session: {locked_by}")
+                        ip_info = f" (IP: {locked_ip})" if locked_ip else ""
+                        print(f"❌ [LockManager] Device {host_name} already locked by different session: {locked_by}{ip_info}")
                         return False
                 
                 # Lock the device
                 self._locks[host_name] = {
                     'locked_by': session_id,
-                    'locked_at': time.time()
+                    'locked_at': time.time(),
+                    'locked_ip': client_ip
                 }
                 
-                print(f"🔒 [LockManager] Successfully locked device {host_name} for session: {session_id}")
+                ip_info = f" from IP {client_ip}" if client_ip else ""
+                print(f"🔒 [LockManager] Successfully locked device {host_name} for session: {session_id}{ip_info}")
                 return True
                 
             except Exception as e:
@@ -88,7 +124,8 @@ class DeviceLockManager:
                 'isLocked': True,
                 'lockedBy': lock_data.get('locked_by'),
                 'lockedAt': lock_data.get('locked_at'),
-                'lockedDuration': time.time() - lock_data.get('locked_at', 0)
+                'lockedDuration': time.time() - lock_data.get('locked_at', 0),
+                'lockedIp': lock_data.get('locked_ip')
             }
     
     def get_all_locked_devices(self) -> Dict[str, Dict[str, Any]]:
@@ -101,6 +138,7 @@ class DeviceLockManager:
                     'lockedBy': lock_data.get('locked_by'),
                     'lockedAt': lock_data.get('locked_at'),
                     'lockedDuration': time.time() - lock_data.get('locked_at', 0),
+                    'lockedIp': lock_data.get('locked_ip'),
                     'hostName': host_name
                 }
             
@@ -147,9 +185,9 @@ def get_device_lock_manager() -> DeviceLockManager:
     return _device_lock_manager
 
 # Convenience functions
-def lock_device(host_name: str, session_id: str) -> bool:
+def lock_device(host_name: str, session_id: str, client_ip: Optional[str] = None) -> bool:
     """Lock a device"""
-    return get_device_lock_manager().lock_device(host_name, session_id)
+    return get_device_lock_manager().lock_device(host_name, session_id, client_ip)
 
 def unlock_device(host_name: str, session_id: Optional[str] = None) -> bool:
     """Unlock a device"""
