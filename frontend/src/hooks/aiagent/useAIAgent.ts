@@ -161,6 +161,7 @@ export const useAIAgent = ({ host, device, enabled = true }: UseAIAgentProps): U
     setErrorMessage(null);
     setTaskResult(null);
     setIsPlanFeasible(true);
+    setCurrentStep('');
 
     // Request deduplication - prevent duplicate calls
     const taskId = `${host.host_name}-${device.device_id}-${taskInput.trim()}-${Date.now()}`;
