@@ -196,6 +196,25 @@ fi
 
 cd ../..
 
+# Configure firewall ports for backend_server
+echo "🔥 Configuring firewall for backend_server..."
+
+# Source port checking functions
+source "$PROJECT_ROOT/setup/local/check_and_open_port.sh"
+
+# Get SERVER_PORT (default 5109)
+SERVER_PORT="5109"
+
+echo "🔧 Configuring firewall for backend_server ports:"
+echo "   - Backend Server API: $SERVER_PORT"
+echo "   - PostgreSQL: 5432"
+echo "   - Grafana: 3001"
+
+# Configure UFW for backend_server ports
+check_and_open_port "$SERVER_PORT" "backend_server API" "tcp"
+check_and_open_port "5432" "PostgreSQL database" "tcp"
+check_and_open_port "3001" "Grafana dashboard" "tcp"
+
 # Create VPT Server Host systemd service (but don't enable/start it)
 echo "🔧 Creating VPT Server Host systemd service..."
 cat > /tmp/vpt_server_host.service << EOF

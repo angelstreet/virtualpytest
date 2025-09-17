@@ -9,7 +9,7 @@ import os
 # Add shared library to path
 sys.path.append(os.path.join(os.path.dirname(__file__), '../../../../shared'))
 
-from lib.utils.translation_utils import batch_translate_restart_content, translate_text
+from shared.lib.utils.translation_utils import batch_translate_restart_content, translate_text
 
 # Create blueprint
 host_translation_bp = Blueprint('host_translation', __name__)

@@ -368,6 +368,20 @@ echo "✅ Enhanced VNC cleanup and test completed"
 # Re-enable exit on error
 set -e
 
+# Configure firewall ports for VNC services
+echo "🔥 Configuring firewall for VNC services..."
+
+# Source port checking functions
+source "$PROJECT_ROOT/setup/local/check_and_open_port.sh"
+
+echo "🔧 Configuring firewall for VNC ports:"
+echo "   - VNC Server: 5901"
+echo "   - noVNC Web Interface: 6080"
+
+# Configure UFW for VNC ports
+check_and_open_port "5901" "VNC server" "tcp"
+check_and_open_port "6080" "noVNC web interface" "tcp"
+
 echo ""
 echo "🔄 Finishing installation..."
 echo ""

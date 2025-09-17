@@ -59,5 +59,19 @@ fi
 
 cd ..
 
+# Configure firewall ports for frontend
+echo "🔥 Configuring firewall for frontend..."
+
+# Source port checking functions
+source "$PROJECT_ROOT/setup/local/check_and_open_port.sh"
+
+echo "🔧 Configuring firewall for frontend ports:"
+echo "   - Frontend (dev): 3000"
+echo "   - Frontend (prod): 5073"
+
+# Configure UFW for frontend ports
+check_and_open_port "3000" "frontend development" "tcp"
+check_and_open_port "5073" "frontend production" "tcp"
+
 echo "✅ Frontend installation completed!"
 echo "🚀 You can now run: ./setup/local/launch_frontend.sh" 

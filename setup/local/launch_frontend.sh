@@ -40,9 +40,6 @@ echo "   Service: frontend (Vite dev server)"
 # Check port availability and kill conflicting processes
 check_port_availability "$FRONTEND_PORT" "frontend"
 
-# Check and open port in UFW if needed
-check_and_open_port "$FRONTEND_PORT" "frontend" "tcp"
-
 # Colors for output
 YELLOW='\033[1;33m'
 RED='\033[0;31m'

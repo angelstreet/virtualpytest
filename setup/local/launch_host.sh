@@ -40,9 +40,6 @@ echo "   Service: backend_host"
 # Check port availability and kill conflicting processes
 check_port_availability "$HOST_PORT" "backend_host"
 
-# Check and open port in UFW if needed
-check_and_open_port "$HOST_PORT" "backend_host" "tcp"
-
 # Detect Python executable
 PYTHON_CMD=""
 if command -v python3 &> /dev/null; then
