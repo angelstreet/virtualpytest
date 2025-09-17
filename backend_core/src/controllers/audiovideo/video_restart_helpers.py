@@ -1052,12 +1052,14 @@ class VideoRestartHelpers:
                 trim_seconds = abs(target_timing_ms) / 1000.0
                 audio_filter = f"atrim=start={trim_seconds}"
             
-            # Apply timing adjustment using FFmpeg
+            # Apply timing adjustment using FFmpeg - mute original video audio
             cmd = [
                 'ffmpeg', '-i', source_video_path,
                 '-af', audio_filter,
                 '-c:v', 'copy',  # Copy video stream unchanged
                 '-c:a', 'aac',   # Re-encode audio with adjustment
+                '-map', '0:v:0', # Video from input 0 (muted - no original audio mixed)
+                '-map', '0:a:0', # Audio from input 0 (time-adjusted only)
                 output_path, '-y'
             ]
             
