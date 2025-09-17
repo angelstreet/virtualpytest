@@ -235,10 +235,10 @@ providers:
       path: /etc/grafana/dashboards/virtualpytest
 EOF
     
-    # Update configuration for local use (change port to 3001 to avoid conflicts)
-    sudo sed -i 's/http_port = 3000/http_port = 3001/' /etc/grafana/grafana.ini
+    # Update configuration for local use (keep port 3000 as default)
+    sudo sed -i 's/;http_port = 3000/http_port = 3000/' /etc/grafana/grafana.ini
     sudo sed -i 's/domain = dev.virtualpytest.com/domain = localhost/' /etc/grafana/grafana.ini
-    sudo sed -i 's|root_url = https://dev.virtualpytest.com/grafana/|root_url = http://localhost:3000/|' /etc/grafana/grafana.ini
+    sudo sed -i 's|root_url = http://localhost/grafana/|root_url = http://localhost:3000/|' /etc/grafana/grafana.ini
     sudo sed -i 's/serve_from_sub_path = true/serve_from_sub_path = false/' /etc/grafana/grafana.ini
     
     # Configure security settings for local development with cross-origin support

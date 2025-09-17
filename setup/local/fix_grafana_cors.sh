@@ -68,9 +68,10 @@ fi
 # Ensure proper local configuration
 echo "⚙️ Ensuring proper local configuration..."
 
-# Update configuration for local use (change port to 3001 to avoid conflicts)
-sudo sed -i 's/http_port = 3000/http_port = 3001/' "$GRAFANA_CONF"
+# Update configuration for local use (keep port 3000 as default)
+sudo sed -i 's/;http_port = 3000/http_port = 3000/' "$GRAFANA_CONF"
 sudo sed -i 's/domain = dev.virtualpytest.com/domain = localhost/' "$GRAFANA_CONF"
+sudo sed -i 's|root_url = http://localhost/grafana/|root_url = http://localhost:3000/|' "$GRAFANA_CONF"
 sudo sed -i 's|root_url = https://dev.virtualpytest.com/grafana/|root_url = http://localhost:3000/|' "$GRAFANA_CONF"
 sudo sed -i 's/serve_from_sub_path = true/serve_from_sub_path = false/' "$GRAFANA_CONF"
 
@@ -88,7 +89,7 @@ echo "   ✅ cookie_secure = false (allows HTTP cookies)"
 echo "   ✅ cookie_samesite = none (allows cross-origin cookies)"
 echo "   ✅ allow_embedding = true (allows iframe embedding)"
 echo "   ✅ csrf_trusted_origins = localhost:5073 127.0.0.1:5073 192.168.1.34:5073 0.0.0.0:5073"
-echo "   ✅ http_port = 3001 (local port)"
+echo "   ✅ http_port = 3000 (local port)"
 echo "   ✅ domain = localhost"
 echo "   ✅ root_url = http://localhost:3000/"
 
