@@ -126,6 +126,14 @@ export const useAIAgent = ({ host, device, enabled = true }: UseAIAgentProps): U
 
   const executeTask = useCallback(async () => {
     if (!enabled || !taskInput.trim() || isExecuting) return;
+    
+    // Clear previous state completely
+    setExecutionLog([]);
+    setAiPlan(null);
+    setIsPlanFeasible(true);
+    setErrorMessage(null);
+    setTaskResult(null);
+    setCurrentStep('');
 
     // Request deduplication - prevent duplicate calls
     const taskId = `${host.host_name}-${device.device_id}-${taskInput.trim()}-${Date.now()}`;
@@ -141,13 +149,7 @@ export const useAIAgent = ({ host, device, enabled = true }: UseAIAgentProps): U
     try {
       console.log('[useAIAgent] 🚀 Starting task execution - setting isExecuting to true');
       setIsExecuting(true);
-      setErrorMessage(null);
-      setTaskResult(null);
       setCurrentStep('Asking AI for execution plan...');
-      setExecutionLog([]);
-      console.log('[useAIAgent] 🗑️ Clearing previous AI plan');
-      setAiPlan(null);
-      setIsPlanFeasible(true);
 
       // Show task start notification
       toast.showInfo(`🤖 Starting AI task`, { duration: 3000 });
@@ -230,7 +232,10 @@ export const useAIAgent = ({ host, device, enabled = true }: UseAIAgentProps): U
                 if (newLog.length > prevLogLength) {
                   const newEntries = newLog.slice(prevLogLength);
                   for (const entry of newEntries) {
-                    if (entry.action_type === 'step_success') {
+                    if (entry.action_type === 'plan_ready') {
+                      const stepData = entry.value;
+                      toast.showInfo(`📋 Plan ready: ${stepData.total_steps} steps`, { duration: 2000 });
+                    } else if (entry.action_type === 'step_success') {
                       const stepData = entry.value;
                       toast.showSuccess(`✅ Step ${stepData.step} completed (${stepData.duration.toFixed(1)}s)`, { duration: 2000 });
                     } else if (entry.action_type === 'step_failed') {

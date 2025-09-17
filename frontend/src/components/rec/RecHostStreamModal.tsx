@@ -913,7 +913,7 @@ const RecHostStreamModalContent: React.FC<{
                 >
                   <AIIcon />
                   AI Agent
-                  {(isAIExecuting || progressPercentage > 0) && (
+                  {isAIExecuting && (
                     <Typography variant="caption" sx={{ color: '#2196f3', ml: 1 }}>
                       Progress: {progressPercentage}%
                     </Typography>
@@ -987,7 +987,7 @@ const RecHostStreamModalContent: React.FC<{
 
 
                 {/* AI Plan Display */}
-                {aiPlan && (
+                {(aiPlan || isAIExecuting) && (
                   <Box
                     sx={{
                       mt: 1,
@@ -999,8 +999,17 @@ const RecHostStreamModalContent: React.FC<{
                       overflowY: 'auto',
                     }}
                   >
+                    {/* Show current step when executing but no plan yet */}
+                    {isAIExecuting && !aiPlan && (
+                      <Box sx={{ p: 1 }}>
+                        <Typography variant="body2" sx={{ color: '#2196f3' }}>
+                          {currentStep || 'Generating plan...'}
+                        </Typography>
+                      </Box>
+                    )}
+
                     {/* Show Analysis when not feasible */}
-                    {!isPlanFeasible && (
+                    {aiPlan && !isPlanFeasible && (
                       <>
                         <Typography variant="subtitle2" sx={{ color: '#f44336', mb: 1 }}>
                           Task Analysis:
@@ -1021,7 +1030,7 @@ const RecHostStreamModalContent: React.FC<{
                     )}
 
                     {/* Show Plan when feasible */}
-                    {isPlanFeasible && (
+                    {aiPlan && isPlanFeasible && (
                       <>
                         <Typography variant="subtitle2" sx={{ color: '#4caf50', mb: 1 }}>
                           AI Execution Plan:
