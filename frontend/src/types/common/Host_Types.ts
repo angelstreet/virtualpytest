@@ -48,6 +48,12 @@ export interface Device {
   device_ip?: string; // Device IP address (for ADB/device control)
   device_port?: string; // Device port (for ADB/device control)
   ir_type?: string; // IR remote type (samsung, eos, etc.)
+  
+  // === VIDEO CAPTURE CONFIGURATION ===
+  video_stream_path?: string; // Video stream path for URL building (e.g., '/host/stream/capture1')
+  video_capture_path?: string; // Video capture path for URL building (e.g., '/var/www/html/stream/capture1')
+  video?: string; // Video device path (e.g., '/dev/video0', '/dev/video2')
+  
   device_capabilities: DeviceCapabilities; // New detailed capability format (matches server format)
   device_controller_types?: string[]; // Device-specific controller types (prefixed for consistency)
   controller_configs?: {
