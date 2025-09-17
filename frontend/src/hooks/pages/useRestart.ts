@@ -845,16 +845,11 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
           toast.showInfo(`🎤 Starting dubbing for ${language}...`, { duration: 3000 });
           
           try {
-            // Ensure we have translated transcript for dubbing
-            const languageResults = translationResults[language] as TranslationResults | undefined;
-            if (!languageResults) {
-              throw new Error(`No translation results available for ${language}. Translation must complete before dubbing.`);
-            }
-            if (!languageResults.transcript) {
+            // Use the local newTranscript variable instead of state (timing issue fix)
+            if (!newTranscript) {
               throw new Error(`No translated transcript available for ${language}. Translation must complete before dubbing.`);
             }
-            const translatedTranscript = languageResults.transcript;
-            await generateDubbedVersion(language, translatedTranscript, videoId);
+            await generateDubbedVersion(language, newTranscript, videoId);
             const totalDubbingDuration = ((Date.now() - dubbingAutoStartTime) / 1000).toFixed(1);
             console.log(`[@hook:useRestart] 🎬 Complete dubbing workflow for ${language} finished in ${totalDubbingDuration}s`);
             toast.showSuccess(`🎬 Dubbing for ${language} complete! (${totalDubbingDuration}s)`, { duration: 4000 });
