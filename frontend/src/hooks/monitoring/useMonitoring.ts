@@ -7,7 +7,7 @@ import {
   LanguageMenuAnalysis,
 } from '../../types/pages/Monitoring_Types';
 
-import { buildServerUrl } from '../../utils/buildUrlUtils';
+import { buildServerUrl, buildHostImageUrl } from '../../utils/buildUrlUtils';
 interface FrameRef {
   timestamp: string;
   imageUrl: string;
@@ -113,12 +113,17 @@ export const useMonitoring = ({
     const startTime = performance.now();
     console.log('[useMonitoring] ⚡ Fast JSON loading for:', queuedFrame.imageUrl);
     
-    // Load JSON analysis only (fast)
+    // Load JSON analysis only (fast) - handle 404s gracefully
     let jsonAnalysis = null;
     try {
       const jsonResponse = await fetch(queuedFrame.jsonUrl);
       if (jsonResponse.ok) {
         jsonAnalysis = await jsonResponse.json();
+      } else if (jsonResponse.status === 404) {
+        console.log('[useMonitoring] JSON not found (404) - will display image without analysis');
+        jsonAnalysis = null; // Explicitly set to null for 404
+      } else {
+        console.warn('[useMonitoring] JSON fetch failed:', jsonResponse.status, jsonResponse.statusText);
       }
     } catch (error) {
       console.warn('[useMonitoring] Failed to load JSON:', error);
@@ -133,11 +138,11 @@ export const useMonitoring = ({
     queuedFrame.languageMenuAnalysis = null; // Removed for performance
     queuedFrame.aiDescription = null; // Will be filled by background AI
 
-    // Count as complete for initial buffer (JSON only needed for display)
-    if (jsonAnalysis && initialFramesLoaded < 3) {
+    // Count as complete for initial buffer (frame ready for display regardless of JSON)
+    if (initialFramesLoaded < 3) {
       setInitialFramesLoaded(count => {
         const newCount = count + 1;
-        console.log(`[useMonitoring] 📊 Initial frame ${newCount}/3 ready for display (JSON loaded)`);
+        console.log(`[useMonitoring] 📊 Initial frame ${newCount}/3 ready for display (JSON: ${jsonAnalysis ? 'loaded' : 'missing'})`);
         return newCount;
       });
     }
@@ -223,11 +228,8 @@ export const useMonitoring = ({
       if (response.ok) {
         const result = await response.json();
         if (result.success && result.screenshot_url) {
-          // Extract base pattern: remove sequence number from capture_NNNN.jpg format
-          const basePattern = result.screenshot_url.replace(
-            /capture_\d+\.jpg$/,
-            'capture_{sequence}.jpg',
-          );
+          // Use centralized URL builder for base pattern
+          const basePattern = buildHostImageUrl(host, 'stream/capture2/captures/capture_{sequence}.jpg');
           
           setAutonomousBaseUrlPattern(basePattern);
           console.log(`[useMonitoring] Autonomous base URL pattern initialized: ${basePattern}`);
@@ -262,10 +264,15 @@ export const useMonitoring = ({
       if (response.ok) {
         const result = await response.json();
         if (result.success && result.latest_json_url) {
-          const jsonUrl = result.latest_json_url;
-          const imageUrl = jsonUrl.replace('.json', '.jpg'); // Simple replacement
-          const sequenceMatch = jsonUrl.match(/capture_(\d+)/);
+          // Extract filename from the raw URL
+          const rawJsonUrl = result.latest_json_url;
+          const sequenceMatch = rawJsonUrl.match(/capture_(\d+)/);
           const sequence = sequenceMatch ? sequenceMatch[1] : '';
+          const filename = `capture_${sequence}`;
+          
+          // Use centralized URL builders
+          const imageUrl = buildHostImageUrl(host, `stream/capture2/captures/${filename}.jpg`);
+          const jsonUrl = buildHostImageUrl(host, `stream/capture2/captures/${filename}.json`);
           const timestamp = result.timestamp || new Date().toISOString();
           
           console.log(`[useMonitoring] Latest JSON: ${jsonUrl} -> Image: ${imageUrl}`);
