@@ -487,11 +487,25 @@ class AIAgentController(BaseController):
             
             # Extract available navigation nodes from the loaded tree
             available_nodes = []
-            if navigation_tree and 'nodes' in navigation_tree:
-                # Extract only labels for AI (short and token-efficient)
-                available_nodes = [node.get('label') for node in navigation_tree['nodes'] 
-                                 if node.get('label')]
-                print(f"AI[{self.device_name}]: Extracted {len(available_nodes)} navigation nodes: {available_nodes}")
+            print(f"🐛 DEBUG: Navigation tree exists: {navigation_tree is not None}")
+            if navigation_tree:
+                print(f"🐛 DEBUG: Navigation tree keys: {list(navigation_tree.keys()) if isinstance(navigation_tree, dict) else 'not a dict'}")
+                if 'nodes' in navigation_tree:
+                    nodes = navigation_tree['nodes']
+                    print(f"🐛 DEBUG: Found {len(nodes)} nodes in tree")
+                    if nodes:
+                        first_node = nodes[0]
+                        print(f"🐛 DEBUG: First node structure: {first_node}")
+                        print(f"🐛 DEBUG: First node keys: {list(first_node.keys()) if isinstance(first_node, dict) else 'not a dict'}")
+                    
+                    # Extract only labels for AI (short and token-efficient)
+                    available_nodes = [node.get('label') for node in nodes if node.get('label')]
+                    print(f"🐛 DEBUG: Node extraction fix active - extracted {len(available_nodes)} nodes")
+                    print(f"AI[{self.device_name}]: Extracted {len(available_nodes)} navigation nodes: {available_nodes}")
+                else:
+                    print(f"🐛 DEBUG: No 'nodes' key in navigation_tree")
+            else:
+                print(f"🐛 DEBUG: navigation_tree is None or empty")
             
             # Prepare context for AI
             context = {
@@ -549,8 +563,12 @@ JSON ONLY - NO OTHER TEXT"""
                 
                 # Build navigation context with ALL nodes
                 navigation_context = ""
+                print(f"🐛 DEBUG: Building navigation context with {len(available_nodes)} nodes")
                 if available_nodes:
                     navigation_context = f"Nodes: {available_nodes}"
+                    print(f"🐛 DEBUG: Navigation context built: {navigation_context}")
+                else:
+                    print(f"🐛 DEBUG: No available_nodes, navigation_context will be empty")
                 
                 prompt = f"""You are controlling a TV application on a device (STB/mobile/PC).
 Your task is to navigate through the app using available commands provided.
