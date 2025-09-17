@@ -34,6 +34,11 @@ class AIAgentController(BaseController):
         self.task_start_time = None
         self.step_start_times = {}
         
+        # Navigation tree caching for reuse during execution
+        self.cached_tree_id = None
+        self.cached_userinterface_name = None
+        self.team_id = "7fdeb4bb-3639-4ec3-959f-b54769a219ce"
+        
         print(f"AI[{self.device_name}]: Initialized with device_id: {self.device_id}")
     
     def _get_navigation_tree(self, userinterface_name: str) -> Dict[str, Any]:
@@ -68,9 +73,14 @@ class AIAgentController(BaseController):
                 cached_tree['_tree_id'] = tree_result.get('tree_id')  # Add tree_id for unified cache access
                 cached_tree['_full_root_tree'] = root_tree  # Keep reference to full data
                 
+                # Cache tree_id and userinterface_name for reuse during execution
+                self.cached_tree_id = tree_result.get('tree_id')
+                self.cached_userinterface_name = userinterface_name
+                
                 self._navigation_trees_cache[userinterface_name] = cached_tree
                 print(f"AI[{self.device_name}]: Successfully loaded and cached unified navigation tree for: {userinterface_name}")
                 print(f"AI[{self.device_name}]: Unified cache populated with {tree_result.get('unified_graph_nodes', 0)} nodes, {tree_result.get('unified_graph_edges', 0)} edges")
+                print(f"AI[{self.device_name}]: Cached tree_id {self.cached_tree_id} for execution reuse")
                 return cached_tree
             else:
                 print(f"AI[{self.device_name}]: Failed to load unified navigation tree for: {userinterface_name}: {tree_result.get('error')}")
@@ -92,7 +102,7 @@ class AIAgentController(BaseController):
     
     def _execute_navigation(self, target_node: str, userinterface_name: str = "horizon_android_mobile") -> Dict[str, Any]:
         """
-        Execute navigation by doing exactly what validation.py does.
+        Execute navigation using cached tree_id to avoid reloading.
         Uses pathfinding to get proper navigation sequence with actions.
         
         Args:
@@ -103,7 +113,7 @@ class AIAgentController(BaseController):
             Dictionary with execution results
         """
         try:
-            print(f"AI[{self.device_name}]: Executing navigation to '{target_node}' exactly like validation.py")
+            print(f"AI[{self.device_name}]: Executing navigation to '{target_node}' using cached tree")
             
             # Use the new specialized utils modules
             from shared.lib.utils.script_execution_utils import (
@@ -127,32 +137,26 @@ class AIAgentController(BaseController):
             
             selected_device = device_result['device']
             
-            # Load navigation tree with unified hierarchy support
-            from shared.lib.utils.navigation_utils import load_navigation_tree_with_hierarchy
-            from shared.lib.utils.navigation_exceptions import NavigationTreeError, UnifiedCacheError
+            # Use cached tree_id instead of reloading the entire tree
+            tree_id = self.cached_tree_id
+            if not tree_id:
+                return {'success': False, 'error': f"No cached tree_id available - tree must be loaded first"}
             
-            try:
-                tree_result = load_navigation_tree_with_hierarchy(userinterface_name, "ai_agent")
-                if not tree_result['success']:
-                    return {'success': False, 'error': f"Unified tree loading failed: {tree_result['error']}"}
-                
-                tree_id = tree_result['tree_id']
-                print(f"AI[{self.device_name}]: Unified cache populated with {tree_result.get('unified_graph_nodes', 0)} nodes, {tree_result.get('unified_graph_edges', 0)} edges")
-                
-            except Exception as e:
-                error_str = str(e)
-                if "NavigationTreeError" in error_str or "UnifiedCacheError" in error_str:
-                    return {'success': False, 'error': f"Navigation system error: {error_str}"}
-                else:
-                    return {'success': False, 'error': f"Tree loading error: {error_str}"}
+            print(f"AI[{self.device_name}]: Using cached tree_id: {tree_id} (no DB reload needed)")
             
-            # Get navigation sequence using pathfinding (same as validation.py)
+            # Verify unified cache is still available
+            from shared.lib.utils.navigation_cache import get_cached_unified_graph
+            unified_graph = get_cached_unified_graph(tree_id, self.team_id)
+            if not unified_graph:
+                return {'success': False, 'error': f"Unified cache not available for tree_id: {tree_id}"}
+            
+            # Get navigation sequence using pathfinding with cached tree_id
             from backend_core.src.services.navigation.navigation_pathfinding import find_shortest_path
             
-            print(f"AI[{self.device_name}]: Finding path to '{target_node}' using pathfinding")
+            print(f"AI[{self.device_name}]: Finding path to '{target_node}' using cached pathfinding")
             
-            # Find path from current location to target node using correct parameters
-            path_sequence = find_shortest_path(tree_id, target_node, team_id)
+            # Find path from current location to target node using cached tree_id
+            path_sequence = find_shortest_path(tree_id, target_node, self.team_id)
             
             if not path_sequence:
                 return {'success': False, 'error': f"No path found to '{target_node}'"}
@@ -168,7 +172,7 @@ class AIAgentController(BaseController):
                 print(f"AI[{self.device_name}]: Executing transition {step_num}/{len(path_sequence)}: {from_node} → {to_node}")
                 
                 # Execute the navigation step directly (same as validation.py)
-                result = execute_navigation_with_verifications(host, selected_device, transition, team_id, tree_id)
+                result = execute_navigation_with_verifications(host, selected_device, transition, self.team_id, tree_id)
                 
                 if not result['success']:
                     return {'success': False, 'error': f"Navigation failed at transition {step_num}: {result.get('error', 'Unknown error')}"}
@@ -442,8 +446,14 @@ class AIAgentController(BaseController):
             
             self._add_to_log("ai_plan", "plan_generated", ai_plan['plan'], "AI generated execution plan")
             
-            # Step 2: Execute the plan
+            # Step 2: Execute the plan (ensure tree is cached)
             self.current_step = "Executing plan"
+            if not self.cached_tree_id:
+                return {
+                    'success': False,
+                    'error': 'Navigation tree not cached - cannot execute plan',
+                    'execution_log': self.execution_log
+                }
             execute_result = self._execute(ai_plan['plan'], navigation_tree, userinterface_name)
             self._add_to_log("execute", "plan_execution", execute_result, f"Plan execution: {execute_result}")
             
@@ -500,11 +510,10 @@ class AIAgentController(BaseController):
                     from shared.lib.utils.navigation_cache import get_cached_unified_graph
                     
                     # Try to get nodes from unified cache first (preferred method)
-                    team_id = "7fdeb4bb-3639-4ec3-959f-b54769a219ce"
                     tree_id = navigation_tree.get('_tree_id') or navigation_tree.get('id')
                     
                     if tree_id:
-                        unified_graph = get_cached_unified_graph(tree_id, team_id)
+                        unified_graph = get_cached_unified_graph(tree_id, self.team_id)
                         if unified_graph and unified_graph.nodes:
                             # Extract node labels from unified graph
                             for node_id in unified_graph.nodes:
@@ -623,18 +632,41 @@ If task is not possible:
 
 RESPOND WITH JSON ONLY. ANALYSIS FIELD IS REQUIRED:"""
             
-            # Call centralized AI utilities with automatic provider fallback
-            print(f"AI[{self.device_name}]: Making AI call with automatic provider fallback")
+            # Call OpenRouter directly with timeout (no Hugging Face fallback)
+            print(f"AI[{self.device_name}]: Making AI call with 30s timeout (OpenRouter only)")
             print(f"AI[{self.device_name}]: FULL PROMPT BEING SENT:")
             print("=" * 80)
             print(prompt)
             print("=" * 80)
             
-            result = call_text_ai(
-                prompt=prompt,
-                max_tokens=1000,
-                temperature=0.0
-            )
+            import signal
+            
+            def timeout_handler(signum, frame):
+                raise TimeoutError("AI generation timed out after 30 seconds")
+            
+            # Set up timeout
+            signal.signal(signal.SIGALRM, timeout_handler)
+            signal.alarm(30)  # 30 second timeout
+            
+            try:
+                # Call OpenRouter directly (no fallback)
+                result = self._call_openrouter_only(prompt, max_tokens=1000, temperature=0.0)
+            except TimeoutError as e:
+                error_msg = "AI generation timed out after 30 seconds"
+                print(f"AI[{self.device_name}]: {error_msg}")
+                return {
+                    'success': False,
+                    'error': error_msg
+                }
+            except Exception as e:
+                error_msg = f"AI generation failed with exception: {str(e)}"
+                print(f"AI[{self.device_name}]: {error_msg}")
+                return {
+                    'success': False,
+                    'error': error_msg
+                }
+            finally:
+                signal.alarm(0)  # Cancel the alarm
             
             if result['success']:
                 content = result['content']
@@ -765,7 +797,9 @@ RESPOND WITH JSON ONLY. ANALYSIS FIELD IS REQUIRED:"""
             # Execute step
             if command == 'execute_navigation':
                 target_node = step.get('params', {}).get('target_node')
-                result = self._execute_navigation(target_node, userinterface_name)
+                # Use cached userinterface_name if available, fallback to parameter
+                cached_interface = self.cached_userinterface_name or userinterface_name
+                result = self._execute_navigation(target_node, cached_interface)
             else:
                 action = self._convert_step_to_action(step)
                 result = execute_action_directly(host, device, action)
