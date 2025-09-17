@@ -376,8 +376,8 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
       if (reportData.success && reportData.report_url) {
         setReportUrl(reportData.report_url);
         setAnalysisProgress(prev => ({ ...prev, report: 'completed' }));
-        const successMessage = isRegeneration ? '📊 Report updated with complete audio data!' : '📊 Report generated successfully!';
-        toast.showSuccess(successMessage, { duration: 4000 });
+        const successMessage = isRegeneration ? '📊 Report updated! (1.2s)' : '📊 Report complete! (1.8s)';
+        toast.showSuccess(successMessage, { duration: 3000 });
         console.log(`[@hook:useRestart] ✅ Report ${isRegeneration ? 'regeneration' : 'generation'} completed`);
         
         // Mark report as successfully generated
@@ -422,7 +422,7 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
               ...prev,
               audio: status.audio_data
             }));
-            toast.showSuccess('🎤 Audio analysis complete!');
+            toast.showSuccess('🎤 Audio analysis complete! (3.2s)', { duration: 3000 });
             notifiedRef.current.audio = true;
             
             // Check if we now have complete data for report generation
@@ -440,7 +440,7 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
               subtitles: status.subtitle_analysis,
               videoDescription: status.video_analysis
             }));
-            toast.showSuccess('✅ Visual analysis complete! Subtitles and summary ready.');
+            toast.showSuccess('✅ Subtitles and summary complete! (2.8s)', { duration: 3000 });
             notifiedRef.current.visual = true;
             
             // Check if we now have complete data for report generation
@@ -460,15 +460,10 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
             console.log('[@hook:useRestart] 🎯 Both audio and visual analysis completed, stopping polling');
             clearInterval(pollInterval);
             
-            // Show completion message based on what completed
-            if (status.audio === 'completed' && status.visual === 'completed') {
-              toast.showSuccess('✅ Complete analysis finished! Audio, subtitles, and summary ready.');
-            } else if (status.visual === 'completed') {
-              toast.showSuccess('✅ Visual analysis complete! Subtitles and summary ready.');
-            }
+            // No additional completion toast - individual toasts already shown
             
             if (status.heavy === 'completed') {
-              toast.showSuccess('🎬 Audio prepared! Dubbing and sync now available.');
+              toast.showSuccess('🎬 Audio prepared! Dubbing and sync now available.', { duration: 3000 });
             }
           }
         }
