@@ -126,9 +126,12 @@ export const useAIAgent = ({ host, device, enabled = true }: UseAIAgentProps): U
   const executeTask = useCallback(async () => {
     if (!enabled || !taskInput.trim() || isExecuting) return;
     
-    // Clear previous state but keep plan if it exists for this task
+    // Clear all previous state for new task
+    setAiPlan(null);
+    setExecutionLog([]);
     setErrorMessage(null);
     setTaskResult(null);
+    setIsPlanFeasible(true);
 
     // Request deduplication - prevent duplicate calls
     const taskId = `${host.host_name}-${device.device_id}-${taskInput.trim()}-${Date.now()}`;

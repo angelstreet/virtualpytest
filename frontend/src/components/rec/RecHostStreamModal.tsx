@@ -1040,7 +1040,7 @@ const RecHostStreamModalContent: React.FC<{
                         </Typography>
 
                         {aiPlan.plan && aiPlan.plan.length > 0 && (
-                          <Box sx={{ mt: 2 }}>
+                          <Box sx={{ mt: 0.5 }}>
                             <Typography variant="caption" sx={{ color: '#aaa', mb: 0, display: 'block' }}>
                               Steps ({aiPlan.plan.length}):
                             </Typography>
