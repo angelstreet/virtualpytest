@@ -333,6 +333,8 @@ def get_device_capabilities(device_model: str) -> dict:
             'remote': None,
             'desktop': None,
             'web': None,
+            'power': None,
+            'ai': None,
             'verification': []
         }
     
