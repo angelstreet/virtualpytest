@@ -7,6 +7,8 @@ import {
   VolumeOff as VolumeOffIcon,
   VolumeUp as VolumeUpIcon,
   Refresh as RefreshIcon,
+  ExpandMore as ExpandMoreIcon,
+  ExpandLess as ExpandLessIcon,
 } from '@mui/icons-material';
 import { Box, IconButton, Typography, Button, CircularProgress, TextField } from '@mui/material';
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
@@ -77,6 +79,7 @@ const RecHostStreamModalContent: React.FC<{
   const [aiAgentMode, setAiAgentMode] = useState<boolean>(false);
   const [restartMode, setRestartMode] = useState<boolean>(false);
   const [isMuted, setIsMuted] = useState<boolean>(true); // Start muted by default
+  const [isAnalysisExpanded, setIsAnalysisExpanded] = useState<boolean>(false); // Analysis collapsed by default
 
   // Set global modal state when component mounts/unmounts
   useEffect(() => {
@@ -1038,10 +1041,47 @@ const RecHostStreamModalContent: React.FC<{
                     {/* Show Plan when feasible */}
                     {aiPlan && isPlanFeasible && (
                       <>
-                        {/* Analysis */}
-                        <Typography variant="body2" sx={{ color: '#cccccc', mb: 0.5 }}>
-                          {aiPlan.analysis}
-                        </Typography>
+                        {/* Expandable Analysis */}
+                        <Box sx={{ mb: 1 }}>
+                          <Box 
+                            sx={{ 
+                              display: 'flex', 
+                              alignItems: 'center', 
+                              cursor: 'pointer',
+                              '&:hover': { backgroundColor: 'rgba(255,255,255,0.05)' },
+                              borderRadius: 0.5,
+                              p: 0.5,
+                              mb: 0.5
+                            }}
+                            onClick={() => setIsAnalysisExpanded(!isAnalysisExpanded)}
+                          >
+                            <Typography variant="caption" sx={{ color: '#aaa', flex: 1 }}>
+                              Analysis
+                            </Typography>
+                            <IconButton 
+                              size="small" 
+                              sx={{ color: '#aaa', p: 0.25 }}
+                              aria-label={isAnalysisExpanded ? 'Collapse analysis' : 'Expand analysis'}
+                            >
+                              {isAnalysisExpanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
+                            </IconButton>
+                          </Box>
+                          
+                          {isAnalysisExpanded && (
+                            <Box
+                              sx={{
+                                p: 1,
+                                backgroundColor: 'rgba(255,255,255,0.05)',
+                                borderRadius: 0.5,
+                                border: '1px solid rgba(255,255,255,0.1)',
+                              }}
+                            >
+                              <Typography variant="body2" sx={{ color: '#cccccc' }}>
+                                {aiPlan.analysis}
+                              </Typography>
+                            </Box>
+                          )}
+                        </Box>
 
                         {aiPlan.plan && aiPlan.plan.length > 0 && (
                           <Box sx={{ mt: 0.5 }}>

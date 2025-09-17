@@ -199,32 +199,49 @@ def execute_task():
         task_id = data.get('task_id')
         
         if task_id:
-            print(f"[@route:host_aiagent:execute_task] ASYNC: Starting background AI execution for task {task_id}")
+            print(f"[@route:host_aiagent:execute_task] 2-PHASE: Starting AI task for {task_id}")
             
-            # Execute async with background thread
+            # Phase 1: Generate plan synchronously (returns immediately with plan)
+            print(f"[@route:host_aiagent:execute_task] Phase 1: Generating plan synchronously")
+            plan_result = ai_controller.generate_plan_only(
+                task_description, 
+                available_actions, 
+                available_verifications,
+                device_model=device_model,
+                userinterface_name=userinterface_name
+            )
+            
+            if not plan_result.get('success'):
+                return jsonify({
+                    'success': False,
+                    'error': plan_result.get('error', 'Failed to generate plan'),
+                    'execution_log': plan_result.get('execution_log', []),
+                    'device_id': device_id
+                }), 400
+            
+            # Phase 2: Execute plan asynchronously in background
+            print(f"[@route:host_aiagent:execute_task] Phase 2: Starting async execution for {task_id}")
             import threading
-            def execute_async():
+            def execute_plan_async():
                 try:
-                    result = ai_controller.execute_task(
-                        task_description, 
-                        available_actions, 
-                        available_verifications,
-                        device_model=device_model,
-                        userinterface_name=userinterface_name
-                    )
-                    print(f"[@route:host_aiagent:execute_task] ASYNC: AI task completed for {task_id}")
+                    execution_result = ai_controller.execute_plan_only(userinterface_name)
+                    print(f"[@route:host_aiagent:execute_task] ASYNC: Plan execution completed for {task_id}")
                     
                 except Exception as e:
-                    print(f"[@route:host_aiagent:execute_task] ASYNC: Error in AI execution: {e}")
+                    print(f"[@route:host_aiagent:execute_task] ASYNC: Error in plan execution: {e}")
             
             # Start async execution
-            threading.Thread(target=execute_async, daemon=True).start()
+            threading.Thread(target=execute_plan_async, daemon=True).start()
             
+            # Return immediately with the generated plan
             return jsonify({
                 'success': True,
-                'message': 'AI task execution started',
+                'message': 'AI plan generated and execution started',
                 'task_id': task_id,
-                'device_id': device_id
+                'device_id': device_id,
+                'plan': plan_result.get('plan'),
+                'execution_log': plan_result.get('execution_log', []),
+                'current_step': plan_result.get('current_step', 'Plan ready')
             }), 202
         else:
             # Synchronous execution (fallback for compatibility)

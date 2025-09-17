@@ -411,9 +411,9 @@ class AIAgentController(BaseController):
         
         return verifications
 
-    def execute_task(self, task_description: str, available_actions: List[Dict], available_verifications: List[Dict], device_model: str = None, userinterface_name: str = "horizon_android_mobile") -> Dict[str, Any]:
+    def generate_plan_only(self, task_description: str, available_actions: List[Dict], available_verifications: List[Dict], device_model: str = None, userinterface_name: str = "horizon_android_mobile") -> Dict[str, Any]:
         """
-        Execute a task: generate plan with AI, execute it, and summarize results.
+        Phase 1: Generate AI plan only (synchronous, returns immediately).
         
         Args:
             task_description: User's task description (e.g., "go to live and zap 10 times")
@@ -421,6 +421,185 @@ class AIAgentController(BaseController):
             available_verifications: Real verifications from device capabilities
             device_model: Device model for context
             userinterface_name: Name of the userinterface for navigation tree loading
+        """
+        try:
+            print(f"AI[{self.device_name}]: Phase 1 - Generating plan for: {task_description}")
+            
+            # Initialize state for plan generation (but not execution yet)
+            self.current_step = "Generating AI plan"
+            self.execution_log = []
+            self.task_start_time = time.time()
+            self.step_start_times = {}
+            
+            # Load navigation tree only when needed
+            navigation_tree = self._get_navigation_tree(userinterface_name)
+            
+            # Generate plan using AI
+            ai_plan = self._generate_plan(task_description, available_actions, available_verifications, device_model, navigation_tree)
+            
+            if not ai_plan.get('success'):
+                return {
+                    'success': False,
+                    'error': ai_plan.get('error', 'Failed to generate plan'),
+                    'execution_log': self.execution_log
+                }
+            
+            # Add plan to log but don't start execution yet
+            self._add_to_log("ai_plan", "plan_generated", ai_plan['plan'], "AI generated execution plan")
+            
+            return {
+                'success': True,
+                'plan': ai_plan['plan'],
+                'execution_log': self.execution_log,
+                'current_step': "Plan ready - waiting for execution",
+                'message': 'AI plan generated successfully'
+            }
+            
+        except Exception as e:
+            error_msg = f"Plan generation failed: {str(e)}"
+            print(f"AI[{self.device_name}]: {error_msg}")
+            return {
+                'success': False,
+                'error': error_msg,
+                'execution_log': self.execution_log
+            }
+
+    def execute_plan_only(self, userinterface_name: str = "horizon_android_mobile") -> Dict[str, Any]:
+        """
+        Phase 2: Execute the previously generated plan (asynchronous).
+        
+        Args:
+            userinterface_name: Name of the userinterface for navigation tree loading
+        """
+        try:
+            print(f"AI[{self.device_name}]: Phase 2 - Starting plan execution")
+            
+            # Mark as executing
+            self.is_executing = True
+            self.current_step = "Executing plan"
+            
+            # Get the plan from execution log
+            plan_entry = None
+            for entry in self.execution_log:
+                if entry.get('action_type') == 'plan_generated' and entry.get('type') == 'ai_plan':
+                    plan_entry = entry.get('value')
+                    break
+            
+            if not plan_entry:
+                return {
+                    'success': False,
+                    'error': 'No plan found to execute - generate plan first',
+                    'execution_log': self.execution_log
+                }
+            
+            # Load navigation tree
+            navigation_tree = self._get_navigation_tree(userinterface_name)
+            
+            # Ensure tree is cached
+            if not self.cached_tree_id:
+                return {
+                    'success': False,
+                    'error': 'Navigation tree not cached - cannot execute plan',
+                    'execution_log': self.execution_log
+                }
+            
+            # Execute the plan
+            execute_result = self._execute(plan_entry['plan'], navigation_tree, userinterface_name)
+            self._add_to_log("execute", "plan_execution", execute_result, f"Plan execution: {execute_result}")
+            
+            # Generate result summary
+            self.current_step = "Generating summary"
+            summary_result = self._result_summary(plan_entry['plan'], execute_result)
+            self._add_to_log("summary", "result_summary", summary_result, f"Result summary: {summary_result}")
+            
+            # Determine overall success based on execution and summary results
+            overall_success = execute_result.get('success', False) and summary_result.get('success', False)
+            
+            # Mark task as completed
+            task_duration = time.time() - self.task_start_time
+            completion_type = "task_completed" if overall_success else "task_failed"
+            completion_message = "Task completed successfully" if overall_success else "Task execution failed"
+            
+            self._add_to_log("completion", completion_type, {
+                'success': overall_success,
+                'message': completion_message,
+                'duration': task_duration,
+                'total_steps': len(plan_entry['plan']) if plan_entry.get('plan') else 0
+            }, completion_message)
+            
+            # Reset execution state
+            self.is_executing = False
+            self.current_step = "Completed"
+            
+            return {
+                'success': overall_success,
+                'message': completion_message,
+                'execution_log': self.execution_log,
+                'current_step': self.current_step,
+                'execute_result': execute_result,
+                'summary_result': summary_result
+            }
+            
+        except Exception as e:
+            error_msg = f"Plan execution failed: {str(e)}"
+            print(f"AI[{self.device_name}]: {error_msg}")
+            
+            # Mark task as failed
+            task_duration = time.time() - (self.task_start_time or time.time())
+            self._add_to_log("completion", "task_failed", {
+                'success': False,
+                'message': error_msg,
+                'duration': task_duration,
+                'error': error_msg
+            }, error_msg)
+            
+            self.is_executing = False
+            self.current_step = "Failed"
+            
+            return {
+                'success': False,
+                'error': error_msg,
+                'execution_log': self.execution_log,
+                'current_step': self.current_step
+            }
+
+    def execute_task(self, task_description: str, available_actions: List[Dict], available_verifications: List[Dict], device_model: str = None, userinterface_name: str = "horizon_android_mobile") -> Dict[str, Any]:
+        """
+        Legacy method: Execute a task with both plan generation and execution (for backward compatibility).
+        
+        Args:
+            task_description: User's task description (e.g., "go to live and zap 10 times")
+            available_actions: Real actions from device capabilities
+            available_verifications: Real verifications from device capabilities
+            device_model: Device model for context
+            userinterface_name: Name of the userinterface for navigation tree loading
+        """
+        try:
+            print(f"AI[{self.device_name}]: Legacy mode - Starting full task: {task_description}")
+            
+            # Phase 1: Generate plan
+            plan_result = self.generate_plan_only(task_description, available_actions, available_verifications, device_model, userinterface_name)
+            
+            if not plan_result.get('success'):
+                return plan_result
+            
+            # Phase 2: Execute plan
+            execution_result = self.execute_plan_only(userinterface_name)
+            
+            return execution_result
+            
+        except Exception as e:
+            error_msg = f"Task execution failed: {str(e)}"
+            print(f"AI[{self.device_name}]: {error_msg}")
+            return {
+                'success': False,
+                'error': error_msg,
+                'execution_log': self.execution_log
+            }
+
+    def _legacy_execute_task_old(self, task_description: str, available_actions: List[Dict], available_verifications: List[Dict], device_model: str = None, userinterface_name: str = "horizon_android_mobile") -> Dict[str, Any]:
+        """
+        OLD IMPLEMENTATION - kept for reference, will be removed.
         """
         try:
             print(f"AI[{self.device_name}]: Starting task: {task_description}")
