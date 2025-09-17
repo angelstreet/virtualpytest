@@ -115,7 +115,9 @@ async def query_host_analysis(session, host_device, timeframe_minutes):
                             capture_dir = f'capture{device_id.replace("device", "")}'
                         
                         # Use buildHostImageUrl to properly handle nginx port stripping for static files
-                        image_url = buildHostImageUrl(host_data, f"stream/{capture_dir}/captures/{filename}")
+                        image_path = f"stream/{capture_dir}/captures/{filename}"
+                        image_url = buildHostImageUrl(host_data, image_path)
+                        print(f"[@query_host_analysis] URL built for {filename}: {image_url} (from host_data: {host_data.get('host_url', 'NO_HOST_URL')})")
                         
                         try:
                             async with session.get(image_url, timeout=aiohttp.ClientTimeout(total=10)) as img_response:
@@ -229,7 +231,9 @@ def process_host_results(host_results):
                             capture_dir = f'capture{device_id.replace("device", "")}'
                         
                         # Use buildHostImageUrl to properly handle nginx port stripping for static files
-                        image_url = buildHostImageUrl(host_data, f"stream/{capture_dir}/captures/{filename}")
+                        image_path = f"stream/{capture_dir}/captures/{filename}"
+                        image_url = buildHostImageUrl(host_data, image_path)
+                        print(f"[@process_host_results] URL built for {filename}: {image_url} (from host_data: {host_data.get('host_url', 'NO_HOST_URL')})")
                         
                         # Frontend data (without image bytes)
                         frontend_device_data = {
