@@ -55,15 +55,25 @@ const internalBuildHostUrl = (host: any, endpoint: string): string => {
     throw new Error('Host information is required for buildHostUrl');
   }
 
+  const cleanEndpoint = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint;
+
   // Use host_url if available (most efficient)
   if (host.host_url) {
-    const cleanEndpoint = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint;
-    return `${host.host_url}/${cleanEndpoint}`;
+    let hostUrl = host.host_url;
+    
+    // For static files (images, streams), strip port for local IPs to use nginx
+    if (endpoint.includes('host/stream/') || endpoint.includes('host/captures/')) {
+      const isLocalIp = hostUrl.includes('192.168.') || hostUrl.includes('10.') || hostUrl.includes('127.0.0.1');
+      if (isLocalIp && hostUrl.includes(':')) {
+        hostUrl = hostUrl.replace(/:\d+$/, '');
+      }
+    }
+    
+    return `${hostUrl}/${cleanEndpoint}`;
   }
 
   // Fallback: construct from host_ip and host_port
   if (host.host_ip && host.host_port) {
-    const cleanEndpoint = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint;
     return `https://${host.host_ip}:${host.host_port}/${cleanEndpoint}`;
   }
 
@@ -201,7 +211,7 @@ export const buildHostImageUrl = (host: any, imagePath: string): string => {
 
   // Use buildHostUrl for relative URLs
   if (host?.host_name) {
-    return internalBuildHostUrl(host, cleanPath);
+    return internalBuildHostUrl(host, `host/${cleanPath}`);
   }
 
   // Fallback if no host selected
