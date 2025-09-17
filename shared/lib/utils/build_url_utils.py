@@ -44,7 +44,7 @@ def buildHostUrl(host_info: dict, endpoint: str) -> str:
 
 def buildCaptureUrl(host_info: dict, filename: str, device_id: str) -> str:
     """
-    Build nginx-relative URL for live screenshot captures
+    Build URL for live screenshot captures
     
     Args:
         host_info: Host information from registry
@@ -52,16 +52,16 @@ def buildCaptureUrl(host_info: dict, filename: str, device_id: str) -> str:
         device_id: Device ID for multi-device hosts (required)
         
     Returns:
-        Nginx-relative URL to screenshot capture
+        Complete URL to screenshot capture
         
     Example:
         buildCaptureUrl(host_info, 'capture_0001.jpg', 'device1')
-        -> '/host/stream/capture1/captures/capture_0001.jpg'
+        -> 'https://host:444/host/stream/capture1/captures/capture_0001.jpg'
     """
     # Get device-specific capture path
     capture_path = _get_device_capture_path(host_info, device_id)
     
-    return f"/host{capture_path}/{filename}"
+    return buildHostUrl(host_info, f'host{capture_path}/{filename}')
 
 def buildCroppedImageUrl(host_info: dict, filename: str, device_id: str) -> str:
     """
@@ -125,39 +125,45 @@ def buildVerificationResultUrl(host_info: dict, filename: str, device_id: str) -
 
 def buildStreamUrl(host_info: dict, device_id: str) -> str:
     """
-    Build nginx-relative URL for HLS stream
+    Build URL for HLS stream
     
     Args:
         host_info: Host information from registry
         device_id: Device ID for multi-device hosts (required)
         
     Returns:
-        Nginx-relative URL to HLS stream
+        Complete URL to HLS stream
         
     Example:
         buildStreamUrl(host_info, 'device1')
-        -> '/host/stream/capture1/output.m3u8'
+        -> 'https://host:444/host/stream/capture1/output.m3u8'
     """
     # Get device-specific stream path
     stream_path = _get_device_stream_path(host_info, device_id)
     
-    # Return nginx-relative path
-    return f"/host{stream_path}/output.m3u8"
+    # For local IPs, strip port (nginx serves streams)
+    host_url = host_info.get('host_url', '')
+    if '192.168.' in host_url or '10.' in host_url or '127.0.0.1' in host_url:
+        import re
+        host_url = re.sub(r':\d+$', '', host_url)
+        return f"{host_url}/host{stream_path}/output.m3u8"
+    
+    return buildHostUrl(host_info, f'host{stream_path}/output.m3u8')
 
 def buildHostImageUrl(host_info: dict, image_path: str) -> str:
     """
-    Build nginx-relative URL for any image stored on the host
+    Build URL for any image stored on the host (nginx-served)
     
     Args:
         host_info: Host information from registry
         image_path: Relative or absolute image path on host
         
     Returns:
-        Nginx-relative URL to host-served image
+        Complete URL to host-served image
         
     Example:
         buildHostImageUrl(host_info, '/stream/captures/screenshot.jpg')
-        -> '/host/stream/captures/screenshot.jpg'
+        -> 'https://host:444/host/stream/captures/screenshot.jpg'
     """
     # Handle absolute paths by converting to relative
     if image_path.startswith('/var/www/html/'):
@@ -166,7 +172,7 @@ def buildHostImageUrl(host_info: dict, image_path: str) -> str:
     # Ensure path doesn't start with /
     clean_path = image_path.lstrip('/')
     
-    return f"/host/{clean_path}"
+    return buildHostUrl(host_info, f'host/{clean_path}')
 
 def buildCloudImageUrl(bucket_name: str, image_path: str, base_url: str) -> str:
     """
