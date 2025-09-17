@@ -49,7 +49,7 @@ class SimpleAIAnalyzer:
         if not self.api_key:
             raise ValueError("Missing OPENROUTER_API_KEY in environment")
         
-        self.text_model = 'moonshotai/kimi-k2:free'
+        self.text_model = 'qwen/qwen-2.5-vl-7b-instruct'
         self.vision_model = 'qwen/qwen-2.5-vl-7b-instruct'
         self.base_url = 'https://openrouter.ai/api/v1/chat/completions'
         
