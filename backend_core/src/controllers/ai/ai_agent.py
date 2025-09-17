@@ -10,7 +10,7 @@ import os
 import requests
 from typing import Dict, Any, List
 from ..base_controller import BaseController
-from shared.lib.utils.ai_utils import get_api_key, AI_MODELS, API_BASE_URL
+from shared.lib.ai import get_ai_service
 
 
 class AIAgentController(BaseController):
@@ -454,13 +454,16 @@ class AIAgentController(BaseController):
             navigation_tree: Navigation tree data (if available)
         """
         try:
-            # Get API key from centralized function
-            api_key = get_api_key()
-            if not api_key:
-                print(f"AI[{self.device_name}]: OpenRouter API key not found in environment")
+            # Use centralized AI service with automatic provider fallback
+            ai_service = get_ai_service()
+            
+            # Check if any providers are available
+            available_providers = ai_service.get_available_providers()
+            if not any(available_providers.values()):
+                print(f"AI[{self.device_name}]: No AI providers available - missing API keys")
                 return {
                     'success': False,
-                    'error': 'AI service not available - no API key'
+                    'error': 'AI service not available - no API keys configured'
                 }
             
             # Prepare context for AI
@@ -629,40 +632,31 @@ If coordinates needed but not provided:
 
 JSON ONLY - NO OTHER TEXT"""
             
-            # Try primary model first (text model from AI_MODELS)
-            print(f"AI[{self.device_name}]: Making OpenRouter API call - Model: {AI_MODELS['text']}")
+            # Call centralized AI service with automatic provider fallback
+            print(f"AI[{self.device_name}]: Making AI call with automatic provider fallback")
             
-            response = requests.post(
-                API_BASE_URL,
-                headers={
-                    'Authorization': f'Bearer {api_key}',
-                    'Content-Type': 'application/json',
-                    'HTTP-Referer': 'https://virtualpytest.com',
-                    'X-Title': 'VirtualPyTest'
-                },
-                json={
-                    'model': AI_MODELS['text'],
-                    'messages': [
-                        {
-                            'role': 'user',
-                            'content': prompt
-                        }
-                    ],
-                    'max_tokens': 1000,
-                    'temperature': 0.0
-                },
-                timeout=30
+            result = ai_service.call_ai(
+                prompt=prompt,
+                task_type='text',
+                max_tokens=1000,
+                temperature=0.0
             )
             
-            print(f"AI[{self.device_name}]: OpenRouter Response Status: {response.status_code}")
-            
-            if response.status_code == 200:
-                result = response.json()
-                content = result['choices'][0]['message']['content']
+            if result['success']:
+                content = result['content']
+                provider_used = result.get('provider_used', 'unknown')
+                print(f"AI[{self.device_name}]: AI call successful using {provider_used}")
                 
                 # Parse JSON response
                 try:
-                    ai_plan = json.loads(content)
+                    # Clean up markdown code blocks (same as other AI utilities)
+                    json_content = content.strip()
+                    if json_content.startswith('```json'):
+                        json_content = json_content.replace('```json', '').replace('```', '').strip()
+                    elif json_content.startswith('```'):
+                        json_content = json_content.replace('```', '').strip()
+                    
+                    ai_plan = json.loads(json_content)
                     print(f"AI[{self.device_name}]: AI plan generated successfully")
                     return {
                         'success': True,
@@ -672,73 +666,19 @@ JSON ONLY - NO OTHER TEXT"""
                 except json.JSONDecodeError as e:
                     print(f"AI[{self.device_name}]: Failed to parse AI JSON: {e}")
                     print(f"AI[{self.device_name}]: Raw AI response: {content[:200]}...")
+                    print(f"AI[{self.device_name}]: Cleaned content: {json_content[:200] if 'json_content' in locals() else 'N/A'}...")
                     return {
                         'success': False,
                         'error': f'AI returned invalid JSON: {str(e)}'
                     }
-            elif response.status_code == 429:
-                # Try fallback model on rate limit (same as ai_utils.py)
-                print(f"AI[{self.device_name}]: Primary model rate limited, trying fallback model...")
-                
-                response = requests.post(
-                    API_BASE_URL,
-                    headers={
-                        'Authorization': f'Bearer {api_key}',
-                        'Content-Type': 'application/json',
-                        'HTTP-Referer': 'https://virtualpytest.com',
-                        'X-Title': 'VirtualPyTest'
-                    },
-                    json={
-                        'model': AI_MODELS['vision'],
-                        'messages': [
-                            {
-                                'role': 'user',
-                                'content': prompt
-                            }
-                        ],
-                        'max_tokens': 1000,
-                        'temperature': 0.0
-                    },
-                    timeout=60
-                )
-                
-                print(f"AI[{self.device_name}]: Fallback Response Status: {response.status_code}")
-                
-                if response.status_code == 200:
-                    result = response.json()
-                    content = result['choices'][0]['message']['content']
-                    
-                    # Parse JSON response
-                    try:
-                        ai_plan = json.loads(content)
-                        print(f"AI[{self.device_name}]: AI plan generated successfully with fallback model")
-                        return {
-                            'success': True,
-                            'plan': ai_plan
-                        }
-                        
-                    except json.JSONDecodeError as e:
-                        print(f"AI[{self.device_name}]: Failed to parse fallback AI JSON: {e}")
-                        print(f"AI[{self.device_name}]: Raw fallback AI response: {content[:200]}...")
-                        return {
-                            'success': False,
-                            'error': f'AI returned invalid JSON: {str(e)}'
-                        }
-            
-            # Log error for any failure
-            try:
-                error_body = response.json()
-                print(f"AI[{self.device_name}]: ERROR BODY: {error_body}")
-            except:
-                error_body = response.text
-                print(f"AI[{self.device_name}]: ERROR TEXT: {error_body}")
-            
-            print(f"AI[{self.device_name}]: OpenRouter API error: {response.status_code}")
-            return {
-                'success': False,
-                'error': f'AI API error: {response.status_code}',
-                'response_body': error_body
-            }
+            else:
+                error_msg = result.get('error', 'Unknown error')
+                provider_used = result.get('provider_used', 'none')
+                print(f"AI[{self.device_name}]: AI call failed with {provider_used}: {error_msg}")
+                return {
+                    'success': False,
+                    'error': f'AI service error: {error_msg}'
+                }
                 
         except Exception as e:
             print(f"AI[{self.device_name}]: AI plan generation error: {e}")

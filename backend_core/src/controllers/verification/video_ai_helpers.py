@@ -460,12 +460,6 @@ class VideoAIHelpers:
                 print(f"VideoAI[{self.device_name}]: Image file not found: {image_path}")
                 return "Image file not found."
             
-            # Get API key from environment
-            api_key = os.getenv('OPENROUTER_API_KEY')
-            if not api_key:
-                print(f"VideoAI[{self.device_name}]: OpenRouter API key not found in environment")
-                return "AI service not available."
-            
             # Get device model context from AV controller
             device_model = "unknown device"
             device_context = "a device screen"
@@ -484,14 +478,8 @@ class VideoAIHelpers:
                 else:
                     device_context = f"a {device_model} device screen"
             
-            # Load and encode the full image
-            try:
-                # Read the image file directly
-                with open(image_path, 'rb') as f:
-                    image_data = base64.b64encode(f.read()).decode()
-                
-                # Enhanced prompt with device model and context
-                prompt = f"""You are analyzing a screenshot from {device_context} (device model: {device_model}).
+            # Enhanced prompt with device model and context
+            prompt = f"""You are analyzing a screenshot from {device_context} (device model: {device_model}).
 
 This image was captured from a controlled device during automated testing/monitoring.
 
@@ -499,51 +487,26 @@ User question: "{user_question}"
 
 Provide a clear, concise answer in maximum 3 lines.
 Be specific about what you see on the device interface."""
+            
+            # Use centralized AI service
+            from shared.lib.utils.ai_utils import call_vision_ai
+            
+            result = call_vision_ai(prompt, image_path, max_tokens=200, temperature=0.0)
+            
+            if result['success']:
+                ai_response = result['content'].strip()
                 
-                # Call OpenRouter API
-                response = requests.post(
-                    'https://openrouter.ai/api/v1/chat/completions',
-                    headers={
-                        'Authorization': f'Bearer {api_key}',
-                        'Content-Type': 'application/json',
-                        'HTTP-Referer': 'https://virtualpytest.com',
-                        'X-Title': 'VirtualPyTest'
-                    },
-                    json={
-                        'model': 'qwen/qwen-2.5-vl-7b-instruct',
-                        'messages': [
-                            {
-                                'role': 'user',
-                                'content': [
-                                    {'type': 'text', 'text': prompt},
-                                    {'type': 'image_url', 'image_url': {'url': f'data:image/jpeg;base64,{image_data}'}}
-                                ]
-                            }
-                        ],
-                        'max_tokens': 200,
-                        'temperature': 0.0
-                    },
-                    timeout=60
-                )
+                # Limit to 3 lines maximum
+                lines = ai_response.split('\n')
+                if len(lines) > 3:
+                    ai_response = '\n'.join(lines[:3])
                 
-                if response.status_code == 200:
-                    result = response.json()
-                    ai_response = result['choices'][0]['message']['content'].strip()
-                    
-                    # Limit to 3 lines maximum
-                    lines = ai_response.split('\n')
-                    if len(lines) > 3:
-                        ai_response = '\n'.join(lines[:3])
-                    
-                    print(f"VideoAI[{self.device_name}]: AI response: '{ai_response}'")
-                    return ai_response
-                else:
-                    print(f"VideoAI[{self.device_name}]: OpenRouter API error: {response.status_code}")
-                    return "AI service error. Please try again."
-                    
-            except Exception as e:
-                print(f"VideoAI[{self.device_name}]: Image processing error: {e}")
-                return "Failed to process image."
+                print(f"VideoAI[{self.device_name}]: AI response: '{ai_response}'")
+                return ai_response
+            else:
+                error_msg = result.get('error', 'Unknown error')
+                print(f"VideoAI[{self.device_name}]: AI service error: {error_msg}")
+                return "AI service error. Please try again."
                 
         except Exception as e:
             print(f"VideoAI[{self.device_name}]: AI image analysis error: {e}")
@@ -1096,190 +1059,95 @@ Respond with JSON array where each element corresponds to one image:
             Dictionary with channel banner analysis results
         """
         try:
-            # Get API key from environment
-            api_key = os.getenv('OPENROUTER_API_KEY')
-            if not api_key:
-                print(f"VideoAI[{self.device_name}]: OpenRouter API key not found in environment")
-                return {'success': False, 'error': 'AI service not available'}
-            
             # Save processed image to temporary file for encoding
             with tempfile.NamedTemporaryFile(suffix='.jpg', delete=False) as tmp_file:
                 cv2.imwrite(tmp_file.name, img)
                 temp_path = tmp_file.name
             
             try:
-                # Encode image to base64
-                with open(temp_path, 'rb') as f:
-                    image_data = base64.b64encode(f.read()).decode()
-                
                 # Create specialized prompt for banner analysis
                 prompt = self._create_banner_analysis_prompt()
                 
-                # Call OpenRouter API
-                response = requests.post(
-                    'https://openrouter.ai/api/v1/chat/completions',
-                    headers={
-                        'Authorization': f'Bearer {api_key}',
-                        'Content-Type': 'application/json',
-                        'HTTP-Referer': 'https://virtualpytest.com',
-                        'X-Title': 'VirtualPyTest'
-                    },
-                    json={
-                        'model': 'qwen/qwen-2.5-vl-7b-instruct',
-                        'messages': [
-                            {
-                                'role': 'user',
-                                'content': [
-                                    {'type': 'text', 'text': prompt},
-                                    {'type': 'image_url', 'image_url': {'url': f'data:image/jpeg;base64,{image_data}'}}
-                                ]
-                            }
-                        ],
-                        'max_tokens': 400,
-                        'temperature': 0.0
-                    },
-                    timeout=60
-                )
+                # Use centralized AI service
+                from shared.lib.utils.ai_utils import call_vision_ai
                 
-                # Enhanced logging for debugging (same as language menu analysis)
-                print(f"VideoAI[{self.device_name}]: API Response Status: {response.status_code} ({analysis_type})")
-                print(f"VideoAI[{self.device_name}]: API Response Headers: {dict(response.headers)}")
+                result = call_vision_ai(prompt, temp_path, max_tokens=400, temperature=0.0)
                 
-                if response.status_code == 200:
+                print(f"VideoAI[{self.device_name}]: AI call result: success={result['success']}, provider={result.get('provider_used', 'unknown')} ({analysis_type})")
+                
+                if result['success']:
+                    content = result['content'].strip()
+                    print(f"VideoAI[{self.device_name}]: Raw content length: {len(content)} ({analysis_type})")
+                    print(f"VideoAI[{self.device_name}]: Raw content preview: {repr(content[:200])}")
+                    
+                    # Parse JSON response
                     try:
-                        result = response.json()
-                        print(f"VideoAI[{self.device_name}]: API Response JSON keys: {list(result.keys())}")
-                        
-                        if 'choices' not in result:
-                            print(f"VideoAI[{self.device_name}]: ERROR - No 'choices' in response: {result}")
+                        if not content:
+                            print(f"VideoAI[{self.device_name}]: ERROR - Empty content from AI ({analysis_type})")
                             return {
                                 'success': False,
-                                'error': 'Invalid API response structure - no choices',
-                                'api_response': result
+                                'error': 'Empty content from AI service',
+                                'raw_content': content
                             }
                         
-                        if not result['choices'] or len(result['choices']) == 0:
-                            print(f"VideoAI[{self.device_name}]: ERROR - Empty choices array: {result}")
-                            return {
-                                'success': False,
-                                'error': 'Empty choices in API response',
-                                'api_response': result
-                            }
+                        # Remove markdown code block markers
+                        json_content = content.replace('```json', '').replace('```', '').strip()
                         
-                        if 'message' not in result['choices'][0]:
-                            print(f"VideoAI[{self.device_name}]: ERROR - No 'message' in choice: {result['choices'][0]}")
-                            return {
-                                'success': False,
-                                'error': 'Invalid choice structure - no message',
-                                'api_response': result
-                            }
+                        ai_result = json.loads(json_content)
+                        print(f"VideoAI[{self.device_name}]: Successfully parsed AI JSON: {list(ai_result.keys())} ({analysis_type})")
                         
-                        content = result['choices'][0]['message']['content']
-                        if content is None:
-                            content = ""
-                        else:
-                            content = content.strip()
+                        # Validate and normalize the result
+                        banner_detected = ai_result.get('banner_detected', False)
+                        channel_name = ai_result.get('channel_name', '')
+                        channel_number = ai_result.get('channel_number', '')
+                        program_name = ai_result.get('program_name', '')
+                        start_time = ai_result.get('start_time', '')
+                        end_time = ai_result.get('end_time', '')
+                        confidence = float(ai_result.get('confidence', 0.0))
                         
-                        print(f"VideoAI[{self.device_name}]: Raw content length: {len(content)} ({analysis_type})")
-                        print(f"VideoAI[{self.device_name}]: Raw content preview: {repr(content[:200])}")
-                        print(f"VideoAI[{self.device_name}]: Full raw content: {repr(content)}")
+                        # Enhanced logging for debugging
+                        print(f"VideoAI[{self.device_name}]: Banner detected: {banner_detected} ({analysis_type})")
+                        print(f"VideoAI[{self.device_name}]: Channel name: {channel_name}")
+                        print(f"VideoAI[{self.device_name}]: Channel number: {channel_number}")
+                        print(f"VideoAI[{self.device_name}]: Program name: {program_name}")
+                        print(f"VideoAI[{self.device_name}]: Start time: {start_time}")
+                        print(f"VideoAI[{self.device_name}]: End time: {end_time}")
+                        print(f"VideoAI[{self.device_name}]: Confidence: {confidence}")
                         
-                        # Parse JSON response
-                        try:
-                            if not content:
-                                print(f"VideoAI[{self.device_name}]: ERROR - Empty content from API ({analysis_type})")
-                                return {
-                                    'success': False,
-                                    'error': 'Empty content from AI API',
-                                    'api_response': result,
-                                    'raw_content': content
-                                }
-                            
-                            # Remove markdown code block markers
-                            json_content = content.replace('```json', '').replace('```', '').strip()
-                            
-                            ai_result = json.loads(json_content)
-                            print(f"VideoAI[{self.device_name}]: Successfully parsed AI JSON: {list(ai_result.keys())} ({analysis_type})")
-                            
-                            # Validate and normalize the result
-                            banner_detected = ai_result.get('banner_detected', False)
-                            channel_name = ai_result.get('channel_name', '')
-                            channel_number = ai_result.get('channel_number', '')
-                            program_name = ai_result.get('program_name', '')
-                            start_time = ai_result.get('start_time', '')
-                            end_time = ai_result.get('end_time', '')
-                            confidence = float(ai_result.get('confidence', 0.0))
-                            
-                            # Enhanced logging for debugging
-                            print(f"VideoAI[{self.device_name}]: Banner detected: {banner_detected} ({analysis_type})")
-                            print(f"VideoAI[{self.device_name}]: Channel name: {channel_name}")
-                            print(f"VideoAI[{self.device_name}]: Channel number: {channel_number}")
-                            print(f"VideoAI[{self.device_name}]: Program name: {program_name}")
-                            print(f"VideoAI[{self.device_name}]: Start time: {start_time}")
-                            print(f"VideoAI[{self.device_name}]: End time: {end_time}")
-                            print(f"VideoAI[{self.device_name}]: Confidence: {confidence}")
-                            
-                            # Return standardized result
-                            return {
-                                'success': True,
-                                'banner_detected': banner_detected,
-                                'channel_info': {
-                                    'channel_name': channel_name,
-                                    'channel_number': channel_number,
-                                    'program_name': program_name,
-                                    'start_time': start_time,
-                                    'end_time': end_time
-                                },
-                                'confidence': confidence,
-                                'banner_region': banner_region,
-                                'analysis_type': f'ai_channel_banner_analysis_{analysis_type.replace(" ", "_")}',
-                                'image_path': None  # Will be set by calling method
-                            }
-                            
-                        except json.JSONDecodeError as e:
-                            print(f"VideoAI[{self.device_name}]: JSON parsing error: {e} ({analysis_type})")
-                            print(f"VideoAI[{self.device_name}]: Raw AI response: {repr(content)}")
-                            return {
-                                'success': False,
-                                'error': 'Invalid AI response format',
-                                'raw_response': content,
-                                'api_response': result,
-                                'json_error': str(e)
-                            }
-                            
-                    except Exception as e:
-                        print(f"VideoAI[{self.device_name}]: Error parsing API response: {e} ({analysis_type})")
-                        print(f"VideoAI[{self.device_name}]: Raw response text: {response.text[:500]}")
+                        # Return standardized result
+                        return {
+                            'success': True,
+                            'banner_detected': banner_detected,
+                            'channel_info': {
+                                'channel_name': channel_name,
+                                'channel_number': channel_number,
+                                'program_name': program_name,
+                                'start_time': start_time,
+                                'end_time': end_time
+                            },
+                            'confidence': confidence,
+                            'banner_region': banner_region,
+                            'analysis_type': f'ai_channel_banner_analysis_{analysis_type.replace(" ", "_")}',
+                            'image_path': None  # Will be set by calling method
+                        }
+                        
+                    except json.JSONDecodeError as e:
+                        print(f"VideoAI[{self.device_name}]: JSON parsing error: {e} ({analysis_type})")
+                        print(f"VideoAI[{self.device_name}]: Raw AI response: {repr(content)}")
                         return {
                             'success': False,
-                            'error': f'Error parsing API response: {str(e)}',
-                            'raw_response_text': response.text
+                            'error': 'Invalid AI response format',
+                            'raw_response': content,
+                            'json_error': str(e)
                         }
                 else:
-                    # Enhanced error logging for non-200 responses
-                    response_text = response.text[:1000] if response.text else "No response text"
-                    print(f"VideoAI[{self.device_name}]: OpenRouter API error: {response.status_code} ({analysis_type})")
-                    print(f"VideoAI[{self.device_name}]: Error response body: {response_text}")
-                    print(f"VideoAI[{self.device_name}]: Error response headers: {dict(response.headers)}")
-                    
-                    # Check for specific error types
-                    error_type = "unknown"
-                    if response.status_code == 429:
-                        error_type = "rate_limit"
-                    elif response.status_code == 401:
-                        error_type = "authentication"
-                    elif response.status_code == 402:
-                        error_type = "payment_required"
-                    elif response.status_code == 503:
-                        error_type = "service_unavailable"
-                    
+                    error_msg = result.get('error', 'Unknown error')
+                    provider_used = result.get('provider_used', 'none')
+                    print(f"VideoAI[{self.device_name}]: AI service error with {provider_used}: {error_msg} ({analysis_type})")
                     return {
                         'success': False,
-                        'error': f'AI API error: {response.status_code}',
-                        'error_type': error_type,
-                        'status_code': response.status_code,
-                        'response_text': response_text,
-                        'response_headers': dict(response.headers)
+                        'error': f'AI service error: {error_msg}',
+                        'provider_used': provider_used
                     }
                     
             finally:
@@ -1315,12 +1183,6 @@ Respond with JSON array where each element corresponds to one image:
             if not os.path.exists(image_path):
                 print(f"VideoAI[{self.device_name}]: Image file not found: {image_path}")
                 return {'success': False, 'error': 'Image file not found'}
-            
-            # Get API key from environment
-            api_key = os.getenv('OPENROUTER_API_KEY')
-            if not api_key:
-                print(f"VideoAI[{self.device_name}]: OpenRouter API key not found in environment")
-                return {'success': False, 'error': 'AI service not available'}
             
             # Load and process the image
             try:

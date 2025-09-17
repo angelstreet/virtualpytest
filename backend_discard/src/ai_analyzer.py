@@ -42,16 +42,23 @@ class AnalysisResult:
 
 
 class SimpleAIAnalyzer:
-    """Simple AI analyzer using OpenRouter models"""
+    """Simple AI analyzer using centralized AI service"""
     
     def __init__(self):
-        self.api_key = os.getenv('OPENROUTER_API_KEY')
-        if not self.api_key:
-            raise ValueError("Missing OPENROUTER_API_KEY in environment")
-        
-        self.text_model = 'qwen/qwen-2.5-vl-7b-instruct'
-        self.vision_model = 'qwen/qwen-2.5-vl-7b-instruct'
-        self.base_url = 'https://openrouter.ai/api/v1/chat/completions'
+        # Check if centralized AI service is available
+        try:
+            from shared.lib.ai import get_ai_service
+            self.ai_service = get_ai_service()
+            
+            # Check if any providers are available
+            available_providers = self.ai_service.get_available_providers()
+            if not any(available_providers.values()):
+                raise ValueError("No AI providers available - missing API keys")
+            
+            print(f"[@ai_analyzer] Initialized with centralized AI service")
+            print(f"[@ai_analyzer] Available providers: {[k for k, v in available_providers.items() if v]}")
+        except ImportError:
+            raise ValueError("Centralized AI service not available")
         
         # Initialize Supabase client for database access
         try:
@@ -229,15 +236,23 @@ Respond ONLY in this JSON format:
             return AnalysisResult(success=False, error=str(e))
     
     def _call_text_ai(self, prompt: str) -> AnalysisResult:
-        """Call text AI model using centralized AI utilities"""
+        """Call text AI model using centralized AI service"""
         try:
-            from shared.lib.utils.ai_utils import call_text_ai
-            
-            result = call_text_ai(prompt, max_tokens=200, temperature=0.1)
+            result = self.ai_service.call_ai(prompt, task_type='text', max_tokens=200, temperature=0.1)
             
             if result['success']:
+                print(f"[@ai_analyzer] Text AI success with provider: {result.get('provider_used', 'unknown')}")
+                
                 # Parse JSON response
-                ai_result = json.loads(result['content'])
+                content = result['content'].strip()
+                
+                # Clean up markdown code blocks if present
+                if content.startswith('```json'):
+                    content = content.replace('```json', '').replace('```', '').strip()
+                elif content.startswith('```'):
+                    content = content.replace('```', '').strip()
+                
+                ai_result = json.loads(content)
                 
                 return AnalysisResult(
                     success=True,
@@ -247,8 +262,10 @@ Respond ONLY in this JSON format:
                     explanation=ai_result.get('explanation', 'No explanation provided')
                 )
             else:
-                print(f"[@ai_analyzer] Text AI analysis failed: {result.get('error', 'Unknown error')}")
-                return AnalysisResult(success=False, error=result.get('error', 'AI analysis failed'))
+                error_msg = result.get('error', 'Unknown error')
+                provider_used = result.get('provider_used', 'none')
+                print(f"[@ai_analyzer] Text AI analysis failed with {provider_used}: {error_msg}")
+                return AnalysisResult(success=False, error=error_msg)
                 
         except json.JSONDecodeError as e:
             print(f"[@ai_analyzer] Failed to parse AI JSON response: {e}")
@@ -258,15 +275,21 @@ Respond ONLY in this JSON format:
             return AnalysisResult(success=False, error=str(e))
     
     def _call_vision_ai(self, prompt: str, image_b64: str) -> AnalysisResult:
-        """Call vision AI model using centralized AI utilities"""
+        """Call vision AI model using centralized AI service"""
         try:
-            from shared.lib.utils.ai_utils import call_vision_ai
-            
-            result = call_vision_ai(prompt, image_b64, max_tokens=200, temperature=0.1)
+            result = self.ai_service.call_ai(prompt, task_type='vision', image=image_b64, max_tokens=200, temperature=0.1)
             
             if result['success']:
-                content = result['content']
+                print(f"[@ai_analyzer] Vision AI success with provider: {result.get('provider_used', 'unknown')}")
+                
+                content = result['content'].strip()
                 print(f"[@ai_analyzer] Vision AI raw response: {content[:200]}...")
+                
+                # Clean up markdown code blocks if present
+                if content.startswith('```json'):
+                    content = content.replace('```json', '').replace('```', '').strip()
+                elif content.startswith('```'):
+                    content = content.replace('```', '').strip()
                 
                 # Parse JSON response
                 try:
@@ -283,8 +306,10 @@ Respond ONLY in this JSON format:
                     print(f"[@ai_analyzer] Failed to parse vision AI JSON response: {e}")
                     return AnalysisResult(success=False, error='Vision AI returned invalid JSON')
             else:
-                print(f"[@ai_analyzer] Vision AI analysis failed: {result.get('error', 'Unknown error')}")
-                return AnalysisResult(success=False, error=result.get('error', 'Vision AI analysis failed'))
+                error_msg = result.get('error', 'Unknown error')
+                provider_used = result.get('provider_used', 'none')
+                print(f"[@ai_analyzer] Vision AI analysis failed with {provider_used}: {error_msg}")
+                return AnalysisResult(success=False, error=error_msg)
                 
         except Exception as e:
             print(f"[@ai_analyzer] Vision AI analysis failed: {e}")

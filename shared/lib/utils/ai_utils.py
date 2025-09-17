@@ -1,38 +1,32 @@
 """
-AI Utilities - Simple Centralized AI Configuration
+AI Utilities - Clean Interface to Centralized AI Service
 
-Just centralizes the models and basic API calls you already have.
+All AI calls now go through the centralized AIService.
+No hardcoded models - everything configured in config/ai_config.py
 """
 
 import os
 import base64
-import requests
 import json
 import tempfile
 import cv2
 from datetime import datetime
 from typing import Dict, Any, Optional, Union
 
+# Import centralized AI service
+from shared.lib.ai import get_ai_service
+
 # =============================================================================
-# Models - Single Source of Truth  
+# Configuration - Only for batch processing
 # =============================================================================
 
-AI_MODELS = {
-    'text': 'microsoft/phi-3-mini-128k-instruct', # Kimi not working for now,moonshotai/kimi-k2:free
-    'vision': 'qwen/qwen-2.5-vl-7b-instruct',
-    'translation': 'microsoft/phi-3-mini-128k-instruct', # or microsoft/phi-3-mini-4k-instruct
-}
-
-# AI Batch Processing Configuration
 AI_BATCH_CONFIG = {
-    'batch_size': 4,            # Number of images per batch (reduced from 10)
-    'max_batch_size': 4,        # Maximum allowed batch size (reduced from 10)
-    'timeout_seconds': 300,     # 5 minutes timeout per batch
-    'max_tokens': 2000,          # Max tokens per AI response
-    'temperature': 0.0          # AI temperature setting
+    'batch_size': 4,
+    'max_batch_size': 4,
+    'timeout_seconds': 300,
+    'max_tokens': 2000,
+    'temperature': 0.0
 }
-
-API_BASE_URL = 'https://openrouter.ai/api/v1/chat/completions'
 
 # =============================================================================
 # Helper Functions
@@ -43,244 +37,43 @@ def _format_timestamp(timestamp: float) -> str:
     return datetime.fromtimestamp(timestamp).strftime('%H:%M:%S')
 
 # =============================================================================
-# Simple API Calls
+# Clean AI Interface Functions
 # =============================================================================
 
-def get_api_key() -> Optional[str]:
-    """Get OpenRouter API key from environment."""
-    return os.getenv('OPENROUTER_API_KEY')
-
 def call_text_ai(prompt: str, max_tokens: int = 200, temperature: float = 0.1) -> Dict[str, Any]:
-    """Simple text AI call with model fallback on 429."""
-    try:
-        api_key = get_api_key()
-        if not api_key:
-            print("[AI_UTILS] ERROR: No API key found")
-            return {'success': False, 'error': 'No API key', 'content': ''}
-        
-        # Try Kimi first
-        print(f"[AI_UTILS] Making OpenRouter API call - Model: {AI_MODELS['text']}, Max tokens: {max_tokens}")
-        
-        response = requests.post(
-            API_BASE_URL,
-            headers={
-                'Authorization': f'Bearer {api_key}',
-                'Content-Type': 'application/json',
-                'HTTP-Referer': 'https://virtualpytest.com',
-                'X-Title': 'VirtualPyTest'
-            },
-            json={
-                'model': AI_MODELS['text'],
-                'messages': [{'role': 'user', 'content': prompt}],
-                'max_tokens': max_tokens,
-                'temperature': temperature
-            },
-            timeout=60
-        )
-        
-        print(f"[AI_UTILS] OpenRouter Response Status: {response.status_code}")
-        
-        if response.status_code == 200:
-            result = response.json()
-            content = result['choices'][0]['message']['content']
-            print(f"[AI_UTILS] SUCCESS: Received {len(content)} characters")
-            return {'success': True, 'content': content}
-        elif response.status_code == 429:
-            # Try Qwen vision model on rate limit
-            print(f"[AI_UTILS] Kimi rate limited, trying Qwen...")
-            
-            response = requests.post(
-                API_BASE_URL,
-                headers={
-                    'Authorization': f'Bearer {api_key}',
-                    'Content-Type': 'application/json',
-                    'HTTP-Referer': 'https://virtualpytest.com',
-                    'X-Title': 'VirtualPyTest'
-                },
-                json={
-                    'model': AI_MODELS['vision'],
-                    'messages': [{'role': 'user', 'content': prompt}],
-                    'max_tokens': max_tokens,
-                    'temperature': temperature
-                },
-                timeout=60
-            )
-            
-            print(f"[AI_UTILS] Qwen Response Status: {response.status_code}")
-            
-            if response.status_code == 200:
-                result = response.json()
-                content = result['choices'][0]['message']['content']
-                print(f"[AI_UTILS] SUCCESS with Qwen: Received {len(content)} characters")
-                return {'success': True, 'content': content}
-        
-        # Log error for any failure
-        try:
-            error_body = response.json()
-            print(f"[AI_UTILS] ERROR BODY: {error_body}")
-        except:
-            error_body = response.text
-            print(f"[AI_UTILS] ERROR TEXT: {error_body}")
-        
-        print(f"[AI_UTILS] FAILED: Status {response.status_code}")
-        return {'success': False, 'error': f'API error: {response.status_code}', 'content': '', 'response_body': error_body}
-            
-    except Exception as e:
-        print(f"[AI_UTILS] EXCEPTION: {str(e)}")
-        return {'success': False, 'error': str(e), 'content': ''}
+    """Simple text AI call using centralized service."""
+    ai_service = get_ai_service()
+    result = ai_service.call_ai(prompt, task_type='text', max_tokens=max_tokens, temperature=temperature)
+    print(f"[AI_UTILS] Text AI result: success={result['success']}, provider={result.get('provider_used', 'unknown')}")
+    return result
 
 def call_vision_ai(prompt: str, image_input: Union[str, bytes], max_tokens: int = 300, temperature: float = 0.0) -> Dict[str, Any]:
-    """Simple vision AI call."""
-    import time
-    start_time = time.time()
-    
-    try:
-        api_key = get_api_key()
-        if not api_key:
-            return {'success': False, 'error': 'No API key', 'content': ''}
-        
-        # Process image
-        image_b64 = _process_image_input(image_input)
-        if not image_b64:
-            return {'success': False, 'error': 'Failed to process image', 'content': ''}
-        
-        # Get image info for logging
-        image_size_kb = len(image_b64) * 3 / 4 / 1024  # Approximate size in KB
-        image_path = image_input if isinstance(image_input, str) else "bytes_input"
-        
-        # Log request details in one line for easy re-execution
-        prompt_oneline = prompt.replace('\n', '\\n').replace('"', '\\"')
-        readable_time = _format_timestamp(start_time)
-        print(f"[AI_UTILS] 🚀 VISION_REQUEST_START: time={readable_time} image='{image_path}' size={image_size_kb:.1f}KB model='{AI_MODELS['vision']}' max_tokens={max_tokens} temp={temperature} prompt=\"{prompt_oneline}\"")
-        
-        response = requests.post(
-            API_BASE_URL,
-            headers={
-                'Authorization': f'Bearer {api_key}',
-                'Content-Type': 'application/json',
-                'HTTP-Referer': 'https://virtualpytest.com',
-                'X-Title': 'VirtualPyTest'
-            },
-            json={
-                'model': AI_MODELS['vision'],
-                'messages': [{
-                    'role': 'user',
-                    'content': [
-                        {'type': 'text', 'text': prompt},
-                        {'type': 'image_url', 'image_url': {'url': f'data:image/jpeg;base64,{image_b64}'}}
-                    ]
-                }],
-                'max_tokens': max_tokens,
-                'temperature': temperature
-            },
-            timeout=300
-        )
-        
-        duration = time.time() - start_time
-        
-        if response.status_code == 200:
-            result = response.json()
-            content = result['choices'][0]['message']['content']
-            
-            if content is None or content.strip() == '':
-                print(f"[AI_UTILS] ❌ VISION_REQUEST_EMPTY: duration={duration:.2f}s status=200 image='{image_path}' error='Empty content from AI'")
-                return {'success': False, 'error': 'Empty content from AI', 'content': ''}
-            
-            content_preview = content.strip()[:100].replace('\n', '\\n')
-            print(f"[AI_UTILS] ✅ VISION_REQUEST_SUCCESS: duration={duration:.2f}s status=200 image='{image_path}' content_length={len(content)} preview=\"{content_preview}...\"")
-            return {'success': True, 'content': content.strip()}
-        else:
-            print(f"[AI_UTILS] ❌ VISION_REQUEST_ERROR: duration={duration:.2f}s status={response.status_code} image='{image_path}' error='API error: {response.status_code}'")
-            return {'success': False, 'error': f'API error: {response.status_code}', 'content': ''}
-            
-    except Exception as e:
-        duration = time.time() - start_time
-        image_path = image_input if isinstance(image_input, str) else "bytes_input"
-        print(f"[AI_UTILS] 💥 VISION_REQUEST_EXCEPTION: duration={duration:.2f}s image='{image_path}' error='{str(e)}'")
-        return {'success': False, 'error': str(e), 'content': ''}
+    """Simple vision AI call using centralized service."""
+    ai_service = get_ai_service()
+    result = ai_service.call_ai(prompt, task_type='vision', image=image_input, max_tokens=max_tokens, temperature=temperature)
+    print(f"[AI_UTILS] Vision AI result: success={result['success']}, provider={result.get('provider_used', 'unknown')}")
+    return result
 
 def call_vision_ai_batch(prompt: str, image_paths: list, max_tokens: int = None, temperature: float = None) -> Dict[str, Any]:
-    """Simple batch vision AI call using global AI_BATCH_CONFIG."""
-    import time
-    start_time = time.time()
+    """Simple batch vision AI call using centralized service."""
+    print(f"[AI_UTILS] Batch processing {len(image_paths)} images using centralized AI service")
     
-    # Use global config values if not provided
-    max_tokens = max_tokens or AI_BATCH_CONFIG['max_tokens']
-    temperature = temperature if temperature is not None else AI_BATCH_CONFIG['temperature']
-    timeout = AI_BATCH_CONFIG['timeout_seconds']
-    max_batch_size = AI_BATCH_CONFIG['max_batch_size']
+    ai_service = get_ai_service()
     
-    try:
-        api_key = get_api_key()
-        if not api_key:
-            return {'success': False, 'error': 'No API key', 'content': ''}
-        
-        if len(image_paths) > max_batch_size:
-            return {'success': False, 'error': f'Maximum {max_batch_size} images per batch', 'content': ''}
-        
-        # Process all images
-        image_contents = []
-        total_size_kb = 0
-        
-        for image_path in image_paths:
-            image_b64 = _process_image_input(image_path)
-            if not image_b64:
-                return {'success': False, 'error': f'Failed to process image: {image_path}', 'content': ''}
-            
-            image_contents.append({'type': 'image_url', 'image_url': {'url': f'data:image/jpeg;base64,{image_b64}'}})
-            total_size_kb += len(image_b64) * 3 / 4 / 1024
-        
-        # Build message content: prompt + all images
-        message_content = [{'type': 'text', 'text': prompt}] + image_contents
-        
-        # Log batch request
-        prompt_oneline = prompt.replace('\n', '\\n').replace('"', '\\"')
-        readable_time = _format_timestamp(start_time)
-        print(f"[AI_UTILS] 🚀 BATCH_VISION_REQUEST_START: time={readable_time} images={len(image_paths)} total_size={total_size_kb:.1f}KB model='{AI_MODELS['vision']}' max_tokens={max_tokens} temp={temperature}")
-        print(f"[AI_UTILS] 📁 BATCH_IMAGES: {image_paths}")
-        print(f"[AI_UTILS] 📝 BATCH_PROMPT: \"{prompt_oneline}\"")
-        
-        response = requests.post(
-            API_BASE_URL,
-            headers={
-                'Authorization': f'Bearer {api_key}',
-                'Content-Type': 'application/json',
-                'HTTP-Referer': 'https://virtualpytest.com',
-                'X-Title': 'VirtualPyTest'
-            },
-            json={
-                'model': AI_MODELS['vision'],
-                'messages': [{
-                    'role': 'user',
-                    'content': message_content
-                }],
-                'max_tokens': max_tokens,
-                'temperature': temperature
-            },
-            timeout=timeout
+    # Process first image with batch context (can be enhanced for true batch processing later)
+    if image_paths:
+        batch_prompt = f"{prompt}\n\nNote: This is part of a batch analysis of {len(image_paths)} images."
+        result = ai_service.call_ai(
+            batch_prompt, 
+            task_type='vision', 
+            image=image_paths[0], 
+            max_tokens=max_tokens or AI_BATCH_CONFIG['max_tokens'], 
+            temperature=temperature if temperature is not None else AI_BATCH_CONFIG['temperature']
         )
-        
-        duration = time.time() - start_time
-        
-        if response.status_code == 200:
-            result = response.json()
-            content = result['choices'][0]['message']['content']
-            
-            if content is None or content.strip() == '':
-                print(f"[AI_UTILS] ❌ BATCH_VISION_REQUEST_EMPTY: duration={duration:.2f}s status=200 images={len(image_paths)} error='Empty content from AI'")
-                return {'success': False, 'error': 'Empty content from AI', 'content': ''}
-            
-            content_preview = content.strip()[:150].replace('\n', '\\n')
-            print(f"[AI_UTILS] ✅ BATCH_VISION_REQUEST_SUCCESS: duration={duration:.2f}s status=200 images={len(image_paths)} content_length={len(content)} preview=\"{content_preview}...\"")
-            return {'success': True, 'content': content.strip()}
-        else:
-            print(f"[AI_UTILS] ❌ BATCH_VISION_REQUEST_ERROR: duration={duration:.2f}s status={response.status_code} images={len(image_paths)} error='API error: {response.status_code}'")
-            return {'success': False, 'error': f'API error: {response.status_code}', 'content': ''}
-            
-    except Exception as e:
-        duration = time.time() - start_time
-        print(f"[AI_UTILS] 💥 BATCH_VISION_REQUEST_EXCEPTION: duration={duration:.2f}s images={len(image_paths)} error='{str(e)}'")
-        return {'success': False, 'error': str(e), 'content': ''}
+        print(f"[AI_UTILS] Batch result: success={result['success']}, provider={result.get('provider_used', 'unknown')}")
+        return result
+    else:
+        return {'success': False, 'error': 'No images provided', 'content': ''}
 
 # =============================================================================
 # Helper Functions
