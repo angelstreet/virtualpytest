@@ -1022,67 +1022,40 @@ class VideoRestartHelpers:
             
         except Exception as e:
             print(f"RestartHelpers[{self.device_name}]: Cached component timing failed: {e}")
-            print(f"RestartHelpers[{self.device_name}]: Falling back to full video processing")
-            return self._fallback_timing_adjustment(original_dir, base_name, original_ext, target_timing_ms, output_path, output_filename, video_url, language)
+            print(f"RestartHelpers[{self.device_name}]: Using dubbing helpers sync method")
+            return self._sync_using_dubbing_helpers(target_timing_ms, language, original_dir, video_url)
     
-    def _fallback_timing_adjustment(self, original_dir: str, base_name: str, original_ext: str,
-                                  target_timing_ms: int, output_path: str, output_filename: str, 
-                                  video_url: str, language: str) -> Optional[Dict[str, Any]]:
+    def _sync_using_dubbing_helpers(self, target_timing_ms: int, language: str, original_dir: str, video_url: str) -> Optional[Dict[str, Any]]:
         """
-        Fallback to original timing adjustment method when cached components are not available.
+        Use dubbing helpers sync method - no duplicate code.
         """
         try:
-            print(f"RestartHelpers[{self.device_name}]: Using fallback timing adjustment method")
+            # Use the dubbing helpers sync method
+            sync_result = self.dubbing_helpers.sync_dubbed_video(language, target_timing_ms, original_dir)
             
-            # Determine source file - use the current video being adjusted, not always original
-            from shared.lib.utils.build_url_utils import convertHostUrlToLocalPath
-            if video_url.startswith(('http://', 'https://')):
-                source_video_path = convertHostUrlToLocalPath(video_url)
+            if sync_result.get('success'):
+                # Convert dubbing helpers response to video restart helpers format
+                video_id = f"restart_{int(time.time())}_{language}_timing_{target_timing_ms:+d}ms"
+                
+                return {
+                    'success': True,
+                    'adjusted_video_url': sync_result['synced_video_url'],
+                    'timing_offset_ms': target_timing_ms,
+                    'language': language,
+                    'video_id': video_id,
+                    'original_video_url': video_url,
+                    'method': 'dubbing_helpers_sync'
+                }
             else:
-                source_video_path = video_url
-            
-            print(f"RestartHelpers[{self.device_name}]: Using source video: {source_video_path}")
-            
-            # Build FFmpeg command based on target timing
-            if target_timing_ms > 0:
-                # Positive offset: delay audio
-                audio_filter = f"adelay={target_timing_ms}"
-            else:
-                # Negative offset: advance audio (trim from start)
-                trim_seconds = abs(target_timing_ms) / 1000.0
-                audio_filter = f"atrim=start={trim_seconds}"
-            
-            # Apply timing adjustment using FFmpeg - mute original video audio
-            cmd = [
-                'ffmpeg', '-i', source_video_path,
-                '-af', audio_filter,
-                '-c:v', 'copy',  # Copy video stream unchanged
-                '-c:a', 'aac',   # Re-encode audio with adjustment
-                '-map', '0:v:0', # Video from input 0 (muted - no original audio mixed)
-                '-map', '0:a:0', # Audio from input 0 (time-adjusted only)
-                output_path, '-y'
-            ]
-            
-            subprocess.run(cmd, capture_output=True, text=True, check=True)
-            
-            # Build URL for adjusted video
-            adjusted_video_url = self._build_video_url(output_filename)
-            
-            # Generate new video ID
-            video_id = f"restart_{int(time.time())}_{language}_timing_{target_timing_ms:+d}ms"
-            
-            print(f"RestartHelpers[{self.device_name}]: Fallback timing adjustment completed: {output_filename}")
-            return {
-                'success': True,
-                'adjusted_video_url': adjusted_video_url,
-                'timing_offset_ms': target_timing_ms,
-                'language': language,
-                'video_id': video_id,
-                'original_video_url': video_url
-            }
-            
+                return {
+                    'success': False,
+                    'error': sync_result.get('error', 'Sync failed'),
+                    'timing_offset_ms': target_timing_ms,
+                    'language': language
+                }
+                
         except Exception as e:
-            print(f"RestartHelpers[{self.device_name}]: Fallback timing adjustment failed: {e}")
+            print(f"RestartHelpers[{self.device_name}]: Dubbing helpers sync failed: {e}")
             return None
     
     def _create_components_from_source(self, source_video_path: str, original_dir: str) -> bool:

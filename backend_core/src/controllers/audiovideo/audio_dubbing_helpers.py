@@ -259,3 +259,150 @@ class AudioDubbingHelpers:
             print(f"Dubbing[{self.device_name}]: Fast dubbing failed: {e}")
             return {'success': False, 'error': str(e)}
     
+    
+    # =============================================================================
+    # Audio Sync Methods (Reuse Dubbing Logic)
+    # =============================================================================
+    
+    def sync_dubbed_video(self, language: str, timing_offset_ms: int, original_video_dir: str) -> Dict[str, Any]:
+        """
+        Sync dubbed video by applying timing to cached audio and reusing dubbing combine logic.
+        
+        Args:
+            language: Language code (e.g., 'fr', 'es') or 'original'
+            timing_offset_ms: Timing offset in milliseconds (+delay, -advance)
+            original_video_dir: Directory containing cached components
+            
+        Returns:
+            Dictionary with sync result
+        """
+        import time
+        start_time = time.time()
+        
+        try:
+            print(f"Dubbing[{self.device_name}]: Syncing {language} video with {timing_offset_ms:+d}ms timing")
+            
+            paths = self.get_file_paths(language, original_video_dir)
+            
+            # Step 1: Get cached silent video (create if needed)
+            silent_video_path = os.path.join(original_video_dir, "restart_video_no_audio.mp4")
+            if not os.path.exists(silent_video_path):
+                # Create silent video from any available video
+                source_video = self._find_source_video(original_video_dir, language)
+                if not source_video:
+                    return {'success': False, 'error': 'No source video found for silent video creation'}
+                
+                print(f"Dubbing[{self.device_name}]: Creating cached silent video...")
+                subprocess.run([
+                    'ffmpeg', '-i', source_video,
+                    '-c:v', 'copy', '-an',
+                    silent_video_path, '-y'
+                ], capture_output=True, check=True)
+                print(f"Dubbing[{self.device_name}]: Silent video cached")
+            
+            # Step 2: Get audio to sync
+            if language == 'original':
+                # For original language, extract from original video if not cached
+                audio_to_sync = paths['original_audio']
+                if not os.path.exists(audio_to_sync):
+                    original_video = os.path.join(original_video_dir, "restart_original_video.mp4")
+                    if os.path.exists(original_video):
+                        print(f"Dubbing[{self.device_name}]: Extracting original audio...")
+                        subprocess.run([
+                            'ffmpeg', '-i', original_video,
+                            '-vn', '-acodec', 'pcm_s16le', '-ar', '44100', '-ac', '2',
+                            audio_to_sync, '-y'
+                        ], capture_output=True, check=True)
+                    else:
+                        return {'success': False, 'error': 'Original video not found for audio extraction'}
+            else:
+                # For dubbed languages, use cached dubbed audio
+                audio_to_sync = paths['dubbed_voice_edge']
+                if not os.path.exists(audio_to_sync):
+                    return {'success': False, 'error': f'Dubbed audio not found: {audio_to_sync}'}
+            
+            # Step 3: Apply timing to audio
+            sync_suffix = f"_sync{timing_offset_ms:+d}" if timing_offset_ms != 0 else ""
+            timed_audio_path = os.path.join(original_video_dir, f"restart_{language}_audio{sync_suffix}.wav")
+            
+            if timing_offset_ms == 0:
+                # No timing needed, use original audio
+                timed_audio_path = audio_to_sync
+            else:
+                print(f"Dubbing[{self.device_name}]: Applying {timing_offset_ms:+d}ms timing to audio...")
+                
+                if timing_offset_ms > 0:
+                    # Positive offset: delay audio
+                    audio_filter = f"adelay={timing_offset_ms}"
+                else:
+                    # Negative offset: advance audio (trim from start)
+                    trim_seconds = abs(timing_offset_ms) / 1000.0
+                    audio_filter = f"atrim=start={trim_seconds}"
+                
+                subprocess.run([
+                    'ffmpeg', '-i', audio_to_sync,
+                    '-af', audio_filter,
+                    timed_audio_path, '-y'
+                ], capture_output=True, check=True)
+                print(f"Dubbing[{self.device_name}]: Audio timing applied")
+            
+            # Step 4: Combine silent video + timed audio (reuse dubbing logic)
+            sync_video_path = os.path.join(original_video_dir, f"restart_{language}_video{sync_suffix}.mp4")
+            
+            print(f"Dubbing[{self.device_name}]: Combining silent video with timed audio...")
+            subprocess.run([
+                'ffmpeg', '-i', silent_video_path, '-i', timed_audio_path,
+                '-c:v', 'copy',      # Copy video unchanged
+                '-c:a', 'aac',       # Encode audio
+                '-map', '0:v:0',     # Video from silent video
+                '-map', '1:a:0',     # Audio from timed audio
+                '-shortest',         # Match shortest stream duration
+                sync_video_path, '-y'
+            ], capture_output=True, check=True)
+            
+            duration = time.time() - start_time
+            print(f"Dubbing[{self.device_name}]: Sync completed in {duration:.1f}s")
+            
+            # Build URLs for synced video
+            from shared.lib.utils.build_url_utils import buildHostImageUrl
+            from shared.lib.utils.host_utils import get_host_instance
+            
+            try:
+                host = get_host_instance()
+                host_dict = host.to_dict()
+                synced_video_url = buildHostImageUrl(host_dict, sync_video_path)
+            except:
+                # Fallback URL construction
+                synced_video_url = f"/host/stream/{os.path.basename(sync_video_path)}"
+            
+            return {
+                'success': True,
+                'synced_video_url': synced_video_url,
+                'timing_offset_ms': timing_offset_ms,
+                'language': language,
+                'duration_seconds': round(duration, 1),
+                'method': 'cache_based_sync'
+            }
+            
+        except Exception as e:
+            print(f"Dubbing[{self.device_name}]: Sync failed: {e}")
+            return {'success': False, 'error': str(e)}
+    
+    def _find_source_video(self, original_video_dir: str, language: str) -> Optional[str]:
+        """Find best source video for creating silent video"""
+        # Priority order: dubbed video for language > original video > any video
+        candidates = [
+            os.path.join(original_video_dir, f"restart_{language}_dubbed_video.mp4"),
+            os.path.join(original_video_dir, "restart_original_video.mp4"),
+        ]
+        
+        for candidate in candidates:
+            if os.path.exists(candidate):
+                return candidate
+        
+        # Look for any restart video as fallback
+        import glob
+        pattern = os.path.join(original_video_dir, "restart_*.mp4")
+        videos = glob.glob(pattern)
+        return videos[0] if videos else None
+    
