@@ -46,8 +46,7 @@ const GrafanaDashboard: React.FC = () => {
   // Default to System Monitoring
   const [selectedDashboard, setSelectedDashboard] = useState<string>('system-monitoring');
 
-  // Get Grafana base URL from environment or use default
-  const grafanaBaseUrl = (import.meta as any).env?.VITE_GRAFANA_URL || 'https://dev.virtualpytest.com/grafana';
+  // Remove hardcoded URL - now using buildGrafanaUrl for relative URLs
 
   const handleDashboardChange = (event: SelectChangeEvent<string>) => {
     setSelectedDashboard(event.target.value);
@@ -82,7 +81,7 @@ const GrafanaDashboard: React.FC = () => {
           </Typography>
           <Tooltip title="Open Grafana in new tab">
             <IconButton
-              onClick={() => window.open(`${grafanaBaseUrl}/dashboards`, '_blank')}
+              onClick={() => window.open('/grafana/dashboards', '_blank')}
               color="primary"
               size="medium"
             >
@@ -96,7 +95,7 @@ const GrafanaDashboard: React.FC = () => {
       <Box sx={{ flex: 1, overflow: 'hidden' }}>
         {selectedDashboardData && (
           <iframe
-            src={`${grafanaBaseUrl}/d/${selectedDashboardData.uid}/${selectedDashboardData.slug}?orgId=1&refresh=30s&theme=light&kiosk`}
+            src={`/grafana/d/${selectedDashboardData.uid}/${selectedDashboardData.slug}?orgId=1&refresh=30s&theme=light&kiosk`}
             width="100%"
             height="100%"
             frameBorder="0"
