@@ -8,19 +8,19 @@ The AI Agent system provides intelligent task automation for TV application navi
 
 ### Core Components
 
-1. **AIAgentController** (`backend_core/src/controllers/ai/ai_agent.py`)
-   - Main AI agent logic and execution
-   - Task planning and step execution
-   - Navigation and action coordination
+1. **AI Agent Split Architecture** (`backend_core/src/controllers/ai/`)
+   - **AIAgentCore** (`ai_agent_core.py`) - Basic execution and navigation
+   - **AIAgentTestCase** (`ai_agent_testcase.py`) - Test case generation
+   - **AIAgentAnalysis** (`ai_agent_analysis.py`) - Compatibility analysis
+   - **AIAgentController** - Unified interface (alias for AIAgentAnalysis)
 
 2. **AI Utils** (`shared/lib/utils/ai_utils.py`)
    - AI model configuration and API calls
    - Dedicated agent model for complex reasoning
 
-3. **Frontend Hook** (`frontend/src/hooks/aiagent/useAIAgent.ts`)
-   - React hook for AI agent interaction
-   - Real-time execution monitoring
-   - Toast notifications and progress tracking
+3. **Frontend Hooks** 
+   - **useAIAgent** (`frontend/src/hooks/aiagent/useAIAgent.ts`) - Real-time execution
+   - **useAITestCase** (`frontend/src/hooks/aiagent/useAITestCase.ts`) - Test case management
 
 ## Key Features
 
@@ -119,6 +119,28 @@ def execute_task(self, task_description: str) -> Dict[str, Any]:
 | `press_key` | `_execute_action()` | Remote control key press |
 | `click_element` | `_execute_action()` | UI element interaction |
 | `wait` | `_execute_action()` | Pause execution |
+
+### 4. **2-Phase Execution**
+
+**For asynchronous task execution:**
+
+```python
+# Phase 1: Generate plan (synchronous)
+plan_result = ai_agent.generate_plan_only(
+    task_description="go to live channel",
+    available_actions=actions,
+    available_verifications=verifications
+)
+
+# Phase 2: Execute plan (asynchronous)
+execution_result = ai_agent.execute_plan_only()
+```
+
+**Benefits:**
+- ✅ **Immediate feedback** - plan generated instantly
+- ✅ **Asynchronous execution** - long-running tasks don't block
+- ✅ **Plan validation** - check feasibility before execution
+- ✅ **Progress tracking** - monitor execution in real-time
 
 ### 3. **Action Delegation**
 

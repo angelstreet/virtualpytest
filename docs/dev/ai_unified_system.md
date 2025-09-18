@@ -6,19 +6,44 @@ The AI Unified System combines real-time task execution and test case generation
 
 ## 🏗️ **Unified Architecture**
 
-### **Single AI Agent - Dual Capabilities**
+### **Split Architecture - 3 Focused Files**
 
 ```
-AIAgentController
-├── Real-Time Execution (Interactive)
-│   ├── executeTask() - Immediate task execution
-│   ├── Current node tracking
-│   └── Live progress monitoring
-│
-└── Test Case Generation (Persistent)
-    ├── generate_test_case() - Create reusable test cases
-    ├── analyze_cross_device_compatibility() - Multi-device analysis
-    └── quick_feasibility_check() - Real-time UI feedback
+AIAgentCore (ai_agent_core.py)
+├── Basic execution and navigation
+├── Device capability fetching  
+├── AI prompt construction
+├── Navigation tree management
+└── Real-time task execution
+
+AIAgentTestCase (ai_agent_testcase.py)  
+├── Test case generation from prompts
+├── Test case storage and management
+├── Stored test case execution
+└── Test case format conversion
+
+AIAgentAnalysis (ai_agent_analysis.py)
+├── Cross-device compatibility analysis
+├── Quick feasibility checking
+├── Task complexity analysis
+└── Device model extraction
+
+AIAgentController = AIAgentAnalysis
+└── Unified interface providing all capabilities
+```
+
+### **Inheritance Chain**
+
+```
+BaseController
+    ↓
+AIAgentCore (basic execution)
+    ↓  
+AIAgentTestCase (+ test case generation)
+    ↓
+AIAgentAnalysis (+ compatibility analysis)
+    ↓
+AIAgentController (alias for AIAgentAnalysis)
 ```
 
 ### **Shared Core Services**
@@ -470,6 +495,94 @@ const debouncedFeasibilityCheck = useDebounce(async (prompt: string) => {
 }, 500);
 ```
 
+## 🤖 **AI Model Generation Workflow**
+
+### **Automated Navigation Model Creation**
+
+The AI system can automatically generate navigation models through intelligent exploration:
+
+#### **Phase 1: Manual Setup (Entry Point)**
+```
+User creates: Entry → Home node
+- Takes screenshot of home screen  
+- Sets as entry point and starting position
+- Defines device model and available commands
+```
+
+#### **Phase 2: AI Exploration (Automated)**
+```python
+class AINavigationExplorer(AIAgentController):
+    def explore_and_generate_model(self, home_node_id: str):
+        """AI-driven navigation model generation"""
+        
+        # 1. Start from user-defined home
+        current_position = home_node_id
+        exploration_queue = [home_node_id]
+        
+        while exploration_queue:
+            current_node = exploration_queue.pop(0)
+            
+            # 2. Take screenshot and analyze
+            screenshot = self.take_screenshot(current_node)
+            analysis = self.analyze_screen_with_ai(screenshot)
+            
+            # 3. Try each available action
+            for action in analysis['suggested_actions']:
+                # Execute action and capture result
+                result = self.execute_exploratory_action(action)
+                
+                # If screen changed, create new node and edge
+                if result['screen_changed']:
+                    new_node = self.create_node_from_analysis(result)
+                    self.create_edge_with_actions(current_node, new_node, action)
+                    exploration_queue.append(new_node['id'])
+                
+                # Return to starting position
+                self.return_to_position(current_node)
+```
+
+#### **Phase 3: Model Optimization (AI-Driven)**
+```python
+# AI optimizes the generated model:
+# - Removes redundant nodes
+# - Creates subtrees for complex menus  
+# - Adds appropriate verifications
+# - Generates meaningful labels
+# - Validates pathfinding connectivity
+```
+
+### **Key AI Capabilities Required:**
+
+1. **Visual Understanding**
+   - Screenshot analysis for UI elements
+   - Before/after comparison for state changes
+   - Content vs navigation area detection
+
+2. **Action Intelligence** 
+   - Map visual elements to device commands
+   - Determine return actions (OK→BACK, UP→DOWN)
+   - Handle navigation dead ends and recovery
+
+3. **Model Generation**
+   - Create meaningful node labels from visual content
+   - Generate bidirectional action sets
+   - Decide when to create subtrees vs flat structure
+
+### **Integration with Existing System:**
+
+**Reuses Proven Infrastructure:**
+- ✅ **useNode methods** - screenshot capture, node creation
+- ✅ **useEdge methods** - action execution, validation
+- ✅ **Device capabilities** - available commands from controller factory
+- ✅ **Pathfinding system** - connectivity validation
+- ✅ **AI Agent** - intelligent analysis and decision making
+
+**Benefits:**
+- ✅ **80-90% automation** - only Entry→Home needs manual setup
+- ✅ **Leverages existing systems** - no new infrastructure required
+- ✅ **Intelligent exploration** - AI understands UI patterns
+- ✅ **Automatic optimization** - creates efficient, well-structured models
+
 ## 🔮 **Future Enhancements**
 
 ### **Planned Features**
@@ -484,7 +597,12 @@ const debouncedFeasibilityCheck = useDebounce(async (prompt: string) => {
    - Smart fallback strategy suggestions
    - Performance impact analysis
 
-3. **Integration Expansion**
+3. **AI Model Generation**
+   - Automated navigation model creation from device exploration
+   - Visual UI analysis and intelligent action mapping
+   - Cross-device model adaptation and optimization
+
+4. **Integration Expansion**
    - CI/CD pipeline integration for automated testing
    - Test case scheduling and batch execution
    - Advanced reporting and analytics
@@ -500,6 +618,11 @@ const debouncedFeasibilityCheck = useDebounce(async (prompt: string) => {
    - Fine-tuned models for specific device types
    - Context-aware prompt optimization
    - Parallel analysis for multiple interfaces
+
+3. **Exploration Efficiency**
+   - Smart exploration prioritization
+   - Duplicate state detection
+   - Optimal return path calculation
 
 ---
 
