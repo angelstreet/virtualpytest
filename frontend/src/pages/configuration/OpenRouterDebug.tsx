@@ -101,6 +101,7 @@ const OpenRouterDebug: React.FC = () => {
       addLog('server', 'info', `Server response status: ${response.status}`);
 
       const result = await response.json();
+      addLog('server', 'info', `Response body: ${JSON.stringify(result)}`);
       
       if (response.ok && result.success) {
         addLog('server', 'success', 'OpenRouter call successful');
@@ -126,6 +127,8 @@ const OpenRouterDebug: React.FC = () => {
       } else {
         const errorMsg = result.error || 'Unknown error';
         addLog('server', 'error', `Server error: ${errorMsg}`);
+        addLog('server', 'error', `Response OK: ${response.ok}, Result Success: ${result.success}`);
+        addLog('server', 'error', `Full result: ${JSON.stringify(result)}`);
         toast.showError(`Test failed: ${errorMsg}`);
       }
     } catch (error) {
@@ -156,7 +159,7 @@ const OpenRouterDebug: React.FC = () => {
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
         <AIIcon sx={{ mr: 2, fontSize: 32, color: 'primary.main' }} />
         <Typography variant="h4" component="h1">
-          OpenRouter Debug
+          OpenRouter
         </Typography>
       </Box>
 
