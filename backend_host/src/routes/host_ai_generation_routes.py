@@ -181,8 +181,8 @@ def run_exploration(exploration_id: str):
         session = exploration_sessions[exploration_id]
         session['status'] = 'exploring'
         
-        # Import necessary modules for exploration using existing infrastructure
-        from backend_core.src.controllers.ai.ai_agent_analysis import AIAgentAnalysis as AIAgentController
+        # Import AI Central for exploration
+        from backend_core.src.controllers.ai.ai_central import AICentral
         from backend_core.src.controllers.remote.android_mobile import AndroidMobileController
         from backend_core.src.controllers.verification.video_ai_helpers import VideoAIHelpers
         
@@ -195,7 +195,7 @@ def run_exploration(exploration_id: str):
         
         # Initialize controllers using existing infrastructure
         remote_controller = AndroidMobileController(device_id)
-        ai_agent = AIAgentController(device_id)
+        ai_central = AICentral(team_id="default", device_id=device_id)
         
         # Initialize AI helpers for image analysis - use existing VideoAIHelpers
         ai_helpers = VideoAIHelpers(device_model='android_mobile')

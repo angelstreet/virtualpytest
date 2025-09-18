@@ -13,10 +13,7 @@ import os
 # Add backend_core to path for direct access
 sys.path.append(os.path.join(os.path.dirname(__file__), '../../../backend_core/src'))
 
-import importlib
-import controllers.ai.ai_agent_analysis
-importlib.reload(controllers.ai.ai_agent_analysis)
-from controllers.ai.ai_agent_analysis import AIAgentAnalysis as AIAgentController
+from backend_core.src.controllers.ai.ai_central import AICentral
 from controllers.controller_config_factory import get_device_capabilities
 from shared.lib.supabase.testcase_db import save_test_case, get_test_case
 from shared.lib.supabase.navigation_trees_db import get_full_tree, get_root_tree_for_interface
@@ -141,25 +138,22 @@ def analyze_test_case():
         
         print(f"=== END ANALYSIS ===\n")
         
-        # Use unified AI Agent for compatibility analysis
-        ai_agent = AIAgentController(device_id="server", device_name="server")
-        print(f"[@route:server_aitestcase:analyze] Using unified AI Agent for compatibility analysis")
+        # Use AI Central for compatibility analysis
+        ai_central = AICentral(team_id=team_id)
+        print(f"[@route:server_aitestcase:analyze] Using AI Central for compatibility analysis")
         
-        # Analyze compatibility using AI Agent's superior analysis
-        analysis_result = ai_agent.analyze_cross_device_compatibility(
-            {'test_steps': [], 'original_prompt': prompt}, 
-            [ui['name'] for ui in userinterfaces]
-        )
+        # Analyze compatibility using AI Central
+        analysis_result = ai_central.analyze_compatibility(prompt)
         
         # Convert to expected format for backward compatibility
-        compatible_interfaces = [r['interface_name'] for r in analysis_result if r.get('compatible', False)]
+        compatible_interfaces = [r['userinterface_name'] for r in analysis_result['compatible_interfaces']]
         analysis_result = {
             'analysis_id': str(uuid.uuid4()),
             'understanding': f"AI analysis of: {prompt}",
             'compatibility_matrix': {
                 'compatible_userinterfaces': compatible_interfaces,
-                'incompatible': [r['interface_name'] for r in analysis_result if not r.get('compatible', True)],
-                'reasons': {r['interface_name']: r.get('reasoning', '') for r in analysis_result}
+                'incompatible': [r['userinterface_name'] for r in analysis_result['incompatible_interfaces']],
+                'reasons': {r['userinterface_name']: r.get('reasoning', '') for r in analysis_result['compatible_interfaces'] + analysis_result['incompatible_interfaces']}
             },
             'requires_multiple_testcases': False,
             'estimated_complexity': 'medium',
@@ -241,8 +235,8 @@ def generate_test_cases():
         
         original_prompt = cached_analysis['prompt']
         
-        # Use unified AI Agent for test case generation
-        ai_agent = AIAgentController(device_id="server", device_name="server")
+        # Use AI Central for test case generation
+        ai_central = AICentral(team_id=team_id)
         generated_testcases = []
         
         # Generate ONE test case with ALL confirmed interfaces
@@ -348,15 +342,35 @@ def generate_test_case():
         print(f"[@route:server_aitestcase:generate_test_case] Prompt: {prompt}")
         print(f"[@route:server_aitestcase:generate_test_case] Interface: {interface_name}")
         
-        # Use unified AI Agent with test case generation capability
-        ai_agent = AIAgentController(device_id="server", device_name="server")
+        # Use AI Central for test case generation
+        ai_central = AICentral(team_id=team_id)
         
-        # Generate test case using new unified method
-        generation_result = ai_agent.generate_test_case(
-            prompt=prompt,
-            userinterface_name=interface_name,
-            store_in_db=False  # We'll handle storage here
-        )
+        # Generate test case using AI Central
+        try:
+            plan = ai_central.generate_plan(prompt, interface_name)
+            generation_result = {
+                'success': True,
+                'test_case': {
+                    'name': f"AI Generated: {prompt[:50]}...",
+                    'original_prompt': prompt,
+                    'steps': [
+                        {
+                            'step': step.step_id,
+                            'command': step.command,
+                            'params': step.params,
+                            'description': step.description
+                        }
+                        for step in plan.steps
+                    ],
+                    'userinterface_name': interface_name,
+                    'feasible': plan.feasible
+                }
+            }
+        except Exception as e:
+            generation_result = {
+                'success': False,
+                'error': str(e)
+            }
         
         if not generation_result.get('success'):
             return jsonify({
@@ -411,10 +425,22 @@ def quick_feasibility_check():
                 'error': 'Missing required parameter: prompt'
             }), 400
         
-        # Use unified AI Agent for feasibility check
-        ai_agent = AIAgentController(device_id="server", device_name="server")
+        # Use AI Central for feasibility check
+        ai_central = AICentral(team_id=team_id)
         
-        result = ai_agent.quick_feasibility_check(prompt, interface_name)
+        try:
+            plan = ai_central.generate_plan(prompt, interface_name)
+            result = {
+                'success': True,
+                'feasible': plan.feasible,
+                'reason': plan.analysis
+            }
+        except Exception as e:
+            result = {
+                'success': False,
+                'feasible': False,
+                'reason': str(e)
+            }
         
         return jsonify(result)
         

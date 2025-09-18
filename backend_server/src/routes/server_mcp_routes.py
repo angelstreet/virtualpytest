@@ -8,8 +8,8 @@ Handles task execution using AI agent with MCP tool awareness.
 from flask import Blueprint, request, jsonify
 import logging
 
-# Import AI agent controller directly
-from backend_core.src.controllers.ai.ai_agent_analysis import AIAgentAnalysis as AIAgentController
+# Import AI Central
+from backend_core.src.controllers.ai.ai_central import AICentral
 
 # Create blueprint
 server_mcp_bp = Blueprint('server_mcp', __name__, url_prefix='/server/mcp')
@@ -80,16 +80,22 @@ def execute_task():
             }
         ]
         
-        # Instantiate AI agent controller with required device_id
-        ai_agent = AIAgentController(device_id="mcp_interface", device_name="MCP_Interface")
+        # Instantiate AI Central
+        ai_central = AICentral(team_id="default")
         
         # Execute task with MCP context
-        ai_result = ai_agent.execute_task(
-            task_description=task,
-            available_actions=mcp_tools,
-            available_verifications=mcp_verifications,
-            device_model="MCP_Interface"
-        )
+        try:
+            plan = ai_central.generate_plan(task, "mcp_interface")
+            ai_result = {
+                'success': plan.feasible,
+                'plan': plan,
+                'error': None if plan.feasible else plan.analysis
+            }
+        except Exception as e:
+            ai_result = {
+                'success': False,
+                'error': str(e)
+            }
         
         if ai_result.get('success'):
             # Extract MCP tool execution from AI plan

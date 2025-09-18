@@ -28,7 +28,7 @@ from backend_core.src.controllers.verification.appium import AppiumVerificationC
 from backend_core.src.controllers.verification.video import VideoVerificationController
 from backend_core.src.controllers.verification.audio import AudioVerificationController
 from backend_core.src.controllers.power.tapo_power import TapoPowerController
-# from backend_core.src.controllers.ai.ai_agent_analysis import AIAgentAnalysis as AIAgentController  # Lazy import to avoid circular import
+# from backend_core.src.controllers.ai.ai_central import AICentral  # Lazy import to avoid circular import
 
 
 def create_host_from_environment() -> Host:
@@ -250,10 +250,10 @@ def _create_controller_instance(controller_type: str, implementation: str, param
     elif controller_type == 'ai':
         if implementation == 'ai_agent':
             # Lazy import to avoid circular import
-            from backend_core.src.controllers.ai.ai_agent_analysis import AIAgentAnalysis as AIAgentController
+            from backend_core.src.controllers.ai.ai_central import AICentral
             # Pass device_name explicitly from params
             device_name = params.get('device_id')
-            return AIAgentController(device_name=device_name, **params)
+            return AICentral(team_id=params.get('team_id'), **params)
     
     # Verification Controllers - now require device_model
     elif controller_type == 'verification':
