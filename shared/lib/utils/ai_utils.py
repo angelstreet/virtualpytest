@@ -31,7 +31,7 @@ AI_CONFIG = {
                 'text': 'microsoft/phi-3-mini-128k-instruct',
                 'vision': 'qwen/qwen-2.5-vl-7b-instruct',
                 'translation': 'microsoft/phi-3-mini-128k-instruct',
-                'agent': 'meta-llama/llama-3.1-8b-instruct:free'  # google/gemini-2.0-flash-exp:free
+                'agent': 'meta-llama/llama-3.1-405b-instruct:free'  # google/gemini-2.0-flash-exp:free
             }
         },
         'huggingface': {
