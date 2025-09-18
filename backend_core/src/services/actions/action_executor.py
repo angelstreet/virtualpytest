@@ -443,16 +443,38 @@ class ActionExecutor:
             'iterations': iteration_results if iterator_count > 1 else None
         }
     
+    def _get_device_model(self) -> str:
+        """Get device model from host configuration"""
+        try:
+            # Get device configuration from host
+            devices = self.host.get('devices', [])
+            device_id = self.device_id or 'device1'
+            
+            for device in devices:
+                if device.get('device_id') == device_id:
+                    return device.get('device_model', 'unknown')
+            
+            # Fallback: if no device found, return unknown
+            print(f"[@lib:action_executor:_get_device_model] Device {device_id} not found in host config, using 'unknown'")
+            return 'unknown'
+            
+        except Exception as e:
+            print(f"[@lib:action_executor:_get_device_model] Error getting device model: {e}")
+            return 'unknown'
+
     def _record_execution_to_database(self, success: bool, execution_time_ms: int, message: str, error_details: Optional[Dict] = None):
         """Record single execution directly to database"""
         try:
             from shared.lib.supabase.execution_results_db import record_edge_execution
+            
+            device_model = self._get_device_model()
             
             record_edge_execution(
                 team_id=self.team_id,
                 tree_id=self.tree_id,
                 edge_id=self.edge_id,
                 host_name=self.host.get('host_name'),
+                device_model=device_model,  # Add missing device_model parameter
                 success=success,
                 execution_time_ms=execution_time_ms,
                 message=message,

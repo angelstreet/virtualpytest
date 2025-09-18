@@ -5,6 +5,7 @@
 
 export interface AIStep {
   step: number;
+  type?: string;
   command: string;
   description: string;
   params?: Record<string, any>;
@@ -12,19 +13,41 @@ export interface AIStep {
 }
 
 export interface AIPlan {
-  plan: AIStep[];
+  id: string;
+  prompt: string;
   analysis: string;
   feasible: boolean;
+  steps: AIStep[];
+  
+  // Legacy compatibility
+  plan?: AIStep[];
   estimated_time?: string;
   risk_level?: 'low' | 'medium' | 'high';
 }
 
 export interface AIExecutionLogEntry {
-  timestamp: string;
-  type: string;
+  timestamp: number | string;
+  log_type: string;
   action_type: 'plan_generated' | 'plan_ready' | 'step_start' | 'step_success' | 'step_failed' | 'task_completed' | 'task_failed';
+  data: {
+    step?: number;
+    duration?: number;
+    success?: boolean;
+    command?: string;
+    description?: string;
+    plan_id?: string;
+    feasible?: boolean;
+    step_count?: number;
+    analysis?: string;
+    total_steps?: number;
+    successful_steps?: number;
+    failed_steps?: number;
+  };
   value: any;
   description: string;
+  
+  // Legacy compatibility
+  type?: string;
 }
 
 export interface AIStepResult {
@@ -69,6 +92,42 @@ export interface AITaskResult {
     verifications_planned: number;
   };
   summary: AIExecutionSummary;
+}
+
+// Enhanced execution status from backend
+export interface AIExecutionStatus {
+  success: boolean;
+  is_executing: boolean;
+  current_step: string;
+  execution_log: AIExecutionLogEntry[];
+  progress_percentage: number;
+  plan?: AIPlan;
+  execution_summary?: {
+    total_steps: number;
+    completed_steps: number;
+    failed_steps: number;
+    start_time: number;
+    end_time?: number;
+    total_duration: number;
+  };
+}
+
+// Error categorization
+export type AIErrorType = 
+  | 'ai_timeout'
+  | 'ai_connection_error' 
+  | 'ai_auth_error'
+  | 'ai_rate_limit'
+  | 'ai_call_exception'
+  | 'ai_call_failed'
+  | 'navigation_error'
+  | 'network_error'
+  | 'unknown_error';
+
+export interface AIError {
+  message: string;
+  type?: AIErrorType;
+  context?: string;
 }
 
 export const AI_CONSTANTS = {

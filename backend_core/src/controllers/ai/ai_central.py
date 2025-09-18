@@ -227,18 +227,23 @@ Response format:
 
 
 class AIOrchestrator:
-    def __init__(self, host: Dict, device_id: str, team_id: str):
+    def __init__(self, host: Dict, device_id: str, team_id: str, tracker: 'AITracker' = None):
         self.host = host
         self.device_id = device_id
         self.team_id = team_id
+        self.tracker = tracker
 
-    def execute_plan(self, plan: AIPlan, options: ExecutionOptions) -> ExecutionResult:
+    def execute_plan(self, plan: AIPlan, options: ExecutionOptions, execution_id: str = None) -> ExecutionResult:
         start_time = time.time()
         step_results = []
 
         for step in plan.steps:
             step_result = self._execute_step(step, options)
             step_results.append(step_result)
+            
+            # Update tracker if available and execution_id provided
+            if self.tracker and execution_id:
+                self.tracker.update_step(execution_id, step_result)
 
             if not step_result.success and options.stop_on_first_error:
                 break
@@ -356,15 +361,75 @@ class AITracker:
             'status': 'executing',
             'current_step': 0,
             'step_results': [],
-            'start_time': time.time()
+            'start_time': time.time(),
+            'plan_generated_at': time.time()
         }
-        print(f"[@ai_tracker] Started execution {execution_id}, total tracked: {len(self.executions)}")
+        
+        # Add plan generation log entry
+        plan_log_entry = {
+            'timestamp': time.time(),
+            'log_type': 'ai_plan',
+            'action_type': 'plan_generated',
+            'data': {
+                'plan_id': plan.id,
+                'feasible': plan.feasible,
+                'step_count': len(plan.steps),
+                'analysis': plan.analysis
+            },
+            'value': {
+                'id': plan.id,
+                'prompt': plan.prompt,
+                'analysis': plan.analysis,
+                'feasible': plan.feasible,
+                'steps': [
+                    {
+                        'step': step.step_id,
+                        'type': step.type.value,
+                        'command': step.command,
+                        'params': step.params,
+                        'description': step.description
+                    }
+                    for step in plan.steps
+                ]
+            },
+            'description': f'AI plan generated with {len(plan.steps)} steps'
+        }
+        
+        # Initialize with plan generation entry
+        self.executions[execution_id]['execution_log'] = [plan_log_entry]
+        print(f"[@ai_tracker] Started execution {execution_id} with plan, total tracked: {len(self.executions)}")
 
     def update_step(self, execution_id: str, step_result: StepResult):
         if execution_id in self.executions:
             execution = self.executions[execution_id]
             execution['current_step'] = step_result.step_id
             execution['step_results'].append(step_result)
+            
+            # Add step log entry to execution_log
+            step_log_entry = {
+                'timestamp': time.time(),
+                'log_type': 'execution',
+                'action_type': 'step_success' if step_result.success else 'step_failed',
+                'data': {
+                    'step': step_result.step_id,
+                    'duration': step_result.execution_time_ms / 1000.0,
+                    'success': step_result.success,
+                    'command': getattr(step_result, 'command', ''),
+                    'description': step_result.message
+                },
+                'value': {
+                    'step': step_result.step_id,
+                    'duration': step_result.execution_time_ms / 1000.0,
+                    'success': step_result.success,
+                    'message': step_result.message
+                },
+                'description': step_result.message
+            }
+            
+            # Append to execution log
+            if 'execution_log' not in execution:
+                execution['execution_log'] = []
+            execution['execution_log'].append(step_log_entry)
 
     def complete_execution(self, execution_id: str, result: ExecutionResult):
         if execution_id in self.executions:
@@ -372,6 +437,34 @@ class AITracker:
             execution['status'] = 'completed' if result.success else 'failed'
             execution['result'] = result
             execution['end_time'] = time.time()
+            
+            # Calculate total duration
+            total_duration = execution['end_time'] - execution['start_time']
+            
+            # Add task completion log entry
+            completion_log_entry = {
+                'timestamp': time.time(),
+                'log_type': 'execution',
+                'action_type': 'task_completed' if result.success else 'task_failed',
+                'data': {
+                    'success': result.success,
+                    'duration': total_duration,
+                    'total_steps': len(execution['step_results']),
+                    'successful_steps': len([r for r in execution['step_results'] if r.success]),
+                    'failed_steps': len([r for r in execution['step_results'] if not r.success])
+                },
+                'value': {
+                    'success': result.success,
+                    'duration': total_duration,
+                    'message': 'Task completed successfully' if result.success else (result.error or 'Task failed')
+                },
+                'description': 'Task completed successfully' if result.success else (result.error or 'Task failed')
+            }
+            
+            # Append to execution log
+            if 'execution_log' not in execution:
+                execution['execution_log'] = []
+            execution['execution_log'].append(completion_log_entry)
 
     def get_status(self, execution_id: str) -> Dict[str, Any]:
         print(f"[@ai_tracker] Looking for execution {execution_id}, available: {list(self.executions.keys())}")
@@ -380,13 +473,56 @@ class AITracker:
 
         execution = self.executions[execution_id]
         plan = execution['plan']
+        
+        # Use the rich execution_log if available, otherwise fall back to step_results
+        execution_log = execution.get('execution_log', [])
+        if not execution_log and execution['step_results']:
+            # Fallback: convert step_results to log entries
+            execution_log = [self._step_to_log_entry(r) for r in execution['step_results']]
+
+        # Calculate progress
+        completed_steps = len([r for r in execution['step_results'] if r.success or not r.success])  # All attempted steps
+        progress_percentage = (completed_steps / len(plan.steps)) * 100 if plan.steps else 0
+        
+        # Current step description
+        current_step_desc = f"Step {execution['current_step']}/{len(plan.steps)}"
+        if execution['status'] == 'executing' and execution['current_step'] > 0:
+            current_step_desc = f"Executing step {execution['current_step']}"
+        elif execution['status'] != 'executing':
+            current_step_desc = "Task completed" if execution['status'] == 'completed' else "Task failed"
 
         return {
             'success': True,
             'is_executing': execution['status'] == 'executing',
-            'current_step': f"Step {execution['current_step']}/{len(plan.steps)}",
-            'execution_log': [self._step_to_log_entry(r) for r in execution['step_results']],
-            'progress_percentage': (execution['current_step'] / len(plan.steps)) * 100 if plan.steps else 0
+            'current_step': current_step_desc,
+            'execution_log': execution_log,
+            'progress_percentage': min(progress_percentage, 100),  # Cap at 100%
+            
+            # Additional rich data for enhanced UX
+            'plan': {
+                'id': plan.id,
+                'prompt': plan.prompt,
+                'analysis': plan.analysis,
+                'feasible': plan.feasible,
+                'steps': [
+                    {
+                        'step': step.step_id,
+                        'type': step.type.value,
+                        'command': step.command,
+                        'params': step.params,
+                        'description': step.description
+                    }
+                    for step in plan.steps
+                ]
+            },
+            'execution_summary': {
+                'total_steps': len(plan.steps),
+                'completed_steps': len([r for r in execution['step_results'] if r.success]),
+                'failed_steps': len([r for r in execution['step_results'] if not r.success]),
+                'start_time': execution['start_time'],
+                'end_time': execution.get('end_time'),
+                'total_duration': execution.get('end_time', time.time()) - execution['start_time']
+            }
         }
 
     def _step_to_log_entry(self, step_result: StepResult) -> Dict[str, Any]:
@@ -409,8 +545,8 @@ class AICentral:
         self.device_id = device_id
         
         self.planner = AIPlanGenerator(team_id)
-        self.orchestrator = AIOrchestrator(host, device_id, team_id) if host else None
         self.tracker = AITracker()
+        self.orchestrator = AIOrchestrator(host, device_id, team_id, self.tracker) if host else None
 
     def analyze_compatibility(self, prompt: str) -> Dict[str, Any]:
         return self.planner.analyze_compatibility(prompt)
@@ -431,14 +567,14 @@ class AICentral:
                 args=(execution_id, plan, options)
             ).start()
         else:
-            result = self.orchestrator.execute_plan(plan, options)
+            result = self.orchestrator.execute_plan(plan, options, execution_id)
             self.tracker.complete_execution(execution_id, result)
 
         return execution_id
 
     def _execute_async(self, execution_id: str, plan: AIPlan, options: ExecutionOptions):
         try:
-            result = self.orchestrator.execute_plan(plan, options)
+            result = self.orchestrator.execute_plan(plan, options, execution_id)
             self.tracker.complete_execution(execution_id, result)
         except Exception as e:
             error_result = ExecutionResult(

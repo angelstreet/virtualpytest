@@ -2,6 +2,13 @@ import { useState, useCallback, useMemo, useRef } from 'react';
 import { Host, Device } from '../types/common/Host_Types';
 import { buildServerUrl } from '../utils/buildUrlUtils';
 import { useToast } from './useToast';
+import { 
+  AIPlan, 
+  AIExecutionStatus, 
+  AIExecutionSummary,
+  AIErrorType,
+  AI_CONSTANTS 
+} from '../types/aiagent/AIAgent_Types';
 
 interface UseAIProps {
   host: Host;
@@ -9,45 +16,106 @@ interface UseAIProps {
   mode: 'real-time' | 'test-case';
 }
 
-interface AIPlan {
-  id: string;
-  prompt: string;
-  analysis: string;
-  feasible: boolean;
-  steps: Array<{
-    step: number;
-    type: string;
-    command: string;
-    params: Record<string, any>;
-    description: string;
-  }>;
-}
-
-interface ExecutionStatus {
-  success: boolean;
-  is_executing: boolean;
-  current_step: string;
-  execution_log: Array<{
-    timestamp: number;
-    log_type: string;
-    action_type: string;
-    data: Record<string, any>;
-    description: string;
-  }>;
-  progress_percentage: number;
-}
+// Remove local interfaces - using imported types now
 
 export const useAI = ({ host, device, mode: _mode }: UseAIProps) => {
   const [isExecuting, setIsExecuting] = useState(false);
   const [currentPlan, setCurrentPlan] = useState<AIPlan | null>(null);
-  const [executionStatus, setExecutionStatus] = useState<ExecutionStatus | null>(null);
+  const [executionStatus, setExecutionStatus] = useState<AIExecutionStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [taskResult, setTaskResult] = useState<{ success: boolean; message: string } | null>(null);
   
   // Toast notifications
   const toast = useToast();
   
   // Track completion toast to prevent duplicates
   const completionToastShown = useRef(false);
+
+  // Helper function to enhance error messages for specific error types
+  const enhanceErrorMessage = useCallback((error: string, errorType?: AIErrorType) => {
+    // Handle specific error types from backend
+    if (errorType) {
+      switch (errorType) {
+        case 'ai_timeout':
+          return '⏱️ AI service timed out. The request took too long to process. Please try again.';
+        case 'ai_connection_error':
+          return '🌐 Connection to AI service failed. Please check your internet connection and try again.';
+        case 'ai_auth_error':
+          return '🔑 AI service authentication failed. Please contact support if this persists.';
+        case 'ai_rate_limit':
+          return '🚦 AI service rate limit exceeded. Please wait a moment and try again.';
+        case 'ai_call_exception':
+          return '⚠️ Unexpected AI service error. Please try again or contact support.';
+        case 'ai_call_failed':
+          return '❌ AI service call failed. Please try again.';
+        case 'navigation_error':
+          return '🧭 Navigation error occurred. Please try again.';
+        case 'network_error':
+          return '🌐 Network connection issue. Please check your connection and try again.';
+      }
+    }
+    
+    // Legacy error message enhancement (keep for backward compatibility)
+    if (error.includes('429') || error.includes('rate limit')) {
+      return '🤖 AI service is temporarily busy. Please wait a moment and try again.';
+    }
+    if (error.includes('timeout')) {
+      return '⏱️ AI service timed out. Please try again.';
+    }
+    if (error.includes('connection') || error.includes('network')) {
+      return '🌐 Network connection issue. Please check your connection and try again.';
+    }
+    if (error.includes('API key') || error.includes('authentication')) {
+      return '🔑 Authentication issue with AI service. Please contact support.';
+    }
+    if (error.includes('No path found to')) {
+      const nodeMatch = error.match(/No path found to '([^']+)'/);
+      const nodeName = nodeMatch ? nodeMatch[1] : 'target location';
+      return `🧭 Cannot navigate to "${nodeName}" - screen not found in navigation tree.`;
+    }
+    
+    return error; // Return original error for other cases
+  }, []);
+
+  // Execution summary calculation (like old useAIAgent)
+  const executionSummary = useMemo((): AIExecutionSummary | null => {
+    if (!currentPlan?.steps || !executionStatus?.execution_log) return null;
+
+    const executionLog = executionStatus.execution_log;
+    const completedSteps = executionLog.filter(entry => entry.action_type === 'step_success');
+    const failedSteps = executionLog.filter(entry => entry.action_type === 'step_failed');
+    const taskCompleted = executionLog.some(entry => entry.action_type === 'task_completed');
+    const taskFailed = executionLog.some(entry => entry.action_type === 'task_failed');
+
+    if (!taskCompleted && !taskFailed && !isExecuting) return null;
+
+    // Calculate total duration and average step duration
+    const stepDurations = executionLog
+      .filter(entry => entry.action_type === 'step_success' || entry.action_type === 'step_failed')
+      .map(entry => entry.data?.duration || 0);
+    
+    const totalDuration = executionLog.find(entry => 
+      entry.action_type === 'task_completed' || entry.action_type === 'task_failed'
+    )?.data?.duration || (executionStatus.execution_summary?.total_duration || 0);
+
+    const averageStepDuration = stepDurations.length > 0 
+      ? stepDurations.reduce((sum, duration) => sum + duration, 0) / stepDurations.length 
+      : 0;
+
+    const success = taskCompleted && failedSteps.length === 0;
+    
+    return {
+      totalSteps: currentPlan.steps.length,
+      completedSteps: completedSteps.length,
+      failedSteps: failedSteps.length,
+      totalDuration,
+      averageStepDuration,
+      success,
+      message: success 
+        ? `All ${completedSteps.length} steps completed successfully`
+        : `${completedSteps.length}/${currentPlan.steps.length} steps completed, ${failedSteps.length} failed`
+    };
+  }, [executionStatus?.execution_log, currentPlan?.steps, isExecuting]);
 
   const analyzeCompatibility = useCallback(async (prompt: string) => {
     try {
@@ -95,13 +163,14 @@ export const useAI = ({ host, device, mode: _mode }: UseAIProps) => {
     setCurrentPlan(null);
     setExecutionStatus(null);
     setError(null);
+    setTaskResult(null);
     completionToastShown.current = false;
 
     setIsExecuting(true);
 
     try {
       // Show start notification
-      toast.showInfo(`🤖 Starting AI task`, { duration: 3000 });
+      toast.showInfo(`🤖 Starting AI task`, { duration: AI_CONSTANTS.TOAST_DURATION.INFO });
 
       const response = await fetch(buildServerUrl('/server/ai/executeTask'), {
         method: 'POST',
@@ -129,27 +198,43 @@ export const useAI = ({ host, device, mode: _mode }: UseAIProps) => {
 
           setExecutionStatus(status);
 
-          // Extract and set plan if available
+          // Extract and set plan if available from status.plan (new backend format)
+          if (!currentPlan && status.plan) {
+            setCurrentPlan(status.plan);
+            toast.showSuccess(`📋 AI plan generated with ${status.plan.steps?.length || 0} steps`, { 
+              duration: AI_CONSTANTS.TOAST_DURATION.INFO 
+            });
+          }
+
+          // Fallback: Extract plan from execution_log (legacy compatibility)
           if (!currentPlan && status.execution_log) {
             const planEntry = status.execution_log.find((entry: any) => 
               entry.action_type === 'plan_generated'
             );
             if (planEntry && planEntry.value) {
               setCurrentPlan(planEntry.value);
-              toast.showSuccess(`📋 AI plan generated with ${planEntry.value.steps?.length || 0} steps`, { duration: 3000 });
+              toast.showSuccess(`📋 AI plan generated with ${planEntry.value.steps?.length || 0} steps`, { 
+                duration: AI_CONSTANTS.TOAST_DURATION.INFO 
+              });
             }
           }
 
-          // Show step progress toasts
+          // Show step progress toasts with enhanced details
           if (status.execution_log && status.execution_log.length > previousLogLength) {
             const newEntries = status.execution_log.slice(previousLogLength);
             for (const entry of newEntries) {
               if (entry.action_type === 'step_success') {
                 const stepData = entry.data || entry.value;
-                toast.showSuccess(`✅ Step ${stepData.step} completed`, { duration: 2000 });
+                const duration = stepData.duration ? ` (${stepData.duration.toFixed(1)}s)` : '';
+                toast.showSuccess(`✅ Step ${stepData.step} completed${duration}`, { 
+                  duration: AI_CONSTANTS.TOAST_DURATION.INFO 
+                });
               } else if (entry.action_type === 'step_failed') {
                 const stepData = entry.data || entry.value;
-                toast.showError(`❌ Step ${stepData.step} failed`, { duration: 2000 });
+                const duration = stepData.duration ? ` (${stepData.duration.toFixed(1)}s)` : '';
+                toast.showError(`❌ Step ${stepData.step} failed${duration}`, { 
+                  duration: AI_CONSTANTS.TOAST_DURATION.INFO 
+                });
               }
             }
             previousLogLength = status.execution_log.length;
@@ -158,20 +243,54 @@ export const useAI = ({ host, device, mode: _mode }: UseAIProps) => {
           if (!status.is_executing) {
             setIsExecuting(false);
             
-            // Show completion toast
-            if (!completionToastShown.current) {
-              completionToastShown.current = true;
-              const success = status.success !== false;
-              if (success) {
-                toast.showSuccess(`🎉 Task completed successfully`, { duration: 4000 });
-              } else {
-                toast.showError(`⚠️ Task failed`, { duration: 4000 });
+            // Extract task result from execution log
+            const completionEntry = status.execution_log?.find((entry: any) => 
+              entry.action_type === 'task_completed' || entry.action_type === 'task_failed'
+            );
+
+            if (completionEntry) {
+              const success = completionEntry.action_type === 'task_completed';
+              const taskData = completionEntry.data || completionEntry.value;
+              const duration = taskData?.duration || 0;
+              
+              setTaskResult({ 
+                success, 
+                message: success ? 'Task Completed' : 'Task Failed' 
+              });
+
+              // Show completion toast with duration
+              if (!completionToastShown.current) {
+                completionToastShown.current = true;
+                if (success) {
+                  toast.showSuccess(`🎉 Task completed in ${duration.toFixed(1)}s`, { 
+                    duration: AI_CONSTANTS.TOAST_DURATION.SUCCESS 
+                  });
+                } else {
+                  toast.showError(`⚠️ Task failed in ${duration.toFixed(1)}s`, { 
+                    duration: AI_CONSTANTS.TOAST_DURATION.ERROR 
+                  });
+                }
+              }
+            } else {
+              // Fallback completion toast
+              if (!completionToastShown.current) {
+                completionToastShown.current = true;
+                const success = status.success !== false;
+                if (success) {
+                  toast.showSuccess(`🎉 Task completed successfully`, { 
+                    duration: AI_CONSTANTS.TOAST_DURATION.SUCCESS 
+                  });
+                } else {
+                  toast.showError(`⚠️ Task failed`, { 
+                    duration: AI_CONSTANTS.TOAST_DURATION.ERROR 
+                  });
+                }
               }
             }
             break;
           }
 
-          await new Promise(resolve => setTimeout(resolve, 1000));
+          await new Promise(resolve => setTimeout(resolve, AI_CONSTANTS.POLL_INTERVAL));
         }
       };
 
@@ -179,11 +298,14 @@ export const useAI = ({ host, device, mode: _mode }: UseAIProps) => {
 
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Execution failed';
-      setError(errorMessage);
+      const enhancedError = enhanceErrorMessage(errorMessage);
+      setError(enhancedError);
       setIsExecuting(false);
-      toast.showError(`❌ AI task failed: ${errorMessage}`, { duration: 4000 });
+      toast.showError(`❌ AI task failed: ${enhancedError}`, { 
+        duration: AI_CONSTANTS.TOAST_DURATION.ERROR 
+      });
     }
-  }, [host, device, isExecuting, currentPlan, toast]);
+  }, [host, device, isExecuting, currentPlan, toast, enhanceErrorMessage]);
 
   const executeTestCase = useCallback(async (testCaseId: string) => {
     try {
@@ -218,6 +340,14 @@ export const useAI = ({ host, device, mode: _mode }: UseAIProps) => {
     currentPlan,
     executionStatus,
     error,
+    taskResult,
+    executionSummary,
+
+    // Computed values for backward compatibility
+    executionLog: executionStatus?.execution_log || [],
+    currentStep: executionStatus?.current_step || '',
+    progressPercentage: executionStatus?.progress_percentage || 0,
+    isPlanFeasible: currentPlan?.feasible !== false,
 
     // Actions
     analyzeCompatibility,

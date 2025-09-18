@@ -114,21 +114,21 @@ const RecHostStreamModalContent: React.FC<{
   const {
     isExecuting: isAIExecuting,
     currentPlan: aiPlan,
-    executionStatus,
     error: aiError,
+    taskResult,
+    executionSummary,
     executeTask: executeAITask,
-    clearError: clearAIError
+    clearError: clearAIError,
+    // Direct access to computed values
+    executionLog,
+    currentStep,
+    progressPercentage,
+    isPlanFeasible
   } = useAI({
     host,
     device: device!,
     mode: 'real-time'
   });
-
-  // Extract values from executionStatus for backward compatibility
-  const executionLog = executionStatus?.execution_log || [];
-  const currentStep = executionStatus?.current_step || '';
-  const progressPercentage = executionStatus?.progress_percentage || 0;
-  const isPlanFeasible = aiPlan?.feasible !== false;
   
   // Task input state
   const [taskInput, setTaskInput] = useState('');
@@ -139,11 +139,22 @@ const RecHostStreamModalContent: React.FC<{
       isAIExecuting,
       currentStep,
       progressPercentage,
-      aiPlan: aiPlan ? { feasible: aiPlan.feasible, planLength: aiPlan.steps?.length } : 'None',
+      aiPlan: aiPlan ? { 
+        id: aiPlan.id,
+        feasible: aiPlan.feasible, 
+        planLength: aiPlan.steps?.length,
+        hasAnalysis: !!aiPlan.analysis
+      } : 'None',
       executionLogLength: executionLog.length,
-      executionLogTypes: executionLog.map(e => e.action_type)
+      executionLogTypes: executionLog.map(e => e.action_type),
+      taskResult,
+      executionSummary: executionSummary ? {
+        totalSteps: executionSummary.totalSteps,
+        completedSteps: executionSummary.completedSteps,
+        success: executionSummary.success
+      } : null
     });
-  }, [isAIExecuting, currentStep, progressPercentage, aiPlan, executionLog.length]);
+  }, [isAIExecuting, currentStep, progressPercentage, aiPlan, executionLog.length, taskResult, executionSummary]);
 
   // Stable stream container dimensions to prevent re-renders
   const streamContainerDimensions = useMemo(() => {
@@ -997,7 +1008,7 @@ const RecHostStreamModalContent: React.FC<{
                 </Box>
 
 
-                {/* AI Plan Display */}
+                {/* Enhanced AI Plan Display */}
                 {(aiPlan || isAIExecuting) && (
                   <Box
                     sx={{
@@ -1020,161 +1031,268 @@ const RecHostStreamModalContent: React.FC<{
                       </Box>
                     )}
 
-                    {/* Show Analysis when not feasible */}
-                    {aiPlan && !isPlanFeasible && (
-                      <>
-                        <Typography variant="subtitle2" sx={{ color: '#f44336', mb: 1 }}>
-                          Task Analysis:
+                    {/* PHASE 1: Analysis Display (Always show first when available) */}
+                    {aiPlan && aiPlan.analysis && (
+                      <Box sx={{ mb: 1 }}>
+                        <Typography variant="subtitle2" sx={{ 
+                          color: isPlanFeasible ? '#4caf50' : '#f44336', 
+                          mb: 1,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 1
+                        }}>
+                          {isPlanFeasible ? '✅' : '❌'} Task Analysis
+                          {!isPlanFeasible && (
+                            <Typography variant="caption" sx={{ color: '#f44336', ml: 1 }}>
+                              (Not Feasible)
+                            </Typography>
+                          )}
                         </Typography>
-                        <Box
-                          sx={{
-                            p: 1,
-                            backgroundColor: 'rgba(244,67,54,0.1)',
-                            borderRadius: 0.5,
-                            border: '1px solid rgba(244,67,54,0.3)',
-                          }}
-                        >
-                          <Typography variant="body2" sx={{ color: '#ffffff' }}>
-                            {aiPlan.analysis}
-                          </Typography>
-                        </Box>
-                      </>
+                        
+                        {/* Always show analysis prominently for non-feasible plans */}
+                        {!isPlanFeasible ? (
+                          <Box
+                            sx={{
+                              p: 1,
+                              backgroundColor: 'rgba(244,67,54,0.1)',
+                              borderRadius: 0.5,
+                              border: '1px solid rgba(244,67,54,0.3)',
+                            }}
+                          >
+                            <Typography variant="body2" sx={{ color: '#ffffff' }}>
+                              {aiPlan.analysis}
+                            </Typography>
+                          </Box>
+                        ) : (
+                          /* Expandable analysis for feasible plans */
+                          <>
+                            <Box 
+                              sx={{ 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                cursor: 'pointer',
+                                '&:hover': { backgroundColor: 'rgba(255,255,255,0.05)' },
+                                borderRadius: 0.5,
+                                p: 0.5,
+                                mb: 0.5
+                              }}
+                              onClick={() => setIsAnalysisExpanded(!isAnalysisExpanded)}
+                            >
+                              <Typography variant="caption" sx={{ color: '#aaa', flex: 1 }}>
+                                {isAnalysisExpanded ? 'Hide Analysis' : 'Show Analysis'}
+                              </Typography>
+                              <IconButton 
+                                size="small" 
+                                sx={{ color: '#aaa', p: 0.25 }}
+                                aria-label={isAnalysisExpanded ? 'Collapse analysis' : 'Expand analysis'}
+                              >
+                                {isAnalysisExpanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
+                              </IconButton>
+                            </Box>
+                            
+                            {isAnalysisExpanded && (
+                              <Box
+                                sx={{
+                                  p: 1,
+                                  backgroundColor: 'rgba(76,175,80,0.1)',
+                                  borderRadius: 0.5,
+                                  border: '1px solid rgba(76,175,80,0.3)',
+                                  mb: 1
+                                }}
+                              >
+                                <Typography variant="body2" sx={{ color: '#cccccc' }}>
+                                  {aiPlan.analysis}
+                                </Typography>
+                              </Box>
+                            )}
+                          </>
+                        )}
+                      </Box>
                     )}
 
-                    {/* Show Plan when feasible */}
-                    {aiPlan && isPlanFeasible && (
+                    {/* PHASE 2: Plan Steps Display (Only for feasible plans) */}
+                    {aiPlan && isPlanFeasible && aiPlan.steps && aiPlan.steps.length > 0 && (
                       <>
-                        {/* Expandable Analysis */}
-                        <Box sx={{ mb: 1 }}>
-                          <Box 
-                            sx={{ 
-                              display: 'flex', 
-                              alignItems: 'center', 
-                              cursor: 'pointer',
-                              '&:hover': { backgroundColor: 'rgba(255,255,255,0.05)' },
-                              borderRadius: 0.5,
-                              p: 0.5,
-                              mb: 0.5
-                            }}
-                            onClick={() => setIsAnalysisExpanded(!isAnalysisExpanded)}
-                          >
-                            <Typography variant="caption" sx={{ color: '#aaa', flex: 1 }}>
-                              Analysis
-                            </Typography>
-                            <IconButton 
-                              size="small" 
-                              sx={{ color: '#aaa', p: 0.25 }}
-                              aria-label={isAnalysisExpanded ? 'Collapse analysis' : 'Expand analysis'}
-                            >
-                              {isAnalysisExpanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
-                            </IconButton>
-                          </Box>
+                        <Box sx={{ mt: 0.5 }}>
+                          <Typography variant="caption" sx={{ color: '#aaa', mb: 1, display: 'block' }}>
+                            Execution Plan ({aiPlan.steps.length} steps):
+                          </Typography>
                           
-                          {isAnalysisExpanded && (
-                            <Box
-                              sx={{
-                                p: 1,
-                                backgroundColor: 'rgba(255,255,255,0.05)',
-                                borderRadius: 0.5,
-                                border: '1px solid rgba(255,255,255,0.1)',
-                              }}
-                            >
-                              <Typography variant="body2" sx={{ color: '#cccccc' }}>
-                                {aiPlan.analysis}
-                              </Typography>
-                            </Box>
-                          )}
-                        </Box>
-
-                        {aiPlan.steps && aiPlan.steps.length > 0 && (
-                          <Box sx={{ mt: 0.5 }}>
-                            <Typography variant="caption" sx={{ color: '#aaa', mb: 0, display: 'block' }}>
-                              Steps ({aiPlan.steps.length}):
-                            </Typography>
-                            {aiPlan.steps.map((step: any, index: number) => {
-                              const stepNumber = step.step || index + 1;
-                              const completedEntry = executionLog.find(entry => 
-                                entry.action_type === 'step_success' && entry.data.step === stepNumber
-                              );
-                              const failedEntry = executionLog.find(entry => 
-                                entry.action_type === 'step_failed' && entry.data.step === stepNumber
-                              );
-                              const isCurrent = currentStep && currentStep.includes(`Step ${stepNumber}`);
-                              
-                              let statusIcon, bgColor, borderColor;
-                              if (completedEntry) {
-                                statusIcon = <Box sx={{ width: 12, height: 12, borderRadius: '50%', backgroundColor: '#4caf50' }} />;
-                                bgColor = 'rgba(76,175,80,0.1)';
-                                borderColor = 'rgba(76,175,80,0.3)';
-                              } else if (failedEntry) {
-                                statusIcon = <Box sx={{ width: 12, height: 12, borderRadius: '50%', backgroundColor: '#f44336' }} />;
-                                bgColor = 'rgba(244,67,54,0.1)';
-                                borderColor = 'rgba(244,67,54,0.3)';
-                              } else if (isCurrent) {
-                                statusIcon = <CircularProgress size={12} sx={{ color: '#2196f3' }} />;
-                                bgColor = 'rgba(33,150,243,0.1)';
-                                borderColor = 'rgba(33,150,243,0.3)';
-                              } else {
-                                statusIcon = <Box sx={{ width: 12, height: 12, borderRadius: '50%', backgroundColor: '#666', border: '1px solid #888' }} />;
-                                bgColor = 'rgba(255,255,255,0.05)';
-                                borderColor = 'transparent';
-                              }
-                              
-                              const duration = completedEntry?.data.duration || failedEntry?.data.duration;
-                              
-                              return (
-                                <Box
-                                  key={index}
-                                  sx={{
-                                    mb: 1,
-                                    p: 1,
-                                    backgroundColor: bgColor,
-                                    borderRadius: 0.5,
-                                    border: `1px solid ${borderColor}`,
-                                  }}
-                                >
-                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-                                    {statusIcon}
-                                    <Typography variant="caption" sx={{ color: '#fff', fontWeight: 'bold' }}>
-                                      {step.step}. {step.description}
-                                      {duration && ` (${duration.toFixed(1)}s)`}
-                                    </Typography>
-                                  </Box>
-                                  <Typography variant="caption" sx={{ color: '#aaa', display: 'block', ml: 2 }}>
-                                    {step.command} {step.params && `| ${JSON.stringify(step.params)}`}
+                          {aiPlan.steps.map((step: any, index: number) => {
+                            const stepNumber = step.step || index + 1;
+                            const completedEntry = executionLog.find(entry => 
+                              entry.action_type === 'step_success' && entry.data?.step === stepNumber
+                            );
+                            const failedEntry = executionLog.find(entry => 
+                              entry.action_type === 'step_failed' && entry.data?.step === stepNumber
+                            );
+                            const isCurrent = currentStep && currentStep.includes(`Step ${stepNumber}`);
+                            
+                            let statusIcon, bgColor, borderColor;
+                            if (completedEntry) {
+                              statusIcon = <Box sx={{ width: 12, height: 12, borderRadius: '50%', backgroundColor: '#4caf50' }} />;
+                              bgColor = 'rgba(76,175,80,0.1)';
+                              borderColor = 'rgba(76,175,80,0.3)';
+                            } else if (failedEntry) {
+                              statusIcon = <Box sx={{ width: 12, height: 12, borderRadius: '50%', backgroundColor: '#f44336' }} />;
+                              bgColor = 'rgba(244,67,54,0.1)';
+                              borderColor = 'rgba(244,67,54,0.3)';
+                            } else if (isCurrent) {
+                              statusIcon = <CircularProgress size={12} sx={{ color: '#2196f3' }} />;
+                              bgColor = 'rgba(33,150,243,0.1)';
+                              borderColor = 'rgba(33,150,243,0.3)';
+                            } else {
+                              statusIcon = <Box sx={{ width: 12, height: 12, borderRadius: '50%', backgroundColor: '#666', border: '1px solid #888' }} />;
+                              bgColor = 'rgba(255,255,255,0.05)';
+                              borderColor = 'transparent';
+                            }
+                            
+                            const duration = completedEntry?.data?.duration || failedEntry?.data?.duration;
+                            
+                            return (
+                              <Box
+                                key={index}
+                                sx={{
+                                  mb: 1,
+                                  p: 1,
+                                  backgroundColor: bgColor,
+                                  borderRadius: 0.5,
+                                  border: `1px solid ${borderColor}`,
+                                }}
+                              >
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                                  {statusIcon}
+                                  <Typography variant="caption" sx={{ color: '#fff', fontWeight: 'bold' }}>
+                                    {stepNumber}. {step.description}
+                                    {duration && ` (${duration.toFixed(1)}s)`}
                                   </Typography>
                                 </Box>
-                              );
-                            })}
+                                <Typography variant="caption" sx={{ color: '#aaa', display: 'block', ml: 2 }}>
+                                  {step.type && `[${step.type}] `}{step.command}
+                                  {step.params && Object.keys(step.params).length > 0 && ` | ${JSON.stringify(step.params)}`}
+                                </Typography>
+                              </Box>
+                            );
+                          })}
+                        </Box>
+
+                        {/* PHASE 3: Execution Summary (Show during/after execution) */}
+                        {(isAIExecuting || executionSummary || taskResult) && (
+                          <Box sx={{ mt: 1, p: 1, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 0.5 }}>
+                            <Typography variant="caption" sx={{ color: '#aaa', mb: 1, display: 'block' }}>
+                              Execution Status:
+                            </Typography>
+                            
+                            {/* Progress Bar */}
+                            <Box sx={{ mb: 1 }}>
+                              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                                <Typography variant="caption" sx={{ color: '#fff' }}>
+                                  Progress: {progressPercentage.toFixed(0)}%
+                                </Typography>
+                                <Typography variant="caption" sx={{ color: '#aaa' }}>
+                                  {executionSummary ? `${executionSummary.completedSteps}/${executionSummary.totalSteps}` : `${Math.round(progressPercentage / 100 * (aiPlan.steps?.length || 0))}/${aiPlan.steps?.length || 0}`} steps
+                                </Typography>
+                              </Box>
+                              <Box sx={{ 
+                                width: '100%', 
+                                height: 4, 
+                                backgroundColor: 'rgba(255,255,255,0.1)', 
+                                borderRadius: 2,
+                                overflow: 'hidden'
+                              }}>
+                                <Box sx={{ 
+                                  width: `${progressPercentage}%`, 
+                                  height: '100%', 
+                                  backgroundColor: taskResult?.success === false ? '#f44336' : '#4caf50',
+                                  transition: 'width 0.3s ease'
+                                }} />
+                              </Box>
+                            </Box>
+
+                            {/* Current Status */}
+                            {isAIExecuting && (
+                              <Typography variant="caption" sx={{ color: '#2196f3', display: 'block', mb: 1 }}>
+                                🔄 {currentStep}
+                              </Typography>
+                            )}
+
+                            {/* Execution Summary */}
+                            {executionSummary && (
+                              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 1 }}>
+                                <Typography variant="caption" sx={{
+                                  color: '#4caf50',
+                                  backgroundColor: 'rgba(76,175,80,0.1)',
+                                  px: 1, py: 0.5, borderRadius: 0.5,
+                                }}>
+                                  ✅ {executionSummary.completedSteps} completed
+                                </Typography>
+                                {executionSummary.failedSteps > 0 && (
+                                  <Typography variant="caption" sx={{
+                                    color: '#f44336',
+                                    backgroundColor: 'rgba(244,67,54,0.1)',
+                                    px: 1, py: 0.5, borderRadius: 0.5,
+                                  }}>
+                                    ❌ {executionSummary.failedSteps} failed
+                                  </Typography>
+                                )}
+                                <Typography variant="caption" sx={{
+                                  color: '#2196f3',
+                                  backgroundColor: 'rgba(33,150,243,0.1)',
+                                  px: 1, py: 0.5, borderRadius: 0.5,
+                                }}>
+                                  ⏱️ {executionSummary.totalDuration.toFixed(1)}s total
+                                </Typography>
+                                {executionSummary.averageStepDuration > 0 && (
+                                  <Typography variant="caption" sx={{
+                                    color: '#ff9800',
+                                    backgroundColor: 'rgba(255,152,0,0.1)',
+                                    px: 1, py: 0.5, borderRadius: 0.5,
+                                  }}>
+                                    📊 {executionSummary.averageStepDuration.toFixed(1)}s avg
+                                  </Typography>
+                                )}
+                              </Box>
+                            )}
+
+                            {/* Task Result */}
+                            {taskResult && !isAIExecuting && (
+                              <Typography variant="caption" sx={{ 
+                                color: taskResult.success ? '#4caf50' : '#f44336',
+                                display: 'block',
+                                mt: 1,
+                                fontWeight: 'bold'
+                              }}>
+                                {taskResult.success ? '🎉' : '⚠️'} {taskResult.message}
+                              </Typography>
+                            )}
                           </Box>
                         )}
 
-                        {/* Summary Info */}
+                        {/* Plan Summary Info */}
                         <Box sx={{ mt: 1, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                          <Typography
-                            variant="caption"
-                            sx={{
-                              color: '#4caf50',
-                              backgroundColor: 'rgba(76,175,80,0.1)',
-                              px: 1,
-                              py: 0.5,
-                              borderRadius: 0.5,
-                            }}
-                          >
-                            Steps: {aiPlan.steps?.length || 0}
+                          <Typography variant="caption" sx={{
+                            color: '#4caf50',
+                            backgroundColor: 'rgba(76,175,80,0.1)',
+                            px: 1, py: 0.5, borderRadius: 0.5,
+                          }}>
+                            📋 {aiPlan.steps?.length || 0} steps
                           </Typography>
-                          <Typography
-                            variant="caption"
-                            sx={{
-                              color: aiPlan.feasible ? '#4caf50' : '#f44336',
-                              backgroundColor: aiPlan.feasible ? 'rgba(76,175,80,0.1)' : 'rgba(244,67,54,0.1)',
-                              px: 1,
-                              py: 0.5,
-                              borderRadius: 0.5,
-                            }}
-                          >
-                            {aiPlan.feasible ? 'Feasible' : 'Not Feasible'}
+                          <Typography variant="caption" sx={{
+                            color: aiPlan.feasible ? '#4caf50' : '#f44336',
+                            backgroundColor: aiPlan.feasible ? 'rgba(76,175,80,0.1)' : 'rgba(244,67,54,0.1)',
+                            px: 1, py: 0.5, borderRadius: 0.5,
+                          }}>
+                            {aiPlan.feasible ? '✅ Feasible' : '❌ Not Feasible'}
                           </Typography>
+                          {aiPlan.id && (
+                            <Typography variant="caption" sx={{
+                              color: '#9c27b0',
+                              backgroundColor: 'rgba(156,39,176,0.1)',
+                              px: 1, py: 0.5, borderRadius: 0.5,
+                            }}>
+                              🆔 {aiPlan.id.substring(0, 8)}...
+                            </Typography>
+                          )}
                         </Box>
                       </>
                     )}
