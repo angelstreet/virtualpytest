@@ -180,6 +180,19 @@ class IRRemoteController(RemoteControllerInterface):
             print(f"Remote[{self.device_type.upper()}]: Error reading config file {ir_config_full_path}: {e}")
             return False, {}
     
+    def _convert_to_pulse_space(self, raw_code: str) -> str:
+        """Convert IR code to pulse/space format."""
+        # Split by spaces, remove +/- prefixes, convert to pulse/space format
+        values = raw_code.strip().split()
+        converted = []
+        for i, val in enumerate(values):
+            clean_val = val.lstrip('+-')
+            if i % 2 == 0:
+                converted.append(f"pulse {clean_val}")
+            else:
+                converted.append(f"space {clean_val}")
+        return '\n'.join(converted)
+    
     def _send_ir_command_integrated(self, key: str) -> bool:
         """
         Send IR command using integrated ir-ctl functionality.
@@ -200,12 +213,15 @@ class IRRemoteController(RemoteControllerInterface):
             print(f"Remote[{self.device_type.upper()}]: Sending IR code for {key}")
             print(f"Remote[{self.device_type.upper()}]: Raw IR code: {raw_code[:100]}...")  # Debug: show first 100 chars
             
+            # Convert to pulse/space format
+            converted_code = self._convert_to_pulse_space(raw_code)
+            
             # Use fixed temporary file path
             temp_path = "/tmp/ircode.txt"
             
-            # Write IR code to fixed temp file
+            # Write converted IR code to fixed temp file
             with open(temp_path, 'w') as temp_file:
-                temp_file.write(raw_code)
+                temp_file.write(converted_code)
             
             print(f"Remote[{self.device_type.upper()}]: Running command: sudo ir-ctl --device {self.ir_path} --send {temp_path}")
             

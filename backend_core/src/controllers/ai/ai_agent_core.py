@@ -43,6 +43,9 @@ class AIAgentCore(BaseController):
         # Current node position tracking (like NavigationContext)
         self.current_node_id = None
         
+        # Cached plan for 2-phase execution
+        self.cached_plan = None
+        
         print(f"AI[{self.device_name}]: Initialized with device_id: {self.device_id}")
     
     def _get_navigation_tree(self, userinterface_name: str) -> Dict[str, Any]:
@@ -476,3 +479,186 @@ CRITICAL: RESPOND WITH JSON ONLY. ANALYSIS FIELD explaining your reasoning is RE
             }
         finally:
             self.is_executing = False
+
+    def generate_plan_only(self, task_description: str, available_actions: List[Dict], available_verifications: List[Dict], device_model: str = None, userinterface_name: str = "horizon_android_mobile") -> Dict[str, Any]:
+        """
+        Generate AI plan without executing (for 2-phase execution).
+        
+        Args:
+            task_description: User's task description
+            available_actions: Available device actions
+            available_verifications: Available verifications
+            device_model: Device model for context
+            userinterface_name: Target userinterface name
+            
+        Returns:
+            Dictionary with AI plan (no execution)
+        """
+        try:
+            print(f"AI[{self.device_name}]: Generating plan only for: {task_description}")
+            
+            # Load navigation tree
+            navigation_tree = self._get_navigation_tree(userinterface_name)
+            
+            # Generate AI plan using existing method
+            plan_result = self._generate_plan(
+                task_description, 
+                available_actions, 
+                available_verifications, 
+                device_model, 
+                navigation_tree
+            )
+            
+            if not plan_result.get('success'):
+                return {
+                    'success': False,
+                    'error': plan_result.get('error', 'Plan generation failed'),
+                    'execution_log': self.execution_log
+                }
+            
+            ai_plan = plan_result['plan']
+            
+            if not ai_plan.get('feasible', True):
+                return {
+                    'success': False,
+                    'error': f"Task not feasible: {ai_plan.get('analysis', 'No analysis provided')}",
+                    'execution_log': self.execution_log
+                }
+            
+            # Store plan for later execution
+            self.cached_plan = ai_plan
+            self.cached_userinterface_name = userinterface_name
+            
+            return {
+                'success': True,
+                'plan': ai_plan,
+                'execution_log': self.execution_log,
+                'current_step': 'Plan generated, ready for execution'
+            }
+            
+        except Exception as e:
+            print(f"AI[{self.device_name}]: Plan generation error: {e}")
+            return {
+                'success': False,
+                'error': f'Plan generation failed: {str(e)}',
+                'execution_log': self.execution_log
+            }
+
+    def execute_plan_only(self, userinterface_name: str = None) -> Dict[str, Any]:
+        """
+        Execute previously generated plan (for 2-phase execution).
+        
+        Args:
+            userinterface_name: Target userinterface name (optional, uses cached)
+            
+        Returns:
+            Dictionary with execution results
+        """
+        try:
+            if not hasattr(self, 'cached_plan') or not self.cached_plan:
+                return {
+                    'success': False,
+                    'error': 'No cached plan available for execution'
+                }
+            
+            print(f"AI[{self.device_name}]: Executing cached plan")
+            
+            # Set execution state
+            self.is_executing = True
+            self.task_start_time = time.time()
+            
+            # Use cached interface or provided one
+            interface_name = userinterface_name or self.cached_userinterface_name
+            
+            plan_steps = self.cached_plan.get('plan', [])
+            executed_steps = 0
+            total_steps = len(plan_steps)
+            
+            # Execute steps
+            for i, step in enumerate(plan_steps):
+                step_num = i + 1
+                command = step.get('command')
+                description = step.get('description', f'Step {step_num}')
+                
+                print(f"AI[{self.device_name}]: Executing step {step_num}/{total_steps}: {description}")
+                
+                # Execute step based on command type
+                if command == 'execute_navigation':
+                    target_node = step.get('params', {}).get('target_node')
+                    result = self._execute_navigation(target_node, interface_name)
+                elif command in ['press_key', 'click_element', 'wait']:
+                    params = step.get('params', {})
+                    result = self._execute_action(command, params)
+                else:
+                    result = {'success': False, 'error': f'Unknown command: {command}'}
+                
+                if result.get('success'):
+                    executed_steps += 1
+                    print(f"AI[{self.device_name}]: Step {step_num} completed successfully")
+                else:
+                    print(f"AI[{self.device_name}]: Step {step_num} failed: {result.get('error', 'Unknown error')}")
+                    break
+            
+            # Calculate execution time
+            execution_time = time.time() - self.task_start_time
+            
+            # Clear cached plan after execution
+            self.cached_plan = None
+            
+            return {
+                'success': executed_steps == total_steps,
+                'executed_steps': executed_steps,
+                'total_steps': total_steps,
+                'execution_time_ms': int(execution_time * 1000),
+                'current_position': self.current_node_id,
+                'execution_log': self.execution_log
+            }
+            
+        except Exception as e:
+            print(f"AI[{self.device_name}]: Plan execution error: {e}")
+            return {
+                'success': False,
+                'error': f'Plan execution failed: {str(e)}',
+                'execution_log': self.execution_log
+            }
+        finally:
+            self.is_executing = False
+
+    def get_status(self) -> Dict[str, Any]:
+        """Get current AI agent status."""
+        return {
+            'success': True,
+            'is_executing': self.is_executing,
+            'current_step': self.current_step,
+            'current_position': self.current_node_id,
+            'cached_tree_id': self.cached_tree_id,
+            'cached_interface': self.cached_userinterface_name,
+            'execution_log_size': len(self.execution_log),
+            'device_id': self.device_id
+        }
+
+    def stop_execution(self) -> Dict[str, Any]:
+        """Stop current AI agent execution."""
+        try:
+            if self.is_executing:
+                print(f"AI[{self.device_name}]: Stopping execution")
+                self.is_executing = False
+                self.current_step = "Execution stopped by user"
+                
+                return {
+                    'success': True,
+                    'message': 'AI execution stopped',
+                    'execution_log': self.execution_log
+                }
+            else:
+                return {
+                    'success': True,
+                    'message': 'AI agent was not executing',
+                    'execution_log': self.execution_log
+                }
+        except Exception as e:
+            return {
+                'success': False,
+                'error': f'Failed to stop execution: {str(e)}',
+                'execution_log': self.execution_log
+            }
