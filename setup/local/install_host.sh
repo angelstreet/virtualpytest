@@ -41,9 +41,9 @@ echo "⚙️ Backend_core will be used via direct imports..."
 # Install system dependencies for IR remote control
 echo "🔧 Installing IR remote control tools..."
 sudo apt-get update
-sudo apt-get install -y ir-keytable
-echo "✅ IR tools installed - ir-ctl command available"
-echo "💡 Commands: ir-ctl --send <file> and ir-ctl --read"
+sudo apt-get install -y lirc v4l-utils ir-keytable
+echo "✅ IR tools installed - ir-ctl and lircd commands available"
+echo "💡 Commands: ir-ctl --send <file>, ir-ctl --read, and lircd"
 
 # Install backend_host dependencies
 echo "📦 Installing backend_host dependencies..."
