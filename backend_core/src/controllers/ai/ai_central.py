@@ -114,31 +114,55 @@ class AIPlanGenerator:
         }
 
     def _load_context(self, userinterface_name: str) -> Dict[str, Any]:
-        userinterface_info = get_userinterface_by_name(userinterface_name, self.team_id)
-        if not userinterface_info:
-            raise ValueError(f"Userinterface {userinterface_name} not found")
-
-        root_tree = get_root_tree_for_interface(userinterface_info['id'], self.team_id)
-        if not root_tree:
-            raise ValueError(f"No root tree found for {userinterface_name}")
-
-        unified_graph = get_cached_unified_graph(root_tree['id'], self.team_id)
-        if not unified_graph:
-            raise ValueError(f"No navigation graph found for {userinterface_name}")
-
-        available_nodes = []
-        if unified_graph.nodes:
-            for node_id in unified_graph.nodes:
-                node_data = unified_graph.nodes[node_id]
-                label = node_data.get('label')
-                if label:
-                    available_nodes.append(label)
-
-        return {
-            'userinterface_name': userinterface_name,
-            'tree_id': root_tree['id'],
-            'available_nodes': available_nodes
-        }
+        # Use the same working approach as the old AI agent
+        try:
+            from shared.lib.utils.navigation_utils import load_navigation_tree_with_hierarchy
+            
+            print(f"[@ai_central] Loading unified navigation tree hierarchy for: {userinterface_name}")
+            tree_result = load_navigation_tree_with_hierarchy(userinterface_name, "ai_central")
+            
+            if not tree_result.get('success'):
+                raise ValueError(f"Failed to load navigation tree for {userinterface_name}: {tree_result.get('error')}")
+            
+            tree_id = tree_result.get('tree_id')
+            if not tree_id:
+                raise ValueError(f"No tree_id returned for {userinterface_name}")
+            
+            print(f"[@ai_central] Successfully loaded unified navigation tree for: {userinterface_name}")
+            print(f"[@ai_central] Unified cache populated with {tree_result.get('unified_graph_nodes', 0)} nodes, {tree_result.get('unified_graph_edges', 0)} edges")
+            
+            # Now we can safely get the cached unified graph
+            from shared.lib.utils.navigation_cache import get_cached_unified_graph
+            unified_graph = get_cached_unified_graph(tree_id, self.team_id)
+            
+            if not unified_graph:
+                raise ValueError(f"Unified graph not found in cache for {userinterface_name}")
+            
+            # Extract available nodes from the unified graph
+            available_nodes = []
+            if unified_graph.nodes:
+                for node_id in unified_graph.nodes:
+                    node_data = unified_graph.nodes[node_id]
+                    label = node_data.get('label')
+                    if label:
+                        available_nodes.append(label)
+            
+            print(f"[@ai_central] Extracted {len(available_nodes)} navigation nodes from unified cache")
+            
+            return {
+                'userinterface_name': userinterface_name,
+                'tree_id': tree_id,
+                'available_nodes': available_nodes
+            }
+            
+        except ImportError as e:
+            raise ValueError(f"Navigation system import error for {userinterface_name}: {e}")
+        except Exception as e:
+            error_str = str(e)
+            if "NavigationTreeError" in error_str or "UnifiedCacheError" in error_str:
+                raise ValueError(f"Navigation system error for {userinterface_name}: {e}")
+            else:
+                raise ValueError(f"Error loading unified navigation tree for {userinterface_name}: {e}")
 
     def _call_ai(self, prompt: str, context: Dict[str, Any]) -> Dict[str, Any]:
         available_nodes = context['available_nodes']
