@@ -17,6 +17,7 @@ import {
   GridView as HeatmapIcon,
   Notifications as NotificationsIcon,
   Dashboard as DashboardIcon,
+  SmartToy as AIIcon,
 } from '@mui/icons-material';
 import { Box, Button } from '@mui/material';
 import React from 'react';
@@ -120,6 +121,11 @@ const NavigationBar: React.FC = () => {
       label: 'Remote Test',
       path: '/remote-test',
       icon: <TestingIcon fontSize="small" />,
+    },
+    {
+      label: 'OpenRouter Debug',
+      path: '/configuration/openrouter',
+      icon: <AIIcon fontSize="small" />,
     },
   ];
 

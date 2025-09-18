@@ -851,11 +851,20 @@ RESPOND WITH JSON ONLY. ANALYSIS FIELD IS REQUIRED:"""
             content = result['content']
             provider_used = result.get('provider_used', 'unknown')
             print(f"AI[{self.device_name}]: AI call successful using {provider_used}")
+            print(f"AI[{self.device_name}]: Raw AI response content: {repr(content)}")
+            print(f"AI[{self.device_name}]: Content length: {len(content) if content else 'None'}")
             
             # Parse JSON response
             try:
                 # Clean up markdown code blocks and extract only JSON
-                json_content = content.strip()
+                json_content = content.strip() if content else ""
+                
+                # Check for empty content
+                if not json_content:
+                    return {
+                        'success': False,
+                        'error': f'AI returned empty response - Provider: {provider_used}'
+                    }
                 
                 # Remove markdown code blocks
                 if json_content.startswith('```json'):

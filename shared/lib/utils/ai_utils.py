@@ -73,16 +73,16 @@ def _format_timestamp(timestamp: float) -> str:
 # Clean AI Interface Functions
 # =============================================================================
 
-def call_text_ai(prompt: str, max_tokens: int = 200, temperature: float = 0.1) -> Dict[str, Any]:
+def call_text_ai(prompt: str, max_tokens: int = 200, temperature: float = 0.1, model: str = None) -> Dict[str, Any]:
     """Simple text AI call with OpenRouter only (no fallback)."""
-    return _call_ai(prompt, task_type='text', max_tokens=max_tokens, temperature=temperature)
+    return _call_ai(prompt, task_type='text', max_tokens=max_tokens, temperature=temperature, model=model)
 
 def call_vision_ai(prompt: str, image_input: Union[str, bytes], max_tokens: int = 300, temperature: float = 0.0) -> Dict[str, Any]:
     """Simple vision AI call with OpenRouter only (no fallback)."""
     return _call_ai(prompt, task_type='vision', image=image_input, max_tokens=max_tokens, temperature=temperature)
 
 def _call_ai(prompt: str, task_type: str = 'text', image: Union[str, bytes] = None, 
-             max_tokens: int = None, temperature: float = None) -> Dict[str, Any]:
+             max_tokens: int = None, temperature: float = None, model: str = None) -> Dict[str, Any]:
     """
     Centralized AI call using OpenRouter only (no Hugging Face fallback).
     Fails fast if OpenRouter is not available.
@@ -93,12 +93,13 @@ def _call_ai(prompt: str, task_type: str = 'text', image: Union[str, bytes] = No
     
     # Try OpenRouter only
     try:
-        model = AI_CONFIG['providers']['openrouter']['models'].get(task_type)
-        if not model:
+        # Use custom model if provided, otherwise use configured model for task type
+        ai_model = model or AI_CONFIG['providers']['openrouter']['models'].get(task_type)
+        if not ai_model:
             return {'success': False, 'error': f'No OpenRouter model configured for task type: {task_type}', 'content': '', 'provider_used': 'none'}
         
-        print(f"[AI_UTILS] Trying OpenRouter with model {model}")
-        result = _openrouter_call(prompt, model, image, max_tokens, temperature)
+        print(f"[AI_UTILS] Trying OpenRouter with model {ai_model}")
+        result = _openrouter_call(prompt, ai_model, image, max_tokens, temperature)
         if result['success']:
             result['provider_used'] = 'openrouter'
             print(f"[AI_UTILS] OpenRouter success")
@@ -161,6 +162,7 @@ def _openrouter_call(prompt: str, model: str, image: Union[str, bytes] = None,
         if response.status_code == 200:
             result = response.json()
             content = result['choices'][0]['message']['content']
+            print(f"[AI_UTILS] OpenRouter response content: {repr(content)}")
             return {'success': True, 'content': content}
         else:
             error_text = response.text[:500] if response.text else f"HTTP {response.status_code}"
