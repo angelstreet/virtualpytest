@@ -412,9 +412,33 @@ def _get_remote_params(implementation: str, device_config: dict) -> dict:
         print(f"[@controller_factory:_get_remote_params] DEBUG:   server_url = {params['appium_server_url']}")
         return params
     elif implementation == 'ir_remote':
+        ir_path = device_config.get('ir_path')
+        ir_type = device_config.get('ir_type')
+        
+        # Check for missing IR configuration and provide helpful error message
+        missing_vars = []
+        if not ir_path:
+            missing_vars.append('DEVICE1_IR_PATH')
+        if not ir_type:
+            missing_vars.append('DEVICE1_IR_TYPE')
+            
+        if missing_vars:
+            device_id = device_config.get('device_id', 'DEVICE1')
+            device_num = device_id.replace('device', '').upper()
+            missing_env_vars = [var.replace('DEVICE1', f'DEVICE{device_num}') for var in missing_vars]
+            
+            print(f"[@controller_factory:_get_remote_params] ERROR: Missing IR configuration for {device_id}")
+            print(f"[@controller_factory:_get_remote_params] ERROR: Please set these environment variables:")
+            for var in missing_env_vars:
+                if 'IR_PATH' in var:
+                    print(f"[@controller_factory:_get_remote_params] ERROR:   {var}=/dev/lirc0  # Path to your IR device")
+                elif 'IR_TYPE' in var:
+                    print(f"[@controller_factory:_get_remote_params] ERROR:   {var}=appletv    # IR config type (appletv, samsung, firetv, eos)")
+            print(f"[@controller_factory:_get_remote_params] ERROR: Available IR types: appletv, samsung, firetv, eos")
+        
         params = {
-            'ir_path': device_config.get('ir_path'),
-            'ir_type': device_config.get('ir_type')
+            'ir_path': ir_path,
+            'ir_type': ir_type
         }
         print(f"[@controller_factory:_get_remote_params] DEBUG: IR remote params: {params}")
         print(f"[@controller_factory:_get_remote_params] DEBUG: Key IR values:")
