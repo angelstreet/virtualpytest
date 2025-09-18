@@ -455,4 +455,13 @@ class AICentral:
 
     def execute_task(self, prompt: str, userinterface_name: str, options: ExecutionOptions) -> str:
         plan = self.generate_plan(prompt, userinterface_name)
+        
+        # Load context to get tree_id for execution
+        context = self.planner._load_context(userinterface_name)
+        tree_id = context.get('tree_id')
+        
+        # Update execution options with the correct tree_id
+        options.context['tree_id'] = tree_id
+        print(f"[@ai_central] Updated execution context with tree_id: {tree_id}")
+        
         return self.execute_plan(plan, options)
